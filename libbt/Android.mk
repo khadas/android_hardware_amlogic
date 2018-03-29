@@ -12,6 +12,7 @@ LOCAL_SRC_FILES := \
         src/userial_vendor.c \
         src/upio.c \
         src/conf.c \
+        src/FallthroughBTA.cpp \
         src/sysbridge.cpp
 
 LOCAL_C_INCLUDES += \
