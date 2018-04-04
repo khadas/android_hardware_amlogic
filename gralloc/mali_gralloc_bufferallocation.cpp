@@ -995,6 +995,7 @@ int mali_gralloc_buffer_allocate(mali_gralloc_module *m, const gralloc_buffer_de
              */
 
 		case HAL_PIXEL_FORMAT_YCrCb_420_SP:
+		case HAL_PIXEL_FORMAT_YCbCr_420_888:
 		case MALI_GRALLOC_FORMAT_INTERNAL_NV12:
 		case MALI_GRALLOC_FORMAT_INTERNAL_NV21:
 		{

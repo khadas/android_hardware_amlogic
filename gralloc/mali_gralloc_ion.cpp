@@ -71,6 +71,8 @@ static void init_afbc(uint8_t *buf, uint64_t internal_format, int w, int h)
 		layout = 0;
 		break;
 
+	case HAL_PIXEL_FORMAT_YCrCb_420_SP:
+	case HAL_PIXEL_FORMAT_YCbCr_420_888:
 	case MALI_GRALLOC_FORMAT_INTERNAL_YV12:
 	case MALI_GRALLOC_FORMAT_INTERNAL_NV12:
 	case MALI_GRALLOC_FORMAT_INTERNAL_NV21:
