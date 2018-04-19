@@ -14,6 +14,17 @@ ifeq ($(shell test $(PLATFORM_SDK_VERSION) -ge 26 && echo OK),OK)
 LOCAL_PROPRIETARY_MODULE := true
 endif
 
+##TODO remove this macro
+$(info PLATFORM_SDK_VERSION is $(PLATFORM_SDK_VERSION))
+$(info PLATFORM_PREVIEW_SDK_VERSION is $(PLATFORM_PREVIEW_SDK_VERSION))
+ifeq ($(shell test $(PLATFORM_SDK_VERSION) -gt 27 && echo OK),OK)
+LOCAL_CFLAGS += -DMESON_PDK_SYNC_WAIT
+endif
+ifneq ($(PLATFORM_PREVIEW_SDK_VERSION),0)
+LOCAL_CFLAGS += -DMESON_PDK_SYNC_WAIT
+endif
+##TODO remove this macro
+
 LOCAL_SRC_FILES := \
     ../common/base/HwcLayer.cpp \
     ../common/base/HwcFenceControl.cpp \
@@ -110,10 +121,14 @@ LOCAL_CFLAGS += -DUSE_CONTINOUS_BUFFER_COMPOSER
 # LOCAL_CFLAGS += -DENABLE_AML_GE2D_COMPOSER
 # LOCAL_SRC_FILES += ../common/composers/GE2DComposer.cpp
 # LOCAL_SHARED_LIBRARIES += libion
-
 endif
 ifeq ($(TARGET_USE_SOFTWARE_CURSOR),true)
 LOCAL_CFLAGS += -DENABLE_SOFT_CURSOR
+endif
+
+ifeq ($(TARGET_HEADLESS),true)
+LOCAL_CFLAGS += -DHWC_HEADLESS
+LOCAL_CFLAGS += -DHWC_HEADLESS_REFRESHRATE=5
 endif
 
 ifeq ($(TARGET_SUPPORT_SECURE_LAYER),true)

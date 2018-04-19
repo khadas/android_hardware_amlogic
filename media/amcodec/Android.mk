@@ -53,6 +53,7 @@ LOCAL_SHARED_LIBRARIES := \
 	libamavutils \
 	libamadec
 
+LOCAL_VENDOR_MODULE := true
 LOCAL_ARM_MODE := arm
 LOCAL_MODULE:= libamcodec
 LOCAL_MODULE_TAGS := optional

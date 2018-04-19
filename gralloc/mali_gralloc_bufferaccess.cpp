@@ -337,22 +337,22 @@ int mali_gralloc_lock_flex_async(const mali_gralloc_module *m, buffer_handle_t b
 			flex_layout->planes[0].v_increment = y_stride;
 			flex_layout->planes[0].h_subsampling = 1;
 			flex_layout->planes[0].v_subsampling = 1;
-			flex_layout->planes[1].top_left = base + y_size;
-			flex_layout->planes[1].component = FLEX_COMPONENT_Cr;
-			flex_layout->planes[1].bits_per_component = 8;
-			flex_layout->planes[1].bits_used = 8;
-			flex_layout->planes[1].h_increment = 2;
-			flex_layout->planes[1].v_increment = y_stride;
-			flex_layout->planes[1].h_subsampling = 2;
-			flex_layout->planes[1].v_subsampling = 2;
-			flex_layout->planes[2].top_left = flex_layout->planes[1].top_left + 1;
-			flex_layout->planes[2].component = FLEX_COMPONENT_Cb;
+			flex_layout->planes[2].top_left = base + y_size;
+			flex_layout->planes[2].component = FLEX_COMPONENT_Cr;
 			flex_layout->planes[2].bits_per_component = 8;
 			flex_layout->planes[2].bits_used = 8;
 			flex_layout->planes[2].h_increment = 2;
 			flex_layout->planes[2].v_increment = y_stride;
 			flex_layout->planes[2].h_subsampling = 2;
 			flex_layout->planes[2].v_subsampling = 2;
+			flex_layout->planes[1].top_left = flex_layout->planes[2].top_left + 1;
+			flex_layout->planes[1].component = FLEX_COMPONENT_Cb;
+			flex_layout->planes[1].bits_per_component = 8;
+			flex_layout->planes[1].bits_used = 8;
+			flex_layout->planes[1].h_increment = 2;
+			flex_layout->planes[1].v_increment = y_stride;
+			flex_layout->planes[1].h_subsampling = 2;
+			flex_layout->planes[1].v_subsampling = 2;
 			break;
 
 		case MALI_GRALLOC_FORMAT_INTERNAL_YV12:
@@ -373,22 +373,22 @@ int mali_gralloc_lock_flex_async(const mali_gralloc_module *m, buffer_handle_t b
 			flex_layout->planes[0].v_increment = y_stride;
 			flex_layout->planes[0].h_subsampling = 1;
 			flex_layout->planes[0].v_subsampling = 1;
-			flex_layout->planes[1].top_left = base + y_size;
-			flex_layout->planes[1].component = FLEX_COMPONENT_Cr;
-			flex_layout->planes[1].bits_per_component = 8;
-			flex_layout->planes[1].bits_used = 8;
-			flex_layout->planes[1].h_increment = 1;
-			flex_layout->planes[1].v_increment = c_stride;
-			flex_layout->planes[1].h_subsampling = 2;
-			flex_layout->planes[1].v_subsampling = 2;
-			flex_layout->planes[2].top_left = flex_layout->planes[1].top_left + c_size;
-			flex_layout->planes[2].component = FLEX_COMPONENT_Cb;
+			flex_layout->planes[2].top_left = base + y_size;
+			flex_layout->planes[2].component = FLEX_COMPONENT_Cr;
 			flex_layout->planes[2].bits_per_component = 8;
 			flex_layout->planes[2].bits_used = 8;
 			flex_layout->planes[2].h_increment = 1;
 			flex_layout->planes[2].v_increment = c_stride;
 			flex_layout->planes[2].h_subsampling = 2;
 			flex_layout->planes[2].v_subsampling = 2;
+			flex_layout->planes[1].top_left = flex_layout->planes[2].top_left + c_size;
+			flex_layout->planes[1].component = FLEX_COMPONENT_Cb;
+			flex_layout->planes[1].bits_per_component = 8;
+			flex_layout->planes[1].bits_used = 8;
+			flex_layout->planes[1].h_increment = 1;
+			flex_layout->planes[1].v_increment = c_stride;
+			flex_layout->planes[1].h_subsampling = 2;
+			flex_layout->planes[1].v_subsampling = 2;
 			break;
 		}
 

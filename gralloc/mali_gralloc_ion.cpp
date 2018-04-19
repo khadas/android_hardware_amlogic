@@ -198,7 +198,6 @@ unsigned int pick_ion_heap(uint64_t usage)
 {
 	unsigned int heap_type;
 
-    ALOGD("usage=0x%" PRIx64, usage);
 	if (usage & GRALLOC_USAGE_PROTECTED)
 	{
 #if defined(ION_HEAP_SECURE_MASK)
@@ -229,8 +228,6 @@ unsigned int pick_ion_heap(uint64_t usage)
 	{
 		heap_type = ION_HEAP_TYPE_SYSTEM;
 	}
-
-    ALOGD("pick heap_mask=0x%x", 1<<heap_type);
 
 	return heap_type;
 }
@@ -279,7 +276,8 @@ void set_ion_flags(unsigned int heap_type, uint64_t usage, unsigned int *priv_he
 	{
 #if GRALLOC_USE_ION_DMA_HEAP
 
-		if (heap_type != ION_HEAP_TYPE_DMA)
+		if ((heap_type != ION_HEAP_TYPE_DMA) &&
+			(heap_type != ION_HEAP_TYPE_CUSTOM))
 		{
 #endif
 
@@ -404,7 +402,7 @@ int mali_gralloc_ion_allocate(mali_gralloc_module *m, const gralloc_buffer_descr
 			}
 
 		if (heap_type == 0)
-			AERR("Failed to find an appropriate %dx%d ion heap suppose it is system heap",
+			ALOGD("%dx%d heap, suppose it is system heap",
                     max_bufDescriptor->width, max_bufDescriptor->height);
 
 		set_ion_flags(heap_type, usage, &priv_heap_flag, &ion_flags);
@@ -475,7 +473,7 @@ int mali_gralloc_ion_allocate(mali_gralloc_module *m, const gralloc_buffer_descr
 				}
 
 			if (heap_type == 0)
-				AERR("Failed to find an appropriate ion heap, %dx%d, suppose to system heap 2\n",
+				ALOGD("%dx%d, suppose to system heap\n",
                         bufDescriptor->width, bufDescriptor->height);
 
 			set_ion_flags(heap_type, usage, &priv_heap_flag, &ion_flags);

@@ -4,6 +4,9 @@
  * This source code is subject to the terms and conditions defined in the
  * file 'LICENSE' which is part of this source code package.
  *
+ * Alternatively, this software may be distributed under the terms of BSD
+ * license.
+ *
  */
 #ifndef DRIVER_CMD_WEXT_H
 #define DRIVER_CMD_WEXT_H
