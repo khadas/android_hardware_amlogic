@@ -179,10 +179,10 @@ template <typename RequestType>
 void AddClientAndAppData(const keymaster_blob_t* client_id, const keymaster_blob_t* app_data,
                          RequestType* request) {
     request->additional_params.Clear();
-    if (client_id) {
+    if (client_id && client_id->data_length) {
         request->additional_params.push_back(TAG_APPLICATION_ID, *client_id);
     }
-    if (app_data) {
+    if (app_data && app_data->data_length) {
         request->additional_params.push_back(TAG_APPLICATION_DATA, *app_data);
     }
 }
