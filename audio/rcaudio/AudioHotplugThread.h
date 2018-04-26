@@ -54,13 +54,14 @@ class AudioHotplugThread : public Thread {
   protected:
     void scanHidrawDevice();
     void scanSoundCardDevice();
-    void handleHidrawEvent(struct inotify_event *event, int wfds[]);
+    void handleHidrawEvent(struct inotify_event *event);
     void handleSoundCardEvent(struct inotify_event *event);
     int handleDeviceEvent(int inotifyFD, int wfds[]);
 
 
   private:
     static const char* kThreadName;
+    static const char* kDeviceDir;
     static const char* kAlsaDeviceDir;
     static const char* kHidrawDeviceDir;
     static const char  kDeviceTypeCapture;

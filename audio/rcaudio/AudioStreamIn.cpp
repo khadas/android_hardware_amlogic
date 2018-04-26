@@ -67,6 +67,7 @@ AudioStreamIn::AudioStreamIn(AudioHardwareInput& owner)
 
 AudioStreamIn::~AudioStreamIn()
 {
+    closeRemoteService();
 }
 
 // Perform stream initialization that may fail.
@@ -222,7 +223,7 @@ void AudioStreamIn::setRemoteControlMicEnabled(bool flag)
     }
     service->setMicEnable(flag == true ? 1 : 0);
 #else
-    m_fd = getRemoteService();
+    m_fd = openRemoteService();
     if (m_fd > 0) {
         char status = (flag == true ? 1 : 0);
         send(m_fd, &status, sizeof(status), MSG_NOSIGNAL);
@@ -270,7 +271,7 @@ status_t AudioStreamIn::standby_l()
     return NO_ERROR;
 }
 
-int AudioStreamIn::getRemoteService()
+int AudioStreamIn::openRemoteService()
 {
 #ifdef REMOTE_CONTROL_INTERFACE
     return 0;
@@ -305,13 +306,25 @@ int AudioStreamIn::getRemoteService()
         goto done;
     }
 
-    ALOGD("%s: socket=%d", __func__, fd);
+    ALOGD("%s: fd=%d, ret=%d", __func__, fd, ret);
 done:
     if (ret < 0) {
         if (fd > 0) close(fd);
         fd = -1;
     }
     return fd;
+#endif
+}
+
+void AudioStreamIn::closeRemoteService() {
+#ifdef REMOTE_CONTROL_INTERFACE
+    //do nothing
+#else
+    ALOGD("%s: fd=%d", __func__, m_fd);
+    if (m_fd > 0) {
+        close(m_fd);
+        m_fd = -1;
+    }
 #endif
 }
 

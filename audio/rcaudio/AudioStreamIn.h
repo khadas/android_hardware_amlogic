@@ -92,7 +92,8 @@ public:
 
 protected:
     void setRemoteControlMicEnabled(bool flag);
-    int getRemoteService();
+    int openRemoteService();
+    void closeRemoteService();
 
 private:
     static const char kRemoteSocketPath[];

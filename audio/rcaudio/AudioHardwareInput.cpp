@@ -122,15 +122,11 @@ AudioStreamIn* AudioHardwareInput::openInputStream(struct audio_stream_in *strea
         audio_format_t* format, uint32_t* channelMask, uint32_t* sampleRate,
         status_t* status)
 {
-    Mutex::Autolock _l(mLock);
-
-    AudioStreamIn* in = NULL;
-
     ALOGI("%s: ++", __func__);
-    //get device info(audio stream from hidraw node or sound card driver...）
-    mHotplugThread->scanForDevice();
-
+    Mutex::Autolock _l(mLock);
+    AudioStreamIn* in = NULL;
     const AudioHotplugThread::DeviceInfo* devInfo = getBestDevice(AUDIO_SOURCE_VOICE_RECOGNITION);
+
     if (devInfo != NULL) {
         if (devInfo->pcmCard > 0 && devInfo->pcmDevice > 0) {
             in = new AudioSoundCardStreamIn(*this);
@@ -141,20 +137,21 @@ AudioStreamIn* AudioHardwareInput::openInputStream(struct audio_stream_in *strea
     }
     if (in == NULL) {
         *status = NO_MEMORY;
-        return NULL;
+        goto done;
     }
 
     *status = in->set(stream, format, channelMask, sampleRate);
 
     if (*status != NO_ERROR) {
         delete in;
-        return NULL;
+        in = NULL;
+        goto done;
     }
 
     mInputStreams.add(in);
 
+done:
     ALOGI("%s: --", __func__);
-
     return in;
 }
 
@@ -196,7 +193,7 @@ void AudioHardwareInput::onDeviceFound(
         const AudioHotplugThread::DeviceInfo& devInfo, bool fgHidraw)
 {
     bool foundSlot = false;
-    //Mutex::Autolock _l(mLock);
+    Mutex::Autolock _l(mLock);
 
     ALOGD("AudioHardwareInput::onDeviceFound hidraw flag = %d", fgHidraw);
 

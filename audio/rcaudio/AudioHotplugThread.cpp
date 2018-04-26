@@ -29,7 +29,7 @@
 #include <sys/eventfd.h>
 #include <sys/inotify.h>
 #include <sys/ioctl.h>
-
+#include <sys/resource.h>
 #include <sound/asound.h>
 
 #include <utils/misc.h>
@@ -48,7 +48,7 @@
 #ifndef DIA_REMOTE_AUDIO_DEVICE_ID
 #define DIA_REMOTE_AUDIO_DEVICE_ID "DIAAudio"
 #endif
-
+#define AUDIO_HOTPLUG_THREAD_PRIORITY       (-16)
 namespace android {
 
 /*
@@ -122,6 +122,8 @@ static void param_init(struct snd_pcm_hw_params *p)
 
 const char* AudioHotplugThread::kThreadName = "ATVRemoteAudioHotplug";
 
+// directory where device nodes appear
+const char* AudioHotplugThread::kDeviceDir = "/dev";
 // directory where ALSA device nodes appear
 const char* AudioHotplugThread::kAlsaDeviceDir = "/dev/snd";
 
@@ -349,22 +351,21 @@ void AudioHotplugThread::scanForDevice() {
     scanSoundCardDevice();
 }
 
-void AudioHotplugThread::handleHidrawEvent(struct inotify_event *event, int wfds[]) {
-
+void AudioHotplugThread::handleHidrawEvent(struct inotify_event *event) {
     unsigned int hidrawId = MAX_HIDRAW_ID;
+    char *name = ((char *) event) + offsetof(struct inotify_event, name);
 
-    for (int i=0; i < MAX_HIDRAW_ID; i++) {
-        if (event->wd == wfds[i]) {
-            hidrawId = i;
-            break;
-        }
+    if (strstr(name, "hidraw") == NULL) {
+        //no hidraw event, do nothing
+        return;
     }
-
-    if (hidrawId < MAX_HIDRAW_ID) {
-         if (event->mask & IN_CREATE) {
-             // Some devices can not be opened immediately after the
+    int ret = sscanf(name, "hidraw%d", &hidrawId);
+    if (ret == 1 && hidrawId < MAX_HIDRAW_ID) {
+        if (event->mask & IN_CREATE) {
+            // Some devices can not be opened immediately after the
             // inotify event occurs.  Add a delay to avoid these
             // races.  (50ms was chosen arbitrarily)
+            /*
             const int kOpenTimeoutMs = 50;
             struct pollfd pfd = {mShutdownEventFD, POLLIN, 0};
             if (poll(&pfd, 1, kOpenTimeoutMs) == -1) {
@@ -373,7 +374,7 @@ void AudioHotplugThread::handleHidrawEvent(struct inotify_event *event, int wfds
             } else if (pfd.revents & POLLIN) {
                 // shutdown requested
                 return;
-            }
+            }*/
 
             DeviceInfo deviceInfo;
             if (getDeviceInfo(hidrawId, &deviceInfo)) {
@@ -442,14 +443,13 @@ int AudioHotplugThread::handleDeviceEvent(int inotifyFD, int wfds[]) {
         }
 
         //dispatch event
-        if (event->wd == wfds[MAX_HIDRAW_ID]) {
-            //sound card insert
-            handleSoundCardEvent(event);
-
+        if (event->wd == wfds[0]) {
+            //hidraw node insert
+            handleHidrawEvent(event);
         }
         else {
-            //hidraw node insert
-            handleHidrawEvent(event, wfds);
+            //sound card insert
+            handleSoundCardEvent(event);
         }
 
         i += sizeof(struct inotify_event) + event->len;
@@ -462,8 +462,11 @@ bool AudioHotplugThread::threadLoop()
 {
     int flags = 0;
     int inotifyFD = -1;
-    int watchFDs[MAX_HIDRAW_ID + 1] = {-1}; //hidraw + sound card
-    char deviceDir[32] = {0};
+    int watchFDs[2] = {-1}; //hidraw + sound card
+    const char *devDir[2] = {kDeviceDir, kAlsaDeviceDir};
+
+    //raise thread priority
+    setpriority(PRIO_PROCESS, gettid(), AUDIO_HOTPLUG_THREAD_PRIORITY);
 
     // watch for changes to the ALSA device directory
     inotifyFD = inotify_init();
@@ -483,20 +486,11 @@ bool AudioHotplugThread::threadLoop()
     }
 
     //add watch notify
-    for (int i = 0; i < MAX_HIDRAW_ID + 1; i++) {
-        memset(deviceDir, 0, strlen(deviceDir));
-        if (i < MAX_HIDRAW_ID) {
-            //hidraw fd
-            sprintf(deviceDir, "/dev/hidraw%d", i);
-        }
-        else {
-            //sound card fd
-            sprintf(deviceDir, "%s", kAlsaDeviceDir);
-        }
-        watchFDs[i] = inotify_add_watch(inotifyFD, deviceDir,
+    for (int i = 0; i < 2; i++) {
+        watchFDs[i] = inotify_add_watch(inotifyFD, devDir[i],
                                 IN_CREATE | IN_DELETE);
         if (watchFDs[i] == -1) {
-            ALOGE("AudioHotplugThread:inotify_add_watch %s failed, i=%d,err=%d", deviceDir, i, errno);
+            ALOGE("AudioHotplugThread:inotify_add_watch %s failed, i=%d,err=%d", devDir[i], i, errno);
             goto done;
         }
     }
@@ -529,7 +523,7 @@ bool AudioHotplugThread::threadLoop()
 
 done:
     //remove watch fds
-    for (int i = 0; i < MAX_HIDRAW_ID + 1; i++) {
+    for (int i = 0; i < 2; i++) {
         if (watchFDs[i] != -1)
             inotify_rm_watch(inotifyFD, watchFDs[i]);
     }
