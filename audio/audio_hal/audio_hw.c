@@ -3057,7 +3057,7 @@ static ssize_t in_read (struct audio_stream_in *stream, void* buffer,
         }
     }
 
-#if 0
+
     /* ATV audio unstable, need to mute audio for a while */
     if ( (adev->in_device & AUDIO_DEVICE_IN_TV_TUNER) &&
          !is_atv_in_stable_hw (stream) ) {
@@ -3070,7 +3070,7 @@ static ssize_t in_read (struct audio_stream_in *stream, void* buffer,
         clock_gettime (CLOCK_MONOTONIC, &in->mute_start_ts);
         in->mute_flag = 1;
     }
-
+#if 0
     /* AV audio unstable, need to mute audio for a while */
     if ((adev->in_device & AUDIO_DEVICE_IN_LINE) &&
             !is_av_in_stable_hw(stream)) {
@@ -3082,6 +3082,7 @@ static ssize_t in_read (struct audio_stream_in *stream, void* buffer,
         clock_gettime(CLOCK_MONOTONIC, &in->mute_start_ts);
         in->mute_flag = 1;
     }
+#endif
     if (in->mute_flag == 1) {
         struct timespec new_ts;
         int64_t start_ms, end_ms;
@@ -3106,7 +3107,6 @@ static ssize_t in_read (struct audio_stream_in *stream, void* buffer,
             in->mute_flag = 0;
         }
     }
-#endif
 
     if (adev->parental_control_av_mute &&
             (adev->active_inport == INPORT_TUNER || adev->active_inport == INPORT_LINEIN))
