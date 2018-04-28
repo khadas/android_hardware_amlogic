@@ -97,7 +97,7 @@ protected:
 
 private:
     static const char kRemoteSocketPath[];
-    int m_fd;
+    static int m_fd;
 };
 
 }; // namespace android

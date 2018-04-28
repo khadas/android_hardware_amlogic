@@ -51,6 +51,7 @@ namespace android {
 const audio_format_t AudioStreamIn::kAudioFormat = AUDIO_FORMAT_PCM_16_BIT;
 const uint32_t AudioStreamIn::kChannelMask = AUDIO_CHANNEL_IN_MONO;
 const char AudioStreamIn::kRemoteSocketPath[] = "/data/misc/bluedroid/.rc_ctrl";
+int AudioStreamIn::m_fd = -1;
 
 AudioStreamIn::AudioStreamIn(AudioHardwareInput& owner)
     : mOwnerHAL(owner)
@@ -60,14 +61,13 @@ AudioStreamIn::AudioStreamIn(AudioHardwareInput& owner)
     , mDisabled(false)
     , mInputSource(AUDIO_SOURCE_VOICE_RECOGNITION)
     , mReadStatus(0)
-    , m_fd(-1)
 {
     mCurrentDeviceInfo = mOwnerHAL.getBestDevice(mInputSource);
 }
 
 AudioStreamIn::~AudioStreamIn()
 {
-    closeRemoteService();
+    //closeRemoteService();
 }
 
 // Perform stream initialization that may fail.
