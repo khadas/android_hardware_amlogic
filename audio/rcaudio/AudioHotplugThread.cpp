@@ -204,8 +204,8 @@ bool AudioHotplugThread::getDeviceInfo(unsigned int pcmCard,
                                        DeviceInfo* info)
 {
     bool result = false;
-    int ret;
-    int len;
+    int ret = 0;
+    int len = 0;
     char cardName[64] = "";
 
     assert(info != NULL);

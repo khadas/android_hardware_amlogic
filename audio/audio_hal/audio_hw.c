@@ -3815,7 +3815,18 @@ static int adev_set_parameters (struct audio_hw_device *dev, const char *kvpairs
             ALOGE("%s: eq_mode_set failed", __FUNCTION__);
         goto exit;
     }
-
+    ret = str_parms_get_str(parms, "connect", value, sizeof(value));
+    if (ret >= 0) {
+        val = atoi(value);
+        ALOGI("device %x connect\n",val);
+        goto exit;
+    }
+    ret = str_parms_get_str(parms, "disconnect", value, sizeof(value));
+    if (ret >= 0) {
+        val = atoi(value);
+        ALOGI("device %x disconnect\n",val);
+        goto exit;
+    }
 exit:
     str_parms_destroy (parms);
 
@@ -4055,7 +4066,7 @@ static int adev_open_input_stream (struct audio_hw_device *dev,
         //bluetooth rc voice
         // usecase for bluetooth rc audio hal
         ALOGD("Amlogic - use RC audio HAL");
-        ret = rc_open_input_stream(in, config);
+        ret = rc_open_input_stream(&in, config);
         if (ret != 0) {
             goto err_open;
         }
@@ -4099,7 +4110,7 @@ static int adev_open_input_stream (struct audio_hw_device *dev,
     in->dev = ladev;
     in->standby = 1;
     *stream_in = &in->stream;
-
+    ALOGD("--%s,stream %p",__func__,in);
     return 0;
 
 err_open:
@@ -4117,11 +4128,11 @@ static void adev_close_input_stream (struct audio_hw_device *dev,
 {
     struct aml_stream_in *in = (struct aml_stream_in *) stream;
 
-    ALOGD ("%s(%p, %p)", __FUNCTION__, dev, stream);
+    ALOGD ("++%s(%p, %p)", __FUNCTION__, dev, stream);
     in_standby (&stream->common);
 
     if (in->device & AUDIO_DEVICE_IN_WIRED_HEADSET)
-        rc_close_input_stream();
+        rc_close_input_stream(in);
 
     if (in->resampler) {
         free (in->buffer);
@@ -4135,7 +4146,7 @@ static void adev_close_input_stream (struct audio_hw_device *dev,
     }
 
     free (stream);
-
+    ALOGD ("--%s(%p`)", __FUNCTION__, dev);
     return;
 }
 

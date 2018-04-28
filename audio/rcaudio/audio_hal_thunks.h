@@ -38,10 +38,10 @@ extern "C"
 {
 #endif
 
-int rc_open_input_stream(struct aml_stream_in *stream,
+int rc_open_input_stream(struct aml_stream_in **stream,
                         struct audio_config *config);
 
-void rc_close_input_stream();
+void rc_close_input_stream(struct aml_stream_in *stream);
 
 #ifdef __cplusplus
 } // extern "C"
