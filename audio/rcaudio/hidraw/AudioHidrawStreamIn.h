@@ -52,7 +52,7 @@ class AudioHidrawStreamIn : public AudioStreamIn{
   private:
       struct pcm_config mPcmConfig;
       struct audio_stream_in *mStream;
-
+      static int m_refNum;
 };
 
 }; // namespace android

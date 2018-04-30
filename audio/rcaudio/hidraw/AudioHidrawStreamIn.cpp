@@ -39,6 +39,7 @@
 #include "huitong_audio.h"
 
 namespace android {
+int AudioHidrawStreamIn::m_refNum = 0;
 
 AudioHidrawStreamIn::AudioHidrawStreamIn(AudioHardwareInput& owner)
     : AudioStreamIn(owner)
@@ -50,13 +51,17 @@ AudioHidrawStreamIn::AudioHidrawStreamIn(AudioHardwareInput& owner)
     mPcmConfig.period_count = PLAYBACK_PERIOD_COUNT;
     mPcmConfig.format = PCM_FORMAT_S16_LE;
 
-    huitong_in_open_stream(getDeviceInfo()->hidraw_index);
+    if (m_refNum++ == 0) {
+        huitong_in_open_stream(getDeviceInfo()->hidraw_index);
+    }
 }
 
 AudioHidrawStreamIn::~AudioHidrawStreamIn()
 {
-    AudioStreamIn::standby();
-    huitong_in_close_stream();
+    if (--m_refNum == 0) {
+        AudioStreamIn::standby();
+        huitong_in_close_stream();
+    }
 }
 
 // Perform stream initialization that may fail.

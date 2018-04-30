@@ -68,9 +68,6 @@ class AudioStreamIn {
 
     virtual const AudioHotplugThread::DeviceInfo* getDeviceInfo() { return mCurrentDeviceInfo; }
 
-    virtual status_t          startInputStream_l();
-    virtual status_t          standby_l();
-
     static uint32_t   getChannelCount() {
         return audio_channel_count_from_in_mask(kChannelMask);
     }
@@ -79,18 +76,20 @@ public:
     static const uint32_t kChannelMask;
     static const uint32_t kChannelCount;
     static const audio_format_t kAudioFormat;
+    static bool       mStandby;
 
     AudioHardwareInput& mOwnerHAL;
     const AudioHotplugThread::DeviceInfo* mCurrentDeviceInfo;
     Mutex mLock;
 
     uint32_t          mRequestedSampleRate;
-    bool              mStandby;
     bool              mDisabled;
     int               mInputSource;
     int               mReadStatus;
 
 protected:
+    status_t          startInputStream_l();
+    status_t          standby_l();
     void setRemoteControlMicEnabled(bool flag);
     int openRemoteService();
     void closeRemoteService();

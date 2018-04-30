@@ -52,12 +52,12 @@ const audio_format_t AudioStreamIn::kAudioFormat = AUDIO_FORMAT_PCM_16_BIT;
 const uint32_t AudioStreamIn::kChannelMask = AUDIO_CHANNEL_IN_MONO;
 const char AudioStreamIn::kRemoteSocketPath[] = "/data/misc/bluedroid/.rc_ctrl";
 int AudioStreamIn::m_fd = -1;
+bool AudioStreamIn::mStandby = true;
 
 AudioStreamIn::AudioStreamIn(AudioHardwareInput& owner)
     : mOwnerHAL(owner)
     , mCurrentDeviceInfo(NULL)
     , mRequestedSampleRate(0)
-    , mStandby(true)
     , mDisabled(false)
     , mInputSource(AUDIO_SOURCE_VOICE_RECOGNITION)
     , mReadStatus(0)
@@ -67,7 +67,9 @@ AudioStreamIn::AudioStreamIn(AudioHardwareInput& owner)
 
 AudioStreamIn::~AudioStreamIn()
 {
-    //closeRemoteService();
+     if (mStandby) {
+        closeRemoteService();
+    }
 }
 
 // Perform stream initialization that may fail.
