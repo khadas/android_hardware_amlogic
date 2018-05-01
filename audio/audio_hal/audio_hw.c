@@ -4642,6 +4642,7 @@ ssize_t mixer_main_buffer_write (struct audio_stream_out *stream, const void *bu
         }
 #else
         need_reconfig_output = true;
+        aml_hw_mixer_init (&adev->hw_mixer);
 #endif
         adev->mix_init_flag =  true;
         pthread_mutex_unlock (&adev->lock);
