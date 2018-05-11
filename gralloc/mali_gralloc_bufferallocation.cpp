@@ -26,6 +26,10 @@
 #include <hardware/gralloc.h>
 #endif
 
+#ifdef GRALLOC_AML_EXTEND
+#include "amlogic/am_gralloc_internal.h"
+#endif
+
 #include "mali_gralloc_module.h"
 #include "mali_gralloc_bufferallocation.h"
 #include "mali_gralloc_ion.h"
@@ -34,7 +38,6 @@
 #include "gralloc_buffer_priv.h"
 #include "mali_gralloc_bufferdescriptor.h"
 #include "mali_gralloc_debug.h"
-#include "gralloc_usage_ext.h"
 #include <utils/CallStack.h>
 
 #define AFBC_PIXELS_PER_BLOCK 16
@@ -897,6 +900,7 @@ int mali_gralloc_buffer_allocate(mali_gralloc_module *m, const gralloc_buffer_de
 	int yv12_align = YUV_MALI_PLANE_ALIGN;
 	int buffer_width;
 
+
 	for (i = 0; i < numDescriptors; i++)
 	{
 		buffer_descriptor_t *bufDescriptor = (buffer_descriptor_t *)(descriptors[i]);
@@ -906,13 +910,15 @@ int mali_gralloc_buffer_allocate(mali_gralloc_module *m, const gralloc_buffer_de
 		 */
 		buffer_width = bufDescriptor->width;
 		usage = bufDescriptor->producer_usage | bufDescriptor->consumer_usage;
+
+#ifdef GRALLOC_AML_EXTEND
 #if PLATFORM_SDK_VERSION >= 24
-	        if ((usage & GRALLOC1_PRODUCER_USAGE_VIDEO_DECODER)
-				&&  !(usage & GRALLOC1_PRODUCER_USAGE_GPU_RENDER_TARGET))
+		if (am_gralloc_is_omx_metadata_extend_usage(usage))
 		{
 			bufDescriptor->width	= OMX_VIDEOLAYER_ALLOC_BUFFER_WIDTH;
 			bufDescriptor->height   = OMX_VIDEOLAYER_ALLOC_BUFFER_HEIGHT;
 		}
+#endif
 #endif
 		bufDescriptor->internalWidth = bufDescriptor->width;
 		bufDescriptor->internalHeight = bufDescriptor->height;
@@ -1005,14 +1011,14 @@ int mali_gralloc_buffer_allocate(mali_gralloc_module *m, const gralloc_buffer_de
 			{
 				return -EINVAL;
 			}
+#ifdef GRALLOC_AML_EXTEND
 #if PLATFORM_SDK_VERSION >= 24
-			if ((usage & GRALLOC1_PRODUCER_USAGE_VIDEO_DECODER)
-				&&	!(usage & GRALLOC1_PRODUCER_USAGE_GPU_RENDER_TARGET))
+			if (am_gralloc_is_omx_metadata_extend_usage(usage))
 			{
 				bufDescriptor->pixel_stride = buffer_width;
 			}
 #endif
-
+#endif
 			break;
 		}
 

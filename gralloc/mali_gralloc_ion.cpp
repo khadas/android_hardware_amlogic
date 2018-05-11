@@ -35,7 +35,11 @@
 #else
 #include <hardware/gralloc.h>
 #endif
-#include "gralloc_usage_ext.h"
+
+#ifdef GRALLOC_AML_EXTEND
+#include "amlogic/am_gralloc_internal.h"
+#endif
+
 #include "mali_gralloc_module.h"
 #include "mali_gralloc_private_interface_types.h"
 #include "mali_gralloc_buffer.h"
@@ -45,6 +49,12 @@
 #include "mali_gralloc_usages.h"
 #include "mali_gralloc_bufferdescriptor.h"
 
+#ifdef GRALLOC_AML_EXTEND
+unsigned int am_pick_ion_heap(
+	buffer_descriptor_t *bufDescriptor, uint64_t usage);
+void am_set_ion_flags(unsigned int heap_type, uint64_t usage,
+	unsigned int *priv_heap_flag, int *ion_flags);
+#endif
 
 static void mali_gralloc_ion_free_internal(buffer_handle_t *pHandle, uint32_t num_hnds);
 
@@ -116,7 +126,6 @@ static int alloc_from_ion_heap(int ion_fd, size_t size, unsigned int *type, unsi
 	if (ret < 0)
 	{
 #if defined(ION_HEAP_SECURE_MASK)
-
 		if (heap_type == ION_HEAP_SECURE)
 		{
 			return -1;
@@ -206,17 +215,12 @@ unsigned int pick_ion_heap(uint64_t usage)
 		AERR("Protected ION memory is not supported on this platform.");
 		return 0;
 #endif
-	} else if ((usage & GRALLOC1_PRODUCER_USAGE_VIDEO_DECODER)
-			&& (usage & GRALLOC1_PRODUCER_USAGE_GPU_RENDER_TARGET)) {
-		heap_type = ION_HEAP_TYPE_CUSTOM;
 	}
-
 #if GRALLOC_USE_ION_COMPOUND_PAGE_HEAP
 	else if (!(usage & GRALLOC_USAGE_HW_VIDEO_ENCODER) && (usage & (GRALLOC_USAGE_HW_FB | GRALLOC_USAGE_HW_COMPOSER)))
 	{
 		heap_type = ION_HEAP_TYPE_COMPOUND_PAGE;
 	}
-
 #elif GRALLOC_USE_ION_DMA_HEAP
 	else if (!(usage & GRALLOC_USAGE_HW_VIDEO_ENCODER) && (usage & (GRALLOC_USAGE_HW_FB | GRALLOC_USAGE_HW_COMPOSER)))
 	{
@@ -241,54 +245,30 @@ void set_ion_flags(unsigned int heap_type, uint64_t usage, unsigned int *priv_he
 	if (priv_heap_flag)
 	{
 #if GRALLOC_USE_ION_DMA_HEAP
-
 		if (heap_type == ION_HEAP_TYPE_DMA)
 		{
 			*priv_heap_flag = private_handle_t::PRIV_FLAGS_USES_ION_DMA_HEAP;
 		}
-
 #endif
 
 		if (heap_type == ION_HEAP_TYPE_SYSTEM)
 		{
 			*priv_heap_flag &= ~private_handle_t::PRIV_FLAGS_USES_ION_DMA_HEAP;
-			*priv_heap_flag &= ~private_handle_t::PRIV_FLAGS_CONTINUOUS_BUF;
 		}
-
-/*      if (usage & GRALLOC_USAGE_AML_VIDEO_OVERLAY)
-        {
-            *priv_heap_flag |= private_handle_t::PRIV_FLAGS_VIDEO_OVERLAY;
-        } */
-        if ((usage & GRALLOC1_PRODUCER_USAGE_VIDEO_DECODER)
-            &&  (usage & GRALLOC1_PRODUCER_USAGE_GPU_RENDER_TARGET))
-        {
-            *priv_heap_flag |= private_handle_t::PRIV_FLAGS_OSD_VIDEO_OMX;
-        }
-        if ((usage & GRALLOC1_PRODUCER_USAGE_VIDEO_DECODER)
-            &&  !(usage & GRALLOC1_PRODUCER_USAGE_GPU_RENDER_TARGET))
-        {
-            *priv_heap_flag |= private_handle_t::PRIV_FLAGS_VIDEO_OVERLAY | private_handle_t::PRIV_FLAGS_VIDEO_OMX;
-        }
-
 	}
 
 	if (ion_flags)
 	{
 #if GRALLOC_USE_ION_DMA_HEAP
-
-		if ((heap_type != ION_HEAP_TYPE_DMA) &&
-			(heap_type != ION_HEAP_TYPE_CUSTOM))
+		if ((heap_type != ION_HEAP_TYPE_DMA))
 		{
 #endif
-
 			if ((usage & GRALLOC_USAGE_SW_READ_MASK) == GRALLOC_USAGE_SW_READ_OFTEN)
 			{
 				*ion_flags = ION_FLAG_CACHED | ION_FLAG_CACHED_NEEDS_SYNC;
 			}
-
 #if GRALLOC_USE_ION_DMA_HEAP
 		}
-
 #endif
 	}
 }
@@ -312,15 +292,22 @@ static bool check_buffers_sharable(const gralloc_buffer_descriptor_t *descriptor
 		buffer_descriptor_t *bufDescriptor = (buffer_descriptor_t *)descriptors[i];
 
 		usage = bufDescriptor->consumer_usage | bufDescriptor->producer_usage;
-		heap_type = pick_ion_heap(usage);
 
+#ifdef GRALLOC_AML_EXTEND
+		heap_type = am_pick_ion_heap(bufDescriptor, usage);
+#else
+		heap_type = pick_ion_heap(usage);
+#endif
 		if (0 == heap_type)
 		{
 			return false;
 		}
 
+#ifdef GRALLOC_AML_EXTEND
+		am_set_ion_flags(heap_type, usage, NULL, &ion_flags);
+#else
 		set_ion_flags(heap_type, usage, NULL, &ion_flags);
-
+#endif
 		if (0 != shared_backend_heap_mask)
 		{
 			if (shared_backend_heap_mask != (1<<heap_type) || shared_ion_flags != ion_flags)
@@ -389,27 +376,26 @@ int mali_gralloc_ion_allocate(mali_gralloc_module *m, const gralloc_buffer_descr
 		max_bufDescriptor = (buffer_descriptor_t *)(descriptors[max_buffer_index]);
 		usage = max_bufDescriptor->consumer_usage | max_bufDescriptor->producer_usage;
 
-		heap_type = pick_ion_heap(usage);
-#if BOARD_RESOLUTION_RATIO == 720
-		if ((max_bufDescriptor->width > 1280) && (max_bufDescriptor->height > 720) && (usage & GRALLOC_USAGE_HW_COMPOSER) && !(usage & GRALLOC1_PRODUCER_USAGE_VIDEO_DECODER)
-						&&  (usage & GRALLOC1_PRODUCER_USAGE_GPU_RENDER_TARGET))
+#ifdef GRALLOC_AML_EXTEND
+		heap_type = am_pick_ion_heap(max_bufDescriptor, usage);
 #else
-		if ((max_bufDescriptor->width > 1920) && (max_bufDescriptor->height > 1080) && (usage & GRALLOC_USAGE_HW_COMPOSER) && !(usage & GRALLOC1_PRODUCER_USAGE_VIDEO_DECODER)
-						&&  (usage & GRALLOC1_PRODUCER_USAGE_GPU_RENDER_TARGET))
+		heap_type = pick_ion_heap(usage);
 #endif
-			{
-				heap_type = ION_HEAP_TYPE_SYSTEM;
-			}
 
-		if (heap_type == 0)
-			ALOGD("%dx%d heap, suppose it is system heap",
-                    max_bufDescriptor->width, max_bufDescriptor->height);
-
+#ifdef GRALLOC_AML_EXTEND
+		am_set_ion_flags(heap_type, usage, &priv_heap_flag, &ion_flags);
+#else
 		set_ion_flags(heap_type, usage, &priv_heap_flag, &ion_flags);
+#endif
 
 		shared_fd = alloc_from_ion_heap(m->ion_client, max_bufDescriptor->size, &heap_type, ion_flags, &min_pgsz);
 
+#ifdef GRALLOC_AML_EXTEND
+		am_set_ion_flags(heap_type, usage, &priv_heap_flag, NULL);
+#else
 		set_ion_flags(heap_type, usage, &priv_heap_flag, NULL);
+#endif
+
 		if (shared_fd < 0)
 		{
 			AERR("ion_alloc failed form client: ( %d )", m->ion_client);
@@ -459,29 +445,25 @@ int mali_gralloc_ion_allocate(mali_gralloc_module *m, const gralloc_buffer_descr
 			buffer_descriptor_t *bufDescriptor = (buffer_descriptor_t *)(descriptors[i]);
 			usage = bufDescriptor->consumer_usage | bufDescriptor->producer_usage;
 
-			heap_type = pick_ion_heap(usage);
-#if BOARD_RESOLUTION_RATIO == 720
-					if ((bufDescriptor->width > 1280) && (bufDescriptor->height > 720) && (usage & GRALLOC_USAGE_HW_COMPOSER) && !(usage & GRALLOC1_PRODUCER_USAGE_VIDEO_DECODER)
-								&&  (usage & GRALLOC1_PRODUCER_USAGE_GPU_RENDER_TARGET))
+#ifdef GRALLOC_AML_EXTEND
+			heap_type = am_pick_ion_heap(bufDescriptor, usage);
 #else
-					if ((bufDescriptor->width > 1920) && (bufDescriptor->height > 1080) && (usage & GRALLOC_USAGE_HW_COMPOSER) && !(usage & GRALLOC1_PRODUCER_USAGE_VIDEO_DECODER)
-								&&  (usage & GRALLOC1_PRODUCER_USAGE_GPU_RENDER_TARGET))
+			heap_type = pick_ion_heap(usage);
 #endif
 
-				{
-					heap_type = ION_HEAP_TYPE_SYSTEM;
-				}
-
-			if (heap_type == 0)
-				ALOGD("%dx%d, suppose to system heap\n",
-                        bufDescriptor->width, bufDescriptor->height);
-
+#ifdef GRALLOC_AML_EXTEND
+			am_set_ion_flags(heap_type, usage, &priv_heap_flag, &ion_flags);
+#else
 			set_ion_flags(heap_type, usage, &priv_heap_flag, &ion_flags);
+#endif
 
 			shared_fd = alloc_from_ion_heap(m->ion_client, bufDescriptor->size, &heap_type, ion_flags, &min_pgsz);
 
+#ifdef GRALLOC_AML_EXTEND
+			am_set_ion_flags(heap_type, usage, &priv_heap_flag, NULL);
+#else
 			set_ion_flags(heap_type, usage, &priv_heap_flag, NULL);
-
+#endif
 			if (shared_fd < 0)
 			{
 				AERR("ion_alloc failed from client ( %d )", m->ion_client);
@@ -699,3 +681,87 @@ int mali_gralloc_ion_device_close(struct hw_device_t *device)
 
 	return 0;
 }
+
+#ifdef GRALLOC_AML_EXTEND
+unsigned int am_pick_ion_heap(
+	buffer_descriptor_t *bufDescriptor, uint64_t usage)
+{
+#if BOARD_RESOLUTION_RATIO == 720
+	static unsigned int max_composer_buf_width = 1280;
+	static unsigned int max_composer_buf_height = 720;
+#else
+	static unsigned int max_composer_buf_width = 1920;
+	static unsigned int max_composer_buf_height = 1080;
+#endif
+
+	if (usage & GRALLOC_USAGE_HW_FB)
+	{
+		return ION_HEAP_TYPE_DMA;
+	}
+
+	if (am_gralloc_is_omx_osd_extend_usage(usage))
+	{
+		return ION_HEAP_TYPE_CUSTOM;
+	}
+
+	if (am_gralloc_is_omx_metadata_extend_usage(usage))
+	{
+		return ION_HEAP_TYPE_SYSTEM;
+	}
+
+	if (usage & GRALLOC_USAGE_HW_COMPOSER)
+	{
+		if ( (bufDescriptor->width <= max_composer_buf_width) &&
+			(bufDescriptor->height <= max_composer_buf_height) )
+		{
+			return ION_HEAP_TYPE_DMA;
+		}
+	}
+
+	return ION_HEAP_TYPE_SYSTEM;
+}
+
+void am_set_ion_flags(unsigned int heap_type, uint64_t usage,
+	unsigned int *priv_heap_flag, int *ion_flags)
+{
+	if (priv_heap_flag)
+	{
+		int coherent_buffer_flag = am_gralloc_get_coherent_extend_flag();
+
+		if (heap_type == ION_HEAP_TYPE_SYSTEM)
+		{
+			*priv_heap_flag &= ~coherent_buffer_flag;
+		}
+		else if (heap_type == ION_HEAP_TYPE_DMA)
+		{
+			*priv_heap_flag |= coherent_buffer_flag;
+		}
+
+		/*Must check omx metadata first,
+		*for it have some same bits with video overlay.
+		*/
+		if (am_gralloc_is_omx_metadata_extend_usage(usage))
+		{
+			*priv_heap_flag |= am_gralloc_get_omx_metadata_extend_flag();
+		}
+		else if (am_gralloc_is_video_overlay_extend_usage(usage))
+		{
+			*priv_heap_flag |= am_gralloc_get_video_overlay_extend_flag();
+		}
+	}
+
+	if (ion_flags)
+	{
+		if ((heap_type != ION_HEAP_TYPE_DMA) &&
+			(heap_type != ION_HEAP_TYPE_CUSTOM))
+		{
+			if ((usage & GRALLOC_USAGE_SW_READ_MASK)
+				== GRALLOC_USAGE_SW_READ_OFTEN)
+			{
+				*ion_flags = ION_FLAG_CACHED | ION_FLAG_CACHED_NEEDS_SYNC;
+			}
+		}
+	}
+}
+
+#endif

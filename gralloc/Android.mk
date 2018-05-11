@@ -17,6 +17,9 @@
 
 LOCAL_PATH := $(call my-dir)
 
+# Amlogic usage & flags api.
+include $(LOCAL_PATH)/amlogic/Android.mk
+
 # Include platform specific makefiles
 include $(if $(wildcard $(LOCAL_PATH)/Android.$(TARGET_BOARD_PLATFORM).mk), $(LOCAL_PATH)/Android.$(TARGET_BOARD_PLATFORM).mk,)
 
@@ -129,7 +132,8 @@ LOCAL_C_INCLUDES := $(MALI_LOCAL_PATH) $(MALI_DDK_INCLUDES)
 # General compilation flags
 LOCAL_CFLAGS := -Werror -DLOG_TAG=\"gralloc\" -DPLATFORM_SDK_VERSION=$(PLATFORM_SDK_VERSION)
 
-#resolution ratio flag
+# Amlogic extend
+LOCAL_CFLAGS += -DGRALLOC_AML_EXTEND
 BOARD_RESOLUTION_RATIO ?= 1080
 LOCAL_CFLAGS += -DBOARD_RESOLUTION_RATIO=$(BOARD_RESOLUTION_RATIO)
 $(warning "the value of BOARD_RESOLUTION_RATIO is $(BOARD_RESOLUTION_RATIO)")
@@ -158,6 +162,7 @@ LOCAL_CFLAGS += -DGRALLOC_ARM_NO_EXTERNAL_AFBC=$(GRALLOC_ARM_NO_EXTERNAL_AFBC)
 LOCAL_CFLAGS += -DGRALLOC_LIBRARY_BUILD=1
 
 LOCAL_SHARED_LIBRARIES := libhardware liblog libcutils libGLESv1_CM libsync libutils
+LOCAL_STATIC_LIBRARIES := libamgralloc_internal_static
 
 LOCAL_PRELINK_MODULE := false
 LOCAL_MODULE_RELATIVE_PATH := hw
@@ -174,7 +179,6 @@ endif
 
 LOCAL_MODULE := gralloc.amlogic
 
-$(info TARGET_APP_LAYER_USE_CONTINUOUS_BUFFER is $(TARGET_APP_LAYER_USE_CONTINUOUS_BUFFER))
 LOCAL_MODULE_TAGS := optional
 LOCAL_MULTILIB := both
 
