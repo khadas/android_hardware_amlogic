@@ -16,6 +16,10 @@ LOCAL_SRC_FILES := \
         src/hci_h5.c \
         src/rtk_parse.c \
         src/rtk_btservice.c \
+        src/hardware_uart.c \
+        src/hardware_usb.c \
+        src/rtk_heartbeat.c \
+        src/rtk_poll.c \
         src/rtk_btsnoop_net.c \
         src/FallthroughBTA.cpp
 
