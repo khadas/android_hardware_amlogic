@@ -63,6 +63,7 @@ extern const char *MEDIA_MIMETYPE_AUDIO_WMAPRO;
 extern const char *MEDIA_MIMETYPE_AUDIO_FFMPEG;
 extern const char *MEDIA_MIMETYPE_AUDIO_DTSHD;
 extern const char *MEDIA_MIMETYPE_AUDIO_APE;
+extern const char *MEDIA_MIMETYPE_AUDIO_AC3;
 extern const char *MEDIA_MIMETYPE_AUDIO_EC3;
 extern const char *MEDIA_MIMETYPE_AUDIO_TRUEHD;
 extern const char *MEDIA_MIMETYPE_AUDIO_ADTS_PROFILE;

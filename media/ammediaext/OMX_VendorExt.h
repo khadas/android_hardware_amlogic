@@ -62,6 +62,7 @@ typedef struct OMX_AUDIO_PARAM_DOLBYAUDIOTYPE {
     OMX_U32 nPortIndex;       /**< port that this structure applies to */
     OMX_BOOL bExtendFormat;        /**< Using extend format for output  4Bytes PCM size + pcm data + 4Bytes Raw size + Raw data*/
     OMX_U32 nAudioCodec;      /**< AudioCodec.  1.ac3 2.eac3. */
+	OMX_BOOL is_passthrough_active;
 } OMX_AUDIO_PARAM_DOLBYAUDIOTYPE;
 
 typedef struct OMX_AUDIO_PARAM_ANDROID_DTSHDTYPE {
@@ -75,6 +76,7 @@ typedef struct OMX_AUDIO_PARAM_ANDROID_DTSHDTYPE {
     OMX_BOOL bExtendFormat;   /**< Using extend format for output 4Bytes PCM size + pcm data + 4Bytes Raw size + Raw data */
     int HwHDPCMoutCap;
     int HwMulChoutCap;
+	OMX_BOOL is_passthrough_active;
 } OMX_AUDIO_PARAM_ANDROID_DTSHDTYPE;
 
 typedef struct OMX_AUDIO_PARAM_ANDROID_ASFTYPE {
@@ -130,6 +132,7 @@ typedef struct OMX_AUDIO_PARAM__ANDROID_TRUEHDTYPE {
     OMX_U16 wBitsPerSample;
     OMX_BOOL bExtendFormat; /**< Using extend format for output 4Bytes PCM size + pcm data + 4Bytes Raw size + Raw data*/
     OMX_U32 nAudioCodec; /**< AudioCodec. 1.ac3 2.eac3. */
+    OMX_BOOL is_passthrough_active;
 } OMX_AUDIO_PARAM__ANDROID_TRUEHDTYPE;
 
 typedef struct OMX_AUDIO_PARAM_ANDROID_ALACTYPE {
