@@ -18,6 +18,7 @@
 #define _AML_HW_MIXER_H_
 
 #include <pthread.h>
+#include <system/audio.h>
 
 // just keep the original size. Have no idea why
 //#define AML_HW_MIXER_BUF_SIZE  64*1024
@@ -37,8 +38,8 @@ void aml_hw_mixer_deinit(struct aml_hw_mixer *mixer);
 int aml_hw_mixer_get_content(struct aml_hw_mixer *mixer);
 //we assue the cached size is always smaller then buffer size
 //need called by device mutux locked
-int aml_hw_mixer_write(struct aml_hw_mixer *mixer, const void *w_buf, uint size);
-int aml_hw_mixer_mixing(struct aml_hw_mixer *mixer, void *w_buf, int size);
+int aml_hw_mixer_write(struct aml_hw_mixer *mixer, const void *buffer, size_t bytes);
+int aml_hw_mixer_mixing(struct aml_hw_mixer *mixer, void *buffer, int bytes, audio_format_t format);
 //need called by device mutux locked
 int aml_hw_mixer_read(struct aml_hw_mixer *mixer, void *r_buf, uint size);
 #endif //_AML_HW_MIXER_H_

@@ -135,6 +135,14 @@ struct aml_audio_patch {
     audio_format_t  aformat;
     int  sample_rate;
     audio_channel_mask_t chanmask;
+    audio_channel_mask_t in_chanmask;
+    int in_sample_rate;
+    audio_format_t in_format;
+
+    audio_devices_t output_src;
+    audio_channel_mask_t out_chanmask;
+    int out_sample_rate;
+    audio_format_t out_format;
 #if 0
     struct ring_buffer
     struct thread_read

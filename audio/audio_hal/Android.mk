@@ -75,6 +75,15 @@ ifeq ($(strip $(DOLBY_MS12_ENABLE)), true)
     LOCAL_CFLAGS += -DREPLACE_OUTPUT_BUFFER_WITH_CALLBACK
     LOCAL_C_INCLUDES += $(LOCAL_PATH)/../libms12/include
 endif
+ifeq ($(strip $(TARGET_BOOTLOADER_BOARD_NAME)), atom)
+    LOCAL_CFLAGS += -DIS_ATOM_PROJECT
+    LOCAL_SRC_FILES += \
+        audio_aec_process.cpp
+    LOCAL_C_INCLUDES += \
+        $(LOCAL_PATH)/../google_aec
+    LOCAL_SHARED_LIBRARIES += \
+        libgoogle_aec
+endif
 
     include $(BUILD_SHARED_LIBRARY)
 
