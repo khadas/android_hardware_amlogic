@@ -2986,7 +2986,12 @@ static ssize_t read_frames (struct aml_stream_in *in, void *buffer, ssize_t fram
     return frames_wr;
 }
 
+
+#if defined(IS_ATOM_PROJECT)
+#define MIC_OFFSET (3)
+#else
 #define MIC_OFFSET (0)
+#endif
 static ssize_t in_read(struct audio_stream_in *stream, void* buffer, size_t bytes)
 {
     struct aml_stream_in *in = (struct aml_stream_in *)stream;
