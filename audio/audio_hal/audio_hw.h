@@ -310,6 +310,12 @@ struct aml_audio_device {
     void *spk_buf;
     size_t spk_buf_size;
     int spk_write_bytes;
+
+    bool has_dsp_lib;
+    void *aec_buf;
+    size_t aec_buf_size;
+    void *dsp_in_buf;
+    size_t dsp_in_buf_size;
 };
 
 struct aml_stream_out {

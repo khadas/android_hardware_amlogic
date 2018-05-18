@@ -70,9 +70,10 @@
 #include <SPDIFEncoderAD.h>
 #include "audio_hw_ms12.h"
 #endif
-/* #if defined(IS_ATOM_PROJECT)
-#include "audio_aec_process.h"
-#endif */
+#if defined(IS_ATOM_PROJECT)
+#include "harman_dsp_process.h"
+// #include "audio_aec_process.h"
+#endif
 
 /* minimum sleep time in out_write() when write threshold is not reached */
 #define MIN_WRITE_SLEEP_US 5000
@@ -4548,7 +4549,7 @@ ssize_t audio_hal_data_processing(struct audio_stream_out *stream,
 {
     struct aml_stream_out *aml_out = (struct aml_stream_out *)stream;
     struct aml_audio_device *adev = aml_out->dev;
-    int i, ret;
+    size_t i, ret;
 
     /* raw data need packet to IEC61937 format by spdif encoder */
     if (output_format == AUDIO_FORMAT_AC3 || output_format == AUDIO_FORMAT_E_AC3) {
@@ -4577,54 +4578,110 @@ ssize_t audio_hal_data_processing(struct audio_stream_out *stream,
         }
     } else if (output_format == AUDIO_FORMAT_PCM_32_BIT) {
         int32_t *tmp_buffer = (int32_t *)buffer;
-        int out_frames = bytes / (2 * 4);
-/* #if defined(IS_ATOM_PROJECT)
-        if (adev->mic_running) {
+        size_t out_frames = bytes / (2 * 4);
+#if defined(IS_ATOM_PROJECT)
+        int32_t *out_buffer;
+        if (adev->has_dsp_lib) {
+            if (adev->dsp_in_buf_size < 3 * 4 * out_frames) {
+                adev->dsp_in_buf = realloc(adev->dsp_in_buf, 3 * 4 * out_frames);
+                if (!adev->dsp_in_buf) {
+                    ALOGE("%s: realloc dsp in buf failed size = %zu format = %#x", __func__, 3 * 4 * out_frames, output_format);
+                    return -ENOMEM;
+                } else {
+                    ALOGI("%s: realloc dsp in buf size from %zu to %zu format = %#x", __func__, adev->dsp_in_buf_size, 3 * 4 * out_frames, output_format);
+                }
+                adev->dsp_in_buf_size = 3 * 4 * out_frames;
+            }
+            if (adev->effect_buf_size < 5 * 4 * out_frames) {
+                adev->effect_buf = realloc(adev->effect_buf, 5 * 4 * out_frames);
+                if (!adev->effect_buf) {
+                    ALOGE("%s: realloc effect buf failed size = %zu format = %#x", __func__, 5 * 4 * out_frames, output_format);
+                    return -ENOMEM;
+                } else {
+                    ALOGI("%s: realloc effect buf size from %zu to %zu format = %#x", __func__, adev->effect_buf_size, 5 * 4 * out_frames, output_format);
+                }
+                adev->effect_buf_size = 5 * 4 * out_frames;
+            }
+            if (adev->aec_buf_size < 2 * 4 * out_frames) {
+                adev->aec_buf = realloc(adev->aec_buf, 2 * 4 * out_frames);
+                if (!adev->aec_buf) {
+                    ALOGE("%s: realloc aec buf failed size = %zu format = %#x", __func__, 2 * 4 * out_frames, output_format);
+                    return -ENOMEM;
+                } else {
+                    ALOGI("%s: realloc aec buf size from %zu to %zu format = %#x", __func__, adev->aec_buf_size, 2 * 4 * out_frames, output_format);
+                }
+                adev->aec_buf_size = 2 * 4 * out_frames;
+            }
+            int32_t *dsp_in_buf = (int32_t *)adev->dsp_in_buf;
+            for (i = 0; i < out_frames; i++) {
+                dsp_in_buf[3 * i] = tmp_buffer[2 * i];
+                dsp_in_buf[3 * i + 1] = tmp_buffer[2 * i + 1];
+                dsp_in_buf[3 * i + 2] = 0;
+            }
+            dsp_process(adev->dsp_in_buf, adev->effect_buf, adev->aec_buf, out_frames);
+            out_buffer = (int32_t *)adev->effect_buf;
+        }
+        /* if (adev->mic_running) {
             char buf[20] = {0};
             struct timespec ts;
             unsigned long long spk_time;
-            if (adev->spk_write_bytes != (int)bytes)
-                adev->spk_write_bytes = (int)bytes;
+            if (adev->spk_write_bytes != (int)(2 * 4 * out_frames))
+                adev->spk_write_bytes = 2 * 4 * out_frames;
             clock_gettime(CLOCK_MONOTONIC, &ts);
             spk_time = ts.tv_sec * 1000 + ts.tv_nsec / 1000000;
-            //ALOGD("%s: spk_time = %llu spk_bytes = %zu", __func__, spk_time, bytes);
+            //ALOGD("%s: spk_time = %llu spk_bytes = %zu", __func__, spk_time, 2 * 4 * out_frames);
             sprintf(buf, "%llu", spk_time);
-            if (get_buffer_write_space(&adev->spk_ring_buf) < 20 + (int)bytes) {
-                ALOGE("%s: spk_ring_buf overrun, write_bytes = 20 + %zu", __func__, bytes);
+            if (get_buffer_write_space(&adev->spk_ring_buf) < 20 + (int)(2 * 4 * out_frames)) {
+                ALOGE("%s: spk_ring_buf overrun, write_bytes = 20 + %zu", __func__, 2 * 4 * out_frames);
                 ring_buffer_reset(&adev->spk_ring_buf);
             } else {
                 ring_buffer_write(&adev->spk_ring_buf, (unsigned char*)buf, 20, UNCOVER_WRITE);
-                ring_buffer_write(&adev->spk_ring_buf, (unsigned char*)buffer, bytes, UNCOVER_WRITE);
+                if (adev->has_dsp_lib)
+                    ring_buffer_write(&adev->spk_ring_buf, (unsigned char*)adev->aec_buf, 2 * 4 * out_frames, UNCOVER_WRITE);
+                else
+                    ring_buffer_write(&adev->spk_ring_buf, (unsigned char*)buffer, 2 * 4 * out_frames, UNCOVER_WRITE);
             }
-        }
-#endif */
+        } */
+#endif
         /* 2 ch 32 bit --> 8 ch 32 bit mapping, need 8X size of input buffer size */
-        if (aml_out->tmp_buffer_8ch_size < bytes * 4) {
-            aml_out->tmp_buffer_8ch = realloc(aml_out->tmp_buffer_8ch, bytes * 4);
+        if (aml_out->tmp_buffer_8ch_size < 8 * 4 * out_frames) {
+            aml_out->tmp_buffer_8ch = realloc(aml_out->tmp_buffer_8ch, 8 * 4 * out_frames);
             if (!aml_out->tmp_buffer_8ch) {
-                ALOGE("%s: realloc tmp_buffer_8ch buf failed size = %zu format = %#x", __func__, bytes * 4, output_format);
+                ALOGE("%s: realloc tmp_buffer_8ch buf failed size = %zu format = %#x", __func__, 8 * 4 * out_frames, output_format);
                 return -ENOMEM;
             } else {
-                ALOGI("%s: realloc tmp_buffer_8ch size from %zu to %zu format = %#x", __func__, aml_out->tmp_buffer_8ch_size, bytes * 4, output_format);
+                ALOGI("%s: realloc tmp_buffer_8ch size from %zu to %zu format = %#x", __func__, aml_out->tmp_buffer_8ch_size, 8 * 4 * out_frames, output_format);
             }
-            aml_out->tmp_buffer_8ch_size = bytes * 4;
+            aml_out->tmp_buffer_8ch_size = 8 * 4 * out_frames;
         }
 
         for (i = 0; i < out_frames; i++) {
-            aml_out->tmp_buffer_8ch[8 * i] = tmp_buffer[2 * i];
-            aml_out->tmp_buffer_8ch[8 * i + 1] = tmp_buffer[2 * i + 1];
-            aml_out->tmp_buffer_8ch[8 * i + 2] = tmp_buffer[2 * i];
-            aml_out->tmp_buffer_8ch[8 * i + 3] = tmp_buffer[2 * i + 1];
-            aml_out->tmp_buffer_8ch[8 * i + 4] = tmp_buffer[2 * i];
-            aml_out->tmp_buffer_8ch[8 * i + 5] = tmp_buffer[2 * i + 1];
+#if defined(IS_ATOM_PROJECT)
+            if (adev->has_dsp_lib) {
+                aml_out->tmp_buffer_8ch[8 * i] = out_buffer[5 * i + 2];
+                aml_out->tmp_buffer_8ch[8 * i + 1] = out_buffer[5 * i + 3];
+                aml_out->tmp_buffer_8ch[8 * i + 2] = out_buffer[5 * i];
+                aml_out->tmp_buffer_8ch[8 * i + 3] = out_buffer[5 * i + 1];
+                aml_out->tmp_buffer_8ch[8 * i + 4] = out_buffer[5 * i + 4];
+                aml_out->tmp_buffer_8ch[8 * i + 5] = 0;
+            } else
+#endif
+            {
+                aml_out->tmp_buffer_8ch[8 * i] = tmp_buffer[2 * i];
+                aml_out->tmp_buffer_8ch[8 * i + 1] = tmp_buffer[2 * i + 1];
+                aml_out->tmp_buffer_8ch[8 * i + 2] = tmp_buffer[2 * i];
+                aml_out->tmp_buffer_8ch[8 * i + 3] = tmp_buffer[2 * i + 1];
+                aml_out->tmp_buffer_8ch[8 * i + 4] = tmp_buffer[2 * i];
+                aml_out->tmp_buffer_8ch[8 * i + 5] = tmp_buffer[2 * i + 1];
+            }
             aml_out->tmp_buffer_8ch[8 * i + 6] = 0;
             aml_out->tmp_buffer_8ch[8 * i + 7] = 0;
         }
         *output_buffer = aml_out->tmp_buffer_8ch;
-        *output_buffer_bytes = bytes * 4;
+        *output_buffer_bytes = 8 * 4 * out_frames;
     } else {
         int16_t *tmp_buffer = (int16_t *)buffer;
-        int out_frames = bytes / (2 * 2);
+        size_t out_frames = bytes / (2 * 2);
 #if !defined(IS_ATOM_PROJECT)
         int16_t *effect_tmp_buf, *hp_tmp_buf;
         float source_gain;
@@ -6006,7 +6063,9 @@ static int adev_close(hw_device_t *device)
 
     ALOGD("%s: enter", __func__);
     free(adev->hp_output_buf);
+    free(adev->aec_buf);
     free(adev->effect_buf);
+    free(adev->dsp_in_buf);
     eq_drc_release(&adev->eq_data);
     if (adev->ar)
         audio_route_free(adev->ar);
@@ -6240,6 +6299,14 @@ static int adev_open(const hw_module_t* module, const char* name, hw_device_t** 
     /* set default HP gain */
     adev->sink_gain[OUTPORT_HEADPHONE] = 1.0;
     pthread_mutex_init(&adev->alsa_pcm_lock, NULL);
+
+#if defined(IS_ATOM_PROJECT)
+    if (load_DSP_lib() < 0 || dsp_init(1, 3, 5, 48000) < 0) {
+        ALOGE("%s: load dsp lib or dsp init failed", __func__);
+        adev->has_dsp_lib = false;
+    } else
+        adev->has_dsp_lib = true;
+#endif
 
     *device = &adev->hw_device.common;
     ALOGD("%s: exit", __func__);
