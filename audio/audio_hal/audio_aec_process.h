@@ -21,10 +21,11 @@
 extern "C" {
 #endif
 
-int32_t* aec_spk_mic_process(int32_t *spk_buf, int spk_samples_per_channel,
-    int32_t *mic_buf, int mic_samples_per_channel, int *cleaned_samples_per_channel);
+int32_t* aec_spk_mic_process(int32_t *spk_buf, int32_t *mic_buf, int *cleaned_samples_per_channel);
 int aec_spk_mic_init(void);
 void aec_spk_mic_release(void);
+int aec_set_spk_buf_info(int samples_per_channel, uint64_t timestamp, bool valid_timestamp);
+int aec_set_mic_buf_info(int samples_per_channel, uint64_t timestamp, bool valid_timestamp);
 
 #ifdef __cplusplus
 }

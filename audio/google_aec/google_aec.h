@@ -4,7 +4,6 @@
 #include <stdint.h>
 
 namespace audio_ears {
-
 class EchoCanceller;
 struct GoogleAecInternal;
 
@@ -32,6 +31,17 @@ struct GoogleAecInternal;
 // This class is NOT thread-safe.
 class GoogleAec {
  public:
+  struct AudioBufferInfo {
+    explicit AudioBufferInfo(int num_samples_per_channel)
+        : samples_per_channel(num_samples_per_channel),
+          timestamp_microseconds(0),
+          valid_timestamp(false) {}
+
+    int samples_per_channel;
+    uint64_t timestamp_microseconds;
+    bool valid_timestamp;
+  };
+
   // sample_rate_hz: sampling rate of loudspeaker and microphone signals in
   //                 Hertz.
   //
@@ -58,8 +68,15 @@ class GoogleAec {
   //                           more stable method to compute filter
   //                           coefficients, hence, might be somewhat more
   //                           complex.
+  //
+  // align_by_timestamp: indicates that valid timestamps are provided to be used
+  //     for alignment. Timestamps are given in microseconds and indicate the
+  //     time of the playout or the capture of the first sample in a block,
+  //     according to a wall clock. Timestamps are expected to be accurate
+  //     within 100 microseconds.
   GoogleAec(int sample_rate_hz, int num_loudspeaker_feeds,
-            int num_microphone_channels, const char* aec_mode);
+            int num_microphone_channels, const char* aec_mode,
+            bool align_by_timestamp);
   ~GoogleAec();
 
   GoogleAec(const GoogleAec&) = delete;
@@ -80,6 +97,9 @@ class GoogleAec {
   // num_loudspeaker_samples_per_channel: number of samples per loudspeaker
   //     channels.
   //
+  // loudspeaker_timestamp_microsec: the time, in microseconds, when the first
+  //     sample of the given block of loudspeaker samples is played out.
+  //
   // microphone_samples: an array of pointers to microphone signals. Each
   //     element points to one channel, hence, it is expected to have as many
   //     valid pointers as the number of microphone channels which is specified
@@ -88,6 +108,8 @@ class GoogleAec {
   // num_microphone_samples_per_channel: number of samples per microphone
   //     channels.
   //
+  // microphone_timestamp_microsec: the time, in microseconds, when the first
+  //     sample of the given block of microphone samples is captured.
   //
   // Outputs:
   //
@@ -102,9 +124,9 @@ class GoogleAec {
   // produced. The buffers which hold erased samples are owned by GoogleAec.
   const int32_t* const* ProcessInt32PlanarAudio(
       const int32_t* const* loudspeaker_samples,
-      int num_loudspeaker_samples_per_channel,
+      const AudioBufferInfo& loudspeaker_buffer_info,
       const int32_t* const* microphone_samples,
-      int num_microphone_samples_per_channel,
+      const AudioBufferInfo& microphone_buffer_info,
       int* num_cleaned_samples_per_channel);
 
   // Similarly to ProcessInt32PlanarAudio() processes zero or some loudspeaker
@@ -112,9 +134,9 @@ class GoogleAec {
   // samples. However, the audio samples are of type int16_t.
   const int16_t* const* ProcessInt16PlanarAudio(
       const int16_t* const* loudspeaker_samples,
-      int num_loudspeaker_samples_per_channel,
+      const AudioBufferInfo& loudspeaker_buffer_info,
       const int16_t* const* microphone_samples,
-      int num_microphone_samples_per_channel,
+      const AudioBufferInfo& microphone_buffer_info,
       int* num_cleaned_samples_per_channel);
 
   // Similarly to ProcessInt32PlanarAudio(), processes zero or more (but shorter
@@ -132,9 +154,14 @@ class GoogleAec {
   //
   // microphone_samples:  pointer to interleaved microphone samples.
   //
+  // loudspeaker_timestamp_microsec: the time, in microseconds, when the first
+  //     sample of the given block of loudspeaker samples is played out.
+  //
   // num_microphone_samples_per_channel: number of microphone samples per
   // channel.
   //
+  // microphone_timestamp_microsec: the time, in microseconds, when the first
+  //     sample of the given block of microphone samples is captured.
   //
   // Outputs
   //
@@ -149,16 +176,18 @@ class GoogleAec {
   // buffer which holds erased samples is owned by GoogleAec.
   const int32_t* ProcessInt32InterleavedAudio(
       const int32_t* loudspeaker_samples,
-      int num_loudspeaker_samples_per_channel,
-      const int32_t* microphone_samples, int num_microphone_samples_per_channel,
+      const AudioBufferInfo& loudspeaker_buffer_info,
+      const int32_t* microphone_samples,
+      const AudioBufferInfo& microphone_buffer_info,
       int* num_cleaned_samples_per_channel);
 
   // Similar to ProcessInt32InterleavedAudio() but the input and the output
   // samples are of type int16_t.
   const int16_t* ProcessInt16InterleavedAudio(
       const int16_t* loudspeaker_samples,
-      int num_loudspeaker_samples_per_channel,
-      const int16_t* microphone_samples, int num_microphone_samples_per_channel,
+      const AudioBufferInfo& loudspeaker_buffer_info,
+      const int16_t* microphone_samples,
+      const AudioBufferInfo& microphone_buffer_info,
       int* num_cleaned_samples_per_channel);
 
   // Resets the state of the AEC to right after creation, and discards

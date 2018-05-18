@@ -72,7 +72,7 @@
 #endif
 #if defined(IS_ATOM_PROJECT)
 #include "harman_dsp_process.h"
-// #include "audio_aec_process.h"
+#include "audio_aec_process.h"
 #endif
 
 /* minimum sleep time in out_write() when write threshold is not reached */
@@ -3017,10 +3017,10 @@ static ssize_t in_read(struct audio_stream_in *stream, void* buffer, size_t byte
             goto exit;
         in->standby = 0;
     }
-/* #if defined(IS_ATOM_PROJECT)
+#if defined(IS_ATOM_PROJECT)
     if ((in->device & AUDIO_DEVICE_IN_BUILTIN_MIC) && !adev->mic_running)
         adev->mic_running = 1;
-#endif */
+#endif
 
     /* if audio patch type is hdmi to mixer, check audio format from hdmi*/
     if (adev->patch_src == SRC_HDMIIN && parser != NULL) {
@@ -3088,7 +3088,7 @@ static ssize_t in_read(struct audio_stream_in *stream, void* buffer, size_t byte
             mic_buf[2 * i] = tmp_buffer_8ch[8 * i + 6];
             mic_buf[2 * i + 1] = tmp_buffer_8ch[8 * i + 7];
         }
-        /* if (in->device & AUDIO_DEVICE_IN_BUILTIN_MIC) {
+        if (in->device & AUDIO_DEVICE_IN_BUILTIN_MIC) {
             int read_bytes = in->requested_rate == 16000 ? 60 + cur_in_bytes : 20 + cur_in_bytes;
             if (adev->spk_buf_size < cur_in_bytes) {
                 ALOGI("%s: realloc spk_buf size from %zu to %zu", __func__, adev->spk_buf_size, cur_in_bytes);
@@ -3101,7 +3101,7 @@ static ssize_t in_read(struct audio_stream_in *stream, void* buffer, size_t byte
                 int diff, cleaned_samples_per_channel, max_delay;
                 unsigned long long mic_time, spk_time;
                 clock_gettime(CLOCK_MONOTONIC, &ts);
-                mic_time = ts.tv_sec * 1000 + ts.tv_nsec / 1000000;
+                mic_time = ts.tv_sec * 1000000 + ts.tv_nsec / 1000;
                 ring_buffer_read(&adev->spk_ring_buf, (unsigned char*)buf, 20);
                 sscanf(buf, "%llu", &spk_time);
                 ring_buffer_read(&adev->spk_ring_buf, (unsigned char*)adev->spk_buf, adev->spk_write_bytes);
@@ -3111,17 +3111,18 @@ static ssize_t in_read(struct audio_stream_in *stream, void* buffer, size_t byte
                     ring_buffer_read(&adev->spk_ring_buf, (unsigned char*)buf, 20);
                     ring_buffer_read(&adev->spk_ring_buf, (unsigned char*)adev->spk_buf + 2 * adev->spk_write_bytes, adev->spk_write_bytes);
                 }
-                //ALOGD("%s: mic_time = %llu spk_time = %llu mic_bytes = %zu", __func__, mic_time, spk_time, cur_in_bytes);
-                max_delay = in->requested_rate == 16000 ? 300 : 100;
+                // ALOGD("%s: mic_time = %llu spk_time = %llu mic_bytes = %zu", __func__, mic_time, spk_time, cur_in_bytes);
+                max_delay = in->requested_rate == 16000 ? 300000 : 100000;
                 diff = mic_time - spk_time;
                 if (diff > 0 && diff < max_delay) {
-                    int32_t *aec_proc_buf = aec_spk_mic_process((int32_t *)adev->spk_buf, cur_in_frames / 2,
-                        mic_buf, cur_in_frames / 2, &cleaned_samples_per_channel);
-                    if (aec_proc_buf)
-                        mic_buf = aec_proc_buf;
+                    if (aec_set_spk_buf_info(cur_in_frames / 2, spk_time, true) == 0 && aec_set_mic_buf_info(cur_in_frames / 2, mic_time, true) == 0) {
+                        int32_t *aec_proc_buf = aec_spk_mic_process((int32_t *)adev->spk_buf, mic_buf, &cleaned_samples_per_channel);
+                        if (aec_proc_buf)
+                            mic_buf = aec_proc_buf;
+                    }
                 }
             }
-        } */
+        }
         if (channel_count == 1) {
             if (in->hal_format == AUDIO_FORMAT_PCM_16_BIT) {
                 for (size_t i = 0; i < cur_in_frames; i++) {
@@ -4262,11 +4263,11 @@ exit:
             adev->aux_mic_in = in;
         }
         if (aux_mic_devce & AUDIO_DEVICE_IN_BUILTIN_MIC) {
-            /* aec_spk_mic_init();
+            aec_spk_mic_init();
             if (!adev->spk_ring_buf.start_addr)
                 ring_buffer_init(&adev->spk_ring_buf, 4 * (20 + 2 * 4 * DEFAULT_PLAYBACK_PERIOD_SIZE) * PLAYBACK_PERIOD_COUNT);
             else
-                ring_buffer_reset(&adev->spk_ring_buf); */
+                ring_buffer_reset(&adev->spk_ring_buf);
             if (in->ref_count > 0) {
                 in->requested_rate = config->sample_rate;
                 in->hal_channel_mask = config->channel_mask;
@@ -4304,8 +4305,8 @@ static void adev_close_input_stream(struct audio_hw_device *dev,
         if (in->device & AUDIO_DEVICE_IN_LINE) {
             in->device &= ~AUDIO_DEVICE_IN_BUILTIN_MIC;
             in->requested_rate = 48000;
-            /* adev->mic_running = 0;
-            adev->spk_write_bytes = 0; */
+            adev->mic_running = 0;
+            adev->spk_write_bytes = 0;
             in->aux_buf_write_bytes = 0;
             pthread_cond_signal(&in->aux_mic_cond);
         }
@@ -4324,12 +4325,12 @@ static void adev_close_input_stream(struct audio_hw_device *dev,
     }
     if (adev->aux_mic_in == in)
         adev->aux_mic_in = NULL;
-    /* if (adev->spk_ring_buf.start_addr) {
+    if (adev->spk_ring_buf.start_addr) {
         free(adev->spk_buf);
         adev->spk_buf_size = 0;
         ring_buffer_release(&adev->spk_ring_buf);
         aec_spk_mic_release();
-    } */
+    }
     free(in->tmp_buffer_8ch);
     free(in->mic_buf);
     free(in->aux_buf);
@@ -4549,7 +4550,8 @@ ssize_t audio_hal_data_processing(struct audio_stream_out *stream,
 {
     struct aml_stream_out *aml_out = (struct aml_stream_out *)stream;
     struct aml_audio_device *adev = aml_out->dev;
-    size_t i, ret;
+    size_t i;
+    int j, ret;
 
     /* raw data need packet to IEC61937 format by spdif encoder */
     if (output_format == AUDIO_FORMAT_AC3 || output_format == AUDIO_FORMAT_E_AC3) {
@@ -4621,15 +4623,15 @@ ssize_t audio_hal_data_processing(struct audio_stream_out *stream,
             dsp_process(adev->dsp_in_buf, adev->effect_buf, adev->aec_buf, out_frames);
             out_buffer = (int32_t *)adev->effect_buf;
         }
-        /* if (adev->mic_running) {
+        if (adev->mic_running) {
             char buf[20] = {0};
             struct timespec ts;
             unsigned long long spk_time;
             if (adev->spk_write_bytes != (int)(2 * 4 * out_frames))
                 adev->spk_write_bytes = 2 * 4 * out_frames;
             clock_gettime(CLOCK_MONOTONIC, &ts);
-            spk_time = ts.tv_sec * 1000 + ts.tv_nsec / 1000000;
-            //ALOGD("%s: spk_time = %llu spk_bytes = %zu", __func__, spk_time, 2 * 4 * out_frames);
+            spk_time = ts.tv_sec * 1000000 + ts.tv_nsec / 1000;
+            // ALOGD("%s: spk_time = %llu spk_bytes = %zu", __func__, spk_time, 2 * 4 * out_frames);
             sprintf(buf, "%llu", spk_time);
             if (get_buffer_write_space(&adev->spk_ring_buf) < 20 + (int)(2 * 4 * out_frames)) {
                 ALOGE("%s: spk_ring_buf overrun, write_bytes = 20 + %zu", __func__, 2 * 4 * out_frames);
@@ -4641,7 +4643,7 @@ ssize_t audio_hal_data_processing(struct audio_stream_out *stream,
                 else
                     ring_buffer_write(&adev->spk_ring_buf, (unsigned char*)buffer, 2 * 4 * out_frames, UNCOVER_WRITE);
             }
-        } */
+        }
 #endif
         /* 2 ch 32 bit --> 8 ch 32 bit mapping, need 8X size of input buffer size */
         if (aml_out->tmp_buffer_8ch_size < 8 * 4 * out_frames) {
@@ -4713,8 +4715,8 @@ ssize_t audio_hal_data_processing(struct audio_stream_out *stream,
         memcpy(hp_tmp_buf, tmp_buffer, bytes);
 
         /*aduio effect process for speaker*/
-        for (i = 0; i < adev->native_postprocess.num_postprocessors; i++)
-            audio_post_process(adev->native_postprocess.postprocessors[i], effect_tmp_buf, out_frames);
+        for (j = 0; j < adev->native_postprocess.num_postprocessors; j++)
+            audio_post_process(adev->native_postprocess.postprocessors[j], effect_tmp_buf, out_frames);
 
         if (adev->patch_src == SRC_DTV)
             source_gain = adev->eq_data.s_gain.dtv;
