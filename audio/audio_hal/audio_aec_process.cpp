@@ -47,6 +47,7 @@ int32_t* aec_spk_mic_process(int32_t *spk_buf, int32_t *mic_buf, int *cleaned_sa
 
 int aec_spk_mic_init(void)
 {
+    ALOGD("%s: enter", __func__);
     if (!pGoogleAec) {
         pGoogleAec = new audio_ears::GoogleAec(48000, 2, 2, "GoogleAecMode3", true);
         if (!pGoogleAec) {
@@ -55,18 +56,19 @@ int aec_spk_mic_init(void)
         }
     }
     pGoogleAec->Reset();
+    ALOGD("%s: exit", __func__);
 
     return 0;
 }
 
 void aec_spk_mic_release(void)
 {
-    delete pGoogleAec;
-    pGoogleAec = NULL;
+    ALOGD("%s: enter", __func__);
     delete p_spk_buf_info;
     p_spk_buf_info = NULL;
     delete p_mic_buf_info;
     p_mic_buf_info = NULL;
+    ALOGD("%s: exit", __func__);
 }
 
 int aec_set_spk_buf_info(int samples_per_channel, uint64_t timestamp, bool valid_timestamp)

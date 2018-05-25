@@ -43,7 +43,11 @@
  * change DEFAULT_PERIOD_SIZE from 1024 to 512 for passing CTS
  * test case test4_1MeasurePeakRms(android.media.cts.VisualizerTest)
  */
+#if defined(IS_ATOM_PROJECT)
+#define DEFAULT_PLAYBACK_PERIOD_SIZE 1024
+#else
 #define DEFAULT_PLAYBACK_PERIOD_SIZE 512
+#endif
 #define DEFAULT_CAPTURE_PERIOD_SIZE  1024
 
 /* number of ICE61937 format frames per period */
@@ -316,6 +320,8 @@ struct aml_audio_device {
     size_t aec_buf_size;
     void *dsp_in_buf;
     size_t dsp_in_buf_size;
+
+    pthread_mutex_t aec_spk_mic_lock;
 };
 
 struct aml_stream_out {

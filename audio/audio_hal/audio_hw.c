@@ -3109,9 +3109,9 @@ static ssize_t in_read(struct audio_stream_in *stream, void* buffer, size_t byte
                 ring_buffer_read(&adev->spk_ring_buf, (unsigned char*)buf, 20);
                 sscanf(buf, "%llu", &spk_time);
                 ring_buffer_read(&adev->spk_ring_buf, (unsigned char*)adev->spk_buf, adev->spk_write_bytes);
-                ring_buffer_read(&adev->spk_ring_buf, (unsigned char*)buf, 20);
-                ring_buffer_read(&adev->spk_ring_buf, (unsigned char*)adev->spk_buf + adev->spk_write_bytes, adev->spk_write_bytes);
                 if (in->requested_rate == 16000) {
+                    ring_buffer_read(&adev->spk_ring_buf, (unsigned char*)buf, 20);
+                    ring_buffer_read(&adev->spk_ring_buf, (unsigned char*)adev->spk_buf + adev->spk_write_bytes, adev->spk_write_bytes);
                     ring_buffer_read(&adev->spk_ring_buf, (unsigned char*)buf, 20);
                     ring_buffer_read(&adev->spk_ring_buf, (unsigned char*)adev->spk_buf + 2 * adev->spk_write_bytes, adev->spk_write_bytes);
                 }
@@ -3119,11 +3119,13 @@ static ssize_t in_read(struct audio_stream_in *stream, void* buffer, size_t byte
                 max_delay = in->requested_rate == 16000 ? 300000 : 100000;
                 diff = mic_time - spk_time;
                 if (diff > 0 && diff < max_delay) {
+                    pthread_mutex_lock(&adev->aec_spk_mic_lock);
                     if (aec_set_spk_buf_info(cur_in_frames / 2, spk_time, true) == 0 && aec_set_mic_buf_info(cur_in_frames / 2, mic_time, true) == 0) {
                         int32_t *aec_proc_buf = aec_spk_mic_process((int32_t *)adev->spk_buf, mic_buf, &cleaned_samples_per_channel);
                         if (aec_proc_buf)
                             mic_buf = aec_proc_buf;
                     }
+                    pthread_mutex_unlock(&adev->aec_spk_mic_lock);
                 }
             }
         }
@@ -4267,7 +4269,9 @@ exit:
             adev->aux_mic_in = in;
         }
         if (aux_mic_devce & AUDIO_DEVICE_IN_BUILTIN_MIC) {
+            pthread_mutex_lock(&adev->aec_spk_mic_lock);
             aec_spk_mic_init();
+            pthread_mutex_unlock(&adev->aec_spk_mic_lock);
             if (!adev->spk_ring_buf.start_addr)
                 ring_buffer_init(&adev->spk_ring_buf, 4 * (20 + 2 * 4 * DEFAULT_PLAYBACK_PERIOD_SIZE) * PLAYBACK_PERIOD_COUNT);
             else
@@ -4329,6 +4333,14 @@ static void adev_close_input_stream(struct audio_hw_device *dev,
             in->requested_rate = 48000;
             adev->mic_running = 0;
             adev->spk_write_bytes = 0;
+            free(adev->spk_buf);
+            adev->spk_buf = NULL;
+            adev->spk_buf_size = 0;
+            if (adev->spk_ring_buf.start_addr)
+                ring_buffer_release(&adev->spk_ring_buf);
+            pthread_mutex_lock(&adev->aec_spk_mic_lock);
+            aec_spk_mic_release();
+            pthread_mutex_unlock(&adev->aec_spk_mic_lock);
             in->aux_buf_write_bytes = 0;
             pthread_cond_signal(&in->aux_mic_cond);
         }
@@ -4350,15 +4362,17 @@ static void adev_close_input_stream(struct audio_hw_device *dev,
     if (in->device & AUDIO_DEVICE_IN_BUILTIN_MIC) {
         adev->mic_running = 0;
         adev->spk_write_bytes = 0;
+        free(adev->spk_buf);
+        adev->spk_buf = NULL;
+        adev->spk_buf_size = 0;
+        if (adev->spk_ring_buf.start_addr)
+            ring_buffer_release(&adev->spk_ring_buf);
+        pthread_mutex_lock(&adev->aec_spk_mic_lock);
+        aec_spk_mic_release();
+        pthread_mutex_unlock(&adev->aec_spk_mic_lock);
     }
     if (adev->aux_mic_in == in)
         adev->aux_mic_in = NULL;
-    if (adev->spk_ring_buf.start_addr) {
-        free(adev->spk_buf);
-        adev->spk_buf_size = 0;
-        ring_buffer_release(&adev->spk_ring_buf);
-        aec_spk_mic_release();
-    }
     free(in->tmp_buffer_8ch);
     free(in->mic_buf);
     free(in->aux_buf);
@@ -6329,6 +6343,7 @@ static int adev_open(const hw_module_t* module, const char* name, hw_device_t** 
     /* set default HP gain */
     adev->sink_gain[OUTPORT_HEADPHONE] = 1.0;
     pthread_mutex_init(&adev->alsa_pcm_lock, NULL);
+    pthread_mutex_init(&adev->aec_spk_mic_lock, NULL);
 
 #if defined(IS_ATOM_PROJECT)
     if (load_DSP_lib() < 0 || dsp_init(1, 3, 5, 48000) < 0) {
