@@ -22,7 +22,19 @@ ifeq ($(strip $(BOARD_ALSA_AUDIO)),tiny)
 #
 # The format of the name is audio.<type>.<hardware/etc>.so where the only
 # required type is 'primary'. Other possibilites are 'a2dp', 'usb', etc.
-    include $(CLEAR_VARS)
+#/*[SEN5-autumn.zhao-2018-01-11] add for B06 remote audio support { */
+	include $(CLEAR_VARS)
+	LOCAL_MODULE := libnano
+	LOCAL_SRC_FILES_arm := libnano.so
+	LOCAL_MODULE_TAGS := optional
+	LOCAL_MODULE_OWNER := nanosic
+	LOCAL_MODULE_SUFFIX := .so
+	LOCAL_MODULE_CLASS := SHARED_LIBRARIES
+	LOCAL_PROPRIETARY_MODULE := true
+	LOCAL_MODULE_TARGET_ARCH:= arm 
+	include $(BUILD_PREBUILT)
+#/*[SEN5-autumn.zhao-2018-01-11] add for B06 remote audio support } */
+	include $(CLEAR_VARS)
 
     LOCAL_MODULE := audio.primary.amlogic
     ifeq ($(shell test $(PLATFORM_SDK_VERSION) -ge 26 && echo OK),OK)
@@ -61,7 +73,8 @@ ifeq ($(strip $(BOARD_ALSA_AUDIO)),tiny)
     LOCAL_SHARED_LIBRARIES := \
         liblog libcutils libtinyalsa \
         libaudioutils libdl libaudioroute libutils \
-        libaudiospdif libamaudioutils libamlaudiorc
+        libaudiospdif libamaudioutils libamlaudiorc \
+	libnano
 
     LOCAL_MODULE_TAGS := optional
 

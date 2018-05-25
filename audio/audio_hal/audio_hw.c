@@ -74,7 +74,9 @@
 #include "harman_dsp_process.h"
 #include "audio_aec_process.h"
 #endif
-
+/*[SEN5-autumn.zhao-2018-01-11] add for B06 audio support { */
+#include "jb_nano.h"
+/*[SEN5-autumn.zhao-2018-01-11] add for B06 audio support } */
 /* minimum sleep time in out_write() when write threshold is not reached */
 #define MIN_WRITE_SLEEP_US 5000
 #define NSEC_PER_SECOND 1000000000ULL
@@ -153,7 +155,9 @@ static int create_patch (struct audio_hw_device *dev,
                          audio_devices_t input,
                          audio_devices_t output);
 static int release_patch (struct aml_audio_device *aml_dev);
-
+/*[SEN5-autumn.zhao-2018-01-11] add for B06 audio support { */
+static RECORDING_DEVICE recording_device = RECORDING_DEVICE_OTHER;
+/*[SEN5-autumn.zhao-2018-01-11] add for B06 audio support } */
 static inline short CLIP (int r)
 {
     return (r >  0x7fff) ? 0x7fff :
@@ -4279,6 +4283,24 @@ exit:
     }
     in->ref_count++;
 #endif
+/*[SEN5-autumn.zhao-2018-01-11] add for B06 audio support { */
+	recording_device = nano_get_recorde_device();
+	ALOGD("recording_device=%d\n",recording_device);
+	if(recording_device == RECORDING_DEVICE_NANO){
+		int ret = nano_open(&in->config, config);
+		if(ret < 0){
+			recording_device = RECORDING_DEVICE_OTHER;
+		}
+		else{
+			ALOGD("use nano function\n");
+			in->stream.common.get_sample_rate = nano_get_sample_rate;
+			in->stream.common.get_buffer_size = nano_get_buffer_size;
+			in->stream.common.get_channels = nano_get_channels;
+			in->stream.common.get_format = nano_get_format;
+			in->stream.read = nano_read;
+		}
+	}
+/*[SEN5-autumn.zhao-2018-01-11] add for B06 audio support } */
     *stream_in = &in->stream;
     ALOGD("%s: exit", __func__);
 
@@ -4316,6 +4338,12 @@ static void adev_close_input_stream(struct audio_hw_device *dev,
     ALOGD("%s: enter: dev(%p) stream(%p)", __func__, dev, stream);
 #endif
     in_standby(&stream->common);
+/*[SEN5-autumn.zhao-2018-03-15] add for B06A remote audio support { */
+    if(recording_device == RECORDING_DEVICE_NANO){
+       nano_close();
+	//   LOGFUNC("%s nano_close", __FUNCTION__); 
+    }
+/*[SEN5-autumn.zhao-2018-03-15] add for B06A remote audio support } */	
     if (in->device & AUDIO_DEVICE_IN_WIRED_HEADSET)
         rc_close_input_stream(in);
 #if defined(IS_ATOM_PROJECT)
@@ -6311,6 +6339,9 @@ static int adev_open(const hw_module_t* module, const char* name, hw_device_t** 
 #endif
 
     *device = &adev->hw_device.common;
+/*[SEN5-autumn.zhao-2018-01-11] add for B06 audio support { */
+	nano_init();
+/*[SEN5-autumn.zhao-2018-01-11] add for B06 audio support } */	
     ALOGD("%s: exit", __func__);
 
     return 0;
