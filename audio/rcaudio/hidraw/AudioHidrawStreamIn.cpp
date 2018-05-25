@@ -20,7 +20,7 @@
 **  - 1 bluetooth rc audio stream in from hidraw node
 */
 
-#define LOG_TAG "AudioHAL:AudioStreamIn"
+#define LOG_TAG "AudioHAL:AudioHidrawStreamIn"
 #include <utils/Log.h>
 
 #include <assert.h>

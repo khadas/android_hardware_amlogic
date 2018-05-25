@@ -63,8 +63,6 @@ static uint32_t in_get_sample_rate(const struct audio_stream *stream)
     Mutex::Autolock _l(g_indevice.lock);
     const struct atv_stream_in* tstream =
         reinterpret_cast<const struct atv_stream_in*>(stream);
-    if (tstream == NULL || tstream->impl == NULL)
-        return 0;
 
     return tstream->impl->getSampleRate();
 }
@@ -74,8 +72,6 @@ static int in_set_sample_rate(struct audio_stream *stream, uint32_t rate)
     Mutex::Autolock _l(g_indevice.lock);
     const struct atv_stream_in* tstream =
         reinterpret_cast<const struct atv_stream_in*>(stream);
-    if (tstream == NULL || tstream->impl == NULL)
-        return 0;
 
     return tstream->impl->setSampleRate(rate);
 }
@@ -85,8 +81,6 @@ static size_t in_get_buffer_size(const struct audio_stream *stream)
     Mutex::Autolock _l(g_indevice.lock);
     const struct atv_stream_in* tstream =
         reinterpret_cast<const struct atv_stream_in*>(stream);
-    if (tstream == NULL || tstream->impl == NULL)
-        return 0;
 
     return tstream->impl->getBufferSize();
 }
@@ -96,8 +90,6 @@ static uint32_t in_get_channels(const struct audio_stream *stream)
     Mutex::Autolock _l(g_indevice.lock);
     const struct atv_stream_in* tstream =
         reinterpret_cast<const struct atv_stream_in*>(stream);
-    if (tstream == NULL || tstream->impl == NULL)
-        return 0;
 
     return tstream->impl->getChannelMask();
 }
@@ -107,8 +99,6 @@ static audio_format_t in_get_format(const struct audio_stream *stream)
     Mutex::Autolock _l(g_indevice.lock);
     const struct atv_stream_in* tstream =
         reinterpret_cast<const struct atv_stream_in*>(stream);
-    if (tstream == NULL || tstream->impl == NULL)
-        return AUDIO_FORMAT_PCM_16_BIT;
 
     return tstream->impl->getFormat();
 }
@@ -118,8 +108,6 @@ static int in_set_format(struct audio_stream *stream, audio_format_t format)
     Mutex::Autolock _l(g_indevice.lock);
     const struct atv_stream_in* tstream =
         reinterpret_cast<const struct atv_stream_in*>(stream);
-    if (tstream == NULL || tstream->impl == NULL)
-        return 0;
 
     return tstream->impl->setFormat(format);
 }
@@ -129,8 +117,6 @@ static int in_standby(struct audio_stream *stream)
     Mutex::Autolock _l(g_indevice.lock);
     const struct atv_stream_in* tstream =
         reinterpret_cast<const struct atv_stream_in*>(stream);
-    if (tstream == NULL || tstream->impl == NULL)
-        return 0;
 
     return tstream->impl->standby();
 }
@@ -140,8 +126,6 @@ static int in_dump(const struct audio_stream *stream, int fd)
     Mutex::Autolock _l(g_indevice.lock);
     const struct atv_stream_in* tstream =
         reinterpret_cast<const struct atv_stream_in*>(stream);
-    if (tstream == NULL || tstream->impl == NULL)
-        return 0;
 
     return tstream->impl->dump(fd);
 }
@@ -151,8 +135,6 @@ static int in_set_parameters(struct audio_stream *stream, const char *kvpairs)
     Mutex::Autolock _l(g_indevice.lock);
     const struct atv_stream_in* tstream =
         reinterpret_cast<const struct atv_stream_in*>(stream);
-    if (tstream == NULL || tstream->impl == NULL)
-        return 0;
 
     return tstream->impl->setParameters(stream, kvpairs);
 }
@@ -163,8 +145,6 @@ static char* in_get_parameters(const struct audio_stream *stream,
     Mutex::Autolock _l(g_indevice.lock);
     const struct atv_stream_in* tstream =
         reinterpret_cast<const struct atv_stream_in*>(stream);
-    if (tstream == NULL || tstream->impl == NULL)
-        return NULL;
 
     return tstream->impl->getParameters(keys);
 }
@@ -174,8 +154,6 @@ static int in_set_gain(struct audio_stream_in *stream, float gain)
     Mutex::Autolock _l(g_indevice.lock);
     const struct atv_stream_in* tstream =
         reinterpret_cast<const struct atv_stream_in*>(stream);
-    if (tstream == NULL || tstream->impl == NULL)
-        return 0;
 
     return tstream->impl->setGain(gain);
 }
@@ -186,9 +164,6 @@ static ssize_t in_read(struct audio_stream_in *stream, void* buffer,
     Mutex::Autolock _l(g_indevice.lock);
     const struct atv_stream_in* tstream =
         reinterpret_cast<const struct atv_stream_in*>(stream);
-    if (tstream == NULL || tstream->impl == NULL) {
-        return 0;
-    }
 
     return tstream->impl->read(buffer, bytes);
 }
@@ -198,8 +173,6 @@ static uint32_t in_get_input_frames_lost(struct audio_stream_in *stream)
     Mutex::Autolock _l(g_indevice.lock);
     const struct atv_stream_in* tstream =
         reinterpret_cast<const struct atv_stream_in*>(stream);
-    if (tstream == NULL || tstream->impl == NULL)
-        return 0;
 
     return tstream->impl->getInputFramesLost();
 }
@@ -210,8 +183,6 @@ static int in_add_audio_effect(const struct audio_stream *stream,
     Mutex::Autolock _l(g_indevice.lock);
     const struct atv_stream_in* tstream =
         reinterpret_cast<const struct atv_stream_in*>(stream);
-    if (tstream == NULL || tstream->impl == NULL)
-        return 0;
 
     return tstream->impl->addAudioEffect(effect);
 }
@@ -222,8 +193,6 @@ static int in_remove_audio_effect(const struct audio_stream *stream,
     Mutex::Autolock _l(g_indevice.lock);
     const struct atv_stream_in* tstream =
         reinterpret_cast<const struct atv_stream_in*>(stream);
-    if (tstream == NULL || tstream->impl == NULL)
-        return 0;
 
     return tstream->impl->removeAudioEffect(effect);
 }

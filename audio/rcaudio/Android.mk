@@ -54,6 +54,8 @@ LOCAL_LDFLAGS_arm += $(LOCAL_PATH)/hidraw/audio.bt.remote-arm.a
 LOCAL_LDFLAGS_arm64 += $(LOCAL_PATH)/hidraw/audio.bt.remote-arm64.a
 
 LOCAL_SHARED_LIBRARIES := \
+    vendor.amlogic.hardware.remotecontrol@1.0 \
+    libhidlbase \
     libcutils \
     liblog \
     libutils \
