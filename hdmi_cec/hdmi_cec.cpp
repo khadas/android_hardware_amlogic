@@ -310,6 +310,12 @@ static int open_cec( const struct hw_module_t* module, char const *name,
     dev->hidlClient->setEventObserver(new HdmiCecCallback());
     dev->fd = dev->hidlClient->openCecDevice();
 
+    if (dev->fd < 0) {
+        D("can't open CEC Device!!");
+        free(dev);
+        return -EINVAL;
+    }
+
     dev->device.common.tag = HARDWARE_DEVICE_TAG;
     dev->device.common.version = 0;
     dev->device.common.module = (struct hw_module_t*) module;
