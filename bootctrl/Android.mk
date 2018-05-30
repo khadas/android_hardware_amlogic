@@ -32,11 +32,15 @@ avb_common_cflags := \
     -Wall \
     -Wextra \
     -Wformat=2 \
+    -Wmissing-prototypes \
     -Wno-psabi \
     -Wno-unused-parameter \
+    -Wno-format \
     -ffunction-sections \
     -fstack-protector-strong \
-    -g
+    -g \
+    -DAVB_ENABLE_DEBUG \
+    -DAVB_COMPILATION
 avb_common_cppflags := \
     -Wnon-virtual-dtor \
     -fno-strict-aliasing
@@ -44,16 +48,9 @@ avb_common_ldflags := \
     -Wl,--gc-sections \
     -rdynamic
 
-# Build libavb for the target (for e.g. fs_mgr usage).
-include $(CLEAR_VARS)
-LOCAL_MODULE := libavb_amlogic
-LOCAL_MODULE_HOST_OS := linux
-LOCAL_EXPORT_C_INCLUDE_DIRS := $(LOCAL_PATH)
-LOCAL_CLANG := true
-LOCAL_CFLAGS := $(avb_common_cflags) -DAVB_ENABLE_DEBUG -DAVB_COMPILATION
-LOCAL_LDFLAGS := $(avb_common_ldflags)
-LOCAL_SRC_FILES := \
+avb_common_sources := \
     libavb/avb_chain_partition_descriptor.c \
+    libavb/avb_cmdline.c \
     libavb/avb_crc32.c \
     libavb/avb_crypto.c \
     libavb/avb_descriptor.c \
@@ -66,11 +63,31 @@ LOCAL_SRC_FILES := \
     libavb/avb_sha256.c \
     libavb/avb_sha512.c \
     libavb/avb_slot_verify.c \
-    libavb/avb_sysdeps_posix.c \
     libavb/avb_util.c \
     libavb/avb_vbmeta_image.c \
     libavb/avb_version.c
-LOCAL_SHARED_LIBRARIES := liblog
+
+
+# Build libavb for the target (for e.g. fs_mgr usage).
+include $(CLEAR_VARS)
+LOCAL_MODULE := libavb_amlogic
+LOCAL_MODULE_HOST_OS := linux
+LOCAL_EXPORT_C_INCLUDE_DIRS := $(LOCAL_PATH)
+LOCAL_CLANG := true
+LOCAL_CFLAGS := $(avb_common_cflags) -DAVB_AB_I_UNDERSTAND_LIBAVB_AB_IS_DEPRECATED
+LOCAL_LDFLAGS := $(avb_common_ldflags)
+LOCAL_CPPFLAGS := $(avb_common_cppflags)
+LOCAL_SRC_FILES := $(avb_common_sources) \
+    libavb/avb_sysdeps_posix.c \
+    libavb_ab/avb_ab_flow.c \
+    libavb_user/avb_ops_user.cpp \
+    libavb_user/avb_user_verity.c \
+    libavb_user/avb_user_verification.c
+LOCAL_SHARED_LIBRARIES := liblog libbase
+LOCAL_STATIC_LIBRARIES := libfs_mgr libfstab
+ifeq ($(shell test $(PLATFORM_SDK_VERSION) -ge 26 && echo OK),OK)
+LOCAL_PROPRIETARY_MODULE := true
+endif
 include $(BUILD_STATIC_LIBRARY)
 
 # Build avbctl for the target.
@@ -84,20 +101,17 @@ LOCAL_CFLAGS := $(avb_common_cflags) -DAVB_COMPILATION -DAVB_ENABLE_DEBUG
 LOCAL_CPPFLAGS := $(avb_common_cppflags)
 LOCAL_LDFLAGS := $(avb_common_ldflags)
 LOCAL_STATIC_LIBRARIES := \
-    libavb \
-    libfs_mgr
+    libavb_amlogic \
+    libfs_mgr \
+    libfstab
 LOCAL_SHARED_LIBRARIES := \
     libbase \
-    libhidlbase \
-    libhidltransport \
-    libhwbinder \
-    libutils \
-    liblog \
-    android.hardware.boot@1.0
+    liblog
 LOCAL_SRC_FILES := \
-    libavb_ab/avb_ab_flow.c \
-    libavb_user/avb_ops_user.c \
     tools/avbctl/avbctl.cc
+ifeq ($(shell test $(PLATFORM_SDK_VERSION) -ge 26 && echo OK),OK)
+LOCAL_PROPRIETARY_MODULE := true
+endif
 include $(BUILD_EXECUTABLE)
 
 include $(CLEAR_VARS)
@@ -105,14 +119,12 @@ LOCAL_MODULE := bootctrl.amlogic
 LOCAL_MODULE_RELATIVE_PATH := hw
 LOCAL_REQUIRED_MODULES := libavb_amlogic
 LOCAL_SRC_FILES := \
-    libavb_ab/avb_ab_flow.c \
-    libavb_user/avb_ops_user.c \
     boot_control/boot_control_avb.c
 LOCAL_CLANG := true
-LOCAL_CFLAGS := $(avb_common_cflags) -DAVB_COMPILATION -DAVB_ENABLE_DEBUG
+LOCAL_CFLAGS := $(avb_common_cflags) -DAVB_AB_I_UNDERSTAND_LIBAVB_AB_IS_DEPRECATED
 LOCAL_LDFLAGS := $(avb_common_ldflags)
 LOCAL_SHARED_LIBRARIES := libbase libcutils liblog
-LOCAL_STATIC_LIBRARIES := libfs_mgr libavb
+LOCAL_STATIC_LIBRARIES := libfs_mgr libavb_amlogic libfstab
 ifeq ($(shell test $(PLATFORM_SDK_VERSION) -ge 26 && echo OK),OK)
 LOCAL_PROPRIETARY_MODULE := true
 endif

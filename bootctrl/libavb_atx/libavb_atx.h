@@ -22,30 +22,20 @@
  * SOFTWARE.
  */
 
-#ifndef LIBAVB_AB_H_
-#define LIBAVB_AB_H_
+#ifndef LIBAVB_ATX_H_
+#define LIBAVB_ATX_H_
 
 #include <libavb/libavb.h>
 
-/* The libavb_ab/ and boot_control/ code has been marked for some time
- * as experimental in anticipation of being removed in the future. It
- * is now deprecated and to continue using it you must define
- * AVB_AB_I_UNDERSTAND_LIBAVB_AB_IS_DEPRECATED. It will be removed Jun
- * 1 2018.
- */
-#ifndef AVB_AB_I_UNDERSTAND_LIBAVB_AB_IS_DEPRECATED
-#error \
-    "You must define AVB_AB_I_UNDERSTAND_LIBAVB_AB_IS_DEPRECATED to use this library."
-#endif
-
-/* The AVB_INSIDE_LIBAVB_AB_H preprocessor symbol is used to enforce
+/* The AVB_INSIDE_LIBAVB_ATX_H preprocessor symbol is used to enforce
  * library users to include only this file. All public interfaces, and
  * only public interfaces, must be included here.
  */
 
-#define AVB_INSIDE_LIBAVB_AB_H
-#include "avb_ab_flow.h"
-#include "avb_ab_ops.h"
-#undef AVB_INSIDE_LIBAVB_AB_H
+#define AVB_INSIDE_LIBAVB_ATX_H
+#include "avb_atx_ops.h"
+#include "avb_atx_types.h"
+#include "avb_atx_validate.h"
+#undef AVB_INSIDE_LIBAVB_ATX_H
 
-#endif /* LIBAVB_AB_H_ */
+#endif /* LIBAVB_ATX_H_ */

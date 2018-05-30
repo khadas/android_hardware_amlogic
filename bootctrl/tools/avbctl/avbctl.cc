@@ -26,17 +26,13 @@
 #include <string.h>
 #include <sysexits.h>
 
-#include <android/hardware/boot/1.0/IBootControl.h>
+#include <android-base/properties.h>
 
 #include <libavb_user/libavb_user.h>
 
-using android::sp;
-using android::hardware::hidl_string;
-using android::hardware::Return;
-using android::hardware::boot::V1_0::IBootControl;
-using android::hardware::boot::V1_0::Slot;
-
 namespace {
+
+static bool g_opt_force = false;
 
 /* Prints program usage to |where|. */
 void usage(FILE* where, int /* argc */, char* argv[]) {
@@ -44,181 +40,208 @@ void usage(FILE* where, int /* argc */, char* argv[]) {
           "%s - command-line tool for AVB.\n"
           "\n"
           "Usage:\n"
-          "  %s COMMAND\n"
+          "  %s [--force] COMMAND\n"
           "\n"
           "Commands:\n"
-          "  %s disable-verity    - Disable verity in current slot.\n"
-          "  %s enable-verity     - Enable verity in current slot.\n",
+          "  %s get-verity           - Prints whether verity is enabled in "
+          "current slot.\n"
+          "  %s disable-verity       - Disable verity in current slot.\n"
+          "  %s enable-verity        - Enable verity in current slot.\n"
+          "  %s get-verification     - Prints whether verification is enabled "
+          "in current slot.\n"
+          "  %s disable-verification - Disable verification in current slot.\n"
+          "  %s enable-verification  - Enable verification in current slot.\n",
+          argv[0],
+          argv[0],
+          argv[0],
+          argv[0],
           argv[0],
           argv[0],
           argv[0],
           argv[0]);
 }
 
-/* Returns the A/B suffix the device booted from or the empty string
- * if A/B is not in use.
+/* Returns true if device is in LOCKED mode and --force wasn't
+ * passed. In this case also prints diagnostic message to stderr as a
+ * side-effect.
  */
-std::string get_ab_suffix(sp<IBootControl> module) {
-  std::string suffix = "";
+bool is_locked_and_not_forced() {
+  std::string device_state;
 
-  if (module != nullptr) {
-    uint32_t num_slots = module->getNumberSlots();
-    if (num_slots > 1) {
-      Slot cur_slot = module->getCurrentSlot();
-      Return<void> ret =
-          module->getSuffix(cur_slot, [&suffix](const hidl_string& value) {
-            suffix = std::string(value.c_str());
-          });
-      if (!ret.isOk()) {
-        fprintf(stderr, "Error getting suffix for slot %d.\n", cur_slot);
-      }
-    }
-  }
-
-  return suffix;
-}
-
-/* Loads the toplevel AvbVBMetaImageHeader from the slot denoted by
- * |ab_suffix| into |vbmeta_image|. No validation, verification, or
- * byteswapping is performed.
- *
- * If successful, |true| is returned and the partition it was loaded
- * from is returned in |out_partition_name| and the offset on said
- * partition is returned in |out_vbmeta_offset|.
- */
-bool load_top_level_vbmeta_header(
-    AvbOps* ops,
-    const std::string& ab_suffix,
-    uint8_t vbmeta_image[AVB_VBMETA_IMAGE_HEADER_SIZE],
-    std::string* out_partition_name,
-    uint64_t* out_vbmeta_offset) {
-  std::string partition_name = std::string("vbmeta") + ab_suffix;
-  uint64_t vbmeta_offset = 0;
-
-  // Only read the header.
-  size_t num_read;
-  AvbIOResult io_res = ops->read_from_partition(ops,
-                                                partition_name.c_str(),
-                                                vbmeta_offset,
-                                                AVB_VBMETA_IMAGE_HEADER_SIZE,
-                                                vbmeta_image,
-                                                &num_read);
-  if (io_res == AVB_IO_RESULT_ERROR_NO_SUCH_PARTITION) {
-    AvbFooter footer;
-    // Try looking for the vbmeta struct in 'boot' via the footer.
-    partition_name = std::string("boot") + ab_suffix;
-    io_res = ops->read_from_partition(ops,
-                                      partition_name.c_str(),
-                                      -AVB_FOOTER_SIZE,
-                                      AVB_FOOTER_SIZE,
-                                      &footer,
-                                      &num_read);
-    if (io_res != AVB_IO_RESULT_OK) {
-      fprintf(stderr,
-              "Error loading footer from partition '%s' (%d).\n",
-              partition_name.c_str(),
-              io_res);
-      return false;
-    }
-
-    if (memcmp(footer.magic, AVB_FOOTER_MAGIC, AVB_FOOTER_MAGIC_LEN) != 0) {
-      fprintf(stderr,
-              "Data from '%s' does not look like a vbmeta footer.\n",
-              partition_name.c_str());
-      return false;
-    }
-
-    vbmeta_offset = avb_be64toh(footer.vbmeta_offset);
-    io_res = ops->read_from_partition(ops,
-                                      partition_name.c_str(),
-                                      vbmeta_offset,
-                                      AVB_VBMETA_IMAGE_HEADER_SIZE,
-                                      vbmeta_image,
-                                      &num_read);
-  }
-
-  if (io_res != AVB_IO_RESULT_OK) {
+  device_state = android::base::GetProperty("ro.boot.vbmeta.device_state", "");
+  if (device_state == "locked" && !g_opt_force) {
     fprintf(stderr,
-            "Error loading from offset %" PRIu64 " of partition '%s' (%d).\n",
-            vbmeta_offset,
-            partition_name.c_str(),
-            io_res);
+            "Manipulating vbmeta on a LOCKED device will likely cause the\n"
+            "device to fail booting with little chance of recovery.\n"
+            "\n"
+            "If you really want to do this, use the --force option.\n"
+            "\n"
+            "ONLY DO THIS IF YOU KNOW WHAT YOU ARE DOING.\n"
+            "\n");
     return false;
   }
 
-  if (out_partition_name != nullptr) {
-    *out_partition_name = partition_name;
-  }
-  if (out_vbmeta_offset != nullptr) {
-    *out_vbmeta_offset = vbmeta_offset;
-  }
   return true;
 }
 
-/* Function to enable and disable dm-verity. The |ops| parameter
- * should be an |AvbOps| from libavb_user and |module| can either be
- * |nullptr| or a valid boot_control module.
+/* Function to enable and disable verification. The |ops| parameter
+ * should be an |AvbOps| from libavb_user.
  */
-int do_set_verity(AvbOps* ops, sp<IBootControl> module, bool enable_verity) {
-  uint8_t vbmeta_image[AVB_VBMETA_IMAGE_HEADER_SIZE];  // 256 bytes.
-  std::string ab_suffix;
-  std::string partition_name;
-  uint64_t vbmeta_offset;
-  AvbIOResult io_res;
+int do_set_verification(AvbOps* ops,
+                        const std::string& ab_suffix,
+                        bool enable_verification) {
+  bool verification_enabled;
 
-  ab_suffix = get_ab_suffix(module);
-
-  if (!load_top_level_vbmeta_header(
-          ops, ab_suffix, vbmeta_image, &partition_name, &vbmeta_offset)) {
+  if (!avb_user_verification_get(
+          ops, ab_suffix.c_str(), &verification_enabled)) {
+    fprintf(stderr, "Error getting whether verification is enabled.\n");
     return EX_SOFTWARE;
   }
 
-  if (memcmp(vbmeta_image, AVB_MAGIC, AVB_MAGIC_LEN) != 0) {
-    fprintf(stderr,
-            "Data from '%s' does not look like a vbmeta header.\n",
-            partition_name.c_str());
-    return EX_SOFTWARE;
+  if ((verification_enabled && enable_verification) ||
+      (!verification_enabled && !enable_verification)) {
+    fprintf(stdout,
+            "verification is already %s",
+            verification_enabled ? "enabled" : "disabled");
+    if (ab_suffix != "") {
+      fprintf(stdout, " on slot with suffix %s", ab_suffix.c_str());
+    }
+    fprintf(stdout, ".\n");
+    return EX_OK;
   }
 
-  // Set/clear the HASHTREE_DISABLED bit, as requested.
-  AvbVBMetaImageHeader* header =
-      reinterpret_cast<AvbVBMetaImageHeader*>(vbmeta_image);
-  uint32_t flags = avb_be32toh(header->flags);
-  flags &= ~AVB_VBMETA_IMAGE_FLAGS_HASHTREE_DISABLED;
-  if (!enable_verity) {
-    flags |= AVB_VBMETA_IMAGE_FLAGS_HASHTREE_DISABLED;
+  if (!is_locked_and_not_forced()) {
+    return EX_NOPERM;
   }
-  header->flags = avb_htobe32(flags);
 
-  // Write the header.
-  io_res = ops->write_to_partition(ops,
-                                   partition_name.c_str(),
-                                   vbmeta_offset,
-                                   AVB_VBMETA_IMAGE_HEADER_SIZE,
-                                   vbmeta_image);
-  if (io_res != AVB_IO_RESULT_OK) {
-    fprintf(stderr,
-            "Error writing to offset %" PRIu64 " of partition '%s' (%d).\n",
-            vbmeta_offset,
-            partition_name.c_str(),
-            io_res);
+  if (!avb_user_verification_set(ops, ab_suffix.c_str(), enable_verification)) {
+    fprintf(stderr, "Error setting verification.\n");
     return EX_SOFTWARE;
   }
 
   fprintf(stdout,
-          "Successfully %s verity on %s.\n",
-          enable_verity ? "enabled" : "disabled",
-          partition_name.c_str());
+          "Successfully %s verification",
+          enable_verification ? "enabled" : "disabled");
+  if (ab_suffix != "") {
+    fprintf(stdout, " on slot with suffix %s", ab_suffix.c_str());
+  }
+  fprintf(stdout, ". Reboot the device for changes to take effect.\n");
 
   return EX_OK;
 }
 
+/* Function to query if verification. The |ops| parameter should be an
+ * |AvbOps| from libavb_user.
+ */
+int do_get_verification(AvbOps* ops, const std::string& ab_suffix) {
+  bool verification_enabled;
+
+  if (!avb_user_verification_get(
+          ops, ab_suffix.c_str(), &verification_enabled)) {
+    fprintf(stderr, "Error getting whether verification is enabled.\n");
+    return EX_SOFTWARE;
+  }
+
+  fprintf(stdout,
+          "verification is %s",
+          verification_enabled ? "enabled" : "disabled");
+  if (ab_suffix != "") {
+    fprintf(stdout, " on slot with suffix %s", ab_suffix.c_str());
+  }
+  fprintf(stdout, ".\n");
+
+  return EX_OK;
+}
+
+/* Function to enable and disable dm-verity. The |ops| parameter
+ * should be an |AvbOps| from libavb_user.
+ */
+int do_set_verity(AvbOps* ops,
+                  const std::string& ab_suffix,
+                  bool enable_verity) {
+  bool verity_enabled;
+
+  if (!avb_user_verity_get(ops, ab_suffix.c_str(), &verity_enabled)) {
+    fprintf(stderr, "Error getting whether verity is enabled.\n");
+    return EX_SOFTWARE;
+  }
+
+  if ((verity_enabled && enable_verity) ||
+      (!verity_enabled && !enable_verity)) {
+    fprintf(stdout,
+            "verity is already %s",
+            verity_enabled ? "enabled" : "disabled");
+    if (ab_suffix != "") {
+      fprintf(stdout, " on slot with suffix %s", ab_suffix.c_str());
+    }
+    fprintf(stdout, ".\n");
+    return EX_OK;
+  }
+
+  if (!is_locked_and_not_forced()) {
+    return EX_NOPERM;
+  }
+
+  if (!avb_user_verity_set(ops, ab_suffix.c_str(), enable_verity)) {
+    fprintf(stderr, "Error setting verity.\n");
+    return EX_SOFTWARE;
+  }
+
+  fprintf(
+      stdout, "Successfully %s verity", enable_verity ? "enabled" : "disabled");
+  if (ab_suffix != "") {
+    fprintf(stdout, " on slot with suffix %s", ab_suffix.c_str());
+  }
+  fprintf(stdout, ". Reboot the device for changes to take effect.\n");
+
+  return EX_OK;
+}
+
+/* Function to query if dm-verity is enabled. The |ops| parameter
+ * should be an |AvbOps| from libavb_user.
+ */
+int do_get_verity(AvbOps* ops, const std::string& ab_suffix) {
+  bool verity_enabled;
+
+  if (!avb_user_verity_get(ops, ab_suffix.c_str(), &verity_enabled)) {
+    fprintf(stderr, "Error getting whether verity is enabled.\n");
+    return EX_SOFTWARE;
+  }
+
+  fprintf(stdout, "verity is %s", verity_enabled ? "enabled" : "disabled");
+  if (ab_suffix != "") {
+    fprintf(stdout, " on slot with suffix %s", ab_suffix.c_str());
+  }
+  fprintf(stdout, ".\n");
+
+  return EX_OK;
+}
+
+/* Helper function to get A/B suffix, if any. If the device isn't
+ * using A/B the empty string is returned. Otherwise either "_a",
+ * "_b", ... is returned.
+ */
+std::string get_ab_suffix() {
+  return android::base::GetProperty("ro.boot.slot_suffix", "");
+}
+
 }  // namespace
+
+enum class Command {
+  kNone,
+  kDisableVerity,
+  kEnableVerity,
+  kGetVerity,
+  kDisableVerification,
+  kEnableVerification,
+  kGetVerification,
+};
 
 int main(int argc, char* argv[]) {
   int ret;
-  sp<IBootControl> module;
   AvbOps* ops = nullptr;
+  std::string ab_suffix = get_ab_suffix();
+  Command cmd = Command::kNone;
 
   if (argc < 2) {
     usage(stderr, argc, argv);
@@ -233,20 +256,49 @@ int main(int argc, char* argv[]) {
     goto out;
   }
 
-  // Failing to get the boot_control HAL is not a fatal error - it can
-  // happen if A/B is not in use, in which case |nullptr| is returned.
-  module = IBootControl::getService();
-
-  if (strcmp(argv[1], "disable-verity") == 0) {
-    ret = do_set_verity(ops, module, false);
-  } else if (strcmp(argv[1], "enable-verity") == 0) {
-    ret = do_set_verity(ops, module, true);
-  } else {
-    usage(stderr, argc, argv);
-    ret = EX_USAGE;
+  for (int n = 1; n < argc; n++) {
+    if (strcmp(argv[n], "--force") == 0) {
+      g_opt_force = true;
+    } else if (strcmp(argv[n], "disable-verity") == 0) {
+      cmd = Command::kDisableVerity;
+    } else if (strcmp(argv[n], "enable-verity") == 0) {
+      cmd = Command::kEnableVerity;
+    } else if (strcmp(argv[n], "get-verity") == 0) {
+      cmd = Command::kGetVerity;
+    } else if (strcmp(argv[n], "disable-verification") == 0) {
+      cmd = Command::kDisableVerification;
+    } else if (strcmp(argv[n], "enable-verification") == 0) {
+      cmd = Command::kEnableVerification;
+    } else if (strcmp(argv[n], "get-verification") == 0) {
+      cmd = Command::kGetVerification;
+    }
   }
 
-  ret = EX_OK;
+  switch (cmd) {
+    case Command::kNone:
+      usage(stderr, argc, argv);
+      ret = EX_USAGE;
+      break;
+    case Command::kDisableVerity:
+      ret = do_set_verity(ops, ab_suffix, false);
+      break;
+    case Command::kEnableVerity:
+      ret = do_set_verity(ops, ab_suffix, true);
+      break;
+    case Command::kGetVerity:
+      ret = do_get_verity(ops, ab_suffix);
+      break;
+    case Command::kDisableVerification:
+      ret = do_set_verification(ops, ab_suffix, false);
+      break;
+    case Command::kEnableVerification:
+      ret = do_set_verification(ops, ab_suffix, true);
+      break;
+    case Command::kGetVerification:
+      ret = do_get_verification(ops, ab_suffix);
+      break;
+  }
+
 out:
   if (ops != nullptr) {
     avb_ops_user_free(ops);
