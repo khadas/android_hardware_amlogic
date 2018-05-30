@@ -1270,11 +1270,12 @@ static int out_pause (struct audio_stream_out *stream)
         }
     }
 exit1:
-    if (out->hw_sync_mode) {
-        sysfs_set_sysfs_str (TSYNC_EVENT, "AUDIO_PAUSE");
-    }
     out->pause_status = true;
 exit:
+    if (out->hw_sync_mode) {
+        ALOGI("%s set AUDIO_PAUSE when tunnel mode\n",__func__);
+        sysfs_set_sysfs_str (TSYNC_EVENT, "AUDIO_PAUSE");
+    }
     pthread_mutex_unlock (&adev->lock);
     pthread_mutex_unlock (&out->lock);
     return r;
@@ -1312,10 +1313,13 @@ static int out_resume (struct audio_stream_out *stream)
         ALOGI ("init hal mixer when hwsync resume\n");
         adev->hwsync_output = out;
         aml_hal_mixer_init (&adev->hal_mixer);
-        sysfs_set_sysfs_str (TSYNC_EVENT, "AUDIO_RESUME");
     }
     out->pause_status = false;
 exit:
+    if (out->hw_sync_mode) {
+        ALOGI("%s set AUDIO_RESUME when tunnel mode\n",__func__);
+        sysfs_set_sysfs_str (TSYNC_EVENT, "AUDIO_RESUME");
+    }
     pthread_mutex_unlock (&adev->lock);
     pthread_mutex_unlock (&out->lock);
     return r;
@@ -1339,12 +1343,11 @@ static int out_pause_new (struct audio_stream_out *stream)
     if (ret < 0)
         goto exit;
 exit1:
-    aml_out->pause_status = true;
 
     if (aml_out->hw_sync_mode)
         sysfs_set_sysfs_str (TSYNC_EVENT, "AUDIO_PAUSE");
 
-    aml_out->pause_status = 1;
+    aml_out->pause_status = true;
 exit:
     pthread_mutex_unlock (&aml_dev->lock);
     pthread_mutex_unlock (&aml_out->lock);
@@ -3466,8 +3469,8 @@ static int adev_open_output_stream(struct audio_hw_device *dev,
     out->stream.get_render_position = out_get_render_position;
     out->stream.get_next_write_timestamp = out_get_next_write_timestamp;
     out->stream.get_presentation_position = out_get_presentation_position;
-    out->stream.pause = out_pause_new;
-    out->stream.resume = out_resume_new;
+    out->stream.pause = out_pause;
+    out->stream.resume = out_resume;
     out->stream.flush = out_flush_new;
     out->out_device = devices;
     out->flags = flags;

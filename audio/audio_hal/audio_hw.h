@@ -357,7 +357,7 @@ struct aml_stream_out {
     size_t tmp_buffer_8ch_size;
     int is_tv_platform;
     void *audioeffect_tmp_buffer;
-    unsigned char pause_status;
+    bool pause_status;
     bool hw_sync_mode;
     float volume_l;
     float volume_r;
