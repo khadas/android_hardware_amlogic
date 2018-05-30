@@ -3002,10 +3002,11 @@ static ssize_t read_frames (struct aml_stream_in *in, void *buffer, ssize_t fram
 
 
 #if defined(IS_ATOM_PROJECT)
-#define MIC_OFFSET (3)
-#else
-#define MIC_OFFSET (0)
+extern void Aud_Gain_Filter_Process(void* inBuf, int numSamples);
 #endif
+
+#define MIC_OFFSET (0)
+
 static ssize_t in_read(struct audio_stream_in *stream, void* buffer, size_t bytes)
 {
     struct aml_stream_in *in = (struct aml_stream_in *)stream;
@@ -3101,6 +3102,9 @@ static ssize_t in_read(struct audio_stream_in *stream, void* buffer, size_t byte
             mic_buf[2 * i] = tmp_buffer_8ch[8 * i + 6];
             mic_buf[2 * i + 1] = tmp_buffer_8ch[8 * i + 7];
         }
+
+		Aud_Gain_Filter_Process(mic_buf, cur_in_frames); //MIC Gain and filter
+
         if (in->device & AUDIO_DEVICE_IN_BUILTIN_MIC) {
             int read_bytes = in->requested_rate == 16000 ? 60 + cur_in_bytes : 20 + cur_in_bytes;
             if (adev->spk_buf_size < cur_in_bytes) {
@@ -6358,8 +6362,18 @@ static int adev_open(const hw_module_t* module, const char* name, hw_device_t** 
     if (load_DSP_lib() < 0 || dsp_init(1, 3, 5, 48000) < 0) {
         ALOGE("%s: load dsp lib or dsp init failed", __func__);
         adev->has_dsp_lib = false;
-    } else
+    } else {
+        char value[PROPERTY_VALUE_MAX];
+        if (property_get("persist.harman.dspmode", value, "0") > 0) {
+            int dspmode = atoi(value);
+            if (dspmode <= 2) {
+                dsp_setParameter(0x10010070, &dspmode);
+                /* 0 is normal mode; 1 is hw test mode; 2 is bypass mode*/
+                ALOGE("%s: set dsp mode is %d", __func__, dspmode);
+            }
+        }
         adev->has_dsp_lib = true;
+    }
 #endif
 
     *device = &adev->hw_device.common;
