@@ -812,7 +812,8 @@ static int do_output_standby_direct (struct aml_stream_out *out)
         }
 
         out->standby = 1;
-        pcm_close (out->pcm);
+        if (out->pcm)
+            pcm_close (out->pcm);
         out->pcm = NULL;
     }
     out->pause_status = false;
@@ -885,7 +886,7 @@ static int out_flush (struct audio_stream_out *stream)
     bool hwsync_lpcm = (out->flags & AUDIO_OUTPUT_FLAG_HW_AV_SYNC && out->config.rate  <= 48000 &&
                         audio_is_linear_pcm(out->hal_internal_format) && channel_count <= 2);
     do_standby_func standy_func = NULL;
-    if (out->flags & AUDIO_OUTPUT_FLAG_DIRECT && !hwsync_lpcm) {
+    if (out->flags & AUDIO_OUTPUT_FLAG_DIRECT/* && !hwsync_lpcm*/) {
         standy_func = do_output_standby_direct;
     } else {
         standy_func = do_output_standby;
@@ -906,6 +907,7 @@ static int out_flush (struct audio_stream_out *stream)
     out->spdif_enc_init_frame_write_sum =  0;
     out->frame_skip_sum = 0;
     out->skip_frame = 0;
+    aml_audio_hwsync_init(&out->hwsync);
 
 exit:
     pthread_mutex_unlock (&adev->lock);
@@ -3471,7 +3473,7 @@ static int adev_open_output_stream(struct audio_hw_device *dev,
     out->stream.get_presentation_position = out_get_presentation_position;
     out->stream.pause = out_pause;
     out->stream.resume = out_resume;
-    out->stream.flush = out_flush_new;
+    out->stream.flush = out_flush;
     out->out_device = devices;
     out->flags = flags;
     out->volume_l = 1.0;
