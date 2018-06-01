@@ -1358,10 +1358,10 @@ static int out_resume_new (struct audio_stream_out *stream)
     int ret = 0;
 
     ALOGI ("%s(), stream(%p)\n", __func__, stream);
-    if (aml_out->pause_status != 1) {
-        ALOGE("%s(), stream status %d\n", __func__, aml_out->pause_status);
-        return ret;
-    }
+    //if (aml_out->pause_status != 1) {
+    //    ALOGE("%s(), stream status %d\n", __func__, aml_out->pause_status);
+    //    return ret;
+    //}
     pthread_mutex_lock (&aml_dev->lock);
     pthread_mutex_lock (&aml_out->lock);
     if (aml_out->standby || aml_out->pause_status == false) {
@@ -1371,6 +1371,10 @@ static int out_resume_new (struct audio_stream_out *stream)
         ALOGE ("Amlogic_HAL - %s: cannot resume, because output stream isn't in standby or paused state.", __FUNCTION__);
         ret = 3;
         goto exit;
+    }
+    if (aml_out->pause_status != 1) {
+        ALOGE("%s(), stream status %d\n", __func__, aml_out->pause_status);
+        return ret;
     }
     aml_out->pause_status = false;
     if (aml_out->hw_sync_mode)
