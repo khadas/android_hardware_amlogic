@@ -16,8 +16,8 @@ typedef enum{
 }RECORDING_DEVICE;
 
 void nano_init(void);
-int nano_open(struct pcm_config *config_pcm,struct audio_config *config);
-void nano_close();
+int nano_open(struct pcm_config *config_pcm, struct audio_config *config,int source,struct audio_stream_in* stream_in);
+void nano_close(struct audio_stream_in* stream_in);
 int nano_get_recorde_device(void);
 uint32_t nano_get_sample_rate(const struct audio_stream *stream);
 size_t nano_get_buffer_size(const struct audio_stream *stream);

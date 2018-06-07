@@ -74,9 +74,13 @@
 #include "harman_dsp_process.h"
 #include "audio_aec_process.h"
 #endif
+
+#if (ENABLE_NANO_PATCH == 1)
 /*[SEN5-autumn.zhao-2018-01-11] add for B06 audio support { */
 #include "jb_nano.h"
 /*[SEN5-autumn.zhao-2018-01-11] add for B06 audio support } */
+#endif
+
 /* minimum sleep time in out_write() when write threshold is not reached */
 #define MIN_WRITE_SLEEP_US 5000
 #define NSEC_PER_SECOND 1000000000ULL
@@ -155,9 +159,11 @@ static int create_patch (struct audio_hw_device *dev,
                          audio_devices_t input,
                          audio_devices_t output);
 static int release_patch (struct aml_audio_device *aml_dev);
+#if (ENABLE_NANO_PATCH == 1)
 /*[SEN5-autumn.zhao-2018-01-11] add for B06 audio support { */
 static RECORDING_DEVICE recording_device = RECORDING_DEVICE_OTHER;
 /*[SEN5-autumn.zhao-2018-01-11] add for B06 audio support } */
+#endif
 static inline short CLIP (int r)
 {
     return (r >  0x7fff) ? 0x7fff :
@@ -4159,7 +4165,16 @@ static size_t adev_get_input_buffer_size(const struct audio_hw_device *dev __unu
 
     return size;
 }
-
+#if (ENABLE_NANO_PATCH == 1)
+static int adev_open_input_stream(struct audio_hw_device *dev,
+                                audio_io_handle_t handle __unused,
+                                audio_devices_t devices,
+                                struct audio_config *config,
+                                struct audio_stream_in **stream_in,
+                                audio_input_flags_t flags __unused,
+                                const char *address __unused,
+                                audio_source_t source)
+#else
 static int adev_open_input_stream(struct audio_hw_device *dev,
                                 audio_io_handle_t handle __unused,
                                 audio_devices_t devices,
@@ -4168,6 +4183,7 @@ static int adev_open_input_stream(struct audio_hw_device *dev,
                                 audio_input_flags_t flags __unused,
                                 const char *address __unused,
                                 audio_source_t source __unused)
+#endif								
 {
     struct aml_audio_device *adev = (struct aml_audio_device *)dev;
     struct aml_stream_in *in;
@@ -4296,11 +4312,12 @@ exit:
     }
     in->ref_count++;
 #endif
+#if (ENABLE_NANO_PATCH == 1)
 /*[SEN5-autumn.zhao-2018-01-11] add for B06 audio support { */
 	recording_device = nano_get_recorde_device();
 	ALOGD("recording_device=%d\n",recording_device);
 	if(recording_device == RECORDING_DEVICE_NANO){
-		int ret = nano_open(&in->config, config);
+		int ret = nano_open(&in->config, config,source,&in->stream);
 		if(ret < 0){
 			recording_device = RECORDING_DEVICE_OTHER;
 		}
@@ -4314,6 +4331,7 @@ exit:
 		}
 	}
 /*[SEN5-autumn.zhao-2018-01-11] add for B06 audio support } */
+#endif
     *stream_in = &in->stream;
     ALOGD("%s: exit", __func__);
 
@@ -4359,12 +4377,14 @@ static void adev_close_input_stream(struct audio_hw_device *dev,
     ALOGD("%s: enter: dev(%p) stream(%p)", __func__, dev, stream);
 #endif
     in_standby(&stream->common);
+#if (ENABLE_NANO_PATCH == 1)
 /*[SEN5-autumn.zhao-2018-03-15] add for B06A remote audio support { */
     if(recording_device == RECORDING_DEVICE_NANO){
-       nano_close();
+       nano_close(stream);
 	//   LOGFUNC("%s nano_close", __FUNCTION__); 
     }
 /*[SEN5-autumn.zhao-2018-03-15] add for B06A remote audio support } */	
+#endif
     if (in->device & AUDIO_DEVICE_IN_WIRED_HEADSET)
         rc_close_input_stream(in);
 #if defined(IS_ATOM_PROJECT)
@@ -6363,9 +6383,11 @@ static int adev_open(const hw_module_t* module, const char* name, hw_device_t** 
 #endif
 
     *device = &adev->hw_device.common;
+#if (ENABLE_NANO_PATCH == 1)
 /*[SEN5-autumn.zhao-2018-01-11] add for B06 audio support { */
 	nano_init();
 /*[SEN5-autumn.zhao-2018-01-11] add for B06 audio support } */	
+#endif  
     ALOGD("%s: exit", __func__);
 
     return 0;
