@@ -87,7 +87,8 @@ ifeq ($(strip $(TARGET_BOOTLOADER_BOARD_NAME)), atom)
     LOCAL_CFLAGS += -DIS_ATOM_PROJECT
     LOCAL_SRC_FILES += \
         audio_aec_process.cpp \
-        harman_dsp_process.c
+        harman_dsp_process.c \
+        harman_aud_filter.c
     LOCAL_C_INCLUDES += \
         $(LOCAL_PATH)/../google_aec
     LOCAL_SHARED_LIBRARIES += \
