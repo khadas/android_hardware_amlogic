@@ -361,6 +361,26 @@ static int32_t mali_gralloc1_unlock_async(gralloc1_device_t *device, buffer_hand
 	return GRALLOC1_ERROR_NONE;
 }
 
+#if PLATFORM_SDK_VERSION >= 26
+static int32_t mali_gralloc1_set_layer_count(gralloc1_device_t* device,
+                                             gralloc1_buffer_descriptor_t descriptor,
+                                             uint32_t layerCount)
+{
+	int ret = 0;
+	ret = mali_gralloc_set_layer_count_internal(descriptor, layerCount);
+	GRALLOC_UNUSED(device);
+	return ret;
+}
+
+static int32_t mali_gralloc1_get_layer_count(gralloc1_device_t* device, buffer_handle_t buffer, uint32_t* outLayerCount)
+{
+	int ret = 0;
+	ret = mali_gralloc_get_layer_count_internal(buffer, outLayerCount);
+	GRALLOC_UNUSED(device);
+	return ret;
+}
+#endif
+
 static const mali_gralloc_func mali_gralloc_func_list[] = {
 	{ GRALLOC1_FUNCTION_DUMP, (gralloc1_function_pointer_t)mali_gralloc_dump },
 	{ GRALLOC1_FUNCTION_CREATE_DESCRIPTOR, (gralloc1_function_pointer_t)mali_gralloc_create_descriptor },
@@ -382,6 +402,10 @@ static const mali_gralloc_func mali_gralloc_func_list[] = {
 	{ GRALLOC1_FUNCTION_LOCK, (gralloc1_function_pointer_t)mali_gralloc1_lock_async },
 	{ GRALLOC1_FUNCTION_LOCK_FLEX, (gralloc1_function_pointer_t)mali_gralloc1_lock_flex_async },
 	{ GRALLOC1_FUNCTION_UNLOCK, (gralloc1_function_pointer_t)mali_gralloc1_unlock_async },
+#if PLATFORM_SDK_VERSION >= 26
+	{ GRALLOC1_FUNCTION_SET_LAYER_COUNT, (gralloc1_function_pointer_t)mali_gralloc1_set_layer_count },
+	{ GRALLOC1_FUNCTION_GET_LAYER_COUNT, (gralloc1_function_pointer_t)mali_gralloc1_get_layer_count },
+#endif
 
 	/* GRALLOC1_FUNCTION_INVALID has to be the last descriptor on the list. */
 	{ GRALLOC1_FUNCTION_INVALID, NULL }
@@ -390,12 +414,23 @@ static const mali_gralloc_func mali_gralloc_func_list[] = {
 static void mali_gralloc_getCapabilities(gralloc1_device_t *dev, uint32_t *outCount, int32_t *outCapabilities)
 {
 	GRALLOC_UNUSED(dev);
-	GRALLOC_UNUSED(outCapabilities);
+#if PLATFORM_SDK_VERSION >= 26
+	if (outCount != NULL)
+	{
+		*outCount = 1;
+	}
 
+	if (outCapabilities != NULL)
+	{
+		*(outCapabilities++) = GRALLOC1_CAPABILITY_LAYERED_BUFFERS;
+	}
+#else
+	GRALLOC_UNUSED(outCapabilities);
 	if (outCount != NULL)
 	{
 		*outCount = 0;
 	}
+#endif
 }
 
 static gralloc1_function_pointer_t mali_gralloc_getFunction(gralloc1_device_t *dev, int32_t descriptor)

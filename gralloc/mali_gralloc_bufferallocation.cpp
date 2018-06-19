@@ -897,9 +897,13 @@ int mali_gralloc_buffer_allocate(mali_gralloc_module *m, const gralloc_buffer_de
 	uint64_t usage;
 	uint32_t i = 0;
 	int err;
+
 	int yv12_align = YUV_MALI_PLANE_ALIGN;
 	int buffer_width;
-
+	/* This flag is to avoid the mutually exclusive modifier bits warning being continuously emitted.
+	 * (see comment below for explanation of warning).
+	 */
+	static bool warn_about_mutual_exclusive = true;
 
 	for (i = 0; i < numDescriptors; i++)
 	{
@@ -932,8 +936,23 @@ int mali_gralloc_buffer_allocate(mali_gralloc_module *m, const gralloc_buffer_de
 			      bufDescriptor->hal_format, usage);
 			return -EINVAL;
 		}
+		/*
+		 * Modifier bits are no longer mutually exclusive. Warn when
+		 * any bits are set in addition to AFBC basic since these might
+		 * have been handled differently by clients under the old scheme.
+		 * AFBC basic is guaranteed to be signalled when any other AFBC
+		 * flags are set.
+		 */
+		else if (warn_about_mutual_exclusive &&
+		         (bufDescriptor->internal_format & 0x0000000100000000ULL) &&
+		         (bufDescriptor->internal_format & 0x0000000e00000000ULL))
+		{
+			warn_about_mutual_exclusive = false;
+			ALOGW("WARNING: internal format modifier bits not mutually exclusive. AFBC basic bit is always set, so extended AFBC support bits must always be checked.");
+		}
 
-		/* Determine AFBC type for this format */
+		/* Determine AFBC type for this format. This is used to decide alignment.
+		 * Split block does not affect alignment, and therefore doesn't affect the AllocType. */
 		if (bufDescriptor->internal_format & MALI_GRALLOC_INTFMT_AFBCENABLE_MASK)
 		{
 			if (bufDescriptor->internal_format & MALI_GRALLOC_INTFMT_AFBC_TILED_HEADERS)
@@ -945,11 +964,6 @@ int mali_gralloc_buffer_allocate(mali_gralloc_module *m, const gralloc_buffer_de
 				else if (bufDescriptor->internal_format & MALI_GRALLOC_INTFMT_AFBC_BASIC)
 				{
 					alloc_type = AFBC_TILED_HEADERS_BASIC;
-				}
-				else if (bufDescriptor->internal_format & MALI_GRALLOC_INTFMT_AFBC_SPLITBLK)
-				{
-					ALOGE("Unsupported format. Splitblk in tiled header configuration.");
-					return -EINVAL;
 				}
 			}
 			else if (usage & MALI_GRALLOC_USAGE_AFBC_PADDING)
@@ -973,6 +987,9 @@ int mali_gralloc_buffer_allocate(mali_gralloc_module *m, const gralloc_buffer_de
 		case HAL_PIXEL_FORMAT_RGBA_8888:
 		case HAL_PIXEL_FORMAT_RGBX_8888:
 		case HAL_PIXEL_FORMAT_BGRA_8888:
+#if PLATFORM_SDK_VERSION >= 26
+		case HAL_PIXEL_FORMAT_RGBA_1010102:
+#endif
 			get_rgb_stride_and_size(bufDescriptor->width, bufDescriptor->height, 4, &bufDescriptor->pixel_stride,
 			                        &bufDescriptor->byte_stride, &bufDescriptor->size, alloc_type);
 			break;
@@ -986,6 +1003,13 @@ int mali_gralloc_buffer_allocate(mali_gralloc_module *m, const gralloc_buffer_de
 			get_rgb_stride_and_size(bufDescriptor->width, bufDescriptor->height, 2, &bufDescriptor->pixel_stride,
 			                        &bufDescriptor->byte_stride, &bufDescriptor->size, alloc_type);
 			break;
+
+#if PLATFORM_SDK_VERSION >= 26
+		case HAL_PIXEL_FORMAT_RGBA_FP16:
+			get_rgb_stride_and_size(bufDescriptor->width, bufDescriptor->height, 8, &bufDescriptor->pixel_stride,
+			                        &bufDescriptor->byte_stride, &bufDescriptor->size, alloc_type);
+			break;
+#endif
 
 		case MALI_GRALLOC_FORMAT_INTERNAL_YV12:
 			/* Mali subsystem prefers higher stride alignment values (128 bytes) for YUV, but software components assume
@@ -1159,6 +1183,31 @@ int mali_gralloc_buffer_allocate(mali_gralloc_module *m, const gralloc_buffer_de
 		 */
 		default:
 			return -EINVAL;
+		}
+
+		/*
+		 * Each layer of a multi-layer buffer must be aligned so that
+		 * it is accessible by both producer and consumer. In most cases,
+		 * the stride alignment is also sufficient for each layer, however
+		 * for AFBC the header buffer alignment is more constrained (see
+		 * AFBC specification v3.4, section 2.15: "Alignment requirements").
+		 * Also update the buffer size to accommodate all layers.
+		 */
+		if (bufDescriptor->layer_count > 1)
+		{
+			if (bufDescriptor->internal_format & MALI_GRALLOC_INTFMT_AFBCENABLE_MASK)
+			{
+				if (bufDescriptor->internal_format & MALI_GRALLOC_INTFMT_AFBC_TILED_HEADERS)
+				{
+					bufDescriptor->size = GRALLOC_ALIGN(bufDescriptor->size, 4096);
+				}
+				else
+				{
+					bufDescriptor->size = GRALLOC_ALIGN(bufDescriptor->size, 128);
+				}
+			}
+
+			bufDescriptor->size *= bufDescriptor->layer_count;
 		}
 	}
 

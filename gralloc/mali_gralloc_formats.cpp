@@ -40,6 +40,7 @@
 #include <linux/time.h>
 #endif
 
+
 static mali_gralloc_format_caps dpu_runtime_caps;
 static mali_gralloc_format_caps vpu_runtime_caps;
 static mali_gralloc_format_caps gpu_runtime_caps;
@@ -137,6 +138,9 @@ static bool is_afbc_supported(int req_format_mapped)
 	case MALI_GRALLOC_FORMAT_INTERNAL_P010:
 	case MALI_GRALLOC_FORMAT_INTERNAL_P210:
 	case MALI_GRALLOC_FORMAT_INTERNAL_Y410:
+#if PLATFORM_SDK_VERSION >= 26
+	case MALI_GRALLOC_FORMAT_INTERNAL_RGBA_16161616:
+#endif
 	case HAL_PIXEL_FORMAT_YCbCr_422_I:
 		rval = false;
 		break;
@@ -167,12 +171,54 @@ static bool is_android_yuv_format(int req_format)
 	return rval;
 }
 
-static bool is_afbc_allowed(int buffer_size)
+static bool is_afbc_format(uint64_t internal_format)
 {
+	return (internal_format & MALI_GRALLOC_FORMAT_CAPABILITY_AFBCENABLE_MASK) != 0;
+}
+
+static void apply_gpu_producer_limitations(int req_format, uint64_t *producer_runtime_mask)
+{
+	if (is_android_yuv_format(req_format))
+	{
+		if (gpu_runtime_caps.caps_mask & MALI_GRALLOC_FORMAT_CAPABILITY_AFBC_YUV_NOWRITE)
+		{
+			*producer_runtime_mask &= ~MALI_GRALLOC_FORMAT_CAPABILITY_AFBCENABLE_MASK;
+		}
+		else
+		{
+			/* All GPUs that can write YUV AFBC can only do it in 16x16, optionally with tiled */
+			*producer_runtime_mask &=
+				~(MALI_GRALLOC_FORMAT_CAPABILITY_AFBC_SPLITBLK | MALI_GRALLOC_FORMAT_CAPABILITY_AFBC_WIDEBLK);
+		}
+	}
+}
+
+static void apply_video_consumer_limitations(int req_format, uint64_t *consumer_runtime_mask)
+{
+	if (is_android_yuv_format(req_format))
+	{
+		if (vpu_runtime_caps.caps_mask & MALI_GRALLOC_FORMAT_CAPABILITY_AFBC_YUV_NOREAD)
+		{
+			*consumer_runtime_mask &= ~MALI_GRALLOC_FORMAT_CAPABILITY_AFBCENABLE_MASK;
+		}
+	}
+	else
+	{
+		*consumer_runtime_mask &= ~MALI_GRALLOC_FORMAT_CAPABILITY_AFBCENABLE_MASK;
+	}
+}
+
+/*
+ * NOTE: this code assumes that all layers that don't have AFBC disabled are pre-rotated.
+ * */
+static void apply_display_consumer_limitations(int req_format, int buffer_size, uint64_t *display_consumer_runtime_mask)
+{
+	/* Disable AFBC based on buffer dimensions */
 	bool afbc_allowed = false;
 
 	(void)buffer_size;
 
+#if MALI_DISPLAY_VERSION == 550 || MALI_DISPLAY_VERSION == 650
 #if GRALLOC_DISP_W != 0 && GRALLOC_DISP_H != 0
 	afbc_allowed = ((buffer_size * 100) / (GRALLOC_DISP_W * GRALLOC_DISP_H)) >= GRALLOC_AFBC_MIN_SIZE;
 
@@ -181,13 +227,31 @@ static bool is_afbc_allowed(int buffer_size)
 	afbc_allowed = true;
 
 #endif
+#else
+	/* For cetus, always allow AFBC */
+	afbc_allowed = true;
+#endif
 
-	return afbc_allowed;
-}
-
-static bool is_afbc_format(uint64_t internal_format)
-{
-	return (internal_format & MALI_GRALLOC_FORMAT_CAPABILITY_AFBCENABLE_MASK) != 0;
+	if (!afbc_allowed)
+	{
+		*display_consumer_runtime_mask &= ~MALI_GRALLOC_FORMAT_CAPABILITY_AFBCENABLE_MASK;
+	}
+	else if (is_android_yuv_format(req_format))
+	{
+		/* YUV formats don't support split or wide block. */
+		*display_consumer_runtime_mask &= ~MALI_GRALLOC_FORMAT_CAPABILITY_AFBC_SPLITBLK;
+		*display_consumer_runtime_mask &= ~MALI_GRALLOC_FORMAT_CAPABILITY_AFBC_WIDEBLK;
+	}
+	else
+	{
+		/* Some RGB formats don't support split block. */
+		switch(req_format)
+		{
+		case MALI_GRALLOC_FORMAT_INTERNAL_RGB_565:
+			*display_consumer_runtime_mask &= ~MALI_GRALLOC_FORMAT_CAPABILITY_AFBC_SPLITBLK;
+			break;
+		}
+	}
 }
 
 static uint64_t determine_best_format(int req_format, mali_gralloc_producer_type producer,
@@ -210,29 +274,51 @@ static uint64_t determine_best_format(int req_format, mali_gralloc_producer_type
 			gpu_mask &= consumer_runtime_mask;
 			dpu_mask &= consumer_runtime_mask;
 
+			if (gpu_mask & MALI_GRALLOC_FORMAT_CAPABILITY_AFBC_BASIC &&
+				dpu_mask & MALI_GRALLOC_FORMAT_CAPABILITY_AFBC_BASIC)
+			{
+				internal_format |= MALI_GRALLOC_INTFMT_AFBC_BASIC;
+			}
+
+			/* For pre-Cetus displays split block will be selected without wide block
+			 * as this is preferred. For Cetus, wide block and split block will be enabled
+			 * together. When in future, wide block is disabled for layers that may
+			 * not be pre-rotated, split block should also be disabled. */
 			if (gpu_mask & MALI_GRALLOC_FORMAT_CAPABILITY_AFBC_SPLITBLK &&
 			    dpu_mask & MALI_GRALLOC_FORMAT_CAPABILITY_AFBC_SPLITBLK)
 			{
-				if (gpu_mask & MALI_GRALLOC_FORMAT_CAPABILITY_AFBC_WIDEBLK &&
-				    dpu_mask & MALI_GRALLOC_FORMAT_CAPABILITY_AFBC_WIDEBLK)
-				{
-					internal_format |= MALI_GRALLOC_INTFMT_AFBC_WIDEBLK;
-				} else {
-					internal_format |= MALI_GRALLOC_INTFMT_AFBC_SPLITBLK;
-				}
-
+				internal_format |= MALI_GRALLOC_INTFMT_AFBC_SPLITBLK;
 			}
-			else if (gpu_mask & MALI_GRALLOC_FORMAT_CAPABILITY_AFBC_BASIC &&
-			         dpu_mask & MALI_GRALLOC_FORMAT_CAPABILITY_AFBC_BASIC)
+
+			if (gpu_mask & MALI_GRALLOC_FORMAT_CAPABILITY_AFBC_WIDEBLK &&
+			    dpu_mask & MALI_GRALLOC_FORMAT_CAPABILITY_AFBC_WIDEBLK)
 			{
-				internal_format |= MALI_GRALLOC_INTFMT_AFBC_BASIC;
-
-				if (gpu_mask & MALI_GRALLOC_FORMAT_CAPABILITY_AFBC_TILED_HEADERS &&
-				    dpu_mask & MALI_GRALLOC_FORMAT_CAPABILITY_AFBC_TILED_HEADERS)
-				{
-					internal_format |= MALI_GRALLOC_INTFMT_AFBC_TILED_HEADERS;
-				}
+				internal_format |= MALI_GRALLOC_INTFMT_AFBC_WIDEBLK;
 			}
+
+			if (gpu_mask & MALI_GRALLOC_FORMAT_CAPABILITY_AFBC_TILED_HEADERS &&
+				dpu_mask & MALI_GRALLOC_FORMAT_CAPABILITY_AFBC_TILED_HEADERS)
+			{
+				internal_format |= MALI_GRALLOC_INTFMT_AFBC_TILED_HEADERS;
+			}
+
+#if PLATFORM_SDK_VERSION >= 26
+			/*
+			 * Ensure requested format is supported by producer/consumer.
+			 * GPU composition must always be supported in case of fallback from DPU.
+			 * It is therefore not necessary to enforce DPU support.
+			 */
+			if (req_format == MALI_GRALLOC_FORMAT_INTERNAL_RGBA_1010102 &&
+			    (gpu_mask & MALI_GRALLOC_FORMAT_CAPABILITY_PIXFMT_RGBA1010102) == 0)
+			{
+				internal_format = 0;
+			}
+			else if (req_format == MALI_GRALLOC_FORMAT_INTERNAL_RGBA_16161616 &&
+			         (gpu_mask & MALI_GRALLOC_FORMAT_CAPABILITY_PIXFMT_RGBA16161616) == 0)
+			{
+				internal_format = 0;
+			}
+#endif
 		}
 		else if (consumer == MALI_GRALLOC_CONSUMER_GPU_EXCL)
 		{
@@ -248,6 +334,20 @@ static uint64_t determine_best_format(int req_format, mali_gralloc_producer_type
 			{
 				internal_format |= MALI_GRALLOC_INTFMT_AFBC_TILED_HEADERS;
 			}
+
+#if PLATFORM_SDK_VERSION >= 26
+			/* Reject unsupported formats */
+			if (req_format == MALI_GRALLOC_FORMAT_INTERNAL_RGBA_1010102 &&
+			    (gpu_mask & MALI_GRALLOC_FORMAT_CAPABILITY_PIXFMT_RGBA1010102) == 0)
+			{
+				internal_format = 0;
+			}
+			else if (req_format == MALI_GRALLOC_FORMAT_INTERNAL_RGBA_16161616 &&
+			         (gpu_mask & MALI_GRALLOC_FORMAT_CAPABILITY_PIXFMT_RGBA16161616) == 0)
+			{
+				internal_format = 0;
+			}
+#endif
 		}
 		else if (consumer == MALI_GRALLOC_CONSUMER_VIDEO_ENCODER)
 		{
@@ -267,6 +367,22 @@ static uint64_t determine_best_format(int req_format, mali_gralloc_producer_type
 					internal_format |= MALI_GRALLOC_INTFMT_AFBC_TILED_HEADERS;
 				}
 			}
+
+#if PLATFORM_SDK_VERSION >= 26
+			/* Reject unsupported formats */
+			if (req_format == MALI_GRALLOC_FORMAT_INTERNAL_RGBA_1010102 &&
+			    ((gpu_mask & MALI_GRALLOC_FORMAT_CAPABILITY_PIXFMT_RGBA1010102) == 0 ||
+			     (vpu_mask & MALI_GRALLOC_FORMAT_CAPABILITY_PIXFMT_RGBA1010102) == 0))
+			{
+				internal_format = 0;
+			}
+			else if (req_format == MALI_GRALLOC_FORMAT_INTERNAL_RGBA_16161616 &&
+			         ((gpu_mask & MALI_GRALLOC_FORMAT_CAPABILITY_PIXFMT_RGBA16161616) == 0 ||
+			          (vpu_mask & MALI_GRALLOC_FORMAT_CAPABILITY_PIXFMT_RGBA16161616) == 0))
+			{
+				internal_format = 0;
+			}
+#endif
 		}
 	}
 	else if (producer == MALI_GRALLOC_PRODUCER_VIDEO_DECODER &&
@@ -295,6 +411,26 @@ static uint64_t determine_best_format(int req_format, mali_gralloc_producer_type
 					internal_format |= MALI_GRALLOC_INTFMT_AFBC_TILED_HEADERS;
 				}
 			}
+
+#if PLATFORM_SDK_VERSION >= 26
+			/*
+			 * Ensure requested format is supported by producer/consumer.
+			 * GPU composition must always be supported in case of fallback from DPU.
+			 * It is therefore not necessary to enforce DPU support.
+			 */
+			if (req_format == MALI_GRALLOC_FORMAT_INTERNAL_RGBA_1010102 &&
+			    ((vpu_mask & MALI_GRALLOC_FORMAT_CAPABILITY_PIXFMT_RGBA1010102) == 0 ||
+			     (gpu_mask & MALI_GRALLOC_FORMAT_CAPABILITY_PIXFMT_RGBA1010102) == 0))
+			{
+				internal_format = 0;
+			}
+			else if (req_format == MALI_GRALLOC_FORMAT_INTERNAL_RGBA_16161616 &&
+			         ((vpu_mask & MALI_GRALLOC_FORMAT_CAPABILITY_PIXFMT_RGBA16161616) == 0 ||
+			          (gpu_mask & MALI_GRALLOC_FORMAT_CAPABILITY_PIXFMT_RGBA16161616) == 0 ))
+			{
+				internal_format = 0;
+			}
+#endif
 		}
 		else if (consumer == MALI_GRALLOC_CONSUMER_GPU_EXCL)
 		{
@@ -314,10 +450,40 @@ static uint64_t determine_best_format(int req_format, mali_gralloc_producer_type
 					internal_format |= MALI_GRALLOC_INTFMT_AFBC_TILED_HEADERS;
 				}
 			}
+
+#if PLATFORM_SDK_VERSION >= 26
+			/* Reject unsupported formats */
+			if (req_format == MALI_GRALLOC_FORMAT_INTERNAL_RGBA_1010102 &&
+			    ((gpu_mask & MALI_GRALLOC_FORMAT_CAPABILITY_PIXFMT_RGBA1010102) == 0 ||
+			     (vpu_mask & MALI_GRALLOC_FORMAT_CAPABILITY_PIXFMT_RGBA1010102) == 0))
+			{
+				internal_format = 0;
+			}
+			else if (req_format == MALI_GRALLOC_FORMAT_INTERNAL_RGBA_16161616 &&
+			         ((gpu_mask & MALI_GRALLOC_FORMAT_CAPABILITY_PIXFMT_RGBA16161616) == 0 ||
+			          (vpu_mask & MALI_GRALLOC_FORMAT_CAPABILITY_PIXFMT_RGBA16161616) == 0))
+			{
+				internal_format = 0;
+			}
+#endif
 		}
 		else if (consumer == MALI_GRALLOC_CONSUMER_VIDEO_ENCODER)
 		{
 			/* Fall-through. To be decided.*/
+
+#if PLATFORM_SDK_VERSION >= 26
+			/* Reject unsupported formats */
+			if (req_format == MALI_GRALLOC_FORMAT_INTERNAL_RGBA_1010102 &&
+			    (vpu_mask & MALI_GRALLOC_FORMAT_CAPABILITY_PIXFMT_RGBA1010102) == 0)
+			{
+				internal_format = 0;
+			}
+			else if (req_format == MALI_GRALLOC_FORMAT_INTERNAL_RGBA_16161616 &&
+			         (vpu_mask & MALI_GRALLOC_FORMAT_CAPABILITY_PIXFMT_RGBA16161616) == 0)
+			{
+				internal_format = 0;
+			}
+#endif
 		}
 	}
 	else if (producer == MALI_GRALLOC_PRODUCER_CAMERA &&
@@ -336,6 +502,25 @@ static uint64_t determine_best_format(int req_format, mali_gralloc_producer_type
 			/* Fall-through. To be decided.*/
 		}
 	}
+	else if (producer == MALI_GRALLOC_PRODUCER_DISPLAY_AEU &&
+			 consumer == MALI_GRALLOC_CONSUMER_DISPLAY_EXCL &&
+			 dpu_runtime_caps.caps_mask & MALI_GRALLOC_FORMAT_CAPABILITY_OPTIONS_PRESENT)
+	{
+		dpu_mask &= producer_runtime_mask;
+		dpu_mask &= consumer_runtime_mask;
+
+		if (dpu_mask & MALI_GRALLOC_FORMAT_CAPABILITY_AFBC_BASIC)
+		{
+			internal_format |= MALI_GRALLOC_INTFMT_AFBC_BASIC;
+			if (dpu_mask & MALI_GRALLOC_FORMAT_CAPABILITY_AFBC_TILED_HEADERS)
+			{
+				internal_format |= MALI_GRALLOC_INTFMT_AFBC_TILED_HEADERS;
+			}
+		}
+	}
+	/* For MALI_GRALLOC_PRODUCER_DISPLAY or MALI_GRALLOC_PRODUCER_GPU_OR_DISPLAY
+	 * the requested format without AFBC is used, so no extra flags need to be set.
+	 */
 
 	return internal_format;
 }
@@ -358,15 +543,6 @@ static uint64_t decode_internal_format(uint64_t req_format, mali_gralloc_format_
 		goto out;
 	}
 
-	me_mask = internal_format & MALI_GRALLOC_INTFMT_ME_EXT_MASK;
-
-	if (me_mask > 0 && ((me_mask - 1) & me_mask) != 0)
-	{
-		ALOGE("Internal format contains multiple mutually exclusive modifier bits: %" PRIx64, internal_format);
-		internal_format = 0;
-		goto out;
-	}
-
 	base_format = internal_format & MALI_GRALLOC_INTFMT_FMT_MASK;
 
 	/* Even though private format allocations are intended to be for specific
@@ -383,6 +559,10 @@ static uint64_t decode_internal_format(uint64_t req_format, mali_gralloc_format_
 	case MALI_GRALLOC_FORMAT_INTERNAL_RGB_888:
 	case MALI_GRALLOC_FORMAT_INTERNAL_RGB_565:
 	case MALI_GRALLOC_FORMAT_INTERNAL_BGRA_8888:
+#if PLATFORM_SDK_VERSION >= 26
+	case MALI_GRALLOC_FORMAT_INTERNAL_RGBA_1010102:
+	case MALI_GRALLOC_FORMAT_INTERNAL_RGBA_16161616:
+#endif
 	case MALI_GRALLOC_FORMAT_INTERNAL_YV12:
 	case MALI_GRALLOC_FORMAT_INTERNAL_Y8:
 	case MALI_GRALLOC_FORMAT_INTERNAL_Y16:
@@ -417,8 +597,7 @@ out:
 	return internal_format;
 }
 
-static bool determine_producer(mali_gralloc_producer_type *producer, uint64_t *producer_runtime_mask, int req_format,
-                               int usage)
+static bool determine_producer(mali_gralloc_producer_type *producer, int usage)
 {
 	bool rval = true;
 
@@ -429,22 +608,15 @@ static bool determine_producer(mali_gralloc_producer_type *producer, uint64_t *p
 	{
 		rval = false;
 	}
+	/* This is a specific case where GRALLOC_USAGE_HW_COMPOSER can indicate display as a producer.
+	 * This is the case because video encoder is assumed to be the only consumer. */
+	else if ((usage & (GRALLOC_USAGE_HW_RENDER | GRALLOC_USAGE_HW_COMPOSER | GRALLOC_USAGE_HW_VIDEO_ENCODER)) ==
+	         (GRALLOC_USAGE_HW_RENDER | GRALLOC_USAGE_HW_COMPOSER | GRALLOC_USAGE_HW_VIDEO_ENCODER))
+	{
+		*producer = MALI_GRALLOC_PRODUCER_GPU_OR_DISPLAY;
+	}
 	else if (usage & GRALLOC_USAGE_HW_RENDER)
 	{
-		if (is_android_yuv_format(req_format))
-		{
-			if (gpu_runtime_caps.caps_mask & MALI_GRALLOC_FORMAT_CAPABILITY_AFBC_YUV_NOWRITE)
-			{
-				*producer_runtime_mask &= ~MALI_GRALLOC_FORMAT_CAPABILITY_AFBCENABLE_MASK;
-			}
-			else
-			{
-				/* All GPUs that can write YUV AFBC can only do it in 16x16, optionally with tiled */
-				*producer_runtime_mask &=
-				    ~(MALI_GRALLOC_FORMAT_CAPABILITY_AFBC_SPLITBLK | MALI_GRALLOC_FORMAT_CAPABILITY_AFBC_WIDEBLK);
-			}
-		}
-
 		*producer = MALI_GRALLOC_PRODUCER_GPU;
 	}
 	else if (usage & GRALLOC_USAGE_HW_CAMERA_MASK)
@@ -459,12 +631,19 @@ static bool determine_producer(mali_gralloc_producer_type *producer, uint64_t *p
 	{
 		*producer = MALI_GRALLOC_PRODUCER_VIDEO_DECODER;
 	}
-
+	else if ((usage & (GRALLOC_USAGE_HW_COMPOSER | GRALLOC_USAGE_HW_VIDEO_ENCODER)) ==
+	         (GRALLOC_USAGE_HW_COMPOSER | GRALLOC_USAGE_HW_VIDEO_ENCODER))
+	{
+		*producer = MALI_GRALLOC_PRODUCER_DISPLAY;
+	}
+	else if (usage == GRALLOC_USAGE_HW_COMPOSER)
+	{
+		*producer = MALI_GRALLOC_PRODUCER_DISPLAY_AEU;
+	}
 	return rval;
 }
 
-static bool determine_consumer(mali_gralloc_consumer_type *consumer, uint64_t *consumer_runtime_mask, int req_format,
-                               int usage)
+static bool determine_consumer(mali_gralloc_consumer_type *consumer, int usage)
 {
 	bool rval = true;
 
@@ -484,15 +663,6 @@ static bool determine_consumer(mali_gralloc_consumer_type *consumer, uint64_t *c
 	}
 	else if (usage & GRALLOC_USAGE_HW_VIDEO_ENCODER)
 	{
-		if (is_android_yuv_format(req_format))
-		{
-			if (vpu_runtime_caps.caps_mask & MALI_GRALLOC_FORMAT_CAPABILITY_AFBC_YUV_NOREAD)
-				*consumer_runtime_mask &= ~MALI_GRALLOC_FORMAT_CAPABILITY_AFBCENABLE_MASK;
-		}
-		else
-		{
-			*consumer_runtime_mask &= ~MALI_GRALLOC_FORMAT_CAPABILITY_AFBCENABLE_MASK;
-		}
 		*consumer = MALI_GRALLOC_CONSUMER_VIDEO_ENCODER;
 	}
 	/* GRALLOC_USAGE_HW_COMPOSER is by default applied by SurfaceFlinger so we can't exclusively rely on it
@@ -508,6 +678,10 @@ static bool determine_consumer(mali_gralloc_consumer_type *consumer, uint64_t *c
 	else if (usage & GRALLOC_USAGE_HW_TEXTURE)
 	{
 		*consumer = MALI_GRALLOC_CONSUMER_GPU_EXCL;
+	}
+	else if (usage == GRALLOC_USAGE_HW_COMPOSER)
+	{
+		*consumer = MALI_GRALLOC_CONSUMER_DISPLAY_EXCL;
 	}
 
 	return rval;
@@ -548,13 +722,18 @@ int get_meson_dpu_gpu_caps()
 		dpu_runtime_caps.caps_mask |= MALI_GRALLOC_FORMAT_CAPABILITY_AFBC_BASIC;
 		dpu_runtime_caps.caps_mask |= MALI_GRALLOC_FORMAT_CAPABILITY_AFBC_SPLITBLK;
 		dpu_runtime_caps.caps_mask |= MALI_GRALLOC_FORMAT_CAPABILITY_AFBC_WIDEBLK;
+		dpu_runtime_caps.caps_mask |= MALI_GRALLOC_FORMAT_CAPABILITY_PIXFMT_RGBA1010102;
+		dpu_runtime_caps.caps_mask |= MALI_GRALLOC_FORMAT_CAPABILITY_PIXFMT_RGBA16161616;
 
+        //TODO remove this mask?
 		gpu_runtime_caps.caps_mask |= MALI_GRALLOC_FORMAT_CAPABILITY_AFBC_YUV_NOWRITE;
 		gpu_runtime_caps.caps_mask |= MALI_GRALLOC_FORMAT_CAPABILITY_OPTIONS_PRESENT;
 		gpu_runtime_caps.caps_mask |= MALI_GRALLOC_FORMAT_CAPABILITY_AFBC_BASIC;
 		gpu_runtime_caps.caps_mask |= MALI_GRALLOC_FORMAT_CAPABILITY_AFBC_SPLITBLK;
 		gpu_runtime_caps.caps_mask |= MALI_GRALLOC_FORMAT_CAPABILITY_AFBC_WIDEBLK;
 		gpu_runtime_caps.caps_mask |= MALI_GRALLOC_FORMAT_CAPABILITY_AFBC_WIDEBLK_YUV_DISABLE;
+		gpu_runtime_caps.caps_mask |= MALI_GRALLOC_FORMAT_CAPABILITY_PIXFMT_RGBA1010102;
+		gpu_runtime_caps.caps_mask |= MALI_GRALLOC_FORMAT_CAPABILITY_PIXFMT_RGBA16161616;
 	}
 
 	return 0;
@@ -588,6 +767,7 @@ static void determine_format_capabilities()
 	/* Determine DPU format capabilities */
 	if (!get_block_capabilities(true, "hwcomposer", &dpu_runtime_caps))
 	{
+		dpu_runtime_caps.caps_mask |= MALI_GRALLOC_FORMAT_CAPABILITY_AFBC_YUV_NOWRITE;
 #if MALI_DISPLAY_VERSION >= 500
 		dpu_runtime_caps.caps_mask |= MALI_GRALLOC_FORMAT_CAPABILITY_OPTIONS_PRESENT;
 		dpu_runtime_caps.caps_mask |= MALI_GRALLOC_FORMAT_CAPABILITY_AFBC_BASIC;
@@ -595,6 +775,15 @@ static void determine_format_capabilities()
 #if MALI_DISPLAY_VERSION >= 550
 		dpu_runtime_caps.caps_mask |= MALI_GRALLOC_FORMAT_CAPABILITY_AFBC_SPLITBLK;
 #endif
+#endif
+#if MALI_DISPLAY_VERSION == 71
+		/* Cetus adds support for wide block and tiled headers. */
+		dpu_runtime_caps.caps_mask |= MALI_GRALLOC_FORMAT_CAPABILITY_OPTIONS_PRESENT;
+		dpu_runtime_caps.caps_mask |= MALI_GRALLOC_FORMAT_CAPABILITY_AFBC_BASIC;
+		dpu_runtime_caps.caps_mask |= MALI_GRALLOC_FORMAT_CAPABILITY_AFBC_SPLITBLK;
+		dpu_runtime_caps.caps_mask |= MALI_GRALLOC_FORMAT_CAPABILITY_AFBC_WIDEBLK;
+		dpu_runtime_caps.caps_mask |= MALI_GRALLOC_FORMAT_CAPABILITY_AFBC_TILED_HEADERS;
+		dpu_runtime_caps.caps_mask |= MALI_GRALLOC_FORMAT_CAPABILITY_AFBC_WIDEBLK_YUV_DISABLE;
 #endif
 	}
 
@@ -644,15 +833,15 @@ static void determine_format_capabilities()
 
 /* Determine VPU format capabilities */
 #if MALI_VIDEO_VERSION == 500 || MALI_VIDEO_VERSION == 550
-	vpu_runtime_caps.caps_mask |= MALI_GRALLOC_FORMAT_CAPABILITY_OPTIONS_PRESENT;
-	vpu_runtime_caps.caps_mask |= MALI_GRALLOC_FORMAT_CAPABILITY_AFBC_BASIC;
-	vpu_runtime_caps.caps_mask |= MALI_GRALLOC_FORMAT_CAPABILITY_AFBC_YUV_NOREAD;
+		vpu_runtime_caps.caps_mask |= MALI_GRALLOC_FORMAT_CAPABILITY_OPTIONS_PRESENT;
+		vpu_runtime_caps.caps_mask |= MALI_GRALLOC_FORMAT_CAPABILITY_AFBC_BASIC;
+		vpu_runtime_caps.caps_mask |= MALI_GRALLOC_FORMAT_CAPABILITY_AFBC_YUV_NOREAD;
 #endif
 
 #if MALI_VIDEO_VERSION == 61
-	vpu_runtime_caps.caps_mask |= MALI_GRALLOC_FORMAT_CAPABILITY_OPTIONS_PRESENT;
-	vpu_runtime_caps.caps_mask |= MALI_GRALLOC_FORMAT_CAPABILITY_AFBC_BASIC;
-	vpu_runtime_caps.caps_mask |= MALI_GRALLOC_FORMAT_CAPABILITY_AFBC_TILED_HEADERS;
+		vpu_runtime_caps.caps_mask |= MALI_GRALLOC_FORMAT_CAPABILITY_OPTIONS_PRESENT;
+		vpu_runtime_caps.caps_mask |= MALI_GRALLOC_FORMAT_CAPABILITY_AFBC_BASIC;
+		vpu_runtime_caps.caps_mask |= MALI_GRALLOC_FORMAT_CAPABILITY_AFBC_TILED_HEADERS;
 #endif
 
 /* Build specific capability changes */
@@ -715,8 +904,8 @@ uint64_t mali_gralloc_select_format(uint64_t req_format, mali_gralloc_format_typ
 	req_format_mapped = map_flex_formats(req_format);
 
 	/* Determine producer/consumer */
-	if (!determine_producer(&producer, &producer_runtime_mask, req_format, usage) ||
-	    !determine_consumer(&consumer, &consumer_runtime_mask, req_format, usage))
+	if (!determine_producer(&producer, usage) ||
+	    !determine_consumer(&consumer, usage))
 	{
 		/* Failing to determine producer/consumer usually means
 		 * client has requested sw rendering.
@@ -743,14 +932,28 @@ uint64_t mali_gralloc_select_format(uint64_t req_format, mali_gralloc_format_typ
 
 		producer_runtime_mask &= ~MALI_GRALLOC_FORMAT_CAPABILITY_AFBCENABLE_MASK;
 	}
-	/* Disable AFBC based on buffer dimensions */
-	else if (!is_afbc_allowed(buffer_size))
-	{
-		producer_runtime_mask &= ~MALI_GRALLOC_FORMAT_CAPABILITY_AFBCENABLE_MASK;
-	}
 	else if (!is_afbc_supported(req_format_mapped))
 	{
 		producer_runtime_mask &= ~MALI_GRALLOC_FORMAT_CAPABILITY_AFBCENABLE_MASK;
+	}
+	else
+	{
+		/* Check producer limitations and modify runtime mask.*/
+		if (producer == MALI_GRALLOC_PRODUCER_GPU || producer == MALI_GRALLOC_PRODUCER_GPU_OR_DISPLAY)
+		{
+			apply_gpu_producer_limitations(req_format, &producer_runtime_mask);
+		}
+
+		/* Check consumer limitations and modify runtime mask. */
+		if (consumer == MALI_GRALLOC_CONSUMER_VIDEO_ENCODER)
+		{
+			apply_video_consumer_limitations(req_format, &consumer_runtime_mask);
+		}
+		else if (consumer == MALI_GRALLOC_CONSUMER_GPU_OR_DISPLAY ||
+		         consumer == MALI_GRALLOC_CONSUMER_DISPLAY_EXCL)
+		{
+			apply_display_consumer_limitations(req_format, buffer_size, &consumer_runtime_mask);
+		}
 	}
 
 	/* Automatically select format in case producer/consumer identified */

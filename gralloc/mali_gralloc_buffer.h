@@ -121,6 +121,20 @@ struct private_handle_t
 	int internalWidth;
 	int internalHeight;
 	int stride;
+
+	/*
+	 * Multi-layer buffers.
+	 *
+	 * Gralloc 1.0 supports multiple image layers within the same
+	 * buffer allocation, where GRALLOC1_CAPABILITY_LAYERED_BUFFERS is enabled.
+	 * 'layer_count' defines the number of layers that have been allocated.
+	 * All layers are the same size (in bytes) and 'size' defines the
+	 * number of bytes in the whole allocation.
+	 * Size of each layer = 'size' / 'layer_count'.
+	 * Offset to nth layer = n * ('size' / 'layer_count'),
+	 * where n=0 for the first layer.
+	 */
+	uint32_t layer_count;
 	union
 	{
 		void *base;
@@ -180,6 +194,7 @@ struct private_handle_t
 	    , width(0)
 	    , height(0)
 	    , stride(0)
+	    , layer_count(0)
 	    , base(_base)
 	    , consumer_usage(_consumer_usage)
 	    , producer_usage(_producer_usage)
@@ -201,7 +216,8 @@ struct private_handle_t
 
 	private_handle_t(int _flags, int _size, int _min_pgsz, uint64_t _consumer_usage, uint64_t _producer_usage,
 	                 int _shared_fd, int _req_format, uint64_t _internal_format, int _byte_stride, int _width,
-	                 int _height, int _stride, int _internalWidth, int _internalHeight, int _backing_store_size)
+	                 int _height, int _stride, int _internalWidth, int _internalHeight, int _backing_store_size,
+			 uint64_t _layer_count)
 	    : share_fd(_shared_fd)
 	    , share_attr_fd(-1)
 	    , magic(sMagic)
@@ -215,6 +231,7 @@ struct private_handle_t
 	    , internalWidth(_internalWidth)
 	    , internalHeight(_internalHeight)
 	    , stride(_stride)
+	    , layer_count(_layer_count)
 	    , base(NULL)
 	    , consumer_usage(_consumer_usage)
 	    , producer_usage(_producer_usage)
