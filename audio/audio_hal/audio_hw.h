@@ -310,6 +310,12 @@ struct aml_audio_device {
     bool spdif_encoder_init_flag;
 
     int mic_running;
+    int mic_start_flag;
+    unsigned long long mic_timestampe;
+    int spk_running;
+    int spk_start_flag;
+    unsigned long long spk_timestampe;
+
     ring_buffer_t spk_ring_buf;
     void *spk_buf;
     size_t spk_buf_size;

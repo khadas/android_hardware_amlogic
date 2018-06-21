@@ -38,10 +38,9 @@ int32_t* aec_spk_mic_process(int32_t *spk_buf, int32_t *mic_buf, int *cleaned_sa
         mic_samples, mic_buf_info, cleaned_samples_per_channel);
     if (!out_buf) {
         ALOGE("%s: AEC process failed, cleaned_samples_per_channel = %d", __func__, *cleaned_samples_per_channel);
-        pGoogleAec->Reset();
+        //pGoogleAec->Reset();
         return NULL;
     }
-
     return (int32_t*)out_buf;
 }
 
@@ -49,7 +48,7 @@ int aec_spk_mic_init(void)
 {
     ALOGD("%s: enter", __func__);
     if (!pGoogleAec) {
-        pGoogleAec = new audio_ears::GoogleAec(48000, 2, 2, "GoogleAecMode3", true);
+        pGoogleAec = new audio_ears::GoogleAec(16000, 2, 2, "GoogleAecMode3", true);
         if (!pGoogleAec) {
             ALOGE("%s: alloc GoogleAec failed", __func__);
             return -ENOMEM;
@@ -59,6 +58,15 @@ int aec_spk_mic_init(void)
     ALOGD("%s: exit", __func__);
 
     return 0;
+}
+
+void aec_spk_mic_reset(void)
+{
+    ALOGD("%s: enter", __func__);
+    if (!pGoogleAec) {
+        pGoogleAec->Reset();
+    }
+    ALOGD("%s: exit", __func__);
 }
 
 void aec_spk_mic_release(void)
