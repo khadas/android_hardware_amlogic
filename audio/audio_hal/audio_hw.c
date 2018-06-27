@@ -4873,9 +4873,10 @@ ssize_t audio_hal_data_processing(struct audio_stream_out *stream,
             aml_out->tmp_buffer_8ch[8 * i + 6] = 0;
             aml_out->tmp_buffer_8ch[8 * i + 7] = 0;
         }
+#endif
         *output_buffer = aml_out->tmp_buffer_8ch;
         *output_buffer_bytes = 8 * bytes;
-#endif
+
     }
 
     return 0;
