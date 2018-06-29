@@ -48,6 +48,7 @@ static inline bool is_digital_raw_format(audio_format_t format)
     case AUDIO_FORMAT_DTS:
     case AUDIO_FORMAT_DTS_HD:
     case AUDIO_FORMAT_DOLBY_TRUEHD:
+    case AUDIO_FORMAT_IEC61937:
         return true;
     default:
         return false;
@@ -58,7 +59,7 @@ static inline stream_usecase_t attr_to_usecase(uint32_t devices __unused,
         audio_format_t format, uint32_t flags)
 {
     // hwsync case
-    if (flags & AUDIO_OUTPUT_FLAG_HW_AV_SYNC) {
+    if ((flags & AUDIO_OUTPUT_FLAG_HW_AV_SYNC) && (format != AUDIO_FORMAT_IEC61937)) {
         if (audio_is_linear_pcm(format))
             return STREAM_PCM_HWSYNC;
 

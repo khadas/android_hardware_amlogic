@@ -34,6 +34,7 @@
 #include <tinyalsa/asoundlib.h>
 
 #include "aml_dcv_dec_api.h"
+#include "aml_ac3_parser.h"
 
 struct pcm_info {
     int sample_rate;
@@ -337,9 +338,9 @@ static  int unload_ddp_decoder_lib()
     return 0;
 }
 
-static int dcv_decoder_init()
+static int dcv_decoder_init(int digital_raw)
 {
-    int digital_raw = 0;
+    //int digital_raw = 1;
     gDDPDecoderLibHandler = dlopen ("/vendor/lib/libHwAudio_dcvdec.so", RTLD_NOW);
     if (!gDDPDecoderLibHandler) {
         ALOGE ("%s, failed to open (libstagefright_soft_dcvdec.so), %s\n", __FUNCTION__, dlerror() );
@@ -435,7 +436,8 @@ int Write_buffer (struct aml_audio_parser *parser, unsigned char *buffer, int si
 }
 
 #define MAX_DECODER_FRAME_LENGTH 6144
-#define MAX_DDP_FRAME_LENGTH 2048
+#define READ_PERIOD_LENGTH 2048
+#define MAX_DDP_FRAME_LENGTH 2560
 
 void *decode_threadloop (void *data)
 {
@@ -451,6 +453,7 @@ void *decode_threadloop (void *data)
     int outlen_pcm = 0;
     int remain_size = 0;
     int used_size = 0;
+    int read_size = READ_PERIOD_LENGTH;
     int ret = 0;
     int mSample_rate = 0;
     int mFrame_size = 0;
@@ -468,14 +471,14 @@ void *decode_threadloop (void *data)
     }
     outbuf_raw = outbuf + MAX_DECODER_FRAME_LENGTH;
 
-    inbuf = (unsigned char *) malloc (MAX_DDP_FRAME_LENGTH * 2);
+    inbuf = (unsigned char *) malloc(MAX_DDP_FRAME_LENGTH + read_size);
     if (!inbuf) {
         ALOGE ("malloc inbuf failed\n");
         free (outbuf);
         return NULL;
     }
 
-    ret = dcv_decoder_init();
+    ret = dcv_decoder_init(digital_raw);
     if (ret) {
         ALOGW ("dec init failed, maybe no lisensed ddp decoder.\n");
         valid_lib = 0;
@@ -489,6 +492,7 @@ void *decode_threadloop (void *data)
         resampler_init (&parser->aml_resample);
     }
 
+    prctl(PR_SET_NAME, (unsigned long)"audio_dcv_dec");
     while (parser->decode_ThreadExitFlag == 0) {
         outlen = 0;
         outlen_raw = 0;
@@ -509,13 +513,13 @@ void *decode_threadloop (void *data)
         //here we call decode api to decode audio frame here
         if (remain_size < MAX_DDP_FRAME_LENGTH) {
             //pthread_mutex_lock(parser->decode_dev_op_mutex);
-            ret = pcm_read (parser->aml_pcm, inbuf + remain_size, MAX_DDP_FRAME_LENGTH);
+            ret = pcm_read(parser->aml_pcm, inbuf + remain_size, read_size);
             //pthread_mutex_unlock(parser->decode_dev_op_mutex);
             if (ret < 0) {
                 usleep (1000); //1ms
                 continue;
             }
-            remain_size += MAX_DDP_FRAME_LENGTH;
+            remain_size += read_size;
         }
 
         if (valid_lib == 0) {
@@ -627,7 +631,7 @@ int dcv_decode_release (struct aml_audio_parser *parser)
 }
 
 int dcv_decoder_init_patch(struct dolby_ddp_dec *ddp_dec) {
-    ddp_dec->status = dcv_decoder_init();
+    ddp_dec->status = dcv_decoder_init(ddp_dec->digital_raw);
     if (ddp_dec->status < 0)
         return -1;
     ddp_dec->status =1;
@@ -682,50 +686,52 @@ int dcv_decoder_process_patch(struct dolby_ddp_dec *ddp_dec,unsigned char*buffer
     memcpy((char *)ddp_dec->inbuf + ddp_dec->remain_size, (char *)buffer, bytes);
     ddp_dec->remain_size +=bytes;
     read_pointer = ddp_dec->inbuf;
-    while (ddp_dec->remain_size > 16) {
-        if ( (read_pointer[0] == 0x0b && read_pointer[1] == 0x77) || \
-        (read_pointer[0] == 0x77 && read_pointer[1] == 0x0b) ) {
-        ddp_dec->get_parameters (read_pointer, &mSample_rate, &mFrame_size, &mChNum);//ddp_dec->get_parameters
-        if ( (mFrame_size == 0) || (mFrame_size < 7) || \
-                  (mChNum == 0) || (mSample_rate == 0) ) {
-            ALOGV("Frame incomplete size:%d, channels:%d, rate:%d",mFrame_size,mChNum,mSample_rate);
-        } else {
-            in_sync = 1;
-            break;
-        }
-        }
-        ddp_dec->remain_size--;
-        read_pointer++;
-    }
+    int decoder_used_bytes = 0;
+    void *main_frame_buffer = NULL;
+    int main_frame_size = 0;
 
-    if (ddp_dec->remain_size < mFrame_size || in_sync == 0) {
-        memcpy (ddp_dec->inbuf, read_pointer, ddp_dec->remain_size);
-        return -1;
+    if (ddp_dec->remain_size >= MAX_DECODER_FRAME_LENGTH ) {
+
+        int single_input_ret = scan_dolby_main_frame(read_pointer
+                                    , ddp_dec->remain_size
+                                    , &decoder_used_bytes
+                                    , &main_frame_buffer
+                                    , &main_frame_size);
+        if (single_input_ret) {
+            ALOGE("%s used size %u dont find the iec61937 format header, rescan next time!\n", __FUNCTION__, decoder_used_bytes);
+            return -1;
+        }
+        ALOGV("%s input addr %p size %d frame addr %p size %d\n", __FUNCTION__, read_pointer, ddp_dec->remain_size, main_frame_buffer, main_frame_size);
+
+        ddp_dec->remain_size = ddp_dec->remain_size - decoder_used_bytes + main_frame_size;
+        read_pointer = read_pointer + decoder_used_bytes - main_frame_size;
     }
+    if (main_frame_size == 0)
+        return -1;
 
     if (read_pointer[0] == 0x77 && read_pointer[1] == 0x0b) {
         int i;
         unsigned char temp;
-        for (i = 0; i < mFrame_size / 2; i++) {
+        for (i = 0; i < main_frame_size / 2; i++) {
             temp = read_pointer[2 * i + 1];
             read_pointer[2 * i + 1] = read_pointer[2 * i];
             read_pointer[2 * i] = temp;
         }
     }
-    int used_size = ddp_dec->decoder_process ((unsigned char*)read_pointer,
-                                                                        mFrame_size,
+    int used_size = ddp_dec->decoder_process ((unsigned char*)main_frame_buffer,
+                                                                        main_frame_size,
                                                                         (unsigned char *)ddp_dec->outbuf,
                                                                         &ddp_dec->outlen_pcm,
                                                                         (char *)ddp_dec->outbuf_raw,
                                                                         &ddp_dec->outlen_raw,
                                                                         ddp_dec->nIsEc3);
 
-    ALOGV("mFrame_size:%d, outlen_pcm:%d, ret = %d\n",mFrame_size, ddp_dec->outlen_pcm, used_size);
+    ALOGV("mFrame_size:%d, outlen_pcm:%d, ret = %d\n", main_frame_size, ddp_dec->outlen_pcm, used_size);
     if (used_size > 0) {
         ddp_dec->remain_size -= used_size;
         memcpy (ddp_dec->inbuf, read_pointer + used_size, ddp_dec->remain_size);
     }
 
-    return 1;
+    return 0;
 }
 

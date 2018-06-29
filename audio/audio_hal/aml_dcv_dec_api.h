@@ -49,6 +49,7 @@ struct dolby_ddp_dec {
     int outlen_pcm;
     int outlen_raw;
     int nIsEc3;
+    int digital_raw;
     int (*get_parameters) (void *, int *, int *, int *);
     int (*decoder_process) (unsigned char*, int, unsigned char *, int *, char *, int *, int);
 };

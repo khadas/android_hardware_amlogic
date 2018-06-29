@@ -51,5 +51,30 @@ int scan_dolby_main_associate_frame(void *input_buffer
     , void **associate_frame_buffer
     , int *associate_frame_size);
 
+int scan_dolby_main_frame(void *input_buffer
+                          , size_t bytes
+                          , int *used_size
+                          , void **main_frame_buffer
+                          , int *main_frame_size);
+/*
+ *@brief scan_dolby_main_associate_frame
+ * input params:
+ *          void *input_buffer: input data address
+ *          size_t bytes: input data size
+ *          int *used_size: data used size in this sequence
+ * output params:
+ *          void **main_frame_buffer: main frame address
+ *          int *main_frame_size: main frame size
+ *
+ * return value:
+ *          0, success to find one packet(as IEC61937 packet format
+ *          1, fail to find one packet(as IEC61937 packet format)
+ */
+int scan_dolby_main_frame_ext(void *input_buffer
+                              , size_t bytes
+                              , int *used_size
+                              , void **main_frame_buffer
+                              , int *main_frame_size
+                              , size_t *payload_deficiency);
 #endif
 

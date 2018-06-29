@@ -391,6 +391,18 @@ struct aml_stream_out {
     enum stream_status status;
     audio_format_t hal_internal_format;
     bool dual_output_flag;
+    uint64_t input_bytes_size;
+    uint64_t continuous_audio_offset;
+    bool hwsync_pcm_config;
+    bool hwsync_raw_config;
+    bool direct_raw_config;
+    bool is_device_differ_with_ms12;
+    uint64_t total_write_size;
+    int  ddp_frame_size;
+    int dropped_size;
+    unsigned long long mute_bytes;
+    bool is_get_mute_bytes;
+    size_t frame_deficiency;
 };
 
 typedef ssize_t (*write_func)(struct audio_stream_out *stream, const void *buffer, size_t bytes);

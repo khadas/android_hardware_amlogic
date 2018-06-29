@@ -37,7 +37,7 @@ int32_t* aec_spk_mic_process(int32_t *spk_buf, int32_t *mic_buf, int *cleaned_sa
     out_buf = pGoogleAec->ProcessInt32InterleavedAudio(spk_samples, spk_buf_info,
         mic_samples, mic_buf_info, cleaned_samples_per_channel);
     if (!out_buf) {
-        ALOGE("%s: AEC process failed, cleaned_samples_per_channel = %d", __func__, *cleaned_samples_per_channel);
+        //ALOGE("%s: AEC process failed, cleaned_samples_per_channel = %d", __func__, *cleaned_samples_per_channel);
         //pGoogleAec->Reset();
         return NULL;
     }

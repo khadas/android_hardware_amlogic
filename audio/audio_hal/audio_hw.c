@@ -5031,30 +5031,29 @@ ssize_t mixer_main_buffer_write (struct audio_stream_out *stream, const void *bu
             adev->usecase_masks |= (1 << aml_out->usecase);
             case_cnt = popcount (adev->usecase_masks);
         }
-#if 0
-        if (aml_out->usecase > 0) {
-            if (aml_out->usecase == STREAM_PCM_HWSYNC || aml_out->usecase == STREAM_RAW_HWSYNC) {
-                aml_audio_hwsync_init (&aml_out->hwsync);
-            }
+
+        if (aml_out->usecase == STREAM_PCM_HWSYNC || aml_out->usecase == STREAM_RAW_HWSYNC) {
+            aml_audio_hwsync_init (&aml_out->hwsync);
+        }
 #ifdef DOLBY_MS12_ENABLE
-            get_sink_format (stream);
-            int ret = get_the_dolby_ms12_prepared (aml_out, aml_out->hal_format, aml_out->hal_channel_mask, aml_out->config.rate);
-            if (ret != 0) {
-                ALOGE ("-%s() get_the_dolby_ms12_prepared fail", __FUNCTION__);
-            }
-#else
-            aml_hw_mixer_init (&adev->hw_mixer);
-#endif
+        get_sink_format (stream);
+        int ret = get_the_dolby_ms12_prepared (aml_out, aml_out->hal_format, aml_out->hal_channel_mask, aml_out->config.rate);
+        if (ret != 0) {
+            ALOGE ("-%s() get_the_dolby_ms12_prepared fail", __FUNCTION__);
         }
 #else
         need_reconfig_output = true;
-        aml_hw_mixer_init (&adev->hw_mixer);
-#endif
         adev->mix_init_flag =  true;
+        /*if mixer has started, no need restart*/
+        if (!adev->hw_mixer.start_buf) {
+            aml_hw_mixer_init(&adev->hw_mixer);
+        }
+#endif
         pthread_mutex_unlock (&adev->lock);
     }
     if (case_cnt > 2) {
         ALOGE ("%s usemask %x,we do not support two direct stream output at the same time.TO CHECK CODE FLOW!!!!!!",__func__,adev->usecase_masks);
+        return return_bytes;
     }
 
     /* here to check if the audio HDMI ARC format updated. */
@@ -5171,7 +5170,7 @@ ssize_t mixer_main_buffer_write (struct audio_stream_out *stream, const void *bu
         write_buf = (void *) buffer;
         write_bytes = bytes;
     }
-#if !defined(IS_ATOM_PROJECT)
+
     /* here to check if the audio input format changed. */
     if (adev->audio_patch) {
         audio_format_t cur_aformat;
@@ -5183,7 +5182,11 @@ ssize_t mixer_main_buffer_write (struct audio_stream_out *stream, const void *bu
                 //FIXME: if patch audio format change, the hal_format need to redefine.
                 //then the out_get_format() can get it.
                 ALOGI ("hal_format changed from %#x to %#x\n", aml_out->hal_format, cur_aformat);
-                aml_out->hal_format = AUDIO_FORMAT_IEC61937;
+                if (cur_aformat != AUDIO_FORMAT_PCM_16_BIT || cur_aformat != AUDIO_FORMAT_PCM_32_BIT) {
+                    aml_out->hal_format = AUDIO_FORMAT_IEC61937;
+                } else {
+                    aml_out->hal_format = cur_aformat ;
+                }
                 aml_out->hal_internal_format = cur_aformat;
                 aml_out->hal_channel_mask = audio_parse_get_audio_channel_mask (patch->audio_parse_para);
                 ALOGI ("%s hal_channel_mask %#x\n", __FUNCTION__, aml_out->hal_channel_mask);
@@ -5194,7 +5197,7 @@ ssize_t mixer_main_buffer_write (struct audio_stream_out *stream, const void *bu
             }
         }
     }
-#endif
+
     if (adev->need_reset_for_dual_decoder == true) {
         need_reconfig_output = true;
         adev->need_reset_for_dual_decoder = false;
@@ -5214,8 +5217,10 @@ ssize_t mixer_main_buffer_write (struct audio_stream_out *stream, const void *bu
      */
     audio_format_t output_format = get_output_format (stream);
     if ( (adev->disable_pcm_mixing == true) && \
-         (aml_out->hal_channel_mask == AUDIO_CHANNEL_OUT_7POINT1) &&\
-         (adev->sink_format == AUDIO_FORMAT_E_AC3) ) {
+        /*(aml_out->hal_channel_mask == AUDIO_CHANNEL_OUT_7POINT1) &&\ */
+        (adev->dual_decoder_support == false) && \
+        /*(adev->continuous_audio_mode == false) && \ */
+        (adev->sink_format == AUDIO_FORMAT_E_AC3) ) {
         if (audio_hal_data_processing (stream, buffer, bytes, &output_buffer, &output_buffer_bytes, output_format) == 0)
             hw_write (stream, output_buffer, output_buffer_bytes, output_format);
     } else {
@@ -5227,34 +5232,80 @@ ssize_t mixer_main_buffer_write (struct audio_stream_out *stream, const void *bu
             return bytes;
         }
 #else
-        if (patch && (patch->aformat == AUDIO_FORMAT_AC3 || patch->aformat == AUDIO_FORMAT_E_AC3) ) {
-            struct dolby_ddp_dec *ddp_dec = & (adev->ddp);
+
+        if ((patch && (patch->aformat == AUDIO_FORMAT_AC3 || patch->aformat == AUDIO_FORMAT_E_AC3)) ||
+            aml_out->hal_internal_format == AUDIO_FORMAT_AC3 || aml_out->hal_internal_format == AUDIO_FORMAT_E_AC3) {
             int ret = -1;
-            if (ddp_dec->status == 1)
-                ret = dcv_decoder_process_patch (ddp_dec,(unsigned char *)buffer,bytes);
-            if (ret <0)
-                return bytes;
+            struct dolby_ddp_dec *ddp_dec = &(adev->ddp);
+
+            if (ddp_dec->status == 1) {
+#if defined(IS_ATOM_PROJECT)
+                /*for 32bit hal, raw data only support 16bit*/
+                int16_t *p = (int16_t *)buffer;
+                int32_t *p1 = (int32_t *)buffer;
+                for (size_t i = 0; i < bytes/4; i++) {
+                    p[i] = p1[i] >> 16;
+                }
+                bytes /= 2;
+#endif
+                ret = dcv_decoder_process_patch(ddp_dec, (unsigned char *)buffer, bytes);
+            } else {
+                config_output(stream);
+            }
+            if (ret < 0) {
+                return return_bytes;
+            }
+
+            /*wirte raw data*/
+            if (ddp_dec->digital_raw == 1 && adev->hdmi_format == 5) {
+                aml_audio_spdif_output(stream, (void *)ddp_dec->outbuf_raw, ddp_dec->outlen_raw);
+            } else if (ddp_dec->digital_raw > 0) {
+                output_format = get_output_format(stream);
+                if (audio_hal_data_processing(stream, (void *)ddp_dec->outbuf_raw, ddp_dec->outlen_raw, &output_buffer, &output_buffer_bytes, output_format) == 0) {
+                    hw_write(stream, output_buffer, output_buffer_bytes, output_format);
+                }
+                return return_bytes;
+            }
+
+#if defined(IS_ATOM_PROJECT)
+            void *tmp_buffer = (void *) buffer;
+            audio_format_t output_format = AUDIO_FORMAT_PCM_32_BIT;
+            uint16_t *p = (uint16_t *)ddp_dec->outbuf;
+            uint32_t *p1 = (uint32_t *)buffer;
+
+            for (int i = 0; i < ddp_dec->outlen_pcm / 2; i++) {
+                p1[i] = ((int32_t)p[i]) << 16;
+            }
+            ddp_dec->outlen_pcm *= 2;
+#else
             void *tmp_buffer = (void *) ddp_dec->outbuf;
-            audio_format_t output_format = get_output_format (stream);
-            aml_hw_mixer_mixing (&adev->hw_mixer, tmp_buffer, write_bytes, output_format);
-            if (audio_hal_data_processing (stream, tmp_buffer, ddp_dec->outlen_pcm, &output_buffer, &output_buffer_bytes, output_format) == 0)
-                hw_write (stream, output_buffer, output_buffer_bytes, output_format);
+            audio_format_t output_format = AUDIO_FORMAT_PCM_16_BIT;
+#endif
+
+            /*write pcm data*/
+            aml_hw_mixer_mixing(&adev->hw_mixer, tmp_buffer, write_bytes, output_format);
+            if (audio_hal_data_processing(stream, tmp_buffer, ddp_dec->outlen_pcm, &output_buffer, &output_buffer_bytes, output_format) == 0) {
+                hw_write(stream, output_buffer, output_buffer_bytes, output_format);
+                aml_out->frame_write_sum = aml_out->input_bytes_size  / audio_stream_out_frame_size(stream);
+                aml_out->last_frames_postion = aml_out->frame_write_sum;
+            }
             return return_bytes;
         }
+
         void *tmp_buffer = (void *) write_buf;
         if (aml_out->hw_sync_mode) {
-            ALOGV ("mixing hw_sync mode");
-            aml_hw_mixer_mixing (&adev->hw_mixer, tmp_buffer, hw_sync->hw_sync_frame_size, output_format);
-            if (audio_hal_data_processing (stream, tmp_buffer, hw_sync->hw_sync_frame_size, &output_buffer, &output_buffer_bytes, output_format) == 0)
-                hw_write (stream, output_buffer, output_buffer_bytes, output_format);
+            ALOGV("mixing hw_sync mode");
+            aml_hw_mixer_mixing(&adev->hw_mixer, tmp_buffer, hw_sync->hw_sync_frame_size, output_format);
+            if (audio_hal_data_processing(stream, tmp_buffer, hw_sync->hw_sync_frame_size, &output_buffer, &output_buffer_bytes, output_format) == 0) {
+                hw_write(stream, output_buffer, output_buffer_bytes, output_format);
+            }
         } else {
-            ALOGV ("mixing non-hw_sync mode");
-            aml_hw_mixer_mixing (&adev->hw_mixer, tmp_buffer, write_bytes, output_format);
-            if (audio_hal_data_processing (stream, tmp_buffer, write_bytes, &output_buffer, &output_buffer_bytes, output_format) == 0)
-                hw_write (stream, output_buffer, output_buffer_bytes, output_format);
+            ALOGV("mixing non-hw_sync mode");
+            aml_hw_mixer_mixing(&adev->hw_mixer, tmp_buffer, write_bytes, output_format);
+            if (audio_hal_data_processing(stream, tmp_buffer, write_bytes, &output_buffer, &output_buffer_bytes, output_format) == 0) {
+                hw_write(stream, output_buffer, output_buffer_bytes, output_format);
+            }
         }
-        //process_buffer_write(stream, buffer, bytes);
-
 #endif
     }
 exit:
@@ -5786,6 +5837,7 @@ static int create_parser (struct audio_hw_device *dev)
     }
 
     parser->dev = dev;
+    parser->aformat = AUDIO_FORMAT_PCM_16_BIT;
     aml_dev->aml_parser = parser;
     pthread_mutex_init (&parser->mutex, NULL);
 
@@ -5890,57 +5942,80 @@ static struct audio_patch_set *register_audio_patch(struct audio_hw_device *dev,
                                                 const struct audio_port_config *sinks,
                                                 audio_patch_handle_t *handle)
 {
+    /* init audio patch */
     struct aml_audio_device *aml_dev = (struct aml_audio_device *)dev;
-    struct audio_patch *patch_new, *patch_tmp;
-    struct audio_patch_set *patch_set_new, *patch_set_tmp;
-    struct listnode *node;
+    struct audio_patch_set *patch_set_new = NULL;
+    struct audio_patch *patch_new = NULL;
+    struct audio_patch_set *patch_set_tmp = NULL;
+    struct audio_patch *patch_tmp = NULL;
+    struct listnode *node = NULL;
+    audio_patch_handle_t patch_handle;
 
-    ALOGD("%s: enter", __func__);
     patch_set_new = calloc(1, sizeof (*patch_set_new) );
-    if (!patch_set_new)
+    if (!patch_set_new) {
+        ALOGE("%s(): no memory", __func__);
         return NULL;
+    }
 
     patch_new = &patch_set_new->audio_patch;
-    *handle = (audio_patch_handle_t)android_atomic_inc(&aml_dev->next_unique_ID);
+    patch_handle = (audio_patch_handle_t) android_atomic_inc(&aml_dev->next_unique_ID);
+    *handle = patch_handle;
 
-    patch_new->id = *handle;
+    /* init audio patch new */
+    patch_new->id = patch_handle;
     patch_new->num_sources = num_sources;
     memcpy(patch_new->sources, sources, num_sources * sizeof(struct audio_port_config));
     patch_new->num_sinks = num_sinks;
     memcpy(patch_new->sinks, sinks, num_sinks * sizeof (struct audio_port_config));
+#ifdef DEBUG_PATCH_SET
+    ALOGD("%s(), patch set new to register:", __func__);
+    dump_audio_patch_set(patch_set_new);
+#endif
 
     /* find if mix->dev exists and remove from list */
-    if (sources[0].type == AUDIO_PORT_TYPE_MIX && sinks[0].type == AUDIO_PORT_TYPE_DEVICE) {
         list_for_each(node, &aml_dev->patch_list) {
             patch_set_tmp = node_to_item(node, struct audio_patch_set, list);
             patch_tmp = &patch_set_tmp->audio_patch;
-            if (patch_tmp->sources[0].type == AUDIO_PORT_TYPE_MIX
-                && patch_tmp->sinks[0].type == AUDIO_PORT_TYPE_DEVICE
-                && sources[0].ext.mix.handle == patch_tmp->sources[0].ext.mix.handle) {
-                ALOGI("%s: found patch mix->dev id %d, patchset %p", __func__, patch_tmp->id, patch_set_tmp);
-                unregister_audio_patch(dev, patch_set_tmp);
+        if (patch_tmp->sources[0].type == AUDIO_PORT_TYPE_MIX &&
+            patch_tmp->sinks[0].type == AUDIO_PORT_TYPE_DEVICE &&
+            sources[0].ext.mix.handle == patch_tmp->sources[0].ext.mix.handle) {
+            ALOGI("patch found mix->dev id %d, patchset %p", patch_tmp->id, patch_set_tmp);
                 break;
+        } else {
+            patch_set_tmp = NULL;
+            patch_tmp = NULL;
             }
         }
+    /* found mix->dev patch, so release and remove it */
+    if (patch_set_tmp) {
+        ALOGD("%s, found the former mix->dev patch set, remove it first", __func__);
+        unregister_audio_patch(dev, patch_set_tmp);
+        patch_set_tmp = NULL;
+        patch_tmp = NULL;
     }
     /* find if dev->mix exists and remove from list */
-    if (sources[0].type == AUDIO_PORT_TYPE_DEVICE && sinks[0].type == AUDIO_PORT_TYPE_MIX) {
         list_for_each (node, &aml_dev->patch_list) {
             patch_set_tmp = node_to_item(node, struct audio_patch_set, list);
             patch_tmp = &patch_set_tmp->audio_patch;
-            if (patch_tmp->sources[0].type == AUDIO_PORT_TYPE_DEVICE
-                && patch_tmp->sinks[0].type == AUDIO_PORT_TYPE_MIX
-                && sinks[0].ext.mix.handle == patch_tmp->sinks[0].ext.mix.handle) {
-                ALOGI("%s: found patch dev->mix id %d, patchset %p", __func__, patch_tmp->id, patch_set_tmp);
-                unregister_audio_patch(dev, patch_set_tmp);
+        if (patch_tmp->sources[0].type == AUDIO_PORT_TYPE_DEVICE &&
+            patch_tmp->sinks[0].type == AUDIO_PORT_TYPE_MIX &&
+            sinks[0].ext.mix.handle == patch_tmp->sinks[0].ext.mix.handle) {
+            ALOGI("patch found dev->mix id %d, patchset %p", patch_tmp->id, patch_set_tmp);
                 break;
+        } else {
+            patch_set_tmp = NULL;
+            patch_tmp = NULL;
             }
         }
+    /* found dev->mix patch, so release and remove it */
+    if (patch_set_tmp) {
+        ALOGD("%s, found the former dev->mix patch set, remove it first", __func__);
+        unregister_audio_patch(dev, patch_set_tmp);
     }
     /* add new patch set to dev patch list */
     list_add_head(&aml_dev->patch_list, &patch_set_new->list);
+    ALOGI("--%s: after registering new patch, patch sets will be:", __func__);
     //dump_aml_audio_patch_sets(dev);
-    ALOGD("%s: exit", __func__);
 
     return patch_set_new;
 }
@@ -5954,32 +6029,49 @@ static int adev_create_audio_patch(struct audio_hw_device *dev,
 {
     struct aml_audio_device *aml_dev = (struct aml_audio_device *)dev;
     struct audio_patch_set *patch_set;
-    enum input_source input_src;
-    enum OUT_PORT outport;
-    int ret;
+    const struct audio_port_config *src_config = sources;
+    const struct audio_port_config *sink_config = sinks;
+    enum input_source input_src = HDMIIN;
+    enum OUT_PORT outport = OUTPORT_SPEAKER;
+    enum IN_PORT inport = INPORT_HDMIIN;
+    unsigned int i = 0;
+    int ret = -1;
 
-    ALOGI("%s: enter: num_sources = %d num_sinks = %d", __func__, num_sources, num_sinks);
+    if (src_config->ext.device.type == AUDIO_DEVICE_IN_WIRED_HEADSET) {
+        ALOGD("bluetooth voice search is in use, bypass adev_create_audio_patch()!!\n");
+        goto err;
+    }
+    ALOGI("++%s", __FUNCTION__);
     if (!sources || !sinks || !handle) {
-        ALOGE("%s: null pointer", __func__);
-        return -EINVAL;
+        ALOGE("%s: null pointer!", __func__);
+        ret = -EINVAL;
+        goto err;
     }
-    if (num_sources != 1 || num_sinks > AUDIO_PATCH_PORTS_MAX) {
+
+    if ((num_sources != 1) || (num_sinks > AUDIO_PATCH_PORTS_MAX)) {
         ALOGE("%s: unsupport num sources or sinks", __func__);
-        return -EINVAL;
-    }
-    if (sources->type == AUDIO_PORT_TYPE_DEVICE
-        && sources->ext.device.type == AUDIO_DEVICE_IN_WIRED_HEADSET) {
-        ALOGD("%s: unsupport sources->ext.device.type = %#x", __func__, sources->ext.device.type);
-        return -1;
+        ret = -EINVAL;
+        goto err;
     }
 
-    patch_set = register_audio_patch(dev, num_sources, sources, num_sinks, sinks, handle);
-    if (!patch_set)
-        return -ENOMEM;
+    ALOGI("+%s num_sources [%d] , num_sinks [%d]", __func__, num_sources, num_sinks);
+    patch_set = register_audio_patch(dev, num_sources, sources,
+                                     num_sinks, sinks, handle);
+    ALOGI("%s(), patch new handle for AF: %d", __func__, (int)handle);
+    if (!patch_set) {
+        ret = -ENOMEM;
+        goto err;
+    }
 
-    if (sources->type == AUDIO_PORT_TYPE_MIX
-        && sinks->type == AUDIO_PORT_TYPE_DEVICE) {
-        switch (sinks->ext.device.type) {
+    /* mix to device audio patch */
+    if (src_config->type == AUDIO_PORT_TYPE_MIX) {
+        if (sink_config->type != AUDIO_PORT_TYPE_DEVICE) {
+            ALOGE("unsupport patch case");
+            ret = -EINVAL;
+            goto err_patch;
+        }
+
+        switch (sink_config->ext.device.type) {
         case AUDIO_DEVICE_OUT_HDMI_ARC:
             outport = OUTPORT_HDMI_ARC;
             break;
@@ -5999,124 +6091,154 @@ static int adev_create_audio_patch(struct audio_hw_device *dev,
             outport = OUTPORT_HEADPHONE;
             break;
         default:
-            ALOGE("%s: invalid out device type %#x",
-                    __func__, sinks->ext.device.type);
+            ALOGE("%s: invalid sink device type %#x",
+                  __func__, sink_config->ext.device.type);
             outport = OUTPORT_SPEAKER;
-            break;
         }
-        aml_audio_output_routing(dev, outport, false);
-        aml_dev->out_device = sinks->ext.device.type;
-        ALOGI("%s: exit: mix->device: outport(%d)", __func__, outport);
 
+        ret = aml_audio_output_routing(dev, outport, false);
+        if (ret < 0) {
+            ALOGE("%s() output routing failed", __func__);
+        }
+
+        aml_dev->out_device = sink_config->ext.device.type;
+        ALOGI("%s: mix->device patch: outport(%d)", __func__, outport);
         return 0;
-    } else if (sources->type == AUDIO_PORT_TYPE_DEVICE
-        && sinks->type == AUDIO_PORT_TYPE_MIX) {
-        switch (sources->ext.device.type) {
-        case AUDIO_DEVICE_IN_HDMI:
-            aml_dev->active_inport = INPORT_HDMIIN;
-            aml_dev->patch_src = SRC_HDMIIN;
-            break;
-        case AUDIO_DEVICE_IN_LINE:
-            aml_dev->active_inport = INPORT_LINEIN;
-            aml_dev->patch_src = SRC_LINEIN;
-            break;
-        case AUDIO_DEVICE_IN_SPDIF:
-            aml_dev->active_inport = INPORT_SPDIF;
-            aml_dev->patch_src = SRC_SPDIFIN;
-            break;
-        case AUDIO_DEVICE_IN_TV_TUNER:
-            aml_dev->active_inport = INPORT_TUNER;
-            break;
-        default:
-            ALOGE("%s: invalid in device type %#x",
-                    __func__, sources->ext.device.type);
-            unregister_audio_patch(dev, patch_set);
-            return -EINVAL;
-        }
-        aml_dev->src_gain[aml_dev->active_inport] = 1.0;
-        if (aml_dev->active_inport == INPORT_HDMIIN)
-            create_parser(dev);
-        ALOGI("%s: exit: device->mix: inport(%d)", __func__, aml_dev->active_inport);
+    }
 
-        return 0;
-    } else if (sources->type == AUDIO_PORT_TYPE_DEVICE
-        && sinks->type == AUDIO_PORT_TYPE_DEVICE) {
-        switch (sinks->ext.device.type) {
-        case AUDIO_DEVICE_OUT_HDMI_ARC:
-            outport = OUTPORT_HDMI_ARC;
-            break;
-        case AUDIO_DEVICE_OUT_HDMI:
-            outport = OUTPORT_HDMI;
-            break;
-        case AUDIO_DEVICE_OUT_SPDIF:
-            outport = OUTPORT_SPDIF;
-            break;
-        case AUDIO_DEVICE_OUT_AUX_LINE:
-            outport = OUTPORT_AUX_LINE;
-            break;
-        case AUDIO_DEVICE_OUT_SPEAKER:
-            outport = OUTPORT_SPEAKER;
-            break;
-        case AUDIO_DEVICE_OUT_WIRED_HEADPHONE:
-            outport = OUTPORT_HEADPHONE;
-            break;
-        default:
-            ALOGE("%s: invalid out device type %#x",
-                    __func__, sinks->ext.device.type);
-            outport = OUTPORT_SPEAKER;
-            break;
+    /* device to mix audio patch */
+    if (sink_config->type == AUDIO_PORT_TYPE_MIX) {
+        if (src_config->type != AUDIO_PORT_TYPE_DEVICE) {
+            ALOGE("unsupport patch case");
+            ret = -EINVAL;
+            goto err_patch;
         }
-        aml_audio_output_routing(dev, outport, false);
 
-        switch (sources->ext.device.type) {
+        switch (src_config->ext.device.type) {
         case AUDIO_DEVICE_IN_HDMI:
-            aml_dev->active_inport = INPORT_HDMIIN;
-            aml_dev->patch_src = SRC_HDMIIN;
             input_src = HDMIIN;
+            inport = INPORT_HDMIIN;
+            aml_dev->patch_src = SRC_HDMIIN;
             break;
         case AUDIO_DEVICE_IN_LINE:
-            aml_dev->active_inport = INPORT_LINEIN;
-            aml_dev->patch_src = SRC_LINEIN;
             input_src = LINEIN;
-            break;
-        case AUDIO_DEVICE_IN_TV_TUNER:
-            aml_dev->active_inport = INPORT_TUNER;
-            input_src = ATV;
+            inport = INPORT_LINEIN;
+            aml_dev->patch_src = SRC_LINEIN;
             break;
         case AUDIO_DEVICE_IN_SPDIF:
-            aml_dev->active_inport = INPORT_SPDIF;
-            aml_dev->patch_src = SRC_SPDIFIN;
             input_src = SPDIFIN;
+            inport = INPORT_SPDIF;
+            aml_dev->patch_src = SRC_SPDIFIN;
+            break;
+        case AUDIO_DEVICE_IN_TV_TUNER:
+            input_src = ATV;
+            inport = INPORT_TUNER;
             break;
         default:
-            ALOGE("%s: invalid in device type %#x",
-                    __func__, sources->ext.device.type);
-            unregister_audio_patch(dev, patch_set);
-            return -EINVAL;
+            ALOGE("%s: invalid src device type %#x",
+                  __func__, src_config->ext.device.type);
+            ret = -EINVAL;
+            goto err_patch;
         }
-        aml_dev->src_gain[aml_dev->active_inport] = 1.0;
+
+        set_audio_source(input_src);
+
+        aml_dev->active_inport = inport;
+        aml_dev->src_gain[inport] = 1.0;
+        if (inport == INPORT_HDMIIN) {
+            create_parser(dev);
+        }
+        ALOGI("%s: device->mix patch: inport(%s)", __func__, input_ports[inport]);
+        return 0;
+    }
+
+    /*device to device audio patch. TODO: unify with the android device type*/
+    if (sink_config->type == AUDIO_PORT_TYPE_DEVICE && src_config->type == AUDIO_PORT_TYPE_DEVICE) {
+        switch (sink_config->ext.device.type) {
+        case AUDIO_DEVICE_OUT_HDMI_ARC:
+            outport = OUTPORT_HDMI_ARC;
+            break;
+        case AUDIO_DEVICE_OUT_HDMI:
+            outport = OUTPORT_HDMI;
+            break;
+        case AUDIO_DEVICE_OUT_SPDIF:
+            outport = OUTPORT_SPDIF;
+            break;
+        case AUDIO_DEVICE_OUT_AUX_LINE:
+            outport = OUTPORT_AUX_LINE;
+            break;
+        case AUDIO_DEVICE_OUT_SPEAKER:
+            outport = OUTPORT_SPEAKER;
+            break;
+        case AUDIO_DEVICE_OUT_WIRED_HEADPHONE:
+            outport = OUTPORT_HEADPHONE;
+            break;
+        default:
+            ALOGE("%s: invalid sink device type %#x",
+                  __func__, sink_config->ext.device.type);
+            outport = OUTPORT_SPEAKER;
+        }
+
+        ret = aml_audio_output_routing(dev, outport, false);
+        if (ret < 0) {
+            ALOGE("%s() output routing failed", __func__);
+        }
+
+        switch (src_config->ext.device.type) {
+        case AUDIO_DEVICE_IN_HDMI:
+            input_src = HDMIIN;
+            inport = INPORT_HDMIIN;
+            aml_dev->patch_src = SRC_HDMIIN;
+            break;
+        case AUDIO_DEVICE_IN_LINE:
+            input_src = LINEIN;
+            inport = INPORT_LINEIN;
+            aml_dev->patch_src = SRC_LINEIN;
+            break;
+        case AUDIO_DEVICE_IN_TV_TUNER:
+            input_src = ATV;
+            inport = INPORT_TUNER;
+            break;
+        case AUDIO_DEVICE_IN_SPDIF:
+            input_src = SPDIFIN;
+            inport = INPORT_SPDIF;
+            aml_dev->patch_src = SRC_SPDIFIN;
+            break;
+        default:
+            ALOGE("%s: invalid src device type %#x",
+                  __func__, src_config->ext.device.type);
+            ret = -EINVAL;
+            goto err_patch;
+        }
+        aml_dev->active_inport = inport;
+        aml_dev->src_gain[inport] = 1.0;
         aml_dev->sink_gain[outport] = 1.0;
+        ALOGI("%s: dev->dev patch: inport(%s), outport(%s)",
+              __func__, input_ports[inport], output_ports[outport]);
+
         // ATV path goes to dev set_params which could
         // tell atv or dtv source and decide to create or not.
         // One more case is ATV->ATV, should recreate audio patch.
         if (input_src != ATV || (input_src == ATV && aml_dev->patch_src == SRC_ATV)) {
             set_audio_source(input_src);
-            ret = create_patch(dev, sources->ext.device.type, sinks->ext.device.type);
+            ret = create_patch(dev,
+                               src_config->ext.device.type, outport);
             if (ret) {
                 ALOGE("%s: create patch failed", __func__);
-                unregister_audio_patch(dev, patch_set);
-                return ret;
+                goto err_patch;
             }
             aml_dev->audio_patching = 1;
+            if (input_src == ATV) {
+                aml_dev->patch_src = SRC_ATV;
+            }
         }
-        ALOGI("%s: exit: device->device: inport(%s)->outport(%s)",
-                __func__, input_ports[aml_dev->active_inport], output_ports[outport]);
-
-        return 0;
     }
-    unregister_audio_patch(dev, patch_set);
+    return 0;
 
-    return -1;
+err_patch:
+    unregister_audio_patch(dev, patch_set);
+err:
+    return ret;
 }
 
 /* Release an audio patch */
@@ -6124,14 +6246,16 @@ static int adev_release_audio_patch(struct audio_hw_device *dev,
                                 audio_patch_handle_t handle)
 {
     struct aml_audio_device *aml_dev = (struct aml_audio_device *)dev;
-    struct audio_patch *patch;
-    struct audio_patch_set *patch_set;
-    struct listnode *node;
+    struct audio_patch_set *patch_set = NULL;
+    struct audio_patch *patch = NULL;
+    struct listnode *node = NULL;
+    int ret = 0;
 
-    ALOGD("%s: enter: handle(%d)", __func__, handle);
+    ALOGI("++%s: handle(%d)", __func__, handle);
     if (list_empty(&aml_dev->patch_list)) {
-        ALOGE("%s: patch list is empty", __func__);
-        return -EINVAL;
+        ALOGE("No patch in list to release");
+        ret = -EINVAL;
+        goto exit;
     }
 
     /* find audio_patch in patch_set list */
@@ -6139,35 +6263,46 @@ static int adev_release_audio_patch(struct audio_hw_device *dev,
         patch_set = node_to_item(node, struct audio_patch_set, list);
         patch = &patch_set->audio_patch;
         if (patch->id == handle) {
-            ALOGI("%s: patch set(%p) found id(%d)", __func__, patch_set, patch->id);
-            if (patch->sources[0].type == AUDIO_PORT_TYPE_DEVICE
-                && patch->sinks[0].type == AUDIO_PORT_TYPE_DEVICE) {
-                if (aml_dev->patch_src != SRC_DTV
-                    && aml_dev->patch_src != SRC_INVAL
-                    && aml_dev->audio_patching == 1) {
-                    release_patch(aml_dev);
-                }
-                aml_dev->audio_patching = 0;
-                aml_dev->patch_src = SRC_INVAL;
-                aml_dev->parental_control_av_mute = false;
-            }
-
-            if (patch->sources[0].type == AUDIO_PORT_TYPE_DEVICE
-                && patch->sinks[0].type == AUDIO_PORT_TYPE_MIX) {
-                if (aml_dev->patch_src == SRC_HDMIIN) {
-                    release_parser(aml_dev);
-                }
-                aml_dev->patch_src = SRC_INVAL;
-            }
-
-            unregister_audio_patch(dev, patch_set);
-            //dump_aml_audio_patch_sets(dev);
+            ALOGI("patch set found id %d, patchset %p", patch->id, patch_set);
             break;
+        } else {
+            patch_set = NULL;
+            patch = NULL;
         }
     }
-    ALOGD("%s: exit", __func__);
 
-    return 0;
+    if (!patch_set || !patch) {
+        ALOGE("Can't get patch in list");
+        ret = -EINVAL;
+        goto exit;
+    }
+
+    if (patch->sources[0].type == AUDIO_PORT_TYPE_DEVICE
+        && patch->sinks[0].type == AUDIO_PORT_TYPE_DEVICE) {
+        if (aml_dev->patch_src != SRC_DTV
+                && aml_dev->patch_src != SRC_INVAL
+                && aml_dev->audio_patching == 1) {
+            release_patch(aml_dev);
+        }
+        aml_dev->audio_patching = 0;
+        aml_dev->patch_src = SRC_INVAL;
+        aml_dev->parental_control_av_mute = false;
+    }
+
+    if (patch->sources[0].type == AUDIO_PORT_TYPE_DEVICE
+        && patch->sinks[0].type == AUDIO_PORT_TYPE_MIX) {
+        if (aml_dev->patch_src == SRC_HDMIIN) {
+            release_parser(aml_dev);
+        }
+        aml_dev->patch_src = SRC_INVAL;
+    }
+
+    unregister_audio_patch(dev, patch_set);
+    ALOGI("--%s: after releasing patch, patch sets will be:", __func__);
+    //dump_aml_audio_patch_sets(dev);
+
+exit:
+    return ret;
 }
 
 static int adev_dump(const audio_hw_device_t *device __unused, int fd __unused)
@@ -6180,16 +6315,16 @@ static int adev_close(hw_device_t *device)
     struct aml_audio_device *adev = (struct aml_audio_device *)device;
 
     ALOGD("%s: enter", __func__);
-    free(adev->hp_output_buf);
+#if defined(IS_ATOM_PROJECT)
     free(adev->aec_buf);
-    free(adev->effect_buf);
     free(adev->dsp_in_buf);
-    eq_drc_release(&adev->eq_data);
+#endif
+    free(adev->hp_output_buf);
+    free(adev->effect_buf);
     if (adev->ar)
         audio_route_free(adev->ar);
+    eq_drc_release(&adev->eq_data);
     free(device);
-    ALOGD("%s: exit", __func__);
-
     return 0;
 }
 
@@ -6198,6 +6333,7 @@ static int adev_set_audio_port_config (struct audio_hw_device *dev, const struct
     struct aml_audio_device *aml_dev = (struct aml_audio_device *) dev;
     enum OUT_PORT outport = OUTPORT_SPEAKER;
     enum IN_PORT inport = INPORT_HDMIIN;
+    int ret = 0;
 
     ALOGI ("++%s", __FUNCTION__);
     if (config == NULL) {
@@ -6346,14 +6482,19 @@ static int adev_get_audio_port(struct audio_hw_device *dev __unused, struct audi
 static int adev_open(const hw_module_t* module, const char* name, hw_device_t** device)
 {
     struct aml_audio_device *adev;
+    int ret = 0;
 
     ALOGD("%s: enter", __func__);
-    if (strcmp(name, AUDIO_HARDWARE_INTERFACE) != 0)
-        return -EINVAL;
+    if (strcmp(name, AUDIO_HARDWARE_INTERFACE) != 0) {
+        ret = -EINVAL;
+        goto err;
+    }
 
     adev = calloc(1, sizeof(struct aml_audio_device));
-    if (!adev)
-        return -ENOMEM;
+    if (!adev) {
+        ret = -ENOMEM;
+        goto err;
+    }
 
     adev->hw_device.common.tag = HARDWARE_DEVICE_TAG;
     adev->hw_device.common.version = AUDIO_DEVICE_API_VERSION_3_0;
@@ -6390,38 +6531,46 @@ static int adev_open(const hw_module_t* module, const char* name, hw_device_t** 
     adev->card = CARD_AMLOGIC_DEFAULT;
     adev->ar = audio_route_init(adev->card, MIXER_XML_PATH);
     if (adev->ar == NULL) {
-        ALOGE("%s: audio route init failed", __func__);
-        free(adev);
-        return -1;
+        ALOGE("audio route init failed");
+        ret = -EINVAL;
+        goto err_adev;
     }
     /* Set the default route before the PCM stream is opened */
     adev->mode = AUDIO_MODE_NORMAL;
-    adev->in_device = AUDIO_DEVICE_IN_BUILTIN_MIC & ~AUDIO_DEVICE_BIT_IN;
     adev->out_device = AUDIO_DEVICE_OUT_SPEAKER;
+    adev->in_device = AUDIO_DEVICE_IN_BUILTIN_MIC & ~AUDIO_DEVICE_BIT_IN;
     adev->hi_pcm_mode = false;
-    aml_audio_output_routing(&adev->hw_device, OUTPORT_SPEAKER, false);
 
     adev->eq_data.card = adev->card;
-    eq_drc_init(&adev->eq_data);
-    ALOGD("%s: source gain: atv(%f) dtv(%f) hdmi-in(%f) av(%f)", __func__,
+    if (eq_drc_init(&adev->eq_data) == 0) {
+        ALOGI("%s() audio source gain: atv:%f, dtv:%f, hdmiin:%f, av:%f", __func__,
            adev->eq_data.s_gain.atv, adev->eq_data.s_gain.dtv,
            adev->eq_data.s_gain.hdmi, adev->eq_data.s_gain.av);
-    ALOGD("%s: device gain: speaker(%f) spdif-arc(%f) headphone(%f)", __func__,
+        ALOGI("%s() audio device gain: speaker:%f, spdif_arc:%f, headphone:%f", __func__,
            adev->eq_data.p_gain.speaker, adev->eq_data.p_gain.spdif_arc,
            adev->eq_data.p_gain.headphone);
+    }
+
+    ret = aml_audio_output_routing(&adev->hw_device, OUTPORT_SPEAKER, false);
+    if (ret < 0) {
+        ALOGE("%s() routing failed", __func__);
+        ret = -EINVAL;
+        goto err_adev;
+    }
 
     adev->next_unique_ID = 1;
     list_init(&adev->patch_list);
 
+    *device = &adev->hw_device.common;
     adev->dts_post_gain = 1.0;
     /* set default HP gain */
     adev->sink_gain[OUTPORT_HEADPHONE] = 1.0;
+    adev->patch_src = SRC_INVAL;
     pthread_mutex_init(&adev->alsa_pcm_lock, NULL);
-    pthread_mutex_init(&adev->aec_spk_mic_lock, NULL);
 
 #if defined(IS_ATOM_PROJECT)
     Aud_Gain_Filter_Init();
-
+    pthread_mutex_init(&adev->aec_spk_mic_lock, NULL);
     if (load_DSP_lib() < 0 || dsp_init(1, 3, 5, 48000) < 0) {
         ALOGE("%s: load dsp lib or dsp init failed", __func__);
         adev->has_dsp_lib = false;
@@ -6439,15 +6588,19 @@ static int adev_open(const hw_module_t* module, const char* name, hw_device_t** 
     }
 #endif
 
-    *device = &adev->hw_device.common;
 #if (ENABLE_NANO_PATCH == 1)
 /*[SEN5-autumn.zhao-2018-01-11] add for B06 audio support { */
 	nano_init();
 /*[SEN5-autumn.zhao-2018-01-11] add for B06 audio support } */
 #endif
-    ALOGD("%s: exit", __func__);
 
+    ALOGD("%s: exit", __func__);
     return 0;
+
+err_adev:
+    free(adev);
+err:
+    return ret;
 }
 
 static struct hw_module_methods_t hal_module_methods = {
