@@ -74,6 +74,7 @@
 #include "harman_dsp_process.h"
 #include "audio_aec_process.h"
 
+extern void Aud_Gain_Filter_Init(void);
 extern void Aud_Gain_HPFFilter_Process(void* inBuf, int numSamples);
 extern void Aud_Gain_LPFFilter_Process(void* inBuf, int numSamples);
 #endif
@@ -6415,6 +6416,8 @@ static int adev_open(const hw_module_t* module, const char* name, hw_device_t** 
     pthread_mutex_init(&adev->aec_spk_mic_lock, NULL);
 
 #if defined(IS_ATOM_PROJECT)
+    Aud_Gain_Filter_Init();
+
     if (load_DSP_lib() < 0 || dsp_init(1, 3, 5, 48000) < 0) {
         ALOGE("%s: load dsp lib or dsp init failed", __func__);
         adev->has_dsp_lib = false;
