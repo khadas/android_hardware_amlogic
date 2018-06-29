@@ -243,8 +243,8 @@ void Aud_Gain_HPFFilter_Process(void* inBuf, int numSamples)
 {
     int32_t pCoeff[5] = {0x1f1f9edc, 0xc1c0c248, 0x1f1f9edc, 0x3e391892, 0xe1ba9d21};
 
-    vProcess_Gain(inBuf, numSamples);
-
     vProcess_Filter(inBuf, inBuf, pCoeff, state_pointer_HPF, numSamples);
+
+    vProcess_Gain(inBuf, numSamples);
 }
 
