@@ -210,6 +210,11 @@ enum stream_status {
     STREAM_MIXING
 };
 
+typedef union {
+	unsigned long long timeStamp;
+	unsigned char tsB[8];
+} aec_timestamp;
+
 #define MAX_STREAM_NUM   5
 #define HDMI_ARC_MAX_FORMAT  20
 struct aml_audio_device {
@@ -319,7 +324,13 @@ struct aml_audio_device {
     ring_buffer_t spk_ring_buf;
     void *spk_buf;
     size_t spk_buf_size;
-    int spk_write_bytes;
+    size_t spk_write_bytes;
+    size_t extra_write_bytes;
+    
+    // spk_buf mgmt
+    unsigned long long spk_buf_last_write_time;
+    unsigned long long spk_buf_write_count;
+    unsigned long long spk_buf_read_count;
 
     bool has_dsp_lib;
     void *aec_buf;
@@ -328,6 +339,7 @@ struct aml_audio_device {
     size_t dsp_in_buf_size;
 
     pthread_mutex_t aec_spk_mic_lock;
+    pthread_mutex_t aec_spk_buf_lock;
 };
 
 struct aml_stream_out {

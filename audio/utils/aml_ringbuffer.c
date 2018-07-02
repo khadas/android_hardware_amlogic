@@ -216,7 +216,7 @@ size_t ring_buffer_read(struct ring_buffer *rbuffer, unsigned char* buffer, size
     if (readable_space < bytes) {
         read_bytes = readable_space;
     } else {
-    read_bytes = bytes;
+        read_bytes = bytes;
     }
 
     read_from_buffer(buf->rd, buffer, read_bytes, buf->start_addr, buf->size);

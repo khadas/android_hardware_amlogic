@@ -27,10 +27,12 @@ typedef  struct
     int32_t R_Channel_Filter_state;
 }FILTER_PAIR_STATE_VAR_STRUCT;
 
-FILTER_PAIR_STATE_VAR_STRUCT LPF_Pair_State[4] = {0};
+FILTER_PAIR_STATE_VAR_STRUCT LPF_Pair_State_Mic[4] = {0};
+FILTER_PAIR_STATE_VAR_STRUCT LPF_Pair_State_Spk[4] = {0};
 FILTER_PAIR_STATE_VAR_STRUCT HPF_Pair_State[4] = {0};
 
-FILTER_PAIR_STATE_VAR_STRUCT *state_pointer_LPF = LPF_Pair_State;
+FILTER_PAIR_STATE_VAR_STRUCT *state_pointer_LPF_Mic = LPF_Pair_State_Mic;
+FILTER_PAIR_STATE_VAR_STRUCT *state_pointer_LPF_Spk = LPF_Pair_State_Spk;
 FILTER_PAIR_STATE_VAR_STRUCT *state_pointer_HPF = HPF_Pair_State;
 
 static int32_t Gain_Value = 0x9FFF0; // 20 dB
@@ -150,14 +152,14 @@ static void vProcess_Filter(void* inBuf, void* outBuf, int32_t* filter_coefficie
 }
 
 /*low pass filter: fc = 8K, sr = 48K*/
-void Aud_Gain_LPFFilter_Process(void* inBuf, int numSamples)
+void Aud_Gain_LPFFilter_Process(int mic, void* inBuf, int numSamples)
 {
     int i;
     int32_t pCoeff[5] = {0x4f61aef, 0x9ec35de, 0x4f61aef, 0x13d86b9b, 0xf84f28a7};
 
     //vProcess_Gain(inBuf, numSamples);
 
-    vProcess_Filter(inBuf, inBuf, pCoeff, state_pointer_LPF, numSamples);
+    vProcess_Filter(inBuf, inBuf, pCoeff, mic == 1 ? state_pointer_LPF_Mic : state_pointer_LPF_Spk, numSamples);
 }
 
 /*high pass filter: fc = 100Hz, sr = 16K*/
