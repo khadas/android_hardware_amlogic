@@ -1380,10 +1380,7 @@ static int out_resume_new (struct audio_stream_out *stream)
     int ret = 0;
 
     ALOGI ("%s(), stream(%p)\n", __func__, stream);
-    //if (aml_out->pause_status != 1) {
-    //    ALOGE("%s(), stream status %d\n", __func__, aml_out->pause_status);
-    //    return ret;
-    //}
+
     pthread_mutex_lock (&aml_dev->lock);
     pthread_mutex_lock (&aml_out->lock);
     if (aml_out->standby || aml_out->pause_status == false) {
@@ -1394,7 +1391,7 @@ static int out_resume_new (struct audio_stream_out *stream)
         ret = 3;
         goto exit;
     }
-    if (aml_out->pause_status != 1) {
+    if (aml_out->pause_status == false) {
         ALOGE("%s(), stream status %d\n", __func__, aml_out->pause_status);
         return ret;
     }

@@ -27,6 +27,7 @@
 //at the same,need do a software mixer in audio hw c.
 int aml_hw_mixer_init(struct aml_hw_mixer *mixer)
 {
+    int ret = 0;
     pthread_mutex_init(&mixer->lock, NULL);
     pthread_mutex_lock(&mixer->lock);
     mixer->wp = 0;
@@ -34,23 +35,37 @@ int aml_hw_mixer_init(struct aml_hw_mixer *mixer)
     mixer->buf_size = AML_HW_MIXER_BUF_SIZE;
     mixer->start_buf = calloc(1, mixer->buf_size);
     if (!mixer->start_buf) {
-        ALOGE("%s: alloc mixer buf failed", __func__);
-        pthread_mutex_unlock(&mixer->lock);
-        return -ENOMEM;
+        ALOGE("%s(), no mem", __func__);
+        ret = -ENOMEM;
+        goto exit;
     }
     mixer->need_cache_flag = 1;
-    pthread_mutex_unlock(&mixer->lock);
-    ALOGD("%s: sucess", __func__);
 
-    return 0;
+exit:
+    pthread_mutex_unlock(&mixer->lock);
+    ALOGI("%s done\n",__func__);
+    return ret;
 }
 
 void aml_hw_mixer_deinit(struct aml_hw_mixer *mixer)
 {
+    pthread_mutex_lock(&mixer->lock);
     free(mixer->start_buf);
     mixer->start_buf = NULL;
+    mixer->wp = 0;
+    mixer->rp = 0;
+    mixer->buf_size = 0;
+    mixer->need_cache_flag = 0;
+    pthread_mutex_unlock(&mixer->lock);
+}
 
-    ALOGD("%s: sucess", __func__);
+void aml_hw_mixer_reset(struct aml_hw_mixer *mixer)
+{
+    pthread_mutex_lock(&mixer->lock);
+    mixer->wp = 0;
+    mixer->rp = 0;
+    mixer->need_cache_flag = 1;
+    pthread_mutex_unlock(&mixer->lock);
 }
 
 static uint aml_hw_mixer_get_space(struct aml_hw_mixer *mixer)
@@ -83,7 +98,7 @@ int aml_hw_mixer_write(struct aml_hw_mixer *mixer, const void *buffer, size_t by
     int retry = 2;
     unsigned tail, space, write_bytes = bytes;
 
-    if (!mixer->start_buf)
+    if (!mixer || !mixer->start_buf)
         return bytes;
 
     while (retry--) {
@@ -91,13 +106,14 @@ int aml_hw_mixer_write(struct aml_hw_mixer *mixer, const void *buffer, size_t by
         space = aml_hw_mixer_get_space(mixer);
         if (space < bytes) {
             pthread_mutex_unlock(&mixer->lock);
-            usleep(100 * 1000);
+            usleep(10 * 1000);
         } else
             break;
     }
 
     if (retry < 0) {
-        ALOGW("%s: write data no space,space %d,bytes %d,rp %d,wp %d, reset all ptr", __func__, space, bytes, mixer->rp, mixer->wp);
+        //ALOGW("%s: write data no space,space %d,bytes %zu,rp %d,wp %d, reset all ptr",
+        //__func__, space, bytes, mixer->rp, mixer->wp);
         mixer->wp = 0;
         mixer->rp = 0;
         return bytes;
