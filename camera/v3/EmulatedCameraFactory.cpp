@@ -602,6 +602,11 @@ void EmulatedCameraFactory::onStatusChanged(int cameraId, int newStatus)
         if (m == 200) {
             cam->unplugCamera();
         }
+
+        if (cb != NULL && cb->camera_device_status_change != NULL) {
+            DBG_LOGA("callback unplug status to framework.\n");
+            cb->camera_device_status_change(cb, cameraId, newStatus);
+        }
     } else if (newStatus == CAMERA_DEVICE_STATUS_PRESENT) {
         CAMHAL_LOGDA("camera plugged again?\n");
         cam->plugCamera();

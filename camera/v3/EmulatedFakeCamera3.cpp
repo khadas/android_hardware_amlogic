@@ -791,6 +791,10 @@ const camera_metadata_t* EmulatedFakeCamera3::constructDefaultRequestSettings(
     settings.update(ANDROID_SENSOR_EXPOSURE_TIME, &exposureTime, 1);
 
     int64_t frameDuration =  mSensor->getMinFrameDuration();
+    if (mSensorType == SENSOR_USB) {
+        if (frameDuration < (int64_t)33333333L)
+            frameDuration = (int64_t)33333333L;
+    }
     settings.update(ANDROID_SENSOR_FRAME_DURATION, &frameDuration, 1);
 
     static const int32_t sensitivity = 100;
