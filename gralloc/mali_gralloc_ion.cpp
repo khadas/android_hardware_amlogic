@@ -125,6 +125,10 @@ static int alloc_from_ion_heap(int ion_fd, size_t size, unsigned int *type, unsi
 
 	if (ret < 0)
 	{
+		if (heap_type == ION_HEAP_TYPE_CUSTOM) {
+			ALOGE("ION_HEAP_TYPE_CUSTOM alloc failed!\n");
+			return -1;
+		}
 #if defined(ION_HEAP_SECURE_MASK)
 		if (heap_type == ION_HEAP_SECURE)
 		{
