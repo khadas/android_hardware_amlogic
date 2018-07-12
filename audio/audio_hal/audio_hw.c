@@ -4671,11 +4671,7 @@ ssize_t audio_hal_data_processing(struct audio_stream_out *stream,
         size_t out_frames = bytes / FRAMESIZE_32BIT_STEREO;
         float gain_speaker = adev->sink_gain[OUTPORT_SPEAKER];
 
-       // Until http://pagit/q/topic:%22volume_change%22 CLs land
-       // with framework side changes, the line below needs to be
-       // commented out to allow any audio output to speakers.
-       // DO NOT SHIP: remove this once the CLs land.
-       // apply_volume(gain_speaker, tmp_buffer, sizeof(uint32_t), bytes);
+        apply_volume(gain_speaker, tmp_buffer, sizeof(uint32_t), bytes);
 
 #if defined(IS_ATOM_PROJECT)
         int32_t *out_buffer;
