@@ -3844,6 +3844,28 @@ static int adev_set_parameters (struct audio_hw_device *dev, const char *kvpairs
         ALOGI ("ms12 disable_pcm_mixing set to %d\n", adev->disable_pcm_mixing);
         goto exit;
     }
+
+    ret = str_parms_get_int(parms, "Audio hdmi-out mute", &val);
+    if (ret >= 0) {
+        aml_mixer_ctrl_set_int(AML_MIXER_ID_HDMI_OUT_AUDIO_MUTE, val);
+        ALOGI("audio hdmi out status: %d\n", val);
+        goto exit;
+    }
+
+    ret = str_parms_get_int(parms, "Audio spdif mute", &val);
+    if (ret >= 0) {
+        aml_mixer_ctrl_set_int(AML_MIXER_ID_SPDIF_MUTE, val);
+        ALOGI("audio spdif out status: %d\n", val);
+        goto exit;
+    }
+
+    ret = str_parms_get_int (parms, "spdifin/arcin switch", &val);
+    if (ret >= 0) {
+        aml_mixer_ctrl_set_int(AML_MIXER_ID_SPDIFIN_ARCIN_SWITCH, val);
+        ALOGI("audio source: %s\n", val?"ARCIN":"SPDIFIN");
+        goto exit;
+    }
+
     //add for fireos tv for Dolby audio setting
     ret = str_parms_get_int (parms, "hdmi_format", &val);
     if (ret >= 0 ) {
@@ -3872,6 +3894,7 @@ static int adev_set_parameters (struct audio_hw_device *dev, const char *kvpairs
         ALOGI ("capability:routing = %#x\n", adev->routing);
         goto exit;
     }
+
     ret = str_parms_get_int (parms, "capability:format", &val);
     if (ret >= 0) {
         adev->output_config.format = val;
@@ -3971,6 +3994,7 @@ static int adev_set_parameters (struct audio_hw_device *dev, const char *kvpairs
         adev->first_apts_flag = true;
         goto exit;
     }
+
 #ifdef DOLBY_MS12_ENABLE
     ret = str_parms_get_int (parms, "dual_decoder_support", &val);
     if (ret >= 0) {
@@ -4021,6 +4045,7 @@ static int adev_set_parameters (struct audio_hw_device *dev, const char *kvpairs
         goto exit;
     }
 #endif
+
     ret = str_parms_get_str(parms, "SOURCE_GAIN", value, sizeof(value));
     if (ret >= 0) {
         sscanf(value,"%f %f %f %f", &adev->eq_data.s_gain.atv, &adev->eq_data.s_gain.dtv,
@@ -4054,12 +4079,14 @@ static int adev_set_parameters (struct audio_hw_device *dev, const char *kvpairs
             ALOGE("%s: eq_mode_set failed", __FUNCTION__);
         goto exit;
     }
+
     ret = str_parms_get_str(parms, "connect", value, sizeof(value));
     if (ret >= 0) {
         val = atoi(value);
         ALOGI("device %x connect\n",val);
         goto exit;
     }
+
     ret = str_parms_get_str(parms, "disconnect", value, sizeof(value));
     if (ret >= 0) {
         val = atoi(value);

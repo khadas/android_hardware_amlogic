@@ -35,8 +35,14 @@
 #define LOG_TAG "audio_alsa_mixer"
 
 static struct aml_mixer_list gAmlMixerList[] = {
+    /* for i2s out status */
     {AML_MIXER_ID_I2S_MUTE,             "Audio i2s mute"},
+    /* for spdif out status */
     {AML_MIXER_ID_SPDIF_MUTE,           "Audio spdif mute"},
+    /* for HDMI TX status */
+    {AML_MIXER_ID_HDMI_OUT_AUDIO_MUTE,  "Audio hdmi-out mute"},
+    /* for HDMI ARC status */
+    {AML_MIXER_ID_HDMI_ARC_AUDIO_ENABLE, "HDMI ARC Switch"},
     {AML_MIXER_ID_AUDIO_IN_SRC,         "Audio In Source"},
     {AML_MIXER_ID_I2SIN_AUDIO_TYPE,     "I2SIN Audio Type"},
     {AML_MIXER_ID_SPDIFIN_AUDIO_TYPE,   "SPDIFIN Audio Type"},
@@ -51,59 +57,14 @@ static struct aml_mixer_list gAmlMixerList[] = {
     /* for ATV status */
     {AML_MIXER_ID_ATV_IN_AUDIO_STABLE,  "ATV audio stable"},
     {AML_MIXER_ID_SPDIF_FORMAT,         "Audio spdif format"},
-};
-/*
-static struct aml_mixer_ctrl gCtlI2sMute[] = {
-    {I2S_MUTE_ON,  "On"},
-    {I2S_MUTE_OFF, "Off"},
-};
-
-static struct aml_mixer_ctrl gCtlSpdifMute[] = {
-    {SPDIF_MUTE_ON,  "On"},
-    {SPDIF_MUTE_OFF, "Off"},
+    /* for AV status */
+    {AML_MIXER_ID_AV_IN_AUDIO_STABLE,   "AV audio stable"},
+    /* for Speaker master volume */
+    {AML_MIXER_ID_EQ_MASTER_VOLUME,     "EQ master volume"},
+    /* ARCIN and SPDIFIN switch*/
+    {AML_MIXER_ID_SPDIFIN_ARCIN_SWITCH, "AudioIn Switch"}
 };
 
-static struct aml_mixer_ctrl gCtlAudioInSrc[] = {
-    {AUDIOIN_SRC_LINEIN,  "LINEIN"},
-    {AUDIOIN_SRC_ATV,     "ATV"},
-    {AUDIOIN_SRC_HDMI,    "HDMI"},
-    {AUDIOIN_SRC_SPDIFIN, "SPDIFIN"},
-};
-
-static struct aml_mixer_ctrl gCtlI2SInType[] = {
-    {I2SIN_AUDIO_TYPE_LPCM,      "LPCM"},
-    {I2SIN_AUDIO_TYPE_NONE_LPCM, "NONE-LPCM"},
-    {I2SIN_AUDIO_TYPE_UN_KNOWN,  "UN-KNOW"},
-};
-
-static struct aml_mixer_ctrl gCtlSpdifInType[] = {
-    {SPDIFIN_AUDIO_TYPE_LPCM,   "LPCM"},
-    {SPDIFIN_AUDIO_TYPE_AC3,    "AC3"},
-    {SPDIFIN_AUDIO_TYPE_EAC3,   "EAC3"},
-    {SPDIFIN_AUDIO_TYPE_DTS,    "DTS"},
-    {SPDIFIN_AUDIO_TYPE_DTSHD,  "DTS-HD"},
-    {SPDIFIN_AUDIO_TYPE_TRUEHD, "TRUEHD"},
-    {SPDIFIN_AUDIO_TYPE_PAUSE,  "PAUSE"},
-};
-
-static struct aml_mixer_ctrl gCtlHwResample[] = {
-    {HW_RESAMPLE_DISABLE, "Disable"},
-    {HW_RESAMPLE_32K,     "Enable:32K"},
-    {HW_RESAMPLE_44K,     "Enable:44K"},
-    {HW_RESAMPLE_48K,     "Enable:48K"},
-    {HW_RESAMPLE_88K,     "Enable:88K"},
-    {HW_RESAMPLE_96K,     "Enable:96K"},
-    {HW_RESAMPLE_96K,     "Enable:176K"},
-    {HW_RESAMPLE_96K,     "Enable:192K"},
-};
-
-static struct aml_mixer_ctrl gCtlOutputSwap[] = {
-    {OUTPUT_SWAP_LR, "LR"},
-    {OUTPUT_SWAP_LL, "LL"},
-    {OUTPUT_SWAP_RR, "RR"},
-    {OUTPUT_SWAP_RL, "RL"},
-};
-*/
 static char *_get_mixer_name_by_id(int mixer_id)
 {
     int i;

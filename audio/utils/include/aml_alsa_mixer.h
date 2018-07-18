@@ -89,6 +89,12 @@ typedef enum MIXER_OUTPUT_SWAP {
     OUTPUT_SWAP_MAX,
 } eMixerOutputSwap;
 
+/* spdifin/arcin */
+typedef enum AUDIOIN_SWITCH {
+    SPDIF_IN = 0,
+    ARC_IN = 1,
+} eMixerAudioinSwitch;
+
 struct aml_mixer_ctrl {
     int  ctrl_idx;
     char ctrl_name[50];
@@ -100,6 +106,8 @@ struct aml_mixer_ctrl {
 typedef enum AML_MIXER_CTRL_ID {
     AML_MIXER_ID_I2S_MUTE = 0,
     AML_MIXER_ID_SPDIF_MUTE,
+    AML_MIXER_ID_HDMI_OUT_AUDIO_MUTE,
+    AML_MIXER_ID_HDMI_ARC_AUDIO_ENABLE,
     AML_MIXER_ID_AUDIO_IN_SRC,
     AML_MIXER_ID_I2SIN_AUDIO_TYPE,
     AML_MIXER_ID_SPDIFIN_AUDIO_TYPE,
@@ -112,6 +120,9 @@ typedef enum AML_MIXER_CTRL_ID {
     AML_MIXER_ID_HDMI_ATMOS_EDID,
     AML_MIXER_ID_ATV_IN_AUDIO_STABLE,
     AML_MIXER_ID_SPDIF_FORMAT,
+    AML_MIXER_ID_AV_IN_AUDIO_STABLE,
+    AML_MIXER_ID_EQ_MASTER_VOLUME,
+    AML_MIXER_ID_SPDIFIN_ARCIN_SWITCH,
     AML_MIXER_ID_MAX,
 } eMixerCtrlID;
 
