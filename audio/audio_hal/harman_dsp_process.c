@@ -33,6 +33,42 @@
 
 #include "harman_dsp_process.h"
 
+int set_dsp_mode(void) {
+    char value[PROPERTY_VALUE_MAX];
+    if (property_get("persist.harman.dspmode", value, "0") > 0) {
+        int dspmode = atoi(value);
+        /* 0 is normal mode; 1 is hw test mode; 2 is bypass mode*/
+        if (dspmode <= 2 && dsp_setParameter(0x10010070, &dspmode) == 0) {
+            ALOGI("%s: set dsp mode is %d", __func__, dspmode);
+        } else {
+            ALOGE("%s: set dsp mode fail: %d", __func__, dspmode);
+            return -1;
+        }
+    }
+    return 0;
+}
+
+int set_EQ_mode(int EQ_mode) {
+    if (EQ_mode < NUM_EQ_MODE && EQ_mode >= EQ_STANDARD
+            && dsp_setParameter(0x10010030, &EQ_mode) == 0) {
+        ALOGI("%s: set EQ mode is %d", __func__, EQ_mode);
+    } else {
+        ALOGE("%s: set EQ mode fail: %d", __func__, EQ_mode);
+        return -1;
+    }
+    return 0;
+}
+
+int set_subwoofer_volume(int volume) {
+    if (dsp_setParameter(0x10010080, &volume) == 0) {
+        ALOGI("%s: set subwoofer volume is %d", __func__, volume);
+    } else {
+        ALOGI("%s: set subwoofer volume fail %d", __func__, volume);
+        return -1;
+    }
+    return 0;
+}
+
 //-------------------------HARMAN DSP---------------------------------------------------------
 typedef void* PSTATE;
 PSTATE (*DSP_init)(int inStrTypeId, int numInChannels, int numOutChannels, int dataIsInterleaved, int sampleRate);

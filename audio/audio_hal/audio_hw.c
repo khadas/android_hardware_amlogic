@@ -4000,6 +4000,21 @@ static int adev_set_parameters (struct audio_hw_device *dev, const char *kvpairs
         ALOGI("device %x disconnect\n",val);
         goto exit;
     }
+#if defined(IS_ATOM_PROJECT)
+    ret = str_parms_get_int(parms, "DSP_EQ_MODE", &val);
+    if (ret >= 0 && adev->has_dsp_lib == true) {
+        if (set_EQ_mode(val) < 0)
+            ALOGE("%s: set eq mode failed", __FUNCTION__);
+        goto exit;
+    }
+    ret = str_parms_get_int(parms, "DSP_SUBWOFFER_VOLUME", &val);
+    if (ret >= 0 && adev->has_dsp_lib == true) {
+        if (set_subwoofer_volume(val) < 0)
+            ALOGE("%s: subwoofer failed", __FUNCTION__);
+        goto exit;
+    }
+#endif
+
 exit:
     str_parms_destroy (parms);
 
@@ -6569,15 +6584,7 @@ static int adev_open(const hw_module_t* module, const char* name, hw_device_t** 
         ALOGE("%s: load dsp lib or dsp init failed", __func__);
         adev->has_dsp_lib = false;
     } else {
-        char value[PROPERTY_VALUE_MAX];
-        if (property_get("persist.harman.dspmode", value, "0") > 0) {
-            int dspmode = atoi(value);
-            if (dspmode <= 2) {
-                dsp_setParameter(0x10010070, &dspmode);
-                /* 0 is normal mode; 1 is hw test mode; 2 is bypass mode*/
-                ALOGE("%s: set dsp mode is %d", __func__, dspmode);
-            }
-        }
+        set_dsp_mode();
         adev->has_dsp_lib = true;
     }
 #endif
