@@ -3009,6 +3009,7 @@ static ssize_t read_frames (struct aml_stream_in *in, void *buffer, ssize_t fram
     return frames_wr;
 }
 
+#define DEBUG_AEC_VERBOSE (0)
 #define DEBUG_AEC (0) // Remove after AEC is fine-tuned
 #define TIMESTAMP_LEN (8)
 
@@ -3126,8 +3127,9 @@ static ssize_t in_read(struct audio_stream_in *stream, void* buffer, size_t byte
             aec_timestamp mic_timestamp = get_timestamp();
 
             /* harman LPF FIR filter and simple downsample from 48K->16K for mic*/
-            if (adev->pstFir_mic)
+            if (adev->pstFir_mic) {
                 Fir_calcModule(adev->pstFir_mic, mic_buf, mic_buf, cur_in_frames);
+            }
 
             if (adev->spk_buf_size < cur_in_bytes) {
                 ALOGI("%s: realloc spk_buf size from %zu to %zu", __func__, adev->spk_buf_size, cur_in_bytes);
@@ -3136,6 +3138,8 @@ static ssize_t in_read(struct audio_stream_in *stream, void* buffer, size_t byte
             }
 
             int int_get_buffer_read_space = get_buffer_read_space(&adev->spk_ring_buf);
+            int time_diff = 0;
+            bool aec_print_this = false;
             if (int_get_buffer_read_space >= (int)(cur_in_bytes + TIMESTAMP_LEN)) {
                 /* get timestamp */
                 ring_buffer_read(&adev->spk_ring_buf, (unsigned char*) spk_timestamp.tsB, TIMESTAMP_LEN);
@@ -3144,93 +3148,103 @@ static ssize_t in_read(struct audio_stream_in *stream, void* buffer, size_t byte
                 ring_buffer_read(&adev->spk_ring_buf, (unsigned char*)adev->spk_buf, cur_in_bytes);
 
                 if (DEBUG_AEC) {
-                    ALOGI("%s: ---- TS[Spk] ---- timestamp(d): %llu, timestamp(x): %llx",
-                        __func__, spk_timestamp.timeStamp, spk_timestamp.timeStamp);
+                    ALOGI("%s: ---- TS[Spk] ---- ts(d): %llu, diff[spk_cadence]: %llu, diff[now - lastwr]: %llu",
+                        __func__, spk_timestamp.timeStamp,
+                        spk_timestamp.timeStamp - adev->debug_spk_buf_time_last,
+                        spk_timestamp.timeStamp - adev->spk_buf_last_write_time);
                     if (adev->spk_buf_read_count++ > 10000000 ) {
                         adev->spk_buf_read_count = 0;
                     }
                 }
+                adev->debug_spk_buf_time_last = spk_timestamp.timeStamp;
 
                 int32_t *spk_buf_32 = (int32_t *)adev->spk_buf;
                 /* harman LPF FIR filter and simple downsample from 48K->16K for spk*/
-                if (adev->pstFir_spk)
+                if (adev->pstFir_spk) {
                     Fir_calcModule(adev->pstFir_spk, spk_buf_32, spk_buf_32, cur_in_frames);
-
-                /*debug interface to dump mic and speaker data, 16K, 32bit */
-                if (DEBUG_AEC && getprop_bool("media.audio_hal.outdump")) {
-                    FILE *fp1 = fopen("/data/tmp/audio_speaker.raw", "a+");
-                    FILE *fp2 = fopen("/data/tmp/audio_mic.raw", "a+");
-                    if (fp1) {
-                        int flen = fwrite((char *)adev->spk_buf, 1, cur_in_bytes/3, fp1);
-                        flen = fwrite((char *)mic_buf, 1, cur_in_bytes/3, fp2);
-                        fclose(fp1);
-                        fclose(fp2);
-                    } else {
-                        ALOGD("could not open files!");
-                    }
                 }
 
-                /*after mic and speaker ready to start, start AEC*/
-                if (adev->spk_running == 1) {
+                time_diff = (int) (mic_timestamp.timeStamp - spk_timestamp.timeStamp);
+                /*after mic and speaker ready to get timestampe, start AEC*/
+                if (adev->spk_running == 1 && time_diff < 200000) {
+                    pthread_mutex_lock(&adev->aec_spk_mic_lock);
                     int cleaned_samples_per_channel = 0;
-                    int aec_frame_div = 2;
+                    int aec_frame_div = 2; //4;
                     if (DEBUG_AEC) {
                         if (getprop_bool("media.audio_hal.aec_frame_div4")) {
                             aec_frame_div = 4;
                         }
                     }
 
-                    pthread_mutex_lock(&adev->aec_spk_mic_lock);
-                    size_t aec_frame_len = cur_in_frames/(6 * aec_frame_div); //3072/6 -> 512/4 -> 128 (512/2 -> 256)
-                    size_t aec_frame_len_bytes = aec_frame_len * 2 * 8; // 2 channels, 8 bytes/frame
+                    int aec_samples_per_channel = (int) cur_in_frames/(3 * aec_frame_div); //3072/6 -> 512
+                    int aec_data_bytes = aec_samples_per_channel * 8; // 2 samples, 4 bytes/sample; 512:4096
+                    //cur_in_bytes/(3 * aec_frame_div); // 8192 bytes per 64ms
 
-                    int32_t* spk_buf_part = NULL;
-                    spk_buf_part = realloc(spk_buf_part, aec_frame_len_bytes);
-                    int32_t* mic_buf_part = NULL;
-                    mic_buf_part = realloc(mic_buf_part, aec_frame_len_bytes);
-                    int32_t* spk_buf_ptr = (int32_t*) adev->spk_buf;
-                    // for copying out mic data
-                    int32_t* mic_buf_out_ptr = (int32_t* )mic_buf;
+                    char* spk_buf_ptr = (char*) adev->spk_buf;
+                    char* mic_buf_ptr = (char*) mic_buf;
+
                     for (int i = 0; i < aec_frame_div; i++) {
-                        aec_set_mic_buf_info(aec_frame_len, mic_timestamp.timeStamp, true);
-                        aec_set_spk_buf_info(aec_frame_len, spk_timestamp.timeStamp, true);
-                        mic_timestamp.timeStamp += 64000 / aec_frame_div; // 16ms per 128 frames/channel
-                        spk_timestamp.timeStamp += 64000 / aec_frame_div;
+                        cleaned_samples_per_channel = 0;
+                        aec_set_mic_buf_info(aec_samples_per_channel, mic_timestamp.timeStamp, true);
+                        aec_set_spk_buf_info(aec_samples_per_channel, spk_timestamp.timeStamp, true);
+                        mic_timestamp.timeStamp += 64000 / aec_frame_div; // 16ms per 256 samples/channel
+                        spk_timestamp.timeStamp += 64000 / aec_frame_div; // or 32 ms per 512 samples/channel
 
-                        memcpy(spk_buf_part, &spk_buf_ptr[aec_frame_len * 2 * i], aec_frame_len * 2);
-                        memcpy(mic_buf_part, &mic_buf[aec_frame_len * 2 * i], aec_frame_len * 2);
-                        int32_t *aec_proc_buf = aec_spk_mic_process((int32_t *)spk_buf_part,
-                            (int32_t *)mic_buf_part, &cleaned_samples_per_channel);
+                        pthread_mutex_lock(&adev->aec_spk_buf_lock);
+                        int32_t *aec_proc_buf = aec_spk_mic_process((int32_t *)&spk_buf_ptr[aec_data_bytes * i],
+                            (int32_t *)&mic_buf_ptr[aec_data_bytes * i], &cleaned_samples_per_channel);
+                        pthread_mutex_unlock(&adev->aec_spk_buf_lock);
 
-                        /*When AEC is error, direct sent mic data to apk*/
-                        if (aec_proc_buf) {
-                            /*AEC output int32 stereo*/
-                            memcpy(&mic_buf_out_ptr[aec_frame_len * 2 * i], aec_proc_buf, aec_frame_len * 2);
+                        //When AEC is error or cleaned samples don't match input samples, ignore AEC output
+                        if (aec_proc_buf && (cleaned_samples_per_channel == aec_samples_per_channel)) {
+                            //AEC output int32 stereo
+                           if (getprop_bool("media.audio_hal.aec.outdump")) {
+                                FILE *fp1 = fopen("/data/tmp/audio_aec.raw", "a+");
+                                if (fp1) {
+                                    int flen = fwrite((char *)aec_proc_buf, 1, aec_data_bytes, fp1);
+                                    fclose(fp1);
+                                } else {
+                                    ALOGD("could not open files!");
+                                }
+                            }
+
+                            memcpy(&mic_buf_ptr[aec_data_bytes * i], (char*)aec_proc_buf, aec_data_bytes);
                             if (DEBUG_AEC)
-                                ALOGD("i: %d, fr_div: %d, samples from AEC = %d, aec_frame_len_bytes: %d",
-                                    i, aec_frame_div, cleaned_samples_per_channel, aec_frame_len_bytes);
+                                ALOGD("i: %d, fr_div: %d, samples from AEC = %d, aec_data_bytes: %d",
+                                    i, aec_frame_div, cleaned_samples_per_channel, aec_data_bytes);
                         } else {
-                            ALOGE("aec_proc_buf is null");
+                            ALOGE("aec_proc_buf is null (or) cleaned_samples_per_channel: %d ", cleaned_samples_per_channel);
                         }
                     }
-                    free(mic_buf_part);
-                    free(spk_buf_part);
-
+                    aec_print_this = true;
                     pthread_mutex_unlock(&adev->aec_spk_mic_lock);
+                } else {
+                    if (DEBUG_AEC)
+                        ALOGE("%s: time_diff: %d", __func__, time_diff);
                 }
             } else {
-                if (DEBUG_AEC)
+                if (DEBUG_AEC_VERBOSE)
                     ALOGE("%s: missed mic ============", __func__);
             }
 
-            /*harman HPF filter for mic data, fc:100Hz, sr:16KHZ*/
-            Aud_Gain_Process(mic_buf, cur_in_frames/3);
-            Aud_HPFFilter_Process(mic_buf, cur_in_frames/3);
+           /* if (getprop_bool("media.audio_hal.aec.outdump")) {
+                FILE *fp1 = fopen("/data/tmp/audio_aec.raw", "a+");
+                if (fp1) {
+                    int flen = fwrite((char *)mic_buf, 1, bytes, fp1);
+                    fclose(fp1);
+                } else {
+                    ALOGD("could not open files!");
+                }
+            } */
 
-            if (DEBUG_AEC)
-                ALOGI("%s: buffer_read_space: %d, cur_in_bytes/3: %d, bytes: %d, in_frames: %d, cur_in_frames: %d, time_diff: %d, spk_buf[read]: %llu",
+            /*harman HPF filter for mic data, fc:100Hz, sr:16KHZ*/
+            Aud_HPFFilter_Process(mic_buf, cur_in_frames/3);
+            Aud_Gain_Process(mic_buf, cur_in_frames/3);
+
+            if (DEBUG_AEC && aec_print_this)
+                ALOGI("%s: With AEC--buffer_read_space: %d, cur_in_bytes/3: %d, bytes: %d, in_frames: %d, cur_in_frames: %d, time_diff: %d, spk_buf[read]: %llu",
                   __func__, int_get_buffer_read_space, cur_in_bytes/3, bytes, in_frames, cur_in_frames,
-                   (int) (mic_timestamp.timeStamp - spk_timestamp.timeStamp), adev->spk_buf_read_count);
+                   time_diff, adev->spk_buf_read_count);
 
             /*MIC output int32 stereo/mono???*/
             if (channel_count == 1) {
@@ -3242,7 +3256,7 @@ static ssize_t in_read(struct audio_stream_in *stream, void* buffer, size_t byte
             }
 
             if (getprop_bool("media.audio_hal.aec.outdump")) {
-                FILE *fp1 = fopen("/data/tmp/audio_aec.raw", "a+");
+                FILE *fp1 = fopen("/data/tmp/audio_aechpf.raw", "a+");
                 if (fp1) {
                     int flen = fwrite((char *)buffer, 1, bytes, fp1);
                     fclose(fp1);
@@ -4337,7 +4351,7 @@ exit:
             pthread_mutex_unlock(&adev->aec_spk_mic_lock);
             if (!adev->spk_ring_buf.start_addr)
                 ring_buffer_init(&adev->spk_ring_buf,
-                    4 * PLAYBACK_PERIOD_COUNT *
+                    4 * PLAYBACK_PERIOD_COUNT * 2 /*double the space*/ *
                     ((2 * TIMESTAMP_LEN) + FRAMESIZE_32BIT_STEREO * DEFAULT_PLAYBACK_PERIOD_SIZE));
             else
                 ring_buffer_reset(&adev->spk_ring_buf);
@@ -4428,6 +4442,8 @@ static void adev_close_input_stream(struct audio_hw_device *dev,
 
         adev->spk_buf_read_count = 0;
         adev->spk_buf_write_count = 0;
+        adev->extra_write_bytes = 0;
+        adev->debug_spk_buf_time_last = 0;
 
         pthread_mutex_lock(&adev->aec_spk_mic_lock);
         aec_spk_mic_release();
@@ -4671,6 +4687,129 @@ static aec_timestamp get_timestamp(void) {
     return return_val;
 }
 
+#if defined(IS_ATOM_PROJECT)
+    int get_atom_stream_type(size_t frames) {
+    int type = STREAM_ANDROID;
+    switch (frames) {
+        case 1024:
+            type = STREAM_OPTAUX;
+            break;
+        case 1536:
+            type = STREAM_HDMI;
+            break;
+        default:
+            type = STREAM_ANDROID;
+    }
+    return type;
+}
+
+void atom_speaker_buffer_reset(struct aml_audio_device *adev) {
+    adev->spk_buf_write_count = 0;
+    adev->spk_buf_read_count = 0;
+    adev->extra_write_bytes = 0;
+    adev->debug_spk_buf_time_last = 0;
+    ring_buffer_reset(&adev->spk_ring_buf);
+    pthread_mutex_lock(&adev->aec_spk_mic_lock);
+    aec_spk_mic_reset();
+    pthread_mutex_unlock(&adev->aec_spk_mic_lock);
+}
+
+void atom_pack_speaker_ring_buffer(struct aml_audio_device *adev, size_t bytes) {
+
+    size_t out_frames = bytes / FRAMESIZE_32BIT_STEREO;
+    atom_stream_type_t stream_type = get_atom_stream_type(out_frames);
+    aec_timestamp cur_time = get_timestamp();
+    int spk_time_diff = (int) (cur_time.timeStamp - adev->spk_buf_last_write_time);
+    if (adev->atom_stream_type_val != stream_type ||
+        spk_time_diff < 0 || spk_time_diff > 300000) {
+        ALOGE("%s: spk buf reset. diff: %d", __func__, spk_time_diff);
+        atom_speaker_buffer_reset(adev);
+        adev->atom_stream_type_val = stream_type;
+        adev->spk_buf_very_first_write_time = cur_time.timeStamp;
+    }
+    adev->spk_buf_last_write_time = cur_time.timeStamp;
+    size_t first_set_len = 0;
+    switch(adev->atom_stream_type_val) {
+        case STREAM_HDMI:
+        case STREAM_OPTAUX:
+            first_set_len = bytes;
+            if (first_set_len > adev->spk_buf_size) {
+                first_set_len = adev->spk_buf_size;
+            }
+            break;
+        default:
+            first_set_len = adev->spk_buf_size - adev->extra_write_bytes;
+    }
+    if (DEBUG_AEC)
+        ALOGW("%s: type: %d, first_set_len: %d, extra_write_bytes: %d",
+         __func__, adev->atom_stream_type_val, first_set_len, adev->extra_write_bytes);
+
+    //[cur_timestamp][spk_buf_data(first_set_len)]
+    if (adev->extra_write_bytes == 0) {
+        // add timestamp
+        ring_buffer_write(&adev->spk_ring_buf, (unsigned char*)cur_time.tsB,
+            TIMESTAMP_LEN, UNCOVER_WRITE);
+
+        if (DEBUG_AEC) {
+            if (adev->spk_buf_write_count++ > 10000000 ) {
+                adev->spk_buf_write_count = 0;
+            }
+            ALOGW("%s: ---- TS[Spk(type:%d)] ---- timestamp(d): %llu, first_set_len: %d, spk_buf[write]: %llu",
+                __func__, adev->atom_stream_type_val, cur_time.timeStamp, first_set_len, adev->spk_buf_write_count);
+        }
+    }
+
+    unsigned char* aec_buf = (unsigned char*)adev->aec_buf;
+
+    // first_set
+    ring_buffer_write(&adev->spk_ring_buf, (unsigned char*)aec_buf,
+            first_set_len, UNCOVER_WRITE);
+
+    if (adev->atom_stream_type_val == STREAM_ANDROID) {
+        // Calculate remaining data
+        adev->extra_write_bytes = adev->spk_write_bytes - first_set_len;
+        // Timestamp will always be needed for the next set of Android streams
+        //[cur_timestamp][spk_buf_data(extra_write_bytes)]
+        // Add bytes/384*1000 ms to this timestamp
+        cur_time.timeStamp += first_set_len/384 * 1000;
+
+        ring_buffer_write(&adev->spk_ring_buf, (unsigned char*)cur_time.tsB,
+            TIMESTAMP_LEN, UNCOVER_WRITE);
+
+        if (DEBUG_AEC) {
+            if (adev->spk_buf_write_count++ > 10000000 ) {
+                adev->spk_buf_write_count = 0;
+            }
+            ALOGW("%s: ---- TS[Spk(type:%d)] ---- timestamp(d): %llu, extra_write_bytes: %d, spk_buf[write]: %llu",
+                __func__, adev->atom_stream_type_val, cur_time.timeStamp, adev->extra_write_bytes, adev->spk_buf_write_count);
+        }
+
+        // second set
+        ring_buffer_write(&adev->spk_ring_buf, (unsigned char*) &aec_buf[first_set_len],
+                adev->extra_write_bytes, UNCOVER_WRITE);
+    } else if (adev->atom_stream_type_val == STREAM_HDMI) {
+        if (adev->extra_write_bytes == 0) {
+            adev->extra_write_bytes = 1536 * FRAMESIZE_32BIT_STEREO;
+        } else {
+            adev->extra_write_bytes = 0;
+        }
+    } else if (adev->atom_stream_type_val == STREAM_OPTAUX) {
+        if (adev->extra_write_bytes == 0) {
+            adev->extra_write_bytes = 2048 * FRAMESIZE_32BIT_STEREO;
+        } else if (adev->extra_write_bytes == (2048 * FRAMESIZE_32BIT_STEREO)) {
+            adev->extra_write_bytes = 1024 * FRAMESIZE_32BIT_STEREO;
+        } else {
+            adev->extra_write_bytes = 0;
+        }
+    }
+
+    // calculate extra_write_bytes for next run
+    if (adev->extra_write_bytes >= adev->spk_buf_size) {
+        adev->extra_write_bytes = 0;
+    }
+}
+#endif
+
 ssize_t audio_hal_data_processing(struct audio_stream_out *stream,
                                 const void *buffer,
                                 size_t bytes,
@@ -4705,6 +4844,7 @@ ssize_t audio_hal_data_processing(struct audio_stream_out *stream,
                 adev->temp_buf_pos = 0;
             spdif_encoder_ad_flush_output_current_position();
 
+            ALOGI("%s: SPDIF", __func__);
             *output_buffer = adev->temp_buf;
             *output_buffer_bytes = adev->temp_buf_pos;
         }
@@ -4750,70 +4890,14 @@ ssize_t audio_hal_data_processing(struct audio_stream_out *stream,
                (int)((FRAMESIZE_32BIT_STEREO * out_frames) + (2 * TIMESTAMP_LEN))) {
                if (DEBUG_AEC) {
                    ALOGI("[%s]: Warning: spk_ring_buf overflow, write_bytes = TIMESTAMP_BYTE + %zu",
-                        __func__, FRAMESIZE_32BIT_STEREO * out_frames);
+                        __func__, FRAMESIZE_32BIT_STEREO * out_frames + (2 * TIMESTAMP_LEN));
                }
+               // Reset buffers
+               atom_speaker_buffer_reset(adev);
             } else {
                 if (adev->has_dsp_lib) {
                     if (adev->spk_buf_size != 0) {
-                        aec_timestamp cur_time = get_timestamp();
-                        int spk_time_diff = (int) (cur_time.timeStamp - adev->spk_buf_last_write_time);
-                        if (spk_time_diff < 0 || spk_time_diff > 300000) {
-                            ALOGE("%s: spk buf reset. diff: %d", __func__, spk_time_diff);
-                            adev->spk_buf_write_count = 0;
-                            adev->spk_buf_read_count = 0;
-                            adev->extra_write_bytes = 0;
-                            ring_buffer_reset(&adev->spk_ring_buf);
-                            aec_spk_mic_reset();
-                        }
-                        adev->spk_buf_last_write_time = cur_time.timeStamp;
-
-                        size_t first_set_len = adev->spk_buf_size - adev->extra_write_bytes;
-                        //[cur_timestamp][spk_buf_data(first_set_len)]
-                        if (adev->extra_write_bytes == 0) {
-                            // add timestamp
-                            ring_buffer_write(&adev->spk_ring_buf, (unsigned char*)cur_time.tsB,
-                                TIMESTAMP_LEN, UNCOVER_WRITE);
-
-                            if (DEBUG_AEC) {
-                                if (adev->spk_buf_write_count++ > 10000000 ) {
-                                    adev->spk_buf_write_count = 0;
-                                }
-                                ALOGW("%s: ---- TS[Spk] ---- timestamp(d): %llu, timestamp(x): %llx, spk_buf[write]: %llu",
-                                 __func__, cur_time.timeStamp, cur_time.timeStamp, adev->spk_buf_write_count);
-                            }
-                        }
-                        unsigned char* aec_buf = (unsigned char*)adev->aec_buf;
-                        // first_set
-                        ring_buffer_write(&adev->spk_ring_buf, (unsigned char*)aec_buf,
-                                first_set_len, UNCOVER_WRITE);
-
-                        // Calculate remaining data
-                        adev->extra_write_bytes = (FRAMESIZE_32BIT_STEREO * out_frames) - first_set_len;
-
-                        // Timestamp will always be needed for the next set
-                        //[cur_timestamp][spk_buf_data(extra_write_bytes)]
-                        // Add bytes/384*1000 ms to this timestamp
-                        cur_time.timeStamp += first_set_len/384 *1000;
-
-                        ring_buffer_write(&adev->spk_ring_buf, (unsigned char*)cur_time.tsB,
-                            TIMESTAMP_LEN, UNCOVER_WRITE);
-
-                        if (DEBUG_AEC) {
-                            if (adev->spk_buf_write_count++ > 10000000 ) {
-                                adev->spk_buf_write_count = 0;
-                            }
-                            ALOGW("%s: ---- TS[Spk] ---- timestamp(d): %llu, timestamp(x): %llx, spk_buf[write]: %llu",
-                                 __func__, cur_time.timeStamp, cur_time.timeStamp, adev->spk_buf_write_count);
-                        }
-
-                        // second set
-                        ring_buffer_write(&adev->spk_ring_buf, (unsigned char*) &aec_buf[first_set_len],
-                                adev->extra_write_bytes, UNCOVER_WRITE);
-
-                        // calculate extra_write_bytes for next run
-                        if (adev->extra_write_bytes >= adev->spk_buf_size) {
-                            adev->extra_write_bytes = 0;
-                        }
+                        atom_pack_speaker_ring_buffer(adev, bytes);
                     }
                 } else
                     ring_buffer_write(&adev->spk_ring_buf, (unsigned char*)buffer,

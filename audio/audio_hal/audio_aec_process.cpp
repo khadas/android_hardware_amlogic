@@ -37,7 +37,7 @@ int32_t* aec_spk_mic_process(int32_t *spk_buf, int32_t *mic_buf, int *cleaned_sa
     out_buf = pGoogleAec->ProcessInt32InterleavedAudio(spk_samples, spk_buf_info,
         mic_samples, mic_buf_info, cleaned_samples_per_channel);
     if (!out_buf) {
-        //ALOGE("%s: AEC process failed, cleaned_samples_per_channel = %d", __func__, *cleaned_samples_per_channel);
+        ALOGE("%s: AEC process failed, cleaned_samples_per_channel = %d", __func__, *cleaned_samples_per_channel);
         //pGoogleAec->Reset();
         return NULL;
     }
@@ -48,7 +48,7 @@ int aec_spk_mic_init(void)
 {
     ALOGD("%s: enter", __func__);
     if (!pGoogleAec) {
-        pGoogleAec = new audio_ears::GoogleAec(16000, 2, 2, "GoogleAecMode3", true);
+        pGoogleAec = new audio_ears::GoogleAec(16000, 2, 2, "GoogleAecMode3", false); //true);
         if (!pGoogleAec) {
             ALOGE("%s: alloc GoogleAec failed", __func__);
             return -ENOMEM;
@@ -63,7 +63,7 @@ int aec_spk_mic_init(void)
 void aec_spk_mic_reset(void)
 {
     ALOGD("%s: enter", __func__);
-    if (!pGoogleAec) {
+    if (pGoogleAec) {
         pGoogleAec->Reset();
     }
     ALOGD("%s: exit", __func__);
@@ -88,6 +88,7 @@ int aec_set_spk_buf_info(int samples_per_channel, uint64_t timestamp, bool valid
             return -ENOMEM;
         }
     }
+    valid_timestamp = false;
     p_spk_buf_info->samples_per_channel = samples_per_channel;
     p_spk_buf_info->timestamp_microseconds = timestamp;
     p_spk_buf_info->valid_timestamp = valid_timestamp;
@@ -104,6 +105,7 @@ int aec_set_mic_buf_info(int samples_per_channel, uint64_t timestamp, bool valid
             return -ENOMEM;
         }
     }
+    valid_timestamp = false;
     p_mic_buf_info->samples_per_channel = samples_per_channel;
     p_mic_buf_info->timestamp_microseconds = timestamp;
     p_mic_buf_info->valid_timestamp = valid_timestamp;
