@@ -1246,8 +1246,13 @@ static uint32_t out_get_latency (const struct audio_stream_out *stream)
 static int out_set_volume (struct audio_stream_out *stream, float left, float right)
 {
     struct aml_stream_out *out = (struct aml_stream_out *) stream;
-    out->volume_l = left;
-    out->volume_r = right;
+    int vol = property_get_int32("media.audio_hal.volume", -1);
+    if (vol != -1) {
+        out->volume_l = out->volume_r = (float)vol;
+    } else {
+        out->volume_l = left;
+        out->volume_r = right;
+    }
     return 0;
 }
 
