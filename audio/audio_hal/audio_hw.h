@@ -314,19 +314,15 @@ struct aml_audio_device {
     float dts_post_gain;
     bool spdif_encoder_init_flag;
 
+#if defined(IS_ATOM_PROJECT)
     int mic_running;
-    int mic_start_flag;
-    unsigned long long mic_timestampe;
     int spk_running;
-    int spk_start_flag;
-    unsigned long long spk_timestampe;
-
     ring_buffer_t spk_ring_buf;
     void *spk_buf;
     size_t spk_buf_size;
     size_t spk_write_bytes;
     size_t extra_write_bytes;
-    
+
     // spk_buf mgmt
     unsigned long long spk_buf_last_write_time;
     unsigned long long spk_buf_write_count;
@@ -334,12 +330,15 @@ struct aml_audio_device {
 
     bool has_dsp_lib;
     void *aec_buf;
-    size_t aec_buf_size;
     void *dsp_in_buf;
-    size_t dsp_in_buf_size;
+    size_t dsp_frames;
+    void *pstFir_mic;
+    void *pstFir_spk;
 
     pthread_mutex_t aec_spk_mic_lock;
     pthread_mutex_t aec_spk_buf_lock;
+#endif
+
 };
 
 struct aml_stream_out {

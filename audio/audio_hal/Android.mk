@@ -61,11 +61,12 @@ ifeq ($(strip $(BOARD_ALSA_AUDIO)),tiny)
     LOCAL_SHARED_LIBRARIES := \
         liblog libcutils libtinyalsa \
         libaudioutils libdl libaudioroute libutils \
-        libaudiospdif libamaudioutils libamlaudiorc 
+        libaudiospdif libamaudioutils libamlaudiorc
 
 ifeq ($(BOARD_ENABLE_NANO), true)
-		LOCAL_SHARED_LIBRARIES += libnano 
+    LOCAL_SHARED_LIBRARIES += libnano
 endif
+
     LOCAL_MODULE_TAGS := optional
 
     LOCAL_CFLAGS += -Werror
@@ -83,14 +84,17 @@ ifeq ($(strip $(DOLBY_MS12_ENABLE)), true)
     LOCAL_CFLAGS += -DREPLACE_OUTPUT_BUFFER_WITH_CALLBACK
     LOCAL_C_INCLUDES += $(LOCAL_PATH)/../libms12/include
 endif
+
+#For atom project
 ifeq ($(strip $(TARGET_BOOTLOADER_BOARD_NAME)), atom)
     LOCAL_CFLAGS += -DIS_ATOM_PROJECT
     LOCAL_SRC_FILES += \
         audio_aec_process.cpp \
-        harman_dsp_process.c \
-        harman_aud_filter.c
+        ../../../../vendor/harman/atom/harman_api/harman_dsp_process.c \
+        ../../../../vendor/harman/atom/harman_api/harman_aud_filter.c
     LOCAL_C_INCLUDES += \
-        $(LOCAL_PATH)/../google_aec
+        $(LOCAL_PATH)/../google_aec \
+        $(TOPDIR)vendor/harman/atom/harman_api
     LOCAL_SHARED_LIBRARIES += \
         libgoogle_aec
 endif
