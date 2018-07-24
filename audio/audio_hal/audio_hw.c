@@ -1391,10 +1391,6 @@ static int out_resume_new (struct audio_stream_out *stream)
         ret = 3;
         goto exit;
     }
-    if (aml_out->pause_status == false) {
-        ALOGE("%s(), stream status %d\n", __func__, aml_out->pause_status);
-        return ret;
-    }
     aml_out->pause_status = false;
     if (aml_out->hw_sync_mode)
         sysfs_set_sysfs_str (TSYNC_EVENT, "AUDIO_RESUME");
