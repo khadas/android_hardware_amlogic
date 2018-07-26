@@ -3207,7 +3207,8 @@ static ssize_t in_read(struct audio_stream_in *stream, void* buffer, size_t byte
                             /*AEC output int32 stereo*/
                             memcpy(&mic_buf_out_ptr[aec_frame_len * 2 * i], aec_proc_buf, aec_frame_len * 2);
                             if (DEBUG_AEC)
-                                ALOGD("i: %d, fr_div: %d, samples from AEC = %d, aec_frame_len_bytes: %d", i, aec_frame_div, cleaned_samples_per_channel, aec_frame_len_bytes);
+                                ALOGD("i: %d, fr_div: %d, samples from AEC = %d, aec_frame_len_bytes: %d",
+                                    i, aec_frame_div, cleaned_samples_per_channel, aec_frame_len_bytes);
                         } else {
                             ALOGE("aec_proc_buf is null");
                         }
@@ -3264,66 +3265,24 @@ static ssize_t in_read(struct audio_stream_in *stream, void* buffer, size_t byte
         DoDumpData(buffer, bytes, CC_DUMP_SRC_TYPE_INPUT);
     }
 
-    /* hdmi in audio unstable, need to mute the audio data for a while
+    /* when audio is unstable, need to mute the audio data for a while
      * the mute time is related to hdmi audio buffer size
      */
-    if (adev->in_device & AUDIO_DEVICE_IN_HDMI) {
-        if (!is_hdmi_in_stable_hw(stream) || !is_hdmi_in_stable_sw(stream)) {
-            if (in->mute_log_cntr == 0)
-                ALOGI("%s: hdmi rx audio unstable, mute HDMI RX channel", __func__);
-            in->mute_log_cntr++;
-            if (in->mute_log_cntr >= 100)
-                in->mute_log_cntr = 0;
-            clock_gettime(CLOCK_MONOTONIC, &in->mute_start_ts);
-            in->mute_flag = 1;
-        }
-    }
-    /* ATV audio unstable, need to mute audio for a while */
-    if ( (adev->in_device & AUDIO_DEVICE_IN_TV_TUNER) &&
-         !is_atv_in_stable_hw (stream) ) {
+    int mute_mdelay = 0;
+    bool stable = signal_status_check(adev->in_device, &mute_mdelay, stream);
+    if (!stable) {
         if (in->mute_log_cntr == 0)
-            ALOGI("%s: ATV audio unstable, mute ATV channel", __func__);
-
-        in->mute_log_cntr++;
-        if (in->mute_log_cntr >= 100)
-            in->mute_log_cntr = 0;
-        clock_gettime (CLOCK_MONOTONIC, &in->mute_start_ts);
-        in->mute_flag = 1;
-    }
-#if 0
-    /* AV audio unstable, need to mute audio for a while */
-    if ((adev->in_device & AUDIO_DEVICE_IN_LINE) &&
-            !is_av_in_stable_hw(stream)) {
-        if (in->mute_log_cntr == 0)
-            ALOGI("%s: AV audio unstable, mute AV channel", __func__);
-        in->mute_log_cntr++;
-        if (in->mute_log_cntr >= 100)
+            ALOGI("%s: audio is unstable, mute channel", __func__);
+        if (in->mute_log_cntr++ >= 100)
             in->mute_log_cntr = 0;
         clock_gettime(CLOCK_MONOTONIC, &in->mute_start_ts);
         in->mute_flag = 1;
     }
-#endif
     if (in->mute_flag == 1) {
-        struct timespec new_ts;
-        int64_t start_ms, end_ms;
-        int64_t interval_ms;
-        int64_t mute_mdelay = 600;
-
-        if (adev->in_device & AUDIO_DEVICE_IN_TV_TUNER)
-            mute_mdelay = 1000;
-
-        clock_gettime (CLOCK_MONOTONIC, &new_ts);
-        start_ms = in->mute_start_ts.tv_sec * 1000LL +
-                   in->mute_start_ts.tv_nsec / 1000000LL;
-        end_ms = new_ts.tv_sec * 1000LL +
-                 new_ts.tv_nsec / 1000000LL;
-        interval_ms = end_ms - start_ms;
-        if (interval_ms < mute_mdelay) {
-            in_mute = 1;
-        } else {
+        in_mute = Stop_watch(in->mute_start_ts, mute_mdelay);
+        if (!in_mute) {
             ALOGI("%s: unmute audio since audio signal is stable", __func__);
             in->mute_log_cntr = 0;
-            in_mute = 0;
             in->mute_flag = 0;
         }
     }
@@ -5383,16 +5342,20 @@ ssize_t mixer_main_buffer_write (struct audio_stream_out *stream, const void *bu
                 return return_bytes;
             }
 
+            if (!ddp_dec->outbuf || !ddp_dec->outlen_pcm) {
+                return return_bytes;
+            }
 #if defined(IS_ATOM_PROJECT)
-            void *tmp_buffer = (void *) buffer;
             audio_format_t output_format = AUDIO_FORMAT_PCM_32_BIT;
             uint16_t *p = (uint16_t *)ddp_dec->outbuf;
-            uint32_t *p1 = (uint32_t *)buffer;
+            int32_t *p1 = aml_out->tmp_buffer_8ch;
+            void *tmp_buffer = (void *) aml_out->tmp_buffer_8ch;
 
             for (int i = 0; i < ddp_dec->outlen_pcm / 2; i++) {
                 p1[i] = ((int32_t)p[i]) << 16;
             }
             ddp_dec->outlen_pcm *= 2;
+            //ALOGI("ddp_dec->outlen_pcm = %d, return_bytes = %d", ddp_dec->outlen_pcm, return_bytes);
 #else
             void *tmp_buffer = (void *) ddp_dec->outbuf;
             audio_format_t output_format = AUDIO_FORMAT_PCM_16_BIT;

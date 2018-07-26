@@ -52,6 +52,7 @@ struct dolby_ddp_dec {
     int digital_raw;
     int (*get_parameters) (void *, int *, int *, int *);
     int (*decoder_process) (unsigned char*, int, unsigned char *, int *, char *, int *, int);
+    pthread_mutex_t lock;
 };
 
 

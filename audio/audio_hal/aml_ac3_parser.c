@@ -100,7 +100,7 @@ int scan_dolby_main_associate_frame (void *input_buffer
                     *used_size = sync_word_offset + payload_size;
                 ret = 0;
             } else {
-                ALOGD ("%s useful data len %lu ac3 iec61937 packet size %#x payload_size %#x",
+                ALOGV ("%s useful data len %lu ac3 iec61937 packet size %#x payload_size %#x",
                        __FUNCTION__, (unsigned long) (bytes - sync_word_offset), AC3_PERIOD_SIZE, payload_size);
                 ret = -1;
             }
@@ -115,7 +115,7 @@ int scan_dolby_main_associate_frame (void *input_buffer
                     *used_size = sync_word_offset + payload_size;
                 ret = 0;
             } else {
-                ALOGD ("%s useful data len %lu eac3 iec61937 packet size %#x payload_size %#x",
+                ALOGV ("%s useful data len %lu eac3 iec61937 packet size %#x payload_size %#x",
                        __FUNCTION__, (unsigned long) (bytes - sync_word_offset), EAC3_PERIOD_SIZE, payload_size);
                 ret = -1;
             }
@@ -126,10 +126,10 @@ int scan_dolby_main_associate_frame (void *input_buffer
     } else {
         *used_size = (int) bytes;
         ret = 0;
-        ALOGD ("%s() none iec61937 format header, skip this part\n", __FUNCTION__);
+        ALOGV ("%s() none iec61937 format header, skip this part\n", __FUNCTION__);
     }
     if (is_iec61937_packat == 0) {
-        ALOGD ("%s() ret %d *used_size %d payload_size %d has iec61937 packat %d \n",
+        ALOGV ("%s() ret %d *used_size %d payload_size %d has iec61937 packat %d \n",
                __FUNCTION__, ret, *used_size, payload_size, is_iec61937_packat);
     }
 
@@ -212,8 +212,8 @@ int scan_dolby_main_frame(void *input_buffer
                 }
                 ret = 0;
             } else {
-                ALOGD("%s useful data len %#x ac3 iec61937 packet size %#x payload_size %#x",
-                      __FUNCTION__, bytes - sync_word_offset, AC3_PERIOD_SIZE, payload_size);
+                ALOGV("%s useful data len %lu ac3 iec61937 packet size %#x payload_size %#x",
+                      __FUNCTION__, (unsigned long)(bytes - sync_word_offset), AC3_PERIOD_SIZE, payload_size);
                 ret = -1;
             }
         } else if (pc == 0x15) {
@@ -228,8 +228,8 @@ int scan_dolby_main_frame(void *input_buffer
                 }
                 ret = 0;
             } else {
-                ALOGD("%s useful data len %#x eac3 iec61937 packet size %#x payload_size %#x",
-                      __FUNCTION__, bytes - sync_word_offset, EAC3_PERIOD_SIZE, payload_size);
+                ALOGV("%s useful data len %lu eac3 iec61937 packet size %#x payload_size %#x",
+                      __FUNCTION__, (unsigned long)(bytes - sync_word_offset), EAC3_PERIOD_SIZE, payload_size);
                 ret = -1;
             }
         } else {
@@ -319,8 +319,8 @@ int scan_dolby_main_frame_ext(void *input_buffer
                     *payload_deficiency = payload_size - (bytes - sync_word_offset - IEC61937_HEADER_SIZE);
                     ret = 1;
                 } else {
-                    ALOGD("%s useful data len %#x ac3 iec61937 packet size %#x payload_size %#x",
-                          __FUNCTION__, bytes - sync_word_offset, AC3_PERIOD_SIZE, payload_size);
+                    ALOGV("%s useful data len %lu ac3 iec61937 packet size %#x payload_size %#x",
+                          __FUNCTION__, (unsigned long)(bytes - sync_word_offset), AC3_PERIOD_SIZE, payload_size);
                     *used_size = bytes;
                     ret = -1;
                 }
@@ -343,8 +343,8 @@ int scan_dolby_main_frame_ext(void *input_buffer
                     ret = 1;
                 } else {
                     *used_size = bytes;
-                    ALOGD("%s useful data len %#x eac3 iec61937 packet size %#x payload_size %#x",
-                          __FUNCTION__, bytes - sync_word_offset, EAC3_PERIOD_SIZE, payload_size);
+                   ALOGV("%s useful data len %lu eac3 iec61937 packet size %#x payload_size %#x",
+                         __FUNCTION__, (unsigned long)(bytes - sync_word_offset), EAC3_PERIOD_SIZE, payload_size);
                     ret = -1;
                 }
             }

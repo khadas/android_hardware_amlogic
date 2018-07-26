@@ -191,6 +191,21 @@ bool is_atv_in_stable_hw (struct audio_stream_in *stream)
     return true;
 }
 
+bool is_spdif_in_stable_hw (struct audio_stream_in *stream)
+{
+    struct aml_stream_in *in = (struct aml_stream_in *) stream;
+    int type = 0;
+
+    type = aml_mixer_ctrl_get_int (AML_MIXER_ID_SPDIFIN_AUDIO_TYPE);
+    if (type != in->spdif_fmt_hw) {
+        ALOGV ("%s(), in type changed from %d to %d", __func__, in->spdif_fmt_hw, type);
+        in->spdif_fmt_hw = type;
+        return false;
+    }
+
+    return true;
+}
+
 int set_audio_source (int audio_source)
 {
     return aml_mixer_ctrl_set_int (AML_MIXER_ID_AUDIO_IN_SRC, audio_source);
@@ -220,5 +235,43 @@ int enable_HW_resample(int sr, int enable) {
         value = HW_RESAMPLE_192K;
     aml_mixer_ctrl_set_int(AML_MIXER_ID_HW_RESAMPLE_ENABLE, value);
     return 0;
+}
+
+bool Stop_watch(struct timespec start_ts, int64_t time) {
+    struct timespec end_ts;
+    int64_t start_ms, end_ms;
+    int64_t interval_ms;
+
+    clock_gettime (CLOCK_MONOTONIC, &end_ts);
+    start_ms = start_ts.tv_sec * 1000LL +
+               start_ts.tv_nsec / 1000000LL;
+    end_ms = end_ts.tv_sec * 1000LL +
+             end_ts.tv_nsec / 1000000LL;
+    interval_ms = end_ms - start_ms;
+    if (interval_ms < time) {
+        return true;
+    }
+    return false;
+}
+
+bool signal_status_check(audio_devices_t in_device, int *mute_time,
+                        struct audio_stream_in *stream) {
+    if ((in_device & AUDIO_DEVICE_IN_HDMI) &&
+            (!is_hdmi_in_stable_hw(stream) ||
+            !is_hdmi_in_stable_sw(stream))) {
+        *mute_time = 600;
+        return false;
+    }
+    if ((in_device & AUDIO_DEVICE_IN_TV_TUNER) &&
+            !is_atv_in_stable_hw (stream)) {
+        *mute_time = 1000;
+        return false;
+    }
+    if ((in_device & AUDIO_DEVICE_IN_SPDIF) &&
+            !is_spdif_in_stable_hw(stream)) {
+        *mute_time = 1000;
+        return false;
+    }
+    return true;
 }
 

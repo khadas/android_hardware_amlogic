@@ -173,5 +173,8 @@ bool is_hdmi_in_stable_sw(struct audio_stream_in *stream);
 bool is_atv_in_stable_hw(struct audio_stream_in *stream);
 int set_audio_source (int audio_source);
 int enable_HW_resample(int sr, int enable);
+bool Stop_watch(struct timespec start_ts, int64_t time);
+bool signal_status_check(audio_devices_t in_device, int *mute_time,
+                        struct audio_stream_in *stream);
 
 #endif /* _AML_AUDIO_STREAM_H_ */

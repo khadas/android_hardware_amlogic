@@ -634,7 +634,10 @@ int dcv_decoder_init_patch(struct dolby_ddp_dec *ddp_dec) {
     ddp_dec->status = dcv_decoder_init(ddp_dec->digital_raw);
     if (ddp_dec->status < 0)
         return -1;
-    ddp_dec->status =1;
+    pthread_mutex_init(&ddp_dec->lock, NULL);
+
+    pthread_mutex_lock(&ddp_dec->lock);
+    ddp_dec->status = 1;
     ddp_dec->remain_size = 0;
     ddp_dec->outlen_pcm = 0;
     ddp_dec->outlen_raw = 0;
@@ -645,20 +648,24 @@ int dcv_decoder_init_patch(struct dolby_ddp_dec *ddp_dec) {
     ddp_dec->inbuf = (unsigned char*) malloc (MAX_DECODER_FRAME_LENGTH * 4 );
     if (!ddp_dec->inbuf) {
         ALOGE ("malloc buffer failed\n");
+        pthread_mutex_unlock(&ddp_dec->lock);
         return -1;
     }
     ddp_dec->outbuf = (unsigned char*) malloc (MAX_DECODER_FRAME_LENGTH * 4 + MAX_DECODER_FRAME_LENGTH + 8);
     if (!ddp_dec->outbuf) {
         ALOGE ("malloc buffer failed\n");
+        pthread_mutex_unlock(&ddp_dec->lock);
         return -1;
     }
     ddp_dec->outbuf_raw = ddp_dec->outbuf + MAX_DECODER_FRAME_LENGTH;
     ddp_dec->decoder_process = dcv_decode_process;
     ddp_dec->get_parameters = Get_Parameters;
-    return 1;
+    pthread_mutex_unlock(&ddp_dec->lock);
+    return 0;
 }
 
 int dcv_decoder_release_patch(struct dolby_ddp_dec *ddp_dec) {
+    pthread_mutex_lock(&ddp_dec->lock);
     (*ddp_decoder_cleanup)();
     if (ddp_dec->status ==1) {
         ddp_dec->status = 0;
@@ -674,7 +681,8 @@ int dcv_decoder_release_patch(struct dolby_ddp_dec *ddp_dec) {
         ddp_dec->get_parameters = NULL;
         ddp_dec->decoder_process = NULL;
     }
-    return 1;
+    pthread_mutex_unlock(&ddp_dec->lock);
+    return 0;
 }
 
 int dcv_decoder_process_patch(struct dolby_ddp_dec *ddp_dec,unsigned char*buffer, int bytes){
@@ -690,6 +698,7 @@ int dcv_decoder_process_patch(struct dolby_ddp_dec *ddp_dec,unsigned char*buffer
     void *main_frame_buffer = NULL;
     int main_frame_size = 0;
 
+    pthread_mutex_lock(&ddp_dec->lock);
     if (ddp_dec->remain_size >= MAX_DECODER_FRAME_LENGTH ) {
 
         int single_input_ret = scan_dolby_main_frame(read_pointer
@@ -698,7 +707,8 @@ int dcv_decoder_process_patch(struct dolby_ddp_dec *ddp_dec,unsigned char*buffer
                                     , &main_frame_buffer
                                     , &main_frame_size);
         if (single_input_ret) {
-            ALOGE("%s used size %u dont find the iec61937 format header, rescan next time!\n", __FUNCTION__, decoder_used_bytes);
+            //ALOGE("%s used size %u dont find the iec61937 format header, rescan next time!\n", __FUNCTION__, decoder_used_bytes);
+            pthread_mutex_unlock(&ddp_dec->lock);
             return -1;
         }
         ALOGV("%s input addr %p size %d frame addr %p size %d\n", __FUNCTION__, read_pointer, ddp_dec->remain_size, main_frame_buffer, main_frame_size);
@@ -706,8 +716,10 @@ int dcv_decoder_process_patch(struct dolby_ddp_dec *ddp_dec,unsigned char*buffer
         ddp_dec->remain_size = ddp_dec->remain_size - decoder_used_bytes + main_frame_size;
         read_pointer = read_pointer + decoder_used_bytes - main_frame_size;
     }
-    if (main_frame_size == 0)
+    if (main_frame_size == 0) {
+        pthread_mutex_unlock(&ddp_dec->lock);
         return -1;
+    }
 
     if (read_pointer[0] == 0x77 && read_pointer[1] == 0x0b) {
         int i;
@@ -731,7 +743,7 @@ int dcv_decoder_process_patch(struct dolby_ddp_dec *ddp_dec,unsigned char*buffer
         ddp_dec->remain_size -= used_size;
         memcpy (ddp_dec->inbuf, read_pointer + used_size, ddp_dec->remain_size);
     }
-
+    pthread_mutex_unlock(&ddp_dec->lock);
     return 0;
 }
 
