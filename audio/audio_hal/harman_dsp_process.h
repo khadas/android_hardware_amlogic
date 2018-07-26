@@ -23,6 +23,19 @@
 extern "C" {
 #endif
 
+enum EQ_Mode {
+    EQ_STANDARD = 0,
+    EQ_MOVIE,
+    EQ_MUSIC,
+    EQ_VOICE,
+    EQ_SPORT,
+    NUM_EQ_MODE
+};
+
+int set_dsp_mode(void);
+int set_EQ_mode(int EQ_mode);
+int set_subwoofer_volume(int volume);
+
 int unload_DSP_lib(void);
 int load_DSP_lib(void);
 int dsp_init( int inStrTypeId, int numInChannels, int numOutChannels, int sampleRate );
