@@ -19,7 +19,7 @@
 
 //#define LOG_NDEBUG 0
 #define LOG_TAG "VendorTags"
-#include <cutils/log.h>
+#include <android/log.h>
 
 #define ATRACE_TAG (ATRACE_TAG_CAMERA | ATRACE_TAG_HAL)
 #include <utils/Log.h>

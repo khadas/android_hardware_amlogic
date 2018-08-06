@@ -6,9 +6,11 @@
  *
  * Description:
  */
-#include "am_gralloc_internal.h"
+
 #include <hardware/gralloc1.h>
 #include <gralloc_priv.h>
+
+#include "am_gralloc_internal.h"
 
 bool am_gralloc_is_omx_metadata_extend_usage(
     uint64_t usage) {

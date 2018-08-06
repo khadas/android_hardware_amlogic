@@ -35,7 +35,8 @@ LOCAL_C_INCLUDES := \
 	$(TOP)/frameworks/native/include \
 	$(TOP)/$(BOARD_AML_VENDOR_PATH)/frameworks/services \
 	$(LOCAL_PATH)/../mediaconfig \
-	$(TOP)/frameworks/native/libs/nativewindow/include
+	$(TOP)/frameworks/native/libs/nativewindow/include \
+	frameworks/native/opengl/include
 
 LOCAL_CFLAGS += -DANDROID_PLATFORM_SDK_VERSION=$(PLATFORM_SDK_VERSION)
 LOCAL_CFLAGS += -Werror -Wformat -Wimplicit-function-declaration
@@ -48,7 +49,6 @@ LOCAL_SHARED_LIBRARIES := \
 	libbinder \
 	liblog \
 	libui \
-	libgui
 
 #LOCAL_SHARED_LIBRARIES += libandroid_runtime  libnativehelper
 ifeq ($(shell test $(PLATFORM_SDK_VERSION) -ge 26 && echo OK),OK)
@@ -100,7 +100,6 @@ LOCAL_SHARED_LIBRARIES := \
 	libcutils \
 	libc \
 	libui \
-	libgui \
 	libbinder \
 	liblog
 
@@ -146,7 +145,9 @@ LOCAL_C_INCLUDES := \
 	$(TOP)/frameworks/native/include \
 	$(TOP)/$(BOARD_AML_VENDOR_PATH)/frameworks/services \
 	$(LOCAL_PATH)/../mediaconfig \
-	$(TOP)/frameworks/native/libs/nativewindow/include
+	$(TOP)/frameworks/native/libs/nativewindow/include \
+	frameworks/native/opengl/include \
+	system/libhidl/transport/token/1.0/utils/include
 
 LOCAL_SHARED_LIBRARIES := \
 	libutils \
@@ -156,7 +157,6 @@ LOCAL_SHARED_LIBRARIES := \
 	libbinder \
 	liblog \
 	libui \
-	libgui \
 	libamavutils
 
 #LOCAL_SHARED_LIBRARIES += libandroid_runtime   libnativehelper
@@ -202,7 +202,9 @@ LOCAL_C_INCLUDES := \
 	$(TOP)/frameworks/native/include \
 	$(TOP)/$(BOARD_AML_VENDOR_PATH)/frameworks/services \
 	$(LOCAL_PATH)/../mediaconfig \
-	$(TOP)/frameworks/native/libs/nativewindow/include
+	$(TOP)/frameworks/native/libs/nativewindow/include \
+	frameworks/native/opengl/include \
+	system/libhidl/transport/token/1.0/utils/include
 
 LOCAL_SHARED_LIBRARIES := \
 	libutils \
@@ -210,8 +212,7 @@ LOCAL_SHARED_LIBRARIES := \
 	libc \
 	libbinder \
 	liblog \
-	libui \
-	libgui
+	libui
 
 #LOCAL_SHARED_LIBRARIES += libandroid_runtime   libnativehelper
 ifeq ($(shell test $(PLATFORM_SDK_VERSION) -ge 26 && echo OK),OK)

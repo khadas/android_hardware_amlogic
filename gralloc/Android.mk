@@ -182,7 +182,8 @@ LOCAL_MODULE := gralloc.amlogic
 LOCAL_MODULE_TAGS := optional
 LOCAL_MULTILIB := both
 
-LOCAL_C_INCLUDES += system/core/libion/include
+LOCAL_C_INCLUDES += system/core/libion/include \
+	system/core/libcutils/include
 
 LOCAL_SRC_FILES := \
 	ion_wrapper.cpp \

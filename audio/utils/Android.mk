@@ -5,6 +5,7 @@ include $(CLEAR_VARS)
 #LOCAL_CFLAGS += -DAML_CONFIG_SUPPORT_READ_ONLY
 
 LOCAL_C_INCLUDES +=                      \
+    hardware/libhardware/include \
     $(TOPDIR)system/core/include        \
     $(LOCAL_PATH)/include       \
     $(TOPDIR)external/tinyalsa/include   \
@@ -43,7 +44,7 @@ LOCAL_SHARED_LIBRARIES += \
     liblog                \
     libtinyalsa           \
     libaudioutils         \
-    libaudiospdif
+    libdroidaudiospdif
 
 LOCAL_MODULE_TAGS := optional
 LOCAL_CFLAGS += -DBUILD_IN_ANDROID

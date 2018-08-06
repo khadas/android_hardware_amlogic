@@ -23,7 +23,7 @@
 //#define LOG_NDDEBUG 0
 //#define LOG_NIDEBUG 0
 #define LOG_TAG "EmulatedCamera_Factory"
-#include <cutils/log.h>
+#include <android/log.h>
 #include <cutils/properties.h>
 #include "EmulatedQemuCamera.h"
 #include "EmulatedFakeCamera.h"

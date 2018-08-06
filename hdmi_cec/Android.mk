@@ -23,6 +23,9 @@ LOCAL_PRELINK_MODULE := false
 LOCAL_C_INCLUDES += \
   $(TOP)/$(BOARD_AML_VENDOR_PATH)/frameworks/services/hdmicec/binder \
   libnativehelper/include/nativehelper \
+  libnativehelper/include_jni \
+  hardware/libhardware/include \
+  frameworks/native/libs/binder/include \
   system/core/base/include
 
 LOCAL_MODULE_RELATIVE_PATH := hw
@@ -31,7 +34,6 @@ LOCAL_SHARED_LIBRARIES := \
   liblog \
   libutils \
   libcutils \
-  libnativehelper \
   libhdmicec
 
 LOCAL_MODULE := hdmi_cec.amlogic

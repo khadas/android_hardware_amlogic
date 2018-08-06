@@ -24,6 +24,8 @@ LOCAL_SRC_FILES := \
         src/FallthroughBTA.cpp
 
 LOCAL_C_INCLUDES += \
+        system/core/libutils/include \
+        system/core/liblog/include \
         $(LOCAL_PATH)/include \
         $(LOCAL_PATH)/codec/msbc \
         $(BDROID_DIR)/hci/include

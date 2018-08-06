@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include <stdio.h>
 #include <ammodule.h>
 #include <dlfcn.h>
 #include <string.h>

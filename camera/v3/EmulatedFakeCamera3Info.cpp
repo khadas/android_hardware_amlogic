@@ -20,7 +20,6 @@
  */
 
 #define LOG_TAG "EmulatedCamera_FakeCamera3Info"
-#include <camera/CameraMetadata.h>
 #include "EmulatedFakeCamera3.h"
 #include "inc/DebugUtils.h"
 
