@@ -116,6 +116,7 @@ int aml_hw_mixer_write(struct aml_hw_mixer *mixer, const void *buffer, size_t by
         //__func__, space, bytes, mixer->rp, mixer->wp);
         mixer->wp = 0;
         mixer->rp = 0;
+        pthread_mutex_unlock(&mixer->lock);
         return bytes;
     }
 

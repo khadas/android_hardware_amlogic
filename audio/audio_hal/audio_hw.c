@@ -5327,14 +5327,11 @@ ssize_t mixer_main_buffer_write (struct audio_stream_out *stream, const void *bu
             } else {
                 config_output(stream);
             }
-            if (ret < 0) {
-                return return_bytes;
-            }
 
             /*wirte raw data*/
-            if (ddp_dec->digital_raw == 1 && adev->hdmi_format == 5) {
+            if (ddp_dec->outlen_raw > 0 && ddp_dec->digital_raw == 1 && adev->hdmi_format == 5) {/*dual output: pcm & raw*/
                 aml_audio_spdif_output(stream, (void *)ddp_dec->outbuf_raw, ddp_dec->outlen_raw);
-            } else if (ddp_dec->digital_raw > 0) {
+            } else if (ddp_dec->outlen_raw > 0 && ddp_dec->digital_raw > 0) {/*single raw output*/
                 output_format = get_output_format(stream);
                 if (audio_hal_data_processing(stream, (void *)ddp_dec->outbuf_raw, ddp_dec->outlen_raw, &output_buffer, &output_buffer_bytes, output_format) == 0) {
                     hw_write(stream, output_buffer, output_buffer_bytes, output_format);
@@ -5342,31 +5339,33 @@ ssize_t mixer_main_buffer_write (struct audio_stream_out *stream, const void *bu
                 return return_bytes;
             }
 
-            if (!ddp_dec->outbuf || !ddp_dec->outlen_pcm) {
-                return return_bytes;
-            }
+            /*write pcm data: for 32K, input data is less than output data.*/
+            for (int i = 0; i < 2; i++) {
+                if (get_buffer_read_space(&ddp_dec->output_ring_buf) > (int)bytes) {
+                    ring_buffer_read(&ddp_dec->output_ring_buf, ddp_dec->outbuf, bytes);
+
 #if defined(IS_ATOM_PROJECT)
-            audio_format_t output_format = AUDIO_FORMAT_PCM_32_BIT;
-            uint16_t *p = (uint16_t *)ddp_dec->outbuf;
-            int32_t *p1 = aml_out->tmp_buffer_8ch;
-            void *tmp_buffer = (void *) aml_out->tmp_buffer_8ch;
+                    audio_format_t output_format = AUDIO_FORMAT_PCM_32_BIT;
+                    uint16_t *p = (uint16_t *)ddp_dec->outbuf;
+                    int32_t *p1 = aml_out->tmp_buffer_8ch;
+                    void *tmp_buffer = (void *) aml_out->tmp_buffer_8ch;
 
-            for (int i = 0; i < ddp_dec->outlen_pcm / 2; i++) {
-                p1[i] = ((int32_t)p[i]) << 16;
-            }
-            ddp_dec->outlen_pcm *= 2;
-            //ALOGI("ddp_dec->outlen_pcm = %d, return_bytes = %d", ddp_dec->outlen_pcm, return_bytes);
+                    for (unsigned i = 0; i < bytes / 2; i++) {
+                        p1[i] = ((int32_t)p[i]) << 16;
+                    }
+                    bytes *= 2;
+                    ALOGV("ddp_dec->outlen_pcm = %d, bytes = %d", ddp_dec->outlen_pcm, bytes);
 #else
-            void *tmp_buffer = (void *) ddp_dec->outbuf;
-            audio_format_t output_format = AUDIO_FORMAT_PCM_16_BIT;
+                    void *tmp_buffer = (void *) ddp_dec->outbuf;
+                    audio_format_t output_format = AUDIO_FORMAT_PCM_16_BIT;
 #endif
-
-            /*write pcm data*/
-            aml_hw_mixer_mixing(&adev->hw_mixer, tmp_buffer, write_bytes, output_format);
-            if (audio_hal_data_processing(stream, tmp_buffer, ddp_dec->outlen_pcm, &output_buffer, &output_buffer_bytes, output_format) == 0) {
-                hw_write(stream, output_buffer, output_buffer_bytes, output_format);
-                aml_out->frame_write_sum = aml_out->input_bytes_size  / audio_stream_out_frame_size(stream);
-                aml_out->last_frames_postion = aml_out->frame_write_sum;
+                    aml_hw_mixer_mixing(&adev->hw_mixer, tmp_buffer, bytes, output_format);
+                    if (audio_hal_data_processing(stream, tmp_buffer, bytes, &output_buffer, &output_buffer_bytes, output_format) == 0) {
+                        hw_write(stream, output_buffer, output_buffer_bytes, output_format);
+                        aml_out->frame_write_sum = aml_out->input_bytes_size  / audio_stream_out_frame_size(stream);
+                        aml_out->last_frames_postion = aml_out->frame_write_sum;
+                    }
+                }
             }
             return return_bytes;
         }
@@ -6052,9 +6051,9 @@ static struct audio_patch_set *register_audio_patch(struct audio_hw_device *dev,
 #endif
 
     /* find if mix->dev exists and remove from list */
-        list_for_each(node, &aml_dev->patch_list) {
-            patch_set_tmp = node_to_item(node, struct audio_patch_set, list);
-            patch_tmp = &patch_set_tmp->audio_patch;
+    list_for_each(node, &aml_dev->patch_list) {
+        patch_set_tmp = node_to_item(node, struct audio_patch_set, list);
+        patch_tmp = &patch_set_tmp->audio_patch;
         if (patch_tmp->sources[0].type == AUDIO_PORT_TYPE_MIX &&
             patch_tmp->sinks[0].type == AUDIO_PORT_TYPE_DEVICE &&
             sources[0].ext.mix.handle == patch_tmp->sources[0].ext.mix.handle) {
@@ -6063,8 +6062,8 @@ static struct audio_patch_set *register_audio_patch(struct audio_hw_device *dev,
         } else {
             patch_set_tmp = NULL;
             patch_tmp = NULL;
-            }
         }
+    }
     /* found mix->dev patch, so release and remove it */
     if (patch_set_tmp) {
         ALOGD("%s, found the former mix->dev patch set, remove it first", __func__);
@@ -6073,9 +6072,9 @@ static struct audio_patch_set *register_audio_patch(struct audio_hw_device *dev,
         patch_tmp = NULL;
     }
     /* find if dev->mix exists and remove from list */
-        list_for_each (node, &aml_dev->patch_list) {
-            patch_set_tmp = node_to_item(node, struct audio_patch_set, list);
-            patch_tmp = &patch_set_tmp->audio_patch;
+    list_for_each (node, &aml_dev->patch_list) {
+        patch_set_tmp = node_to_item(node, struct audio_patch_set, list);
+        patch_tmp = &patch_set_tmp->audio_patch;
         if (patch_tmp->sources[0].type == AUDIO_PORT_TYPE_DEVICE &&
             patch_tmp->sinks[0].type == AUDIO_PORT_TYPE_MIX &&
             sinks[0].ext.mix.handle == patch_tmp->sinks[0].ext.mix.handle) {
@@ -6084,8 +6083,8 @@ static struct audio_patch_set *register_audio_patch(struct audio_hw_device *dev,
         } else {
             patch_set_tmp = NULL;
             patch_tmp = NULL;
-            }
         }
+    }
     /* found dev->mix patch, so release and remove it */
     if (patch_set_tmp) {
         ALOGD("%s, found the former dev->mix patch set, remove it first", __func__);

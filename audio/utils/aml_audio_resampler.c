@@ -56,11 +56,11 @@ int resampler_init(struct resample_para *resample) {
 }
 
 int resample_process(struct resample_para *resample, unsigned int in_frame,
-        short* input, short* output) {
+        int16_t* input, int16_t* output) {
     unsigned int inputIndex = 0;
     unsigned int outputIndex = 0;
     unsigned int FractionStep = resample->FractionStep;
-    short last_sample[MAX_RESAMPLE_CHANNEL];
+    int16_t last_sample[MAX_RESAMPLE_CHANNEL];
     unsigned int i;
     unsigned int channels = resample->channels;
 
@@ -74,7 +74,7 @@ int resample_process(struct resample_para *resample, unsigned int in_frame,
     while (inputIndex == 0) {
         for (i = 0; i < channels; i++) {
             *output++ = clip((int) last_sample[i] +
-                (((int) input[i] - (int) last_sample[i] * ((int) frac >> 13)) >> 15));
+                ((((int) input[i] - (int) last_sample[i]) * ((int) frac >> 13)) >> 15));
         }
 
         frac += FractionStep;
