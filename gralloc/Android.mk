@@ -77,10 +77,9 @@ include $(CLEAR_VARS)
 include $(BUILD_SYSTEM)/version_defaults.mk
 
 ifneq ($(findstring $(GPU_ARCH), midgard bifrost),)
-	MALI_GPU_SUPPORT_AFBC_SPLITBLK = 1
 	GRALLOC_INIT_AFBC = 1
 endif
-$(warning "the value of  is $(GPU_ARCH)")
+$(warning "the value of GPU_ARCH is $(GPU_ARCH)")
 ifeq ($(TARGET_BOARD_PLATFORM), juno)
 ifeq ($(MALI_MMSS), 1)
 

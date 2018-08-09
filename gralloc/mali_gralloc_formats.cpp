@@ -712,12 +712,12 @@ int get_meson_dpu_gpu_caps()
 	lseek(osd_afbcd_fd, 0, SEEK_SET);
 	read (osd_afbcd_fd, osd_afbcd, 1);
 	osd_afbcd_enabled = atoi(osd_afbcd);
-	ALOGD("AFBC %s\n", osd_afbcd_enabled == 1? "enabled":"disabled");
+	ALOGD("AFBC %s\n", osd_afbcd_enabled != 0? "enabled":"disabled");
 
 	close (osd_afbcd_fd);
 	osd_afbcd_fd = -1;
-
 	if (osd_afbcd_enabled) {
+		/* Determine DPU format capabilities */
 		dpu_runtime_caps.caps_mask |= MALI_GRALLOC_FORMAT_CAPABILITY_OPTIONS_PRESENT;
 		dpu_runtime_caps.caps_mask |= MALI_GRALLOC_FORMAT_CAPABILITY_AFBC_BASIC;
 		dpu_runtime_caps.caps_mask |= MALI_GRALLOC_FORMAT_CAPABILITY_AFBC_SPLITBLK;
@@ -725,19 +725,21 @@ int get_meson_dpu_gpu_caps()
 		dpu_runtime_caps.caps_mask |= MALI_GRALLOC_FORMAT_CAPABILITY_PIXFMT_RGBA1010102;
 		dpu_runtime_caps.caps_mask |= MALI_GRALLOC_FORMAT_CAPABILITY_PIXFMT_RGBA16161616;
 
-        //TODO remove this mask?
+		/* Determine GPU format capabilities */
 		gpu_runtime_caps.caps_mask |= MALI_GRALLOC_FORMAT_CAPABILITY_AFBC_YUV_NOWRITE;
 		gpu_runtime_caps.caps_mask |= MALI_GRALLOC_FORMAT_CAPABILITY_OPTIONS_PRESENT;
 		gpu_runtime_caps.caps_mask |= MALI_GRALLOC_FORMAT_CAPABILITY_AFBC_BASIC;
 		gpu_runtime_caps.caps_mask |= MALI_GRALLOC_FORMAT_CAPABILITY_AFBC_SPLITBLK;
 		gpu_runtime_caps.caps_mask |= MALI_GRALLOC_FORMAT_CAPABILITY_AFBC_WIDEBLK;
-		gpu_runtime_caps.caps_mask |= MALI_GRALLOC_FORMAT_CAPABILITY_AFBC_WIDEBLK_YUV_DISABLE;
 		gpu_runtime_caps.caps_mask |= MALI_GRALLOC_FORMAT_CAPABILITY_PIXFMT_RGBA1010102;
 		gpu_runtime_caps.caps_mask |= MALI_GRALLOC_FORMAT_CAPABILITY_PIXFMT_RGBA16161616;
 	}
-
+	else {
+		gpu_runtime_caps.caps_mask |= MALI_GRALLOC_FORMAT_CAPABILITY_AFBC_YUV_NOWRITE;
+	}
 	return 0;
 }
+
 /*
  * Here we determine format capabilities for the 4 IPs we support.
  * For now these are controlled by build defines, but in the future
@@ -758,7 +760,6 @@ static void determine_format_capabilities()
 	{
 		goto already_init;
 	}
-
 	memset((void *)&dpu_runtime_caps, 0, sizeof(dpu_runtime_caps));
 	memset((void *)&vpu_runtime_caps, 0, sizeof(vpu_runtime_caps));
 	memset((void *)&gpu_runtime_caps, 0, sizeof(gpu_runtime_caps));
@@ -787,8 +788,10 @@ static void determine_format_capabilities()
 #endif
 	}
 
-	/* Determine GPU format capabilities */
-	if (access(MALI_GRALLOC_GPU_LIBRARY_PATH1 MALI_GRALLOC_GPU_LIB_NAME, R_OK) == 0)
+	/* Determine GPU format capabilities in Gralloc
+	 * There's no need to load libGLES_mali.so
+	 */
+/*	if (access(MALI_GRALLOC_GPU_LIBRARY_PATH1 MALI_GRALLOC_GPU_LIB_NAME, R_OK) == 0)
 	{
 		get_block_capabilities(false, MALI_GRALLOC_GPU_LIBRARY_PATH1 MALI_GRALLOC_GPU_LIB_NAME, &gpu_runtime_caps);
 	}
@@ -796,11 +799,9 @@ static void determine_format_capabilities()
 	{
 		get_block_capabilities(false, MALI_GRALLOC_GPU_LIBRARY_PATH2 MALI_GRALLOC_GPU_LIB_NAME, &gpu_runtime_caps);
 	}
-
+*/
 	if ((gpu_runtime_caps.caps_mask & MALI_GRALLOC_FORMAT_CAPABILITY_OPTIONS_PRESENT) == 0)
 	{
-		ALOGW("Failed to find GPU block configuration in %s. Using static build configuration.",
-		      MALI_GRALLOC_GPU_LIB_NAME);
 
 #if MALI_GPU_SUPPORT_AFBC_BASIC == 1
 		gpu_runtime_caps.caps_mask |= MALI_GRALLOC_FORMAT_CAPABILITY_OPTIONS_PRESENT;
