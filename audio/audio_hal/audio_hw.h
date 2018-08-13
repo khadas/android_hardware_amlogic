@@ -210,9 +210,17 @@ enum stream_status {
     STREAM_MIXING
 };
 
+#if defined(IS_ATOM_PROJECT)
+typedef enum atom_stream_type {
+    STREAM_ANDROID = 0,
+    STREAM_HDMI,
+    STREAM_OPTAUX
+} atom_stream_type_t;
+#endif
+
 typedef union {
-	unsigned long long timeStamp;
-	unsigned char tsB[8];
+    unsigned long long timeStamp;
+    unsigned char tsB[8];
 } aec_timestamp;
 
 #define MAX_STREAM_NUM   5
@@ -324,9 +332,14 @@ struct aml_audio_device {
     size_t extra_write_bytes;
 
     // spk_buf mgmt
+    atom_stream_type_t atom_stream_type_val;
     unsigned long long spk_buf_last_write_time;
     unsigned long long spk_buf_write_count;
     unsigned long long spk_buf_read_count;
+    unsigned long long spk_buf_very_first_write_time;
+
+    unsigned long long debug_spk_buf_time_last;
+    unsigned long long debug_spk_buf_time_curr;
 
     bool has_dsp_lib;
     void *aec_buf;
