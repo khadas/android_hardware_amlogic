@@ -21,6 +21,13 @@
 #include "aml_ringbuffer.h"
 #include "aml_audio_resampler.h"
 
+struct pcm_info {
+    int sample_rate;
+    int channel_num;
+    int bytes_per_sample;
+    int bitstream_type;
+};
+
 struct aml_audio_parser {
     struct audio_hw_device *dev;
     ring_buffer_t aml_ringbuffer;
@@ -38,6 +45,7 @@ struct aml_audio_parser {
     int out_sample_rate;
     struct resample_para aml_resample;
     int data_ready;
+    struct pcm_info pcm_out_info;
 };
 
 struct dolby_ddp_dec {
@@ -50,9 +58,13 @@ struct dolby_ddp_dec {
     int outlen_raw;
     int nIsEc3;
     int digital_raw;
-    int (*get_parameters) (void *, int *, int *, int *);
-    int (*decoder_process) (unsigned char*, int, unsigned char *, int *, char *, int *, int);
+    int (*get_parameters)(void *, int *, int *, int *);
+    int (*decoder_process)(unsigned char*, int, unsigned char *, int *, char *, int *, int, struct pcm_info *);
     pthread_mutex_t lock;
+    struct pcm_info pcm_out_info;
+    struct resample_para aml_resample;
+    unsigned char *resample_outbuf;
+    ring_buffer_t output_ring_buf;
 };
 
 
@@ -63,6 +75,6 @@ int dcv_decode_release(struct aml_audio_parser *parser);
 
 int dcv_decoder_init_patch(struct dolby_ddp_dec *ddp_dec);
 int dcv_decoder_release_patch(struct dolby_ddp_dec *ddp_dec);
-int dcv_decoder_process_patch(struct dolby_ddp_dec *ddp_dec,unsigned char*buffer, int bytes);
+int dcv_decoder_process_patch(struct dolby_ddp_dec *ddp_dec, unsigned char*buffer, int bytes);
 
 #endif

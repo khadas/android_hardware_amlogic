@@ -22,15 +22,14 @@
 struct resample_para {
     unsigned int FractionStep;
     unsigned int SampleFraction;
-    short lastsample[MAX_RESAMPLE_CHANNEL];
     unsigned int input_sr;
     unsigned int output_sr;
     unsigned int channels;
+    int16_t lastsample[MAX_RESAMPLE_CHANNEL];
 };
 
 int resampler_init(struct resample_para *resample);
 int resample_process(struct resample_para *resample, unsigned int in_frame,
-	short* input, short* output);
-
+    int16_t* input, int16_t* output);
 
 #endif
