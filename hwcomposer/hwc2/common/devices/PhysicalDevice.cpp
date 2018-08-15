@@ -118,8 +118,8 @@ bool PhysicalDevice::initialize() {
     initDisplay();
 
     // create vsync event observer, we only have soft vsync now...
-    mVsyncObserver = new VsyncEventObserver(*this);
-    if (!mVsyncObserver || !mVsyncObserver->initialize(*(mFramebufferContext->getInfo()))) {
+    mVsyncObserver = new SoftVsyncObserver(*this);
+    if (!mVsyncObserver || !mVsyncObserver->initialize()) {
         DEINIT_AND_RETURN_FALSE("failed to create vsync observer");
     }
 

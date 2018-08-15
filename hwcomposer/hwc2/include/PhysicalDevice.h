@@ -21,7 +21,6 @@
 
 #include <utils/KeyedVector.h>
 #include <SoftVsyncObserver.h>
-#include <VsyncEventObserver.h>
 #include <IDisplayDevice.h>
 #include <HwcLayer.h>
 #include <IComposeDevice.h>
@@ -226,9 +225,7 @@ private:
     Hwcomposer& mHwc;
     DisplayHdmi* mDisplayHdmi;
     IComposeDeviceFactory *mControlFactory;
-    //SoftVsyncObserver *mVsyncObserver;
-    VsyncEventObserver *mVsyncObserver;
-
+    SoftVsyncObserver *mVsyncObserver;
 
     IComposeDevice *mComposer;
 
