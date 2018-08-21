@@ -70,13 +70,7 @@ typedef enum MIXER_SPDIFIN_AUDIO_TYPE {
 /* Hardware resample enable */
 typedef enum MIXER_HW_RESAMPLE_ENABLE {
     HW_RESAMPLE_DISABLE = 0,
-    HW_RESAMPLE_32K     = 1,
-    HW_RESAMPLE_44K     = 2,
-    HW_RESAMPLE_48K     = 3,
-    HW_RESAMPLE_88K     = 4,
-    HW_RESAMPLE_96K     = 5,
-    HW_RESAMPLE_176K    = 6,
-    HW_RESAMPLE_192K    = 7,
+    HW_RESAMPLE_ENABLE  = 1,
     HW_RESAMPLE_MAX,
 } eMixerHwResample;
 

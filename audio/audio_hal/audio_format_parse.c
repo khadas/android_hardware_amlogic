@@ -219,7 +219,7 @@ static int audio_type_parse_init(audio_type_parse_t *status) {
     }
 
     audio_type_status->in = in;
-    enable_HW_resample(config_in->rate, 1);
+    enable_HW_resample(HW_RESAMPLE_ENABLE);
 
     ALOGD("init parser success: (%d), (%d), (%p)",
             audio_type_status->card, audio_type_status->device, audio_type_status->in);
@@ -254,7 +254,7 @@ static int update_audio_type(audio_type_parse_t *status, int update_bytes) {
             audio_type_status->audio_type = audio_type_status->cur_audio_type;
             audio_type_status->read_bytes = 0;
             ALOGI("no IEC61937 header found, PCM data!\n");
-            enable_HW_resample(config_in->rate, 1);
+            enable_HW_resample(HW_RESAMPLE_ENABLE);
         }
         audio_type_status->read_bytes += update_bytes;
     } else {
@@ -263,7 +263,7 @@ static int update_audio_type(audio_type_parse_t *status, int update_bytes) {
         audio_type_status->audio_type = audio_type_status->cur_audio_type;
         audio_type_status->read_bytes = 0;
         ALOGI("Raw data found: type(%d)\n", audio_type_status->audio_type);
-        enable_HW_resample(config_in->rate, 0);
+        enable_HW_resample(HW_RESAMPLE_DISABLE);
     }
     return 0;
 }
