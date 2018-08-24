@@ -39,6 +39,7 @@
 #include "ge2d_stream.h"
 #include "util.h"
 #include <sys/time.h>
+#include <inttypes.h>
 
 
 #define ARRAY_SIZE(x) (sizeof((x))/sizeof(((x)[0])))
@@ -1026,7 +1027,7 @@ status_t Sensor::waitForNewFrame(nsecs_t reltime,
 
     if (mCapturedBuffers == NULL) {
         int res;
-        //CAMHAL_LOGVB("%s , E  mReadoutMutex , reltime = %ld" , __FUNCTION__, reltime);
+        CAMHAL_LOGVB("%s , E  mReadoutMutex , reltime (%" PRId64 ")" , __FUNCTION__, reltime);
         res = mReadoutAvailable.waitRelative(mReadoutMutex, reltime);
         if (res == TIMED_OUT) {
             return false;
@@ -1206,7 +1207,7 @@ bool Sensor::threadLoop() {
         mCurFps = mFramecount/(interval/1000000.0f);
         memcpy(&mTimeStart, &mTimeEnd, sizeof(mTimeEnd));
         mFramecount = 0;
-        //CAMHAL_LOGIB("interval=%lld, interval=%f, fps=%f\n", interval, interval/1000000.0f, mCurFps);
+        CAMHAL_LOGIB("interval(%" PRId64"), interval=%f, fps=%f\n", interval, interval/1000000.0f, mCurFps);
     }
     ALOGVV("Sensor vertical blanking interval");
     nsecs_t workDoneRealTime = systemTime();
@@ -1221,8 +1222,8 @@ bool Sensor::threadLoop() {
             ret = nanosleep(&t, &t);
         } while (ret != 0);
     }
-    //nsecs_t endRealTime = systemTime();
-    ALOGVV("Frame cycle took %d ms, target %d ms",
+    nsecs_t endRealTime = systemTime();
+    CAMHAL_LOGVB("Frame cycle took %d ms, target %d ms",
             (int)((endRealTime - startRealTime)/1000000),
             (int)(frameDuration / 1000000));
     CAMHAL_LOGVB("%s , X" , __FUNCTION__);
@@ -1612,7 +1613,7 @@ int Sensor::getStreamConfigurationDurations(uint32_t picSizes[], int64_t duratio
     int i,j=0;
     int count = 0;
     int tmp_size = size;
-    //memset(duration, 0 ,sizeof(int64_t)*ARRAY_SIZE(duration));
+    memset(duration, 0 ,sizeof(int64_t) * size);
     int pixelfmt_tbl[] = {
         V4L2_PIX_FMT_MJPEG,
         V4L2_PIX_FMT_YVU420,
@@ -1697,6 +1698,16 @@ int Sensor::getStreamConfigurationDurations(uint32_t picSizes[], int64_t duratio
                                 duration[count+3] = 0;
                             else
                                 duration[count+3] = (int64_t)33333333L;
+                        } else if (framerate == 60) {
+                            if ((!flag) && ((duration[count+0] == HAL_PIXEL_FORMAT_YCbCr_420_888)
+                                || (duration[count+0] == HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED)))
+                                duration[count+3] = 0;
+                            else {
+                                if (mSensorType == SENSOR_USB)
+                                    duration[count+3] = (int64_t)33333333L;
+                                else
+                                    duration[count+3] = (int64_t)16666666L;
+                            }
                         } else {
                             if ((!flag) && ((duration[count+0] == HAL_PIXEL_FORMAT_YCbCr_420_888)
                                 || (duration[count+0] == HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED)))
@@ -1711,6 +1722,7 @@ int Sensor::getStreamConfigurationDurations(uint32_t picSizes[], int64_t duratio
                     }
                 }
             }
+            framerate=0;
             j=0;
         }
         size = tmp_size;
