@@ -70,7 +70,9 @@ endif
     LOCAL_MODULE_TAGS := optional
 
     LOCAL_CFLAGS += -Werror
-
+ifneq ($(TARGET_BUILD_VARIANT),user)
+    LOCAL_CFLAGS += -DDEBUG_VOLUME_CONTROL
+endif
 ifeq ($(BOARD_ENABLE_NANO), true)
 		LOCAL_CFLAGS += -DENABLE_NANO_PATCH=1
 endif
