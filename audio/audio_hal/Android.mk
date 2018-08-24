@@ -90,18 +90,16 @@ ifeq ($(strip $(DOLBY_MS12_ENABLE)), true)
 endif
 
 #For atom project
-#ifeq ($(strip $(TARGET_BOOTLOADER_BOARD_NAME)), atom)
-#    LOCAL_CFLAGS += -DIS_ATOM_PROJECT
-#    LOCAL_SRC_FILES += \
-#        audio_aec_process.cpp \
-#        ../../../../vendor/harman/atom/harman_api/harman_dsp_process.c \
-#        ../../../../vendor/harman/atom/harman_api/harman_aud_filter.c
-#    LOCAL_C_INCLUDES += \
-#        $(LOCAL_PATH)/../google_aec \
-#        $(TOPDIR)vendor/harman/atom/harman_api
-#    LOCAL_SHARED_LIBRARIES += \
-#        libgoogle_aec
-#endif
+ifeq ($(strip $(TARGET_BOOTLOADER_BOARD_NAME)), atom)
+    LOCAL_CFLAGS += -DIS_ATOM_PROJECT
+    LOCAL_SRC_FILES += \
+        audio_aec_process.cpp
+    LOCAL_C_INCLUDES += \
+        $(TOPDIR)vendor/harman/atom/google_aec \
+        $(TOPDIR)vendor/harman/atom/harman_api
+    LOCAL_SHARED_LIBRARIES += \
+        libgoogle_aec libharman_api
+endif
 
     include $(BUILD_SHARED_LIBRARY)
 

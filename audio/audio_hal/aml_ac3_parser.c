@@ -177,7 +177,7 @@ int scan_dolby_main_frame(void *input_buffer
                           , void **main_frame_buffer
                           , int *main_frame_size)
 {
-    ALOGV("\n+%s() bytes %d\n", __FUNCTION__, bytes);
+    ALOGV("\n+%s() bytes %zu\n", __FUNCTION__, bytes);
     int ret = 0;
     int sync_word_offset = -1;
     char *temp_buffer = (char*)input_buffer;
@@ -263,7 +263,7 @@ int scan_dolby_main_frame_ext(void *input_buffer
                               , int *main_frame_size
                               , size_t *payload_deficiency)
 {
-    ALOGV("\n+%s() bytes %d\n", __FUNCTION__, bytes);
+    ALOGV("\n+%s() bytes %zu\n", __FUNCTION__, bytes);
     int ret = 0;
     int sync_word_offset = -1;
     char *temp_buffer = (char*)input_buffer;
@@ -343,7 +343,7 @@ int scan_dolby_main_frame_ext(void *input_buffer
                     ret = 1;
                 } else {
                     *used_size = bytes;
-                   ALOGV("%s useful data len %lu eac3 iec61937 packet size %#x payload_size %#x",
+                    ALOGV("%s useful data len %lu eac3 iec61937 packet size %#x payload_size %#x",
                          __FUNCTION__, (unsigned long)(bytes - sync_word_offset), EAC3_PERIOD_SIZE, payload_size);
                     ret = -1;
                 }
@@ -355,7 +355,7 @@ int scan_dolby_main_frame_ext(void *input_buffer
     } else {
         *used_size = (int)bytes;
         ret = 0;
-        ALOGV("%s() bytes = %d,none iec61937 format header, skip this part\n", __FUNCTION__, bytes); //zz
+        ALOGV("%s() bytes = %zu,none iec61937 format header, skip this part\n", __FUNCTION__, bytes); //zz
     }
     if (is_iec61937_packat == 0) {
         ALOGV("%s() ret %d *used_size %d payload_size %d has iec61937 packat %d \n",
@@ -371,7 +371,7 @@ int scan_dolby_main_frame_ext(void *input_buffer
         *payload_deficiency = 0;
         ALOGV("-%s() main frame addr null size 0\n", __FUNCTION__);
     }
-    ALOGV("-%s() main frame addr %p size %d payload_deficiency %d\n",
+    ALOGV("-%s() main frame addr %p size %d payload_deficiency %zu\n",
           __FUNCTION__, *main_frame_buffer, *main_frame_size, *payload_deficiency);
     return ret;
 }

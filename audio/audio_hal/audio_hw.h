@@ -330,6 +330,8 @@ struct aml_audio_device {
     size_t spk_buf_size;
     size_t spk_write_bytes;
     size_t extra_write_bytes;
+    void *output_tmp_buf;
+    unsigned int output_tmp_buf_size;
 
     // spk_buf mgmt
     atom_stream_type_t atom_stream_type_val;

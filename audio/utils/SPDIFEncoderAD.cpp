@@ -71,7 +71,7 @@ public:
                 FILE *fp1 = fopen("/data/audio_out/enc_output.spdif", "a+");
                 if (fp1) {
                     int flen = fwrite((char *)iec61937_buffer, 1, actual_write_size, fp1);
-                    ALOGV("%s iec61937_buffer %p write_size %zu\n", __FUNCTION__, iec61937_buffer, flen);
+                    ALOGV("%s iec61937_buffer %p write_size %d\n", __FUNCTION__, iec61937_buffer, flen);
                     fclose(fp1);
                 } else {
                     //ALOGD("could not open file:/data/hdmi_audio_out.pcm");
