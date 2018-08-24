@@ -6534,6 +6534,12 @@ static int adev_set_audio_port_config (struct audio_hw_device *dev, const struct
                 ALOGE ("%s: invalid out device type %#x",
                         __func__, config->ext.device.type);
             }
+#ifdef DEBUG_VOLUME_CONTROL
+            int vol = property_get_int32("media.audio_hal.volume", -1);
+            if (vol != -1)
+                aml_dev->sink_gain[outport] = (float)vol;
+            else
+#endif
             aml_dev->sink_gain[outport] = get_volume_by_index(config->gain.values[0]);
             ALOGI(" - set sink device[%#x](outport[%s]): gain[%f]",
                         config->ext.device.type, output_ports[outport], aml_dev->sink_gain[outport]);
@@ -6605,6 +6611,12 @@ static int adev_set_audio_port_config (struct audio_hw_device *dev, const struct
                             __func__, patch->sinks->ext.device.type);
                 }
                 aml_dev->src_gain[inport] = get_volume_by_index(config->gain.values[0]);
+#ifdef DEBUG_VOLUME_CONTROL
+                int vol = property_get_int32("media.audio_hal.volume", -1);
+                if (vol != -1)
+                    aml_dev->sink_gain[outport] = (float)vol;
+                else
+#endif
                 aml_dev->sink_gain[outport] = get_volume_by_index(config->gain.values[0]);
 #ifdef DOLBY_MS12_ENABLE
                 /* dev->dev and DTV src gain using MS12 primary gain */
