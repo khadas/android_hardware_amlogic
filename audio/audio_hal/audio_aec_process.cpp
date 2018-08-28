@@ -37,7 +37,7 @@ int32_t* aec_spk_mic_process(int32_t *spk_buf, int32_t *mic_buf, int *cleaned_sa
     out_buf = pGoogleAec->ProcessInt32InterleavedAudio(spk_samples, spk_buf_info,
         mic_samples, mic_buf_info, cleaned_samples_per_channel);
     if (!out_buf) {
-        ALOGE("%s: AEC process failed, cleaned_samples_per_channel = %d", __func__, *cleaned_samples_per_channel);
+        //ALOGE("%s: AEC process failed, cleaned_samples_per_channel = %d", __func__, *cleaned_samples_per_channel);
         //pGoogleAec->Reset();
         return NULL;
     }
@@ -64,11 +64,11 @@ int aec_spk_mic_init(int sample_rate_hz, int num_loudspeaker_feeds,
 
 void aec_spk_mic_reset(void)
 {
-    ALOGD("%s: enter", __func__);
+    //ALOGD("%s: enter", __func__);
     if (pGoogleAec) {
         pGoogleAec->Reset();
     }
-    ALOGD("%s: exit", __func__);
+    //ALOGD("%s: exit", __func__);
 }
 
 void aec_spk_mic_release(void)
@@ -78,7 +78,7 @@ void aec_spk_mic_release(void)
     p_spk_buf_info = NULL;
     delete p_mic_buf_info;
     p_mic_buf_info = NULL;
-    ALOGD("%s: exit", __func__);
+    //ALOGD("%s: exit", __func__);
 }
 
 int aec_set_spk_buf_info(int samples_per_channel, uint64_t timestamp, bool valid_timestamp)

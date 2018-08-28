@@ -32,6 +32,8 @@ int aml_alsa_output_open(struct audio_stream_out *stream)
     struct aml_stream_out *aml_out = (struct aml_stream_out *)stream;
     struct aml_audio_device *adev = aml_out->dev;
     struct pcm_config *config = &aml_out->config;
+    unsigned int device = aml_out->device;
+
 #ifdef DOLBY_MS12_ENABLE
     struct dolby_ms12_desc *ms12 = &(adev->ms12);
     if (adev->dolby_ms12_status) {
@@ -40,25 +42,38 @@ int aml_alsa_output_open(struct audio_stream_out *stream)
     }
 #endif
     int card = aml_out->card;
-    int device = aml_out->device;
-    struct pcm *pcm = NULL;
+    struct pcm *pcm = adev->pcm_handle[device];
+    ALOGI("%s pcm %p", __func__, pcm);
 
     // close former and open with configs
     // TODO: check pcm configs and if no changes, do nothing
-    if (adev->pcm_handle[device]) {
-        pcm = adev->pcm_handle[device];
-        ALOGI("pcm device already opened,re-use pcm handle %p",pcm);
-    }
-    else {
-        if (card == alsa_device_get_card_index())
+    if (pcm && device != DIGITAL_DEVICE) {
+        ALOGI("pcm device already opened,re-use pcm handle %p", pcm);
+    } else {
+        /*
+        there are some audio format when digital output
+        from dd->dd+ or dd+ --> dd,we need reopen the device.
+        */
+        if (pcm) {
+            pcm_close(pcm);
+            adev->pcm_handle[device] = NULL;
+            aml_out->pcm = NULL;
+            pcm = NULL;
+        }
+
+        // mark: will there wil issue here? conflit with MS12 device?? zz
+        if (card == alsa_device_get_card_index()) {
             device = alsa_device_get_pcm_index(device);
+        }
 
         ALOGI("%s, audio open card(%d), device(%d)", __func__, card, device);
         ALOGI("ALSA open configs: channels %d format %d period_count %d period_size %d rate %d",
-            config->channels, config->format, config->period_count, config->period_size, config->rate);
+              config->channels, config->format, config->period_count, config->period_size, config->rate);
+        ALOGI("ALSA open configs: threshold start %u stop %u silence %u silence_size %d avail_min %d",
+              config->start_threshold, config->stop_threshold, config->silence_threshold, config->silence_size, config->avail_min);
         pcm = pcm_open(card, device, PCM_OUT, config);
-        if (!pcm) {
-            ALOGE("%s, pcm open failed", __func__);
+        if (!pcm || !pcm_is_ready(pcm)) {
+            ALOGE("%s, pcm %p open [ready %d] failed", __func__, pcm, pcm_is_ready(pcm));
             return -ENOENT;
         }
     }
@@ -78,13 +93,19 @@ void aml_alsa_output_close(struct audio_stream_out *stream)
     struct pcm *pcm = adev->pcm_handle[aml_out->device];
 
     adev->pcm_refs[device]--;
-    ALOGI("%s, audio pcm device(%d), refs(%d) is_normal_pcm %d,handle %p", __func__, device, adev->pcm_refs[device],aml_out->is_normal_pcm,aml_out->pcm);
+    ALOGI("+%s, audio out(%p) device(%d), refs(%d) is_normal_pcm %d,handle %p",
+          __func__, aml_out, device, adev->pcm_refs[device], aml_out->is_normal_pcm, aml_out->pcm);
+    if (adev->pcm_refs[device] < 0) {
+        adev->pcm_refs[device] = 0;
+        ALOGI("%s, device(%d) refs(%d)\n", __func__, device, adev->pcm_refs[device]);
+    }
     if (pcm && (adev->pcm_refs[device] == 0)) {
-        ALOGI("%s(), audio device[%d] pcm handle %p", __func__, device, pcm);
+        ALOGI("%s(), pcm_close audio device[%d] pcm handle %p", __func__, device, pcm);
         pcm_close(pcm);
-        adev->pcm_handle[aml_out->device] = NULL;
+        adev->pcm_handle[device] = NULL;
     }
     aml_out->pcm = NULL;
+    ALOGI("-%s()\n\n", __func__);
 }
 
 size_t aml_alsa_output_write(struct audio_stream_out *stream,
