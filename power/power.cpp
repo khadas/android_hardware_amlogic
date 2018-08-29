@@ -31,6 +31,8 @@
 #define MP_GPU_CMD                      "/sys/class/mpgpu/mpgpucmd"
 #define EARLY_SUSPEND_TRIGGER           "/sys/power/early_suspend_trigger"
 
+#define PLATFORM_SLEEP_MODES 1
+
 struct private_power_module {
     power_module_t base;
     int gpuFp;
@@ -97,7 +99,7 @@ static void powerHint(struct power_module *module, power_hint_t hint, void *data
     }
 }
 
-/*
+
 static void setFeature (struct power_module *module, feature_t feature, int state) {
 
 }
@@ -105,18 +107,26 @@ static void setFeature (struct power_module *module, feature_t feature, int stat
 static int getPlatformLowPowerStats (struct power_module *module,
         power_state_platform_sleep_state_t *list) {
 
-    ALOGI("getPlatformLowPowerStats");
+    if (!list) {
+        return -EINVAL;
+    }
+
+    strcpy(list[0].name, "screen_off");
+    list[0].supported_only_in_suspend = false;
+    list[0].number_of_voters = 0;
+
     return 0;
 }
 
 static ssize_t geNumberOfPlatformModes (struct power_module *module) {
-    return 0;
+    ALOGI("%s", __func__);
+    return PLATFORM_SLEEP_MODES;
 }
 
 static int getVoterList (struct power_module *module, size_t *voter) {
+    voter[0] = 0;
     return 0;
 }
-*/
 
 } // namespace amlogic
 } // namespace android
@@ -140,10 +150,10 @@ struct private_power_module HAL_MODULE_INFO_SYM = {
         .init = android::amlogic::init,
         .setInteractive = android::amlogic::setInteractive,
         .powerHint = android::amlogic::powerHint,
-        //.setFeature = android::amlogic::setFeature,
-        //.get_platform_low_power_stats = android::amlogic::getPlatformLowPowerStats,
-        //.get_number_of_platform_modes = android::amlogic::geNumberOfPlatformModes,
-        //.get_voter_list = android::amlogic::getVoterList,
+        .setFeature = android::amlogic::setFeature,
+        .get_platform_low_power_stats = android::amlogic::getPlatformLowPowerStats,
+        .get_number_of_platform_modes = android::amlogic::geNumberOfPlatformModes,
+        .get_voter_list = android::amlogic::getVoterList,
     },
     .gpuFp = -1,
     .suspendFp = -1,
