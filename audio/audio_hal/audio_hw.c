@@ -6274,6 +6274,7 @@ static int adev_create_audio_patch(struct audio_hw_device *dev,
 
         aml_dev->out_device = sink_config->ext.device.type;
         ALOGI("%s: mix->device patch: outport(%d)", __func__, outport);
+        aml_dev->sink_gain[outport] = 1.0;
         return 0;
     }
 
@@ -6383,7 +6384,6 @@ static int adev_create_audio_patch(struct audio_hw_device *dev,
         }
         aml_dev->active_inport = inport;
         aml_dev->src_gain[inport] = 1.0;
-        aml_dev->sink_gain[outport] = 1.0;
         ALOGI("%s: dev->dev patch: inport(%s), outport(%s)",
               __func__, input_ports[inport], output_ports[outport]);
 
@@ -6471,6 +6471,7 @@ static int adev_release_audio_patch(struct audio_hw_device *dev,
     unregister_audio_patch(dev, patch_set);
     ALOGI("--%s: after releasing patch, patch sets will be:", __func__);
     //dump_aml_audio_patch_sets(dev);
+    aml_dev->sink_gain[OUTPORT_SPEAKER] = 1.0;
 
 exit:
     return ret;
@@ -6549,7 +6550,8 @@ static int adev_set_audio_port_config (struct audio_hw_device *dev, const struct
                 aml_dev->sink_gain[outport] = (float)vol;
             else
 #endif
-            aml_dev->sink_gain[outport] = get_volume_by_index(config->gain.values[0]);
+            //aml_dev->sink_gain[outport] = get_volume_by_index(config->gain.values[0]);
+            aml_dev->sink_gain[outport] = DbToAmpl(config->gain.values[0] / 100);
             ALOGI(" - set sink device[%#x](outport[%s]): gain[%f]",
                         config->ext.device.type, output_ports[outport], aml_dev->sink_gain[outport]);
             ALOGI(" - now the sink gains are:");
@@ -6619,14 +6621,16 @@ static int adev_set_audio_port_config (struct audio_hw_device *dev, const struct
                     ALOGE ("%s: invalid out device type %#x",
                             __func__, patch->sinks->ext.device.type);
                 }
-                aml_dev->src_gain[inport] = get_volume_by_index(config->gain.values[0]);
+                //aml_dev->src_gain[inport] = get_volume_by_index(config->gain.values[0]);
+                aml_dev->src_gain[inport] = 1.0;
 #ifdef DEBUG_VOLUME_CONTROL
                 int vol = property_get_int32("media.audio_hal.volume", -1);
                 if (vol != -1)
                     aml_dev->sink_gain[outport] = (float)vol;
                 else
 #endif
-                aml_dev->sink_gain[outport] = get_volume_by_index(config->gain.values[0]);
+                //aml_dev->sink_gain[outport] = get_volume_by_index(config->gain.values[0]);
+                aml_dev->sink_gain[outport] = DbToAmpl(config->gain.values[0] / 100);
 #ifdef DOLBY_MS12_ENABLE
                 /* dev->dev and DTV src gain using MS12 primary gain */
                 if (aml_dev->audio_patching || aml_dev->patch_src == SRC_DTV) {
@@ -6643,7 +6647,8 @@ static int adev_set_audio_port_config (struct audio_hw_device *dev, const struct
                 ALOGI(" - set sink device[%#x](outport[%s]): gain[%f]",
                             patch->sinks->ext.device.type, output_ports[outport], aml_dev->sink_gain[outport]);
             } else if (patch->sinks[0].type == AUDIO_PORT_TYPE_MIX) {
-                aml_dev->src_gain[inport] = get_volume_by_index(config->gain.values[0]);
+                //aml_dev->src_gain[inport] = get_volume_by_index(config->gain.values[0]);
+                aml_dev->src_gain[inport] = 1.0;
                 ALOGI(" - set src device[%#x](inport[%s]): gain[%f]",
                             config->ext.device.type, input_ports[inport], aml_dev->src_gain[inport]);
             }
