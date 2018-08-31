@@ -3116,13 +3116,14 @@ static ssize_t in_read(struct audio_stream_in *stream, void* buffer, size_t byte
         int16_t *tmp_buf_16 = (int16_t *)buffer;
         int32_t *tmp_buf_32 = (int32_t *)buffer;
         for (size_t i = 0; i < cur_in_frames; i++) {
-            /*when aux is working, copy aux data*/
-            if(in->ref_count == 2) {
+            if (in->device & AUDIO_DEVICE_IN_LINE) {
                 aux_buf[2 * i] = tmp_buffer_8ch[8 * i];
                 aux_buf[2 * i + 1] = tmp_buffer_8ch[8 * i + 1];
             }
-            mic_buf[2 * i] = tmp_buffer_8ch[8 * i + 6];
-            mic_buf[2 * i + 1] = tmp_buffer_8ch[8 * i + 7];
+            if (in->device & AUDIO_DEVICE_IN_BUILTIN_MIC) {
+                mic_buf[2 * i] = tmp_buffer_8ch[8 * i + 6];
+                mic_buf[2 * i + 1] = tmp_buffer_8ch[8 * i + 7];
+            }
         }
 
         /*Mic & AEC processing*/
@@ -4251,10 +4252,6 @@ static int adev_open_input_stream(struct audio_hw_device *dev,
 
 #if defined(IS_ATOM_PROJECT)
     if (aux_mic_devce && adev->aux_mic_in != NULL) {
-        if (adev->aux_mic_in->device & aux_mic_devce) {
-            ALOGE("%s: devices(%#x) already exist", __func__, devices);
-            return -EBUSY;
-        }
         in = adev->aux_mic_in;
         goto exit;
     }
@@ -4356,8 +4353,10 @@ exit:
                 in->hal_format = config->format;
             }
             set_audio_source(LINEIN);
+            in->device |= (aux_mic_devce & AUDIO_DEVICE_IN_BUILTIN_MIC);
+        } else {
+            in->device |= (aux_mic_devce & AUDIO_DEVICE_IN_LINE);
         }
-        in->device |= aux_mic_devce;
         /*count the input streams*/
         in->ref_count++;
         ALOGD("start input stream num = %d\n", in->ref_count);
