@@ -917,6 +917,7 @@ static int out_flush (struct audio_stream_out *stream)
     out->spdif_enc_init_frame_write_sum =  0;
     out->frame_skip_sum = 0;
     out->skip_frame = 0;
+    out->pause_status = false;
     aml_audio_hwsync_init(&out->hwsync);
 
 exit:
@@ -1300,16 +1301,17 @@ static int out_resume (struct audio_stream_out *stream)
     int r = 0;
     pthread_mutex_lock (&adev->lock);
     pthread_mutex_lock (&out->lock);
-    if (out->standby || out->pause_status == false) {
+    if (/* !out->standby && */!out->pause_status) {
         // If output stream is not standby or not paused,
         // we should return Result::INVALID_STATE (3),
         // thus we can pass VTS test.
-        ALOGE ("Amlogic_HAL - %s: cannot resume, because output stream isn't in standby or paused state.", __FUNCTION__);
+        ALOGE ("%s: stream in wrong status. standby(%d) or paused(%d)",
+                __func__, out->standby, out->pause_status);
         r = 3;
 
         goto exit;
     }
-    if (pcm_is_ready (out->pcm) ) {
+    if (out->pcm && pcm_is_ready (out->pcm) ) {
         r = pcm_ioctl (out->pcm, SNDRV_PCM_IOCTL_PAUSE, 0);
         if (r < 0) {
             ALOGE ("cannot resume channel\n");
@@ -4975,6 +4977,7 @@ ssize_t audio_hal_data_processing(struct audio_stream_out *stream,
         *output_buffer_bytes = FRAMESIZE_32BIT_8ch * out_frames;
     } else {
         /*atom project supports 32bit hal only*/
+        /*TODO: Direct PCM case, I think still needs EQ and AEC */
         int16_t *tmp_buffer = (int16_t *)buffer;
         size_t out_frames = bytes / (2 * 2);
 
@@ -5044,8 +5047,8 @@ ssize_t audio_hal_data_processing(struct audio_stream_out *stream,
             aml_out->tmp_buffer_8ch_size = 8 * bytes;
         }
         for (i = 0; i < out_frames; i++) {
-            aml_out->tmp_buffer_8ch[8 * i] = (int32_t)tmp_buffer[2 * i] << 16;
-            aml_out->tmp_buffer_8ch[8 * i + 1] = (int32_t)tmp_buffer[2 * i + 1] << 16;
+            aml_out->tmp_buffer_8ch[8 * i] = (int32_t)effect_tmp_buf[2 * i] << 16;
+            aml_out->tmp_buffer_8ch[8 * i + 1] = (int32_t)effect_tmp_buf[2 * i + 1] << 16;
             aml_out->tmp_buffer_8ch[8 * i + 2] = (int32_t)effect_tmp_buf[2 * i] << 16;
             aml_out->tmp_buffer_8ch[8 * i + 3] = (int32_t)effect_tmp_buf[2 * i + 1] << 16;
             aml_out->tmp_buffer_8ch[8 * i + 4] = (int32_t)tmp_buffer[2 * i] << 16;
