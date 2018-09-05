@@ -24,7 +24,7 @@
 #define LOG_NDEBUG 0
 //#define LOG_NNDEBUG 0
 #define LOG_TAG "EmulatedCamera_FakeCamera3"
-#include <utils/Log.h>
+#include <android/log.h>
 
 #include "EmulatedFakeCamera3.h"
 #include "EmulatedCameraFactory.h"

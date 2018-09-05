@@ -44,11 +44,13 @@ int32_t* aec_spk_mic_process(int32_t *spk_buf, int32_t *mic_buf, int *cleaned_sa
     return (int32_t*)out_buf;
 }
 
-int aec_spk_mic_init(void)
+int aec_spk_mic_init(int sample_rate_hz, int num_loudspeaker_feeds,
+            int num_microphone_channels)
 {
     ALOGD("%s: enter", __func__);
     if (!pGoogleAec) {
-        pGoogleAec = new audio_ears::GoogleAec(16000, 2, 2, "GoogleAecMode3", false); //true);
+        pGoogleAec = new audio_ears::GoogleAec(sample_rate_hz,
+            num_loudspeaker_feeds, num_microphone_channels, "GoogleAecMode3", false);
         if (!pGoogleAec) {
             ALOGE("%s: alloc GoogleAec failed", __func__);
             return -ENOMEM;

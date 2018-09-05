@@ -20,6 +20,11 @@ include $(CLEAR_VARS)
 LOCAL_SRC_FILES := lights.c
 LOCAL_PRELINK_MODULE := false
 LOCAL_MODULE_RELATIVE_PATH := hw
+LOCAL_C_INCLUDES += \
+	hardware/libhardware/include \
+	system/core/libcutils/include \
+	system/core/libsystem/include
+
 LOCAL_SHARED_LIBRARIES := liblog libcutils
 LOCAL_MODULE := lights.amlogic
 LOCAL_MODULE_TAGS := optional

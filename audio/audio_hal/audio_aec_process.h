@@ -22,7 +22,8 @@ extern "C" {
 #endif
 
 int32_t* aec_spk_mic_process(int32_t *spk_buf, int32_t *mic_buf, int *cleaned_samples_per_channel);
-int aec_spk_mic_init(void);
+int aec_spk_mic_init(int sample_rate_hz, int num_loudspeaker_feeds,
+            int num_microphone_channels);
 void aec_spk_mic_reset(void);
 void aec_spk_mic_release(void);
 int aec_set_spk_buf_info(int samples_per_channel, uint64_t timestamp, bool valid_timestamp);

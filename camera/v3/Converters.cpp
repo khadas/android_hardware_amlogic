@@ -20,7 +20,7 @@
 
 #define LOG_NDEBUG 0
 #define LOG_TAG "EmulatedCamera_Converter"
-#include <cutils/log.h>
+#include <android/log.h>
 #include "Converters.h"
 
 namespace android {

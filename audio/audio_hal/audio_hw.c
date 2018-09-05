@@ -1678,7 +1678,7 @@ static ssize_t out_write_legacy (struct audio_stream_out *stream, const void* bu
                         char buf[64] = {0};
                         if (hw_sync->first_apts_flag == false) {
                             uint32_t apts_cal;
-                            ALOGI("HW SYNC new first APTS %llu,body size %u", pts, hw_sync->hw_sync_body_cnt);
+                            ALOGI("HW SYNC new first APTS %ju,body size %u", pts, hw_sync->hw_sync_body_cnt);
                             hw_sync->first_apts_flag = true;
                             hw_sync->first_apts = pts;
                             out->frame_write_sum = 0;
@@ -4347,7 +4347,7 @@ exit:
         }
         if (aux_mic_devce & AUDIO_DEVICE_IN_BUILTIN_MIC) {
             pthread_mutex_lock(&adev->aec_spk_mic_lock);
-            aec_spk_mic_init();
+            aec_spk_mic_init(16000, 2, 2);
             pthread_mutex_unlock(&adev->aec_spk_mic_lock);
             if (!adev->spk_ring_buf.start_addr)
                 ring_buffer_init(&adev->spk_ring_buf,
@@ -4457,6 +4457,9 @@ static void adev_close_input_stream(struct audio_hw_device *dev,
         free(in->tmp_buffer_8ch);
         free(in->mic_buf);
         free(in->aux_buf);
+        free(adev->output_tmp_buf);
+        adev->output_tmp_buf = NULL;
+        adev->output_tmp_buf_size = 0;
         if (adev->pstFir_spk) {
             Fir_endModule(adev->pstFir_spk);
             adev->pstFir_spk = NULL;
@@ -5430,10 +5433,13 @@ ssize_t mixer_main_buffer_write (struct audio_stream_out *stream, const void *bu
 
 #if defined(IS_ATOM_PROJECT)
                     audio_format_t output_format = AUDIO_FORMAT_PCM_32_BIT;
+                    if (!adev->output_tmp_buf || adev->output_tmp_buf_size < 2*bytes) {
+                        adev->output_tmp_buf = realloc(adev->output_tmp_buf, 2*bytes);
+                        adev->output_tmp_buf_size = 2*bytes;
+                    }
                     uint16_t *p = (uint16_t *)ddp_dec->outbuf;
-                    int32_t *p1 = aml_out->tmp_buffer_8ch;
-                    void *tmp_buffer = (void *) aml_out->tmp_buffer_8ch;
-
+                    int32_t *p1 = (int32_t *)adev->output_tmp_buf;
+                    void *tmp_buffer = (void *)adev->output_tmp_buf;
                     for (unsigned i = 0; i < bytes / 2; i++) {
                         p1[i] = ((int32_t)p[i]) << 16;
                     }

@@ -17,6 +17,7 @@ LOCAL_PATH := $(call my-dir)
 
 include $(CLEAR_VARS)
 
+LOCAL_VENDOR_MODULE := true
 LOCAL_MODULE_RELATIVE_PATH := hw
 LOCAL_CFLAGS += -fno-short-enums -DQEMU_HARDWARE
 LOCAL_CFLAGS += -Wno-unused-parameter -Wno-missing-field-initializers
@@ -51,21 +52,17 @@ LOCAL_SHARED_LIBRARIES:= \
     liblog \
     libutils \
     libcutils \
-    libcamera_client \
     libion \
     libui \
     libdl \
     libjpeg \
     libexpat \
-    libexif
-
-# JPEG conversion libraries and includes.
-LOCAL_SHARED_LIBRARIES += \
-    libjpeg \
+    libexif \
     libcamera_metadata
 
 LOCAL_STATIC_LIBRARIES := \
-                         libyuv_static \
+    libyuv_static \
+    android.hardware.camera.common@1.0-helper
 
 LOCAL_CFLAGS += -DANDROID_PLATFORM_SDK_VERSION=$(PLATFORM_SDK_VERSION)
 

@@ -16,6 +16,7 @@
 #include <fcntl.h>
 #include <errno.h>
 #include <strings.h>
+#include <unistd.h>
 #include <cutils/log.h>
 #include <cutils/properties.h>
 #include <sys/ioctl.h>

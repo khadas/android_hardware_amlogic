@@ -20,6 +20,12 @@ ifeq ($(shell test $(PLATFORM_SDK_VERSION) -ge 26 && echo OK),OK)
 LOCAL_PROPRIETARY_MODULE := true
 endif
 
+LOCAL_C_INCLUDES += \
+	hardware/libhardware/include \
+	system/core/libcutils/include \
+	system/core/libutils/include \
+	system/core/libsystem/include
+
 LOCAL_MODULE := power.amlogic
 LOCAL_MODULE_RELATIVE_PATH := hw
 LOCAL_SRC_FILES := power.cpp

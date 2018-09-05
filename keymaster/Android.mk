@@ -29,6 +29,10 @@ LOCAL_C_INCLUDES := \
     system/keymaster/ \
     system/keymaster/include \
     external/boringssl/include \
+	hardware/libhardware/include \
+	system/core/libcutils/include \
+	system/core/libsystem/include \
+	system/core/libutils/include \
     $(BOARD_AML_VENDOR_PATH)/tdk/ca_export_arm/include \
 
 LOCAL_CFLAGS = -fvisibility=hidden -Wall -Werror
@@ -38,7 +42,6 @@ LOCAL_CFLAGS += -DUSE_HW_KEYMASTER
 endif
 LOCAL_SHARED_LIBRARIES := libcrypto \
 			  liblog \
-			  libkeystore_binder \
 			  libkeymaster_messages \
 			  libteec
 

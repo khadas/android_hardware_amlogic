@@ -16,6 +16,8 @@ include $(CLEAR_VARS)
 LOCAL_PROPRIETARY_MODULE := true
 LOCAL_SHARED_LIBRARIES := liblog libcutils android.hardware.graphics.common@1.0
 LOCAL_C_INCLUDES := \
+	system/core/libutils/include \
+	hardware/libhardware/include \
 	hardware/amlogic/gralloc
 LOCAL_SRC_FILES := \
 	amlogic/am_gralloc_ext.cpp
@@ -26,6 +28,8 @@ include $(CLEAR_VARS)
 LOCAL_PROPRIETARY_MODULE := true
 LOCAL_SHARED_LIBRARIES := liblog libcutils android.hardware.graphics.common@1.0
 LOCAL_C_INCLUDES := \
+	system/core/libutils/include \
+	hardware/libhardware/include \
 	hardware/amlogic/gralloc
 LOCAL_SRC_FILES := \
 	amlogic/am_gralloc_ext.cpp
@@ -34,8 +38,11 @@ include $(BUILD_STATIC_LIBRARY)
 
 include $(CLEAR_VARS)
 LOCAL_PROPRIETARY_MODULE := true
-LOCAL_SHARED_LIBRARIES := liblog
+LOCAL_SHARED_LIBRARIES := liblog libcutils
 LOCAL_C_INCLUDES := \
+	hardware/libhardware/include \
+	system/core/libutils/include \
+	system/core/libsystem/include \
 	hardware/amlogic/gralloc
 LOCAL_SRC_FILES := \
 	amlogic/am_gralloc_internal.cpp

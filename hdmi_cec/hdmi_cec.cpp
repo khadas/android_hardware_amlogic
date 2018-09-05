@@ -43,7 +43,7 @@
 #include <jni.h>
 #include <JNIHelp.h>
 
-#include <HdmiCecClient.h>
+//#include <HdmiCecClient.h>
 #include <HdmiCecHidlClient.h>
 
 #ifdef LOG_TAG
@@ -67,7 +67,7 @@ using namespace android;
 
 typedef struct aml_cec_hal {
     hdmi_cec_device_t          device;
-    sp<HdmiCecClient>          client;
+    //sp<HdmiCecClient>          client;
     HdmiCecHidlClient          *hidlClient;
     void                       *cb_data;
     event_callback_t           cb;

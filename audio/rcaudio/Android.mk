@@ -42,7 +42,10 @@ LOCAL_SRC_FILES := \
     soundcard/AudioSoundCardStreamIn.cpp
 
 LOCAL_C_INCLUDES += \
+        hardware/libhardware/include \
+        hardware/libhardware_legacy/include \
         external/tinyalsa/include \
+        frameworks/av/media/libaudioclient/include \
         $(call include-path-for, audio-utils) \
         $(LOCAL_PATH)/hidraw \
         $(LOCAL_PATH)/soundcard \
@@ -59,7 +62,6 @@ LOCAL_SHARED_LIBRARIES := \
     libcutils \
     liblog \
     libutils \
-    libmedia \
     libtinyalsa \
     libaudioutils
 

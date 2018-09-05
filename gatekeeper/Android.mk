@@ -40,6 +40,8 @@ LOCAL_C_INCLUDES := \
   external/boringssl/src/include/ \
   external/scrypt/lib/crypto \
   system/core/base/include \
+  system/core/libsystem/include \
+  hardware/libhardware/include \
   system/gatekeeper/include/gatekeeper
 
 LOCAL_CLFAGS = -fvisibility=hidden -Wall -Werror

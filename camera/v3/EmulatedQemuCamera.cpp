@@ -21,7 +21,7 @@
 
 #define LOG_NDEBUG 0
 #define LOG_TAG "EmulatedCamera_QemuCamera"
-#include <cutils/log.h>
+#include <android/log.h>
 #include "EmulatedQemuCamera.h"
 #include "EmulatedCameraFactory.h"
 

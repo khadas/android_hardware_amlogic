@@ -30,6 +30,8 @@ LOCAL_CFLAGS := \
 
 LOCAL_C_INCLUDES += \
 	external/libnl/include \
+	system/core/libutils/include \
+	system/core/liblog/include \
 	$(call include-path-for, libhardware_legacy)/hardware_legacy \
 	external/wpa_supplicant_8/src/drivers
 

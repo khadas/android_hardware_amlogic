@@ -28,6 +28,7 @@
 #include <fstream>
 #include <iostream>
 #include <inttypes.h>
+#include <unistd.h>
 
 #include <algorithm>
 #include <type_traits>
