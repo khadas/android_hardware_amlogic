@@ -243,7 +243,6 @@ struct aml_audio_device {
     struct audio_route *ar;
     struct echo_reference_itfe *echo_reference;
     bool low_power;
-    struct aml_stream_in *aux_mic_in;
     struct aml_stream_out *hwsync_output;
     struct aml_hal_mixer hal_mixer;
     struct pcm *pcm;
@@ -323,6 +322,7 @@ struct aml_audio_device {
     bool spdif_encoder_init_flag;
 
 #if defined(IS_ATOM_PROJECT)
+    struct aml_stream_in *aux_mic_in;
     int mic_running;
     int spk_running;
     ring_buffer_t spk_ring_buf;
@@ -453,12 +453,6 @@ struct aml_stream_in {
     bool need_echo_reference;
     effect_handle_t preprocessors[MAX_PREPROCESSORS];
     int num_preprocessors;
-    int16_t *proc_buf;
-    size_t proc_buf_size;
-    size_t proc_frames_in;
-    int16_t *ref_buf;
-    size_t ref_buf_size;
-    size_t ref_frames_in;
     int read_status;
     /* HW parser audio format */
     int spdif_fmt_hw;
@@ -469,6 +463,7 @@ struct aml_stream_in {
     int mute_log_cntr;
     struct aml_audio_device *dev;
 
+#if defined(IS_ATOM_PROJECT)
     int ref_count;
     void *aux_buf;
     size_t aux_buf_size;
@@ -479,6 +474,7 @@ struct aml_stream_in {
     size_t tmp_buffer_8ch_size;
     pthread_mutex_t aux_mic_mutex;
     pthread_cond_t aux_mic_cond;
+#endif
 };
 typedef  int (*do_standby_func)(struct aml_stream_out *out);
 typedef  int (*do_startup_func)(struct aml_stream_out *out);
