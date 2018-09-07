@@ -352,6 +352,7 @@ struct aml_audio_device {
 
     pthread_mutex_t aec_spk_mic_lock;
     pthread_mutex_t aec_spk_buf_lock;
+    pthread_mutex_t dsp_processing_lock;
 #endif
 
 };

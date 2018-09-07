@@ -531,9 +531,7 @@ static int start_output_stream_direct (struct aml_stream_out *out)
         ALOGI ("[%s %d]8CH format output: set port/0 adev->out_device/%d\n",
                __FUNCTION__, __LINE__, AUDIO_DEVICE_OUT_SPEAKER);
     }
-    if (getprop_bool ("media.libplayer.wfd") ) {
-        out->config.period_size = DEFAULT_PLAYBACK_PERIOD_SIZE;
-    }
+
     switch (out->hal_internal_format) {
     case AUDIO_FORMAT_E_AC3:
         out->config.period_size = DEFAULT_PLAYBACK_PERIOD_SIZE * 2;
@@ -606,7 +604,7 @@ static int check_input_parameters(uint32_t sample_rate, audio_format_t format, i
     }
 
     if (channel_count < 1 || channel_count > 2) {
-         ALOGE("%s: unsupported channel count (%d) passed  Min / Max (1 / 2)", __func__, channel_count);
+        ALOGE("%s: unsupported channel count (%d) passed  Min / Max (1 / 2)", __func__, channel_count);
         return -EINVAL;
     }
 
@@ -1152,15 +1150,14 @@ static char *out_get_parameters (const struct audio_stream *stream, const char *
     char *para = NULL;
     struct aml_stream_out *out = (struct aml_stream_out *) stream;
     struct aml_audio_device *adev = out->dev;
-    ALOGI ("out_get_parameters %s,out %p\n", keys, out);
     struct str_parms *parms;
     audio_format_t format;
     int ret = 0, val_int = 0;
     parms = str_parms_create_str (keys);
-    //ret = str_parms_get_int(parms, AUDIO_PARAMETER_STREAM_FORMAT ,(int *)&format);
     ret = str_parms_get_int (parms, AUDIO_PARAMETER_STREAM_FORMAT, &val_int);
     format = (audio_format_t) val_int;
 
+    ALOGI ("out_get_parameters %s,out %p\n", keys, out);
 
     if (strstr (keys, AUDIO_PARAMETER_STREAM_SUP_SAMPLING_RATES) ) {
         if (out->flags & AUDIO_OUTPUT_FLAG_PRIMARY) {
@@ -3266,41 +3263,46 @@ static ssize_t in_read(struct audio_stream_in *stream, void* buffer, size_t byte
     } else
 #endif
     {
-        if (in->resampler)
-            ret = read_frames(in, buffer, in_frames);
-        else
-            ret = pcm_read(in->pcm, buffer, bytes);
-        if (ret < 0)
-            goto exit;
-        DoDumpData(buffer, bytes, CC_DUMP_SRC_TYPE_INPUT);
-    }
+        /* when audio is unstable, need to mute the audio data for a while
+         * the mute time is related to hdmi audio buffer size
+         */
+        int mute_mdelay = 0;
+        bool stable = signal_status_check(adev->in_device, &mute_mdelay, stream);
+        if (!stable) {
+            if (in->mute_log_cntr == 0)
+                ALOGI("%s: audio is unstable, mute channel", __func__);
+            if (in->mute_log_cntr++ >= 100)
+                in->mute_log_cntr = 0;
+            clock_gettime(CLOCK_MONOTONIC, &in->mute_start_ts);
+            in->mute_flag = 1;
+        }
+        if (in->mute_flag == 1) {
+            in_mute = Stop_watch(in->mute_start_ts, mute_mdelay);
+            if (!in_mute) {
+                ALOGI("%s: unmute audio since audio signal is stable", __func__);
+                in->mute_log_cntr = 0;
+                in->mute_flag = 0;
+            }
+        }
 
-    /* when audio is unstable, need to mute the audio data for a while
-     * the mute time is related to hdmi audio buffer size
-     */
-    int mute_mdelay = 0;
-    bool stable = signal_status_check(adev->in_device, &mute_mdelay, stream);
-    if (!stable) {
-        if (in->mute_log_cntr == 0)
-            ALOGI("%s: audio is unstable, mute channel", __func__);
-        if (in->mute_log_cntr++ >= 100)
-            in->mute_log_cntr = 0;
-        clock_gettime(CLOCK_MONOTONIC, &in->mute_start_ts);
-        in->mute_flag = 1;
-    }
-    if (in->mute_flag == 1) {
-        in_mute = Stop_watch(in->mute_start_ts, mute_mdelay);
-        if (!in_mute) {
-            ALOGI("%s: unmute audio since audio signal is stable", __func__);
-            in->mute_log_cntr = 0;
-            in->mute_flag = 0;
+        if (adev->parental_control_av_mute && (adev->active_inport == INPORT_TUNER || adev->active_inport == INPORT_LINEIN))
+            parental_mute = 1;
+
+        /*if need mute input source, don't read data from hardware anymore*/
+        if (adev->mic_mute || in_mute || parental_mute || in->spdif_fmt_hw == SPDIFIN_AUDIO_TYPE_PAUSE) {
+            memset(buffer, 0, bytes);
+            usleep(1000);
+            ret = 0;
+        } else {
+            if (in->resampler)
+                ret = read_frames(in, buffer, in_frames);
+            else
+                ret = pcm_read(in->pcm, buffer, bytes);
+            if (ret < 0)
+                goto exit;
+            DoDumpData(buffer, bytes, CC_DUMP_SRC_TYPE_INPUT);
         }
     }
-
-    if (adev->parental_control_av_mute && (adev->active_inport == INPORT_TUNER || adev->active_inport == INPORT_LINEIN))
-        parental_mute = 1;
-    if (adev->mic_mute || in_mute || parental_mute || in->spdif_fmt_hw == SPDIFIN_AUDIO_TYPE_PAUSE)
-        memset(buffer, 0, bytes);
 #if !defined(IS_ATOM_PROJECT)
     else if (!adev->audio_patching) {
         /* case dev->mix, set audio gain to src */
@@ -4397,6 +4399,7 @@ err:
         in->buffer = NULL;
     }
     free(in);
+    *stream_in = NULL;
     return ret;
 }
 
@@ -4564,7 +4567,8 @@ static int do_output_standby_l (struct audio_stream *stream)
         release_spdif_encoder_output_buffer (out);
     }
     aml_out->status = STREAM_STANDBY;
-    aml_out->pause_status = false;
+    ALOGD ("%s output stream do standby!",__func__);
+    //aml_out->pause_status = false;
     return 0;
 }
 
@@ -4861,13 +4865,18 @@ ssize_t audio_hal_data_processing(struct audio_stream_out *stream,
         if (adev->has_dsp_lib) {
             /*malloc dsp buffer*/
             if (adev->dsp_frames < out_frames) {
+                pthread_mutex_lock(&adev->dsp_processing_lock);
                 dsp_realloc_buffer(&adev->dsp_in_buf, &adev->effect_buf, &adev->aec_buf, out_frames);
+                pthread_mutex_unlock(&adev->dsp_processing_lock);
                 adev->dsp_frames = out_frames;
                 ALOGI("%s: dsp_buf = %p, effect_buffer = %p, aec_buffer = %p", __func__,
                     adev->dsp_in_buf, adev->effect_buf, adev->aec_buf);
             }
 
+            pthread_mutex_lock(&adev->dsp_processing_lock);
             harman_dsp_process(tmp_buffer, adev->dsp_in_buf, adev->effect_buf, adev->aec_buf, out_frames);
+            pthread_mutex_unlock(&adev->dsp_processing_lock);
+
             out_buffer = (int32_t *)adev->effect_buf;
 
             /* when aec is ready, init fir filter*/
@@ -4952,7 +4961,6 @@ ssize_t audio_hal_data_processing(struct audio_stream_out *stream,
         *output_buffer = aml_out->tmp_buffer_8ch;
         *output_buffer_bytes = FRAMESIZE_32BIT_8ch * out_frames;
     } else {
-#if !defined(IS_ATOM_PROJECT)
         /*atom project supports 32bit hal only*/
         int16_t *tmp_buffer = (int16_t *)buffer;
         size_t out_frames = bytes / (2 * 2);
@@ -5032,7 +5040,6 @@ ssize_t audio_hal_data_processing(struct audio_stream_out *stream,
             aml_out->tmp_buffer_8ch[8 * i + 6] = 0;
             aml_out->tmp_buffer_8ch[8 * i + 7] = 0;
         }
-#endif
         *output_buffer = aml_out->tmp_buffer_8ch;
         *output_buffer_bytes = 8 * bytes;
 
@@ -5126,13 +5133,13 @@ static void config_output (struct audio_stream_out *stream)
 
         get_dolby_ms12_cleanup (adev);
         release_spdif_encoder_output_buffer (stream);
-        pthread_mutex_lock (&adev->lock);
+        pthread_mutex_lock (&adev->alsa_pcm_lock);
         if (aml_out->status == STREAM_HW_WRITING) {
             aml_alsa_output_close (stream);
             aml_out->status = STREAM_STANDBY;
             aml_out->spdif_encoder_init_flag = false;
         }
-        pthread_mutex_unlock (&adev->lock);
+        pthread_mutex_unlock (&adev->alsa_pcm_lock);
         //FIXME. also need check the sample rate and channel num.
         int ret = get_the_dolby_ms12_prepared (aml_out, aml_out->hal_internal_format, AUDIO_CHANNEL_OUT_STEREO, 48000);
         if (ret != 0) {
@@ -5491,10 +5498,10 @@ ssize_t mixer_aux_buffer_write (struct audio_stream_out *stream, const void *buf
     //    ALOGE("%s(), wrong way to", __func__);
     if (aml_out->status == STREAM_HW_WRITING) {
         ALOGI ("%s(), aux close\n", __func__);
-        pthread_mutex_lock (&adev->lock);
+        pthread_mutex_lock (&adev->alsa_pcm_lock);
         aml_alsa_output_close (stream);
         aml_out->status = STREAM_MIXING;
-        pthread_mutex_unlock (&adev->lock);
+        pthread_mutex_unlock (&adev->alsa_pcm_lock);
     }
 #ifdef DOLBY_MS12_ENABLE
     /*
@@ -5661,9 +5668,16 @@ static int adev_open_output_stream_new(struct audio_hw_device *dev,
     int ret;
 
     ALOGD("%s: enter", __func__);
-    ret = adev_open_output_stream(dev, 0, devices, flags, config, stream_out, NULL);
-    if (ret < 0)
-        return ret;
+    ret = adev_open_output_stream(dev,
+                                    0,
+                                    devices,
+                                    flags,
+                                    config,
+                                    stream_out,
+                                    NULL);
+    if (ret < 0) {
+        ALOGE("%s(), open stream failed", __func__);
+    }
 
     aml_out = (struct aml_stream_out *)(*stream_out);
     /* only pcm mode use new write method */
@@ -5852,7 +5866,13 @@ static void *audio_patch_output_threadloop(void *data)
             stream_config.format = AUDIO_FORMAT_E_AC3;
     }
 #endif
-    ret = adev_open_output_stream_new(patch->dev, 0, patch->output_src, AUDIO_OUTPUT_FLAG_DIRECT, &stream_config, &stream_out, NULL);
+    ret = adev_open_output_stream_new(patch->dev,
+                                      0,
+                                      patch->output_src,
+                                      AUDIO_OUTPUT_FLAG_DIRECT,
+                                      &stream_config,
+                                      &stream_out,
+                                      NULL);
     if (ret < 0) {
         ALOGE("%s: open output stream failed", __func__);
         return (void *)0;
@@ -6774,6 +6794,7 @@ static int adev_open(const hw_module_t* module, const char* name, hw_device_t** 
     Aud_Gain_Init();
     pthread_mutex_init(&adev->aec_spk_mic_lock, NULL);
     pthread_mutex_init(&adev->aec_spk_buf_lock, NULL);
+    pthread_mutex_init(&adev->dsp_processing_lock, NULL);
     if (load_DSP_lib() < 0 || dsp_init(1, 3, 5, 48000) < 0) {
         ALOGE("%s: load dsp lib or dsp init failed", __func__);
         adev->has_dsp_lib = false;
