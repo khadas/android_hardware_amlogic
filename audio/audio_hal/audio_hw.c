@@ -4037,6 +4037,18 @@ static int adev_set_parameters (struct audio_hw_device *dev, const char *kvpairs
             ALOGE("%s: subwoofer failed", __FUNCTION__);
         goto exit;
     }
+    ret = str_parms_get_int(parms, "DSP_SUB_CONNECT", &val);
+    if (ret >= 0 && adev->has_dsp_lib == true) {
+        if (set_subwoofer_connect(val) < 0)
+            ALOGE("%s: set subwoofer connect failed", __FUNCTION__);
+        goto exit;
+    }
+    ret = str_parms_get_int(parms, "DSP_XFADE_DUR", &val);
+    if (ret >= 0 && adev->has_dsp_lib == true) {
+        if (set_xfade_dur(val) < 0)
+            ALOGE("%s: set xfade dur failed", __FUNCTION__);
+        goto exit;
+    }
 #endif
 
 exit:
