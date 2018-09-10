@@ -3303,8 +3303,9 @@ static ssize_t in_read(struct audio_stream_in *stream, void* buffer, size_t byte
             DoDumpData(buffer, bytes, CC_DUMP_SRC_TYPE_INPUT);
         }
     }
+
 #if !defined(IS_ATOM_PROJECT)
-    else if (!adev->audio_patching) {
+    if (!adev->audio_patching) {
         /* case dev->mix, set audio gain to src */
         apply_volume(adev->src_gain[adev->active_inport], buffer, sizeof(uint16_t), bytes);
     }
