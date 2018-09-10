@@ -211,29 +211,11 @@ int set_audio_source (int audio_source)
     return aml_mixer_ctrl_set_int (AML_MIXER_ID_AUDIO_IN_SRC, audio_source);
 }
 
-int enable_HW_resample(int sr, int enable) {
-    int value = 0;
-    if (enable == 0) {
+int enable_HW_resample(int enable) {
+    if (enable == 0)
         aml_mixer_ctrl_set_int(AML_MIXER_ID_HW_RESAMPLE_ENABLE, HW_RESAMPLE_DISABLE);
-        return 0;
-    }
-
-    /*normally, hdmi audio only support: 32K,44.1K,48K,88.2K,96K,176.4K,192K*/
-    if (sr <= 32000)
-        value = HW_RESAMPLE_32K;
-    else if (sr <= 44100)
-        value = HW_RESAMPLE_44K;
-    else if (sr <= 48000)
-        value = HW_RESAMPLE_48K;
-    else if (sr <= 88200)
-        value = HW_RESAMPLE_88K;
-    else if (sr <= 96000)
-        value = HW_RESAMPLE_96K;
-    else if (sr <= 176400)
-        value = HW_RESAMPLE_176K;
-    else if (sr <= 192000)
-        value = HW_RESAMPLE_192K;
-    aml_mixer_ctrl_set_int(AML_MIXER_ID_HW_RESAMPLE_ENABLE, value);
+    else
+        aml_mixer_ctrl_set_int(AML_MIXER_ID_HW_RESAMPLE_ENABLE, HW_RESAMPLE_ENABLE);
     return 0;
 }
 
