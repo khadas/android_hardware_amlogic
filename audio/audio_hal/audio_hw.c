@@ -1244,6 +1244,7 @@ static uint32_t out_get_latency (const struct audio_stream_out *stream)
 static int out_set_volume (struct audio_stream_out *stream, float left, float right)
 {
     struct aml_stream_out *out = (struct aml_stream_out *) stream;
+    ALOGI("left:%f right:%f ",left,right);
     out->volume_l = left;
     out->volume_r = right;
     return 0;
@@ -3218,8 +3219,8 @@ static ssize_t in_read(struct audio_stream_in *stream, void* buffer, size_t byte
                                 ALOGD("i: %d, fr_div: %d, samples from AEC = %d, aec_data_bytes: %d",
                                     i, aec_frame_div, cleaned_samples_per_channel, aec_data_bytes);
                         } else {
-                            // Need this log to check alignment time.    
-                            ALOGE("aec_proc_buf is null (or) cleaned_samples_per_channel: %d ",
+                            if (DEBUG_AEC)
+                                ALOGE("aec_proc_buf is null (or) cleaned_samples_per_channel: %d ",
                                     cleaned_samples_per_channel);
                         }
                     }
@@ -4875,10 +4876,21 @@ ssize_t audio_hal_data_processing(struct audio_stream_out *stream,
         int32_t *tmp_buffer = (int32_t *)buffer;
         size_t out_frames = bytes / FRAMESIZE_32BIT_STEREO;
         float gain_speaker = adev->sink_gain[OUTPORT_SPEAKER];
-
+        if (aml_out->hw_sync_mode)
+             gain_speaker *= aml_out->volume_l;
         apply_volume(gain_speaker, tmp_buffer, sizeof(uint32_t), bytes);
 
 #if defined(IS_ATOM_PROJECT)
+        /* >> 3  if not  dolby stream */
+        if (aml_out->hal_internal_format != AUDIO_FORMAT_AC3 &&
+               aml_out->hal_internal_format != AUDIO_FORMAT_E_AC3) {
+            int32_t *input32 = (int32_t *)tmp_buffer;
+            for (i = 0; i < bytes/sizeof(int32_t); i++) {
+                input32[i] = input32[i] >> 3;
+            }
+
+        }
+
         int32_t *out_buffer;
         if (adev->has_dsp_lib) {
             /*malloc dsp buffer*/
@@ -5059,6 +5071,7 @@ ssize_t audio_hal_data_processing(struct audio_stream_out *stream,
             aml_out->tmp_buffer_8ch[8 * i + 6] = 0;
             aml_out->tmp_buffer_8ch[8 * i + 7] = 0;
         }
+
         *output_buffer = aml_out->tmp_buffer_8ch;
         *output_buffer_bytes = 8 * bytes;
 
@@ -5459,17 +5472,23 @@ ssize_t mixer_main_buffer_write (struct audio_stream_out *stream, const void *bu
                 }
                 return return_bytes;
             }
+#if defined(IS_ATOM_PROJECT)
+            int read_bytes = bytes * ddp_dec->pcm_out_info.channel_num / 2;
+#endif
 
             /*write pcm data: for 32K, input data is less than output data.*/
             for (int i = 0; i < 2; i++) {
+#if defined(IS_ATOM_PROJECT)
+                bytes  = read_bytes;
+#endif
                 if (get_buffer_read_space(&ddp_dec->output_ring_buf) > (int)bytes) {
                     ring_buffer_read(&ddp_dec->output_ring_buf, ddp_dec->outbuf, bytes);
 
 #if defined(IS_ATOM_PROJECT)
                     audio_format_t output_format = AUDIO_FORMAT_PCM_32_BIT;
-                    if (!adev->output_tmp_buf || adev->output_tmp_buf_size < 2*bytes) {
-                        adev->output_tmp_buf = realloc(adev->output_tmp_buf, 2*bytes);
-                        adev->output_tmp_buf_size = 2*bytes;
+                    if (!adev->output_tmp_buf || adev->output_tmp_buf_size < 2 * bytes) {
+                        adev->output_tmp_buf = realloc(adev->output_tmp_buf, 2 * bytes);
+                        adev->output_tmp_buf_size = 2 * bytes;
                     }
                     uint16_t *p = (uint16_t *)ddp_dec->outbuf;
                     int32_t *p1 = (int32_t *)adev->output_tmp_buf;
@@ -5477,8 +5496,31 @@ ssize_t mixer_main_buffer_write (struct audio_stream_out *stream, const void *bu
                     for (unsigned i = 0; i < bytes / 2; i++) {
                         p1[i] = ((int32_t)p[i]) << 16;
                     }
+
                     bytes *= 2;
-                    ALOGV("ddp_dec->outlen_pcm = %d, bytes = %d", ddp_dec->outlen_pcm, bytes);
+                    double lfe;
+                    if (ddp_dec->pcm_out_info.channel_num == 6) {
+                        int samplenum = bytes / (ddp_dec->pcm_out_info.channel_num * 4);
+                        //ALOGI("ddp_dec->pcm_out_info.channel_num:%d samplenum:%d bytes:%d",ddp_dec->pcm_out_info.channel_num,samplenum,bytes);
+                        for (int i = 0; i < samplenum; i++ ) {
+                            lfe = (double)p1[6 * i + 3]*(1.678804f / 4);
+                            p1[2 * i ] = (p1[6 * i] >> 2) + (int32_t)lfe;
+                            p1[2 * i  + 1] = (p1[6 * i + 1] >> 2) + (int32_t)lfe;
+                        }
+                        bytes /= 3;
+                     }
+#if 0
+    if (getprop_bool("media.audio_hal.ddp.outdump")) {
+        FILE *fp1 = fopen("/data/tmp/dd_mix.raw", "a+");
+        if (fp1) {
+            int flen = fwrite((char *)tmp_buffer, 1, bytes, fp1);
+            fclose(fp1);
+        } else {
+            ALOGD("could not open files!");
+        }
+    }
+#endif
+
 #else
                     void *tmp_buffer = (void *) ddp_dec->outbuf;
                     audio_format_t output_format = AUDIO_FORMAT_PCM_16_BIT;
@@ -5497,10 +5539,31 @@ ssize_t mixer_main_buffer_write (struct audio_stream_out *stream, const void *bu
         void *tmp_buffer = (void *) write_buf;
         if (aml_out->hw_sync_mode) {
             ALOGV("mixing hw_sync mode");
-            aml_hw_mixer_mixing(&adev->hw_mixer, tmp_buffer, hw_sync->hw_sync_frame_size, output_format);
-            if (audio_hal_data_processing(stream, tmp_buffer, hw_sync->hw_sync_frame_size, &output_buffer, &output_buffer_bytes, output_format) == 0) {
-                hw_write(stream, output_buffer, output_buffer_bytes, output_format);
+#if defined(IS_ATOM_PROJECT)
+            audio_format_t output_format = AUDIO_FORMAT_PCM_32_BIT;
+            if (!adev->output_tmp_buf || adev->output_tmp_buf_size < 2 * hw_sync->hw_sync_frame_size) {
+                adev->output_tmp_buf = realloc(adev->output_tmp_buf, 2 * hw_sync->hw_sync_frame_size);
+                adev->output_tmp_buf_size = 2 * hw_sync->hw_sync_frame_size;
             }
+            uint16_t *p = (uint16_t *)write_buf;
+            int32_t *p1 = (int32_t *)adev->output_tmp_buf;
+            tmp_buffer = (void *)adev->output_tmp_buf;
+            for (unsigned i = 0; i < hw_sync->hw_sync_frame_size / 2; i++) {
+                p1[i] = ((int32_t)p[i]) << 16;
+            }
+            //hw_sync->hw_sync_frame_size *= 2;
+            for (int i = 0; i < 2; i ++) {
+                tmp_buffer = (char *)tmp_buffer + i * hw_sync->hw_sync_frame_size;
+
+#endif
+                aml_hw_mixer_mixing(&adev->hw_mixer, tmp_buffer, hw_sync->hw_sync_frame_size, output_format);
+                if (audio_hal_data_processing(stream, tmp_buffer, hw_sync->hw_sync_frame_size, &output_buffer, &output_buffer_bytes, output_format) == 0) {
+                    hw_write(stream, output_buffer, output_buffer_bytes, output_format);
+                }
+#if defined(IS_ATOM_PROJECT)
+            }
+#endif
+
         } else {
             ALOGV("mixing non-hw_sync mode");
             aml_hw_mixer_mixing(&adev->hw_mixer, tmp_buffer, write_bytes, output_format);
