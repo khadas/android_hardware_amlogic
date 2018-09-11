@@ -320,6 +320,8 @@ struct aml_audio_device {
     struct aml_audio_parser *aml_parser;
     float dts_post_gain;
     bool spdif_encoder_init_flag;
+    struct timespec mute_start_ts;
+    int spdif_fmt_hw;
 
 #if defined(IS_ATOM_PROJECT)
     struct aml_stream_in *aux_mic_in;
