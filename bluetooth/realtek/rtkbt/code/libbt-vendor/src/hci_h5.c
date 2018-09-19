@@ -40,6 +40,9 @@
 #include <errno.h>
 #include <signal.h>
 #include <time.h>
+#include <pthread.h>
+#include <unistd.h>
+#include <sys/types.h>
 #include <sys/prctl.h>
 #include <sys/syscall.h>
 #include <arpa/inet.h>
@@ -1901,8 +1904,9 @@ static bool h5_recv(tHCI_H5_CB *h5, uint8_t *data, int count)
 /******************************************************************************
 **  Static functions
 ******************************************************************************/
-static void data_ready_cb_thread()
+static void data_ready_cb_thread(void *arg)
 {
+    RTK_UNUSED(arg);
     sk_buff *skb;
     uint8_t pkt_type = 0;
     unsigned int total_length = 0;
@@ -1914,15 +1918,17 @@ static void data_ready_cb_thread()
     while (h5_data_ready_running)
     {
         pthread_mutex_lock(&rtk_h5.data_mutex);
-        while ((skb_queue_get_length(rtk_h5.recv_data) == 0))
+        while (h5_data_ready_running && (skb_queue_get_length(rtk_h5.recv_data) == 0))
         {
             pthread_cond_wait(&rtk_h5.data_cond, &rtk_h5.data_mutex);
         }
         pthread_mutex_unlock(&rtk_h5.data_mutex);
 
-        if((skb = skb_dequeue_head(rtk_h5.recv_data)) != NULL) {
+        if(h5_data_ready_running && (skb = skb_dequeue_head(rtk_h5.recv_data)) != NULL) {
             rtk_h5.data_skb = skb;
         }
+        else
+          continue;
 
         pkt_type = skb_get_pkt_type(rtk_h5.data_skb);
         total_length = skb_get_data_length(rtk_h5.data_skb);
@@ -1934,10 +1940,10 @@ static void data_ready_cb_thread()
 
 }
 
-static void data_retransfer_thread()//(void *arg)
+static void data_retransfer_thread(void *arg)
 {
+    RTK_UNUSED(arg);
     uint16_t events;
-    //uint32_t i = 0;
     uint16_t data_retrans_counts = DATA_RETRANS_COUNT;
 
     H5LogMsg("data_retransfer_thread started");
@@ -1966,6 +1972,7 @@ static void data_retransfer_thread()//(void *arg)
 
             if(rtk_h5.data_retrans_count < data_retrans_counts)
             {
+                pthread_mutex_lock(&h5_wakeup_mutex);
                 while ((skb = skb_dequeue_tail(rtk_h5.unack)) != NULL)
                 {
 #if H5_TRACE_DATA_ENABLE
@@ -1981,6 +1988,7 @@ static void data_retransfer_thread()//(void *arg)
                     skb_queue_head(rtk_h5.rel, skb);
 
                 }
+                pthread_mutex_unlock(&h5_wakeup_mutex);
                 rtk_h5.data_retrans_count++;
                 h5_wake_up();
 
@@ -2171,6 +2179,14 @@ void hci_h5_cleanup(void)
     h5_free_wait_controller_baudrate_ready_timer();
     h5_free_hw_init_ready_timer();
 
+    if(h5_data_ready_running) {
+        h5_data_ready_running = 0;
+        pthread_mutex_lock(&rtk_h5.data_mutex);
+        pthread_cond_signal(&rtk_h5.data_cond);
+        pthread_mutex_unlock(&rtk_h5.data_mutex);
+        if ((result = pthread_join(rtk_h5.thread_data_ready_cb, NULL)) < 0)
+            ALOGE("H5 thread_data_ready_cb pthread_join() FAILED result:%d", result);
+    }
 
     if (h5_retransfer_running)
     {
@@ -2183,7 +2199,9 @@ void hci_h5_cleanup(void)
     ms_delay(200);
 
     pthread_mutex_destroy(&rtk_h5.mutex);
+    pthread_mutex_destroy(&rtk_h5.data_mutex);
     pthread_cond_destroy(&rtk_h5.cond);
+    pthread_cond_destroy(&rtk_h5.data_cond);
 
     RtbQueueFree(rtk_h5.unack);
     RtbQueueFree(rtk_h5.rel);
@@ -2465,7 +2483,8 @@ static timer_t OsAllocateTimer(tTIMER_HANDLE_CBACK timer_callback)
     return OsStartTimer(timerid, 0, 0);
  }
 
-static void h5_retransfer_timeout_handler(){//(union sigval sigev_value) {
+static void h5_retransfer_timeout_handler(union sigval sigev_value) {
+    RTK_UNUSED(sigev_value);
     H5LogMsg("h5_retransfer_timeout_handler");
     if(rtk_h5.cleanuping)
     {
@@ -2475,7 +2494,8 @@ static void h5_retransfer_timeout_handler(){//(union sigval sigev_value) {
     h5_retransfer_signal_event(H5_EVENT_RX);
 }
 
-static void h5_sync_retrans_timeout_handler(){//(union sigval sigev_value) {
+static void h5_sync_retrans_timeout_handler(union sigval sigev_value) {
+    RTK_UNUSED(sigev_value);
     H5LogMsg("h5_sync_retrans_timeout_handler");
     if(rtk_h5.cleanuping)
     {
@@ -2497,7 +2517,8 @@ static void h5_sync_retrans_timeout_handler(){//(union sigval sigev_value) {
 
 }
 
-static void h5_conf_retrans_timeout_handler(){//(union sigval sigev_value) {
+static void h5_conf_retrans_timeout_handler(union sigval sigev_value) {
+    RTK_UNUSED(sigev_value);
     H5LogMsg("h5_conf_retrans_timeout_handler");
     if(rtk_h5.cleanuping)
     {
@@ -2521,7 +2542,8 @@ static void h5_conf_retrans_timeout_handler(){//(union sigval sigev_value) {
 
 }
 
-static void h5_wait_controller_baudrate_ready_timeout_handler(){//(union sigval sigev_value) {
+static void h5_wait_controller_baudrate_ready_timeout_handler(union sigval sigev_value) {
+    RTK_UNUSED(sigev_value);
     H5LogMsg("h5_wait_ct_baundrate_ready_timeout_handler");
     if(rtk_h5.cleanuping)
     {
@@ -2539,7 +2561,8 @@ static void h5_wait_controller_baudrate_ready_timeout_handler(){//(union sigval 
     rtk_h5.internal_skb = NULL;
 }
 
-static void h5_hw_init_ready_timeout_handler(){//(union sigval sigev_value) {
+static void h5_hw_init_ready_timeout_handler(union sigval sigev_value) {
+    RTK_UNUSED(sigev_value);
     H5LogMsg("h5_hw_init_ready_timeout_handler");
     if(rtk_h5.cleanuping)
     {
