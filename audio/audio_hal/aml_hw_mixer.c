@@ -65,6 +65,7 @@ void aml_hw_mixer_reset(struct aml_hw_mixer *mixer)
     mixer->wp = 0;
     mixer->rp = 0;
     mixer->need_cache_flag = 1;
+    memset(mixer->start_buf, 0, mixer->buf_size);
     pthread_mutex_unlock(&mixer->lock);
 }
 

@@ -3218,7 +3218,9 @@ static ssize_t in_read(struct audio_stream_in *stream, void* buffer, size_t byte
                                 ALOGD("i: %d, fr_div: %d, samples from AEC = %d, aec_data_bytes: %d",
                                     i, aec_frame_div, cleaned_samples_per_channel, aec_data_bytes);
                         } else {
-                            ALOGE("aec_proc_buf is null (or) cleaned_samples_per_channel: %d ", cleaned_samples_per_channel);
+                            // Need this log to check alignment time.    
+                            ALOGE("aec_proc_buf is null (or) cleaned_samples_per_channel: %d ",
+                                    cleaned_samples_per_channel);
                         }
                     }
                     aec_print_this = true;
@@ -3229,7 +3231,7 @@ static ssize_t in_read(struct audio_stream_in *stream, void* buffer, size_t byte
                 }
             } else {
                 if (DEBUG_AEC_VERBOSE)
-                    ALOGE("%s: missed mic ============", __func__);
+                    ALOGE("%s: missed mic!", __func__);
             }
 
             /*harman HPF filter for mic data, fc:100Hz, sr:16KHZ*/
@@ -3293,7 +3295,8 @@ static ssize_t in_read(struct audio_stream_in *stream, void* buffer, size_t byte
         /*if need mute input source, don't read data from hardware anymore*/
         if (adev->mic_mute || in_mute || parental_mute || in->spdif_fmt_hw == SPDIFIN_AUDIO_TYPE_PAUSE) {
             memset(buffer, 0, bytes);
-            usleep(1000);
+            usleep(bytes * 1000000 / audio_stream_in_frame_size(stream) /
+                in_get_sample_rate(&stream->common));
             ret = 0;
         } else {
             if (in->resampler)
@@ -5061,6 +5064,17 @@ ssize_t audio_hal_data_processing(struct audio_stream_out *stream,
 
     }
 
+    if (adev->patch_src == SRC_HDMIIN || adev->patch_src == SRC_SPDIFIN) {
+        if (adev->spdif_fmt_hw != adev->active_input->spdif_fmt_hw) {
+            clock_gettime(CLOCK_MONOTONIC, &adev->mute_start_ts);
+            adev->spdif_fmt_hw = adev->active_input->spdif_fmt_hw;
+        }
+        //mute output audio for 500ms, when input audio change format.
+        if (Stop_watch(adev->mute_start_ts, 500)) {
+            memset(aml_out->tmp_buffer_8ch, 0, 8 * bytes);
+            //ALOGD("~~~~format change mute 500ms~~~~~");
+        }
+    }
     return 0;
 }
 
@@ -5164,19 +5178,18 @@ static void config_output (struct audio_stream_out *stream)
 #else
         /*init or close ddp decoder*/
         struct dolby_ddp_dec *ddp_dec = & (adev->ddp);
-        if (ddp_dec->status !=1 && (aml_out->hal_internal_format == AUDIO_FORMAT_AC3
+        if (ddp_dec->status != 1 && (aml_out->hal_internal_format == AUDIO_FORMAT_AC3
                                   || aml_out->hal_internal_format == AUDIO_FORMAT_E_AC3)) {
             int status = dcv_decoder_init_patch(ddp_dec);
             ALOGI("dcv_decoder_init_patch return :%d",status);
-            aml_out->hal_internal_format = AUDIO_FORMAT_PCM_16_BIT;
-        } else if (ddp_dec->status == 1 && aml_out->hal_internal_format == AUDIO_FORMAT_PCM_16_BIT) {
+        } else if (ddp_dec->status == 1) {
             dcv_decoder_release_patch(ddp_dec);
             ALOGI("dcv_decoder_release_patch release");
         }
         pthread_mutex_lock(&adev->lock);
-        aml_hw_mixer_deinit (&adev->hw_mixer);
-        aml_hw_mixer_init (&adev->hw_mixer);
+        aml_hw_mixer_reset (&adev->hw_mixer);
         pthread_mutex_unlock(&adev->lock);
+        ALOGI ("%s reset config output stream",__func__);
 #endif
     }
 

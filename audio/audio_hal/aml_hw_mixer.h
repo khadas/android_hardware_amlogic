@@ -42,4 +42,6 @@ int aml_hw_mixer_write(struct aml_hw_mixer *mixer, const void *buffer, size_t by
 int aml_hw_mixer_mixing(struct aml_hw_mixer *mixer, void *buffer, int bytes, audio_format_t format);
 //need called by device mutux locked
 int aml_hw_mixer_read(struct aml_hw_mixer *mixer, void *r_buf, uint size);
+void aml_hw_mixer_reset(struct aml_hw_mixer *mixer);
+
 #endif //_AML_HW_MIXER_H_
