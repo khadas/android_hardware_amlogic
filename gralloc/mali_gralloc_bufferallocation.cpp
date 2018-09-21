@@ -978,6 +978,10 @@ int mali_gralloc_buffer_allocate(mali_gralloc_module *m, const gralloc_buffer_de
 			break;
 
 		case HAL_PIXEL_FORMAT_RGB_888:
+#if GPU_TYPE == mali450
+			if (usage & (GRALLOC_USAGE_HW_TEXTURE | GRALLOC_USAGE_HW_RENDER ))
+				return -EINVAL;
+#endif
 			get_rgb_stride_and_size(bufDescriptor->width, bufDescriptor->height, 3, &bufDescriptor->pixel_stride,
 			                        &bufDescriptor->byte_stride, &bufDescriptor->size, alloc_type);
 			break;
