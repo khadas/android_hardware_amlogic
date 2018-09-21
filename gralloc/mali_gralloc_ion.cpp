@@ -74,6 +74,9 @@ static void init_afbc(uint8_t *buf, uint64_t internal_format, int w, int h)
 	switch (base_format)
 	{
 	case MALI_GRALLOC_FORMAT_INTERNAL_RGBA_8888:
+		/* Note that AFBC isn't supported for RGBX_8888 but the display drivers will treat it as RGBA8888
+		 * as a workaround for not supporting partial pre-fetch. However this format will be less
+		 * efficient for GPU. */
 	case MALI_GRALLOC_FORMAT_INTERNAL_RGBX_8888:
 	case MALI_GRALLOC_FORMAT_INTERNAL_RGB_888:
 	case MALI_GRALLOC_FORMAT_INTERNAL_RGB_565:
@@ -431,7 +434,7 @@ int mali_gralloc_ion_allocate(mali_gralloc_module *m, const gralloc_buffer_descr
 			    bufDescriptor->consumer_usage, bufDescriptor->producer_usage, tmp_fd, bufDescriptor->hal_format,
 			    bufDescriptor->internal_format, bufDescriptor->byte_stride, bufDescriptor->width, bufDescriptor->height,
 			    bufDescriptor->pixel_stride, bufDescriptor->internalWidth, bufDescriptor->internalHeight,
-			    max_bufDescriptor->size);
+			    max_bufDescriptor->size, bufDescriptor->layer_count);
 
 			if (NULL == hnd)
 			{
@@ -483,7 +486,7 @@ int mali_gralloc_ion_allocate(mali_gralloc_module *m, const gralloc_buffer_descr
 			    bufDescriptor->consumer_usage, bufDescriptor->producer_usage, shared_fd, bufDescriptor->hal_format,
 			    bufDescriptor->internal_format, bufDescriptor->byte_stride, bufDescriptor->width, bufDescriptor->height,
 			    bufDescriptor->pixel_stride, bufDescriptor->internalWidth, bufDescriptor->internalHeight,
-			    bufDescriptor->size);
+			    bufDescriptor->size, bufDescriptor->layer_count);
 
 			if (NULL == hnd)
 			{

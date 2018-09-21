@@ -327,6 +327,11 @@ int mali_gralloc_lock_flex_async(const mali_gralloc_module *m, buffer_handle_t b
 
 		case HAL_PIXEL_FORMAT_YCrCb_420_SP:
 		case MALI_GRALLOC_FORMAT_INTERNAL_NV21:
+			/*
+			 * NV21: YCrCb/YVU ordering. The flex format
+			 * plane order must still follow YCbCr order
+			 * (as defined by 'android_flex_component_t').
+			 */
 			flex_layout->format = FLEX_FORMAT_YCbCr;
 			flex_layout->num_planes = 3;
 			flex_layout->planes[0].top_left = base;
@@ -337,6 +342,14 @@ int mali_gralloc_lock_flex_async(const mali_gralloc_module *m, buffer_handle_t b
 			flex_layout->planes[0].v_increment = y_stride;
 			flex_layout->planes[0].h_subsampling = 1;
 			flex_layout->planes[0].v_subsampling = 1;
+			flex_layout->planes[1].top_left = base + y_size + 1;
+			flex_layout->planes[1].component = FLEX_COMPONENT_Cb;
+			flex_layout->planes[1].bits_per_component = 8;
+			flex_layout->planes[1].bits_used = 8;
+			flex_layout->planes[1].h_increment = 2;
+			flex_layout->planes[1].v_increment = y_stride;
+			flex_layout->planes[1].h_subsampling = 2;
+			flex_layout->planes[1].v_subsampling = 2;
 			flex_layout->planes[2].top_left = base + y_size;
 			flex_layout->planes[2].component = FLEX_COMPONENT_Cr;
 			flex_layout->planes[2].bits_per_component = 8;
@@ -345,14 +358,6 @@ int mali_gralloc_lock_flex_async(const mali_gralloc_module *m, buffer_handle_t b
 			flex_layout->planes[2].v_increment = y_stride;
 			flex_layout->planes[2].h_subsampling = 2;
 			flex_layout->planes[2].v_subsampling = 2;
-			flex_layout->planes[1].top_left = flex_layout->planes[2].top_left + 1;
-			flex_layout->planes[1].component = FLEX_COMPONENT_Cb;
-			flex_layout->planes[1].bits_per_component = 8;
-			flex_layout->planes[1].bits_used = 8;
-			flex_layout->planes[1].h_increment = 2;
-			flex_layout->planes[1].v_increment = y_stride;
-			flex_layout->planes[1].h_subsampling = 2;
-			flex_layout->planes[1].v_subsampling = 2;
 			break;
 
 		case MALI_GRALLOC_FORMAT_INTERNAL_YV12:
@@ -362,7 +367,12 @@ int mali_gralloc_lock_flex_async(const mali_gralloc_module *m, buffer_handle_t b
 			/* Stride alignment set to 16 as the SW access flags were set */
 			c_stride = GRALLOC_ALIGN(hnd->byte_stride / 2, 16);
 			c_size = c_stride * (adjusted_height / 2);
-			/* Y plane, V plane, U plane */
+
+			/*
+			 * YV12: YCrCb/YVU ordering. The flex format
+			 * plane order must still follow YCbCr order
+			 * (as defined by 'android_flex_component_t').
+			 */
 			flex_layout->format = FLEX_FORMAT_YCbCr;
 			flex_layout->num_planes = 3;
 			flex_layout->planes[0].top_left = base;
@@ -373,6 +383,14 @@ int mali_gralloc_lock_flex_async(const mali_gralloc_module *m, buffer_handle_t b
 			flex_layout->planes[0].v_increment = y_stride;
 			flex_layout->planes[0].h_subsampling = 1;
 			flex_layout->planes[0].v_subsampling = 1;
+			flex_layout->planes[1].top_left = base + y_size + c_size;
+			flex_layout->planes[1].component = FLEX_COMPONENT_Cb;
+			flex_layout->planes[1].bits_per_component = 8;
+			flex_layout->planes[1].bits_used = 8;
+			flex_layout->planes[1].h_increment = 1;
+			flex_layout->planes[1].v_increment = c_stride;
+			flex_layout->planes[1].h_subsampling = 2;
+			flex_layout->planes[1].v_subsampling = 2;
 			flex_layout->planes[2].top_left = base + y_size;
 			flex_layout->planes[2].component = FLEX_COMPONENT_Cr;
 			flex_layout->planes[2].bits_per_component = 8;
@@ -381,14 +399,6 @@ int mali_gralloc_lock_flex_async(const mali_gralloc_module *m, buffer_handle_t b
 			flex_layout->planes[2].v_increment = c_stride;
 			flex_layout->planes[2].h_subsampling = 2;
 			flex_layout->planes[2].v_subsampling = 2;
-			flex_layout->planes[1].top_left = flex_layout->planes[2].top_left + c_size;
-			flex_layout->planes[1].component = FLEX_COMPONENT_Cb;
-			flex_layout->planes[1].bits_per_component = 8;
-			flex_layout->planes[1].bits_used = 8;
-			flex_layout->planes[1].h_increment = 1;
-			flex_layout->planes[1].v_increment = c_stride;
-			flex_layout->planes[1].h_subsampling = 2;
-			flex_layout->planes[1].v_subsampling = 2;
 			break;
 		}
 

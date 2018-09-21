@@ -106,11 +106,13 @@ static int alloc_device_alloc(alloc_device_t *dev, int w, int h, int format, int
 		buffer_descriptor_t buffer_descriptor;
 		gralloc_buffer_descriptor_t gralloc_buffer_descriptor[1];
 
+		memset((void*)&buffer_descriptor, 0, sizeof(buffer_descriptor));
 		buffer_descriptor.hal_format = format;
 		buffer_descriptor.consumer_usage = usage;
 		buffer_descriptor.producer_usage = usage;
 		buffer_descriptor.width = w;
 		buffer_descriptor.height = h;
+		buffer_descriptor.layer_count = 1;
 		buffer_descriptor.format_type = MALI_GRALLOC_FORMAT_TYPE_USAGE;
 		gralloc_buffer_descriptor[0] = (gralloc_buffer_descriptor_t)(&buffer_descriptor);
 

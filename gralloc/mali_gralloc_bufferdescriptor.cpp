@@ -18,6 +18,7 @@
 
 #include <hardware/hardware.h>
 #include <stdlib.h>
+#include <string.h>
 
 #if GRALLOC_USE_GRALLOC1_API == 1
 #include <hardware/gralloc1.h>
@@ -47,6 +48,16 @@ int mali_gralloc_create_descriptor_internal(gralloc1_buffer_descriptor_t *outDes
 		AERR("failed to create buffer descriptor");
 		return GRALLOC1_ERROR_BAD_DESCRIPTOR;
 	}
+
+	/*
+	 * Initialise the buffer descriptor.
+	 *
+	 * Layer count is initialised to a single layer in
+	 * case clients don't support multi-layer or use
+	 * function GRALLOC1_PFN_SET_LAYER_COUNT.
+	 */
+	memset((void *)buffer_descriptor, 0, sizeof(*buffer_descriptor));
+	buffer_descriptor->layer_count = 1;
 
 	*outDescriptor = (gralloc1_buffer_descriptor_t)buffer_descriptor;
 	return GRALLOC1_ERROR_NONE;
@@ -180,6 +191,33 @@ int mali_gralloc_get_producer_usage_internal(buffer_handle_t buffer, uint64_t *o
 	*outUsage = hnd->producer_usage;
 	return GRALLOC1_ERROR_NONE;
 }
+
+#if PLATFORM_SDK_VERSION >= 26
+int mali_gralloc_set_layer_count_internal(gralloc1_buffer_descriptor_t descriptor, uint32_t layerCount)
+{
+	if (!descriptor)
+	{
+		return GRALLOC1_ERROR_BAD_DESCRIPTOR;
+	}
+
+	buffer_descriptor_t *buffer_descriptor = (buffer_descriptor_t *)descriptor;
+	buffer_descriptor->layer_count = layerCount;
+	return GRALLOC1_ERROR_NONE;
+}
+
+int mali_gralloc_get_layer_count_internal(buffer_handle_t buffer, uint32_t *outLayerCount)
+{
+	if (private_handle_t::validate(buffer) < 0)
+	{
+		AERR("Invalid buffer %p, returning error", buffer);
+		return GRALLOC1_ERROR_BAD_HANDLE;
+	}
+
+	private_handle_t *hnd = (private_handle_t *)buffer;
+	*outLayerCount = hnd->layer_count;
+	return GRALLOC1_ERROR_NONE;
+}
+#endif /* PLATFORM_SDK_VERSION >= 26 */
 
 #endif
 int mali_gralloc_query_getstride(buffer_handle_t buffer, int *pixelStride)
