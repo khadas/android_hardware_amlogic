@@ -5569,11 +5569,21 @@ ssize_t mixer_main_buffer_write (struct audio_stream_out *stream, const void *bu
 
                     bytes *= 2;
                     double lfe;
+                    double centre;
                     if (ddp_dec->pcm_out_info.channel_num == 6) {
                         int samplenum = bytes / (ddp_dec->pcm_out_info.channel_num * 4);
                         //ALOGI("ddp_dec->pcm_out_info.channel_num:%d samplenum:%d bytes:%d",ddp_dec->pcm_out_info.channel_num,samplenum,bytes);
+                        //Lt = L + (C *  -3 dB)  - (Ls * -1.2 dB)  -  (Rs * -6.2 dB)
+                        //Rt = R + (C * -3 dB) + (Ls * -6.2 dB) + (Rs *  -1.2 dB)
+                        //Lo = L + (C *  -3 dB)  + (Ls * -3 dB)
+                        //Ro = R + (C *  -3 dB)  + (Rs * -3 dB)
                         for (int i = 0; i < samplenum; i++ ) {
                             lfe = (double)p1[6 * i + 3]*(1.678804f / 4);
+                            centre = (double)p1[6 * i + 2] * 0.707945;
+                            //p1[6 * i] = p1[6 * i] + (int32_t)centre - p1[6 * i + 4] * 0.870963 - p1[6 * i + 5] * 0.489778;
+                            //p1[6 * i + 1] = p1[6 * i + 1] + (int32_t)centre + p1[6 * i + 4] * 0.489778 + p1[6 * i + 5] * 0.870963;
+                            p1[6 * i] = p1[6 * i] + (int32_t)centre + p1[6 * i + 4] * 0.707945;
+                            p1[6 * i + 1] = p1[6 * i + 1] + (int32_t)centre  + p1[6 * i + 5] * 0.707945;
                             p1[2 * i ] = (p1[6 * i] >> 2) + (int32_t)lfe;
                             p1[2 * i  + 1] = (p1[6 * i + 1] >> 2) + (int32_t)lfe;
                         }
