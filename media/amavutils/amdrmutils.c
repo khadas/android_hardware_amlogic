@@ -25,7 +25,8 @@
 
 #define TVP_ENABLE_PATH     "/sys/class/codec_mm/tvp_enable"
 #define TVP_REGION_PATH     "/sys/class/codec_mm/tvp_region"
-#define FREE_KEEP_BUFFER_PATH   "/sys/class/video/free_keep_buffer"
+/*#define FREE_KEEP_BUFFER_PATH   "/sys/class/video/free_keep_buffer"*/
+#define FREE_KEEP_BUFFER_PATH   "/sys/class/codec_mm/debug"
 #define FREE_CMA_BUFFER_PATH   "/sys/class/video/free_cma_buffer"
 #define VFM_DEF_MAP_PATH    "/sys/class/vfm/map"
 #define DI_TVP_REGION_PATH  "/sys/class/deinterlace/di0/tvp_region"
@@ -65,7 +66,7 @@ int free_keep_buffer(void)
     char bcmd[16];
     fd = open(FREE_KEEP_BUFFER_PATH, O_CREAT | O_RDWR | O_TRUNC, 0644);
     if (fd >= 0) {
-        sprintf(bcmd, "%d", 1);
+        sprintf(bcmd, "%d", 10);
         write(fd, bcmd, strlen(bcmd));
         close(fd);
         return 0;
@@ -127,6 +128,7 @@ int tvp_mm_enable(int flags)
 {
     //flags: bit 1---4k ;
     int is_4k= flags &TVP_MM_ENABLE_FLAGS_FOR_4K;
+    set_disable_video(1);
     free_keep_buffer();
     //set_vfmmap_ppmgr_di(0);
     if (is_4k)
