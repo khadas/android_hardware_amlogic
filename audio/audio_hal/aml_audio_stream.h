@@ -171,8 +171,8 @@ bool is_hdmi_in_stable_hw(struct audio_stream_in *stream);
 bool is_hdmi_in_stable_sw(struct audio_stream_in *stream);
 /*@brief check the ATV audio stability by HW register */
 bool is_atv_in_stable_hw(struct audio_stream_in *stream);
-int set_audio_source (int audio_source);
-int enable_HW_resample(int enable);
+int set_audio_source(struct aml_mixer_handle *mixer_handle, int audio_source);
+int enable_HW_resample(struct aml_mixer_handle *mixer_handle, int enable);
 bool Stop_watch(struct timespec start_ts, int64_t time);
 bool signal_status_check(audio_devices_t in_device, int *mute_time,
                         struct audio_stream_in *stream);

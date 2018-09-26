@@ -170,6 +170,11 @@ static RECORDING_DEVICE recording_device = RECORDING_DEVICE_OTHER;
 /*[SEN5-autumn.zhao-2018-01-11] add for B06 audio support } */
 #endif
 
+inline bool need_hw_mix(usecase_mask_t masks)
+{
+    return (masks > 1);
+}
+
 static inline short CLIP (int r)
 {
     return (r >  0x7fff) ? 0x7fff :
@@ -799,6 +804,7 @@ static int do_output_standby (struct aml_stream_out *out)
         if (adev->active_output_count == 0) {
             if (adev->pcm) {
                 ALOGI ("close pcm %p\n", adev->pcm);
+                pcm_stop(adev->pcm); // cleanup the audio hw fifo
                 pcm_close (adev->pcm);
                 adev->pcm = NULL;
             }
@@ -2855,7 +2861,7 @@ static int in_set_parameters (struct audio_stream *stream, const char *kvpairs)
     ret = str_parms_get_str (parms, AUDIO_PARAMETER_STREAM_ROUTING, value, sizeof (value) );
     if (ret >= 0) {
         val = atoi (value) & ~AUDIO_DEVICE_BIT_IN;
-        if ( (in->device != val) && (val != 0) ) {
+        if ( (in->device != (unsigned)val) && (val != 0) ) {
             in->device = val;
             do_standby = true;
         }
@@ -3551,8 +3557,10 @@ static void adev_close_output_stream(struct audio_hw_device *dev,
 
     ALOGD("%s: enter: dev(%p) stream(%p)", __func__, dev, stream);
     out_standby_new(&stream->common);
+    pthread_mutex_lock (&out->lock);
     free(out->audioeffect_tmp_buffer);
     free(out->tmp_buffer_8ch);
+    pthread_mutex_unlock (&out->lock);
     free(stream);
     ALOGD("%s: exit", __func__);
 }
@@ -3642,7 +3650,7 @@ static int set_arc_format (struct audio_hw_device *dev, char *value, size_t len)
             if (format == _DDP) {
                 fmt_desc = &hdmi_desc->ddp_fmt;
                 fmt_desc->atmos_supported = val > 0 ? true : false;
-                aml_mixer_ctrl_set_int (AML_MIXER_ID_HDMI_ATMOS_EDID,fmt_desc->atmos_supported);
+                aml_mixer_ctrl_set_int (&adev->alsa_mixer, AML_MIXER_ID_HDMI_ATMOS_EDID,fmt_desc->atmos_supported);
                 /**
                  * Add flag to indicate hdmi arc format updated.
                  * Out write thread checks it and makes decision on output format.
@@ -3785,21 +3793,21 @@ static int adev_set_parameters (struct audio_hw_device *dev, const char *kvpairs
 
     ret = str_parms_get_int(parms, "Audio hdmi-out mute", &val);
     if (ret >= 0) {
-        aml_mixer_ctrl_set_int(AML_MIXER_ID_HDMI_OUT_AUDIO_MUTE, val);
+        aml_mixer_ctrl_set_int(&adev->alsa_mixer, AML_MIXER_ID_HDMI_OUT_AUDIO_MUTE, val);
         ALOGI("audio hdmi out status: %d\n", val);
         goto exit;
     }
 
     ret = str_parms_get_int(parms, "Audio spdif mute", &val);
     if (ret >= 0) {
-        aml_mixer_ctrl_set_int(AML_MIXER_ID_SPDIF_MUTE, val);
+        aml_mixer_ctrl_set_int(&adev->alsa_mixer, AML_MIXER_ID_SPDIF_MUTE, val);
         ALOGI("audio spdif out status: %d\n", val);
         goto exit;
     }
 
     ret = str_parms_get_int (parms, "spdifin/arcin switch", &val);
     if (ret >= 0) {
-        aml_mixer_ctrl_set_int(AML_MIXER_ID_SPDIFIN_ARCIN_SWITCH, val);
+        aml_mixer_ctrl_set_int(&adev->alsa_mixer, AML_MIXER_ID_SPDIFIN_ARCIN_SWITCH, val);
         ALOGI("audio source: %s\n", val?"ARCIN":"SPDIFIN");
         goto exit;
     }
@@ -3883,7 +3891,7 @@ static int adev_set_parameters (struct audio_hw_device *dev, const char *kvpairs
             // need create patching
             if (!adev->audio_patching) {
                 ALOGI ("%s, create atv patching", __func__);
-                set_audio_source (ATV);
+                set_audio_source(&adev->alsa_mixer, ATV);
                 ret = create_patch (dev, AUDIO_DEVICE_IN_TV_TUNER, AUDIO_DEVICE_OUT_SPEAKER);
                 // audio_patching ok, mark the patching status
                 if (ret == 0)
@@ -4373,14 +4381,14 @@ exit:
                 in->hal_channel_mask = config->channel_mask;
                 in->hal_format = config->format;
             }
-            set_audio_source(LINEIN);
+            set_audio_source(&adev->alsa_mixer, LINEIN);
             in->device |= (aux_mic_devce & AUDIO_DEVICE_IN_BUILTIN_MIC);
         } else {
             in->device |= (aux_mic_devce & AUDIO_DEVICE_IN_LINE);
         }
         /*count the input streams*/
         in->ref_count++;
-        ALOGD("start input stream num = %d\n", in->ref_count);
+        ALOGD("start input stream num = %d, in->device = %x\n", in->ref_count, in->device);
     }
 #endif
 
@@ -4447,8 +4455,8 @@ static void adev_close_input_stream(struct audio_hw_device *dev,
     audio_devices_t aux_mic_devce = in->device & ~AUDIO_DEVICE_BIT_IN & (AUDIO_DEVICE_IN_BUILTIN_MIC | AUDIO_DEVICE_IN_LINE);
     if (aux_mic_devce) {
         in->ref_count--;
-        ALOGD("stop input stream num = %d\n", in->ref_count);
-        if (in->ref_count == 0) {
+        ALOGD("stop input stream num = %d, in->device = %u\n", in->ref_count, in->device);
+        if (in->ref_count == 0 && (aux_mic_devce & AUDIO_DEVICE_IN_BUILTIN_MIC)) {
             adev->mic_running = 0;
             adev->spk_running = 0;
             adev->spk_write_bytes = 0;
@@ -4474,9 +4482,6 @@ static void adev_close_input_stream(struct audio_hw_device *dev,
             in->mic_buf = NULL;
             free(in->aux_buf);
             in->aux_buf = NULL;
-            free(adev->output_tmp_buf);
-            adev->output_tmp_buf = NULL;
-            adev->output_tmp_buf_size = 0;
             if (adev->pstFir_spk) {
                 Fir_endModule(adev->pstFir_spk);
                 adev->pstFir_spk = NULL;
@@ -4495,7 +4500,9 @@ static void adev_close_input_stream(struct audio_hw_device *dev,
         release_resampler(in->resampler);
         in->resampler = NULL;
     }
+    pthread_mutex_lock (&in->lock);
     free(in->buffer);
+    pthread_mutex_unlock (&in->lock);
     free(stream);
     ALOGD("%s: exit", __func__);
     return;
@@ -4672,6 +4679,7 @@ ssize_t aml_audio_spdif_output (struct audio_stream_out *stream,
         if (!pcm_is_ready (pcm) ) {
             ALOGE ("%s() cannot open pcm_out: %s", __func__, pcm_get_error (pcm) );
             pcm_close (pcm);
+            pthread_mutex_unlock(&aml_dev->alsa_pcm_lock);
             return -ENOENT;
         }
         ALOGI ("%s open dual output pcm handle %p",__func__, pcm);
@@ -4689,7 +4697,7 @@ ssize_t aml_audio_spdif_output (struct audio_stream_out *stream,
         int init_ret = spdifenc_init (pcm, AUDIO_FORMAT_AC3);
         if (init_ret == 0) {
             aml_dev->dual_spdifenc_inited = 1;
-            aml_mixer_ctrl_set_int (AML_MIXER_ID_SPDIF_FORMAT, AML_DOLBY_DIGITAL);
+            aml_mixer_ctrl_set_int (&aml_dev->alsa_mixer, AML_MIXER_ID_SPDIF_FORMAT, AML_DOLBY_DIGITAL);
             ALOGI ("%s tinymix AML_MIXER_ID_SPDIF_FORMAT %d\n", __FUNCTION__, AML_DOLBY_DIGITAL);
         }
     }
@@ -5078,14 +5086,14 @@ ssize_t audio_hal_data_processing(struct audio_stream_out *stream,
     }
 
     if (adev->patch_src == SRC_HDMIIN || adev->patch_src == SRC_SPDIFIN) {
-        if (adev->spdif_fmt_hw != adev->active_input->spdif_fmt_hw) {
+        if (adev->active_input != NULL &&
+                adev->spdif_fmt_hw != adev->active_input->spdif_fmt_hw) {
             clock_gettime(CLOCK_MONOTONIC, &adev->mute_start_ts);
             adev->spdif_fmt_hw = adev->active_input->spdif_fmt_hw;
         }
         //mute output audio for 500ms, when input audio change format.
-        if (Stop_watch(adev->mute_start_ts, 500)) {
-            memset(aml_out->tmp_buffer_8ch, 0, 8 * bytes);
-            //ALOGD("~~~~format change mute 500ms~~~~~");
+        if (aml_out->tmp_buffer_8ch != NULL && Stop_watch(adev->mute_start_ts, 500)) {
+            memset(aml_out->tmp_buffer_8ch, 0, (*output_buffer_bytes));
         }
     }
     return 0;
@@ -5147,7 +5155,8 @@ ssize_t hw_write (struct audio_stream_out *stream
         aml_out->last_frames_postion = total_frame;
     }
     ALOGV ("%s out format %#x total_frame %llu latency_frames %d last_frames_postion %llu\n",
-           __FUNCTION__, output_format, (unsigned long long) total_frame, latency_frames, (unsigned long long) (aml_out->last_frames_postion) );
+           __FUNCTION__, output_format, (unsigned long long) total_frame, latency_frames,
+           (unsigned long long) (aml_out->last_frames_postion) );
 
     return ret;
 }
@@ -5157,6 +5166,7 @@ static void config_output (struct audio_stream_out *stream)
 {
     struct aml_stream_out *aml_out = (struct aml_stream_out *) stream;
     struct aml_audio_device *adev = aml_out->dev;
+
     /*get sink format*/
     get_sink_format (stream);
 
@@ -5189,6 +5199,11 @@ static void config_output (struct audio_stream_out *stream)
             ALOGE ("%s() get_the_dolby_ms12_prepared fail", __FUNCTION__);
         }
 #else
+        if (aml_out->status == STREAM_HW_WRITING) {
+            aml_alsa_output_close(stream);
+            aml_out->status = STREAM_STANDBY;
+        }
+
         /*init or close ddp decoder*/
         struct dolby_ddp_dec *ddp_dec = & (adev->ddp);
         if (ddp_dec->status != 1 && (aml_out->hal_internal_format == AUDIO_FORMAT_AC3
@@ -5200,7 +5215,11 @@ static void config_output (struct audio_stream_out *stream)
             ALOGI("dcv_decoder_release_patch release");
         }
         pthread_mutex_lock(&adev->lock);
-        aml_hw_mixer_reset (&adev->hw_mixer);
+        if (!adev->hw_mixer.start_buf) {
+            aml_hw_mixer_init(&adev->hw_mixer);
+        } else {
+            aml_hw_mixer_reset (&adev->hw_mixer);
+        }
         pthread_mutex_unlock(&adev->lock);
         ALOGI ("%s reset config output stream",__func__);
 #endif
@@ -5510,15 +5529,15 @@ ssize_t mixer_main_buffer_write (struct audio_stream_out *stream, const void *bu
                         bytes /= 3;
                      }
 #if 0
-    if (getprop_bool("media.audio_hal.ddp.outdump")) {
-        FILE *fp1 = fopen("/data/tmp/dd_mix.raw", "a+");
-        if (fp1) {
-            int flen = fwrite((char *)tmp_buffer, 1, bytes, fp1);
-            fclose(fp1);
-        } else {
-            ALOGD("could not open files!");
-        }
-    }
+                    if (getprop_bool("media.audio_hal.ddp.outdump")) {
+                        FILE *fp1 = fopen("/data/tmp/dd_mix.raw", "a+");
+                        if (fp1) {
+                            int flen = fwrite((char *)tmp_buffer, 1, bytes, fp1);
+                            fclose(fp1);
+                        } else {
+                            ALOGD("could not open files!");
+                        }
+                    }
 #endif
 
 #else
@@ -5537,6 +5556,8 @@ ssize_t mixer_main_buffer_write (struct audio_stream_out *stream, const void *bu
         }
 
         void *tmp_buffer = (void *) write_buf;
+        if (write_buf == NULL)
+            goto exit;
         if (aml_out->hw_sync_mode) {
             ALOGV("mixing hw_sync mode");
 #if defined(IS_ATOM_PROJECT)
@@ -5586,15 +5607,20 @@ ssize_t mixer_aux_buffer_write (struct audio_stream_out *stream, const void *buf
     int ret = 0;
     size_t frame_size = audio_stream_out_frame_size (stream);
     size_t in_frames = bytes / frame_size;
-    //if (!aml_out->is_in_mixing)
-    //    ALOGE("%s(), wrong way to", __func__);
-    if (aml_out->status == STREAM_HW_WRITING) {
+    bool hw_mix = need_hw_mix(adev->usecase_masks);
+
+    if ((aml_out->status == STREAM_HW_WRITING) && hw_mix) {
         ALOGI ("%s(), aux close\n", __func__);
         pthread_mutex_lock (&adev->alsa_pcm_lock);
         aml_alsa_output_close (stream);
-        aml_out->status = STREAM_MIXING;
         pthread_mutex_unlock (&adev->alsa_pcm_lock);
+        aml_out->status = STREAM_MIXING;
     }
+
+    if (aml_out->status == STREAM_STANDBY) {
+        aml_out->status = STREAM_MIXING;
+    }
+
 #ifdef DOLBY_MS12_ENABLE
     /*
      *when disable_pcm_mixing is true and offload format is dolby
@@ -5635,11 +5661,6 @@ ssize_t process_buffer_write(struct audio_stream_out *stream,
         hw_write(stream, output_buffer, output_buffer_bytes, aml_out->hal_internal_format);
 
     return bytes;
-}
-
-inline bool need_hw_mix(usecase_mask_t masks)
-{
-    return (masks > 1);
 }
 
 /* must be called with hw device mutexes locked */
@@ -5911,7 +5932,7 @@ static void *audio_patch_input_threadloop(void *data)
             if (aml_dev->parental_control_av_mute && (aml_dev->patch_src == SRC_LINEIN || aml_dev->patch_src == SRC_ATV))
                 memset(patch->in_buf, 0, read_bytes);
             if (get_buffer_write_space(ringbuffer) < read_bytes) {
-                ALOGE("%s: ring_buffer overrun", __func__);
+                //ALOGE("%s: ring_buffer overrun", __func__);
             } else {
                 ret = ring_buffer_write(ringbuffer, (unsigned char*)patch->in_buf, read_bytes, UNCOVER_WRITE);
                 if (ret != read_bytes)
@@ -5920,12 +5941,9 @@ static void *audio_patch_input_threadloop(void *data)
             }
         }
     }
-    free(patch->in_buf);
-#if defined(IS_ATOM_PROJECT)
-    if (in->device & AUDIO_DEVICE_IN_LINE)
-        in->device &= ~AUDIO_DEVICE_IN_LINE;
-#endif
+
     adev_close_input_stream(patch->dev, &in->stream);
+    free(patch->in_buf);
     ALOGD("%s: exit", __func__);
 
     return (void *)0;
@@ -5993,8 +6011,9 @@ static void *audio_patch_output_threadloop(void *data)
             out_write_new(&out->stream, patch->out_buf, write_bytes);
         }
     }
-    free(patch->out_buf);
+
     adev_close_output_stream_new(patch->dev, &out->stream);
+    free(patch->out_buf);
     ALOGD("%s: exit", __func__);
 
     return (void *)0;
@@ -6057,7 +6076,7 @@ static int create_patch(struct audio_hw_device *dev,
 
     if (patch->input_src == AUDIO_DEVICE_IN_HDMI || patch->input_src == AUDIO_DEVICE_IN_SPDIF) {
         //TODO add sample rate and channel information
-        ret = creat_pthread_for_audio_type_parse(&patch->audio_parse_threadID, &patch->audio_parse_para, 48000, 2);
+        ret = creat_pthread_for_audio_type_parse(&patch->audio_parse_threadID, &patch->audio_parse_para, &aml_dev->alsa_mixer);
         if (ret !=  0) {
             ALOGE("%s: create format parse thread failed", __func__);
             goto err_parse_thread;
@@ -6086,17 +6105,21 @@ static int release_patch(struct aml_audio_device *aml_dev)
     struct aml_audio_patch *patch = aml_dev->audio_patch;
 
     ALOGD("%s: enter", __func__);
-    patch->output_thread_exit = 1;
-    patch->input_thread_exit = 1;
     if (patch->input_src == AUDIO_DEVICE_IN_HDMI || patch->input_src == AUDIO_DEVICE_IN_SPDIF)
-        exit_pthread_for_audio_type_parse(patch->audio_parse_threadID,&patch->audio_parse_para);
+        exit_pthread_for_audio_type_parse(patch->audio_parse_threadID, &patch->audio_parse_para);
+    patch->input_thread_exit = 1;
     pthread_join(patch->audio_input_threadID, NULL);
+    patch->output_thread_exit = 1;
     pthread_join(patch->audio_output_threadID, NULL);
     ring_buffer_release(&patch->aml_ringbuffer);
     free(patch);
     aml_dev->audio_patch = NULL;
     ALOGD("%s: exit", __func__);
-
+#if defined(IS_ATOM_PROJECT)
+    free(aml_dev->output_tmp_buf);
+    aml_dev->output_tmp_buf = NULL;
+    aml_dev->output_tmp_buf_size = 0;
+#endif
     return 0;
 }
 
@@ -6125,7 +6148,7 @@ static int create_parser (struct audio_hw_device *dev)
         goto err_ring_buf;
     }
 
-    ret = creat_pthread_for_audio_type_parse (&parser->audio_parse_threadID, &parser->audio_parse_para, 48000, 2);
+    ret = creat_pthread_for_audio_type_parse (&parser->audio_parse_threadID, &parser->audio_parse_para, &aml_dev->alsa_mixer);
     if (ret !=  0) {
         ALOGE ("%s,create format parse thread fail!\n",__FUNCTION__);
         goto err_in_thread;
@@ -6431,7 +6454,7 @@ static int adev_create_audio_patch(struct audio_hw_device *dev,
             goto err_patch;
         }
 
-        set_audio_source(input_src);
+        set_audio_source(&aml_dev->alsa_mixer, input_src);
 
         aml_dev->active_inport = inport;
         aml_dev->src_gain[inport] = 1.0;
@@ -6509,7 +6532,7 @@ static int adev_create_audio_patch(struct audio_hw_device *dev,
         // tell atv or dtv source and decide to create or not.
         // One more case is ATV->ATV, should recreate audio patch.
         if (input_src != ATV || (input_src == ATV && aml_dev->patch_src == SRC_ATV)) {
-            set_audio_source(input_src);
+            set_audio_source(&aml_dev->alsa_mixer, input_src);
             ret = create_patch(dev,
                                src_config->ext.device.type, outport);
             if (ret) {
@@ -6620,6 +6643,7 @@ static int adev_close(hw_device_t *device)
     if (adev->ar)
         audio_route_free(adev->ar);
     eq_drc_release(&adev->eq_data);
+    close_mixer_handle(&adev->alsa_mixer);
     free(device);
     return 0;
 }
@@ -6881,6 +6905,7 @@ static int adev_open(const hw_module_t* module, const char* name, hw_device_t** 
     adev->sink_gain[OUTPORT_HEADPHONE] = 1.0;
     adev->patch_src = SRC_INVAL;
     pthread_mutex_init(&adev->alsa_pcm_lock, NULL);
+    open_mixer_handle(&adev->alsa_mixer);
 
 #if defined(IS_ATOM_PROJECT)
     Aud_Gain_Init();

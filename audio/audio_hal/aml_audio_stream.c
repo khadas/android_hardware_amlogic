@@ -138,14 +138,15 @@ void get_sink_format (struct audio_stream_out *stream)
 bool is_hdmi_in_stable_hw (struct audio_stream_in *stream)
 {
     struct aml_stream_in *in = (struct aml_stream_in *) stream;
+    struct aml_audio_device *aml_dev = in->dev;
     int type = 0;
     int stable = 0;
 
-    stable = aml_mixer_ctrl_get_int (AML_MIXER_ID_HDMI_IN_AUDIO_STABLE);
+    stable = aml_mixer_ctrl_get_int (&aml_dev->alsa_mixer, AML_MIXER_ID_HDMI_IN_AUDIO_STABLE);
     if (!stable)
         return false;
 
-    type = aml_mixer_ctrl_get_int (AML_MIXER_ID_SPDIFIN_AUDIO_TYPE);
+    type = aml_mixer_ctrl_get_int (&aml_dev->alsa_mixer, AML_MIXER_ID_SPDIFIN_AUDIO_TYPE);
     if (type != in->spdif_fmt_hw) {
         ALOGV ("%s(), in type changed from %d to %d", __func__, in->spdif_fmt_hw, type);
         in->spdif_fmt_hw = type;
@@ -181,10 +182,11 @@ bool is_hdmi_in_stable_sw (struct audio_stream_in *stream)
 bool is_atv_in_stable_hw (struct audio_stream_in *stream)
 {
     struct aml_stream_in *in = (struct aml_stream_in *) stream;
+    struct aml_audio_device *aml_dev = in->dev;
     int type = 0;
     int stable = 0;
 
-    stable = aml_mixer_ctrl_get_int (AML_MIXER_ID_ATV_IN_AUDIO_STABLE);
+    stable = aml_mixer_ctrl_get_int (&aml_dev->alsa_mixer, AML_MIXER_ID_ATV_IN_AUDIO_STABLE);
     if (!stable)
         return false;
 
@@ -194,9 +196,10 @@ bool is_atv_in_stable_hw (struct audio_stream_in *stream)
 bool is_spdif_in_stable_hw (struct audio_stream_in *stream)
 {
     struct aml_stream_in *in = (struct aml_stream_in *) stream;
+    struct aml_audio_device *aml_dev = in->dev;
     int type = 0;
 
-    type = aml_mixer_ctrl_get_int (AML_MIXER_ID_SPDIFIN_AUDIO_TYPE);
+    type = aml_mixer_ctrl_get_int (&aml_dev->alsa_mixer, AML_MIXER_ID_SPDIFIN_AUDIO_TYPE);
     if (type != in->spdif_fmt_hw) {
         ALOGV ("%s(), in type changed from %d to %d", __func__, in->spdif_fmt_hw, type);
         in->spdif_fmt_hw = type;
@@ -206,16 +209,17 @@ bool is_spdif_in_stable_hw (struct audio_stream_in *stream)
     return true;
 }
 
-int set_audio_source (int audio_source)
+int set_audio_source(struct aml_mixer_handle *mixer_handle, int audio_source)
 {
-    return aml_mixer_ctrl_set_int (AML_MIXER_ID_AUDIO_IN_SRC, audio_source);
+    return aml_mixer_ctrl_set_int (mixer_handle, AML_MIXER_ID_AUDIO_IN_SRC, audio_source);
 }
 
-int enable_HW_resample(int enable) {
+int enable_HW_resample(struct aml_mixer_handle *mixer_handle, int enable)
+{
     if (enable == 0)
-        aml_mixer_ctrl_set_int(AML_MIXER_ID_HW_RESAMPLE_ENABLE, HW_RESAMPLE_DISABLE);
+        aml_mixer_ctrl_set_int(mixer_handle, AML_MIXER_ID_HW_RESAMPLE_ENABLE, HW_RESAMPLE_DISABLE);
     else
-        aml_mixer_ctrl_set_int(AML_MIXER_ID_HW_RESAMPLE_ENABLE, HW_RESAMPLE_ENABLE);
+        aml_mixer_ctrl_set_int(mixer_handle, AML_MIXER_ID_HW_RESAMPLE_ENABLE, HW_RESAMPLE_ENABLE);
     return 0;
 }
 

@@ -207,7 +207,8 @@ typedef enum alsa_device {
 enum stream_status {
     STREAM_STANDBY = 0,
     STREAM_HW_WRITING,
-    STREAM_MIXING
+    STREAM_MIXING,
+    STREAM_PAUSED
 };
 
 #if defined(IS_ATOM_PROJECT)
@@ -322,6 +323,7 @@ struct aml_audio_device {
     bool spdif_encoder_init_flag;
     struct timespec mute_start_ts;
     int spdif_fmt_hw;
+    struct aml_mixer_handle alsa_mixer;
 
 #if defined(IS_ATOM_PROJECT)
     struct aml_stream_in *aux_mic_in;
@@ -442,7 +444,7 @@ struct aml_stream_in {
     pthread_mutex_t lock;       /* see note below on mutex acquisition order */
     struct pcm_config config;
     struct pcm *pcm;
-    int device;
+    unsigned int device;
     audio_channel_mask_t hal_channel_mask;
     audio_format_t hal_format;
     struct resampler_itfe *resampler;

@@ -142,25 +142,25 @@ struct aml_mixer_list {
     char mixer_name[50];
 };
 
+struct aml_mixer_handle {
+    struct mixer *pMixer;
+    pthread_mutex_t lock;
+};
+
+int open_mixer_handle(struct aml_mixer_handle *mixer_handle);
+int close_mixer_handle(struct aml_mixer_handle *mixer_handle);
+
 /*
  * get interface
  **/
-int aml_mixer_ctrl_get_int(int mixer_id);
-int aml_mixer_ctrl_get_enum_str_to_int(int mixer_id, int *ret);
-
-//int aml_mixer_ctrl_get_str(int mixer_id, char *value);
-// or
-#if 0
-int aml_mixer_get_audioin_src(int mixer_id);
-int aml_mixer_get_i2sin_type(int mixer_id);
-int aml_mixer_get_spdifin_type(int mixer_id);
-#endif
+int aml_mixer_ctrl_get_int(struct aml_mixer_handle *mixer_handle, int mixer_id);
+int aml_mixer_ctrl_get_enum_str_to_int(struct aml_mixer_handle *mixer_handle, int mixer_id, int *ret);
 
 /*
  * set interface
  **/
-int aml_mixer_ctrl_set_int(int mixer_id, int value);
-int aml_mixer_ctrl_set_str(int mixer_id, char *value);
+int aml_mixer_ctrl_set_int(struct aml_mixer_handle *mixer_handle, int mixer_id, int value);
+int aml_mixer_ctrl_set_str(struct aml_mixer_handle *mixer_handle, int mixer_id, char *value);
 
 #ifdef __cplusplus
 }

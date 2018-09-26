@@ -3,6 +3,7 @@
 
 #include <system/audio.h>
 #include <tinyalsa/asoundlib.h>
+#include <aml_alsa_mixer.h>
 
 /*IEC61937 package presamble Pc value 0-4bit */
 enum IEC61937_PC_Value {
@@ -51,6 +52,7 @@ enum input_source{
 typedef struct audio_type_parse {
     struct pcm_config config_in;
     struct pcm *in;
+    struct aml_mixer_handle *mixer_handle;
     unsigned int card;
     unsigned int device;
     unsigned int flags;
@@ -72,7 +74,7 @@ typedef struct audio_type_parse {
 int creat_pthread_for_audio_type_parse(
                      pthread_t *audio_type_parse_ThreadID,
                      void **status,
-                     int input_sr, int input_ch);
+                     struct aml_mixer_handle *mixer);
 void exit_pthread_for_audio_type_parse(
                      pthread_t audio_type_parse_ThreadID,
                      void **status);
