@@ -45,12 +45,8 @@
  * change DEFAULT_PERIOD_SIZE from 1024 to 512 for passing CTS
  * test case test4_1MeasurePeakRms(android.media.cts.VisualizerTest)
  */
-#if defined(IS_ATOM_PROJECT)
-#define DEFAULT_PLAYBACK_PERIOD_SIZE 512//1024
-#else
 #define DEFAULT_PLAYBACK_PERIOD_SIZE 512
-#endif
-#define DEFAULT_CAPTURE_PERIOD_SIZE  1024
+#define DEFAULT_CAPTURE_PERIOD_SIZE  512
 
 /* number of ICE61937 format frames per period */
 #define DEFAULT_IEC_SIZE 6144
@@ -108,6 +104,8 @@ enum {
 #define FRAMESIZE_32BIT_3ch 12
 #define FRAMESIZE_32BIT_5ch 20
 #define FRAMESIZE_32BIT_8ch 32
+
+#define TUNE_DELAY  (1)
 
 /* copy from VTS */
 enum Result {
@@ -227,18 +225,20 @@ enum stream_status {
     STREAM_PAUSED
 };
 
+typedef union {
+    unsigned long long timeStamp;
+    unsigned char tsB[8];
+} aec_timestamp;
+
 #if defined(IS_ATOM_PROJECT)
 typedef enum atom_stream_type {
     STREAM_ANDROID = 0,
     STREAM_HDMI,
     STREAM_OPTAUX
 } atom_stream_type_t;
-#endif
 
-typedef union {
-    unsigned long long timeStamp;
-    unsigned char tsB[8];
-} aec_timestamp;
+#define DSP_SHIFT_BIT 3
+#endif
 
 const char *usecase_to_str(stream_usecase_t usecase);
 
@@ -345,16 +345,29 @@ struct aml_audio_device {
     struct aml_mixer_handle alsa_mixer;
 
 #if defined(IS_ATOM_PROJECT)
-    struct aml_stream_in *aux_mic_in;
+    struct aml_stream_in *aux_in;
+    struct aml_stream_in *mic_in;
+    audio_devices_t aux_mic_device;
+    struct pcm *aux_mic_pcm;
+    int aux_running;
     int mic_running;
     int spk_running;
     ring_buffer_t spk_ring_buf;
+    ring_buffer_t mic_ring_buf;
+
+    void *mic_buf;
+    size_t mic_buf_size;
     void *spk_buf;
     size_t spk_buf_size;
     size_t spk_write_bytes;
     size_t extra_write_bytes;
+
+    /*tmp buffer for changing output format from 16bit to 32bit*/
     void *output_tmp_buf;
     unsigned int output_tmp_buf_size;
+    /*tmp buffer for seperating aux and mic data*/
+    void *input_tmp_buf;
+    unsigned int input_tmp_buf_size;
 
     // spk_buf mgmt
     atom_stream_type_t atom_stream_type_val;
@@ -376,12 +389,15 @@ struct aml_audio_device {
     void *pstFir_spk;
 
     pthread_mutex_t aec_spk_mic_lock;
-    pthread_mutex_t aec_spk_buf_lock;
     pthread_mutex_t dsp_processing_lock;
+    pthread_mutex_t aux_mic_lock;
 #endif
     struct subMixing *sm;
     bool is_TV;
     int tsync_fd;
+    unsigned ringbuf_delay;
+    unsigned input_hw_delay;
+    unsigned output_hw_delay;
 };
 
 struct meta_data {
@@ -511,19 +527,6 @@ struct aml_stream_in {
     int mute_flag;
     int mute_log_cntr;
     struct aml_audio_device *dev;
-
-#if defined(IS_ATOM_PROJECT)
-    int ref_count;
-    void *aux_buf;
-    size_t aux_buf_size;
-    size_t aux_buf_write_bytes;
-    void *mic_buf;
-    size_t mic_buf_size;
-    void *tmp_buffer_8ch;
-    size_t tmp_buffer_8ch_size;
-    pthread_mutex_t aux_mic_mutex;
-    pthread_cond_t aux_mic_cond;
-#endif
 };
 typedef  int (*do_standby_func)(struct aml_stream_out *out);
 typedef  int (*do_startup_func)(struct aml_stream_out *out);
@@ -568,5 +571,6 @@ ssize_t mixer_aux_buffer_write(struct audio_stream_out *stream, const void *buff
                                size_t bytes);
 int dsp_process_output(struct aml_audio_device *adev, void *in_buffer,
         size_t bytes);
+void right_shift(int32_t *input, int bytes, int bit);
 
 #endif

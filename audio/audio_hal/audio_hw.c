@@ -604,17 +604,30 @@ static int start_output_stream_direct (struct aml_stream_out *out)
     return 0;
 }
 
-static int check_input_parameters(uint32_t sample_rate, audio_format_t format, int channel_count)
+static int check_input_parameters(struct audio_config *config, int channel_count)
 {
+    uint32_t sample_rate = config->sample_rate;
+    audio_format_t format = config->format;
+
     if (format != AUDIO_FORMAT_PCM_16_BIT && format != AUDIO_FORMAT_PCM_32_BIT) {
         ALOGE("%s: unsupported AUDIO FORMAT (%d)", __func__, format);
+        config->format = AUDIO_FORMAT_PCM_16_BIT;
         return -EINVAL;
     }
 
     if (channel_count < 1 || channel_count > 2) {
         ALOGE("%s: unsupported channel count (%d) passed  Min / Max (1 / 2)", __func__, channel_count);
+        config->channel_mask = AUDIO_CHANNEL_IN_STEREO;
         return -EINVAL;
     }
+
+    if (channel_count == 1)
+        // in fact, this value should be AUDIO_CHANNEL_OUT_BACK_LEFT(16u) according to VTS codes,
+        // but the macroname can be confusing, so I'd like to set this value to
+        // AUDIO_CHANNEL_IN_FRONT(16u) instead of AUDIO_CHANNEL_OUT_BACK_LEFT.
+        config->channel_mask = AUDIO_CHANNEL_IN_FRONT;
+    else
+        config->channel_mask = AUDIO_CHANNEL_IN_STEREO;
 
     switch (sample_rate) {
     case 8000:
@@ -628,9 +641,9 @@ static int check_input_parameters(uint32_t sample_rate, audio_format_t format, i
         break;
     default:
         ALOGE("%s: unsupported (%d) samplerate passed ", __func__, sample_rate);
+        config->sample_rate = 48000;
         return -EINVAL;
     }
-
     return 0;
 }
 
@@ -2684,12 +2697,22 @@ static int start_input_stream(struct aml_stream_in *in)
     } else {
         port = PORT_I2S;
     }
-     /* check to update port */
+    /* check to update port */
     port = alsa_device_get_pcm_index(port);
 #if defined(IS_ATOM_PROJECT)
-    /*mic and linein share the same input device*/
-    if (in->device & (AUDIO_DEVICE_IN_BUILTIN_MIC | AUDIO_DEVICE_IN_LINE))
+    ALOGI("%s: in->device:%x, adev->aux_mic_pcm:%p, adev->aux_mic_device:%x",
+        __func__, in->device, adev->aux_mic_pcm, adev->aux_mic_device);
+    /*mic and aux share the same input device, audio port 2*/
+    if (in->device & (AUDIO_DEVICE_IN_BUILTIN_MIC | AUDIO_DEVICE_IN_LINE)) {
         port = 2;
+        if (adev->aux_mic_device != AUDIO_DEVICE_NONE && adev->aux_mic_pcm != NULL) {
+            ALOGI("%s: mic or aux input device is opened", __func__);
+            pthread_mutex_lock(&adev->aux_mic_lock);
+            in->pcm = adev->aux_mic_pcm;
+            pthread_mutex_unlock(&adev->aux_mic_lock);
+            return 0;
+        }
+    }
 #endif
     ALOGI("%s: card(%d), port(%d)", __func__, card, port);
     /* this assumes routing is done previously */
@@ -2700,6 +2723,14 @@ static int start_input_stream(struct aml_stream_in *in)
         adev->active_input = NULL;
         return -ENOMEM;
     }
+
+#if defined(IS_ATOM_PROJECT)
+    if (in->device & (AUDIO_DEVICE_IN_BUILTIN_MIC | AUDIO_DEVICE_IN_LINE)) {
+        pthread_mutex_lock(&adev->aux_mic_lock);
+        adev->aux_mic_pcm = in->pcm;
+        pthread_mutex_unlock(&adev->aux_mic_lock);
+    }
+#endif
 
     /* if no supported sample rate is available, use the resampler */
     if (in->resampler) {
@@ -2726,26 +2757,13 @@ static size_t in_get_buffer_size(const struct audio_stream *stream)
 {
     struct aml_stream_in *in = (struct aml_stream_in *)stream;
     size_t size;
-#if defined(IS_ATOM_PROJECT)
-    audio_channel_mask_t channel_mask = in->hal_channel_mask;
-    audio_format_t format = in->hal_format;
 
-    if ((in->device & AUDIO_DEVICE_IN_LINE) && in->ref_count == 1) {
-        channel_mask = AUDIO_CHANNEL_OUT_STEREO;
-        format = AUDIO_FORMAT_PCM_32_BIT;
-    }
-    ALOGD("%s: enter: channel_mask(%#x) rate(%d) format(%#x)", __func__,
-        channel_mask, in->requested_rate, format);
-    size = get_input_buffer_size(in->config.period_size, in->requested_rate,
-                                  format,
-                                  audio_channel_count_from_in_mask(channel_mask));
-#else
     ALOGD("%s: enter: channel_mask(%#x) rate(%d) format(%#x)", __func__,
         in->hal_channel_mask, in->requested_rate, in->hal_format);
     size = get_input_buffer_size(in->config.period_size, in->requested_rate,
                                   in->hal_format,
                                   audio_channel_count_from_in_mask(in->hal_channel_mask));
-#endif
+
     ALOGD("%s: exit: buffer_size = %zu", __func__, size);
 
     return size;
@@ -2754,20 +2772,14 @@ static size_t in_get_buffer_size(const struct audio_stream *stream)
 static audio_channel_mask_t in_get_channels(const struct audio_stream *stream)
 {
     struct aml_stream_in *in = (struct aml_stream_in *)stream;
-#if defined(IS_ATOM_PROJECT)
-    if ((in->device & AUDIO_DEVICE_IN_LINE) && in->ref_count == 1)
-        return AUDIO_CHANNEL_IN_STEREO;
-#endif
+
     return in->hal_channel_mask;
 }
 
 static audio_format_t in_get_format(const struct audio_stream *stream)
 {
     struct aml_stream_in *in = (struct aml_stream_in *)stream;
-#if defined(IS_ATOM_PROJECT)
-    if ((in->device & AUDIO_DEVICE_IN_LINE) && in->ref_count == 1)
-        return AUDIO_FORMAT_PCM_32_BIT;
-#endif
+
     return in->hal_format;
 }
 
@@ -2781,26 +2793,42 @@ static int do_input_standby (struct aml_stream_in *in)
 {
     struct aml_audio_device *adev = in->dev;
 
-    ALOGD ("%s(%p) in->standby = %d", __FUNCTION__, in, in->standby);
+    ALOGD ("%s(%p) in->standby = %d, in->device = %x", __FUNCTION__,
+            in, in->standby, in->device);
+#if defined(IS_ATOM_PROJECT)
+    if (in->device & (AUDIO_DEVICE_IN_BUILTIN_MIC | AUDIO_DEVICE_IN_LINE)) {
+        if (in->device & AUDIO_DEVICE_IN_BUILTIN_MIC) {
+            adev->mic_running = 0;
+        } else if (in->device & AUDIO_DEVICE_IN_LINE) {
+            adev->aux_running = 0;
+        }
+
+        /*Both mic and aux be stopped, stop the input device*/
+        if (adev->aux_mic_device == ((~AUDIO_DEVICE_BIT_IN) & (AUDIO_DEVICE_IN_BUILTIN_MIC | AUDIO_DEVICE_IN_LINE))) {
+            ALOGD("%s: adev->aux_mic_device = %x", __func__, adev->aux_mic_device);
+            in->standby = true;
+            return 0;
+        } else {
+            if (!in->standby) {
+                pcm_close (in->pcm);
+                in->pcm = NULL;
+                in->standby = true;
+                adev->aux_mic_pcm = NULL;
+                return 0;
+            }
+        }
+    }
+#endif
+
     if (!in->standby) {
         pcm_close (in->pcm);
         in->pcm = NULL;
-
         adev->active_input = 0;
         if (adev->mode != AUDIO_MODE_IN_CALL) {
             adev->in_device &= ~AUDIO_DEVICE_IN_ALL;
             //select_input_device(adev);
         }
-
-        in->standby = 1;
-#if 0
-        ALOGD ("%s : output_standby=%d,input_standby=%d",
-                 __FUNCTION__, output_standby, input_standby);
-        if (output_standby && input_standby) {
-            reset_mixer_state (adev->ar);
-            update_mixer_state (adev->ar);
-        }
-#endif
+        in->standby = true;
     }
     return 0;
 }
@@ -2808,15 +2836,8 @@ static int do_input_standby (struct aml_stream_in *in)
 static int in_standby(struct audio_stream *stream)
 {
     struct aml_stream_in *in = (struct aml_stream_in *)stream;
+    struct aml_audio_device *adev = in->dev;
     int status;
-
-#if defined(IS_ATOM_PROJECT)
-    /*after mic and linein all stopped, stoped the input device*/
-    if ((in->device & (AUDIO_DEVICE_IN_BUILTIN_MIC | AUDIO_DEVICE_IN_LINE)) && in->ref_count == 2) {
-        ALOGD("%s: ref_count = %d", __func__, in->ref_count);
-        return 0;
-    }
-#endif
 
     ALOGD("%s: enter: stream(%p)", __func__, stream);
     pthread_mutex_lock(&in->dev->lock);
@@ -2847,37 +2868,8 @@ static int in_set_parameters (struct audio_stream *stream, const char *kvpairs)
     ALOGD ("%s(%p, %s)", __FUNCTION__, stream, kvpairs);
     parms = str_parms_create_str (kvpairs);
 
-    ret = str_parms_get_str (parms, AUDIO_PARAMETER_STREAM_INPUT_SOURCE, value, sizeof (value) );
-
-    pthread_mutex_lock (&adev->lock);
-    pthread_mutex_lock (&in->lock);
-    if (ret >= 0) {
-        val = atoi (value);
-        /* no audio source uses val == 0 */
-        if ( (in->source != val) && (val != 0) ) {
-            in->source = val;
-            do_standby = true;
-        }
-    }
-
-    ret = str_parms_get_str (parms, AUDIO_PARAMETER_STREAM_ROUTING, value, sizeof (value) );
-    if (ret >= 0) {
-        val = atoi (value) & ~AUDIO_DEVICE_BIT_IN;
-        if ( (in->device != (unsigned)val) && (val != 0) ) {
-            in->device = val;
-            do_standby = true;
-        }
-    }
-
-    if (do_standby) {
-        do_input_standby (in);
-    }
-    pthread_mutex_unlock (&in->lock);
-    pthread_mutex_unlock (&adev->lock);
-
     int framesize = 0;
     ret = str_parms_get_int (parms, AUDIO_PARAMETER_STREAM_FRAME_COUNT, &framesize);
-
     if (ret >= 0) {
         if (framesize > 0) {
             ALOGI ("Reset audio input hw frame size from %d to %d\n",
@@ -3017,11 +3009,164 @@ static ssize_t read_frames (struct aml_stream_in *in, void *buffer, ssize_t fram
     return frames_wr;
 }
 
+#if defined(IS_ATOM_PROJECT)
+
 #define DEBUG_AEC_VERBOSE (0)
 #define DEBUG_AEC (0) // Remove after AEC is fine-tuned
 #define TIMESTAMP_LEN (8)
+#define DOWNSAMPLE_RATE (3) //from 48K to 16K.
+#define I2S_DATA_PIN (4) //i2s read 8ch i2s data from hardware, 2ch for mic, 2ch for aux
 
-static uint32_t mic_buf_print_count = 0;
+static int AEC_processing(struct aml_audio_device *adev, int32_t *input_buf, int32_t *output_buf, size_t in_byte)
+{
+    int32_t *mic_buf = input_buf;
+    int32_t *tmp_buf_32 = output_buf;
+    size_t cur_in_bytes = in_byte;
+    size_t cur_in_frames = in_byte/FRAMESIZE_32BIT_STEREO;
+    size_t out_bytes = cur_in_bytes/DOWNSAMPLE_RATE;
+    size_t out_frames = cur_in_frames/DOWNSAMPLE_RATE;
+
+    aec_timestamp spk_timestamp;
+    aec_timestamp mic_timestamp = get_timestamp();
+
+    /* harman LPF FIR filter and simple downsample from 48K->16K for mic*/
+    if (adev->pstFir_mic) {
+        Fir_calcModule(adev->pstFir_mic, mic_buf, mic_buf, cur_in_frames);
+    }
+
+    if (adev->spk_buf_size < cur_in_bytes) {
+        ALOGI("%s: realloc spk_buf size from %zu to %zu", __func__, adev->spk_buf_size, cur_in_bytes);
+        adev->spk_buf = realloc(adev->spk_buf, cur_in_bytes);
+        adev->spk_buf_size = cur_in_bytes;
+    }
+
+    int int_get_buffer_read_space = get_buffer_read_space(&adev->spk_ring_buf);
+    int time_diff = 0;
+    bool aec_print_this = false;
+    if (int_get_buffer_read_space >= (int)(cur_in_bytes + TIMESTAMP_LEN)) {
+        /* get timestamp */
+        ring_buffer_read(&adev->spk_ring_buf, (unsigned char*) spk_timestamp.tsB, TIMESTAMP_LEN);
+
+        /*get audio data from speaker ringbuffer*/
+        ring_buffer_read(&adev->spk_ring_buf, (unsigned char*)adev->spk_buf, cur_in_bytes);
+
+        if (DEBUG_AEC) {
+            ALOGI("%s: ~~~~ TS[Spk] ~~~~ ts(d): %llu, diff[spk_cadence]: %llu, diff[now - lastwr]: %llu, in_bytes = %zu",
+                __func__, spk_timestamp.timeStamp,
+                spk_timestamp.timeStamp - adev->debug_spk_buf_time_last,
+                spk_timestamp.timeStamp - adev->spk_buf_last_write_time,
+                cur_in_bytes);
+            if (adev->spk_buf_read_count++ > 10000000 ) {
+                adev->spk_buf_read_count = 0;
+            }
+        }
+        adev->debug_spk_buf_time_last = spk_timestamp.timeStamp;
+
+        int32_t *spk_buf_32 = (int32_t *)adev->spk_buf;
+        /* harman LPF FIR filter and simple downsample from 48K->16K for spk*/
+        if (adev->pstFir_spk) {
+            Fir_calcModule(adev->pstFir_spk, spk_buf_32, spk_buf_32, cur_in_frames);
+        }
+
+        time_diff = (int) (mic_timestamp.timeStamp - spk_timestamp.timeStamp);
+        /*after mic and speaker ready to get timestampe, start AEC*/
+        if (adev->spk_running == 1 && time_diff < 200000) {
+            pthread_mutex_lock(&adev->aec_spk_mic_lock);
+            int cleaned_samples_per_channel = 0;
+            if (out_frames % 512) {
+                ALOGE("%s, %zu not 512 frames align, check!",__func__,out_frames);
+                goto exit;
+            }
+            int aec_frame_div = out_frames/512; //4;
+            if (DEBUG_AEC) {
+                if (getprop_bool("media.audio_hal.aec_frame_div4")) {
+                    aec_frame_div = 4;
+                }
+            }
+
+            int aec_samples_per_channel = (int) (out_frames / aec_frame_div); // 1024 -> 512
+            int aec_data_bytes = out_bytes; // 2 samples, 4 bytes/sample; 512:4096
+            //cur_in_bytes/(3 * aec_frame_div); // 8192 bytes per 64ms
+
+            char* spk_buf_ptr = (char*) adev->spk_buf;
+            char* mic_buf_ptr = (char*) mic_buf;
+
+            for (int i = 0; i < aec_frame_div; i++) {
+                cleaned_samples_per_channel = 0;
+                aec_set_mic_buf_info(aec_samples_per_channel, mic_timestamp.timeStamp, true);
+                aec_set_spk_buf_info(aec_samples_per_channel, spk_timestamp.timeStamp, true);
+                mic_timestamp.timeStamp += 64000 / aec_frame_div; // 16ms per 256 samples/channel
+                spk_timestamp.timeStamp += 64000 / aec_frame_div; // or 32 ms per 512 samples/channel
+
+                int32_t *aec_proc_buf = aec_spk_mic_process((int32_t *)&spk_buf_ptr[aec_data_bytes * i],
+                    (int32_t *)&mic_buf_ptr[aec_data_bytes * i], &cleaned_samples_per_channel);
+
+                //When AEC is error or cleaned samples don't match input samples, ignore AEC output
+                if (aec_proc_buf && (cleaned_samples_per_channel == aec_samples_per_channel)) {
+                   //AEC output int32 stereo
+                   if (getprop_bool("media.audio_hal.aec.outdump")) {
+                        FILE *fp1 = fopen("/data/tmp/audio_aec.raw", "a+");
+                        if (fp1) {
+                            int flen = fwrite((char *)aec_proc_buf, 1, aec_data_bytes, fp1);
+                            fclose(fp1);
+                        } else {
+                            ALOGD("could not open files!");
+                        }
+                    }
+
+                    memcpy(&mic_buf_ptr[aec_data_bytes * i], (char*)aec_proc_buf, aec_data_bytes);
+                    if (DEBUG_AEC)
+                        ALOGD("i: %d, fr_div: %d, samples from AEC = %d, aec_data_bytes: %d",
+                            i, aec_frame_div, cleaned_samples_per_channel, aec_data_bytes);
+                } else {
+                    if (DEBUG_AEC)
+                        ALOGE("aec_proc_buf is null (or) cleaned_samples_per_channel: %d ",
+                            cleaned_samples_per_channel);
+                }
+            }
+            aec_print_this = true;
+            pthread_mutex_unlock(&adev->aec_spk_mic_lock);
+        } else {
+            if (DEBUG_AEC)
+                ALOGE("%s: time_diff: %d", __func__, time_diff);
+        }
+    } else {
+        if (DEBUG_AEC_VERBOSE)
+            ALOGE("%s: missed mic!", __func__);
+    }
+exit:
+    /*harman HPF filter for mic data, fc:100Hz, sr:16KHZ*/
+    Aud_HPFFilter_Process(mic_buf, out_frames);
+    Aud_Gain_Process(mic_buf, out_frames);
+
+    if (DEBUG_AEC && aec_print_this)
+        ALOGI("%s: With AEC--buffer_read_space: %d, out_frames: %d, in_frames: %d, time_diff: %d, spk_buf[read]: %llu",
+                __func__, int_get_buffer_read_space, out_frames, cur_in_frames,
+                time_diff, adev->spk_buf_read_count);
+
+    /*MIC output int32 mono*/
+    if (adev->mic_in->hal_channel_mask == AUDIO_CHANNEL_IN_FRONT) {
+        for (size_t i = 0; i < out_frames; i++) {
+            tmp_buf_32[i] = (mic_buf[2*i] + mic_buf[2*i + 1]);
+        }
+    } else {
+        memcpy(tmp_buf_32, mic_buf, out_frames);
+    }
+
+    if (getprop_bool("media.audio_hal.aec.outdump")) {
+        FILE *fp1 = fopen("/data/tmp/audio_aechpf.raw", "a+");
+        if (fp1) {
+            int flen = fwrite((char *)tmp_buf_32, 1, out_bytes, fp1);
+            fclose(fp1);
+        } else {
+            ALOGD("could not open files!");
+        }
+    }
+
+    return 0;
+}
+#endif
+
 
 static ssize_t in_read(struct audio_stream_in *stream, void* buffer, size_t bytes)
 {
@@ -3030,15 +3175,13 @@ static ssize_t in_read(struct audio_stream_in *stream, void* buffer, size_t byte
     struct aml_audio_parser *parser = adev->aml_parser;
     int channel_count = audio_channel_count_from_in_mask(in->hal_channel_mask);
     size_t in_frames = bytes / audio_stream_in_frame_size(&in->stream);
-    size_t cur_in_bytes, cur_in_frames;
-    int ret, in_mute = 0, parental_mute = 0;
+    int ret = 0, in_mute = 0, parental_mute = 0;
 
     /* acquiring hw device mutex systematically is useful if a low priority thread is waiting
      * on the input stream mutex - e.g. executing select_mode() while holding the hw device
      * mutex
      */
     pthread_mutex_lock(&in->lock);
-
     if (in->standby) {
         ret = start_input_stream(in);
         if (ret < 0)
@@ -3087,192 +3230,88 @@ static ssize_t in_read(struct audio_stream_in *stream, void* buffer, size_t byte
 
 #if defined(IS_ATOM_PROJECT)
     if (in->device & (AUDIO_DEVICE_IN_BUILTIN_MIC | AUDIO_DEVICE_IN_LINE)) {
+        pthread_mutex_lock(&adev->aux_mic_lock);
         if ((in->device & AUDIO_DEVICE_IN_BUILTIN_MIC) && !adev->mic_running) {
             adev->mic_running = 1;
             if(!adev->pstFir_mic)
                 Fir_initModule(&adev->pstFir_mic);
         }
-
-        cur_in_bytes = in->requested_rate == 16000 ?
-            3 * FRAMESIZE_32BIT_STEREO * in_frames : FRAMESIZE_32BIT_STEREO * in_frames;
-        cur_in_frames = in->requested_rate == 16000 ? 3 * in_frames : in_frames;
-
-        if (!in->aux_buf || in->aux_buf_size < cur_in_bytes) {
-            ALOGI("%s: realloc aux_buf size from %zu to %zu", __func__, in->aux_buf_size, cur_in_bytes);
-            in->aux_buf = realloc(in->aux_buf, cur_in_bytes);
-            in->aux_buf_size = cur_in_bytes;
-        }
-        if (!in->mic_buf || in->mic_buf_size < cur_in_bytes) {
-            ALOGI("%s: realloc mic_buf size from %zu to %zu", __func__, in->mic_buf_size, cur_in_bytes);
-            in->mic_buf = realloc(in->mic_buf, cur_in_bytes);
-            in->mic_buf_size = cur_in_bytes;
-        }
-        if (!in->tmp_buffer_8ch || in->tmp_buffer_8ch_size < 4 * cur_in_bytes) {
-            ALOGI("%s: realloc tmp_buffer_8ch size from %zu to %zu", __func__, in->tmp_buffer_8ch_size, 4 * cur_in_bytes);
-            in->tmp_buffer_8ch = realloc(in->tmp_buffer_8ch, 4 * cur_in_bytes);
-            in->tmp_buffer_8ch_size = 4 * cur_in_bytes;
+        if ((in->device & AUDIO_DEVICE_IN_LINE) && !adev->aux_running) {
+            adev->aux_running = 1;
+            if (!adev->mic_ring_buf.start_addr)
+                ring_buffer_init(&adev->mic_ring_buf, 4 * DOWNSAMPLE_RATE * bytes);
+            else
+                ring_buffer_reset(&adev->mic_ring_buf);
         }
 
-        ret = pcm_read(in->pcm, in->tmp_buffer_8ch, 4 * cur_in_bytes);
-        if (ret < 0)
-            goto exit;
-
-        /*separate aux data in channel 0/1 and mic data in channel 6/7*/
-        int32_t *aux_buf = (int32_t *)in->aux_buf;
-        int32_t *mic_buf = (int32_t *)in->mic_buf;
-        int32_t *tmp_buffer_8ch = (int32_t *)in->tmp_buffer_8ch;
-        int16_t *tmp_buf_16 = (int16_t *)buffer;
-        int32_t *tmp_buf_32 = (int32_t *)buffer;
-        for (size_t i = 0; i < cur_in_frames; i++) {
-            if (in->device & AUDIO_DEVICE_IN_LINE) {
-                aux_buf[2 * i] = tmp_buffer_8ch[8 * i];
-                aux_buf[2 * i + 1] = tmp_buffer_8ch[8 * i + 1];
-            }
-            if (in->device & AUDIO_DEVICE_IN_BUILTIN_MIC) {
-                mic_buf[2 * i] = tmp_buffer_8ch[8 * i + 6];
-                mic_buf[2 * i + 1] = tmp_buffer_8ch[8 * i + 7];
-            }
+        if (!adev->input_tmp_buf || adev->input_tmp_buf_size < I2S_DATA_PIN * bytes) {
+            ALOGI("%s: realloc adev->input_tmp_buf size from %zu to %zu",
+                    __func__, adev->input_tmp_buf_size, I2S_DATA_PIN * bytes);
+            adev->input_tmp_buf = realloc(adev->input_tmp_buf, I2S_DATA_PIN * bytes);
+            adev->input_tmp_buf_size = I2S_DATA_PIN * bytes;
+        }
+        /*mic buffer size is 3 times of period size: hal need downsample from 48K->16K*/
+        if (!adev->mic_buf || adev->mic_buf_size < DOWNSAMPLE_RATE * bytes) {
+            ALOGI("%s: realloc adev->mic_buf size from %zu to %zu",
+                    __func__, adev->mic_buf_size, DOWNSAMPLE_RATE * bytes);
+            adev->mic_buf = realloc(adev->mic_buf, DOWNSAMPLE_RATE * bytes);
+            adev->mic_buf_size = DOWNSAMPLE_RATE * bytes;
         }
 
-        /*Mic & AEC processing*/
-        if (in->device & AUDIO_DEVICE_IN_BUILTIN_MIC) {
-
-            aec_timestamp spk_timestamp;
-            aec_timestamp mic_timestamp = get_timestamp();
-
-            /* harman LPF FIR filter and simple downsample from 48K->16K for mic*/
-            if (adev->pstFir_mic) {
-                Fir_calcModule(adev->pstFir_mic, mic_buf, mic_buf, cur_in_frames);
+        int32_t *tmp_buffer_8ch = (int32_t *)adev->input_tmp_buf;
+        int32_t *mic_buf = (int32_t *)adev->mic_buf;
+        int32_t *tmp_buf_out = (int32_t *)buffer;
+        if (in->device & AUDIO_DEVICE_IN_LINE && adev->aux_running == 1) {
+            ret = pcm_read(in->pcm, adev->input_tmp_buf, I2S_DATA_PIN * bytes);
+            if (ret < 0) {
+                pthread_mutex_unlock(&adev->aux_mic_lock);
+                goto exit;
             }
-
-            if (adev->spk_buf_size < cur_in_bytes) {
-                ALOGI("%s: realloc spk_buf size from %zu to %zu", __func__, adev->spk_buf_size, cur_in_bytes);
-                adev->spk_buf = realloc(adev->spk_buf, cur_in_bytes);
-                adev->spk_buf_size = cur_in_bytes;
-            }
-
-            int int_get_buffer_read_space = get_buffer_read_space(&adev->spk_ring_buf);
-            int time_diff = 0;
-            bool aec_print_this = false;
-            if (int_get_buffer_read_space >= (int)(cur_in_bytes + TIMESTAMP_LEN)) {
-                /* get timestamp */
-                ring_buffer_read(&adev->spk_ring_buf, (unsigned char*) spk_timestamp.tsB, TIMESTAMP_LEN);
-
-                /*get audio data from speaker ringbuffer*/
-                ring_buffer_read(&adev->spk_ring_buf, (unsigned char*)adev->spk_buf, cur_in_bytes);
-
-                if (DEBUG_AEC) {
-                    ALOGI("%s: ---- TS[Spk] ---- ts(d): %llu, diff[spk_cadence]: %llu, diff[now - lastwr]: %llu",
-                        __func__, spk_timestamp.timeStamp,
-                        spk_timestamp.timeStamp - adev->debug_spk_buf_time_last,
-                        spk_timestamp.timeStamp - adev->spk_buf_last_write_time);
-                    if (adev->spk_buf_read_count++ > 10000000 ) {
-                        adev->spk_buf_read_count = 0;
-                    }
+            /*separate aux data in channel 0/1 and mic data in channel 6/7*/
+            for (size_t i = 0; i < in_frames; i++) {
+                /*if aux is running, directly copy data to output buffer for low latency*/
+                *tmp_buf_out++ = tmp_buffer_8ch[8 * i];
+                *tmp_buf_out++ = tmp_buffer_8ch[8 * i + 1];
+                if (adev->mic_running == 1) {
+                    *mic_buf++ = tmp_buffer_8ch[8 * i + 6];
+                    *mic_buf++ = tmp_buffer_8ch[8 * i + 7];
                 }
-                adev->debug_spk_buf_time_last = spk_timestamp.timeStamp;
-
-                int32_t *spk_buf_32 = (int32_t *)adev->spk_buf;
-                /* harman LPF FIR filter and simple downsample from 48K->16K for spk*/
-                if (adev->pstFir_spk) {
-                    Fir_calcModule(adev->pstFir_spk, spk_buf_32, spk_buf_32, cur_in_frames);
-                }
-
-                time_diff = (int) (mic_timestamp.timeStamp - spk_timestamp.timeStamp);
-                /*after mic and speaker ready to get timestampe, start AEC*/
-                if (adev->spk_running == 1 && time_diff < 200000) {
-                    pthread_mutex_lock(&adev->aec_spk_mic_lock);
-                    int cleaned_samples_per_channel = 0;
-                    int aec_frame_div = 2; //4;
-                    if (DEBUG_AEC) {
-                        if (getprop_bool("media.audio_hal.aec_frame_div4")) {
-                            aec_frame_div = 4;
-                        }
+            }
+            if (adev->mic_running == 1) {
+                ring_buffer_write(&adev->mic_ring_buf, (unsigned char*)adev->mic_buf,
+                    bytes, UNCOVER_WRITE);
+            }
+        }
+        if (in->device & AUDIO_DEVICE_IN_BUILTIN_MIC && adev->mic_running == 1) {
+            /*if aux isn't running, directly copy data from device then do resample and aec*/
+            if (adev->aux_running == 0) {
+                mic_buf = (int32_t *)adev->mic_buf;
+                for (size_t j = 0; j < DOWNSAMPLE_RATE; j++) {
+                    ret = pcm_read(in->pcm, adev->input_tmp_buf, 4 * bytes);
+                    if (ret < 0) {
+                        pthread_mutex_unlock(&adev->aux_mic_lock);
+                        goto exit;
                     }
-
-                    int aec_samples_per_channel = (int) cur_in_frames/(3 * aec_frame_div); //3072/6 -> 512
-                    int aec_data_bytes = aec_samples_per_channel * 8; // 2 samples, 4 bytes/sample; 512:4096
-                    //cur_in_bytes/(3 * aec_frame_div); // 8192 bytes per 64ms
-
-                    char* spk_buf_ptr = (char*) adev->spk_buf;
-                    char* mic_buf_ptr = (char*) mic_buf;
-
-                    for (int i = 0; i < aec_frame_div; i++) {
-                        cleaned_samples_per_channel = 0;
-                        aec_set_mic_buf_info(aec_samples_per_channel, mic_timestamp.timeStamp, true);
-                        aec_set_spk_buf_info(aec_samples_per_channel, spk_timestamp.timeStamp, true);
-                        mic_timestamp.timeStamp += 64000 / aec_frame_div; // 16ms per 256 samples/channel
-                        spk_timestamp.timeStamp += 64000 / aec_frame_div; // or 32 ms per 512 samples/channel
-
-                        //pthread_mutex_lock(&adev->aec_spk_buf_lock);
-                        int32_t *aec_proc_buf = aec_spk_mic_process((int32_t *)&spk_buf_ptr[aec_data_bytes * i],
-                            (int32_t *)&mic_buf_ptr[aec_data_bytes * i], &cleaned_samples_per_channel);
-                        //pthread_mutex_unlock(&adev->aec_spk_buf_lock);
-
-                        //When AEC is error or cleaned samples don't match input samples, ignore AEC output
-                        if (aec_proc_buf && (cleaned_samples_per_channel == aec_samples_per_channel)) {
-                            //AEC output int32 stereo
-                           if (getprop_bool("media.audio_hal.aec.outdump")) {
-                                FILE *fp1 = fopen("/data/tmp/audio_aec.raw", "a+");
-                                if (fp1) {
-                                    int flen = fwrite((char *)aec_proc_buf, 1, aec_data_bytes, fp1);
-                                    fclose(fp1);
-                                } else {
-                                    ALOGD("could not open files!");
-                                }
-                            }
-
-                            memcpy(&mic_buf_ptr[aec_data_bytes * i], (char*)aec_proc_buf, aec_data_bytes);
-                            if (DEBUG_AEC)
-                                ALOGD("i: %d, fr_div: %d, samples from AEC = %d, aec_data_bytes: %d",
-                                    i, aec_frame_div, cleaned_samples_per_channel, aec_data_bytes);
-                        } else {
-                            if (DEBUG_AEC)
-                                ALOGE("aec_proc_buf is null (or) cleaned_samples_per_channel: %d ",
-                                    cleaned_samples_per_channel);
-                        }
+                    for (size_t i = 0; i < in_frames; i++) {
+                        *mic_buf++ = tmp_buffer_8ch[8 * i + 6];
+                        *mic_buf++ = tmp_buffer_8ch[8 * i + 7];
                     }
-                    aec_print_this = true;
-                    pthread_mutex_unlock(&adev->aec_spk_mic_lock);
-                } else {
-                    if (DEBUG_AEC)
-                        ALOGE("%s: time_diff: %d", __func__, time_diff);
                 }
             } else {
-                if (DEBUG_AEC_VERBOSE)
-                    ALOGE("%s: missed mic!", __func__);
-            }
-
-            /*harman HPF filter for mic data, fc:100Hz, sr:16KHZ*/
-            Aud_HPFFilter_Process(mic_buf, cur_in_frames/3);
-            Aud_Gain_Process(mic_buf, cur_in_frames/3);
-
-            if (DEBUG_AEC && aec_print_this)
-                ALOGI("%s: With AEC--buffer_read_space: %d, cur_in_bytes/3: %d, bytes: %d, in_frames: %d, cur_in_frames: %d, time_diff: %d, spk_buf[read]: %llu",
-                  __func__, int_get_buffer_read_space, cur_in_bytes/3, bytes, in_frames, cur_in_frames,
-                   time_diff, adev->spk_buf_read_count);
-
-            /*MIC output int32 stereo/mono???*/
-            if (channel_count == 1) {
-                for (size_t i = 0; i < cur_in_frames / 3; i++) {
-                    tmp_buf_32[i] = (mic_buf[2*i] + mic_buf[2*i + 1]);
-                }
-            } else {
-                memcpy(tmp_buf_32, mic_buf, cur_in_bytes / 3);
-            }
-
-            if (getprop_bool("media.audio_hal.aec.outdump")) {
-                FILE *fp1 = fopen("/data/tmp/audio_aechpf.raw", "a+");
-                if (fp1) {
-                    int flen = fwrite((char *)buffer, 1, bytes, fp1);
-                    fclose(fp1);
-                } else {
-                    ALOGD("could not open files!");
+                /*if aux is running, copy data from mic ring buffer*/
+                mic_buf = (int32_t *)adev->mic_buf;
+                ret = ring_buffer_read(&adev->mic_ring_buf, (unsigned char*)mic_buf, DOWNSAMPLE_RATE * bytes);
+                if (ret < 0) {
+                    ALOGE("%s(), read mic data error!", __func__);
+                    pthread_mutex_unlock(&adev->aux_mic_lock);
+                    goto exit;
                 }
             }
-        } else {/*Aux processing, directly copy aux data to audio patch*/
-            memcpy(tmp_buf_32, aux_buf, cur_in_frames * FRAMESIZE_32BIT_STEREO);
+            /*Mic & AEC processing*/
+            AEC_processing(adev, (int32_t *)adev->mic_buf, tmp_buf_out, DOWNSAMPLE_RATE * bytes);
         }
+        pthread_mutex_unlock(&adev->aux_mic_lock);
+
     } else
 #endif
     {
@@ -3339,22 +3378,12 @@ static ssize_t in_read(struct audio_stream_in *stream, void* buffer, size_t byte
 #endif
 
 exit:
+    pthread_mutex_unlock(&in->lock);
     if (ret < 0) {
         ALOGE("%s: read failed - sleeping for buffer duration", __func__);
         usleep(bytes * 1000000 / audio_stream_in_frame_size(stream) /
                 in_get_sample_rate(&stream->common));
     }
-    pthread_mutex_unlock(&in->lock);
-
-#if defined(IS_ATOM_PROJECT)
-    if ((in->device & AUDIO_DEVICE_IN_LINE) && in->ref_count == 2) {
-        in->aux_buf_write_bytes = cur_in_bytes;
-        if (parental_mute)
-            memset(in->aux_buf, 0, in->aux_buf_write_bytes);
-        pthread_cond_signal(&in->aux_mic_cond);
-    }
-#endif
-
     return bytes;
 }
 
@@ -4272,15 +4301,13 @@ static size_t adev_get_input_buffer_size(const struct audio_hw_device *dev __unu
     ALOGD("%s: enter: channel_mask(%#x) rate(%d) format(%#x)", __func__,
         config->channel_mask, config->sample_rate, config->format);
 
-    if (check_input_parameters(config->sample_rate, config->format, channel_count) < 0)
-        return -EINVAL;
-
     size = get_input_buffer_size(config->frame_count, config->sample_rate, config->format, channel_count);
 
     ALOGD("%s: exit: buffer_size = %zu", __func__, size);
 
     return size;
 }
+
 #if (ENABLE_NANO_PATCH == 1)
 static int adev_open_input_stream(struct audio_hw_device *dev,
                                 audio_io_handle_t handle __unused,
@@ -4304,31 +4331,16 @@ static int adev_open_input_stream(struct audio_hw_device *dev,
     struct aml_audio_device *adev = (struct aml_audio_device *)dev;
     struct aml_stream_in *in;
     int channel_count = audio_channel_count_from_in_mask(config->channel_mask);
-    audio_devices_t aux_mic_devce = devices & ~AUDIO_DEVICE_BIT_IN & (AUDIO_DEVICE_IN_BUILTIN_MIC | AUDIO_DEVICE_IN_LINE);
     int ret;
 
     ALOGD("%s: enter: devices(%#x) channel_mask(%#x) rate(%d) format(%#x)", __func__,
         devices, config->channel_mask, config->sample_rate, config->format);
 
-    if (check_input_parameters(config->sample_rate, config->format, channel_count) < 0)
+    if (check_input_parameters(config, channel_count) < 0) {
         return -EINVAL;
-
-    if (channel_count == 1)
-        // in fact, this value should be AUDIO_CHANNEL_OUT_BACK_LEFT(16u) according to VTS codes,
-        // but the macroname can be confusing, so I'd like to set this value to
-        // AUDIO_CHANNEL_IN_FRONT(16u) instead of AUDIO_CHANNEL_OUT_BACK_LEFT.
-        config->channel_mask = AUDIO_CHANNEL_IN_FRONT;
-    else
-        config->channel_mask = AUDIO_CHANNEL_IN_STEREO;
+    }
 
     pthread_mutex_lock (&adev->lock);
-#if defined(IS_ATOM_PROJECT)
-    if (aux_mic_devce && adev->aux_mic_in != NULL) {
-        in = adev->aux_mic_in;
-        goto exit;
-    }
-#endif
-
     in = (struct aml_stream_in *)calloc(1, sizeof(struct aml_stream_in));
     if (!in) {
         pthread_mutex_unlock (&adev->lock);
@@ -4371,6 +4383,7 @@ static int adev_open_input_stream(struct audio_hw_device *dev,
         config->channel_mask = AUDIO_CHANNEL_IN_MONO;
     } else
         memcpy(&in->config, &pcm_config_in, sizeof(pcm_config_in));
+
     in->config.channels = channel_count;
     switch (config->format) {
         case AUDIO_FORMAT_PCM_16_BIT:
@@ -4390,6 +4403,52 @@ static int adev_open_input_stream(struct audio_hw_device *dev,
     }
     memset(in->buffer, 0, in->config.period_size * audio_stream_in_frame_size(&in->stream));
 
+#if defined(IS_ATOM_PROJECT)
+    pthread_mutex_lock(&adev->aux_mic_lock);
+    audio_devices_t aux_mic_device = devices & ~AUDIO_DEVICE_BIT_IN & (AUDIO_DEVICE_IN_BUILTIN_MIC | AUDIO_DEVICE_IN_LINE);
+    if (aux_mic_device) {
+        in->config.channels = 8;
+        in->config.format = PCM_FORMAT_S32_LE;
+        /*Do simple resampling*/
+        in->requested_rate = in->config.rate;
+        in->hal_channel_mask = AUDIO_CHANNEL_IN_STEREO;
+        in->hal_format = AUDIO_FORMAT_PCM_32_BIT;
+        if (aux_mic_device & AUDIO_DEVICE_IN_BUILTIN_MIC) {
+            if (config->sample_rate != 16000) {
+                ALOGE("Mic only supports 16000Hz on Atom!\n");
+                config->sample_rate = 16000;
+                pthread_mutex_unlock(&adev->aux_mic_lock);
+                ret = -EINVAL;
+                goto err;
+            }
+            pthread_mutex_lock(&adev->aec_spk_mic_lock);
+            aec_spk_mic_init(16000, 2, 2);
+            pthread_mutex_unlock(&adev->aec_spk_mic_lock);
+            if (!adev->spk_ring_buf.start_addr)
+                /* 32*20ms */
+                ring_buffer_init(&adev->spk_ring_buf,
+                    8 * PLAYBACK_PERIOD_COUNT *
+                    ((2 * TIMESTAMP_LEN) + FRAMESIZE_32BIT_STEREO * DEFAULT_PLAYBACK_PERIOD_SIZE));
+            else
+                ring_buffer_reset(&adev->spk_ring_buf);
+            adev->mic_in = in;
+        } else {
+            if (config->sample_rate != DEFAULT_OUT_SAMPLING_RATE) {
+                ALOGE("Aux only supports 4800Hz on Atom!\n");
+                config->sample_rate = 48000;
+                pthread_mutex_unlock(&adev->aux_mic_lock);
+                ret = -EINVAL;
+                goto err;
+            }
+            adev->aux_in = in;
+        }
+        adev->aux_mic_device |= in->device;
+        ALOGD("start input stream, in->device = %x, adev->aux_mic_device = %x\n",
+                in->device, adev->aux_mic_device);
+    }
+    pthread_mutex_unlock(&adev->aux_mic_lock);
+#endif
+
     if (!(in->device & AUDIO_DEVICE_IN_WIRED_HEADSET) && in->requested_rate != in->config.rate) {
         ALOGD("%s: in->requested_rate = %d, in->config.rate = %d",
             __func__, in->requested_rate, in->config.rate);
@@ -4403,45 +4462,6 @@ static int adev_open_input_stream(struct audio_hw_device *dev,
             goto err;
         }
     }
-
-
-#if defined(IS_ATOM_PROJECT)
-exit:
-    pthread_mutex_lock(&in->lock);
-    if (aux_mic_devce) {
-        if (in->ref_count == 0) {
-            in->config.channels = 8;
-            in->config.format = PCM_FORMAT_S32_LE;
-            adev->aux_mic_in = in;
-        }
-        if (aux_mic_devce & AUDIO_DEVICE_IN_BUILTIN_MIC) {
-            pthread_mutex_lock(&adev->aec_spk_mic_lock);
-            aec_spk_mic_init(16000, 2, 2);
-            pthread_mutex_unlock(&adev->aec_spk_mic_lock);
-            if (!adev->spk_ring_buf.start_addr)
-                /* 32*20ms */
-                ring_buffer_init(&adev->spk_ring_buf,
-                    8 * PLAYBACK_PERIOD_COUNT *
-                    ((2 * TIMESTAMP_LEN) + FRAMESIZE_32BIT_STEREO * DEFAULT_PLAYBACK_PERIOD_SIZE));
-            else
-                ring_buffer_reset(&adev->spk_ring_buf);
-            if (in->ref_count > 0) {
-                ALOGI("%s reusing aux_mic_in %p ref count %d", __FUNCTION__, in, in->ref_count);
-                in->requested_rate = config->sample_rate;
-                in->hal_channel_mask = config->channel_mask;
-                in->hal_format = config->format;
-            }
-            set_audio_source(&adev->alsa_mixer, LINEIN);
-            in->device |= (aux_mic_devce & AUDIO_DEVICE_IN_BUILTIN_MIC);
-        } else {
-            in->device |= (aux_mic_devce & AUDIO_DEVICE_IN_LINE);
-        }
-        /*count the input streams*/
-        in->ref_count++;
-        ALOGD("start input stream num = %d, in->device = %x\n", in->ref_count, in->device);
-    }
-    pthread_mutex_unlock(&in->lock);
-#endif
 
 #if (ENABLE_NANO_PATCH == 1)
 /*[SEN5-autumn.zhao-2018-01-11] add for B06 audio support { */
@@ -4506,11 +4526,8 @@ static void adev_close_input_stream(struct audio_hw_device *dev,
     pthread_mutex_lock(&in->lock);
 #if defined(IS_ATOM_PROJECT)
     /*when all input streams are stoped, release buffer*/
-    audio_devices_t aux_mic_devce = in->device & ~AUDIO_DEVICE_BIT_IN & (AUDIO_DEVICE_IN_BUILTIN_MIC | AUDIO_DEVICE_IN_LINE);
-    if (aux_mic_devce) {
-        in->ref_count--;
-        ALOGD("stop input stream num = %d, in->device = %u\n", in->ref_count, in->device);
-        if (in->ref_count == 0 && (aux_mic_devce & AUDIO_DEVICE_IN_BUILTIN_MIC)) {
+    if (in->device & (AUDIO_DEVICE_IN_BUILTIN_MIC | AUDIO_DEVICE_IN_LINE)) {
+        if (in->device & AUDIO_DEVICE_IN_BUILTIN_MIC) {
             adev->mic_running = 0;
             adev->spk_running = 0;
             adev->spk_write_bytes = 0;
@@ -4528,14 +4545,8 @@ static void adev_close_input_stream(struct audio_hw_device *dev,
             adev->spk_buf = NULL;
             if (adev->spk_ring_buf.start_addr)
                 ring_buffer_release(&adev->spk_ring_buf);
-            if (adev->aux_mic_in == in)
-                adev->aux_mic_in = NULL;
-            free(in->tmp_buffer_8ch);
-            in->tmp_buffer_8ch = NULL;
-            free(in->mic_buf);
-            in->mic_buf = NULL;
-            free(in->aux_buf);
-            in->aux_buf = NULL;
+            if (adev->mic_in == in)
+                adev->mic_in = NULL;
             if (adev->pstFir_spk) {
                 Fir_endModule(adev->pstFir_spk);
                 adev->pstFir_spk = NULL;
@@ -4544,12 +4555,19 @@ static void adev_close_input_stream(struct audio_hw_device *dev,
                 Fir_endModule(adev->pstFir_mic);
                 adev->pstFir_mic = NULL;
             }
-        } else {
-            ALOGD("%s: exit", __func__);
-            pthread_mutex_unlock(&in->lock);
-            pthread_mutex_unlock(&adev->lock);
-            return;
+        } else if (in->device & AUDIO_DEVICE_IN_LINE) {
+            adev->aux_running = 0;
         }
+
+        pthread_mutex_lock(&adev->aux_mic_lock);
+        adev->aux_mic_device &= ~in->device;
+        pthread_mutex_unlock(&adev->aux_mic_lock);
+
+        if (adev->aux_mic_device == 0) {
+            adev->aux_mic_pcm == NULL;
+        }
+        ALOGD("close input stream, in->device = %x, adev->aux_mic_device = %x, adev->aux_mic_pcm = %p\n",
+            in->device, adev->aux_mic_device, adev->aux_mic_pcm);
     }
 #endif
     if (in->resampler) {
@@ -4557,7 +4575,7 @@ static void adev_close_input_stream(struct audio_hw_device *dev,
         in->resampler = NULL;
     }
     free(in->buffer);
-    pthread_mutex_unlock (&in->lock);
+    pthread_mutex_unlock(&in->lock);
     pthread_mutex_unlock(&adev->lock);
     free(stream);
     ALOGD("%s: exit", __func__);
@@ -4782,7 +4800,8 @@ static aec_timestamp get_timestamp(void) {
 }
 
 #if defined(IS_ATOM_PROJECT)
-    int get_atom_stream_type(size_t frames) {
+
+int get_atom_stream_type(size_t frames) {
     int type = STREAM_ANDROID;
     switch (frames) {
         case 1024:
@@ -4798,12 +4817,12 @@ static aec_timestamp get_timestamp(void) {
 }
 
 void atom_speaker_buffer_reset(struct aml_audio_device *adev) {
+    pthread_mutex_lock(&adev->aec_spk_mic_lock);
     adev->spk_buf_write_count = 0;
     adev->spk_buf_read_count = 0;
     adev->extra_write_bytes = 0;
     adev->debug_spk_buf_time_last = 0;
     ring_buffer_reset(&adev->spk_ring_buf);
-    pthread_mutex_lock(&adev->aec_spk_mic_lock);
     aec_spk_mic_reset();
     pthread_mutex_unlock(&adev->aec_spk_mic_lock);
 }
@@ -4916,6 +4935,14 @@ void atom_pack_speaker_ring_buffer(struct aml_audio_device *adev, size_t bytes) 
     }
 }
 
+void right_shift(int32_t *input, int bytes, int bit)
+{
+    unsigned int i = 0;
+    for (i = 0; i < bytes/sizeof(int32_t); i++) {
+        input[i] = input[i] >> bit;
+    }
+}
+
 int dsp_process_output(struct aml_audio_device *adev, void *in_buffer,
         size_t bytes)
 {
@@ -4923,10 +4950,6 @@ int dsp_process_output(struct aml_audio_device *adev, void *in_buffer,
     size_t out_frames = bytes / FRAMESIZE_32BIT_STEREO;
     int32_t *input32 = (int32_t *)in_buffer;
     uint i = 0;
-
-    for (i = 0; i < bytes/sizeof(int32_t); i++) {
-        input32[i] = input32[i] >> 3;
-    }
 
     /*malloc dsp buffer*/
     if (adev->dsp_frames < out_frames) {
@@ -4957,8 +4980,6 @@ int dsp_process_output(struct aml_audio_device *adev, void *in_buffer,
         Fir_initModule(&adev->pstFir_spk);
 
     if (adev->mic_running) {
-        //pthread_mutex_lock(&adev->aec_spk_buf_lock);
-
         /*copy the speaker playout data to speaker ringbuffer*/
         if (adev->spk_write_bytes != (size_t)(FRAMESIZE_32BIT_STEREO * out_frames))
             adev->spk_write_bytes = FRAMESIZE_32BIT_STEREO * out_frames;
@@ -4975,8 +4996,8 @@ int dsp_process_output(struct aml_audio_device *adev, void *in_buffer,
                ALOGI("[%s]: Warning: spk_ring_buf overflow, write_bytes = TIMESTAMP_BYTE + %zu",
                     __func__, FRAMESIZE_32BIT_STEREO * out_frames + (2 * TIMESTAMP_LEN));
            }
-           // Reset buffers
-           atom_speaker_buffer_reset(adev);
+           // Reset buffers, no need reset aec
+           ring_buffer_reset(&adev->spk_ring_buf);
         } else {
             if (adev->has_dsp_lib) {
                 if (adev->spk_buf_size != 0) {
@@ -4991,7 +5012,6 @@ int dsp_process_output(struct aml_audio_device *adev, void *in_buffer,
             ALOGW("%s: buffer_write_space: %d, out_frames: %d, extra_write_bytes: %d",
                 __func__, int_get_buffer_write_space, out_frames, adev->extra_write_bytes);
         }
-        //pthread_mutex_unlock(&adev->aec_spk_buf_lock);
     }
 
     return 0;
@@ -5045,101 +5065,15 @@ ssize_t audio_hal_data_processing(struct audio_stream_out *stream,
         apply_volume(gain_speaker, tmp_buffer, sizeof(uint32_t), bytes);
 
 #if defined(IS_ATOM_PROJECT)
+        int32_t *out_buffer;
         if (adev->has_dsp_lib) {
             /* right shift 3bit for PCM, dsp will compensate.*/
             if (aml_out->hal_internal_format != AUDIO_FORMAT_AC3 &&
                    aml_out->hal_internal_format != AUDIO_FORMAT_E_AC3) {
                 int32_t *input32 = (int32_t *)tmp_buffer;
-                for (i = 0; i < bytes/sizeof(int32_t); i++) {
-                    input32[i] = input32[i] >> 3;
-                }
+                right_shift(input32, bytes, 3);
             }
-            /*malloc dsp buffer*/
-            if (adev->dsp_frames < out_frames) {
-                pthread_mutex_lock(&adev->dsp_processing_lock);
-                dsp_realloc_buffer(&adev->dsp_in_buf, &adev->dsp_out_buf, &adev->aec_buf, out_frames);
-                pthread_mutex_unlock(&adev->dsp_processing_lock);
-                adev->dsp_frames = out_frames;
-                ALOGI("%s: dsp_buf = %p, effect_buffer = %p, aec_buffer = %p", __func__,
-                    adev->dsp_in_buf, adev->dsp_out_buf, adev->aec_buf);
-            }
-            pthread_mutex_lock(&adev->dsp_processing_lock);
-            int32_t *dsp_in_buf = (int32_t *)adev->dsp_in_buf;
-
-            /*map 2 channel data to 2.1 channel*/
-            for (i = 0; i < out_frames; i++) {
-                dsp_in_buf[3 * i] = tmp_buffer[2 * i];
-                dsp_in_buf[3 * i + 1] = tmp_buffer[2 * i + 1];
-                dsp_in_buf[3 * i + 2] = 0;
-            }
-
-            if (getprop_bool("media.audio_hal.outdump")) {
-                FILE *fp1 = fopen("/data/tmp/audio_out_3ch.raw", "a+");
-                if (fp1) {
-                    int flen = fwrite((char *)dsp_in_buf, 1,
-                            FRAMESIZE_32BIT_3ch * out_frames, fp1);
-                    fclose(fp1);
-                } else {
-                    ALOGD("could not open files!");
-                }
-            }
-
-            harman_dsp_process(adev->dsp_in_buf, adev->dsp_out_buf, adev->aec_buf, out_frames);
-
-            if (getprop_bool("media.audio_hal.outdump")) {
-                FILE *fp1 = fopen("/data/tmp/audio_out_5ch.raw", "a+");
-                if (fp1) {
-                    int flen = fwrite((char *)adev->dsp_out_buf, 1,
-                            FRAMESIZE_32BIT_5ch * out_frames, fp1);
-                    fclose(fp1);
-                } else {
-                    ALOGD("could not open files!");
-                }
-            }
-
-            pthread_mutex_unlock(&adev->dsp_processing_lock);
-
-            /* when aec is ready, init fir filter*/
-            if(!adev->pstFir_spk)
-                Fir_initModule(&adev->pstFir_spk);
-        }
-        if (adev->mic_running) {
-            //pthread_mutex_lock(&adev->aec_spk_buf_lock);
-
-            /*copy the speaker playout data to speaker ringbuffer*/
-            if (adev->spk_write_bytes != (size_t)(FRAMESIZE_32BIT_STEREO * out_frames))
-                adev->spk_write_bytes = FRAMESIZE_32BIT_STEREO * out_frames;
-
-            if (adev->spk_running == 0) {
-                adev->spk_running = 1;
-            }
-
-            /*TODO: when overflow, how to do??*/
-            int int_get_buffer_write_space = get_buffer_write_space(&adev->spk_ring_buf);
-            if (int_get_buffer_write_space <
-               (int)((FRAMESIZE_32BIT_STEREO * out_frames) + (2 * TIMESTAMP_LEN))) {
-               if (DEBUG_AEC) {
-                   ALOGI("[%s]: Warning: spk_ring_buf overflow, write_bytes = TIMESTAMP_BYTE + %zu",
-                        __func__, FRAMESIZE_32BIT_STEREO * out_frames + (2 * TIMESTAMP_LEN));
-               }
-               // Reset buffers
-               atom_speaker_buffer_reset(adev);
-            } else {
-                if (adev->has_dsp_lib) {
-                    if (adev->spk_buf_size != 0) {
-                        atom_pack_speaker_ring_buffer(adev, bytes);
-                    }
-                } else
-                    ring_buffer_write(&adev->spk_ring_buf, (unsigned char*)buffer,
-                            FRAMESIZE_32BIT_STEREO * out_frames, UNCOVER_WRITE);
-            }
-
-            if (DEBUG_AEC) {
-                ALOGW("%s: buffer_write_space: %d, out_frames: %d, extra_write_bytes: %d",
-                    __func__, int_get_buffer_write_space, out_frames, adev->extra_write_bytes);
-            }
-
-            //pthread_mutex_unlock(&adev->aec_spk_buf_lock);
+            dsp_process_output(adev, tmp_buffer, bytes);
         }
 #endif
         /* 2 ch 32 bit --> 8 ch 32 bit mapping, need 8X size of input buffer size */
@@ -6128,19 +6062,7 @@ static void *audio_patch_input_threadloop(void *data)
     }
 
     in = (struct aml_stream_in *)stream_in;
-#if defined(IS_ATOM_PROJECT)
-    if (in->device & AUDIO_DEVICE_IN_LINE) {
-        pthread_mutex_init(&in->aux_mic_mutex, NULL);
-        pthread_cond_init(&in->aux_mic_cond, NULL);
-        if (patch->in_format == AUDIO_FORMAT_PCM_16_BIT)
-            patch->in_buf_size = read_bytes = in->config.period_size * 2 * 2;
-        else
-            patch->in_buf_size = read_bytes = in->config.period_size * 2 * 4;
-    } else
-#endif
-    {
-        patch->in_buf_size = read_bytes = in->config.period_size * audio_stream_in_frame_size(&in->stream);
-    }
+    patch->in_buf_size = read_bytes = in->config.period_size * audio_stream_in_frame_size(&in->stream);
     patch->in_buf = calloc(1, patch->in_buf_size);
     if (!patch->in_buf) {
         adev_close_input_stream(patch->dev, &in->stream);
@@ -6149,49 +6071,38 @@ static void *audio_patch_input_threadloop(void *data)
 
     prctl(PR_SET_NAME, (unsigned long)"audio_input_patch");
     while (!patch->input_thread_exit) {
-#if defined(IS_ATOM_PROJECT)
-        if ((in->device & AUDIO_DEVICE_IN_LINE) && in->ref_count == 2) {
-            pthread_mutex_lock(&in->aux_mic_mutex);
-            ts_wait_time(&ts, 300000);
-            ret = pthread_cond_timedwait(&in->aux_mic_cond, &in->aux_mic_mutex, &ts);
-            pthread_mutex_unlock(&in->aux_mic_mutex);
-            if (ret != 0 || in->aux_buf_write_bytes == 0)
-                continue;
-            if (patch->in_buf_size < in->aux_buf_write_bytes) {
-                ALOGI("%s: aux: realloc in buf size from %zu to %zu", __func__, patch->in_buf_size, in->aux_buf_write_bytes);
-                patch->in_buf = realloc(patch->in_buf, in->aux_buf_write_bytes);
-                patch->in_buf_size = in->aux_buf_write_bytes;
+        ret = in_read(&in->stream, patch->in_buf, read_bytes);
+        if (ret != read_bytes) {
+            ALOGE("%s: in_read() failed", __func__);
+            continue;
+        }
+        if (aml_dev->parental_control_av_mute && (aml_dev->patch_src == SRC_LINEIN || aml_dev->patch_src == SRC_ATV))
+            memset(patch->in_buf, 0, read_bytes);
+        if (get_buffer_write_space(ringbuffer) < read_bytes) {
+            //ALOGE("%s: ring_buffer overrun", __func__);
+        } else {
+            ret = ring_buffer_write(ringbuffer, (unsigned char*)patch->in_buf, read_bytes, UNCOVER_WRITE);
+            if (ret != read_bytes)
+                ALOGE("%s: ring_buffer_write() failed", __func__);
+            pthread_cond_signal(&patch->cond);
+        }
+        if (TUNE_DELAY) {
+            snd_pcm_sframes_t frames = 0;
+            unsigned total_delay = 0;
+            struct aml_stream_in *in_ = (struct aml_stream_in *)&in->stream;
+            pcm_ioctl(in_->pcm, SNDRV_PCM_IOCTL_DELAY, &frames);
+            aml_dev->input_hw_delay = (int)frames/48;
+            aml_dev->ringbuf_delay = get_buffer_read_space(ringbuffer)/48/audio_stream_in_frame_size(&in->stream);
+            total_delay = aml_dev->input_hw_delay + aml_dev->ringbuf_delay +\
+                          aml_dev->output_hw_delay;
+            // TODO need cover dd+ input from HDMI in/ARC in. the ringbuffer size
+            //caculation may be different as dd+ format frame size should *4.
+            if (total_delay > 80/* && patch->input_src != AUDIO_DEVICE_IN_HDMI && \
+                patch->input_src != AUDIO_DEVICE_IN_HDMI_ARC*/) {
+                ring_buffer_reset(ringbuffer);
+                ALOGD("too large delay, reset ringbuf\n");
             }
-            memcpy(patch->in_buf, in->aux_buf, in->aux_buf_write_bytes);
-            if (aml_dev->parental_control_av_mute)
-                memset(patch->in_buf, 0, in->aux_buf_write_bytes);
-            aux_read_bytes = in->aux_buf_write_bytes;
-            if (get_buffer_write_space(ringbuffer) < aux_read_bytes) {
-                ALOGE("%s: aux: ring_buffer overrun", __func__);
-            } else {
-                ret = ring_buffer_write(ringbuffer, (unsigned char*)patch->in_buf, aux_read_bytes, UNCOVER_WRITE);
-                if (ret != aux_read_bytes)
-                    ALOGE("%s: aux: ring_buffer_write() failed", __func__);
-                pthread_cond_signal(&patch->cond);
-            }
-        } else
-#endif
-        {
-            ret = in_read(&in->stream, patch->in_buf, read_bytes);
-            if (ret != read_bytes) {
-                ALOGE("%s: in_read() failed", __func__);
-                continue;
-            }
-            if (aml_dev->parental_control_av_mute && (aml_dev->patch_src == SRC_LINEIN || aml_dev->patch_src == SRC_ATV))
-                memset(patch->in_buf, 0, read_bytes);
-            if (get_buffer_write_space(ringbuffer) < read_bytes) {
-                //ALOGE("%s: ring_buffer overrun", __func__);
-            } else {
-                ret = ring_buffer_write(ringbuffer, (unsigned char*)patch->in_buf, read_bytes, UNCOVER_WRITE);
-                if (ret != read_bytes)
-                    ALOGE("%s: ring_buffer_write() failed", __func__);
-                pthread_cond_signal(&patch->cond);
-            }
+
         }
     }
 
@@ -6880,6 +6791,13 @@ exit:
 
 static int adev_dump(const audio_hw_device_t *device __unused, int fd __unused)
 {
+    struct aml_audio_device* aml_dev = (struct aml_audio_device*)device;
+    unsigned total_delay = aml_dev->input_hw_delay + aml_dev->ringbuf_delay +\
+                           aml_dev->output_hw_delay;
+    dprintf(fd,"input  hw delay %d ms\n",aml_dev->input_hw_delay);
+    dprintf(fd,"ringbuf   delay %d ms\n",aml_dev->ringbuf_delay);
+    dprintf(fd,"output hw delay %d ms\n",aml_dev->output_hw_delay);
+    dprintf(fd,"total     delay %d ms\n",total_delay);
     return 0;
 }
 
@@ -7188,8 +7106,8 @@ static int adev_open(const hw_module_t* module, const char* name, hw_device_t** 
 #if defined(IS_ATOM_PROJECT)
     Aud_Gain_Init();
     pthread_mutex_init(&adev->aec_spk_mic_lock, NULL);
-    pthread_mutex_init(&adev->aec_spk_buf_lock, NULL);
     pthread_mutex_init(&adev->dsp_processing_lock, NULL);
+    pthread_mutex_init(&adev->aux_mic_lock, NULL);
     if (load_DSP_lib() < 0 || dsp_init(1, 3, 5, 48000) < 0) {
         ALOGE("%s: load dsp lib or dsp init failed", __func__);
         adev->has_dsp_lib = false;

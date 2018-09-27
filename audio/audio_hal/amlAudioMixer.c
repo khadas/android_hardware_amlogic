@@ -833,6 +833,7 @@ static int mixer_do_mixing_32bit(struct amlAudioMixer *audio_mixer)
                     sizeof(uint32_t), frames * FRAMESIZE_32BIT_STEREO);
 #ifdef IS_ATOM_PROJECT
             if (adev->has_dsp_lib) {
+                right_shift(audio_mixer->tmp_buffer, frames * FRAMESIZE_32BIT_STEREO, DSP_SHIFT_BIT);
                 dsp_process_output(audio_mixer->adev,
                         audio_mixer->tmp_buffer, frames * FRAMESIZE_32BIT_STEREO);
                 extend_channel_5_8(data_mixed,
@@ -865,6 +866,7 @@ static int mixer_do_mixing_32bit(struct amlAudioMixer *audio_mixer)
                     sizeof(uint32_t), frames * FRAMESIZE_32BIT_STEREO);
 #ifdef IS_ATOM_PROJECT
             if (adev->has_dsp_lib) {
+                right_shift(audio_mixer->tmp_buffer, frames * FRAMESIZE_32BIT_STEREO, 3);
                 dsp_process_output(audio_mixer->adev,
                         audio_mixer->tmp_buffer, frames * FRAMESIZE_32BIT_STEREO);
                 extend_channel_5_8(data_mixed,
@@ -909,6 +911,7 @@ static int mixer_do_mixing_32bit(struct amlAudioMixer *audio_mixer)
         }
 #ifdef IS_ATOM_PROJECT
         if (adev->has_dsp_lib) {
+            right_shift(audio_mixer->tmp_buffer, frames * FRAMESIZE_32BIT_STEREO, 3);
             dsp_process_output(audio_mixer->adev,
                     audio_mixer->tmp_buffer, frames * FRAMESIZE_32BIT_STEREO);
             extend_channel_5_8(data_mixed,
@@ -969,6 +972,7 @@ static int mixer_do_mixing_32bit(struct amlAudioMixer *audio_mixer)
 
 #ifdef IS_ATOM_PROJECT
             if (adev->has_dsp_lib) {
+                right_shift(audio_mixer->tmp_buffer, frames * FRAMESIZE_32BIT_STEREO, 3);
                 dsp_process_output(audio_mixer->adev,
                         audio_mixer->tmp_buffer, frames * FRAMESIZE_32BIT_STEREO);
                 extend_channel_5_8(data_mixed,

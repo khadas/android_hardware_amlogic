@@ -135,6 +135,12 @@ size_t aml_alsa_output_write(struct audio_stream_out *stream,
     if (ret < 0) {
         ALOGE("%s write failed,pcm handle %p err num %d",__func__,aml_out->pcm,ret);
     }
+    if (TUNE_DELAY && adev->audio_patching) {
+        snd_pcm_sframes_t frames = 0;
+        pcm_ioctl(aml_out->pcm, SNDRV_PCM_IOCTL_DELAY, &frames);
+        /*delay in ms*/
+        adev->output_hw_delay = (unsigned int)frames*1000/DEFAULT_OUT_SAMPLING_RATE;
+    }
     return ret;
 }
 
