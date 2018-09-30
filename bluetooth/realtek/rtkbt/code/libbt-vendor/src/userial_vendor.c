@@ -1267,6 +1267,15 @@ static void userial_handle_cmd(unsigned char * recv_buffer, int total_length)
             }
         break;
 
+        case HCI_LE_SET_EXTENDED_SCAN_PARAMETERS:
+            scan_int = *(uint16_t*)&recv_buffer[7];
+            scan_win = *(uint16_t*)&recv_buffer[9];
+            //if(scan_win > 20){
+            //    *(uint16_t*)&recv_buffer[4] = (scan_int * 20) / scan_win;
+            //    *(uint16_t*)&recv_buffer[6] = 20;
+            //}
+        break;
+
 
         case HCI_WRITE_VOICE_SETTINGS :
             voice_settings = *(uint16_t*)&recv_buffer[3];

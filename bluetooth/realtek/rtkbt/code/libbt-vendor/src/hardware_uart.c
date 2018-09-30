@@ -1,5 +1,5 @@
 #define LOG_TAG "bt_hwcfg_uart"
-#define RTKBT_RELEASE_NAME	"Test"
+#define RTKBT_RELEASE_NAME	"Test-2"
 
 #include <utils/Log.h>
 #include <sys/types.h>
