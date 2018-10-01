@@ -6411,8 +6411,8 @@ static int adev_create_audio_patch(struct audio_hw_device *dev,
 #ifdef DEBUG_VOLUME_CONTROL
         int vol = property_get_int32("media.audio_hal.volume", -1);
         if (vol != -1) {
-            aml_dev->sink_gain[outport] = (float)vol;
-            aml_dev->sink_gain[OUTPORT_SPEAKER] = (float)vol;
+            aml_dev->sink_gain[outport] = DbToAmpl((float)vol);
+            aml_dev->sink_gain[OUTPORT_SPEAKER] = DbToAmpl((float)vol);
         } else
 #endif
         aml_dev->sink_gain[outport] = 1.0;
@@ -6615,7 +6615,7 @@ static int adev_release_audio_patch(struct audio_hw_device *dev,
 #ifdef DEBUG_VOLUME_CONTROL
     int vol = property_get_int32("media.audio_hal.volume", -1);
     if (vol != -1)
-        aml_dev->sink_gain[OUTPORT_SPEAKER] = (float)vol;
+        aml_dev->sink_gain[OUTPORT_SPEAKER] = DbToAmpl((float)vol);
     else
 #endif
     aml_dev->sink_gain[OUTPORT_SPEAKER] = 1.0;
@@ -6695,8 +6695,8 @@ static int adev_set_audio_port_config (struct audio_hw_device *dev, const struct
 #ifdef DEBUG_VOLUME_CONTROL
             int vol = property_get_int32("media.audio_hal.volume", -1);
             if (vol != -1) {
-                aml_dev->sink_gain[outport] = (float)vol;
-                aml_dev->sink_gain[OUTPORT_SPEAKER] = (float)vol;
+                aml_dev->sink_gain[outport] = DbToAmpl((float)vol);
+                aml_dev->sink_gain[OUTPORT_SPEAKER] = DbToAmpl((float)vol);
             } else
 #endif
             //aml_dev->sink_gain[outport] = get_volume_by_index(config->gain.values[0]);
@@ -6775,8 +6775,8 @@ static int adev_set_audio_port_config (struct audio_hw_device *dev, const struct
 #ifdef DEBUG_VOLUME_CONTROL
                 int vol = property_get_int32("media.audio_hal.volume", -1);
                 if (vol != -1) {
-                    aml_dev->sink_gain[outport] = (float)vol;
-                    aml_dev->sink_gain[OUTPORT_SPEAKER] = (float)vol;
+                    aml_dev->sink_gain[outport] = DbToAmpl((float)vol);
+                    aml_dev->sink_gain[OUTPORT_SPEAKER] = DbToAmpl((float)vol);
                 } else
 #endif
                 //aml_dev->sink_gain[outport] = get_volume_by_index(config->gain.values[0]);
