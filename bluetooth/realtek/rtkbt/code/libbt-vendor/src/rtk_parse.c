@@ -1848,7 +1848,7 @@ void rtk_handle_event_from_wifi(uint8_t* msg)
 {
     uint8_t *p = msg;
     uint8_t event_code = *p++;
-	uint8_t total_length = 0;
+	  uint8_t total_length = 0;
     if(memcmp(msg, invite_rsp, sizeof(invite_rsp)) == 0)
     {
 #if 0
@@ -2058,14 +2058,14 @@ int stop_btwifi_coex_receive_thread()
             ALOGE( "data thread pthread_join() failed result:%d", result);
         }
 
-        if(rtk_prof.udpsocket) {
+        if(rtk_prof.udpsocket > 0) {
             RtkLogMsg("close socket %d", rtk_prof.udpsocket);
             if((result = close(rtk_prof.udpsocket)) != 0)
             {
                 ALOGE("close socket error!");
             }
         }
-        else if(rtk_prof.btcoex_chr) {
+        else if(rtk_prof.btcoex_chr > 0) {
             RtkLogMsg("close char device  %d", rtk_prof.btcoex_chr);
             if((result = close(rtk_prof.btcoex_chr)) != 0)
             {

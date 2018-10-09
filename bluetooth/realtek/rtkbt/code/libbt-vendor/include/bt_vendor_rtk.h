@@ -60,7 +60,6 @@
 #define RTKBT_TRANS_UART        0x01
 #define RTKBT_TRANS_USB         0x20
 
-
 #ifndef FALSE
 #define FALSE  0
 #endif

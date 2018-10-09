@@ -89,6 +89,7 @@ typedef struct
 {
     int fd;                     /* fd to Bluetooth device */
     int uart_fd[2];
+    int signal_fd[2];
     int epoll_fd;
     int cpoll_fd;
     int event_fd;
@@ -439,14 +440,25 @@ static void userial_socket_close(void)
     if (epoll_ctl(vnd_userial.epoll_fd, EPOLL_CTL_DEL, vnd_userial.uart_fd[1], NULL) == -1)
       ALOGE("%s unable to unregister fd %d from epoll set: %s", __func__, vnd_userial.uart_fd[1], strerror(errno));
 
+    if (epoll_ctl(vnd_userial.epoll_fd, EPOLL_CTL_DEL, vnd_userial.signal_fd[1], NULL) == -1)
+      ALOGE("%s unable to unregister signal fd %d from epoll set: %s", __func__, vnd_userial.signal_fd[1], strerror(errno));
+
     if ((result = close(vnd_userial.uart_fd[1])) < 0)
         ALOGE( "%s (fd:%d) FAILED result:%d", __func__, vnd_userial.uart_fd[1], result);
 
     pthread_join(vnd_userial.thread_socket_id, NULL);
     close(vnd_userial.epoll_fd);
+
+    if ((result = close(vnd_userial.signal_fd[0])) < 0)
+        ALOGE( "%s (signal fd[0]:%d) FAILED result:%d", __func__, vnd_userial.signal_fd[0], result);
+    if ((result = close(vnd_userial.signal_fd[1])) < 0)
+        ALOGE( "%s (signal fd[1]:%d) FAILED result:%d", __func__, vnd_userial.signal_fd[1], result);
+
     vnd_userial.epoll_fd = -1;
     vnd_userial.uart_fd[0] = -1;
     vnd_userial.uart_fd[1] = -1;
+    vnd_userial.signal_fd[0] = -1;
+    vnd_userial.signal_fd[1] = -1;
 }
 
 static void userial_uart_close(void)
@@ -462,7 +474,10 @@ static void userial_coex_close(void)
     int result;
 
     if (epoll_ctl(vnd_userial.cpoll_fd, EPOLL_CTL_DEL, vnd_userial.event_fd, NULL) == -1)
-      ALOGE("%s unable to unregister fd %d from epoll set: %s", __func__, vnd_userial.event_fd, strerror(errno));
+      ALOGE("%s unable to unregister fd %d from cpoll set: %s", __func__, vnd_userial.event_fd, strerror(errno));
+
+    if (epoll_ctl(vnd_userial.cpoll_fd, EPOLL_CTL_DEL, vnd_userial.signal_fd[1], NULL) == -1)
+      ALOGE("%s unable to unregister fd %d from cpoll set: %s", __func__, vnd_userial.signal_fd[1], strerror(errno));
 
     if ((result = close(vnd_userial.event_fd)) < 0)
         ALOGE( "%s (fd:%d) FAILED result:%d", __func__, vnd_userial.event_fd, result);
@@ -473,6 +488,12 @@ static void userial_coex_close(void)
     vnd_userial.event_fd = -1;
 }
 
+void userial_send_close_signal(void)
+{
+    unsigned char close_signal = 1;
+    ssize_t ret;
+    RTK_NO_INTR(ret = write(vnd_userial.signal_fd[0], &close_signal, 1));
+}
 
 /*******************************************************************************
 **
@@ -498,13 +519,13 @@ void userial_vendor_close(void)
     }
 
     vnd_userial.thread_running = false;
-
     Heartbeat_cleanup();
     RTK_btservice_destroyed();
 
-    userial_socket_close();
+    userial_send_close_signal();
     userial_uart_close();
     userial_coex_close();
+    userial_socket_close();
 
     if((rtkbt_transtype & RTKBT_TRANS_UART) && (rtkbt_transtype & RTKBT_TRANS_H5)) {
         h5_int_interface->h5_int_cleanup();
@@ -1050,7 +1071,7 @@ static void* userial_send_sco_thread(void *arg)
         continue;
         */
         for(i = 0; i < 4; i++) {
-            if(sbc_encode(&sco_cb.sbc_enc, &pcm_data[240*i], 240, &enc_data[i*60 +2], 58, &writen) <= 0) {
+            if(sbc_encode(&sco_cb.sbc_enc, &pcm_data[240*i], 240, &enc_data[i*60 +2], 58, (ssize_t *)&writen) <= 0) {
                 ALOGE("sbc encode error!");
             }
             else {
@@ -1265,15 +1286,6 @@ static void userial_handle_cmd(unsigned char * recv_buffer, int total_length)
                 *(uint16_t*)&recv_buffer[4] = (scan_int * 20) / scan_win;
                 *(uint16_t*)&recv_buffer[6] = 20;
             }
-        break;
-
-        case HCI_LE_SET_EXTENDED_SCAN_PARAMETERS:
-            scan_int = *(uint16_t*)&recv_buffer[7];
-            scan_win = *(uint16_t*)&recv_buffer[9];
-            //if(scan_win > 20){
-            //    *(uint16_t*)&recv_buffer[4] = (scan_int * 20) / scan_win;
-            //    *(uint16_t*)&recv_buffer[6] = 20;
-            //}
         break;
 
 
@@ -1716,6 +1728,7 @@ static int userial_handle_recv_data(unsigned char * recv_buffer, int total_lengt
         case RTKBT_PACKET_CONTENT:
             if(recv_packet_current_type == DATA_TYPE_EVENT) {
                 event = received_resvered_header[0];
+
                 if(event == HCI_COMMAND_COMPLETE_EVT) {
                     if(received_resvered_length == 2) {
                       if(length >= 1) {
@@ -1909,6 +1922,7 @@ static void* userial_recv_socket_thread(void *arg)
         do{
             ret = epoll_wait(vnd_userial.epoll_fd, events, 32, 500);
         }while(vnd_userial.thread_running && ret == -1 && errno == EINTR);
+
         if (ret == -1) {
             ALOGE("%s error in epoll_wait: %s", __func__, strerror(errno));
         }
@@ -1931,18 +1945,26 @@ static void* userial_recv_socket_thread(void *arg)
 static void* userial_recv_uart_thread(void *arg)
 {
     RTK_UNUSED(arg);
-    struct pollfd pfd;
-    pfd.events = POLLIN|POLLHUP|POLLERR|POLLRDHUP;
-    pfd.fd = vnd_userial.fd;
+    struct pollfd pfd[2];
+    pfd[0].events = POLLIN|POLLHUP|POLLERR|POLLRDHUP;
+    pfd[0].fd = vnd_userial.signal_fd[1];
+    pfd[1].events = POLLIN|POLLHUP|POLLERR|POLLRDHUP;
+    pfd[1].fd = vnd_userial.fd;
     int ret;
     unsigned char read_buffer[2056] = {0};
     ssize_t bytes_read;
     while(vnd_userial.thread_running) {
         do{
-            ret = poll(&pfd, 1, 50);
+            ret = poll(pfd, 2, 500);
         }while(ret == -1 && errno == EINTR && vnd_userial.thread_running);
 
-        if (pfd.revents & POLLIN) {
+        //exit signal is always at first index
+        if(pfd[0].revents && !vnd_userial.thread_running) {
+            ALOGE("receive exit signal and stop thread ");
+            return NULL;
+        }
+
+        if (pfd[1].revents & POLLIN) {
             RTK_NO_INTR(bytes_read = read(vnd_userial.fd, read_buffer, sizeof(read_buffer)));
             if(!bytes_read)
                 continue;
@@ -1955,7 +1977,7 @@ static void* userial_recv_uart_thread(void *arg)
             }
         }
 
-        if (pfd.revents & (POLLERR|POLLHUP)) {
+        if (pfd[1].revents & (POLLERR|POLLHUP)) {
             ALOGE("%s poll error, fd : %d", __func__, vnd_userial.fd);
             vnd_userial.btdriver_state = false;
             close(vnd_userial.fd);
@@ -2009,6 +2031,11 @@ int userial_socket_open()
         return ret;
     }
 
+    if((ret = socketpair(AF_UNIX, SOCK_STREAM, 0, vnd_userial.signal_fd)) < 0) {
+        ALOGE("%s, errno : %s", __func__, strerror(errno));
+        return ret;
+    }
+
     vnd_userial.epoll_fd = epoll_create(64);
     if (vnd_userial.epoll_fd == -1) {
         ALOGE("%s unable to create epoll instance: %s", __func__, strerror(errno));
@@ -2026,6 +2053,12 @@ int userial_socket_open()
         return -1;
     }
 
+    event.data.ptr = NULL;
+    if (epoll_ctl(vnd_userial.epoll_fd, EPOLL_CTL_ADD, vnd_userial.signal_fd[1], &event) == -1) {
+        ALOGE("%s unable to register signal fd %d to epoll set: %s", __func__, vnd_userial.signal_fd[1], strerror(errno));
+        close(vnd_userial.epoll_fd);
+        return -1;
+    }
     pthread_attr_t thread_attr;
     pthread_attr_init(&thread_attr);
     pthread_attr_setdetachstate(&thread_attr, PTHREAD_CREATE_JOINABLE);
@@ -2063,12 +2096,19 @@ int userial_socket_open()
             assert(false);
         }
 
+        event.data.ptr = NULL;
+        if (epoll_ctl(vnd_userial.cpoll_fd, EPOLL_CTL_ADD, vnd_userial.signal_fd[1], &event) == -1) {
+            ALOGE("%s unable to register fd %d to cpoll set: %s", __func__, vnd_userial.signal_fd[1], strerror(errno));
+            assert(false);
+        }
+
         if (pthread_create(&vnd_userial.thread_coex_id, &thread_attr, userial_coex_thread, NULL) !=0 )
         {
             ALOGE("pthread create  coex : %s", strerror(errno));
             assert(false);
         }
     }
+
     ret = vnd_userial.uart_fd[0];
     return ret;
 }

@@ -2222,7 +2222,7 @@ uint16_t hci_h5_send_cmd(serial_data_type_t type, uint8_t *data, uint16_t length
 *******************************************************************************/
 uint16_t hci_h5_send_acl_data(serial_data_type_t type, uint8_t *data, uint16_t length)
 {
-    uint16_t bytes_to_send;//, lay_spec;
+    uint16_t bytes_to_send;
     sk_buff * skb = NULL;
 
     skb = skb_alloc_and_init(type, data, length);
@@ -2250,7 +2250,7 @@ uint16_t hci_h5_send_acl_data(serial_data_type_t type, uint8_t *data, uint16_t l
 uint16_t hci_h5_send_sco_data(serial_data_type_t type, uint8_t *data, uint16_t length)
 {
     sk_buff * skb = NULL;
-    uint16_t bytes_to_send;//, lay_spec;
+    uint16_t bytes_to_send;
 
     skb = skb_alloc_and_init(type, data, length);
     if(!skb) {

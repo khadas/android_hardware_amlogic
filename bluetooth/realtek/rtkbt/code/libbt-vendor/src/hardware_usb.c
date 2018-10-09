@@ -201,10 +201,10 @@ static void rtk_usb_update_altsettings(usb_patch_info *patch_entry, unsigned cha
     struct rtk_bt_vendor_config_entry* entry = config->entry;
     size_t config_len = *config_len_ptr;
     unsigned int  i = 0;
-	int count = 0,temp = 0, j;
+    int count = 0,temp = 0, j;
 
     ALOGI("ORG Config len=%08zx:\n", config_len);
-    for(i=0;i<=config_len;i+=0x10)
+    for(i = 0; i <= config_len; i+= 0x10)
     {
         ALOGI("%08x: %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x\n", i, \
             config_buf_ptr[i], config_buf_ptr[i+1], config_buf_ptr[i+2], config_buf_ptr[i+3], config_buf_ptr[i+4], config_buf_ptr[i+5], config_buf_ptr[i+6], config_buf_ptr[i+7], \
@@ -229,7 +229,7 @@ static void rtk_usb_update_altsettings(usb_patch_info *patch_entry, unsigned cha
         return;
     }
 
-    for (i=0; i<data_len;)
+    for (i = 0; i < data_len;)
     {
         for(j = 0; j < count;j++)
         {
@@ -244,6 +244,7 @@ static void rtk_usb_update_altsettings(usb_patch_info *patch_entry, unsigned cha
         i += temp;
         entry = (struct rtk_bt_vendor_config_entry*)((uint8_t*)entry + temp);
     }
+
     for(j = 0; j < count;j++){
         if(offset[j] == 0)
             continue;
@@ -258,10 +259,10 @@ static void rtk_usb_update_altsettings(usb_patch_info *patch_entry, unsigned cha
         entry = (struct rtk_bt_vendor_config_entry*)((uint8_t*)entry + temp);
     }
     config->data_len = cpu_to_le16(i);
-    *config_len_ptr = i+sizeof(struct rtk_bt_vendor_config);
+    *config_len_ptr = i + sizeof(struct rtk_bt_vendor_config);
 
     ALOGI("NEW Config len=%08zx:\n", *config_len_ptr);
-    for(i=0;i<=(*config_len_ptr);i+=0x10)
+    for(i = 0; i<= (*config_len_ptr); i+= 0x10)
     {
         ALOGI("%08x: %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x\n", i, \
             config_buf_ptr[i], config_buf_ptr[i+1], config_buf_ptr[i+2], config_buf_ptr[i+3], config_buf_ptr[i+4], config_buf_ptr[i+5], config_buf_ptr[i+6], config_buf_ptr[i+7], \
@@ -295,7 +296,7 @@ static void rtk_usb_parse_config_file(unsigned char** config_buf, size_t* filele
     }
 
     hw_cfg_cb.heartbeat = 0;
-    for (i=0; i<config_len;)
+    for (i = 0; i < config_len;)
     {
         switch(le16_to_cpu(entry->offset))
         {
@@ -633,7 +634,7 @@ void hw_usb_config_cback(void *p_mem)
                     STREAM_TO_UINT16(hw_cfg_cb.hci_revision, p);
                     p = (uint8_t *)(p_evt_buf + 1) + HCI_EVT_CMD_CMPL_OP1001_LMP_SUBVERSION_OFFSET;
                     STREAM_TO_UINT16(hw_cfg_cb.lmp_subversion, p);
-                    
+
                     prtk_usb_patch_file_info = rtk_usb_get_fw_table_entry(hw_cfg_cb.vid, hw_cfg_cb.pid);
                     if((prtk_usb_patch_file_info == NULL) || (prtk_usb_patch_file_info->lmp_sub_default == 0))
                     {
@@ -677,7 +678,7 @@ void hw_usb_config_cback(void *p_mem)
                         hw_cfg_cb.state = 0;
                         is_proceeding = TRUE;
                     }
-                    
+
  /*                   if(hw_cfg_cb.lmp_subversion == LMPSUBVERSION_8723a)
                     {
                         hw_cfg_cb.state = HW_CFG_START;

@@ -26,7 +26,7 @@
 #include <semaphore.h>
 #include <endian.h>
 #include <byteswap.h>
-#include <sys/un.h> 
+#include <sys/un.h>
 #include <stddef.h>
 #include <sys/socket.h>
 #include <sys/types.h>
@@ -138,7 +138,7 @@ static void rtkbt_heartbeat_cmpl_cback (void *p_params)
         status = p_evt_buf->data[HCI_EVT_HEARTBEAT_STATUS_OFFSET];
         seqnum = p_evt_buf->data[HCI_EVT_HEARTBEAT_SEQNUM_OFFSET_H]<<8 | p_evt_buf->data[HCI_EVT_HEARTBEAT_SEQNUM_OFFSET_L];
     }
-    
+
     if(status == 0 && seqnum == nextSeqNum)
     {
         nextSeqNum = (seqnum+1);
@@ -151,14 +151,14 @@ static void rtkbt_heartbeat_cmpl_cback (void *p_params)
         usleep(1000);
         rtkbt_heartbeat_send_hw_error();
     }
-   
+
 }
 
 
 static void heartbeat_timed_out()//(union sigval arg)
 {
     Rtk_Service_Data *p_buf;
-    
+
     heartbeatCount++;
     if(heartbeatCount >= 3)
     {
@@ -218,7 +218,7 @@ static void rtkbt_heartbeat_beginTimer_func(void)
     p_buf->parameter = NULL;
     p_buf->parameter_len = 0;
     p_buf->complete_cback = rtkbt_heartbeat_cmpl_cback;
-    
+
     Rtk_Service_Vendorcmd_Hook(p_buf,-1);
     free(p_buf);
 

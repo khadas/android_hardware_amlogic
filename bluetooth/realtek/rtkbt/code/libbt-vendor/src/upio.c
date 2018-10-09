@@ -172,7 +172,7 @@ static int init_rfkill()
             break;
         }
     }
-	
+
     asprintf(&rfkill_state_path, "/sys/class/rfkill/rfkill%d/state", rfkill_id);
     return 0;
 }
