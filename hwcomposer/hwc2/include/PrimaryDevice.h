@@ -56,7 +56,6 @@ private:
 
     const char* pConfigPath;
     int mDisplayType;
-    bool mSignalHpd;
 };
 
 }
