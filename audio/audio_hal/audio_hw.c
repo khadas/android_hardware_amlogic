@@ -5123,6 +5123,10 @@ ssize_t hw_write (struct audio_stream_out *stream
         if (ret)
             ALOGE ("%s() open failed", __func__);
         aml_out->status = STREAM_HW_WRITING;
+#if defined(IS_ATOM_PROJECT)
+        /*set output thread to cpu3*/
+        set_thread_affinity(3);
+#endif
     }
 
     if (aml_out->pcm) {

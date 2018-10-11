@@ -14,11 +14,11 @@
  * limitations under the License.
  */
 
-
-
 #define LOG_TAG "audio_hw_utils"
 #define LOG_NDEBUG 0
 
+#define _GNU_SOURCE
+#include <sched.h>
 #include <errno.h>
 #include <pthread.h>
 #include <stdint.h>
@@ -328,5 +328,28 @@ int aml_audio_start_trigger(void *stream)
         ALOGE("set AUDIO_START failed \n");
         return -1;
     }
+    return 0;
+}
+
+int set_thread_affinity(int cpu_num) {
+    pid_t pid = gettid();
+    cpu_set_t cpuset;
+
+    int cpus = sysconf(_SC_NPROCESSORS_CONF);
+    if (cpu_num >= cpus) {
+        ALOGE("%s: CPUs number is invalid: %d\n", __FUNCTION__, cpu_num);
+        return -1;
+    }
+
+    CPU_ZERO(&cpuset);
+    CPU_SET(cpu_num, &cpuset);
+
+    if (sched_setaffinity(pid, sizeof(cpu_set_t), &cpuset) == -1) {
+        ALOGE("%s: Error setaffinity",__FUNCTION__);
+        return -1;
+    }
+
+    ALOGI("%s: Set PID[%x] affinity successful: cpus number = %d, set to %d CPU\n",
+        __FUNCTION__, pid, cpus, cpu_num);
     return 0;
 }
