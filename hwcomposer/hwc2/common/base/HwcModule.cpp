@@ -516,6 +516,7 @@ int32_t setLayerZOrder(
     return ret;
 }
 #ifdef HDR_SUPPORT
+#ifndef HDR_INFO_SWITCH_FOR_REFRESH_INFO
 int32_t setLayerPerFrameMetadata(
         hwc2_device_t* device, hwc2_display_t display, hwc2_layer_t layer,
         uint32_t numElements, const int32_t* /*hw2_per_frame_metadata_key_t*/ keys,
@@ -536,6 +537,7 @@ int32_t getPerFrameMetadataKeys(
 
     return ret;
 }
+#endif
 #endif
 
 hwc2_function_pointer_t hwc2_getFunction(struct hwc2_device* device,
@@ -637,10 +639,12 @@ hwc2_function_pointer_t hwc2_getFunction(struct hwc2_device* device,
         case HWC2_FUNCTION_SET_LAYER_Z_ORDER:
             return reinterpret_cast<hwc2_function_pointer_t>(setLayerZOrder);
         #ifdef HDR_SUPPORT
+        #ifndef HDR_INFO_SWITCH_FOR_REFRESH_INFO
         case HWC2_FUNCTION_SET_LAYER_PER_FRAME_METADATA:
             return reinterpret_cast<hwc2_function_pointer_t>(setLayerPerFrameMetadata);
         case HWC2_FUNCTION_GET_PER_FRAME_METADATA_KEYS:
             return reinterpret_cast<hwc2_function_pointer_t>(getPerFrameMetadataKeys);
+        #endif
         #endif
 
         default:

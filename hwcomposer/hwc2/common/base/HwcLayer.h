@@ -32,10 +32,12 @@ namespace android {
 namespace amlogic {
 
 #ifdef HDR_SUPPORT
+#ifndef HDR_INFO_SWITCH_FOR_REFRESH_INFO
 typedef struct FrameMetadata {
     hwc2_per_frame_metadata_key_t key;
     float value;
 } FrameMetadata_t;
+#endif
 #endif
 
 
@@ -79,9 +81,11 @@ class HwcLayer {
         int32_t getTransform() { return mTransform; };
         hwc_region_t getVisibleRegion() { return mVisibleRegion; };
         #ifdef HDR_SUPPORT
+		#ifndef HDR_INFO_SWITCH_FOR_REFRESH_INFO
         std::vector<FrameMetadata_t>& getPerFrameMetadata() ;
         int32_t setPerFrameMetadata(uint32_t numElements, const int32_t* keys, const float* metadata);
         #endif
+		#endif
 
         bool initialize();
         void deinitialize();
@@ -126,8 +130,10 @@ class HwcLayer {
         const int32_t* mKeys;
         const float* mMetadata;
         #ifdef HDR_SUPPORT
+		#ifndef HDR_INFO_SWITCH_FOR_REFRESH_INFO
         std::vector<FrameMetadata_t> mPerFrameMetadatas;
         #endif
+		#endif
         union {
             buffer_handle_t mBufferHnd;
 

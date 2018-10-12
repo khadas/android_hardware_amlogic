@@ -264,11 +264,13 @@ int32_t VirtualDevice::getHdrCapabilities(
 }
 
 #ifdef HDR_SUPPORT
+#ifndef HDR_INFO_SWITCH_FOR_REFRESH_INFO
 int32_t VirtualDevice::getPerFrameMetadataKeys(
     uint32_t * outNumKeys __unused,
     int32_t * outKeys __unused) {
     return HWC2_ERROR_NONE;
 }
+#endif
 #endif
 
 int32_t VirtualDevice::getReleaseFences(
