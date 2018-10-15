@@ -28,7 +28,6 @@
 /******************************************************************************
 **  Constants &  Macros
 ******************************************************************************/
-#define RTK_VERSION "4.1.1"
 
 extern uint8_t vnd_local_bd_addr[BD_ADDR_LEN];
 extern bool rtkbt_auto_restart;
@@ -893,6 +892,7 @@ DOWNLOAD_USB_FW:
 *******************************************************************************/
 void hw_usb_config_start(char transtype, uint32_t usb_id)
 {
+    RTK_UNUSED(transtype);
     memset(&hw_cfg_cb, 0, sizeof(bt_hw_cfg_cb_t));
     hw_cfg_cb.dl_fw_flag = 1;
     hw_cfg_cb.chip_type = CHIPTYPE_NONE;

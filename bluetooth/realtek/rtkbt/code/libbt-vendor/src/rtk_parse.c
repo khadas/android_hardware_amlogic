@@ -63,7 +63,7 @@
 #include "rtk_parse.h"
 #include <sys/syscall.h>
 
-#define RTK_VERSION "3.0"
+#define RTK_COEX_VERSION "3.0"
 
 char invite_req[] = "INVITE_REQ";
 char invite_rsp[] = "INVITE_RSP";
@@ -2148,7 +2148,7 @@ int open_btcoex_chrdev()
 void rtk_parse_init(void)
 {
     ALOGI("RTKBT_RELEASE_NAME: %s",RTKBT_RELEASE_NAME);
-    RtkLogMsg("rtk_profile_init, version: %s", RTK_VERSION);
+    RtkLogMsg("rtk_profile_init, version: %s", RTK_COEX_VERSION);
 
     memset(&rtk_prof, 0, sizeof(rtk_prof));
     pthread_mutex_init(&rtk_prof.profile_mutex, NULL);

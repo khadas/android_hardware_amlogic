@@ -170,7 +170,8 @@ static void heartbeat_timed_out()//(union sigval arg)
         ALOGE("heartbeat_timed_out: heartbeatCount = %d, expected nextSeqNum = %d",heartbeatCount, nextSeqNum);
         ALOGE("heartbeat_timed_out,controller may be suspend! Now restart bluedroid stack\n");
         usleep(1000);
-        kill(getpid(), SIGKILL);
+        rtkbt_heartbeat_send_hw_error();
+        //kill(getpid(), SIGKILL);
         return;
     }
     if(heartbeatFlag)

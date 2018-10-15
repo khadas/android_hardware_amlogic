@@ -31,7 +31,6 @@
 #define BT_VENDOR_RTK_H
 
 #include "bt_vendor_lib.h"
-#include "vnd_buildcfg.h"
 #include "rtk_btsnoop_net.h"
 #include <string.h>
 #include <fcntl.h>
@@ -51,7 +50,7 @@
 #include <cutils/properties.h>
 #include "rtk_common.h"
 
-
+#define RTK_VERSION "5.0.1"
 /******************************************************************************
 **  Constants & Macros
 ******************************************************************************/

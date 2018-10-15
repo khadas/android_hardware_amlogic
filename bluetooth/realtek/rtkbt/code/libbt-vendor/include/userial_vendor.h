@@ -220,5 +220,5 @@ void userial_recv_rawdata_hook(unsigned char *buffer, unsigned int total_length)
 
 #define RTK_HANDLE_EVENT
 #define RTK_HANDLE_CMD
-#define CONFIG_SCO_OVER_HCI
+//#define CONFIG_SCO_OVER_HCI
 #endif /* USERIAL_VENDOR_H */

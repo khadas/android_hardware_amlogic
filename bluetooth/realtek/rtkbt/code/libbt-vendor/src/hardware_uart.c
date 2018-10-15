@@ -1,5 +1,5 @@
 #define LOG_TAG "bt_hwcfg_uart"
-#define RTKBT_RELEASE_NAME	"Test-3"
+#define RTKBT_RELEASE_NAME	"Test-4"
 
 #include <utils/Log.h>
 #include <sys/types.h>
@@ -28,7 +28,6 @@
 /******************************************************************************
 **  Constants &  Macros
 ******************************************************************************/
-#define RTK_VERSION "4.1.1"
 
 extern uint8_t vnd_local_bd_addr[BD_ADDR_LEN];
 extern bool rtkbt_auto_restart;
