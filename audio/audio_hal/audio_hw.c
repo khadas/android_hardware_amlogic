@@ -5454,7 +5454,7 @@ ssize_t mixer_main_buffer_write (struct audio_stream_out *stream, const void *bu
         audio_format_t cur_aformat;
         if (patch->input_src == AUDIO_DEVICE_IN_HDMI || patch->input_src == AUDIO_DEVICE_IN_SPDIF) {
             cur_aformat = audio_parse_get_audio_type (patch->audio_parse_para);
-            if (cur_aformat != patch->aformat) {
+            if (cur_aformat != AUDIO_FORMAT_INVALID && cur_aformat != patch->aformat) {
                 ALOGI ("HDMI/SPDIF input format changed from %#x to %#x\n", patch->aformat, cur_aformat);
                 patch->aformat = cur_aformat;
                 //FIXME: if patch audio format change, the hal_format need to redefine.
