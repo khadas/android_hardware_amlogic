@@ -350,6 +350,7 @@ struct aml_audio_device {
     bool has_dsp_lib;
     void *aec_buf;
     void *dsp_in_buf;
+    void *dsp_out_buf;
     size_t dsp_frames;
     void *pstFir_mic;
     void *pstFir_spk;

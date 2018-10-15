@@ -4889,33 +4889,59 @@ ssize_t audio_hal_data_processing(struct audio_stream_out *stream,
         apply_volume(gain_speaker, tmp_buffer, sizeof(uint32_t), bytes);
 
 #if defined(IS_ATOM_PROJECT)
-        /* >> 3  if not  dolby stream */
-        if (aml_out->hal_internal_format != AUDIO_FORMAT_AC3 &&
-               aml_out->hal_internal_format != AUDIO_FORMAT_E_AC3) {
-            int32_t *input32 = (int32_t *)tmp_buffer;
-            for (i = 0; i < bytes/sizeof(int32_t); i++) {
-                input32[i] = input32[i] >> 3;
-            }
-
-        }
-
-        int32_t *out_buffer;
         if (adev->has_dsp_lib) {
+            /* right shift 3bit for PCM, dsp will compensate.*/
+            if (aml_out->hal_internal_format != AUDIO_FORMAT_AC3 &&
+                   aml_out->hal_internal_format != AUDIO_FORMAT_E_AC3) {
+                int32_t *input32 = (int32_t *)tmp_buffer;
+                for (i = 0; i < bytes/sizeof(int32_t); i++) {
+                    input32[i] = input32[i] >> 3;
+                }
+            }
             /*malloc dsp buffer*/
             if (adev->dsp_frames < out_frames) {
                 pthread_mutex_lock(&adev->dsp_processing_lock);
-                dsp_realloc_buffer(&adev->dsp_in_buf, &adev->effect_buf, &adev->aec_buf, out_frames);
+                dsp_realloc_buffer(&adev->dsp_in_buf, &adev->dsp_out_buf, &adev->aec_buf, out_frames);
                 pthread_mutex_unlock(&adev->dsp_processing_lock);
                 adev->dsp_frames = out_frames;
                 ALOGI("%s: dsp_buf = %p, effect_buffer = %p, aec_buffer = %p", __func__,
-                    adev->dsp_in_buf, adev->effect_buf, adev->aec_buf);
+                    adev->dsp_in_buf, adev->dsp_out_buf, adev->aec_buf);
+            }
+            pthread_mutex_lock(&adev->dsp_processing_lock);
+            int32_t *dsp_in_buf = (int32_t *)adev->dsp_in_buf;
+
+            /*map 2 channel data to 2.1 channel*/
+            for (i = 0; i < out_frames; i++) {
+                dsp_in_buf[3 * i] = tmp_buffer[2 * i];
+                dsp_in_buf[3 * i + 1] = tmp_buffer[2 * i + 1];
+                dsp_in_buf[3 * i + 2] = 0;
             }
 
-            pthread_mutex_lock(&adev->dsp_processing_lock);
-            harman_dsp_process(tmp_buffer, adev->dsp_in_buf, adev->effect_buf, adev->aec_buf, out_frames);
-            pthread_mutex_unlock(&adev->dsp_processing_lock);
+            if (getprop_bool("media.audio_hal.outdump")) {
+                FILE *fp1 = fopen("/data/tmp/audio_out_3ch.raw", "a+");
+                if (fp1) {
+                    int flen = fwrite((char *)dsp_in_buf, 1,
+                            FRAMESIZE_32BIT_3ch * out_frames, fp1);
+                    fclose(fp1);
+                } else {
+                    ALOGD("could not open files!");
+                }
+            }
 
-            out_buffer = (int32_t *)adev->effect_buf;
+            harman_dsp_process(adev->dsp_in_buf, adev->dsp_out_buf, adev->aec_buf, adev->dsp_frames);
+
+            if (getprop_bool("media.audio_hal.outdump")) {
+                FILE *fp1 = fopen("/data/tmp/audio_out_5ch.raw", "a+");
+                if (fp1) {
+                    int flen = fwrite((char *)adev->dsp_out_buf, 1,
+                            FRAMESIZE_32BIT_5ch * out_frames, fp1);
+                    fclose(fp1);
+                } else {
+                    ALOGD("could not open files!");
+                }
+            }
+
+            pthread_mutex_unlock(&adev->dsp_processing_lock);
 
             /* when aec is ready, init fir filter*/
             if(!adev->pstFir_spk)
@@ -4974,30 +5000,50 @@ ssize_t audio_hal_data_processing(struct audio_stream_out *stream,
             aml_out->tmp_buffer_8ch_size = FRAMESIZE_32BIT_8ch * out_frames;
         }
 
-        for (i = 0; i < out_frames; i++) {
 #if defined(IS_ATOM_PROJECT)
-            if (adev->has_dsp_lib) {
+        if (adev->has_dsp_lib) {
+            pthread_mutex_lock(&adev->dsp_processing_lock);
+            int32_t *out_buffer = (int32_t *)adev->dsp_out_buf;
+            for (i = 0; i < out_frames; i++) {
                 aml_out->tmp_buffer_8ch[8 * i] = out_buffer[5 * i + 2];
                 aml_out->tmp_buffer_8ch[8 * i + 1] = out_buffer[5 * i + 3];
                 aml_out->tmp_buffer_8ch[8 * i + 2] = out_buffer[5 * i];
                 aml_out->tmp_buffer_8ch[8 * i + 3] = out_buffer[5 * i + 1];
                 aml_out->tmp_buffer_8ch[8 * i + 4] = out_buffer[5 * i + 4];
                 aml_out->tmp_buffer_8ch[8 * i + 5] = 0;
-            } else
+                aml_out->tmp_buffer_8ch[8 * i + 6] = 0;
+                aml_out->tmp_buffer_8ch[8 * i + 7] = 0;
+            }
+            pthread_mutex_unlock(&adev->dsp_processing_lock);
+        } else
 #endif
-            {
+        {
+            for (i = 0; i < out_frames; i++) {
                 aml_out->tmp_buffer_8ch[8 * i] = tmp_buffer[2 * i];
                 aml_out->tmp_buffer_8ch[8 * i + 1] = tmp_buffer[2 * i + 1];
                 aml_out->tmp_buffer_8ch[8 * i + 2] = tmp_buffer[2 * i];
                 aml_out->tmp_buffer_8ch[8 * i + 3] = tmp_buffer[2 * i + 1];
                 aml_out->tmp_buffer_8ch[8 * i + 4] = tmp_buffer[2 * i];
                 aml_out->tmp_buffer_8ch[8 * i + 5] = tmp_buffer[2 * i + 1];
+                aml_out->tmp_buffer_8ch[8 * i + 6] = 0;
+                aml_out->tmp_buffer_8ch[8 * i + 7] = 0;
             }
-            aml_out->tmp_buffer_8ch[8 * i + 6] = 0;
-            aml_out->tmp_buffer_8ch[8 * i + 7] = 0;
         }
+
+
         *output_buffer = aml_out->tmp_buffer_8ch;
         *output_buffer_bytes = FRAMESIZE_32BIT_8ch * out_frames;
+
+        if (getprop_bool("media.audio_hal.outdump")) {
+            FILE *fp1 = fopen("/data/tmp/audio_out_8ch.raw", "a+");
+            if (fp1) {
+                int flen = fwrite((char *)aml_out->tmp_buffer_8ch, 1,
+                        FRAMESIZE_32BIT_8ch * out_frames, fp1);
+                fclose(fp1);
+            } else {
+                ALOGD("could not open files!");
+            }
+        }
     } else {
         /*atom project supports 32bit hal only*/
         /*TODO: Direct PCM case, I think still needs EQ and AEC */
@@ -6641,6 +6687,7 @@ static int adev_close(hw_device_t *device)
 #if defined(IS_ATOM_PROJECT)
     free(adev->aec_buf);
     free(adev->dsp_in_buf);
+    free(adev->dsp_out_buf);
 #endif
     free(adev->hp_output_buf);
     free(adev->effect_buf);
