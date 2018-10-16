@@ -3202,10 +3202,10 @@ static ssize_t in_read(struct audio_stream_in *stream, void* buffer, size_t byte
                         mic_timestamp.timeStamp += 64000 / aec_frame_div; // 16ms per 256 samples/channel
                         spk_timestamp.timeStamp += 64000 / aec_frame_div; // or 32 ms per 512 samples/channel
 
-                        pthread_mutex_lock(&adev->aec_spk_buf_lock);
+                        //pthread_mutex_lock(&adev->aec_spk_buf_lock);
                         int32_t *aec_proc_buf = aec_spk_mic_process((int32_t *)&spk_buf_ptr[aec_data_bytes * i],
                             (int32_t *)&mic_buf_ptr[aec_data_bytes * i], &cleaned_samples_per_channel);
-                        pthread_mutex_unlock(&adev->aec_spk_buf_lock);
+                        //pthread_mutex_unlock(&adev->aec_spk_buf_lock);
 
                         //When AEC is error or cleaned samples don't match input samples, ignore AEC output
                         if (aec_proc_buf && (cleaned_samples_per_channel == aec_samples_per_channel)) {
@@ -4371,8 +4371,9 @@ exit:
             aec_spk_mic_init(16000, 2, 2);
             pthread_mutex_unlock(&adev->aec_spk_mic_lock);
             if (!adev->spk_ring_buf.start_addr)
+                /* 32*20ms */
                 ring_buffer_init(&adev->spk_ring_buf,
-                    4 * PLAYBACK_PERIOD_COUNT * 2 /*double the space*/ *
+                    8 * PLAYBACK_PERIOD_COUNT *
                     ((2 * TIMESTAMP_LEN) + FRAMESIZE_32BIT_STEREO * DEFAULT_PLAYBACK_PERIOD_SIZE));
             else
                 ring_buffer_reset(&adev->spk_ring_buf);
@@ -4948,7 +4949,7 @@ ssize_t audio_hal_data_processing(struct audio_stream_out *stream,
                 Fir_initModule(&adev->pstFir_spk);
         }
         if (adev->mic_running) {
-            pthread_mutex_lock(&adev->aec_spk_buf_lock);
+            //pthread_mutex_lock(&adev->aec_spk_buf_lock);
 
             /*copy the speaker playout data to speaker ringbuffer*/
             if (adev->spk_write_bytes != (size_t)(FRAMESIZE_32BIT_STEREO * out_frames))
@@ -4983,7 +4984,7 @@ ssize_t audio_hal_data_processing(struct audio_stream_out *stream,
                     __func__, int_get_buffer_write_space, out_frames, adev->extra_write_bytes);
             }
 
-            pthread_mutex_unlock(&adev->aec_spk_buf_lock);
+            //pthread_mutex_unlock(&adev->aec_spk_buf_lock);
         }
 #endif
         /* 2 ch 32 bit --> 8 ch 32 bit mapping, need 8X size of input buffer size */
