@@ -3362,8 +3362,13 @@ static int adev_open_output_stream(struct audio_hw_device *dev,
     int digital_codec;
     int ret;
 
-    ALOGD("%s: enter: devices(%#x) channel_mask(%#x) rate(%d) format(%#x) flags(%#x)", __func__,
-        devices, config->channel_mask, config->sample_rate, config->format, flags);
+    ALOGD("%s: enter: devices(%#x) channel_mask(%#x) rate(%d) format(%#x:%s) flags(%#x)", __func__,
+        devices, config->channel_mask, config->sample_rate, config->format,
+        (config->format == AUDIO_FORMAT_PCM_16_BIT) ? "AUDIO_FORMAT_PCM_16_BIT" :
+        (config->format == AUDIO_FORMAT_PCM_32_BIT) ? "AUDIO_FORMAT_PCM_32_BIT" :
+        (config->format == AUDIO_FORMAT_IEC61937) ? "AUDIO_FORMAT_IEC61937" :
+        "non-PCM",
+        flags);
 
     out = (struct aml_stream_out *)calloc(1, sizeof(struct aml_stream_out));
     if (!out)
@@ -4756,6 +4761,12 @@ void atom_pack_speaker_ring_buffer(struct aml_audio_device *adev, size_t bytes) 
     if (adev->atom_stream_type_val != stream_type ||
         spk_time_diff < 0 || spk_time_diff > 300000) {
         ALOGE("%s: spk buf reset. diff: %d", __func__, spk_time_diff);
+        ALOGI("dsp_in %p, dsp_out %p, aec_buf %p, dsp_frames %d, bytes %d",
+            adev->dsp_in_buf,
+            adev->dsp_out_buf,
+            adev->aec_buf,
+            adev->dsp_frames,
+            bytes);
         atom_speaker_buffer_reset(adev);
         adev->atom_stream_type_val = stream_type;
         adev->spk_buf_very_first_write_time = cur_time.timeStamp;
@@ -4772,10 +4783,13 @@ void atom_pack_speaker_ring_buffer(struct aml_audio_device *adev, size_t bytes) 
             break;
         default:
             first_set_len = adev->spk_buf_size - adev->extra_write_bytes;
+            if (first_set_len > bytes) {
+                first_set_len = bytes;
+            }
     }
     if (DEBUG_AEC)
-        ALOGW("%s: type: %d, first_set_len: %d, extra_write_bytes: %d",
-         __func__, adev->atom_stream_type_val, first_set_len, adev->extra_write_bytes);
+        ALOGW("%s: type: %d, first_set_len: %d, extra_write_bytes: %d, bytes: %d",
+         __func__, adev->atom_stream_type_val, first_set_len, adev->extra_write_bytes, bytes);
 
     //[cur_timestamp][spk_buf_data(first_set_len)]
     if (adev->extra_write_bytes == 0) {
@@ -4799,27 +4813,31 @@ void atom_pack_speaker_ring_buffer(struct aml_audio_device *adev, size_t bytes) 
             first_set_len, UNCOVER_WRITE);
 
     if (adev->atom_stream_type_val == STREAM_ANDROID) {
-        // Calculate remaining data
-        adev->extra_write_bytes = adev->spk_write_bytes - first_set_len;
-        // Timestamp will always be needed for the next set of Android streams
-        //[cur_timestamp][spk_buf_data(extra_write_bytes)]
-        // Add bytes/384*1000 ms to this timestamp
-        cur_time.timeStamp += first_set_len/384 * 1000;
+        if (bytes > first_set_len) {
+            // Timestamp will always be needed for the next set of Android streams
+            //[cur_timestamp][spk_buf_data(extra_write_bytes)]
+            // Add bytes/384*1000 ms to this timestamp
+            cur_time.timeStamp += first_set_len/384 * 1000;
 
-        ring_buffer_write(&adev->spk_ring_buf, (unsigned char*)cur_time.tsB,
-            TIMESTAMP_LEN, UNCOVER_WRITE);
+            ring_buffer_write(&adev->spk_ring_buf, (unsigned char*)cur_time.tsB,
+                TIMESTAMP_LEN, UNCOVER_WRITE);
 
-        if (DEBUG_AEC) {
-            if (adev->spk_buf_write_count++ > 10000000 ) {
-                adev->spk_buf_write_count = 0;
+            if (DEBUG_AEC) {
+                if (adev->spk_buf_write_count++ > 10000000 ) {
+                    adev->spk_buf_write_count = 0;
+                }
+                ALOGW("%s: ---- TS[Spk(type:%d)] ---- timestamp(d): %llu, extra_write_bytes: %d, spk_buf[write]: %llu",
+                    __func__, adev->atom_stream_type_val, cur_time.timeStamp, adev->extra_write_bytes, adev->spk_buf_write_count);
             }
-            ALOGW("%s: ---- TS[Spk(type:%d)] ---- timestamp(d): %llu, extra_write_bytes: %d, spk_buf[write]: %llu",
-                __func__, adev->atom_stream_type_val, cur_time.timeStamp, adev->extra_write_bytes, adev->spk_buf_write_count);
-        }
 
-        // second set
-        ring_buffer_write(&adev->spk_ring_buf, (unsigned char*) &aec_buf[first_set_len],
-                adev->extra_write_bytes, UNCOVER_WRITE);
+            // second set
+            ring_buffer_write(&adev->spk_ring_buf, (unsigned char*) &aec_buf[first_set_len],
+                    adev->extra_write_bytes, UNCOVER_WRITE);
+
+            adev->extra_write_bytes = adev->spk_write_bytes - first_set_len;
+        } else {
+            adev->extra_write_bytes += first_set_len;
+        }
     } else if (adev->atom_stream_type_val == STREAM_HDMI) {
         if (adev->extra_write_bytes == 0) {
             adev->extra_write_bytes = 1536 * FRAMESIZE_32BIT_STEREO;
@@ -4929,7 +4947,7 @@ ssize_t audio_hal_data_processing(struct audio_stream_out *stream,
                 }
             }
 
-            harman_dsp_process(adev->dsp_in_buf, adev->dsp_out_buf, adev->aec_buf, adev->dsp_frames);
+            harman_dsp_process(adev->dsp_in_buf, adev->dsp_out_buf, adev->aec_buf, out_frames);
 
             if (getprop_bool("media.audio_hal.outdump")) {
                 FILE *fp1 = fopen("/data/tmp/audio_out_5ch.raw", "a+");
