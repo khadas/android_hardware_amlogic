@@ -175,19 +175,19 @@ int aml_hw_mixer_mixing(struct aml_hw_mixer *mixer, void *buffer, int bytes, aud
         if (read_bytes + mixer->rp > mixer->buf_size) {
             tail = mixer->buf_size - mixer->rp;
             for (i = 0; i < tail / 4; i++) {
-                tmp = *tmp_buffer + *cached_buf++;
+                tmp = (int64_t)(*tmp_buffer) + (int64_t)(*cached_buf++);
                 *tmp_buffer++ = CLIPINT(tmp);
             }
             read_bytes -= tail;
             cached_buf = (int32_t *)mixer->start_buf;
             for (i = 0; i < read_bytes / 4; i++) {
-                tmp = *tmp_buffer + *cached_buf++;
+                tmp = (int64_t)(*tmp_buffer) + (int64_t)(*cached_buf++);
                 *tmp_buffer++ = CLIPINT(tmp);
             }
             mixer->rp = read_bytes;
         } else {
             for (i = 0; i < read_bytes / 4; i++) {
-                tmp = *tmp_buffer + *cached_buf++;
+                tmp = (int64_t)(*tmp_buffer) + (int64_t)(*cached_buf++);
                 *tmp_buffer++ = CLIPINT(tmp);
             }
             mixer->rp += read_bytes;
@@ -200,19 +200,19 @@ int aml_hw_mixer_mixing(struct aml_hw_mixer *mixer, void *buffer, int bytes, aud
         if (read_bytes + mixer->rp > mixer->buf_size) {
             tail = mixer->buf_size - mixer->rp;
             for (i = 0; i < tail / 2; i++) {
-                tmp = *tmp_buffer + *cached_buf++;
+                tmp = (int32_t)(*tmp_buffer) + (int32_t)(*cached_buf++);
                 *tmp_buffer++ = CLIPSHORT(tmp);
             }
             read_bytes -= tail;
             cached_buf = (int16_t *)mixer->start_buf;
             for (i = 0; i < read_bytes / 2; i++) {
-                tmp = *tmp_buffer + *cached_buf++;
+                tmp = (int32_t)(*tmp_buffer) + (int32_t)(*cached_buf++);
                 *tmp_buffer++ = CLIPSHORT(tmp);
             }
             mixer->rp = read_bytes;
         } else {
             for (i = 0; i < read_bytes / 2; i++) {
-                tmp = *tmp_buffer + *cached_buf++;
+                tmp = (int32_t)(*tmp_buffer) + (int32_t)(*cached_buf++);
                 *tmp_buffer++ = CLIPSHORT(tmp);
             }
             mixer->rp += read_bytes;
