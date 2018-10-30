@@ -165,6 +165,7 @@ protected:
 
     char mDefaultMode[64];//this used for mbox
     bool mStartBootanim;
+    bool mSignalHpd;
 
 private:
 
@@ -309,6 +310,8 @@ private:
     int mDisplayHeight;
 
     bool mModeSwitch;
+    bool mGetActiveDispMode;
+    bool mFirstPrimaryBoot;
 
     //omx handle for set omx pts
     int32_t mOmxVideoHandle;

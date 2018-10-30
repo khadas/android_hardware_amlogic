@@ -103,12 +103,14 @@ void PrimaryDevice::modeChangeEventListener(void *data, bool status)
         Utils::setSysfsStr(DISPLAY_FB0_FREESCALE, "0x10001");
         pThis->setOsdMouse();
         if (pThis->mSignalHpd) {
+#ifdef ENABLE_PRIMARY_DISPLAY_HOTPLUG
             // for now, we can not support hotplug primary display on O.
-            // pThis->hotplugListener(true, false);
-            pThis->mSignalHpd = false;
-
+            pThis->hotplugListener(true, false);
+#else
             // notify sf to refresh.
             pThis->getDevice().refresh(pThis->getDisplayId());
+            pThis->mSignalHpd = false;
+#endif
         } else {
             pThis->hotplugListener(true, true);
         }

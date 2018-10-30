@@ -73,6 +73,8 @@ PhysicalDevice::PhysicalDevice(hwc2_display_t id, Hwcomposer& hwc, IComposeDevic
       mGetInitState(false),
       mConnectorPresent(false),
       mModeSwitch(false),
+      mGetActiveDispMode(true),
+      mFirstPrimaryBoot(true),
       mOmxVideoHandle(-1),
       mVideoLayerOpenByOMX(false),
       mHasHdrInfo(false),
@@ -1747,7 +1749,10 @@ void PhysicalDevice::updateActiveDisplayAttribute() {
 
 bool PhysicalDevice::updateDisplayConfigs() {
     Mutex::Autolock _l(mLock);
-    mDisplayHdmi->updateHotplug(mConnectorPresent);
+    if (!mDisplayHdmi->updateHotplug(mConnectorPresent))
+        mGetActiveDispMode = false;
+    else
+        mGetActiveDispMode = true;
 
     if (mConnectorPresent) {
         updateActiveDisplayAttribute();
@@ -1793,8 +1798,11 @@ void PhysicalDevice::onHotplug(int disp __unused, bool connected, bool modeSwitc
 
     // can not send hotplug to sf now.
     // notify hwc
-    if (connected && !modeSwitch)
+    if (connected && !modeSwitch && (mGetActiveDispMode || mFirstPrimaryBoot)) {
         mHwc.hotplug(disp, connected);
+        mSignalHpd = false;
+        mFirstPrimaryBoot = false;
+    }
 }
 
 int32_t PhysicalDevice::createVirtualDisplay(
