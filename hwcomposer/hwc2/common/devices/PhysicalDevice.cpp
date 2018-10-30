@@ -35,7 +35,11 @@
 #define FBIOPUT_OSD_CURSOR     _IOWR(FB_IOC_MAGIC, 0x0,  struct fb_cursor)
 
 #if PLATFORM_SDK_VERSION == 28
+#ifdef HDR_INFO_SWITCH_FOR_REFRESH_INFO
+#define USE_DEFAULT_HDR_CAP 0
+#else
 #define USE_DEFAULT_HDR_CAP 1
+#endif
 #else
 #define USE_DEFAULT_HDR_CAP 0
 #endif
@@ -581,6 +585,8 @@ int32_t PhysicalDevice::getHdrCapabilities(
     return HWC2_ERROR_NONE;
 }
 
+#ifdef HDR_SUPPORT
+#ifndef HDR_INFO_SWITCH_FOR_REFRESH_INFO
 int32_t PhysicalDevice::getPerFrameMetadataKeys(
     uint32_t* outNumKeys, int32_t* outKeys) {
 
@@ -605,6 +611,8 @@ int32_t PhysicalDevice::getPerFrameMetadataKeys(
 
     return HWC2_ERROR_NONE;
 }
+#endif
+#endif
 
 void PhysicalDevice::swapReleaseFence() {
     //dumpFenceList(mHwcCurReleaseFences);
@@ -1501,8 +1509,12 @@ int32_t PhysicalDevice::validateDisplay(uint32_t* outNumTypes,
     if (mVideoOverlayLayerId) {
         videoLayer = mHwcLayers.valueFor(mVideoOverlayLayerId);
         videoRect = videoLayer->getDisplayFrame();
+        #ifdef HDR_SUPPORT
+        #ifndef HDR_INFO_SWITCH_FOR_REFRESH_INFO
         std::vector<FrameMetadata_t> metadata  = videoLayer->getPerFrameMetadata();
         updateHdrStaticInfo(metadata);
+        #endif
+        #endif
         if (mHdrInfoChanged) {
             int err = set_hdr_info(mHdrInfo, &mOmxVideoHandle);
         }
@@ -2014,6 +2026,9 @@ bool isHdrInfoChanged(const vframe_master_display_colour_s_t old_data, const vfr
     }
 
 }
+
+#ifdef HDR_SUPPORT
+#ifndef HDR_INFO_SWITCH_FOR_REFRESH_INFO
 void PhysicalDevice::updateHdrStaticInfo(std::vector<FrameMetadata_t> &metadata) {
     bool valid_hdr = false;
     vframe_master_display_colour_s_t hdr_tmp;
@@ -2087,6 +2102,7 @@ void PhysicalDevice::updateHdrStaticInfo(std::vector<FrameMetadata_t> &metadata)
         mHasHdrInfo = hdr_tmp.present_flag;
     }
 }
-
+#endif
+#endif
 } // namespace amlogic
 } // namespace android

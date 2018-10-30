@@ -14,6 +14,12 @@ ifeq ($(shell test $(PLATFORM_SDK_VERSION) -ge 26 && echo OK),OK)
 LOCAL_PROPRIETARY_MODULE := true
 endif
 
+ifeq ($(shell test $(PLATFORM_SDK_VERSION) -ge 28 && echo OK),OK)
+LOCAL_CFLAGS += -DHDR_SUPPORT
+endif
+
+LOCAL_CFLAGS += -DHDR_INFO_SWITCH_FOR_REFRESH_INFO
+
 LOCAL_SRC_FILES := \
     ../common/base/HwcLayer.cpp \
     ../common/base/HwcFenceControl.cpp \
@@ -150,4 +156,3 @@ endif
 LOCAL_CFLAGS += -DPLATFORM_SDK_VERSION=$(PLATFORM_SDK_VERSION)
 
 include $(BUILD_SHARED_LIBRARY)
-
