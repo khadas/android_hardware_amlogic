@@ -33,6 +33,9 @@
 #include <hardware/audio.h>
 
 #include "audio_hw_utils.h"
+#include "alsa_device_parser.h"
+#define SOUND_CARDS_PATH "/proc/asound/cards"
+#define SOUND_PCM_PATH  "/proc/asound/pcm"
 
 /*
   type : 0 -> playback, 1 -> capture
@@ -69,7 +72,7 @@ get_aml_card()
     int fd = -1;
     unsigned fileSize = 512;
     char *read_buf = NULL, *pd = NULL;
-    static const char *const SOUND_CARDS_PATH = "/proc/asound/cards";
+    //    static const char *const SOUND_CARDS_PATH = "/proc/asound/cards";
     fd = open(SOUND_CARDS_PATH, O_RDONLY);
     if (fd < 0) {
         ALOGE("ERROR: failed to open config file %s error: %d\n",
@@ -90,6 +93,7 @@ get_aml_card()
         ALOGE("ERROR: failed to read config file %s error: %d\n",
               SOUND_CARDS_PATH, errno);
         close(fd);
+        free(read_buf);
         return -EINVAL;
     }
     pd = strstr(read_buf, "AML");
@@ -107,7 +111,7 @@ get_spdif_port()
     int fd = -1;
     unsigned fileSize = 512;
     char *read_buf = NULL, *pd = NULL;
-    static const char *const SOUND_PCM_PATH = "/proc/asound/pcm";
+    //    static const char *const SOUND_PCM_PATH = "/proc/asound/pcm";
     fd = open(SOUND_PCM_PATH, O_RDONLY);
     if (fd < 0) {
         ALOGE("ERROR: failed to open config file %s error: %d\n",
@@ -127,6 +131,7 @@ get_spdif_port()
         ALOGE("ERROR: failed to read config file %s error: %d\n",
               SOUND_PCM_PATH, errno);
         close(fd);
+        free(read_buf);
         return -EINVAL;
     }
     pd = strstr(read_buf, "SPDIF");

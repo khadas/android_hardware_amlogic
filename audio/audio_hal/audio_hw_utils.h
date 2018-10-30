@@ -18,6 +18,7 @@
 
 #ifndef  _AUDIO_HW_UTILS_H_
 #define _AUDIO_HW_UTILS_H_
+#include "audio_hw.h"
 int get_sysfs_uint(const char *path, uint *value);
 int sysfs_set_sysfs_str(const char *path, const char *val);
 int get_sysfs_int (const char *path);
@@ -29,5 +30,12 @@ unsigned char codec_type_is_raw_data(int type);
 int mystrstr(char *mystr,char *substr);
 void *convert_audio_sample_for_output(int input_frames,int input_format,int input_ch,void *input_buf,int *out_size/*,float lvol*/);
 int  aml_audio_start_trigger(void *stream);
+int aml_audio_dump_audio_bitstreams(const char *path, const void *buf, size_t bytes);
+bool is_stream_using_mixer(struct aml_stream_out *out);
+uint32_t out_get_outport_latency(const struct audio_stream_out *stream);
+uint32_t out_get_latency_frames(const struct audio_stream_out *stream);
 int set_thread_affinity(int cpu_num);
+void audio_fade_func(void *buf,int fade_size,int is_fadein);
+void ts_wait_time_us(struct timespec *ts, uint32_t time_us);
+uint64_t get_systime_ns(void);
 #endif
