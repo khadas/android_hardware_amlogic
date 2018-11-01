@@ -157,6 +157,7 @@ enum patch_src_assortion {
     SRC_ATV,
     SRC_LINEIN,
     SRC_HDMIIN,
+    SRC_ARCIN,
     SRC_SPDIFIN,
     SRC_OTHER,
     SRC_INVAL
@@ -175,6 +176,7 @@ enum OUT_PORT {
 enum IN_PORT {
     INPORT_TUNER = 0,
     INPORT_HDMIIN,
+    INPORT_ARCIN,
     INPORT_SPDIF,
     INPORT_LINEIN,
     INPORT_MAX

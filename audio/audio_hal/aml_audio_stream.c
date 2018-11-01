@@ -253,8 +253,9 @@ bool signal_status_check(audio_devices_t in_device, int *mute_time,
         *mute_time = 1000;
         return false;
     }
-    if ((in_device & AUDIO_DEVICE_IN_SPDIF) &&
-            !is_spdif_in_stable_hw(stream)) {
+    if (((in_device & AUDIO_DEVICE_IN_SPDIF)
+            || (in_device & AUDIO_DEVICE_IN_HDMI_ARC))
+                && !is_spdif_in_stable_hw(stream)) {
         *mute_time = 1000;
         return false;
     }

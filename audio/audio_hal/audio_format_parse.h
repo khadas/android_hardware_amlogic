@@ -46,6 +46,7 @@ enum input_source{
     LINEIN = 0,
     ATV,
     HDMIIN,
+    ARCIN,
     SPDIFIN,
 };
 

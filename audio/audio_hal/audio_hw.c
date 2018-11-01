@@ -2677,6 +2677,7 @@ static int start_input_stream(struct aml_stream_in *in)
         port = PORT_PCM;
     } else if (getprop_bool("sys.hdmiIn.Capture")
             || adev->in_device & AUDIO_DEVICE_IN_HDMI
+            || adev->in_device & AUDIO_DEVICE_IN_HDMI_ARC
             || adev->in_device & AUDIO_DEVICE_IN_SPDIF) {
         port = PORT_SPDIF;
     } else {
@@ -3691,6 +3692,7 @@ const char *output_ports[] = {
 const char *input_ports[] = {
     "INPORT_TUNER",
     "INPORT_HDMIIN",
+    "INPORT_ARCIN",
     "INPORT_SPDIF",
     "INPORT_LINEIN",
     "INPORT_MAX"
@@ -5471,7 +5473,9 @@ ssize_t mixer_main_buffer_write (struct audio_stream_out *stream, const void *bu
     /* here to check if the audio input format changed. */
     if (adev->audio_patch) {
         audio_format_t cur_aformat;
-        if (patch->input_src == AUDIO_DEVICE_IN_HDMI || patch->input_src == AUDIO_DEVICE_IN_SPDIF) {
+        if (patch->input_src == AUDIO_DEVICE_IN_HDMI
+                || patch->input_src == AUDIO_DEVICE_IN_HDMI_ARC
+                || patch->input_src == AUDIO_DEVICE_IN_SPDIF) {
             cur_aformat = audio_parse_get_audio_type (patch->audio_parse_para);
             if (cur_aformat != AUDIO_FORMAT_INVALID && cur_aformat != patch->aformat) {
                 ALOGI ("HDMI/SPDIF input format changed from %#x to %#x\n", patch->aformat, cur_aformat);
@@ -6153,7 +6157,9 @@ static int create_patch(struct audio_hw_device *dev,
         goto err_out_thread;
     }
 
-    if (patch->input_src == AUDIO_DEVICE_IN_HDMI || patch->input_src == AUDIO_DEVICE_IN_SPDIF) {
+    if (patch->input_src == AUDIO_DEVICE_IN_HDMI
+            || patch->input_src == AUDIO_DEVICE_IN_HDMI_ARC
+            || patch->input_src == AUDIO_DEVICE_IN_SPDIF) {
         //TODO add sample rate and channel information
         ret = creat_pthread_for_audio_type_parse(&patch->audio_parse_threadID, &patch->audio_parse_para, &aml_dev->alsa_mixer);
         if (ret !=  0) {
@@ -6184,7 +6190,9 @@ static int release_patch(struct aml_audio_device *aml_dev)
     struct aml_audio_patch *patch = aml_dev->audio_patch;
 
     ALOGD("%s: enter", __func__);
-    if (patch->input_src == AUDIO_DEVICE_IN_HDMI || patch->input_src == AUDIO_DEVICE_IN_SPDIF)
+    if (patch->input_src == AUDIO_DEVICE_IN_HDMI
+            || patch->input_src == AUDIO_DEVICE_IN_HDMI_ARC
+            || patch->input_src == AUDIO_DEVICE_IN_SPDIF)
         exit_pthread_for_audio_type_parse(patch->audio_parse_threadID, &patch->audio_parse_para);
     patch->input_thread_exit = 1;
     pthread_join(patch->audio_input_threadID, NULL);
@@ -6504,6 +6512,11 @@ static int adev_create_audio_patch(struct audio_hw_device *dev,
             inport = INPORT_HDMIIN;
             aml_dev->patch_src = SRC_HDMIIN;
             break;
+        case AUDIO_DEVICE_IN_HDMI_ARC:
+            input_src = ARCIN;
+            inport = INPORT_ARCIN;
+            aml_dev->patch_src = SRC_ARCIN;
+            break;
         case AUDIO_DEVICE_IN_LINE:
             input_src = LINEIN;
             inport = INPORT_LINEIN;
@@ -6573,6 +6586,11 @@ static int adev_create_audio_patch(struct audio_hw_device *dev,
             input_src = HDMIIN;
             inport = INPORT_HDMIIN;
             aml_dev->patch_src = SRC_HDMIIN;
+            break;
+        case AUDIO_DEVICE_IN_HDMI_ARC:
+            input_src = ARCIN;
+            inport = INPORT_ARCIN;
+            aml_dev->patch_src = SRC_ARCIN;
             break;
         case AUDIO_DEVICE_IN_LINE:
             input_src = LINEIN;
@@ -6777,6 +6795,9 @@ static int adev_set_audio_port_config (struct audio_hw_device *dev, const struct
             switch (config->ext.device.type) {
             case AUDIO_DEVICE_IN_HDMI:
                 inport = INPORT_HDMIIN;
+                break;
+            case AUDIO_DEVICE_IN_HDMI_ARC:
+                inport = INPORT_ARCIN;
                 break;
             case AUDIO_DEVICE_IN_LINE:
                 inport = INPORT_LINEIN;
