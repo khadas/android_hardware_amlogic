@@ -987,7 +987,7 @@ int mali_gralloc_buffer_allocate(mali_gralloc_module *m, const gralloc_buffer_de
 		case HAL_PIXEL_FORMAT_RGBA_8888:
 		case HAL_PIXEL_FORMAT_RGBX_8888:
 		case HAL_PIXEL_FORMAT_BGRA_8888:
-#if PLATFORM_SDK_VERSION >= 26
+#if PLATFORM_SDK_VERSION >= 26 && GPU_TYPE != mali450
 		case HAL_PIXEL_FORMAT_RGBA_1010102:
 #endif
 			get_rgb_stride_and_size(bufDescriptor->width, bufDescriptor->height, 4, &bufDescriptor->pixel_stride,
@@ -1008,7 +1008,7 @@ int mali_gralloc_buffer_allocate(mali_gralloc_module *m, const gralloc_buffer_de
 			                        &bufDescriptor->byte_stride, &bufDescriptor->size, alloc_type);
 			break;
 
-#if PLATFORM_SDK_VERSION >= 26
+#if PLATFORM_SDK_VERSION >= 26 && GPU_TYPE != mali450
 		case HAL_PIXEL_FORMAT_RGBA_FP16:
 			get_rgb_stride_and_size(bufDescriptor->width, bufDescriptor->height, 8, &bufDescriptor->pixel_stride,
 			                        &bufDescriptor->byte_stride, &bufDescriptor->size, alloc_type);
