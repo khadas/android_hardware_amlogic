@@ -71,6 +71,7 @@
 #include <SPDIFEncoderAD.h>
 #include "audio_hw_ms12.h"
 #endif
+#define SUBMIXER_V1_1
 
 #if defined(IS_ATOM_PROJECT)
 #include "harman_dsp_process.h"
@@ -84,14 +85,11 @@
 /*[SEN5-autumn.zhao-2018-01-11] add for B06 audio support } */
 #endif
 
+#include "sub_mixing_factory.h"
+
 /* minimum sleep time in out_write() when write threshold is not reached */
 #define MIN_WRITE_SLEEP_US 5000
 #define NSEC_PER_SECOND 1000000000ULL
-
-#define FRAMESIZE_32BIT_STEREO 8
-#define FRAMESIZE_32BIT_3ch 12
-#define FRAMESIZE_32BIT_5ch 20
-#define FRAMESIZE_32BIT_8ch 32
 
 /* sampling rate when using MM low power port */
 #define MM_LOW_POWER_SAMPLING_RATE 44100
@@ -114,6 +112,11 @@ const char *str_usecases[STREAM_USECASE_MAX] = {
     "STREAM_PCM_PATCH",
     "STREAM_RAW_PATCH"
 };
+
+const char *usecase_to_str(stream_usecase_t usecase)
+{
+    return str_usecases[usecase];
+}
 
 static const struct pcm_config pcm_config_out = {
     .channels = 2,
@@ -924,7 +927,7 @@ static int out_flush (struct audio_stream_out *stream)
     out->frame_skip_sum = 0;
     out->skip_frame = 0;
     out->pause_status = false;
-    aml_audio_hwsync_init(&out->hwsync);
+    aml_audio_hwsync_init(out->hwsync, out);
 
 exit:
     pthread_mutex_unlock (&adev->lock);
@@ -1116,7 +1119,7 @@ static int out_set_parameters (struct audio_stream *stream, const char *kvpairs)
     if (ret >= 0) {
         int hw_sync_id = atoi (value);
         unsigned char sync_enable = (hw_sync_id == 12345678) ? 1 : 0;
-        audio_hwsync_t *hw_sync = &out->hwsync;
+        audio_hwsync_t *hw_sync = out->hwsync;
         ALOGI ("(%p)set hw_sync_id %d,%s hw sync mode\n",
                out, hw_sync_id, sync_enable ? "enable" : "disable");
         out->hw_sync_mode = sync_enable;
@@ -1222,6 +1225,7 @@ static char *out_get_parameters (const struct audio_stream *stream, const char *
     return strdup ("");
 }
 
+/* //redifinition in audio_hw_utils.c
 static uint32_t out_get_latency_frames (const struct audio_stream_out *stream)
 {
     const struct aml_stream_out *out = (const struct aml_stream_out *) stream;
@@ -1239,6 +1243,7 @@ static uint32_t out_get_latency_frames (const struct audio_stream_out *stream)
     }
     return frames;
 }
+*/
 
 static uint32_t out_get_latency (const struct audio_stream_out *stream)
 {
@@ -1265,7 +1270,9 @@ static int out_pause (struct audio_stream_out *stream)
     int r = 0;
     pthread_mutex_lock (&adev->lock);
     pthread_mutex_lock (&out->lock);
+    /* a stream should fail to pause if not previously started */
     if (out->standby || out->pause_status == true) {
+        r = INVALID_STATE;
         goto exit;
     }
     if (out->hw_sync_mode) {
@@ -1308,20 +1315,21 @@ static int out_resume (struct audio_stream_out *stream)
     int r = 0;
     pthread_mutex_lock (&adev->lock);
     pthread_mutex_lock (&out->lock);
+    /* a stream should fail to resume if not previously paused */
     if (/* !out->standby && */!out->pause_status) {
         // If output stream is not standby or not paused,
         // we should return Result::INVALID_STATE (3),
         // thus we can pass VTS test.
         ALOGE ("%s: stream in wrong status. standby(%d) or paused(%d)",
                 __func__, out->standby, out->pause_status);
-        r = 3;
+        r = INVALID_STATE;
 
         goto exit;
     }
     if (out->pcm && pcm_is_ready (out->pcm) ) {
         r = pcm_ioctl (out->pcm, SNDRV_PCM_IOCTL_PAUSE, 0);
         if (r < 0) {
-            ALOGE ("cannot resume channel\n");
+            ALOGE ("%s(), cannot resume channel\n", __func__);
         } else {
             r = 0;
             // clear the pcm pause state
@@ -1441,7 +1449,7 @@ static ssize_t out_write_legacy (struct audio_stream_out *stream, const void* bu
     uint32_t latency_frames = 0;
     int need_mix = 0;
     short *mix_buf = NULL;
-    audio_hwsync_t *hw_sync = &out->hwsync;
+    audio_hwsync_t *hw_sync = out->hwsync;
     unsigned char enable_dump = getprop_bool ("media.audiohal.outdump");
 
     ALOGV ("%s() out_write_direct:out %p,position %zu",
@@ -1666,7 +1674,7 @@ static ssize_t out_write_legacy (struct audio_stream_out *stream, const void* bu
             while (remain > 0) {
                 if (hw_sync->hw_sync_state == HW_SYNC_STATE_HEADER) {
                     //ALOGI("Add to header buffer [%d], 0x%x", out->hw_sync_header_cnt, *p);
-                    out->hwsync.hw_sync_header[out->hwsync.hw_sync_header_cnt++] = *p++;
+                    out->hwsync->hw_sync_header[out->hwsync->hw_sync_header_cnt++] = *p++;
                     remain--;
                     if (hw_sync->hw_sync_header_cnt == 16) {
                         uint64_t pts;
@@ -2189,12 +2197,6 @@ exit:
     return 0;
 }
 
-enum hwsync_status {
-    CONTINUATION,  // good sync condition
-    ADJUSTMENT,    // can be adjusted by discarding or padding data
-    RESYNC,        // pts need resync
-};
-
 enum hwsync_status check_hwsync_status (uint apts_gap)
 {
     enum hwsync_status sync_status;
@@ -2227,7 +2229,7 @@ static ssize_t out_write_direct(struct audio_stream_out *stream, const void* buf
     uint32_t latency_frames = 0;
     uint64_t total_frame = 0;
     int return_bytes = bytes;
-    audio_hwsync_t *hw_sync = &out->hwsync;
+    audio_hwsync_t *hw_sync = out->hwsync;
     /* acquiring hw device mutex systematically is useful if a low priority thread is waiting
     * on the output stream mutex - e.g. executing select_mode() while holding the hw device
     * mutex
@@ -2274,7 +2276,7 @@ static ssize_t out_write_direct(struct audio_stream_out *stream, const void* buf
         }
         // todo: check timestamp header PTS discontinue for new sync point after seek
         if ( (codec_type == TYPE_AC3 || codec_type == TYPE_EAC3) ) {
-            aml_audio_hwsync_init (&out->hwsync);
+            aml_audio_hwsync_init(out->hwsync, out);
             out->spdif_enc_init_frame_write_sum = out->frame_write_sum;
         }
     }
@@ -2298,7 +2300,7 @@ static ssize_t out_write_direct(struct audio_stream_out *stream, const void* buf
         int outsize = 0;
         char tempbuf[128];
         ALOGV ("before aml_audio_hwsync_find_frame bytes %zu\n", bytes);
-        hwsync_cost_bytes = aml_audio_hwsync_find_frame (&out->hwsync, buffer, bytes, &cur_pts, &outsize);
+        hwsync_cost_bytes = aml_audio_hwsync_find_frame (out->hwsync, buffer, bytes, &cur_pts, &outsize);
         if (cur_pts > 0xffffffff) {
             ALOGE ("APTS exeed the max 32bit value");
         }
@@ -2318,7 +2320,7 @@ static ssize_t out_write_direct(struct audio_stream_out *stream, const void* buf
             //we take this frame pts as the first apts.
             //this can fix the seek discontinue,we got a fake frame,which maybe cached before the seek
             if (hw_sync->first_apts_flag == false) {
-                aml_audio_hwsync_set_first_pts (&out->hwsync, cur_pts);
+                aml_audio_hwsync_set_first_pts (out->hwsync, cur_pts);
             } else {
                 uint64_t apts;
                 uint32_t apts32;
@@ -3511,7 +3513,7 @@ static int adev_open_output_stream(struct audio_hw_device *dev,
     out->standby = true;
     out->frame_write_sum = 0;
     out->hw_sync_mode = false;
-    aml_audio_hwsync_init(&out->hwsync);
+    //aml_audio_hwsync_init(out->hwsync,out);
     /* FIXME: when we support multiple output devices, we will want to
      * do the following:
      * adev->devices &= ~AUDIO_DEVICE_OUT_ALL;
@@ -3542,18 +3544,41 @@ static int adev_open_output_stream(struct audio_hw_device *dev,
         }
         memset(out->audioeffect_tmp_buffer, 0, out->config.period_size * 6);
     }
+
+    // malloc hwsync instance if hwavsync flag is set
+    if (flags & AUDIO_OUTPUT_FLAG_HW_AV_SYNC) {
+        out->hwsync = calloc(1, sizeof(audio_hwsync_t));
+        if (!out->hwsync) {
+            ALOGE("%s,malloc hwsync failed", __func__);
+            ret = -ENOMEM;
+        }
+        out->hwsync->tsync_fd = -1;
+        if (out->hw_sync_mode) {
+            //aml_audio_hwsync_init(out->hwsync, out);
+        }
+    }
     *stream_out = &out->stream;
     ALOGD("%s: exit", __func__);
 
     return 0;
 err:
-    free(out->audioeffect_tmp_buffer);
-    free(out->tmp_buffer_8ch);
-    free(out);
+    if (adev->is_TV) {
+        if (out->audioeffect_tmp_buffer) {
+            free(out->audioeffect_tmp_buffer);
+            out->audioeffect_tmp_buffer = NULL;
+        }
+        if (out->tmp_buffer_8ch) {
+            free(out->tmp_buffer_8ch);
+            out->tmp_buffer_8ch = NULL;
+        }
+    }
+    if (out)
+        free(out);
+
     return ret;
 }
 
-static int out_standby_new(struct audio_stream *stream);
+int out_standby_new(struct audio_stream *stream);
 static void adev_close_output_stream(struct audio_hw_device *dev,
                                     struct audio_stream_out *stream)
 {
@@ -3561,10 +3586,24 @@ static void adev_close_output_stream(struct audio_hw_device *dev,
     struct aml_audio_device *adev = (struct aml_audio_device *)dev;
 
     ALOGD("%s: enter: dev(%p) stream(%p)", __func__, dev, stream);
+#ifdef SUBMIXER_V1_1
+    out_standby_subMixingPCM(&stream->common);
+#else
     out_standby_new(&stream->common);
+#endif
     pthread_mutex_lock (&out->lock);
-    free(out->audioeffect_tmp_buffer);
-    free(out->tmp_buffer_8ch);
+    if (out->audioeffect_tmp_buffer) {
+        free(out->audioeffect_tmp_buffer);
+        out->audioeffect_tmp_buffer = NULL;
+    }
+    if (out->tmp_buffer_8ch) {
+        free(out->tmp_buffer_8ch);
+        out->tmp_buffer_8ch = NULL;
+    }
+    if (out->hwsync) {
+        free(out->hwsync);
+        out->hwsync = NULL;
+    }
     pthread_mutex_unlock (&out->lock);
     free(stream);
     ALOGD("%s: exit", __func__);
@@ -4556,7 +4595,12 @@ static int do_output_standby_l (struct audio_stream *stream)
     if (aml_out->status == STREAM_HW_WRITING) {
         ALOGI("%s aml_out(%p)standby close", __func__, aml_out);
         pthread_mutex_lock(&adev->alsa_pcm_lock);
-        aml_alsa_output_close (out);
+        if (aml_out->usecase == STREAM_PCM_DIRECT && adev->audio_patching) {
+            ALOGI("%s(), TV patching case", __func__);
+        } else {
+            ALOGI("%s(), Closing ALSA pcm handle", __func__);
+            aml_alsa_output_close(out);
+        }
         pthread_mutex_unlock(&adev->alsa_pcm_lock);
     }
     // release buffers
@@ -4604,7 +4648,7 @@ static int do_output_standby_l (struct audio_stream *stream)
     return 0;
 }
 
-static int out_standby_new(struct audio_stream *stream)
+int out_standby_new(struct audio_stream *stream)
 {
     struct aml_stream_out *aml_out = (struct aml_stream_out *)stream;
     int status;
@@ -4858,6 +4902,87 @@ void atom_pack_speaker_ring_buffer(struct aml_audio_device *adev, size_t bytes) 
     if (adev->extra_write_bytes >= adev->spk_buf_size) {
         adev->extra_write_bytes = 0;
     }
+}
+
+int dsp_process_output(struct aml_audio_device *adev, void *in_buffer,
+        size_t bytes)
+{
+    int32_t *out_buffer;
+    size_t out_frames = bytes / FRAMESIZE_32BIT_STEREO;
+    int32_t *input32 = (int32_t *)in_buffer;
+    uint i = 0;
+
+    for (i = 0; i < bytes/sizeof(int32_t); i++) {
+        input32[i] = input32[i] >> 3;
+    }
+
+    /*malloc dsp buffer*/
+    if (adev->dsp_frames < out_frames) {
+        pthread_mutex_lock(&adev->dsp_processing_lock);
+        dsp_realloc_buffer(&adev->dsp_in_buf, &adev->dsp_out_buf, &adev->aec_buf, out_frames);
+        pthread_mutex_unlock(&adev->dsp_processing_lock);
+        adev->dsp_frames = out_frames;
+        ALOGI("%s: dsp_buf = %p, dsp_out_buf = %p, aec_buffer = %p", __func__,
+            adev->dsp_in_buf, adev->dsp_out_buf, adev->aec_buf);
+    }
+
+    pthread_mutex_lock(&adev->dsp_processing_lock);
+    int32_t *dsp_in_buf = (int32_t *)adev->dsp_in_buf;
+
+    /*map 2 channel data to 2.1 channel*/
+    for (i = 0; i < out_frames; i++) {
+        dsp_in_buf[3 * i] = input32[2 * i];
+        dsp_in_buf[3 * i + 1] = input32[2 * i + 1];
+        dsp_in_buf[3 * i + 2] = 0;
+    }
+    harman_dsp_process(adev->dsp_in_buf, adev->dsp_out_buf, adev->aec_buf, out_frames);
+    pthread_mutex_unlock(&adev->dsp_processing_lock);
+
+    out_buffer = (int32_t *)adev->dsp_out_buf;
+
+    /* when aec is ready, init fir filter*/
+    if (!adev->pstFir_spk)
+        Fir_initModule(&adev->pstFir_spk);
+
+    if (adev->mic_running) {
+        //pthread_mutex_lock(&adev->aec_spk_buf_lock);
+
+        /*copy the speaker playout data to speaker ringbuffer*/
+        if (adev->spk_write_bytes != (size_t)(FRAMESIZE_32BIT_STEREO * out_frames))
+            adev->spk_write_bytes = FRAMESIZE_32BIT_STEREO * out_frames;
+
+        if (adev->spk_running == 0) {
+            adev->spk_running = 1;
+        }
+
+        /*TODO: when overflow, how to do??*/
+        int int_get_buffer_write_space = get_buffer_write_space(&adev->spk_ring_buf);
+        if (int_get_buffer_write_space <
+           (int)((FRAMESIZE_32BIT_STEREO * out_frames) + (2 * TIMESTAMP_LEN))) {
+           if (DEBUG_AEC) {
+               ALOGI("[%s]: Warning: spk_ring_buf overflow, write_bytes = TIMESTAMP_BYTE + %zu",
+                    __func__, FRAMESIZE_32BIT_STEREO * out_frames + (2 * TIMESTAMP_LEN));
+           }
+           // Reset buffers
+           atom_speaker_buffer_reset(adev);
+        } else {
+            if (adev->has_dsp_lib) {
+                if (adev->spk_buf_size != 0) {
+                    atom_pack_speaker_ring_buffer(adev, bytes);
+                }
+            } else
+                ring_buffer_write(&adev->spk_ring_buf, (unsigned char*)in_buffer,
+                        FRAMESIZE_32BIT_STEREO * out_frames, UNCOVER_WRITE);
+        }
+
+        if (DEBUG_AEC) {
+            ALOGW("%s: buffer_write_space: %d, out_frames: %d, extra_write_bytes: %d",
+                __func__, int_get_buffer_write_space, out_frames, adev->extra_write_bytes);
+        }
+        //pthread_mutex_unlock(&adev->aec_spk_buf_lock);
+    }
+
+    return 0;
 }
 #endif
 
@@ -5184,9 +5309,16 @@ ssize_t hw_write (struct audio_stream_out *stream
     pthread_mutex_lock(&adev->alsa_pcm_lock);
     if (aml_out->status != STREAM_HW_WRITING) {
         ALOGI("%s, aml_out %p alsa open output_format %#x\n", __func__, aml_out, output_format);
-        ret = aml_alsa_output_open (stream);
-        if (ret)
-            ALOGE ("%s() open failed", __func__);
+        if (aml_out->usecase == STREAM_PCM_DIRECT && adev->audio_patching) {
+            aml_out->pcm = getSubMixingPCMdev(adev->sm);
+            if (aml_out->pcm == NULL)
+                ALOGE("%s() get pcm handle failed", __func__);
+        } else {
+            ret = aml_alsa_output_open(stream);
+            if (ret) {
+                ALOGE("%s() open failed", __func__);
+            }
+        }
         aml_out->status = STREAM_HW_WRITING;
 #if defined(IS_ATOM_PROJECT)
         /*set output thread to cpu3*/
@@ -5312,7 +5444,7 @@ ssize_t mixer_main_buffer_write (struct audio_stream_out *stream, const void *bu
     void   *write_buf = NULL;
     size_t  write_bytes = 0;
     size_t  hwsync_cost_bytes = 0;
-    audio_hwsync_t *hw_sync = &aml_out->hwsync;
+    audio_hwsync_t *hw_sync = aml_out->hwsync;
     int return_bytes = bytes;
 
     if (buffer == NULL) {
@@ -5330,7 +5462,7 @@ ssize_t mixer_main_buffer_write (struct audio_stream_out *stream, const void *bu
         }
 
         if (aml_out->usecase == STREAM_PCM_HWSYNC || aml_out->usecase == STREAM_RAW_HWSYNC) {
-            aml_audio_hwsync_init (&aml_out->hwsync);
+            aml_audio_hwsync_init(aml_out->hwsync, aml_out);
         }
 #ifdef DOLBY_MS12_ENABLE
         get_sink_format (stream);
@@ -5372,7 +5504,7 @@ ssize_t mixer_main_buffer_write (struct audio_stream_out *stream, const void *bu
         int outsize = 0;
         char tempbuf[128];
         ALOGV ("before aml_audio_hwsync_find_frame bytes %zu\n", bytes);
-        hwsync_cost_bytes = aml_audio_hwsync_find_frame (&aml_out->hwsync, buffer, bytes, &cur_pts, &outsize);
+        hwsync_cost_bytes = aml_audio_hwsync_find_frame (aml_out->hwsync, buffer, bytes, &cur_pts, &outsize);
         if (cur_pts > 0xffffffff) {
             ALOGE ("APTS exeed the max 32bit value");
         }
@@ -5390,7 +5522,7 @@ ssize_t mixer_main_buffer_write (struct audio_stream_out *stream, const void *bu
             //we take this frame pts as the first apts.
             //this can fix the seek discontinue,we got a fake frame,which maybe cached before the seek
             if (hw_sync->first_apts_flag == false) {
-                aml_audio_hwsync_set_first_pts (&aml_out->hwsync, cur_pts);
+                aml_audio_hwsync_set_first_pts (aml_out->hwsync, cur_pts);
             } else {
                 uint64_t apts;
                 uint32_t apts32;
@@ -5780,6 +5912,12 @@ static int usecase_change_validate_l(struct aml_stream_out *aml_out, bool is_sta
                 ALOGE("%s: usecase: %s already exists", __func__, str_usecases[aml_out->usecase]);
                 return -EINVAL;
             }
+
+            if (popcount((aml_dev->usecase_masks | (1 << aml_out->usecase)) & 0xfffffffe) > 1) {
+                ALOGE("%s(), usecase masks = %#x, couldn't add new out usecase %s!",
+                      __func__, aml_dev->usecase_masks, usecase_to_str(aml_out->usecase));
+                return -EINVAL;
+            }
             /* add the new output usecase to aml_dev usecase masks */
             aml_dev->usecase_masks |= 1 << aml_out->usecase;
         }
@@ -5812,7 +5950,7 @@ static int usecase_change_validate_l(struct aml_stream_out *aml_out, bool is_sta
 }
 
 /* out_write entrance: every write goes in here. */
-static ssize_t out_write_new(struct audio_stream_out *stream,
+ssize_t out_write_new(struct audio_stream_out *stream,
                             const void *buffer,
                             size_t bytes)
 {
@@ -5882,11 +6020,31 @@ static int adev_open_output_stream_new(struct audio_hw_device *dev,
     aml_out->device = (adev->sink_format == AUDIO_FORMAT_PCM_16_BIT) ? 0 : 1;
     aml_out->usecase = attr_to_usecase(aml_out->device, aml_out->hal_format, aml_out->flags);
     aml_out->is_normal_pcm = (aml_out->usecase == STREAM_PCM_NORMAL) ? 1 : 0;
+    aml_out->out_cfg = *config;
+#ifdef SUBMIXER_V1_1
+    // In V1.1, android out lpcm stream and hwsync pcm stream goes to aml mixer,
+    // tv source keeps the original way.
+    // Next step is to make all compitable.
+    if (aml_out->usecase == STREAM_PCM_NORMAL || aml_out->usecase == STREAM_PCM_HWSYNC) {
+        ret = initSubMixingInput(aml_out, config);
+        if (ret < 0) {
+            ALOGE("initSub mixing input failed");
+        }
+    } else {
+        aml_out->stream.write = out_write_new;
+        aml_out->stream.common.standby = out_standby_new;
+    }
+#else
+    aml_out->stream.write = out_write_new;
+    aml_out->stream.common.standby = out_standby_new;
+#endif
+    ALOGI("%s(), usecase = %s card %d devices %d\n",
+          __func__, str_usecases[aml_out->usecase], aml_out->card, aml_out->device);
     aml_out->status = STREAM_STANDBY;
     adev->spdif_encoder_init_flag = false;
 
     pthread_mutex_lock(&adev->lock);
-    adev->active_output[aml_out->usecase] = aml_out;
+    adev->active_outputs[aml_out->usecase] = aml_out;
     pthread_mutex_unlock(&adev->lock);
 
     ALOGD("%s: exit: usecase = %s card = %d devices = %d", __func__,
@@ -5901,9 +6059,14 @@ void adev_close_output_stream_new(struct audio_hw_device *dev,
     struct aml_audio_device *adev = (struct aml_audio_device *)dev;
     struct aml_stream_out *aml_out = (struct aml_stream_out *)stream;
 
-    ALOGD("%s: enter", __func__);
+    ALOGD("%s: enter usecase = %s", __func__, str_usecases[aml_out->usecase]);
     /* call legacy close to reuse codes */
-    adev->active_output[aml_out->usecase] = NULL;
+    adev->active_outputs[aml_out->usecase] = NULL;
+#ifdef SUBMIXER_V1_1
+    if (aml_out->is_normal_pcm || aml_out->usecase == STREAM_PCM_HWSYNC) {
+        deleteSubMixingInput(aml_out);
+    }
+#endif
     adev_close_output_stream(dev, stream);
     adev->dual_decoder_support = false;
     ALOGD("%s: exit", __func__);
@@ -6074,6 +6237,8 @@ static void *audio_patch_output_threadloop(void *data)
         adev_close_output_stream_new(patch->dev, &out->stream);
         return (void *)0;
     }
+    // switch normal stream to old tv mode writing
+    switchNormalStream(aml_dev->active_outputs[STREAM_PCM_NORMAL], 0);
     prctl(PR_SET_NAME, (unsigned long)"audio_output_patch");
     while (!patch->output_thread_exit) {
         pthread_mutex_lock(&patch->mutex);
@@ -6092,7 +6257,12 @@ static void *audio_patch_output_threadloop(void *data)
     }
 
     adev_close_output_stream_new(patch->dev, &out->stream);
-    free(patch->out_buf);
+    if (patch->out_buf) {
+        free(patch->out_buf);
+        patch->out_buf = NULL;
+    }
+    // switch normal stream to old tv mode writing
+    switchNormalStream(aml_dev->active_outputs[STREAM_PCM_NORMAL], 1);
     ALOGD("%s: exit", __func__);
 
     return (void *)0;
@@ -6698,16 +6868,28 @@ static int adev_close(hw_device_t *device)
 
     ALOGD("%s: enter", __func__);
 #if defined(IS_ATOM_PROJECT)
-    free(adev->aec_buf);
-    free(adev->dsp_in_buf);
-    free(adev->dsp_out_buf);
+    if (adev->aec_buf)
+        free(adev->aec_buf);
+    if (adev->dsp_in_buf)
+        free(adev->dsp_in_buf);
+    if (adev->dsp_out_buf)
+        free(adev->dsp_out_buf);
 #endif
-    free(adev->hp_output_buf);
-    free(adev->effect_buf);
+    if (adev->effect_buf) {
+        free(adev->effect_buf);
+    }
+    if (adev->hp_output_buf) {
+        free(adev->hp_output_buf);
+    }
     if (adev->ar)
         audio_route_free(adev->ar);
     eq_drc_release(&adev->eq_data);
     close_mixer_handle(&adev->alsa_mixer);
+    if (adev->sm) {
+        deleteHalSubMixing(adev->sm);
+    }
+    aml_hwsync_close_tsync(adev->tsync_fd);
+
     free(device);
     return 0;
 }
@@ -6990,6 +7172,18 @@ static int adev_open(const hw_module_t* module, const char* name, hw_device_t** 
 	nano_init();
 /*[SEN5-autumn.zhao-2018-01-11] add for B06 audio support } */
 #endif
+
+    adev->is_TV = true;
+    ALOGI("%s(), init TV platform Mixer", __func__);
+    ret = initHalSubMixing(&adev->sm, MIXER_LPCM, adev, adev->is_TV);
+    if (ret < 0) {
+        ALOGE("%s() init hal submixing failed", __func__);
+        goto err_adev;
+    }
+    adev->tsync_fd = aml_hwsync_open_tsync();
+    if (adev->tsync_fd < 0) {
+        ALOGW("%s() open tsync failed", __func__);
+    }
 
     ALOGD("%s: exit", __func__);
     return 0;
