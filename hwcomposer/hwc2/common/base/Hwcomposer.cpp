@@ -875,7 +875,6 @@ int32_t Hwcomposer::setLayerZOrder(
 }
 
 #ifdef HDR_SUPPORT
-#ifndef HDR_INFO_SWITCH_FOR_REFRESH_INFO
 int32_t Hwcomposer::setLayerPerFrameMetadata(
         hwc2_display_t display, hwc2_layer_t layer,
         uint32_t numElements, const int32_t* /*hw2_per_frame_metadata_key_t*/ keys,
@@ -915,7 +914,6 @@ int32_t Hwcomposer::getPerFrameMetadataKeys(
 
     return device->getPerFrameMetadataKeys(outNumKeys, outKeys);
 }
-#endif
 #endif
 
 template <typename T>
