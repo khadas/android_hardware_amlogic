@@ -240,7 +240,6 @@ typedef union {
     unsigned char tsB[8];
 } aec_timestamp;
 
-struct aml_audio_mixer;
 const char *usecase_to_str(stream_usecase_t usecase);
 
 #define MAX_STREAM_NUM   5
@@ -380,9 +379,7 @@ struct aml_audio_device {
     pthread_mutex_t dsp_processing_lock;
 #endif
     struct subMixing *sm;
-    struct aml_audio_mixer *audio_mixer;
     bool is_TV;
-    //int cnt_stream_using_mixer;
     int tsync_fd;
 };
 
@@ -442,7 +439,7 @@ struct aml_stream_out {
     int raw_61937_frame_size;
     /* recorded for wraparound print info */
     unsigned last_dsp_frame;
-    audio_hwsync_t *hwsync;
+    audio_hwsync_t hwsync;
     struct timespec timestamp;
     stream_usecase_t usecase;
     uint32_t dev_usecase_masks;

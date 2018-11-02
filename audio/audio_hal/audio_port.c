@@ -143,6 +143,17 @@ int send_inport_message(struct input_port *port, enum PORT_MSG msg)
     return 0;
 }
 
+const char *str_port_msg[MSG_CNT] = {
+    "MSG_PAUSE",
+    "MSG_FLUSH",
+    "MSG_RESUME"
+};
+
+const char *port_msg_to_str(enum PORT_MSG msg)
+{
+    return str_port_msg[msg];
+}
+
 struct port_message *get_inport_message(struct input_port *port)
 {
     struct port_message *p_msg = NULL;
@@ -152,7 +163,7 @@ struct port_message *get_inport_message(struct input_port *port)
     if (!list_empty(&port->msg_list)) {
         item = list_head(&port->msg_list);
         p_msg = node_to_item(item, struct port_message, list);
-        ALOGI("%s(), msg what %d", __func__, p_msg->msg_what);
+        ALOGI("%s(), msg: %s", __func__, port_msg_to_str(p_msg->msg_what));
     }
     pthread_mutex_unlock(&port->msg_lock);
     return p_msg;
@@ -179,7 +190,7 @@ int remove_all_inport_messages(struct input_port *port)
     pthread_mutex_lock(&port->msg_lock);
     list_for_each_safe(node, n, &port->msg_list) {
         p_msg = node_to_item(node, struct port_message, list);
-        ALOGI("%s(), msg what %d", __func__, p_msg->msg_what);
+        ALOGI("%s(), msg what %s", __func__, port_msg_to_str(p_msg->msg_what));
         list_remove(&p_msg->list);
         free(p_msg);
     }

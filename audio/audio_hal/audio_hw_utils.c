@@ -359,7 +359,7 @@ uint32_t out_get_outport_latency(const struct audio_stream_out *stream)
 
     if (is_stream_using_mixer(out)) {
         struct aml_audio_device *adev = out->dev;
-        struct aml_audio_mixer *audio_mixer = adev->audio_mixer;
+        //struct aml_audio_mixer *audio_mixer = adev->audio_mixer;
         int outport_latency_frames = 0;// = mixer_get_outport_latency_frames(audio_mixer);
 
         if (outport_latency_frames <= 0)

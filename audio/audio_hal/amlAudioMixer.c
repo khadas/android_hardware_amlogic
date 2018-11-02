@@ -505,7 +505,7 @@ static void process_port_msg(struct input_port *port)
 {
     struct port_message *msg = get_inport_message(port);
     if (msg) {
-        ALOGI("%s(), msg %d", __func__, msg->msg_what);
+        ALOGI("%s(), msg: %s", __func__, port_msg_to_str(msg->msg_what));
         switch (msg->msg_what) {
         case MSG_PAUSE:
             set_inport_state(port, PAUSING);

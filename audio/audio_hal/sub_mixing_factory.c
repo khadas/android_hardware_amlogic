@@ -877,7 +877,7 @@ ssize_t mixer_main_buffer_write_sm (struct audio_stream_out *stream, const void 
     int total_write = 0;
     size_t used_size = 0;
     int write_retry = 0;
-    audio_hwsync_t *hw_sync = aml_out->hwsync;
+    audio_hwsync_t *hw_sync = &aml_out->hwsync;
 
     ALOGV("shuai ... %s", __func__);
     if (adev->debug_flag) {

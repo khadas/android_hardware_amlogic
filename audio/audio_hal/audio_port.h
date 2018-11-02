@@ -40,7 +40,9 @@ enum PORT_MSG {
     MSG_PAUSE,
     MSG_FLUSH,
     MSG_RESUME,
+    MSG_CNT
 };
+const char *port_msg_to_str(enum PORT_MSG msg);
 
 enum MIXER_INPUT_PORT {
     MIXER_INPUT_PORT_INVAL          = -1,

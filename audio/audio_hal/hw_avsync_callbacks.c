@@ -1,5 +1,5 @@
 
-#define LOG_TAG "hw_avsync_callbacks"
+#define LOG_TAG "audio_hwsync_cbks"
 //#define LOG_NDEBUG 0
 
 #include <errno.h>
@@ -43,7 +43,7 @@ int on_meta_data_cbk(void *cookie,
         return -EAGAIN;
     }
     if (out->pause_status) {
-        ALOGE("%s(), write in pause status", __func__);
+        ALOGW("%s(), write in pause status", __func__);
     }
 
     pthread_mutex_lock(&out->mdata_lock);
