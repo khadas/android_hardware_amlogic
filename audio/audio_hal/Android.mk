@@ -102,9 +102,10 @@ ifeq ($(strip $(TARGET_BOOTLOADER_BOARD_NAME)), atom)
         audio_aec_process.cpp
     LOCAL_C_INCLUDES += \
         $(TOPDIR)vendor/harman/atom/google_aec \
-        $(TOPDIR)vendor/harman/atom/harman_api
+        $(TOPDIR)vendor/harman/atom/harman_api \
+        $(TOPDIR)vendor/harman/atom/subwoofer_api
     LOCAL_SHARED_LIBRARIES += \
-        libgoogle_aec libharman_api
+        libgoogle_aec libharman_api libsubwoofer_api
 endif
 
     include $(BUILD_SHARED_LIBRARY)

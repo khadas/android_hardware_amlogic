@@ -76,6 +76,7 @@
 #include "harman_dsp_process.h"
 #include "harman_filter.h"
 #include "audio_aec_process.h"
+#include "subwoofer_api.h"
 #endif
 
 #if (ENABLE_NANO_PATCH == 1)
@@ -3295,6 +3296,19 @@ static ssize_t in_read(struct audio_stream_in *stream, void* buffer, size_t byte
                 in->mute_log_cntr = 0;
                 in->mute_flag = 0;
             }
+#if defined(IS_ATOM_PROJECT)
+            if (adev->has_dsp_lib) {
+                if (!adev->subwoofer_status && !in_mute) {
+                    subwoofer_mute(0);
+                    adev->subwoofer_status = 1;
+                    ALOGD("%s: unmute subwoofer!", __func__);
+                } else if (adev->subwoofer_status && in_mute) {
+                    subwoofer_mute(1);
+                    adev->subwoofer_status = 0;
+                    ALOGD("%s: mute subwoofer!", __func__);
+                }
+            }
+#endif
         }
 
         if (adev->parental_control_av_mute && (adev->active_inport == INPORT_TUNER || adev->active_inport == INPORT_LINEIN))
@@ -6357,6 +6371,11 @@ static int release_patch(struct aml_audio_device *aml_dev)
     free(aml_dev->output_tmp_buf);
     aml_dev->output_tmp_buf = NULL;
     aml_dev->output_tmp_buf_size = 0;
+    if (!aml_dev->subwoofer_status) {
+        subwoofer_mute(0);
+        aml_dev->subwoofer_status = 1;
+        ALOGD("%s: unmute subwoofer!", __func__);
+    }
 #endif
     return 0;
 }

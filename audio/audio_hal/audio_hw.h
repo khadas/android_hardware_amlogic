@@ -367,6 +367,7 @@ struct aml_audio_device {
     unsigned long long debug_spk_buf_time_curr;
 
     bool has_dsp_lib;
+    bool subwoofer_status;
     void *aec_buf;
     void *dsp_in_buf;
     void *dsp_out_buf;
