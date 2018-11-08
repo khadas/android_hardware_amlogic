@@ -6954,10 +6954,15 @@ static int adev_set_audio_port_config (struct audio_hw_device *dev, const struct
                 aml_dev->sink_gain[OUTPORT_SPEAKER] = DbToAmpl((float)vol);
             } else
 #endif
-            //aml_dev->sink_gain[outport] = get_volume_by_index(config->gain.values[0]);
-            aml_dev->sink_gain[outport] = DbToAmpl(config->gain.values[0] / 100);
-            ALOGI(" - set sink device[%#x](outport[%s]): gain[%f]",
-                        config->ext.device.type, output_ports[outport], aml_dev->sink_gain[outport]);
+            {
+                //aml_dev->sink_gain[outport] = get_volume_by_index(config->gain.values[0]);
+                float volume_in_dB = (float)(config->gain.values[0] / 100);
+                aml_dev->sink_gain[outport] = DbToAmpl(volume_in_dB);
+
+                ALOGI(" - set sink device[%#x](outport[%s]): volume_dB[%f], gain[%f]",
+                        config->ext.device.type, output_ports[outport],
+                        volume_in_dB, aml_dev->sink_gain[outport]);
+            }
             ALOGI(" - now the sink gains are:");
             ALOGI("\t- OUTPORT_SPEAKER->gain[%f]", aml_dev->sink_gain[OUTPORT_SPEAKER]);
             ALOGI("\t- OUTPORT_HDMI_ARC->gain[%f]", aml_dev->sink_gain[OUTPORT_HDMI_ARC]);
@@ -7034,8 +7039,8 @@ static int adev_set_audio_port_config (struct audio_hw_device *dev, const struct
                     aml_dev->sink_gain[OUTPORT_SPEAKER] = DbToAmpl((float)vol);
                 } else
 #endif
-                //aml_dev->sink_gain[outport] = get_volume_by_index(config->gain.values[0]);
-                aml_dev->sink_gain[outport] = DbToAmpl(config->gain.values[0] / 100);
+                    //aml_dev->sink_gain[outport] = get_volume_by_index(config->gain.values[0]);
+                    aml_dev->sink_gain[outport] = DbToAmpl((float)(config->gain.values[0] / 100));
 #ifdef DOLBY_MS12_ENABLE
                 /* dev->dev and DTV src gain using MS12 primary gain */
                 if (aml_dev->audio_patching || aml_dev->patch_src == SRC_DTV) {
@@ -7048,14 +7053,17 @@ static int adev_set_audio_port_config (struct audio_hw_device *dev, const struct
                 }
 #endif
                 ALOGI(" - set src device[%#x](inport[%s]): gain[%f]",
-                            config->ext.device.type, input_ports[inport], aml_dev->src_gain[inport]);
-                ALOGI(" - set sink device[%#x](outport[%s]): gain[%f]",
-                            patch->sinks->ext.device.type, output_ports[outport], aml_dev->sink_gain[outport]);
+                            config->ext.device.type, input_ports[inport],
+                            aml_dev->src_gain[inport]);
+                ALOGI(" - set sink device[%#x](outport[%s]): volume_dB[%f], gain[%f]",
+                            patch->sinks->ext.device.type, output_ports[outport],
+                           (float)(config->gain.values[0] / 100), aml_dev->sink_gain[outport]);
             } else if (patch->sinks[0].type == AUDIO_PORT_TYPE_MIX) {
                 //aml_dev->src_gain[inport] = get_volume_by_index(config->gain.values[0]);
                 aml_dev->src_gain[inport] = 1.0;
                 ALOGI(" - set src device[%#x](inport[%s]): gain[%f]",
-                            config->ext.device.type, input_ports[inport], aml_dev->src_gain[inport]);
+                            config->ext.device.type, input_ports[inport],
+                            aml_dev->src_gain[inport]);
             }
             ALOGI(" - set gain for in_port[%s], active inport[%s]",
                    input_ports[inport], input_ports[aml_dev->active_inport]);
