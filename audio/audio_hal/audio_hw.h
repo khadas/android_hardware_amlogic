@@ -417,6 +417,7 @@ struct aml_stream_out {
     struct audio_stream_out stream;
     /* see note below on mutex acquisition order */
     pthread_mutex_t lock;
+    struct audio_config audioCfg;
     /* config which set to ALSA device */
     struct pcm_config config;
     /* channel mask exposed to AudioFlinger. */

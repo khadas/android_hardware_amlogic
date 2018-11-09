@@ -549,6 +549,7 @@ static int mixer_inports_read1(struct amlAudioMixer *audio_mixer)
                     fade_out = 1;
                 } else if (state == RESUMING) {
                     fade_in = 1;
+                    aml_hwsync_set_tsync_resume();
                 } else if (state == STOPPED || state == PAUSED || state == FLUSHED) {
                     ALOGV("%s(), stopped, paused or flushed", __func__);
                     in_port->data_valid = 1;
@@ -584,7 +585,7 @@ static int mixer_inports_read1(struct amlAudioMixer *audio_mixer)
                     } else if (fade_in) {
                         ALOGI("%s(), resuming port index %d", __func__, port_index);
                         ALOGI("%s(), tsync resume audio", __func__);
-                        aml_hwsync_set_tsync_resume();
+                        //aml_hwsync_set_tsync_resume();
                         audio_fade_func(in_port->data, ret, 1);
                         set_inport_state(in_port, ACTIVE);
                     }
@@ -1055,7 +1056,7 @@ static int mixer_do_mixing_16bit(struct amlAudioMixer *audio_mixer)
             aml_audio_dump_audio_bitstreams("/data/audio/audiosyst.raw",
                     in_port_sys->data, in_port_sys->data_len_bytes);
         }
-        if (is_inport_hwsync(in_port_drct) && in_port_drct->bytes_to_insert < mixing_len_bytes) {
+        if (is_inport_hwsync(in_port_drct)) {
             retrieve_hwsync_header(audio_mixer, in_port_drct, out_port);
         }
 
@@ -1129,7 +1130,7 @@ static int mixer_do_mixing_16bit(struct amlAudioMixer *audio_mixer)
         ALOGV("%s() direct_only, inport consumed %d",
                 __func__, get_inport_consumed_size(in_port_drct));
 
-        if (is_inport_hwsync(in_port_drct) && in_port_drct->bytes_to_insert < mixing_len_bytes) {
+        if (is_inport_hwsync(in_port_drct)) {
             retrieve_hwsync_header(audio_mixer, in_port_drct, out_port);
         }
 
