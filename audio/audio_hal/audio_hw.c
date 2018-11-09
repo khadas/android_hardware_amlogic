@@ -4321,6 +4321,7 @@ static int adev_open_input_stream(struct audio_hw_device *dev,
     else
         config->channel_mask = AUDIO_CHANNEL_IN_STEREO;
 
+    pthread_mutex_lock (&adev->lock);
 #if defined(IS_ATOM_PROJECT)
     if (aux_mic_devce && adev->aux_mic_in != NULL) {
         in = adev->aux_mic_in;
@@ -4329,9 +4330,10 @@ static int adev_open_input_stream(struct audio_hw_device *dev,
 #endif
 
     in = (struct aml_stream_in *)calloc(1, sizeof(struct aml_stream_in));
-    if (!in)
+    if (!in) {
+        pthread_mutex_unlock (&adev->lock);
         return -ENOMEM;
-
+    }
     in->stream.common.get_sample_rate = in_get_sample_rate;
     in->stream.common.set_sample_rate = in_set_sample_rate;
     in->stream.common.get_buffer_size = in_get_buffer_size;
@@ -4345,6 +4347,8 @@ static int adev_open_input_stream(struct audio_hw_device *dev,
     in->stream.set_gain = in_set_gain;
     in->stream.read = in_read;
     in->stream.get_input_frames_lost = in_get_input_frames_lost;
+
+    pthread_mutex_init(&in->lock, NULL);
 
     in->device = devices & ~AUDIO_DEVICE_BIT_IN;
     in->dev = adev;
@@ -4400,8 +4404,10 @@ static int adev_open_input_stream(struct audio_hw_device *dev,
         }
     }
 
+
 #if defined(IS_ATOM_PROJECT)
 exit:
+    pthread_mutex_lock(&in->lock);
     if (aux_mic_devce) {
         if (in->ref_count == 0) {
             in->config.channels = 8;
@@ -4420,6 +4426,7 @@ exit:
             else
                 ring_buffer_reset(&adev->spk_ring_buf);
             if (in->ref_count > 0) {
+                ALOGI("%s reusing aux_mic_in %p ref count %d", __FUNCTION__, in, in->ref_count);
                 in->requested_rate = config->sample_rate;
                 in->hal_channel_mask = config->channel_mask;
                 in->hal_format = config->format;
@@ -4433,6 +4440,7 @@ exit:
         in->ref_count++;
         ALOGD("start input stream num = %d, in->device = %x\n", in->ref_count, in->device);
     }
+    pthread_mutex_unlock(&in->lock);
 #endif
 
 #if (ENABLE_NANO_PATCH == 1)
@@ -4457,7 +4465,7 @@ exit:
 #endif
     *stream_in = &in->stream;
     ALOGD("%s: exit", __func__);
-
+    pthread_mutex_unlock (&adev->lock);
     return 0;
 err:
     if (in->resampler) {
@@ -4470,6 +4478,7 @@ err:
     }
     free(in);
     *stream_in = NULL;
+    pthread_mutex_unlock (&adev->lock);
     return ret;
 }
 
@@ -4493,6 +4502,8 @@ static void adev_close_input_stream(struct audio_hw_device *dev,
     if (in->device & AUDIO_DEVICE_IN_WIRED_HEADSET)
         rc_close_input_stream(in);
 
+    pthread_mutex_lock(&adev->lock);
+    pthread_mutex_lock(&in->lock);
 #if defined(IS_ATOM_PROJECT)
     /*when all input streams are stoped, release buffer*/
     audio_devices_t aux_mic_devce = in->device & ~AUDIO_DEVICE_BIT_IN & (AUDIO_DEVICE_IN_BUILTIN_MIC | AUDIO_DEVICE_IN_LINE);
@@ -4535,6 +4546,8 @@ static void adev_close_input_stream(struct audio_hw_device *dev,
             }
         } else {
             ALOGD("%s: exit", __func__);
+            pthread_mutex_unlock(&in->lock);
+            pthread_mutex_unlock(&adev->lock);
             return;
         }
     }
@@ -4543,9 +4556,9 @@ static void adev_close_input_stream(struct audio_hw_device *dev,
         release_resampler(in->resampler);
         in->resampler = NULL;
     }
-    pthread_mutex_lock (&in->lock);
     free(in->buffer);
     pthread_mutex_unlock (&in->lock);
+    pthread_mutex_unlock(&adev->lock);
     free(stream);
     ALOGD("%s: exit", __func__);
     return;
