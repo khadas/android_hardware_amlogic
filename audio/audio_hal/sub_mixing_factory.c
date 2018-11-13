@@ -47,7 +47,8 @@ int initSubMixngOutput(
         pcm_cfg.format = PCM_FORMAT_S16_LE;
     }
 
-    pcm = pcm_open(0, 0, PCM_OUT, &pcm_cfg);
+    sm->pcm_cfg = pcm_cfg;
+    pcm = pcm_open(0, 0, PCM_OUT | PCM_MONOTONIC, &pcm_cfg);
     if ((pcm == NULL) || !pcm_is_ready(pcm)) {
         ALOGE("cannot open pcm_out driver: %s", pcm_get_error(pcm));
         pcm_close(pcm);
@@ -523,6 +524,43 @@ int on_input_avail_cbk(void *data)
     return 0;
 }
 
+static int out_get_presentation_position_subMixingPCM
+        (const struct audio_stream_out *stream, uint64_t *frames, struct timespec *timestamp)
+{
+    struct aml_stream_out *aml_out = (struct aml_stream_out *)stream;
+    struct aml_audio_device *aml_dev = aml_out->dev;
+    struct subMixing *sm = aml_dev->sm;
+    struct amlAudioMixer *audio_mixer = sm->mixerData;
+    struct pcm *pcmDev = NULL;
+    unsigned int avail;
+    int ret = -1;
+
+    if (!frames || !timestamp) {
+        return -EINVAL;
+    }
+
+    if (sm->type != MIXER_LPCM) {
+        ALOGW("%s(), sub mixing type not (system)pcm, type is %d", __func__, sm->type);
+        return 0;
+    }
+
+    pcmDev = getSubMixingPCMdev(sm);
+    if (pcm_get_htimestamp(pcmDev, &avail, timestamp) == 0) {
+        size_t kernel_buf_size = sm->pcm_cfg.period_size * sm->pcm_cfg.period_count;
+        int64_t signed_frames = aml_out->frame_write_sum - kernel_buf_size + avail;
+        signed_frames -= mixer_latency_frames(audio_mixer);
+        /* It would be unusual for this value to be negative, but check just in case ... */
+        if (signed_frames >= 0) {
+            *frames = signed_frames;
+            ret = 0;
+        }
+        ALOGV("out_get_presentation_position out %p %"PRIu64", sec = %ld, nanosec = %ld\n",
+                aml_out, *frames, timestamp->tv_sec, timestamp->tv_nsec);
+    }
+
+    return ret;
+}
+
 int initSubMixingInputPcm(
         struct audio_config *config,
         struct aml_stream_out *out)
@@ -551,6 +589,8 @@ int initSubMixingInputPcm(
 
         out->port_index = get_input_port_index(config, flags);
         ALOGI("%s(), primary port index = %d", __func__, out->port_index);
+        /* using subMixing clac function for system sound */
+        out->stream.get_presentation_position = out_get_presentation_position_subMixingPCM;
     } else if (flags & AUDIO_OUTPUT_FLAG_DIRECT) {
         ALOGI("%s(), direct stream:", __func__);
         if (hwsync_lpcm) {

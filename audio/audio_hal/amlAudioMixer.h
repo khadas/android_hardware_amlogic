@@ -87,6 +87,7 @@ int pcm_mixer_thread_exit(struct amlAudioMixer *audio_mixer);
 uint32_t mixer_get_inport_latency_frames(struct amlAudioMixer *audio_mixer,
         enum MIXER_INPUT_PORT port_index);
 uint32_t mixer_get_outport_latency_frames(struct amlAudioMixer *audio_mixer);
+int64_t mixer_latency_frames(struct amlAudioMixer *audio_mixer);
 
 __END_DECLS
 

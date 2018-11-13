@@ -1471,3 +1471,11 @@ void freeAmlAudioMixer(struct amlAudioMixer *audio_mixer)
     }
 }
 
+int64_t mixer_latency_frames(struct amlAudioMixer *audio_mixer)
+{
+    (void)audio_mixer;
+    /* TODO: calc the mixer buf latency
+    * Now using estimated buffer length
+    */
+    return MIXER_IN_FRAME_COUNT;
+}

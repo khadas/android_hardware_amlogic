@@ -68,6 +68,8 @@ struct subMixing {
     void *sysData;
     /* output device related */
     struct audioCfg outputCfg;
+    /* ALSA pcm configs */
+    struct pcm_config pcm_cfg;
     struct pcm *pcmDev;
     // which mixer is using, ms12 or pcm mixer
     void *mixerData;
