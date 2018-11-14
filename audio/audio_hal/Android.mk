@@ -44,9 +44,11 @@ ifeq ($(strip $(BOARD_ALSA_AUDIO)),tiny)
         audio_eq_drc_parser.cpp \
         aml_ac3_parser.c \
         aml_dcv_dec_api.c \
-        alsa_device_parser.c \
+        aml_dca_dec_api.c \
         audio_post_process.c \
+        aml_avsync_tuning.c \
         audio_format_parse.c \
+        dolby_lib_api.c \
         amlAudioMixer.c \
         hw_avsync.c \
         hw_avsync_callbacks.c \
@@ -61,15 +63,22 @@ ifeq ($(strip $(BOARD_ALSA_AUDIO)),tiny)
         system/media/audio_route/include \
         system/core/include \
         hardware/libhardware/include \
-        hardware/libhardware_legacy/include \
+        $(LOCAL_PATH)/../libms12/include \
+        hardmare/amlogic/audio/libms12/include \
         $(LOCAL_PATH)/../utils/include \
         $(LOCAL_PATH)/../utils/ini/include \
-        $(LOCAL_PATH)/../rcaudio
-
+        $(LOCAL_PATH)/../rcaudio \
+        $(LOCAL_PATH)/../../LibAudio/amadec/include
+    LOCAL_LDFLAGS_arm += $(LOCAL_PATH)/lib_aml_ng.a
     LOCAL_SHARED_LIBRARIES := \
         liblog libcutils libtinyalsa \
         libaudioutils libdl libaudioroute libutils \
         libdroidaudiospdif libamaudioutils libamlaudiorc
+ifeq ($(BOARD_ENABLE_DTV_AUDIO), true)
+    LOCAL_CFLAGS += -DENABLE_DTV_AUDIO=1
+    LOCAL_SRC_FILES += audio_hw_dtv.c
+    LOCAL_SHARED_LIBRARIES += libamadec
+endif
 
 ifeq ($(BOARD_ENABLE_NANO), true)
     LOCAL_SHARED_LIBRARIES += libnano
@@ -85,15 +94,17 @@ ifeq ($(BOARD_ENABLE_NANO), true)
 		LOCAL_CFLAGS += -DENABLE_NANO_PATCH=1
 endif
 
+ifeq ($(strip $(TARGET_WITH_TV_AUDIO_MODE)),true)
+$(info "---------tv audio mode, compiler configured 8 channels output by default--------")
+LOCAL_CFLAGS += -DTV_AUDIO_OUTPUT
+endif
     #LOCAL_CFLAGS += -Wall -Wunknown-pragmas
 
 #add dolby ms12support
-ifeq ($(strip $(DOLBY_MS12_ENABLE)), true)
     LOCAL_SHARED_LIBRARIES += libms12api
     LOCAL_CFLAGS += -DDOLBY_MS12_ENABLE
     LOCAL_CFLAGS += -DREPLACE_OUTPUT_BUFFER_WITH_CALLBACK
     LOCAL_C_INCLUDES += $(LOCAL_PATH)/../libms12/include
-endif
 
 #For atom project
 ifeq ($(strip $(TARGET_BOOTLOADER_BOARD_NAME)), atom)
@@ -102,10 +113,9 @@ ifeq ($(strip $(TARGET_BOOTLOADER_BOARD_NAME)), atom)
         audio_aec_process.cpp
     LOCAL_C_INCLUDES += \
         $(TOPDIR)vendor/harman/atom/google_aec \
-        $(TOPDIR)vendor/harman/atom/harman_api \
-        $(TOPDIR)vendor/harman/atom/subwoofer_api
+        $(TOPDIR)vendor/harman/atom/harman_api
     LOCAL_SHARED_LIBRARIES += \
-        libgoogle_aec libharman_api libsubwoofer_api
+        libgoogle_aec libharman_api
 endif
 
     include $(BUILD_SHARED_LIBRARY)

@@ -13,6 +13,9 @@
 #include "audio_hw.h"
 #include "audio_hw_utils.h"
 #include "hw_avsync_callbacks.h"
+#include "../libms12/include/aml_audio_ms12.h"
+#include "dolby_lib_api.h"
+#include "alsa_device_parser.h"
 
 static int on_notify_cbk(void *data);
 static int on_input_avail_cbk(void *data);
@@ -45,6 +48,8 @@ static int initSubMixngOutput(
 {
     struct pcm_config pcm_cfg;
     struct pcm *pcm = NULL;
+    int card = alsa_device_get_card_index();
+    int device = alsa_device_update_pcm_index(PORT_I2S, PLAYBACK);
     int res = 0;
 
     if (sm == NULL) {
@@ -65,9 +70,9 @@ static int initSubMixngOutput(
         ALOGE("%s(), unsupport", __func__);
         pcm_cfg.format = PCM_FORMAT_S16_LE;
     }
-
+    ALOGI("%s(), open ALSA hw:%d,%d", __func__, card, device);
     sm->pcm_cfg = pcm_cfg;
-    pcm = pcm_open(0, 0, PCM_OUT | PCM_MONOTONIC, &pcm_cfg);
+    pcm = pcm_open(card, device, PCM_OUT | PCM_MONOTONIC, &pcm_cfg);
     if ((pcm == NULL) || !pcm_is_ready(pcm)) {
         ALOGE("cannot open pcm_out driver: %s", pcm_get_error(pcm));
         pcm_close(pcm);
@@ -207,14 +212,14 @@ static int consume_meta_data(void *cookie,
 
 static int consume_output_data(void *cookie, const void* buffer, size_t bytes)
 {
+    ssize_t written = 0;
+    uint64_t latency_frames = 0;
     struct audio_stream_out *stream = (struct audio_stream_out *)cookie;
     struct aml_stream_out *out = (struct aml_stream_out *)stream;
     struct aml_audio_device *adev = out->dev;
     struct subMixing *sm = adev->sm;
     struct amlAudioMixer *audio_mixer = sm->mixerData;
     uint16_t *in_buf_16 = (uint16_t *)buffer;
-    ssize_t written = 0;
-    uint64_t latency_frames = 0;
     struct timespec tval, new_tval;
     uint64_t us_since_last_write = 0;
     int64_t throttle_timeus = 0;
@@ -263,8 +268,8 @@ static int consume_output_data(void *cookie, const void* buffer, size_t bytes)
     throttle_timeus = target_us - us_since_last_write;
     if (throttle_timeus > 0 && throttle_timeus < 200000) {
         ALOGV("throttle time %lld us", throttle_timeus);
-        //if (throttle_timeus > 1000)
-        //    usleep(throttle_timeus - 1000);
+        if (throttle_timeus > 1000)
+            usleep(throttle_timeus - 1000);
     }
 
     //throttle simply 4/5 duration
@@ -309,6 +314,7 @@ static ssize_t out_write_hwsync_lpcm(struct audio_stream_out *stream, const void
                 consume_output_data, out);
         out->first_pts_set = false;
         pthread_mutex_init(&out->mdata_lock, NULL);
+        list_init(&out->mdata_list);
         init_mixer_input_port(sm->mixerData, &out->audioCfg, out->flags,
             on_notify_cbk, out, on_input_avail_cbk, out,
             on_meta_data_cbk, out);
@@ -336,8 +342,7 @@ static ssize_t out_write_hwsync_lpcm(struct audio_stream_out *stream, const void
             ALOGE("--%s(), written %d, but bytes = %d", __func__, written_total, bytes);
         return written_total;
     } else {
-        ALOGV("--%s(), written %d, but return bytes", __func__, written_total);
-        usleep(10000);
+        ALOGE("--%s(), written %d, but return bytes", __func__, written_total);
         //return 1;
         return bytes;
     }
@@ -361,6 +366,11 @@ static ssize_t out_write_system(struct audio_stream_out *stream, const void *buf
     size_t frame_size = audio_bytes_per_frame(channel_count, out->hal_format);;
     //uint64_t throttle_timeus = THROTLE_TIME_US;//aml_audio_get_throttle_timeus();
     int64_t throttle_timeus = 0;//aml_audio_get_throttle_timeus(bytes);
+
+    if (out->standby) {
+        ALOGI("%s(), standby to unstandby", __func__);
+        out->standby = false;
+    }
 
     if (bytes == 0) {
         ALOGW("%s(), inval to write bytes 0", __func__);
@@ -399,8 +409,8 @@ static ssize_t out_write_system(struct audio_stream_out *stream, const void *buf
         if (throttle_timeus > 0 && throttle_timeus < 200000) {
             ALOGV("throttle time %lld us", throttle_timeus);
             if (throttle_timeus > 1800) {
-                //usleep(throttle_timeus - 1800);
-                ALOGD("actual throttle %lld us, since last %lld us",
+                usleep(throttle_timeus - 1800);
+                ALOGV("actual throttle %lld us, since last %lld us",
                         throttle_timeus, us_since_last_write);
             } else {
                 ALOGV("%lld us, but un-throttle", throttle_timeus);
@@ -936,6 +946,9 @@ ssize_t mixer_main_buffer_write_sm (struct audio_stream_out *stream, const void 
     ALOGV ("%s write in %zu!\n", __FUNCTION__, bytes);
     struct aml_stream_out *aml_out = (struct aml_stream_out *) stream;
     struct aml_audio_device *adev = aml_out->dev;
+    struct aml_stream_out *ms12_out = (struct aml_stream_out *)adev->ms12_out;
+    struct dolby_ms12_desc *ms12 = &(adev->ms12);
+    //struct aml_audio_patch *patch = adev->audio_patch;
     int case_cnt;
     int ret = -1;
     void *output_buffer = NULL;
@@ -947,7 +960,7 @@ ssize_t mixer_main_buffer_write_sm (struct audio_stream_out *stream, const void 
     int total_write = 0;
     size_t used_size = 0;
     int write_retry = 0;
-    audio_hwsync_t *hw_sync = &aml_out->hwsync;
+    audio_hwsync_t *hw_sync = aml_out->hwsync;
 
     if (adev->debug_flag) {
         ALOGI("%s write in %zu!, format = 0x%x\n", __FUNCTION__, bytes, aml_out->hal_internal_format);
@@ -1015,8 +1028,7 @@ ssize_t mixer_aux_buffer_write_sm(struct audio_stream_out *stream, const void *b
     }
     bytes_written = aml_out_write_to_mixer(stream, buffer, bytes);
     if (bytes_written < 0) {
-        ALOGE("%s(), stream usecase: %s, write failed, err = %d",
-            __func__, usecase_to_str(aml_out->usecase), bytes_written);
+        ALOGE("%s(), write failed, err = %d", __func__, bytes_written);
     }
 
     aml_out->frame_write_sum += in_frames;
@@ -1054,7 +1066,7 @@ int usecase_change_validate_l_sm(struct aml_stream_out *aml_out, bool is_standby
     }
 
     /* No usecase changes, do nothing */
-    if ((aml_dev->usecase_masks == aml_out->dev_usecase_masks) && aml_dev->usecase_masks) {
+    if (((aml_dev->usecase_masks == aml_out->dev_usecase_masks) && aml_dev->usecase_masks) && (aml_dev->continuous_audio_mode == 0)) {
         return 0;
     }
 
@@ -1067,6 +1079,12 @@ int usecase_change_validate_l_sm(struct aml_stream_out *aml_out, bool is_standby
               __func__, aml_dev->usecase_masks, usecase_to_str(aml_out->usecase));
         return -EINVAL;
     }
+
+    if (((aml_dev->continuous_audio_mode == 1) && (aml_dev->debug_flag > 1)) || \
+        (aml_dev->continuous_audio_mode == 0))
+        ALOGI("++++%s(),continuous_audio_mode %d dev usecase masks = %#x, out usecase_masks = %#x, out usecase %s",
+              __func__, aml_dev->continuous_audio_mode, aml_dev->usecase_masks, aml_out->dev_usecase_masks,
+              aml_out->usecase < STREAM_USECASE_MAX && aml_out->usecase >= STREAM_PCM_NORMAL ? usecase_to_str(aml_out->usecase) : "STREAM_USECASE_INVAL");
 
     /* new output case entered, so no masks has been set to the out stream */
     if (!aml_out->dev_usecase_masks) {
@@ -1101,6 +1119,11 @@ int usecase_change_validate_l_sm(struct aml_stream_out *aml_out, bool is_standby
 
     /* store the new usecase masks in the out stream */
     aml_out->dev_usecase_masks = aml_dev->usecase_masks;
+    if (((aml_dev->continuous_audio_mode == 1) && (aml_dev->debug_flag > 1)) || \
+        (aml_dev->continuous_audio_mode == 0))
+        ALOGI("----%s(), continuous_audio_mode %d dev usecase masks = %#x, out usecase_masks = %#x, out usecase %s",
+              __func__, aml_dev->continuous_audio_mode, aml_dev->usecase_masks, aml_out->dev_usecase_masks,
+              aml_out->usecase < STREAM_USECASE_MAX && aml_out->usecase >= STREAM_PCM_NORMAL ? usecase_to_str(aml_out->usecase) : "STREAM_USECASE_INVAL");
     return 0;
 }
 
@@ -1184,7 +1207,6 @@ exit:
     return ret;
 }
 
-/* use standby instead of pause to fix background pcm playback */
 static int out_pause_subMixingPCM(struct audio_stream_out *stream)
 {
     struct aml_stream_out *aml_out = (struct aml_stream_out *)stream;
@@ -1200,7 +1222,7 @@ static int out_pause_subMixingPCM(struct audio_stream_out *stream)
             usecase_to_str(aml_out->usecase));
     if (aml_out->standby || aml_out->pause_status) {
         ALOGW("%s(), stream already paused", __func__);
-        return 0;
+        return INVALID_STATE;
     }
 
     if (sm->type != MIXER_LPCM) {
@@ -1224,8 +1246,13 @@ static int out_resume_subMixingPCM(struct audio_stream_out *stream)
     struct amlAudioMixer *audio_mixer = NULL;
     int ret = 0;
 
-    ALOGI("+%s(), stream(%p), standby %d, pause status %d",
-            __func__, stream, aml_out->standby, aml_out->pause_status);
+    ALOGI("+%s(), stream %p, standby %d, pause status %d, usecase: %s",
+            __func__,
+            aml_out,
+            aml_out->standby,
+            aml_out->pause_status,
+            usecase_to_str(aml_out->usecase));
+
     if (!aml_out->pause_status) {
         ALOGW("%s(), steam not in pause status", __func__);
         return INVALID_STATE;
@@ -1253,8 +1280,12 @@ static int out_flush_subMixingPCM(struct audio_stream_out *stream)
     struct amlAudioMixer *audio_mixer = NULL;
     int ret = 0;
 
-    ALOGI("+%s(), stream(%p), standby %d, pause status %d",
-            __func__, stream, aml_out->standby, aml_out->pause_status);
+    ALOGI("+%s(), stream %p, standby %d, pause status %d, usecase: %s",
+            __func__,
+            aml_out,
+            aml_out->standby,
+            aml_out->pause_status,
+            usecase_to_str(aml_out->usecase));
 
     if (sm->type != MIXER_LPCM) {
         ALOGW("%s(), sub mixing type not pcm, type is %d", __func__, sm->type);

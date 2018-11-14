@@ -90,6 +90,7 @@ uint32_t hwsync_header_get_frame_size(struct hw_avsync_header *header)
 {
     if (header->is_complete)
         return header->frame_size;
+    ALOGE("%s(), header not complete", __func__);
     return 0;
 }
 static uint64_t hwsync_header_get_apts(struct hw_avsync_header *header)
@@ -115,7 +116,7 @@ void hwsync_header_set_pts(struct hw_avsync_header *header, uint64_t pts)
 
 int hwsync_read_header_byte(struct hw_avsync_header *header, uint8_t *byte)
 {
-    if (!header || !byte || header->bytes_read >= HW_AVSYNC_HEADER_SIZE_V1)
+    if (!header || !byte || header->bytes_read >= HW_AVSYNC_HEADER_SIZE_V2)
         return -EINVAL;
 
     if (header->bytes_read == 0)
@@ -123,7 +124,7 @@ int hwsync_read_header_byte(struct hw_avsync_header *header, uint8_t *byte)
 
     *byte = header->header[header->bytes_read];
     header->bytes_read++;
-    if (header->bytes_read >= HW_AVSYNC_HEADER_SIZE_V1)
+    if (header->bytes_read >= HW_AVSYNC_HEADER_SIZE_V2)
         header->is_complete = true;
 
     return 0;
@@ -145,7 +146,7 @@ int hwsync_write_header_byte(struct hw_avsync_header *header, uint8_t byte)
             hwsync_header_extract(header);
         }
     } else {
-        ALOGV("%s(), invalid data %d, bytes_wrtten %d",
+        ALOGE("%s(), invalid data %d, bytes_wrtten %d",
                 __func__, byte, header->bytes_written);
         header->bytes_written = 0;
         return -EINVAL;
@@ -176,7 +177,7 @@ int hwsync_header_reset(struct hw_avsync_header *header)
 
 size_t hwsync_header_get_bytes_remaining(struct hw_avsync_header *header)
 {
-    return HW_AVSYNC_HEADER_SIZE_V1 - header->bytes_written;
+    return HW_AVSYNC_HEADER_SIZE_V2 - header->bytes_written;
 }
 
 void extractor_consume_output(struct hw_avsync_header_extractor *header_extractor)
@@ -223,10 +224,10 @@ ssize_t header_extractor_write(struct hw_avsync_header_extractor *header_extract
 
     while (bytes_remaining > 0) {
         if (header_extractor->is_reading_avsync_header) {
-            //ALOGV("--%s() writing header byte val %#x", __func__, *data);
+            ALOGV("--%s() writing header byte val %#x", __func__, *data);
             int ret = hwsync_write_header_byte(sync_header, *data);
             if (ret < 0) {
-                ALOGV("%s(), invalid data!!, bytes_remaining %d", __func__, bytes_remaining);
+                ALOGE("%s(), invalid data!!, bytes_remaining %d", __func__, bytes_remaining);
                 extractor_reset(header_extractor);
                 bytes_remaining--;
                 data++;

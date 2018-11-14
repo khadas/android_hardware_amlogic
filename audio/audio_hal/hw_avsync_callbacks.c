@@ -107,7 +107,8 @@ int on_meta_data_cbk(void *cookie,
         }
         if (out->debug_stream)
             ALOGD("%s()audio pts %dms, pcr %dms, diff %dms",
-                __func__, pts32/90, pcr/90, (pts32 - pcr)/90);
+                __func__, pts32/90, pcr/90,
+                (pts32 > pcr) ? (pts32 - pcr)/90 : (pcr - pts32)/90);
         apts_gap = get_pts_gap(pcr, pts32);
         sync_status = pcm_check_hwsync_status(apts_gap);
         // limit the gap handle to 0.5~5 s.
@@ -119,10 +120,10 @@ int on_meta_data_cbk(void *cookie,
 
                 insert_size = apts_gap / 90 * 48 * 4;
                 insert_size = insert_size & (~63);
-                ALOGI("audio gap %d ms, need insert data %d\n", apts_gap / 90, insert_size);
+                ALOGI("audio gap: pcr < apts %d ms, need insert data %d\n", apts_gap / 90, insert_size);
                 *delay_ms = apts_gap / 90;
             } else {
-                ALOGW("audio gap pcr bigger than apts %dms", apts_gap / 90);
+                ALOGW("audio gap: pcr > apts %dms", apts_gap / 90);
                 *delay_ms = -(int)apts_gap / 90;
                 aml_hwsync_reset_tsync_pcrscr(pts32);
             }
@@ -130,7 +131,7 @@ int on_meta_data_cbk(void *cookie,
             ALOGI("tsync -> reset pcrscr 0x%x -> 0x%x",
                     pcr, pts32);
             int ret_val = aml_hwsync_reset_tsync_pcrscr(pts32);
-            if (ret_val <0) {
+            if (ret_val < 0) {
                 ALOGE("unable to open file %s,err: %s", TSYNC_APTS, strerror(errno));
             }
         }

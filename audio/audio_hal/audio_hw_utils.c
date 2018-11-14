@@ -14,11 +14,11 @@
  * limitations under the License.
  */
 
+
+
 #define LOG_TAG "audio_hw_utils"
 //#define LOG_NDEBUG 0
 
-#define _GNU_SOURCE
-#include <sched.h>
 #include <errno.h>
 #include <pthread.h>
 #include <stdint.h>
@@ -42,8 +42,21 @@
 
 #include "audio_hwsync.h"
 #include "audio_hw.h"
+#include "aml_audio_mixer.h"
 #include <audio_utils/primitives.h>
 
+#ifdef LOG_NDEBUG_FUNCTION
+#define LOGFUNC(...) ((void)0)
+#else
+#define LOGFUNC(...) (ALOGD(__VA_ARGS__))
+#endif
+
+int64_t aml_gettime(void)
+{
+    struct timeval tv;
+    gettimeofday(&tv, NULL);
+    return ((int64_t)(tv.tv_sec) * 1000000 + (int64_t)(tv.tv_usec));
+}
 int get_sysfs_uint(const char *path, uint *value)
 {
     int fd;
@@ -82,45 +95,43 @@ int sysfs_set_sysfs_str(const char *path, const char *val)
     return -1;
 }
 
-int get_sysfs_int (const char *path)
+int get_sysfs_int(const char *path)
 {
-  int val = 0;
-  int fd = open (path, O_RDONLY);
-  if (fd >= 0)
-	{
-	  char bcmd[16];
-	  read (fd, bcmd, sizeof (bcmd));
-	  val = strtol (bcmd, NULL, 10);
-	  close (fd);
-	}
-  else
-	{
-	  ALOGD ("[%s]open %s node failed! return 0\n", path, __FUNCTION__);
-	}
-  return val;
+    int val = 0;
+    int fd = open(path, O_RDONLY);
+    if (fd >= 0) {
+        char bcmd[16];
+        read(fd, bcmd, sizeof(bcmd));
+        val = strtol(bcmd, NULL, 10);
+        close(fd);
+    } else {
+        ALOGD("[%s]open %s node failed! return 0\n", path, __FUNCTION__);
+    }
+    return val;
 }
-int mystrstr(char *mystr,char *substr) {
-    int i=0;
-    int j=0;
+int mystrstr(char *mystr, char *substr)
+{
+    int i = 0;
+    int j = 0;
     int score = 0;
     int substrlen = strlen(substr);
     int ok = 0;
-    for (i =0;i < 1024 - substrlen;i++) {
-		for (j = 0;j < substrlen;j++) {
-			score += (substr[j] == mystr[i+j])?1:0;
-		}
-		if (score == substrlen) {
-		   ok = 1;
-                   break;
-		}
-		score = 0;
+    for (i = 0; i < 1024 - substrlen; i++) {
+        for (j = 0; j < substrlen; j++) {
+            score += (substr[j] == mystr[i + j]) ? 1 : 0;
         }
-	return ok;
+        if (score == substrlen) {
+            ok = 1;
+            break;
+        }
+        score = 0;
+    }
+    return ok;
 }
 void set_codec_type(int type)
 {
     char buf[16];
-    int fd = open ("/sys/class/audiodsp/digital_codec", O_WRONLY);
+    int fd = open("/sys/class/audiodsp/digital_codec", O_WRONLY);
 
     if (fd >= 0) {
         memset(buf, 0, sizeof(buf));
@@ -133,16 +144,16 @@ void set_codec_type(int type)
 unsigned char codec_type_is_raw_data(int type)
 {
     switch (type) {
-        case TYPE_AC3:
-        case TYPE_EAC3:
-        case TYPE_TRUE_HD:
-        case TYPE_DTS:
-        case TYPE_DTS_HD:
-        case TYPE_DTS_HD_MA:
-            return 1;
-        default:
-            return 0;
-   }
+    case TYPE_AC3:
+    case TYPE_EAC3:
+    case TYPE_TRUE_HD:
+    case TYPE_DTS:
+    case TYPE_DTS_HD:
+    case TYPE_DTS_HD_MA:
+        return 1;
+    default:
+        return 0;
+    }
 }
 
 int get_codec_type(int format)
@@ -164,17 +175,32 @@ int get_codec_type(int format)
         return TYPE_PCM;
     }
 }
-int getprop_bool (const char *path)
+int getprop_bool(const char *path)
 {
-  char buf[PROPERTY_VALUE_MAX];
-  int ret = -1;
+    char buf[PROPERTY_VALUE_MAX];
+    int ret = -1;
 
-  ret = property_get (path, buf, NULL);
-  if (ret > 0) {
-      if (strcasecmp (buf, "true") == 0 || strcmp (buf, "1") == 0)
-          return 1;
-  }
-  return 0;
+    ret = property_get(path, buf, NULL);
+    if (ret > 0) {
+        if (strcasecmp(buf, "true") == 0 || strcmp(buf, "1") == 0) {
+            return 1;
+        }
+    }
+    return 0;
+}
+
+int is_txlx_chip()
+{
+    char buf[PROPERTY_VALUE_MAX];
+    int ret = -1;
+
+    ret = property_get("ro.board.platform", buf, NULL);
+    if (ret > 0) {
+        if (strcasecmp(buf, "txlx") == 0) {
+            return true;
+        }
+    }
+    return false;
 }
 
 /*
@@ -193,8 +219,9 @@ void *convert_audio_sample_for_output(int input_frames, int input_format, int in
     int i;
     //ALOGV("intput frame %d,input ch %d,buf ptr %p,vol %f\n", input_frames, input_ch, input_buf, lvol);
     ALOG_ASSERT(input_buf);
-    if (input_ch > 2)
+    if (input_ch > 2) {
         max_ch = 8;
+    }
     //our HW need round the frames to 8 channels
     out_buf = malloc(sizeof(int) * max_ch * input_frames);
     if (out_buf == NULL) {
@@ -324,6 +351,8 @@ int aml_audio_start_trigger(void *stream)
     pcm_stop(aml_out->pcm);
     sprintf(tempbuf, "AUDIO_START:0x%x", adev->first_apts);
     ALOGI("audio start set tsync -> %s", tempbuf);
+    sysfs_set_sysfs_str(TSYNC_ENABLE, "1"); // enable avsync
+    sysfs_set_sysfs_str(TSYNC_MODE, "1"); // enable avsync
     if (sysfs_set_sysfs_str(TSYNC_EVENT, tempbuf) == -1) {
         ALOGE("set AUDIO_START failed \n");
         return -1;
@@ -331,6 +360,17 @@ int aml_audio_start_trigger(void *stream)
     return 0;
 }
 
+int aml_audio_get_debug_flag()
+{
+    char buf[PROPERTY_VALUE_MAX];
+    int ret = -1;
+    int debug_flag = 0;
+    ret = property_get("media.audio.hal.debug", buf, NULL);
+    if (ret > 0) {
+        debug_flag = atoi(buf);
+    }
+    return debug_flag;
+}
 
 int aml_audio_dump_audio_bitstreams(const char *path, const void *buf, size_t bytes)
 {
@@ -346,6 +386,41 @@ int aml_audio_dump_audio_bitstreams(const char *path, const void *buf, size_t by
 
     return 0;
 }
+int aml_audio_get_arc_latency_offset(int aformat)
+{
+    char buf[PROPERTY_VALUE_MAX];
+    int ret = -1;
+    int latency_ms = 0;
+    char *prop_name = NULL;
+    if (aformat == AUDIO_FORMAT_AC3) {
+        prop_name = "media.audio.hal.arc_latency.dd";
+        latency_ms = -30;
+    } else if (aformat == AUDIO_FORMAT_E_AC3) {
+        prop_name = "media.audio.hal.arc_latency.ddp";
+        latency_ms = -40;
+    } else {
+        prop_name = "media.audio.hal.arc_latency.pcm";
+        latency_ms = -30;
+    }
+    ret = property_get(prop_name, buf, NULL);
+    if (ret > 0) {
+        latency_ms = atoi(buf);
+    }
+    return latency_ms;
+}
+
+int aml_audio_get_ddp_frame_size()
+{
+    int frame_size = DDP_FRAME_SIZE;
+    char buf[PROPERTY_VALUE_MAX];
+    int ret = -1;
+    char *prop_name = "media.audio.hal.frame_size";
+    ret = property_get(prop_name, buf, NULL);
+    if (ret > 0) {
+        frame_size = atoi(buf);
+    }
+    return frame_size;
+}
 
 bool is_stream_using_mixer(struct aml_stream_out *out)
 {
@@ -359,7 +434,7 @@ uint32_t out_get_outport_latency(const struct audio_stream_out *stream)
 
     if (is_stream_using_mixer(out)) {
         struct aml_audio_device *adev = out->dev;
-        //struct aml_audio_mixer *audio_mixer = adev->audio_mixer;
+        struct aml_audio_mixer *audio_mixer = adev->audio_mixer;
         int outport_latency_frames = 0;// = mixer_get_outport_latency_frames(audio_mixer);
 
         if (outport_latency_frames <= 0)
@@ -391,31 +466,83 @@ uint32_t out_get_latency_frames(const struct audio_stream_out *stream)
     return frames;
 }
 
-int set_thread_affinity(int cpu_num) {
-    pid_t pid = gettid();
-    cpu_set_t cpuset;
+int aml_audio_get_spdif_tuning_latency(void)
+{
+    char *prop_name = "persist.vendor.audio.hal.spdif_ltcy_ms";
+    char buf[PROPERTY_VALUE_MAX];
+    int latency_ms = 0;
+    int ret = -1;
 
-    int cpus = sysconf(_SC_NPROCESSORS_CONF);
-    if (cpu_num >= cpus) {
-        ALOGE("%s: CPUs number is invalid: %d\n", __FUNCTION__, cpu_num);
-        return -1;
+    ret = property_get(prop_name, buf, NULL);
+    if (ret > 0) {
+        latency_ms = atoi(buf);
     }
 
-    CPU_ZERO(&cpuset);
-    CPU_SET(cpu_num, &cpuset);
-
-    if (sched_setaffinity(pid, sizeof(cpu_set_t), &cpuset) == -1) {
-        ALOGE("%s: Error setaffinity",__FUNCTION__);
-        return -1;
-    }
-
-    ALOGI("%s: Set PID[%x] affinity successful: cpus number = %d, set to %d CPU\n",
-        __FUNCTION__, pid, cpus, cpu_num);
-    return 0;
+    return latency_ms;
 }
 
-void audio_fade_func(void *buf,int fade_size,int is_fadein)
+int aml_audio_get_arc_tuning_latency(audio_format_t arc_fmt)
 {
+    char *prop_name = NULL;
+    char buf[PROPERTY_VALUE_MAX];
+    int latency_ms = 0;
+    int ret = -1;
+
+    switch (arc_fmt) {
+    case AUDIO_FORMAT_PCM_16_BIT:
+        prop_name = "persist.audio.arc_ltcy.pcm";
+        break;
+    case AUDIO_FORMAT_AC3:
+        prop_name = "persist.audio.arc_ltcy.dd";
+        break;
+    case AUDIO_FORMAT_E_AC3:
+        prop_name = "persist.audio.arc_ltcy.ddp";
+        break;
+    default:
+        ALOGE("%s(), unsupported audio arc_fmt: %#x", __func__, arc_fmt);
+        return 0;
+    }
+
+    ret = property_get(prop_name, buf, NULL);
+    if (ret > 0) {
+        latency_ms = atoi(buf);
+    }
+
+    return latency_ms;
+}
+
+int aml_audio_get_src_tune_latency(enum patch_src_assortion patch_src) {
+    char *prop_name = NULL;
+    char buf[PROPERTY_VALUE_MAX];
+    int latency_ms = 0;
+    int ret = -1;
+
+    switch (patch_src)
+    {
+    case SRC_HDMIIN:
+        prop_name = "persist.audio.tune_ms.hdmiin";
+        break;
+    case SRC_ATV:
+        prop_name = "persist.audio.tune_ms.atv";
+        break;
+    case SRC_LINEIN:
+        prop_name = "persist.audio.tune_ms.linein";
+        break;
+    default:
+        ALOGE("%s(), unsupported audio patch source: %d", __func__, patch_src);
+        return 0;
+    }
+
+    ret = property_get(prop_name, buf, NULL);
+    if (ret > 0)
+    {
+        latency_ms = atoi(buf);
+    }
+
+    return latency_ms;
+}
+
+void audio_fade_func(void *buf,int fade_size,int is_fadein) {
     float fade_vol = is_fadein ? 0.0 : 1.0;
     int i = 0;
     float fade_step = is_fadein ? 1.0/(fade_size/4):-1.0/(fade_size/4);
@@ -440,6 +567,28 @@ void ts_wait_time_us(struct timespec *ts, uint32_t time_us)
     }
 }
 
+int cpy_16bit_data_with_gain(int16_t *dst, int16_t *src, int size_in_bytes, float vol)
+{
+    int size_in_short = size_in_bytes / 2;
+    int i = 0;
+
+    if (size_in_bytes % 2) {
+        ALOGE("%s(), size inval %d", __func__, size_in_bytes);
+        return -EINVAL;
+    }
+
+    if (vol > 1.0 || vol < 0) {
+        ALOGE("%s(), inval vol %f, should in [0,1]", __func__, vol);
+        return -EINVAL;
+    }
+
+    for (i = 0; i < size_in_short; i++) {
+        dst[i] = src[i] * vol;
+    }
+
+    return 0;
+}
+
 static inline uint64_t timespec_ns(struct timespec tspec)
 {
     return (tspec.tv_sec * 1000000000 + tspec.tv_nsec);
@@ -454,3 +603,22 @@ uint64_t get_systime_ns(void)
     return timespec_ns(tval);
 }
 
+int aml_audio_get_hdmi_latency_offset(int aformat)
+{
+    char buf[PROPERTY_VALUE_MAX];
+    char *prop_name = NULL;
+    int ret = -1;
+    int latency_ms = 0;
+
+    (void)aformat;
+    // PCM latency
+    prop_name = "media.audio.hal.hdmi_latency.pcm";
+    latency_ms = -52;
+    ret = property_get(prop_name, buf, NULL);
+    if (ret > 0)
+    {
+        latency_ms = atoi(buf);
+    }
+
+    return latency_ms;
+}

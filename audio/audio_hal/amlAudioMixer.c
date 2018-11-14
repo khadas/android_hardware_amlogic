@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#define LOG_TAG "amlAudioMixer"
+#define LOG_TAG "amlaudioMixer"
 //#define LOG_NDEBUG 0
 #define DEBUG_DUMP 0
 
@@ -760,7 +760,7 @@ static int retrieve_hwsync_header(struct amlAudioMixer *audio_mixer,
     int ret = 0;
 
     if (frame_size == 0) {
-        ALOGV("%s(), invalid frame size", __func__);
+        ALOGV("%s(), invalid frame size 0", __func__);
         return -EINVAL;
     }
 
@@ -873,11 +873,10 @@ static int mixer_do_mixing_32bit(struct amlAudioMixer *audio_mixer)
                     sizeof(uint32_t), frames * FRAMESIZE_32BIT_STEREO);
 #ifdef IS_ATOM_PROJECT
             if (adev->has_dsp_lib) {
-                right_shift(audio_mixer->tmp_buffer, frames * FRAMESIZE_32BIT_STEREO, DSP_SHIFT_BIT);
                 dsp_process_output(audio_mixer->adev,
                         audio_mixer->tmp_buffer, frames * FRAMESIZE_32BIT_STEREO);
                 extend_channel_5_8(data_mixed,
-                        audio_mixer->adev->dsp_out_buf, frames, 5, 8);
+                        audio_mixer->adev->effect_buf, frames, 5, 8);
             } else
 #endif
                 extend_channel_2_8(data_mixed, audio_mixer->tmp_buffer,
@@ -906,11 +905,10 @@ static int mixer_do_mixing_32bit(struct amlAudioMixer *audio_mixer)
                     sizeof(uint32_t), frames * FRAMESIZE_32BIT_STEREO);
 #ifdef IS_ATOM_PROJECT
             if (adev->has_dsp_lib) {
-                right_shift(audio_mixer->tmp_buffer, frames * FRAMESIZE_32BIT_STEREO, 3);
                 dsp_process_output(audio_mixer->adev,
                         audio_mixer->tmp_buffer, frames * FRAMESIZE_32BIT_STEREO);
                 extend_channel_5_8(data_mixed,
-                        audio_mixer->adev->dsp_out_buf, frames, 5, 8);
+                        audio_mixer->adev->effect_buf, frames, 5, 8);
             } else
 #endif
                 extend_channel_2_8(data_mixed, audio_mixer->tmp_buffer,
@@ -951,11 +949,10 @@ static int mixer_do_mixing_32bit(struct amlAudioMixer *audio_mixer)
         }
 #ifdef IS_ATOM_PROJECT
         if (adev->has_dsp_lib) {
-            right_shift(audio_mixer->tmp_buffer, frames * FRAMESIZE_32BIT_STEREO, 3);
             dsp_process_output(audio_mixer->adev,
                     audio_mixer->tmp_buffer, frames * FRAMESIZE_32BIT_STEREO);
             extend_channel_5_8(data_mixed,
-                    audio_mixer->adev->dsp_out_buf, frames, 5, 8);
+                    audio_mixer->adev->effect_buf, frames, 5, 8);
         } else
 #endif
             extend_channel_2_8(data_mixed, audio_mixer->tmp_buffer, frames, 2, 8);
@@ -1012,11 +1009,10 @@ static int mixer_do_mixing_32bit(struct amlAudioMixer *audio_mixer)
 
 #ifdef IS_ATOM_PROJECT
             if (adev->has_dsp_lib) {
-                right_shift(audio_mixer->tmp_buffer, frames * FRAMESIZE_32BIT_STEREO, 3);
                 dsp_process_output(audio_mixer->adev,
                         audio_mixer->tmp_buffer, frames * FRAMESIZE_32BIT_STEREO);
                 extend_channel_5_8(data_mixed,
-                        audio_mixer->adev->dsp_out_buf, frames, 5, 8);
+                        audio_mixer->adev->effect_buf, frames, 5, 8);
             } else
 #endif
                 extend_channel_2_8(data_mixed, audio_mixer->tmp_buffer,
@@ -1053,6 +1049,9 @@ static int mixer_do_mixing_16bit(struct amlAudioMixer *audio_mixer)
     size_t frames = mixing_len_bytes / in_port_drct->cfg.frame_size;
     size_t frames_written = 0;
     float gain_speaker = adev->sink_gain[OUTPORT_SPEAKER];
+    float gain_outport = adev->sink_gain[adev->active_outport];
+    ALOGV("%s(), speaker gain %f, outport gain %f",
+        __func__, gain_speaker, gain_outport);
 
     if (!out_port) {
         ALOGE("%s(), out null !!!", __func__);
@@ -1234,6 +1233,23 @@ int notify_mixer_exit(struct amlAudioMixer *audio_mixer)
     return 0;
 }
 
+static int set_thread_affinity(void)
+{
+    cpu_set_t cpuSet;
+    int sastat = 0;
+
+    CPU_ZERO(&cpuSet);
+    CPU_SET(2, &cpuSet);
+    CPU_SET(3, &cpuSet);
+    sastat = sched_setaffinity(0, sizeof(cpu_set_t), &cpuSet);
+    if (sastat) {
+        ALOGW("%s(), failed to set cpu affinity", __FUNCTION__);
+        return sastat;
+    }
+
+    return 0;
+}
+
 #define THROTTLE_TIME_US 5000
 static void *mixer_32b_threadloop(void *data)
 {
@@ -1246,7 +1262,7 @@ static void *mixer_32b_threadloop(void *data)
 
     audio_mixer->exit_thread = 0;
     prctl(PR_SET_NAME, "amlAudioMixer32");
-    set_thread_affinity(3);
+    set_thread_affinity();
     while (!audio_mixer->exit_thread) {
         //pthread_mutex_lock(&audio_mixer->lock);
         //mixer_procs_msg_queue(audio_mixer);
@@ -1336,7 +1352,7 @@ static void *mixer_16b_threadloop(void *data)
     ALOGI("++%s start", __func__);
     audio_mixer->exit_thread = 0;
     prctl(PR_SET_NAME, "amlAudioMixer16");
-    set_thread_affinity(3);
+    set_thread_affinity();
     while (!audio_mixer->exit_thread) {
         // processing throttle
         const uint64_t delta_us =
