@@ -108,6 +108,12 @@ struct input_port {
     struct listnode msg_list;
     pthread_mutex_t msg_lock;
     //nsecs_t last_write_nsec;
+    struct timespec timestamp;
+    /* get from out stream when init */
+    uint64_t initial_frames;
+    /* consumed by read after init */
+    uint64_t mix_consumed_frames;
+    uint64_t presentation_frames;
 };
 
 enum MIXER_OUTPUT_PORT {

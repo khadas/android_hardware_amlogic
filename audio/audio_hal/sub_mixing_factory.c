@@ -55,7 +55,7 @@ static int initSubMixngOutput(
     pcm_cfg.channels = cfg.channelCnt;
     pcm_cfg.rate = cfg.sampleRate;
     pcm_cfg.period_size = DEFAULT_PLAYBACK_PERIOD_SIZE;
-    pcm_cfg.period_count = 6;//4;
+    pcm_cfg.period_count = DEFAULT_PLAYBACK_PERIOD_CNT;
 
     if (cfg.format == AUDIO_FORMAT_PCM_16_BIT)
         pcm_cfg.format = PCM_FORMAT_S16_LE;
@@ -606,6 +606,34 @@ static int out_get_presentation_position_subMixingPCM
     return ret;
 }
 
+static int out_get_presentation_position_port(
+        const struct audio_stream_out *stream,
+        uint64_t *frames,
+        struct timespec *timestamp)
+{
+    struct aml_stream_out *out = (struct aml_stream_out *)stream;
+    struct aml_audio_device *adev = out->dev;
+    struct subMixing *sm = adev->sm;
+    struct amlAudioMixer *audio_mixer = sm->mixerData;
+    uint64_t frames_written_hw = out->last_frames_postion;
+    int ret = 0;
+
+    if (!frames || !timestamp) {
+        return -EINVAL;
+    }
+
+    if (!adev->audio_patching) {
+        ret = mixer_get_presentation_position(audio_mixer,
+                out->port_index,frames, timestamp);
+    } else {
+        *frames = frames_written_hw;
+        *timestamp = out->timestamp;
+    }
+    ALOGV("%s() out:%p frames:%"PRIu64", sec:%ld, nanosec:%ld\n",
+            __func__, out, *frames, timestamp->tv_sec, timestamp->tv_nsec);
+    return ret;
+}
+
 static int initSubMixingInputPcm(
         struct audio_config *config,
         struct aml_stream_out *out)
@@ -628,7 +656,8 @@ static int initSubMixingInputPcm(
     out->stream.common.standby = out_standby_subMixingPCM;
     if (flags & AUDIO_OUTPUT_FLAG_PRIMARY) {
         /* using subMixing clac function for system sound */
-        out->stream.get_presentation_position = out_get_presentation_position_subMixingPCM;
+        //out->stream.get_presentation_position = out_get_presentation_position_subMixingPCM;
+        out->stream.get_presentation_position = out_get_presentation_position_port;
     }
     list_init(&out->mdata_list);
 

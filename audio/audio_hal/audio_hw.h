@@ -47,6 +47,7 @@
  */
 #define DEFAULT_PLAYBACK_PERIOD_SIZE 512
 #define DEFAULT_CAPTURE_PERIOD_SIZE  512
+#define DEFAULT_PLAYBACK_PERIOD_CNT 6
 
 /* number of ICE61937 format frames per period */
 #define DEFAULT_IEC_SIZE 6144
