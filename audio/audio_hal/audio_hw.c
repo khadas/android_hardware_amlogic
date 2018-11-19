@@ -3010,12 +3010,15 @@ static ssize_t read_frames (struct aml_stream_in *in, void *buffer, ssize_t fram
 }
 
 #if defined(IS_ATOM_PROJECT)
-
-#define DEBUG_AEC_VERBOSE (0)
-#define DEBUG_AEC (0) // Remove after AEC is fine-tuned
 #define TIMESTAMP_LEN (8)
 #define DOWNSAMPLE_RATE (3) //from 48K to 16K.
 #define I2S_DATA_PIN (4) //i2s read 8ch i2s data from hardware, 2ch for mic, 2ch for aux
+
+/* Remove after AEC is fine-tuned*/
+int debug_aec = 0;     //enable aec log print
+int dump_aec_data = 0; //dump audio output after aec processing and audio data to audiorecord.
+int aec_disable = 0;   //only disable AEC, FIR filter, Resample still work. disable:1, enable:0. default:0
+/* Remove after AEC is fine-tuned*/
 
 static int AEC_processing(struct aml_audio_device *adev, int32_t *input_buf, int32_t *output_buf, size_t in_byte)
 {
@@ -3025,6 +3028,10 @@ static int AEC_processing(struct aml_audio_device *adev, int32_t *input_buf, int
     size_t cur_in_frames = in_byte/FRAMESIZE_32BIT_STEREO;
     size_t out_bytes = cur_in_bytes/DOWNSAMPLE_RATE;
     size_t out_frames = cur_in_frames/DOWNSAMPLE_RATE;
+
+    dump_aec_data = getprop_bool("media.audio_hal.aec.outdump");
+    debug_aec = getprop_bool("media.audio_hal.aec.debug");
+    aec_disable = getprop_bool("media.audio_hal.aec.disable");
 
     aec_timestamp spk_timestamp;
     aec_timestamp mic_timestamp = get_timestamp();
@@ -3043,15 +3050,15 @@ static int AEC_processing(struct aml_audio_device *adev, int32_t *input_buf, int
     int int_get_buffer_read_space = get_buffer_read_space(&adev->spk_ring_buf);
     int time_diff = 0;
     bool aec_print_this = false;
-    if (int_get_buffer_read_space >= (int)(cur_in_bytes + TIMESTAMP_LEN)) {
+    if ((!aec_disable) && (int_get_buffer_read_space >= (int)(cur_in_bytes + TIMESTAMP_LEN))) {
         /* get timestamp */
         ring_buffer_read(&adev->spk_ring_buf, (unsigned char*) spk_timestamp.tsB, TIMESTAMP_LEN);
 
         /*get audio data from speaker ringbuffer*/
         ring_buffer_read(&adev->spk_ring_buf, (unsigned char*)adev->spk_buf, cur_in_bytes);
 
-        if (DEBUG_AEC) {
-            ALOGI("%s: ~~~~ TS[Spk] ~~~~ ts(d): %llu, diff[spk_cadence]: %llu, diff[now - lastwr]: %llu, in_bytes = %zu",
+        if (debug_aec) {
+            ALOGI("%s: TS[Spk]: ts(d): %llu, diff[spk_cadence]: %llu, diff[now - lastwr]: %llu, in_bytes = %zu",
                 __func__, spk_timestamp.timeStamp,
                 spk_timestamp.timeStamp - adev->debug_spk_buf_time_last,
                 spk_timestamp.timeStamp - adev->spk_buf_last_write_time,
@@ -3078,7 +3085,7 @@ static int AEC_processing(struct aml_audio_device *adev, int32_t *input_buf, int
                 goto exit;
             }
             int aec_frame_div = out_frames/512; //4;
-            if (DEBUG_AEC) {
+            if (debug_aec) {
                 if (getprop_bool("media.audio_hal.aec_frame_div4")) {
                     aec_frame_div = 4;
                 }
@@ -3104,7 +3111,7 @@ static int AEC_processing(struct aml_audio_device *adev, int32_t *input_buf, int
                 //When AEC is error or cleaned samples don't match input samples, ignore AEC output
                 if (aec_proc_buf && (cleaned_samples_per_channel == aec_samples_per_channel)) {
                    //AEC output int32 stereo
-                   if (getprop_bool("media.audio_hal.aec.outdump")) {
+                   if (dump_aec_data) {
                         FILE *fp1 = fopen("/data/tmp/audio_aec.raw", "a+");
                         if (fp1) {
                             int flen = fwrite((char *)aec_proc_buf, 1, aec_data_bytes, fp1);
@@ -3115,11 +3122,11 @@ static int AEC_processing(struct aml_audio_device *adev, int32_t *input_buf, int
                     }
 
                     memcpy(&mic_buf_ptr[aec_data_bytes * i], (char*)aec_proc_buf, aec_data_bytes);
-                    if (DEBUG_AEC)
+                    if (debug_aec)
                         ALOGD("i: %d, fr_div: %d, samples from AEC = %d, aec_data_bytes: %d",
                             i, aec_frame_div, cleaned_samples_per_channel, aec_data_bytes);
                 } else {
-                    if (DEBUG_AEC)
+                    if (debug_aec)
                         ALOGE("aec_proc_buf is null (or) cleaned_samples_per_channel: %d ",
                             cleaned_samples_per_channel);
                 }
@@ -3127,11 +3134,11 @@ static int AEC_processing(struct aml_audio_device *adev, int32_t *input_buf, int
             aec_print_this = true;
             pthread_mutex_unlock(&adev->aec_spk_mic_lock);
         } else {
-            if (DEBUG_AEC)
+            if (debug_aec)
                 ALOGE("%s: time_diff: %d", __func__, time_diff);
         }
     } else {
-        if (DEBUG_AEC_VERBOSE)
+        if (debug_aec)
             ALOGE("%s: missed mic!", __func__);
     }
 exit:
@@ -3139,7 +3146,7 @@ exit:
     Aud_HPFFilter_Process(mic_buf, out_frames);
     Aud_Gain_Process(mic_buf, out_frames);
 
-    if (DEBUG_AEC && aec_print_this)
+    if (debug_aec && aec_print_this)
         ALOGI("%s: With AEC--buffer_read_space: %d, out_frames: %d, in_frames: %d, time_diff: %d, spk_buf[read]: %llu",
                 __func__, int_get_buffer_read_space, out_frames, cur_in_frames,
                 time_diff, adev->spk_buf_read_count);
@@ -3153,7 +3160,7 @@ exit:
         memcpy(tmp_buf_32, mic_buf, out_frames);
     }
 
-    if (getprop_bool("media.audio_hal.aec.outdump")) {
+    if (dump_aec_data) {
         FILE *fp1 = fopen("/data/tmp/audio_aechpf.raw", "a+");
         if (fp1) {
             int flen = fwrite((char *)tmp_buf_32, 1, out_bytes, fp1);
@@ -4862,7 +4869,7 @@ void atom_pack_speaker_ring_buffer(struct aml_audio_device *adev, size_t bytes) 
                 first_set_len = bytes;
             }
     }
-    if (DEBUG_AEC)
+    if (debug_aec)
         ALOGW("%s: type: %d, first_set_len: %d, extra_write_bytes: %d, bytes: %d",
          __func__, adev->atom_stream_type_val, first_set_len, adev->extra_write_bytes, bytes);
 
@@ -4872,7 +4879,7 @@ void atom_pack_speaker_ring_buffer(struct aml_audio_device *adev, size_t bytes) 
         ring_buffer_write(&adev->spk_ring_buf, (unsigned char*)cur_time.tsB,
             TIMESTAMP_LEN, UNCOVER_WRITE);
 
-        if (DEBUG_AEC) {
+        if (debug_aec) {
             if (adev->spk_buf_write_count++ > 10000000 ) {
                 adev->spk_buf_write_count = 0;
             }
@@ -4897,7 +4904,7 @@ void atom_pack_speaker_ring_buffer(struct aml_audio_device *adev, size_t bytes) 
             ring_buffer_write(&adev->spk_ring_buf, (unsigned char*)cur_time.tsB,
                 TIMESTAMP_LEN, UNCOVER_WRITE);
 
-            if (DEBUG_AEC) {
+            if (debug_aec) {
                 if (adev->spk_buf_write_count++ > 10000000 ) {
                     adev->spk_buf_write_count = 0;
                 }
@@ -4992,7 +4999,7 @@ int dsp_process_output(struct aml_audio_device *adev, void *in_buffer,
         int int_get_buffer_write_space = get_buffer_write_space(&adev->spk_ring_buf);
         if (int_get_buffer_write_space <
            (int)((FRAMESIZE_32BIT_STEREO * out_frames) + (2 * TIMESTAMP_LEN))) {
-           if (DEBUG_AEC) {
+           if (debug_aec) {
                ALOGI("[%s]: Warning: spk_ring_buf overflow, write_bytes = TIMESTAMP_BYTE + %zu",
                     __func__, FRAMESIZE_32BIT_STEREO * out_frames + (2 * TIMESTAMP_LEN));
            }
@@ -5008,7 +5015,7 @@ int dsp_process_output(struct aml_audio_device *adev, void *in_buffer,
                         FRAMESIZE_32BIT_STEREO * out_frames, UNCOVER_WRITE);
         }
 
-        if (DEBUG_AEC) {
+        if (debug_aec) {
             ALOGW("%s: buffer_write_space: %d, out_frames: %d, extra_write_bytes: %d",
                 __func__, int_get_buffer_write_space, out_frames, adev->extra_write_bytes);
         }
