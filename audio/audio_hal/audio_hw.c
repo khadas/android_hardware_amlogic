@@ -3037,6 +3037,16 @@ static int AEC_processing(struct aml_audio_device *adev, int32_t *input_buf, int
     aec_timestamp spk_timestamp;
     aec_timestamp mic_timestamp = get_timestamp();
 
+    if (dump_aec_data) {
+        FILE *fp1 = fopen("/data/tmp/audio_mic_read.raw", "a+");
+        if (fp1) {
+            int flen = fwrite((char *)input_buf, 1, in_byte, fp1);
+            fclose(fp1);
+        } else {
+            ALOGD("could not open files!");
+        }
+    }
+
     /* harman LPF FIR filter and simple downsample from 48K->16K for mic*/
     if (adev->pstFir_mic) {
         Fir_calcModule(adev->pstFir_mic, mic_buf, mic_buf, cur_in_frames);
@@ -3158,7 +3168,7 @@ exit:
             tmp_buf_32[i] = (mic_buf[2*i] + mic_buf[2*i + 1]);
         }
     } else {
-        memcpy(tmp_buf_32, mic_buf, out_frames);
+        memcpy(tmp_buf_32, mic_buf, out_bytes);
     }
 
     if (dump_aec_data) {
@@ -3247,7 +3257,7 @@ static ssize_t in_read(struct audio_stream_in *stream, void* buffer, size_t byte
         if ((in->device & AUDIO_DEVICE_IN_LINE) && !adev->aux_running) {
             adev->aux_running = 1;
             if (!adev->mic_ring_buf.start_addr)
-                ring_buffer_init(&adev->mic_ring_buf, 4 * DOWNSAMPLE_RATE * bytes);
+                ring_buffer_init(&adev->mic_ring_buf, 16 * DOWNSAMPLE_RATE * bytes);
             else
                 ring_buffer_reset(&adev->mic_ring_buf);
         }
@@ -3307,14 +3317,14 @@ static ssize_t in_read(struct audio_stream_in *stream, void* buffer, size_t byte
                 }
             } else {
                 /*if aux is running, copy data from mic ring buffer*/
-                mic_buf = (int32_t *)adev->mic_buf;
-                ret = ring_buffer_read(&adev->mic_ring_buf, (unsigned char*)mic_buf, DOWNSAMPLE_RATE * bytes);
+                ret = ring_buffer_read(&adev->mic_ring_buf, (unsigned char*)adev->mic_buf, DOWNSAMPLE_RATE * bytes);
                 if (ret < 0) {
                     ALOGE("%s(), read mic data error!", __func__);
                     pthread_mutex_unlock(&adev->aux_mic_lock);
                     goto exit;
                 }
             }
+            tmp_buf_out = (int32_t *)buffer;
             /*Mic & AEC processing*/
             AEC_processing(adev, (int32_t *)adev->mic_buf, tmp_buf_out, DOWNSAMPLE_RATE * bytes);
         }
@@ -4341,6 +4351,7 @@ static int adev_open_input_stream(struct audio_hw_device *dev,
     struct aml_stream_in *in;
     int channel_count = audio_channel_count_from_in_mask(config->channel_mask);
     int ret;
+    int disable_resample = 0;
 
     ALOGD("%s: enter: devices(%#x) channel_mask(%#x) rate(%d) format(%#x)", __func__,
         devices, config->channel_mask, config->sample_rate, config->format);
@@ -4390,6 +4401,7 @@ static int adev_open_input_stream(struct audio_hw_device *dev,
             goto err;
         config->sample_rate = in->config.rate;
         config->channel_mask = AUDIO_CHANNEL_IN_MONO;
+        disable_resample = 1;
     } else
         memcpy(&in->config, &pcm_config_in, sizeof(pcm_config_in));
 
@@ -4419,7 +4431,6 @@ static int adev_open_input_stream(struct audio_hw_device *dev,
         in->config.channels = 8;
         in->config.format = PCM_FORMAT_S32_LE;
         /*Do simple resampling*/
-        in->requested_rate = in->config.rate;
         in->hal_channel_mask = AUDIO_CHANNEL_IN_STEREO;
         in->hal_format = AUDIO_FORMAT_PCM_32_BIT;
         if (aux_mic_device & AUDIO_DEVICE_IN_BUILTIN_MIC) {
@@ -4454,11 +4465,12 @@ static int adev_open_input_stream(struct audio_hw_device *dev,
         adev->aux_mic_device |= in->device;
         ALOGD("start input stream, in->device = %x, adev->aux_mic_device = %x\n",
                 in->device, adev->aux_mic_device);
+        disable_resample = 1;
     }
     pthread_mutex_unlock(&adev->aux_mic_lock);
 #endif
 
-    if (!(in->device & AUDIO_DEVICE_IN_WIRED_HEADSET) && in->requested_rate != in->config.rate) {
+    if (disable_resample == 0 && in->requested_rate != in->config.rate) {
         ALOGD("%s: in->requested_rate = %d, in->config.rate = %d",
             __func__, in->requested_rate, in->config.rate);
         in->buf_provider.get_next_buffer = get_next_buffer;
@@ -4471,6 +4483,7 @@ static int adev_open_input_stream(struct audio_hw_device *dev,
             goto err;
         }
     }
+
 
 #if (ENABLE_NANO_PATCH == 1)
 /*[SEN5-autumn.zhao-2018-01-11] add for B06 audio support { */
