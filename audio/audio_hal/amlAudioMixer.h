@@ -88,6 +88,11 @@ uint32_t mixer_get_inport_latency_frames(struct amlAudioMixer *audio_mixer,
         enum MIXER_INPUT_PORT port_index);
 uint32_t mixer_get_outport_latency_frames(struct amlAudioMixer *audio_mixer);
 int64_t mixer_latency_frames(struct amlAudioMixer *audio_mixer);
+int mixer_get_presentation_position(
+        struct amlAudioMixer *audio_mixer,
+        enum MIXER_INPUT_PORT port_index,
+        uint64_t *frames,
+        struct timespec *timestamp);
 
 __END_DECLS
 

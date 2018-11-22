@@ -14,12 +14,31 @@
 #include "audio_hw_utils.h"
 #include "hw_avsync_callbacks.h"
 
+static int on_notify_cbk(void *data);
+static int on_input_avail_cbk(void *data);
+static ssize_t out_write_subMixingPCM(struct audio_stream_out *stream,
+                      const void *buffer,
+                      size_t bytes);
+static int out_pause_subMixingPCM(struct audio_stream_out *stream);
+static int out_resume_subMixingPCM(struct audio_stream_out *stream);
+static int out_flush_subMixingPCM(struct audio_stream_out *stream);
+
 struct pcm *getSubMixingPCMdev(struct subMixing *sm)
 {
     return sm->pcmDev;
 }
 
-int initSubMixngOutput(
+static int startMixingThread(struct subMixing *sm)
+{
+    return pcm_mixer_thread_run(sm->mixerData);
+}
+
+static int exitMixingThread(struct subMixing *sm)
+{
+    return pcm_mixer_thread_exit(sm->mixerData);
+}
+
+static int initSubMixngOutput(
         struct subMixing *sm,
         struct audioCfg cfg,
         struct aml_audio_device *adev)
@@ -36,7 +55,7 @@ int initSubMixngOutput(
     pcm_cfg.channels = cfg.channelCnt;
     pcm_cfg.rate = cfg.sampleRate;
     pcm_cfg.period_size = DEFAULT_PLAYBACK_PERIOD_SIZE;
-    pcm_cfg.period_count = 6;//4;
+    pcm_cfg.period_count = DEFAULT_PLAYBACK_PERIOD_CNT;
 
     if (cfg.format == AUDIO_FORMAT_PCM_16_BIT)
         pcm_cfg.format = PCM_FORMAT_S16_LE;
@@ -52,7 +71,7 @@ int initSubMixngOutput(
     if ((pcm == NULL) || !pcm_is_ready(pcm)) {
         ALOGE("cannot open pcm_out driver: %s", pcm_get_error(pcm));
         pcm_close(pcm);
-        return -EINVAL;
+        //return -EINVAL;
     }
 
     sm->pcmDev = pcm;
@@ -65,8 +84,10 @@ int initSubMixngOutput(
             goto err;
         }
         sm->mixerData = amixer;
+        startMixingThread(sm);
     } else if (sm->type == MIXER_MS12) {
         //TODO
+        ALOGW("%s(), not support yet, in TODO list", __func__);
     } else {
         ALOGE("%s(), not support", __func__);
         res = -EINVAL;
@@ -78,21 +99,25 @@ err:
     return res;
 };
 
-int releaseSubMixingOutput(struct subMixing *sm)
+static int releaseSubMixingOutput(struct subMixing *sm)
 {
     ALOGI("++%s()", __func__);
+    if (!sm) {
+        ALOGE("%s(), null pointer", __func__);
+        return -EINVAL;
+    }
+    exitMixingThread(sm);
     freeAmlAudioMixer(sm->mixerData);
     pcm_close(sm->pcmDev);
     sm->pcmDev = NULL;
     return 0;
 }
 
-ssize_t aml_out_write_to_mixer(struct audio_stream_out *stream, const void* buffer,
+static ssize_t aml_out_write_to_mixer(struct audio_stream_out *stream, const void* buffer,
                                     size_t bytes)
 {
     struct aml_stream_out *out = (struct aml_stream_out *)stream;
     struct aml_audio_device *adev = out->dev;
-    //struct aml_audio_mixer *audio_mixer = adev->audio_mixer;
     struct subMixing *sm = adev->sm;
     struct amlAudioMixer *audio_mixer = sm->mixerData;
     const char *data = (char *)buffer;
@@ -144,7 +169,7 @@ ssize_t aml_out_write_to_mixer(struct audio_stream_out *stream, const void* buff
     return written_total;
 }
 
-int consume_meta_data(void *cookie,
+static int consume_meta_data(void *cookie,
         uint32_t frame_size, int64_t pts, uint64_t offset)
 {
     struct aml_stream_out *out = (struct aml_stream_out *)cookie;
@@ -180,7 +205,7 @@ int consume_meta_data(void *cookie,
     return 0;
 }
 
-int consume_output_data(void *cookie, const void* buffer, size_t bytes)
+static int consume_output_data(void *cookie, const void* buffer, size_t bytes)
 {
     struct audio_stream_out *stream = (struct audio_stream_out *)cookie;
     struct aml_stream_out *out = (struct aml_stream_out *)stream;
@@ -207,8 +232,7 @@ int consume_output_data(void *cookie, const void* buffer, size_t bytes)
         ALOGE("%s(), written failed, %d", __func__, written);
         goto exit;
     }
-    //if (mixer_get_inport_state(audio_mixer, out->port_index) == STOPPED)
-    //    mixer_set_inport_state(audio_mixer, out->port_index, ACTIVE);
+
     clock_gettime(CLOCK_MONOTONIC, &new_tval);
     us_since_last_write = (new_tval.tv_sec - out->timestamp.tv_sec) * 1000000 +
             (new_tval.tv_nsec - out->timestamp.tv_nsec) / 1000;
@@ -265,6 +289,8 @@ static ssize_t out_write_hwsync_lpcm(struct audio_stream_out *stream, const void
                                     size_t bytes)
 {
     struct aml_stream_out *out = (struct aml_stream_out *)stream;
+    struct aml_audio_device *adev = out->dev;
+    struct subMixing *sm = adev->sm;
     size_t channel_count = audio_channel_count_from_out_mask(out->hal_channel_mask);
     size_t frame_size = audio_bytes_per_frame(channel_count, out->hal_format);;
     int written_total = 0;
@@ -278,10 +304,21 @@ static ssize_t out_write_hwsync_lpcm(struct audio_stream_out *stream, const void
     }
 
     if (out->standby) {
+        ALOGI("%s(), start hwsync lpcm stream: %p", __func__, out);
+        out->hwsync_extractor = new_hw_avsync_header_extractor(consume_meta_data,
+                consume_output_data, out);
+        out->first_pts_set = false;
+        pthread_mutex_init(&out->mdata_lock, NULL);
+        init_mixer_input_port(sm->mixerData, &out->audioCfg, out->flags,
+            on_notify_cbk, out, on_input_avail_cbk, out,
+            on_meta_data_cbk, out);
+        out->port_index = get_input_port_index(&out->audioCfg, out->flags);
+        ALOGI("%s(), hwsync port index = %d", __func__, out->port_index);
         out->standby = false;
     }
     if (out->pause_status) {
-        ALOGE("%s(), write in pause status!!", __func__);
+        ALOGW("%s(), write in pause status!!", __func__);
+        out->pause_status = false;
     }
     written_total = header_extractor_write(out->hwsync_extractor, buffer, bytes);
     ALOGV("%s() bytes %d, out->last_frames_postion %lld frame_sum %lld",
@@ -324,7 +361,6 @@ static ssize_t out_write_system(struct audio_stream_out *stream, const void *buf
     size_t frame_size = audio_bytes_per_frame(channel_count, out->hal_format);;
     //uint64_t throttle_timeus = THROTLE_TIME_US;//aml_audio_get_throttle_timeus();
     int64_t throttle_timeus = 0;//aml_audio_get_throttle_timeus(bytes);
-    ALOGV("shuai ... %s", __func__);
 
     if (bytes == 0) {
         ALOGW("%s(), inval to write bytes 0", __func__);
@@ -421,7 +457,16 @@ static ssize_t out_write_direct_pcm(struct audio_stream_out *stream, const void 
     size_t remain = 0;
     int frame_size = 4;
     int64_t throttle_timeus = 0;//aml_audio_get_throttle_timeus(bytes);
-    ALOGV("shuai ... %s", __func__);
+
+    if (out->standby) {
+        ALOGI("%s(), direct %p", __func__, out);
+        init_mixer_input_port(sm->mixerData, &out->audioCfg, out->flags,
+            on_notify_cbk, out, on_input_avail_cbk, out,
+            NULL, NULL);
+        out->port_index = get_input_port_index(&out->audioCfg, out->flags);
+        ALOGI("%s(), direct port index = %d", __func__, out->port_index);
+        out->standby = false;
+    }
 
     if (bytes == 0) {
         ALOGW("%s(), inval to write bytes 0", __func__);
@@ -504,7 +549,7 @@ exit:
     return written;
 }
 
-int on_notify_cbk(void *data)
+static int on_notify_cbk(void *data)
 {
     struct aml_stream_out *out = data;
     ALOGD("%s(), line %d", __func__, __LINE__);
@@ -512,7 +557,7 @@ int on_notify_cbk(void *data)
     return 0;
 }
 
-int on_input_avail_cbk(void *data)
+static int on_input_avail_cbk(void *data)
 {
     struct aml_stream_out *out = data;
     ALOGV("%s(), line %d", __func__, __LINE__);
@@ -561,7 +606,35 @@ static int out_get_presentation_position_subMixingPCM
     return ret;
 }
 
-int initSubMixingInputPcm(
+static int out_get_presentation_position_port(
+        const struct audio_stream_out *stream,
+        uint64_t *frames,
+        struct timespec *timestamp)
+{
+    struct aml_stream_out *out = (struct aml_stream_out *)stream;
+    struct aml_audio_device *adev = out->dev;
+    struct subMixing *sm = adev->sm;
+    struct amlAudioMixer *audio_mixer = sm->mixerData;
+    uint64_t frames_written_hw = out->last_frames_postion;
+    int ret = 0;
+
+    if (!frames || !timestamp) {
+        return -EINVAL;
+    }
+
+    if (!adev->audio_patching) {
+        ret = mixer_get_presentation_position(audio_mixer,
+                out->port_index,frames, timestamp);
+    } else {
+        *frames = frames_written_hw;
+        *timestamp = out->timestamp;
+    }
+    ALOGV("%s() out:%p frames:%"PRIu64", sec:%ld, nanosec:%ld\n",
+            __func__, out, *frames, timestamp->tv_sec, timestamp->tv_nsec);
+    return ret;
+}
+
+static int initSubMixingInputPcm(
         struct audio_config *config,
         struct aml_stream_out *out)
 {
@@ -575,75 +648,32 @@ int initSubMixingInputPcm(
                audio_is_linear_pcm(config->format) && channel_count <= 2);
     ALOGI("++%s(), out %p, flags %#x, hwsync lpcm %d, out format %#x",
             __func__, out, flags, hwsync_lpcm, sm->outputCfg.format);
+    out->audioCfg = *config;
     out->stream.write = out_write_subMixingPCM;
     out->stream.pause = out_pause_subMixingPCM;
     out->stream.resume = out_resume_subMixingPCM;
     out->stream.flush = out_flush_subMixingPCM;
     out->stream.common.standby = out_standby_subMixingPCM;
     if (flags & AUDIO_OUTPUT_FLAG_PRIMARY) {
-        ALOGI("%s(), primary out_write_system %p", __func__, out);
-        //out->stream.write = out_write_system;
-        init_mixer_input_port(sm->mixerData, config, flags,
-            on_notify_cbk, out, on_input_avail_cbk, out,
-            NULL, NULL);
-
-        out->port_index = get_input_port_index(config, flags);
-        ALOGI("%s(), primary port index = %d", __func__, out->port_index);
         /* using subMixing clac function for system sound */
-        out->stream.get_presentation_position = out_get_presentation_position_subMixingPCM;
-    } else if (flags & AUDIO_OUTPUT_FLAG_DIRECT) {
-        ALOGI("%s(), direct stream:", __func__);
-        if (hwsync_lpcm) {
-            ALOGI("%s(), primary out_write_hwsync_lpcm %p", __func__, out);
-            //out->stream.write = out_write_hwsync_lpcm;
-            out->hwsync_extractor = new_hw_avsync_header_extractor(consume_meta_data,
-                    consume_output_data, out);
-            out->first_pts_set = false;
-            pthread_mutex_init(&out->mdata_lock, NULL);
-            list_init(&out->mdata_list);
-            init_mixer_input_port(sm->mixerData, config, flags,
-                on_notify_cbk, out, on_input_avail_cbk, out,
-                on_meta_data_cbk, out);
-            out->port_index = get_input_port_index(config, flags);
-            ALOGI("%s(), hwsync port index = %d", __func__, out->port_index);
-        } else {
-            ALOGI("%s(), primary out_write_direct_pcm %p", __func__, out);
-            //out->stream.write = out_write_direct_pcm;
-            init_mixer_input_port(sm->mixerData, config, flags,
-                on_notify_cbk, out, on_input_avail_cbk, out,
-                NULL, NULL);
-            out->port_index = get_input_port_index(config, flags);
-            ALOGI("%s(), direct port index = %d", __func__, out->port_index);
-        }
-    } else {
-        ALOGE("%s(), not supported flags %#x", __func__, flags);
-        return -EINVAL;
+        //out->stream.get_presentation_position = out_get_presentation_position_subMixingPCM;
+        out->stream.get_presentation_position = out_get_presentation_position_port;
     }
-    if (!sm->cnt_stream_using_mixer) {
-        pcm_mixer_thread_run(sm->mixerData);
-        ALOGI("-%s mixer and thread start OK", __func__);
-    }
-    //TODO: move to sm
-    sm->cnt_stream_using_mixer++;
-    ALOGI("--%s(), cnt_stream_using_mixer %d",
-        __func__, sm->cnt_stream_using_mixer);
+    list_init(&out->mdata_list);
 
     return 0;
 }
 
-int deleteSubMixingInputPcm(struct aml_stream_out *out)
+static int deleteSubMixingInputPcm(struct aml_stream_out *out)
 {
     struct aml_audio_device *adev = out->dev;
     struct subMixing *sm = adev->sm;
     struct amlAudioMixer *audio_mixer = sm->mixerData;
 
-    sm->cnt_stream_using_mixer--;
     ALOGI("%s(), cnt_stream_using_mixer %d",
             __func__, sm->cnt_stream_using_mixer);
-    delete_mixer_input_port(audio_mixer, out->port_index);
-    if (!sm->cnt_stream_using_mixer) {
-        pcm_mixer_thread_exit(sm->mixerData);
-    }
+    //delete_mixer_input_port(audio_mixer, out->port_index);
+
     return 0;
 }
 
@@ -735,7 +765,7 @@ int sysWriteMS12(
 }
 #endif
 /* mixing only support pcm 16&32 format now */
-int newSubMixingFactory(
+static int newSubMixingFactory(
             struct subMixing **smixer,
             enum MIXER_TYPE type,
             struct audioCfg cfg,
@@ -788,7 +818,7 @@ exit:
     return res;
 };
 
-void deleteSubMixing(struct subMixing *sm)
+static void deleteSubMixing(struct subMixing *sm)
 {
     ALOGI("++%s()", __func__);
     if (sm != NULL) {
@@ -919,7 +949,6 @@ ssize_t mixer_main_buffer_write_sm (struct audio_stream_out *stream, const void 
     int write_retry = 0;
     audio_hwsync_t *hw_sync = &aml_out->hwsync;
 
-    ALOGV("shuai ... %s", __func__);
     if (adev->debug_flag) {
         ALOGI("%s write in %zu!, format = 0x%x\n", __FUNCTION__, bytes, aml_out->hal_internal_format);
     }
@@ -938,11 +967,11 @@ ssize_t mixer_main_buffer_write_sm (struct audio_stream_out *stream, const void 
 
     /* handle HWSYNC audio data*/
     if (aml_out->hw_sync_mode) {
-        ALOGV("shuai ... hwsync mode %s", __func__);
+        ALOGV("hwsync mode %s", __func__);
         write_bytes = out_write_hwsync_lpcm(stream, buffer, bytes);
     } else {
-        ALOGV("shuai ... direct %s", __func__);
-        write_bytes = aml_out_write_to_mixer(stream, buffer, bytes);
+        ALOGV("direct %s", __func__);
+        write_bytes = out_write_direct_pcm(stream, buffer, bytes);
         if (write_bytes < 0) {
             ALOGE("%s(), write failed, err = %d", __func__, write_bytes);
         }
@@ -963,6 +992,7 @@ ssize_t mixer_aux_buffer_write_sm(struct audio_stream_out *stream, const void *b
 {
     struct aml_stream_out *aml_out = (struct aml_stream_out *) stream;
     struct aml_audio_device *adev = aml_out->dev;
+    struct subMixing *sm = adev->sm;
     int ret = 0;
     size_t frame_size = audio_stream_out_frame_size(stream);
     size_t in_frames = bytes / frame_size;
@@ -973,6 +1003,16 @@ ssize_t mixer_aux_buffer_write_sm(struct audio_stream_out *stream, const void *b
     unsigned int alsa_latency_frame = 0;
 
     ALOGV("++%s", __func__);
+    if (aml_out->standby) {
+        init_mixer_input_port(sm->mixerData, &aml_out->audioCfg, aml_out->flags,
+            on_notify_cbk, aml_out, on_input_avail_cbk, aml_out,
+            NULL, NULL);
+
+        aml_out->port_index = get_input_port_index(&aml_out->audioCfg, aml_out->flags);
+        ALOGI("%s(), primary %p port index = %d",
+            __func__, aml_out, aml_out->port_index);
+        aml_out->standby = false;
+    }
     bytes_written = aml_out_write_to_mixer(stream, buffer, bytes);
     if (bytes_written < 0) {
         ALOGE("%s(), stream usecase: %s, write failed, err = %d",
@@ -1018,6 +1058,9 @@ int usecase_change_validate_l_sm(struct aml_stream_out *aml_out, bool is_standby
         return 0;
     }
 
+    ALOGI("++%s: dev usecase masks = %#x, out usecase_masks = %#x, out usecase %s",
+           __func__, aml_dev->usecase_masks, aml_out->dev_usecase_masks, usecase_to_str(aml_out->usecase));
+
     /* check the usecase validation */
     if (popcount(aml_dev->usecase_masks & 0xfffffffe) > 1) {
         ALOGE("%s(), invalid usecase masks = %#x, out usecase %s!",
@@ -1062,7 +1105,7 @@ int usecase_change_validate_l_sm(struct aml_stream_out *aml_out, bool is_standby
 }
 
 /* out_write_submixing entrance: every write to submixing goes in here. */
-ssize_t out_write_subMixingPCM(struct audio_stream_out *stream,
+static ssize_t out_write_subMixingPCM(struct audio_stream_out *stream,
                       const void *buffer,
                       size_t bytes)
 {
@@ -1108,9 +1151,11 @@ int out_standby_subMixingPCM(struct audio_stream *stream)
 {
     struct aml_stream_out *aml_out = (struct aml_stream_out *) stream;
     struct aml_audio_device *adev = aml_out->dev;
+    struct subMixing *sm = adev->sm;
+    struct amlAudioMixer *audio_mixer = sm->mixerData;
     ssize_t ret = 0;
 
-    ALOGD("%s: out_stream(%p)", __func__, stream);
+    ALOGD("%s: out_stream(%p) usecase: %s", __func__, stream, usecase_to_str(aml_out->usecase));
     /**
      * deal with the device output changes
      * pthread_mutex_lock(&aml_out->lock);
@@ -1118,12 +1163,18 @@ int out_standby_subMixingPCM(struct audio_stream *stream)
      * pthread_mutex_unlock(&aml_out->lock);
      */
     pthread_mutex_lock(&adev->lock);
+    if (aml_out->standby) {
+        goto exit;
+    }
+
     ret = usecase_change_validate_l_sm(aml_out, true);
     if (ret < 0) {
         ALOGE("%s() failed", __func__);
         goto exit;
     }
     aml_out->status = STREAM_STANDBY;
+    aml_out->standby = true;
+    delete_mixer_input_port(audio_mixer, aml_out->port_index);
 
     if (adev->debug_flag > 1) {
         ALOGI("-%s() ret %zd,%p %"PRIu64"\n", __func__, ret, stream, aml_out->total_write_size);
@@ -1134,15 +1185,16 @@ exit:
 }
 
 /* use standby instead of pause to fix background pcm playback */
-int out_pause_subMixingPCM(struct audio_stream_out *stream)
+static int out_pause_subMixingPCM(struct audio_stream_out *stream)
 {
     struct aml_stream_out *aml_out = (struct aml_stream_out *)stream;
     struct aml_audio_device *aml_dev = aml_out->dev;
     struct subMixing *sm = aml_dev->sm;
     struct amlAudioMixer *audio_mixer = NULL;
 
-    ALOGI("+%s(), standby %d, pause status %d, usecase: %s",
+    ALOGI("+%s(), stream %p, standby %d, pause status %d, usecase: %s",
             __func__,
+            aml_out,
             aml_out->standby,
             aml_out->pause_status,
             usecase_to_str(aml_out->usecase));
@@ -1164,7 +1216,7 @@ int out_pause_subMixingPCM(struct audio_stream_out *stream)
     return 0;
 }
 
-int out_resume_subMixingPCM(struct audio_stream_out *stream)
+static int out_resume_subMixingPCM(struct audio_stream_out *stream)
 {
     struct aml_stream_out *aml_out = (struct aml_stream_out *) stream;
     struct aml_audio_device *aml_dev = aml_out->dev;
@@ -1176,7 +1228,7 @@ int out_resume_subMixingPCM(struct audio_stream_out *stream)
             __func__, stream, aml_out->standby, aml_out->pause_status);
     if (!aml_out->pause_status) {
         ALOGW("%s(), steam not in pause status", __func__);
-        //return INVALID_STATE;
+        return INVALID_STATE;
     }
 
     if (sm->type != MIXER_LPCM) {
@@ -1192,7 +1244,8 @@ int out_resume_subMixingPCM(struct audio_stream_out *stream)
     return 0;
 }
 
-int out_flush_subMixingPCM(struct audio_stream_out *stream)
+/* If supported, a stream should always succeed to flush */
+static int out_flush_subMixingPCM(struct audio_stream_out *stream)
 {
     struct aml_stream_out *aml_out = (struct aml_stream_out *) stream;
     struct aml_audio_device *aml_dev = aml_out->dev;
@@ -1214,30 +1267,32 @@ int out_flush_subMixingPCM(struct audio_stream_out *stream)
     aml_out->skip_frame = 3;
     aml_out->input_bytes_size = 0;
     //aml_out->pause_status = false;
-    if (aml_out->pause_status || aml_out->standby) {
+    if (aml_out->pause_status) {
         struct meta_data_list *mdata_list;
         struct listnode *item;
 
         //mixer_flush_inport(audio_mixer, out->port_index);
-        pthread_mutex_lock(&aml_out->mdata_lock);
-        while (!list_empty(&aml_out->mdata_list)) {
-            item = list_head(&aml_out->mdata_list);
-            mdata_list = node_to_item(item, struct meta_data_list, list);
-            list_remove(&mdata_list->list);
-            free(mdata_list);
+        if (aml_out->hw_sync_mode) {
+            pthread_mutex_lock(&aml_out->mdata_lock);
+            while (!list_empty(&aml_out->mdata_list)) {
+                item = list_head(&aml_out->mdata_list);
+                mdata_list = node_to_item(item, struct meta_data_list, list);
+                list_remove(item);
+                free(mdata_list);
+            }
+            pthread_mutex_unlock(&aml_out->mdata_lock);
         }
-        pthread_mutex_unlock(&aml_out->mdata_lock);
         audio_mixer = sm->mixerData;
         send_mixer_inport_message(audio_mixer, aml_out->port_index, MSG_FLUSH);
         flush_hw_avsync_header_extractor(aml_out->hwsync_extractor);
         //mixer_set_inport_state(audio_mixer, out->port_index, FLUSHING);
         aml_out->last_frames_postion = 0;
         aml_out->first_pts_set = false;
-        aml_out->pause_status = false;
-        aml_out->standby = true;
+        //aml_out->pause_status = false;
+        //aml_out->standby = true;
     } else {
         ALOGW("%s(), line %d. Need check this case!", __func__, __LINE__);
-        return INVALID_STATE;
+        return 0;
     }
 
     ALOGI("-%s()", __func__);
@@ -1255,10 +1310,12 @@ int switchNormalStream(struct aml_stream_out *aml_out, bool on)
         initSubMixingInputPcm(&aml_out->out_cfg, aml_out);
         aml_out->stream.write = mixer_aux_buffer_write_sm;
         aml_out->stream.common.standby = out_standby_subMixingPCM;
+        out_standby_subMixingPCM((struct audio_stream *)aml_out);
     } else {
-        aml_out->stream.write = out_write_new;
+        aml_out->stream.write = mixer_aux_buffer_write;
         aml_out->stream.common.standby = out_standby_new;
         deleteSubMixingInputPcm(aml_out);
+        out_standby_new((struct audio_stream *)aml_out);
     }
 
     return 0;

@@ -77,15 +77,6 @@ struct subMixing {
     int cnt_stream_using_mixer;
 };
 
-int mainWritePCM(struct subMixing *mixer, void *buf, size_t bytes);
-int sysWritePCM(struct subMixing *mixer, void *buf, size_t bytes);
-int newSubMixingFactory(
-            struct subMixing **smixer,
-            enum MIXER_TYPE type,
-            struct audioCfg cfg,
-            void *data);
-void deleteSubMixing(struct subMixing *sm);
-
 int initHalSubMixing(struct subMixing **smixer,
         enum MIXER_TYPE type,
         struct aml_audio_device *adev,
@@ -96,13 +87,7 @@ int initSubMixingInput(struct aml_stream_out *out,
         struct audio_config *config);
 int deleteSubMixingInput(struct aml_stream_out *out);
 int usecase_change_validate_l_sm(struct aml_stream_out *out, bool is_standby);
-ssize_t out_write_subMixingPCM(struct audio_stream_out *stream,
-                      const void *buffer,
-                      size_t bytes);
 int out_standby_subMixingPCM(struct audio_stream *stream);
-int out_pause_subMixingPCM(struct audio_stream_out *stream);
-int out_resume_subMixingPCM(struct audio_stream_out *stream);
-int out_flush_subMixingPCM(struct audio_stream_out *stream);
 int switchNormalStream(struct aml_stream_out *aml_out, bool on);
 struct pcm *getSubMixingPCMdev(struct subMixing *sm);
 

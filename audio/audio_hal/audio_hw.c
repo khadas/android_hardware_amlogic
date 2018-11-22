@@ -1026,8 +1026,8 @@ static int out_set_parameters (struct audio_stream *stream, const char *kvpairs)
             pthread_mutex_lock (&adev->lock);
             pthread_mutex_lock (&out->lock);
             if (!out->standby) {
-                standy_func (out);
-                startup_func (out);
+                //standy_func (out);
+                //startup_func (out);
                 out->standby = 0;
             }
             // set hal_rate to sr for passing VTS
@@ -5282,6 +5282,8 @@ ssize_t hw_write (struct audio_stream_out *stream
             aml_out->pcm = getSubMixingPCMdev(adev->sm);
             if (aml_out->pcm == NULL)
                 ALOGE("%s() get pcm handle failed", __func__);
+            else
+                ALOGI("%s(), pcm: %p", __func__, aml_out->pcm);
         } else {
             ret = aml_alsa_output_open(stream);
             if (ret) {
@@ -5448,6 +5450,11 @@ ssize_t mixer_main_buffer_write (struct audio_stream_out *stream, const void *bu
         }
 #endif
         pthread_mutex_unlock (&adev->lock);
+    }
+
+    if (aml_out->standby) {
+        ALOGI("%s(), unstandby -> standby", __func__);
+        aml_out->standby = false;
     }
     if (case_cnt > 2) {
         ALOGE ("%s usemask %x,we do not support two direct stream output at the same time.TO CHECK CODE FLOW!!!!!!",__func__,adev->usecase_masks);
@@ -5793,10 +5800,15 @@ ssize_t mixer_aux_buffer_write (struct audio_stream_out *stream, const void *buf
 
     if ((aml_out->status == STREAM_HW_WRITING) && hw_mix) {
         ALOGI ("%s(), aux close\n", __func__);
-        pthread_mutex_lock (&adev->alsa_pcm_lock);
-        aml_alsa_output_close (stream);
-        pthread_mutex_unlock (&adev->alsa_pcm_lock);
+        //pthread_mutex_lock (&adev->alsa_pcm_lock);
+        //aml_alsa_output_close (stream);
+        //pthread_mutex_unlock (&adev->alsa_pcm_lock);
         aml_out->status = STREAM_MIXING;
+    }
+
+    if (aml_out->standby) {
+        ALOGI("%s(), unstandby -> standby", __func__);
+        aml_out->standby = false;
     }
 
     if (aml_out->status == STREAM_STANDBY) {

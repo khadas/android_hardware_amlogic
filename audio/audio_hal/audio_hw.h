@@ -47,6 +47,7 @@
  */
 #define DEFAULT_PLAYBACK_PERIOD_SIZE 512
 #define DEFAULT_CAPTURE_PERIOD_SIZE  512
+#define DEFAULT_PLAYBACK_PERIOD_CNT 6
 
 /* number of ICE61937 format frames per period */
 #define DEFAULT_IEC_SIZE 6144
@@ -417,6 +418,7 @@ struct aml_stream_out {
     struct audio_stream_out stream;
     /* see note below on mutex acquisition order */
     pthread_mutex_t lock;
+    struct audio_config audioCfg;
     /* config which set to ALSA device */
     struct pcm_config config;
     /* channel mask exposed to AudioFlinger. */
