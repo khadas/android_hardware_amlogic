@@ -20,33 +20,8 @@
 #include <hardware/audio.h>
 #include "aml_ringbuffer.h"
 #include "aml_audio_resampler.h"
-
-struct pcm_info {
-    int sample_rate;
-    int channel_num;
-    int bytes_per_sample;
-    int bitstream_type;
-};
-
-struct aml_audio_parser {
-    struct audio_hw_device *dev;
-    ring_buffer_t aml_ringbuffer;
-    pthread_t audio_parse_threadID;
-    pthread_mutex_t mutex;
-    int parse_thread_exit;
-    void *audio_parse_para;
-    audio_format_t aformat;
-    pthread_t decode_ThreadID;
-    pthread_mutex_t *decode_dev_op_mutex;
-    int decode_ThreadExitFlag;
-    int decode_enabled;
-    struct pcm *aml_pcm;
-    int in_sample_rate;
-    int out_sample_rate;
-    struct resample_para aml_resample;
-    int data_ready;
-    struct pcm_info pcm_out_info;
-};
+#include "aml_audio_parser.h"
+#include "aml_audio_types_def.h"
 
 struct dolby_ddp_dec {
     unsigned char *inbuf;
@@ -58,7 +33,9 @@ struct dolby_ddp_dec {
     int outlen_raw;
     int nIsEc3;
     int digital_raw;
-    int (*get_parameters)(void *, int *, int *, int *);
+    bool is_iec61937;
+    int curFrmSize;
+    int (*get_parameters)(void *, int *, int *, int *,int *);
     int (*decoder_process)(unsigned char*, int, unsigned char *, int *, char *, int *, int, struct pcm_info *);
     pthread_mutex_t lock;
     struct pcm_info pcm_out_info;

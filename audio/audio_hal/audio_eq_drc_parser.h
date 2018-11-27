@@ -1,3 +1,19 @@
+/*
+ * Copyright (C) 2018 Amlogic Corporation.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 #ifndef _AUDIO_EQ_DRC_PARSER_H_
 #define _AUDIO_EQ_DRC_PARSER_H_
 
@@ -89,8 +105,11 @@ struct audio_eq_drc_info_s {
     int drc_enable;
     char drc_name[32];
     int drc_byte_mode;
-    struct audio_eq_drc_reg_s drc_ead;
-    struct audio_eq_drc_reg_s drc_tko;
+    struct audio_eq_drc_reg_s drc_table;
+    int aml_ng_enable;
+    float aml_ng_level;
+    int aml_ng_attrack_time;
+    int aml_ng_release_time;
 };
 
 struct eq_drc_device_config_s {
@@ -98,6 +117,8 @@ struct eq_drc_device_config_s {
     char ini_file[100];
     char eq[50];
     char drc[50];
+    char eq_table[50];
+    char drc_table[50];
     char model[50];
     char master_vol[50];
     char ch1_vol[50];
