@@ -103,12 +103,12 @@ static inline uint32_t hwsync_header_get_size(uint8_t *header)
 
 static inline uint64_t get_pts_gap(uint64_t a, uint64_t b)
 {
-    if (a >= b)
+    if (a >= b) {
         return (a - b);
-    else
+    } else {
         return (b - a);
+    }
 }
-
 int aml_hwsync_open_tsync(void);
 void aml_hwsync_close_tsync(int fd);
 int aml_hwsync_get_tsync_pts_by_handle(int fd, uint32_t *pts);

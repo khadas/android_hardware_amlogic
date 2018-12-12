@@ -98,7 +98,9 @@ enum MIXER_INPUT_PORT get_input_port_index(struct audio_config *config,
     switch (config->format) {
         case AUDIO_FORMAT_PCM_16_BIT:
         case AUDIO_FORMAT_PCM_32_BIT:
-            if (config->sample_rate == 48000) {
+            //if (config->sample_rate == 48000) {
+            if (1) {
+                ALOGI("%s(), samplerate %d", __func__, config->sample_rate);
                 // FIXME: remove channel check when PCM_SYSTEM_SOUND supports multi-channel
                 if (is_direct_flags(flags) || channel_cnt > 2) {
                     port_index = MIXER_INPUT_PORT_PCM_DIRECT;

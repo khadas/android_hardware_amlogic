@@ -65,33 +65,47 @@ void get_sink_format (struct audio_stream_out *stream)
     audio_format_t sink_audio_format = AUDIO_FORMAT_PCM_16_BIT;
     audio_format_t optical_audio_format = AUDIO_FORMAT_PCM_16_BIT;
 
-    audio_format_t sink_capability = get_sink_capability (adev);
+    audio_format_t sink_capability = get_sink_capability(adev);
     audio_format_t source_format = aml_out->hal_internal_format;
 
     /*when device is HDMI_ARC*/
-    ALOGI ("%s() Sink devices %#x Source format %#x digital_format(hdmi_format) %#x Sink Capability %#x\n",
-           __FUNCTION__, adev->active_outport, aml_out->hal_internal_format, adev->hdmi_format, sink_capability);
+    ALOGI("!!!%s() Sink devices %#x Source format %#x digital_format(hdmi_format) %#x Sink Capability %#x\n",
+          __FUNCTION__, adev->active_outport, aml_out->hal_internal_format, adev->hdmi_format, sink_capability);
 
-    if ( (source_format != AUDIO_FORMAT_PCM_16_BIT) && \
-         (source_format != AUDIO_FORMAT_AC3) && \
-         (source_format != AUDIO_FORMAT_E_AC3) ) {
-        /*unsupport format [dts/dts-hd/true-hd]*/
-        ALOGI ("%s() source format %#x change to %#x", __FUNCTION__, source_format, AUDIO_FORMAT_PCM_16_BIT);
+    if ((source_format != AUDIO_FORMAT_PCM_16_BIT) && \
+        (source_format != AUDIO_FORMAT_AC3) && \
+        (source_format != AUDIO_FORMAT_E_AC3) && \
+        (source_format != AUDIO_FORMAT_DTS)) {
+        /*unsupport format [dts-hd/true-hd]*/
+        ALOGI("%s() source format %#x change to %#x", __FUNCTION__, source_format, AUDIO_FORMAT_PCM_16_BIT);
         source_format = AUDIO_FORMAT_PCM_16_BIT;
     }
 
+
     if (adev->active_outport == OUTPORT_HDMI_ARC) {
+        ALOGI("%s() HDMI ARC case", __FUNCTION__);
         switch (adev->hdmi_format) {
         case PCM:
             sink_audio_format = AUDIO_FORMAT_PCM_16_BIT;
             optical_audio_format = sink_audio_format;
             break;
         case DD:
-            sink_audio_format = min (source_format, AUDIO_FORMAT_AC3);
+            if (adev->continuous_audio_mode == 0) {
+                sink_audio_format = min(source_format, AUDIO_FORMAT_AC3);
+            } else {
+                sink_audio_format = AUDIO_FORMAT_AC3;
+                if (source_format == AUDIO_FORMAT_PCM_16_BIT) {
+                    ALOGI("%s continuous_audio_mode %d source_format %#x\n", __FUNCTION__, adev->continuous_audio_mode, source_format);
+                }
+            }
             optical_audio_format = sink_audio_format;
             break;
         case AUTO:
-            sink_audio_format = min (source_format, sink_capability);
+            sink_audio_format = (source_format != AUDIO_FORMAT_DTS) ? min(source_format, sink_capability) : AUDIO_FORMAT_DTS;
+            if ((source_format == AUDIO_FORMAT_PCM_16_BIT) && (adev->continuous_audio_mode == 1) && (sink_capability >= AUDIO_FORMAT_AC3)) {
+                sink_audio_format = AUDIO_FORMAT_AC3;
+                ALOGI("%s continuous_audio_mode %d source_format %#x sink_capability %#x\n", __FUNCTION__, adev->continuous_audio_mode, source_format, sink_capability);
+            }
             optical_audio_format = sink_audio_format;
             break;
         default:
@@ -102,18 +116,34 @@ void get_sink_format (struct audio_stream_out *stream)
     }
     /*when device is SPEAKER/HEADPHONE*/
     else {
+        ALOGI("%s() SPEAKER/HEADPHONE case", __FUNCTION__);
         switch (adev->hdmi_format) {
         case PCM:
             sink_audio_format = AUDIO_FORMAT_PCM_16_BIT;
             optical_audio_format = sink_audio_format;
             break;
         case DD:
-            sink_audio_format = AUDIO_FORMAT_PCM_16_BIT;
-            optical_audio_format = min (source_format, AUDIO_FORMAT_AC3);
+            if (adev->continuous_audio_mode == 0) {
+                sink_audio_format = AUDIO_FORMAT_PCM_16_BIT;
+                optical_audio_format = min(source_format, AUDIO_FORMAT_AC3);
+            } else {
+                sink_audio_format = AUDIO_FORMAT_PCM_16_BIT;
+                optical_audio_format = AUDIO_FORMAT_AC3;
+            }
             break;
         case AUTO:
-            sink_audio_format = AUDIO_FORMAT_PCM_16_BIT;
-            optical_audio_format = min (source_format, AUDIO_FORMAT_AC3);
+            if (adev->continuous_audio_mode == 0) {
+                sink_audio_format = AUDIO_FORMAT_PCM_16_BIT;
+                optical_audio_format = source_format != AUDIO_FORMAT_DTS ? \
+                                       min(source_format, AUDIO_FORMAT_AC3) : AUDIO_FORMAT_DTS;
+            } else {
+                sink_audio_format = AUDIO_FORMAT_PCM_16_BIT;
+                optical_audio_format = source_format != AUDIO_FORMAT_DTS ? AUDIO_FORMAT_AC3 : AUDIO_FORMAT_DTS;
+            }
+            ALOGI("%s() source_format %d sink_audio_format %d "
+                  "optical_audio_format %d  \n",
+                  __FUNCTION__, source_format, sink_audio_format,
+                  optical_audio_format);
             break;
         default:
             sink_audio_format = AUDIO_FORMAT_PCM_16_BIT;
@@ -125,12 +155,13 @@ void get_sink_format (struct audio_stream_out *stream)
     adev->optical_format = optical_audio_format;
 
     /* set the dual output format flag */
-    if (adev->sink_format != adev->optical_format)
+    if (adev->sink_format != adev->optical_format) {
         aml_out->dual_output_flag = true;
-    else
+    } else {
         aml_out->dual_output_flag = false;
+    }
 
-    ALOGI ("%s sink_format %#x optical_format %#x, dual_output %d\n",
+    ALOGI("%s sink_format %#x optical_format %#x, dual_output %d\n",
            __FUNCTION__, adev->sink_format, adev->optical_format, aml_out->dual_output_flag);
     return ;
 }
@@ -179,6 +210,18 @@ bool is_hdmi_in_stable_sw (struct audio_stream_in *stream)
     return true;
 }
 
+
+void  release_audio_stream(struct audio_stream_out *stream)
+{
+    struct aml_stream_out *aml_out = (struct aml_stream_out *)stream;
+    if (aml_out->is_tv_platform == 1) {
+        free(aml_out->tmp_buffer_8ch);
+        aml_out->tmp_buffer_8ch = NULL;
+        free(aml_out->audioeffect_tmp_buffer);
+        aml_out->audioeffect_tmp_buffer = NULL;
+    }
+    free(stream);
+}
 bool is_atv_in_stable_hw (struct audio_stream_in *stream)
 {
     struct aml_stream_in *in = (struct aml_stream_in *) stream;
@@ -187,6 +230,19 @@ bool is_atv_in_stable_hw (struct audio_stream_in *stream)
     int stable = 0;
 
     stable = aml_mixer_ctrl_get_int (&aml_dev->alsa_mixer, AML_MIXER_ID_ATV_IN_AUDIO_STABLE);
+    if (!stable)
+        return false;
+
+    return true;
+}
+bool is_av_in_stable_hw(struct audio_stream_in *stream)
+{
+    struct aml_stream_in *in = (struct aml_stream_in *)stream;
+    struct aml_audio_device *aml_dev = in->dev;
+    int type = 0;
+    int stable = 0;
+
+    stable = aml_mixer_ctrl_get_int (&aml_dev->alsa_mixer, AML_MIXER_ID_AV_IN_AUDIO_STABLE);
     if (!stable)
         return false;
 
@@ -250,12 +306,11 @@ bool signal_status_check(audio_devices_t in_device, int *mute_time,
     }
     if ((in_device & AUDIO_DEVICE_IN_TV_TUNER) &&
             !is_atv_in_stable_hw (stream)) {
-        *mute_time = 1000;
+        *mute_time = 2500;
         return false;
     }
-    if (((in_device & AUDIO_DEVICE_IN_SPDIF)
-            || (in_device & AUDIO_DEVICE_IN_HDMI_ARC))
-                && !is_spdif_in_stable_hw(stream)) {
+    if ((in_device & AUDIO_DEVICE_IN_SPDIF) &&
+            !is_spdif_in_stable_hw(stream)) {
         *mute_time = 1000;
         return false;
     }

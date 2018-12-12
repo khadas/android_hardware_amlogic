@@ -65,84 +65,6 @@ int get_external_card(int type)
     return ret;
 }
 
-int
-get_aml_card()
-{
-    int card = -1, err = 0;
-    int fd = -1;
-    unsigned fileSize = 512;
-    char *read_buf = NULL, *pd = NULL;
-    //    static const char *const SOUND_CARDS_PATH = "/proc/asound/cards";
-    fd = open(SOUND_CARDS_PATH, O_RDONLY);
-    if (fd < 0) {
-        ALOGE("ERROR: failed to open config file %s error: %d\n",
-              SOUND_CARDS_PATH, errno);
-        close(fd);
-        return -EINVAL;
-    }
-
-    read_buf = (char *) malloc(fileSize);
-    if (!read_buf) {
-        ALOGE("Failed to malloc read_buf");
-        close(fd);
-        return -ENOMEM;
-    }
-    memset(read_buf, 0x0, fileSize);
-    err = read(fd, read_buf, fileSize);
-    if (fd < 0) {
-        ALOGE("ERROR: failed to read config file %s error: %d\n",
-              SOUND_CARDS_PATH, errno);
-        close(fd);
-        free(read_buf);
-        return -EINVAL;
-    }
-    pd = strstr(read_buf, "AML");
-    card = *(pd - 3) - '0';
-OUT:
-    free(read_buf);
-    close(fd);
-    return card;
-}
-
-int
-get_spdif_port()
-{
-    int port = -1, err = 0;
-    int fd = -1;
-    unsigned fileSize = 512;
-    char *read_buf = NULL, *pd = NULL;
-    //    static const char *const SOUND_PCM_PATH = "/proc/asound/pcm";
-    fd = open(SOUND_PCM_PATH, O_RDONLY);
-    if (fd < 0) {
-        ALOGE("ERROR: failed to open config file %s error: %d\n",
-              SOUND_PCM_PATH, errno);
-        close(fd);
-        return -EINVAL;
-    }
-    read_buf = (char *) malloc(fileSize);
-    if (!read_buf) {
-        ALOGE("Failed to malloc read_buf");
-        close(fd);
-        return -ENOMEM;
-    }
-    memset(read_buf, 0x0, fileSize);
-    err = read(fd, read_buf, fileSize);
-    if (fd < 0) {
-        ALOGE("ERROR: failed to read config file %s error: %d\n",
-              SOUND_PCM_PATH, errno);
-        close(fd);
-        free(read_buf);
-        return -EINVAL;
-    }
-    pd = strstr(read_buf, "SPDIF");
-    port = *(pd - 3) - '0';
-OUT:
-    free(read_buf);
-    close(fd);
-    return port;
-}
-
-
 /*
 CodingType MaxChannels SamplingFreq SampleSize
 PCM, 2 ch, 32/44.1/48/88.2/96/176.4/192 kHz, 16/20/24 bit
@@ -203,10 +125,10 @@ char*  get_hdmi_sink_cap(const char *keys,audio_format_t format)
             ALOGD("query hdmi channels...\n");
             /* take the 2ch suppported as default */
             size += sprintf(aud_cap, "sup_channels=%s", "AUDIO_CHANNEL_OUT_STEREO");
-            if (mystrstr(infobuf, "PCM, 8 ch") ||
+            if ((!alsa_device_is_auge() && mystrstr(infobuf, "PCM, 8 ch")) ||
                 (mystrstr(infobuf, "Dobly_Digital+") && format == AUDIO_FORMAT_E_AC3)) {
                 size += sprintf(aud_cap + size, "|%s", "AUDIO_CHANNEL_OUT_5POINT1|AUDIO_CHANNEL_OUT_7POINT1");
-            } else if (mystrstr(infobuf, "PCM, 6 ch") ||
+            } else if ((!alsa_device_is_auge() && mystrstr(infobuf, "PCM, 6 ch")) ||
                        (mystrstr(infobuf, "AC-3") && format == AUDIO_FORMAT_AC3) ||
                        /* backward compatibility for dd, if TV only supports dd+ */
                        (mystrstr(infobuf, "Dobly_Digital+") && format == AUDIO_FORMAT_AC3)) {
@@ -216,18 +138,25 @@ char*  get_hdmi_sink_cap(const char *keys,audio_format_t format)
             ALOGD("query hdmi sample_rate...\n");
             /* take the 32/44.1/48 khz suppported as default */
             size += sprintf(aud_cap, "sup_sampling_rates=%s", "32000|44100|48000");
-            if (mystrstr(infobuf, "88.2")) {
-                size += sprintf(aud_cap + size, "|%s", "88200");
-            }
-            if (mystrstr(infobuf, "96")) {
-                size += sprintf(aud_cap + size, "|%s", "96000");
-            }
-            if (mystrstr(infobuf, "176.4")) {
-                size += sprintf(aud_cap + size, "|%s", "176400");
-            }
-            if (mystrstr(infobuf, "192") || (mystrstr(infobuf, "Dobly_Digital+") &&
-                                             format == AUDIO_FORMAT_IEC61937)) {
-                size += sprintf(aud_cap + size, "|%s", "192000");
+
+            if (format != AUDIO_FORMAT_IEC61937) {
+                if (mystrstr(infobuf, "88.2")) {
+                    size += sprintf(aud_cap + size, "|%s", "88200");
+                }
+                if (mystrstr(infobuf, "96")) {
+                    size += sprintf(aud_cap + size, "|%s", "96000");
+                }
+                if (mystrstr(infobuf, "176.4")) {
+                    size += sprintf(aud_cap + size, "|%s", "176400");
+                }
+                if (mystrstr(infobuf, "192")) {
+                    size += sprintf(aud_cap + size, "|%s", "192000");
+                }
+            } else {
+              if((mystrstr(infobuf, "Dobly_Digital+") || mystrstr(infobuf, "DTS-HD") ||
+                  mystrstr(infobuf, "MAT")) && format == AUDIO_FORMAT_IEC61937) {
+                  size += sprintf(aud_cap + size, "|%s", "128000|176400|192000");
+              }
             }
         }
     } else {
@@ -350,7 +279,7 @@ fail:
 
 char *strdup_hdmi_arc_cap_default(const char *keys, audio_format_t format)
 {
-    char fmt[] = "sup_formats=AUDIO_FORMAT_PCM_16_BIT|AUDIO_FORMAT_AC3|AUDIO_FORMAT_E_AC3";
+    char fmt[] = "sup_formats=AUDIO_FORMAT_PCM_16_BIT|AUDIO_FORMAT_AC3|AUDIO_FORMAT_E_AC3|AUDIO_FORMAT_IEC61937";
     char ch_mask[128] = "sup_channels=AUDIO_CHANNEL_OUT_STEREO";
     char sr[64] = "sup_sampling_rates=48000|44100";
     char *cap = NULL;
@@ -364,9 +293,12 @@ char *strdup_hdmi_arc_cap_default(const char *keys, audio_format_t format)
         switch (format) {
         case AUDIO_FORMAT_E_AC3:
             strcat(ch_mask, "|AUDIO_CHANNEL_OUT_7POINT1");
+        case AUDIO_FORMAT_IEC61937:
         case AUDIO_FORMAT_AC3:
-        case AUDIO_FORMAT_PCM_16_BIT:
             strcat(ch_mask, "|AUDIO_CHANNEL_OUT_5POINT1");
+            cap = strdup(ch_mask);
+            break;
+        case AUDIO_FORMAT_PCM_16_BIT:
             cap = strdup(ch_mask);
             break;
         default:
@@ -377,6 +309,10 @@ char *strdup_hdmi_arc_cap_default(const char *keys, audio_format_t format)
         /* take the 48 khz suppported as default */
         switch (format) {
         case AUDIO_FORMAT_E_AC3:
+            cap = strdup(sr);
+            break;
+        case AUDIO_FORMAT_IEC61937:
+            strcat(sr, "|32000|192000");
             cap = strdup(sr);
             break;
         case AUDIO_FORMAT_PCM_16_BIT:
@@ -392,8 +328,9 @@ char *strdup_hdmi_arc_cap_default(const char *keys, audio_format_t format)
         ALOGE("NOT support yet");
     }
 
-    if (!cap)
+    if (!cap) {
         cap = strdup("");
+    }
 
     return cap;
 }

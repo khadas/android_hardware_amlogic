@@ -14,30 +14,25 @@
  * limitations under the License.
  */
 
-#ifndef __ALSA_DEVICE_PARSER_H__
-#define __ALSA_DEVICE_PARSER_H__
+#ifndef _NOISE_GATE_H_
+#define _NOISE_GATE_H_
 
-#include <stdint.h>
-#include <sys/types.h>
+#ifdef __cplusplus
+extern "C"  {
+#endif
 
-/* ALSA cards for AML */
-#define CARD_AMLOGIC_BOARD 0
-/* ALSA ports for AML */
-#define PORT_I2S           0
-#define PORT_SPDIF         1
-#define PORT_PCM           2
-/* After axg chipset,
- * more devices are supported
- */
-#define PROT_TDM           3
-#define PROT_PDM           4
-#define PORT_SPDIFB2HDMI   5
-#define PORT_I2S2HDMI      6
+enum ng_status {
+    NG_ERROR = -1,
+    NG_UNMUTE = 0,
+    NG_MUTE,
+};
 
-bool alsa_device_is_auge(void);
+void* init_noise_gate(float noise_level, int attrack_time, int release_time);
+void release_noise_gate(void *ng_handle);
+int noise_evaluation(void *ng_handle, void *buffer, int sample_counter);
 
-int alsa_device_get_card_index();
-
-int alsa_device_get_pcm_index(int alsaPORT);
+#ifdef __cplusplus
+}
+#endif
 
 #endif
