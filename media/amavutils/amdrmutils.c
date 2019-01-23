@@ -128,7 +128,7 @@ int tvp_mm_enable(int flags)
 {
     //flags: bit 1---4k ;
     int is_4k= flags &TVP_MM_ENABLE_FLAGS_FOR_4K;
-    set_disable_video(1);
+    set_disable_video(2);
     free_keep_buffer();
     //set_vfmmap_ppmgr_di(0);
     if (is_4k)
@@ -195,4 +195,19 @@ int tvp_mm_get_mem_region(struct tvp_region* region, int region_size)
     return -1;
 }
 
+int get_tvp_mm_enable()
+{
+    int fd, len;
+    char buf[BUF_LEN];
+    int flag = -1;
+    fd = open(TVP_ENABLE_PATH, O_RDONLY);
+    if (fd >= 0) {
+        len = read(fd, buf, BUF_LEN);
+        close(fd);
+        if (1 != sscanf(buf, "tvp_flag=%d\n", &flag)) {
+            flag = 0xFF; /*compat with old kernel */
+        }
+    }
+    return flag;
+}
 

@@ -2270,10 +2270,12 @@ void Sensor::captureNV21(StreamBuffer b, uint32_t gain) {
             }
             ALOGVV("get frame NULL, sleep 5ms");
             usleep(5000);
-            mTimeOutCount++;
-            if (mTimeOutCount > 300) {
-                DBG_LOGA("force sensor reset.\n");
-                force_reset_sensor();
+            if (mSensorType == SENSOR_USB) {
+                mTimeOutCount++;
+                if (mTimeOutCount > 300) {
+                    DBG_LOGA("force sensor reset.\n");
+                    force_reset_sensor();
+                }
             }
             continue;
         }

@@ -64,6 +64,8 @@
 #define TSYNC_EVENT "/sys/class/tsync/event"
 #define TSYNC_APTS "/sys/class/tsync/pts_audio"
 #define TSYNC_VPTS "/sys/class/tsync/pts_video"
+#define TSYNC_FIRSTCHECKIN_APTS "/sys/class/tsync/checkin_firstapts"
+#define TSYNC_DEMUX_PCR         "/sys/class/tsync/demux_pcr"
 
 #define PATCH_PERIOD_COUNT 4
 //#define SYSTIME_CORRECTION_THRESHOLD (90000 * 10 / 100)
@@ -111,6 +113,7 @@
 //}
 
 #define DTV_DECODER_PTS_LOOKUP_PATH "/sys/class/tsync/apts_lookup"
+#define DTV_DECODER_CHECKIN_FIRSTAPTS_PATH "/sys/class/tsync/checkin_firstapts"
 
 pthread_mutex_t dtv_patch_mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t dtv_cmd_mutex = PTHREAD_MUTEX_INITIALIZER;
@@ -156,6 +159,26 @@ static unsigned long decoder_apts_lookup(unsigned int offset)
     // adec_print("adec_apts_lookup get the pts is %lx\n", pts);
 
     return (unsigned long)pts;
+}
+
+static unsigned long decoder_checkin_firstapts(void)
+{
+    unsigned int firstapts = 0;
+    int ret;
+    char buff[32];
+
+    memset(buff, 0, 32);
+    ret = aml_sysfs_get_str(DTV_DECODER_CHECKIN_FIRSTAPTS_PATH, buff, sizeof(buff));
+
+    if (ret > 0) {
+        ret = sscanf(buff, "0x%x\n", &firstapts);
+    }
+
+    if (firstapts == (unsigned int) - 1) {
+        firstapts = 0;
+    }
+
+    return (unsigned long)firstapts;
 }
 
 static void init_cmd_list(void)
@@ -243,8 +266,18 @@ int dtv_patch_get_cmd(void)
     ALOGI("enter dtv_patch_get_cmd funciton now\n");
     pthread_mutex_lock(&dtv_cmd_mutex);
     list = dtv_cmd_list.next;
-    dtv_cmd_list.next = list->next;
-    cmd = list->cmd;
+    if(list!= NULL)
+    {
+        dtv_cmd_list.next = list->next;
+        cmd = list->cmd;
+        dtv_cmd_list.cmd_num--;
+    }
+    else
+    {
+        cmd =  AUDIO_DTV_PATCH_CMD_NULL;
+        pthread_mutex_unlock(&dtv_cmd_mutex);
+        return cmd;
+    }
     pthread_mutex_unlock(&dtv_cmd_mutex);
     cmd_array_put(list);
     ALOGI("leave dtv_patch_get_cmd the cmd is %d \n", cmd);
@@ -293,6 +326,10 @@ unsigned long dtv_hal_get_pts(struct aml_audio_patch *patch,
 
     pts = offset;
     if (!patch->first_apts_lookup_over) {
+        if (pts == 0) {
+            pts = decoder_checkin_firstapts();
+            ALOGI("pts = 0,so get checkin_firstapts:0x%lx", pts);
+        }
         patch->last_valid_pts = pts;
         patch->first_apts_lookup_over = 1;
         return pts;
@@ -382,6 +419,10 @@ void process_pts_sync(unsigned int pcm_lancty, struct aml_audio_patch *patch,
         ALOGI("dtv_patch_get_pts pts  -> %lx", pts);
     }
     if (patch->dtv_first_apts_flag == 0) {
+        if (pts == 0) {
+            pts = decoder_checkin_firstapts();
+            ALOGI("pts = 0,so get checkin_firstapts:0x%lx", pts);
+        }
         sprintf(tempbuf, "AUDIO_START:0x%x", (unsigned int)pts);
         ALOGI("dtv set tsync -> %s", tempbuf);
         if (sysfs_set_sysfs_str(TSYNC_EVENT, tempbuf) == -1) {
@@ -722,13 +763,49 @@ void *audio_dtv_patch_output_threadloop(void *data)
                     avail = aml_dev->ddp.curFrmSize;
                 }
 
+                if (!patch->first_apts_lookup_over) {
+                    unsigned int first_checkinapts = 0xffffffff;
+                    unsigned int demux_pcr = 0xffffffff;
+                    int diff = 0;
+                    char buff[32];
+                    int ret = 0;
+                    ret = aml_sysfs_get_str(TSYNC_FIRSTCHECKIN_APTS, buff, sizeof(buff));
+                    if (ret > 0) {
+                        ret = sscanf(buff, "0x%x\n", &first_checkinapts);
+                    }
+
+                    ret = aml_sysfs_get_str(TSYNC_DEMUX_PCR, buff, sizeof(buff));
+                    if (ret > 0) {
+                        ret = sscanf(buff, "0x%x\n", &demux_pcr);
+                    }
+
+                    if (demux_pcr > 300*90) {
+                        demux_pcr = demux_pcr - 300*90;
+                    } else {
+                        demux_pcr = 0;
+                    }
+
+                    /*ALOGI("demux_pcr %x first_checkinapts %x\n",demux_pcr,first_checkinapts);*/
+                    if ((first_checkinapts != 0xffffffff) || (demux_pcr != 0xffffffff)) {
+                        if (first_checkinapts > demux_pcr) {
+                            unsigned diff = first_checkinapts - demux_pcr;
+                            if (diff  < AUDIO_PTS_DISCONTINUE_THRESHOLD) {
+                                /*ALOGI("hold the aduio for cache data\n");*/
+                                pthread_mutex_unlock(&(patch->dtv_output_mutex));
+                                usleep(10000);
+                                continue;
+                            }
+                        }
+                    }
+                }
+
                 // ALOGE("%s(), ring_buffer_read now read %d data", __func__, avail);
                 ret = ring_buffer_read(ringbuffer, (unsigned char *)patch->out_buf,
                                        avail);
                 if (ret == 0) {
                     pthread_mutex_unlock(&(patch->dtv_output_mutex));
-                    usleep(10000);
-                    ALOGE("%s(), ring_buffer read 0 data!", __func__);
+                    /*ALOGE("%s(), ring_buffer read 0 data!", __func__);*/
+                    usleep(1000);
                     continue;
                 }
                 {
@@ -756,10 +833,10 @@ void *audio_dtv_patch_output_threadloop(void *data)
                 patch->dtv_pcm_readed += ret;
                 pthread_mutex_unlock(&(patch->dtv_output_mutex));
             } else {
-                ALOGE("%s(), ring_buffer has not enough data! %d in_avail()", __func__,
-                      avail);
+                /*ALOGE("%s(), ring_buffer has not enough data! %d in_avail()", __func__,
+                      avail);*/
                 pthread_mutex_unlock(&(patch->dtv_output_mutex));
-                usleep(20000);
+                usleep(1000);
             }
 
         } else if (patch->aformat == AUDIO_FORMAT_DTS) {
@@ -778,8 +855,8 @@ void *audio_dtv_patch_output_threadloop(void *data)
                                        avail);
                 if (ret == 0) {
                     pthread_mutex_unlock(&(patch->dtv_output_mutex));
-                    usleep(10000);
-                    ALOGE("%s(), live ring_buffer read 0 data!", __func__);
+                    usleep(1000);
+                    /*ALOGE("%s(), live ring_buffer read 0 data!", __func__);*/
                     continue;
                 }
                 {
@@ -802,7 +879,7 @@ void *audio_dtv_patch_output_threadloop(void *data)
                 pthread_mutex_unlock(&(patch->dtv_output_mutex));
             } else {
                 pthread_mutex_unlock(&(patch->dtv_output_mutex));
-                usleep(20000);
+                usleep(5000);
             }
 
         } else {
@@ -817,8 +894,8 @@ void *audio_dtv_patch_output_threadloop(void *data)
                                        avail);
                 if (ret == 0) {
                     pthread_mutex_unlock(&(patch->dtv_output_mutex));
-                    usleep(10000);
-                    ALOGE("%s(), live ring_buffer read 0 data!", __func__);
+                    usleep(1000);
+                    /*ALOGE("%s(), live ring_buffer read 0 data!", __func__);*/
                     continue;
                 }
 
@@ -842,7 +919,7 @@ void *audio_dtv_patch_output_threadloop(void *data)
                 pthread_mutex_unlock(&(patch->dtv_output_mutex));
             } else {
                 pthread_mutex_unlock(&(patch->dtv_output_mutex));
-                usleep(10000);
+                usleep(1000);
             }
         }
     }
@@ -929,27 +1006,36 @@ static void *audio_dtv_patch_process_threadloop(void *data)
             if (cmd == AUDIO_DTV_PATCH_CMD_START) {
                 dtv_patch_input_start(adec_handle, patch->dtv_aformat,
                                       patch->dtv_has_video);
+                create_dtv_output_stream_thread(patch);
                 ALOGI("++%s live now  start the audio decoder now !\n",
                       __FUNCTION__);
                 patch->dtv_first_apts_flag = 0;
+                patch->outlen_after_last_validpts = 0;
+                patch->last_valid_pts = 0;
+                patch->first_apts_lookup_over = 0;
                 if (patch->dtv_aformat == ACODEC_FMT_AC3) {
                     patch->aformat = AUDIO_FORMAT_AC3;
                     ddp_dec->is_iec61937 = false;
                     patch->decoder_offset = 0;
+                    patch->first_apts_lookup_over = 0;
                 } else if (patch->dtv_aformat == ACODEC_FMT_EAC3) {
                     patch->aformat = AUDIO_FORMAT_E_AC3;
                     ddp_dec->is_iec61937 = false;
                     patch->decoder_offset = 0;
+                    patch->first_apts_lookup_over = 0;
                 } else if (patch->dtv_aformat == ACODEC_FMT_DTS) {
                     patch->aformat = AUDIO_FORMAT_DTS;
                     dca_decoder_init_patch(dts_dec);
                     patch->decoder_offset = 0;
+                    patch->first_apts_lookup_over = 0;
                 } else {
                     patch->aformat = AUDIO_FORMAT_PCM;
                     patch->decoder_offset = 0;
+                    patch->first_apts_lookup_over = 0;
                 }
                 patch->dtv_pcm_readed = patch->dtv_pcm_writed = 0;
                 patch->dtv_decoder_state = AUDIO_DTV_PATCH_DECODER_STATE_RUNING;
+                create_dtv_output_stream_thread(patch);
             } else {
                 ALOGI("++%s line %d  live state unsupport state %d cmd %d !\n",
                       __FUNCTION__, __LINE__, patch->dtv_decoder_state, cmd);
@@ -980,7 +1066,9 @@ static void *audio_dtv_patch_process_threadloop(void *data)
             } else if (cmd == AUDIO_DTV_PATCH_CMD_STOP) {
                 ALOGI("++%s live now  stop  the audio decoder now \n",
                       __FUNCTION__);
+                release_dtv_output_stream_thread(patch);
                 dtv_patch_input_stop(adec_handle);
+                release_dtv_output_stream_thread(patch);
                 patch->dtv_decoder_state = AUDIO_DTV_PATCH_DECODER_STATE_INIT;
             } else {
                 ALOGI("++%s line %d  live state unsupport state %d cmd %d !\n",
@@ -1002,6 +1090,10 @@ static void *audio_dtv_patch_process_threadloop(void *data)
             if (cmd == AUDIO_DTV_PATCH_CMD_RESUME) {
                 dtv_patch_input_resume(adec_handle);
                 patch->dtv_decoder_state = AUDIO_DTV_PATCH_DECODER_STATE_RUNING;
+            } else if (cmd == AUDIO_DTV_PATCH_CMD_STOP) {
+                ALOGI("++%s live now  stop  the audio decoder now \n", __FUNCTION__);
+                dtv_patch_input_stop(adec_handle);
+                patch->dtv_decoder_state = AUDIO_DTV_PATCH_DECODER_STATE_INIT;
             } else {
                 ALOGI("++%s line %d  live state unsupport state %d cmd %d !\n",
                       __FUNCTION__, __LINE__, patch->dtv_decoder_state, cmd);
@@ -1061,6 +1153,7 @@ static int create_dtv_output_stream_thread(struct aml_audio_patch *patch)
     ALOGI("++%s   ---- %d\n", __FUNCTION__, patch->ouput_thread_created);
 
     if (patch->ouput_thread_created == 0) {
+        patch->output_thread_exit = 0;
         pthread_mutex_init(&patch->dtv_output_mutex, NULL);
         ret = pthread_create(&(patch->audio_output_threadID), NULL,
                              audio_dtv_patch_output_threadloop, patch);
@@ -1069,7 +1162,7 @@ static int create_dtv_output_stream_thread(struct aml_audio_patch *patch)
             pthread_mutex_destroy(&patch->dtv_output_mutex);
             return -1;
         }
-        patch->output_thread_exit = 0;
+
         patch->ouput_thread_created = 1;
     }
     ALOGI("--%s", __FUNCTION__);
@@ -1080,17 +1173,20 @@ static int release_dtv_output_stream_thread(struct aml_audio_patch *patch)
 {
     int ret = 0;
     ALOGI("++%s   ---- %d\n", __FUNCTION__, patch->ouput_thread_created);
-
-    if (patch->ouput_thread_created == 1) {
-        patch->output_thread_exit = 1;
-        pthread_join(patch->audio_output_threadID, NULL);
-        pthread_mutex_destroy(&patch->dtv_output_mutex);
-
-        patch->ouput_thread_created = 0;
+    if (patch->resample_outbuf) {
+      free(patch->resample_outbuf);
+      patch->resample_outbuf = NULL;
     }
-    ALOGI("--%s", __FUNCTION__);
+    if (patch->ouput_thread_created == 1) {
+      patch->output_thread_exit = 1;
+      pthread_join(patch->audio_output_threadID, NULL);
+      pthread_mutex_destroy(&patch->dtv_output_mutex);
 
-    return 0;
+      patch->ouput_thread_created = 0;
+  }
+  ALOGI("--%s", __FUNCTION__);
+
+  return 0;
 }
 
 int create_dtv_patch(struct audio_hw_device *dev, audio_devices_t input,
@@ -1131,8 +1227,11 @@ int create_dtv_patch(struct audio_hw_device *dev, audio_devices_t input,
         ALOGE("Fail to init audio ringbuffer!");
         goto err_ring_buf;
     }
-    // switch normal stream to old tv mode writing
-    switchNormalStream(aml_dev->active_outputs[STREAM_PCM_NORMAL], 0);
+
+    if (aml_dev->useSubMix) {
+        // switch normal stream to old tv mode writing
+        switchNormalStream(aml_dev->active_outputs[STREAM_PCM_NORMAL], 0);
+    }
 
     ret = pthread_create(&(patch->audio_input_threadID), NULL,
                          audio_dtv_patch_process_threadloop, patch);
@@ -1185,7 +1284,8 @@ int release_dtv_patch(struct aml_audio_device *aml_dev)
     aml_dev->audio_patch = NULL;
     ALOGI("--%s", __FUNCTION__);
     pthread_mutex_unlock(&dtv_patch_mutex);
-    switchNormalStream(aml_dev->active_outputs[STREAM_PCM_NORMAL], 1);
-
+    if (aml_dev->useSubMix) {
+        switchNormalStream(aml_dev->active_outputs[STREAM_PCM_NORMAL], 1);
+    }
     return 0;
 }

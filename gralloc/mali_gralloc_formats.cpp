@@ -138,7 +138,7 @@ static bool is_afbc_supported(int req_format_mapped)
 	case MALI_GRALLOC_FORMAT_INTERNAL_P010:
 	case MALI_GRALLOC_FORMAT_INTERNAL_P210:
 	case MALI_GRALLOC_FORMAT_INTERNAL_Y410:
-#if PLATFORM_SDK_VERSION >= 26 && GPU_TYPE != mali450
+#if PLATFORM_SDK_VERSION >= 26 && GPU_FORMAT_LIMIT != 1
 	case MALI_GRALLOC_FORMAT_INTERNAL_RGBA_16161616:
 #endif
 	case HAL_PIXEL_FORMAT_YCbCr_422_I:
@@ -178,6 +178,9 @@ static bool is_afbc_format(uint64_t internal_format)
 
 static void apply_gpu_producer_limitations(int req_format, uint64_t *producer_runtime_mask)
 {
+	char gpu_afbc[PROPERTY_VALUE_MAX];
+	char prop[PROPERTY_VALUE_MAX];
+	int gpu_afbc_limit = 0;
 	if (is_android_yuv_format(req_format))
 	{
 		if (gpu_runtime_caps.caps_mask & MALI_GRALLOC_FORMAT_CAPABILITY_AFBC_YUV_NOWRITE)
@@ -190,6 +193,22 @@ static void apply_gpu_producer_limitations(int req_format, uint64_t *producer_ru
 			*producer_runtime_mask &=
 				~(MALI_GRALLOC_FORMAT_CAPABILITY_AFBC_SPLITBLK | MALI_GRALLOC_FORMAT_CAPABILITY_AFBC_WIDEBLK);
 		}
+	}
+	if (property_get("media.afbc.limit", gpu_afbc, "0") > 0)
+	{
+		gpu_afbc_limit = atoi(gpu_afbc);
+	}
+	if (property_get("ro.bootimage.build.fingerprint", prop, NULL) > 0)
+	{
+		if (strstr(prop, "generic"))
+		{
+			gpu_afbc_limit = 1;
+		}
+	}
+	if (gpu_afbc_limit)
+	{
+		ALOGD("Gralloc Deubg: media.afbc.limit is set to 1");
+		*producer_runtime_mask &= ~MALI_GRALLOC_FORMAT_CAPABILITY_AFBCENABLE_MASK;
 	}
 }
 
@@ -302,7 +321,7 @@ static uint64_t determine_best_format(int req_format, mali_gralloc_producer_type
 				internal_format |= MALI_GRALLOC_INTFMT_AFBC_TILED_HEADERS;
 			}
 
-#if PLATFORM_SDK_VERSION >= 26 && GPU_TYPE != mali450
+#if PLATFORM_SDK_VERSION >= 26 && GPU_FORMAT_LIMIT != 1
 			/*
 			 * Ensure requested format is supported by producer/consumer.
 			 * GPU composition must always be supported in case of fallback from DPU.
@@ -335,7 +354,7 @@ static uint64_t determine_best_format(int req_format, mali_gralloc_producer_type
 				internal_format |= MALI_GRALLOC_INTFMT_AFBC_TILED_HEADERS;
 			}
 
-#if PLATFORM_SDK_VERSION >= 26 && GPU_TYPE != mali450
+#if PLATFORM_SDK_VERSION >= 26 && GPU_FORMAT_LIMIT != 1
 			/* Reject unsupported formats */
 			if (req_format == MALI_GRALLOC_FORMAT_INTERNAL_RGBA_1010102 &&
 			    (gpu_mask & MALI_GRALLOC_FORMAT_CAPABILITY_PIXFMT_RGBA1010102) == 0)
@@ -368,7 +387,7 @@ static uint64_t determine_best_format(int req_format, mali_gralloc_producer_type
 				}
 			}
 
-#if PLATFORM_SDK_VERSION >= 26 && GPU_TYPE != mali450
+#if PLATFORM_SDK_VERSION >= 26 && GPU_FORMAT_LIMIT != 1
 			/* Reject unsupported formats */
 			if (req_format == MALI_GRALLOC_FORMAT_INTERNAL_RGBA_1010102 &&
 			    ((gpu_mask & MALI_GRALLOC_FORMAT_CAPABILITY_PIXFMT_RGBA1010102) == 0 ||
@@ -412,12 +431,12 @@ static uint64_t determine_best_format(int req_format, mali_gralloc_producer_type
 				}
 			}
 
-#if PLATFORM_SDK_VERSION >= 26 && GPU_TYPE != mali450
+#if PLATFORM_SDK_VERSION >= 26 && GPU_FORMAT_LIMIT != 1
 			/*
 			 * Ensure requested format is supported by producer/consumer.
 			 * GPU composition must always be supported in case of fallback from DPU.
 			 * It is therefore not necessary to enforce DPU support.
-			 */
+			*/
 			if (req_format == MALI_GRALLOC_FORMAT_INTERNAL_RGBA_1010102 &&
 			    ((vpu_mask & MALI_GRALLOC_FORMAT_CAPABILITY_PIXFMT_RGBA1010102) == 0 ||
 			     (gpu_mask & MALI_GRALLOC_FORMAT_CAPABILITY_PIXFMT_RGBA1010102) == 0))
@@ -451,7 +470,7 @@ static uint64_t determine_best_format(int req_format, mali_gralloc_producer_type
 				}
 			}
 
-#if PLATFORM_SDK_VERSION >= 26 && GPU_TYPE != mali450
+#if PLATFORM_SDK_VERSION >= 26 && GPU_FORMAT_LIMIT != 1
 			/* Reject unsupported formats */
 			if (req_format == MALI_GRALLOC_FORMAT_INTERNAL_RGBA_1010102 &&
 			    ((gpu_mask & MALI_GRALLOC_FORMAT_CAPABILITY_PIXFMT_RGBA1010102) == 0 ||
@@ -471,7 +490,7 @@ static uint64_t determine_best_format(int req_format, mali_gralloc_producer_type
 		{
 			/* Fall-through. To be decided.*/
 
-#if PLATFORM_SDK_VERSION >= 26 && GPU_TYPE != mali450
+#if PLATFORM_SDK_VERSION >= 26 && GPU_FORMAT_LIMIT != 1
 			/* Reject unsupported formats */
 			if (req_format == MALI_GRALLOC_FORMAT_INTERNAL_RGBA_1010102 &&
 			    (vpu_mask & MALI_GRALLOC_FORMAT_CAPABILITY_PIXFMT_RGBA1010102) == 0)
@@ -559,7 +578,7 @@ static uint64_t decode_internal_format(uint64_t req_format, mali_gralloc_format_
 	case MALI_GRALLOC_FORMAT_INTERNAL_RGB_888:
 	case MALI_GRALLOC_FORMAT_INTERNAL_RGB_565:
 	case MALI_GRALLOC_FORMAT_INTERNAL_BGRA_8888:
-#if PLATFORM_SDK_VERSION >= 26 && GPU_TYPE != mali450
+#if PLATFORM_SDK_VERSION >= 26 && GPU_FORMAT_LIMIT != 1
 	case MALI_GRALLOC_FORMAT_INTERNAL_RGBA_1010102:
 	case MALI_GRALLOC_FORMAT_INTERNAL_RGBA_16161616:
 #endif
@@ -694,7 +713,7 @@ int get_meson_dpu_gpu_caps()
 	char osd_afbcd_value[] = "00";
 	int  osd_afbcd_fd = -1;
 
-	if (property_get("osd.afbcd.enable", osd_afbcd, "1") > 0)
+	if (property_get("vendor.afbcd.enable", osd_afbcd, "1") > 0)
 	{
 		osd_afbcd_enabled = atoi(osd_afbcd);
 	}
@@ -722,17 +741,14 @@ int get_meson_dpu_gpu_caps()
 		dpu_runtime_caps.caps_mask |= MALI_GRALLOC_FORMAT_CAPABILITY_AFBC_BASIC;
 		dpu_runtime_caps.caps_mask |= MALI_GRALLOC_FORMAT_CAPABILITY_AFBC_SPLITBLK;
 		dpu_runtime_caps.caps_mask |= MALI_GRALLOC_FORMAT_CAPABILITY_AFBC_WIDEBLK;
-#if PLATFORM_SDK_VERSION >= 26 && GPU_TYPE != mali450
-		dpu_runtime_caps.caps_mask |= MALI_GRALLOC_FORMAT_CAPABILITY_PIXFMT_RGBA1010102;
-		dpu_runtime_caps.caps_mask |= MALI_GRALLOC_FORMAT_CAPABILITY_PIXFMT_RGBA16161616;
-#endif
+
 		/* Determine GPU format capabilities */
 		gpu_runtime_caps.caps_mask |= MALI_GRALLOC_FORMAT_CAPABILITY_AFBC_YUV_NOWRITE;
 		gpu_runtime_caps.caps_mask |= MALI_GRALLOC_FORMAT_CAPABILITY_OPTIONS_PRESENT;
 		gpu_runtime_caps.caps_mask |= MALI_GRALLOC_FORMAT_CAPABILITY_AFBC_BASIC;
 		gpu_runtime_caps.caps_mask |= MALI_GRALLOC_FORMAT_CAPABILITY_AFBC_SPLITBLK;
 		gpu_runtime_caps.caps_mask |= MALI_GRALLOC_FORMAT_CAPABILITY_AFBC_WIDEBLK;
-#if PLATFORM_SDK_VERSION >= 26 && GPU_TYPE != mali450
+#if PLATFORM_SDK_VERSION >= 26 && GPU_FORMAT_LIMIT != 1
 		gpu_runtime_caps.caps_mask |= MALI_GRALLOC_FORMAT_CAPABILITY_PIXFMT_RGBA1010102;
 		gpu_runtime_caps.caps_mask |= MALI_GRALLOC_FORMAT_CAPABILITY_PIXFMT_RGBA16161616;
 #endif

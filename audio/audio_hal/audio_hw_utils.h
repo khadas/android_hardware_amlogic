@@ -36,6 +36,7 @@ void *convert_audio_sample_for_output(int input_frames, int input_format, int in
 int  aml_audio_start_trigger(void *stream);
 int is_txlx_chip();
 int aml_audio_get_debug_flag();
+int aml_audio_debug_set_optical_format();
 int aml_audio_dump_audio_bitstreams(const char *path, const void *buf, size_t bytes);
 int aml_audio_get_arc_latency_offset(int format);
 int aml_audio_get_ddp_frame_size();
@@ -51,5 +52,7 @@ void ts_wait_time_us(struct timespec *ts, uint32_t time_us);
 int cpy_16bit_data_with_gain(int16_t *dst, int16_t *src, int size_in_bytes, float vol);
 uint64_t get_systime_ns(void);
 int aml_audio_get_hdmi_latency_offset(int aformat);
+uint32_t tspec_diff_to_us(struct timespec tval_old,
+        struct timespec tval_new);
 
 #endif

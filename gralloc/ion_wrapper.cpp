@@ -1,5 +1,5 @@
 /*
- *  ion.c
+ *  ion_wrapper.c
  *
  * Memory Allocator functions for ion
  *
@@ -30,6 +30,7 @@
 
 #include <ion/ion.h>
 #include <log/log.h>
+#include "ion_wrapper.h"
 
 int ion_open()
 {

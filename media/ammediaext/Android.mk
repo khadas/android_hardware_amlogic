@@ -1,5 +1,6 @@
 LOCAL_PATH:= $(call my-dir)
 
+ifneq (0, $(shell expr $(PLATFORM_VERSION) \< 9))
 include $(CLEAR_VARS)
 
 LOCAL_VENDOR_MODULE := true
@@ -20,3 +21,4 @@ LOCAL_SHARED_LIBRARIES := \
 
 LOCAL_MODULE:= libammediaext
 include $(BUILD_SHARED_LIBRARY)
+endif

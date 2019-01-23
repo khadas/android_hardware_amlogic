@@ -14,20 +14,41 @@
 
 include $(CLEAR_VARS)
 LOCAL_PROPRIETARY_MODULE := true
-LOCAL_SHARED_LIBRARIES := liblog libcutils android.hardware.graphics.common@1.0
+LOCAL_SHARED_LIBRARIES := liblog libcutils
+#Android O sdk version is 26
+MESON_GR_USE_BUFFER_USAGE := $(shell expr $(PLATFORM_SDK_VERSION) \> 25)
+$(info USE_BUFFER_USAGE is $(MESON_GR_USE_BUFFER_USAGE))
+ifeq ($(MESON_GR_USE_BUFFER_USAGE),1)
+LOCAL_SHARED_LIBRARIES += android.hardware.graphics.common@1.0
+endif
+LOCAL_CFLAGS := -DUSE_BUFFER_USAGE=$(MESON_GR_USE_BUFFER_USAGE)
+
 LOCAL_C_INCLUDES := \
 	system/core/libutils/include \
 	hardware/libhardware/include \
 	hardware/amlogic/gralloc
 LOCAL_SRC_FILES := \
 	amlogic/am_gralloc_ext.cpp
-LOCAL_CFLAGS := -DLOG_TAG=\"gralloc_ext\"
+LOCAL_CFLAGS += -DLOG_TAG=\"gralloc_ext\"
 LOCAL_MODULE := libamgralloc_ext
+
+ifeq ($(shell test $(PLATFORM_SDK_VERSION) -lt 26 && echo OK),OK)
+LOCAL_MODULE_PATH := $(TARGET_OUT_SHARED_LIBRARIES)
+endif
+
 include $(BUILD_SHARED_LIBRARY)
 
 include $(CLEAR_VARS)
-LOCAL_PROPRIETARY_MODULE := true
-LOCAL_SHARED_LIBRARIES := liblog libcutils android.hardware.graphics.common@1.0
+#LOCAL_PROPRIETARY_MODULE := true
+LOCAL_SHARED_LIBRARIES := liblog libcutils
+#Android O sdk version is 26
+MESON_GR_USE_BUFFER_USAGE := $(shell expr $(PLATFORM_SDK_VERSION) \> 25)
+$(info USE_BUFFER_USAGE is $(MESON_GR_USE_BUFFER_USAGE))
+ifeq ($(MESON_GR_USE_BUFFER_USAGE),1)
+LOCAL_SHARED_LIBRARIES += android.hardware.graphics.common@1.0
+endif
+LOCAL_CFLAGS := -DUSE_BUFFER_USAGE=$(MESON_GR_USE_BUFFER_USAGE)
+
 LOCAL_C_INCLUDES := \
 	system/core/libutils/include \
 	hardware/libhardware/include \
@@ -40,6 +61,11 @@ include $(BUILD_STATIC_LIBRARY)
 include $(CLEAR_VARS)
 LOCAL_PROPRIETARY_MODULE := true
 LOCAL_SHARED_LIBRARIES := liblog libcutils
+#Android O sdk version is 26
+MESON_GR_USE_BUFFER_USAGE := $(shell expr $(PLATFORM_SDK_VERSION) \> 25)
+$(info USE_BUFFER_USAGE is $(MESON_GR_USE_BUFFER_USAGE))
+LOCAL_CFLAGS := -DUSE_BUFFER_USAGE=$(MESON_GR_USE_BUFFER_USAGE)
+
 LOCAL_C_INCLUDES := \
 	hardware/libhardware/include \
 	system/core/libutils/include \

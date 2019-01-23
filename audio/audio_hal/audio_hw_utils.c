@@ -42,7 +42,7 @@
 
 #include "audio_hwsync.h"
 #include "audio_hw.h"
-#include "aml_audio_mixer.h"
+#include "amlAudioMixer.h"
 #include <audio_utils/primitives.h>
 
 #ifdef LOG_NDEBUG_FUNCTION
@@ -372,6 +372,26 @@ int aml_audio_get_debug_flag()
     return debug_flag;
 }
 
+int aml_audio_debug_set_optical_format()
+{
+    char buf[PROPERTY_VALUE_MAX];
+    int ret = -1;
+
+    ret = property_get("media.audio.hal.optical", buf, NULL);
+    if (ret > 0) {
+        if (strcasecmp(buf, "pcm") == 0 || strcmp(buf, "0") == 0) {
+            return TYPE_PCM;
+        }
+        if (strcasecmp(buf, "dd") == 0 || strcmp(buf, "1") == 0) {
+            return TYPE_AC3;
+        }
+        if (strcasecmp(buf, "ddp") == 0 || strcmp(buf, "2") == 0) {
+            return TYPE_EAC3;
+        }
+    }
+    return -1;
+}
+
 int aml_audio_dump_audio_bitstreams(const char *path, const void *buf, size_t bytes)
 {
     if (!path) {
@@ -430,12 +450,13 @@ bool is_stream_using_mixer(struct aml_stream_out *out)
 uint32_t out_get_outport_latency(const struct audio_stream_out *stream)
 {
     struct aml_stream_out *out = (struct aml_stream_out *)stream;
+    struct aml_audio_device *adev = out->dev;
+    struct subMixing *sm = adev->sm;
+    struct amlAudioMixer *audio_mixer = sm->mixerData;
     int frames = 0, latency_ms = 0;
 
     if (is_stream_using_mixer(out)) {
-        struct aml_audio_device *adev = out->dev;
-        struct aml_audio_mixer *audio_mixer = adev->audio_mixer;
-        int outport_latency_frames = 0;// = mixer_get_outport_latency_frames(audio_mixer);
+        int outport_latency_frames = mixer_get_outport_latency_frames(audio_mixer);
 
         if (outport_latency_frames <= 0)
             outport_latency_frames = out->config.period_size * out->config.period_count / 2;
@@ -621,4 +642,12 @@ int aml_audio_get_hdmi_latency_offset(int aformat)
     }
 
     return latency_ms;
+}
+
+// tval_new *must* later than tval_old
+uint32_t tspec_diff_to_us(struct timespec tval_old,
+        struct timespec tval_new)
+{
+    return (tval_new.tv_sec - tval_old.tv_sec) * 1000000
+            + (tval_new.tv_nsec - tval_old.tv_nsec) / 1000;
 }

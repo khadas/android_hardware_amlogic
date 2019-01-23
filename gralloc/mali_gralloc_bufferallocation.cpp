@@ -63,8 +63,6 @@
 // Default YUV stride aligment in Android
 #define YUV_ANDROID_PLANE_ALIGN 16
 
-#define OMX_VIDEOLAYER_ALLOC_BUFFER_WIDTH     192
-#define OMX_VIDEOLAYER_ALLOC_BUFFER_HEIGHT    90
 
 /*
  * Type of allocation
@@ -987,7 +985,7 @@ int mali_gralloc_buffer_allocate(mali_gralloc_module *m, const gralloc_buffer_de
 		case HAL_PIXEL_FORMAT_RGBA_8888:
 		case HAL_PIXEL_FORMAT_RGBX_8888:
 		case HAL_PIXEL_FORMAT_BGRA_8888:
-#if PLATFORM_SDK_VERSION >= 26 && GPU_TYPE != mali450
+#if PLATFORM_SDK_VERSION >= 26 && GPU_FORMAT_LIMIT != 1
 		case HAL_PIXEL_FORMAT_RGBA_1010102:
 #endif
 			get_rgb_stride_and_size(bufDescriptor->width, bufDescriptor->height, 4, &bufDescriptor->pixel_stride,
@@ -995,10 +993,12 @@ int mali_gralloc_buffer_allocate(mali_gralloc_module *m, const gralloc_buffer_de
 			break;
 
 		case HAL_PIXEL_FORMAT_RGB_888:
-#if GPU_TYPE == mali450
 			if (usage & (GRALLOC_USAGE_HW_TEXTURE | GRALLOC_USAGE_HW_RENDER ))
+			{
+				ALOGD("format 0x%" PRIx64 " and usage 0x%" PRIx64,
+			      base_format, usage);
 				return -EINVAL;
-#endif
+			}
 			get_rgb_stride_and_size(bufDescriptor->width, bufDescriptor->height, 3, &bufDescriptor->pixel_stride,
 			                        &bufDescriptor->byte_stride, &bufDescriptor->size, alloc_type);
 			break;
@@ -1008,7 +1008,7 @@ int mali_gralloc_buffer_allocate(mali_gralloc_module *m, const gralloc_buffer_de
 			                        &bufDescriptor->byte_stride, &bufDescriptor->size, alloc_type);
 			break;
 
-#if PLATFORM_SDK_VERSION >= 26 && GPU_TYPE != mali450
+#if PLATFORM_SDK_VERSION >= 26 && GPU_FORMAT_LIMIT != 1
 		case HAL_PIXEL_FORMAT_RGBA_FP16:
 			get_rgb_stride_and_size(bufDescriptor->width, bufDescriptor->height, 8, &bufDescriptor->pixel_stride,
 			                        &bufDescriptor->byte_stride, &bufDescriptor->size, alloc_type);
@@ -1221,6 +1221,7 @@ int mali_gralloc_buffer_allocate(mali_gralloc_module *m, const gralloc_buffer_de
 
 		if (err < 0)
 		{
+			ALOGE("mali_gralloc_ion_allocate return error");
 			return err;
 		}
 	}
@@ -1241,6 +1242,7 @@ int mali_gralloc_buffer_allocate(mali_gralloc_module *m, const gralloc_buffer_de
 
 		if (err < 0)
 		{
+			ALOGE("gralloc_buffer_attr_allocate return error");
 			/* free all allocated ion buffer& attr buffer here.*/
 			mali_gralloc_buffer_free_internal(pHandle, numDescriptors);
 			return err;
