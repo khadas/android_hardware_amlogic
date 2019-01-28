@@ -99,22 +99,22 @@ protected:
         void *data = reply.get_vendor_data();
         int len = reply.get_vendor_data_len();
         wifi_radio_stat *radio_stat = convertToExternalRadioStatStructure((wifi_radio_stat_internal *)data);
-        if (!radio_stat) {
-            ALOGE("Invalid stats pointer received");
-            return NL_SKIP;
-        }
-        ALOGE("radio: = %d", radio_stat->radio);
+		ALOGE("radio: = %d", radio_stat->radio);
         ALOGE("on_time: = %u ms", radio_stat->on_time);
         ALOGE("tx_time: = %u ms", radio_stat->tx_time);
-        // ALOGE("num_tx_levels: = %u", radio_stat->num_tx_levels);
-        // radio_stat->tx_time_per_levels = (u32*)((char*)data + sizeof(wifi_radio_stat) + sizeof(wifi_iface_stat));
-        // ALOGE("tx_time_per_levels: = %u ms", *(radio_stat->tx_time_per_levels));
+//		ALOGE("num_tx_levels: = %u", radio_stat->num_tx_levels);
+//		radio_stat->tx_time_per_levels = (u32*)((char*)data + sizeof(wifi_radio_stat) + sizeof(wifi_iface_stat));
+//		ALOGE("tx_time_per_levels: = %u ms", *(radio_stat->tx_time_per_levels));
         ALOGE("rx_time: = %u ms", radio_stat->rx_time);
         ALOGE("on_time_scan: = %u ms", radio_stat->on_time_scan);
         ALOGE("on_time_nbd: = %u ms", radio_stat->on_time_nbd);
         ALOGE("on_time_gscan: = %u ms", radio_stat->on_time_gscan);
         ALOGE("on_time_pno_scan: = %u ms", radio_stat->on_time_pno_scan);
         ALOGE("on_time_hs20: = %u ms", radio_stat->on_time_hs20);
+        if (!radio_stat) {
+            ALOGE("Invalid stats pointer received");
+            return NL_SKIP;
+        }
         if (radio_stat->num_channels > 11) {
             ALOGE("Incorrect number of channels = %d", radio_stat->num_channels);
             // dump data before num_channels

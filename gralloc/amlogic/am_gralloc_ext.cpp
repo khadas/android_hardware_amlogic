@@ -9,7 +9,10 @@
 
 #include "am_gralloc_ext.h"
 #include <hardware/gralloc1.h>
-#include <gralloc_priv.h>
+#include "gralloc_priv.h"
+#include "gralloc_buffer_priv.h"
+
+#if USE_BUFFER_USAGE
 #include <android/hardware/graphics/common/1.0/types.h>
 
 using android::hardware::graphics::common::V1_0::BufferUsage;
@@ -40,6 +43,34 @@ bool am_gralloc_is_omx_metadata_producer(uint64_t usage) {
 
     return false;
 }
+#else
+uint64_t am_gralloc_get_video_overlay_producer_usage() {
+    return GRALLOC1_PRODUCER_USAGE_VIDEO_DECODER;
+}
+
+uint64_t am_gralloc_get_omx_metadata_producer_usage() {
+    return (GRALLOC1_PRODUCER_USAGE_VIDEO_DECODER ||
+            GRALLOC1_PRODUCER_USAGE_CPU_READ_OFTEN ||
+            GRALLOC1_PRODUCER_USAGE_CPU_WRITE_OFTEN);
+}
+
+uint64_t am_gralloc_get_omx_osd_producer_usage() {
+    return (GRALLOC1_PRODUCER_USAGE_VIDEO_DECODER ||
+            GRALLOC1_PRODUCER_USAGE_GPU_RENDER_TARGET);
+}
+
+bool am_gralloc_is_omx_metadata_producer(uint64_t usage) {
+    if (!am_gralloc_is_omx_osd_producer(usage)) {
+        uint64_t omx_metadata_usage = am_gralloc_get_omx_metadata_producer_usage();
+        if (((usage & omx_metadata_usage) == omx_metadata_usage)
+            && !(usage & GRALLOC1_PRODUCER_USAGE_GPU_RENDER_TARGET)) {
+            return true;
+        }
+    }
+
+    return false;
+}
+#endif
 
 bool am_gralloc_is_omx_osd_producer(uint64_t usage) {
     uint64_t omx_osd_usage = am_gralloc_get_omx_osd_producer_usage();
@@ -170,33 +201,40 @@ int am_gralloc_destroy_sideband_handle(native_handle_t * hnd) {
 }
 
 int am_gralloc_get_vpu_afbc_mask(const native_handle_t * hnd) {
-    private_handle_t const* buffer = hnd ? private_handle_t::dynamicCast(hnd) : NULL;
+    private_handle_t * buffer = hnd ? private_handle_t::dynamicCast(hnd) : NULL;
 
     if (buffer) {
         uint64_t internalFormat = buffer->internal_format;
         int afbcFormat = 0;
 
         if (internalFormat & MALI_GRALLOC_INTFMT_AFBCENABLE_MASK) {
-            afbcFormat |=
-                (VPU_AFBC_EN | VPU_AFBC_YUV_TRANSFORM |VPU_AFBC_BLOCK_SPLIT);
+            afbcFormat |=(VPU_AFBC_EN | VPU_AFBC_BLOCK_SPLIT | VPU_AFBC_YUV_TRANSFORM);
 
             if (internalFormat & MALI_GRALLOC_INTFMT_AFBC_WIDEBLK) {
                 afbcFormat |= VPU_AFBC_SUPER_BLOCK_ASPECT;
             }
 
+            #if 0
             if (internalFormat & MALI_GRALLOC_INTFMT_AFBC_SPLITBLK) {
                 afbcFormat |= VPU_AFBC_BLOCK_SPLIT;
             }
-
-            /*if (internalFormat & MALI_GRALLOC_FORMAT_CAPABILITY_AFBC_WIDEBLK_YUV_DISABLE) {
-                afbcFormat &= ~VPU_AFBC_YUV_TRANSFORM;
-            }*/
+            #endif
 
             if (internalFormat & MALI_GRALLOC_INTFMT_AFBC_TILED_HEADERS) {
                 afbcFormat |= VPU_AFBC_TILED_HEADER_EN;
             }
-        }
 
+            #if 0
+            if (gralloc_buffer_attr_map(buffer, 0) >= 0) {
+                int tmp=0;
+                if (gralloc_buffer_attr_read(buffer, GRALLOC_ARM_BUFFER_ATTR_AFBC_YUV_TRANS, &tmp) >= 0) {
+                    if (tmp != 0) {
+                        afbcFormat |= VPU_AFBC_YUV_TRANSFORM;
+                    }
+                }
+            }
+            #endif
+        }
         return afbcFormat;
     }
 

@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- *  Copyright (C) 2016 Realtek Corporation.
+ *  Copyright (C) 2009-2018 Realtek Corporation.
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -383,10 +383,19 @@ static void H5LogMsg(const char *fmt_str, ...)
 
 static void rtkbt_h5_send_hw_error()
 {
-    unsigned char p_buf[4];
-    int length = 4;
-    p_buf[0] = 0x04;//event
-    p_buf[1] = 0x10;//hardware error
+    unsigned char p_buf[100];
+    const char *str = "host stack: h5 send error";
+    int length = strlen(str) + 1 + 4;
+    p_buf[0] = HCIT_TYPE_EVENT;//event
+    p_buf[1] = HCI_VSE_SUBCODE_DEBUG_INFO_SUB_EVT;//firmwre event log
+    p_buf[2] = strlen(str) + 2;//len
+    p_buf[3] = 0x01;// host log opcode
+    strcpy((char *)&p_buf[4], str);
+    userial_recv_rawdata_hook(p_buf,length);
+
+    length = 4;
+    p_buf[0] = HCIT_TYPE_EVENT;//event
+    p_buf[1] = HCI_HARDWARE_ERROR_EVT;//hardware error
     p_buf[2] = 0x01;//len
     p_buf[3] = 0xfb;//h5 error code
     userial_recv_rawdata_hook(p_buf,length);

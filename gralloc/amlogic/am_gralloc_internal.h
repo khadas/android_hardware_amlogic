@@ -12,6 +12,10 @@
 
 #include <utils/NativeHandle.h>
 
+
+#define OMX_VIDEOLAYER_ALLOC_BUFFER_WIDTH     192
+#define OMX_VIDEOLAYER_ALLOC_BUFFER_HEIGHT    90
+
 /*
 For gralloc to check producer usage.
 The usage is usage defined in gralloc.h/gralloc1.h.

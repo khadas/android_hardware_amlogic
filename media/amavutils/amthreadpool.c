@@ -19,7 +19,6 @@
 #include <fcntl.h>
 #include <unistd.h>
 
-
 static struct itemlist threadpool_list;
 static struct itemlist threadpool_threadlist;
 #define MAX_THREAD_DEPTH 8
@@ -174,7 +173,7 @@ int amthreadpool_thread_usleep_in_monotonic(int us)
 /* 64bit compiler do not have pthread_cond_timedwait_monotonic_np */
 #ifndef __aarch64__
     pthread_t pid = pthread_self();
-    struct timespec pthread_ts, tnow;
+    struct timespec pthread_ts;
     int64_t us64 = us;
     threadpool_thread_data_t *t = amthreadpool_findthead_thread_data(pid);
     int ret = 0;
@@ -189,14 +188,21 @@ int amthreadpool_thread_usleep_in_monotonic(int us)
         }
         t->on_requred_exit--; /*if on_requred_exit,do less sleep till 1.*/
     }
+#if defined(__LP32__) && __ANDROID_API__ < 21
+    struct timespec tnow;
     clock_gettime(CLOCK_MONOTONIC, &tnow);
     pthread_ts.tv_sec = tnow.tv_sec + (us64 + tnow.tv_nsec / 1000) / 1000000;
     pthread_ts.tv_nsec = (us64 * 1000 + tnow.tv_nsec) % 1000000000;
     pthread_mutex_lock(&t->pthread_mutex);
-#if defined(__LP32__) && __ANDROID_API__ < 21
     ret = pthread_cond_timedwait_monotonic_np(&t->pthread_cond, &t->pthread_mutex, &pthread_ts);
+#else
+    struct timeval tnow;
+    ret = gettimeofday(&tnow, NULL);
+    pthread_ts.tv_sec = tnow.tv_sec + (us64 + tnow.tv_usec) / 1000000;
+    pthread_ts.tv_nsec = ((us64 + tnow.tv_usec) * 1000) % 1000000000;
+    pthread_mutex_lock(&t->pthread_mutex);
+    ret = pthread_cond_timedwait(&t->pthread_cond, &t->pthread_mutex, &pthread_ts);
 #endif
-
     pthread_mutex_unlock(&t->pthread_mutex);
     return ret;
 #else

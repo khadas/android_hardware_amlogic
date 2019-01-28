@@ -1,7 +1,17 @@
+/*
+ * Copyright (c) 2014 Amlogic, Inc. All rights reserved.
+ *
+ * This source code is subject to the terms and conditions defined in the
+ * file 'LICENSE' which is part of this source code package.
+ *
+ * Description:
+ */
+
+
 /**
 * @file ppmgr.h
 * @brief  Porting from ppmgr driver for codec ioctl commands
-* @author Tim Yao <timyao@amlogic.com>
+* 
 * @version 1.0.0
 * @date 2011-02-24
 */

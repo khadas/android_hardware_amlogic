@@ -42,7 +42,7 @@
 #include "aml_alsa_mixer.h"
 //#include "aml_audio_ms12.h"
 #include "../libms12/include/aml_audio_ms12.h"
-#include "aml_audio_mixer.h"
+//#include "aml_audio_mixer.h"
 #include "audio_port.h"
 
 /* number of frames per period */
@@ -442,8 +442,10 @@ struct aml_audio_device {
     struct subMixing *sm;
     struct aml_audio_mixer *audio_mixer;
     bool is_TV;
+    bool useSubMix;
     //int cnt_stream_using_mixer;
     int tsync_fd;
+    bool rawtopcm_flag;
 };
 
 struct meta_data {
@@ -505,6 +507,7 @@ struct aml_stream_out {
     unsigned last_dsp_frame;
     audio_hwsync_t *hwsync;
     struct timespec timestamp;
+	struct timespec lasttimestamp;
     stream_usecase_t usecase;
     uint32_t dev_usecase_masks;
     /**
@@ -543,6 +546,8 @@ struct aml_stream_out {
     bool first_pts_set;
     struct audio_config out_cfg;
     int debug_stream;
+    uint64_t us_used_last_write;
+    bool offload_mute;
 };
 
 typedef ssize_t (*write_func)(struct audio_stream_out *stream, const void *buffer, size_t bytes);

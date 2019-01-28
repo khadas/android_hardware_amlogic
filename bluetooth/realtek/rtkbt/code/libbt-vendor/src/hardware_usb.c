@@ -1,3 +1,21 @@
+/******************************************************************************
+ *
+ *  Copyright (C) 2009-2018 Realtek Corporation
+ *
+ *  Licensed under the Apache License, Version 2.0 (the "License");
+ *  you may not use this file except in compliance with the License.
+ *  You may obtain a copy of the License at:
+ *
+ *  http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
+ *
+ ******************************************************************************/
+
 #define LOG_TAG "bt_hwcfg_usb"
 #define RTKBT_RELEASE_NAME	"Test"
 
@@ -110,7 +128,7 @@ static usb_patch_info usb_fw_patch_table[] = {
 { 0x0BDA, 0xB82C, 0x8822, 0, 0, "mp_rtl8822b_fw", "rtl8822b_fw", "rtl8822b_config", NULL, 0 ,CONFIG_MAC_OFFSET_GEN_3PLUS, MAX_PATCH_SIZE_24K}, /* RTL8822BU */
 { 0x0BDA, 0xB023, 0x8822, 0, 0, "mp_rtl8822b_fw", "rtl8822b_fw", "rtl8822b_config", NULL, 0 ,CONFIG_MAC_OFFSET_GEN_3PLUS, MAX_PATCH_SIZE_24K}, /* RTL8822BE */
 { 0x0BDA, 0xB703, 0x8703, 0, 0, "mp_rtl8723c_fw", "rtl8723c_fw", "rtl8723c_config", NULL, 0 ,CONFIG_MAC_OFFSET_GEN_3PLUS, MAX_PATCH_SIZE_24K}, /* RTL8723CU */
-{ 0x0BDA, 0xC82C, 0x8822, 0, 0, "mp_rtl8822c_fw", "rtl8822c_fw", "rtl8822c_config", NULL, 0 ,CONFIG_MAC_OFFSET_GEN_3PLUS, MAX_PATCH_SIZE_40K}, /* RTL8822CU */
+{ 0x0BDA, 0xC82C, 0x8822, 0, 0, "mp_rtl8822c_fw", "rtl8822c_fw", "rtl8822c_config", NULL, 0 ,CONFIG_MAC_OFFSET_GEN_4PLUS, MAX_PATCH_SIZE_40K}, /* RTL8822CU */
 
 /* todo: RTL8703BU */
 
@@ -281,7 +299,7 @@ static void rtk_usb_parse_config_file(unsigned char** config_buf, size_t* filele
     //uint32_t config_has_bdaddr = 0;
     uint8_t *p;
 
-	ALOGD("bt_addr = %x", bt_addr[0]);
+    ALOGD("bt_addr = %x", bt_addr[0]);
     if (le32_to_cpu(config->signature) != RTK_VENDOR_CONFIG_MAGIC)
     {
         ALOGE("config signature magic number(0x%x) is not set to RTK_VENDOR_CONFIG_MAGIC", config->signature);
@@ -668,6 +686,7 @@ void hw_usb_config_cback(void *p_mem)
                     else
                     {
                         BTVNDDBG("%s: Warm BT controller startup with same lmp", __func__);
+                        userial_vendor_usb_ioctl(DWFW_CMPLT, NULL);
                         free(hw_cfg_cb.total_buf);
                         hw_cfg_cb.total_len = 0;
 
@@ -748,7 +767,7 @@ CFG_USB_START:
                 hw_cfg_cb.config_len = rtk_usb_get_bt_config(&hw_cfg_cb.config_buf, prtk_usb_patch_file_info->config_name, prtk_usb_patch_file_info->mac_offset);
                 if (hw_cfg_cb.config_len)
                 {
-                    ALOGE("Get Config file fail, just use efuse settings");
+                    ALOGE("update altsettings");
                     rtk_usb_update_altsettings(prtk_usb_patch_file_info, hw_cfg_cb.config_buf, &(hw_cfg_cb.config_len));
                 }
 
@@ -808,6 +827,7 @@ DOWNLOAD_USB_FW:
                     if(iIndexRx&0x80)
                     {
                         BTVNDDBG("vendor lib fwcfg completed");
+                        userial_vendor_usb_ioctl(DWFW_CMPLT, NULL);
                         free(hw_cfg_cb.total_buf);
                         hw_cfg_cb.total_len = 0;
 
@@ -857,6 +877,7 @@ DOWNLOAD_USB_FW:
             if (p_buf != NULL)
                 bt_vendor_cbacks->dealloc(p_buf);
 
+            userial_vendor_usb_ioctl(DWFW_CMPLT, NULL);
             bt_vendor_cbacks->fwcfg_cb(BT_VND_OP_RESULT_FAIL);
         }
 

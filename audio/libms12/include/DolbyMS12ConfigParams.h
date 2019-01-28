@@ -56,6 +56,7 @@ public:
     virtual int SetInputOutputFileName(char **ConfigParams, int *row_index);
     virtual int SetFunctionalSwitches(char **ConfigParams, int *row_index);
     virtual int SetFunctionalSwitchesRuntime(char **ConfigParams, int *row_index);
+    virtual int SetFunctionalSwitchesRuntime_lite(char **ConfigParams, int *row_index);
 
     virtual int SetDdplusSwitches(char **ConfigParams, int *row_index);
 
@@ -67,6 +68,7 @@ public:
     virtual int SetDAPContentSwitches(char **ConfigParams, int *row_index);
     virtual char **GetDolbyMS12ConfigParams(int *argc);
     virtual char **GetDolbyMS12RuntimeConfigParams(int *argc);
+    virtual char **GetDolbyMS12RuntimeConfigParams_lite(int *argc);
 
     //init the  mConfigParams Array
     virtual char **PrepareConfigParams(int max_raw_size, int max_column_size);
@@ -194,12 +196,12 @@ public:
     virtual void setAssociatedAudioMixing(int val)
     {
         mAssociatedAudioMixing = val;
-        ALOGI("%s() mAssociatedAudioMixing %d\n", __FUNCTION__, mAssociatedAudioMixing);
+        //ALOGI("%s() mAssociatedAudioMixing %d\n", __FUNCTION__, mAssociatedAudioMixing);
     }
     virtual void setSystemAppAudioMixing(int val)
     {
         mSystemAPPAudioMixing = val;
-        ALOGI("%s() mSystemAPPAudioMixing %d\n", __FUNCTION__, mSystemAPPAudioMixing);
+        //ALOGI("%s() mSystemAPPAudioMixing %d\n", __FUNCTION__, mSystemAPPAudioMixing);
     }
     virtual int getSystemAppAudioMixing(void)
     {

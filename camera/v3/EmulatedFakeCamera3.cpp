@@ -2992,6 +2992,7 @@ void EmulatedFakeCamera3::ReadoutThread::onJpegDone(
     camera3_capture_result result;
     result.frame_number = r.frameNumber;
     result.result = NULL;
+    result.input_buffer = NULL;
     result.num_output_buffers = 1;
     result.output_buffers = &mJpegHalBuffer;
     result.partial_result = 1;

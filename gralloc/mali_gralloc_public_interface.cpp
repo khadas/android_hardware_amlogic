@@ -381,6 +381,32 @@ static int32_t mali_gralloc1_get_layer_count(gralloc1_device_t* device, buffer_h
 }
 #endif
 
+#if PLATFORM_SDK_VERSION >= 28
+static int32_t mali_gralloc1_validate_buffer_size(gralloc1_device_t* device, buffer_handle_t buffer,
+						gralloc1_buffer_descriptor_info_t* descriptorInfo, uint32_t stride)
+{
+	int ret = 0;
+	ret = mali_gralloc_validate_buffer_size(buffer, descriptorInfo, stride);
+	GRALLOC_UNUSED(device);
+	return ret;
+}
+static int32_t mali_gralloc1_get_transport_size(gralloc1_device_t* device, buffer_handle_t buffer,
+						uint32_t *outNumFds, uint32_t *outNumInts)
+{
+	int ret = 0;
+	ret = mali_gralloc_get_transport_size(buffer, outNumFds, outNumInts);
+	GRALLOC_UNUSED(device);
+	return ret;
+}
+static int32_t  mali_gralloc1_import_buffer(gralloc1_device_t* device, const buffer_handle_t rawHandle, buffer_handle_t *outBuffer)
+{
+	int ret = 0;
+	ret = mali_gralloc_import_buffer(device, rawHandle, outBuffer);
+	return ret;
+}
+
+#endif
+
 static const mali_gralloc_func mali_gralloc_func_list[] = {
 	{ GRALLOC1_FUNCTION_DUMP, (gralloc1_function_pointer_t)mali_gralloc_dump },
 	{ GRALLOC1_FUNCTION_CREATE_DESCRIPTOR, (gralloc1_function_pointer_t)mali_gralloc_create_descriptor },
@@ -406,6 +432,12 @@ static const mali_gralloc_func mali_gralloc_func_list[] = {
 	{ GRALLOC1_FUNCTION_SET_LAYER_COUNT, (gralloc1_function_pointer_t)mali_gralloc1_set_layer_count },
 	{ GRALLOC1_FUNCTION_GET_LAYER_COUNT, (gralloc1_function_pointer_t)mali_gralloc1_get_layer_count },
 #endif
+#if PLATFORM_SDK_VERSION >= 28
+	{ GRALLOC1_FUNCTION_VALIDATE_BUFFER_SIZE, (gralloc1_function_pointer_t)mali_gralloc1_validate_buffer_size },
+	{ GRALLOC1_FUNCTION_GET_TRANSPORT_SIZE, (gralloc1_function_pointer_t)mali_gralloc1_get_transport_size },
+	{ GRALLOC1_FUNCTION_IMPORT_BUFFER, (gralloc1_function_pointer_t)mali_gralloc1_import_buffer },
+#endif
+
 
 	/* GRALLOC1_FUNCTION_INVALID has to be the last descriptor on the list. */
 	{ GRALLOC1_FUNCTION_INVALID, NULL }

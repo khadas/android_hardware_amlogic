@@ -1,7 +1,17 @@
+/*
+ * Copyright (c) 2014 Amlogic, Inc. All rights reserved.
+ *
+ * This source code is subject to the terms and conditions defined in the
+ * file 'LICENSE' which is part of this source code package.
+ *
+ * Description:
+ */
+
+
 /**
 * @file audio_ctrl.h
 * @brief  Function prototypes of audio control lib
-* @author Zhang Chen <chen.zhang@amlogic.com>
+* 
 * @version 1.0.0
 * @date 2011-02-24
 */

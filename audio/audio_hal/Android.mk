@@ -37,6 +37,7 @@ ifeq ($(strip $(BOARD_ALSA_AUDIO)),tiny)
         aml_hw_mixer.c \
         alsa_manager.c \
         audio_hw_ms12.c \
+        audio_hw_dtv.c \
         aml_audio_stream.c \
         alsa_config_parameters.c \
         spdif_encoder_api.c \
@@ -68,17 +69,16 @@ ifeq ($(strip $(BOARD_ALSA_AUDIO)),tiny)
         $(LOCAL_PATH)/../utils/include \
         $(LOCAL_PATH)/../utils/ini/include \
         $(LOCAL_PATH)/../rcaudio \
-        $(LOCAL_PATH)/../../LibAudio/amadec/include
+        $(LOCAL_PATH)/../../LibAudio/amadec/include \
+        $(LOCAL_PATH)/../bt_voice/kehwin
     LOCAL_LDFLAGS_arm += $(LOCAL_PATH)/lib_aml_ng.a
+    LOCAL_LDFLAGS_arm += $(LOCAL_PATH)/../bt_voice/kehwin/32/btmic.a
+    LOCAL_LDFLAGS_arm64 += $(LOCAL_PATH)/../bt_voice/kehwin/64/btmic.a
+
     LOCAL_SHARED_LIBRARIES := \
         liblog libcutils libtinyalsa \
         libaudioutils libdl libaudioroute libutils \
-        libdroidaudiospdif libamaudioutils libamlaudiorc
-ifeq ($(BOARD_ENABLE_DTV_AUDIO), true)
-    LOCAL_CFLAGS += -DENABLE_DTV_AUDIO=1
-    LOCAL_SRC_FILES += audio_hw_dtv.c
-    LOCAL_SHARED_LIBRARIES += libamadec
-endif
+        libdroidaudiospdif libamaudioutils libamlaudiorc libamadec
 
 ifeq ($(BOARD_ENABLE_NANO), true)
     LOCAL_SHARED_LIBRARIES += libnano
@@ -97,6 +97,9 @@ endif
 ifeq ($(strip $(TARGET_WITH_TV_AUDIO_MODE)),true)
 $(info "---------tv audio mode, compiler configured 8 channels output by default--------")
 LOCAL_CFLAGS += -DTV_AUDIO_OUTPUT
+else
+$(info "---------ott audio mode, compiler configure 2 channels output by default--------")
+LOCAL_CFLAGS += -DSUBMIXER_V1_1
 endif
     #LOCAL_CFLAGS += -Wall -Wunknown-pragmas
 

@@ -30,8 +30,14 @@
 #include "mali_gralloc_bufferdescriptor.h"
 #include "mali_gralloc_private_interface_types.h"
 #include "mali_gralloc_buffer.h"
+#include "mali_gralloc_ion.h"
+#include "mali_gralloc_reference.h"
+#include "ion_wrapper.h"
+#include "amlogic/am_gralloc_internal.h"
 
 #if GRALLOC_USE_GRALLOC1_API == 1
+
+
 int mali_gralloc_create_descriptor_internal(gralloc1_buffer_descriptor_t *outDescriptor)
 {
 	buffer_descriptor_t *buffer_descriptor;
@@ -218,6 +224,120 @@ int mali_gralloc_get_layer_count_internal(buffer_handle_t buffer, uint32_t *outL
 	return GRALLOC1_ERROR_NONE;
 }
 #endif /* PLATFORM_SDK_VERSION >= 26 */
+
+#if PLATFORM_SDK_VERSION >= 28
+int mali_gralloc_validate_buffer_size(buffer_handle_t buffer, gralloc1_buffer_descriptor_info_t* descriptorInfo, uint32_t stride)
+{
+	if (private_handle_t::validate(buffer) < 0)
+	{
+		AERR("Invalid buffer %p, returning error", buffer);
+		return GRALLOC1_ERROR_BAD_HANDLE;
+	}
+	int bufferSize = 0;
+	private_handle_t *hnd = (private_handle_t *)buffer;
+
+	if (descriptorInfo->format != hnd->format)
+	{
+		AERR("Bad format!Not the same with allocated buffer " );
+		return GRALLOC1_ERROR_BAD_VALUE;
+	}
+
+	if (stride/hnd->stride != 1)
+	{
+		AERR("Bad stride!Not the same with allocated buffer " );
+		return GRALLOC1_ERROR_BAD_VALUE;
+	}
+
+	if (am_gralloc_is_omx_metadata_extend_usage(hnd->usage))
+	{
+		bufferSize = hnd->byte_stride/stride*OMX_VIDEOLAYER_ALLOC_BUFFER_WIDTH*OMX_VIDEOLAYER_ALLOC_BUFFER_HEIGHT;
+	}
+	else
+	{
+		bufferSize = hnd->byte_stride/stride*descriptorInfo->width*descriptorInfo->height;
+	}
+
+	if (descriptorInfo->layerCount < 0)
+	{
+		AERR("Invalid layer_count %d, returning error", descriptorInfo->layerCount);
+		return GRALLOC1_ERROR_BAD_VALUE;
+	}
+	else if (descriptorInfo->layerCount == 1)
+	{
+		if (hnd->size < bufferSize)
+		{
+			AERR("buffer size is not large enough hnd->size:%d hnd->usage:%#X, returning error", hnd->size, hnd->usage);
+			return GRALLOC1_ERROR_BAD_VALUE;
+		}
+	}
+	else if (descriptorInfo->layerCount > 1)
+	{
+		if (hnd->internal_format & MALI_GRALLOC_INTFMT_AFBCENABLE_MASK)
+		{
+			if (hnd->internal_format & MALI_GRALLOC_INTFMT_AFBC_TILED_HEADERS)
+			{
+				bufferSize = GRALLOC_ALIGN(bufferSize, 4096);
+			}
+			else
+			{
+				bufferSize = GRALLOC_ALIGN(bufferSize, 128);
+			}
+		}
+
+		bufferSize *= descriptorInfo->layerCount;
+		if (hnd->size < bufferSize)
+		{
+			AERR("buffer size is not large enough %d, returning error", hnd->size);
+			return GRALLOC1_ERROR_BAD_VALUE;
+		}
+	}
+	return GRALLOC1_ERROR_NONE;
+}
+int mali_gralloc_get_transport_size(buffer_handle_t buffer, uint32_t *outNumFds, uint32_t *outNumInts)
+{
+	if (private_handle_t::validate(buffer) < 0)
+	{
+		AERR("Invalid buffer %p, returning error", buffer);
+		return GRALLOC1_ERROR_BAD_HANDLE;
+	}
+
+	private_handle_t *hnd = (private_handle_t *)buffer;
+	if (outNumFds)
+		*outNumFds = GRALLOC_ARM_NUM_FDS;
+	if (outNumInts)
+		*outNumInts =(sizeof(struct private_handle_t) -sizeof(native_handle)) / sizeof(int) -hnd->sNumFds;
+
+	return GRALLOC1_ERROR_NONE;
+}
+int mali_gralloc_import_buffer(gralloc1_device_t* device, const buffer_handle_t rawHandle, buffer_handle_t *outBuffer)
+{
+	if (private_handle_t::validate(rawHandle) < 0)
+	{
+		AERR("Invalid buffer %p, returning error", rawHandle);
+		return GRALLOC1_ERROR_BAD_HANDLE;
+	}
+	mali_gralloc_module *m;
+	native_handle_t* bufferHandle;
+
+	bufferHandle = native_handle_clone(rawHandle);
+
+	if (private_handle_t::validate(bufferHandle) < 0)
+	{
+		AERR("Invalid buffer %p, returning error", *outBuffer);
+		return GRALLOC1_ERROR_BAD_HANDLE;
+	}
+
+	m = reinterpret_cast<private_module_t *>(device->common.module);
+	if (mali_gralloc_reference_retain(m, static_cast<buffer_handle_t>(bufferHandle)) < 0)
+	{
+		AERR("retain buffer failed");
+		return GRALLOC1_ERROR_NO_RESOURCES;
+	}
+	*outBuffer = static_cast<buffer_handle_t>(bufferHandle);
+
+	return GRALLOC1_ERROR_NONE;
+}
+#endif
 
 #endif
 int mali_gralloc_query_getstride(buffer_handle_t buffer, int *pixelStride)

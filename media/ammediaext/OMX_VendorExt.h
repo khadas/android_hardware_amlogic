@@ -41,6 +41,7 @@ typedef enum OMX_VIDEO_VENDOR_CODINGEXTTYPE {
     OMX_VIDEO_CodingRV30,
     OMX_VIDEO_CodingRV40,
     OMX_VIDEO_CodingAVS,
+    OMX_VIDEO_CodingAVS2,
 } OMX_VIDEO_CODINGEXTTYPE;
 
 typedef enum OMX_VENDOR_INDEXEXTTYPE {
@@ -62,7 +63,7 @@ typedef struct OMX_AUDIO_PARAM_DOLBYAUDIOTYPE {
     OMX_U32 nPortIndex;       /**< port that this structure applies to */
     OMX_BOOL bExtendFormat;        /**< Using extend format for output  4Bytes PCM size + pcm data + 4Bytes Raw size + Raw data*/
     OMX_U32 nAudioCodec;      /**< AudioCodec.  1.ac3 2.eac3. */
-	OMX_BOOL is_passthrough_active;
+    OMX_U32 nPassThroughEnable;    /**< IEC raw data enable, 0 for disable, 1 for enable*/
 } OMX_AUDIO_PARAM_DOLBYAUDIOTYPE;
 
 typedef struct OMX_AUDIO_PARAM_ANDROID_DTSHDTYPE {
@@ -76,7 +77,7 @@ typedef struct OMX_AUDIO_PARAM_ANDROID_DTSHDTYPE {
     OMX_BOOL bExtendFormat;   /**< Using extend format for output 4Bytes PCM size + pcm data + 4Bytes Raw size + Raw data */
     int HwHDPCMoutCap;
     int HwMulChoutCap;
-	OMX_BOOL is_passthrough_active;
+    OMX_U32 nPassThroughEnable;    /**< IEC raw data enable, 0 for disable, 1 for enable*/
 } OMX_AUDIO_PARAM_ANDROID_DTSHDTYPE;
 
 typedef struct OMX_AUDIO_PARAM_ANDROID_ASFTYPE {

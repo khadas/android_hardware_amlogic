@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- *  Copyright (C) 2009-2012 Realtek Corporation
+ *  Copyright (C) 2009-2018 Realtek Corporation
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -26,7 +26,7 @@
 
 #undef NDEBUG
 #define LOG_TAG "libbt_vendor"
-#define RTKBT_RELEASE_NAME	"Test"
+#define RTKBT_RELEASE_NAME "20181116_BT_ANDROID_9.0"
 #include <utils/Log.h>
 #include "bt_vendor_rtk.h"
 #include "upio.h"
@@ -389,13 +389,13 @@ static int op(bt_vendor_opcode_t opcode, void *param)
                     if (*state == BT_VND_PWR_OFF)
                     {
                         upio_set_bluetooth_power(UPIO_BT_POWER_OFF);
-                        //usleep(200000);
-                        //BTVNDDBG("set power off and delay 200ms");
+                        usleep(200000);
+                        BTVNDDBG("set power off and delay 200ms");
                     }
                     else if (*state == BT_VND_PWR_ON)
                     {
-                        //upio_set_bluetooth_power(UPIO_BT_POWER_OFF);
-                        //usleep(200000);
+                        upio_set_bluetooth_power(UPIO_BT_POWER_OFF);
+                        usleep(200000);
                         BTVNDDBG("set power off and delay 200ms");
                         upio_set_bluetooth_power(UPIO_BT_POWER_ON);
                         //usleep(200000);

@@ -47,6 +47,7 @@
 #define CPU_USAGE_FILE              "/proc/stat"
 #define TEMPERATURE_DIR             "/sys/class/thermal"
 #define THERMAL_DIR                 "thermal_zone"
+#define THERMAL_CPU                 "thermal_zone0"
 #define CPU_ONLINE_FILE_FORMAT      "/sys/devices/system/cpu/cpu%d/online"
 #define UNKNOWN_LABEL               "UNKNOWN"
 
@@ -116,6 +117,17 @@ static ssize_t getTemperatures(thermal_module_t *module, temperature_t *list, si
     while ((de = readdir(dir))) {
         if (!strncmp(de->d_name, THERMAL_DIR, strlen(THERMAL_DIR))) {
             int val;
+            const char *temp_name;
+            temperature_type temp_temperature_type;
+
+            if (!strncmp(de->d_name, THERMAL_CPU, strlen(THERMAL_CPU))) {
+                temp_temperature_type = DEVICE_TEMPERATURE_CPU ;
+                temp_name = TEMPERATURE_TYPE_CPU;
+            }
+            else{
+                temp_temperature_type = DEVICE_TEMPERATURE_UNKNOWN ;
+                temp_name = UNKNOWN_LABEL;
+            }
 
             snprintf(path, MAX_LENGTH, "%s/%s/temp", TEMPERATURE_DIR, de->d_name);
             val = readSysValue(path);
@@ -138,8 +150,8 @@ static ssize_t getTemperatures(thermal_module_t *module, temperature_t *list, si
                 }
 
                 list[idx] = (temperature_t) {
-                    .name = TEMPERATURE_TYPE_CPU,
-                    .type = DEVICE_TEMPERATURE_CPU,
+                    .name = temp_name,
+                    .type = temp_temperature_type,
                     .current_value = temp,
                     .throttling_threshold = throttlingThreshold,
                     .shutdown_threshold = shutdownThreshold,
