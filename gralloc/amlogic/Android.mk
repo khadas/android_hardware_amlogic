@@ -26,7 +26,8 @@ LOCAL_CFLAGS := -DUSE_BUFFER_USAGE=$(MESON_GR_USE_BUFFER_USAGE)
 LOCAL_C_INCLUDES := \
 	system/core/libutils/include \
 	hardware/libhardware/include \
-	hardware/amlogic/gralloc
+	hardware/amlogic/gralloc \
+        system/core/libion/kernel-headers
 LOCAL_SRC_FILES := \
 	amlogic/am_gralloc_ext.cpp
 LOCAL_CFLAGS += -DLOG_TAG=\"gralloc_ext\"
@@ -52,7 +53,8 @@ LOCAL_CFLAGS := -DUSE_BUFFER_USAGE=$(MESON_GR_USE_BUFFER_USAGE)
 LOCAL_C_INCLUDES := \
 	system/core/libutils/include \
 	hardware/libhardware/include \
-	hardware/amlogic/gralloc
+	hardware/amlogic/gralloc \
+        system/core/libion/kernel-headers
 LOCAL_SRC_FILES := \
 	amlogic/am_gralloc_ext.cpp
 LOCAL_MODULE := libamgralloc_ext_static
@@ -70,9 +72,9 @@ LOCAL_C_INCLUDES := \
 	hardware/libhardware/include \
 	system/core/libutils/include \
 	system/core/libsystem/include \
+        system/core/libion/kernel-headers \
 	hardware/amlogic/gralloc
 LOCAL_SRC_FILES := \
 	amlogic/am_gralloc_internal.cpp
 LOCAL_MODULE := libamgralloc_internal_static
 include $(BUILD_STATIC_LIBRARY)
-

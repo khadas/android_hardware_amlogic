@@ -3,6 +3,13 @@ CAMHAL_V3:=true
 
 ifneq ($(CAMHAL_V3),true)
 
+#Q cannot use many host tootls, use the built in one 
+ifeq ($(PLATFORM_VERSION),Q)
+IFCONFG_BIN=$(TARGET_HOST_TOOL_PATH)/ifconfig
+else
+IFCONFG_BIN=ifconfig
+endif
+
 CAMHAL_GIT_VERSION="$(shell cd $(LOCAL_PATH);git log | grep commit -m 1 | cut -d' ' -f 2)"
 CAMHAL_GIT_UNCOMMIT_FILE_NUM=$(shell cd $(LOCAL_PATH);git diff | grep +++ -c)
 CAMHAL_LAST_CHANGED="$(shell cd $(LOCAL_PATH);git log | grep Date -m 1)"
@@ -11,7 +18,7 @@ CAMHAL_BUILD_NAME=" $(shell echo ${LOGNAME})"
 CAMHAL_BRANCH_NAME="$(shell cd $(LOCAL_PATH);git branch -a | sed -n '/'*'/p')"
 CAMHAL_BUILD_MODE=$(shell echo ${TARGET_BUILD_VARIANT})
 CAMHAL_HOSTNAME="$(shell hostname)"
-CAMHAL_IP="$(shell ifconfig eth0|grep -oE '([0-9]{1,3}\.?){4}'|head -n 1)"
+CAMHAL_IP="$(shell $(IFCONFG_BIN) eth0|grep -oE '([0-9]{1,3}\.?){4}'|head -n 1)"
 CAMHAL_PATH="$(shell pwd)/$(LOCAL_PATH)"
 
 CAMERA_HAL_SRC := \

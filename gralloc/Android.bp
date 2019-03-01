@@ -17,6 +17,12 @@ cc_library_static {
     cflags: [
         "-DUSE_BUFFER_USAGE=1",
     ],
+ include_dirs: [
+       "system/core/libutils/include",
+       "hardware/libhardware/include",
+       "hardware/amlogic/gralloc",
+       "system/core/libion/kernel-headers",
+    ],
     srcs: [
         "amlogic/am_gralloc_ext.cpp"
     ],

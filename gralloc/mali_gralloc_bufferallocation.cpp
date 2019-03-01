@@ -1027,10 +1027,13 @@ int mali_gralloc_buffer_allocate(mali_gralloc_module *m, const gralloc_buffer_de
             /*
              * fallthrough
              */
-
+			[[fallthrough]];
 		case HAL_PIXEL_FORMAT_YCrCb_420_SP:
+			[[fallthrough]];
 		case HAL_PIXEL_FORMAT_YCbCr_420_888:
+			[[fallthrough]];
 		case MALI_GRALLOC_FORMAT_INTERNAL_NV12:
+			[[fallthrough]];
 		case MALI_GRALLOC_FORMAT_INTERNAL_NV21:
 		{
 			if (!get_yv12_stride_and_size(bufDescriptor->width, bufDescriptor->height, &bufDescriptor->pixel_stride,

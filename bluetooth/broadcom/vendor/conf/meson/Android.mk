@@ -15,5 +15,5 @@ LOCAL_MODULE_PATH := $(TARGET_OUT_VENDOR)/etc/bluetooth
 else
 LOCAL_MODULE_PATH := $(TARGET_OUT)/etc/bluetooth
 endif
-include $(BUILD_PREBUILT)
+#include $(BUILD_PREBUILT)
 
