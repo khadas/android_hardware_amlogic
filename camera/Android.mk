@@ -6,7 +6,7 @@ ifneq ($(CAMHAL_V3),true)
 CAMHAL_GIT_VERSION="$(shell cd $(LOCAL_PATH);git log | grep commit -m 1 | cut -d' ' -f 2)"
 CAMHAL_GIT_UNCOMMIT_FILE_NUM=$(shell cd $(LOCAL_PATH);git diff | grep +++ -c)
 CAMHAL_LAST_CHANGED="$(shell cd $(LOCAL_PATH);git log | grep Date -m 1)"
-CAMHAL_BUILD_TIME=" $(shell date)"
+CAMHAL_BUILD_TIME=" $(shell date --date=00:00)"
 CAMHAL_BUILD_NAME=" $(shell echo ${LOGNAME})"
 CAMHAL_BRANCH_NAME="$(shell cd $(LOCAL_PATH);git branch -a | sed -n '/'*'/p')"
 CAMHAL_BUILD_MODE=$(shell echo ${TARGET_BUILD_VARIANT})
