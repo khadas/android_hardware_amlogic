@@ -75,10 +75,6 @@ GRALLOC_VSYNC_BACKEND?=default
 # hw/<OVERLAY_HARDWARE_MODULE_ID>.<ro.product.board>.so
 include $(CLEAR_VARS)
 
-# duplicated to the system env. Q cannot update the RO variables twice
-# include this make the build fail. never do the duplicated things.
-#include $(BUILD_SYSTEM)/version_defaults.mk
-
 ifneq ($(findstring $(GPU_ARCH), midgard bifrost),)
 	GRALLOC_INIT_AFBC = 1
 endif
