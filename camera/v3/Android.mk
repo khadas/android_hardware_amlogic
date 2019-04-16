@@ -18,11 +18,7 @@ LOCAL_PATH := $(call my-dir)
 include $(CLEAR_VARS)
 
 #Q cannot use many host tootls, use the built in one
-ifeq ($(PLATFORM_VERSION),Q)
 IFCONFG_BIN=$(TARGET_HOST_TOOL_PATH)/ifconfig
-else
-IFCONFG_BIN=ifconfig
-endif
 
 LOCAL_VENDOR_MODULE := true
 LOCAL_MODULE_RELATIVE_PATH := hw
