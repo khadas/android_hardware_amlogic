@@ -1352,7 +1352,7 @@ static void userial_handle_cmd(unsigned char * recv_buffer, int total_length)
         break;
 
         case HCI_ACCEPT_CONNECTION_REQUEST:
-          property_get("persist.bluetooth.prefferedrole", prop_value, "none");
+          property_get("persist.vendor.bluetooth.prefferedrole", prop_value, "none");
           if(strcmp(prop_value, "none") != 0) {
               int role = recv_buffer[9];
               if(role == 0x01 && (strcmp(prop_value, "master") == 0))
