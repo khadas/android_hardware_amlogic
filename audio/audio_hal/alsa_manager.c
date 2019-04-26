@@ -72,14 +72,13 @@ exit:
 
 int aml_alsa_output_open(struct audio_stream_out *stream)
 {
-    ALOGI("\n+%s stream %p", __func__, stream);
     struct aml_stream_out *aml_out = (struct aml_stream_out *)stream;
     struct aml_audio_device *adev = aml_out->dev;
     struct pcm_config *config = &aml_out->config;
     struct pcm_config config_raw;
     unsigned int device = aml_out->device;
     struct dolby_ms12_desc *ms12 = &(adev->ms12);
-
+    ALOGI("\n+%s stream %p,device %d", __func__, stream,device);
     if (eDolbyMS12Lib == adev->dolby_lib_type) {
         if (adev->ms12.dolby_ms12_enable) {
             config = &(adev->ms12_config);
@@ -114,7 +113,7 @@ int aml_alsa_output_open(struct audio_stream_out *stream)
 
     // close former and open with configs
     // TODO: check pcm configs and if no changes, do nothing
-    if (pcm && device != DIGITAL_DEVICE) {
+    if (pcm && device != DIGITAL_DEVICE && device != I2S_DEVICE) {
         ALOGI("pcm device already opened,re-use pcm handle %p", pcm);
     } else {
         /*
@@ -122,23 +121,25 @@ int aml_alsa_output_open(struct audio_stream_out *stream)
         from dd->dd+ or dd+ --> dd,we need reopen the device.
         */
         if (pcm) {
+            if (device == I2S_DEVICE)
+                ALOGI("pcm device already opened,close the handle %p to reopen", pcm);
             pcm_close(pcm);
             adev->pcm_handle[device] = NULL;
             aml_out->pcm = NULL;
             pcm = NULL;
         }
-
+        int device_index = device;
         // mark: will there wil issue here? conflit with MS12 device?? zz
         if (card == alsa_device_get_card_index()) {
-            device = alsa_device_update_pcm_index(device, PLAYBACK);
+            device_index = alsa_device_update_pcm_index(device, PLAYBACK);
         }
 
-        ALOGI("%s, audio open card(%d), device(%d)", __func__, card, device);
+        ALOGI("%s, audio open card(%d), device(%d)", __func__, card, device_index);
         ALOGI("ALSA open configs: channels %d format %d period_count %d period_size %d rate %d",
               config->channels, config->format, config->period_count, config->period_size, config->rate);
         ALOGI("ALSA open configs: threshold start %u stop %u silence %u silence_size %d avail_min %d",
               config->start_threshold, config->stop_threshold, config->silence_threshold, config->silence_size, config->avail_min);
-        pcm = pcm_open(card, device, PCM_OUT, config);
+        pcm = pcm_open(card, device_index, PCM_OUT, config);
         if (!pcm || !pcm_is_ready(pcm)) {
             ALOGE("%s, pcm %p open [ready %d] failed", __func__, pcm, pcm_is_ready(pcm));
             return -ENOENT;
@@ -148,6 +149,7 @@ int aml_alsa_output_open(struct audio_stream_out *stream)
     adev->pcm_handle[device] = pcm;
     adev->pcm_refs[device]++;
     aml_out->dropped_size = 0;
+    aml_out->device = device;
     ALOGI("-%s, audio out(%p) device(%d) refs(%d) is_normal_pcm %d, handle %p\n\n",
           __func__, aml_out, device, adev->pcm_refs[device], aml_out->is_normal_pcm, pcm);
 
@@ -171,6 +173,7 @@ void aml_alsa_output_close(struct audio_stream_out *stream)
     }  else if (eDolbyDcvLib == adev->dolby_lib_type) {
         if (aml_out->dual_output_flag && adev->ddp.digital_raw == 1) {
             device = I2S_DEVICE;
+            ALOGI("dual output,close i2s device");
         }
     }
 

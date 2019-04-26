@@ -241,21 +241,29 @@ int mali_gralloc_validate_buffer_size(buffer_handle_t buffer, gralloc1_buffer_de
 		AERR("Bad format!Not the same with allocated buffer " );
 		return GRALLOC1_ERROR_BAD_VALUE;
 	}
-
-	if (stride/hnd->stride != 1)
+	if (stride > 0)
 	{
-		AERR("Bad stride!Not the same with allocated buffer " );
-		return GRALLOC1_ERROR_BAD_VALUE;
-	}
+		if (hnd->stride / stride != 1)
+		{
+			AERR("Bad stride!Not the same with allocated buffer " );
+			return GRALLOC1_ERROR_BAD_VALUE;
+		}
 
-	if (am_gralloc_is_omx_metadata_extend_usage(hnd->usage))
-	{
-		bufferSize = hnd->byte_stride/stride*OMX_VIDEOLAYER_ALLOC_BUFFER_WIDTH*OMX_VIDEOLAYER_ALLOC_BUFFER_HEIGHT;
+		if (am_gralloc_is_omx_metadata_extend_usage(hnd->usage))
+		{
+			bufferSize = hnd->byte_stride / stride * OMX_VIDEOLAYER_ALLOC_BUFFER_WIDTH * OMX_VIDEOLAYER_ALLOC_BUFFER_HEIGHT;
+		}
+		else
+		{
+			bufferSize = hnd->byte_stride / stride * descriptorInfo->width * descriptorInfo->height;
+		}
 	}
 	else
 	{
-		bufferSize = hnd->byte_stride/stride*descriptorInfo->width*descriptorInfo->height;
+		AERR("Bad stride!stride: %d ", stride );
+		return GRALLOC1_ERROR_BAD_VALUE;
 	}
+
 
 	if (descriptorInfo->layerCount < 0)
 	{

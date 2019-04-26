@@ -442,10 +442,12 @@ struct aml_audio_device {
     struct subMixing *sm;
     struct aml_audio_mixer *audio_mixer;
     bool is_TV;
+    bool is_STB;
     bool useSubMix;
     //int cnt_stream_using_mixer;
     int tsync_fd;
     bool rawtopcm_flag;
+    int dtv_aformat;
 };
 
 struct meta_data {

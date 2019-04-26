@@ -163,6 +163,7 @@ LOCAL_COMMON_DISPLAY_FILES  := \
     common/display/OsdPlane.cpp \
     common/display/CursorPlane.cpp \
     common/display/LegacyVideoPlane.cpp \
+    common/display/LegacyExtVideoPlane.cpp \
     common/display/HwcVideoPlane.cpp \
     common/display/HwConnectorFactory.cpp \
     common/display/HwDisplayConnector.cpp \
@@ -229,6 +230,7 @@ LOCAL_PROPRIETARY_MODULE := true
 # added for treble
 LOCAL_SHARED_LIBRARIES += \
     vendor.amlogic.hardware.systemcontrol@1.0 \
+    vendor.amlogic.hardware.systemcontrol@1.1 \
     libbase \
     libhidlbase \
     libhidltransport

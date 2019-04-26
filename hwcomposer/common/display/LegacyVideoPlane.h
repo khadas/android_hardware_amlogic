@@ -24,8 +24,7 @@ public:
     uint32_t getPossibleCrtcs();
     bool isFbSupport(std::shared_ptr<DrmFramebuffer> & fb);
 
-    int32_t setPlane(std::shared_ptr<DrmFramebuffer> & fb, uint32_t zorder);
-    int32_t blank(int blankOp);
+    int32_t setPlane(std::shared_ptr<DrmFramebuffer> fb, uint32_t zorder, int blankOp);
 
     void dump(String8 & dumpstr);
 
@@ -35,6 +34,7 @@ protected:
 
     int32_t getMute(bool& status);
     int32_t setMute(bool status);
+    int32_t setZorder(uint32_t zorder);
 
     int32_t getVideodisableStatus(int & status);
     int32_t setVideodisableStatus(int status);
@@ -49,6 +49,7 @@ protected:
     drm_rect_t mBackupDisplayFrame;
     bool mNeedUpdateAxis;
     std::shared_ptr<DrmFramebuffer> mLegacyVideoFb;
+    drm_fb_type_t mVideoType;
 };
 
  #endif/*LEGACY_VIDEO_PLANE_H*/

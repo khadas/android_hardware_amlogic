@@ -47,6 +47,12 @@ bool am_gralloc_is_overlay_buffer(const native_handle_t * hnd);
 bool am_gralloc_is_omx_metadata_buffer(const native_handle_t * hnd);
 
 /*
+For modules to get/set omx video pipeline.
+*/
+int am_gralloc_get_omx_metadata_tunnel(const native_handle_t * hnd, int * tunnel);
+int am_gralloc_set_omx_metadata_tunnel(const native_handle_t * hnd, int tunnel);
+
+/*
 For modules create sideband handle.
 */
 typedef enum {

@@ -35,6 +35,7 @@ struct attr_region
 	int crop_width;
 	int use_yuv_transform;
 	int use_sparse_alloc;
+	int am_omx_tunnel;
 } __attribute__((packed));
 
 typedef struct attr_region attr_region;
@@ -157,6 +158,10 @@ static inline int gralloc_buffer_attr_write(struct private_handle_t *hnd, buf_at
 			region->use_sparse_alloc = *val;
 			rval = 0;
 			break;
+		case GRALLOC_ARM_BUFFER_ATTR_AM_OMX_TUNNEL:
+			region->am_omx_tunnel = *val;
+			rval = 0;
+			break;
 		}
 	}
 
@@ -191,6 +196,10 @@ static inline int gralloc_buffer_attr_read(struct private_handle_t *hnd, buf_att
 
 		case GRALLOC_ARM_BUFFER_ATTR_AFBC_SPARSE_ALLOC:
 			*val = region->use_sparse_alloc;
+			rval = 0;
+			break;
+		case GRALLOC_ARM_BUFFER_ATTR_AM_OMX_TUNNEL:
+			*val = region->am_omx_tunnel;
 			rval = 0;
 			break;
 		}

@@ -21,6 +21,7 @@
 #include "OsdPlane.h"
 #include "CursorPlane.h"
 #include "LegacyVideoPlane.h"
+#include "LegacyExtVideoPlane.h"
 #include "HwcVideoPlane.h"
 #include "AmFramebuffer.h"
 
@@ -133,7 +134,6 @@ void HwDisplayManager::handle(drm_display_event event, int val) {
     std::map<hw_display_id, HwDisplayObserver *>::iterator it;
     switch (event) {
         case DRM_EVENT_HDMITX_HOTPLUG:
-        //case DRM_EVENT_HDMITX_HDCP: /*TODO: Need to be handled separately.*/
             {
                 MESON_LOGD("Hotplug observer size %d to handle value %d.",
                     mObserver.size(), val);
@@ -145,6 +145,22 @@ void HwDisplayManager::handle(drm_display_event event, int val) {
                                 it->second->onHotplug((val == 0) ? false : true);
                                 break;
                         }
+            }
+            break;
+        case DRM_EVENT_HDMITX_HDCP:
+            {
+                MESON_LOGD("Hdcp observer size %d to handle value %d.",
+                    mObserver.size(), val);
+                for (it = mObserver.begin(); it != mObserver.end(); ++it) {
+                    for (uint32_t i = 0; i < count_pipes; i++) {
+                        if (pipes[i].crtc_id == it->first &&
+                            mConnectors[pipes[i].connector_id]->getType() ==
+                                DRM_MODE_CONNECTOR_HDMI) {
+                                it->second->onUpdate((val == 0) ? false : true);
+                                break;
+                        }
+                    }
+                }
             }
             break;
         case DRM_EVENT_MODE_CHANGED:
@@ -327,9 +343,13 @@ int32_t HwDisplayManager::loadPlanes() {
         }
         fd = open(path, O_RDWR, 0);
         if (fd >= 0) {
-            plane_idx = video_idx_max + idx;
+            plane_idx = video_idx_max + count_video;
             std::shared_ptr<LegacyVideoPlane> plane = std::make_shared<LegacyVideoPlane>(fd, plane_idx);
             mPlanes.emplace(plane_idx, plane);
+            count_video ++;
+            plane_idx = plane_idx + count_video;
+            std::shared_ptr<LegacyExtVideoPlane> extPlane = std::make_shared<LegacyExtVideoPlane>(fd, plane_idx);
+            mPlanes.emplace(plane_idx, extPlane);
             count_video ++;
         }
         idx ++;

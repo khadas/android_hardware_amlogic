@@ -155,10 +155,10 @@ int decode_header(struct mad_header *header, struct mad_stream *stream)
     /* layer */
     header->layer = 4 - mad_bit_read(&stream->ptr, 2);
 
-    //if (header->layer == 4) {
-    //    stream->error = MAD_ERROR_BADLAYER;
-    //    return -1;
-    //}
+    if (header->layer == 4) {
+        stream->error = MAD_ERROR_BADLAYER;
+        return -1;
+    }
 
     /* protection_bit */
     if (mad_bit_read(&stream->ptr, 1) == 0) {
@@ -428,8 +428,8 @@ sync:
     }
 
     stream->next_frame = stream->this_frame + N;
-
-    if (!stream->sync) {
+    //insure next frame head is legal
+    if (/*!stream->sync*/1) {
         /* check that a valid frame header follows this frame */
 
         ptr = stream->next_frame;
