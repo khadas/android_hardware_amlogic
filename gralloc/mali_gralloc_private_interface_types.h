@@ -35,6 +35,10 @@ enum
 
 	/* Set if the AFBC format uses sparse allocation */
 	GRALLOC_ARM_BUFFER_ATTR_AFBC_SPARSE_ALLOC = 3,
+
+	/* Amlogic: set tunnel index for omx video */
+        GRALLOC_ARM_BUFFER_ATTR_AM_OMX_TUNNEL = 4,
+
 	GRALLOC_ARM_BUFFER_ATTR_LAST
 };
 

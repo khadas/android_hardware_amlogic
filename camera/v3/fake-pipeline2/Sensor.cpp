@@ -1994,10 +1994,22 @@ void Sensor::captureRGB(uint8_t *img, uint32_t gain, uint32_t stride) {
     if (ret < 0)
     {
         ALOGD("start picture failed!");
+        return;
     }
     while(1)
     {
+        if (mFlushFlag) {
+            break;
+        }
+
+        if (mExitSensorThread) {
+            break;
+        }
+
         src = (uint8_t *)get_picture(vinfo);
+        if (get_device_status(vinfo)) {
+            break;
+        }
         if (NULL == src) {
             usleep(10000);
             continue;
@@ -2333,7 +2345,7 @@ void Sensor::captureNV21(StreamBuffer b, uint32_t gain) {
                     continue;
                 }
                 uint8_t *pUVBuffer = b.img + b.stride * height;
-                for (int i = 0; i < (int)(width * height / 4); i++) {
+                for (int i = 0; i < (int)(b.stride * height / 4); i++) {
                     *pUVBuffer++ = *(vBuffer + i);
                     *pUVBuffer++ = *(uBuffer + i);
                 }

@@ -865,7 +865,7 @@ static bool get_camera_formats_stride_and_size(int w, int h, uint64_t format, in
 			return false;
 		}
 
-		stride = 0; /* No 'rows', it's effectively a long one dimensional array */
+		stride = w; /* No 'rows', it's effectively a long one dimensional array */
 		size = w;
 		break;
 

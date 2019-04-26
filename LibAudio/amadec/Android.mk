@@ -152,8 +152,55 @@ LOCAL_PRELINK_MODULE := false
 LOCAL_MODULE_TAGS := optional
 include $(BUILD_SHARED_LIBRARY)
 
+#########################################################################################################################################################
+include $(CLEAR_VARS)
+
+LOCAL_CFLAGS := \
+        -fPIC -D_POSIX_SOURCE
+#ifdef DOLBY_UDC
+    LOCAL_CFLAGS+=-DDOLBY_USE_ARMDEC
+#endif
 
 
+ 
+LOCAL_C_INCLUDES:= \
+    $(LOCAL_PATH)/include \
+    $(AMAVUTILS_INCLUDE) \
+    frameworks/av/include \
+    system/media/audio/include \
+    system/libhidl/transport/token/1.0/utils/include
+
+
+LOCAL_CFLAGS += -DANDROID_PLATFORM_SDK_VERSION=$(PLATFORM_SDK_VERSION)
+LOCAL_CFLAGS += -DUSE_ARM_AUDIO_DEC
+ifneq (0, $(shell expr $(PLATFORM_VERSION) \>= 4.3))
+    LOCAL_CFLAGS += -DANDROID_VERSION_JBMR2_UP=1
+endif
+
+ifneq (0, $(shell expr $(PLATFORM_VERSION) \> 4.1.0))
+    LOCAL_CFLAGS += -D_VERSION_JB
+else
+    ifneq (0, $(shell expr $(PLATFORM_VERSION) \> 4.0.0))
+        LOCAL_CFLAGS += -D_VERSION_ICS
+    endif
+endif
+
+LOCAL_SRC_FILES := \
+           adec-external-ctrl.c adec-internal-mgt.c adec-ffmpeg-mgt.c adec-message.c adec-pts-mgt.c feeder.c adec_write.c adec_read.c\
+           dsp/audiodsp-ctl.c audio_out/android-out.cpp audio_out/aml_resample.c audiodsp_update_format.c \
+           adec_omx_brige.c adec-wfd.c
+
+LOCAL_MODULE := libamadec_system
+LOCAL_CFLAGS+=-DUSE_AOUT_IN_ADEC
+LOCAL_ARM_MODE := arm
+##################################################
+#$(shell cp $(LOCAL_PATH)/acodec_lib/*.so $(TARGET_OUT)/lib)
+###################################################
+LOCAL_SHARED_LIBRARIES += libutils libz libbinder libdl libcutils libc libamavutils_sys liblog libaudioclient
+
+LOCAL_PRELINK_MODULE := false
+LOCAL_MODULE_TAGS := optional
+include $(BUILD_SHARED_LIBRARY)
 
 
 #

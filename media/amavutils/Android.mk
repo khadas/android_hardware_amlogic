@@ -113,6 +113,53 @@ LOCAL_ARM_MODE := arm
 LOCAL_PRELINK_MODULE := false
 include $(BUILD_STATIC_LIBRARY)
 
+######################################################################
+LOCAL_CFLAGS += -DANDROID_PLATFORM_SDK_VERSION=$(PLATFORM_SDK_VERSION)
+ifeq ($(shell test $(PLATFORM_SDK_VERSION) -ge 28 && echo OK),OK)
+
+include $(CLEAR_VARS)
+LOCAL_CFLAGS+=-DNO_USE_SYSWRITE
+
+ifeq ($(TARGET_EXTERNAL_DISPLAY),true)
+ifeq ($(TARGET_SINGLE_EXTERNAL_DISPLAY_USE_FB1),true)
+LOCAL_CFLAGS += -DSINGLE_EXTERNAL_DISPLAY_USE_FB1
+endif
+endif
+
+LOCAL_CFLAGS += -Werror -Wformat -Wimplicit-function-declaration
+LOCAL_SRC_LISTS := \
+	$(wildcard $(LOCAL_PATH)/*.c) \
+	$(wildcard $(LOCAL_PATH)/*.cpp) \
+	$(wildcard $(LOCAL_PATH)/mediaconfig/*.cpp) \
+	$(wildcard $(LOCAL_PATH)/mediactl/*.cpp)
+
+LOCAL_SRC_FILES := $(LOCAL_SRC_LISTS:$(LOCAL_PATH)/%=%)
+
+LOCAL_C_INCLUDES := \
+	$(LOCAL_PATH)/include \
+	$(LOCAL_PATH)/../amcodec/include \
+	$(LOCAL_PATH)/../mediaconfig \
+	$(JNI_H_INCLUDE) \
+	$(TOP)/frameworks/native/services \
+	$(TOP)/frameworks/native/include \
+	$(TOP)/$(BOARD_AML_VENDOR_PATH)/frameworks/services \
+	$(TOP)/frameworks/native/libs/nativewindow/include
+
+LOCAL_SHARED_LIBRARIES := \
+	libutils \
+	libcutils \
+	libc \
+	libui \
+	libbinder \
+	liblog
+
+LOCAL_MODULE := libamavutils_sys
+LOCAL_MODULE_TAGS := optional
+LOCAL_ARM_MODE := arm
+LOCAL_PRELINK_MODULE := false
+include $(BUILD_SHARED_LIBRARY)
+endif
+######################################################################
 
 include $(CLEAR_VARS)
 LOCAL_CFLAGS+=-DNO_USE_SYSWRITE

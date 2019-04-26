@@ -448,7 +448,8 @@ void *get_picture(struct VideoInfo *vinfo)
                 /* fall through */
              default:
                 DBG_LOGB("VIDIOC_DQBUF failed, errno=%d\n", errno);
-                exit(1);
+                set_device_status(vinfo);
+                return NULL;
             }
         }
         DBG_LOGA("get picture\n");

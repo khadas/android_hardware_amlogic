@@ -12,6 +12,38 @@
 #include "gralloc_priv.h"
 #include "gralloc_buffer_priv.h"
 
+int am_gralloc_ext_get_ext_attr(struct private_handle_t * hnd,
+    buf_attr attr, int * val) {
+    if (hnd->attr_base == MAP_FAILED) {
+        if (gralloc_buffer_attr_map(hnd, 1) < 0) {
+            return GRALLOC1_ERROR_BAD_HANDLE;
+        }
+    }
+
+    if (gralloc_buffer_attr_read(hnd, attr, val) < 0) {
+        gralloc_buffer_attr_unmap(hnd);
+        return GRALLOC1_ERROR_BAD_HANDLE;
+    }
+
+    return GRALLOC1_ERROR_NONE;
+}
+
+int am_gralloc_ext_set_ext_attr(struct private_handle_t * hnd,
+    buf_attr attr, int val) {
+    if (hnd->attr_base == MAP_FAILED) {
+        if (gralloc_buffer_attr_map(hnd, 1) < 0) {
+            return GRALLOC1_ERROR_BAD_HANDLE;
+        }
+    }
+
+    if (gralloc_buffer_attr_write(hnd, attr, &val) < 0) {
+        gralloc_buffer_attr_unmap(hnd);
+        return GRALLOC1_ERROR_BAD_HANDLE;
+    }
+
+    return GRALLOC1_ERROR_NONE;
+}
+
 #if USE_BUFFER_USAGE
 #include <android/hardware/graphics/common/1.0/types.h>
 
@@ -166,6 +198,42 @@ bool am_gralloc_is_omx_metadata_buffer(
 
     return false;
  }
+
+ int am_gralloc_get_omx_metadata_tunnel(
+    const native_handle_t * hnd, int * tunnel) {
+    private_handle_t * buffer = hnd ? private_handle_t::dynamicCast(hnd) : NULL;
+    int ret = GRALLOC1_ERROR_NONE;
+    if (buffer) {
+        int val;
+        ret = am_gralloc_ext_get_ext_attr(buffer,
+            GRALLOC_ARM_BUFFER_ATTR_AM_OMX_TUNNEL, &val);
+        if (ret == GRALLOC1_ERROR_NONE) {
+            if (val == 1)
+                *tunnel = 1;
+            else
+                *tunnel = 0;
+        }
+    } else {
+        ret = GRALLOC1_ERROR_BAD_HANDLE;
+    }
+
+    return ret;
+}
+
+ int am_gralloc_set_omx_metadata_tunnel(
+    const native_handle_t * hnd, int tunnel) {
+     private_handle_t * buffer = hnd ? private_handle_t::dynamicCast(hnd) : NULL;
+     int ret = GRALLOC1_ERROR_NONE;
+
+    if (buffer) {
+        ret = am_gralloc_ext_set_ext_attr(buffer,
+            GRALLOC_ARM_BUFFER_ATTR_AM_OMX_TUNNEL, tunnel);
+    } else {
+        ret = GRALLOC1_ERROR_BAD_HANDLE;
+    }
+
+    return ret;
+}
 
  typedef struct am_sideband_handle {
     native_handle_t base;

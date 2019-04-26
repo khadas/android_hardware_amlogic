@@ -38,6 +38,8 @@
 
 #ifdef GRALLOC_AML_EXTEND
 #include "amlogic/am_gralloc_internal.h"
+#else
+#include "gralloc_usage_ext.h"
 #endif
 
 #include "mali_gralloc_module.h"
@@ -243,6 +245,7 @@ unsigned int pick_ion_heap(uint64_t usage)
 	return heap_type;
 }
 
+#ifndef GRALLOC_AML_EXTEND
 void set_ion_flags(unsigned int heap_type, uint64_t usage, unsigned int *priv_heap_flag, int *ion_flags)
 {
 #if !GRALLOC_USE_ION_DMA_HEAP
@@ -262,6 +265,11 @@ void set_ion_flags(unsigned int heap_type, uint64_t usage, unsigned int *priv_he
 		{
 			*priv_heap_flag &= ~private_handle_t::PRIV_FLAGS_USES_ION_DMA_HEAP;
 		}
+
+		if (usage & GRALLOC_USAGE_AML_SECURE || usage & GRALLOC_USAGE_PROTECTED)
+		{
+			*priv_heap_flag |= private_handle_t::PRIV_FLAGS_SECURE_PROTECTED;
+		}
 	}
 
 	if (ion_flags)
@@ -279,6 +287,7 @@ void set_ion_flags(unsigned int heap_type, uint64_t usage, unsigned int *priv_he
 #endif
 	}
 }
+#endif
 
 static bool check_buffers_sharable(const gralloc_buffer_descriptor_t *descriptors, uint32_t numDescriptors)
 {
@@ -754,6 +763,10 @@ void am_set_ion_flags(unsigned int heap_type, uint64_t usage,
 		else if (am_gralloc_is_video_overlay_extend_usage(usage))
 		{
 			*priv_heap_flag |= am_gralloc_get_video_overlay_extend_flag();
+		}
+		if (am_gralloc_is_secure_extend_usage(usage))
+		{
+		    *priv_heap_flag |= am_gralloc_get_secure_extend_flag();
 		}
 	}
 

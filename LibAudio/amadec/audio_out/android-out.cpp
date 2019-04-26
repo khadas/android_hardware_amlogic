@@ -39,6 +39,9 @@ extern "C" {
 #include <amthreadpool.h>
 }
 #include "adec-external-ctrl.h"
+
+#define LOG_TAG "android-out"
+
 namespace android
 {
 
@@ -72,11 +75,6 @@ static int get_digitalraw_mode(void)
 
 void restore_system_samplerate(struct aml_audio_dec* audec)
 {
-#if defined(ANDROID_VERSION_JBMR2_UP)
-    //unsigned int sr = 0;
-#else
-    int sr = 0;
-#endif 
     if( audec->format == ACODEC_FMT_TRUEHD ||
        (audec->format==ACODEC_FMT_DTS && audec->VersionNum==DTSETC_DECODE_VERSION_M6_M8 && audec->DTSHDIEC958_FS>192000 && amsysfs_get_sysfs_int("/sys/class/audiodsp/digital_raw")==2))
     {
@@ -136,7 +134,7 @@ void restore_system_samplerate(struct aml_audio_dec* audec)
 #endif
 }
 
-#if defined(ANDROID_VERSION_JBMR2_UP)
+#if 1
 static size_t old_frame_count = 0;
 #else
 static int old_frame_count = 0;
@@ -458,7 +456,7 @@ void audioCallback(int event, void* user, void *info)
         adec_print("resample changed to %d, step=%d, diff = %d", resample, resample_step,diff_avr);
       }
     }
-#if 1
+#if 0
     if (audec->tsync_mode == TSYNC_MODE_PCRMASTER && audec->pcrtsync_enable) {
         if (audec->adis_flag <= 0) {
             //unsigned long apts, pcrscr;
@@ -1003,7 +1001,7 @@ extern "C" int android_init(struct aml_audio_dec* audec)
 
     audio_session_t SessionID = audec->SessionID;
     adec_print("[%s %d]SessionID = %d audec->dtshdll_flag/%d audec->channels/%d",__FUNCTION__,__LINE__,SessionID,audec->dtshdll_flag,audec->channels);
-#if defined(_VERSION_JB)
+#if 1
     char tmp[128]={0};
     int FS_88_96_enable=0;
     if (property_get("media.libplayer.88_96K", tmp, "0") > 0 && !strcmp(tmp, "1")) {
@@ -1063,16 +1061,17 @@ extern "C" int android_init(struct aml_audio_dec* audec)
 //refered to android_media_AudioTrack_get_min_buff_size
 //return frameCount * channelCount * bytesPerSample;
        size_t frameCount = 0;
-       status = AudioTrack::getMinFrameCount(&frameCount, AUDIO_STREAM_DEFAULT,audec->samplerate);
+       status = AudioTrack::getMinFrameCount(&frameCount, AUDIO_STREAM_MUSIC,audec->samplerate);
        if (status ==   NO_ERROR) {
             frameCount = audec->channels*2*frameCount;
        }
        else
             frameCount = 0;
 
-        status = track->set(AUDIO_STREAM_MUSIC,
+       adec_print("[%s %d] samplerate:%d channels:%d frameCount:%d\n",__FUNCTION__,__LINE__, audec->samplerate, audec->channels, frameCount);
+       status = track->set(AUDIO_STREAM_DEFAULT,
                         audec->samplerate,
-                        AUDIO_FORMAT_PCM_16_BIT,
+                        AUDIO_FORMAT_DEFAULT,
                         (audec->channels == 1) ? AUDIO_CHANNEL_OUT_MONO : AUDIO_CHANNEL_OUT_STEREO,
                         frameCount,       // frameCount
                         AUDIO_OUTPUT_FLAG_NONE, // flags
@@ -1506,6 +1505,10 @@ extern "C" int android_mute_raw(struct aml_audio_dec* audec, adec_bool_t en)
     audio_out_operations_t *out_ops = &audec->aout_ops;
     AudioTrack *track = (AudioTrack *)out_ops->private_data_raw;
 #else
+    audio_out_operations_t *out_ops;
+    out_ops = NULL;//temp for pass compile
+    en = 0;//temp for pass compile
+    out_ops = &audec->aout_ops;
     AudioTrack *track = mpAudioTrack_raw.get();
 #endif
     if (track == 0) {
@@ -1513,7 +1516,7 @@ extern "C" int android_mute_raw(struct aml_audio_dec* audec, adec_bool_t en)
         return -1;
     }
 
-    track->mute(en);
+    //track->mute(en);
     return 0;
 }
 #endif
@@ -1536,10 +1539,10 @@ extern "C" int android_mute(struct aml_audio_dec* audec __unused, adec_bool_t en
 #ifdef ANDROID_VERSION_JBMR2_UP
 #else
     #ifdef USE_ARM_AUDIO_DEC
-	if(out_ops->audio_out_raw_enable)
-    	android_mute_raw(audec,en);
+    //if(out_ops->audio_out_raw_enable)
+    //android_mute_raw(audec,en);
     #endif
-	track->mute(en);
+    //track->mute(en);
 #endif
 
     return 0;

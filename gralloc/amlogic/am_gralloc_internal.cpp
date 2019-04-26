@@ -13,6 +13,12 @@
 #include "am_gralloc_internal.h"
 #include "gralloc_usage_ext.h"
 
+#if USE_BUFFER_USAGE
+#include <hardware/gralloc1.h>
+#else
+#include <hardware/gralloc.h>
+#endif
+
 #define UNUSED(x) {void}x
 
 bool am_gralloc_is_omx_metadata_extend_usage(
@@ -64,6 +70,21 @@ bool am_gralloc_is_video_overlay_extend_usage(
     return false;
 }
 
+bool am_gralloc_is_secure_extend_usage(
+    uint64_t usage) {
+#if USE_BUFFER_USAGE
+    if (usage & GRALLOC_USAGE_AML_SECURE || usage & GRALLOC1_PRODUCER_USAGE_PROTECTED) {
+        return true;
+    }
+#else
+    if (usage & GRALLOC_USAGE_AML_SECURE || usage & GRALLOC_USAGE_PROTECTED) {
+        return true;
+    }
+#endif
+
+    return false;
+}
+
 int am_gralloc_get_omx_metadata_extend_flag() {
     return private_handle_t::PRIV_FLAGS_VIDEO_OVERLAY
         | private_handle_t::PRIV_FLAGS_VIDEO_OMX;
@@ -76,6 +97,10 @@ int am_gralloc_get_coherent_extend_flag() {
 
 int am_gralloc_get_video_overlay_extend_flag() {
     return private_handle_t::PRIV_FLAGS_VIDEO_OVERLAY;
+}
+
+int am_gralloc_get_secure_extend_flag() {
+    return private_handle_t::PRIV_FLAGS_SECURE_PROTECTED;
 }
 
 

@@ -157,7 +157,29 @@ static audio_decoder_operations_t AudioArmDecoder = {
     0,
     0,
 };
-
+#ifdef USE_AOUT_IN_ADEC
+static int FFmpegDecoderInit(audio_decoder_operations_t *adec_ops __unused)
+{
+    return 0;
+}
+static int FFmpegDecode(audio_decoder_operations_t *adec_ops __unused, char *outbuf __unused, int *outlen __unused, char *inbuf __unused, int inlen __unused)
+{
+    return 0;
+}
+static int FFmpegDecoderRelease(audio_decoder_operations_t *adec_ops __unused)
+{
+    //aml_audio_dec_t *audec = (aml_audio_dec_t *)(adec_ops->priv_data);
+    return 0;
+}
+audio_decoder_operations_t AudioFFmpegDecoder = {
+    .name = "FFmpegDecoder",
+    .nAudioDecoderType = AUDIO_FFMPEG_DECODER,
+    .init = FFmpegDecoderInit,
+    .decode = FFmpegDecode,
+    .release = FFmpegDecoderRelease,
+    .getinfo = NULL,
+};
+#endif
 int package_list_free(aml_audio_dec_t * audec)
 {
     lp_lock(&(audec->pack_list.tslock));
@@ -401,6 +423,28 @@ int get_decoder_status(void *p, struct adec_status *adec)
  * \param audec pointer to audec ,codec_type
  * \return 0 on success otherwise -1 if an error occurred
  */
+#ifdef USE_AOUT_IN_ADEC
+ int RegisterDecode(aml_audio_dec_t *audec, int type)
+{
+    switch (type) {
+    case AUDIO_ARM_DECODER:
+        memset(&AudioArmDecoder, 0, sizeof(audio_decoder_operations_t));
+        audec->adec_ops = &AudioArmDecoder;
+        find_audio_lib(audec);
+        audec->adec_ops->priv_data = audec;
+        break;
+    case AUDIO_FFMPEG_DECODER:
+        audec->adec_ops = &AudioFFmpegDecoder;
+        audec->adec_ops->priv_data = audec;
+        break;
+    default:
+        audec->adec_ops = &AudioFFmpegDecoder;
+        audec->adec_ops->priv_data = audec;
+        break;
+    }
+    return 0;
+}
+#else
 int RegisterDecode(aml_audio_dec_t *audec)
 {
     memset(&AudioArmDecoder, 0, sizeof(audio_decoder_operations_t));
@@ -410,7 +454,7 @@ int RegisterDecode(aml_audio_dec_t *audec)
 
     return 0;
 }
-
+#endif
 static int InBufferInit(aml_audio_dec_t *audec)
 {
     int ret = uio_init(audec);
@@ -746,7 +790,9 @@ static int get_first_apts_flag(dsp_operations_t *dsp_ops)
  */
 static int start_adec(aml_audio_dec_t *audec)
 {
-    //audio_out_operations_t *aout_ops = &audec->aout_ops;
+    #ifdef USE_AOUT_IN_ADEC
+    audio_out_operations_t *aout_ops = &audec->aout_ops;
+    #endif
     dsp_operations_t *dsp_ops = &audec->adsp_ops;
     unsigned long  vpts, apts;
     int times = 0;
@@ -806,6 +852,9 @@ static int start_adec(aml_audio_dec_t *audec)
             adec_print("[wcs-%s]-before audio track start,sleep 200ms\n", __FUNCTION__);
             amthreadpool_thread_usleep(200 * 1000); //200ms
         }
+        #ifdef USE_AOUT_IN_ADEC
+        aout_ops->start(audec);
+        #endif
         audec->state = ACTIVE;
     } else {
         adec_print("amadec status invalid, start adec failed \n");
@@ -821,11 +870,15 @@ static int start_adec(aml_audio_dec_t *audec)
  */
 static void pause_adec(aml_audio_dec_t *audec)
 {
-    //audio_out_operations_t *aout_ops = &audec->aout_ops;
+    #ifdef USE_AOUT_IN_ADEC
+    audio_out_operations_t *aout_ops = &audec->aout_ops;
+    #endif
     if (audec->state == ACTIVE) {
         audec->state = PAUSED;
         adec_pts_pause();
-        //aout_ops->pause(audec);
+        #ifdef USE_AOUT_IN_ADEC
+        aout_ops->pause(audec);
+        #endif
     }
 }
 
@@ -835,12 +888,16 @@ static void pause_adec(aml_audio_dec_t *audec)
  */
 static void resume_adec(aml_audio_dec_t *audec)
 {
-    //audio_out_operations_t *aout_ops = &audec->aout_ops;
+    #ifdef USE_AOUT_IN_ADEC
+    audio_out_operations_t *aout_ops = &audec->aout_ops;
+    #endif
     if (audec->state == PAUSED) {
         audec->state = ACTIVE;
         audec->refresh_pts_readytime_ms = gettime_ms() +
                                           am_getconfig_int_def("media.amadec.wait_fresh_ms", 200);
-        //aout_ops->resume(audec);
+        #ifdef USE_AOUT_IN_ADEC
+        aout_ops->resume(audec);
+        #endif
         adec_pts_resume();
     }
 }
@@ -851,14 +908,18 @@ static void resume_adec(aml_audio_dec_t *audec)
  */
 static void stop_adec(aml_audio_dec_t *audec)
 {
-    //audio_out_operations_t *aout_ops = &audec->aout_ops;
+    #ifdef USE_AOUT_IN_ADEC
+    audio_out_operations_t *aout_ops = &audec->aout_ops;
+    #endif
     adec_print("[%s %d]audec->state/%d\n", __FUNCTION__, __LINE__, audec->state);
     if (audec->state > INITING) {
         char buf[64];
 
         audec->state = STOPPED;
-        //aout_ops->mute(audec, 1); //mute output, some repeat sound in audioflinger after stop
-        //aout_ops->stop(audec);
+        #ifdef USE_AOUT_IN_ADEC
+        aout_ops->mute(audec, 1); //mute output, some repeat sound in audioflinger after stop
+        aout_ops->stop(audec);
+        #endif
         audio_codec_release(audec);
 
         sprintf(buf, "0x%x", 0);
@@ -1052,18 +1113,22 @@ static void check_audio_info_changed(aml_audio_dec_t *audec)
             } else {
                 //experienc value:0.2 Secs
                 BufLevelAllowDoFmtChg = audec->samplerate * audec->channels * (audec->adec_ops->bps >> 3) / 5;
-//                while ((audec->format_changed_flag || g_bst->buf_level > BufLevelAllowDoFmtChg) && !audec->exit_decode_thread) {
-//                    amthreadpool_thread_usleep(20000);
-//                }
+                #ifdef USE_AOUT_IN_ADEC
+                while ((audec->format_changed_flag || g_bst->buf_level > BufLevelAllowDoFmtChg) && !audec->exit_decode_thread) {
+                    amthreadpool_thread_usleep(20000);
+                }
+                #endif
                 if (!audec->exit_decode_thread) {
                     adec_print("[%s]Info Changed: src:sample:%d  channel:%d dest sample:%d  channel:%d PCMBufLevel:%d\n",
                                __FUNCTION__, audec->samplerate, audec->channels, g_AudioInfo.samplerate, g_AudioInfo.channels, g_bst->buf_level);
                     g_bst->channels = g_AudioInfo.channels;
                     g_bst->samplerate = g_AudioInfo.samplerate;
-                    // if (audec->state == ACTIVE)
-                    //     if ((audec->aout_ops.pause != NULL)) {
-                    //         audec->aout_ops.pause(audec);
-                    //     }
+                    #ifdef USE_AOUT_IN_ADEC
+                    if (audec->state == ACTIVE)
+                        if ((audec->aout_ops.pause != NULL)) {
+                            audec->aout_ops.pause(audec);
+                        }
+                    #endif
                     audec->format_changed_flag = 1;
                 }
             }
@@ -1397,13 +1462,14 @@ void *adec_armdec_loop(void *args)
             amthreadpool_thread_usleep(10000);
         }
         adec_print("wait audio sr/channel done \n");
-        /*
-           ret = aout_ops->init(audec);
-           if (ret) {
-               adec_print("[%s %d]Audio out device init failed!", __FUNCTION__, __LINE__);
-               amthreadpool_thread_usleep(10000);
-               continue;
-           }*/
+        #ifdef USE_AOUT_IN_ADEC
+        ret = aout_ops->init(audec);
+        if (ret) {
+            adec_print("[%s %d]Audio out device init failed!", __FUNCTION__, __LINE__);
+            amthreadpool_thread_usleep(10000);
+            continue;
+        }
+        #endif
         //ok
         break;
     }
@@ -1413,7 +1479,9 @@ void *adec_armdec_loop(void *args)
 
 MSG_LOOP:
     do {
-
+        #ifdef USE_AOUT_IN_ADEC
+        adec_reset_track(audec);
+        #endif
         adec_flag_check(audec);
 
         msg = adec_get_message(audec);

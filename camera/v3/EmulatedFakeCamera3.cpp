@@ -1756,6 +1756,10 @@ status_t EmulatedFakeCamera3::constructStaticInfo() {
     /*camera feature setting in /device/amlogic/xxx/xxx.mk files*/
     uint8_t lensFacing = mFacingBack ?
             ANDROID_LENS_FACING_BACK : ANDROID_LENS_FACING_FRONT;
+   /*in cdd , usb camera is external facing*/
+   if ( mSensorType == SENSOR_USB )
+          lensFacing = ANDROID_LENS_FACING_EXTERNAL;
+
     info.update(ANDROID_LENS_FACING, &lensFacing, 1);
 
     float lensPosition[3];
@@ -2144,7 +2148,7 @@ status_t EmulatedFakeCamera3::constructStaticInfo() {
     static const uint8_t awbstate = ANDROID_CONTROL_AWB_STATE_INACTIVE;
     info.update(ANDROID_CONTROL_AWB_STATE,&awbstate,1);
     // android.info
-    const uint8_t supportedHardwareLevel = ANDROID_INFO_SUPPORTED_HARDWARE_LEVEL_LIMITED;
+    const uint8_t supportedHardwareLevel = ANDROID_INFO_SUPPORTED_HARDWARE_LEVEL_LEGACY;
         //mFullMode ? ANDROID_INFO_SUPPORTED_HARDWARE_LEVEL_FULL :
         //            ANDROID_INFO_SUPPORTED_HARDWARE_LEVEL_LIMITED;
     info.update(ANDROID_INFO_SUPPORTED_HARDWARE_LEVEL,
