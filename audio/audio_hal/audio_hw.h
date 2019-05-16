@@ -196,45 +196,45 @@ struct aml_arc_hdmi_desc {
 };
 
 enum patch_src_assortion {
-    SRC_DTV,
-    SRC_ATV,
-    SRC_LINEIN,
-    SRC_HDMIIN,
-    SRC_SPDIFIN,
-    SRC_REMOTE_SUBMIXIN,
-    SRC_WIRED_HEADSETIN,
-    SRC_BUILTIN_MIC,
-    SRC_ECHO_REFERENCE,
-    SRC_ARCIN,
-    SRC_OTHER,
-    SRC_INVAL
+    SRC_DTV                     = 0,
+    SRC_ATV                     = 1,
+    SRC_LINEIN                  = 2,
+    SRC_HDMIIN                  = 3,
+    SRC_SPDIFIN                 = 4,
+    SRC_REMOTE_SUBMIXIN         = 5,
+    SRC_WIRED_HEADSETIN         = 6,
+    SRC_BUILTIN_MIC             = 7,
+    SRC_ECHO_REFERENCE          = 8,
+    SRC_ARCIN                   = 9,
+    SRC_OTHER                   = 10,
+    SRC_INVAL                   = 11,
 };
 
 enum OUT_PORT {
-    OUTPORT_SPEAKER = 0,
-    OUTPORT_HDMI_ARC,
-    OUTPORT_HDMI,
-    OUTPORT_SPDIF,
-    OUTPORT_AUX_LINE,
-    OUTPORT_HEADPHONE,
-    OUTPORT_REMOTE_SUBMIX,
-    OUTPORT_A2DP,
-    OUTPORT_BT_SCO,
-    OUTPORT_BT_SCO_HEADSET,
-    OUTPORT_MAX
+    OUTPORT_SPEAKER             = 0,
+    OUTPORT_HDMI_ARC            = 1,
+    OUTPORT_HDMI                = 2,
+    OUTPORT_SPDIF               = 3,
+    OUTPORT_AUX_LINE            = 4,
+    OUTPORT_HEADPHONE           = 5,
+    OUTPORT_REMOTE_SUBMIX       = 6,
+    OUTPORT_A2DP                = 7,
+    OUTPORT_BT_SCO              = 8,
+    OUTPORT_BT_SCO_HEADSET      = 9,
+    OUTPORT_MAX                 = 10,
 };
 
 enum IN_PORT {
-    INPORT_TUNER = 0,
-    INPORT_HDMIIN,
-    INPORT_SPDIF,
-    INPORT_LINEIN,
-    INPORT_REMOTE_SUBMIXIN,
-    INPORT_WIRED_HEADSETIN,
-    INPORT_BUILTIN_MIC,
-    INPORT_ECHO_REFERENCE,
-    INPORT_ARCIN,
-    INPORT_MAX
+    INPORT_TUNER                = 0,
+    INPORT_HDMIIN               = 1,
+    INPORT_SPDIF                = 2,
+    INPORT_LINEIN               = 3,
+    INPORT_REMOTE_SUBMIXIN      = 4,
+    INPORT_WIRED_HEADSETIN      = 5,
+    INPORT_BUILTIN_MIC          = 6,
+    INPORT_ECHO_REFERENCE       = 7,
+    INPORT_ARCIN                = 8,
+    INPORT_MAX                  = 9,
 };
 
 struct audio_patch_set {
@@ -285,7 +285,6 @@ typedef union {
 } aec_timestamp;
 
 struct aml_audio_mixer;
-const char* usecase2Str(stream_usecase_t enUsecase);
 
 struct aml_bt_output {
     bool active;
@@ -414,7 +413,7 @@ struct aml_audio_device {
      * buffer pointer whose data output to headphone
      * buffer size equal to efect_buf_size
      */
-    void *hp_output_buf;
+    void *spk_output_buf;
     void *effect_buf;
     size_t effect_buf_size;
     size_t spk_tuning_lvl;
@@ -461,39 +460,6 @@ struct aml_audio_device {
     int system_app_mixing_status;
     int audio_type;
     struct aml_mixer_handle alsa_mixer;
-#if defined(IS_ATOM_PROJECT)
-    struct aml_stream_in *aux_mic_in;
-    int mic_running;
-    int spk_running;
-    ring_buffer_t spk_ring_buf;
-    void *spk_buf;
-    size_t spk_buf_size;
-    size_t spk_write_bytes;
-    size_t extra_write_bytes;
-    void *output_tmp_buf;
-    unsigned int output_tmp_buf_size;
-
-    // spk_buf mgmt
-    atom_stream_type_t atom_stream_type_val;
-    unsigned long long spk_buf_last_write_time;
-    unsigned long long spk_buf_write_count;
-    unsigned long long spk_buf_read_count;
-    unsigned long long spk_buf_very_first_write_time;
-
-    unsigned long long debug_spk_buf_time_last;
-    unsigned long long debug_spk_buf_time_curr;
-
-    bool has_dsp_lib;
-    void *aec_buf;
-    void *dsp_in_buf;
-    size_t dsp_frames;
-    void *pstFir_mic;
-    void *pstFir_spk;
-
-    pthread_mutex_t aec_spk_mic_lock;
-    pthread_mutex_t aec_spk_buf_lock;
-    pthread_mutex_t dsp_processing_lock;
-#endif
     struct subMixing *sm;
     struct aml_audio_mixer *audio_mixer;
     bool is_TV;

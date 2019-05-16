@@ -893,7 +893,7 @@ int aml_audio_get_src_tune_latency(enum patch_src_assortion patch_src) {
         prop_name = "persist.vendor.audio.tune_ms.linein";
         break;
     default:
-        ALOGE("%s(), unsupported audio patch source: %d", __func__, patch_src);
+        ALOGE("%s(), unsupported audio patch source: %s", __func__, patchSrc2Str(patch_src));
         return 0;
     }
 
@@ -1321,5 +1321,91 @@ bool is_disable_ms12_continuous(struct audio_stream_out *stream) {
         return true;
     }
     return false;
+}
+
+const char* patchSrc2Str(enum patch_src_assortion type)
+{
+    static char acTypeStr[ENUM_TYPE_STR_MAX_LEN];
+    char *pStr = "INVALID";
+    int prefixLen = strlen("SRC_");
+    switch (type) {
+        ENUM_TYPE_TO_STR(SRC_DTV, prefixLen, pStr)
+        ENUM_TYPE_TO_STR(SRC_ATV, prefixLen, pStr)
+        ENUM_TYPE_TO_STR(SRC_LINEIN, prefixLen, pStr)
+        ENUM_TYPE_TO_STR(SRC_HDMIIN, prefixLen, pStr)
+        ENUM_TYPE_TO_STR(SRC_SPDIFIN, prefixLen, pStr)
+        ENUM_TYPE_TO_STR(SRC_REMOTE_SUBMIXIN, prefixLen, pStr)
+        ENUM_TYPE_TO_STR(SRC_WIRED_HEADSETIN, prefixLen, pStr)
+        ENUM_TYPE_TO_STR(SRC_BUILTIN_MIC, prefixLen, pStr)
+        ENUM_TYPE_TO_STR(SRC_ECHO_REFERENCE, prefixLen, pStr)
+        ENUM_TYPE_TO_STR(SRC_ARCIN, prefixLen, pStr)
+        ENUM_TYPE_TO_STR(SRC_OTHER, prefixLen, pStr)
+        ENUM_TYPE_TO_STR(SRC_INVAL, prefixLen, pStr)
+    }
+    sprintf(acTypeStr, "[%d]%s", type, pStr);
+    return acTypeStr;
+}
+
+const char* usecase2Str(stream_usecase_t type)
+{
+    static char acTypeStr[ENUM_TYPE_STR_MAX_LEN];
+    char *pStr = "INVALID";
+    int prefixLen = strlen("STREAM_");
+    switch (type) {
+        ENUM_TYPE_TO_STR(STREAM_PCM_NORMAL, prefixLen, pStr)
+        ENUM_TYPE_TO_STR(STREAM_PCM_DIRECT, prefixLen, pStr)
+        ENUM_TYPE_TO_STR(STREAM_PCM_HWSYNC, prefixLen, pStr)
+        ENUM_TYPE_TO_STR(STREAM_RAW_DIRECT, prefixLen, pStr)
+        ENUM_TYPE_TO_STR(STREAM_RAW_HWSYNC, prefixLen, pStr)
+        ENUM_TYPE_TO_STR(STREAM_PCM_PATCH, prefixLen, pStr)
+        ENUM_TYPE_TO_STR(STREAM_RAW_PATCH, prefixLen, pStr)
+        ENUM_TYPE_TO_STR(STREAM_PCM_MMAP, prefixLen, pStr)
+        ENUM_TYPE_TO_STR(STREAM_USECASE_MAX, prefixLen, pStr)
+    }
+    sprintf(acTypeStr, "[%d]%s", type, pStr);
+    return acTypeStr;
+}
+
+const char* outputPort2Str(enum OUT_PORT type)
+{
+    static char acTypeStr[ENUM_TYPE_STR_MAX_LEN];
+    char *pStr = "INVALID";
+    int prefixLen = strlen("OUTPORT_");
+    switch (type) {
+        ENUM_TYPE_TO_STR(OUTPORT_SPEAKER, prefixLen, pStr)
+        ENUM_TYPE_TO_STR(OUTPORT_HDMI_ARC, prefixLen, pStr)
+        ENUM_TYPE_TO_STR(OUTPORT_HDMI, prefixLen, pStr)
+        ENUM_TYPE_TO_STR(OUTPORT_SPDIF, prefixLen, pStr)
+        ENUM_TYPE_TO_STR(OUTPORT_AUX_LINE, prefixLen, pStr)
+        ENUM_TYPE_TO_STR(OUTPORT_HEADPHONE, prefixLen, pStr)
+        ENUM_TYPE_TO_STR(OUTPORT_REMOTE_SUBMIX, prefixLen, pStr)
+        ENUM_TYPE_TO_STR(OUTPORT_A2DP, prefixLen, pStr)
+        ENUM_TYPE_TO_STR(OUTPORT_BT_SCO, prefixLen, pStr)
+        ENUM_TYPE_TO_STR(OUTPORT_BT_SCO_HEADSET, prefixLen, pStr)
+        ENUM_TYPE_TO_STR(OUTPORT_MAX, prefixLen, pStr)
+    }
+    sprintf(acTypeStr, "[%d]%s", type, pStr);
+    return acTypeStr;
+}
+
+const char* inputPort2Str(enum IN_PORT type)
+{
+    static char acTypeStr[ENUM_TYPE_STR_MAX_LEN];
+    char *pStr = "INVALID";
+    int prefixLen = strlen("INPORT_");
+    switch (type) {
+        ENUM_TYPE_TO_STR(INPORT_TUNER, prefixLen, pStr)
+        ENUM_TYPE_TO_STR(INPORT_HDMIIN, prefixLen, pStr)
+        ENUM_TYPE_TO_STR(INPORT_SPDIF, prefixLen, pStr)
+        ENUM_TYPE_TO_STR(INPORT_LINEIN, prefixLen, pStr)
+        ENUM_TYPE_TO_STR(INPORT_REMOTE_SUBMIXIN, prefixLen, pStr)
+        ENUM_TYPE_TO_STR(INPORT_WIRED_HEADSETIN, prefixLen, pStr)
+        ENUM_TYPE_TO_STR(INPORT_BUILTIN_MIC, prefixLen, pStr)
+        ENUM_TYPE_TO_STR(INPORT_ECHO_REFERENCE, prefixLen, pStr)
+        ENUM_TYPE_TO_STR(INPORT_ARCIN, prefixLen, pStr)
+        ENUM_TYPE_TO_STR(INPORT_MAX, prefixLen, pStr)
+    }
+    sprintf(acTypeStr, "[%d]%s", type, pStr);
+    return acTypeStr;
 }
 

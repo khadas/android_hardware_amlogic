@@ -91,4 +91,10 @@ bool is_multi_channel_pcm(struct audio_stream_out *stream);
 bool is_high_rate_pcm(struct audio_stream_out *stream);
 bool is_disable_ms12_continuous(struct audio_stream_out *stream);
 int find_offset_in_file_strstr(char *mystr, char *substr);
+
+const char* patchSrc2Str(enum patch_src_assortion type);
+const char* usecase2Str(stream_usecase_t type);
+const char* outputPort2Str(enum OUT_PORT type);
+const char* inputPort2Str(enum IN_PORT type);
+
 #endif

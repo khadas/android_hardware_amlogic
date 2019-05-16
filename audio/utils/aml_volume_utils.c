@@ -125,7 +125,6 @@ void apply_volume_fade(float last_volume, float volume, void *buf, int sample_si
     return;
 }
 
-
 float get_volume_by_index(int volume_index)
 {
     float volume = 1.0;
