@@ -83,15 +83,16 @@ LOCAL_SRC_FILES := $(avb_common_sources) \
     libavb_user/avb_ops_user.cpp \
     libavb_user/avb_user_verity.c \
     libavb_user/avb_user_verification.c
-LOCAL_SHARED_LIBRARIES := liblog libbase
-LOCAL_STATIC_LIBRARIES := libfs_mgr libfstab
 
+LOCAL_C_INCLUDES += \
+    system/core/fs_mgr/include \
+    system/core/fs_mgr/include_fstab
 
-ifeq (($(shell test $(PLATFORM_SDK_VERSION) -ge 26 ) && ($(shell test $(PLATFORM_SDK_VERSION) -lt 28)  && echo OK),OK)
+ifeq ($(shell test $(PLATFORM_SDK_VERSION) -ge 26 ) && echo OK),OK)
 LOCAL_PROPRIETARY_MODULE := true
 endif
 
-ifeq ($(PLATFORM_SDK_VERSION),28)
+ifeq ($(PLATFORM_SDK_VERSION),29)
 LOCAL_PRIVATE_PLATFORM_APIS := true
 LOCAL_PRODUCT_MODULE := true
 LOCAL_JAVA_LIBRARIES += org.apache.http.legacy
@@ -107,6 +108,7 @@ LOCAL_MODULE := avbctl_amlogic
 LOCAL_MODULE_CLASS := EXECUTABLES
 LOCAL_EXPORT_C_INCLUDE_DIRS := $(LOCAL_PATH)
 LOCAL_CPP_EXTENSION := .cc
+LOCAL_PRIVATE_PLATFORM_APIS := true
 LOCAL_CLANG := true
 LOCAL_CFLAGS := $(avb_common_cflags) -DAVB_COMPILATION -DAVB_ENABLE_DEBUG
 LOCAL_CPPFLAGS := $(avb_common_cppflags)
@@ -123,11 +125,11 @@ LOCAL_SRC_FILES := \
 
 LOCAL_MODULE_PATH := $(TARGET_OUT_PRODUCT)/bin
 
-ifeq (($(shell test $(PLATFORM_SDK_VERSION) -ge 26 ) && ($(shell test $(PLATFORM_SDK_VERSION) -lt 28)  && echo OK),OK)
+ifeq ($(shell test $(PLATFORM_SDK_VERSION) -ge 26 ) && echo OK),OK)
 LOCAL_PROPRIETARY_MODULE := true
 endif
 
-ifeq ($(PLATFORM_SDK_VERSION),28)
+ifeq ($(PLATFORM_SDK_VERSION),29)
 LOCAL_PRIVATE_PLATFORM_APIS := true
 LOCAL_PRODUCT_MODULE := true
 LOCAL_JAVA_LIBRARIES += org.apache.http.legacy
@@ -140,11 +142,16 @@ include $(BUILD_EXECUTABLE)
 include $(CLEAR_VARS)
 LOCAL_MODULE := bootctrl.amlogic
 LOCAL_MODULE_TAGS := optional
-
 LOCAL_MODULE_RELATIVE_PATH := hw
 LOCAL_REQUIRED_MODULES := libavb_amlogic
 LOCAL_SRC_FILES := \
     boot_control/boot_control_avb.c
+
+LOCAL_C_INCLUDES += \
+    hardware/libhardware/include \
+    system/core/libcutils/include \
+    system/core/libsystem/include \
+    system/core/libutils/include
 
 LOCAL_CLANG := true
 LOCAL_CFLAGS := $(avb_common_cflags) -DAVB_AB_I_UNDERSTAND_LIBAVB_AB_IS_DEPRECATED
@@ -158,11 +165,12 @@ LOCAL_POST_INSTALL_CMD := \
   cp $(PRODUCT_OUT)/product/lib/hw/bootctrl.amlogic.so $(PRODUCT_OUT)/vendor/lib/hw/bootctrl.default.so
 
 
-ifeq (($(shell test $(PLATFORM_SDK_VERSION) -ge 26 ) && ($(shell test $(PLATFORM_SDK_VERSION) -lt 28)  && echo OK),OK)
+ifeq ($(shell test $(PLATFORM_SDK_VERSION) -ge 26 ) && echo OK),OK)
+$(warning here)
 LOCAL_PROPRIETARY_MODULE := true
 endif
 
-ifeq ($(PLATFORM_SDK_VERSION),28)
+ifeq ($(PLATFORM_SDK_VERSION),29)
 LOCAL_PRIVATE_PLATFORM_APIS := true
 LOCAL_PRODUCT_MODULE := true
 LOCAL_JAVA_LIBRARIES += org.apache.http.legacy
