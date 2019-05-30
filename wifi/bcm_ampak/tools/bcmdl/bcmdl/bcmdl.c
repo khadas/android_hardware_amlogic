@@ -524,7 +524,7 @@ int main(int argc, char **argv)
 						ret= checkWlan();
 					if (ret) {
 						fprintf(stderr, "AP6269 is ready to work\n");
-						property_set("bcmdl_status", "ok");
+						property_set("vendor.bcmdl_status", "ok");
 						break;
 					}
 				}

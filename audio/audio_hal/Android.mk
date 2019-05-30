@@ -80,10 +80,15 @@ ifeq ($(strip $(BOARD_ALSA_AUDIO)),tiny)
         libaudioutils libdl libaudioroute libutils \
         libdroidaudiospdif libamaudioutils libamlaudiorc libamadec
 
+#/*[SEI-zhaopf-2018-12-18] add for HBG remote audio support { */
+ifeq ($(BOARD_ENABLE_HBG), true)
+    LOCAL_SHARED_LIBRARIES += libhbg
+endif
+#/*[SEI-zhaopf-2018-12-18] add for HBG remote audio support } */
+
 ifeq ($(BOARD_ENABLE_NANO), true)
     LOCAL_SHARED_LIBRARIES += libnano
 endif
-
     LOCAL_MODULE_TAGS := optional
 
     LOCAL_CFLAGS += -Werror
@@ -92,6 +97,9 @@ ifneq ($(TARGET_BUILD_VARIANT),user)
 endif
 ifeq ($(BOARD_ENABLE_NANO), true)
 		LOCAL_CFLAGS += -DENABLE_NANO_PATCH=1
+endif
+ifeq ($(BOARD_ENABLE_HBG), true)
+LOCAL_CFLAGS += -DENABLE_HBG_PATCH
 endif
 
 ifeq ($(strip $(TARGET_WITH_TV_AUDIO_MODE)),true)

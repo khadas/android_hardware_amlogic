@@ -557,6 +557,9 @@ typedef ssize_t (*write_func)(struct audio_stream_out *stream, const void *buffe
 #define MAX_PREPROCESSORS 3 /* maximum one AGC + one NS + one AEC per input stream */
 struct aml_stream_in {
     struct audio_stream_in stream;
+#if defined(ENABLE_HBG_PATCH)
+    int hbg_channel;
+#endif
     pthread_mutex_t lock;       /* see note below on mutex acquisition order */
     struct pcm_config config;
     struct pcm *pcm;
