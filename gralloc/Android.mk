@@ -187,7 +187,8 @@ LOCAL_MULTILIB := both
 
 LOCAL_C_INCLUDES += system/core/libion/include \
 	system/core/libcutils/include \
-        system/core/libion/kernel-headers
+    system/core/libion \
+    system/core/libion/kernel-headers
 
 LOCAL_SRC_FILES := \
 	ion_wrapper.cpp \

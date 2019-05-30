@@ -47,9 +47,9 @@
 #define BT_VND_OP_GET_LINESPEED 12
 
 #ifdef PANIC_ON_SOC_CRASH
-#define BT_VND_FILTER_START "wc_transport.start_root"
+#define BT_VND_FILTER_START "vendor.wc_transport.start_root"
 #else
-#define BT_VND_FILTER_START "wc_transport.start_hci"
+#define BT_VND_FILTER_START "vendor.wc_transport.start_hci"
 #endif
 
 #define CMD_TIMEOUT  0x22
@@ -243,7 +243,7 @@ bool can_perform_action(char action) {
 	char inProgress[PROPERTY_VALUE_MAX] = {'\0'};
 	int value, ret;
 
-	property_get("wc_transport.ref_count", ref_count, "0");
+	property_get("vendor.wc_transport.ref_count", ref_count, "0");
 
 	value = atoi(ref_count);
 	ALOGV("%s: ref_count: %s\n", __func__,  ref_count);
@@ -252,7 +252,7 @@ bool can_perform_action(char action) {
 		ALOGV("%s: on : value is: %d", __func__, value);
 		if (value == 1)
 		{
-			property_get("wc_transport.patch_dnld_inprog", inProgress, "0");
+			property_get("vendor.wc_transport.patch_dnld_inprog", inProgress, "0");
 			if ((is_soc_initialized() == true) || (strcmp(inProgress, "1") == 0))
 			{
 				value++;
@@ -280,7 +280,7 @@ bool can_perform_action(char action) {
 	snprintf(ref_count, 3, "%d", value);
 	ALOGV("%s: updated ref_count is: %s", __func__, ref_count);
 
-	ret  = property_set("wc_transport.ref_count", ref_count);
+	ret  = property_set("vendor.wc_transport.ref_count", ref_count);
 	if (ret < 0) {
 		ALOGE("%s: Error while updating property: %d\n", __func__, ret);
 		return false;
@@ -301,7 +301,7 @@ void stop_hci_filter() {
 	}
 
 	property_set(BT_VND_FILTER_START, "false");
-	property_set("wc_transport.hci_filter_status", "0");
+	property_set("vendor.wc_transport.hci_filter_status", "0");
 	ALOGV("%s: Exit ", __func__);
 }
 
@@ -317,14 +317,14 @@ void start_hci_filter() {
 		return;
 	}
 
-	property_set("wc_transport.hci_filter_status", "0");
+	property_set("vendor.wc_transport.hci_filter_status", "0");
 	property_set(BT_VND_FILTER_START, "true");
 
 	ALOGV("%s: %s set to true ", __func__, BT_VND_FILTER_START );
 
 	//sched_yield();
 	for (i = 0; i < 45; i++) {
-		property_get("wc_transport.hci_filter_status", value, "0");
+		property_get("vendor.wc_transport.hci_filter_status", value, "0");
 		if (strcmp(value, "1") == 0) {
 			init_success = 1;
 			break;
@@ -354,14 +354,14 @@ static int bt_powerup(int en )
 	ALOGI("bt_powerup: %c", on);
 
 	/* Check if rfkill has been disabled */
-	ret = property_get("ro.rfkilldisabled", disable, "0");
+	ret = property_get("ro.vendor.rfkilldisabled", disable, "0");
 	if (!ret ) {
-		ALOGE("Couldn't get ro.rfkilldisabled (%d)", ret);
+		ALOGE("Couldn't get ro.vendor.rfkilldisabled (%d)", ret);
 		return -1;
 	}
 	/* In case rfkill disabled, then no control power*/
 	if (strcmp(disable, "1") == 0) {
-		ALOGI("ro.rfkilldisabled : %s", disable);
+		ALOGI("ro.vendor.rfkilldisabled : %s", disable);
 		return -1;
 	}
 
@@ -512,15 +512,15 @@ bool is_soc_initialized() {
 
 	ALOGI("bt-vendor : is_soc_initialized");
 
-	ret = property_get("wc_transport.soc_initialized", init_value, NULL);
+	ret = property_get("vendor.wc_transport.soc_initialized", init_value, NULL);
 	if (ret != 0) {
-		ALOGI("wc_transport.soc_initialized set to %s\n", init_value);
+		ALOGI("vendor.wc_transport.soc_initialized set to %s\n", init_value);
 		if (!strncasecmp(init_value, "1", sizeof("1"))) {
 			init = true;
 		}
 	}
 	else {
-		ALOGE("%s: Failed to get wc_transport.soc_initialized", __FUNCTION__);
+		ALOGE("%s: Failed to get vendor.wc_transport.soc_initialized", __FUNCTION__);
 	}
 
 	return init;
@@ -724,7 +724,7 @@ static int op(bt_vendor_opcode_t opcode, void *param)
 	case BT_VND_OP_ANT_USERIAL_CLOSE:
 	{
 		ALOGI("bt-vendor : BT_VND_OP_ANT_USERIAL_CLOSE");
-		property_set("wc_transport.clean_up", "1");
+		property_set("vendor.wc_transport.clean_up", "1");
 		if (ant_fd != -1) {
 			ALOGE("closing ant_fd");
 			close(ant_fd);
@@ -745,7 +745,7 @@ static int op(bt_vendor_opcode_t opcode, void *param)
 
 		case BT_SOC_ROME:
 		case BT_SOC_AR3K:
-			property_set("wc_transport.clean_up", "1");
+			property_set("vendor.wc_transport.clean_up", "1");
 			userial_vendor_close();
 			break;
 		default:
@@ -833,7 +833,7 @@ static int op(bt_vendor_opcode_t opcode, void *param)
 		case BT_SOC_ROME:
 		{
 			char value[PROPERTY_VALUE_MAX] = {'\0'};
-			property_get("wc_transport.hci_filter_status", value, "0");
+			property_get("vendor.wc_transport.hci_filter_status", value, "0");
 			if (is_soc_initialized() && (strcmp(value, "1") == 0))
 			{
 				hw_epilog_process();
@@ -891,7 +891,7 @@ static void ssr_cleanup(int reason) {
 	UNUSED(reason);
 
 	ALOGI("ssr_cleanup");
-	if (property_set("wc_transport.patch_dnld_inprog", "0") < 0) {
+	if (property_set("vendor.wc_transport.patch_dnld_inprog", "0") < 0) {
 		ALOGE("%s: Failed to set property", __FUNCTION__);
 	}
 
@@ -949,7 +949,7 @@ void wait_for_patch_download() {
 	ALOGV("%s:", __FUNCTION__);
 	char inProgress[PROPERTY_VALUE_MAX] = {'\0'};
 	while (1) {
-		property_get("wc_transport.patch_dnld_inprog", inProgress, "0");
+		property_get("vendor.wc_transport.patch_dnld_inprog", inProgress, "0");
 		if (strcmp(inProgress, "1") == 0) {
 			usleep(50000);
 		}

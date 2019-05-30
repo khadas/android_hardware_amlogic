@@ -24,14 +24,14 @@
 
 #ifndef AWAR
 #define AWAR(fmt, args...) \
-	__android_log_print(ANDROID_LOG_WARN, "[Gralloc-Warning]", "%s:%d " fmt, __func__, __LINE__, ##args)
+	__android_log_print(ANDROID_LOG_WARN, "gralloc", "%s:%d " fmt, __func__, __LINE__, ##args)
 #endif
 #ifndef AINF
-#define AINF(fmt, args...) __android_log_print(ANDROID_LOG_INFO, "[Gralloc]", fmt, ##args)
+#define AINF(fmt, args...) __android_log_print(ANDROID_LOG_INFO, "gralloc", fmt, ##args)
 #endif
 #ifndef AERR
 #define AERR(fmt, args...) \
-	__android_log_print(ANDROID_LOG_ERROR, "[Gralloc-ERROR]", "%s:%d " fmt, __func__, __LINE__, ##args)
+	__android_log_print(ANDROID_LOG_ERROR, "gralloc", "%s:%d " fmt, __func__, __LINE__, ##args)
 #endif
 #ifndef AERR_IF
 #define AERR_IF(eq, fmt, args...) \

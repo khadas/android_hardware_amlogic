@@ -109,7 +109,6 @@ static void init_afbc(uint8_t *buf, uint64_t internal_format, int w, int h)
 
 static int alloc_from_ion_heap(int ion_fd, size_t size, unsigned int *type, unsigned int flags, int *min_pgsz)
 {
-	ion_user_handle_t ion_hnd = -1;
 	int shared_fd, ret;
 	unsigned int heap_type = *type;
 
@@ -126,7 +125,7 @@ static int alloc_from_ion_heap(int ion_fd, size_t size, unsigned int *type, unsi
 	 *            kernel will count the reference of file struct, so it's safe to
 	 *            be transfered between processes.
 	 */
-	ret = ion_alloc(ion_fd, size, 0, 1<<heap_type, flags, &ion_hnd);
+	ret = ion_alloc_fd(ion_fd, size, 0, 1<<heap_type, flags, &shared_fd);
 
 	if (ret < 0)
 	{
@@ -145,25 +144,8 @@ static int alloc_from_ion_heap(int ion_fd, size_t size, unsigned int *type, unsi
 			/* If everything else failed try system heap */
 			flags = 0; /* Fallback option flags are not longer valid */
 			heap_type = ION_HEAP_TYPE_SYSTEM;
-			ret = ion_alloc(ion_fd, size, 0, 1<<heap_type, flags, &ion_hnd);
+			ret = ion_alloc_fd(ion_fd, size, 0, 1<<heap_type, flags, &shared_fd);
 		}
-	}
-
-	ret = ion_share(ion_fd, ion_hnd, &shared_fd);
-
-	if (ret != 0)
-	{
-		AERR("ion_share( %d ) failed", ion_fd);
-		shared_fd = -1;
-	}
-
-	ret = ion_free(ion_fd, ion_hnd);
-
-	if (0 != ret)
-	{
-		AERR("ion_free( %d ) failed", ion_fd);
-		close(shared_fd);
-		shared_fd = -1;
 	}
 
 	if (ret >= 0)
