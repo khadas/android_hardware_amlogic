@@ -101,7 +101,7 @@
  *  firmware patchram (.hcd) file.
  */
 #ifndef USE_CONTROLLER_BDADDR
-#define USE_CONTROLLER_BDADDR   FALSE
+#define USE_CONTROLLER_BDADDR   TRUE	//<AK>James 20190130 False->True:Fix BT MAC address is wrong
 #endif
 
 /* sleep mode
