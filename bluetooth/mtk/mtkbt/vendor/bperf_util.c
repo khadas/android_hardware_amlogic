@@ -850,7 +850,7 @@ static void _bperf_analysis()
 {
     char prop_value_char[PROPERTY_VALUE_MAX];
     int prop_value_int = 0;
-    if ( property_get("persist.bluetooth.bperf.average", prop_value_char, "0") > 0 )
+    if ( property_get("persist.vendor.bluetooth.bperf.average", prop_value_char, "0") > 0 )
     {
         prop_value_int = atoi(prop_value_char);
         if ( prop_value_int > 0 && prop_value_int < 100000 )
@@ -904,7 +904,7 @@ static void _bperf_analysis()
     {
         prop_value_int--;
         snprintf(prop_value_char, 5, "%d", prop_value_int);
-        property_set("persist.bluetooth.bperf.average", prop_value_char);
+        property_set("persist.vendor.bluetooth.bperf.average", prop_value_char);
 
         if ( prop_value_int == 0 )
         {
@@ -915,14 +915,14 @@ static void _bperf_analysis()
                     LOG_PER(YELLOW "[bperf] BLE ADV Num(average)(%ds) " LIGHT_CYAN "(%d)" NONECOLOR, bperf_average_total_time, (event_counter_summary_ble_adv/bperf_average_total_time));
                     event_counter_summary_ble_adv = 0;
                     snprintf(prop_value_char, 5, "%d", event_counter_summary_ble_adv);
-                    property_set("persist.bt.adv_num", prop_value_char);
+                    property_set("persist.vendor.bt.adv_num", prop_value_char);
                 }
                 if ( event_len_summary_a2dp )
                 {
                     LOG_PER(YELLOW "[bperf] A2DP(average)(%ds) Throughput" LIGHT_CYAN "(%dbps)" NONECOLOR, bperf_average_total_time, (event_len_summary_a2dp<<3)/bperf_average_total_time);
                     event_len_summary_a2dp = 0;
                     snprintf(prop_value_char, 8, "%d", (event_len_summary_a2dp<<3)/bperf_average_total_time);
-                    property_set("persist.bt.a2dp_avg_rate", prop_value_char);
+                    property_set("persist.vendor.bt.a2dp_avg_rate", prop_value_char);
                 }
                 if ( event_counter_summary_hid )
                 {
@@ -931,7 +931,7 @@ static void _bperf_analysis()
                             event_counter_summary_hid/bperf_average_total_time,
                             event_counter_summary_hid_delta_time_max/1000);
                     snprintf(prop_value_char, 5, "%d", event_counter_summary_hid);
-                    property_set("persist.bt.hid_num", prop_value_char);
+                    property_set("persist.vendor.bt.hid_num", prop_value_char);
                     event_counter_summary_hid = 0;
                     event_counter_summary_hid_delta_time_max = 0;
                 }
@@ -942,7 +942,7 @@ static void _bperf_analysis()
                             event_counter_summary_hid_cursor/bperf_average_total_time,
                             event_counter_summary_hid_cursor_delta_time_max/1000);
                     snprintf(prop_value_char, 5, "%d", event_counter_summary_hid_cursor);
-                    property_set("persist.bt.hid_cur_num", prop_value_char);
+                    property_set("persist.vendor.bt.hid_cur_num", prop_value_char);
                     event_counter_summary_hid_cursor = 0;
                     event_counter_summary_hid_cursor_delta_time_max = 0;
                 }
@@ -953,7 +953,7 @@ static void _bperf_analysis()
                             event_counter_summary_hogp/bperf_average_total_time,
                             event_counter_summary_hogp_delta_time_max/1000);
                     snprintf(prop_value_char, 5, "%d", event_counter_summary_hogp);
-                    property_set("persist.bt.hopg_num", prop_value_char);
+                    property_set("persist.vendor.bt.hopg_num", prop_value_char);
                     event_counter_summary_hogp = 0;
                     event_counter_summary_hogp_delta_time_max = 0;
                 }
@@ -964,7 +964,7 @@ static void _bperf_analysis()
                             event_counter_summary_hogp_cursor/bperf_average_total_time,
                             event_counter_summary_hogp_cursor_delta_time_max/1000);
                     snprintf(prop_value_char, 5, "%d", event_counter_summary_hogp_cursor);
-                    property_set("persist.bt.hopg_cur_num", prop_value_char);
+                    property_set("persist.vendor.bt.hopg_cur_num", prop_value_char);
                     event_counter_summary_hogp_cursor = 0;
                     event_counter_summary_hogp_cursor_delta_time_max = 0;
                 }
@@ -972,14 +972,14 @@ static void _bperf_analysis()
                 {
                     LOG_PER(YELLOW "[bperf] VOICE(average)(%ds) Voice Data Rate" LIGHT_CYAN "(%dbps)" NONECOLOR, bperf_average_total_time, (event_len_summary_voice<<3)/bperf_average_total_time);
                     snprintf(prop_value_char, 8, "%d", (event_len_summary_voice<<3)/bperf_average_total_time);
-                    property_set("persist.bt.voble_avg_rate", prop_value_char);
+                    property_set("persist.vendor.bt.voble_avg_rate", prop_value_char);
                     event_len_summary_voice = 0;
                 }
                 if ( event_len_summary_rc_fw_upgrade )
                 {
                     LOG_PER(YELLOW "[bperf] VOICE(average)(%ds) Voice Data Rate" LIGHT_CYAN "(%dbps)" NONECOLOR, bperf_average_total_time, (event_len_summary_rc_fw_upgrade<<3)/bperf_average_total_time);
                     snprintf(prop_value_char, 5, "%d", (event_len_summary_rc_fw_upgrade<<3)/bperf_average_total_time);
-                    property_set("persist.bt.rc_fw_upg_avg_rate", prop_value_char);
+                    property_set("persist.vendor.bt.rc_fw_upg_avg_rate", prop_value_char);
                     event_len_summary_rc_fw_upgrade = 0;
                 }
             }
@@ -991,11 +991,11 @@ static void _bperf_analysis()
     /* prop_value_int == 0 */
     else
     {
-        property_get("persist.bluetooth.perf.average", prop_value_char, "0");
+        property_get("persist.vendor.bluetooth.perf.average", prop_value_char, "0");
         prop_value_int = atoi(prop_value_char);
         if ( prop_value_int > 0 )
         {
-            property_set("persist.bluetooth.bperf.average", prop_value_char);
+            property_set("persist.vendor.bluetooth.bperf.average", prop_value_char);
         }
     }
 }
