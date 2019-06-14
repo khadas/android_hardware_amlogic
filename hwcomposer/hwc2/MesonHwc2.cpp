@@ -188,10 +188,16 @@ int32_t  MesonHwc2::getColorModes(hwc2_display_t display,
     return HWC2_ERROR_NONE;
 }
 
-int32_t MesonHwc2::setColorMode(hwc2_display_t display, int32_t mode __unused) {
+int32_t MesonHwc2::setColorMode(hwc2_display_t display, int32_t mode) {
     CHECK_DISPLAY_VALID(display);
      /*Only support native color mode, nothing to do now.*/
-     return HWC2_ERROR_NONE;
+     if (mode < HAL_COLOR_MODE_NATIVE)
+        return HWC2_ERROR_BAD_PARAMETER;
+
+    if (mode == HAL_COLOR_MODE_NATIVE)
+        return HWC2_ERROR_NONE;
+    else
+        return HWC2_ERROR_UNSUPPORTED;
 }
 
 int32_t MesonHwc2::setColorTransform(hwc2_display_t display,
@@ -483,6 +489,36 @@ int32_t MesonHwc2::getPerFrameMetadataKeys(
 }
 #endif
 
+int32_t MesonHwc2::getRenderIntents(hwc2_display_t display,
+    int32_t mode, uint32_t* outNumIntents, int32_t* outIntents) {
+    GET_HWC_DISPLAY(display);
+
+    if (mode < HAL_COLOR_MODE_NATIVE)
+        return HWC2_ERROR_BAD_PARAMETER;
+    if (mode != HAL_COLOR_MODE_NATIVE)
+        return HWC2_ERROR_UNSUPPORTED;
+
+    *outNumIntents = 1;
+    if (outIntents) {
+        *outIntents = HAL_RENDER_INTENT_COLORIMETRIC;
+    }
+
+    return HWC2_ERROR_NONE;
+}
+
+int32_t MesonHwc2::setColorModeWithRenderIntent(
+    hwc2_display_t display, int32_t  mode, int32_t  intent) {
+    GET_HWC_DISPLAY(display);
+
+    if (mode < HAL_COLOR_MODE_NATIVE ||
+        intent < HAL_RENDER_INTENT_COLORIMETRIC)
+        return HWC2_ERROR_BAD_PARAMETER;
+    if (mode != HAL_COLOR_MODE_NATIVE ||
+        intent != HAL_RENDER_INTENT_COLORIMETRIC)
+        return HWC2_ERROR_UNSUPPORTED;
+
+    return HWC2_ERROR_NONE;
+}
 
 /**********************Internal Implement********************/
 
