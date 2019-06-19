@@ -103,7 +103,7 @@ int is_video_on_vpp2(void)
 
     char val[PROPERTY_VALUE_MAX];
     memset(val, 0, sizeof(val));
-    if (property_get("ro.media.vout.dualdisplay4", val, "false")
+    if (property_get("ro.vendor.media.vout.dualdisplay4", val, "false")
         && strcmp(val, "true") == 0) {
         memset(val, 0, sizeof(val));
         if (amsysfs_get_sysfs_str("/sys/module/amvideo/parameters/cur_dev_idx", val, sizeof(val)) == 0) {
@@ -123,7 +123,7 @@ int is_vertical_panel(void)
     // ro.vout.dualdisplay4.ver-panel
     char val[PROPERTY_VALUE_MAX];
     memset(val, 0, sizeof(val));
-    if (property_get("ro.media.vout.dualdisplay4.ver-panel", val, "false")
+    if (property_get("ro.vendor.media.vout.dualdisplay4.ver-panel", val, "false")
         && strcmp(val, "true") == 0) {
         ret = 1;
     }
@@ -138,7 +138,7 @@ int is_screen_portrait(void)
     // ro.vout.dualdisplay4.ver-panel
     char val[PROPERTY_VALUE_MAX];
     memset(val, 0, sizeof(val));
-    if (property_get("ro.media.screen.portrait", val, "false")
+    if (property_get("ro.vendor.media.screen.portrait", val, "false")
         && strcmp(val, "true") == 0) {
         ret = 1;
     }
@@ -183,7 +183,7 @@ int is_vertical_panel_reverse(void)
     // ro.vout.dualdisplay4.ver-panel
     char val[PROPERTY_VALUE_MAX];
     memset(val, 0, sizeof(val));
-    if (property_get("ro.media.ver-panel.reverse", val, "false")
+    if (property_get("ro.vendor.media.ver-panel.reverse", val, "false")
         && strcmp(val, "true") == 0) {
         ret = 1;
     }
