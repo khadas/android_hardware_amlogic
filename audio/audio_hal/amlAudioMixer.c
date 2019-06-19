@@ -597,7 +597,7 @@ static int mixer_inports_read(struct amlAudioMixer *audio_mixer)
                     if (port_index == MIXER_INPUT_PORT_PCM_DIRECT)
                         direct_ready = true;
 
-                    if (getprop_bool("media.audiohal.inport") &&
+                    if (getprop_bool("vendor.media.audiohal.inport") &&
                             (in_port->port_index == MIXER_INPUT_PORT_PCM_DIRECT)) {
                             aml_audio_dump_audio_bitstreams("/data/audio/inportDirectFade.raw",
                                     in_port->data, in_port->data_len_bytes);
