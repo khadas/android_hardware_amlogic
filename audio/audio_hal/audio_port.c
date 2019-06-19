@@ -38,7 +38,7 @@ static ssize_t input_port_write(struct input_port *port, const void *buffer, int
     int written = 0;
 
     written = ring_buffer_write(port->r_buf, data, bytes_to_write, UNCOVER_WRITE);
-    if (getprop_bool("media.audiohal.inport")) {
+    if (getprop_bool("vendor.media.audiohal.inport")) {
         if (port->port_index == MIXER_INPUT_PORT_PCM_SYSTEM)
             aml_audio_dump_audio_bitstreams("/data/audio/inportSys.raw", buffer, written);
         //else if (port->port_index == MIXER_INPUT_PORT_PCM_DIRECT)
@@ -493,7 +493,7 @@ static ssize_t output_port_write_alsa(struct output_port *port, void *buffer, in
                 ret, pcm_get_error(port->pcm_handle));
            usleep(1000);
         }
-        if (written > 0 && getprop_bool("media.audiohal.inport")) {
+        if (written > 0 && getprop_bool("vendor.media.audiohal.inport")) {
             aml_audio_dump_audio_bitstreams("/data/audio/audioOutPort.raw", buffer, written);
         }
         bytes_to_write -= written;
