@@ -58,4 +58,6 @@ ifeq ($(shell test $(PLATFORM_SDK_VERSION) -ge 26 && echo OK),OK)
 LOCAL_PROPRIETARY_MODULE := true
 endif
 
+ifneq ($(PLATFORM_VERSION), R)
 include $(BUILD_SHARED_LIBRARY)
+endif
