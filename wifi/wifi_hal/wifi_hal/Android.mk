@@ -44,8 +44,7 @@ LOCAL_SRC_FILES := \
 	cpp_bindings.cpp \
 	gscan.cpp \
 	link_layer_stats.cpp \
-	wifi_logger.cpp \
-	wifi_offload.cpp
+	wifi_logger.cpp
 
 LOCAL_MODULE := libwifi-hal-mt66xx
 LOCAL_PROPRIETARY_MODULE := true
