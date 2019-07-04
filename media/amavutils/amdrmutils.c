@@ -195,7 +195,7 @@ int tvp_mm_get_mem_region(struct tvp_region* region, int region_size)
     return -1;
 }
 
-int get_tvp_mm_enable()
+int tvp_mm_get_enable()
 {
     int fd, len;
     char buf[BUF_LEN];
