@@ -71,7 +71,7 @@ struct amlAudioMixer {
     pthread_mutex_t lock;
     pthread_cond_t cond;
     int exit_thread : 1;
-    int mixing_enable : 1;
+    int mixing_enable;
     enum mixer_state state;
     struct timespec tval_last_write;
     void *adev_data;
@@ -1316,6 +1316,11 @@ static void *mixer_16b_threadloop(void *data)
     int ret = 0;
 
     ALOGI("++%s start", __func__);
+    ALOGI("++%s() audio_mixer->mixing_enable %d", __func__, audio_mixer->mixing_enable);
+    if (audio_mixer->mixing_enable == 0) {
+        pthread_exit(0);
+        return NULL;
+    }
     audio_mixer->exit_thread = 0;
     prctl(PR_SET_NAME, "amlAudioMixer16");
     set_thread_affinity();
@@ -1406,6 +1411,8 @@ int pcm_mixer_thread_run(struct amlAudioMixer *audio_mixer)
         ALOGE("%s(), out mixer thread already running", __func__);
         return -EINVAL;
     }
+    audio_mixer->mixing_enable = 1;
+    ALOGI("++%s() audio_mixer->mixing_enable %d", __func__, audio_mixer->mixing_enable);
     switch (out_pcm_port->cfg.format) {
     case AUDIO_FORMAT_PCM_32_BIT:
         ret = pthread_create(&audio_mixer->out_mixer_tid,
@@ -1423,6 +1430,7 @@ int pcm_mixer_thread_run(struct amlAudioMixer *audio_mixer)
         ALOGE("%s(), format not supported", __func__);
         break;
     }
+    ALOGI("++%s() audio_mixer->mixing_enable %d, pthread_create ret %d", __func__, audio_mixer->mixing_enable, ret);
 
     return ret;
 }
@@ -1430,6 +1438,8 @@ int pcm_mixer_thread_run(struct amlAudioMixer *audio_mixer)
 int pcm_mixer_thread_exit(struct amlAudioMixer *audio_mixer)
 {
     ALOGD("+%s()", __func__);
+    audio_mixer->mixing_enable = 0;
+    ALOGI("++%s() audio_mixer->mixing_enable %d", __func__, audio_mixer->mixing_enable);
     // block exit
     audio_mixer->exit_thread = 1;
     pthread_cond_broadcast(&audio_mixer->cond);
