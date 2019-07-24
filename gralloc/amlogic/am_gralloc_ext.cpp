@@ -8,9 +8,22 @@
  */
 
 #include "am_gralloc_ext.h"
+#if USE_BUFFER_USAGE == 1
 #include <hardware/gralloc1.h>
-#include "gralloc_priv.h"
+#else
+#include <hardware/gralloc.h>
+#include <gralloc_usage_ext.h>
+#endif
+#include <gralloc_priv.h>
 #include "gralloc_buffer_priv.h"
+
+bool am_gralloc_is_valid_graphic_buffer(
+    const native_handle_t * hnd) {
+    private_handle_t const* buffer = hnd ? private_handle_t::dynamicCast(hnd) : NULL;
+    if (buffer)
+        return true;
+    return false;
+}
 
 int am_gralloc_ext_get_ext_attr(struct private_handle_t * hnd,
     buf_attr attr, int * val) {
@@ -77,25 +90,44 @@ bool am_gralloc_is_omx_metadata_producer(uint64_t usage) {
 }
 #else
 uint64_t am_gralloc_get_video_overlay_producer_usage() {
+#if USE_BUFFER_USAGE == 1
     return GRALLOC1_PRODUCER_USAGE_VIDEO_DECODER;
+#else
+    return GRALLOC_USAGE_AML_VIDEO_OVERLAY;
+#endif
 }
 
 uint64_t am_gralloc_get_omx_metadata_producer_usage() {
+#if USE_BUFFER_USAGE == 1
     return (GRALLOC1_PRODUCER_USAGE_VIDEO_DECODER ||
             GRALLOC1_PRODUCER_USAGE_CPU_READ_OFTEN ||
             GRALLOC1_PRODUCER_USAGE_CPU_WRITE_OFTEN);
+#else
+    return (GRALLOC_USAGE_AML_VIDEO_OVERLAY ||
+            GRALLOC_USAGE_SW_READ_OFTEN ||
+            GRALLOC_USAGE_SW_WRITE_OFTEN);
+#endif
 }
 
 uint64_t am_gralloc_get_omx_osd_producer_usage() {
+#if USE_BUFFER_USAGE == 1
     return (GRALLOC1_PRODUCER_USAGE_VIDEO_DECODER ||
             GRALLOC1_PRODUCER_USAGE_GPU_RENDER_TARGET);
+#else
+    return (GRALLOC_USAGE_AML_VIDEO_OVERLAY ||
+            GRALLOC_USAGE_HW_RENDER);
+#endif
 }
 
 bool am_gralloc_is_omx_metadata_producer(uint64_t usage) {
     if (!am_gralloc_is_omx_osd_producer(usage)) {
         uint64_t omx_metadata_usage = am_gralloc_get_omx_metadata_producer_usage();
         if (((usage & omx_metadata_usage) == omx_metadata_usage)
+#if GRALLOC_USE_GRALLOC1_API == 1
             && !(usage & GRALLOC1_PRODUCER_USAGE_GPU_RENDER_TARGET)) {
+#else
+            && !(usage & GRALLOC_USAGE_HW_RENDER)) {
+#endif
             return true;
         }
     }
@@ -161,6 +193,24 @@ int am_gralloc_get_height(const native_handle_t * hnd) {
     return 0;
 }
 
+uint64_t am_gralloc_get_producer_usage(
+    const native_handle_t * hnd) {
+    private_handle_t const* buffer = hnd ? private_handle_t::dynamicCast(hnd) : NULL;
+    if (buffer)
+        return buffer->producer_usage;
+
+    return 0;
+}
+
+uint64_t am_gralloc_get_consumer_usage(
+    const native_handle_t * hnd) {
+    private_handle_t const* buffer = hnd ? private_handle_t::dynamicCast(hnd) : NULL;
+    if (buffer)
+        return buffer->consumer_usage;
+
+    return 0;
+}
+
 bool am_gralloc_is_secure_buffer(const native_handle_t *hnd) {
     private_handle_t const* buffer = hnd ? private_handle_t::dynamicCast(hnd) : NULL;
      if (NULL == buffer)
@@ -174,6 +224,9 @@ bool am_gralloc_is_secure_buffer(const native_handle_t *hnd) {
 
 bool am_gralloc_is_coherent_buffer(const native_handle_t * hnd) {
     private_handle_t const* buffer = hnd ? private_handle_t::dynamicCast(hnd) : NULL;
+    if (NULL == buffer)
+        return false;
+
     if ((buffer->flags & private_handle_t::PRIV_FLAGS_CONTINUOUS_BUF)
             || (buffer->flags & private_handle_t::PRIV_FLAGS_USES_ION_DMA_HEAP)) {
         return true;
@@ -235,17 +288,18 @@ bool am_gralloc_is_omx_metadata_buffer(
     return ret;
 }
 
- typedef struct am_sideband_handle {
-    native_handle_t base;
-    int id;
-    int flags;
- } am_sideband_handle_t;
+typedef struct am_sideband_handle {
+   native_handle_t base;
+   unsigned int id;
+   int flags;
+   int channel;
+} am_sideband_handle_t;
 
-#define AM_SIDEBAND_HANDLE_NUM_INT (2)
+#define AM_SIDEBAND_HANDLE_NUM_INT (3)
 #define AM_SIDEBAND_HANDLE_NUM_FD (0)
 #define AM_SIDEBAND_IDENTIFIER (0xabcdcdef)
 
-native_handle_t * am_gralloc_create_sideband_handle(int type) {
+native_handle_t * am_gralloc_create_sideband_handle(int type, int channel) {
     am_sideband_handle_t * pHnd = (am_sideband_handle_t *)
         native_handle_create(AM_SIDEBAND_HANDLE_NUM_FD,
         AM_SIDEBAND_HANDLE_NUM_INT);
@@ -255,7 +309,10 @@ native_handle_t * am_gralloc_create_sideband_handle(int type) {
         pHnd->flags = private_handle_t::PRIV_FLAGS_VIDEO_OVERLAY;
     } else if (type == AM_OMX_SIDEBAND) {
         pHnd->flags = private_handle_t::PRIV_FLAGS_VIDEO_OMX;
+    } else if (type == AM_AMCODEX_SIDEBAND) {
+        pHnd->flags = private_handle_t::PRIV_FLAGS_VIDEO_AMCODEX;
     }
+    pHnd->channel = channel;
 
     return (native_handle_t *)pHnd;
 }
@@ -268,15 +325,41 @@ int am_gralloc_destroy_sideband_handle(native_handle_t * hnd) {
     return 0;
 }
 
+ int am_gralloc_get_sideband_channel(
+    const native_handle_t * hnd, int * channel) {
+    if (!hnd || hnd->version != sizeof(native_handle_t)
+        || hnd->numInts != AM_SIDEBAND_HANDLE_NUM_INT || hnd->numFds != AM_SIDEBAND_HANDLE_NUM_FD) {
+        return GRALLOC1_ERROR_BAD_HANDLE;
+    }
+
+    am_sideband_handle_t * buffer = (am_sideband_handle_t *)(hnd);
+    if (buffer->id != AM_SIDEBAND_IDENTIFIER)
+        return GRALLOC1_ERROR_BAD_HANDLE;
+
+    int ret = GRALLOC1_ERROR_NONE;
+    if (buffer) {
+        if (buffer->channel == AM_VIDEO_DEFAULT) {
+            *channel = AM_VIDEO_DEFAULT;
+        } else {
+            *channel = AM_VIDEO_EXTERNAL;
+        }
+    } else {
+        ret = GRALLOC1_ERROR_BAD_HANDLE;
+    }
+
+    return ret;
+}
+
 int am_gralloc_get_vpu_afbc_mask(const native_handle_t * hnd) {
-    private_handle_t * buffer = hnd ? private_handle_t::dynamicCast(hnd) : NULL;
+    private_handle_t const* buffer = hnd ? private_handle_t::dynamicCast(hnd) : NULL;
 
     if (buffer) {
         uint64_t internalFormat = buffer->internal_format;
         int afbcFormat = 0;
 
         if (internalFormat & MALI_GRALLOC_INTFMT_AFBCENABLE_MASK) {
-            afbcFormat |=(VPU_AFBC_EN | VPU_AFBC_BLOCK_SPLIT | VPU_AFBC_YUV_TRANSFORM);
+            afbcFormat |=
+                (VPU_AFBC_EN | VPU_AFBC_YUV_TRANSFORM |VPU_AFBC_BLOCK_SPLIT);
 
             if (internalFormat & MALI_GRALLOC_INTFMT_AFBC_WIDEBLK) {
                 afbcFormat |= VPU_AFBC_SUPER_BLOCK_ASPECT;

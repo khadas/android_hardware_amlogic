@@ -11,7 +11,6 @@
 #include <MesonLog.h>
 #include <misc.h>
 #include <systemcontrol.h>
-#include <HwcConfig.h>
 
 #include "AmVinfo.h"
 #include "ConnectorHdmi.h"
@@ -33,6 +32,11 @@ ConnectorHdmi::ConnectorHdmi(int32_t drvFd, uint32_t id)
     :   HwDisplayConnector(drvFd, id) {
     mConnected = false;
     mSecure = false;
+#ifdef ENABLE_FRACTIONAL_REFRESH_RATE
+    mFracMode = true;
+#else
+    mFracMode = false;
+#endif
 
     snprintf(mName, 64, "HDMI-%d", id);
 }
@@ -102,8 +106,14 @@ int32_t ConnectorHdmi::loadDisplayModes() {
     #if WORKAROUND_FOR_CVBS_HDMI_AUTOSWITCH
     std::string cvbs576("576cvbs");
     std::string cvbs480("480cvbs");
+    std::string pal_m("pal_m");
+    std::string pal_n("pal_n");
+    std::string ntsc_m("ntsc_m");
     addDisplayMode(cvbs576);
     addDisplayMode(cvbs480);
+    addDisplayMode(pal_m);
+    addDisplayMode(pal_n);
+    addDisplayMode(ntsc_m);
     #endif
 
     if (sc_get_hdmitx_mode_list(supportDispModes) < 0) {
@@ -149,7 +159,7 @@ int32_t ConnectorHdmi::addDisplayMode(std::string& mode) {
         (float)vinfo->sync_duration_num/vinfo->sync_duration_den};
     strcpy(modeInfo.name, mode.c_str());
 
-    if (HwcConfig::fracRefreshRateEnabled()) {
+    if (mFracMode) {
         // add frac refresh rate config, like 23.976hz, 29.97hz...
         if (modeInfo.refreshRate == REFRESH_24kHZ
             || modeInfo.refreshRate == REFRESH_30kHZ
@@ -174,7 +184,7 @@ int32_t ConnectorHdmi::getModes(std::map<uint32_t, drm_mode_info_t> & modes) {
 }
 
 int32_t ConnectorHdmi::setMode(drm_mode_info_t & mode) {
-    if (!HwcConfig::fracRefreshRateEnabled())
+    if (!mFracMode)
         return 0;
 
     /*update rate policy.*/

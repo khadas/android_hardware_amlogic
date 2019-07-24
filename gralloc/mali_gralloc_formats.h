@@ -259,6 +259,7 @@ typedef struct mali_gralloc_format_caps mali_gralloc_format_caps;
 /* Producer and Consumer definitions */
 typedef enum
 {
+	MALI_GRALLOC_PRODUCER_CPU,
 	MALI_GRALLOC_PRODUCER_VIDEO_DECODER,
 	MALI_GRALLOC_PRODUCER_GPU,
 	MALI_GRALLOC_PRODUCER_CAMERA,
@@ -274,6 +275,7 @@ typedef enum
 typedef enum
 {
 
+	MALI_GRALLOC_CONSUMER_CPU,
 	/* For surface composition in SurfaceFlinger a producer
      * will not know what consumer will process a buffer.
      *

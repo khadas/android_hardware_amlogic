@@ -11,7 +11,7 @@
 #include <DrmTypes.h>
 #include <MesonLog.h>
 
-#define LEGACY_VIDEO_MODE_SWITCH       0    // Only use in current device (Only one leagcy video plane)
+#define LEGACY_VIDEO_MODE_SWITCH       0    // Only use in current device (Only one legacy video plane)
 #define OSD_OUTPUT_ONE_CHANNEL         1
 #define OSD_PLANE_DIN_ZERO             0    // din0: osd fb input
 #define OSD_PLANE_DIN_ONE              1    // din1: osd fb input
@@ -96,6 +96,8 @@ int MultiplanesComposition::handleVideoComposition() {
         {DRM_FB_VIDEO_OMX_PTS, LEGACY_VIDEO_PLANE,
             MESON_COMPOSITION_PLANE_AMVIDEO},
         {DRM_FB_VIDEO_SIDEBAND, LEGACY_VIDEO_PLANE,
+            MESON_COMPOSITION_PLANE_AMVIDEO_SIDEBAND},
+        {DRM_FB_VIDEO_SIDEBAND_SECOND, LEGACY_EXT_VIDEO_PLANE,
             MESON_COMPOSITION_PLANE_AMVIDEO_SIDEBAND},
         {DRM_FB_VIDEO_OMX_PTS_SECOND, LEGACY_EXT_VIDEO_PLANE,
             MESON_COMPOSITION_PLANE_AMVIDEO},
@@ -207,7 +209,7 @@ int MultiplanesComposition::pickoutOsdFbs() {
             case MESON_COMPOSITION_CLIENT:
                 mHaveClient  = true;
                 bClientLayer = true;
-                [[clang::fallthrough]];
+				[[clang::fallthrough]];
             case MESON_COMPOSITION_UNDETERMINED:
                 {
                     /* we thought plane with same type have some scanout capacity.
@@ -246,29 +248,28 @@ int MultiplanesComposition::pickoutOsdFbs() {
         mDummyComposer->addInputs(dummyFbs, dummyOverlayFbs);
     }
 
-/* Only support one leagcy video in current times. */
+/* Only support one legacy video in current times. */
 #if LEGACY_VIDEO_MODE_SWITCH
     if (!mOverlayFbs.empty() && !mFramebuffers.empty()) {
         auto osdFbIt = mFramebuffers.begin();
         uint32_t minOsdFbZorder = osdFbIt->second->mZorder;
         osdFbIt = mFramebuffers.end();
         osdFbIt --;
-        //uint32_t maxOsdFbZorder = osdFbIt->second->mZorder;
 
         /* Current only input one Legacy video fb. */
-        std::shared_ptr<DrmFramebuffer> leagcyVideoFb = *(mOverlayFbs.begin());
-        if (leagcyVideoFb->mZorder > minOsdFbZorder) {
+        std::shared_ptr<DrmFramebuffer> legacyVideoFb = *(mOverlayFbs.begin());
+        if (legacyVideoFb->mZorder > minOsdFbZorder) {
             mMinComposerZorder = mFramebuffers.begin()->second->mZorder;
-            /* Leagcy video is always on the bottom.
-             * SO, all fbs below leagcyVideo zorder need to compose.
-             * Set maxClientZorder = leagcyVideoZorder
+            /* Legacy video is always on the bottom.
+             * SO, all fbs below legacyVideo zorder need to compose.
+             * Set maxClientZorder = legacyVideoZorder
              */
-            if (mMaxComposerZorder == INVALID_ZORDER || leagcyVideoFb->mZorder > mMaxComposerZorder) {
-                mMaxComposerZorder = leagcyVideoFb->mZorder;
+            if (mMaxComposerZorder == INVALID_ZORDER || legacyVideoFb->mZorder > mMaxComposerZorder) {
+                mMaxComposerZorder = legacyVideoFb->mZorder;
             }
         }
     }
-#else // If only one leagcy video in current times, don't need to check inside video flag.
+#else // If only one legacy video in current times, don't need to check inside video flag.
     /* 1. check mInsideVideoFbsFlag = false
      * 2. for HDR mode, adjust compose range.
      */
@@ -383,15 +384,16 @@ int MultiplanesComposition::confirmComposerRange() {
                 /* compose fb from maximum zorder. */
                 if (minNeedComposedFbs > 0) {
                     MESON_ASSERT(upClientNum > 0, "upClientNum should > 0.");
-                    fbIt = mFramebuffers.find(mMaxComposerZorder);
-                    fbIt ++;
+                    fbIt = mFramebuffers.upper_bound(mMaxComposerZorder);
                     for (; fbIt != mFramebuffers.end(); ++ fbIt) {
                         minNeedComposedFbs --;
                         if (minNeedComposedFbs <= 0)
                             break;
                     }
+
                     /* we can confirm the maximum zorder value. */
-                    mMaxComposerZorder = fbIt->second->mZorder;
+                    if (fbIt != mFramebuffers.end())
+                        mMaxComposerZorder = fbIt->second->mZorder;
                 }
             }
         }  else {
@@ -433,7 +435,7 @@ int32_t compareFbScale(
     else if (widthCompare > 0 && heighCompare > 0)
         return 1;
     else {
-        MESON_LOGE("compareFbScale failed %d ,%d, %d, %d",
+        MESON_LOGW("compareFbScale failed %d ,%d, %d, %d",
             widthCompare, heighCompare,
             bDisplayWidth, bDisplayHeight);
         return -1;
@@ -938,15 +940,21 @@ int MultiplanesComposition::decideComposition() {
     } else {
         handleOsdCompostionWithVideo();
     }
+
+    /* record overlayFbs and start to compose */
+    if (mComposer.get()) {
+        mComposer->prepare();
+        mComposer->addInputs(mComposerFbs, mOverlayFbs);
+    }
+
     return ret;
 }
 
 /* Commit DisplayPair to display. */
 int MultiplanesComposition::commit() {
-    /* Start compose, and replace composer output with din0 Pair. */
+    /* replace composer output with din0 Pair. */
     std::shared_ptr<DrmFramebuffer> composerOutput;
     if (mComposer.get()) {
-        mComposer->addInputs(mComposerFbs, mOverlayFbs);
         mComposer->start();
         composerOutput = mComposer->getOutput();
     }
