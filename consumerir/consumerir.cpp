@@ -55,9 +55,13 @@ static struct aml_blaster gst_aml_br;
 
 #define MAX_PLUSE 1024
 //used by sysfs
-#define IR_CARRIER_FREQ     "/sys/devices/virtual/meson-irblaster/irblaster1/carrier_freq"
-#define IR_DUTY_CYCLE       "/sys/devices/virtual/meson-irblaster/irblaster1/duty_cycle"
-#define IR_FREQ_SEND        "/sys/devices/virtual/meson-irblaster/irblaster1/send"
+//#define IR_CARRIER_FREQ     "/sys/devices/virtual/meson-irblaster/irblaster1/carrier_freq"
+//#define IR_DUTY_CYCLE       "/sys/devices/virtual/meson-irblaster/irblaster1/duty_cycle"
+//#define IR_FREQ_SEND        "/sys/devices/virtual/meson-irblaster/irblaster1/send"
+// update for new irblaster driver
+#define IR_CARRIER_FREQ     "/sys/devices/virtual/irblaster/irblaster0/carrier_freq"
+#define IR_DUTY_CYCLE       "/sys/devices/virtual/irblaster/irblaster0/duty_cycle"
+#define IR_FREQ_SEND        "/sys/devices/virtual/irblaster/irblaster0/send"
 
 static const consumerir_freq_range_t consumerirFreqs[] = {
     //{.min = 30000, .max = 30000},
