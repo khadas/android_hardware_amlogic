@@ -7,11 +7,11 @@
  * Description:
  */
 
-#include <hardware/gralloc1.h>
 #include <gralloc_priv.h>
 
 #include "am_gralloc_internal.h"
 #include "gralloc_usage_ext.h"
+
 
 #if USE_BUFFER_USAGE
 #include <hardware/gralloc1.h>
@@ -19,7 +19,8 @@
 #include <hardware/gralloc.h>
 #endif
 
-#define UNUSED(x) {void}x
+
+#define UNUSED(x) (void)x
 
 bool am_gralloc_is_omx_metadata_extend_usage(
     uint64_t usage) {
@@ -48,7 +49,9 @@ bool am_gralloc_is_omx_osd_extend_usage(uint64_t usage) {
         return true;
     }
 #else
-    UNUSED(usage);
+    if (usage & GRALLOC_USAGE_AML_DMA_BUFFER) {
+        return true;
+    }
 #endif
     return false;
 }

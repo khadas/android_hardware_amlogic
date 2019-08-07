@@ -91,6 +91,9 @@ enum vmode_e {
 	VMODE_1080FP50HZ,
 	VMODE_1080FP60HZ,
 	VMODE_LCD,
+	VMODE_PAL_M,
+	VMODE_PAL_N,
+	VMODE_NTSC_M,
 	VMODE_NULL, /* null mode is used as temporary witch mode state */
 	VMODE_MAX,
 	VMODE_INIT_NULL,
@@ -244,7 +247,7 @@ enum vmode_e vmode_name_to_mode(const char *str);
 const struct vinfo_s *get_tv_info(enum vmode_e mode);
 int want_hdmi_mode(enum vmode_e mode);
 const struct vinfo_s * findMatchedMode(u32 width, u32 height, u32 refreshrate);
-int read_vout_info(struct vinfo_base_s * info);
+int read_vout_info(int idx, struct vinfo_base_s * info);
 
 
 #endif //AML_VOUT_H_

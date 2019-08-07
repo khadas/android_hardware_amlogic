@@ -8,19 +8,25 @@
  */
 #include <HwDisplayManager.h>
 #include <HwDisplayCrtc.h>
-#include <HwcConfig.h>
 #include <MesonLog.h>
 #include <DebugHelper.h>
 #include <cutils/properties.h>
 #include <systemcontrol.h>
 #include <misc.h>
+#include <OmxUtil.h>
 
 #include "AmVinfo.h"
 #include "AmFramebuffer.h"
 
 static vframe_master_display_colour_s_t nullHdr;
 
+#define VIU1_DISPLAY_MODE_SYSFS "/sys/class/display/mode"
+#define VIU2_DISPLAY_MODE_SYSFS "/sys/class/display2/mode"
+
+
 HwDisplayCrtc::HwDisplayCrtc(int drvFd, int32_t id) {
+    MESON_ASSERT(id == CRTC_VOUT1 || id == CRTC_VOUT2, "Invalid crtc id %d", id);
+
     mId = id;
     mDrvFd = drvFd;
     mFirstPresent = true;
@@ -28,18 +34,38 @@ HwDisplayCrtc::HwDisplayCrtc(int drvFd, int32_t id) {
     *for new vpu, it can be 1 or 2.
     */
     mOsdChannels = 1;
-    memset(&hdrVideoInfo, 0, sizeof(hdrVideoInfo));
     memset(&nullHdr, 0, sizeof(nullHdr));
+
+    hdrVideoInfo = malloc(sizeof(vframe_master_display_colour_s_t));
 }
 
 HwDisplayCrtc::~HwDisplayCrtc() {
+    free(hdrVideoInfo);
 }
 
-int32_t HwDisplayCrtc::setUp(
+int32_t HwDisplayCrtc::bind(
     std::shared_ptr<HwDisplayConnector>  connector,
-    std::map<uint32_t, std::shared_ptr<HwDisplayPlane>> planes) {
+    std::vector<std::shared_ptr<HwDisplayPlane>> planes) {
+    MESON_ASSERT(connector != NULL && planes.size() > 0 , "crtc setup with invalid infos.");
     mConnector = connector;
+    mConnector->setCrtc(this);
     mPlanes = planes;
+    return 0;
+}
+
+int32_t HwDisplayCrtc::unbind() {
+    static drm_mode_info_t nullMode = {
+        DRM_DISPLAY_MODE_NULL,
+        0, 0,
+        0, 0,
+        60.0
+    };
+    setMode(nullMode);
+
+    if (mConnector.get())
+        mConnector->setCrtc(NULL);
+    mConnector.reset();
+    mPlanes.clear();
     return 0;
 }
 
@@ -62,20 +88,40 @@ int32_t HwDisplayCrtc::loadProperities() {
     return 0;
 }
 
+int32_t HwDisplayCrtc::getId() {
+    return mId;
+}
+
 int32_t HwDisplayCrtc::setMode(drm_mode_info_t & mode) {
+    /*DRM_DISPLAY_MODE_NULL is always allowed.*/
     MESON_LOGI("Crtc active mode: %s", mode.name);
     std::string dispmode(mode.name);
-    sc_set_display_mode(dispmode);
-    return 0;
+    return writeCurDisplayMode(dispmode);
 }
 
 int32_t HwDisplayCrtc::getMode(drm_mode_info_t & mode) {
     std::lock_guard<std::mutex> lock(mMutex);
     if (!mConnected || mCurModeInfo.name[0] == 0)
-        return -1;
+        return -EFAULT;
 
     mode = mCurModeInfo;
     return 0;
+}
+
+int32_t HwDisplayCrtc::waitVBlank(nsecs_t & timestamp) {
+    int32_t ret = ioctl(mDrvFd, FBIO_WAITFORVSYNC_64, &timestamp);
+    if (ret == -1) {
+        ret = -errno;
+        MESON_LOGE("fb ioctl vsync wait error, ret: %d", ret);
+        return ret;
+    } else {
+        if (timestamp != 0) {
+            return 0;
+        } else {
+            MESON_LOGE("wait for vsync fail");
+            return -EINVAL;
+        }
+    }
 }
 
 int32_t HwDisplayCrtc::update() {
@@ -86,22 +132,24 @@ int32_t HwDisplayCrtc::update() {
         /*1. update current displayMode.*/
         mConnector->update();
         std::string displayMode;
-        if (0 != sc_get_display_mode(displayMode)) {
-            MESON_ASSERT(0," %s GetDisplayMode by sc failed.", __func__);
-        }
-
+        readCurDisplayMode(displayMode);
         if (displayMode.empty()) {
              MESON_LOGE("displaymode should not null when connected.");
         } else {
-            MESON_LOGI("hw crtc update to mode: (%s)", displayMode.c_str());
             for (auto it = mModes.begin(); it != mModes.end(); it ++) {
+                MESON_LOGD("update: (%s) mode (%s)", displayMode.c_str(), it->second.name);
                 if (strcmp(it->second.name, displayMode.c_str()) == 0) {
                     memcpy(&mCurModeInfo, &it->second, sizeof(drm_mode_info_t));
-                    HwDisplayManager::getInstance().updateRefreshPeriod(1e9 / mCurModeInfo.refreshRate);
                     break;
                 }
             }
+            MESON_LOGD("crtc(%d) update (%s) (%d) -> (%s).",
+                mId, displayMode.c_str(), mModes.size(), mCurModeInfo.name);
         }
+    } else {
+        /*clear mode info.*/
+        memset(&mCurModeInfo, 0, sizeof(mCurModeInfo));
+        strcpy(mCurModeInfo.name, DRM_DISPLAY_MODE_NULL);
     }
 
     return 0;
@@ -178,7 +226,7 @@ int32_t HwDisplayCrtc::getHdrMetadataKeys(
 int32_t HwDisplayCrtc::setHdrMetadata(
     std::map<drm_hdr_meatadata_t, float> & hdrmedata) {
     if (updateHdrMetadata(hdrmedata) == true)
-        return set_hdr_info(hdrVideoInfo);
+        return set_hdr_info((vframe_master_display_colour_s_t*)hdrVideoInfo);
 
     return 0;
 }
@@ -235,14 +283,16 @@ bool HwDisplayCrtc::updateHdrMetadata(
         }
     }
 
-    if (memcmp(&hdrVideoInfo, &nullHdr, sizeof(vframe_master_display_colour_s_t)) == 0)
+    if (memcmp(hdrVideoInfo, &nullHdr, sizeof(vframe_master_display_colour_s_t)) == 0)
         return false;
     newHdr.present_flag = 1;
 
-    if (memcmp(&hdrVideoInfo, &newHdr, sizeof(vframe_master_display_colour_s_t)) == 0)
+    if (memcmp(hdrVideoInfo, &newHdr, sizeof(vframe_master_display_colour_s_t)) == 0)
         return false;
 
-    hdrVideoInfo = newHdr;
+    vframe_master_display_colour_s_t * hdrinfo =
+        (vframe_master_display_colour_s_t *)hdrVideoInfo;
+    *hdrinfo = newHdr;
     return true;
 }
 
@@ -251,4 +301,25 @@ void HwDisplayCrtc::closeLogoDisplay() {
     sysfs_set_string(DISPLAY_FB0_FREESCALE_SWTICH, "0x10001");
 }
 
+int32_t  HwDisplayCrtc::readCurDisplayMode(std::string & dispmode) {
+    int32_t ret = 0;
+    if (mId == CRTC_VOUT1) {
+        ret = sc_read_sysfs(VIU1_DISPLAY_MODE_SYSFS, dispmode);
+    }  else if (mId == CRTC_VOUT2) {
+        ret = sc_read_sysfs(VIU2_DISPLAY_MODE_SYSFS, dispmode);
+    }
+
+    return ret;
+}
+
+int32_t HwDisplayCrtc::writeCurDisplayMode(std::string & dispmode) {
+    int32_t ret = 0;
+    if (mId == CRTC_VOUT1) {
+        ret = sc_write_sysfs(VIU1_DISPLAY_MODE_SYSFS, dispmode);
+    } else if (mId == CRTC_VOUT2) {
+        ret = sc_write_sysfs(VIU2_DISPLAY_MODE_SYSFS, dispmode);
+    }
+
+    return ret;
+}
 

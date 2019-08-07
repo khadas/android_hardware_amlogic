@@ -248,10 +248,10 @@ int mali_gralloc_validate_buffer_size(buffer_handle_t buffer, gralloc1_buffer_de
 			AERR("Bad stride!Not the same with allocated buffer " );
 			return GRALLOC1_ERROR_BAD_VALUE;
 		}
-
 		if (am_gralloc_is_omx_metadata_extend_usage(hnd->usage))
 		{
-			bufferSize = hnd->byte_stride / stride * OMX_VIDEOLAYER_ALLOC_BUFFER_WIDTH * OMX_VIDEOLAYER_ALLOC_BUFFER_HEIGHT;
+			ALOGW("omx buffer: descriptorInfo->width:%d descriptorInfo->height:%d", descriptorInfo->width, descriptorInfo->height);
+			return GRALLOC1_ERROR_NONE;
 		}
 		else
 		{
@@ -263,7 +263,6 @@ int mali_gralloc_validate_buffer_size(buffer_handle_t buffer, gralloc1_buffer_de
 		AERR("Bad stride!stride: %d ", stride );
 		return GRALLOC1_ERROR_BAD_VALUE;
 	}
-
 
 	if (descriptorInfo->layerCount < 0)
 	{

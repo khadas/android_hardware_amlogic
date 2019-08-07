@@ -66,6 +66,7 @@ public:
         uint32_t* outNumRequests);
     int32_t getChangedCompositionTypes(hwc2_display_t display,
         uint32_t* outNumElements, hwc2_layer_t* outLayers, int32_t*  outTypes);
+    int32_t setCalibrateInfo(hwc2_display_t display);
 
     /*layer functions*/
     int32_t createLayer(hwc2_display_t display, hwc2_layer_t* outLayer);
@@ -117,6 +118,13 @@ public:
 
     void dump(uint32_t* outSize, char* outBuffer);
 
+/*amlogic ext display interface*/
+public:
+    int32_t setPostProcessor(bool bEnable);
+
+    uint32_t getDisplayRequest();
+    int32_t handleDisplayRequest(uint32_t request);
+
 /*implement*/
 public:
     void refresh(hwc2_display_t  display);
@@ -145,6 +153,8 @@ protected:
     hwc2_callback_data_t mVsyncData;
 
     uint32_t mVirtualDisplayIds;
+
+    uint32_t mDisplayRequests;
 };
 
 #endif/*MESON_HWC2_H*/

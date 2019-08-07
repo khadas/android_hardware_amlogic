@@ -13,6 +13,8 @@
 #include <utils/NativeHandle.h>
 
 
+bool am_gralloc_is_valid_graphic_buffer(const native_handle_t * hnd);
+
 /*
 For modules to set special usage to window.
 all producer usage is in android.hardware.graphics.common@1.0.BufferUsage.
@@ -37,6 +39,8 @@ int am_gralloc_get_stride_in_byte(const native_handle_t * hnd);
 int am_gralloc_get_stride_in_pixel(const native_handle_t * hnd);
 int am_gralloc_get_width(const native_handle_t * hnd);
 int am_gralloc_get_height(const native_handle_t * hnd);
+uint64_t am_gralloc_get_producer_usage(const native_handle_t * hnd);
+uint64_t am_gralloc_get_consumer_usage(const native_handle_t * hnd);
 
 /*
 For modules to check special buffer.
@@ -57,11 +61,19 @@ For modules create sideband handle.
 */
 typedef enum {
     AM_TV_SIDEBAND = 1,
-    AM_OMX_SIDEBAND = 2
+    AM_OMX_SIDEBAND = 2,
+    AM_AMCODEX_SIDEBAND = 3
 } AM_SIDEBAND_TYPE;
 
-native_handle_t * am_gralloc_create_sideband_handle(int flag);
+typedef enum {
+    AM_VIDEO_DEFAULT = 1,
+    AM_VIDEO_EXTERNAL = 2
+} AM_VIDEO_CHANNEL;
+
+native_handle_t * am_gralloc_create_sideband_handle(int type, int channel);
 int am_gralloc_destroy_sideband_handle(native_handle_t * hnd);
+int am_gralloc_get_sideband_channel(const native_handle_t * hnd, int * channel);
+
 
 /*
 Used by hwc to get afbc information.

@@ -31,6 +31,8 @@
 
 #define ARRAY_SIZE(x) (sizeof(x) / sizeof((x)[0]))
 #define VOUT_DEV "/dev/display"
+#define VOUT2_DEV "/dev/display2"
+
 
 /* vout_ioctl */
 #define VOUT_IOC_TYPE            'C'
@@ -97,6 +99,9 @@ static struct vmode_match_s vmode_match_table[] = {
 	{"4k05k200hz420", VMODE_4K05K_200HZ_Y420},
 	{"4k05k200hz",    VMODE_4K05K_200HZ},
 	{"panel",         VMODE_LCD},
+	{"pal_m",         VMODE_PAL_M},
+	{"pal_n",         VMODE_PAL_N},
+	{"ntsc_m",        VMODE_NTSC_M},
 	{"invalid",       VMODE_INIT_NULL},
 };
 
@@ -289,7 +294,7 @@ static const struct vinfo_s tv_info[] = {
 	},
 	{ /* VMODE_768P_50hz */
 		.name              = "768p50hz",
-		.mode              = VMODE_768P,
+		.mode              = VMODE_768P_50HZ,
 		.width             = 1280,
 		.height            = 768,
 		.field_height      = 768,
@@ -886,6 +891,45 @@ static const struct vinfo_s tv_info[] = {
 		.video_clk         = 148500000,
 		.viu_color_fmt     = TVIN_YUV444,
 	},
+	{ /* VMODE_PAL_M */
+		.name              = "pal_m",
+		.mode              = VMODE_PAL_M,
+		.width             = 720,
+		.height            = 480,
+		.field_height      = 240,
+		.aspect_ratio_num  = 4,
+		.aspect_ratio_den  = 3,
+		.sync_duration_num = 60,
+		.sync_duration_den = 1,
+		.video_clk         = 27000000,
+		.viu_color_fmt     = TVIN_YUV444,
+	},
+	{ /* VMODE_PAL_N */
+		.name              = "pal_n",
+		.mode              = VMODE_PAL_N,
+		.width             = 720,
+		.height            = 576,
+		.field_height      = 288,
+		.aspect_ratio_num  = 4,
+		.aspect_ratio_den  = 3,
+		.sync_duration_num = 50,
+		.sync_duration_den = 1,
+		.video_clk         = 27000000,
+		.viu_color_fmt     = TVIN_YUV444,
+	},
+	{ /* VMODE_NTSC_M */
+		.name              = "ntsc_m",
+		.mode              = VMODE_NTSC_M,
+		.width             = 720,
+		.height            = 480,
+		.field_height      = 240,
+		.aspect_ratio_num  = 4,
+		.aspect_ratio_den  = 3,
+		.sync_duration_num = 60,
+		.sync_duration_den = 1,
+		.video_clk         = 27000000,
+		.viu_color_fmt     = TVIN_YUV444,
+	},
 /* VMODE for 3D Frame Packing END */
 	{ /* NULL mode, used as temporary witch mode state */
 		.name              = "null",
@@ -970,11 +1014,16 @@ const struct vinfo_s * findMatchedMode(u32 width, u32 height, u32 refreshrate) {
 	return NULL;
 }
 
-int read_vout_info(struct vinfo_base_s * info) {
+int read_vout_info(int idx, struct vinfo_base_s * info) {
 	if (!info)
 		return -ENOBUFS;
 
-	int voutdev = open(VOUT_DEV, O_RDONLY);
+        const char * devpath = VOUT_DEV;
+        if (idx == 2) {
+            devpath = VOUT2_DEV;
+        }
+
+	int voutdev = open(devpath, O_RDONLY);
 	if (voutdev < 0) {
 		return -EBADFD;
 	}

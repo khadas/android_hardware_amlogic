@@ -9,19 +9,18 @@
 
 #include <DrmFramebuffer.h>
 #include <MesonLog.h>
-
-#if PLATFORM_SDK_VERSION < 28
 #include <misc.h>
-#endif
 
 DrmFramebuffer::DrmFramebuffer()
-    : mBufferHandle(NULL) {
+      : mBufferHandle(NULL),
+        mMapBase(NULL) {
     reset();
 }
 
 DrmFramebuffer::DrmFramebuffer(
     const native_handle_t * bufferhnd, int32_t acquireFence)
-    : mBufferHandle(NULL) {
+      : mBufferHandle(NULL),
+        mMapBase(NULL) {
     reset();
     setBufferInfo(bufferhnd, acquireFence);
 
@@ -35,6 +34,11 @@ DrmFramebuffer::DrmFramebuffer(
 
 DrmFramebuffer::~DrmFramebuffer() {
     reset();
+}
+
+int32_t DrmFramebuffer::setAcquireFence(int32_t fenceFd) {
+    mAcquireFence = std::make_shared<DrmFence>(fenceFd);
+    return 0;
 }
 
 std::shared_ptr<DrmFence> DrmFramebuffer::getAcquireFence() {
@@ -79,7 +83,7 @@ void DrmFramebuffer::setBufferInfo(
     const native_handle_t * bufferhnd,
     int32_t acquireFence) {
     if (bufferhnd) {
-        mBufferHandle = native_handle_clone(bufferhnd);
+        mBufferHandle = gralloc_ref_dma_buf(bufferhnd);
         if (acquireFence >= 0)
             mAcquireFence = std::make_shared<DrmFence>(acquireFence);
     }
@@ -87,8 +91,8 @@ void DrmFramebuffer::setBufferInfo(
 
 void DrmFramebuffer::clearBufferInfo() {
     if (mBufferHandle) {
-        native_handle_close(mBufferHandle);
-        native_handle_delete(mBufferHandle);
+        unlock();
+        gralloc_unref_dma_buf(mBufferHandle);
         mBufferHandle  = NULL;
     }
 
@@ -96,6 +100,27 @@ void DrmFramebuffer::clearBufferInfo() {
     mAcquireFence  = DrmFence::NO_FENCE;
     mFbType        = DRM_FB_RENDER;
     mSecure         = false;
+}
+
+int32_t DrmFramebuffer::lock(void ** addr) {
+    if (!mMapBase) {
+        if (0 != gralloc_lock_dma_buf(mBufferHandle, &mMapBase)) {
+            mMapBase = NULL;
+            return -EIO;
+        }
+    }
+
+    *addr = mMapBase;
+    return 0;
+}
+
+int32_t DrmFramebuffer::unlock() {
+    if (mMapBase && mBufferHandle) {
+        gralloc_unlock_dma_buf(mBufferHandle);
+        mMapBase = NULL;
+    }
+
+    return 0;
 }
 
 bool DrmFramebuffer::isRotated() {

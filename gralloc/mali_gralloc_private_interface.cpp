@@ -17,7 +17,11 @@
  */
 
 #include <hardware/hardware.h>
+#if GRALLOC_USE_GRALLOC1_API == 1
 #include <hardware/gralloc1.h>
+#else
+#include <hardware/gralloc.h>
+#endif
 
 #include "mali_gralloc_private_interface.h"
 #include "mali_gralloc_buffer.h"

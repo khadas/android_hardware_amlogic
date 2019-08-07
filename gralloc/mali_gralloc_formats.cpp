@@ -194,7 +194,7 @@ static void apply_gpu_producer_limitations(int req_format, uint64_t *producer_ru
 				~(MALI_GRALLOC_FORMAT_CAPABILITY_AFBC_SPLITBLK | MALI_GRALLOC_FORMAT_CAPABILITY_AFBC_WIDEBLK);
 		}
 	}
-	if (property_get("vendor.media.afbc.limit", gpu_afbc, "0") > 0)
+	if (property_get("media.afbc.limit", gpu_afbc, "0") > 0)
 	{
 		gpu_afbc_limit = atoi(gpu_afbc);
 	}
@@ -625,6 +625,7 @@ static bool determine_producer(mali_gralloc_producer_type *producer, int usage)
 
 	if (usage & (GRALLOC_USAGE_SW_READ_MASK | GRALLOC_USAGE_SW_WRITE_MASK))
 	{
+		*producer = MALI_GRALLOC_PRODUCER_CPU;
 		rval = false;
 	}
 	/* This is a specific case where GRALLOC_USAGE_HW_COMPOSER can indicate display as a producer.
@@ -657,7 +658,7 @@ static bool determine_producer(mali_gralloc_producer_type *producer, int usage)
 	}
 	else if (usage == GRALLOC_USAGE_HW_COMPOSER)
 	{
-		*producer = MALI_GRALLOC_PRODUCER_DISPLAY_AEU;
+		*producer = MALI_GRALLOC_PRODUCER_GPU_OR_DISPLAY;
 	}
 	return rval;
 }
@@ -671,6 +672,7 @@ static bool determine_consumer(mali_gralloc_consumer_type *consumer, int usage)
 
 	if (usage & (GRALLOC_USAGE_SW_READ_MASK | GRALLOC_USAGE_SW_WRITE_MASK))
 	{
+		*consumer = MALI_GRALLOC_CONSUMER_CPU;
 		rval = false;
 	}
 	/* When usage explicitly targets a consumer, as it does with GRALLOC_USAGE_HW_FB,
@@ -696,7 +698,7 @@ static bool determine_consumer(mali_gralloc_consumer_type *consumer, int usage)
 	}
 	else if (usage & GRALLOC_USAGE_HW_TEXTURE)
 	{
-		*consumer = MALI_GRALLOC_CONSUMER_GPU_EXCL;
+		*consumer = MALI_GRALLOC_CONSUMER_CPU;
 	}
 	else if (usage == GRALLOC_USAGE_HW_COMPOSER)
 	{
@@ -710,6 +712,7 @@ int get_meson_dpu_gpu_caps()
 {
 	char osd_afbcd[PROPERTY_VALUE_MAX];
 	int  osd_afbcd_enabled = 0;
+	int  num_of_afbcd_type = 0;
 	char osd_afbcd_value[] = "00";
 	int  osd_afbcd_fd = -1;
 
@@ -717,25 +720,33 @@ int get_meson_dpu_gpu_caps()
 	{
 		osd_afbcd_enabled = atoi(osd_afbcd);
 	}
-	osd_afbcd_fd = open("/sys/class/graphics/fb0/osd_afbcd", O_RDWR);
-	if (osd_afbcd_fd < 0) {
-		ALOGD("errno=%d, %s", errno, strerror(errno));
-		return -EPERM;
-	}
 
-	if (osd_afbcd_enabled)
-		write(osd_afbcd_fd, "1", 1);
-	else
-		write(osd_afbcd_fd, "0", 1);
-
-	lseek(osd_afbcd_fd, 0, SEEK_SET);
-	read (osd_afbcd_fd, osd_afbcd, 1);
-	osd_afbcd_enabled = atoi(osd_afbcd);
-	ALOGD("AFBC %s\n", osd_afbcd_enabled != 0? "enabled":"disabled");
-
-	close (osd_afbcd_fd);
-	osd_afbcd_fd = -1;
 	if (osd_afbcd_enabled) {
+		osd_afbcd_fd = open("/sys/class/graphics/fb0/osd_afbcd", O_RDWR);
+		if (osd_afbcd_fd < 0) {
+			ALOGD("errno=%d, %s", errno, strerror(errno));
+			return -EPERM;
+		}
+
+		lseek(osd_afbcd_fd, 0, SEEK_SET);
+		read (osd_afbcd_fd, osd_afbcd, 1);
+		num_of_afbcd_type = atoi(osd_afbcd);
+		close (osd_afbcd_fd);
+		osd_afbcd_fd = -1;
+	}
+	ALOGD("AFBC %s\n", num_of_afbcd_type != 0? "enabled":"disabled");
+	ALOGD("num of AFBC type %d\n", num_of_afbcd_type);
+
+	if (1 == num_of_afbcd_type) {
+		dpu_runtime_caps.caps_mask |= MALI_GRALLOC_FORMAT_CAPABILITY_OPTIONS_PRESENT;
+		dpu_runtime_caps.caps_mask |= MALI_GRALLOC_FORMAT_CAPABILITY_AFBC_BASIC;
+		dpu_runtime_caps.caps_mask |= MALI_GRALLOC_FORMAT_CAPABILITY_AFBC_SPLITBLK;
+
+		gpu_runtime_caps.caps_mask |= MALI_GRALLOC_FORMAT_CAPABILITY_AFBC_YUV_NOWRITE;
+		gpu_runtime_caps.caps_mask |= MALI_GRALLOC_FORMAT_CAPABILITY_OPTIONS_PRESENT;
+		gpu_runtime_caps.caps_mask |= MALI_GRALLOC_FORMAT_CAPABILITY_AFBC_BASIC;
+		gpu_runtime_caps.caps_mask |= MALI_GRALLOC_FORMAT_CAPABILITY_AFBC_SPLITBLK;
+	} else if (2 == num_of_afbcd_type) {
 		/* Determine DPU format capabilities */
 		dpu_runtime_caps.caps_mask |= MALI_GRALLOC_FORMAT_CAPABILITY_OPTIONS_PRESENT;
 		dpu_runtime_caps.caps_mask |= MALI_GRALLOC_FORMAT_CAPABILITY_AFBC_BASIC;
@@ -899,8 +910,8 @@ already_init:
 uint64_t mali_gralloc_select_format(uint64_t req_format, mali_gralloc_format_type type, uint64_t usage, int buffer_size)
 {
 	uint64_t internal_format = 0;
-	mali_gralloc_consumer_type consumer;
-	mali_gralloc_producer_type producer;
+	mali_gralloc_consumer_type consumer = MALI_GRALLOC_CONSUMER_CPU;
+	mali_gralloc_producer_type producer = MALI_GRALLOC_PRODUCER_CPU;
 	uint64_t producer_runtime_mask = ~(0ULL);
 	uint64_t consumer_runtime_mask = ~(0ULL);
 	uint64_t req_format_mapped = 0;

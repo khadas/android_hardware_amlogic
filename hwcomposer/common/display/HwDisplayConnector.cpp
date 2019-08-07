@@ -7,6 +7,7 @@
  */
 
 #include <HwDisplayConnector.h>
+#include <HwDisplayCrtc.h>
 #include <MesonLog.h>
 #include "AmVinfo.h"
 
@@ -18,6 +19,11 @@ HwDisplayConnector::HwDisplayConnector(int32_t drvFd, uint32_t id) {
 HwDisplayConnector::~HwDisplayConnector() {
 }
 
+int32_t HwDisplayConnector::setCrtc(HwDisplayCrtc * crtc) {
+    mCrtc = crtc;
+    return 0;
+}
+
 int32_t HwDisplayConnector::getModes(
     std::map<uint32_t, drm_mode_info_t> & modes) {
     modes = mDisplayModes;
@@ -26,7 +32,10 @@ int32_t HwDisplayConnector::getModes(
 
 void HwDisplayConnector::loadPhysicalSize() {
     struct vinfo_base_s info;
-    int ret = read_vout_info(&info);
+    if (!mCrtc)
+        MESON_LOGE("loadPhysicalSize with non crtc, use CRTC 1.");
+    int idx = mCrtc ? mCrtc->getId() : CRTC_VOUT1;
+    int ret = read_vout_info(idx, &info);
     if (ret == 0) {
         mPhyWidth  = info.screen_real_width;
         mPhyHeight = info.screen_real_height;
@@ -45,7 +54,10 @@ int32_t HwDisplayConnector::addDisplayMode(std::string& mode) {
     if (VMODE_LCD == vmode) {
         /*panel display info is not fixed, need read from vout*/
         struct vinfo_base_s baseinfo;
-        int ret = read_vout_info(&baseinfo);
+        if (!mCrtc)
+            MESON_LOGE("addDisplayMode(%s) with non crtc, use CRTC 1.", mode.c_str());
+        int idx = mCrtc ? mCrtc->getId() : CRTC_VOUT1;
+        int ret = read_vout_info(idx, &baseinfo);
         if (ret == 0) {
             vinfo = &info;
 

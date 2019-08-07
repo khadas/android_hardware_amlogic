@@ -17,9 +17,6 @@
 
 LOCAL_PATH := $(call my-dir)
 
-# Amlogic usage & flags api.
-include $(LOCAL_PATH)/amlogic/Android.mk
-
 # Include platform specific makefiles
 include $(if $(wildcard $(LOCAL_PATH)/Android.$(TARGET_BOARD_PLATFORM).mk), $(LOCAL_PATH)/Android.$(TARGET_BOARD_PLATFORM).mk,)
 
@@ -74,6 +71,7 @@ GRALLOC_VSYNC_BACKEND?=default
 # HAL module implemenation, not prelinked and stored in
 # hw/<OVERLAY_HARDWARE_MODULE_ID>.<ro.product.board>.so
 include $(CLEAR_VARS)
+#include $(BUILD_SYSTEM)/version_defaults.mk
 
 ifneq ($(findstring $(GPU_ARCH), midgard bifrost),)
 	GRALLOC_INIT_AFBC = 1
@@ -136,6 +134,10 @@ BOARD_RESOLUTION_RATIO ?= 1080
 LOCAL_CFLAGS += -DBOARD_RESOLUTION_RATIO=$(BOARD_RESOLUTION_RATIO)
 $(warning "the value of BOARD_RESOLUTION_RATIO is $(BOARD_RESOLUTION_RATIO)")
 
+ifeq ($(TARGET_APP_LAYER_USE_CONTINUOUS_BUFFER),true)
+LOCAL_CFLAGS += -DAML_ALLOC_SCANOUT_FOR_COMPOSE
+endif
+
 ifeq ($(GPU_TYPE), mali450)
 LOCAL_CFLAGS += -DGPU_FORMAT_LIMIT=1
 endif
@@ -186,9 +188,9 @@ LOCAL_MODULE_TAGS := optional
 LOCAL_MULTILIB := both
 
 LOCAL_C_INCLUDES += system/core/libion/include \
-	system/core/libcutils/include \
-    system/core/libion \
-    system/core/libion/kernel-headers
+	system/core/libion/kernel-headers \
+	system/core/libion/ \
+	system/core/libcutils/include
 
 LOCAL_SRC_FILES := \
 	ion_wrapper.cpp \
@@ -215,3 +217,6 @@ endif
 LOCAL_MODULE_OWNER := arm
 
 include $(BUILD_SHARED_LIBRARY)
+
+# Amlogic usage & flags api.
+include $(LOCAL_PATH)/amlogic/Android.mk

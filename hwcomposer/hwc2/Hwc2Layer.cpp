@@ -139,9 +139,17 @@ hwc2_error_t Hwc2Layer::setSidebandStream(const native_handle_t* stream) {
     clearBufferInfo();
     setBufferInfo(stream, -1);
 
-    mFbType = DRM_FB_VIDEO_SIDEBAND;
+    int channel = 0;
+    am_gralloc_get_sideband_channel(stream, &channel);
+    if (channel == AM_VIDEO_EXTERNAL) {
+        mFbType = DRM_FB_VIDEO_SIDEBAND_SECOND;
+    } else {
+        mFbType = DRM_FB_VIDEO_SIDEBAND;
+    }
+
     mSecure = false;
     return HWC2_ERROR_NONE;
+
 }
 
 hwc2_error_t Hwc2Layer::setColor(hwc_color_t color) {
