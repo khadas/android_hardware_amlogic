@@ -216,6 +216,7 @@ void poll_timer_flush(void)
     struct itimerspec ts;
     struct sigevent se;
 
+    memset(&se, 0, sizeof(struct sigevent));
     BTPOLLDBG("poll_timer_flush: state %d", bt_poll_cb.state);
 
     if (bt_poll_cb.state != POLL_ENABLED)

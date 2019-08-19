@@ -46,7 +46,7 @@ LOCAL_MODULE_PATH := $(TARGET_OUT_VENDOR)/etc/wifi
 else
 LOCAL_MODULE_PATH := $(TARGET_OUT_ETC)/wifi
 endif
-include $(BUILD_PREBUILT)
+#include $(BUILD_PREBUILT)
 
 ########################
 

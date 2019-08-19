@@ -77,11 +77,12 @@
 #define BTVNDDBG(param, ...) {}
 #endif
 
-#define DOWN_FW_CFG             _IOW('H', 201, int)
-#define SET_ISO_CFG             _IOW('H', 202, int)
-#define GET_USB_INFO            _IOW('H', 203, int)
-#define RESET_CONTROLLER        _IOW('H', 204, int)
-#define DWFW_CMPLT              _IOW('H', 205, int)
+#define DOWN_FW_CFG             _IOW('E', 176, int)
+#define SET_ISO_CFG             _IOW('E', 177, int)
+#define RESET_CONTROLLER        _IOW('E', 178, int)
+#define DWFW_CMPLT              _IOW('E', 179, int)
+
+#define GET_USB_INFO            _IOR('E', 180, int)
 
 
 /* Device port name where Bluetooth controller attached */

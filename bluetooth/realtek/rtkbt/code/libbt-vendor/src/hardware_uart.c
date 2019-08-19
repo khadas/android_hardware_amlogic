@@ -17,7 +17,7 @@
  ******************************************************************************/
 
 #define LOG_TAG "bt_hwcfg_uart"
-#define RTKBT_RELEASE_NAME	"Test"
+#define RTKBT_RELEASE_NAME "20190717_BT_ANDROID_9.0"
 
 #include <utils/Log.h>
 #include <sys/types.h>
@@ -57,6 +57,9 @@ extern struct rtk_epatch_entry *rtk_get_patch_entry(bt_hw_cfg_cb_t *cfg_cb);
 extern int rtk_get_bt_firmware(uint8_t** fw_buf, char* fw_short_name);
 extern volatile int h5_init_datatrans_flag;
 
+#define EXTRA_CONFIG_FILE "/vendor/etc/bluetooth/rtk_btconfig.txt"
+static struct rtk_bt_vendor_config_entry *extra_extry;
+static struct rtk_bt_vendor_config_entry *extra_entry_inx = NULL;
 
 
 /******************************************************************************
@@ -410,26 +413,160 @@ static inline void uart_speed_to_rtk_speed(uint32_t uart_speed, uint32_t* rtk_sp
 }
 */
 
+static void line_process(char *buf, unsigned short *offset, int *t)
+{
+    char *head = buf;
+    char *ptr = buf;
+    char *argv[32];
+    int argc = 0;
+    unsigned char len = 0;
+    int i = 0;
+    static int alt_size = 0;
+
+    if(buf[0] == '\0' || buf[0] == '#' || buf[0] == '[')
+        return;
+    if(alt_size > MAX_ALT_CONFIG_SIZE-4)
+    {
+        ALOGW("Extra Config file is too large");
+        return;
+    }
+    if(extra_entry_inx == NULL)
+        extra_entry_inx = extra_extry;
+    ALOGI("line_process:%s", buf);
+    while((ptr = strsep(&head, ", \t")) != NULL)
+    {
+        if(!ptr[0])
+            continue;
+        argv[argc++] = ptr;
+        if(argc >= 32) {
+            ALOGW("Config item is too long");
+            break;
+        }
+    }
+
+    if(argc <4) {
+        ALOGE("Invalid Config item, ignore");
+        return;
+    }
+
+    offset[(*t)] = (unsigned short)((strtoul(argv[0], NULL, 16)) | (strtoul(argv[1], NULL, 16) << 8));
+    ALOGI("Extra Config offset %04x", offset[(*t)]);
+    extra_entry_inx->offset = offset[(*t)];
+    (*t)++;
+    len = (unsigned char)strtoul(argv[2], NULL, 16);
+    if(len != (unsigned char)(argc - 3)) {
+        ALOGE("Extra Config item len %d is not match, we assume the actual len is %d", len, (argc-3));
+        len = argc -3;
+    }
+    extra_entry_inx->entry_len = len;
+
+    alt_size += len + sizeof(struct rtk_bt_vendor_config_entry);
+    if(alt_size > MAX_ALT_CONFIG_SIZE)
+    {
+        ALOGW("Extra Config file is too large");
+        extra_entry_inx->offset = 0;
+        extra_entry_inx->entry_len = 0;
+        alt_size -= (len + sizeof(struct rtk_bt_vendor_config_entry));
+        return;
+    }
+    for(i = 0; i < len; i++)
+    {
+        extra_entry_inx->entry_data[i] = (uint8_t)strtoul(argv[3+i], NULL, 16);
+        ALOGI("data[%d]:%02x", i, extra_entry_inx->entry_data[i]);
+    }
+    extra_entry_inx = (struct rtk_bt_vendor_config_entry *)((uint8_t *)extra_entry_inx + len + sizeof(struct rtk_bt_vendor_config_entry));
+}
+
+static void parse_extra_config(const char *path, patch_info *patch_entry, unsigned short *offset, int *t)
+{
+    int fd, ret;
+    unsigned char buf[1024];
+
+    fd = open(path, O_RDONLY);
+    if(fd == -1) {
+        ALOGI("Couldn't open extra config %s, err:%s", path, strerror(errno));
+        return;
+    }
+
+    ret = read(fd, buf, sizeof(buf));
+    if(ret == -1) {
+        ALOGE("Couldn't read %s, err:%s", path, strerror(errno));
+        close(fd);
+        return;
+    }
+    else if(ret == 0) {
+        ALOGE("%s is empty", path);
+        close(fd);
+        return;
+    }
+
+    if(ret > 1022) {
+        ALOGE("Extra config file is too big");
+        close(fd);
+        return;
+    }
+    buf[ret++] = '\n';
+    buf[ret++] = '\0';
+    close(fd);
+    char *head = (void *)buf;
+    char *ptr = (void *)buf;
+    ptr = strsep(&head, "\n\r");
+    if(strncmp(ptr, patch_entry->config_name, strlen(ptr)))
+    {
+        ALOGW("Extra config file not set for %s, ignore", patch_entry->config_name);
+        return;
+    }
+    while((ptr = strsep(&head, "\n\r")) != NULL)
+    {
+        if(!ptr[0])
+            continue;
+        line_process(ptr, offset, t);
+    }
+}
 
 static inline int getAltSettings(patch_info *patch_entry, unsigned short *offset)//(patch_info *patch_entry, unsigned short *offset, int max_group_cnt)
 {
     int n = 0;
     if(patch_entry)
         offset[n++] = patch_entry->mac_offset;
+    else
+      return n;
 /*
 //sample code, add special settings
 
     offset[n++] = 0x15B;
 */
+    if(extra_extry)
+        parse_extra_config(EXTRA_CONFIG_FILE, patch_entry, offset, &n);
+
     return n;
 }
 static inline int getAltSettingVal(patch_info *patch_entry, unsigned short offset, unsigned char * val)
 {
     int res = 0;
+    int i = 0;
+    struct rtk_bt_vendor_config_entry *ptr = extra_extry;
 
+    while(ptr->offset)
+    {
+        if(ptr->offset == offset)
+        {
+            if(offset != patch_entry->mac_offset)
+            {
+                memcpy(val, ptr->entry_data, ptr->entry_len);
+                res = ptr->entry_len;
+                ALOGI("Get Extra offset:%04x, val:", offset);
+                for(i = 0; i < ptr->entry_len; i++)
+                    ALOGI("%02x", ptr->entry_data[i]);
+            }
+            break;
+        }
+        ptr = (struct rtk_bt_vendor_config_entry *)((uint8_t *)ptr + ptr->entry_len + sizeof(struct rtk_bt_vendor_config_entry));
+    }
+/*
     switch(offset)
     {
-/*
+
 //sample code, add special settings
         case 0x15B:
             val[0] = 0x0B;
@@ -438,11 +575,12 @@ static inline int getAltSettingVal(patch_info *patch_entry, unsigned short offse
             val[3] = 0x0B;
             res = 4;
             break;
-*/
+
         default:
             res = 0;
             break;
     }
+*/
     if((patch_entry)&&(offset == patch_entry->mac_offset)&&(res == 0))
     {
         if(getmacaddr(val) == 0){
@@ -463,7 +601,14 @@ static void rtk_update_altsettings(patch_info *patch_entry, unsigned char* confi
     struct rtk_bt_vendor_config_entry* entry = config->entry;
     size_t config_len = *config_len_ptr;
     unsigned int  i = 0;
-	int count = 0,temp = 0, j;
+    int count = 0,temp = 0, j;
+
+    if((extra_extry = (struct rtk_bt_vendor_config_entry *)malloc(MAX_ALT_CONFIG_SIZE)) == NULL)
+    {
+        ALOGE("malloc buffer for extra_extry failed");
+    }
+    else
+        memset(extra_extry, 0, MAX_ALT_CONFIG_SIZE);
 
     ALOGI("ORG Config len=%08zx:\n", config_len);
     for(i=0;i<=config_len;i+=0x10)
@@ -496,7 +641,23 @@ static void rtk_update_altsettings(patch_info *patch_entry, unsigned char* confi
         for(j = 0; j < count;j++)
         {
             if(le16_to_cpu(entry->offset) == offset[j])
-                offset[j] = 0;
+            {
+                if(offset[j] == patch_entry->mac_offset)
+                    offset[j] = 0;
+                else
+                {
+                    struct rtk_bt_vendor_config_entry *t = extra_extry;
+                    while(t->offset) {
+                        if(t->offset == le16_to_cpu(entry->offset))
+                        {
+                            if(t->entry_len == entry->entry_len)
+                                offset[j] = 0;
+                            break;
+                        }
+                        t = (struct rtk_bt_vendor_config_entry *)((uint8_t *)t + t->entry_len + sizeof(struct rtk_bt_vendor_config_entry));
+                    }
+                }
+            }
         }
         if(getAltSettingVal(patch_entry, le16_to_cpu(entry->offset), val) == entry->entry_len){
             ALOGI("rtk_update_altsettings: replace %04x[%02x]", le16_to_cpu(entry->offset), entry->entry_len);
@@ -522,6 +683,13 @@ static void rtk_update_altsettings(patch_info *patch_entry, unsigned char* confi
     config->data_len = cpu_to_le16(i);
     *config_len_ptr = i+sizeof(struct rtk_bt_vendor_config);
 
+    if(extra_extry)
+    {
+        free(extra_extry);
+        extra_extry = NULL;
+        extra_entry_inx = NULL;
+    }
+
     ALOGI("NEW Config len=%08zx:\n", *config_len_ptr);
     for(i=0;i<=(*config_len_ptr);i+=0x10)
     {
@@ -544,7 +712,7 @@ static uint32_t rtk_parse_config_file(unsigned char** config_buf, size_t* filele
     //uint32_t config_has_bdaddr = 0;
     uint8_t *p;
 
-	ALOGD("bt_addr = %x", bt_addr[0]);
+    ALOGD("bt_addr = %x", bt_addr[0]);
     if (le32_to_cpu(config->signature) != RTK_VENDOR_CONFIG_MAGIC)
     {
         ALOGE("config signature magic number(0x%x) is not set to RTK_VENDOR_CONFIG_MAGIC", config->signature);
@@ -750,27 +918,27 @@ static uint32_t rtk_get_bt_config(unsigned char** config_buf,
     if (stat(bt_config_file_name, &st) < 0)
     {
         ALOGE("can't access bt config file:%s, errno:%d\n", bt_config_file_name, errno);
-        return -1;
+        return 0;
     }
 
     filelen = st.st_size;
     if(filelen > MAX_ORG_CONFIG_SIZE)
     {
         ALOGE("bt config file is too large(>0x%04x)", MAX_ORG_CONFIG_SIZE);
-        return -1;
+        return 0;
     }
 
     if ((fd = open(bt_config_file_name, O_RDONLY)) < 0)
     {
         ALOGE("Can't open bt config file");
-        return -1;
+        return 0;
     }
 
     if ((*config_buf = malloc(MAX_ORG_CONFIG_SIZE+MAX_ALT_CONFIG_SIZE)) == NULL)
     {
         ALOGE("malloc buffer for config file fail(0x%zx)\n", filelen);
         close(fd);
-        return -1;
+        return 0;
     }
 
     if (read(fd, *config_buf, filelen) < (ssize_t)filelen)
@@ -778,7 +946,7 @@ static uint32_t rtk_get_bt_config(unsigned char** config_buf,
         ALOGE("Can't load bt config file");
         free(*config_buf);
         close(fd);
-        return -1;
+        return 0;
     }
 
     *config_baud_rate = rtk_parse_config_file(config_buf, &filelen, vnd_local_bd_addr, mac_offset);
@@ -844,9 +1012,10 @@ void hw_config_cback(void *p_mem)
         if(status != 0) {
           ALOGE("%s, status = %d", __func__, status);
           if ((bt_vendor_cbacks) && (p_evt_buf != NULL))
-          bt_vendor_cbacks->dealloc(p_evt_buf);
+              bt_vendor_cbacks->dealloc(p_evt_buf);
           if(rtkbt_auto_restart) {
-              bt_vendor_cbacks->fwcfg_cb(BT_VND_OP_RESULT_FAIL);
+              if(bt_vendor_cbacks)
+                  bt_vendor_cbacks->fwcfg_cb(BT_VND_OP_RESULT_FAIL);
               kill(getpid(), SIGKILL);
           }
           return;
@@ -881,7 +1050,7 @@ void hw_config_cback(void *p_mem)
             }
             case HW_CFG_READ_LOCAL_VER:
             {
-                if (status == 0)
+                if (status == 0 && p_evt_buf)
                 {
                     p = ((uint8_t *)(p_evt_buf + 1) + HCI_EVT_CMD_CMPL_OP1001_HCI_VERSION_OFFSET);
                     STREAM_TO_UINT16(hw_cfg_cb.hci_version, p);
@@ -909,7 +1078,7 @@ void hw_config_cback(void *p_mem)
             }
             case HW_CFG_READ_ECO_VER:
             {
-                if(status == 0)
+                if(status == 0 && p_evt_buf)
                 {
                     hw_cfg_cb.eversion = *((uint8_t *)(p_evt_buf + 1) + HCI_EVT_CMD_CMPL_OPFC6D_EVERSION_OFFSET);
                     BTVNDDBG("hw_config_cback chip_id of the IC:%d", hw_cfg_cb.eversion+1);
@@ -949,6 +1118,11 @@ void hw_config_cback(void *p_mem)
             }
             case HW_CFG_READ_CHIP_TYPE:
             {
+                if(!p_evt_buf) {
+                    ALOGE("%s, buffer is null", __func__);
+                    is_proceeding = FALSE;
+                    break;
+                }
                 BTVNDDBG("READ_CHIP_TYPE status = %d, length = %d", status, p_evt_buf->len);
                 p = (uint8_t *)(p_evt_buf + 1) ;
                 for (i = 0; i < p_evt_buf->len; i++)
@@ -1018,10 +1192,10 @@ CFG_START:
                 }
                 hw_cfg_cb.max_patch_size = prtk_patch_file_info->max_patch_size;
                 hw_cfg_cb.config_len = rtk_get_bt_config(&hw_cfg_cb.config_buf, &hw_cfg_cb.baudrate, prtk_patch_file_info->config_name, prtk_patch_file_info->mac_offset);
-                if (hw_cfg_cb.config_len < 0)
+                if (hw_cfg_cb.config_len == 0)
                 {
                     ALOGE("Get Config file fail, just use efuse settings");
-                    hw_cfg_cb.config_len = 0;
+                    //hw_cfg_cb.config_len = 0;
                 }
                 rtk_update_altsettings(prtk_patch_file_info, hw_cfg_cb.config_buf, &(hw_cfg_cb.config_len));
 

@@ -27,7 +27,7 @@
  ******************************************************************************/
 
 #define LOG_TAG "bt_hwcfg"
-#define RTKBT_RELEASE_NAME "20181224_BT_ANDROID_9.0"
+#define RTKBT_RELEASE_NAME "20190717_BT_ANDROID_9.0"
 
 #include <utils/Log.h>
 #include <sys/types.h>
@@ -108,7 +108,12 @@ int getmacaddr(unsigned char * addr)
         else if ((addr_fd = open(property, O_RDONLY)) != -1)
         {
             memset(data, 0, sizeof(data));
-            read(addr_fd, data, 17);
+            int ret = read(addr_fd, data, 17);
+            if(ret < 17) {
+                ALOGE("%s, read length = %d", __func__, ret);
+                close(addr_fd);
+                return -1;
+            }
             for (i = 0,str = data; i < 6; i++) {
                 addr[5-i] = (unsigned char)strtoul(str, &str, 16);
                 str++;

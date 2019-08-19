@@ -34,7 +34,7 @@
 *
 ******************************************************************************/
 #define LOG_TAG "rtk_parse"
-#define RTKBT_RELEASE_NAME "20181224_BT_ANDROID_9.0"
+#define RTKBT_RELEASE_NAME "20190717_BT_ANDROID_9.0"
 
 #include <utils/Log.h>
 #include <stdlib.h>
@@ -710,7 +710,7 @@ uint8_t list_allocate_add(uint16_t handle, uint16_t psm, int8_t profile_index, u
 
 void delete_profile_from_hash(tRTK_PROF_INFO* desc)
 {
-    RtkLogMsg("delete profile for handle: %x, psm:%x, dcid:%x, scid:%x", desc->handle, desc->psm, desc->dcid, desc->scid);
+    //RtkLogMsg("delete profile for handle: %x, psm:%x, dcid:%x, scid:%x", desc->handle, desc->psm, desc->dcid, desc->scid);
     if (desc)
     {
         ListDeleteNode(&desc->list);
@@ -820,8 +820,6 @@ void flush_coex_hash(tRTK_PROF* h5)
 
 static void rtk_cmd_complete_cback(void *p_mem)
 {
-    if(p_mem)
-        bt_vendor_cbacks->dealloc(p_mem);
     pthread_mutex_lock(&rtk_prof.coex_mutex);
     RT_LIST_ENTRY* iter = ListGetTop(&(rtk_prof.coex_list));
     tRTK_COEX_INFO* desc = NULL;
@@ -841,6 +839,9 @@ static void rtk_cmd_complete_cback(void *p_mem)
         rtk_prof.current_cback(p_mem);
         rtk_prof.current_cback = NULL;
     }
+
+    if(p_mem)
+        bt_vendor_cbacks->dealloc(p_mem);
 
     if(desc) {
         ALOGE("%s, transmit_command Opcode:%x",__func__, desc->opcode);
@@ -2015,7 +2016,6 @@ int create_udpsocket_socket()
     {
         ALOGE("create udpsocket error...%s\n", strerror(errno));
         rtk_prof.coex_recv_thread_running = 0;
-        close(rtk_prof.udpsocket);
         RtkLogMsg("close socket %d", rtk_prof.udpsocket);
         pthread_mutex_unlock(&rtk_prof.btwifi_mutex);
         return -1 ;
@@ -2032,7 +2032,10 @@ int create_udpsocket_socket()
     rtk_prof.client_addr.sin_port = htons(CONNECT_PORT_WIFI);
 
     optval = 1;
-    setsockopt(rtk_prof.udpsocket, SOL_SOCKET, SO_REUSEADDR, (const void *)&optval , sizeof(int));
+    int ret = setsockopt(rtk_prof.udpsocket, SOL_SOCKET, SO_REUSEADDR, (const void *)&optval , sizeof(int));
+    if(ret == -1){
+        ALOGE("%s, setsockopt error: %s", __func__, strerror(errno));
+    }
 
     if (bind(rtk_prof.udpsocket, (struct sockaddr *)&rtk_prof.server_addr, sizeof(rtk_prof.server_addr)) < 0)
     {

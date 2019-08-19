@@ -19,6 +19,7 @@
 #include "rtk_btsnoop_net.h"
 #include <unistd.h>
 
+#define RTK_NO_INTR(fn)  do {} while ((fn) == -1 && errno == EINTR)
 
 #define DATA_DIRECT_2_ELLISY 1
 
@@ -344,7 +345,8 @@ void rtk_btsnoop_net_write(serial_data_type_t type, uint8_t *data, bool is_recei
     client_addr.sin_addr.s_addr = htonl(RTK_REMOTEHOST_);
     client_addr.sin_port = htons(RTK_REMOTE_PORT_);
     pthread_mutex_lock(&rtk_client_socket_lock_);
-    sendto(rtk_listen_socket_, buffer, (length+i), 0,(struct sockaddr*)&client_addr, sizeof(struct sockaddr_in));
+    int ret;
+    RTK_NO_INTR(ret = sendto(rtk_listen_socket_, buffer, (length+i), 0,(struct sockaddr*)&client_addr, sizeof(struct sockaddr_in)));
     //sendto(rtk_listen_socket_, buffer, 25, 0,(struct sockaddr*)&client_addr, sizeof(struct sockaddr_in));
     pthread_mutex_unlock(&rtk_client_socket_lock_);
 }

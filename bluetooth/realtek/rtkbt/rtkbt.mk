@@ -1,9 +1,9 @@
-# RELEASE NAME: 20181116_BT_ANDROID_9.0
+# RELEASE NAME: 20190717_BT_ANDROID_9.0
 # RTKBT_API_VERSION=2.1.1.0
 
 BOARD_HAVE_BLUETOOTH := true
 BOARD_HAVE_BLUETOOTH_RTK := true
-BOARD_HAVE_BLUETOOTH_RTK_TV := true
+BOARD_HAVE_BLUETOOTH_RTK_TV := false
 
 ifeq ($(BOARD_HAVE_BLUETOOTH_RTK_TV), true)
 #Firmware For Tv
@@ -39,10 +39,14 @@ PRODUCT_PACKAGES += \
     android.hardware.bluetooth@1.0-service.rc \
 
 
-PRODUCT_PROPERTY_OVERRIDES += persist.bluetooth.btsnoopenable=true \
-                    persist.bluetooth.btsnooppath=/data/misc/bluetooth/logs/btsnoop_hci.log \
-                    persist.bluetooth.btsnoopsize=0xffff \
+PRODUCT_PROPERTY_OVERRIDES += \
                     persist.vendor.bluetooth.rtkcoex=true \
-		    persist.bluetooth.prefferedrole=master \
-		    persist.vendor.rtkbt.bdaddr_path=none \
-                    bluetooth.enable_timeout_ms=11000
+                    persist.vendor.rtkbt.bdaddr_path=none \
+                    persist.vendor.bluetooth.prefferedrole=master \
+                    persist.vendor.rtkbtadvdisable=false
+
+PRODUCT_SYSTEM_DEFAULT_PROPERTIES += persist.bluetooth.btsnoopenable=false \
+                    persist.bluetooth.btsnooppath=/data/misc/bluedroid/btsnoop_hci.cfa \
+                    persist.bluetooth.btsnoopsize=0xffff \
+                    persist.bluetooth.showdeviceswithoutnames=false \
+                    vendor.bluetooth.enable_timeout_ms=11000
