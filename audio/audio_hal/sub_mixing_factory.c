@@ -1060,7 +1060,7 @@ ssize_t mixer_aux_buffer_write_sm(struct audio_stream_out *stream, const void *b
     ALOGV("++%s", __func__);
     if (aml_out->standby) {
         char *padding_buf = NULL;
-        int padding_bytes = 512 * 4 * 8;
+        int padding_bytes = 1024 * 4 * 8;
 
         //set_thread_affinity();
         init_mixer_input_port(sm->mixerData, &aml_out->audioCfg, aml_out->flags,
@@ -1072,7 +1072,7 @@ ssize_t mixer_aux_buffer_write_sm(struct audio_stream_out *stream, const void *b
             __func__, aml_out, aml_out->port_index);
         aml_out->standby = false;
         /* start padding zero to fill buffer */
-        padding_buf = calloc(1, 512 * 4);
+        padding_buf = calloc(1, 1024 * 4);
         if (padding_buf == NULL) {
             ALOGE("%s(), no memory", __func__);
             return -ENOMEM;
@@ -1080,8 +1080,8 @@ ssize_t mixer_aux_buffer_write_sm(struct audio_stream_out *stream, const void *b
         mixer_set_padding_size(sm->mixerData, aml_out->port_index, padding_bytes);
         while (padding_bytes > 0) {
             ALOGI("padding_bytes %d", padding_bytes);
-            aml_out_write_to_mixer(stream, padding_buf, 512 * 4);
-            padding_bytes -= 512 * 4;
+            aml_out_write_to_mixer(stream, padding_buf, 1024 * 4);
+            padding_bytes -= 1024 * 4;
         }
         free(padding_buf);
     }
