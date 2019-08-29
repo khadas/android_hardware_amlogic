@@ -73,6 +73,7 @@ int wpa_driver_nl80211_driver_cmd(void *priv, char *cmd, char *buf,
 	struct ifreq ifr;
 	android_wifi_priv_cmd priv_cmd;
 	int ret = 0;
+
 	if (bss->ifindex <= 0 && bss->wdev_id > 0) {
 		/* DRIVER CMD received on the DEDICATED P2P Interface which doesn't
 		 * have an NETDEVICE associated with it. So we have to re-route the
@@ -81,7 +82,7 @@ int wpa_driver_nl80211_driver_cmd(void *priv, char *cmd, char *buf,
 		struct wpa_supplicant *wpa_s = (struct wpa_supplicant *)(drv->ctx);
 
 		wpa_printf(MSG_DEBUG, "Re-routing DRIVER cmd to parent iface");
-		if (wpa_s && wpa_s->parent && wpa_s->parent->drv_priv) {
+		if (wpa_s && wpa_s->parent) {
 			/* Update the nl80211 pointers corresponding to parent iface */
 			bss = wpa_s->parent->drv_priv;
 			drv = bss->drv;
@@ -90,17 +91,21 @@ int wpa_driver_nl80211_driver_cmd(void *priv, char *cmd, char *buf,
 		}
 	}
 
-       if (os_strncasecmp(cmd, "BTCOEXMODE", 10) == 0 || os_strncasecmp(cmd, "MIRACAST", 8) == 0 ||
-        os_strncasecmp(cmd, "WLS_BATCHING", 12) == 0 || os_strcasecmp(cmd, "BTCOEXSCAN-STOP") == 0 ||
-        os_strncasecmp(cmd, "RXFILTER", 8) == 0 || os_strncasecmp(cmd, "SETSUSPENDMODE", 14) == 0 ||
-        os_strncasecmp(cmd, "SETBAND", 7) == 0)
-        return 0;
+	if (os_strncasecmp(cmd, "BTCOEXMODE", 10) == 0 ||
+		os_strncasecmp(cmd, "WLS_BATCHING", 12) == 0 || os_strcasecmp(cmd, "BTCOEXSCAN-STOP") == 0 ||
+		os_strncasecmp(cmd, "RXFILTER", 8) == 0 || os_strncasecmp(cmd, "SETSUSPENDMODE", 14) == 0 ||
+		os_strncasecmp(cmd, "SETBAND", 7) == 0)
+		return 0;
+
 	if (os_strcasecmp(cmd, "STOP") == 0) {
 		linux_set_iface_flags(drv->global->ioctl_sock, bss->ifname, 0);
 		wpa_msg(drv->ctx, MSG_INFO, WPA_EVENT_DRIVER_STATE "STOPPED");
 	} else if (os_strcasecmp(cmd, "START") == 0) {
 		linux_set_iface_flags(drv->global->ioctl_sock, bss->ifname, 1);
 		wpa_msg(drv->ctx, MSG_INFO, WPA_EVENT_DRIVER_STATE "STARTED");
+        } else if (os_strcasecmp(cmd, "P2P_DISABLE") == 0) {
+                os_memcpy(buf, "P2P_DISABLE", 12);
+                wpa_printf(MSG_DEBUG, "P2P_DISABLE");
 	} else if (os_strcasecmp(cmd, "MACADDR") == 0) {
 		u8 macaddr[ETH_ALEN] = {};
 
@@ -122,6 +127,7 @@ int wpa_driver_nl80211_driver_cmd(void *priv, char *cmd, char *buf,
 		priv_cmd.used_len = buf_len;
 		priv_cmd.total_len = buf_len;
 		ifr.ifr_data = &priv_cmd;
+
 		if ((ret = ioctl(drv->global->ioctl_sock, SIOCDEVPRIVATE + 1, &ifr)) < 0) {
 			wpa_printf(MSG_ERROR, "%s: failed to issue private command: %s", __func__, cmd);
 			wpa_driver_send_hang_msg(drv);
