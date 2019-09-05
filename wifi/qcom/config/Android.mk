@@ -65,21 +65,6 @@ LOCAL_MODULE_PATH := $(TARGET_OUT_ETC)/wifi
 endif
 include $(BUILD_PREBUILT)
 
-########################
-
-include $(CLEAR_VARS)
-LOCAL_MODULE       := wpa_supplicant.conf
-LOCAL_MODULE_TAGS  := optional
-LOCAL_MODULE_CLASS := ETC
-LOCAL_SRC_FILES    := $(LOCAL_MODULE)
-
-ifeq ($(shell test $(PLATFORM_SDK_VERSION) -ge 26 && echo OK),OK)
-LOCAL_PROPRIETARY_MODULE := true
-LOCAL_MODULE_PATH := $(TARGET_OUT_VENDOR)/etc/wifi
-else
-LOCAL_MODULE_PATH := $(TARGET_OUT_ETC)/wifi
-endif
-include $(BUILD_PREBUILT)
 
 ########################
 WIFI_DRIVER_SOCKET_IFACE := wlan0

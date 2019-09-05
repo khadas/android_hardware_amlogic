@@ -29,10 +29,12 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-#include <ion/ion.h>
+#include "ion_wrapper.h"
 #include "ion_4.12.h"
 
 #include <log/log.h>
+
+#define ION_IOC_INVALID_CACHE _IOWR(ION_IOC_MAGIC, 9, struct ion_fd_data)
 
 enum ion_version { ION_VERSION_UNKNOWN, ION_VERSION_MODERN, ION_VERSION_LEGACY };
 
@@ -250,4 +252,12 @@ int ion_query_get_heaps(int fd, int cnt, void* buffers) {
 
     ret = ion_ioctl(fd, ION_IOC_HEAP_QUERY, &query);
     return ret;
+}
+
+int ion_cache_invalid(int fd, int share_fd)
+{
+    struct ion_fd_data data = {
+        .fd = share_fd,
+    };
+    return ion_ioctl(fd, ION_IOC_INVALID_CACHE, &data);
 }
