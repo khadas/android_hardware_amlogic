@@ -30,7 +30,8 @@ ifeq ($(BOARD_HAVE_BLUETOOTH),true)
     ro.vendor.autoconnectbt.macprefix=00:CD:FF \
     ro.vendor.autoconnectbt.btclass=50c \
     ro.vendor.autoconnectbt.nameprefix=Amlogic_RC \
-    ro.vendor.autoconnectbt.rssilimit=70
+    ro.vendor.autoconnectbt.rssilimit=70 \
+    persist.bluetooth.bluetooth_audio_hal.disabled = true
 
 else
     PRODUCT_PROPERTY_OVERRIDES += config.disable_bluetooth=true
