@@ -1,7 +1,7 @@
 ######################################################################################## realtek
 ifneq ($(filter rtl8188eu rtl8188ftv rtl8192eu rtl8192es rtl8189es rtl8189fs \
-				rtl8723bs rtl8723bu rtl8723ds rtl8723du \
-				rtl88x1au rtl8812au rtl8822bu rtl8822bs,$(WIFI_MODULE)),)
+				rtl8723bs rtl8723bu rtl8723ds rtl8723du rtl88x1au\
+				rtl8812au rtl8822bu rtl8822bs rtl8822cs,$(WIFI_MODULE)),)
 
 WIFI_KO := $(patsubst rtl%,%,$(WIFI_MODULE))
 DEFAULT_WIFI_KERNEL_MODULES := $(PRODUCT_OUT)/obj/lib_vendor/$(WIFI_KO).ko

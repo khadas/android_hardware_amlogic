@@ -1,4 +1,4 @@
-ifneq (,$(filter $(TARGET_DEVICE),franklin faraday newton))
+ifneq (,$(filter $(TARGET_DEVICE),franklin faraday newton newton_elektra))
 LOCAL_PATH:= $(call my-dir)
 include $(CLEAR_VARS)
 
