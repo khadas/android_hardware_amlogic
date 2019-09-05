@@ -138,6 +138,11 @@ rtl8822bu:
 	cp $(shell pwd)/hardware/wifi/realtek/drivers/8822bu/rtl8822BU/8822bu.ko $(TARGET_OUT)/
 	#cp $(shell pwd)/$(PRODUCT_OUT)/obj/KERNEL_OBJ/net/wireless/cfg80211.ko $(TARGET_OUT)/
 
+mt76x8_sdio:
+	$(MAKE) -C $(shell pwd)/$(PRODUCT_OUT)/obj/KERNEL_OBJ M=$(shell pwd)/hardware/wifi/mtk/drivers/mt7668 ARCH=$(KERNEL_ARCH)
+	cp $(shell pwd)/hardware/wifi/mtk/drivers/mt7668/drv_wlan/MT6632/wlan/wlan_mt76x8_sdio.ko $(TARGET_OUT)/
+	$(CROSS_COMPILE)strip --strip-debug $(TARGET_OUT)/wlan_mt76x8_sdio.ko
+
 mt7601u:
 	$(MAKE) -C $(shell pwd)/$(PRODUCT_OUT)/obj/KERNEL_OBJ M=$(shell pwd)/hardware/wifi/mtk/drivers/mt7601 ARCH=$(KERNEL_ARCH) CROSS_COMPILE=$(CROSS_COMPILE) modules
 	cp $(shell pwd)/hardware/wifi/mtk/drivers/mt7601/mt7601usta.ko $(TARGET_OUT)/
