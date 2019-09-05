@@ -24,8 +24,7 @@
 #include <cutils/log.h>
 #include <cutils/atomic.h>
 
-#include <linux/ion.h>
-#include <ion/ion.h>
+#include "ion_wrapper.h"
 #include <sys/ioctl.h>
 
 #include <hardware/hardware.h>
@@ -572,6 +571,7 @@ void mali_gralloc_ion_sync(const mali_gralloc_module *m, private_handle_t *hnd)
 			if (!(hnd->flags & private_handle_t::PRIV_FLAGS_USES_ION_DMA_HEAP))
 			{
 				ion_sync_fd(m->ion_client, hnd->share_fd);
+				ion_cache_invalid(m->ion_client, hnd->share_fd);
 			}
 
 			break;
