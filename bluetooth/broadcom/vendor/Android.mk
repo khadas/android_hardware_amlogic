@@ -6,6 +6,10 @@ include $(CLEAR_VARS)
 
 BDROID_DIR := $(TOP_DIR)system/bt
 
+ifneq ($(filter deadpool,$(TARGET_DEVICE)),)
+  LOCAL_CFLAGS += -DUSE_CONTROLLER_BDADDR=TRUE
+endif
+
 LOCAL_SRC_FILES := \
         src/bt_vendor_brcm.c \
         src/hardware.c \
