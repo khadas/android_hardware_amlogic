@@ -53,8 +53,6 @@ LOCAL_C_INCLUDES += \
 LOCAL_C_INCLUDES += \
    external/libcxx/include
 
-LOCAL_CPPFLAGS += -std=c++14
-
 ifeq ($(shell test $(PLATFORM_SDK_VERSION) -ge 26 && echo OK),OK)
 LOCAL_PROPRIETARY_MODULE := true
 endif
