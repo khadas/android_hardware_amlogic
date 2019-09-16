@@ -16,51 +16,6 @@ LOCAL_PATH := $(call my-dir)
 
 KEYMASTER_TA_BINARY := 8efb1e1c-37e5-4326-a5d68c33726c7d57
 
-include $(CLEAR_VARS)
-LOCAL_MODULE := keystore.amlogic
-LOCAL_MODULE_RELATIVE_PATH := hw
-LOCAL_SRC_FILES := module.cpp \
-		   aml_keymaster_ipc.cpp \
-		   aml_keymaster_device.cpp \
-
-LOCAL_C_INCLUDES := \
-    system/security/keystore \
-    $(LOCAL_PATH)/include \
-    system/keymaster/ \
-    system/keymaster/include \
-    external/boringssl/include \
-	hardware/libhardware/include \
-	system/core/libcutils/include \
-	system/core/libsystem/include \
-	system/core/libutils/include \
-    $(BOARD_AML_VENDOR_PATH)/tdk/ca_export_arm/include \
-
-LOCAL_CFLAGS = -fvisibility=hidden -Wall -Werror
-LOCAL_CFLAGS += -DANDROID_BUILD
-ifeq ($(USE_SOFT_KEYSTORE), false)
-LOCAL_CFLAGS += -DUSE_HW_KEYMASTER
-endif
-LOCAL_SHARED_LIBRARIES := libcrypto \
-			  liblog \
-			  libkeymaster_messages \
-			  libteec
-
-LOCAL_MODULE_TAGS := optional
-
-ifeq ($(shell test $(PLATFORM_SDK_VERSION) -ge 26 && echo OK),OK)
-LOCAL_PROPRIETARY_MODULE := true
-endif
-
-ifeq ($(shell test $(PLATFORM_SDK_VERSION) -le 26 && echo OK),OK)
-LOCAL_SHARED_LIBRARIES += libkeymaster1
-endif
-
-LOCAL_CFLAGS += -DANDROID_PLATFORM_SDK_VERSION=$(PLATFORM_SDK_VERSION)
-
-LOCAL_ADDITIONAL_DEPENDENCIES := $(LOCAL_PATH)/Android.mk
-LOCAL_REQUIRED_MODULES := $(KEYMASTER_TA_BINARY)
-include $(BUILD_SHARED_LIBRARY)
-
 #####################################################
 #	TA Library
 #####################################################
@@ -117,4 +72,3 @@ LOCAL_REQUIRED_MODULES := $(KEYMASTER_TA_BINARY)
 LOCAL_MODULE := android.hardware.keymaster@4.0-service.amlogic
 LOCAL_INIT_RC := 4.0/android.hardware.keymaster@4.0-service.amlogic.rc
 include $(BUILD_EXECUTABLE)
-
