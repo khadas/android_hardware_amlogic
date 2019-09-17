@@ -18,7 +18,7 @@ LOCAL_PATH := $(call my-dir)
 include $(CLEAR_VARS)
 
 #Q cannot use many host tootls, use the built in one
-IFCONFG_BIN=$(TARGET_HOST_TOOL_PATH)/ifconfig
+#IFCONFG_BIN=$(TARGET_HOST_TOOL_PATH)/ifconfig
 
 LOCAL_VENDOR_MODULE := true
 LOCAL_MODULE_RELATIVE_PATH := hw
@@ -35,7 +35,7 @@ CAMHAL_BUILD_NAME=" $(shell echo ${LOGNAME})"
 CAMHAL_BRANCH_NAME="$(shell cd $(LOCAL_PATH);git branch -a | sed -n '/'*'/p')"
 CAMHAL_BUILD_MODE=$(shell echo ${TARGET_BUILD_VARIANT})
 CAMHAL_HOSTNAME="$(shell hostname)"
-CAMHAL_IP="$(shell $(IFCONFG_BIN) eth0|grep -oE '([0-9]{1,3}\.?){4}'|head -n 1)"
+#CAMHAL_IP="$(shell $(IFCONFG_BIN) eth0|grep -oE '([0-9]{1,3}\.?){4}'|head -n 1)"
 CAMHAL_PATH="$(shell pwd)/$(LOCAL_PATH)"
 
 LOCAL_CFLAGS+=-DHAVE_VERSION_INFO
@@ -46,7 +46,7 @@ LOCAL_CFLAGS+=-DCAMHAL_BUILD_TIME=\"${CAMHAL_BUILD_TIME}\"
 LOCAL_CFLAGS+=-DCAMHAL_BUILD_NAME=\"${CAMHAL_BUILD_NAME}\"
 LOCAL_CFLAGS+=-DCAMHAL_GIT_UNCOMMIT_FILE_NUM=${CAMHAL_GIT_UNCOMMIT_FILE_NUM}
 LOCAL_CFLAGS+=-DCAMHAL_HOSTNAME=\"${CAMHAL_HOSTNAME}\"
-LOCAL_CFLAGS+=-DCAMHAL_IP=\"${CAMHAL_IP}\"
+#LOCAL_CFLAGS+=-DCAMHAL_IP=\"${CAMHAL_IP}\"
 LOCAL_CFLAGS+=-DCAMHAL_PATH=\"${CAMHAL_PATH}\"
 ########################################################################################################
 
@@ -150,7 +150,6 @@ $(info builder name:  $(CAMHAL_BUILD_NAME))
 $(info branch name:   $(CAMHAL_BRANCH_NAME))
 $(info build mode:    $(CAMHAL_BUILD_MODE))
 $(info host name:     $(CAMHAL_HOSTNAME))
-$(info host IP:       $(CAMHAL_IP))
 $(info path:          $(CAMHAL_PATH))
 $(info ************************************************************)
 $(shell sleep 1)
