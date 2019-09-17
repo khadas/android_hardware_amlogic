@@ -920,7 +920,7 @@ int camera_get_number_of_cameras(void)
                   "build-time:    %s\n"
                   "build-name:    %s\n"
                   "uncommitted-file-num:%d\n"
-                  "ssh user@%s, cd %s\n"
+                  "ssh user@, cd %s\n"
                   "hostname %s\n"
                   "--------------------------------\n",
                   CAMHAL_BRANCH_NAME,
@@ -929,7 +929,7 @@ int camera_get_number_of_cameras(void)
                   CAMHAL_BUILD_TIME,
                   CAMHAL_BUILD_NAME,
                   CAMHAL_GIT_UNCOMMIT_FILE_NUM,
-                  CAMHAL_IP, CAMHAL_PATH, CAMHAL_HOSTNAME
+                  CAMHAL_PATH, CAMHAL_HOSTNAME
                   );
 #endif
     for(unsigned i = 0;i<sizeof(macro_info)/sizeof(macro_info[0]) ;i++){

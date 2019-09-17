@@ -3,8 +3,8 @@ CAMHAL_V3:=true
 
 ifneq ($(CAMHAL_V3),true)
 
-#Q cannot use many host tootls, use the built in one 
-IFCONFG_BIN=$(TARGET_HOST_TOOL_PATH)/ifconfig
+#Q cannot use many host tootls, use the built in one
+#IFCONFG_BIN=$(TARGET_HOST_TOOL_PATH)/ifconfig
 
 CAMHAL_GIT_VERSION="$(shell cd $(LOCAL_PATH);git log | grep commit -m 1 | cut -d' ' -f 2)"
 CAMHAL_GIT_UNCOMMIT_FILE_NUM=$(shell cd $(LOCAL_PATH);git diff | grep +++ -c)
@@ -14,7 +14,7 @@ CAMHAL_BUILD_NAME=" $(shell echo ${LOGNAME})"
 CAMHAL_BRANCH_NAME="$(shell cd $(LOCAL_PATH);git branch -a | sed -n '/'*'/p')"
 CAMHAL_BUILD_MODE=$(shell echo ${TARGET_BUILD_VARIANT})
 CAMHAL_HOSTNAME="$(shell hostname)"
-CAMHAL_IP="$(shell $(IFCONFG_BIN) eth0|grep -oE '([0-9]{1,3}\.?){4}'|head -n 1)"
+#CAMHAL_IP="$(shell $(IFCONFG_BIN) eth0|grep -oE '([0-9]{1,3}\.?){4}'|head -n 1)"
 CAMHAL_PATH="$(shell pwd)/$(LOCAL_PATH)"
 
 CAMERA_HAL_SRC := \
@@ -121,7 +121,7 @@ LOCAL_CFLAGS+=-DCAMHAL_BUILD_TIME=\"${CAMHAL_BUILD_TIME}\"
 LOCAL_CFLAGS+=-DCAMHAL_BUILD_NAME=\"${CAMHAL_BUILD_NAME}\"
 LOCAL_CFLAGS+=-DCAMHAL_GIT_UNCOMMIT_FILE_NUM=${CAMHAL_GIT_UNCOMMIT_FILE_NUM}
 LOCAL_CFLAGS+=-DCAMHAL_HOSTNAME=\"${CAMHAL_HOSTNAME}\"
-LOCAL_CFLAGS+=-DCAMHAL_IP=\"${CAMHAL_IP}\"
+#LOCAL_CFLAGS+=-DCAMHAL_IP=\"${CAMHAL_IP}\"
 LOCAL_CFLAGS+=-DCAMHAL_PATH=\"${CAMHAL_PATH}\"
 
 ifeq ($(CAMHAL_BUILD_MODE),user)
