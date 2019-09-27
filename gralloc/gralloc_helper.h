@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010-2017 ARM Limited. All rights reserved.
+ * Copyright (C) 2010-2019 ARM Limited. All rights reserved.
  *
  * Copyright (C) 2008 The Android Open Source Project
  *
@@ -19,6 +19,7 @@
 #ifndef GRALLOC_HELPER_H_
 #define GRALLOC_HELPER_H_
 
+#include <unistd.h>
 #include <sys/mman.h>
 #include <android/log.h>
 
@@ -39,7 +40,9 @@
 	AERR(fmt, args)
 #endif
 
-#define GRALLOC_ALIGN(value, base) (((value) + ((base)-1)) & ~((base)-1))
+#define GRALLOC_ALIGN(value, base) ((((value) + (base) -1) / (base)) * (base))
+
+#define GRALLOC_MAX(a, b) (((a)>(b))?(a):(b))
 
 #define GRALLOC_UNUSED(x) ((void)x)
 

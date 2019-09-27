@@ -19,6 +19,44 @@
 #ifndef MALI_GRALLOC_PRIVATE_INTERFACE_TYPES_H_
 #define MALI_GRALLOC_PRIVATE_INTERFACE_TYPES_H_
 
+#define GRALLOC_ARM_BUFFER_ATTR_HDR_INFO_SUPPORT
+#define GRALLOC_ARM_BUFFER_ATTR_DATASPACE_SUPPORT
+
+/*
+ * Deprecated.
+ * Use GRALLOC_ARM_BUFFER_ATTR_DATASPACE
+ * instead.
+ */
+typedef enum
+{
+	MALI_HDR_NO_INFO,
+	MALI_HDR_ST2084,
+	MALI_HDR_HLG,
+	MALI_HDR_LAST
+} mali_transfer_function;
+
+typedef struct
+{
+	//values are in units of 0.00002
+	uint16_t x;
+	uint16_t y;
+} primaries;
+
+typedef struct
+{
+	primaries r;
+	primaries g;
+	primaries b;
+	primaries w;
+	uint16_t minDisplayLuminance; // in cd/m^2
+	uint16_t maxDisplayLuminance; // in 0.0001 cd/m^2
+	uint16_t maxContentLightLevel; // in cd/m^2
+	uint16_t maxFrameAverageLightLevel; // in cd/m^2
+
+	/* Deprecated. Use GRALLOC_ARM_BUFFER_ATTR_DATASPACE instead. */
+	mali_transfer_function eotf;
+} mali_hdr_info;
+
 enum
 {
 	/* CROP_RECT and YUV_TRANS are intended to be
@@ -30,20 +68,31 @@ enum
 	/* CROP RECT, defined as an int array of top, left, height, width. Origin in top-left corner */
 	GRALLOC_ARM_BUFFER_ATTR_CROP_RECT = 1,
 
-	/* Set if the AFBC format used a YUV transform before compressing */
+	/* DEPRECATED. Set if the AFBC format used a YUV transform before compressing */
 	GRALLOC_ARM_BUFFER_ATTR_AFBC_YUV_TRANS = 2,
 
 	/* Set if the AFBC format uses sparse allocation */
 	GRALLOC_ARM_BUFFER_ATTR_AFBC_SPARSE_ALLOC = 3,
 
+	/* HDR Information */
+	GRALLOC_ARM_BUFFER_ATTR_HDR_INFO = 4,
+
+	/* Dataspace - used for YUV to RGB conversion. */
+	GRALLOC_ARM_BUFFER_ATTR_DATASPACE = 5,
+
 	/* Amlogic: set tunnel index for omx video */
-        GRALLOC_ARM_BUFFER_ATTR_AM_OMX_TUNNEL = 4,
+	GRALLOC_ARM_BUFFER_ATTR_AM_OMX_TUNNEL = 6,
 
 	GRALLOC_ARM_BUFFER_ATTR_LAST
 };
 
 typedef uint32_t buf_attr;
 
+/*
+ * Deprecated.
+ * Use GRALLOC_ARM_BUFFER_ATTR_DATASPACE
+ * instead.
+ */
 typedef enum
 {
 	MALI_YUV_NO_INFO,

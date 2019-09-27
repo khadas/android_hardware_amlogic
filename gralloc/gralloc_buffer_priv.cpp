@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014-2017 ARM Limited. All rights reserved.
+ * Copyright (C) 2014-2018 ARM Limited. All rights reserved.
  *
  * Copyright (C) 2008 The Android Open Source Project
  *
@@ -17,12 +17,12 @@
  */
 
 #include <cutils/ashmem.h>
-#include <cutils/log.h>
+#include <log/log.h>
 #include <sys/mman.h>
 
-#if GRALLOC_USE_GRALLOC1_API == 1
+#if GRALLOC_VERSION_MAJOR == 1
 #include <hardware/gralloc1.h>
-#else
+#elif GRALLOC_VERSION_MAJOR == 0
 #include <hardware/gralloc.h>
 #endif
 

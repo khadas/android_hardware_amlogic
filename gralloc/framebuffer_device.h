@@ -18,6 +18,8 @@
 
 #include <hardware/hardware.h>
 #include "gralloc_priv.h"
+#include "mali_gralloc_module.h"
+#include "mali_gralloc_bufferdescriptor.h"
 
 // Create a framebuffer device
 int framebuffer_device_open(hw_module_t const *module, const char *name, hw_device_t **device);
@@ -25,6 +27,7 @@ int framebuffer_device_open(hw_module_t const *module, const char *name, hw_devi
 // Initialize the framebuffer (must keep module lock before calling
 int init_frame_buffer_locked(struct private_module_t *module);
 
-// Allocate framebuffer buffer
-int fb_alloc_framebuffer(mali_gralloc_module *m, uint64_t consumer_usage, uint64_t producer_usage,
-                         buffer_handle_t *pHandle, int *stride, int *byte_stride);
+/* Allocate framebuffer buffer */
+int32_t mali_gralloc_fb_allocate(private_module_t * const module,
+                                 const buffer_descriptor_t * const bufDescriptor,
+                                 buffer_handle_t * const outBuffers);

@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2016 ARM Limited. All rights reserved.
+# Copyright (C) 2016, 2018 ARM Limited. All rights reserved.
 #
 # Copyright (C) 2008 The Android Open Source Project
 #
@@ -17,4 +17,4 @@
 
 $(info gralloc for juno)
 GRALLOC_FB_SWAP_RED_BLUE := 1
-GRALLOC_DEPTH := GRALLOC_32_BITS
+GRALLOC_FB_BPP := 32

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014-2017 ARM Limited. All rights reserved.
+ * Copyright (C) 2014-2018 ARM Limited. All rights reserved.
  *
  * Copyright (C) 2008 The Android Open Source Project
  *
@@ -18,7 +18,6 @@
 
 #include <sys/ioctl.h>
 #include <errno.h>
-
 #if PLATFORM_SDK_VERSION < 27
 #include <system/window.h>
 #endif
@@ -26,9 +25,9 @@
 #include <hardware/hardware.h>
 #include <hardware/fb.h>
 
-#if GRALLOC_USE_GRALLOC1_API == 1
+#if GRALLOC_VERSION_MAJOR == 1
 #include <hardware/gralloc1.h>
-#else
+#elif GRALLOC_VERSION_MAJOR == 0
 #include <hardware/gralloc.h>
 #endif
 

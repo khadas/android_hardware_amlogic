@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016 ARM Limited. All rights reserved.
+ * Copyright (C) 2016, 2018 ARM Limited. All rights reserved.
  *
  * Copyright (C) 2008 The Android Open Source Project
  *
@@ -21,12 +21,12 @@
 #include <vector>
 #include <algorithm>
 
-#if GRALLOC_USE_GRALLOC1_API == 1
+#include <hardware/hardware.h>
+#if GRALLOC_VERSION_MAJOR == 1
 #include <hardware/gralloc1.h>
-#else
+#elif GRALLOC_VERSION_MAJOR == 0
 #include <hardware/gralloc.h>
 #endif
-#include <hardware/hardware.h>
 
 #include "mali_gralloc_module.h"
 #include "gralloc_priv.h"
@@ -58,7 +58,7 @@ void mali_gralloc_dump_buffer_erase(private_handle_t *handle)
 	}
 
 	pthread_mutex_lock(&dump_lock);
-	dump_buffers.erase(std::remove(dump_buffers.begin(), dump_buffers.end(), handle));
+	dump_buffers.erase(std::remove(dump_buffers.begin(), dump_buffers.end(), handle), dump_buffers.end());
 	pthread_mutex_unlock(&dump_lock);
 }
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010-2017 ARM Limited. All rights reserved.
+ * Copyright (C) 2010-2019 ARM Limited. All rights reserved.
  *
  * Copyright (C) 2008 The Android Open Source Project
  *
@@ -26,17 +26,17 @@
 #if PLATFORM_SDK_VERSION < 27
 #include <system/window.h>
 #endif
-#include <cutils/log.h>
+#include <log/log.h>
 #include <cutils/atomic.h>
 #include <hardware/hardware.h>
 #include <hardware/fb.h>
 
-#include <GLES/gl.h>
-
-#if GRALLOC_USE_GRALLOC1_API == 1
+#if GRALLOC_VERSION_MAJOR == 1
 #include <hardware/gralloc1.h>
-#else
+#include <GLES/gl.h>
+#elif GRALLOC_VERSION_MAJOR == 0
 #include <hardware/gralloc.h>
+#include <GLES/gl.h>
 #endif
 
 #include "mali_gralloc_module.h"
@@ -46,10 +46,11 @@
 #include "gralloc_vsync.h"
 #include "mali_gralloc_bufferaccess.h"
 #include "mali_gralloc_ion.h"
+#include "gralloc_buffer_priv.h"
 
 #define STANDARD_LINUX_SCREEN
 
-// numbers of buffers for page flipping
+/* Number of buffers for page flipping */
 #define NUM_BUFFERS NUM_FB_BUFFERS
 
 enum
@@ -57,6 +58,7 @@ enum
 	PAGE_FLIP = 0x00000001,
 };
 
+#if GRALLOC_VERSION_MAJOR <= 1
 static int fb_set_swap_interval(struct framebuffer_device_t *dev, int interval)
 {
 	if (interval < dev->minSwapInterval)
@@ -82,7 +84,9 @@ static int fb_set_swap_interval(struct framebuffer_device_t *dev, int interval)
 
 	return 0;
 }
+#endif
 
+#if GRALLOC_VERSION_MAJOR <= 1
 static int fb_post(struct framebuffer_device_t *dev, buffer_handle_t buffer)
 {
 	if (private_handle_t::validate(buffer) < 0)
@@ -101,8 +105,13 @@ static int fb_post(struct framebuffer_device_t *dev, buffer_handle_t buffer)
 
 	if (hnd->flags & private_handle_t::PRIV_FLAGS_FRAMEBUFFER)
 	{
+#if GRALLOC_USE_LEGACY_LOCK != 1
+		/* Buffer is being locked for non-cpu usage, hence no need to populate a valid cpu address parameter */
+		mali_gralloc_lock(m, buffer, private_module_t::PRIV_USAGE_LOCKED_FOR_POST,
+		                             0, 0, 0, 0, NULL);
+#else
 		mali_gralloc_lock(m, buffer, private_module_t::PRIV_USAGE_LOCKED_FOR_POST, -1, -1, -1, -1, NULL);
-
+#endif
 		int interrupt;
 		m->info.activate = FB_ACTIVATE_VBL;
 		m->info.yoffset = hnd->offset / m->finfo.line_length;
@@ -141,10 +150,13 @@ static int fb_post(struct framebuffer_device_t *dev, buffer_handle_t buffer)
 		void *fb_vaddr;
 		void *buffer_vaddr;
 
+#if GRALLOC_USE_LEGACY_LOCK != 1
+		mali_gralloc_lock(m, m->framebuffer, GRALLOC_USAGE_SW_WRITE_RARELY, 0, 0, 0, 0, &fb_vaddr);
+		mali_gralloc_lock(m, buffer, GRALLOC_USAGE_SW_READ_RARELY, 0, 0, 0, 0, &buffer_vaddr);
+#else
 		mali_gralloc_lock(m, m->framebuffer, GRALLOC_USAGE_SW_WRITE_RARELY, -1, -1, -1, -1, &fb_vaddr);
-
 		mali_gralloc_lock(m, buffer, GRALLOC_USAGE_SW_READ_RARELY, -1, -1, -1, -1, &buffer_vaddr);
-
+#endif
 		// If buffer's alignment match framebuffer alignment we can do a direct copy.
 		// If not we must fallback to do an aligned copy of each line.
 		if (hnd->byte_stride == (int)m->finfo.line_length)
@@ -173,6 +185,7 @@ static int fb_post(struct framebuffer_device_t *dev, buffer_handle_t buffer)
 
 	return 0;
 }
+#endif
 
 static int init_frame_buffer_locked(struct private_module_t *module)
 {
@@ -220,7 +233,7 @@ static int init_frame_buffer_locked(struct private_module_t *module)
 	info.yoffset = 0;
 	info.activate = FB_ACTIVATE_NOW;
 
-#ifdef GRALLOC_16_BITS
+#if GRALLOC_FB_BPP == 16
 	/*
 	 * Explicitly request 5/6/5
 	 */
@@ -233,7 +246,7 @@ static int init_frame_buffer_locked(struct private_module_t *module)
 	info.blue.length = 5;
 	info.transp.offset = 0;
 	info.transp.length = 0;
-#else
+#elif GRALLOC_FB_BPP == 32
 	/*
 	 * Explicitly request 8/8/8
 	 */
@@ -246,6 +259,8 @@ static int init_frame_buffer_locked(struct private_module_t *module)
 	info.blue.length = 8;
 	info.transp.offset = 0;
 	info.transp.length = 0;
+#else
+#error "Invalid framebuffer bit depth"
 #endif
 
 	/*
@@ -371,10 +386,12 @@ static int init_frame_buffer_locked(struct private_module_t *module)
 	}
 
 	memset(vaddr, 0, fbSize);
-
 	// Create a "fake" buffer object for the entire frame buffer memory, and store it in the module
 	module->framebuffer = new private_handle_t(private_handle_t::PRIV_FLAGS_FRAMEBUFFER, fbSize, vaddr,
-	                                           GRALLOC_USAGE_HW_FB, GRALLOC_USAGE_HW_FB, dup(fd), 0);
+	                                           static_cast<uint64_t>(GRALLOC_USAGE_HW_FB),
+	                                           static_cast<uint64_t>(GRALLOC_USAGE_HW_FB), dup(fd), 0,
+	                                           finfo.line_length, info.xres_virtual, info.yres_virtual,
+	                                           module->fbdev_format);
 
 	module->numBuffers = info.yres_virtual / info.yres;
 	module->bufferMask = 0;
@@ -390,6 +407,7 @@ static int init_frame_buffer(struct private_module_t *module)
 	return err;
 }
 
+#if GRALLOC_VERSION_MAJOR <= 1
 static int fb_close(struct hw_device_t *device)
 {
 	framebuffer_device_t *dev = reinterpret_cast<framebuffer_device_t *>(device);
@@ -401,6 +419,7 @@ static int fb_close(struct hw_device_t *device)
 
 	return 0;
 }
+#endif
 
 static int fb_alloc_framebuffer_dmabuf(private_module_t *m, private_handle_t *hnd)
 {
@@ -422,20 +441,37 @@ static int fb_alloc_framebuffer_dmabuf(private_module_t *m, private_handle_t *hn
 	}
 }
 
-static int fb_alloc_from_ion_module(mali_gralloc_module *m, size_t buffer_size, uint64_t consumer_usage,
-                                    uint64_t producer_usage, buffer_handle_t *pHandle)
+static int fb_alloc_from_ion_module(mali_gralloc_module *m, int width, int height, int byte_stride, size_t buffer_size,
+                                    uint64_t consumer_usage, uint64_t producer_usage, buffer_handle_t *pHandle)
 {
 	buffer_descriptor_t fb_buffer_descriptor;
 	gralloc_buffer_descriptor_t gralloc_buffer_descriptor[1];
 	bool shared = false;
 	int err = 0;
 
+	fb_buffer_descriptor.width = width;
+	fb_buffer_descriptor.height = height;
 	fb_buffer_descriptor.size = buffer_size;
+	fb_buffer_descriptor.old_alloc_width = width;
+	fb_buffer_descriptor.old_alloc_height = height;
+	fb_buffer_descriptor.old_byte_stride = byte_stride;
+	fb_buffer_descriptor.pixel_stride = width;
+
+	memset(fb_buffer_descriptor.plane_info, 0, sizeof(fb_buffer_descriptor.plane_info));
+	fb_buffer_descriptor.plane_info[0].alloc_width = width;
+	fb_buffer_descriptor.plane_info[0].alloc_height = height;
+	fb_buffer_descriptor.plane_info[0].byte_stride = byte_stride;
+	fb_buffer_descriptor.plane_info[0].offset = 0;
+
+	fb_buffer_descriptor.internal_format = m->fbdev_format;
+	fb_buffer_descriptor.alloc_format = m->fbdev_format;
 	fb_buffer_descriptor.consumer_usage = consumer_usage;
 	fb_buffer_descriptor.producer_usage = producer_usage;
+	fb_buffer_descriptor.layer_count = 1;
+
 	gralloc_buffer_descriptor[0] = (gralloc_buffer_descriptor_t)(&fb_buffer_descriptor);
 
-	err = mali_gralloc_ion_allocate(m, gralloc_buffer_descriptor, 1, pHandle, &shared);
+	err = mali_gralloc_ion_allocate(gralloc_buffer_descriptor, 1, pHandle, &shared);
 
 	return err;
 }
@@ -471,11 +507,13 @@ static int fb_alloc_framebuffer_locked(mali_gralloc_module *m, uint64_t consumer
 		// If we have only one buffer, we never use page-flipping. Instead,
 		// we return a regular buffer which will be memcpy'ed to the main
 		// screen when post is called.
-		uint64_t newConsumerUsage = (consumer_usage & ~GRALLOC_USAGE_HW_FB);
-		uint64_t newProducerUsage = (producer_usage & ~GRALLOC_USAGE_HW_FB) | GRALLOC_USAGE_HW_2D;
+		uint64_t newConsumerUsage = (consumer_usage & ~(static_cast<uint64_t>(GRALLOC_USAGE_HW_FB)));
+		uint64_t newProducerUsage = (producer_usage & ~(static_cast<uint64_t>(GRALLOC_USAGE_HW_FB))) |
+		                                               static_cast<uint64_t>(GRALLOC_USAGE_HW_2D);
 		AWAR("fallback to single buffering. Virtual Y-res too small %d", m->info.yres);
 		*byte_stride = GRALLOC_ALIGN(m->finfo.line_length, 64);
-		return fb_alloc_from_ion_module(m, alignedFramebufferSize, newConsumerUsage, newProducerUsage, pHandle);
+		return fb_alloc_from_ion_module(m, m->info.xres, m->info.yres, *byte_stride,
+		                                alignedFramebufferSize, newConsumerUsage, newProducerUsage, pHandle);
 	}
 
 	if (bufferMask >= ((1LU << numBuffers) - 1))
@@ -502,7 +540,8 @@ static int fb_alloc_framebuffer_locked(mali_gralloc_module *m, uint64_t consumer
 	// The entire framebuffer memory is already mapped, now create a buffer object for parts of this memory
 	private_handle_t *hnd = new private_handle_t(
 	    private_handle_t::PRIV_FLAGS_FRAMEBUFFER, framebufferSize, (void *)framebufferVaddr, consumer_usage,
-	    producer_usage, dup(m->framebuffer->fd), (framebufferVaddr - (uintptr_t)m->framebuffer->base));
+	    producer_usage, dup(m->framebuffer->fd), (framebufferVaddr - (uintptr_t)m->framebuffer->base),
+	    m->finfo.line_length, m->info.xres, m->info.yres, m->fbdev_format);
 
 	/*
 	 * Perform allocator specific actions. If these fail we fall back to a regular buffer
@@ -511,11 +550,13 @@ static int fb_alloc_framebuffer_locked(mali_gralloc_module *m, uint64_t consumer
 	if (fb_alloc_framebuffer_dmabuf(m, hnd) == -1)
 	{
 		delete hnd;
-		uint64_t newConsumerUsage = (consumer_usage & ~GRALLOC_USAGE_HW_FB);
-		uint64_t newProducerUsage = (producer_usage & ~GRALLOC_USAGE_HW_FB) | GRALLOC_USAGE_HW_2D;
+		uint64_t newConsumerUsage = (consumer_usage & ~(static_cast<uint64_t>(GRALLOC_USAGE_HW_FB)));
+		uint64_t newProducerUsage = (producer_usage & ~(static_cast<uint64_t>(GRALLOC_USAGE_HW_FB))) |
+		                                               static_cast<uint64_t>(GRALLOC_USAGE_HW_2D);
 		AERR("Fallback to single buffering. Unable to map framebuffer memory to handle:%p", hnd);
 		*byte_stride = GRALLOC_ALIGN(m->finfo.line_length, 64);
-		return fb_alloc_from_ion_module(m, alignedFramebufferSize, newConsumerUsage, newProducerUsage, pHandle);
+		return fb_alloc_from_ion_module(m, m->info.xres, m->info.yres, *byte_stride,
+		                                alignedFramebufferSize, newConsumerUsage, newProducerUsage, pHandle);
 	}
 
 	*pHandle = hnd;
@@ -524,43 +565,14 @@ static int fb_alloc_framebuffer_locked(mali_gralloc_module *m, uint64_t consumer
 	return 0;
 }
 
-int fb_alloc_framebuffer(mali_gralloc_module *m, uint64_t consumer_usage, uint64_t producer_usage,
-                         buffer_handle_t *pHandle, int *stride, int *byte_stride)
-{
-	pthread_mutex_lock(&m->lock);
-	int err = fb_alloc_framebuffer_locked(m, consumer_usage, producer_usage, pHandle, stride, byte_stride);
-	pthread_mutex_unlock(&m->lock);
-	return err;
-}
-
-int compositionComplete(struct framebuffer_device_t *dev)
-{
-	GRALLOC_UNUSED(dev);
-
-	/* By doing a finish here we force the GL driver to start rendering
-	   all the drawcalls up to this point, and to wait for the rendering to be complete.*/
-	glFinish();
-	/* The rendering of the backbuffer is now completed.
-	   When SurfaceFlinger later does a call to eglSwapBuffer(), the swap will be done
-	   synchronously in the same thread, and not asynchronoulsy in a background thread later.
-	   The SurfaceFlinger requires this behaviour since it releases the lock on all the
-	   SourceBuffers (Layers) after the compositionComplete() function returns.
-	   However this "bad" behaviour by SurfaceFlinger should not affect performance,
-	   since the Applications that render the SourceBuffers (Layers) still get the
-	   full renderpipeline using asynchronous rendering. So they perform at maximum speed,
-	   and because of their complexity compared to the Surface flinger jobs, the Surface flinger
-	   is normally faster even if it does everyhing synchronous and serial.
-	   */
-	return 0;
-}
-
+#if GRALLOC_VERSION_MAJOR <= 1
 int framebuffer_device_open(hw_module_t const *module, const char *name, hw_device_t **device)
 {
 	int status = -EINVAL;
 
 	GRALLOC_UNUSED(name);
 
-#if GRALLOC_USE_GRALLOC1_API == 1
+#if GRALLOC_VERSION_MAJOR == 1
 	gralloc1_device_t *gralloc_device;
 #else
 	alloc_device_t *gralloc_device;
@@ -576,7 +588,7 @@ int framebuffer_device_open(hw_module_t const *module, const char *name, hw_devi
 	return -ENODEV;
 #endif
 
-#if GRALLOC_USE_GRALLOC1_API == 1
+#if GRALLOC_VERSION_MAJOR == 1
 	status = gralloc1_open(module, &gralloc_device);
 #else
 	status = gralloc_open(module, &gralloc_device);
@@ -588,6 +600,16 @@ int framebuffer_device_open(hw_module_t const *module, const char *name, hw_devi
 	}
 
 	private_module_t *m = (private_module_t *)module;
+
+	/* Populate frame buffer pixel format */
+#if GRALLOC_FB_BPP == 16
+	m->fbdev_format = MALI_GRALLOC_FORMAT_INTERNAL_RGB_565;
+#elif GRALLOC_FB_BPP == 32
+	m->fbdev_format = MALI_GRALLOC_FORMAT_INTERNAL_BGRA_8888;
+#else
+#error "Invalid framebuffer bit depth"
+#endif
+
 	status = init_frame_buffer(m);
 
 	/* malloc is used instead of 'new' to instantiate the struct framebuffer_device_t
@@ -609,7 +631,7 @@ int framebuffer_device_open(hw_module_t const *module, const char *name, hw_devi
 	/* if either or both of init_frame_buffer() and malloc failed */
 	if ((status < 0) || (!dev))
 	{
-#if GRALLOC_USE_GRALLOC1_API == 1
+#if GRALLOC_VERSION_MAJOR == 1
 		gralloc1_close(gralloc_device);
 #else
 		gralloc_close(gralloc_device);
@@ -628,18 +650,13 @@ int framebuffer_device_open(hw_module_t const *module, const char *name, hw_devi
 	dev->setSwapInterval = fb_set_swap_interval;
 	dev->post = fb_post;
 	dev->setUpdateRect = 0;
-	dev->compositionComplete = &compositionComplete;
 
 	int stride = m->finfo.line_length / (m->info.bits_per_pixel >> 3);
 	const_cast<uint32_t &>(dev->flags) = 0;
 	const_cast<uint32_t &>(dev->width) = m->info.xres;
 	const_cast<uint32_t &>(dev->height) = m->info.yres;
 	const_cast<int &>(dev->stride) = stride;
-#ifdef GRALLOC_16_BITS
-	const_cast<int &>(dev->format) = HAL_PIXEL_FORMAT_RGB_565;
-#else
-	const_cast<int &>(dev->format) = HAL_PIXEL_FORMAT_BGRA_8888;
-#endif
+	const_cast<int &>(dev->format) = m->fbdev_format;
 	const_cast<float &>(dev->xdpi) = m->xdpi;
 	const_cast<float &>(dev->ydpi) = m->ydpi;
 	const_cast<float &>(dev->fps) = m->fps;
@@ -651,3 +668,56 @@ int framebuffer_device_open(hw_module_t const *module, const char *name, hw_devi
 
 	return status;
 }
+#endif
+
+#if DISABLE_FRAMEBUFFER_HAL != 1
+int32_t mali_gralloc_fb_allocate(private_module_t * const module,
+                                 const buffer_descriptor_t * const bufDescriptor,
+                                 buffer_handle_t * const outBuffers)
+{
+	uint64_t format = bufDescriptor->hal_format;
+
+#if GRALLOC_FB_SWAP_RED_BLUE == 1
+#if GRALLOC_FB_BPP == 16
+	format = HAL_PIXEL_FORMAT_RGB_565;
+#elif GRALLOC_FB_BPP == 32
+	format = HAL_PIXEL_FORMAT_BGRA_8888;
+#else
+#error "Invalid framebuffer bit depth"
+#endif
+#endif
+
+	int byte_stride, pixel_stride;
+	pthread_mutex_lock(&module->lock);
+	const int status = fb_alloc_framebuffer_locked(module, bufDescriptor->consumer_usage,
+	                                               bufDescriptor->producer_usage,
+	                                               outBuffers, &pixel_stride, &byte_stride);
+	pthread_mutex_unlock(&module->lock);
+	if (status < 0)
+	{
+		return status;
+	}
+	else
+	{
+		private_handle_t *hnd = (private_handle_t *)*outBuffers;
+
+		/* Allocate a meta-data buffer for framebuffer too. fbhal
+		 * ones wont need it but for hwc they will.
+		 */
+		(void)gralloc_buffer_attr_allocate(hnd);
+
+		hnd->req_format = format;
+		hnd->yuv_info = MALI_YUV_BT601_NARROW;
+		hnd->internal_format = format;
+		hnd->alloc_format = format;
+		hnd->byte_stride = byte_stride;
+		hnd->width = bufDescriptor->width;
+		hnd->height = bufDescriptor->height;
+		hnd->stride = pixel_stride;
+		hnd->internalWidth = bufDescriptor->width;
+		hnd->internalHeight = bufDescriptor->height;
+		hnd->layer_count = 1;
+		return 0;
+	}
+}
+#endif
