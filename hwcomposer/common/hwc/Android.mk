@@ -78,10 +78,6 @@ ifeq ($(HWC_ENABLE_ACTIVE_MODE), true)
 LOCAL_CFLAGS += -DHWC_ENABLE_ACTIVE_MODE
 endif
 
-ifeq ($(HWC_ENABLE_FRACTIONAL_REFRESH_RATE), true)
-LOCAL_CFLAGS += -DENABLE_FRACTIONAL_REFRESH_RATE
-endif
-
 #Display Calibrate
 ifeq ($(HWC_ENABLE_PRE_DISPLAY_CALIBRATE), true)
 #pre display calibrate means calibrate in surfacefligner,
@@ -115,13 +111,22 @@ ifeq ($(HWC_PIPE_VIU1VDINVIU2_ALWAYS_LOOPBACK), true)
 LOCAL_CFLAGS += -DHWC_PIPE_VIU1VDINVIU2_ALWAYS_LOOPBACK
 endif
 
+ifeq ($(HWC_DYNAMIC_SWITCH_CONNECTOR), true)
+LOCAL_CFLAGS += -DHWC_DYNAMIC_SWITCH_CONNECTOR
+endif
+ifeq ($(HWC_DYNAMIC_SWITCH_VIU), true)
+LOCAL_CFLAGS += -DHWC_DYNAMIC_SWITCH_VIU
+endif
 #*********************************HWC CONFIGS END************************
 
 LOCAL_SRC_FILES := \
     HwcVsync.cpp \
     HwcConfig.cpp \
-    HwcDisplayPipeMgr.cpp \
-    HwcPowerMode.cpp
+    HwcPowerMode.cpp \
+    HwcDisplayPipe.cpp \
+    FixedDisplayPipe.cpp \
+    LoopbackDisplayPipe.cpp \
+    DualDisplayPipe.cpp
 
 LOCAL_C_INCLUDES := \
     hardware/libhardware/include \

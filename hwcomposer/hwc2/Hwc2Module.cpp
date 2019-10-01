@@ -352,7 +352,6 @@ int32_t setColorModeWithRenderIntent (
     return mesonhwc->setColorModeWithRenderIntent(display, mode, intent);
 }
 
-
 hwc2_function_pointer_t hwc2_getFunction(struct hwc2_device* device __unused,
         int32_t descriptor) {
     switch (descriptor) {

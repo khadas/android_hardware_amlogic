@@ -17,7 +17,7 @@
 #include <DebugHelper.h>
 #include <HwcConfig.h>
 #include <HwcVsync.h>
-#include <HwcDisplayPipeMgr.h>
+#include <HwcDisplayPipe.h>
 #include <misc.h>
 #include <systemcontrol.h>
 
@@ -134,7 +134,7 @@ int32_t MesonHwc2::registerCallback(int32_t descriptor,
         */
             if (mHotplugFn) {
                 mHotplugFn(mHotplugData, HWC_DISPLAY_PRIMARY, true);
-                if (HwcConfig::enableExtendDisplay() == true) {
+                if (HwcConfig::getDisplayNum() > 1) {
                     mHotplugFn(mHotplugData, HWC_DISPLAY_EXTERNAL, true);
                 }
             }
@@ -204,9 +204,8 @@ int32_t  MesonHwc2::getColorModes(hwc2_display_t display,
     return HWC2_ERROR_NONE;
 }
 
-int32_t MesonHwc2::setColorMode(hwc2_display_t display, int32_t mode) {
+int32_t MesonHwc2::setColorMode(hwc2_display_t display, int32_t mode __unused) {
     CHECK_DISPLAY_VALID(display);
-     /*Only support native color mode, nothing to do now.*/
      if (mode < HAL_COLOR_MODE_NATIVE)
         return HWC2_ERROR_BAD_PARAMETER;
 
@@ -371,8 +370,9 @@ int32_t MesonHwc2::validateDisplay(hwc2_display_t display,
     /*handle display request*/
     uint32_t request = getDisplayRequest();
     setCalibrateInfo(display);
-    if (request != 0)
+    if (request != 0) {
         handleDisplayRequest(request);
+    }
 
     return hwcDisplay->validateDisplay(outNumTypes,
         outNumRequests);
@@ -492,6 +492,37 @@ int32_t  MesonHwc2::setLayerZorder(hwc2_display_t display,
     return hwcLayer->setZorder(z);
 }
 
+int32_t MesonHwc2::getRenderIntents(hwc2_display_t display,
+    int32_t mode, uint32_t* outNumIntents, int32_t* outIntents) {
+    GET_HWC_DISPLAY(display);
+
+    if (mode < HAL_COLOR_MODE_NATIVE)
+        return HWC2_ERROR_BAD_PARAMETER;
+    if (mode != HAL_COLOR_MODE_NATIVE)
+        return HWC2_ERROR_UNSUPPORTED;
+
+    *outNumIntents = 1;
+    if (outIntents) {
+        *outIntents = HAL_RENDER_INTENT_COLORIMETRIC;
+    }
+
+    return HWC2_ERROR_NONE;
+}
+
+int32_t MesonHwc2::setColorModeWithRenderIntent(
+    hwc2_display_t display, int32_t  mode, int32_t  intent) {
+    GET_HWC_DISPLAY(display);
+
+    if (mode < HAL_COLOR_MODE_NATIVE ||
+        intent < HAL_RENDER_INTENT_COLORIMETRIC)
+        return HWC2_ERROR_BAD_PARAMETER;
+    if (mode != HAL_COLOR_MODE_NATIVE ||
+        intent != HAL_RENDER_INTENT_COLORIMETRIC)
+        return HWC2_ERROR_UNSUPPORTED;
+
+    return HWC2_ERROR_NONE;
+}
+
 #ifdef HWC_HDR_METADATA_SUPPORT
 int32_t MesonHwc2::setLayerPerFrameMetadata(
         hwc2_display_t display, hwc2_layer_t layer,
@@ -510,36 +541,6 @@ int32_t MesonHwc2::getPerFrameMetadataKeys(
     return hwcDisplay->getFrameMetadataKeys(outNumKeys, outKeys);
 }
 #endif
-int32_t MesonHwc2::getRenderIntents(hwc2_display_t display,
-		    int32_t mode, uint32_t* outNumIntents, int32_t* outIntents) {
-	    GET_HWC_DISPLAY(display);
-
-		    if (mode < HAL_COLOR_MODE_NATIVE)
-				        return HWC2_ERROR_BAD_PARAMETER;
-			    if (mode != HAL_COLOR_MODE_NATIVE)
-					        return HWC2_ERROR_UNSUPPORTED;
-
-				    *outNumIntents = 1;
-					    if (outIntents) {
-							        *outIntents = HAL_RENDER_INTENT_COLORIMETRIC;
-									    }
-
-						    return HWC2_ERROR_NONE;
-}
-
-int32_t MesonHwc2::setColorModeWithRenderIntent(
-		    hwc2_display_t display, int32_t  mode, int32_t  intent) {
-	    GET_HWC_DISPLAY(display);
-
-		    if (mode < HAL_COLOR_MODE_NATIVE ||
-					        intent < HAL_RENDER_INTENT_COLORIMETRIC)
-				        return HWC2_ERROR_BAD_PARAMETER;
-			    if (mode != HAL_COLOR_MODE_NATIVE ||
-						        intent != HAL_RENDER_INTENT_COLORIMETRIC)
-					        return HWC2_ERROR_UNSUPPORTED;
-
-				    return HWC2_ERROR_NONE;
-}
 
 /**********************Amlogic ext display interface*******************/
 int32_t MesonHwc2::setPostProcessor(bool bEnable) {
@@ -554,7 +555,7 @@ int32_t MesonHwc2::setCalibrateInfo(hwc2_display_t display){
     drm_mode_info_t mDispMode;
     hwcDisplay->getDispMode(mDispMode);
 
-    if (HwcConfig::getPipeline() == HWC_PIPE_VIU1VDINVIU2) {
+    if (HwcConfig::getPipeline() == HWC_PIPE_LOOPBACK) {
         caliX = caliY = 0;
         caliW = mDispMode.pixelW;
         caliH = mDispMode.pixelH;
@@ -580,7 +581,7 @@ int32_t MesonHwc2::setCalibrateInfo(hwc2_display_t display){
             if (0 == sc_get_osd_position(dispModeStr, calibrateCoordinates)) {
                 memcpy(cali, calibrateCoordinates, sizeof(int) * 4);
             } else {
-                MESON_LOGD("(%s): sc_get_osd_position failed, use backup coordinates.", __func__);
+               MESON_LOGD("(%s): sc_get_osd_position failed, use backup coordinates.", __func__);
             }
             caliX = cali[0];
             caliY = cali[1];
@@ -594,7 +595,7 @@ int32_t MesonHwc2::setCalibrateInfo(hwc2_display_t display){
 uint32_t MesonHwc2::getDisplayRequest() {
     /*read extend prop to update display request.*/
 #ifdef GET_REQUEST_FROM_PROP
-    if (HwcConfig::getPipeline() == HWC_PIPE_VIU1VDINVIU2) {
+    if (HwcConfig::getPipeline() == HWC_PIPE_LOOPBACK) {
         char val[PROP_VALUE_LEN_MAX];
         bool bVal = false;
 
@@ -644,7 +645,7 @@ uint32_t MesonHwc2::getDisplayRequest() {
 }
 
 int32_t MesonHwc2::handleDisplayRequest(uint32_t request) {
-    HwcDisplayPipeMgr::getInstance().update(request);
+    mDisplayPipe->handleRequest(request);
     return 0;
 }
 
@@ -729,6 +730,9 @@ void MesonHwc2::onHotplug(hwc2_display_t display, bool connected) {
 }
 
 int32_t MesonHwc2::initialize() {
+    std::map<uint32_t, std::shared_ptr<HwcDisplay>> mhwcDisps;
+    mDisplayPipe = createDisplayPipe(HwcConfig::getPipeline());
+
     for (uint32_t i = 0; i < HwcConfig::getDisplayNum(); i ++) {
         /*create hwc2display*/
         auto displayObserver = std::make_shared<MesonHwc2Observer>(i, this);
@@ -736,11 +740,10 @@ int32_t MesonHwc2::initialize() {
         disp->initialize();
         mDisplays.emplace(i, disp);
         auto baseDisp = std::dynamic_pointer_cast<HwcDisplay>(disp);
-        HwcDisplayPipeMgr::getInstance().setHwcDisplay(i, baseDisp);
+        mhwcDisps.emplace(i, baseDisp);
     }
 
-    HwcDisplayPipeMgr::getInstance().initDisplays();
-
+    mDisplayPipe->init(mhwcDisps);
     return HWC2_ERROR_NONE;
 }
 

@@ -73,8 +73,7 @@ hwc_connector_t HwcConfig::getConnectorType(int disp) {
 
     if (connectorstr != NULL) {
         if (strcasecmp(connectorstr, "hdmi") == 0) {
-            /*TODO: udpate to HWC_HDMI_CVBS.*/
-            connector_type = HWC_HDMI_ONLY;
+            connector_type = HWC_HDMI_CVBS;
         } else if (strcasecmp(connectorstr, "panel") == 0) {
             connector_type = HWC_PANEL_ONLY;
         } else if (strcasecmp(connectorstr, "cvbs") == 0) {
@@ -98,18 +97,13 @@ hwc_pipe_policy_t HwcConfig::getPipeline() {
 #endif
 
     if (strcasecmp(pipeStr, "default") == 0) {
-         return HWC_PIPE_DEFAULT;
-    } else if (strcasecmp(pipeStr, "VIU2_VIU1") == 0) {
-        MESON_ASSERT(0, "NO IMPLEMENT");
-         return HWC_PIPE_VIU2_VIU1;
-    } else if (strcasecmp(pipeStr, "VIU1VDINVIU2") == 0) {
-         return HWC_PIPE_VIU1VDINVIU2;
-    } else if (strcasecmp(pipeStr, "dummy") == 0) {
-        MESON_ASSERT(0, "NO IMPLEMENT");
-         return HWC_PIPE_DUMMY;
-    } else {
-         MESON_ASSERT(0, "getPipeline %s failed.", pipeStr);
         return HWC_PIPE_DEFAULT;
+    } else if (strcasecmp(pipeStr, "dual") == 0) {
+        return HWC_PIPE_DUAL;
+    } else if (strcasecmp(pipeStr, "VIU1VDINVIU2") == 0) {
+        return HWC_PIPE_LOOPBACK;
+    } else {
+        MESON_ASSERT(0, "getPipeline %s failed.", pipeStr);
     }
 
     return HWC_PIPE_DEFAULT;
@@ -117,8 +111,10 @@ hwc_pipe_policy_t HwcConfig::getPipeline() {
 
 hwc_modes_policy_t HwcConfig::getModePolicy(int disp) {
     UNUSED(disp);
-#ifdef HWC_ENABLE_ACTIVE_MODE
+#ifdef HWC_ENABLE_FULL_ACTIVE_MODE
     return FULL_ACTIVE_POLICY;
+#elif defined HWC_ENABLE_ACTIVE_MODE
+    return ACTIVE_MODE_POLICY;
 #else
     return FIXED_SIZE_POLICY;
 #endif
@@ -165,14 +161,6 @@ bool HwcConfig::primaryHotplugEnabled() {
 #endif
 }
 
-bool HwcConfig::enableExtendDisplay() {
-#ifdef HWC_EXTEND_CONNECTOR_TYPE
-    return true;
-#else
-    return false;
-#endif
-}
-
 bool HwcConfig::secureLayerProcessEnabled() {
 #ifdef HWC_ENABLE_SECURE_LAYER_PROCESS
         return true;
@@ -213,6 +201,22 @@ bool HwcConfig::alwaysVdinLoopback() {
 #endif
 }
 
+bool HwcConfig::dynamicSwitchConnectorEnabled() {
+#ifdef HWC_DYNAMIC_SWITCH_CONNECTOR
+    return true;
+#else
+    return false;
+#endif
+}
+
+bool HwcConfig::dynamicSwitchViuEnabled() {
+#ifdef HWC_DYNAMIC_SWITCH_VIU
+    return true;
+#else
+    return false;
+#endif
+}
+
 void HwcConfig::dump(String8 & dumpstr) {
     if (isHeadlessMode()) {
         dumpstr.appendFormat("\t HeadlessMode refreshrate: %d", headlessRefreshRate());
@@ -239,6 +243,10 @@ void HwcConfig::dump(String8 & dumpstr) {
             dumpstr.appendFormat("\t DefaultHdr: %s", defaultHdrCapEnabled() ? "Y" : "N");
             dumpstr.append("\n");
             dumpstr.appendFormat("\t ForceClient: %s", forceClientEnabled() ? "Y" : "N");
+            dumpstr.append("\n");
+            dumpstr.appendFormat("\t DynamicSwitchConnector: %s", dynamicSwitchConnectorEnabled() ? "Y" : "N");
+            dumpstr.append("\n");
+            dumpstr.appendFormat("\t DynamicSwitchViu: %s", dynamicSwitchViuEnabled() ? "Y" : "N");
             dumpstr.append("\n");
         }
     }
