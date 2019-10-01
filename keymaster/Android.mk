@@ -82,3 +82,39 @@ LOCAL_SRC_FILES := $(LOCAL_MODULE)$(LOCAL_MODULE_SUFFIX)
 endif
 include $(BUILD_PREBUILT)
 
+
+include $(CLEAR_VARS)
+LOCAL_MODULE_RELATIVE_PATH := hw
+LOCAL_SRC_FILES := 4.0/service.cpp \
+				   4.0/AmlogicKeymaster4Device.cpp \
+				   ipc/amlogic_keymaster_ipc.cpp \
+				   AmlogicKeymaster.cpp
+
+LOCAL_CFLAGS += -DAMLOGIC_MODIFY=1
+LOCAL_C_INCLUDES := \
+			$(LOCAL_PATH)/include \
+			$(BOARD_AML_VENDOR_PATH)/tdk/ca_export_arm/include
+
+LOCAL_SHARED_LIBRARIES := \
+        		liblog \
+				libcutils \
+				libdl \
+				libbase \
+				libutils \
+				libhardware \
+				libhidlbase \
+				libhidltransport \
+				libteec \
+				libkeymaster_messages \
+				libkeymaster4 \
+				android.hardware.keymaster@4.0 
+
+ifeq ($(shell test $(PLATFORM_SDK_VERSION) -ge 26 && echo OK),OK)
+LOCAL_PROPRIETARY_MODULE := true
+endif
+
+LOCAL_REQUIRED_MODULES := $(KEYMASTER_TA_BINARY)
+LOCAL_MODULE := android.hardware.keymaster@4.0-service.amlogic
+LOCAL_INIT_RC := 4.0/android.hardware.keymaster@4.0-service.amlogic.rc
+include $(BUILD_EXECUTABLE)
+

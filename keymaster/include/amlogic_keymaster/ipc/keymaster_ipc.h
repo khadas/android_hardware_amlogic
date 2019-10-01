@@ -21,16 +21,17 @@
 #define KEYMASTER_PORT "com.android.trusty.keymaster"
 #define KEYMASTER_MAX_BUFFER_LENGTH 4096
 
+#if AMLOGIC_MODIFY
 /* This UUID is generated with uuidgen
    the ITU-T UUID generator at http://www.itu.int/ITU-T/asn1/uuid.html */
 #define TA_KEYMASTER_UUID {0x8efb1e1c, 0x37e5, 0x4326, \
     { 0xa5, 0xd6, 0x8c, 0x33, 0x72, 0x6c, 0x7d, 0x57} }
-
+#endif
 // Commands
 enum keymaster_command : uint32_t {
     KEYMASTER_RESP_BIT              = 1,
-    KEYMASTER_STOP_BIT               = 2,
-    KEYMASTER_REQ_SHIFT              = 2,
+    KEYMASTER_STOP_BIT              = 2,
+    KEYMASTER_REQ_SHIFT             = 2,
 
     KM_GENERATE_KEY                 = (0 << KEYMASTER_REQ_SHIFT),
     KM_BEGIN_OPERATION              = (1 << KEYMASTER_REQ_SHIFT),
@@ -51,13 +52,21 @@ enum keymaster_command : uint32_t {
     KM_ATTEST_KEY                   = (16 << KEYMASTER_REQ_SHIFT),
     KM_UPGRADE_KEY                  = (17 << KEYMASTER_REQ_SHIFT),
     KM_CONFIGURE                    = (18 << KEYMASTER_REQ_SHIFT),
-
+    KM_GET_HMAC_SHARING_PARAMETERS  = (19 << KEYMASTER_REQ_SHIFT),
+    KM_COMPUTE_SHARED_HMAC          = (20 << KEYMASTER_REQ_SHIFT),
+    KM_VERIFY_AUTHORIZATION         = (21 << KEYMASTER_REQ_SHIFT),
+    KM_DELETE_KEY                   = (22 << KEYMASTER_REQ_SHIFT),
+    KM_DELETE_ALL_KEYS              = (23 << KEYMASTER_REQ_SHIFT),
+    KM_DESTROY_ATTESTATION_IDS      = (24 << KEYMASTER_REQ_SHIFT),
+    KM_IMPORT_WRAPPED_KEY           = (25 << KEYMASTER_REQ_SHIFT),
     KM_SET_BOOT_PARAMS               = (0x1000 << KEYMASTER_REQ_SHIFT),
     KM_SET_ATTESTATION_KEY           = (0x2000 << KEYMASTER_REQ_SHIFT),
     KM_APPEND_ATTESTATION_CERT_CHAIN = (0x3000 << KEYMASTER_REQ_SHIFT),
 
+#if AMLOGIC_MODIFY
     KM_TA_INIT                       = (0x10000 << KEYMASTER_REQ_SHIFT),
     KM_TA_TERM                       = (0x10001 << KEYMASTER_REQ_SHIFT),
+#endif
 };
 
 #ifdef __ANDROID__
