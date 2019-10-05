@@ -38,6 +38,7 @@ ifeq ($(strip $(BOARD_ALSA_AUDIO)),tiny)
         alsa_manager.c \
         audio_hw_ms12.c \
         audio_hw_dtv.c \
+        audio_a2dp_hw.c \
         aml_audio_stream.c \
         alsa_config_parameters.c \
         spdif_encoder_api.c \
@@ -55,7 +56,11 @@ ifeq ($(strip $(BOARD_ALSA_AUDIO)),tiny)
         hw_avsync_callbacks.c \
         audio_port.c \
         sub_mixing_factory.c \
-        audio_data_process.c
+        audio_data_process.c \
+        aml_audio_timer.c \
+        audio_virtual_buf.c \
+        aml_audio_ease.c
+
 
     LOCAL_C_INCLUDES += \
         external/tinyalsa/include \
@@ -79,7 +84,6 @@ ifeq ($(strip $(BOARD_ALSA_AUDIO)),tiny)
         liblog libcutils libtinyalsa \
         libaudioutils libdl libaudioroute libutils \
         libdroidaudiospdif libamaudioutils libamlaudiorc libamadec
-
 #/*[SEI-zhaopf-2018-12-18] add for HBG remote audio support { */
 ifeq ($(BOARD_ENABLE_HBG), true)
     LOCAL_SHARED_LIBRARIES += libhbg
@@ -127,6 +131,18 @@ ifeq ($(strip $(TARGET_BOOTLOADER_BOARD_NAME)), atom)
         $(TOPDIR)vendor/harman/atom/harman_api
     LOCAL_SHARED_LIBRARIES += \
         libgoogle_aec libharman_api
+endif
+
+#For ATV Far Field AEC
+ifeq ($(BOARD_ENABLE_FAR_FIELD_AEC), true)
+    $(info "audio: ATV far field enabled, compile and link aec lib")
+	LOCAL_CFLAGS += -DENABLE_AEC_FUNC
+    LOCAL_SRC_FILES += \
+        audio_aec_process.cpp
+    LOCAL_C_INCLUDES += \
+         $(TOPDIR)vendor/google/google_aec
+    LOCAL_SHARED_LIBRARIES += \
+         libgoogle_aec
 endif
 
     include $(BUILD_SHARED_LIBRARY)

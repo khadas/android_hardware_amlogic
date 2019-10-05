@@ -27,6 +27,7 @@ typedef enum eDolbyLibType {
 
 
 enum eDolbyLibType detect_dolby_lib_type(void);
+int dolby_lib_decode_enable(eDolbyLibType_t lib_type);
 
 
 #endif //_DOLBY_LIB_API_H_

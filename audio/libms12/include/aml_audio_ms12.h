@@ -70,7 +70,22 @@ struct dolby_ms12_desc {
     whatever what bistream is outputed we need use this latency frames.
     */
     int latency_frame;
+    int sys_avail;
     int curDBGain;
+
+    // for DDP stream, the input frame is 768/1537/1792(each 32ms)
+    // May change through playback.
+    // here to caculate average frame size;
+    int avgDdpFramesize;
+    // the input signal atmos info
+    int is_dolby_atmos;
+    int input_total_ms;
+    int bitsteam_cnt;
+    void * main_virtual_buf_handle;
+    void * system_virtual_buf_handle;
+    int nbytes_of_dmx_output_pcm_frame;
+    int need_resume;
+    int need_resync; /*handle from pause to resume sync*/
 };
 
 /*

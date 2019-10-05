@@ -23,6 +23,7 @@
 #include <sys/prctl.h>
 #include <cutils/properties.h>
 #include <dlfcn.h>
+#include <sys/stat.h>
 
 #include "dolby_lib_api.h"
 
@@ -129,3 +130,25 @@ enum eDolbyLibType detect_dolby_lib_type(void) {
 }
 
 
+int dolby_lib_decode_enable(eDolbyLibType_t lib_type) {
+    int enable = 0;
+    if (lib_type == eDolbyMS12Lib) {
+        enable = 1;
+    } else if (lib_type == eDolbyDcvLib) {
+        unsigned int filesize = -1;
+        struct stat stat_info;
+        if (stat(DOLBY_DCV_LIB_PATH_A, &stat_info) < 0) {
+            enable = 0;
+        } else {
+            filesize = stat_info.st_size;
+            if (filesize > 500*1024) {
+                enable = 1;
+            } else {
+                enable = 0;
+            }
+        }
+    } else {
+        enable = 0;
+    }
+    return enable;
+}

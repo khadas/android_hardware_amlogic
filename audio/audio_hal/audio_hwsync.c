@@ -33,14 +33,17 @@
 #include "audio_hw_utils.h"
 #include "audio_hwsync.h"
 #include "audio_hw.h"
+#include "dolby_lib_api.h"
 
 void aml_hwsync_set_tsync_pause(void)
 {
+    ALOGI("%s(), send pause event", __func__);
     sysfs_set_sysfs_str(TSYNC_EVENT, "AUDIO_PAUSE");
 }
 
 void aml_hwsync_set_tsync_resume(void)
 {
+    ALOGI("%s(), send resuem event", __func__);
     sysfs_set_sysfs_str(TSYNC_EVENT, "AUDIO_RESUME");
 }
 
@@ -155,6 +158,8 @@ void aml_audio_hwsync_init(audio_hwsync_t *p_hwsync, struct aml_stream_out  *out
     p_hwsync->first_apts_flag = false;
     p_hwsync->hw_sync_state = HW_SYNC_STATE_HEADER;
     p_hwsync->hw_sync_header_cnt = 0;
+    p_hwsync->hw_sync_frame_size = 0;
+    p_hwsync->bvariable_frame_size = 0;
     p_hwsync->version_num = 0;
     memset(p_hwsync->pts_tab, 0, sizeof(apts_tab_t)*HWSYNC_APTS_NUM);
     pthread_mutex_init(&p_hwsync->lock, NULL);
@@ -223,6 +228,12 @@ int aml_audio_hwsync_find_frame(audio_hwsync_t *p_hwsync,
                 }
                 p_hwsync->hw_sync_state = HW_SYNC_STATE_BODY;
                 p_hwsync->hw_sync_body_cnt = hwsync_header_get_size(&p_hwsync->hw_sync_header[0]);
+                if (p_hwsync->hw_sync_frame_size && p_hwsync->hw_sync_body_cnt) {
+                    if (p_hwsync->hw_sync_frame_size != p_hwsync->hw_sync_body_cnt) {
+                        p_hwsync->bvariable_frame_size = 1;
+                        ALOGI("old frame size=%d new=%d", p_hwsync->hw_sync_frame_size, p_hwsync->hw_sync_body_cnt);
+                    }
+                }
                 p_hwsync->hw_sync_frame_size = p_hwsync->hw_sync_body_cnt;
                 p_hwsync->body_align_cnt = 0; //  alisan zz
                 p_hwsync->hw_sync_header_cnt = 0; //8.1
@@ -289,6 +300,8 @@ int aml_audio_hwsync_set_first_pts(audio_hwsync_t *p_hwsync, uint64_t pts)
 {
     uint32_t pts32;
     char tempbuf[128];
+    int vframe_ready_cnt = 0;
+    int delay_count = 0;
 
     if (p_hwsync == NULL) {
         return -1;
@@ -302,6 +315,16 @@ int aml_audio_hwsync_set_first_pts(audio_hwsync_t *p_hwsync, uint64_t pts)
     pts32 = (uint32_t)pts;
     p_hwsync->first_apts_flag = true;
     p_hwsync->first_apts = pts;
+    while (delay_count < 10) {
+        vframe_ready_cnt = get_sysfs_int("/sys/class/video/vframe_ready_cnt");
+        ALOGV("/sys/class/video/vframe_ready_cnt is %d", vframe_ready_cnt);
+        if (vframe_ready_cnt < 2) {
+            usleep(10000);
+            delay_count++;
+            continue;
+        }
+        break;
+    }
 
     if (aml_hwsync_set_tsync_start_pts(pts32) < 0)
         return -EINVAL;
@@ -323,6 +346,10 @@ int aml_audio_hwsync_audio_process(audio_hwsync_t *p_hwsync, size_t offset, int 
     int gap_ms = 0;
     int debug_enable = 0;
     char tempbuf[32] = {0};
+    struct aml_audio_device *adev = NULL;
+    uint32_t latency_frames = 0;
+    struct audio_stream_out *stream = NULL;
+    uint32_t latency_pts = 0;
 
     // add protection to avoid NULL pointer.
     if (p_hwsync == NULL) {
@@ -333,7 +360,7 @@ int aml_audio_hwsync_audio_process(audio_hwsync_t *p_hwsync, size_t offset, int 
     if (p_hwsync->aout == NULL) {
         ALOGE("%s,p_hwsync->aout == NULL", __func__);
     } else {
-        struct aml_audio_device *adev = p_hwsync->aout->dev;
+        adev = p_hwsync->aout->dev;
         if (adev == NULL) {
             ALOGE("%s,adev == NULL", __func__);
         } else {
@@ -342,14 +369,43 @@ int aml_audio_hwsync_audio_process(audio_hwsync_t *p_hwsync, size_t offset, int 
     }
 
     ret = aml_audio_hwsync_lookup_apts(p_hwsync, offset, &apts);
+
+    /*get MS12 pipe line delay + alsa delay*/
+    stream = (struct audio_stream_out *)p_hwsync->aout;
+    if (stream) {
+        if (adev && adev->continuous_audio_mode && (eDolbyMS12Lib == adev->dolby_lib_type)) {
+            /*we need get the correct ms12 out pcm */
+            latency_frames = out_get_ms12_latency_frames(stream);
+            //ALOGI("latency_frames =%d", latency_frames);
+            latency_frames += aml_audio_get_ms12_tunnel_latency_offset()*48; // add 60ms delay for ms12, 32ms pts offset, other is ms12 delay
+
+            if ((adev->ms12.is_dolby_atmos && adev->ms12_main1_dolby_dummy == false) || adev->atoms_lock_flag) {
+                int tunnel = 1;
+                int atmos_tunning_frame = aml_audio_get_ms12_atmos_latency_offset(tunnel) * 48;
+                latency_frames += atmos_tunning_frame;
+            }
+        } else {
+            latency_frames = out_get_latency_frames(stream);
+        }
+
+        latency_pts = latency_frames / 48 * 90;
+    }
+
     if (ret) {
         ALOGE("%s lookup failed", __func__);
         return 0;
     }
-    if (p_hwsync->first_apts_flag == false && offset > 0) {
-        ALOGI("%s,aml_audio_hwsync_set_first_pts, apts = 0x%x (%d ms)", __FUNCTION__, apts, apts / 90);
-        aml_audio_hwsync_set_first_pts(p_hwsync, apts);
+    if (p_hwsync->first_apts_flag == false && offset > 0 && (apts >= latency_pts)) {
+        ALOGI("%s apts = 0x%x (%d ms) latency=0x%x (%d ms)", __FUNCTION__, apts, apts / 90, latency_pts, latency_pts/90);
+        ALOGI("%s aml_audio_hwsync_set_first_pts = 0x%x (%d ms)", __FUNCTION__, apts - latency_pts, (apts - latency_pts)/90);
+        aml_audio_hwsync_set_first_pts(p_hwsync, apts - latency_pts);
     } else  if (p_hwsync->first_apts_flag) {
+        if (apts >= latency_pts) {
+            apts -= latency_pts;
+        } else {
+            ALOGE("wrong PTS =0x%x delay pts=0x%x",apts, latency_pts);
+            return 0;
+        }
         ret = aml_audio_hwsync_get_pcr(p_hwsync, &pcr);
         if (ret == 0) {
             gap = get_pts_gap(pcr, apts);
@@ -357,9 +413,24 @@ int aml_audio_hwsync_audio_process(audio_hwsync_t *p_hwsync, size_t offset, int 
             if (debug_enable) {
                 ALOGI("%s pcr 0x%x,apts 0x%x,gap 0x%x,gap duration %d ms", __func__, pcr, apts, gap, gap_ms);
             }
-            if (gap > APTS_DISCONTINUE_THRESHOLD_MIN && gap < APTS_DISCONTINUE_THRESHOLD_MAX) {
+            /*resume from pause status, we can sync it exactly*/
+            if (adev->ms12.need_resync) {
+                adev->ms12.need_resync = 0;
                 if (apts > pcr) {
                     *p_adjust_ms = gap_ms;
+                    ALOGE("%s resync p_adjust_ms %d\n", __func__, *p_adjust_ms);
+                }
+            }
+            if (gap > APTS_DISCONTINUE_THRESHOLD_MIN && gap < APTS_DISCONTINUE_THRESHOLD_MAX) {
+                if (apts > pcr) {
+                    /*during video stop, pcr has been reset by video
+                      we need ignore such pcr value*/
+                    if (pcr != 0) {
+                        *p_adjust_ms = gap_ms;
+                        ALOGE("%s *p_adjust_ms %d\n", __func__, *p_adjust_ms);
+                    } else {
+                        ALOGE("pcr has been reset\n");
+                    }
                 } else {
                     ALOGI("tsync -> reset pcrscr 0x%x -> 0x%x, %s big,diff %"PRIx64" ms",
                           pcr, apts, apts > pcr ? "apts" : "pcr", get_pts_gap(apts, pcr) / 90);
@@ -457,10 +528,17 @@ int aml_audio_hwsync_lookup_apts(audio_hwsync_t *p_hwsync, size_t offset, unsign
         ALOGI("%s offset %zu,first %d", __func__, offset, p_hwsync->first_apts_flag);
     }
     pthread_mutex_lock(&p_hwsync->lock);
-    if (p_hwsync->first_apts_flag == false) {
-        align = 0;
+
+    /*the hw_sync_frame_size will be an issue if it is fixed one*/
+    //ALOGI("Adaptive steam =%d", p_hwsync->bvariable_frame_size);
+    if (!p_hwsync->bvariable_frame_size) {
+        if (p_hwsync->hw_sync_frame_size) {
+            align = offset - offset % p_hwsync->hw_sync_frame_size;
+        } else {
+            align = offset;
+        }
     } else {
-        align = offset - offset % p_hwsync->hw_sync_frame_size;
+        align = offset;
     }
     pts_tab = p_hwsync->pts_tab;
     for (i = 0; i < HWSYNC_APTS_NUM; i++) {
@@ -480,15 +558,6 @@ int aml_audio_hwsync_lookup_apts(audio_hwsync_t *p_hwsync, size_t offset, unsign
     }
     if (i == HWSYNC_APTS_NUM) {
         ALOGE("%s,apts lookup failed,align %zu,offset %zu", __func__, align, offset);
-    } else if (p_hwsync->first_apts_flag) {
-        latency_frames = out_get_latency_frames(stream);
-        if (get_output_format(stream) == AUDIO_FORMAT_E_AC3) {
-            latency_frames /= 4;
-        }
-        latency_pts = latency_frames / 48 * 90;
-        if (*p_apts > latency_pts) {
-            *p_apts -= latency_pts;
-        }
     }
     pthread_mutex_unlock(&p_hwsync->lock);
     return ret;

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017 Amlogic Corporation.
+ * Copyright (C) 2019 Amlogic Corporation.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,14 +14,17 @@
  * limitations under the License.
  */
 
-#ifndef __AML_DUMP_DEBUG_H__
-#define __AML_DUMP_DEBUG_H__
 
-#define CC_DUMP_SRC_TYPE_INPUT         (0)
-#define CC_DUMP_SRC_TYPE_OUTPUT        (1)
-#define CC_DUMP_SRC_TYPE_INPUT_PARSE   (2)
+#ifndef AML_AUDIO_SLEEP_H
+#define AML_AUDIO_SLEEP_H
 
-void DoDumpData(const void *data_buf, int size, int aud_src_type);
+#include <stdint.h>
+
+int aml_audio_sleep(uint64_t us);
+
+uint64_t aml_audio_get_systime(void);
+
+uint64_t aml_audio_get_systime_ns(void);
 
 #endif
 

@@ -21,6 +21,7 @@
 #include <pthread.h>
 #include "aml_ringbuffer.h"
 #include "audio_hw.h"
+#include "audio_hw_profile.h"
 
 #define RAW_USECASE_MASK ((1<<STREAM_RAW_DIRECT) | (1<<STREAM_RAW_HWSYNC) | (1<<STREAM_RAW_PATCH))
 
@@ -37,10 +38,10 @@ enum digital_format {
 
 /**\brief Audio output mode*/
 typedef enum {
-   AM_AOUT_OUTPUT_STEREO,     /**< Stereo output*/
-   AM_AOUT_OUTPUT_DUAL_LEFT,  /**< Left audio output to dual channel*/
-   AM_AOUT_OUTPUT_DUAL_RIGHT, /**< Right audio output to dual channel*/
-   AM_AOUT_OUTPUT_SWAP        /**< Swap left and right channel*/
+    AM_AOUT_OUTPUT_STEREO,     /**< Stereo output*/
+    AM_AOUT_OUTPUT_DUAL_LEFT,  /**< Left audio output to dual channel*/
+    AM_AOUT_OUTPUT_DUAL_RIGHT, /**< Right audio output to dual channel*/
+    AM_AOUT_OUTPUT_SWAP        /**< Swap left and right channel*/
 } AM_AOUT_OutputMode_t;
 static inline bool is_main_write_usecase(stream_usecase_t usecase)
 {
@@ -56,6 +57,27 @@ static inline bool is_digital_raw_format(audio_format_t format)
     case AUDIO_FORMAT_DTS_HD:
     case AUDIO_FORMAT_DOLBY_TRUEHD:
     case AUDIO_FORMAT_IEC61937:
+        return true;
+    default:
+        return false;
+    }
+}
+
+static inline bool is_dolby_format(audio_format_t format) {
+    switch (format) {
+    case AUDIO_FORMAT_AC3:
+    case AUDIO_FORMAT_E_AC3:
+    case AUDIO_FORMAT_DOLBY_TRUEHD:
+        return true;
+    default:
+        return false;
+    }
+}
+
+static inline bool is_dts_format(audio_format_t format) {
+    switch (format) {
+    case AUDIO_FORMAT_DTS:
+    case AUDIO_FORMAT_DTS_HD:
         return true;
     default:
         return false;
@@ -139,10 +161,13 @@ static inline alsa_device_t usecase_device_adapter_with_ms12(alsa_device_t useca
     }
 }
 
+typedef void (*dtv_avsync_process_cb)(struct aml_audio_patch* patch,struct aml_stream_out* stream_out);
+
 struct aml_audio_patch {
     struct audio_hw_device *dev;
     ring_buffer_t aml_ringbuffer;
     ring_buffer_t dtvin_ringbuffer;
+    ring_buffer_t assoc_ringbuffer;
     pthread_t audio_input_threadID;
     pthread_t audio_output_threadID;
     pthread_t audio_parse_threadID;
@@ -155,6 +180,7 @@ struct aml_audio_patch {
     void *out_tmpbuf;
     size_t out_tmpbuf_size;
     int dtvin_buffer_inited;
+    int assoc_buffer_inited;
     int input_thread_exit;
     int output_thread_exit;
     int parse_thread_exit;
@@ -168,6 +194,7 @@ struct aml_audio_patch {
     audio_format_t in_format;
 
     audio_devices_t output_src;
+    bool is_dtv_src;
     audio_channel_mask_t out_chanmask;
     int out_sample_rate;
     audio_format_t out_format;
@@ -194,6 +221,8 @@ struct aml_audio_patch {
     int dtv_decoder_state;
     int dtv_decoder_cmd;
     int dtv_first_apts_flag;
+    unsigned char dtv_NchOriginal;
+    unsigned char dtv_lfepresent;
     unsigned int dtv_first_apts;
     unsigned int dtv_pcm_writed;
     unsigned int dtv_pcm_readed;
@@ -205,8 +234,22 @@ struct aml_audio_patch {
     unsigned int first_apts_lookup_over;
     int dtv_symple_rate;
     int dtv_pcm_channel;
+    unsigned int dtv_output_clock;
+    unsigned int dtv_default_i2s_clock;
+    unsigned int dtv_default_spdif_clock;
+    unsigned int spdif_format_set;
+    int spdif_step_clk;
+    int i2s_step_clk;
+    int dtv_audio_mode;
+    int dtv_apts_lookup;
+    int dtv_audio_tune;
+    int pll_state;
+    unsigned int last_apts;
+    unsigned int last_pcrpts;
+    dtv_avsync_process_cb avsync_callback;
     pthread_mutex_t dtv_output_mutex;
     pthread_mutex_t dtv_input_mutex;
+    pthread_mutex_t assoc_mutex;
     /*end dtv play*/
     // correspond to audio_patch:: audio_patch_handle_t id;
 	// patch unique ID
@@ -250,4 +293,5 @@ bool signal_status_check(audio_devices_t in_device, int *mute_time,
 void  release_audio_stream(struct audio_stream_out *stream);
 /*@brief check the AV audio stability by HW register */
 bool is_av_in_stable_hw(struct audio_stream_in *stream);
+bool is_dual_output_stream(struct audio_stream_out *stream);
 #endif /* _AML_AUDIO_STREAM_H_ */
