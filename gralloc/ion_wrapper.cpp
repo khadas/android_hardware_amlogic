@@ -30,8 +30,8 @@
 #include <unistd.h>
 
 #include "ion_wrapper.h"
-#include "ion_4.12.h"
 
+#include <linux/ion_4.12.h>
 #include <log/log.h>
 
 #define ION_IOC_INVALID_CACHE _IOWR(ION_IOC_MAGIC, 9, struct ion_fd_data)
