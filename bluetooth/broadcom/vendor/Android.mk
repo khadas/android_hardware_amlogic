@@ -6,7 +6,7 @@ include $(CLEAR_VARS)
 
 BDROID_DIR := $(TOP_DIR)system/bt
 
-ifneq ($(filter deadpool,$(TARGET_DEVICE)),)
+ifneq ($(filter deadpool adt3,$(TARGET_DEVICE)),)
   LOCAL_CFLAGS += -DUSE_CONTROLLER_BDADDR=TRUE
 endif
 
