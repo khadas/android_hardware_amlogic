@@ -194,10 +194,7 @@ static void apply_gpu_producer_limitations(int req_format, uint64_t *producer_ru
 				~(MALI_GRALLOC_FORMAT_CAPABILITY_AFBC_SPLITBLK | MALI_GRALLOC_FORMAT_CAPABILITY_AFBC_WIDEBLK);
 		}
 	}
-	if (property_get("media.afbc.limit", gpu_afbc, "0") > 0)
-	{
-		gpu_afbc_limit = atoi(gpu_afbc);
-	}
+
 	if (property_get("ro.bootimage.build.fingerprint", prop, NULL) > 0)
 	{
 		if (strstr(prop, "generic"))
