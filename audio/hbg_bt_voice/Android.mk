@@ -1,6 +1,7 @@
-ifneq (,$(filter $(TARGET_DEVICE),franklin faraday newton newton_elektra))
 LOCAL_PATH:= $(call my-dir)
 include $(CLEAR_VARS)
+
+ifeq ($(BOARD_ENABLE_HBG), true)
 
 LOCAL_SRC_FILES += \
         hbg_blehid_mic.c \
@@ -25,4 +26,5 @@ LOCAL_CFLAGS := -Werror -Wall
 LOCAL_MODULE_TAGS := optional
 
 include $(BUILD_SHARED_LIBRARY)
+
 endif
