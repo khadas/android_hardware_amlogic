@@ -5779,31 +5779,32 @@ static int adev_open_input_stream(struct audio_hw_device *dev,
     in = (struct aml_stream_in *)calloc(1, sizeof(struct aml_stream_in));
     if (!in)
         return -ENOMEM;
+
 #if defined(ENABLE_HBG_PATCH)
 //[SEI-Tiger-2019/02/28] Optimize HBG RCU{
-        if(is_hbg_hidraw()){
+    if (is_hbg_hidraw()) {
 //[SEI-Tiger-2019/02/28] Optimize HBG RCU}
-            in->stream.common.get_sample_rate = in_hbg_get_sample_rate;
-            in->stream.common.set_sample_rate = in_hbg_set_sample_rate;
-            in->stream.common.get_buffer_size = in_hbg_get_buffer_size;
-            in->stream.common.get_channels = in_hbg_get_channels;
-            in->stream.common.get_format = in_hbg_get_format;
-            in->stream.common.set_format = in_hbg_set_format;
-            in->stream.common.standby = in_hbg_standby;
-            in->stream.common.dump = in_hbg_dump;
-            in->stream.common.set_parameters = in_hbg_set_parameters;
-            in->stream.common.get_parameters = in_hbg_get_parameters;
-            in->stream.common.add_audio_effect = in_hbg_add_audio_effect;
-            in->stream.common.remove_audio_effect = in_hbg_remove_audio_effect;
-            in->stream.set_gain = in_hbg_set_gain;
-            in->stream.read = in_hbg_read;
-            in->stream.get_input_frames_lost = in_hbg_get_input_frames_lost;
-            in->stream.get_capture_position =  in_hbg_get_hbg_capture_position;
-            in->hbg_channel = regist_callBack_stream();
-            in->stream.get_active_microphones = in_get_active_microphones;
-    } else if(remoteDeviceOnline()) {
+        in->stream.common.get_sample_rate = in_hbg_get_sample_rate;
+        in->stream.common.set_sample_rate = in_hbg_set_sample_rate;
+        in->stream.common.get_buffer_size = in_hbg_get_buffer_size;
+        in->stream.common.get_channels = in_hbg_get_channels;
+        in->stream.common.get_format = in_hbg_get_format;
+        in->stream.common.set_format = in_hbg_set_format;
+        in->stream.common.standby = in_hbg_standby;
+        in->stream.common.dump = in_hbg_dump;
+        in->stream.common.set_parameters = in_hbg_set_parameters;
+        in->stream.common.get_parameters = in_hbg_get_parameters;
+        in->stream.common.add_audio_effect = in_hbg_add_audio_effect;
+        in->stream.common.remove_audio_effect = in_hbg_remove_audio_effect;
+        in->stream.set_gain = in_hbg_set_gain;
+        in->stream.read = in_hbg_read;
+        in->stream.get_input_frames_lost = in_hbg_get_input_frames_lost;
+        in->stream.get_capture_position =  in_hbg_get_hbg_capture_position;
+        in->hbg_channel = regist_callBack_stream();
+        in->stream.get_active_microphones = in_get_active_microphones;
+    } else if(remoteDeviceOnline() && (config->channel_mask != BUILTIN_MIC)) {
 #else
-	if (remoteDeviceOnline()) {
+    if (remoteDeviceOnline() && (config->channel_mask != BUILTIN_MIC)) {
 #endif
         in->stream.common.set_sample_rate = kehwin_in_set_sample_rate;
         in->stream.common.get_sample_rate = kehwin_in_get_sample_rate;
@@ -10242,11 +10243,18 @@ static int adev_close(hw_device_t *device)
     adev = (struct aml_audio_device *)device;
     pthread_mutex_lock(&adev->lock);
     ALOGD("%s: enter", __func__);
+
     adev->count--;
     if (adev->count > 0) {
         pthread_mutex_unlock(&adev->lock);
         return 0;
     }
+/*[SEI-zhaopf-2018-10-29] add for HBG remote audio support { */
+#if defined(ENABLE_HBG_PATCH)
+    stopReceiveAudioData();
+#endif
+/*[SEI-zhaopf-2018-10-29] add for HBG remote audio support } */
+
 #if defined(IS_ATOM_PROJECT)
     if (adev->aec_buf)
         free(adev->aec_buf);
