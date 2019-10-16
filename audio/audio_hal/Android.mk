@@ -139,8 +139,6 @@ ifeq ($(BOARD_ENABLE_FAR_FIELD_AEC), true)
 	LOCAL_CFLAGS += -DENABLE_AEC_FUNC
     LOCAL_SRC_FILES += \
         audio_aec_process.cpp
-    LOCAL_C_INCLUDES += \
-         $(TOPDIR)vendor/google/google_aec
     LOCAL_SHARED_LIBRARIES += \
          libgoogle_aec
 endif

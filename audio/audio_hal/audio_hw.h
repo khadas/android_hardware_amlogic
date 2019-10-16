@@ -599,6 +599,7 @@ struct aml_stream_in {
 #endif
     pthread_mutex_t lock;       /* see note below on mutex acquisition order */
     struct pcm_config config;
+    int pcm_block_mode;         /*0 open with non block mode, 1 open with block mode*/
     struct pcm *pcm;
     unsigned int device;
     audio_channel_mask_t hal_channel_mask;
