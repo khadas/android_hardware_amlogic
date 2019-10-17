@@ -135,6 +135,8 @@ const char *get_wifi_name()
     } else {
 #ifdef REALTEK_WIFI_SUPPORT
         return "rtl";
+#elif QCA_WIFI_SUPPORT
+        return "qca";
 #else
         return "bcm";
 #endif
