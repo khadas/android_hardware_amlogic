@@ -481,6 +481,15 @@ static ssize_t output_port_write_alsa(struct output_port *port, void *buffer, in
 {
     int bytes_to_write = bytes;
     int ret = 0;
+    {
+        struct snd_pcm_status status;
+
+        pcm_ioctl(port->pcm_handle, SNDRV_PCM_IOCTL_STATUS, &status);
+        if (status.state == PCM_STATE_XRUN) {
+            ALOGD("%s() alsa underrun", __func__);
+        }
+
+    }
 
     do {
         int written = 0;

@@ -23,6 +23,22 @@
 
 #ifdef __cplusplus
 
+typedef enum  {
+    MS12_CONFIG_MAIN_VOLUME,
+}ms12_config_type_t;
+
+typedef union ms12_config {
+    float main_volume;
+}ms12_config_t;
+
+
+typedef struct aml_audio_info{
+    int is_dolby_atmos;
+    int reserved_a;
+    int reserved_b;
+    int reserved_c;
+}aml_audio_info_t;
+
 namespace android
 {
 typedef int (*output_callback)(void *buffer, void *priv, size_t size);
@@ -107,13 +123,19 @@ public:
 
     virtual void    DolbyMS12GetBitstreamOutputSize(unsigned long long *all_output_size, unsigned long long *ms12_generate_zero_size);
 
-    virtual int     DolbyMS12GetMainBufferAvail(void);
+    virtual int     DolbyMS12GetMainBufferAvail(int * max_size);
 
     virtual int     DolbyMS12GetAssociateBufferAvail(void);
 
-    virtual int     DolbyMS12GetSystemBufferAvail(void);
+    virtual int     DolbyMS12GetSystemBufferAvail(int * max_size);
 
+    virtual int     DolbyMS12GetGain(int);
 
+    virtual unsigned long long DolbyMS12GetNBytesPcmOutOfUDC();
+
+    virtual int     DolbyMS12SetMainVolume(float volume);
+
+    virtual int     DolbyMS12GetInputISDolbyAtmos();
     // protected:
 
 

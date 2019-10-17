@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017 Amlogic Corporation.
+ * Copyright (C) 2019 Amlogic Corporation.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,14 +14,19 @@
  * limitations under the License.
  */
 
-#ifndef __AML_DUMP_DEBUG_H__
-#define __AML_DUMP_DEBUG_H__
+#ifndef AUDIO_VIRTUAL_BUF_H
+#define AUDIO_VIRTUAL_BUF_H
 
-#define CC_DUMP_SRC_TYPE_INPUT         (0)
-#define CC_DUMP_SRC_TYPE_OUTPUT        (1)
-#define CC_DUMP_SRC_TYPE_INPUT_PARSE   (2)
 
-void DoDumpData(const void *data_buf, int size, int aud_src_type);
+#include <stdint.h>
+
+typedef struct audio_virtual_buf audio_virtual_buf_t;
+
+
+int audio_virtual_buf_open(void ** pphandle, char * buf_name, uint64_t buf_ns_begin, uint64_t buf_ns_target, int ease_time_ms);
+
+int audio_virtual_buf_close(void **pphandle);
+
+int audio_virtual_buf_process(void *phandle, uint64_t frame_ns);
 
 #endif
-
