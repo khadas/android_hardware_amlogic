@@ -18,7 +18,7 @@
 #define ANDROID_INCLUDE_HARDWARE_AML_SCREEN_H
 
 #include <hardware/hardware.h>
-#include <android/native_window.h>
+//#include <android/native_window.h>
 
 
 __BEGIN_DECLS
@@ -78,7 +78,7 @@ typedef struct aml_screen_operations {
     int (*stop)(struct aml_screen_device*);
     int (*pause)(struct aml_screen_device*);
     int (*setStateCallBack)(struct aml_screen_device*, olStateCB);
-    int (*setPreviewWindow)(struct aml_screen_device*, ANativeWindow*);
+    //int (*setPreviewWindow)(struct aml_screen_device*, ANativeWindow*);
     int (*setDataCallBack)(struct aml_screen_device*,app_data_callback, void*);
     int (*get_format)(struct aml_screen_device*);
     int (*set_format)(struct aml_screen_device*, int, int, int);
