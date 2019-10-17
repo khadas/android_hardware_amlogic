@@ -708,6 +708,30 @@ int dcv_decoder_release_patch(struct dolby_ddp_dec *ddp_dec)
     return 0;
 }
 #define IEC61937_HEADER_SIZE 8
+int dcv_decoder_get_framesize(unsigned char*buffer, int bytes, int* p_head_offset)
+{
+    int offset = 0;
+    unsigned char *read_pointer = buffer;
+    int mSample_rate = 0;
+    int mFrame_size = 0;
+    int mChNum = 0;
+    int is_eac3 = 0;
+    ALOGE("%s %x %x\n", __FUNCTION__, read_pointer[0], read_pointer[1]);
+
+    while (offset <  bytes -1) {
+        if ((read_pointer[0] == 0x0b && read_pointer[1] == 0x77) || \
+                    (read_pointer[0] == 0x77 && read_pointer[1] == 0x0b)) {
+            Get_Parameters(read_pointer, &mSample_rate, &mFrame_size, &mChNum,&is_eac3);
+            *p_head_offset = offset;
+            ALOGE("%s mFrame_size %d offset %d\n", __FUNCTION__, mFrame_size, offset);
+            return mFrame_size;
+        }
+        offset++;
+        read_pointer++;
+    }
+    return 0;
+}
+
 int dcv_decoder_process_patch(struct dolby_ddp_dec *ddp_dec, unsigned char*buffer, int bytes)
 {
     int mSample_rate = 0;

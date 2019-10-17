@@ -66,6 +66,7 @@ typedef struct  audio_hwsync {
     int hw_sync_state;
     uint32_t hw_sync_body_cnt;
     uint32_t hw_sync_frame_size;
+    int      bvariable_frame_size;
     uint8_t hw_sync_body_buf[8192];  // 4096
     uint8_t body_align[64];
     uint8_t body_align_cnt;

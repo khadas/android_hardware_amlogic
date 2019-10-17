@@ -53,5 +53,6 @@ int dcv_decode_release(struct aml_audio_parser *parser);
 int dcv_decoder_init_patch(struct dolby_ddp_dec *ddp_dec);
 int dcv_decoder_release_patch(struct dolby_ddp_dec *ddp_dec);
 int dcv_decoder_process_patch(struct dolby_ddp_dec *ddp_dec, unsigned char*buffer, int bytes);
+int dcv_decoder_get_framesize(unsigned char*buffer, int bytes, int* p_head_offset);
 
 #endif
