@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+
 #ifndef _AUDIO_KW_H_
 #define _AUDIO_KW_H_
 
@@ -26,7 +27,7 @@
 #ifdef __cplusplus
 extern "C"{
 #endif
-/**isUseGoogleVoice Indicates whether the recognition engine is google voice*/
+/**isUseGoogleVoice,Indicates whether the recognition engine is google voice*/
 void initAudio(int isUseGoogleVoice);
 int remoteDeviceOnline();
 ssize_t kehwin_in_read(struct audio_stream_in *stream, void* buffer,size_t bytes);
