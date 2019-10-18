@@ -41,13 +41,17 @@ volatile int32_t gCamHal_LogLevel = 4;
 android::EmulatedCameraFactory  gEmulatedCameraFactory;
 default_camera_hal::VendorTags gVendorTags;
 
-static const char *SENSOR_PATH[]={
+static const char *USB_SENSOR_PATH[]={
     "/dev/video0",
     "/dev/video1",
     "/dev/video2",
     "/dev/video3",
     "/dev/video4",
     "/dev/video5",
+};
+
+static const char *BOARD_SENSOR_PATH[]={
+    "/dev/video50",
 };
 
 int updateLogLevels()
@@ -64,12 +68,25 @@ int updateLogLevels()
 
 static  int getCameraNum() {
     int iCamerasNum = 0;
-    for (int i = 0; i < (int)ARRAY_SIZE(SENSOR_PATH); i++ ) {
-        //int camera_fd;
-        CAMHAL_LOGDB("try access %s\n", SENSOR_PATH[i]);
-        if (0 == access(SENSOR_PATH[i], F_OK | R_OK | W_OK)) {
-            CAMHAL_LOGDB("access %s success\n", SENSOR_PATH[i]);
-            iCamerasNum++;
+    char property[PROPERTY_VALUE_MAX];
+    property_get("ro.vendor.platform.board_camera", property, "false");
+    if (strstr(property, "true")) {
+        for (int i = 0; i < (int)ARRAY_SIZE(BOARD_SENSOR_PATH); i++ ) {
+            //int camera_fd;
+            CAMHAL_LOGDB("try access %s\n", BOARD_SENSOR_PATH[i]);
+            if (0 == access(BOARD_SENSOR_PATH[i], F_OK | R_OK | W_OK)) {
+                CAMHAL_LOGDB("access %s success\n", BOARD_SENSOR_PATH[i]);
+                iCamerasNum++;
+            }
+        }
+    } else {
+        for (int i = 0; i < (int)ARRAY_SIZE(USB_SENSOR_PATH); i++ ) {
+            //int camera_fd;
+            CAMHAL_LOGDB("try access %s\n", USB_SENSOR_PATH[i]);
+            if (0 == access(USB_SENSOR_PATH[i], F_OK | R_OK | W_OK)) {
+                CAMHAL_LOGDB("access %s success\n", USB_SENSOR_PATH[i]);
+                iCamerasNum++;
+            }
         }
     }
 
@@ -140,10 +157,20 @@ EmulatedCameraFactory::~EmulatedCameraFactory()
 
 int EmulatedCameraFactory::getValidCameraId() {
     int iValidId = 0;
+    char property[PROPERTY_VALUE_MAX];
+    property_get("ro.vendor.platform.board_camera", property, "false");
+
     for (int i = 0; i < MAX_CAMERA_NUM; i++ ) {
-        if (0 == access(SENSOR_PATH[i], F_OK | R_OK | W_OK)) {
-            iValidId = i;
-            break;
+        if (strstr(property, "true")) {
+            if (0 == access(BOARD_SENSOR_PATH[i], F_OK | R_OK | W_OK)) {
+                iValidId = i;
+                break;
+            }
+        } else {
+            if (0 == access(USB_SENSOR_PATH[i], F_OK | R_OK | W_OK)) {
+                iValidId = i;
+                break;
+            }
         }
     }
     return iValidId;
