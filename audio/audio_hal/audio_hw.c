@@ -1023,7 +1023,7 @@ static size_t out_get_buffer_size (const struct audio_stream *stream)
             size = DEFAULT_PLAYBACK_PERIOD_SIZE * 2;
         else
             // bug_id - 158018, modify size value from PERIOD_SIZE to (PERIOD_SIZE * PLAYBACK_PERIOD_COUNT)
-            size = DEFAULT_PLAYBACK_PERIOD_SIZE*2/* * PLAYBACK_PERIOD_COUNT*/;
+            size = DEFAULT_PLAYBACK_PERIOD_SIZE * PLAYBACK_PERIOD_COUNT;
     }
     // remove alignment to have an accurate size
     // size = ( (size + 15) / 16) * 16;
