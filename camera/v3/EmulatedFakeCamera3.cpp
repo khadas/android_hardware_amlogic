@@ -37,8 +37,9 @@
 #include "fake-pipeline2/Sensor.h"
 #include "fake-pipeline2/JpegCompressor.h"
 #include <cmath>
-#include <gralloc_priv.h>
 #include <binder/IPCThreadState.h>
+#include <amlogic/am_gralloc_ext.h>
+
 
 #if defined(LOG_NNDEBUG) && LOG_NNDEBUG == 0
 #define ALOGVV ALOGV
@@ -1312,16 +1313,14 @@ status_t EmulatedFakeCamera3::processCaptureRequest(
       // structures for them, and lock them for writing.
       for (size_t i = 0; i < request->num_output_buffers; i++) {
               const camera3_stream_buffer &srcBuf = request->output_buffers[i];
-              const private_handle_t *privBuffer =
-                      (const private_handle_t*)(*srcBuf.buffer);
               StreamBuffer destBuf;
               destBuf.streamId = kGenericStreamId;
               destBuf.width    = srcBuf.stream->width;
               destBuf.height   = srcBuf.stream->height;
-              destBuf.format   = privBuffer->format; // Use real private format
-              destBuf.stride   = privBuffer->stride; //srcBuf.stream->width; // TODO: query from gralloc
+              destBuf.format   = am_gralloc_get_format((native_handle_t*)(*srcBuf.buffer));// Use real private format
+              destBuf.stride   = am_gralloc_get_stride_in_pixel((native_handle_t*)(*srcBuf.buffer));//srcBuf.stream->width;
               destBuf.buffer   = srcBuf.buffer;
-              destBuf.share_fd = privBuffer->share_fd;
+              destBuf.share_fd = am_gralloc_get_buffer_fd((native_handle_t*)(*srcBuf.buffer));
 
               if (destBuf.format == HAL_PIXEL_FORMAT_BLOB) {
                      needJpeg = true;
@@ -1358,7 +1357,8 @@ status_t EmulatedFakeCamera3::processCaptureRequest(
                      // Lock buffer for writing
                      const Rect rect(destBuf.width, destBuf.height);
                      if (srcBuf.stream->format == HAL_PIXEL_FORMAT_YCbCr_420_888) {
-                           if (privBuffer->format == HAL_PIXEL_FORMAT_YCbCr_420_888/*HAL_PIXEL_FORMAT_YCrCb_420_SP*/) {
+                         if (am_gralloc_get_format((native_handle_t*)(*srcBuf.buffer)) ==
+                             HAL_PIXEL_FORMAT_YCbCr_420_888/*HAL_PIXEL_FORMAT_YCrCb_420_SP*/) {
                                   android_ycbcr ycbcr = android_ycbcr();
                                   res = GraphicBufferMapper::get().lockYCbCr(
                                       *(destBuf.buffer),
@@ -1370,7 +1370,7 @@ status_t EmulatedFakeCamera3::processCaptureRequest(
                                   destBuf.img = static_cast<uint8_t*>(ycbcr.y);
                            } else {
                                   ALOGE("Unexpected private format for flexible YUV: 0x%x",
-                                             privBuffer->format);
+                                             am_gralloc_get_format((native_handle_t*)(*srcBuf.buffer)));
                                   res = INVALID_OPERATION;
                            }
                      } else {
@@ -1392,8 +1392,10 @@ status_t EmulatedFakeCamera3::processCaptureRequest(
                             GraphicBufferMapper::get().unlock(
                                      *(request->output_buffers[i].buffer));
                      }
-                     ALOGE("line:%d, format for this usage: %d x %d, usage %x, format=%x, returned\n",
-                              __LINE__, destBuf.width, destBuf.height, privBuffer->usage, privBuffer->format);
+                     ALOGE("line:%d, format for this usage: %d x %d, format=%x, returned\n",
+                              __LINE__, destBuf.width, destBuf.height,
+                              am_gralloc_get_format((native_handle_t*)(*srcBuf.buffer)));
+
                      return NO_INIT;
               }
               sensorBuffers->push_back(destBuf);
