@@ -58,7 +58,6 @@ LOCAL_SHARED_LIBRARIES := \
 				libutils \
 				libhardware \
 				libhidlbase \
-				libhidltransport \
 				libteec \
 				libkeymaster_messages \
 				libkeymaster4 \
