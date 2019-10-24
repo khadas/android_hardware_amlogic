@@ -24,7 +24,6 @@
 #include <utils/String16.h>
 #include <utils/String8.h>
 #include <utils/threads.h>
-#include <systemcontrol/ISystemControlService.h>
 
 #define SYST_SERVICES_NAME "system_control"
 
@@ -42,10 +41,11 @@ class DeathNotifier: public IBinder::DeathRecipient
             ALOGW("system_write died!");
         }
 };
-static sp<ISystemControlService> amSystemWriteService;
+//static sp<ISystemControlService> amSystemWriteService;
 static sp<DeathNotifier> amDeathNotifier;
 static  Mutex            amgLock;
 
+/*
 const sp<ISystemControlService>& getSystemWriteService()
 {
     Mutex::Autolock _l(amgLock);
@@ -75,8 +75,11 @@ const sp<ISystemControlService>& getSystemWriteService()
 
     return amSystemWriteService;
 }
-int amSystemWriteSetProperty(const char* key, const char* value, int leth)
+*/
+
+int amSystemWriteSetProperty(const char* key __unused, const char* value __unused, int leth __unused)
 {
+/*
     const sp<ISystemControlService>& sws = getSystemWriteService();
     char *buf = new char[leth+1];
     strncpy(buf, value, leth);
@@ -86,11 +89,12 @@ int amSystemWriteSetProperty(const char* key, const char* value, int leth)
         ALOGE("write value %s %s\n",key,buf);
         return 0;
     }
-    delete[] buf;
+    delete[] buf;*/
     return -1;
 }
-int amSystemWriteGetProperty(const char* key, char* value)
+int amSystemWriteGetProperty(const char* key __unused, char* value __unused)
 {
+/*
     const sp<ISystemControlService>& sws = getSystemWriteService();
     if (sws != 0) {
         String16 read_value;
@@ -102,5 +106,6 @@ int amSystemWriteGetProperty(const char* key, char* value)
         return strlen(value);
     }else{
         return -1;
-    }
+    }*/
+    return -1;
 }
