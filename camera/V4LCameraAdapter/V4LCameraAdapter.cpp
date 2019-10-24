@@ -319,7 +319,7 @@ status_t V4LCameraAdapter::initialize(CameraProperties::Properties* caps)
         char property[PROPERTY_VALUE_MAX];
         int enable = 0;
         memset(property,0,sizeof(property));
-        if(property_get("ro.camera.preview.UseMJPEG", property, NULL) > 0){
+        if (property_get("ro.media.camera_preview.usemjpeg", property, NULL) > 0) {
             enable = atoi(property);
         }
         mUseMJPEG = (enable!=0)?true:false;
@@ -327,7 +327,7 @@ status_t V4LCameraAdapter::initialize(CameraProperties::Properties* caps)
         if(property_get("camera.preview.DebugMJPEG", property, NULL) > 0){
             enable = atoi(property);
         }
-        mDebugMJPEG = (enable!=0)?true:false; 
+        mDebugMJPEG = (enable!=0)?true:false;
 
     }
     if(mUseMJPEG == true){
@@ -2802,7 +2802,7 @@ extern "C" int getValidFrameSize(int camera_fd, int pixel_format, char *framesiz
         support_w = 10000;
         support_h = 10000;
         memset(property,0,sizeof(property));
-        if(property_get("ro.camera.preview.MaxSize", property, NULL) > 0){
+        if (property_get("ro.media.camera_preview.maxsize", property, NULL) > 0) {
             CAMHAL_LOGDB("support Max Preview Size :%s",property);
             if(sscanf(property,"%dx%d",&support_w,&support_h)!=2){
                 support_w = 10000;
@@ -2883,7 +2883,7 @@ static void ParserLimitedRateInfo(LimitedRate_t* rate)
     char* pos = NULL;
     memset(property,0,sizeof(property));
     rate->num = 0;
-    if(property_get("ro.camera.preview.LimitedRate", property, NULL) > 0){
+    if (property_get("ro.media.camera_preview.limitedrate", property, NULL) > 0) {
         pos = &property[0];
         while((pos != NULL)&&(rate->num<MAX_LIMITED_RATE_NUM)){
             if(sscanf(pos,"%dx%dx%d",&w,&h,&r)!=3){
@@ -3394,7 +3394,7 @@ extern "C" void loadCaps(int camera_id, CameraProperties::Properties* params) {
     int useMJPEG = 0;
     preview_format = enumFrameFormats(camera_fd, CAM_PREVIEW);
     memset(property,0,sizeof(property));
-    if(property_get("ro.camera.preview.UseMJPEG", property, NULL) > 0){
+    if (property_get("ro.media.camera_preview.usemjpeg", property, NULL) > 0) {
             useMJPEG = atoi(property);
     }
 #ifdef AMLOGIC_USB_CAMERA_SUPPORT

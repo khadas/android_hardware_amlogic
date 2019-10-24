@@ -1688,7 +1688,7 @@ status_t EmulatedFakeCamera3::constructStaticInfo() {
 
     if ( mSensorType == SENSOR_USB) {
         char property[PROPERTY_VALUE_MAX];
-        property_get("rw.camera.usb.faceback", property, "false");
+        property_get("ro.media.camera_usb.faceback", property, "false");
         if (strstr(property, "true"))
             mFacingBack = 1;
         else
@@ -1830,7 +1830,7 @@ status_t EmulatedFakeCamera3::constructStaticInfo() {
         info.update(ANDROID_SENSOR_ORIENTATION, &orientation, 1);
     } else {
         if (mFacingBack) {
-            property_get("hw.camera.orientation.back", property, "270");
+            property_get("hw.camera.orientation.back", property, "0");
             const int32_t orientation = atoi(property);
             info.update(ANDROID_SENSOR_ORIENTATION, &orientation, 1);
         } else {
