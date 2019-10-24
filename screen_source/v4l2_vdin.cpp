@@ -53,15 +53,21 @@ namespace android {
         (type *) ((char *) __mptr - (char *)(&((type *)0)->member)); })
 #endif
 
+#define BOUNDRY 32
+#define ALIGN_32(x) ((x + (BOUNDRY) - 1)& ~((BOUNDRY) - 1))
 #define ALIGN(b,w) (((b)+((w)-1))/(w)*(w))
+
 static size_t getBufSize(int format, int width, int height)
 {
     size_t buf_size = 0;
     switch (format) {
         case V4L2_PIX_FMT_YVU420:
         case V4L2_PIX_FMT_NV21:
+        case V4L2_PIX_FMT_NV12:
+        {
             buf_size = width * height * 3 / 2;
             break;
+        }
         case V4L2_PIX_FMT_YUYV:
         case V4L2_PIX_FMT_RGB565:
         case V4L2_PIX_FMT_RGB565X:
@@ -393,6 +399,15 @@ int vdin_screen_source::stop()
             ALOGE("Unmap failed");
     }
 
+    mBufs.clear();
+    if (mFrameWidth %32  != 0) {
+        mTemp_Bufs.clear();
+        for (int j = 0; j <mBufferCount; j++ ) {
+            free(src_temp[j]);
+            src_temp[j] = NULL;
+        }
+    }
+
     mBufferCount = 0;
     mState = STOP;
     if(mSetStateCB != NULL)
@@ -476,13 +491,13 @@ int vdin_screen_source::set_format(int width, int height, int color_format)
         width = width /flex_original;
         height = height /flex_original;
     }
-    mVideoInfo->width = width;
+    mVideoInfo->width = ALIGN_32(width);
     mVideoInfo->height = height;
     mVideoInfo->framesizeIn = (mVideoInfo->width * mVideoInfo->height << 3);      //note color format
     mVideoInfo->formatIn = color_format;
 
     mVideoInfo->format.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
-    mVideoInfo->format.fmt.pix.width = width;
+    mVideoInfo->format.fmt.pix.width = ALIGN_32(width);
     mVideoInfo->format.fmt.pix.height = height;
     mVideoInfo->format.fmt.pix.pixelformat = color_format;
     mPixelFormat = color_format;
@@ -494,7 +509,7 @@ int vdin_screen_source::set_format(int width, int height, int color_format)
     mNativeWindowPixelFormat = getNativeWindowFormat(color_format);
     mFrameWidth = width;
     mFrameHeight = height;
-    mBufferSize = getBufSize(color_format, mFrameWidth, mFrameHeight);
+    mBufferSize = getBufSize(color_format, ALIGN_32(width), mFrameHeight);
     if (mFrameWidth %32  != 0) {
         for (int i = 0; i < mBufferCount; i++) {
             src_temp[i] = (long*) malloc(mBufferSize);
@@ -950,7 +965,11 @@ int vdin_screen_source::workThread()
             return ret;
         }
         src = buff_info.buffer_mem;
-        index = mBufs.valueFor(src);
+        if (mFrameWidth % 32 != 0) {
+            index = mTemp_Bufs.valueFor(src);
+        } else {
+            index = mBufs.valueFor(src);
+        }
         if (mFrameType & NATIVE_WINDOW_DATA) {
             mVideoInfo->refcount[index] += 1;
             mFramecount++;

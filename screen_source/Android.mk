@@ -41,9 +41,5 @@ else
 	LOCAL_CFLAGS += -DMALI_AFBC_GRALLOC=0
 endif
 
-ifeq ($(shell test $(PLATFORM_SDK_VERSION) -ge 26 && echo OK),OK)
-LOCAL_PROPRIETARY_MODULE := true
-endif
-
 LOCAL_MODULE_TAGS := optional
 include $(BUILD_SHARED_LIBRARY)
