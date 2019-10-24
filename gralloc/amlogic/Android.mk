@@ -56,7 +56,6 @@ LOCAL_CFLAGS := -DUSE_BUFFER_USAGE=$(MESON_GR_USE_BUFFER_USAGE)
 LOCAL_C_INCLUDES := \
 	system/core/libutils/include \
 	hardware/libhardware/include \
-	system/core/libion/kernel-headers \
 	$(LOCAL_PATH)/..
 
 LOCAL_SRC_FILES := \

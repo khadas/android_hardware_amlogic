@@ -41,7 +41,6 @@ public:
     int32_t getMode(drm_mode_info_t & mode);
     /*set current display mode.*/
     int32_t setMode(drm_mode_info_t & mode);
-
     int32_t waitVBlank(nsecs_t & timestamp);
 
     int32_t getId();
@@ -61,6 +60,7 @@ public:
 
     int32_t readCurDisplayMode(std::string & dispmode);
     int32_t writeCurDisplayMode(std::string & dispmode);
+    int32_t writeCurDisplayAttr(std::string & dispattr);
 
 
 protected:
