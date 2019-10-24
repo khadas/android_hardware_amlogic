@@ -816,13 +816,13 @@ int aml_audio_get_arc_tuning_latency(audio_format_t arc_fmt)
 
     switch (arc_fmt) {
     case AUDIO_FORMAT_PCM_16_BIT:
-        prop_name = "persist.audio.arc_ltcy.pcm";
+        prop_name = "persist.vendor.audio.arc_ltcy.pcm";
         break;
     case AUDIO_FORMAT_AC3:
-        prop_name = "persist.audio.arc_ltcy.dd";
+        prop_name = "persist.vendor.audio.arc_ltcy.dd";
         break;
     case AUDIO_FORMAT_E_AC3:
-        prop_name = "persist.audio.arc_ltcy.ddp";
+        prop_name = "persist.vendor.audio.arc_ltcy.ddp";
         break;
     default:
         ALOGE("%s(), unsupported audio arc_fmt: %#x", __func__, arc_fmt);
@@ -846,13 +846,13 @@ int aml_audio_get_src_tune_latency(enum patch_src_assortion patch_src) {
     switch (patch_src)
     {
     case SRC_HDMIIN:
-        prop_name = "persist.audio.tune_ms.hdmiin";
+        prop_name = "persist.vendor.audio.tune_ms.hdmiin";
         break;
     case SRC_ATV:
-        prop_name = "persist.audio.tune_ms.atv";
+        prop_name = "persist.vendor.audio.tune_ms.atv";
         break;
     case SRC_LINEIN:
-        prop_name = "persist.audio.tune_ms.linein";
+        prop_name = "persist.vendor.audio.tune_ms.linein";
         break;
     default:
         ALOGE("%s(), unsupported audio patch source: %d", __func__, patch_src);
