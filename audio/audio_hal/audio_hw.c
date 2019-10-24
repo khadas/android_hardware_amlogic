@@ -3488,6 +3488,8 @@ static int start_input_stream(struct aml_stream_in *in)
         __func__, card, port, alsa_device, adev->in_device);
 
     /* this assumes routing is done previously */
+    /*default is block mode, if change to non block mode, also need set it as 0*/
+    in->pcm_block_mode = 1;
     in->pcm = pcm_open(card, alsa_device, PCM_IN, &in->config);
     if (!pcm_is_ready(in->pcm)) {
         ALOGE("%s: cannot open pcm_in driver: %s", __func__, pcm_get_error(in->pcm));

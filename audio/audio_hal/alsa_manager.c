@@ -494,7 +494,7 @@ void aml_close_continuous_audio_device(struct aml_audio_device *adev)
 }
 
 size_t aml_alsa_input_read(struct audio_stream_in *stream,
-                        const void *buffer,
+                        void *buffer,
                         size_t bytes)
 {
     struct aml_stream_in *in = (struct aml_stream_in *)stream;
@@ -504,25 +504,31 @@ size_t aml_alsa_input_read(struct audio_stream_in *stream,
     int ret = 0;
     size_t  read_bytes = 0;
     struct pcm *pcm_handle = in->pcm;
-    size_t frame_size = in->config.channels * pcm_format_to_bits(in->config.format) / 8;
-    while (read_bytes < bytes) {
-        ret = pcm_read(pcm_handle, (unsigned char *)buffer + read_bytes, bytes - read_bytes);
-        if (ret >= 0) {
-            read_bytes += ret*frame_size;
+    if (in->pcm_block_mode) {
+        ret = pcm_read(pcm_handle, buffer, bytes);
+        return ret;
+    } else {
+        size_t frame_size = in->config.channels * pcm_format_to_bits(in->config.format) / 8;
+        while (read_bytes < bytes) {
+            ret = pcm_read(pcm_handle, (unsigned char *)buffer + read_bytes, bytes - read_bytes);
+            if (ret >= 0) {
+                read_bytes += ret*frame_size;
+            }
+            if (patch && patch->input_thread_exit) {
+                memset((void*)buffer,0,bytes);
+                return 0;
+            }
+            if (ret >= 0) {
+                ALOGV("ret:%d read_bytes:%d, bytes:%d ",ret,read_bytes,bytes);
+            } else if (ret != -EAGAIN ) {
+                ALOGE("%s:%d, pcm_read fail, ret:%#x, error info:%s", __func__, __LINE__, ret, strerror(errno));
+                return ret;
+            } else {
+                 usleep( (bytes - read_bytes) * 1000000 / audio_stream_in_frame_size(stream) /
+                    in->requested_rate / 2);
+            }
         }
-        if (patch && patch->input_thread_exit) {
-            memset((void*)buffer,0,bytes);
-            return 0;
-        }
-        if (ret >= 0) {
-            ALOGV("ret:%d read_bytes:%d, bytes:%d ",ret,read_bytes,bytes);
-        } else if (ret != -EAGAIN ) {
-            ALOGE("%s:%d, pcm_read fail, ret:%#x, error info:%s", __func__, __LINE__, ret, strerror(errno));
-            return ret;
-        } else {
-             usleep( (bytes - read_bytes) * 1000000 / audio_stream_in_frame_size(stream) /
-                in->requested_rate / 2);
-        }
+        return 0;
     }
     return 0;
 }

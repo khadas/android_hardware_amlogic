@@ -49,6 +49,6 @@ void aml_close_continuous_audio_device(struct aml_audio_device *adev);
  * pcm_read to the pcm handle saved in stream instance.
  */
 size_t aml_alsa_input_read(struct audio_stream_in *stream,
-                        const void *buffer,
+                        void *buffer,
                         size_t bytes);
 #endif // _ALSA_MANAGER_H_
