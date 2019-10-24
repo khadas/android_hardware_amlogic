@@ -83,6 +83,8 @@
 // for dtv playback
 #include "audio_hw_dtv.h"
 #include "../bt_voice/kehwin/audio_kw.h"
+/*Google Voice Assistant channel_mask */
+#define BUILT_IN_MIC 12
 
 #define ENABLE_DTV_PATCH
 //#define SUBMIXER_V1_1
@@ -5782,7 +5784,7 @@ static int adev_open_input_stream(struct audio_hw_device *dev,
 
 #if defined(ENABLE_HBG_PATCH)
 //[SEI-Tiger-2019/02/28] Optimize HBG RCU{
-    if (is_hbg_hidraw()) {
+    if (is_hbg_hidraw() && (config->channel_mask != BUILT_IN_MIC)) {
 //[SEI-Tiger-2019/02/28] Optimize HBG RCU}
         in->stream.common.get_sample_rate = in_hbg_get_sample_rate;
         in->stream.common.set_sample_rate = in_hbg_set_sample_rate;
@@ -5802,9 +5804,9 @@ static int adev_open_input_stream(struct audio_hw_device *dev,
         in->stream.get_capture_position =  in_hbg_get_hbg_capture_position;
         in->hbg_channel = regist_callBack_stream();
         in->stream.get_active_microphones = in_get_active_microphones;
-    } else if(remoteDeviceOnline() && (config->channel_mask != BUILTIN_MIC)) {
+    } else if(remoteDeviceOnline() && (config->channel_mask != BUILT_IN_MIC)) {
 #else
-    if (remoteDeviceOnline() && (config->channel_mask != BUILTIN_MIC)) {
+    if (remoteDeviceOnline() && (config->channel_mask != BUILT_IN_MIC)) {
 #endif
         in->stream.common.set_sample_rate = kehwin_in_set_sample_rate;
         in->stream.common.get_sample_rate = kehwin_in_get_sample_rate;
