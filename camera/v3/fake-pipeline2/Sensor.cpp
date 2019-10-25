@@ -1369,7 +1369,7 @@ int Sensor::getStreamConfigurations(uint32_t picSizes[], const int32_t kAvailabl
     support_w = 10000;
     support_h = 10000;
     memset(property, 0, sizeof(property));
-    if(property_get("ro.camera.preview.MaxSize", property, NULL) > 0){
+    if (property_get("ro.media.camera_preview.maxsize", property, NULL) > 0) {
         CAMHAL_LOGDB("support Max Preview Size :%s",property);
         if(sscanf(property,"%dx%d",&support_w,&support_h)!=2){
             support_w = 10000;
@@ -1748,6 +1748,7 @@ int64_t Sensor::getMinFrameDuration()
         {1920, 1080},
         {1280, 960},
         {640, 480},
+        {352, 288},
         {320, 240},
     };
 
@@ -1800,7 +1801,7 @@ int Sensor::getPictureSizes(int32_t picSizes[], int size, bool preview) {
     support_w = 10000;
     support_h = 10000;
     memset(property, 0, sizeof(property));
-    if(property_get("ro.camera.preview.MaxSize", property, NULL) > 0){
+    if (property_get("ro.media.camera_preview.maxsize", property, NULL) > 0) {
         CAMHAL_LOGDB("support Max Preview Size :%s",property);
         if(sscanf(property,"%dx%d",&support_w,&support_h)!=2){
             support_w = 10000;
@@ -2014,7 +2015,9 @@ void Sensor::captureRGB(uint8_t *img, uint32_t gain, uint32_t stride) {
             usleep(10000);
             continue;
         }
-        if ((NULL != src) && (vinfo->picture.format.fmt.pix.pixelformat == V4L2_PIX_FMT_YUYV)) {
+        if ((NULL != src) && ((vinfo->picture.format.fmt.pix.pixelformat == V4L2_PIX_FMT_YUYV) ||
+            (vinfo->picture.format.fmt.pix.pixelformat == V4L2_PIX_FMT_RGB24))) {
+
             while (dqTryNum > 0) {
                 if (NULL != src) {
                     putback_picture_frame(vinfo);
@@ -2022,6 +2025,10 @@ void Sensor::captureRGB(uint8_t *img, uint32_t gain, uint32_t stride) {
                 usleep(10000);
                 dqTryNum --;
                 src = (uint8_t *)get_picture(vinfo);
+                while (src == NULL) {
+                    usleep(10000);
+                    src = (uint8_t *)get_picture(vinfo);
+                }
             }
         }
 
@@ -2284,7 +2291,7 @@ void Sensor::captureNV21(StreamBuffer b, uint32_t gain) {
             usleep(5000);
             if (mSensorType == SENSOR_USB) {
                 mTimeOutCount++;
-                if (mTimeOutCount > 300) {
+                if (mTimeOutCount > 600) {
                     DBG_LOGA("force sensor reset.\n");
                     force_reset_sensor();
                 }
@@ -2563,7 +2570,7 @@ void Sensor::captureYV12(StreamBuffer b, uint32_t gain) {
             ALOGVV("get frame NULL, sleep 5ms");
             usleep(5000);
             mTimeOutCount++;
-            if (mTimeOutCount > 300) {
+            if (mTimeOutCount > 600) {
                 force_reset_sensor();
             }
             continue;
@@ -2694,7 +2701,7 @@ void Sensor::captureYUYV(uint8_t *img, uint32_t gain, uint32_t stride) {
             ALOGVV("get frame NULL, sleep 5ms");
             usleep(5000);
             mTimeOutCount++;
-            if (mTimeOutCount > 300) {
+            if (mTimeOutCount > 600) {
                 force_reset_sensor();
             }
             continue;

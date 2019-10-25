@@ -61,7 +61,8 @@ LOCAL_SHARED_LIBRARIES:= \
     libjpeg \
     libexpat \
     libexif \
-    libcamera_metadata
+    libcamera_metadata \
+    libispaaa
 
 LOCAL_STATIC_LIBRARIES := \
     libyuv_static \
@@ -95,6 +96,7 @@ LOCAL_C_INCLUDES += external/jpeg \
                     $(call include-path-for, camera) \
                     $(TOP)/external/expat/lib \
                     $(TOP)/external/libexif \
+                    $(LOCAL_PATH)/isplib/inc
 
 LOCAL_SRC_FILES := \
     EmulatedCameraHal.cpp \
@@ -135,6 +137,25 @@ LOCAL_PROPRIETARY_MODULE := true
 endif
 
 include $(BUILD_SHARED_LIBRARY)
+
+include $(CLEAR_VARS)
+
+LOCAL_MODULE := libispaaa
+ifneq ($(ANDROID_BUILD_TYPE),64)
+LOCAL_SRC_FILES := isplib/lib/libispaaa.so
+else
+LOCAL_SRC_FILES := isplib/lib64/libispaaa.so
+endif
+LOCAL_MODULE_SUFFIX := $(TARGET_SHLIB_SUFFIX)
+LOCAL_MODULE_TAGS := optional
+LOCAL_MODULE_CLASS := SHARED_LIBRARIES
+ifneq ($(ANDROID_BUILD_TYPE),64)
+LOCAL_MODULE_PATH := $(TARGET_OUT_VENDOR)/lib/
+else
+LOCAL_MODULE_PATH := $(TARGET_OUT_VENDOR)/lib64/
+endif
+
+include $(BUILD_PREBUILT)
 
 include $(call all-makefiles-under,$(LOCAL_PATH))
 
