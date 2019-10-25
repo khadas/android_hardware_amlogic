@@ -126,7 +126,8 @@ int screen_source_set_format(struct aml_screen_device* dev, int width, int heigh
             (pix_format == V4L2_PIX_FMT_YUV420) ||
             (pix_format == V4L2_PIX_FMT_RGB24) ||
             (pix_format == V4L2_PIX_FMT_RGB565X) ||
-            (pix_format == V4L2_PIX_FMT_RGB32))) {
+            (pix_format == V4L2_PIX_FMT_RGB32) ||
+            (pix_format == V4L2_PIX_FMT_NV12))) {
                 return gScreenHals[dev->device_id]->set_format(width, height, pix_format);
     } else {
         return gScreenHals[dev->device_id]->set_format();
@@ -176,12 +177,12 @@ int screen_source_set_state_callback(struct aml_screen_device* dev, olStateCB ca
 {
        return gScreenHals[dev->device_id]->set_state_callback(callback);
 }
-
+/*
 int screen_source_set_preview_window(struct aml_screen_device* dev, ANativeWindow* window)
 {
      return gScreenHals[dev->device_id]->set_preview_window(window);
 }
-
+*/
 int screen_source_set_data_callback(struct aml_screen_device* dev, app_data_callback callback, void* user)
 {
       return gScreenHals[dev->device_id]->set_data_callback(callback, user);
@@ -309,7 +310,7 @@ static int aml_screen_device_open(const struct hw_module_t* module, const char* 
         dev->ops.aquire_buffer = screen_source_aquire_buffer;
         dev->ops.release_buffer = screen_source_release_buffer;
         dev->ops.setStateCallBack = screen_source_set_state_callback;
-        dev->ops.setPreviewWindow = screen_source_set_preview_window;
+        //dev->ops.setPreviewWindow = screen_source_set_preview_window;
         dev->ops.setDataCallBack = screen_source_set_data_callback;
         dev->ops.set_frame_rate = screen_source_set_frame_rate;
         dev->ops.get_current_sourcesize = screen_source_get_current_sourcesize;
