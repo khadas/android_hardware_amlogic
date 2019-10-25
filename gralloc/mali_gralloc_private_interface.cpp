@@ -17,11 +17,7 @@
  */
 
 #include <hardware/hardware.h>
-#if GRALLOC_USE_GRALLOC1_API == 1
 #include <hardware/gralloc1.h>
-#else
-#include <hardware/gralloc.h>
-#endif
 
 #include "mali_gralloc_private_interface.h"
 #include "mali_gralloc_buffer.h"
@@ -41,9 +37,14 @@ static int32_t mali_gralloc_private_get_buff_int_fmt(gralloc1_device_t *device, 
 {
 	GRALLOC_UNUSED(device);
 
-	if (private_handle_t::validate(handle) < 0 || internal_format == NULL)
+	if (private_handle_t::validate(handle) < 0)
 	{
 		return GRALLOC1_ERROR_BAD_HANDLE;
+	}
+
+	if (internal_format == NULL)
+	{
+		return GRALLOC1_ERROR_BAD_VALUE;
 	}
 
 	const private_handle_t *hnd = static_cast<const private_handle_t *>(handle);
@@ -56,9 +57,14 @@ static int32_t mali_gralloc_private_get_buff_fd(gralloc1_device_t *device, buffe
 {
 	GRALLOC_UNUSED(device);
 
-	if (private_handle_t::validate(handle) < 0 || fd == NULL)
+	if (private_handle_t::validate(handle) < 0)
 	{
 		return GRALLOC1_ERROR_BAD_HANDLE;
+	}
+
+	if (fd == NULL)
+	{
+		return GRALLOC1_ERROR_BAD_VALUE;
 	}
 
 	const private_handle_t *hnd = static_cast<const private_handle_t *>(handle);
@@ -72,9 +78,14 @@ static int32_t mali_gralloc_private_get_buff_int_dims(gralloc1_device_t *device,
 {
 	GRALLOC_UNUSED(device);
 
-	if (private_handle_t::validate(handle) < 0 || internalWidth == NULL || internalHeight == NULL)
+	if (private_handle_t::validate(handle) < 0)
 	{
 		return GRALLOC1_ERROR_BAD_HANDLE;
+	}
+
+	if (internalWidth == NULL || internalHeight == NULL)
+	{
+		return GRALLOC1_ERROR_BAD_VALUE;
 	}
 
 	const private_handle_t *hnd = static_cast<const private_handle_t *>(handle);
@@ -88,9 +99,14 @@ static int32_t mali_gralloc_private_get_buff_offset(gralloc1_device_t *device, b
 {
 	GRALLOC_UNUSED(device);
 
-	if (private_handle_t::validate(handle) < 0 || offset == NULL)
+	if (private_handle_t::validate(handle) < 0)
 	{
 		return GRALLOC1_ERROR_BAD_HANDLE;
+	}
+
+	if (offset == NULL)
+	{
+		return GRALLOC1_ERROR_BAD_VALUE;
 	}
 
 	const private_handle_t *hnd = static_cast<const private_handle_t *>(handle);
@@ -104,9 +120,14 @@ static int32_t mali_gralloc_private_get_buff_bytestride(gralloc1_device_t *devic
 {
 	GRALLOC_UNUSED(device);
 
-	if (private_handle_t::validate(handle) < 0 || bytestride == NULL)
+	if (private_handle_t::validate(handle) < 0)
 	{
 		return GRALLOC1_ERROR_BAD_HANDLE;
+	}
+
+	if (bytestride == NULL)
+	{
+		return GRALLOC1_ERROR_BAD_VALUE;
 	}
 
 	const private_handle_t *hnd = static_cast<const private_handle_t *>(handle);
@@ -120,9 +141,14 @@ static int32_t mali_gralloc_private_get_buff_yuvinfo(gralloc1_device_t *device, 
 {
 	GRALLOC_UNUSED(device);
 
-	if (private_handle_t::validate(handle) < 0 || yuvinfo == NULL)
+	if (private_handle_t::validate(handle) < 0)
 	{
 		return GRALLOC1_ERROR_BAD_HANDLE;
+	}
+
+	if (yuvinfo == NULL)
+	{
+		return GRALLOC1_ERROR_BAD_VALUE;
 	}
 
 	const private_handle_t *hnd = static_cast<const private_handle_t *>(handle);
@@ -135,9 +161,14 @@ static int32_t mali_gralloc_private_get_buff_size(gralloc1_device_t *device, buf
 {
 	GRALLOC_UNUSED(device);
 
-	if (private_handle_t::validate(handle) < 0 || size == NULL)
+	if (private_handle_t::validate(handle) < 0)
 	{
 		return GRALLOC1_ERROR_BAD_HANDLE;
+	}
+
+	if (size == NULL)
+	{
+		return GRALLOC1_ERROR_BAD_VALUE;
 	}
 
 	const private_handle_t *hnd = static_cast<const private_handle_t *>(handle);
@@ -150,9 +181,14 @@ static int32_t mali_gralloc_private_get_buff_flags(gralloc1_device_t *device, bu
 {
 	GRALLOC_UNUSED(device);
 
-	if (private_handle_t::validate(handle) < 0 || flags == NULL)
+	if (private_handle_t::validate(handle) < 0)
 	{
 		return GRALLOC1_ERROR_BAD_HANDLE;
+	}
+
+	if (flags == NULL)
+	{
+		return GRALLOC1_ERROR_BAD_VALUE;
 	}
 
 	const private_handle_t *hnd = static_cast<const private_handle_t *>(handle);
@@ -166,9 +202,14 @@ static int32_t mali_gralloc_private_get_buff_min_page_size(gralloc1_device_t *de
 {
 	GRALLOC_UNUSED(device);
 
-	if (private_handle_t::validate(handle) < 0 || min_pgsz == NULL)
+	if (private_handle_t::validate(handle) < 0)
 	{
 		return GRALLOC1_ERROR_BAD_HANDLE;
+	}
+
+	if (min_pgsz == NULL)
+	{
+		return GRALLOC1_ERROR_BAD_VALUE;
 	}
 
 	const private_handle_t *hnd = static_cast<const private_handle_t *>(handle);

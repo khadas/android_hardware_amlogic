@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016-2017 ARM Limited. All rights reserved.
+ * Copyright (C) 2016-2018 ARM Limited. All rights reserved.
  *
  * Copyright (C) 2008 The Android Open Source Project
  *
@@ -16,13 +16,12 @@
  * limitations under the License.
  */
 
-#include <hardware/hardware.h>
 #include <stdlib.h>
-#include <string.h>
+#include <inttypes.h>
 
-#if GRALLOC_USE_GRALLOC1_API == 1
+#if GRALLOC_VERSION_MAJOR == 1
 #include <hardware/gralloc1.h>
-#else
+#elif GRALLOC_VERSION_MAJOR == 0
 #include <hardware/gralloc.h>
 #endif
 
@@ -32,19 +31,37 @@
 #include "mali_gralloc_buffer.h"
 #include "mali_gralloc_ion.h"
 #include "mali_gralloc_reference.h"
-#include "ion_wrapper.h"
 #include "amlogic/am_gralloc_internal.h"
 
-#if GRALLOC_USE_GRALLOC1_API == 1
+/*
+ * Validate descriptor to ensure that it originated from this version
+ * of gralloc. Rudimentary signature is simply calculated from size of
+ * buffer descriptor structure and initialised immediately after
+ * structure is allocated.
+ *
+ * @param buffer_descriptor    [in]    Buffer descriptor.
+ *
+ * @return true, for valid buffer descriptor;
+ *         false, otherwise
+ */
+static bool descriptor_is_valid(buffer_descriptor_t *buffer_descriptor)
+{
+	if (buffer_descriptor && buffer_descriptor->signature == sizeof(*buffer_descriptor))
+	{
+		return true;
+	}
 
+	return false;
+}
 
+#if GRALLOC_VERSION_MAJOR == 1
 int mali_gralloc_create_descriptor_internal(gralloc1_buffer_descriptor_t *outDescriptor)
 {
 	buffer_descriptor_t *buffer_descriptor;
 
 	if (NULL == outDescriptor)
 	{
-		return GRALLOC1_ERROR_BAD_DESCRIPTOR;
+		return GRALLOC1_ERROR_BAD_VALUE;
 	}
 
 	buffer_descriptor = reinterpret_cast<buffer_descriptor_t *>(malloc(sizeof(buffer_descriptor_t)));
@@ -52,7 +69,7 @@ int mali_gralloc_create_descriptor_internal(gralloc1_buffer_descriptor_t *outDes
 	if (NULL == buffer_descriptor)
 	{
 		AERR("failed to create buffer descriptor");
-		return GRALLOC1_ERROR_BAD_DESCRIPTOR;
+		return GRALLOC1_ERROR_NO_RESOURCES;
 	}
 
 	/*
@@ -64,6 +81,7 @@ int mali_gralloc_create_descriptor_internal(gralloc1_buffer_descriptor_t *outDes
 	 */
 	memset((void *)buffer_descriptor, 0, sizeof(*buffer_descriptor));
 	buffer_descriptor->layer_count = 1;
+	buffer_descriptor->signature = sizeof(buffer_descriptor_t);
 
 	*outDescriptor = (gralloc1_buffer_descriptor_t)buffer_descriptor;
 	return GRALLOC1_ERROR_NONE;
@@ -71,24 +89,26 @@ int mali_gralloc_create_descriptor_internal(gralloc1_buffer_descriptor_t *outDes
 
 int mali_gralloc_destroy_descriptor_internal(gralloc1_buffer_descriptor_t descriptor)
 {
-	if (!descriptor)
+	buffer_descriptor_t *buffer_descriptor = (buffer_descriptor_t *)descriptor;
+	if (!descriptor_is_valid(buffer_descriptor))
 	{
+		AERR("Invalid buffer descriptor %p", buffer_descriptor);
 		return GRALLOC1_ERROR_BAD_DESCRIPTOR;
 	}
 
-	buffer_descriptor_t *buffer_descriptor = (buffer_descriptor_t *)descriptor;
 	free(buffer_descriptor);
 	return GRALLOC1_ERROR_NONE;
 }
 
 int mali_gralloc_set_dimensions_internal(gralloc1_buffer_descriptor_t descriptor, uint32_t width, uint32_t height)
 {
-	if (!descriptor)
+	buffer_descriptor_t *buffer_descriptor = (buffer_descriptor_t *)descriptor;
+	if (!descriptor_is_valid(buffer_descriptor))
 	{
+		AERR("Invalid buffer descriptor %p", buffer_descriptor);
 		return GRALLOC1_ERROR_BAD_DESCRIPTOR;
 	}
 
-	buffer_descriptor_t *buffer_descriptor = (buffer_descriptor_t *)descriptor;
 	buffer_descriptor->width = width;
 	buffer_descriptor->height = height;
 	return GRALLOC1_ERROR_NONE;
@@ -96,37 +116,45 @@ int mali_gralloc_set_dimensions_internal(gralloc1_buffer_descriptor_t descriptor
 
 int mali_gralloc_set_format_internal(gralloc1_buffer_descriptor_t descriptor, int32_t format)
 {
-	if (!descriptor)
+	buffer_descriptor_t *buffer_descriptor = (buffer_descriptor_t *)descriptor;
+	if (!descriptor_is_valid(buffer_descriptor))
 	{
+		AERR("Invalid buffer descriptor %p", buffer_descriptor);
 		return GRALLOC1_ERROR_BAD_DESCRIPTOR;
 	}
 
-	buffer_descriptor_t *buffer_descriptor = (buffer_descriptor_t *)descriptor;
-	buffer_descriptor->hal_format = format;
+	/*
+	 * Explicit cast to unsigned 64-bit 'hal_format',
+	 * which can also store internal_format provided
+	 * through mali_gralloc_private_set_priv_fmt().
+	 */
+	buffer_descriptor->hal_format = (uint64_t)format;
 	buffer_descriptor->format_type = MALI_GRALLOC_FORMAT_TYPE_USAGE;
 	return GRALLOC1_ERROR_NONE;
 }
 
 int mali_gralloc_set_producerusage_internal(gralloc1_buffer_descriptor_t descriptor, uint64_t usage)
 {
-	if (!descriptor)
+	buffer_descriptor_t *buffer_descriptor = (buffer_descriptor_t *)descriptor;
+	if (!descriptor_is_valid(buffer_descriptor))
 	{
+		AERR("Invalid buffer descriptor %p", buffer_descriptor);
 		return GRALLOC1_ERROR_BAD_DESCRIPTOR;
 	}
 
-	buffer_descriptor_t *buffer_descriptor = (buffer_descriptor_t *)descriptor;
 	buffer_descriptor->producer_usage = usage;
 	return GRALLOC1_ERROR_NONE;
 }
 
 int mali_gralloc_set_consumerusage_internal(gralloc1_buffer_descriptor_t descriptor, uint64_t usage)
 {
-	if (!descriptor)
+	buffer_descriptor_t *buffer_descriptor = (buffer_descriptor_t *)descriptor;
+	if (!descriptor_is_valid(buffer_descriptor))
 	{
+		AERR("Invalid buffer descriptor %p", buffer_descriptor);
 		return GRALLOC1_ERROR_BAD_DESCRIPTOR;
 	}
 
-	buffer_descriptor_t *buffer_descriptor = (buffer_descriptor_t *)descriptor;
 	buffer_descriptor->consumer_usage = usage;
 	return GRALLOC1_ERROR_NONE;
 }
@@ -137,6 +165,11 @@ int mali_gralloc_get_backing_store_internal(buffer_handle_t buffer, gralloc1_bac
 	{
 		AERR("Invalid buffer %p, returning error", buffer);
 		return GRALLOC1_ERROR_BAD_HANDLE;
+	}
+
+	if (outStore == NULL)
+	{
+		return GRALLOC1_ERROR_BAD_VALUE;
 	}
 
 	private_handle_t *hnd = (private_handle_t *)buffer;
@@ -153,6 +186,11 @@ int mali_gralloc_get_consumer_usage_internal(buffer_handle_t buffer, uint64_t *o
 		return GRALLOC1_ERROR_BAD_HANDLE;
 	}
 
+	if (outUsage == NULL)
+	{
+		return GRALLOC1_ERROR_BAD_VALUE;
+	}
+
 	private_handle_t *hnd = (private_handle_t *)buffer;
 	*outUsage = hnd->consumer_usage;
 	return GRALLOC1_ERROR_NONE;
@@ -166,9 +204,14 @@ int mali_gralloc_get_dimensions_internal(buffer_handle_t buffer, uint32_t *outWi
 		return GRALLOC1_ERROR_BAD_HANDLE;
 	}
 
+	if (outWidth == NULL || outHeight == NULL)
+	{
+		return GRALLOC1_ERROR_BAD_VALUE;
+	}
+
 	private_handle_t *hnd = (private_handle_t *)buffer;
-	*outWidth = hnd->width;
-	*outHeight = hnd->height;
+	*outWidth = (uint32_t)hnd->width;
+	*outHeight = (uint32_t)hnd->height;
 	return GRALLOC1_ERROR_NONE;
 }
 
@@ -178,6 +221,11 @@ int mali_gralloc_get_format_internal(buffer_handle_t buffer, int32_t *outFormat)
 	{
 		AERR("Invalid buffer %p, returning error", buffer);
 		return GRALLOC1_ERROR_BAD_HANDLE;
+	}
+
+	if (outFormat == NULL)
+	{
+		return GRALLOC1_ERROR_BAD_VALUE;
 	}
 
 	private_handle_t *hnd = (private_handle_t *)buffer;
@@ -193,6 +241,11 @@ int mali_gralloc_get_producer_usage_internal(buffer_handle_t buffer, uint64_t *o
 		return GRALLOC1_ERROR_BAD_HANDLE;
 	}
 
+	if (outUsage == NULL)
+	{
+		return GRALLOC1_ERROR_BAD_VALUE;
+	}
+
 	private_handle_t *hnd = (private_handle_t *)buffer;
 	*outUsage = hnd->producer_usage;
 	return GRALLOC1_ERROR_NONE;
@@ -201,12 +254,19 @@ int mali_gralloc_get_producer_usage_internal(buffer_handle_t buffer, uint64_t *o
 #if PLATFORM_SDK_VERSION >= 26
 int mali_gralloc_set_layer_count_internal(gralloc1_buffer_descriptor_t descriptor, uint32_t layerCount)
 {
-	if (!descriptor)
+	buffer_descriptor_t *buffer_descriptor = (buffer_descriptor_t *)descriptor;
+	if (!descriptor_is_valid(buffer_descriptor))
 	{
+		AERR("Invalid buffer descriptor %p", buffer_descriptor);
 		return GRALLOC1_ERROR_BAD_DESCRIPTOR;
 	}
 
-	buffer_descriptor_t *buffer_descriptor = (buffer_descriptor_t *)descriptor;
+	if (layerCount == 0)
+	{
+		AERR("Invalid layer count: %" PRIu32, layerCount);
+		return GRALLOC1_ERROR_BAD_VALUE;
+	}
+
 	buffer_descriptor->layer_count = layerCount;
 	return GRALLOC1_ERROR_NONE;
 }
@@ -219,11 +279,18 @@ int mali_gralloc_get_layer_count_internal(buffer_handle_t buffer, uint32_t *outL
 		return GRALLOC1_ERROR_BAD_HANDLE;
 	}
 
+	if (outLayerCount == NULL)
+	{
+		return GRALLOC1_ERROR_BAD_VALUE;
+	}
+
 	private_handle_t *hnd = (private_handle_t *)buffer;
 	*outLayerCount = hnd->layer_count;
 	return GRALLOC1_ERROR_NONE;
 }
 #endif /* PLATFORM_SDK_VERSION >= 26 */
+
+#endif
 
 #if PLATFORM_SDK_VERSION >= 28
 int mali_gralloc_validate_buffer_size(buffer_handle_t buffer, gralloc1_buffer_descriptor_info_t* descriptorInfo, uint32_t stride)
@@ -346,21 +413,33 @@ int mali_gralloc_import_buffer(gralloc1_device_t* device, const buffer_handle_t 
 }
 #endif
 
-#endif
 int mali_gralloc_query_getstride(buffer_handle_t buffer, int *pixelStride)
 {
-	int rval = -1;
-
-	if (buffer != NULL && pixelStride != NULL)
+	if (private_handle_t::validate(buffer) < 0)
 	{
-		private_handle_t const *hnd = reinterpret_cast<private_handle_t const *>(buffer);
-
-		if (hnd)
-		{
-			*pixelStride = hnd->stride;
-			rval = 0;
-		}
+		AERR("Invalid buffer %p, returning error", buffer);
+#if GRALLOC_VERSION_MAJOR == 1
+		return GRALLOC1_ERROR_BAD_HANDLE;
+#else
+		return -EINVAL;
+#endif
 	}
 
-	return rval;
+	if (pixelStride == NULL)
+	{
+#if GRALLOC_VERSION_MAJOR == 1
+		return GRALLOC1_ERROR_BAD_VALUE;
+#else
+		return -EINVAL;
+#endif
+	}
+
+	private_handle_t *hnd = (private_handle_t *)buffer;
+	*pixelStride = hnd->stride;
+
+#if GRALLOC_VERSION_MAJOR == 1
+	return GRALLOC1_ERROR_NONE;
+#else
+	return 0;
+#endif
 }

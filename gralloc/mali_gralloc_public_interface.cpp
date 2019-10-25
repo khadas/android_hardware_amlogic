@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016 ARM Limited. All rights reserved.
+ * Copyright (C) 2016, 2018-2019 ARM Limited. All rights reserved.
  *
  * Copyright (C) 2008 The Android Open Source Project
  *
@@ -15,12 +15,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#include <inttypes.h>
 #include <hardware/hardware.h>
-#if GRALLOC_USE_GRALLOC1_API == 1
 #include <hardware/gralloc1.h>
-#else
-#include <hardware/gralloc.h>
-#endif
 
 #include "mali_gralloc_module.h"
 
@@ -152,21 +149,19 @@ static int32_t mali_gralloc_get_producer_usage(gralloc1_device_t *device, buffer
 static int32_t mali_gralloc_get_stride(gralloc1_device_t *device, buffer_handle_t buffer, uint32_t *outStride)
 {
 	GRALLOC_UNUSED(device);
-
 	int stride;
 
-	if (mali_gralloc_query_getstride(buffer, &stride) < 0)
+	const int ret = mali_gralloc_query_getstride(buffer, &stride);
+	if (ret == GRALLOC1_ERROR_NONE)
 	{
-		return GRALLOC1_ERROR_UNSUPPORTED;
+		*outStride = (uint32_t)stride;
 	}
 
-	*outStride = (uint32_t)stride;
-
-	return GRALLOC1_ERROR_NONE;
+	return ret;
 }
 
-static int32_t mali_gralloc_allocate(gralloc1_device_t *device, uint32_t numDescriptors,
-                                     const gralloc1_buffer_descriptor_t *descriptors, buffer_handle_t *outBuffers)
+int32_t mali_gralloc_allocate(gralloc1_device_t *device, uint32_t numDescriptors,
+                              const gralloc1_buffer_descriptor_t *descriptors, buffer_handle_t *outBuffers)
 {
 	mali_gralloc_module *m;
 	m = reinterpret_cast<private_module_t *>(device->common.module);
@@ -174,60 +169,24 @@ static int32_t mali_gralloc_allocate(gralloc1_device_t *device, uint32_t numDesc
 	uint64_t usage;
 	bool shared = false;
 
+	/* Initialise output parameters. */
+	for (uint32_t i = 0; i < numDescriptors; i++)
+	{
+		outBuffers[i] = NULL;
+	}
+
 	usage = bufDescriptor->producer_usage | bufDescriptor->consumer_usage;
 
 #if DISABLE_FRAMEBUFFER_HAL != 1
 
 	if (usage & GRALLOC_USAGE_HW_FB)
 	{
-		int byte_stride;
-		int pixel_stride;
-		int width, height;
-		uint64_t format;
-
-		format = bufDescriptor->hal_format;
-		width = bufDescriptor->width;
-		height = bufDescriptor->height;
-
-#if GRALLOC_FB_SWAP_RED_BLUE == 1
-#ifdef GRALLOC_16_BITS
-		format = HAL_PIXEL_FORMAT_RGB_565;
-#else
-		format = HAL_PIXEL_FORMAT_BGRA_8888;
-#endif
-#endif
-
-		if (fb_alloc_framebuffer(m, bufDescriptor->consumer_usage, bufDescriptor->producer_usage, outBuffers,
-		                         &pixel_stride, &byte_stride) < 0)
+		if (mali_gralloc_fb_allocate(m, bufDescriptor, outBuffers) < 0)
 		{
 			return GRALLOC1_ERROR_NO_RESOURCES;
 		}
-		else
-		{
-			private_handle_t *hnd = (private_handle_t *)*outBuffers;
-
-			/* Allocate a meta-data buffer for framebuffer too. fbhal
-			 * ones wont need it but for hwc they will.
-			 *
-			 * Explicitly ignore allocation errors since it is not critical to have
-			 */
-			(void)gralloc_buffer_attr_allocate(hnd);
-
-			hnd->req_format = format;
-			hnd->format = format;
-			hnd->yuv_info = MALI_YUV_BT601_NARROW;
-			hnd->internal_format = format;
-			hnd->byte_stride = byte_stride;
-			hnd->width = width;
-			hnd->height = height;
-			hnd->stride = pixel_stride;
-			hnd->internalWidth = width;
-			hnd->internalHeight = height;
-		}
 	}
 	else
-#else
-        AINF("framebuffer hal alread move to hwcomposer\n");
 #endif
 	{
 		if (mali_gralloc_buffer_allocate(m, (gralloc_buffer_descriptor_t *)descriptors, numDescriptors, outBuffers,
@@ -245,6 +204,7 @@ static int32_t mali_gralloc_allocate(gralloc1_device_t *device, uint32_t numDesc
 
 	return GRALLOC1_ERROR_NONE;
 }
+
 
 static int32_t mali_gralloc_retain(gralloc1_device_t *device, buffer_handle_t buffer)
 {
@@ -277,30 +237,75 @@ static int32_t mali_gralloc_release(gralloc1_device_t *device, buffer_handle_t b
 	return GRALLOC1_ERROR_NONE;
 }
 
-static int32_t mali_gralloc1_get_num_flex_planes(gralloc1_device_t *device, buffer_handle_t buffer,
-                                                 uint32_t *outNumPlanes)
+/*
+ *  Returns the number of flex layout planes which are needed to represent the
+ *  given buffer.
+ *
+ * @param device       [in]   Gralloc device.
+ * @param buffer       [in]   The buffer handle for which the number of planes should be queried
+ * @param outNumPlanes [out]  The number of flex planes required to describe the given buffer
+ *
+ * @return GRALLOC1_ERROR_NONE - The locking is successful;
+ *         GRALLOC1_ERROR_BAD_HANDLE - The buffer handle is invalid
+ *         GRALLOC1_ERROR_BAD_VALUE - The flex plane pointer is invalid
+ *         Appropriate error, otherwise
+ */
+static int32_t mali_gralloc1_get_num_flex_planes(const gralloc1_device_t * const device,
+                                                 const buffer_handle_t buffer,
+                                                 uint32_t * const outNumPlanes)
 {
 	mali_gralloc_module *m;
 	m = reinterpret_cast<private_module_t *>(device->common.module);
 
 	if (private_handle_t::validate(buffer) < 0)
 	{
+		AERR("Invalid buffer handle");
 		return GRALLOC1_ERROR_BAD_HANDLE;
 	}
 
-	if (mali_gralloc_get_num_flex_planes(m, buffer, outNumPlanes) < 0)
+	if (outNumPlanes == NULL)
 	{
-		return GRALLOC1_ERROR_UNSUPPORTED;
+		AERR("Invalid flex plane pointer");
+		return GRALLOC1_ERROR_BAD_VALUE;
+	}
+
+	int status = mali_gralloc_get_num_flex_planes(m, buffer, outNumPlanes);
+	if (status != 0)
+	{
+		return status;
 	}
 
 	return GRALLOC1_ERROR_NONE;
 }
 
-static int32_t mali_gralloc1_lock_async(gralloc1_device_t *device, buffer_handle_t buffer,
-                                        uint64_t /*gralloc1_producer_usage_t*/ producerUsage,
-                                        uint64_t /*gralloc1_consumer_usage_t*/ consumerUsage,
-                                        const gralloc1_rect_t *accessRegion, void **outData, int32_t acquireFence)
+/*
+ *  Locks the Gralloc 1.0 buffer for the specified CPU usage.
+ *
+ * @param device        [in]    Gralloc1 device.
+ * @param buffer        [in]    The buffer to lock.
+ * @param producerUsage [in]    The producer usage flags to request (gralloc1_producer_usage_t).
+ * @param consumerUsage [in]    The consumer usage flags to request (gralloc1_consumer_usage_t).
+ * @param accessRegion  [in]    The portion of the buffer that the client
+ *                              intends to access.
+ * @param outData       [out]   To be filled with a CPU-accessible pointer to
+ *                              the buffer data for CPU usage.
+ * @param acquireFence  [in]    Refers to an acquire sync fence object.
+ *
+ * @return GRALLOC1_ERROR_NONE, when locking is successful;
+ *         appropriate error, otherwise
+ *
+ * @Notes: Locking a buffer simultaneously for write or read/write leaves the
+ *         buffer's content into an indeterminate state.
+ */
+static int32_t mali_gralloc1_lock_async(gralloc1_device_t *device,
+                                        buffer_handle_t buffer,
+                                        uint64_t producerUsage,
+                                        uint64_t consumerUsage,
+                                        const gralloc1_rect_t *accessRegion,
+                                        void **outData,
+                                        int32_t acquireFence)
 {
+	int status = 0;
 	mali_gralloc_module *m;
 	m = reinterpret_cast<private_module_t *>(device->common.module);
 
@@ -309,26 +314,69 @@ static int32_t mali_gralloc1_lock_async(gralloc1_device_t *device, buffer_handle
 		return GRALLOC1_ERROR_BAD_HANDLE;
 	}
 
+	if (accessRegion == NULL)
+	{
+		return GRALLOC1_ERROR_BAD_VALUE;
+	}
+
+	/* The lock usage constraints
+	 * 1. Exactly one of producerUsage and consumerUsage must be *_USAGE_NONE.
+	 * 2. The usage which is not *_USAGE_NONE must be one of the *_USAGE_CPU_*
+	 *    as applicable.
+	 * are relaxed to accommodate an issue in shims with regard to lock usage mapping.
+	 */
 	if (!((producerUsage | consumerUsage) & (GRALLOC_USAGE_SW_READ_MASK | GRALLOC_USAGE_SW_WRITE_MASK)))
 	{
 		return GRALLOC1_ERROR_BAD_VALUE;
 	}
 
-	if (mali_gralloc_lock_async(m, buffer, producerUsage | consumerUsage, accessRegion->left, accessRegion->top,
-	                            accessRegion->width, accessRegion->height, outData, acquireFence) < 0)
+	status = mali_gralloc_lock_async(m, buffer, producerUsage | consumerUsage,
+	                                 accessRegion->left, accessRegion->top,
+	                                 accessRegion->width, accessRegion->height,
+	                                 outData, acquireFence);
+	if (status != 0)
 	{
+		if (status == -EINVAL)
+		{
+			return GRALLOC1_ERROR_BAD_VALUE;
+		}
+
 		return GRALLOC1_ERROR_UNSUPPORTED;
 	}
 
 	return GRALLOC1_ERROR_NONE;
 }
 
+/*
+ *  Locks the Gralloc 1.0 buffer, for the specified CPU usage, asynchronously.
+ *
+ * @param device        [in]    Gralloc1 device.
+ * @param buffer        [in]    The buffer to lock.
+ * @param producerUsage [in]    The producer usage flags requested (gralloc1_producer_usage_t).
+ * @param consumerUsage [in]    The consumer usage flags requested (gralloc1_consumer_usage_t).
+ * @param accessRegion  [in]    The portion of the buffer that the client
+ *                              intends to access.
+ * @param outFlexLayout [out]   To be filled with the description of the planes
+ *                              in the buffer
+ * @param acquireFence  [in]    Refers to an acquire sync fence object.
+ *
+ * @return GRALLOC1_ERROR_NONE - Locking is successful;
+ *         GRALLOC1_ERROR_BAD_HANDLE - Invalid buffer handle
+ *         GRALLOC1_ERROR_BAD_VALUE - Invalid usage parameters
+ *         GRALLOC1_ERROR_UNSUPPORTED - Any other error, like wrong access
+ *                                      region parameters, invalid buffer ownership, etc.
+ *
+ * @Notes: Locking a buffer simultaneously for write or read/write leaves the
+ *         buffer's content into an indeterminate state.
+ */
 static int32_t mali_gralloc1_lock_flex_async(gralloc1_device_t *device, buffer_handle_t buffer,
-                                             uint64_t /*gralloc1_producer_usage_t*/ producerUsage,
-                                             uint64_t /*gralloc1_consumer_usage_t*/ consumerUsage,
+                                             uint64_t producerUsage,
+                                             uint64_t consumerUsage,
                                              const gralloc1_rect_t *accessRegion,
-                                             struct android_flex_layout *outFlexLayout, int32_t acquireFence)
+                                             struct android_flex_layout *outFlexLayout,
+                                             int32_t acquireFence)
 {
+	int status = 0;
 	mali_gralloc_module *m;
 	m = reinterpret_cast<private_module_t *>(device->common.module);
 
@@ -337,21 +385,57 @@ static int32_t mali_gralloc1_lock_flex_async(gralloc1_device_t *device, buffer_h
 		return GRALLOC1_ERROR_BAD_HANDLE;
 	}
 
+	if (outFlexLayout == NULL)
+	{
+		return GRALLOC1_ERROR_BAD_VALUE;
+	}
+
+	/* The lock usage constraints
+	 * 1. Exactly one of producerUsage and consumerUsage must be *_USAGE_NONE.
+	 * 2. The usage which is not *_USAGE_NONE must be one of the *_USAGE_CPU_*
+	 *    as applicable.
+	 * are relaxed to accommodate an issue in shims with regard to lock usage mapping.
+	 */
 	if (!((producerUsage | consumerUsage) & (GRALLOC_USAGE_SW_READ_MASK | GRALLOC_USAGE_SW_WRITE_MASK)))
 	{
 		return GRALLOC1_ERROR_BAD_VALUE;
 	}
 
-	if (mali_gralloc_lock_flex_async(m, buffer, producerUsage | consumerUsage, accessRegion->left, accessRegion->top,
-	                                 accessRegion->width, accessRegion->height, outFlexLayout, acquireFence) < 0)
+	status = mali_gralloc_lock_flex_async(m, buffer, producerUsage | consumerUsage,
+	                                      accessRegion->left, accessRegion->top,
+	                                      accessRegion->width, accessRegion->height,
+	                                      outFlexLayout, acquireFence);
+	if (status != 0)
 	{
+		if (status == -EINVAL)
+		{
+			return GRALLOC1_ERROR_BAD_VALUE;
+		}
+
 		return GRALLOC1_ERROR_UNSUPPORTED;
 	}
 
 	return GRALLOC1_ERROR_NONE;
 }
 
-static int32_t mali_gralloc1_unlock_async(gralloc1_device_t *device, buffer_handle_t buffer, int32_t *outReleaseFence)
+/*
+ *  Unlocks the Gralloc 1.0 buffer asynchronously.
+ *
+ * @param device          [in]   Gralloc1 device.
+ * @param buffer          [in]   The buffer to unlock.
+ * @param outReleaseFence [out]  Refers to an acquire sync fence object.
+ *
+ * @return 0, when the locking is successful;
+ *         Appropriate error, otherwise
+ *
+ * Note: unlocking a buffer which is not locked results in an unexpected behaviour.
+ *       Though it is possible to create a state machine to track the buffer state to
+ *       recognize erroneous conditions, it is expected of client to adhere to API
+ *       call sequence
+ */
+static int32_t mali_gralloc1_unlock_async(const gralloc1_device_t * const device,
+                                          buffer_handle_t buffer,
+                                          int32_t *const outReleaseFence)
 {
 	mali_gralloc_module *m;
 	m = reinterpret_cast<private_module_t *>(device->common.module);
@@ -361,7 +445,17 @@ static int32_t mali_gralloc1_unlock_async(gralloc1_device_t *device, buffer_hand
 		return GRALLOC1_ERROR_BAD_HANDLE;
 	}
 
-	mali_gralloc_unlock_async(m, buffer, outReleaseFence);
+	const int status = mali_gralloc_unlock_async(m, buffer, outReleaseFence);
+	if (status != 0)
+	{
+		if (status == -EINVAL)
+		{
+			return GRALLOC1_ERROR_BAD_VALUE;
+		}
+
+		return GRALLOC1_ERROR_UNSUPPORTED;
+	}
+
 	return GRALLOC1_ERROR_NONE;
 }
 
@@ -387,7 +481,7 @@ static int32_t mali_gralloc1_get_layer_count(gralloc1_device_t* device, buffer_h
 
 #if PLATFORM_SDK_VERSION >= 28
 static int32_t mali_gralloc1_validate_buffer_size(gralloc1_device_t* device, buffer_handle_t buffer,
-						gralloc1_buffer_descriptor_info_t* descriptorInfo, uint32_t stride)
+		gralloc1_buffer_descriptor_info_t* descriptorInfo, uint32_t stride)
 {
 	int ret = 0;
 	ret = mali_gralloc_validate_buffer_size(buffer, descriptorInfo, stride);
@@ -395,7 +489,7 @@ static int32_t mali_gralloc1_validate_buffer_size(gralloc1_device_t* device, buf
 	return ret;
 }
 static int32_t mali_gralloc1_get_transport_size(gralloc1_device_t* device, buffer_handle_t buffer,
-						uint32_t *outNumFds, uint32_t *outNumInts)
+		uint32_t *outNumFds, uint32_t *outNumInts)
 {
 	int ret = 0;
 	ret = mali_gralloc_get_transport_size(buffer, outNumFds, outNumInts);
@@ -436,13 +530,12 @@ static const mali_gralloc_func mali_gralloc_func_list[] = {
 	{ GRALLOC1_FUNCTION_SET_LAYER_COUNT, (gralloc1_function_pointer_t)mali_gralloc1_set_layer_count },
 	{ GRALLOC1_FUNCTION_GET_LAYER_COUNT, (gralloc1_function_pointer_t)mali_gralloc1_get_layer_count },
 #endif
+
 #if PLATFORM_SDK_VERSION >= 28
 	{ GRALLOC1_FUNCTION_VALIDATE_BUFFER_SIZE, (gralloc1_function_pointer_t)mali_gralloc1_validate_buffer_size },
 	{ GRALLOC1_FUNCTION_GET_TRANSPORT_SIZE, (gralloc1_function_pointer_t)mali_gralloc1_get_transport_size },
 	{ GRALLOC1_FUNCTION_IMPORT_BUFFER, (gralloc1_function_pointer_t)mali_gralloc1_import_buffer },
 #endif
-
-
 	/* GRALLOC1_FUNCTION_INVALID has to be the last descriptor on the list. */
 	{ GRALLOC1_FUNCTION_INVALID, NULL }
 };
@@ -494,6 +587,19 @@ static gralloc1_function_pointer_t mali_gralloc_getFunction(gralloc1_device_t *d
 	return rval;
 }
 
+static int mali_gralloc_device_close(struct hw_device_t *device)
+{
+	gralloc1_device_t *dev = reinterpret_cast<gralloc1_device_t *>(device);
+	if (dev)
+	{
+		delete dev;
+	}
+
+	mali_gralloc_ion_close();
+
+	return 0;
+}
+
 int mali_gralloc_device_open(hw_module_t const *module, const char *name, hw_device_t **device)
 {
 	gralloc1_device_t *dev;
@@ -514,7 +620,7 @@ int mali_gralloc_device_open(hw_module_t const *module, const char *name, hw_dev
 	dev->common.tag = HARDWARE_DEVICE_TAG;
 	dev->common.version = 0;
 	dev->common.module = const_cast<hw_module_t *>(module);
-	dev->common.close = mali_gralloc_ion_device_close;
+	dev->common.close = mali_gralloc_device_close;
 
 	dev->getCapabilities = mali_gralloc_getCapabilities;
 	dev->getFunction = mali_gralloc_getFunction;

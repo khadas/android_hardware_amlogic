@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016 ARM Limited. All rights reserved.
+ * Copyright (C) 2016, 2018-2019 ARM Limited. All rights reserved.
  *
  * Copyright (C) 2008 The Android Open Source Project
  *
@@ -18,9 +18,26 @@
 #ifndef MALI_GRALLOC_MODULE_H_
 #define MALI_GRALLOC_MODULE_H_
 
-//#include <system/window.h>
+#include <system/window.h>
 #include <linux/fb.h>
 #include <pthread.h>
+#include <log/log.h>
+
+#if GRALLOC_VERSION_MAJOR == 0
+#include <hardware/gralloc.h>
+#elif GRALLOC_VERSION_MAJOR == 1
+#include <hardware/gralloc1.h>
+#else
+#if HIDL_COMMON_VERSION_SCALED == 100
+#include <android/hardware/graphics/common/1.0/types.h>
+#elif HIDL_COMMON_VERSION_SCALED == 110
+#include <android/hardware/graphics/common/1.1/types.h>
+#endif
+#endif
+
+#if GRALLOC_USE_LEGACY_ION_API != 1
+#include <ion/ion_4.12.h>
+#endif
 
 typedef enum
 {
@@ -29,44 +46,37 @@ typedef enum
 	MALI_DPY_TYPE_HDLCD
 } mali_dpy_type;
 
-#if GRALLOC_USE_GRALLOC1_API == 1
+#if GRALLOC_VERSION_MAJOR <= 1
+extern hw_module_methods_t mali_gralloc_module_methods;
+#endif
+
+#if GRALLOC_VERSION_MAJOR == 1
 typedef struct
 {
 	struct hw_module_t common;
 } gralloc_module_t;
+#endif
 
-/*
- * Most gralloc code is fairly version agnostic, but certain
- * places still use old usage defines. Make sure it works
- * ok for usages that are backwards compatible.
- */
-#define GRALLOC_USAGE_PRIVATE_0 GRALLOC1_CONSUMER_USAGE_PRIVATE_0
-#define GRALLOC_USAGE_PRIVATE_1 GRALLOC1_CONSUMER_USAGE_PRIVATE_1
-#define GRALLOC_USAGE_PRIVATE_2 GRALLOC1_CONSUMER_USAGE_PRIVATE_2
-#define GRALLOC_USAGE_PRIVATE_3 GRALLOC1_CONSUMER_USAGE_PRIVATE_3
-
-#define GRALLOC_USAGE_SW_WRITE_RARELY GRALLOC1_PRODUCER_USAGE_CPU_WRITE
-#define GRALLOC_USAGE_SW_WRITE_OFTEN GRALLOC1_PRODUCER_USAGE_CPU_WRITE_OFTEN
-#define GRALLOC_USAGE_SW_READ_RARELY GRALLOC1_CONSUMER_USAGE_CPU_READ
-#define GRALLOC_USAGE_SW_READ_OFTEN GRALLOC1_CONSUMER_USAGE_CPU_READ_OFTEN
-#define GRALLOC_USAGE_HW_FB GRALLOC1_CONSUMER_USAGE_CLIENT_TARGET
-#define GRALLOC_USAGE_HW_2D 0x00000400
-
-#define GRALLOC_USAGE_SW_WRITE_MASK 0x000000F0
-#define GRALLOC_USAGE_SW_READ_MASK 0x0000000F
-#define GRALLOC_USAGE_PROTECTED GRALLOC1_PRODUCER_USAGE_PROTECTED
-#define GRALLOC_USAGE_HW_RENDER GRALLOC1_PRODUCER_USAGE_GPU_RENDER_TARGET
-#define GRALLOC_USAGE_HW_CAMERA_MASK (GRALLOC1_CONSUMER_USAGE_CAMERA | GRALLOC1_PRODUCER_USAGE_CAMERA)
-#define GRALLOC_USAGE_HW_TEXTURE GRALLOC1_CONSUMER_USAGE_GPU_TEXTURE
-#define GRALLOC_USAGE_HW_VIDEO_ENCODER GRALLOC1_CONSUMER_USAGE_VIDEO_ENCODER
-#define GRALLOC_USAGE_HW_COMPOSER GRALLOC1_CONSUMER_USAGE_HWCOMPOSER
-#define GRALLOC_USAGE_EXTERNAL_DISP 0x00002000
-
+#if GRALLOC_VERSION_MAJOR == 0
+int gralloc_register_buffer(gralloc_module_t const *module, buffer_handle_t handle);
+int gralloc_unregister_buffer(gralloc_module_t const *module, buffer_handle_t handle);
+int gralloc_lock(gralloc_module_t const *module, buffer_handle_t handle, int usage, int l, int t, int w, int h,
+                        void **vaddr);
+int gralloc_lock_ycbcr(gralloc_module_t const *module, buffer_handle_t handle, int usage, int l, int t, int w,
+                              int h, android_ycbcr *ycbcr);
+int gralloc_unlock(gralloc_module_t const *module, buffer_handle_t handle);
+int gralloc_lock_async(gralloc_module_t const *module, buffer_handle_t handle, int usage, int l, int t, int w,
+                              int h, void **vaddr, int32_t fence_fd);
+int gralloc_lock_ycbcr_async(gralloc_module_t const *module, buffer_handle_t handle, int usage, int l, int t,
+                                    int w, int h, android_ycbcr *ycbcr, int32_t fence_fd);
+int gralloc_unlock_async(gralloc_module_t const *module, buffer_handle_t handle, int32_t *fence_fd);
 #endif
 
 struct private_module_t
 {
+#if GRALLOC_VERSION_MAJOR <= 1
 	gralloc_module_t base;
+#endif
 
 	struct private_handle_t *framebuffer;
 	uint32_t flags;
@@ -74,7 +84,6 @@ struct private_module_t
 	uint32_t bufferMask;
 	pthread_mutex_t lock;
 	buffer_handle_t currentBuffer;
-	int ion_client;
 	mali_dpy_type dpy_type;
 
 	struct fb_var_screeninfo info;
@@ -83,6 +92,7 @@ struct private_module_t
 	float ydpi;
 	float fps;
 	int swapInterval;
+	uint64_t fbdev_format;
 
 #ifdef __cplusplus
 	/* Never intended to be used from C code */
@@ -94,10 +104,58 @@ struct private_module_t
 #endif
 
 #ifdef __cplusplus
-	/* default constructor */
-	private_module_t();
-#endif
+	#define INIT_ZERO(obj) (memset(&(obj), 0, sizeof((obj))))
+	private_module_t()
+	{
+	#if GRALLOC_VERSION_MAJOR <= 1
+		base.common.tag = HARDWARE_MODULE_TAG;
+		#if GRALLOC_VERSION_MAJOR == 1
+		base.common.version_major = GRALLOC_MODULE_API_VERSION_1_0;
+		ALOGE("Arm Module v1.0");
+		#else
+		base.common.version_major = GRALLOC_MODULE_API_VERSION_0_3;
+		ALOGE("Arm Module v0.3");
+		#endif
+
+		base.common.version_minor = 0;
+		base.common.id = GRALLOC_HARDWARE_MODULE_ID;
+		base.common.name = "Graphics Memory Allocator Module";
+		base.common.author = "ARM Ltd.";
+		base.common.methods = &mali_gralloc_module_methods;
+		base.common.dso = NULL;
+		INIT_ZERO(base.common.reserved);
+
+	#if GRALLOC_VERSION_MAJOR == 0
+		base.registerBuffer = gralloc_register_buffer;
+		base.unregisterBuffer = gralloc_unregister_buffer;
+		base.lock = gralloc_lock;
+		base.lock_ycbcr = gralloc_lock_ycbcr;
+		base.unlock = gralloc_unlock;
+		base.lockAsync = gralloc_lock_async;
+		base.lockAsync_ycbcr = gralloc_lock_ycbcr_async;
+		base.unlockAsync = gralloc_unlock_async;
+		base.perform = NULL;
+		INIT_ZERO(base.reserved_proc);
+		#endif
+	#endif
+
+		framebuffer = NULL;
+		flags = 0;
+		numBuffers = 0;
+		bufferMask = 0;
+		pthread_mutex_init(&(lock), NULL);
+		currentBuffer = NULL;
+		INIT_ZERO(info);
+		INIT_ZERO(finfo);
+		xdpi = 0.0f;
+		ydpi = 0.0f;
+		fps = 0.0f;
+		swapInterval = 1;
+	}
+	#undef INIT_ZERO
+#endif /* For #ifdef __cplusplus */
 };
+
 typedef struct private_module_t mali_gralloc_module;
 
 #endif /* MALI_GRALLOC_MODULE_H_ */
