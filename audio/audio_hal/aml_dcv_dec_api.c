@@ -752,7 +752,7 @@ int dcv_decoder_process_patch(struct dolby_ddp_dec *ddp_dec, unsigned char*buffe
     ddp_dec->outlen_pcm = 0;
     ddp_dec->outlen_raw = 0;
 #if 0
-    if (getprop_bool("media.audio_hal.ddp.outdump")) {
+    if (getprop_bool("vendor.media.audio_hal.ddp.outdump")) {
         FILE *fp1 = fopen("/data/tmp/audio_decode_61937.raw", "a+");
         if (fp1) {
             int flen = fwrite((char *)buffer, 1, bytes, fp1);
@@ -866,7 +866,7 @@ int dcv_decoder_process_patch(struct dolby_ddp_dec *ddp_dec, unsigned char*buffe
     }
 
 #if 0
-    if (getprop_bool("media.audio_hal.ddp.outdump")) {
+    if (getprop_bool("vendor.media.audio_hal.ddp.outdump")) {
         FILE *fp1 = fopen("/data/tmp/audio_decode.raw", "a+");
         if (fp1) {
             int flen = fwrite((char *)ddp_dec->outbuf, 1, ddp_dec->outlen_pcm, fp1);

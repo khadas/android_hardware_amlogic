@@ -263,7 +263,7 @@ static int consume_output_data(void *cookie, const void* buffer, size_t bytes)
     //else
     //    out->last_frames_postion = out->frame_write_sum;
     ALOGV("++%s(), written = %d", __func__, written);
-    if (getprop_bool("media.audiohal.hwsync")) {
+    if (getprop_bool("vendor.media.audiohal.hwsync")) {
         aml_audio_dump_audio_bitstreams("/data/audio/consumeout.raw", buffer, written);
     }
     if (0) {
@@ -366,7 +366,7 @@ static ssize_t out_write_hwsync_lpcm(struct audio_stream_out *stream, const void
     ALOGV("%s() bytes %d, out->last_frames_postion %lld frame_sum %lld",
             __func__, bytes, out->last_frames_postion, out->frame_write_sum);
 
-    if (getprop_bool("media.audiohal.hwsync")) {
+    if (getprop_bool("vendor.media.audiohal.hwsync")) {
         aml_audio_dump_audio_bitstreams("/data/audio/audiomain.raw", buffer, written_total);
     }
 

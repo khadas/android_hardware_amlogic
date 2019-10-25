@@ -69,7 +69,7 @@ static int get_model_name(char *model_name, int size)
     int ret = -1;
     char node[PROPERTY_VALUE_MAX];
 
-    ret = property_get("tv.model_name", node, NULL);
+    ret = property_get("vendor.tv.model_name", node, NULL);
 
     if (ret < 0)
         snprintf(model_name, size, "DEFAULT");

@@ -35,10 +35,10 @@
 #include <amthreadpool.h>
 #include <dtv_patch_out.h>
 
-#define AUD_ASSO_PROP "media.audio.enable_asso"
-#define AUD_ASSO_MIX_PROP "media.audio.mix_asso"
-#define VID_DISABLED_PROP "media.dvb.video.disabled"
-#define AUD_DISABLED_PROP "media.dvb.audio.disabled"
+#define AUD_ASSO_PROP "vendor.media.audio.enable_asso"
+#define AUD_ASSO_MIX_PROP "vendor.media.audio.mix_asso"
+#define VID_DISABLED_PROP "vendor.media.dvb.video.disabled"
+#define AUD_DISABLED_PROP "vendor.media.dvb.audio.disabled"
 
 typedef struct _dtv_patch_out {
     aml_audio_dec_t *audec;

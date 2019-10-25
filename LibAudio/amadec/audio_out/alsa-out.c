@@ -710,7 +710,7 @@ static void *alsa_playback_loop(void *args)
     alsa_params = (alsa_param_t *)audec->aout_ops.private_data;
 
     // bootplayer default volume configuration
-    if (property_get("media.amplayer.boot_vol",value,NULL) > 0) {
+    if (property_get("vendor.media.amplayer.boot_vol",value,NULL) > 0) {
         alsa_default_vol = atof(value);
         if (alsa_default_vol < 0.0 || alsa_default_vol > 1.0 ) {
             adec_print("wrong alsa default volume %f, set to 1.0 \n",alsa_default_vol);

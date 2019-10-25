@@ -168,7 +168,7 @@ int audiodsp_format_update(aml_audio_dec_t *audec)
 #endif
         //audiodsp_set_format_changed_flag(0);
 
-        if (am_getconfig_bool("media.libplayer.wfd")) {
+        if (am_getconfig_bool("vendor.media.libplayer.wfd")) {
             ret = ioctl(dsp_ops->dsp_file_fd, AUDIODSP_GET_PCM_LEVEL, &val);
             if (ret == 0) {
                 //adec_print("pcm level == 0x%x\n", val);

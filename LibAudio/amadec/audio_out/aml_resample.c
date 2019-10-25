@@ -106,28 +106,28 @@ void af_resample_linear_init(struct aml_audio_dec *audec)
     memset(paf_resampe_ctl, 0, sizeof(af_resampe_ctl_t));
     //adec_print("af_resample_linear_init 140821-1407");
     audec->pcrtsync_enable = 1;
-    if (property_get("media.libplayer.pcrtsync_enable", value, NULL) > 0) {
+    if (property_get("vendor.media.libplayer.pcrtsync_enable", value, NULL) > 0) {
         if (!strcmp(value, "0") || !strcmp(value, "false")) {
             audec->pcrtsync_enable = 0;
         }
     }
     if (audec->tsync_mode == TSYNC_MODE_PCRMASTER && audec->pcrtsync_enable) {
         paf_resampe_ctl->enable_resample = 1;
-        if (property_get("media.libplayer.enable_resample", value, NULL) > 0) {
+        if (property_get("vendor.media.libplayer.enable_resample", value, NULL) > 0) {
             paf_resampe_ctl->enable_resample = atoi(value);
         }
         amsysfs_set_sysfs_int("sys/class/amaudio/enable_resample", paf_resampe_ctl->enable_resample);
-        //property_set("media.libplayer.resampledelta", "1");
+        //property_set("vendor.media.libplayer.resampledelta", "1");
         audec->fill_trackzero_thrsh = TIME_UNIT90K / 2;
-        if (property_get("media.libplayer.fillzerothrsh", value, NULL) > 0) {
+        if (property_get("vendor.media.libplayer.fillzerothrsh", value, NULL) > 0) {
             audec->fill_trackzero_thrsh = atoi(value);
         }
         // add for dolby av sync test
-        if (property_get("media.libplayer.dolby_test", value, NULL) > 0) {
+        if (property_get("vendor.media.libplayer.dolby_test", value, NULL) > 0) {
             audec->fill_trackzero_thrsh = 27000;
         }
         audec->pcrmaster_droppcm_thsh = TIME_UNIT90K / 2;
-        if (property_get("media.libplayer.pcrdroppcmthsh", value, NULL) > 0) {
+        if (property_get("vendor.media.libplayer.pcrdroppcmthsh", value, NULL) > 0) {
             audec->pcrmaster_droppcm_thsh = atoi(value);
         }
         if (pcmfd == -1) {
@@ -217,12 +217,12 @@ void  af_pcrmaster_resample_api(char *buffer, unsigned int *size, int Chnum, aml
 
     if (af_resampler_ctx.resample_type == RESAMPLE_TYPE_DOWN) {
         resample_delta = 1;
-        if (property_get("media.libplayer.resampledelta", value, NULL) > 0) {
+        if (property_get("vendor.media.libplayer.resampledelta", value, NULL) > 0) {
             resample_delta = atoi(value);
         }
     } else if (af_resampler_ctx.resample_type == RESAMPLE_TYPE_UP) {
         resample_delta = -1;
-        if (property_get("media.libplayer.resampledelta", value, NULL) > 0) {
+        if (property_get("vendor.media.libplayer.resampledelta", value, NULL) > 0) {
             resample_delta = -atoi(value);
         }
     } else if (af_resampler_ctx.resample_type == RESAMPLE_TYPE_NONE) {
@@ -296,10 +296,10 @@ void af_resample_set_SampsNumRatio(af_resampe_ctl_t *paf_resampe_ctl)
     char value[1028] = {0};
     int resample_type = af_get_resample_type();
     int default_DELTA_NUMSAMPS = RESAMPLE_DELTA_NUMSAMPS;
-    if (property_get("media.libplayer.resampledelta", value, NULL) > 0) {
+    if (property_get("vendor.media.libplayer.resampledelta", value, NULL) > 0) {
         default_DELTA_NUMSAMPS = atoi(value);
     }
-    if (am_getconfig_bool("media.libplayer.wfd")) {
+    if (am_getconfig_bool("vendor.media.libplayer.wfd")) {
         default_DELTA_NUMSAMPS = 2;
     }
     audiodsp_set_pcm_resample_delta(default_DELTA_NUMSAMPS);
