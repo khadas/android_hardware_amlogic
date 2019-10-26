@@ -59,6 +59,7 @@ int on_meta_data_cbk(void *cookie,
     uint32_t sample_rate = 48000;
     uint64_t pts_delta = 0;
     int ret = 0;
+    uint32_t tunning_latency = 40;
 
     if (!cookie || !header) {
         ALOGE("NULL pointer");
@@ -97,9 +98,11 @@ int on_meta_data_cbk(void *cookie,
         out->last_payload_offset = offset;
         list_remove(&mdata_list->list);
         free(mdata_list);
+        ALOGV("head pts =%lld delta =%lld pts =%lld ",header->pts, pts_delta, pts);
     } else if (offset > out->last_payload_offset) {
         pts_delta = (offset - out->last_payload_offset) * 1000000000LL/(frame_size * sample_rate);
         pts = out->last_pts + pts_delta;
+        ALOGV("last pts=%lld delat=%lld pts=%lld ", out->last_pts, pts_delta, pts);
     } else {
         ret = -EINVAL;
         goto err_lock;
@@ -120,9 +123,16 @@ int on_meta_data_cbk(void *cookie,
         int vframe_ready_cnt = 0;
         int delay_count = 0;
         hwsync_header_construct(header);
-        pts32 -= latency*90;
+        latency = out_get_outport_latency((struct audio_stream_out *)out);
+        latency += tunning_latency;
         ALOGD("%s(), set tsync start pts %d, latency %d, last position %lld",
             __func__, pts32, latency, out->last_frames_postion);
+
+        if (pts32 < latency*90) {
+            ALOGI("pts32 = %d latency=%d", pts32/90, latency);
+            return 0;
+        }
+        pts32 -= latency*90;
         while (delay_count < 10) {
             vframe_ready_cnt = get_sysfs_int("/sys/class/video/vframe_ready_cnt");
             ALOGV("/sys/class/video/vframe_ready_cnt is %d", vframe_ready_cnt);
@@ -144,7 +154,7 @@ int on_meta_data_cbk(void *cookie,
         uint32_t apts_gap;
         // adjust pts based on latency which is only the outport latency
         uint64_t latency = out_get_outport_latency((struct audio_stream_out *)out) * 90;
-        latency += 40 * 90;
+        latency += tunning_latency * 90;
         // check PTS discontinue, which may happen when audio track switching
         // discontinue means PTS calculated based on first_apts and frame_write_sum
         // does not match the timestamp of next audio samples
