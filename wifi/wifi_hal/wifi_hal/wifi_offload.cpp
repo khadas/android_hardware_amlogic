@@ -218,6 +218,10 @@ wifi_error wifi_start_sending_offloaded_packet(wifi_request_id index, wifi_inter
         u16 /* ether_type */, u8 *ip_packet, u16 ip_packet_len, u8 *src_mac_addr, u8 *dst_mac_addr,
         u32 period_msec)
 {
+    if (strncmp(get_wifi_name(), "mtk", 3) == 0 || strncmp(get_wifi_name(), "qca", 3) == 0) {
+	        ALOGE("army debug for wifi_start_sending_offloaded_packet====");
+	        return WIFI_SUCCESS;
+    }
     if ((index > 0 && index <= N_AVAIL_ID) && (ip_packet != NULL) && (src_mac_addr != NULL)
             && (dst_mac_addr != NULL) && (period_msec > 0)
             && (ip_packet_len <= MKEEP_ALIVE_IP_PKT_MAX)) {
@@ -236,6 +240,10 @@ wifi_error wifi_start_sending_offloaded_packet(wifi_request_id index, wifi_inter
 /* API to stop sending mkeep_alive packet. */
 wifi_error wifi_stop_sending_offloaded_packet(wifi_request_id index, wifi_interface_handle iface)
 {
+    if (strncmp(get_wifi_name(), "mtk", 3) == 0 || strncmp(get_wifi_name(), "qca", 3) == 0) {
+	        ALOGE("army debug for wifi_stop_sending_offloaded_packet====");
+	        return WIFI_SUCCESS;
+    }
     if (index > 0 && index <= N_AVAIL_ID) {
         MKeepAliveCommand *cmd = new MKeepAliveCommand(iface, index, STOP_MKEEP_ALIVE);
         NULL_CHECK_RETURN(cmd, "memory allocation failure", WIFI_ERROR_OUT_OF_MEMORY);
