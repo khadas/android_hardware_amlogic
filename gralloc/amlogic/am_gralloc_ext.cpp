@@ -193,6 +193,14 @@ int am_gralloc_get_height(const native_handle_t * hnd) {
     return 0;
 }
 
+int am_gralloc_get_size(const native_handle_t * hnd) {
+    private_handle_t const* buffer = hnd ? private_handle_t::dynamicCast(hnd) : NULL;
+    if (buffer)
+        return buffer->size;
+
+    return 0;
+}
+
 uint64_t am_gralloc_get_producer_usage(
     const native_handle_t * hnd) {
     private_handle_t const* buffer = hnd ? private_handle_t::dynamicCast(hnd) : NULL;
@@ -207,6 +215,14 @@ uint64_t am_gralloc_get_consumer_usage(
     private_handle_t const* buffer = hnd ? private_handle_t::dynamicCast(hnd) : NULL;
     if (buffer)
         return buffer->consumer_usage;
+
+    return 0;
+}
+
+uint64_t am_gralloc_get_usage(const native_handle_t * hnd) {
+    private_handle_t const* buffer = hnd ? private_handle_t::dynamicCast(hnd) : NULL;
+    if (buffer)
+        return (am_gralloc_get_producer_usage(buffer) | am_gralloc_get_consumer_usage(buffer));
 
     return 0;
 }
