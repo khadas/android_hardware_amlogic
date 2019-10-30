@@ -59,6 +59,7 @@
 #define ALSAPORT_TV               "alsaPORT-tv"          /* Now for TV input */
 #define ALSAPORT_LPBK             "alsaPORT-loopback"
 #define ALSAPORT_BUILTINMIC       "builtinmic"
+#define ALSAPORT_EARC             "alsaPORT-earc"
 
 struct AudioDeviceDescriptor {
 	char name[NAME_LEN];
@@ -89,6 +90,7 @@ struct alsa_info {
 	struct AudioDeviceDescriptor *tvin_descrpt;
 	struct AudioDeviceDescriptor *lpbk_descrpt;
 	struct AudioDeviceDescriptor *builtinmic_descrpt;
+	struct AudioDeviceDescriptor *earc_descrpt;
 };
 
 static struct alsa_info *p_aml_alsa_info;
@@ -133,7 +135,7 @@ int alsa_device_get_card_index()
 			p_aml_alsa_info = calloc(1, sizeof(struct alsa_info));
 			if (!p_aml_alsa_info) {
 				ALOGE ("NOMEM for alsa info\n");
-				return -1;;
+				return -1;
 			}
 		}
 
@@ -231,6 +233,8 @@ void alsa_device_parser_pcm_string(struct alsa_info *p_info, char *InputBuffer)
 					p_info->tvin_descrpt = mAudioDeviceDescriptor;
 				else if (!strncmp(PortName, ALSAPORT_LPBK, strlen(ALSAPORT_LPBK)))
 					p_info->lpbk_descrpt = mAudioDeviceDescriptor;
+				else if (!strncmp(PortName, ALSAPORT_EARC, strlen(ALSAPORT_EARC)))
+					p_info->earc_descrpt = mAudioDeviceDescriptor;
 				else
 					free(mAudioDeviceDescriptor);
 
@@ -333,6 +337,9 @@ int alsa_device_update_pcm_index(int alsaPORT, int stream)
 		break;
 	case PORT_BUILTINMIC:
 		pADD = p_info->builtinmic_descrpt;
+		break;
+	case PORT_EARC:
+		pADD = p_info->earc_descrpt;
 		break;
 	default:
 		pADD = p_info->i2s_descrpt;

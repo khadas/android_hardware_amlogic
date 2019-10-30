@@ -92,6 +92,8 @@ static unsigned int DEFAULT_OUT_SAMPLING_RATE = 48000;
 
 #define AUDIO_PARAMETER_HW_AV_EAC3_SYNC "HwAvSyncEAC3Supported"
 
+#define SYS_NODE_EARC           "/sys/class/extcon/earcrx/state"
+
 #define DDP_FRAME_SIZE      768
 #define EAC3_MULTIPLIER 4
 enum {
@@ -184,6 +186,7 @@ enum patch_src_assortion {
     SRC_REMOTE_SUBMIXIN,
     SRC_WIRED_HEADSETIN,
     SRC_BUILTIN_MIC,
+    SRC_ARCIN,
     SRC_OTHER,
     SRC_INVAL
 };
@@ -208,6 +211,7 @@ enum IN_PORT {
     INPORT_REMOTE_SUBMIXIN,
     INPORT_WIRED_HEADSETIN,
     INPORT_BUILTIN_MIC,
+    INPORT_ARCIN,
     INPORT_MAX
 };
 

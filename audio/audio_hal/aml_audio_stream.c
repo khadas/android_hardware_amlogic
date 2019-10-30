@@ -306,9 +306,36 @@ bool is_spdif_in_stable_hw (struct audio_stream_in *stream)
     return true;
 }
 
-int set_audio_source(struct aml_mixer_handle *mixer_handle, int audio_source)
+int set_audio_source(struct aml_mixer_handle *mixer_handle,
+        enum input_source audio_source, bool is_auge)
 {
-    return aml_mixer_ctrl_set_int (mixer_handle, AML_MIXER_ID_AUDIO_IN_SRC, audio_source);
+    int src = audio_source;
+
+    if (is_auge) {
+        switch (audio_source) {
+        case LINEIN:
+            src = TDMIN_A;
+            break;
+        case ATV:
+            src = FRATV;
+            break;
+        case HDMIIN:
+            src = FRHDMIRX;
+            break;
+        case ARCIN:
+            src = EARCRX_DMAC;
+            break;
+        case SPDIFIN:
+            src = SPDIFIN_AUGE;
+            break;
+        default:
+            ALOGW("%s(), src: %d not support", __func__, src);
+            src = FRHDMIRX;
+            break;
+        }
+    }
+
+    return aml_mixer_ctrl_set_int(mixer_handle, AML_MIXER_ID_AUDIO_IN_SRC, src);
 }
 
 int enable_HW_resample(struct aml_mixer_handle *mixer_handle, int enable)
@@ -350,7 +377,9 @@ bool signal_status_check(audio_devices_t in_device, int *mute_time,
         *mute_time = 2500;
         return false;
     }
-    if ((in_device & AUDIO_DEVICE_IN_SPDIF) &&
+    if (((in_device & AUDIO_DEVICE_IN_SPDIF) ||
+            ((in_device & AUDIO_DEVICE_IN_HDMI_ARC) &&
+                    (access(SYS_NODE_EARC, F_OK) == -1))) &&
             !is_spdif_in_stable_hw(stream)) {
         *mute_time = 1000;
         return false;
