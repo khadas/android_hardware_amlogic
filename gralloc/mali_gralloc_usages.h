@@ -1,5 +1,6 @@
 /*
- * (C) COPYRIGHT 2017 ARM Limited. All rights reserved.
+ * Copyright (C) 2017-2019 ARM Limited. All rights reserved.
+ *
  * Copyright (C) 2008 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -17,6 +18,12 @@
 
 #ifndef MALI_GRALLOC_USAGES_H_
 #define MALI_GRALLOC_USAGES_H_
+
+#ifndef GRALLOC_VERSION_MAJOR
+#error "GRALLOC_VERSION_MAJOR must be defined."
+#endif
+
+#define GRALLOC_USAGE_PRIVATE_MASK (0xffff0000f0000000U)
 
 /*
  * Below usage types overlap, this is intentional.
@@ -41,52 +48,233 @@
  * Gralloc private usage 0-3 are the same in 0.3 and 1.0.
  * We defined based our usages based on what is available.
  */
-#if defined(GRALLOC_MODULE_API_VERSION_1_0)
+#if GRALLOC_VERSION_MAJOR == 1
+#include <hardware/gralloc1.h>
+
+/*
+ * Most gralloc code is fairly version agnostic, but certain
+ * places still use old usage defines. Make sure it works
+ * ok for usages that are backwards compatible.
+ */
+#define GRALLOC_USAGE_PRIVATE_0 GRALLOC1_CONSUMER_USAGE_PRIVATE_0
+#define GRALLOC_USAGE_PRIVATE_1 GRALLOC1_CONSUMER_USAGE_PRIVATE_1
+#define GRALLOC_USAGE_PRIVATE_2 GRALLOC1_CONSUMER_USAGE_PRIVATE_2
+#define GRALLOC_USAGE_PRIVATE_3 GRALLOC1_CONSUMER_USAGE_PRIVATE_3
+#define GRALLOC_USAGE_PRIVATE_16 GRALLOC1_PRODUCER_USAGE_PRIVATE_16
+#define GRALLOC_USAGE_PRIVATE_17 GRALLOC1_PRODUCER_USAGE_PRIVATE_17
+#define GRALLOC_USAGE_PRIVATE_18 GRALLOC1_PRODUCER_USAGE_PRIVATE_18
+#define GRALLOC_USAGE_PRIVATE_19 GRALLOC1_PRODUCER_USAGE_PRIVATE_19
+
+#define GRALLOC_USAGE_SW_WRITE_RARELY GRALLOC1_PRODUCER_USAGE_CPU_WRITE
+#define GRALLOC_USAGE_SW_WRITE_OFTEN GRALLOC1_PRODUCER_USAGE_CPU_WRITE_OFTEN
+#define GRALLOC_USAGE_SW_READ_RARELY GRALLOC1_CONSUMER_USAGE_CPU_READ
+#define GRALLOC_USAGE_SW_READ_OFTEN GRALLOC1_CONSUMER_USAGE_CPU_READ_OFTEN
+#define GRALLOC_USAGE_HW_FB GRALLOC1_CONSUMER_USAGE_CLIENT_TARGET
+#define GRALLOC_USAGE_HW_2D 0x00000400U
+
+#define GRALLOC_USAGE_SW_WRITE_MASK 0x000000F0U
+#define GRALLOC_USAGE_SW_READ_MASK 0x0000000FU
+#define GRALLOC_USAGE_PROTECTED GRALLOC1_PRODUCER_USAGE_PROTECTED
+#define GRALLOC_USAGE_HW_RENDER GRALLOC1_PRODUCER_USAGE_GPU_RENDER_TARGET
+#define GRALLOC_USAGE_HW_CAMERA_WRITE GRALLOC1_PRODUCER_USAGE_CAMERA
+#define GRALLOC_USAGE_HW_CAMERA_READ GRALLOC1_CONSUMER_USAGE_CAMERA
+#define GRALLOC_USAGE_HW_TEXTURE GRALLOC1_CONSUMER_USAGE_GPU_TEXTURE
+#define GRALLOC_USAGE_HW_VIDEO_ENCODER GRALLOC1_CONSUMER_USAGE_VIDEO_ENCODER
+#define GRALLOC_USAGE_HW_COMPOSER GRALLOC1_CONSUMER_USAGE_HWCOMPOSER
+#define GRALLOC_USAGE_EXTERNAL_DISP 0x00002000U
+
+#define GRALLOC_USAGE_SENSOR_DIRECT_DATA GRALLOC1_PRODUCER_USAGE_SENSOR_DIRECT_DATA
+#define GRALLOC_USAGE_GPU_DATA_BUFFER GRALLOC1_CONSUMER_USAGE_GPU_DATA_BUFFER
+#define GRALLOC_USAGE_HW_VIDEO_DECODER GRALLOC1_PRODUCER_USAGE_VIDEO_DECODER
+//0x400b00
+
 typedef enum
 {
-	/* The client has specified a private format in the format parameter */
-	MALI_GRALLOC_USAGE_PRIVATE_FORMAT = (int)GRALLOC1_PRODUCER_USAGE_PRIVATE_3,
+	/*
+	 * Allocation will be used as a front-buffer, which
+	 * supports concurrent producer-consumer access.
+	 *
+	 * NOTE: Must not be used with MALI_GRALLOC_USAGE_FORCE_BACKBUFFER
+	 */
+	MALI_GRALLOC_USAGE_FRONTBUFFER = GRALLOC1_PRODUCER_USAGE_PRIVATE_0,
 
-	/* Buffer won't be allocated as AFBC */
-	MALI_GRALLOC_USAGE_NO_AFBC = (int)(GRALLOC1_PRODUCER_USAGE_PRIVATE_1 | GRALLOC1_PRODUCER_USAGE_PRIVATE_2),
+	/*
+	 * Allocation will be used as a back-buffer.
+	 * Use when switching from front-buffer as a workaround for Android
+	 * buffer queue, which does not re-allocate for a sub-set of
+	 * existing usage.
+	 *
+	 * NOTE: Must not be used with MALI_GRALLOC_USAGE_FRONTBUFFER.
+	 */
+	MALI_GRALLOC_USAGE_FORCE_BACKBUFFER = GRALLOC1_PRODUCER_USAGE_PRIVATE_1,
 
-	/* Valid only for YUV allocations */
-	MALI_GRALLOC_USAGE_YUV_CONF_0 = 0,
-	MALI_GRALLOC_USAGE_YUV_CONF_1 = (int)GRALLOC1_PRODUCER_USAGE_PRIVATE_1,
-	MALI_GRALLOC_USAGE_YUV_CONF_2 = (int)GRALLOC1_PRODUCER_USAGE_PRIVATE_0,
-	MALI_GRALLOC_USAGE_YUV_CONF_3 = (int)(GRALLOC1_PRODUCER_USAGE_PRIVATE_0 | GRALLOC1_PRODUCER_USAGE_PRIVATE_1),
-	MALI_GRALLOC_USAGE_YUV_CONF_MASK = MALI_GRALLOC_USAGE_YUV_CONF_3,
+	/*
+	 * Buffer will not be allocated with AFBC.
+	 *
+	 * NOTE: Not compatible with MALI_GRALLOC_USAGE_FORCE_BACKBUFFER so cannot be
+	 * used when switching from front-buffer to back-buffer.
+	 */
+	MALI_GRALLOC_USAGE_NO_AFBC = (GRALLOC1_PRODUCER_USAGE_PRIVATE_1 | GRALLOC1_PRODUCER_USAGE_PRIVATE_2),
 
-	/* A very specific alignment is requested on some buffers */
-	MALI_GRALLOC_USAGE_AFBC_PADDING = (int)GRALLOC1_PRODUCER_USAGE_PRIVATE_2,
+	/* Custom alignment for AFBC headers.
+	 *
+	 * NOTE: due to usage flag overlap, AFBC_PADDING cannot be used with FORCE_BACKBUFFER.
+	 */
+	MALI_GRALLOC_USAGE_AFBC_PADDING = GRALLOC1_PRODUCER_USAGE_PRIVATE_2,
 
+	/* Private format usage.
+	 * 'format' argument to allocation function will be interpreted in a
+	 * private manner and must be constructed via GRALLOC_PRIVATE_FORMAT_WRAPPER_*
+	 * macros which pack base format and AFBC format modifiers into 32-bit value.
+	 */
+	MALI_GRALLOC_USAGE_PRIVATE_FORMAT = GRALLOC1_PRODUCER_USAGE_PRIVATE_3,
+
+	/* YUV only. */
+	MALI_GRALLOC_USAGE_YUV_COLOR_SPACE_DEFAULT = 0,
+	MALI_GRALLOC_USAGE_YUV_COLOR_SPACE_BT601 = GRALLOC1_PRODUCER_USAGE_PRIVATE_18,
+	MALI_GRALLOC_USAGE_YUV_COLOR_SPACE_BT709 = GRALLOC1_PRODUCER_USAGE_PRIVATE_19,
+	MALI_GRALLOC_USAGE_YUV_COLOR_SPACE_BT2020 = (GRALLOC1_PRODUCER_USAGE_PRIVATE_18 | GRALLOC1_PRODUCER_USAGE_PRIVATE_19),
+	MALI_GRALLOC_USAGE_YUV_COLOR_SPACE_MASK = MALI_GRALLOC_USAGE_YUV_COLOR_SPACE_BT2020,
+
+	MALI_GRALLOC_USAGE_RANGE_DEFAULT = 0,
+	MALI_GRALLOC_USAGE_RANGE_NARROW = GRALLOC1_PRODUCER_USAGE_PRIVATE_16,
+	MALI_GRALLOC_USAGE_RANGE_WIDE = GRALLOC1_PRODUCER_USAGE_PRIVATE_17,
+	MALI_GRALLOC_USAGE_RANGE_MASK = (GRALLOC1_PRODUCER_USAGE_PRIVATE_16 | GRALLOC1_PRODUCER_USAGE_PRIVATE_17),
 } mali_gralloc_usage_type;
-#elif defined(GRALLOC_MODULE_API_VERSION_0_3)
+
+
+#elif GRALLOC_VERSION_MAJOR == 0
+#include <hardware/gralloc.h>
+
 typedef enum
 {
-	/* The client has specified a private format in the format parameter */
-	MALI_GRALLOC_USAGE_PRIVATE_FORMAT = (int)GRALLOC_USAGE_PRIVATE_3,
+	/* See comment for Gralloc 1.0, above. */
+	MALI_GRALLOC_USAGE_FRONTBUFFER = GRALLOC_USAGE_PRIVATE_0,
 
-	/* Buffer won't be allocated as AFBC */
-	MALI_GRALLOC_USAGE_NO_AFBC = (int)(GRALLOC_USAGE_PRIVATE_1 | GRALLOC_USAGE_PRIVATE_2),
+	/* See comment for Gralloc 1.0, above. */
+	MALI_GRALLOC_USAGE_FORCE_BACKBUFFER = GRALLOC_USAGE_PRIVATE_1,
 
-	/* Valid only for YUV allocations */
-	MALI_GRALLOC_USAGE_YUV_CONF_0 = 0,
-	MALI_GRALLOC_USAGE_YUV_CONF_1 = (int)GRALLOC_USAGE_PRIVATE_1,
-	MALI_GRALLOC_USAGE_YUV_CONF_2 = (int)GRALLOC_USAGE_PRIVATE_0,
-	MALI_GRALLOC_USAGE_YUV_CONF_3 = (int)(GRALLOC_USAGE_PRIVATE_0 | GRALLOC_USAGE_PRIVATE_1),
-	MALI_GRALLOC_USAGE_YUV_CONF_MASK = MALI_GRALLOC_USAGE_YUV_CONF_3,
+	/* See comment for Gralloc 1.0, above. */
+	MALI_GRALLOC_USAGE_NO_AFBC = (GRALLOC_USAGE_PRIVATE_1 | GRALLOC_USAGE_PRIVATE_2),
 
-	/* A very specific alignment is requested on some buffers */
+	/* See comment for Gralloc 1.0, above. */
 	MALI_GRALLOC_USAGE_AFBC_PADDING = GRALLOC_USAGE_PRIVATE_2,
 
+	/* See comment for Gralloc 1.0, above. */
+	MALI_GRALLOC_USAGE_PRIVATE_FORMAT = GRALLOC_USAGE_PRIVATE_3,
+
 } mali_gralloc_usage_type;
-#else
-#if defined(GRALLOC_LIBRARY_BUILD)
-#error "Please include mali_gralloc_module.h before including other gralloc headers when building gralloc itself"
-#else
-#error "Please include either gralloc.h or gralloc1.h header before including gralloc_priv.h"
+
+#elif GRALLOC_VERSION_MAJOR == 2
+#if HIDL_COMMON_VERSION_SCALED == 100
+#include <android/hardware/graphics/common/1.0/types.h>
+#elif HIDL_COMMON_VERSION_SCALED == 110
+#include <android/hardware/graphics/common/1.1/types.h>
 #endif
+
+/* Local macro definitions to emulate Gralloc 1.0 usage interface */
+#define GRALLOC_USAGE_PRIVATE_0 1ULL << 28
+#define GRALLOC_USAGE_PRIVATE_1 1ULL << 29
+#define GRALLOC_USAGE_PRIVATE_2 1ULL << 30
+#define GRALLOC_USAGE_PRIVATE_3 1ULL << 31
+#define GRALLOC_USAGE_PRIVATE_16 1ULL << 51
+#define GRALLOC_USAGE_PRIVATE_17 1ULL << 50
+#define GRALLOC_USAGE_PRIVATE_18 1ULL << 49
+#define GRALLOC_USAGE_PRIVATE_19 1ULL << 48
+
+typedef enum
+{
+	/* See comment for Gralloc 1.0, above. */
+	MALI_GRALLOC_USAGE_FRONTBUFFER = GRALLOC_USAGE_PRIVATE_0,
+
+	/* See comment for Gralloc 1.0, above. */
+	MALI_GRALLOC_USAGE_FORCE_BACKBUFFER = GRALLOC_USAGE_PRIVATE_1,
+
+	/* See comment for Gralloc 1.0, above. */
+	MALI_GRALLOC_USAGE_NO_AFBC = (GRALLOC_USAGE_PRIVATE_1 | GRALLOC_USAGE_PRIVATE_2),
+
+	/* See comment for Gralloc 1.0, above. */
+	MALI_GRALLOC_USAGE_AFBC_PADDING = GRALLOC_USAGE_PRIVATE_2,
+
+	/* See comment for Gralloc 1.0, above. */
+	MALI_GRALLOC_USAGE_PRIVATE_FORMAT = GRALLOC_USAGE_PRIVATE_3,
+
+	/* YUV-only. */
+	MALI_GRALLOC_USAGE_YUV_COLOR_SPACE_DEFAULT = 0,
+	MALI_GRALLOC_USAGE_YUV_COLOR_SPACE_BT601 = GRALLOC_USAGE_PRIVATE_18,
+	MALI_GRALLOC_USAGE_YUV_COLOR_SPACE_BT709 = GRALLOC_USAGE_PRIVATE_19,
+	MALI_GRALLOC_USAGE_YUV_COLOR_SPACE_BT2020 =  (GRALLOC_USAGE_PRIVATE_18 | GRALLOC_USAGE_PRIVATE_19),
+	MALI_GRALLOC_USAGE_YUV_COLOR_SPACE_MASK = MALI_GRALLOC_USAGE_YUV_COLOR_SPACE_BT2020,
+
+	MALI_GRALLOC_USAGE_RANGE_DEFAULT = 0,
+	MALI_GRALLOC_USAGE_RANGE_NARROW = GRALLOC_USAGE_PRIVATE_16,
+	MALI_GRALLOC_USAGE_RANGE_WIDE = GRALLOC_USAGE_PRIVATE_17,
+	MALI_GRALLOC_USAGE_RANGE_MASK = (GRALLOC_USAGE_PRIVATE_16 | GRALLOC_USAGE_PRIVATE_17),
+} mali_gralloc_usage_type;
+
+using android::hardware::graphics::common::HIDL_COMMON_NAMESPACE::BufferUsage;
+
+#define GRALLOC_USAGE_SW_WRITE_RARELY static_cast<uint64_t>(BufferUsage::CPU_WRITE_RARELY)
+#define GRALLOC_USAGE_SW_WRITE_OFTEN static_cast<uint64_t>(BufferUsage::CPU_WRITE_OFTEN)
+#define GRALLOC_USAGE_SW_READ_RARELY static_cast<uint64_t>(BufferUsage::CPU_READ_RARELY)
+#define GRALLOC_USAGE_SW_READ_OFTEN static_cast<uint64_t>(BufferUsage::CPU_READ_OFTEN)
+#define GRALLOC_USAGE_HW_FB static_cast<uint64_t>(BufferUsage::COMPOSER_CLIENT_TARGET)
+
+/* Bit 10 must be zero as per Gralloc 2.x interface specification. Used, however, for backward compatibility */
+#define GRALLOC_USAGE_HW_2D  static_cast<uint64_t>(0x00000400)
+
+#define GRALLOC_USAGE_SW_WRITE_MASK static_cast<uint64_t>(BufferUsage::CPU_WRITE_MASK)
+#define GRALLOC_USAGE_SW_READ_MASK static_cast<uint64_t>(BufferUsage::CPU_READ_MASK)
+#define GRALLOC_USAGE_PROTECTED static_cast<uint64_t>(BufferUsage::PROTECTED)
+#define GRALLOC_USAGE_HW_RENDER static_cast<uint64_t>(BufferUsage::GPU_RENDER_TARGET)
+#define GRALLOC_USAGE_HW_CAMERA_WRITE static_cast<uint64_t>(BufferUsage::CAMERA_OUTPUT)
+#define GRALLOC_USAGE_HW_CAMERA_READ static_cast<uint64_t>(BufferUsage::CAMERA_INPUT)
+#define GRALLOC_USAGE_HW_TEXTURE static_cast<uint64_t>(BufferUsage::GPU_TEXTURE)
+#define GRALLOC_USAGE_HW_VIDEO_ENCODER static_cast<uint64_t>(BufferUsage::VIDEO_ENCODER)
+#define GRALLOC_USAGE_HW_COMPOSER static_cast<uint64_t>(BufferUsage::COMPOSER_OVERLAY)
+#define GRALLOC_USAGE_EXTERNAL_DISP  static_cast<uint64_t>(0x00002000)
+
+#define GRALLOC_USAGE_SENSOR_DIRECT_DATA static_cast<uint64_t>(BufferUsage::SENSOR_DIRECT_DATA)
+#define GRALLOC_USAGE_GPU_DATA_BUFFER static_cast<uint64_t>(BufferUsage::GPU_DATA_BUFFER)
+#define GRALLOC_USAGE_HW_VIDEO_DECODER static_cast<uint64_t>(BufferUsage::VIDEO_DECODER)
+
 #endif
+
+/* Originally (Gralloc 0.x), Android did not provide an explicit DECODER usage. This was rectified in Android N-MR1/7.1
+ * when Gralloc 1.0 defined GRALLOC1_PRODUCER_USAGE_VIDEO_DECODER. However, libstagefright continues
+ * (currently, Android P/9.0) to use this old combination of flags to indicate decoder producer
+ */
+#define GRALLOC_USAGE_DECODER (GRALLOC_USAGE_HW_TEXTURE | GRALLOC_USAGE_HW_COMPOSER | GRALLOC_USAGE_EXTERNAL_DISP)
+
+static const uint64_t VALID_USAGE =
+    GRALLOC_USAGE_SW_READ_MASK |       /* 0x0FU */
+    GRALLOC_USAGE_SW_WRITE_MASK |      /* 0xF0U */
+    GRALLOC_USAGE_HW_TEXTURE |         /* 1U << 8 */
+    GRALLOC_USAGE_HW_RENDER |          /* 1U << 9 */
+    GRALLOC_USAGE_HW_2D |              /* 1U << 10 */
+    GRALLOC_USAGE_HW_COMPOSER |        /* 1U << 11 */
+    GRALLOC_USAGE_HW_FB |              /* 1U << 12 */
+    GRALLOC_USAGE_EXTERNAL_DISP |      /* 1U << 13 */
+    GRALLOC_USAGE_PROTECTED |          /* 1U << 14 */
+    GRALLOC_USAGE_HW_VIDEO_ENCODER |   /* 1U << 16 */
+    GRALLOC_USAGE_HW_CAMERA_WRITE |    /* 1U << 17 */
+    GRALLOC_USAGE_HW_CAMERA_READ |     /* 1U << 18 */
+#if GRALLOC_VERSION_MAJOR >= 1
+    /* As producer and consumer usage are combined there is no way to differentiate these
+       but they are both listed here to show that the intention is to include both. */
+    GRALLOC_USAGE_SENSOR_DIRECT_DATA | /* 1U << 23 */
+    GRALLOC_USAGE_GPU_DATA_BUFFER |    /* 1U << 23 */
+    GRALLOC_USAGE_HW_VIDEO_DECODER |   /* 1U << 22*/
+#endif
+#if GRALLOC_VERSION_MAJOR >= 1
+    GRALLOC_USAGE_PRIVATE_19 |         /* 1U << 48 */
+    GRALLOC_USAGE_PRIVATE_18 |         /* 1U << 49 */
+    GRALLOC_USAGE_PRIVATE_17 |         /* 1U << 50 */
+    GRALLOC_USAGE_PRIVATE_16 |         /* 1U << 51 */
+#endif
+    GRALLOC_USAGE_PRIVATE_0 |          /* 1U << 28 */
+    GRALLOC_USAGE_PRIVATE_1 |          /* 1U << 29 */
+    GRALLOC_USAGE_PRIVATE_2 |          /* 1U << 30 */
+    GRALLOC_USAGE_PRIVATE_3;           /* 1U << 31 */
 
 #endif /*MALI_GRALLOC_USAGES_H_*/

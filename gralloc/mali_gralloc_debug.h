@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016 ARM Limited. All rights reserved.
+ * Copyright (C) 2016, 2018 ARM Limited. All rights reserved.
  *
  * Copyright (C) 2008 The Android Open Source Project
  *
@@ -20,13 +20,12 @@
 #define MALI_GRALLOC_DEBUG_H_
 
 #include <utils/String8.h>
-#include <hardware/hardware.h>
 #include "gralloc_priv.h"
 #include "mali_gralloc_module.h"
 
-#if GRALLOC_USE_GRALLOC1_API == 1
+#if GRALLOC_VERSION_MAJOR == 1
 #include <hardware/gralloc1.h>
-#else
+#elif GRALLOC_VERSION_MAJOR == 0
 #include <hardware/gralloc.h>
 #endif
 

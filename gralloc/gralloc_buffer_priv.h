@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014-2017 ARM Limited. All rights reserved.
+ * Copyright (C) 2014-2018 ARM Limited. All rights reserved.
  *
  * Copyright (C) 2008 The Android Open Source Project
  *
@@ -33,8 +33,10 @@ struct attr_region
 	int crop_left;
 	int crop_height;
 	int crop_width;
-	int use_yuv_transform;
+	int use_yuv_transform;     /* DEPRECATED. Now explicitly signalled by gralloc through MALI_GRALLOC_INTFMT_AFBC_YUV_TRANSFORM */
 	int use_sparse_alloc;
+	mali_hdr_info hdr_info;
+	android_dataspace_t dataspace;
 	int am_omx_tunnel;
 } __attribute__((packed));
 
@@ -158,8 +160,19 @@ static inline int gralloc_buffer_attr_write(struct private_handle_t *hnd, buf_at
 			region->use_sparse_alloc = *val;
 			rval = 0;
 			break;
+
+		case GRALLOC_ARM_BUFFER_ATTR_HDR_INFO:
+			memcpy(&region->hdr_info, val, sizeof(mali_hdr_info));
+			rval = 0;
+			break;
+
 		case GRALLOC_ARM_BUFFER_ATTR_AM_OMX_TUNNEL:
 			region->am_omx_tunnel = *val;
+			rval = 0;
+ 			break;
+
+		case GRALLOC_ARM_BUFFER_ATTR_DATASPACE:
+			region->dataspace = *((android_dataspace_t *)val);
 			rval = 0;
 			break;
 		}
@@ -198,8 +211,19 @@ static inline int gralloc_buffer_attr_read(struct private_handle_t *hnd, buf_att
 			*val = region->use_sparse_alloc;
 			rval = 0;
 			break;
+
+		case GRALLOC_ARM_BUFFER_ATTR_HDR_INFO:
+			memcpy(val, &region->hdr_info, sizeof(mali_hdr_info));
+			rval = 0;
+			break;
+
 		case GRALLOC_ARM_BUFFER_ATTR_AM_OMX_TUNNEL:
 			*val = region->am_omx_tunnel;
+			rval = 0;
+			break;
+
+		case GRALLOC_ARM_BUFFER_ATTR_DATASPACE:
+			*val = region->dataspace;
 			rval = 0;
 			break;
 		}

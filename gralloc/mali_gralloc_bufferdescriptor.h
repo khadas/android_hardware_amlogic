@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016-2017 ARM Limited. All rights reserved.
+ * Copyright (C) 2016-2018 ARM Limited. All rights reserved.
  *
  * Copyright (C) 2008 The Android Open Source Project
  *
@@ -24,9 +24,9 @@
 #include "mali_gralloc_module.h"
 #include "mali_gralloc_formats.h"
 
-#if GRALLOC_USE_GRALLOC1_API == 1
+#if GRALLOC_VERSION_MAJOR == 1
 #include <hardware/gralloc1.h>
-#else
+#elif GRALLOC_VERSION_MAJOR == 0
 #include <hardware/gralloc.h>
 #endif
 
@@ -34,6 +34,8 @@ typedef uint64_t gralloc_buffer_descriptor_t;
 
 typedef struct buffer_descriptor
 {
+	uint32_t signature;
+
 	uint32_t width;
 	uint32_t height;
 	uint64_t producer_usage;
@@ -43,14 +45,38 @@ typedef struct buffer_descriptor
 
 	mali_gralloc_format_type format_type;
 	size_t size;
-	int byte_stride;
 	int pixel_stride;
-	int internalWidth;
-	int internalHeight;
+	int old_byte_stride;
+	int old_alloc_width;
+	int old_alloc_height;
 	uint64_t internal_format;
+	uint64_t alloc_format;
+	plane_info_t plane_info[MAX_PLANES];
+
+#ifdef __cplusplus
+	buffer_descriptor() :
+	    signature(0),
+	    width(0),
+	    height(0),
+	    producer_usage(0),
+	    consumer_usage(0),
+	    hal_format(0),
+	    layer_count(0),
+	    format_type(MALI_GRALLOC_FORMAT_TYPE_USAGE),
+	    size(0),
+	    pixel_stride(0),
+	    old_byte_stride(0),
+	    old_alloc_width(0),
+	    old_alloc_height(0),
+	    internal_format(0),
+	    alloc_format(0)
+	{
+		memset(plane_info, 0, sizeof(plane_info_t) * MAX_PLANES);
+	}
+#endif
 } buffer_descriptor_t;
 
-#if GRALLOC_USE_GRALLOC1_API == 1
+#if GRALLOC_VERSION_MAJOR == 1
 int mali_gralloc_create_descriptor_internal(gralloc1_buffer_descriptor_t *outDescriptor);
 int mali_gralloc_destroy_descriptor_internal(gralloc1_buffer_descriptor_t descriptor);
 int mali_gralloc_set_dimensions_internal(gralloc1_buffer_descriptor_t descriptor, uint32_t width, uint32_t height);
@@ -67,11 +93,11 @@ int mali_gralloc_get_producer_usage_internal(buffer_handle_t buffer, uint64_t *o
 int mali_gralloc_set_layer_count_internal(gralloc1_buffer_descriptor_t descriptor, uint32_t layerCount);
 int mali_gralloc_get_layer_count_internal(buffer_handle_t buffer, uint32_t *outLayerCount);
 #endif
+#endif
 #if PLATFORM_SDK_VERSION >= 28
 int mali_gralloc_validate_buffer_size(buffer_handle_t buffer, gralloc1_buffer_descriptor_info_t* descriptorInfo, uint32_t stride);
 int mali_gralloc_get_transport_size(buffer_handle_t buffer, uint32_t *outNumFds, uint32_t *outNumInts);
 int mali_gralloc_import_buffer(gralloc1_device_t* device, const buffer_handle_t rawHandle, buffer_handle_t *outBuffer);
-#endif
 #endif
 int mali_gralloc_query_getstride(buffer_handle_t handle, int *pixelStride);
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016 ARM Limited. All rights reserved.
+ * Copyright (C) 2016, 2018-2019 ARM Limited. All rights reserved.
  *
  * Copyright (C) 2008 The Android Open Source Project
  *
@@ -16,11 +16,9 @@
  * limitations under the License.
  */
 
-#include <hardware/hardware.h>
-
-#if GRALLOC_USE_GRALLOC1_API == 1
+#if GRALLOC_VERSION_MAJOR == 1
 #include <hardware/gralloc1.h>
-#else
+#elif GRALLOC_VERSION_MAJOR == 0
 #include <hardware/gralloc.h>
 #endif
 
@@ -71,7 +69,7 @@ int mali_gralloc_reference_retain(mali_gralloc_module const *module, buffer_hand
 	}
 	else
 	{
-		AERR("unkown buffer flags not supported. flags = %d", hnd->flags);
+		AERR("Unknown buffer flags not supported. flags = %d", hnd->flags);
 	}
 
 	pthread_mutex_unlock(&s_map_lock);
@@ -144,7 +142,6 @@ int mali_gralloc_reference_release(mali_gralloc_module const *module, buffer_han
 			gralloc_buffer_attr_free(hnd);
 
 			hnd->base = 0;
-			hnd->writeOwner = 0;
 		}
 	}
 	else
