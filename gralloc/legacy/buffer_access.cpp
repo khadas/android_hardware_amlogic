@@ -174,6 +174,7 @@ int mali_gralloc_lock_ycbcr(const mali_gralloc_module *m, buffer_handle_t buffer
 
 		switch (base_format)
 		{
+		case HAL_PIXEL_FORMAT_YCbCr_420_888:
 		case MALI_GRALLOC_FORMAT_INTERNAL_NV12:
 			c_stride = y_stride;
 			/* Y plane, UV plane */
@@ -182,6 +183,7 @@ int mali_gralloc_lock_ycbcr(const mali_gralloc_module *m, buffer_handle_t buffer
 			step = 2;
 			break;
 
+		case HAL_PIXEL_FORMAT_YCrCb_420_SP:
 		case MALI_GRALLOC_FORMAT_INTERNAL_NV21:
 			c_stride = y_stride;
 			/* Y plane, UV plane */
@@ -264,6 +266,8 @@ int mali_gralloc_get_num_flex_planes(const mali_gralloc_module *m, buffer_handle
 
 	switch (base_format)
 	{
+	case HAL_PIXEL_FORMAT_YCrCb_420_SP:
+	case HAL_PIXEL_FORMAT_YCbCr_420_888:
 	case MALI_GRALLOC_FORMAT_INTERNAL_NV12:
 	case MALI_GRALLOC_FORMAT_INTERNAL_NV21:
 	case MALI_GRALLOC_FORMAT_INTERNAL_YV12:
@@ -345,6 +349,7 @@ int mali_gralloc_lock_flex_async(const mali_gralloc_module *m, buffer_handle_t b
 
 		switch (base_format)
 		{
+		case HAL_PIXEL_FORMAT_YCbCr_420_888:
 		case MALI_GRALLOC_FORMAT_INTERNAL_NV12:
 			flex_layout->format = FLEX_FORMAT_YCbCr;
 			flex_layout->num_planes = 3;
@@ -374,6 +379,7 @@ int mali_gralloc_lock_flex_async(const mali_gralloc_module *m, buffer_handle_t b
 			flex_layout->planes[2].v_subsampling = 2;
 			break;
 
+		case HAL_PIXEL_FORMAT_YCrCb_420_SP:
 		case MALI_GRALLOC_FORMAT_INTERNAL_NV21:
 			/*
 			 * NV21: YCrCb/YVU ordering. The flex format
