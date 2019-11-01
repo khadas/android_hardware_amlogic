@@ -186,7 +186,7 @@ void reset_system_samplerate(struct aml_audio_dec* audec)
 	if(audec->format == ACODEC_FMT_DTS && audec->samplerate>48000 && !digital_raw)
 	{
 	   char tmp[128]={0};
-       if(property_get("media.libplayer.88_96K", tmp, "0") > 0 && !strcmp(tmp, "1"))
+       if(property_get("vendor.media.libplayer.88_96K", tmp, "0") > 0 && !strcmp(tmp, "1"))
             dtsFS_88_96_Directout=1;
     }
 	if(!audec || (!digital_raw && audec->channels!=8 && !dtsFS_88_96_Directout))
@@ -926,7 +926,7 @@ extern "C" int android_init(struct aml_audio_dec* audec)
 		wfd_us_thrdhold = 150;	 	
      }
      adec_print("up/down sampling thread 	 %d /%d ms \n",wfd_us_thrdhold,wfd_ds_thrdhold);	
-    if(property_get("media.libplayer.wfd", wfd_prop, "0") > 0){
+    if(property_get("vendor.media.libplayer.wfd", wfd_prop, "0") > 0){
        wfd_enable = (strcmp(wfd_prop, "1") == 0);
     if (wfd_enable) {
         audio_io_handle_t handle = -1;/*AudioSystem::getOutput(AUDIO_STREAM_MUSIC,
@@ -1004,7 +1004,7 @@ extern "C" int android_init(struct aml_audio_dec* audec)
 #if 1
     char tmp[128]={0};
     int FS_88_96_enable=0;
-    if (property_get("media.libplayer.88_96K", tmp, "0") > 0 && !strcmp(tmp, "1")) {
+    if (property_get("vendor.media.libplayer.88_96K", tmp, "0") > 0 && !strcmp(tmp, "1")) {
         FS_88_96_enable=1;
         if (audec->format == ACODEC_FMT_DTS && audec->samplerate>48000 && !user_raw_enable)
         {

@@ -333,7 +333,7 @@ void* audio_type_parse_threadloop(void *data)
         ret = pcm_read(audio_type_status->in, audio_type_status->parse_buffer + 3, bytes);
         if (ret >= 0) {
 #if 0
-            if (getprop_bool("media.audiohal.parsedump")) {
+            if (getprop_bool("vendor.media.audiohal.parsedump")) {
                 FILE *dump_fp = NULL;
                 dump_fp = fopen("/data/audio_hal/audio_parse.dump", "a+");
                 if (dump_fp != NULL) {

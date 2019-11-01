@@ -1313,7 +1313,7 @@ ssize_t a2dp_out_write(struct audio_stream_out* stream, const void* buffer, size
 #endif
 
 	//sent = skt_write(out->audio_fd, out_buffer, out_size);
-    if (aml_getprop_bool("media.audiohal.a2dp"))
+    if (aml_getprop_bool("vendor.media.audiohal.a2dp"))
     {
         FILE *fp1 = fopen("/data/audio_out/a2dp.pcm", "a+");
         if (fp1) {

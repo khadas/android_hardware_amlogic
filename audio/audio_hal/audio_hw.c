@@ -1986,7 +1986,7 @@ static ssize_t out_write_legacy (struct audio_stream_out *stream, const void* bu
     audio_hwsync_t *hw_sync = out->hwsync;
     struct pcm_config *config = &out->config;
     unsigned int pcrscr = 0;
-    unsigned char enable_dump = getprop_bool ("media.audiohal.outdump");
+    unsigned char enable_dump = getprop_bool ("vendor.media.audiohal.outdump");
 
     ALOGV ("%s():out %p,position %zu",
              __func__, out, bytes);
@@ -2584,7 +2584,7 @@ static ssize_t out_write (struct audio_stream_out *stream, const void* buffer,
     uint32_t latency_frames = 0;
     int need_mix = 0;
     short *mix_buf = NULL;
-    unsigned char enable_dump = getprop_bool ("media.audiohal.outdump");
+    unsigned char enable_dump = getprop_bool ("vendor.media.audiohal.outdump");
 
     if (adev->out_device != out->out_device) {
         ALOGD("%s:%p device:%x,%x", __func__, stream, out->out_device, adev->out_device);
@@ -2988,7 +2988,7 @@ rewrite:
     pthread_mutex_unlock (&adev->lock);
     out_frames = in_frames;
     buf = (void *) write_buf;
-    if (getprop_bool("media.hdmihal.outdump")) {
+    if (getprop_bool("vendor.media.hdmihal.outdump")) {
         FILE *fp1 = fopen("/data/tmp/hal_audio_out.pcm", "a+");
         if (fp1) {
             int flen = fwrite ( (char *) buffer, 1, bytes, fp1);
@@ -3085,7 +3085,7 @@ rewrite:
             }
 
             if (write_buf) {
-                if (getprop_bool ("media.hdmihal.outdump") ) {
+                if (getprop_bool ("vendor.media.hdmihal.outdump") ) {
                     FILE *fp1 = fopen ("/data/tmp/hdmi_audio_out8.pcm", "a+");
                     if (fp1) {
                         int flen = fwrite ( (char *) buffer, 1, out_frames * frame_size, fp1);
@@ -3858,7 +3858,7 @@ static void inread_proc_aec(struct audio_stream_in *stream,
     int cleaned_samples_per_channel = 0;
     size_t bytes_per_sample =
         audio_bytes_per_sample(stream->common.get_format(&stream->common));
-    int enable_dump = getprop_bool("media.audio_hal.aec.outdump");
+    int enable_dump = getprop_bool("vendor.media.audio_hal.aec.outdump");
     if (enable_dump) {
         aml_audio_dump_audio_bitstreams("/data/tmp/audio_mix.raw",
                 read_buf_16, in_frames*2*2*2);
@@ -6866,7 +6866,7 @@ ssize_t audio_hal_data_processing(struct audio_stream_out *stream,
             for (j = 0; j < adev->native_postprocess.num_postprocessors; j++) {
                 audio_post_process(adev->native_postprocess.postprocessors[j], effect_tmp_buf, out_frames);
             }
-            if (aml_getprop_bool("media.audiohal.outdump")) {
+            if (aml_getprop_bool("vendor.media.audiohal.outdump")) {
                 FILE *fp1 = fopen("/data/audio_spk.pcm", "a+");
                 if (fp1) {
                     int flen = fwrite((char *)effect_tmp_buf, 1, bytes, fp1);
@@ -8325,12 +8325,12 @@ re_write:
 
             } else {
                 ALOGV("mixing non-hw_sync mode");
-                if (getprop_bool("media.audiohal.mixer")) {
+                if (getprop_bool("vendor.media.audiohal.mixer")) {
                     aml_audio_dump_audio_bitstreams("/data/audio/beforemix.raw",
                         tmp_buffer, write_bytes);
                 }
                 aml_hw_mixer_mixing(&adev->hw_mixer, tmp_buffer, write_bytes, output_format);
-                if (getprop_bool("media.audiohal.mixer")) {
+                if (getprop_bool("vendor.media.audiohal.mixer")) {
                     aml_audio_dump_audio_bitstreams("/data/audio/mixed.raw",
                             tmp_buffer, write_bytes);
                 }
@@ -8518,7 +8518,7 @@ ssize_t mixer_aux_buffer_write(struct audio_stream_out *stream, const void *buff
     } else {
         bytes_written = aml_hw_mixer_write(&adev->hw_mixer, buffer, bytes);
         usleep(bytes_written * 1000000 / frame_size / out_get_sample_rate(&stream->common));
-        if (getprop_bool("media.audiohal.mixer")) {
+        if (getprop_bool("vendor.media.audiohal.mixer")) {
             aml_audio_dump_audio_bitstreams("/data/audio/mixerAux.raw", buffer, bytes);
         }
     }
@@ -8848,7 +8848,7 @@ int adev_open_output_stream_new(struct audio_hw_device *dev,
     adev->active_outputs[aml_out->usecase] = aml_out;
     pthread_mutex_unlock(&adev->lock);
 
-    if (aml_getprop_bool("media.audio.hal.debug")) {
+    if (aml_getprop_bool("vendor.media.audio.hal.debug")) {
         aml_out->debug_stream = 1;
     }
     ALOGD("-%s: out %p: usecase = %s card = %d devices = %d", __func__,
@@ -9085,7 +9085,7 @@ void *audio_patch_output_threadloop(void *data)
     char buf[PROPERTY_VALUE_MAX];
     int prop_ret = -1;
     int format = 0;
-    prop_ret = property_get("dolby.ms12.input.format", buf, NULL);
+    prop_ret = property_get("vendor.dolby.ms12.input.format", buf, NULL);
     if (prop_ret > 0) {
         format = atoi(buf);
         if (format == 1) {
@@ -10097,7 +10097,7 @@ static int adev_release_audio_patch(struct audio_hw_device *dev,
     //dump_aml_audio_patch_sets(dev);
 #if defined(IS_ATOM_PROJECT)
 #ifdef DEBUG_VOLUME_CONTROL
-    int vol = property_get_int32("media.audio_hal.volume", -1);
+    int vol = property_get_int32("vendor.media.audio_hal.volume", -1);
     if (vol != -1)
         aml_dev->sink_gain[OUTPORT_SPEAKER] = (float)vol;
 else
@@ -10380,7 +10380,7 @@ static int adev_set_audio_port_config (struct audio_hw_device *dev, const struct
         }
 
 #ifdef DEBUG_VOLUME_CONTROL
-            int vol = property_get_int32("media.audio_hal.volume", -1);
+            int vol = property_get_int32("vendor.media.audio_hal.volume", -1);
             if (vol != -1) {
                 aml_dev->sink_gain[outport] = (float)vol;
                 aml_dev->sink_gain[OUTPORT_SPEAKER] = (float)vol;

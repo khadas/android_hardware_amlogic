@@ -111,7 +111,7 @@ public:
         char *buf = (char *)buffer;
         ALOGV("write size %zu \n", bytes);
 #if 1
-        if (getprop_bool("media.audiohal.outdump")) {
+        if (getprop_bool("vendor.media.audiohal.outdump")) {
             FILE *fp1 = fopen("/data/audio_out/hdmi_audio_out.spdif", "a+");
             if (fp1) {
                 fwrite((char *)buffer, 1, bytes, fp1);

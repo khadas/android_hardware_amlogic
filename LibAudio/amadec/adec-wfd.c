@@ -607,19 +607,19 @@ static void set_wfd_pcm_thredhold()
 {
 
     char value[PROPERTY_VALUE_MAX];
-    if (property_get("media.wfd.skip", value, NULL) > 0) {
+    if (property_get("vendor.media.wfd.skip", value, NULL) > 0) {
         skip_thred = atoi(value);
     }
-    if (property_get("media.wfd.up", value, NULL) > 0) {
+    if (property_get("vendor.media.wfd.up", value, NULL) > 0) {
         up_thred = atoi(value);
     }
-    if (property_get("media.wfd.dn", value, NULL) > 0) {
+    if (property_get("vendor.media.wfd.dn", value, NULL) > 0) {
         dn_thred = atoi(value);
     }
-    if (property_get("media.wfd.dn_delta", value, NULL) > 0) {
+    if (property_get("vendor.media.wfd.dn_delta", value, NULL) > 0) {
         dn_resample_delta = atoi(value);
     }
-    if (property_get("media.wfd.up_delta", value, NULL) > 0) {
+    if (property_get("vendor.media.wfd.up_delta", value, NULL) > 0) {
         up_resample_delta = atoi(value);
     }
 }
@@ -642,7 +642,7 @@ void *audio_wfd_decode_loop(void *args)
     audec = (aml_audio_dec_t *)args;
     aout_ops = &audec->aout_ops;
     adec_ops = audec->adec_ops;
-    if (property_get("media.wfd.debug_latency", value, NULL) > 0) {
+    if (property_get("vendor.media.wfd.debug_latency", value, NULL) > 0) {
         debug_latency = atoi(value);
     }
     while (!audec->exit_decode_thread) {
@@ -668,7 +668,7 @@ void *audio_wfd_decode_loop(void *args)
             if (debug_latency) {
                 adec_print("latency in %d ms,out %d ms.total %d ms\n", in_latency, out_latency, total_latency);
                 if (total_latency < 150) {
-                    if (property_get("sys.pkginfo", value, NULL) > 0) {
+                    if (property_get("vendor.sys.pkginfo", value, NULL) > 0) {
                         adec_print("latency pkg info %s \n", value);
                     }
                 }

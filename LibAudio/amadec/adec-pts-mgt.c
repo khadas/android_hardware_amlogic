@@ -179,7 +179,7 @@ int adec_pts_start(aml_audio_dec_t *audec)
     memset(buf, 0, sizeof(buf));
 
     if (audec->avsync_threshold <= 0) {
-        if (am_getconfig_bool("media.libplayer.wfd")) {
+        if (am_getconfig_bool("vendor.media.libplayer.wfd")) {
             audec->avsync_threshold = SYSTIME_CORRECTION_THRESHOLD * 2 / 3;
             adec_print("use 2/3 default av sync threshold!\n");
         } else {
@@ -201,7 +201,7 @@ int adec_pts_start(aml_audio_dec_t *audec)
 
     //default enable drop pcm
     int enable_drop_pcm = 1;
-    if (property_get("sys.amplayer.drop_pcm", value, NULL) > 0) {
+    if (property_get("vendor.sys.amplayer.drop_pcm", value, NULL) > 0) {
         enable_drop_pcm = atoi(value);
     }
     adec_print("[%s:%d] enable_drop_pcm :%d \n", __FUNCTION__, __LINE__, enable_drop_pcm);
@@ -308,7 +308,7 @@ int adec_pts_droppcm(aml_audio_dec_t *audec)
 
     // drop pcm according to media.amplayer.dropms
     memset(value, 0, sizeof(value));
-    if (property_get("media.amplayer.dropms", value, NULL) > 0) {
+    if (property_get("vendor.media.amplayer.dropms", value, NULL) > 0) {
         dropms = atoi(value);
         audec->droppcm_ms = dropms;
         drop_size = dropms * (audec->samplerate / 1000) * audec->channels * 2;
@@ -317,7 +317,7 @@ int adec_pts_droppcm(aml_audio_dec_t *audec)
                 adec_print("[%s::%d] data not enough, drop failed! \n", __FUNCTION__, __LINE__);
             }
 
-            if (am_getconfig_bool("media.amplayer.dropmsquit")) {
+            if (am_getconfig_bool("vendor.media.amplayer.dropmsquit")) {
                 adec_print("[%s::%d] fast droppcm: %d ms!  \n", __FUNCTION__, __LINE__, dropms);
                 return 0;
             }
@@ -327,7 +327,7 @@ int adec_pts_droppcm(aml_audio_dec_t *audec)
     // pre drop, according to first check in vpts
 
     adec_print("[%s::%d] start pre drop !  \n", __FUNCTION__, __LINE__);
-    if (am_getconfig_bool("media.amplayer.pre_droppcm")) {
+    if (am_getconfig_bool("vendor.media.amplayer.pre_droppcm")) {
         unsigned long checkin_firstvpts = 0;
         while (!checkin_firstvpts) {
             if (audec->need_stop) {
@@ -402,11 +402,11 @@ int adec_pts_droppcm(aml_audio_dec_t *audec)
         ioctl(audec->adsp_ops.amstream_fd, AMSTREAM_IOC_AB_STATUS, (unsigned long)&am_io);
         adec_print("before drop ab_level=%x, cur_pcr=%lx", am_io.status.data_len, cur_pcr);
     }
-    if (property_get("media.amplayer.sync_switch_ms", value, NULL) > 0) {
+    if (property_get("vendor.media.amplayer.sync_switch_ms", value, NULL) > 0) {
         sync_switch_ms = atoi(value);
     }
 
-    if (am_getconfig_bool("media.libplayer.show_firstframe") &&
+    if (am_getconfig_bool("vendor.media.libplayer.show_firstframe") &&
         audec->tsync_mode == TSYNC_MODE_PCRMASTER) {
         const char * show_first_frame = "/sys/class/video/show_first_frame_nosync";
         amsysfs_set_sysfs_int(show_first_frame, 1);
@@ -516,7 +516,7 @@ int adec_refresh_pts(aml_audio_dec_t *audec)
     }
     if (pre_filltime == -1) {
         char value[PROPERTY_VALUE_MAX] = {0};
-        if (property_get("media.amadec.prefilltime", value, NULL) > 0) {
+        if (property_get("vendor.media.amadec.prefilltime", value, NULL) > 0) {
             pre_filltime = atoi(value);
         } else {
             pre_filltime = 170;
@@ -548,7 +548,7 @@ int adec_refresh_pts(aml_audio_dec_t *audec)
             ,wait,
             latency);
             audec->apts_start_flag =  1;
-            if (!am_getconfig_bool("libplayer.slowsync.disable"))
+            if (!am_getconfig_bool("vendor.libplayer.slowsync.disable"))
                 enable_slowsync_repeate();
         }
     }
@@ -870,7 +870,7 @@ int droppcm_use_size(aml_audio_dec_t *audec, int drop_size)
     }
     memset(platformtype, 0, sizeof(platformtype));
     memset(value, 0, sizeof(value));
-    if (property_get("media.amplayer.dropmaxtime", value, NULL) > 0) {
+    if (property_get("vendor.media.amplayer.dropmaxtime", value, NULL) > 0) {
         drop_max_time = atoi(value);
     }
 
@@ -941,11 +941,11 @@ void droppcm_prop_ctrl(int *audio_ahead, int *pts_ahead_val)
 {
     char value[PROPERTY_VALUE_MAX] = {0};
 
-    if (am_getconfig_bool("media.libplayer.wfd")) {
+    if (am_getconfig_bool("vendor.media.libplayer.wfd")) {
         *pts_ahead_val = *pts_ahead_val * 2 / 3;
     }
 
-    if (property_get("media.amplayer.apts", value, NULL) > 0) {
+    if (property_get("vendor.media.amplayer.apts", value, NULL) > 0) {
         if (!strcmp(value, "slow")) {
             *audio_ahead = -1;
         } else if (!strcmp(value, "fast")) {
@@ -953,7 +953,7 @@ void droppcm_prop_ctrl(int *audio_ahead, int *pts_ahead_val)
         }
     }
     memset(value, 0, sizeof(value));
-    if (property_get("media.amplayer.apts_val", value, NULL) > 0) {
+    if (property_get("vendor.media.amplayer.apts_val", value, NULL) > 0) {
         *pts_ahead_val = atoi(value);
     }
 }
@@ -1017,7 +1017,7 @@ int droppcm_get_refpts(aml_audio_dec_t *audec, unsigned long *refpts)
     }
 
     memset(value, 0, sizeof(value));
-    if (property_get("media.amplayer.dropwaitxms", value, NULL) > 0) {
+    if (property_get("vendor.media.amplayer.dropwaitxms", value, NULL) > 0) {
         circount = atoi(value);
     }
     adec_print("drop wait max ms = %d \n", circount);
@@ -1025,7 +1025,7 @@ int droppcm_get_refpts(aml_audio_dec_t *audec, unsigned long *refpts)
     //media.amplayer.refmode : 0 vpts 1 other case
 #if 0
     int use_vpts = 1;
-    if (property_get("media.amplayer.refmode", value, NULL) > 0) {
+    if (property_get("vendor.media.amplayer.refmode", value, NULL) > 0) {
         if (atoi(value) != 0) {
             use_vpts = 0;
         }

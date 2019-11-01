@@ -292,14 +292,14 @@ void arm_omx_codec_init(aml_audio_dec_t *audec,int codec_type,void *readbuffer,i
     char value[128]={0};
     int ret=0;
     android::AmlOMXCodec *arm_omx_codec=NULL;
-    amsysfs_write_prop("media.libplayer.dtsopt0", "1");
+    amsysfs_write_prop("vendor.media.libplayer.dtsopt0", "1");
     LOGI("property_set<media.libplayer.dtsopt0> ret/%d\n",ret);
     arm_omx_codec=new android::AmlOMXCodec(codec_type,readbuffer,exit,audec);
     if(arm_omx_codec==NULL){
-         property_set("media.libplayer.dtsopt0", "0");
+         property_set("vendor.media.libplayer.dtsopt0", "0");
         LOGE("Err:arm_omx_codec_init failed\n");
     }
-    if(property_get("media.libplayer.dtsopt0",value,NULL) > 0)
+    if(property_get("vendor.media.libplayer.dtsopt0",value,NULL) > 0)
     {
         LOGI("[%s %d]  media.libplayer.dtsopt0/%s \n",__FUNCTION__,__LINE__,value);
     }else{
@@ -347,7 +347,7 @@ void arm_omx_codec_close(aml_audio_dec_t *audec)
      int ret=0;
      char value[128]={0};
      android::AmlOMXCodec *arm_omx_codec=(android::AmlOMXCodec *)(audec->arm_omx_codec);
-     amsysfs_write_prop("media.libplayer.dtsopt0", "0");
+     amsysfs_write_prop("vendor.media.libplayer.dtsopt0", "0");
      LOGI("property_set<media.libplayer.dtsopt0> ret/%d\n",ret);
      if(arm_omx_codec!=NULL){
          arm_omx_codec->locked();
@@ -358,7 +358,7 @@ void arm_omx_codec_close(aml_audio_dec_t *audec)
      }else{
          LOGI("NOTE:arm_omx_codec==NULL arm_omx_codec_close() do nothing! %s %d \n",__FUNCTION__,__LINE__);
      }
-     if(property_get("media.libplayer.dtsopt0",value,NULL) > 0)
+     if(property_get("vendor.media.libplayer.dtsopt0",value,NULL) > 0)
      {
          LOGI("[%s %d]  media.libplayer.dtsopt0/%s \n",__FUNCTION__,__LINE__,value);
      }else{

@@ -67,7 +67,7 @@ public:
             mTotalBytes += actual_write_size;
             ALOGV("%s() actual_write_size %zu outBufCurrentPos %zu\n", __FUNCTION__, actual_write_size, outBufCurrentPos);
 #if 1
-            if (aml_getprop_bool("media.audiohal.outdump")) {
+            if (aml_getprop_bool("vendor.media.audiohal.outdump")) {
                 FILE *fp1 = fopen("/data/audio_out/enc_output.spdif", "a+");
                 if (fp1) {
                     int flen = fwrite((char *)iec61937_buffer, 1, actual_write_size, fp1);
@@ -131,7 +131,7 @@ extern "C" int spdif_encoder_ad_init(audio_format_t format, const void *output, 
 extern "C" int spdif_encoder_ad_write(const void *buffer, size_t numBytes)
 {
 #if 1
-    if (aml_getprop_bool("media.audiohal.outdump")) {
+    if (aml_getprop_bool("vendor.media.audiohal.outdump")) {
         FILE *fp1 = fopen("/data/audio_out/enc_input.spdif", "a+");
         if (fp1) {
             fwrite((char *)buffer, 1, numBytes, fp1);
