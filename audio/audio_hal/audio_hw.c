@@ -80,12 +80,6 @@
 #include <SPDIFEncoderAD.h>
 #include "audio_hw_ms12.h"
 #include "dolby_lib_api.h"
-
-#define ENABLE_NANO_NEW_PATH 1
-#if ENABLE_NANO_NEW_PATH
-#include "jb_nano.h"
-#endif
-
 // for dtv playback
 #include "audio_hw_dtv.h"
 #include "../bt_voice/kehwin/audio_kw.h"
@@ -111,6 +105,12 @@
 #include "../hbg_bt_voice/hbg_blehid_mic.h"
 #endif
 /*[SEI-zhaopf-2018-10-29] add for HBG remote audio support } */
+
+#if (ENABLE_NANO_PATCH == 1)
+/*[SEN5-autumn.zhao-2018-01-11] add for B06 audio support { */
+#include "jb_nano.h"
+/*[SEN5-autumn.zhao-2018-01-11] add for B06 audio support } */
+#endif
 
 #include "sub_mixing_factory.h"
 #include "audio_a2dp_hw.h"
@@ -273,6 +273,11 @@ static inline int is_usecase_mix(stream_usecase_t usecase)
 {
     return usecase > STREAM_PCM_NORMAL;
 }
+#if (ENABLE_NANO_PATCH == 1)
+/*[SEN5-autumn.zhao-2018-01-11] add for B06 audio support { */
+static RECORDING_DEVICE recording_device = RECORDING_DEVICE_OTHER;
+/*[SEN5-autumn.zhao-2018-01-11] add for B06 audio support } */
+#endif
 
 static bool is_bypass_dolbyms12(struct audio_stream_out *stream);
 
@@ -5903,17 +5908,28 @@ static int adev_open_input_stream(struct audio_hw_device *dev,
     }
 #endif
 
+#if (ENABLE_NANO_PATCH == 1)
+/*[SEN5-autumn.zhao-2018-01-11] add for B06 audio support { */
+	recording_device = nano_get_recorde_device();
+	ALOGD("recording_device=%d\n",recording_device);
+	if(recording_device == RECORDING_DEVICE_NANO){
+		int ret = nano_open(&in->config, config,source,&in->stream);
+		if(ret < 0){
+			recording_device = RECORDING_DEVICE_OTHER;
+		}
+		else{
+			ALOGD("use nano function\n");
+			in->stream.common.get_sample_rate = nano_get_sample_rate;
+			in->stream.common.get_buffer_size = nano_get_buffer_size;
+			in->stream.common.get_channels = nano_get_channels;
+			in->stream.common.get_format = nano_get_format;
+			in->stream.read = nano_read;
+		}
+	}
+/*[SEN5-autumn.zhao-2018-01-11] add for B06 audio support } */
+#endif
     *stream_in = &in->stream;
     ALOGD("%s: exit", __func__);
-
-#if ENABLE_NANO_NEW_PATH
-	if (nano_is_connected() && (devices & AUDIO_DEVICE_IN_BUILTIN_MIC)) {
-        ret = nano_input_open(*stream_in, config);
-        if (ret < 0) {
-            ALOGD("%s: nano_input_open : %d",__func__,ret);
-        }
-    }
-#endif
 
     return 0;
 err:
@@ -5941,12 +5957,16 @@ static void adev_close_input_stream(struct audio_hw_device *dev,
     struct aml_stream_in *in = (struct aml_stream_in *)stream;
 
     ALOGD("%s: enter: dev(%p) stream(%p)", __func__, dev, stream);
-#if ENABLE_NANO_NEW_PATH
-    nano_close(stream);
-#endif
 
     in_standby(&stream->common);
 
+#if (ENABLE_NANO_PATCH == 1)
+/*[SEN5-autumn.zhao-2018-03-15] add for B06A remote audio support { */
+    if(recording_device == RECORDING_DEVICE_NANO){
+       nano_close(stream);
+    }
+/*[SEN5-autumn.zhao-2018-03-15] add for B06A remote audio support } */
+#endif
     if (in->device & AUDIO_DEVICE_IN_WIRED_HEADSET)
         rc_close_input_stream(in);
 
@@ -10692,9 +10712,6 @@ static int adev_open(const hw_module_t* module, const char* name, hw_device_t** 
         adev->dcvlib_bypass_enable = 1;
     }
 
-#if ENABLE_NANO_NEW_PATH
-    nano_init();
-#endif
     ALOGI("%s() adev->dolby_lib_type = %d", __FUNCTION__, adev->dolby_lib_type);
     adev->patch_src = SRC_INVAL;
     adev->audio_type = LPCM;
@@ -10712,6 +10729,11 @@ static int adev_open(const hw_module_t* module, const char* name, hw_device_t** 
     }
 #endif
 
+#if (ENABLE_NANO_PATCH == 1)
+/*[SEN5-autumn.zhao-2018-01-11] add for B06 audio support { */
+    nano_init();
+/*[SEN5-autumn.zhao-2018-01-11] add for B06 audio support } */
+#endif
 /*[SEI-zhaopf-2018-10-29] add for HBG remote audio support { */
 #if defined(ENABLE_HBG_PATCH)
     startReceiveAudioData();
