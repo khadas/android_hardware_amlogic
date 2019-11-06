@@ -25,6 +25,16 @@
 
 #define DOLBY_SAMPLE_SIZE 4//2ch x 2bytes(16bits) = 4 bytes
 
+enum {
+    BITSTREAM_OUTPUT_A,
+    BITSTREAM_OUTPUT_B,
+    BITSTREAM_OUTPUT_CNT
+};
+
+struct bitstream_out_desc {
+    audio_format_t audio_format;
+    void *spdifout_handle;
+};
 
 struct dolby_ms12_desc {
     bool dolby_ms12_enable;
@@ -86,6 +96,8 @@ struct dolby_ms12_desc {
     int nbytes_of_dmx_output_pcm_frame;
     int need_resume;
     int need_resync; /*handle from pause to resume sync*/
+    bool dual_bitstream_support;
+    struct bitstream_out_desc bitstream_out[BITSTREAM_OUTPUT_CNT];
 };
 
 /*

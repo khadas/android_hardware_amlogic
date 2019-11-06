@@ -39,6 +39,9 @@
 #include "audio_virtual_buf.h"
 #include "ac3_parser_utils.h"
 #include "audio_hw_utils.h"
+#include "alsa_device_parser.h"
+#include "spdif_encoder_api.h"
+#include "aml_audio_spdifout.h"
 
 #define DOLBY_MS12_OUTPUT_FORMAT_TEST
 
@@ -61,10 +64,13 @@
 
 #define MS12_OUTPUT_PCM_FILE "/data/audio_out/ms12_pcm.raw"
 #define MS12_OUTPUT_BITSTREAM_FILE "/data/audio_out/ms12_bitstream.raw"
+#define MS12_OUTPUT_SPDIF_BITSTREAM_FILE "/data/audio_out/ms12_spdif_bitstream.raw"
 #define MS12_INPUT_SYS_PCM_FILE "/data/audio_out/ms12_input_sys.pcm"
 #define MS12_INPUT_SYS_MAIN_FILE "/data/audio_out/ms12_input_main.raw"
 
 #define DDPI_UDC_COMP_LINE 2
+
+#define ms12_to_adev(ms12_ptr)  (struct aml_audio_device *) (((char*) (ms12_ptr)) - offsetof(struct aml_audio_device, ms12))
 
 /*
  *@brief dump ms12 output data
@@ -107,6 +113,9 @@ int dolby_ms12_register_callback(struct aml_stream_out *aml_out)
         } else {
             ret = dolby_ms12_register_bitstream_callback(bitstream_output, (void *)aml_out);
             ALOGI("%s() dolby_ms12_register_bitstream_callback return %d", __FUNCTION__, ret);
+
+            ret = dolby_ms12_register_spdif_bitstream_callback(spdif_bitstream_output, (void *)aml_out);
+            ALOGI("%s() dolby_ms12_register_spdif_bitstream_callback return %d", __FUNCTION__, ret);
         }
     }
     ALOGI("-%s() ret %d\n\n", __FUNCTION__, ret);
@@ -114,6 +123,33 @@ int dolby_ms12_register_callback(struct aml_stream_out *aml_out)
     return ret;
 
 }
+
+/*here is some tricky code, we assume below config for dual output*/
+static inline alsa_device_t usecase_device_adapter_with_ms12(struct dolby_ms12_desc *ms12, alsa_device_t usecase_device, audio_format_t output_format)
+{
+    ALOGI("%s usecase_device %d output_format %#x", __func__, usecase_device, output_format);
+    switch (usecase_device) {
+    case DIGITAL_DEVICE:
+    case I2S_DEVICE:
+        if ((output_format == AUDIO_FORMAT_AC3) || (output_format == AUDIO_FORMAT_E_AC3)) {
+            if (ms12->dual_bitstream_support) {
+                if (output_format == AUDIO_FORMAT_E_AC3) {
+                    /*dual output, we use spdif b to output ddp*/
+                    return DIGITAL_DEVICE2;
+                } else {
+                    return DIGITAL_DEVICE;
+                }
+            } else {
+                return DIGITAL_DEVICE;
+            }
+        } else {
+            return I2S_DEVICE;
+        }
+    default:
+        return I2S_DEVICE;
+    }
+}
+
 
 /*
  *@brief get dolby ms12 prepared
@@ -231,6 +267,8 @@ int get_the_dolby_ms12_prepared(
                 return -ENOMEM;
             }
         }
+        out->spdifenc_init = false;
+        out->spdifenc_handle = NULL;
         ALOGI("%s create ms12 stream %p,original stream %p", __func__, out, aml_out);
     } else {
         out = aml_out;
@@ -245,6 +283,8 @@ int get_the_dolby_ms12_prepared(
     dolby_ms12_set_system_app_audio_mixing(adev->system_app_mixing_status);
 
     //init the dolby ms12
+    ms12->dual_bitstream_support = adev->dual_spdif_support;
+    dolby_ms12_set_dual_bitstream_out(ms12->dual_bitstream_support);
     if (out->dual_output_flag) {
         dolby_ms12_set_dual_output_flag(out->dual_output_flag);
         aml_ms12_config(ms12, input_format, input_channel_mask, input_sample_rate, adev->optical_format);
@@ -255,7 +295,7 @@ int get_the_dolby_ms12_prepared(
     if (ms12->dolby_ms12_enable) {
         //register Dolby MS12 callback
         dolby_ms12_register_callback(out);
-        ms12->device = usecase_device_adapter_with_ms12(out->device, adev->sink_format);
+        ms12->device = usecase_device_adapter_with_ms12(ms12, out->device, adev->sink_format);
         ALOGI("%s out [dual_output_flag %d] adev [format sink %#x optical %#x] ms12 [output-format %#x device %d]",
               __FUNCTION__, out->dual_output_flag, adev->sink_format, adev->optical_format, ms12->output_format, ms12->device);
         memcpy((void *) & (adev->ms12_config), (const void *) & (out->config), sizeof(struct pcm_config));
@@ -718,11 +758,15 @@ int dolby_ms12_system_process(
 int get_dolby_ms12_cleanup(struct dolby_ms12_desc *ms12)
 {
     int is_quit = 1;
+    int i = 0;
+    struct aml_audio_device *adev = NULL;
 
     ALOGI("+%s()", __FUNCTION__);
     if (!ms12) {
         return -EINVAL;
     }
+
+    adev = ms12_to_adev(ms12);
 
     pthread_mutex_lock(&ms12->lock);
     pthread_mutex_lock(&ms12->main_lock);
@@ -749,8 +793,16 @@ int get_dolby_ms12_cleanup(struct dolby_ms12_desc *ms12)
     ms12->input_total_ms = 0;
     ms12->bitsteam_cnt = 0;
     ms12->nbytes_of_dmx_output_pcm_frame = 0;
+    ms12->dual_bitstream_support = 0;
     audio_virtual_buf_close(&ms12->main_virtual_buf_handle);
     audio_virtual_buf_close(&ms12->system_virtual_buf_handle);
+    for (i = 0; i < BITSTREAM_OUTPUT_CNT; i++) {
+        struct bitstream_out_desc * bitstream_out = &ms12->bitstream_out[i];
+        if (bitstream_out->spdifout_handle) {
+            aml_audio_spdifout_close(bitstream_out->spdifout_handle);
+            bitstream_out->spdifout_handle = NULL;
+        }
+    }
     ALOGI("--%s(), locked", __FUNCTION__);
     pthread_mutex_unlock(&ms12->main_lock);
     pthread_mutex_unlock(&ms12->lock);
@@ -792,6 +844,30 @@ exit:
     //pthread_mutex_unlock(&ms12->lock);
     return ret;
 }
+
+static ssize_t aml_ms12_spdif_output_new (struct audio_stream_out *stream,
+                                struct bitstream_out_desc * bitstream_desc, void *buffer, size_t byte)
+{
+    struct aml_stream_out *aml_out = (struct aml_stream_out *) stream;
+    struct aml_audio_device *aml_dev = aml_out->dev;
+
+    int ret = 0;
+
+    if (bitstream_desc->spdifout_handle == NULL) {
+        ret = aml_audio_spdifout_open(&bitstream_desc->spdifout_handle, bitstream_desc->audio_format);
+    }
+    if (ret != 0) {
+        ALOGE("open spdif out failed\n");
+        return ret;
+    }
+
+    ret = aml_audio_spdifout_processs(bitstream_desc->spdifout_handle, buffer, byte);
+
+
+    return ret;
+}
+
+
 
 #ifdef REPLACE_OUTPUT_BUFFER_WITH_CALLBACK
 int pcm_output(void *buffer, void *priv_data, size_t size)
@@ -847,15 +923,18 @@ int bitstream_output(void *buffer, void *priv_data, size_t size)
     before_time = aml_audio_get_systime();
 
     if (aml_out->dual_output_flag) {
+        struct bitstream_out_desc *bitstream_out = &ms12->bitstream_out[BITSTREAM_OUTPUT_A];
         output_format = adev->optical_format;
+        bitstream_out->audio_format = output_format;
         struct audio_stream_out *stream_out = (struct audio_stream_out *)aml_out;
-        ret = aml_audio_spdif_output(stream_out, buffer, size);
+        ret = aml_ms12_spdif_output_new(stream_out, bitstream_out, buffer, size);
     } else {
         output_format = adev->sink_format;
         if (audio_hal_data_processing((struct audio_stream_out *)aml_out, buffer, size, &output_buffer, &output_buffer_bytes, output_format) == 0) {
             ret = hw_write((struct audio_stream_out *)aml_out, output_buffer, output_buffer_bytes, output_format);
         }
     }
+
     after_time = aml_audio_get_systime();
 
 
@@ -863,6 +942,30 @@ int bitstream_output(void *buffer, void *priv_data, size_t size)
     if (adev->debug_flag > 1) {
         ALOGI("-%s() ret %d", __FUNCTION__, ret);
     }
+
+    return ret;
+}
+
+int spdif_bitstream_output(void *buffer, void *priv_data, size_t size)
+{
+    struct aml_stream_out *aml_out = (struct aml_stream_out *)priv_data;
+    struct aml_audio_device *adev = aml_out->dev;
+    struct dolby_ms12_desc *ms12 = &(adev->ms12);
+    struct bitstream_out_desc *bitstream_out = &ms12->bitstream_out[BITSTREAM_OUTPUT_B];
+    void *output_buffer = NULL;
+    size_t output_buffer_bytes = 0;
+    audio_format_t output_format = AUDIO_FORMAT_AC3;
+    int ret = 0;
+    bitstream_out->audio_format = output_format;
+
+    if (adev->debug_flag > 1) {
+        ALOGI("+%s() size %zu,dual_output = %d, optical_format = %d, sink_format = %d out total=%d main in=%d", __FUNCTION__, size, aml_out->dual_output_flag, adev->optical_format, adev->sink_format, ms12->bitsteam_cnt, ms12->input_total_ms);
+    }
+    /*dump ms12 spdif bitstream output*/
+    dump_ms12_output_data(buffer, size, MS12_OUTPUT_SPDIF_BITSTREAM_FILE);
+
+    struct audio_stream_out *stream_out = (struct audio_stream_out *)aml_out;
+    ret = aml_ms12_spdif_output_new(stream_out, bitstream_out, buffer, size);
 
     return ret;
 }
@@ -916,7 +1019,13 @@ static void *dolby_ms12_threadloop(void *data)
             adev->pcm_handle[DIGITAL_DEVICE] = NULL;
             aml_out->dual_output_flag = 0;
         }
+        aml_audio_set_spdif_format(PORT_SPDIF, AML_STEREO_PCM, aml_out);
         pthread_mutex_unlock(&adev->alsa_pcm_lock);
+        if (aml_out->spdifenc_init) {
+            aml_spdif_encoder_close(aml_out->spdifenc_handle);
+            aml_out->spdifenc_handle = NULL;
+            aml_out->spdifenc_init = false;
+        }
         release_audio_stream((struct audio_stream_out *)aml_out);
     }
     adev->ms12_out = NULL;

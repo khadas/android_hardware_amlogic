@@ -382,6 +382,12 @@ public:
         ALOGI("%s() set mDualOutputFlag %d", __FUNCTION__, mDualOutputFlag);
     }
 
+    virtual void setDualBitstreamOut(bool need_dual_output)
+    {
+        mDualBitstreamOut = need_dual_output;
+        ALOGI("%s() set mDualBitstreamOut %d", __FUNCTION__, mDualBitstreamOut);
+    }
+
     virtual bool getDualOutputFlag(void)
     {
         return mDualOutputFlag;
@@ -651,6 +657,7 @@ private:
     };
 
     bool mDualOutputFlag;
+    bool mDualBitstreamOut;
 
     bool mActivateOTTSignal;
     int mChannelConfOTTSoundsIn;

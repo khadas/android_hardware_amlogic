@@ -115,6 +115,8 @@ typedef enum AML_MIXER_CTRL_ID {
     AML_MIXER_ID_HDMI_ATMOS_EDID,
     AML_MIXER_ID_ATV_IN_AUDIO_STABLE,
     AML_MIXER_ID_SPDIF_FORMAT,
+    AML_MIXER_ID_SPDIF_B_FORMAT,
+    AML_MIXER_ID_SPDIF_TO_HDMI,
     AML_MIXER_ID_AV_IN_AUDIO_STABLE,
     AML_MIXER_ID_EQ_MASTER_VOLUME,
     AML_MIXER_ID_SPDIFIN_ARCIN_SWITCH,
@@ -126,7 +128,7 @@ typedef enum AML_MIXER_CTRL_ID {
 /*
  *tinymix "Audio spdif format" list
  */
-enum AML_SPDIF_FORMAT {
+typedef enum AML_SPDIF_FORMAT {
     AML_STEREO_PCM = 0,
     AML_DTS_RAW_MODE = 1,
     AML_DOLBY_DIGITAL = 2,
@@ -137,7 +139,16 @@ enum AML_SPDIF_FORMAT {
     AML_TRUE_HD = 7,
     AML_DTS_HD_MA = 8,
     AML_HIGH_SR_STEREO_LPCM = 9,
+} eMixerSpdif_Format;
+
+/*
+ *tinymix "Spdif to HDMITX Select" list
+ */
+enum AML_SPDIF_TO_HDMITX {
+    AML_SPDIF_A_TO_HDMITX,
+    AML_SPDIF_B_TO_HDMITX,
 };
+
 
 struct aml_mixer_list {
     int  id;

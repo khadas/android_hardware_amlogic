@@ -59,6 +59,8 @@ static struct aml_mixer_list gAmlMixerList[] = {
     /* for ATV status */
     {AML_MIXER_ID_ATV_IN_AUDIO_STABLE,  "ATV audio stable"},
     {AML_MIXER_ID_SPDIF_FORMAT,         "Audio spdif format"},
+    {AML_MIXER_ID_SPDIF_B_FORMAT,       "Audio spdif_b format"},
+    {AML_MIXER_ID_SPDIF_TO_HDMI,        "Spdif to HDMITX Select"},
     /* for AV status */
     {AML_MIXER_ID_AV_IN_AUDIO_STABLE,   "AV audio stable"},
     /* for Speaker master volume */

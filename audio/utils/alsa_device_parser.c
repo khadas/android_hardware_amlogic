@@ -350,7 +350,7 @@ int alsa_device_update_pcm_index(int alsaPORT, int stream)
 	if (pADD)
 		new_port = pADD->mPcmIndex;
 
-	ALOGD("auge sound card, fix alsaPORT:%d to :%d\n", alsaPORT, new_port);
+	ALOGD("auge sound card, pAdd=%p fix alsaPORT:%d to :%d\n",pADD, alsaPORT, new_port);
 
 	return new_port;
 }

@@ -29,6 +29,8 @@
 #include "dolby_lib_api.h"
 #include "aml_audio_stream.h"
 #include "audio_virtual_buf.h"
+#include "alsa_config_parameters.h"
+
 
 #define AML_ZERO_ADD_MIN_SIZE 1024
 
@@ -137,7 +139,8 @@ int aml_alsa_output_open(struct audio_stream_out *stream)
         int device_index = device;
         // mark: will there wil issue here? conflit with MS12 device?? zz
         if (card == alsa_device_get_card_index()) {
-            device_index = alsa_device_update_pcm_index(device, PLAYBACK);
+            int alsa_port = alsa_device_get_port_index(device);
+            device_index = alsa_device_update_pcm_index(alsa_port, PLAYBACK);
         }
 
         ALOGI("%s, audio open card(%d), device(%d)", __func__, card, device_index);
@@ -574,4 +577,187 @@ size_t aml_alsa_input_read(struct audio_stream_in *stream,
     }
     return 0;
 }
+typedef struct alsa_handle {
+    unsigned int card;
+    unsigned int pcm_index;   /*used for open the alsa device*/
+    struct pcm_config config;
+    struct pcm *pcm;
+    int    block_mode;
+    unsigned int alsa_port;  /*refer to PORT_SPDIF, PORT***/
 
+} alsa_handle_t;
+
+int aml_alsa_output_open_new(void **handle, aml_stream_config_t * stream_config, aml_device_config_t *device_config)
+{
+    int ret = -1;
+    struct pcm_config *config = NULL;
+    int card = 0;
+    int alsa_port = 0;
+    int pcm_index = -1;
+    struct pcm *pcm = NULL;
+    alsa_handle_t * alsa_handle = NULL;
+    bool platform_is_tv = 0;
+    audio_format_t  format = AUDIO_FORMAT_PCM_16_BIT;
+    unsigned int channels = 0;
+    unsigned int rate = 0;
+    struct aml_audio_device *adev = (struct aml_audio_device *)adev_get_handle();
+
+
+    alsa_handle = (alsa_handle_t *)calloc(1, sizeof(alsa_handle_t));
+    if (alsa_handle == NULL) {
+        ALOGE("malloc alsa_handle failed\n");
+        return -1;
+    }
+
+    config = &alsa_handle->config;
+    if (stream_config->config.format == AUDIO_FORMAT_IEC61937) {
+        format = stream_config->config.offload_info.format;
+    }
+    channels = audio_channel_count_from_out_mask(stream_config->config.channel_mask);
+    rate     = stream_config->config.sample_rate;
+    get_hardware_config_parameters(config, format, channels, rate, platform_is_tv);
+
+    config->channels = channels;
+    config->rate     = rate;
+
+    if (config->rate == 0 || config->channels == 0) {
+
+        ALOGE("Invalid sampleate=%d channel=%d\n", config->rate == 0, config->channels);
+        goto exit;
+    }
+
+    if (format == AUDIO_FORMAT_PCM_16_BIT) {
+        config->format = PCM_FORMAT_S16_LE;
+    } else if (format == AUDIO_FORMAT_PCM_32_BIT) {
+        config->format = PCM_FORMAT_S32_LE;
+    } else {
+        config->format = PCM_FORMAT_S16_LE;
+    }
+
+    config->avail_min = 0;
+
+    card = alsa_device_get_card_index();
+
+    alsa_port = device_config->device_port;
+
+    if (alsa_port < 0) {
+        ALOGE("Wrong alsa_device ID\n");
+        return -1;
+    }
+    pcm_index = alsa_device_update_pcm_index(alsa_port, PLAYBACK);
+
+    ALOGI("In pcm open ch=%d rate=%d\n", config->channels, config->rate);
+    ALOGI("%s, audio open card(%d), device(%d) \n", __func__, card, pcm_index);
+    ALOGI("ALSA open configs: channels %d format %d period_count %d period_size %d rate %d \n",
+          config->channels, config->format, config->period_count, config->period_size, config->rate);
+    ALOGI("ALSA open configs: threshold start %u stop %u silence %u silence_size %d avail_min %d \n",
+          config->start_threshold, config->stop_threshold, config->silence_threshold, config->silence_size, config->avail_min);
+
+    pcm = pcm_open(card, pcm_index, PCM_OUT, config);
+    if (!pcm || !pcm_is_ready(pcm)) {
+        ALOGE("%s, pcm %p open [ready %d] failed \n", __func__, pcm, pcm_is_ready(pcm));
+        goto exit;
+    }
+
+    alsa_handle->card = card;
+    alsa_handle->alsa_port = pcm_index;
+    alsa_handle->pcm = pcm;
+    alsa_handle->alsa_port = alsa_port;
+
+
+    *handle = (void*)alsa_handle;
+
+    return 0;
+
+exit:
+    if (alsa_handle) {
+        free(alsa_handle);
+    }
+    *handle = NULL;
+    return -1;
+
+}
+
+
+void aml_alsa_output_close_new(void *handle)
+{
+    ALOGI("\n+%s() hanlde %p\n", __func__, handle);
+    alsa_handle_t * alsa_handle = NULL;
+    struct pcm *pcm = NULL;
+    struct aml_audio_device *adev = (struct aml_audio_device *)adev_get_handle();
+
+    alsa_handle = (alsa_handle_t *)handle;
+
+    if (alsa_handle == NULL) {
+        ALOGE("%s handle is NULL\n", __func__);
+        return;
+    }
+
+    if (alsa_handle->pcm == NULL) {
+        ALOGE("%s PCM is NULL\n", __func__);
+        return;
+    }
+    pcm = alsa_handle->pcm;
+    pcm_close(pcm);
+    free(alsa_handle);
+
+    ALOGI("-%s()\n\n", __func__);
+}
+
+size_t aml_alsa_output_write_new(void *handle, const void *buffer, size_t bytes)
+{
+    int ret = -1;
+    alsa_handle_t * alsa_handle = NULL;
+    struct pcm *pcm = NULL;
+    alsa_handle = (alsa_handle_t *)handle;
+    if ((alsa_handle == NULL) || (buffer == NULL) || (bytes == 0)) {
+        ALOGE("%s handle is NULL\n", __func__);
+        return -1;
+    }
+
+    if (alsa_handle->pcm == NULL) {
+        ALOGE("%s PCM is NULL\n", __func__);
+        return -1;
+    }
+
+    //ALOGD("handle=%p pcm=%p\n",alsa_handle,alsa_handle->pcm);
+    {
+        struct snd_pcm_status status;
+        pcm_ioctl(alsa_handle->pcm, SNDRV_PCM_IOCTL_STATUS, &status);
+        if (status.state == PCM_STATE_XRUN) {
+            ALOGD("%s alsa underrun", __func__);
+        }
+    }
+
+    ret = pcm_write(alsa_handle->pcm, buffer, bytes);
+
+    return ret;
+}
+
+int aml_alsa_output_getinfo(void *handle, info_type_t type, output_info_t * info)
+{
+    int ret = -1;
+    alsa_handle_t * alsa_handle = NULL;
+    alsa_handle = (alsa_handle_t *)handle;
+
+    if (handle == NULL) {
+        return -1;
+    }
+    switch (type) {
+    case OUTPUT_INFO_DELAYFRAME: {
+        snd_pcm_sframes_t delay = 0;
+        uint32_t whole_latency_frames = alsa_handle->config.start_threshold;
+        ret = pcm_ioctl(alsa_handle->pcm, SNDRV_PCM_IOCTL_DELAY, &delay);
+        if (ret < 0) {
+            info->delay_frame = whole_latency_frames;
+            return -1;
+        }
+
+        info->delay_frame = delay;
+        return 0;
+    }
+    default:
+        return -1;
+    }
+    return -1;
+}

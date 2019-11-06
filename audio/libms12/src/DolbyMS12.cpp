@@ -45,6 +45,7 @@ int (*FuncDolbyMS12InputSystem)(void *, const void *, size_t, int, int, int);
 #ifdef REPLACE_OUTPUT_BUFFER_WITH_CALLBACK
 int (*FuncDolbyMS12RegisterPCMCallback)(output_callback , void *);
 int (*FuncDolbyMS12RegisterBitstreamCallback)(output_callback , void *);
+int (*FuncDolbyMS12RegisterSpdifBitstreamCallback)(output_callback , void *);
 #else
 int (*FuncDolbyMS12Output)(void *, const void *, size_t);
 #endif
@@ -143,6 +144,11 @@ int DolbyMS12::GetLibHandle(void)
     FuncDolbyMS12RegisterBitstreamCallback = (int (*)(output_callback , void *)) dlsym(mDolbyMS12LibHanle, "ms12_output_register_bitstream_callback");
     if (!FuncDolbyMS12RegisterBitstreamCallback) {
         ALOGE("%s, dlsym ms12_output_register_bitstream_callback fail\n", __FUNCTION__);
+        goto ERROR;
+    }
+    FuncDolbyMS12RegisterSpdifBitstreamCallback = (int (*)(output_callback , void *)) dlsym(mDolbyMS12LibHanle, "ms12_output_register_spdif_bitstream_callback");
+    if (!FuncDolbyMS12RegisterSpdifBitstreamCallback) {
+        ALOGE("%s, dlsym ms12_output_register_spdif bitstream_callback fail\n", __FUNCTION__);
         goto ERROR;
     }
 #else
@@ -272,6 +278,7 @@ void DolbyMS12::ReleaseLibHandle(void)
 #ifdef REPLACE_OUTPUT_BUFFER_WITH_CALLBACK
     FuncDolbyMS12RegisterPCMCallback = NULL;
     FuncDolbyMS12RegisterBitstreamCallback = NULL;
+    FuncDolbyMS12RegisterSpdifBitstreamCallback = NULL;
 #else
     FuncDolbyMS12Output = NULL;
 #endif
@@ -450,6 +457,20 @@ int DolbyMS12::DolbyMS12RegisterBitstreamCallback(output_callback callback, void
     ALOGV("-%s() ret %d", __FUNCTION__, ret);
     return ret;
 }
+
+int DolbyMS12::DolbyMS12RegisterSpdifBitstreamCallback(output_callback callback, void *priv_data)
+{
+    int ret = 0;
+    ALOGV("+%s()", __FUNCTION__);
+    if (!FuncDolbyMS12RegisterSpdifBitstreamCallback) {
+        ALOGE("%s(), pls load lib first.\n", __FUNCTION__);
+        return -1;
+    }
+
+    ret = (*FuncDolbyMS12RegisterSpdifBitstreamCallback)(callback , priv_data);
+    ALOGV("-%s() ret %d", __FUNCTION__, ret);
+    return ret;
+}
 #else
 int DolbyMS12::DolbyMS12Output(
     void *DolbyMS12Pointer
@@ -575,7 +596,7 @@ unsigned long long DolbyMS12::DolbyMS12GetNBytesConsumedOfUDC(void)
     unsigned long long ret = 0;
     ALOGV("+%s()", __FUNCTION__);
     if (!FuncDolbyMS12GetNBytesConsumedOfUDC) {
-        ALOGE("%s(), pls load lib first.\n", __FUNCTION__);
+        //ALOGE("%s(), pls load lib first.\n", __FUNCTION__);
         return ret;
     }
 

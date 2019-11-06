@@ -175,22 +175,6 @@ static inline alsa_device_t usecase_to_device(stream_usecase_t usecase)
     }
 }
 
-static inline alsa_device_t usecase_device_adapter_with_ms12(alsa_device_t usecase_device, audio_format_t output_format)
-{
-    ALOGI("%s usecase_device %d output_format %#x", __func__, usecase_device, output_format);
-    switch (usecase_device) {
-    case DIGITAL_DEVICE:
-    case I2S_DEVICE:
-        if ((output_format == AUDIO_FORMAT_AC3) || (output_format == AUDIO_FORMAT_E_AC3)) {
-            return DIGITAL_DEVICE;
-        } else {
-            return I2S_DEVICE;
-        }
-    default:
-        return I2S_DEVICE;
-    }
-}
-
 typedef void (*dtv_avsync_process_cb)(struct aml_audio_patch* patch,struct aml_stream_out* stream_out);
 
 struct aml_audio_patch {

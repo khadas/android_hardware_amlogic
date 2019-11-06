@@ -113,23 +113,38 @@ private:
     size_t outBufCurrentPos;
 
 };
-static SPDIFEncoderAD *spdif_encoder_ad = NULL;
-extern "C" int spdif_encoder_ad_init(audio_format_t format, const void *output, int max_output_size)
+
+extern "C" int spdif_encoder_ad_init(void **pphandle, audio_format_t format, const void *output, int max_output_size)
 {
-    if (spdif_encoder_ad) {
-        delete spdif_encoder_ad;
-        spdif_encoder_ad = NULL;
-    }
+    SPDIFEncoderAD *spdif_encoder_ad = NULL;
+
     spdif_encoder_ad = new SPDIFEncoderAD(format, output, max_output_size);
     if (spdif_encoder_ad == NULL) {
         ALOGE("init SPDIFEncoderAD failed \n");
         return  -1;
     }
+    *pphandle = (void *)spdif_encoder_ad;
     ALOGI("init SPDIFEncoderAD done\n");
     return 0;
 }
-extern "C" int spdif_encoder_ad_write(const void *buffer, size_t numBytes)
+extern "C" int spdif_encoder_ad_deinit(void *phandle)
 {
+    SPDIFEncoderAD *spdif_encoder_ad = (SPDIFEncoderAD *) phandle;
+    if (spdif_encoder_ad) {
+        delete spdif_encoder_ad;
+    }
+
+    return 0;
+}
+
+
+extern "C" int spdif_encoder_ad_write(void *phandle, const void *buffer, size_t numBytes)
+{
+    SPDIFEncoderAD *spdif_encoder_ad = (SPDIFEncoderAD *) phandle;
+    if (phandle == NULL) {
+        return -1;
+    }
+
 #if 1
     if (aml_getprop_bool("vendor.media.audiohal.outdump")) {
         FILE *fp1 = fopen("/data/audio_out/enc_input.spdif", "a+");
@@ -141,27 +156,47 @@ extern "C" int spdif_encoder_ad_write(const void *buffer, size_t numBytes)
 #endif
     return spdif_encoder_ad->write(buffer, numBytes);
 }
-extern "C" uint64_t spdif_encoder_ad_get_total()
+extern "C" uint64_t spdif_encoder_ad_get_total(void *phandle)
 {
+    SPDIFEncoderAD *spdif_encoder_ad = (SPDIFEncoderAD *) phandle;
+    if (phandle == NULL) {
+        return -1;
+    }
+
     return spdif_encoder_ad->total_bytes();
 }
 /*
  *@brief get current iec61937 data size
  */
-extern "C" size_t spdif_encoder_ad_get_current_position(void)
+extern "C" size_t spdif_encoder_ad_get_current_position(void *phandle)
 {
+    SPDIFEncoderAD *spdif_encoder_ad = (SPDIFEncoderAD *) phandle;
+    if (phandle == NULL) {
+        return -1;
+    }
+
     return spdif_encoder_ad->getCurrentIEC61937DataSize();
 }
 /*
  *@brief flush output iec61937 data current position to zero!
  */
-extern "C" void spdif_encoder_ad_flush_output_current_position(void)
+extern "C" void spdif_encoder_ad_flush_output_current_position(void *phandle)
 {
+    SPDIFEncoderAD *spdif_encoder_ad = (SPDIFEncoderAD *) phandle;
+    if (phandle == NULL) {
+        return;
+    }
+
     return spdif_encoder_ad->flushOutputCurrentPosition();
 }
 
-extern "C" void spdif_encoder_ad_reset(void)
+extern "C" void spdif_encoder_ad_reset(void *phandle)
 {
+    SPDIFEncoderAD *spdif_encoder_ad = (SPDIFEncoderAD *) phandle;
+    if (phandle == NULL) {
+        return;
+    }
+
     return spdif_encoder_ad->reset();
 }
 

@@ -524,6 +524,11 @@ void dolby_ms12_set_dap_dialogue_enhancer(DAPDialogueEnhancer *dapDialogueEnhanc
  */
 void dolby_ms12_set_dual_output_flag(bool need_dual_output);
 
+/**
+ * @brief set dual bitstream output, HDMI out ddp, spdif output dd
+ */
+void dolby_ms12_set_dual_bitstream_out(bool need_dual_output);
+
 
 /**
  * @brief set active ott singal flag(continuous output mode)
