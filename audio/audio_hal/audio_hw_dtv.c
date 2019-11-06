@@ -590,7 +590,7 @@ static int dtv_patch_pcm_wirte(unsigned char *pcm_data, int size,
     //     process_pts_sync(0, patch, 0);
     // }
 
-    if (aml_getprop_bool("media.audiohal.outdump")) {
+    if (aml_getprop_bool("vendor.media.audiohal.outdump")) {
         FILE *fp1 = fopen("/data/audio_dtv.pcm", "a+");
         if (fp1) {
             int flen = fwrite((char *)write_buf, 1, write_size, fp1);

@@ -302,7 +302,7 @@ unsigned long  armdec_get_pts(dsp_operations_t *dsp_ops)
     }
 
     int pts_delta = 0;
-    if (property_get("media.libplayer.pts_delta", value, NULL) > 0) {
+    if (property_get("vendor.media.libplayer.pts_delta", value, NULL) > 0) {
         pts_delta = atoi(value);
     }
 
@@ -597,7 +597,7 @@ static int audio_codec_init(aml_audio_dec_t *audec)
     audec->sn_threadid = -1;
     audec->sn_getpackage_threadid = -1;
     audec->OmxFirstFrameDecoded = 0;
-    audec->use_get_out_posion = am_getconfig_bool_def("media.audio.pts.use_get_posion", 0);
+    audec->use_get_out_posion = am_getconfig_bool_def("vendor.media.audio.pts.use_get_posion", 0);
     package_list_init(audec);
     while (0 != set_sysfs_int(DECODE_ERR_PATH, DECODE_NONE_ERR)) {
         adec_print("[%s %d]set codec fatal failed ! \n", __FUNCTION__, __LINE__);
@@ -804,7 +804,7 @@ static int start_adec(aml_audio_dec_t *audec)
 
     char value[PROPERTY_VALUE_MAX] = {0};
     int wait_count = 100;
-    if (property_get("media.amadec.wait_count", value, NULL) > 0) {
+    if (property_get("vendor.media.amadec.wait_count", value, NULL) > 0) {
         wait_count = atoi(value);
     }
     adec_print("wait first apts count :%d \n", wait_count);
@@ -894,7 +894,7 @@ static void resume_adec(aml_audio_dec_t *audec)
     if (audec->state == PAUSED) {
         audec->state = ACTIVE;
         audec->refresh_pts_readytime_ms = gettime_ms() +
-                                          am_getconfig_int_def("media.amadec.wait_fresh_ms", 200);
+                                          am_getconfig_int_def("vendor.media.amadec.wait_fresh_ms", 200);
         #ifdef USE_AOUT_IN_ADEC
         aout_ops->resume(audec);
         #endif
@@ -1147,7 +1147,7 @@ void *audio_getpackage_loop(void *args)
     int rlen = 0;//read buffer ret size
     int nAudioFormat;
     unsigned wfd = 0;
-    if (am_getconfig_bool("media.libplayer.wfd"))  {
+    if (am_getconfig_bool("vendor.media.libplayer.wfd"))  {
         wfd = 1;
     }
 

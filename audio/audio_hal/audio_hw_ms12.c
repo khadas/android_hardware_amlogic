@@ -71,7 +71,7 @@
  */
 static void dump_ms12_output_data(void *buffer, int size, char *file_name)
 {
-    if (aml_getprop_bool("media.audiohal.outdump")) {
+    if (aml_getprop_bool("vendor.media.audiohal.outdump")) {
         FILE *fp1 = fopen(file_name, "a+");
         if (fp1) {
             int flen = fwrite((char *)buffer, 1, size, fp1);
@@ -141,7 +141,7 @@ int get_the_dolby_ms12_prepared(
         char buf[PROPERTY_VALUE_MAX];
         int prop_ret = -1;
         int out_format = 0;
-        prop_ret = property_get("dolby.ms12.output.format", buf, NULL);
+        prop_ret = property_get("vendor.dolby.ms12.output.format", buf, NULL);
         if (prop_ret > 0) {
             out_format = atoi(buf);
             if (out_format == 0) {

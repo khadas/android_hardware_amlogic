@@ -38,8 +38,8 @@
 
 
 
-#define MULTICH_SUPPORT_PROPERTY "media.multich.support.info"
-#define PCM_88_96_SUPPORT        "media.libplayer.88_96K"
+#define MULTICH_SUPPORT_PROPERTY "vendor.media.multich.support.info"
+#define PCM_88_96_SUPPORT        "vendor.media.libplayer.88_96K"
 
 
 #ifdef USE_AOUT_IN_ADEC
@@ -165,7 +165,7 @@ static void start_adec(aml_audio_dec_t *audec)
 
     char value[PROPERTY_VALUE_MAX] = {0};
     int wait_count = 100;
-    if (property_get("media.amadec.wait_count", value, NULL) > 0) {
+    if (property_get("vendor.media.amadec.wait_count", value, NULL) > 0) {
         wait_count = atoi(value);
     }
     adec_print("wait first apts count :%d \n", wait_count);
@@ -255,7 +255,7 @@ static void resume_adec(aml_audio_dec_t *audec)
     if (audec->state == PAUSED) {
         audec->state = ACTIVE;
         audec->refresh_pts_readytime_ms = gettime_ms() +
-            am_getconfig_int_def("media.amadec.wait_fresh_ms", 200);
+            am_getconfig_int_def("vendor.media.amadec.wait_fresh_ms", 200);
         aout_ops->resume(audec);
         adec_pts_resume();
     }
@@ -634,8 +634,8 @@ static int set_audio_decoder(aml_audio_dec_t *audec)
     }
 
 
-    ret = property_get("media.arm.audio.decoder", value, NULL);
-    adec_print("media.amplayer.audiocodec = %s, t->type = %s\n", value, t->type);
+    ret = property_get("vendor.media.arm.audio.decoder", value, NULL);
+    adec_print("vendor.media.amplayer.audiocodec = %s, t->type = %s\n", value, t->type);
     if (ret > 0 && match_types(t->type, value)) {
         char type_value[] = "ac3,eac3";
         set_multichs_prop();
@@ -673,8 +673,8 @@ static int set_audio_decoder(aml_audio_dec_t *audec)
         goto exit;
     }
 
-    ret = property_get("media.arc.audio.decoder", value, NULL);
-    adec_print("media.amplayer.audiocodec = %s, t->type = %s\n", value, t->type);
+    ret = property_get("vendor.media.arc.audio.decoder", value, NULL);
+    adec_print("vendor.media.amplayer.audiocodec = %s, t->type = %s\n", value, t->type);
     if (ret > 0 && match_types(t->type, value)) {
         if (audec->dspdec_not_supported == 0) {
             audio_decoder = AUDIO_ARC_DECODER;
@@ -685,8 +685,8 @@ static int set_audio_decoder(aml_audio_dec_t *audec)
         goto exit;
     }
 
-    ret = property_get("media.ffmpeg.audio.decoder", value, NULL);
-    adec_print("media.amplayer.audiocodec = %s, t->type = %s\n", value, t->type);
+    ret = property_get("vendor.media.ffmpeg.audio.decoder", value, NULL);
+    adec_print("vendor.media.amplayer.audiocodec = %s, t->type = %s\n", value, t->type);
     if (ret > 0 && match_types(t->type, value)) {
         audio_decoder = AUDIO_FFMPEG_DECODER;
         goto exit;
@@ -698,7 +698,7 @@ static int set_audio_decoder(aml_audio_dec_t *audec)
         adec_print("[%s:%d]arc decoder not support this audio yet,switch to ARM decoder \n", __FUNCTION__, __LINE__);
     }
 exit:
-    if (am_getconfig_bool("media.libplayer.wfd") && (audio_id == ACODEC_FMT_WIFIDISPLAY || audio_id == ACODEC_FMT_AAC)) {
+    if (am_getconfig_bool("vendor.media.libplayer.wfd") && (audio_id == ACODEC_FMT_WIFIDISPLAY || audio_id == ACODEC_FMT_AAC)) {
         adec_print("wfd use arm decoder \n");
         audio_decoder = AUDIO_ARMWFD_DECODER;
     }
@@ -764,7 +764,7 @@ int audiodec_init(aml_audio_dec_t *audec)
     audec->VersionNum = -1;
     audec->refresh_pts_readytime_ms = 0;
     #ifdef USE_AOUT_IN_ADEC
-    if (am_getconfig_bool("media.libplayer.wfd")) {
+    if (am_getconfig_bool("vendor.media.libplayer.wfd")) {
         wfd = 1;
     }
     if (get_audio_decoder() == AUDIO_ARC_DECODER) {

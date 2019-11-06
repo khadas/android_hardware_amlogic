@@ -508,7 +508,7 @@ int aml_audio_get_debug_flag()
     char buf[PROPERTY_VALUE_MAX];
     int ret = -1;
     int debug_flag = 0;
-    ret = property_get("media.audio.hal.debug", buf, NULL);
+    ret = property_get("vendor.media.audio.hal.debug", buf, NULL);
     if (ret > 0) {
         debug_flag = atoi(buf);
     }
@@ -520,7 +520,7 @@ int aml_audio_debug_set_optical_format()
     char buf[PROPERTY_VALUE_MAX];
     int ret = -1;
 
-    ret = property_get("media.audio.hal.optical", buf, NULL);
+    ret = property_get("vendor.media.audio.hal.optical", buf, NULL);
     if (ret > 0) {
         if (strcasecmp(buf, "pcm") == 0 || strcmp(buf, "0") == 0) {
             return TYPE_PCM;
@@ -556,7 +556,7 @@ int aml_audio_get_arc_latency_offset(int aformat)
     int latency_ms = 0;
     char *prop_name = NULL;
     (void)aformat;
-    prop_name = "media.audio.hal.arc_latency.ddp";
+    prop_name = "vendor.media.audio.hal.arc_latency.ddp";
     latency_ms = 0;
     ret = property_get(prop_name, buf, NULL);
     if (ret > 0) {
@@ -572,7 +572,7 @@ int aml_audio_get_ddp_latency_offset(int aformat)
     int latency_ms = 0;
     char *prop_name = NULL;
     (void)aformat;
-    prop_name = "media.audio.hal.latency.ddp";
+    prop_name = "vendor.media.audio.hal.latency.ddp";
     latency_ms = -50;
     ret = property_get(prop_name, buf, NULL);
     if (ret > 0) {
@@ -588,7 +588,7 @@ int aml_audio_get_pcm_latency_offset(int aformat)
     int latency_ms = 0;
     char *prop_name = NULL;
     (void)aformat;
-    prop_name = "media.audio.hal.latency.pcm";
+    prop_name = "vendor.media.audio.hal.latency.pcm";
     latency_ms = -30;
     ret = property_get(prop_name, buf, NULL);
     if (ret > 0) {
@@ -605,7 +605,7 @@ int aml_audio_get_hwsync_latency_offset(void)
 	int latency_ms = 0;
 	char *prop_name = NULL;
 
-	prop_name = "media.audio.hal.hwsync_latency.ddp";
+	prop_name = "vendor.media.audio.hal.hwsync_latency.ddp";
 	latency_ms = -50;
 	ret = property_get(prop_name, buf, NULL);
 	if (ret > 0) {
@@ -622,11 +622,11 @@ int aml_audio_get_ms12_latency_offset(int b_raw)
     char *prop_name = NULL;
     if (b_raw == 0) {
         /*for non tunnel ddp2h/heaac case:netlfix AL1 case */
-        prop_name = "media.audio.hal.ms12.latency.pcm";
+        prop_name = "vendor.media.audio.hal.ms12.latency.pcm";
         latency_ms = -20;
     }else {
         /*for non tunnel dolby ddp5.1 case:netlfix AL1 case*/
-        prop_name = "media.audio.hal.ms12.latency.raw";
+        prop_name = "vendor.media.audio.hal.ms12.latency.raw";
         latency_ms = -40;
     }
 
@@ -644,7 +644,7 @@ int aml_audio_get_ms12_tunnel_latency_offset(void)
     int latency_ms = 0;
     char *prop_name = NULL;
     /*tunnle mode case*/
-    prop_name = "media.audio.hal.ms12.latency.tunnel";
+    prop_name = "vendor.media.audio.hal.ms12.latency.tunnel";
     latency_ms = 50;
 
     ret = property_get(prop_name, buf, NULL);
@@ -663,11 +663,11 @@ int aml_audio_get_ms12_atmos_latency_offset(int tunnel)
     char *prop_name = NULL;
     if (tunnel) {
         /*tunnel atmos case*/
-        prop_name = "media.audio.hal.ms12.latency.atmos.tunnel";
+        prop_name = "vendor.media.audio.hal.ms12.latency.atmos.tunnel";
         latency_ms = 100;
     }else {
         /*non tunnel atmos case*/
-        prop_name = "media.audio.hal.ms12.latency.atmos.notunnel";
+        prop_name = "vendor.media.audio.hal.ms12.latency.atmos.notunnel";
         latency_ms = 50;
     }
     ret = property_get(prop_name, buf, NULL);
@@ -683,7 +683,7 @@ int aml_audio_get_ddp_frame_size()
     int frame_size = DDP_FRAME_SIZE;
     char buf[PROPERTY_VALUE_MAX];
     int ret = -1;
-    char *prop_name = "media.audio.hal.frame_size";
+    char *prop_name = "vendor.media.audio.hal.frame_size";
     ret = property_get(prop_name, buf, NULL);
     if (ret > 0) {
         frame_size = atoi(buf);
@@ -938,7 +938,7 @@ int aml_audio_get_hdmi_latency_offset(int aformat)
 
     (void)aformat;
     // PCM latency
-    prop_name = "media.audio.hal.hdmi_latency.pcm";
+    prop_name = "vendor.media.audio.hal.hdmi_latency.pcm";
     latency_ms = -52;
     ret = property_get(prop_name, buf, NULL);
     if (ret > 0)
@@ -1031,7 +1031,7 @@ int aml_audio_compensate_video_delay( int enable) {
     if (enable) {
         /*alsa delay is about 80, the MS12 tunning delay is about 70*/
         video_delay = 150;
-        prop_name = "media.audio.hal.video_delay_time";
+        prop_name = "vendor.media.audio.hal.video_delay_time";
         ret = property_get(prop_name, buf, NULL);
         if (ret > 0) {
             video_delay = atoi(buf);
@@ -1050,7 +1050,7 @@ int aml_audio_get_ms12_timestamp_offset(void)
     char *prop_name = NULL;
     int delay_time_ms = 0;
     delay_time_ms = 100;
-    prop_name = "media.audio.hal.delay_timestamp";
+    prop_name = "vendor.media.audio.hal.delay_timestamp";
     ret = property_get(prop_name, buf, NULL);
     if (ret > 0) {
         delay_time_ms = atoi(buf);
