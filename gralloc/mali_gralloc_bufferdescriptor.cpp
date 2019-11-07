@@ -315,15 +315,14 @@ int mali_gralloc_validate_buffer_size(buffer_handle_t buffer, gralloc1_buffer_de
 			AERR("Bad stride!Not the same with allocated buffer " );
 			return GRALLOC1_ERROR_BAD_VALUE;
 		}
-		if (am_gralloc_is_omx_metadata_extend_usage(hnd->usage))
+#ifdef GRALLOC_AML_EXTEND
+		if (am_gralloc_is_omx_metadata_extend_usage(hnd->producer_usage|hnd->consumer_usage))
 		{
-			ALOGW("omx buffer: descriptorInfo->width:%d descriptorInfo->height:%d", descriptorInfo->width, descriptorInfo->height);
+			//work around: this buffer only have omx metadata, not for rander, just need a small buffer.
 			return GRALLOC1_ERROR_NONE;
 		}
-		else
-		{
-			bufferSize = hnd->byte_stride / stride * descriptorInfo->width * descriptorInfo->height;
-		}
+#endif
+		bufferSize = hnd->byte_stride / stride * descriptorInfo->width * descriptorInfo->height;
 	}
 	else
 	{
