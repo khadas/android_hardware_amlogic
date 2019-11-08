@@ -29,9 +29,14 @@
 #include "mali_gralloc_bufferdescriptor.h"
 #include "mali_gralloc_private_interface_types.h"
 #include "mali_gralloc_buffer.h"
+
+//meson graphics changes start
+#ifdef GRALLOC_AML_EXTEND
 #include "mali_gralloc_ion.h"
 #include "mali_gralloc_reference.h"
 #include "amlogic/am_gralloc_internal.h"
+#endif
+//meson graphics changes end
 
 /*
  * Validate descriptor to ensure that it originated from this version
@@ -292,6 +297,8 @@ int mali_gralloc_get_layer_count_internal(buffer_handle_t buffer, uint32_t *outL
 
 #endif
 
+//meson graphics changes start
+#ifdef GRALLOC_AML_EXTEND
 #if PLATFORM_SDK_VERSION >= 28
 int mali_gralloc_validate_buffer_size(buffer_handle_t buffer, gralloc1_buffer_descriptor_info_t* descriptorInfo, uint32_t stride)
 {
@@ -315,13 +322,11 @@ int mali_gralloc_validate_buffer_size(buffer_handle_t buffer, gralloc1_buffer_de
 			AERR("Bad stride!Not the same with allocated buffer " );
 			return GRALLOC1_ERROR_BAD_VALUE;
 		}
-#ifdef GRALLOC_AML_EXTEND
 		if (am_gralloc_is_omx_metadata_extend_usage(hnd->producer_usage|hnd->consumer_usage))
 		{
 			//work around: this buffer only have omx metadata, not for rander, just need a small buffer.
 			return GRALLOC1_ERROR_NONE;
 		}
-#endif
 		bufferSize = hnd->byte_stride / stride * descriptorInfo->width * descriptorInfo->height;
 	}
 	else
@@ -339,7 +344,8 @@ int mali_gralloc_validate_buffer_size(buffer_handle_t buffer, gralloc1_buffer_de
 	{
 		if (hnd->size < bufferSize)
 		{
-			AERR("buffer size is not large enough hnd->size:%d hnd->usage:%#X, returning error", hnd->size, hnd->usage);
+			AERR("buffer size is not large enough hnd->size:%d hnd->usage:%" PRIx64 "x, returning error",
+				hnd->size, hnd->producer_usage|hnd->consumer_usage);
 			return GRALLOC1_ERROR_BAD_VALUE;
 		}
 	}
@@ -411,6 +417,8 @@ int mali_gralloc_import_buffer(gralloc1_device_t* device, const buffer_handle_t 
 	return GRALLOC1_ERROR_NONE;
 }
 #endif
+#endif
+//meson graphics changes end
 
 int mali_gralloc_query_getstride(buffer_handle_t buffer, int *pixelStride)
 {

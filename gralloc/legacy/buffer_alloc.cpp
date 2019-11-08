@@ -58,7 +58,13 @@ namespace legacy
 
 // This value is platform specific and should be set according to hardware YUV planes restrictions.
 // Please note that EGL winsys platform config file needs to use the same value when importing buffers.
+//meson graphics changes start
+#ifdef GRALLOC_AML_EXTEND
 #define YUV_MALI_PLANE_ALIGN 32
+#else
+#define YUV_MALI_PLANE_ALIGN 128
+#endif
+//meson graphics changes end
 
 // Default YUV stride aligment in Android
 #define YUV_ANDROID_PLANE_ALIGN 16
@@ -766,7 +772,13 @@ static bool get_camera_formats_stride_and_size(int w, int h, uint64_t format, in
 			return false;
 		}
 
+//meson graphics changes start
+#ifdef GRALLOC_AML_EXTEND
 		stride = w; /* No 'rows', it's effectively a long one dimensional array */
+#else
+		stride = 0; /* No 'rows', it's effectively a long one dimensional array */
+#endif
+//meson graphics changes end
 		size = w;
 		break;
 

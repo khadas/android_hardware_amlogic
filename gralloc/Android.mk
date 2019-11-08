@@ -25,7 +25,19 @@ include $(BUILD_SYSTEM)/version_defaults.mk
 endif
 
 # Include makefile which exports Gralloc Major and Minor version numbers
+# meson graphics start
+GRALLOC_AML_EXTEND:=1
+ifeq ($(GRALLOC_AML_EXTEND),1)
 include $(LOCAL_PATH)/gralloc.version.mk
+GRALLOC_USE_ION_DMA_HEAP:=1
+GRALLOC_DISABLE_FRAMEBUFFER_HAL:=1
+ifneq ($(GPU_ARCH),utgard)
+	GRALLOC_INIT_AFBC:=1
+endif
+else
+# meson graphics end
+include $(LOCAL_PATH)/../gralloc.version.mk
+endif
 
 # Include platform specific makefiles
 include $(if $(wildcard $(LOCAL_PATH)/Android.$(TARGET_BOARD_PLATFORM).mk), $(LOCAL_PATH)/Android.$(TARGET_BOARD_PLATFORM).mk,)
@@ -79,7 +91,7 @@ MALI_DISPLAY_VERSION?=0
 # The following two defines enable either DMA heap or compound page heap for when the usage has
 # GRALLOC_USAGE_HW_FB or GRALLOC_USAGE_HW_COMPOSER set and GRALLOC_USAGE_HW_VIDEO_ENCODER is not set.
 # These defines should not be enabled at the same time.
-GRALLOC_USE_ION_DMA_HEAP?=1
+GRALLOC_USE_ION_DMA_HEAP?=0
 GRALLOC_USE_ION_COMPOUND_PAGE_HEAP?=0
 
 # Properly initializes an empty AFBC buffer
@@ -89,7 +101,7 @@ GRALLOC_FB_BPP?=32
 # When enabled, forces display framebuffer format to BGRA_8888
 GRALLOC_FB_SWAP_RED_BLUE?=1
 # Disables the framebuffer HAL device. When a hwc impl is available.
-GRALLOC_DISABLE_FRAMEBUFFER_HAL?=1
+GRALLOC_DISABLE_FRAMEBUFFER_HAL?=0
 # When enabled, buffers will never be allocated with AFBC
 GRALLOC_ARM_NO_EXTERNAL_AFBC?=0
 # Minimum buffer dimensions in pixels when buffer will use AFBC
@@ -114,10 +126,6 @@ $(warning GRALLOC_USE_LEGACY_ION_API is $(GRALLOC_USE_LEGACY_ION_API))
 GRALLOC_USE_LEGACY_CALCS_LOCK?=1
 GRALLOC_USE_ION_DMABUF_SYNC?=1
 
-ifneq ($(GPU_ARCH),utgard)
-	GRALLOC_INIT_AFBC = 1
-endif
-$(warning "the value of GRALLOC_INIT_AFBC is $(GRALLOC_INIT_AFBC)")
 
 ifeq ($(TARGET_BOARD_PLATFORM), juno)
 ifeq ($(MALI_MMSS), 1)
@@ -162,20 +170,17 @@ LOCAL_C_INCLUDES := $(MALI_LOCAL_PATH) $(MALI_DDK_INCLUDES)
 # General compilation flags
 LOCAL_CFLAGS := -ldl -Werror -DLOG_TAG=\"gralloc\" -DPLATFORM_SDK_VERSION=$(PLATFORM_SDK_VERSION)
 
-# Amlogic extend
+#meson graphics start
 LOCAL_CFLAGS += -DGRALLOC_AML_EXTEND
 BOARD_RESOLUTION_RATIO ?= 1080
 LOCAL_CFLAGS += -DBOARD_RESOLUTION_RATIO=$(BOARD_RESOLUTION_RATIO)
 $(warning "the value of BOARD_RESOLUTION_RATIO is $(BOARD_RESOLUTION_RATIO)")
 
-ifeq ($(TARGET_APP_LAYER_USE_CONTINUOUS_BUFFER),true)
-	LOCAL_CFLAGS += -DAML_ALLOC_SCANOUT_FOR_COMPOSE
-endif
-
 ifeq ($(GPU_ARCH),utgard)
 	LOCAL_CFLAGS += -DGPU_FORMAT_LIMIT=1
 endif
 $(warning "the value of GPU_ARCH is $(GPU_ARCH)")
+#meson graphics end
 
 # Static hw flags
 LOCAL_CFLAGS += -DMALI_GPU_SUPPORT_AFBC_BASIC=$(MALI_GPU_SUPPORT_AFBC_BASIC)
@@ -336,4 +341,7 @@ LOCAL_MODULE_OWNER := arm
 include $(BUILD_SHARED_LIBRARY)
 
 # Amlogic usage & flags api.
+#meson graphics start
 include $(LOCAL_PATH)/amlogic/Android.mk
+$(warning "the value of GRALLOC_INIT_AFBC is $(GRALLOC_INIT_AFBC)")
+#meson graphics end

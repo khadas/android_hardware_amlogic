@@ -16,6 +16,7 @@ cc_library_shared {
     name: "libamgralloc_ext@2",
     cflags: [
         "-DUSE_BUFFER_USAGE=1",
+        "-DGRALLOC_AML_EXTEND",
     ],
     srcs: [
         "amlogic/am_gralloc_ext.cpp"
@@ -32,6 +33,7 @@ cc_library_shared {
     vendor: true,
     cflags: [
         "-DUSE_BUFFER_USAGE=1",
+        "-DGRALLOC_AML_EXTEND",
     ],
     include_dirs :[
         "hardware/libhardware/include"
@@ -50,6 +52,7 @@ cc_library_static {
     name: "libamgralloc_ext_static@2",
     cflags: [
         "-DUSE_BUFFER_USAGE=1",
+        "-DGRALLOC_AML_EXTEND",
     ],
     include_dirs: [
        "system/core/libutils/include",

@@ -12,7 +12,6 @@
 
 #include <utils/NativeHandle.h>
 
-
 #define OMX_VIDEOLAYER_ALLOC_BUFFER_WIDTH     192
 #define OMX_VIDEOLAYER_ALLOC_BUFFER_HEIGHT    90
 
@@ -33,6 +32,5 @@ int am_gralloc_get_omx_metadata_extend_flag();
 int am_gralloc_get_coherent_extend_flag();
 int am_gralloc_get_video_overlay_extend_flag();
 int am_gralloc_get_secure_extend_flag();
-
 
 #endif/*AM_GRALLOC_EXT_INTERNAL_H*/

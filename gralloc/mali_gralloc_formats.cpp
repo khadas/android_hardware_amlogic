@@ -23,6 +23,8 @@
 #include <assert.h>
 #include <vector>
 
+//meson graphics changes start
+#ifdef GRALLOC_AML_EXTEND
 #if PLATFORM_SDK_VERSION < 26
 #include <fcntl.h>
 #endif
@@ -32,6 +34,8 @@
 #if DEBUG_IO
 #include <linux/time.h>
 #endif
+#endif
+//meson graphics changes end
 
 
 #if GRALLOC_VERSION_MAJOR == 1
@@ -152,7 +156,11 @@ static bool get_block_capabilities(const char *name, mali_gralloc_format_caps *b
  * NOTE: although no capabilities are returned, global variables global variables
  * named '*_runtime_caps' are updated.
  */
-int get_meson_dpu_gpu_caps();
+//meson graphics changes start
+#ifdef GRALLOC_AML_EXTEND
+int get_meson_ip_caps();
+#endif
+//meson graphics changes end
 static void get_ip_capabilities(void)
 {
 	/* Ensure capability setting is not interrupted by other
@@ -179,7 +187,9 @@ static void get_ip_capabilities(void)
 	cpu_runtime_caps.caps_mask |= MALI_GRALLOC_FORMAT_CAPABILITY_PIXFMT_RGBA1010102;
 	cpu_runtime_caps.caps_mask |= MALI_GRALLOC_FORMAT_CAPABILITY_PIXFMT_RGBA16161616;
 
-#if 0
+#ifdef GRALLOC_AML_EXTEND
+	get_meson_ip_caps();
+#else
 	/* Determine DPU IP capabilities */
 	if (!get_block_capabilities(MALI_GRALLOC_DPU_LIBRARY_PATH MALI_GRALLOC_DPU_LIB_NAME, &dpu_runtime_caps))
 	{
@@ -291,8 +301,6 @@ static void get_ip_capabilities(void)
 		cam_runtime_caps.caps_mask &= ~MALI_GRALLOC_FORMAT_CAPABILITY_AFBCENABLE_MASK;
 	}
 #endif
-#else
-    get_meson_dpu_gpu_caps();
 #endif
 
 	runtime_caps_read = true;
@@ -628,7 +636,7 @@ void mali_gralloc_adjust_dimensions(const uint64_t internal_format,
 	                   internal_width, internal_height);
 
 out:
-	ALOGV("%s: internal_format=0x%" PRIx64 " usage=0x%" PRIx64
+	ALOGD("%s: internal_format=0x%" PRIx64 " usage=0x%" PRIx64
 	      " width=%u, height=%u, internal_width=%d, internal_height=%d",
 	      __FUNCTION__, internal_format, usage, width, height, *internal_width, *internal_height);
 }
@@ -819,8 +827,17 @@ static inline bool is_afbc_multiplane_supported(const uint16_t producers,
 	        producers == 0) ? true : false;
 }
 
-int get_meson_dpu_gpu_caps()
+//meson graphics changes start
+#ifdef GRALLOC_AML_EXTEND
+int get_meson_ip_caps()
 {
+	dpu_aeu_runtime_caps.caps_mask = MALI_GRALLOC_FORMAT_CAPABILITY_OPTIONS_PRESENT;
+	vpu_runtime_caps.caps_mask = MALI_GRALLOC_FORMAT_CAPABILITY_OPTIONS_PRESENT;
+	cam_runtime_caps.caps_mask = MALI_GRALLOC_FORMAT_CAPABILITY_OPTIONS_PRESENT;
+
+	dpu_runtime_caps.caps_mask = 0;
+	gpu_runtime_caps.caps_mask = 0;
+
 	char osd_afbcd[PROPERTY_VALUE_MAX];
 	int  osd_afbcd_enabled = 0;
 	int  num_of_afbcd_type = 0;
@@ -832,7 +849,8 @@ int get_meson_dpu_gpu_caps()
 		osd_afbcd_enabled = atoi(osd_afbcd);
 	}
 
-	if (osd_afbcd_enabled) {
+	if (osd_afbcd_enabled)
+	{
 		osd_afbcd_fd = open("/sys/class/graphics/fb0/osd_afbcd", O_RDWR);
 		if (osd_afbcd_fd < 0) {
 			ALOGD("errno=%d, %s", errno, strerror(errno));
@@ -848,8 +866,6 @@ int get_meson_dpu_gpu_caps()
 	ALOGD("AFBC %s\n", num_of_afbcd_type != 0? "enabled":"disabled");
 	ALOGD("num of AFBC type %d\n", num_of_afbcd_type);
 
-    dpu_runtime_caps.caps_mask = 0;
-    gpu_runtime_caps.caps_mask = 0;
 
 	if (0 != num_of_afbcd_type) {
 		/* Determine DPU format capabilities */
@@ -872,6 +888,8 @@ int get_meson_dpu_gpu_caps()
 	}
 	return 0;
 }
+#endif
+//meson graphics changes end
 
 /*
  * Determines whether a given base format is supported by all producers and
@@ -1793,6 +1811,8 @@ uint64_t mali_gralloc_select_format(const uint64_t req_format,
 	const uint32_t req_base_format = get_base_format(req_format, usage, type, true);
 	const int32_t req_fmt_idx = get_format_index(req_base_format);
 
+//meson graphics changes start
+#ifdef GRALLOC_AML_EXTEND
 #if PLATFORM_SDK_VERSION >= 26 && defined(GPU_FORMAT_LIMIT) && (GPU_FORMAT_LIMIT==1)
     if ((HAL_PIXEL_FORMAT_RGBA_FP16 == req_format) ||
             (HAL_PIXEL_FORMAT_RGBA_1010102 == req_format)) {
@@ -1800,6 +1820,8 @@ uint64_t mali_gralloc_select_format(const uint64_t req_format,
 		goto out;
     }
 #endif
+#endif
+//meson graphics changes end
 	if (req_base_format == MALI_GRALLOC_FORMAT_INTERNAL_UNDEFINED ||
 	    req_fmt_idx == -1)
 	{
@@ -1849,7 +1871,6 @@ uint64_t mali_gralloc_select_format(const uint64_t req_format,
 		if (producers == 0 && consumers == 0)
 		{
 			ALOGE("Producer and consumer not identified.");
-			alloc_format = req_format;
 			goto out;
 		}
 		else if (producers == 0 || consumers == 0)
@@ -1902,7 +1923,7 @@ out:
 		*internal_format |= (alloc_format & MALI_GRALLOC_INTFMT_EXT_MASK);
 	}
 
-	ALOGV("mali_gralloc_select_format: req_format=0x%08" PRIx64 ", usage=0x%" PRIx64
+	ALOGD("mali_gralloc_select_format: req_format=0x%08" PRIx64 ", usage=0x%" PRIx64
 	      ", req_base_format=0x%" PRIx32 ", alloc_format=0x%" PRIx64 ", internal_format=0x%" PRIx64,
 	      req_format, usage, req_base_format, alloc_format, *internal_format);
 

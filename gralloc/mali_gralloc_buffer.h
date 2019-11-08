@@ -138,6 +138,8 @@ struct private_handle_t
 		PRIV_FLAGS_USES_ION_COMPOUND_HEAP = 0x00000002,
 		PRIV_FLAGS_USES_ION = 0x00000004,
 		PRIV_FLAGS_USES_ION_DMA_HEAP = 0x00000008,
+//meson graphics changes start
+#ifdef GRALLOC_AML_EXTEND
 		/*
 			!!Dont use these flags directly.
 		*/
@@ -148,6 +150,8 @@ struct private_handle_t
 		//PRIV_FLAGS_OSD_VIDEO_OMX = 0x00000080,
 		PRIV_FLAGS_CONTINUOUS_BUF = 0x00000100,
 		PRIV_FLAGS_SECURE_PROTECTED = 0x00000200,
+#endif
+//meson graphics changes end
 	};
 
 	enum
@@ -182,8 +186,7 @@ struct private_handle_t
 	int height;
 	int format;
 	int req_format;
-    //TODO  use uint64_t
-	int     usage;
+	int unused1;
 	uint64_t producer_usage;
 	uint64_t consumer_usage;
 
@@ -269,11 +272,15 @@ struct private_handle_t
 	 */
 	int min_pgsz;
 
+//meson graphics changes start
+#ifdef GRALLOC_AML_EXTEND
 	//for request width and height
 	uint32_t req_width;
 	uint32_t req_height;
 	uint64_t padding_1;
 	uint64_t padding_2;
+#endif
+//meson graphics changes end
 #ifdef __cplusplus
 	/*
 	 * We track the number of integers in the structure. There are 16 unconditional
@@ -360,7 +367,11 @@ struct private_handle_t
 	    , min_pgsz(_min_pgsz)
 	{
 		version = sizeof(native_handle);
+//meson graphics changes start
+#ifdef GRALLOC_AML_EXTEND
 		format  = _req_format;
+#endif
+//meson graphics changes end
 		numFds = sNumFds;
 		numInts = NUM_INTS_IN_PRIVATE_HANDLE;
 		memcpy(plane_info, _plane_info, sizeof(plane_info_t) * MAX_PLANES);

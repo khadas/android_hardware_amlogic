@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010-2017 ARM Limited. All rights reserved.
+ * Copyright (C) 2010-2019 ARM Limited. All rights reserved.
  *
  * Copyright (C) 2008 The Android Open Source Project
  *
@@ -21,7 +21,7 @@
 #include <pthread.h>
 #include <stdlib.h>
 
-#include <cutils/log.h>
+#include <log/log.h>
 #include <cutils/atomic.h>
 #include <hardware/hardware.h>
 #include <hardware/gralloc.h>
@@ -40,10 +40,13 @@
 #include "mali_gralloc_formats.h"
 #include "mali_gralloc_usages.h"
 
-static int alloc_device_alloc(alloc_device_t *dev, int w, int h, int format, int usage, buffer_handle_t *pHandle,
+static int alloc_device_alloc(alloc_device_t *dev, int w, int h, int format,
+                              int _usage, buffer_handle_t *pHandle,
                               int *pStride)
 {
 	mali_gralloc_module *m;
+	uint64_t usage = (unsigned int)_usage;
+	buffer_descriptor_t buffer_descriptor;
 	int err = -EINVAL;
 
 	if (!dev || !pHandle || !pStride)
@@ -51,69 +54,37 @@ static int alloc_device_alloc(alloc_device_t *dev, int w, int h, int format, int
 		return err;
 	}
 
+	/* Initialise output parameters. */
+	*pHandle = NULL;
+	*pStride = 0;
+
 	m = reinterpret_cast<private_module_t *>(dev->common.module);
 
-#if GRALLOC_FB_SWAP_RED_BLUE == 1
-
-	/* match the framebuffer format */
-	if (usage & GRALLOC_USAGE_HW_FB)
-	{
-#ifdef GRALLOC_16_BITS
-		format = HAL_PIXEL_FORMAT_RGB_565;
-#else
-		format = HAL_PIXEL_FORMAT_BGRA_8888;
-#endif
-	}
-
-#endif
+	memset((void*)&buffer_descriptor, 0, sizeof(buffer_descriptor));
+	buffer_descriptor.hal_format = format;
+	buffer_descriptor.consumer_usage = usage;
+	buffer_descriptor.producer_usage = usage;
+	buffer_descriptor.width = w;
+	buffer_descriptor.height = h;
+	buffer_descriptor.layer_count = 1;
+	buffer_descriptor.format_type = MALI_GRALLOC_FORMAT_TYPE_USAGE;
 
 #if DISABLE_FRAMEBUFFER_HAL != 1
-
 	if (usage & GRALLOC_USAGE_HW_FB)
 	{
-		int byte_stride;
-		int pixel_stride;
-
-		err = fb_alloc_framebuffer(m, usage, usage, pHandle, &pixel_stride, &byte_stride);
-
-		if (err >= 0)
+		if (mali_gralloc_fb_allocate(m, &buffer_descriptor, pHandle) < 0)
 		{
-			private_handle_t *hnd = (private_handle_t *)*pHandle;
-
-			/* Allocate a meta-data buffer for framebuffer too. fbhal
-			 * ones wont need it but it will lead to binder IPC fail
-			 * without a valid share_attr_fd.
-			 *
-			 * Explicitly ignore allocation errors since it is not critical to have
-			 */
-			(void)gralloc_buffer_attr_allocate(hnd);
-
-			hnd->req_format = format;
-			hnd->yuv_info = MALI_YUV_BT601_NARROW;
-			hnd->internal_format = format;
-			hnd->byte_stride = byte_stride;
-			hnd->width = w;
-			hnd->height = h;
-			hnd->stride = pixel_stride;
-			hnd->internalWidth = w;
-			hnd->internalHeight = h;
+			err = -ENOMEM;
+		}
+		else
+		{
+			err = mali_gralloc_query_getstride(*pHandle, pStride);
 		}
 	}
 	else
 #endif
 	{
-		/* share the same allocation interface with gralloc1.*/
-		buffer_descriptor_t buffer_descriptor;
 		gralloc_buffer_descriptor_t gralloc_buffer_descriptor[1];
-
-		memset((void*)&buffer_descriptor, 0, sizeof(buffer_descriptor));
-		buffer_descriptor.hal_format = format;
-		buffer_descriptor.consumer_usage = usage;
-		buffer_descriptor.producer_usage = usage;
-		buffer_descriptor.width = w;
-		buffer_descriptor.height = h;
-		buffer_descriptor.layer_count = 1;
-		buffer_descriptor.format_type = MALI_GRALLOC_FORMAT_TYPE_USAGE;
 		gralloc_buffer_descriptor[0] = (gralloc_buffer_descriptor_t)(&buffer_descriptor);
 
 		if (mali_gralloc_buffer_allocate(m, gralloc_buffer_descriptor, 1, pHandle, NULL) < 0)
@@ -123,8 +94,7 @@ static int alloc_device_alloc(alloc_device_t *dev, int w, int h, int format, int
 		}
 		else
 		{
-			mali_gralloc_query_getstride(*pHandle, pStride);
-			err = 0;
+			err = mali_gralloc_query_getstride(*pHandle, pStride);
 		}
 	}
 
@@ -156,6 +126,20 @@ static int alloc_device_free(alloc_device_t *dev, buffer_handle_t handle)
 	return 0;
 }
 
+
+static int alloc_device_close(struct hw_device_t *device)
+{
+	alloc_device_t *dev = reinterpret_cast<alloc_device_t *>(device);
+	if (dev)
+	{
+		delete dev;
+	}
+
+	mali_gralloc_ion_close();
+
+	return 0;
+}
+
 int alloc_device_open(hw_module_t const *module, const char *name, hw_device_t **device)
 {
 	alloc_device_t *dev;
@@ -176,7 +160,7 @@ int alloc_device_open(hw_module_t const *module, const char *name, hw_device_t *
 	dev->common.tag = HARDWARE_DEVICE_TAG;
 	dev->common.version = 0;
 	dev->common.module = const_cast<hw_module_t *>(module);
-	dev->common.close = mali_gralloc_ion_device_close;
+	dev->common.close = alloc_device_close;
 	dev->alloc = alloc_device_alloc;
 	dev->free = alloc_device_free;
 

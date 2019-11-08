@@ -30,11 +30,11 @@
 #include <hardware/gralloc.h>
 #endif
 
+//meson graphics changes start
 #ifdef GRALLOC_AML_EXTEND
 #include "amlogic/am_gralloc_internal.h"
-#else
-#include "gralloc_usage_ext.h"
 #endif
+//meson graphics changes end
 
 #include "mali_gralloc_module.h"
 #include "mali_gralloc_bufferallocation.h"
@@ -478,7 +478,6 @@ static void calc_allocation_size(const int width,
 	{
 		plane_info[plane].alloc_width = width;
 		plane_info[plane].alloc_height = height;
-
 		get_pixel_w_h(&plane_info[plane].alloc_width,
 		              &plane_info[plane].alloc_height,
 		              format,
@@ -805,21 +804,26 @@ int mali_gralloc_derive_format_and_size(mali_gralloc_module *m,
 	* Select optimal internal pixel format based upon
 	* usage and requested format.
 	*/
+
+	//meson graphics changes start
 #ifdef GRALLOC_AML_EXTEND
 #if PLATFORM_SDK_VERSION >= 24
-    if (am_gralloc_is_omx_metadata_extend_usage(usage))
-    {
-        alloc_width   = OMX_VIDEOLAYER_ALLOC_BUFFER_WIDTH;
-        alloc_height  = OMX_VIDEOLAYER_ALLOC_BUFFER_HEIGHT;
-    }
+	/*for omx pts buffer, alloc small buffer.*/
+	if (am_gralloc_is_omx_metadata_extend_usage(usage))
+	{
+		alloc_width   = OMX_VIDEOLAYER_ALLOC_BUFFER_WIDTH;
+		alloc_height  = OMX_VIDEOLAYER_ALLOC_BUFFER_HEIGHT;
+	}
 #endif
 #endif
+	//meson graphics changes end
 
 	bufDescriptor->alloc_format = mali_gralloc_select_format(bufDescriptor->hal_format,
 	                                                         bufDescriptor->format_type,
 	                                                         usage,
 	                                                         bufDescriptor->width * bufDescriptor->height,
 	                                                         &bufDescriptor->internal_format);
+
 	if (bufDescriptor->alloc_format == MALI_GRALLOC_FORMAT_INTERNAL_UNDEFINED)
 	{
 		ALOGE("ERROR: Unrecognized and/or unsupported format 0x%" PRIx64 " and usage 0x%" PRIx64,
@@ -1002,15 +1006,23 @@ int mali_gralloc_buffer_allocate(mali_gralloc_module *m, const gralloc_buffer_de
 	bool shared = false;
 	uint64_t backing_store_id = 0x0;
 	int err;
+//meson graphics changes start
+#ifdef GRALLOC_AML_EXTEND
 	int64_t *req_wh = new int64_t[numDescriptors];
 	int buffer_width;
+#endif
+//meson graphics changes end
 
 	for (uint32_t i = 0; i < numDescriptors; i++)
 	{
 		buffer_descriptor_t * const bufDescriptor = (buffer_descriptor_t *)(descriptors[i]);
 
 		/* Derive the buffer size from descriptor parameters */
+//meson graphics changes start
+#ifdef GRALLOC_AML_EXTEND
 		req_wh[i] = bufDescriptor->width | (bufDescriptor->height << 16);
+#endif
+//meson graphics changes end
 		err = mali_gralloc_derive_format_and_size(m, bufDescriptor);
 		if (err != 0)
 		{
@@ -1068,8 +1080,12 @@ int mali_gralloc_buffer_allocate(mali_gralloc_module *m, const gralloc_buffer_de
 			/* each buffer will have an unique backing store id.*/
 			hnd->backing_store_id = getUniqueId();
 		}
+//meson graphics changes start
+#ifdef GRALLOC_AML_EXTEND
 		hnd->req_width = req_wh[i] & 0xffff;
 		hnd->req_height = req_wh[i] >> 16;
+#endif
+//meson graphics changes end
 	}
 
 	if (NULL != shared_backend)

@@ -85,9 +85,14 @@
 
 #define GRALLOC_USAGE_SENSOR_DIRECT_DATA GRALLOC1_PRODUCER_USAGE_SENSOR_DIRECT_DATA
 #define GRALLOC_USAGE_GPU_DATA_BUFFER GRALLOC1_CONSUMER_USAGE_GPU_DATA_BUFFER
+/*meson graphics changes start
+  add missed usage for cts.
+*/
+#ifdef GRALLOC_AML_EXTEND
 #define GRALLOC_USAGE_HW_VIDEO_DECODER GRALLOC1_PRODUCER_USAGE_VIDEO_DECODER
 #define GRALLOC_USAGE_RENDERSCRIPT 	   GRALLOC1_CONSUMER_USAGE_RENDERSCRIPT
-//0x400b00
+#endif
+//meson graphics changes end
 
 typedef enum
 {
@@ -237,8 +242,14 @@ using android::hardware::graphics::common::HIDL_COMMON_NAMESPACE::BufferUsage;
 
 #define GRALLOC_USAGE_SENSOR_DIRECT_DATA static_cast<uint64_t>(BufferUsage::SENSOR_DIRECT_DATA)
 #define GRALLOC_USAGE_GPU_DATA_BUFFER static_cast<uint64_t>(BufferUsage::GPU_DATA_BUFFER)
+/*meson graphics changes start
+  usage decoder & render script used in cts.
+*/
+#ifdef GRALLOC_AML_EXTEND
 #define GRALLOC_USAGE_HW_VIDEO_DECODER static_cast<uint64_t>(BufferUsage::VIDEO_DECODER)
 #define GRALLOC_USAGE_RENDERSCRIPT 	   static_cast<uint64_t>(BufferUsage:: RENDERSCRIPT)
+#endif
+//meson graphics changes end
 
 #endif
 
@@ -266,8 +277,12 @@ static const uint64_t VALID_USAGE =
        but they are both listed here to show that the intention is to include both. */
     GRALLOC_USAGE_SENSOR_DIRECT_DATA | /* 1U << 23 */
     GRALLOC_USAGE_GPU_DATA_BUFFER |    /* 1U << 23 */
+//meson graphics changes start
+#ifdef GRALLOC_AML_EXTEND
     GRALLOC_USAGE_HW_VIDEO_DECODER |   /* 1U << 22*/
 	GRALLOC_USAGE_RENDERSCRIPT 	   |   /* 1U << 20*/
+#endif
+//meson graphics changes end
 #endif
 #if GRALLOC_VERSION_MAJOR >= 1
     GRALLOC_USAGE_PRIVATE_19 |         /* 1U << 48 */
