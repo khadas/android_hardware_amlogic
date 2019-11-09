@@ -334,7 +334,7 @@ static enum ion_heap_type pick_ion_heap(uint64_t usage)
 			AERR("Protected ION memory is not supported on this platform.");
 		}
 	}
-	else if (!(usage & GRALLOC_USAGE_HW_VIDEO_ENCODER) && (usage & (GRALLOC_USAGE_HW_FB | GRALLOC_USAGE_HW_COMPOSER)))
+	else if (!(usage & GRALLOC_USAGE_HW_VIDEO_ENCODER) && (usage & GRALLOC_USAGE_HW_FB))
 	{
 #if GRALLOC_USE_ION_COMPOUND_PAGE_HEAP
 		heap_type = ION_HEAP_TYPE_COMPOUND_PAGE;

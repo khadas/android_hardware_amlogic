@@ -29,14 +29,7 @@
 #include "mali_gralloc_bufferdescriptor.h"
 #include "mali_gralloc_private_interface_types.h"
 #include "mali_gralloc_buffer.h"
-
-//meson graphics changes start
-#ifdef GRALLOC_AML_EXTEND
-#include "mali_gralloc_ion.h"
-#include "mali_gralloc_reference.h"
-#include "amlogic/am_gralloc_internal.h"
-#endif
-//meson graphics changes end
+#include "format_info.h"
 
 /*
  * Validate descriptor to ensure that it originated from this version
@@ -296,130 +289,6 @@ int mali_gralloc_get_layer_count_internal(buffer_handle_t buffer, uint32_t *outL
 #endif /* PLATFORM_SDK_VERSION >= 26 */
 
 #endif
-
-//meson graphics changes start
-#ifdef GRALLOC_AML_EXTEND
-#if PLATFORM_SDK_VERSION >= 28
-int mali_gralloc_validate_buffer_size(buffer_handle_t buffer, gralloc1_buffer_descriptor_info_t* descriptorInfo, uint32_t stride)
-{
-	if (private_handle_t::validate(buffer) < 0)
-	{
-		AERR("Invalid buffer %p, returning error", buffer);
-		return GRALLOC1_ERROR_BAD_HANDLE;
-	}
-	int bufferSize = 0;
-	private_handle_t *hnd = (private_handle_t *)buffer;
-
-	if (descriptorInfo->format != hnd->format)
-	{
-		AERR("Bad format!Not the same with allocated buffer " );
-		return GRALLOC1_ERROR_BAD_VALUE;
-	}
-	if (stride > 0)
-	{
-		if (hnd->stride / stride != 1)
-		{
-			AERR("Bad stride!Not the same with allocated buffer " );
-			return GRALLOC1_ERROR_BAD_VALUE;
-		}
-		if (am_gralloc_is_omx_metadata_extend_usage(hnd->producer_usage|hnd->consumer_usage))
-		{
-			//work around: this buffer only have omx metadata, not for rander, just need a small buffer.
-			return GRALLOC1_ERROR_NONE;
-		}
-		bufferSize = hnd->byte_stride / stride * descriptorInfo->width * descriptorInfo->height;
-	}
-	else
-	{
-		AERR("Bad stride!stride: %d ", stride );
-		return GRALLOC1_ERROR_BAD_VALUE;
-	}
-
-	if (descriptorInfo->layerCount < 0)
-	{
-		AERR("Invalid layer_count %d, returning error", descriptorInfo->layerCount);
-		return GRALLOC1_ERROR_BAD_VALUE;
-	}
-	else if (descriptorInfo->layerCount == 1)
-	{
-		if (hnd->size < bufferSize)
-		{
-			AERR("buffer size is not large enough hnd->size:%d hnd->usage:%" PRIx64 "x, returning error",
-				hnd->size, hnd->producer_usage|hnd->consumer_usage);
-			return GRALLOC1_ERROR_BAD_VALUE;
-		}
-	}
-	else if (descriptorInfo->layerCount > 1)
-	{
-		if (hnd->internal_format & MALI_GRALLOC_INTFMT_AFBCENABLE_MASK)
-		{
-			if (hnd->internal_format & MALI_GRALLOC_INTFMT_AFBC_TILED_HEADERS)
-			{
-				bufferSize = GRALLOC_ALIGN(bufferSize, 4096);
-			}
-			else
-			{
-				bufferSize = GRALLOC_ALIGN(bufferSize, 128);
-			}
-		}
-
-		bufferSize *= descriptorInfo->layerCount;
-		if (hnd->size < bufferSize)
-		{
-			AERR("buffer size is not large enough %d, returning error", hnd->size);
-			return GRALLOC1_ERROR_BAD_VALUE;
-		}
-	}
-	return GRALLOC1_ERROR_NONE;
-}
-int mali_gralloc_get_transport_size(buffer_handle_t buffer, uint32_t *outNumFds, uint32_t *outNumInts)
-{
-	if (private_handle_t::validate(buffer) < 0)
-	{
-		AERR("Invalid buffer %p, returning error", buffer);
-		return GRALLOC1_ERROR_BAD_HANDLE;
-	}
-
-	private_handle_t *hnd = (private_handle_t *)buffer;
-	if (outNumFds)
-		*outNumFds = GRALLOC_ARM_NUM_FDS;
-	if (outNumInts)
-		*outNumInts =(sizeof(struct private_handle_t) -sizeof(native_handle)) / sizeof(int) -hnd->sNumFds;
-
-	return GRALLOC1_ERROR_NONE;
-}
-int mali_gralloc_import_buffer(gralloc1_device_t* device, const buffer_handle_t rawHandle, buffer_handle_t *outBuffer)
-{
-	if (private_handle_t::validate(rawHandle) < 0)
-	{
-		AERR("Invalid buffer %p, returning error", rawHandle);
-		return GRALLOC1_ERROR_BAD_HANDLE;
-	}
-	mali_gralloc_module *m;
-	native_handle_t* bufferHandle;
-
-	bufferHandle = native_handle_clone(rawHandle);
-
-	if (private_handle_t::validate(bufferHandle) < 0)
-	{
-		AERR("Invalid buffer %p, returning error", *outBuffer);
-		return GRALLOC1_ERROR_BAD_HANDLE;
-	}
-
-	m = reinterpret_cast<private_module_t *>(device->common.module);
-	if (mali_gralloc_reference_retain(m, static_cast<buffer_handle_t>(bufferHandle)) < 0)
-	{
-		AERR("retain buffer failed");
-		return GRALLOC1_ERROR_NO_RESOURCES;
-	}
-	*outBuffer = static_cast<buffer_handle_t>(bufferHandle);
-
-	return GRALLOC1_ERROR_NONE;
-}
-#endif
-#endif
-//meson graphics changes end
-
 int mali_gralloc_query_getstride(buffer_handle_t buffer, int *pixelStride)
 {
 	if (private_handle_t::validate(buffer) < 0)
@@ -443,6 +312,83 @@ int mali_gralloc_query_getstride(buffer_handle_t buffer, int *pixelStride)
 
 	private_handle_t *hnd = (private_handle_t *)buffer;
 	*pixelStride = hnd->stride;
+
+#if GRALLOC_VERSION_MAJOR == 1
+	return GRALLOC1_ERROR_NONE;
+#else
+	return 0;
+#endif
+}
+
+int mali_gralloc_query_get_byte_stride(buffer_handle_t buffer, int byteStride[])
+{
+	if (private_handle_t::validate(buffer) < 0)
+	{
+		AERR("Invalid buffer %p, returning error", buffer);
+#if GRALLOC_VERSION_MAJOR == 1
+		return GRALLOC1_ERROR_BAD_HANDLE;
+#else
+		return -EINVAL;
+#endif
+	}
+
+	if (byteStride == NULL)
+	{
+#if GRALLOC_VERSION_MAJOR == 1
+		return GRALLOC1_ERROR_BAD_VALUE;
+#else
+		return -EINVAL;
+#endif
+	}
+
+	private_handle_t *hnd = (private_handle_t *)buffer;
+	byteStride[0] = hnd->plane_info[0].byte_stride;
+	byteStride[1] = hnd->plane_info[1].byte_stride;
+	byteStride[2] = hnd->plane_info[2].byte_stride;
+
+#if GRALLOC_VERSION_MAJOR == 1
+	return GRALLOC1_ERROR_NONE;
+#else
+	return 0;
+#endif
+}
+
+int mali_gralloc_query_get_bytes_per_pixel(buffer_handle_t buffer, int bytesPerPixel[])
+{
+	if (private_handle_t::validate(buffer) < 0)
+	{
+		AERR("Invalid buffer %p, returning error", buffer);
+#if GRALLOC_VERSION_MAJOR == 1
+		return GRALLOC1_ERROR_BAD_HANDLE;
+#else
+		return -EINVAL;
+#endif
+	}
+
+	if (bytesPerPixel == NULL)
+	{
+#if GRALLOC_VERSION_MAJOR == 1
+		return GRALLOC1_ERROR_BAD_VALUE;
+#else
+		return -EINVAL;
+#endif
+	}
+
+	private_handle_t *hnd = (private_handle_t *)buffer;
+	const int32_t format_idx = get_format_index(hnd->alloc_format & MALI_GRALLOC_INTFMT_FMT_MASK);
+	if (format_idx == -1)
+	{
+		AERR("Corrupted buffer format 0x%" PRIx64 " of buffer %p", hnd->alloc_format, hnd);
+#if GRALLOC_VERSION_MAJOR == 1
+		return GRALLOC1_ERROR_BAD_VALUE;
+#else
+		return -EINVAL;
+#endif
+	}
+
+	bytesPerPixel[0] = formats[format_idx].bpp[0] / 8;
+	bytesPerPixel[1] = formats[format_idx].bpp[1] / 8;
+	bytesPerPixel[2] = formats[format_idx].bpp[2] / 8;
 
 #if GRALLOC_VERSION_MAJOR == 1
 	return GRALLOC1_ERROR_NONE;

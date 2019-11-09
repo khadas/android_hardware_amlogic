@@ -30,6 +30,7 @@
 #include "mali_gralloc_reference.h"
 #include "mali_gralloc_ion.h"
 #include "mali_gralloc_buffer.h"
+#include "format_info.h"
 
 namespace android {
 namespace hardware {
@@ -729,9 +730,56 @@ Return<Error> GrallocMapper::validateBufferSize(void* buffer,
 
 	if (gralloc_buffer->internal_format != grallocDescriptor.internal_format)
 	{
-		AERR("Buffer format :0x%" PRIx64" does not match descriptor (derived) format :0x%"
+		AERR("Buffer internal format :0x%" PRIx64" does not match descriptor (derived) internal format :0x%"
 		      PRIx64, gralloc_buffer->internal_format, grallocDescriptor.internal_format);
 		return Error::BAD_VALUE;
+	}
+
+	if (gralloc_buffer->alloc_format != grallocDescriptor.alloc_format)
+	{
+		AERR("Buffer alloc format :0x%" PRIx64" does not match descriptor (derived) alloc format :0x%"
+		      PRIx64, gralloc_buffer->alloc_format, grallocDescriptor.alloc_format);
+		return Error::BAD_VALUE;
+	}
+
+	const int format_idx = get_format_index(gralloc_buffer->alloc_format & MALI_GRALLOC_INTFMT_FMT_MASK);
+	if (format_idx == -1)
+	{
+		AERR("Invalid format to validate buffer descriptor");
+		return Error::BAD_VALUE;
+	}
+	else
+	{
+		for (int i = 0; i < formats[format_idx].npln; i++)
+		{
+			if (gralloc_buffer->plane_info[i].offset != grallocDescriptor.plane_info[i].offset)
+			{
+				AERR("Buffer offset 0x%x mismatch with desc offset 0x%x in plane %d ",
+				      gralloc_buffer->plane_info[i].offset, grallocDescriptor.plane_info[i].offset, i);
+				return Error::BAD_VALUE;
+			}
+
+			if (gralloc_buffer->plane_info[i].byte_stride != grallocDescriptor.plane_info[i].byte_stride)
+			{
+				AERR("Buffer byte stride 0x%x mismatch with desc byte stride 0x%x in plane %d ",
+				      gralloc_buffer->plane_info[i].byte_stride, grallocDescriptor.plane_info[i].byte_stride, i);
+				return Error::BAD_VALUE;
+			}
+
+			if (gralloc_buffer->plane_info[i].alloc_width != grallocDescriptor.plane_info[i].alloc_width)
+			{
+				AERR("Buffer alloc width 0x%x mismatch with desc alloc width 0x%x in plane %d ",
+				      gralloc_buffer->plane_info[i].alloc_width, grallocDescriptor.plane_info[i].alloc_width, i);
+				return Error::BAD_VALUE;
+			}
+
+			if (gralloc_buffer->plane_info[i].alloc_height != grallocDescriptor.plane_info[i].alloc_height)
+			{
+				AERR("Buffer alloc height 0x%x mismatch with desc alloc height 0x%x in plane %d ",
+				      gralloc_buffer->plane_info[i].alloc_height, grallocDescriptor.plane_info[i].alloc_height, i);
+				return Error::BAD_VALUE;
+			}
+		}
 	}
 
 	if ((uint32_t)gralloc_buffer->width != grallocDescriptor.width)
