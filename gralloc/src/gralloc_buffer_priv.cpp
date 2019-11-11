@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014-2018 ARM Limited. All rights reserved.
+ * Copyright (C) 2014-2019 ARM Limited. All rights reserved.
  *
  * Copyright (C) 2008 The Android Open Source Project
  *
@@ -16,7 +16,21 @@
  * limitations under the License.
  */
 
+#ifndef PLATFORM_SDK_VERSION
+#error PLATFORM_SDK_VERSION is not defined
+#endif
+
+/* Using ashmem is deprecated from Android 10. Use memfd instead. */
+/* GPUCORE-21005: Disabled until potential SELinux issues are resolved. */
+#define GRALLOC_USE_MEMFD 0
+
+#if GRALLOC_USE_MEMFD
+#include <sys/syscall.h>
+#include <linux/memfd.h>
+#else
 #include <cutils/ashmem.h>
+#endif
+
 #include <log/log.h>
 #include <sys/mman.h>
 
@@ -52,13 +66,32 @@ int gralloc_buffer_attr_allocate(private_handle_t *hnd)
 		close(hnd->share_attr_fd);
 	}
 
+#if GRALLOC_USE_MEMFD
+	hnd->share_attr_fd = syscall(__NR_memfd_create, "gralloc_shared_attr", MFD_ALLOW_SEALING);
+#else
 	hnd->share_attr_fd = ashmem_create_region("gralloc_shared_attr", PAGE_SIZE);
-
+#endif
 	if (hnd->share_attr_fd < 0)
 	{
-		ALOGE("Failed to allocate page for shared attribute region");
-		goto err_ashmem;
+		ALOGE("Failed to allocate shared attribute region");
+		goto err_out;
 	}
+
+#if GRALLOC_USE_MEMFD
+	rval = ftruncate(hnd->share_attr_fd, PAGE_SIZE);
+	if (rval < 0)
+	{
+		ALOGE("Failed to allocate a page for shared attribute region, err: %d", rval);
+		goto err_out;
+	}
+
+	rval = fcntl(hnd->share_attr_fd, F_ADD_SEALS, F_SEAL_SHRINK | F_SEAL_GROW | F_SEAL_SEAL);
+	if (rval < 0)
+	{
+		ALOGE("Failed to seal memfd shared attribute region, err: %d", rval);
+		goto err_out;
+	}
+#endif
 
 	/*
 	 * Default protection on the shm region is PROT_EXEC | PROT_READ | PROT_WRITE.
@@ -90,13 +123,13 @@ int gralloc_buffer_attr_allocate(private_handle_t *hnd)
 	else
 	{
 		ALOGE("Failed to mmap shared attribute region");
-		goto err_ashmem;
+		goto err_out;
 	}
 
 	rval = 0;
 	goto out;
 
-err_ashmem:
+err_out:
 
 	if (hnd->share_attr_fd >= 0)
 	{

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2018 ARM Limited. All rights reserved.
+ * Copyright (C) 2018-2019 ARM Limited. All rights reserved.
  *
  * Copyright (C) 2008 The Android Open Source Project
  *

@@ -1,7 +1,5 @@
 /*
- * Copyright (C) 2017-2019 ARM Limited. All rights reserved.
- *
- * Copyright (C) 2008 The Android Open Source Project
+ * Copyright (C) 2019 ARM Limited. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -32,7 +30,7 @@ namespace implementation {
 
 /**
  *  IAllocator constructor. All the state information required for the Gralloc
- *  private module is populated in its default constructor. Gralloc 2.0 specific
+ *  private module is populated in its default constructor. Gralloc 3.0 specific
  *  state information can be populated here.
  *
  * @return None
@@ -96,7 +94,8 @@ Return<void> GrallocAllocator::allocate(const BufferDescriptor& descriptor,
 	std::vector<hidl_handle> grallocBuffers;
 	gralloc_buffer_descriptor_t grallocBufferDescriptor[1];
 
-	if (!mapper::HIDL_IMAPPER_NAMESPACE::implementation::grallocDecodeBufferDescriptor(descriptor, bufferDescriptor))
+	if (!mapper::HIDL_IMAPPER_NAMESPACE::implementation::grallocDecodeBufferDescriptor(
+	                                                     descriptor, bufferDescriptor))
 	{
 		hidl_cb(Error::BAD_DESCRIPTOR, 0, hidl_vec<hidl_handle>());
 		return Void();

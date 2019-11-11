@@ -135,7 +135,7 @@ int mali_gralloc_reference_release(mali_gralloc_module const *module, buffer_han
 			/*
 			 * Close shared attribute region file descriptor. It might seem strange to "free"
 			 * this here since this can happen in a client process, but free here is nothing
-			 * but unmapping and closing the duplicated file descriptor. The original ashmem
+			 * but unmapping and closing the duplicated file descriptor. The original shared
 			 * fd instance is still open until alloc_device_free() is called. Even sharing
 			 * of gralloc buffers within the same process should have fds dup:ed.
 			 */

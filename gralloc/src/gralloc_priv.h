@@ -34,46 +34,34 @@
  * which is supported for all versions.
  */
 #ifndef GRALLOC_VERSION_MAJOR
-   #ifdef GRALLOC_USE_GRALLOC1_API
-      #if GRALLOC_USE_GRALLOC1_API == 0
-         #define GRALLOC_VERSION_MAJOR 0
-      #elif GRALLOC_USE_GRALLOC1_API == 1
-         #define GRALLOC_VERSION_MAJOR 1
-      #endif
-   #else
-        #if PLATFORM_SDK_VERSION > 24
-            #define GRALLOC_VERSION_MAJOR 1
-        #else
-            #define GRALLOC_VERSION_MAJOR 0
-        #endif
-   #endif
-#endif
-
-#if GRALLOC_VERSION_MAJOR == 2
-    #if PLATFORM_SDK_VERSION >= 28
-        #define HIDL_IMAPPER_NAMESPACE V2_1
-        #define HIDL_IALLOCATOR_NAMESPACE V2_0
-        #define HIDL_COMMON_NAMESPACE V1_1
-
-        /* Allocator = 2.0, Mapper = 2.1 and Common = 1.1 */
-        #define HIDL_ALLOCATOR_VERSION_SCALED 200
-        #define HIDL_MAPPER_VERSION_SCALED 210
-        #define HIDL_COMMON_VERSION_SCALED 110
-    #elif PLATFORM_SDK_VERSION >= 26
-        #define HIDL_IMAPPER_NAMESPACE V2_0
-        #define HIDL_IALLOCATOR_NAMESPACE V2_0
-        #define HIDL_COMMON_NAMESPACE V1_0
-
-        /* Allocator = 2.0, Mapper = 2.0 and Common = 1.0 */
-        #define HIDL_ALLOCATOR_VERSION_SCALED 200
-        #define HIDL_MAPPER_VERSION_SCALED 200
-        #define HIDL_COMMON_VERSION_SCALED 100
+    #if defined(GRALLOC_USE_GRALLOC1_API) && (GRALLOC_USE_GRALLOC1_API == 0)
+        #define GRALLOC_VERSION_MAJOR 0
     #else
-        #error "Gralloc 2.x is not supported on platform SDK version PLATFORM_SDK_VERSION"
+        #define GRALLOC_VERSION_MAJOR 1
     #endif
 #endif
 
-#if (GRALLOC_VERSION_MAJOR != 2) && (GRALLOC_VERSION_MAJOR != 1) && (GRALLOC_VERSION_MAJOR != 0)
+#if GRALLOC_VERSION_MAJOR == 2
+    #define HIDL_IMAPPER_NAMESPACE V2_1
+    #define HIDL_IALLOCATOR_NAMESPACE V2_0
+    #define HIDL_COMMON_NAMESPACE V1_1
+
+    /* Allocator = 2.0, Mapper = 2.1 and Common = 1.1 */
+    #define HIDL_ALLOCATOR_VERSION_SCALED 200
+    #define HIDL_MAPPER_VERSION_SCALED 210
+    #define HIDL_COMMON_VERSION_SCALED 110
+#elif GRALLOC_VERSION_MAJOR == 3
+    #define HIDL_IMAPPER_NAMESPACE V3_0
+    #define HIDL_IALLOCATOR_NAMESPACE V3_0
+    #define HIDL_COMMON_NAMESPACE V1_2
+
+    /* Allocator = 3.0, Mapper = 3.0 and Common = 1.2 */
+    #define HIDL_ALLOCATOR_VERSION_SCALED 300
+    #define HIDL_MAPPER_VERSION_SCALED 300
+    #define HIDL_COMMON_VERSION_SCALED 120
+#endif
+
+#if (GRALLOC_VERSION_MAJOR != 3) && (GRALLOC_VERSION_MAJOR != 2) && (GRALLOC_VERSION_MAJOR != 1) && (GRALLOC_VERSION_MAJOR != 0)
     #error " Gralloc version $(GRALLOC_VERSION_MAJOR) is not supported"
 #endif
 

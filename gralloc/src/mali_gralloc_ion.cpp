@@ -27,11 +27,9 @@
 #include <cutils/atomic.h>
 
 #include <ion/ion.h>
-#if GRALLOC_USE_LEGACY_ION_API != 1
 #include <ion/ion_4.12.h>
 #include <linux/dma-buf.h>
 #include <vector>
-#endif
 #include <sys/ioctl.h>
 
 #include <hardware/hardware.h>
@@ -54,7 +52,7 @@
 
 //meson graphics changes start
 #ifdef GRALLOC_AML_EXTEND
-#include "amlogic/am_gralloc_internal.h"
+#include <am_gralloc_internal.h>
 ion_heap_type am_gralloc_pick_ion_heap(
 	buffer_descriptor_t *bufDescriptor, uint64_t usage);
 void am_gralloc_set_ion_flags(enum ion_heap_type heap_type, uint64_t usage,
@@ -76,19 +74,101 @@ static const enum ion_heap_type ION_HEAP_TYPE_SECURE = (enum ion_heap_type)(((un
 #endif
 #endif
 
-static int ion_client = -1;
-static bool use_legacy_ion = false;
-static bool secure_heap_exists = false;
+struct ion_device
+{
+	int client()
+	{
+		return ion_client;
+	}
+	bool use_legacy()
+	{
+		return use_legacy_ion;
+	}
 
-#if GRALLOC_USE_LEGACY_ION_API != 1
-/*
- * Cache the heap types / IDs information to avoid repeated IOCTL calls
- * Assumption: Heap types / IDs would not change after boot up.
- */
-static int heap_cnt = 0;
-ion_heap_data heap_info[ION_NUM_HEAP_IDS];
+	static void close()
+	{
+		ion_device &dev = get_inst();
+		if (dev.ion_client >= 0)
+		{
+			ion_close(dev.ion_client);
+			dev.ion_client = -1;
+		}
+	}
+
+	static ion_device *get()
+	{
+		ion_device &dev = get_inst();
+		if (dev.ion_client < 0)
+		{
+			if (dev.open_and_query_ion() != 0)
+			{
+				close();
+			}
+		}
+
+		if (dev.ion_client < 0)
+		{
+			return nullptr;
+		}
+		return &dev;
+	}
+
+	/*
+	 *  Identifies a heap and retrieves file descriptor from ION for allocation
+	 *
+	 * @param usage     [in]    Producer and consumer combined usage.
+	 * @param size      [in]    Requested buffer size (in bytes).
+	 * @param heap_type [in]    Requested heap type.
+	 * @param flags     [in]    ION allocation attributes defined by ION_FLAG_*.
+	 * @param min_pgsz  [out]   Minimum page size (in bytes).
+	 *
+	 * @return File handle which can be used for allocation, on success
+	 *         -1, otherwise.
+	 */
+#ifdef GRALLOC_AML_EXTEND
+	int alloc_from_ion_heap(uint64_t usage, size_t size, enum ion_heap_type *ptype, unsigned int flags,
+							int *min_pgsz);
+#else
+	int alloc_from_ion_heap(uint64_t usage, size_t size, enum ion_heap_type heap_type, unsigned int flags,
+	                        int *min_pgsz);
 #endif
 
+	enum ion_heap_type pick_ion_heap(uint64_t usage);
+	bool check_buffers_sharable(const gralloc_buffer_descriptor_t *descriptors, uint32_t numDescriptors);
+
+private:
+	int ion_client;
+	bool use_legacy_ion;
+	bool secure_heap_exists;
+	/*
+	* Cache the heap types / IDs information to avoid repeated IOCTL calls
+	* Assumption: Heap types / IDs would not change after boot up.
+	*/
+	int heap_cnt;
+	ion_heap_data heap_info[ION_NUM_HEAP_IDS];
+
+	ion_device()
+	    : ion_client(-1)
+	    , use_legacy_ion(false)
+	    , secure_heap_exists(false)
+	    , heap_cnt(0)
+	{
+	}
+
+	static ion_device& get_inst()
+	{
+		static ion_device dev;
+		return dev;
+	}
+
+	/*
+	 * Opens the ION module. Queries heap information and stores it for later use
+	 *
+	 * @return              0 in case of success
+	 *                      -1 for all error cases
+	 */
+	int open_and_query_ion();
+};
 
 static void set_ion_flags(enum ion_heap_type heap_type, uint64_t usage,
                           unsigned int *priv_heap_flag, unsigned int *ion_flags)
@@ -123,20 +203,7 @@ static void set_ion_flags(enum ion_heap_type heap_type, uint64_t usage,
 	}
 }
 
-
-/*
- *  Identifies a heap and retrieves file descriptor from ION for allocation
- *
- * @param usage     [in]    Producer and consumer combined usage.
- * @param size      [in]    Requested buffer size (in bytes).
- * @param heap_type [in]    Requested heap type.
- * @param flags     [in]    ION allocation attributes defined by ION_FLAG_*.
- * @param min_pgsz  [out]   Minimum page size (in bytes).
- *
- * @return File handle which can be used for allocation, on success
- *         -1, otherwise.
- */
-static int alloc_from_ion_heap(uint64_t usage, size_t size,
+int ion_device::alloc_from_ion_heap(uint64_t usage, size_t size,
 //meson graphics changes start
 #ifdef GRALLOC_AML_EXTEND
                                enum ion_heap_type *ptype, unsigned int flags,
@@ -162,7 +229,6 @@ static int alloc_from_ion_heap(uint64_t usage, size_t size,
 		return -1;
 	}
 
-#if GRALLOC_USE_LEGACY_ION_API != 1
 	bool system_heap_exist = false;
 
 	if (use_legacy_ion == false)
@@ -197,7 +263,6 @@ static int alloc_from_ion_heap(uint64_t usage, size_t size,
 		}
 	}
 	else
-#endif
 	{
 		/* This assumes that when the heaps were defined, the heap ids were
 		 * defined as (1 << type) and that ION interprets the heap_mask as
@@ -239,7 +304,6 @@ static int alloc_from_ion_heap(uint64_t usage, size_t size,
 #endif
 		//meson graphics changes end
 
-#if GRALLOC_USE_LEGACY_ION_API != 1
 		if (use_legacy_ion == false)
 		{
 			int i = 0;
@@ -266,7 +330,6 @@ static int alloc_from_ion_heap(uint64_t usage, size_t size,
 			} while ((ret < 0) && (i < heap_cnt));
 		}
 		else /* Use legacy ION API */
-#endif
 		{
 			ret = ion_alloc_fd(ion_client, size, 0,
 			                   HEAP_MASK_FROM_TYPE(heap_type),
@@ -319,7 +382,7 @@ static int alloc_from_ion_heap(uint64_t usage, size_t size,
 	return shared_fd;
 }
 
-static enum ion_heap_type pick_ion_heap(uint64_t usage)
+enum ion_heap_type ion_device::pick_ion_heap(uint64_t usage)
 {
 	enum ion_heap_type heap_type = ION_HEAP_TYPE_INVALID;
 
@@ -353,7 +416,7 @@ static enum ion_heap_type pick_ion_heap(uint64_t usage)
 }
 
 
-static bool check_buffers_sharable(const gralloc_buffer_descriptor_t *descriptors,
+bool ion_device::check_buffers_sharable(const gralloc_buffer_descriptor_t *descriptors,
                                    uint32_t numDescriptors)
 {
 	enum ion_heap_type shared_backend_heap_type = ION_HEAP_TYPE_INVALID;
@@ -432,13 +495,7 @@ static int get_max_buffer_descriptor_index(const gralloc_buffer_descriptor_t *de
 	return max_buffer_index;
 }
 
-/*
- * Opens the ION module. Queries heap information and stores it for later use
- *
- * @return              0 in case of success
- *                      -1 for all error cases
- */
-static int open_and_query_ion(void)
+int ion_device::open_and_query_ion()
 {
 	int ret = -1;
 
@@ -455,9 +512,6 @@ static int open_and_query_ion(void)
 		return -1;
 	}
 
-#if GRALLOC_USE_LEGACY_ION_API == 1
-	use_legacy_ion = true;
-#else
 	INIT_ZERO(heap_info);
 	heap_cnt = 0;
 	use_legacy_ion = (ion_is_legacy(ion_client) != 0);
@@ -509,7 +563,6 @@ static int open_and_query_ion(void)
 		heap_cnt = cnt;
 	}
 	else
-#endif
 	{
 #if defined(ION_HEAP_SECURE_MASK)
 		secure_heap_exists = true;
@@ -539,7 +592,8 @@ int mali_gralloc_ion_sync_start(const private_handle_t * const hnd,
 		return -EINVAL;
 	}
 
-	if (ion_client < 0)
+	ion_device *dev = ion_device::get();
+	if (!dev)
 	{
 		return -ENODEV;
 	}
@@ -552,8 +606,7 @@ int mali_gralloc_ion_sync_start(const private_handle_t * const hnd,
 	case private_handle_t::PRIV_FLAGS_USES_ION:
 		if (!(hnd->flags & private_handle_t::PRIV_FLAGS_USES_ION_DMA_HEAP))
 		{
-#if GRALLOC_USE_LEGACY_ION_API != 1
-			if (use_legacy_ion == false)
+			if (dev->use_legacy() == false)
 			{
 #if GRALLOC_USE_ION_DMABUF_SYNC == 1
 				uint64_t flags = DMA_BUF_SYNC_START;
@@ -584,9 +637,8 @@ int mali_gralloc_ion_sync_start(const private_handle_t * const hnd,
 #endif
 			}
 			else
-#endif
 			{
-				ion_sync_fd(ion_client, hnd->share_fd);
+				ion_sync_fd(dev->client(), hnd->share_fd);
 			}
 		}
 
@@ -616,7 +668,8 @@ int mali_gralloc_ion_sync_end(const private_handle_t * const hnd,
 		return -EINVAL;
 	}
 
-	if (ion_client < 0)
+	ion_device *dev = ion_device::get();
+	if (!dev)
 	{
 		return -ENODEV;
 	}
@@ -629,8 +682,7 @@ int mali_gralloc_ion_sync_end(const private_handle_t * const hnd,
 	case private_handle_t::PRIV_FLAGS_USES_ION:
 		if (!(hnd->flags & private_handle_t::PRIV_FLAGS_USES_ION_DMA_HEAP))
 		{
-#if GRALLOC_USE_LEGACY_ION_API != 1
-			if (use_legacy_ion == false)
+			if (dev->use_legacy() == false)
 			{
 #if GRALLOC_USE_ION_DMABUF_SYNC == 1
 				uint64_t flags = DMA_BUF_SYNC_END;
@@ -661,9 +713,8 @@ int mali_gralloc_ion_sync_end(const private_handle_t * const hnd,
 #endif
 			}
 			else
-#endif
 			{
-				ion_sync_fd(ion_client, hnd->share_fd);
+				ion_sync_fd(dev->client(), hnd->share_fd);
 			}
 		}
 		break;
@@ -734,17 +785,13 @@ int mali_gralloc_ion_allocate(const gralloc_buffer_descriptor_t *descriptors,
 	unsigned int ion_flags = 0;
 	int min_pgsz = 0;
 
-	if (ion_client < 0)
+	ion_device *dev = ion_device::get();
+	if (!dev)
 	{
-		int status = 0;
-		status = open_and_query_ion();
-		if (status < 0)
-		{
-			return status;
-		}
+		return -1;
 	}
 
-	*shared_backend = check_buffers_sharable(descriptors, numDescriptors);
+	*shared_backend = dev->check_buffers_sharable(descriptors, numDescriptors);
 
 	if (*shared_backend)
 	{
@@ -758,7 +805,7 @@ int mali_gralloc_ion_allocate(const gralloc_buffer_descriptor_t *descriptors,
 #ifdef GRALLOC_AML_EXTEND
 		heap_type = am_gralloc_pick_ion_heap(max_bufDescriptor, usage);
 #else
-		heap_type = pick_ion_heap(usage);
+		heap_type = dev->pick_ion_heap(usage);
 #endif
 //meson graphics changes end
 		if (heap_type == ION_HEAP_TYPE_INVALID)
@@ -770,18 +817,18 @@ int mali_gralloc_ion_allocate(const gralloc_buffer_descriptor_t *descriptors,
 //meson graphics changes start
 #ifdef GRALLOC_AML_EXTEND
 		am_gralloc_set_ion_flags(heap_type, usage, NULL, &ion_flags);
-		shared_fd = alloc_from_ion_heap(usage, max_bufDescriptor->size, &heap_type, ion_flags, &min_pgsz);
+		shared_fd = dev->alloc_from_ion_heap(usage, max_bufDescriptor->size, &heap_type, ion_flags, &min_pgsz);
 		/*update private heap flag*/
 		am_gralloc_set_ion_flags(heap_type, usage, &priv_heap_flag, NULL);
 #else
 		set_ion_flags(heap_type, usage, &priv_heap_flag, &ion_flags);
 
-		shared_fd = alloc_from_ion_heap(usage, max_bufDescriptor->size, heap_type, ion_flags, &min_pgsz);
+		shared_fd = dev->alloc_from_ion_heap(usage, max_bufDescriptor->size, heap_type, ion_flags, &min_pgsz);
 #endif
 //meson graphics changes end
 		if (shared_fd < 0)
 		{
-			AERR("ion_alloc failed form client: ( %d )", ion_client);
+			AERR("ion_alloc failed form client: ( %d )", dev->client());
 			return -1;
 		}
 
@@ -857,7 +904,7 @@ int mali_gralloc_ion_allocate(const gralloc_buffer_descriptor_t *descriptors,
 #ifdef GRALLOC_AML_EXTEND
 			heap_type = am_gralloc_pick_ion_heap(bufDescriptor, usage);
 #else
-			heap_type = pick_ion_heap(usage);
+			heap_type = dev->pick_ion_heap(usage);
 #endif
 			//meson graphics changes end
 
@@ -871,17 +918,17 @@ int mali_gralloc_ion_allocate(const gralloc_buffer_descriptor_t *descriptors,
 			//meson graphics changes start
 #ifdef GRALLOC_AML_EXTEND
 			am_gralloc_set_ion_flags(heap_type, usage, NULL, &ion_flags);
-			shared_fd = alloc_from_ion_heap(usage, bufDescriptor->size, &heap_type, ion_flags, &min_pgsz);
+			shared_fd = dev->alloc_from_ion_heap(usage, bufDescriptor->size, &heap_type, ion_flags, &min_pgsz);
 			am_gralloc_set_ion_flags(heap_type, usage, &priv_heap_flag, NULL);
 #else
 			set_ion_flags(heap_type, usage, &priv_heap_flag, &ion_flags);
-			shared_fd = alloc_from_ion_heap(usage, bufDescriptor->size, heap_type, ion_flags, &min_pgsz);
+			shared_fd = dev->alloc_from_ion_heap(usage, bufDescriptor->size, heap_type, ion_flags, &min_pgsz);
 #endif
 			//meson graphics changes end
 
 			if (shared_fd < 0)
 			{
-				AERR("ion_alloc failed from client ( %d )", ion_client);
+				AERR("ion_alloc failed from client ( %d )", dev->client());
 
 				/* need to free already allocated memory. not just this one */
 				mali_gralloc_ion_free_internal(pHandle, numDescriptors);
@@ -925,7 +972,7 @@ int mali_gralloc_ion_allocate(const gralloc_buffer_descriptor_t *descriptors,
 
 			if (MAP_FAILED == cpu_ptr)
 			{
-				AERR("mmap failed from client ( %d ), fd ( %d )", ion_client, hnd->share_fd);
+				AERR("mmap failed from client ( %d ), fd ( %d )", dev->client(), hnd->share_fd);
 				mali_gralloc_ion_free_internal(pHandle, numDescriptors);
 				return -1;
 			}
@@ -981,25 +1028,9 @@ int mali_gralloc_ion_map(private_handle_t *hnd)
 	switch (hnd->flags & private_handle_t::PRIV_FLAGS_USES_ION)
 	{
 	case private_handle_t::PRIV_FLAGS_USES_ION:
-		unsigned char *mappedAddress;
 		size_t size = hnd->size;
-#if GRALLOC_VERSION_MAJOR <= 1
-		/* the test condition is set to ion_client <= 0 here, because
-		 * a second user process should get a ion fd greater than 0.
-		 */
-		if (ion_client <= 0)
-		{
-			/* a second user process must obtain a client handle first via ion_open before it can obtain the shared ion buffer*/
-			int status = 0;
-			status = open_and_query_ion();
-			if (status < 0)
-			{
-				return status;
-			}
-		}
-#endif
 
-		mappedAddress = (unsigned char *)mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_SHARED, hnd->share_fd, 0);
+		unsigned char *mappedAddress = (unsigned char *)mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_SHARED, hnd->share_fd, 0);
 
 		if (MAP_FAILED == mappedAddress)
 		{
@@ -1041,15 +1072,7 @@ void mali_gralloc_ion_unmap(private_handle_t *hnd)
 
 void mali_gralloc_ion_close(void)
 {
-	if (ion_client != -1)
-	{
-		if (ion_close(ion_client))
-		{
-			AERR("Failed to close ion_client: %d err=%s", ion_client, strerror(errno));
-		}
-
-		ion_client = -1;
-	}
+	ion_device::close();
 }
 
 #ifdef GRALLOC_AML_EXTEND

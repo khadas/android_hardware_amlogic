@@ -179,6 +179,10 @@ using android::hardware::graphics::common::V1_0::BufferUsage;
 #elif HIDL_COMMON_VERSION_SCALED == 110
 #include <android/hardware/graphics/common/1.1/types.h>
 using android::hardware::graphics::common::V1_1::BufferUsage;
+#elif HIDL_COMMON_VERSION_SCALED == 120
+#include <android/hardware/graphics/common/1.2/types.h>
+/* BufferUsage is not defined in 1.2/types.h as there are no changes from previous version */
+using android::hardware::graphics::common::V1_1::BufferUsage;
 #endif
 
 /* Local macro definitions to emulate Gralloc 1.0 usage interface */

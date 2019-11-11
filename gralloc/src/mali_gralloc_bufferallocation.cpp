@@ -32,7 +32,7 @@
 
 //meson graphics changes start
 #ifdef GRALLOC_AML_EXTEND
-#include "amlogic/am_gralloc_internal.h"
+#include <am_gralloc_internal.h>
 #endif
 //meson graphics changes end
 
@@ -512,7 +512,13 @@ static void calc_allocation_size(const int width,
 			uint16_t hw_align = 0;
 			if (has_hw_usage)
 			{
+				//meson graphics changes start
+#ifdef GRALLOC_AML_EXTEND
+				hw_align = format.is_yuv ? 32 : 64;
+#else
 				hw_align = format.is_yuv ? 128 : 64;
+#endif
+				//meson graphics changes end
 			}
 
 			uint32_t cpu_align = 0;
@@ -799,14 +805,7 @@ int mali_gralloc_derive_format_and_size(mali_gralloc_module *m,
 	int alloc_height = bufDescriptor->height;
 	uint64_t usage = bufDescriptor->producer_usage | bufDescriptor->consumer_usage;
 
-	/*
-	* Select optimal internal pixel format based upon
-	* usage and requested format.
-	*/
-
-	//meson graphics changes start
 #ifdef GRALLOC_AML_EXTEND
-#if PLATFORM_SDK_VERSION >= 24
 	/*for omx pts buffer, alloc small buffer.*/
 	if (am_gralloc_is_omx_metadata_extend_usage(usage))
 	{
@@ -814,15 +813,16 @@ int mali_gralloc_derive_format_and_size(mali_gralloc_module *m,
 		alloc_height  = OMX_VIDEOLAYER_ALLOC_BUFFER_HEIGHT;
 	}
 #endif
-#endif
-	//meson graphics changes end
 
+	/*
+	* Select optimal internal pixel format based upon
+	* usage and requested format.
+	*/
 	bufDescriptor->alloc_format = mali_gralloc_select_format(bufDescriptor->hal_format,
 	                                                         bufDescriptor->format_type,
 	                                                         usage,
 	                                                         bufDescriptor->width * bufDescriptor->height,
 	                                                         &bufDescriptor->internal_format);
-
 	if (bufDescriptor->alloc_format == MALI_GRALLOC_FORMAT_INTERNAL_UNDEFINED)
 	{
 		ALOGE("ERROR: Unrecognized and/or unsupported format 0x%" PRIx64 " and usage 0x%" PRIx64,

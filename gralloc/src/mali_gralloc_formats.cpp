@@ -65,7 +65,7 @@ static bool runtime_caps_read = false;
 
 #define MALI_GRALLOC_GPU_LIB_NAME "libGLES_mali.so"
 #define MALI_GRALLOC_VPU_LIB_NAME "libstagefrighthw.so"
-#define MALI_GRALLOC_DPU_LIB_NAME "hwcomposer.default.so"
+#define MALI_GRALLOC_DPU_LIB_NAME "hwcomposer.drm.so"
 #define MALI_GRALLOC_DPU_AEU_LIB_NAME "dpu_aeu_fake_caps.so"
 
 /* Producer/consumer definitions.
@@ -156,11 +156,6 @@ static bool get_block_capabilities(const char *name, mali_gralloc_format_caps *b
  * NOTE: although no capabilities are returned, global variables global variables
  * named '*_runtime_caps' are updated.
  */
-//meson graphics changes start
-#ifdef GRALLOC_AML_EXTEND
-int get_meson_ip_caps();
-#endif
-//meson graphics changes end
 static void get_ip_capabilities(void)
 {
 	/* Ensure capability setting is not interrupted by other
@@ -188,7 +183,23 @@ static void get_ip_capabilities(void)
 	cpu_runtime_caps.caps_mask |= MALI_GRALLOC_FORMAT_CAPABILITY_PIXFMT_RGBA16161616;
 
 #ifdef GRALLOC_AML_EXTEND
-	get_meson_ip_caps();
+	/*Amlogic: DPU caps read, use the same GPU AFBC caps define*/
+	dpu_aeu_runtime_caps.caps_mask |= MALI_GRALLOC_FORMAT_CAPABILITY_OPTIONS_PRESENT;
+	dpu_runtime_caps.caps_mask |= MALI_GRALLOC_FORMAT_CAPABILITY_OPTIONS_PRESENT;
+
+#if MALI_GPU_SUPPORT_AFBC_BASIC == 1
+	dpu_runtime_caps.caps_mask |= MALI_GRALLOC_FORMAT_CAPABILITY_AFBC_BASIC;
+
+#if MALI_GPU_SUPPORT_AFBC_SPLITBLK == 1
+	dpu_runtime_caps.caps_mask |= MALI_GRALLOC_FORMAT_CAPABILITY_AFBC_SPLITBLK;
+#endif
+
+#if MALI_GPU_SUPPORT_AFBC_WIDEBLK == 1
+	dpu_runtime_caps.caps_mask |= MALI_GRALLOC_FORMAT_CAPABILITY_AFBC_SPLITBLK;
+	dpu_runtime_caps.caps_mask |= MALI_GRALLOC_FORMAT_CAPABILITY_AFBC_WIDEBLK;
+#endif
+#endif /* MALI_GPU_SUPPORT_AFBC_BASIC == 1 */
+
 #else
 	/* Determine DPU IP capabilities */
 	if (!get_block_capabilities(MALI_GRALLOC_DPU_LIBRARY_PATH MALI_GRALLOC_DPU_LIB_NAME, &dpu_runtime_caps))
@@ -233,7 +244,11 @@ static void get_ip_capabilities(void)
 			dpu_aeu_runtime_caps.caps_mask |= MALI_GRALLOC_FORMAT_CAPABILITY_AFBC_YUV_WRITE;
 		}
 	}
+#endif
 
+#ifdef GRALLOC_AML_EXTEND
+	/*Amlogic: do not use dynamic GPU caps now.*/
+#else
 	/* Determine GPU IP capabilities */
 	if (access(MALI_GRALLOC_GPU_LIBRARY_PATH1 MALI_GRALLOC_GPU_LIB_NAME, R_OK) == 0)
 	{
@@ -243,6 +258,7 @@ static void get_ip_capabilities(void)
 	{
 		get_block_capabilities(MALI_GRALLOC_GPU_LIBRARY_PATH2 MALI_GRALLOC_GPU_LIB_NAME, &gpu_runtime_caps);
 	}
+#endif
 
 	if ((gpu_runtime_caps.caps_mask & MALI_GRALLOC_FORMAT_CAPABILITY_OPTIONS_PRESENT) == 0)
 	{
@@ -274,6 +290,11 @@ static void get_ip_capabilities(void)
 #endif /* MALI_GPU_SUPPORT_AFBC_BASIC == 1 */
 	}
 
+#ifdef GRALLOC_AML_EXTEND
+	/*Amlogic: vpu & camera, no special caps.*/
+	vpu_runtime_caps.caps_mask |= MALI_GRALLOC_FORMAT_CAPABILITY_OPTIONS_PRESENT;
+	cam_runtime_caps.caps_mask |= MALI_GRALLOC_FORMAT_CAPABILITY_OPTIONS_PRESENT;
+#else
 	/* Determine VPU IP capabilities */
 	if (!get_block_capabilities(MALI_GRALLOC_VPU_LIBRARY_PATH MALI_GRALLOC_VPU_LIB_NAME, &vpu_runtime_caps))
 	{
@@ -291,6 +312,7 @@ static void get_ip_capabilities(void)
 		vpu_runtime_caps.caps_mask |= MALI_GRALLOC_FORMAT_CAPABILITY_AFBC_YUV_WRITE;
 #endif
 	}
+#endif
 
 /* Build specific capability changes */
 #if GRALLOC_ARM_NO_EXTERNAL_AFBC == 1
@@ -300,7 +322,6 @@ static void get_ip_capabilities(void)
 		vpu_runtime_caps.caps_mask &= ~MALI_GRALLOC_FORMAT_CAPABILITY_AFBCENABLE_MASK;
 		cam_runtime_caps.caps_mask &= ~MALI_GRALLOC_FORMAT_CAPABILITY_AFBCENABLE_MASK;
 	}
-#endif
 #endif
 
 	runtime_caps_read = true;
@@ -636,7 +657,7 @@ void mali_gralloc_adjust_dimensions(const uint64_t internal_format,
 	                   internal_width, internal_height);
 
 out:
-	ALOGD("%s: internal_format=0x%" PRIx64 " usage=0x%" PRIx64
+	ALOGV("%s: internal_format=0x%" PRIx64 " usage=0x%" PRIx64
 	      " width=%u, height=%u, internal_width=%d, internal_height=%d",
 	      __FUNCTION__, internal_format, usage, width, height, *internal_width, *internal_height);
 }
@@ -827,69 +848,6 @@ static inline bool is_afbc_multiplane_supported(const uint16_t producers,
 	        producers == 0) ? true : false;
 }
 
-//meson graphics changes start
-#ifdef GRALLOC_AML_EXTEND
-int get_meson_ip_caps()
-{
-	dpu_aeu_runtime_caps.caps_mask = MALI_GRALLOC_FORMAT_CAPABILITY_OPTIONS_PRESENT;
-	vpu_runtime_caps.caps_mask = MALI_GRALLOC_FORMAT_CAPABILITY_OPTIONS_PRESENT;
-	cam_runtime_caps.caps_mask = MALI_GRALLOC_FORMAT_CAPABILITY_OPTIONS_PRESENT;
-
-	dpu_runtime_caps.caps_mask = 0;
-	gpu_runtime_caps.caps_mask = 0;
-
-	char osd_afbcd[PROPERTY_VALUE_MAX];
-	int  osd_afbcd_enabled = 0;
-	int  num_of_afbcd_type = 0;
-	char osd_afbcd_value[] = "00";
-	int  osd_afbcd_fd = -1;
-
-	if (property_get("vendor.afbcd.enable", osd_afbcd, "1") > 0)
-	{
-		osd_afbcd_enabled = atoi(osd_afbcd);
-	}
-
-	if (osd_afbcd_enabled)
-	{
-		osd_afbcd_fd = open("/sys/class/graphics/fb0/osd_afbcd", O_RDWR);
-		if (osd_afbcd_fd < 0) {
-			ALOGD("errno=%d, %s", errno, strerror(errno));
-			return -EPERM;
-		}
-
-		lseek(osd_afbcd_fd, 0, SEEK_SET);
-		read (osd_afbcd_fd, osd_afbcd, 1);
-		num_of_afbcd_type = atoi(osd_afbcd);
-		close (osd_afbcd_fd);
-		osd_afbcd_fd = -1;
-	}
-	ALOGD("AFBC %s\n", num_of_afbcd_type != 0? "enabled":"disabled");
-	ALOGD("num of AFBC type %d\n", num_of_afbcd_type);
-
-
-	if (0 != num_of_afbcd_type) {
-		/* Determine DPU format capabilities */
-		dpu_runtime_caps.caps_mask |= MALI_GRALLOC_FORMAT_CAPABILITY_OPTIONS_PRESENT;
-		dpu_runtime_caps.caps_mask |= MALI_GRALLOC_FORMAT_CAPABILITY_AFBC_BASIC;
-		dpu_runtime_caps.caps_mask |= MALI_GRALLOC_FORMAT_CAPABILITY_AFBC_SPLITBLK;
-
-		/* Determine GPU format capabilities */
-		gpu_runtime_caps.caps_mask |= MALI_GRALLOC_FORMAT_CAPABILITY_OPTIONS_PRESENT;
-		gpu_runtime_caps.caps_mask |= MALI_GRALLOC_FORMAT_CAPABILITY_AFBC_BASIC;
-		gpu_runtime_caps.caps_mask |= MALI_GRALLOC_FORMAT_CAPABILITY_AFBC_SPLITBLK;
-#if PLATFORM_SDK_VERSION >= 26 && GPU_FORMAT_LIMIT != 1
-		gpu_runtime_caps.caps_mask |= MALI_GRALLOC_FORMAT_CAPABILITY_PIXFMT_RGBA1010102;
-		gpu_runtime_caps.caps_mask |= MALI_GRALLOC_FORMAT_CAPABILITY_PIXFMT_RGBA16161616;
-#endif
-	}
-	if (2 == num_of_afbcd_type) {
-		dpu_runtime_caps.caps_mask |= MALI_GRALLOC_FORMAT_CAPABILITY_AFBC_WIDEBLK;
-		gpu_runtime_caps.caps_mask |= MALI_GRALLOC_FORMAT_CAPABILITY_AFBC_WIDEBLK;
-	}
-	return 0;
-}
-#endif
-//meson graphics changes end
 
 /*
  * Determines whether a given base format is supported by all producers and
@@ -964,19 +922,22 @@ static uint8_t is_format_supported(const int32_t fmt_idx,
 
 	if (f_flags != F_NONE)
 	{
-#if PLATFORM_SDK_VERSION >= 26
 		if (formats[fmt_idx].id == MALI_GRALLOC_FORMAT_INTERNAL_RGBA_1010102 &&
 		    (producer_caps & consumer_caps & MALI_GRALLOC_FORMAT_CAPABILITY_PIXFMT_RGBA1010102) == 0)
 		{
 			f_flags = F_NONE;
 		}
-
-		if (formats[fmt_idx].id == MALI_GRALLOC_FORMAT_INTERNAL_RGBA_16161616 &&
-		    (producer_caps & consumer_caps & MALI_GRALLOC_FORMAT_CAPABILITY_PIXFMT_RGBA16161616) == 0)
+		else if (formats[fmt_idx].id == MALI_GRALLOC_FORMAT_INTERNAL_RGBA_16161616)
 		{
-			f_flags = F_NONE;
+			if ((producer_caps & consumer_caps & MALI_GRALLOC_FORMAT_CAPABILITY_PIXFMT_RGBA16161616) == 0)
+			{
+				f_flags = F_NONE;
+			}
+			else if ((producer_caps & consumer_caps & MALI_GRALLOC_FORMAT_CAPABILITY_AFBC_RGBA16161616) == 0)
+			{
+				f_flags = F_LIN;
+			}
 		}
-#endif
 	}
 
 	return f_flags;
@@ -1766,9 +1727,6 @@ uint32_t get_base_format(const uint64_t req_format,
 		 * MALI_GRALLOC_FORMAT_TYPE_INTERNAL) should be accepted, including
 		 * MALI_GRALLOC_FORMAT_INTERNAL_NV12 (same value as HAL_PIXEL_FORMAT_JPEG).
 		 */
-#if PLATFORM_SDK_VERSION >= 26 && PLATFORM_SDK_VERSION < 28
-		if (type == MALI_GRALLOC_FORMAT_TYPE_INTERNAL || req_format != HAL_PIXEL_FORMAT_JPEG)
-#endif
 		{
 			/* Mask out extension bits which could be present with type 'internal'. */
 			base_format = req_format & MALI_GRALLOC_INTFMT_FMT_MASK;
@@ -1811,8 +1769,11 @@ uint64_t mali_gralloc_select_format(const uint64_t req_format,
 	const uint32_t req_base_format = get_base_format(req_format, usage, type, true);
 	const int32_t req_fmt_idx = get_format_index(req_base_format);
 
-//meson graphics changes start
-#ifdef GRALLOC_AML_EXTEND
+/*meson graphics changes start
+  We have declared RGB10102 AND FP16 capacity in ip capacity.
+  So this code should not needed, comment it and confirm later on utgard.
+*/
+#if 0
 #if PLATFORM_SDK_VERSION >= 26 && defined(GPU_FORMAT_LIMIT) && (GPU_FORMAT_LIMIT==1)
     if ((HAL_PIXEL_FORMAT_RGBA_FP16 == req_format) ||
             (HAL_PIXEL_FORMAT_RGBA_1010102 == req_format)) {
@@ -1821,7 +1782,7 @@ uint64_t mali_gralloc_select_format(const uint64_t req_format,
     }
 #endif
 #endif
-//meson graphics changes end
+
 	if (req_base_format == MALI_GRALLOC_FORMAT_INTERNAL_UNDEFINED ||
 	    req_fmt_idx == -1)
 	{
@@ -1863,7 +1824,17 @@ uint64_t mali_gralloc_select_format(const uint64_t req_format,
 
 		/* Obtain producer and consumer capabilities. */
 		const uint64_t producer_caps = get_producer_caps(producers);
-		const uint64_t consumer_caps = get_consumer_caps(consumers);
+
+		uint64_t consumer_caps = 0;
+		if (GRALLOC_HWC_FB_DISABLE_AFBC && DISABLE_FRAMEBUFFER_HAL && (usage & GRALLOC_USAGE_HW_FB))
+		{
+			/* Override capabilities to disable AFBC for DRM HWC framebuffer surfaces. */
+			consumer_caps = MALI_GRALLOC_FORMAT_CAPABILITY_OPTIONS_PRESENT;
+		}
+		else
+		{
+			consumer_caps = get_consumer_caps(consumers);
+		}
 
 		ALOGV("Producer caps: 0x%" PRIx64 ", Consumer caps: 0x%" PRIx64,
 		      producer_caps, consumer_caps);
@@ -1897,12 +1868,23 @@ uint64_t mali_gralloc_select_format(const uint64_t req_format,
 		ALOGV("Producer caps (active): 0x%" PRIx64 ", Consumer caps (active): 0x%" PRIx64,
 		      producer_active_caps, consumer_active_caps);
 
-		alloc_format = get_best_format(formats[req_fmt_idx].id,
-		                               usage,
-		                               producers,
-		                               consumers,
-		                               producer_active_caps,
-		                               consumer_active_caps);
+		/* Some platforms require the format to be overriden for DRM HWC.
+		 * GPUCORE-19255 has been raised to investigate why this is and hopefully remove the following
+		 * workaround.
+		 */
+		if (GRALLOC_HWC_FORCE_BGRA_8888 && DISABLE_FRAMEBUFFER_HAL && (usage & GRALLOC_USAGE_HW_FB))
+		{
+			alloc_format = HAL_PIXEL_FORMAT_BGRA_8888;
+		}
+		else
+		{
+			alloc_format = get_best_format(formats[req_fmt_idx].id,
+			                               usage,
+			                               producers,
+			                               consumers,
+			                               producer_active_caps,
+			                               consumer_active_caps);
+		}
 	}
 
 out:
@@ -1923,7 +1905,7 @@ out:
 		*internal_format |= (alloc_format & MALI_GRALLOC_INTFMT_EXT_MASK);
 	}
 
-	ALOGD("mali_gralloc_select_format: req_format=0x%08" PRIx64 ", usage=0x%" PRIx64
+	ALOGV("mali_gralloc_select_format: req_format=0x%08" PRIx64 ", usage=0x%" PRIx64
 	      ", req_base_format=0x%" PRIx32 ", alloc_format=0x%" PRIx64 ", internal_format=0x%" PRIx64,
 	      req_format, usage, req_base_format, alloc_format, *internal_format);
 

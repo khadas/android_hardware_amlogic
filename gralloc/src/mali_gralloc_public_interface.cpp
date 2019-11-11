@@ -464,7 +464,6 @@ static int32_t mali_gralloc1_unlock_async(const gralloc1_device_t * const device
 	return GRALLOC1_ERROR_NONE;
 }
 
-#if PLATFORM_SDK_VERSION >= 26
 static int32_t mali_gralloc1_set_layer_count(gralloc1_device_t* device,
                                              gralloc1_buffer_descriptor_t descriptor,
                                              uint32_t layerCount)
@@ -482,9 +481,7 @@ static int32_t mali_gralloc1_get_layer_count(gralloc1_device_t* device, buffer_h
 	GRALLOC_UNUSED(device);
 	return ret;
 }
-#endif
 
-#if PLATFORM_SDK_VERSION >= 28
 static int32_t mali_gralloc1_validate_buffer_size(gralloc1_device_t* device, buffer_handle_t buffer,
                                                   const gralloc1_buffer_descriptor_info_t* descriptorInfo,
                                                   uint32_t stride)
@@ -729,7 +726,6 @@ static int32_t mali_gralloc1_import_buffer(gralloc1_device_t* device, const buff
 
 	return GRALLOC1_ERROR_NONE;
 }
-#endif
 
 static const mali_gralloc_func mali_gralloc_func_list[] = {
 	{ GRALLOC1_FUNCTION_DUMP, (gralloc1_function_pointer_t)mali_gralloc_dump },
@@ -752,16 +748,12 @@ static const mali_gralloc_func mali_gralloc_func_list[] = {
 	{ GRALLOC1_FUNCTION_LOCK, (gralloc1_function_pointer_t)mali_gralloc1_lock_async },
 	{ GRALLOC1_FUNCTION_LOCK_FLEX, (gralloc1_function_pointer_t)mali_gralloc1_lock_flex_async },
 	{ GRALLOC1_FUNCTION_UNLOCK, (gralloc1_function_pointer_t)mali_gralloc1_unlock_async },
-#if PLATFORM_SDK_VERSION >= 26
 	{ GRALLOC1_FUNCTION_SET_LAYER_COUNT, (gralloc1_function_pointer_t)mali_gralloc1_set_layer_count },
 	{ GRALLOC1_FUNCTION_GET_LAYER_COUNT, (gralloc1_function_pointer_t)mali_gralloc1_get_layer_count },
-#endif
 
-#if PLATFORM_SDK_VERSION >= 28
 	{ GRALLOC1_FUNCTION_VALIDATE_BUFFER_SIZE, (gralloc1_function_pointer_t)mali_gralloc1_validate_buffer_size },
 	{ GRALLOC1_FUNCTION_GET_TRANSPORT_SIZE, (gralloc1_function_pointer_t)mali_gralloc1_get_transport_size },
 	{ GRALLOC1_FUNCTION_IMPORT_BUFFER, (gralloc1_function_pointer_t)mali_gralloc1_import_buffer },
-#endif
 
 	/* GRALLOC1_FUNCTION_INVALID has to be the last descriptor on the list. */
 	{ GRALLOC1_FUNCTION_INVALID, NULL }
@@ -770,7 +762,6 @@ static const mali_gralloc_func mali_gralloc_func_list[] = {
 static void mali_gralloc_getCapabilities(gralloc1_device_t *dev, uint32_t *outCount, int32_t *outCapabilities)
 {
 	GRALLOC_UNUSED(dev);
-#if PLATFORM_SDK_VERSION >= 26
 	if (outCount != NULL)
 	{
 		*outCount = 1;
@@ -780,13 +771,6 @@ static void mali_gralloc_getCapabilities(gralloc1_device_t *dev, uint32_t *outCo
 	{
 		*(outCapabilities++) = GRALLOC1_CAPABILITY_LAYERED_BUFFERS;
 	}
-#else
-	GRALLOC_UNUSED(outCapabilities);
-	if (outCount != NULL)
-	{
-		*outCount = 0;
-	}
-#endif
 }
 
 static gralloc1_function_pointer_t mali_gralloc_getFunction(gralloc1_device_t *dev, int32_t descriptor)

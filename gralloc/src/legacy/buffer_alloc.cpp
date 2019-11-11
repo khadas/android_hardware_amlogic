@@ -815,9 +815,7 @@ int get_alloc_size(uint64_t internal_format,
 	case HAL_PIXEL_FORMAT_RGBA_8888:
 	case HAL_PIXEL_FORMAT_RGBX_8888:
 	case HAL_PIXEL_FORMAT_BGRA_8888:
-#if PLATFORM_SDK_VERSION >= 26
 	case HAL_PIXEL_FORMAT_RGBA_1010102:
-#endif
 		get_rgb_stride_and_size(old_alloc_width, old_alloc_height, 4,
 		                        usage & (GRALLOC_USAGE_SW_READ_MASK | GRALLOC_USAGE_SW_WRITE_MASK),
 		                        pixel_stride, old_byte_stride, size, alloc_type);
@@ -834,13 +832,11 @@ int get_alloc_size(uint64_t internal_format,
 		                        usage & (GRALLOC_USAGE_SW_READ_MASK | GRALLOC_USAGE_SW_WRITE_MASK),
 		                        pixel_stride, old_byte_stride, size, alloc_type);
 		break;
-#if PLATFORM_SDK_VERSION >= 26
 	case HAL_PIXEL_FORMAT_RGBA_FP16:
 		get_rgb_stride_and_size(old_alloc_width, old_alloc_height, 8,
 		                        usage & (GRALLOC_USAGE_SW_READ_MASK | GRALLOC_USAGE_SW_WRITE_MASK),
 		                        pixel_stride, old_byte_stride, size, alloc_type);
 		break;
-#endif
 
 	case MALI_GRALLOC_FORMAT_INTERNAL_YV12:
 	case MALI_GRALLOC_FORMAT_INTERNAL_NV12:

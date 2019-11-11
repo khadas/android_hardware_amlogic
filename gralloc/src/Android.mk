@@ -30,8 +30,12 @@ include $(LOCAL_PATH)/../gralloc.version.mk
 # Include platform specific makefiles
 include $(if $(wildcard $(LOCAL_PATH)/Android.$(TARGET_BOARD_PLATFORM).mk), $(LOCAL_PATH)/Android.$(TARGET_BOARD_PLATFORM).mk,)
 
-PLATFORM_SDK_GREATER_THAN_24 := $(shell expr $(PLATFORM_SDK_VERSION) \> 24)
-PLATFORM_SDK_LESS_THAN_28 := $(shell expr $(PLATFORM_SDK_VERSION) \< 28)
+# Disallow building for unsupported Android versions
+ifeq ($(shell expr $(PLATFORM_SDK_VERSION) \> 27), 0)
+    $(error Gralloc supports only Android P and later versions.)
+endif
+
+PLATFORM_SDK_GREATER_THAN_28 := $(shell expr $(PLATFORM_SDK_VERSION) \> 28)
 
 MALI_GRALLOC_VPU_LIBRARY_PATH?="\"/system/lib/\""
 MALI_GRALLOC_GPU_LIBRARY_64_PATH1 := "\"/vendor/lib64/egl/\""
@@ -88,8 +92,19 @@ GRALLOC_INIT_AFBC?=0
 GRALLOC_FB_BPP?=32
 # When enabled, forces display framebuffer format to BGRA_8888
 GRALLOC_FB_SWAP_RED_BLUE?=1
+# When enabled, forces format to BGRA_8888 for FB usage when HWC is in use
+GRALLOC_HWC_FORCE_BGRA_8888?=0
+# When enabled, disables AFBC for FB usage when HWC is in use
+GRALLOC_HWC_FB_DISABLE_AFBC?=0
 # Disables the framebuffer HAL device. When a hwc impl is available.
-GRALLOC_DISABLE_FRAMEBUFFER_HAL?=0
+ifeq ($(PLATFORM_SDK_GREATER_THAN_28), 1)
+    GRALLOC_DISABLE_FRAMEBUFFER_HAL?=1
+    ifneq ($(GRALLOC_DISABLE_FRAMEBUFFER_HAL), 1)
+        $(error Framebuffer HAL unsupported for Android 10 and above)
+    endif
+else
+    GRALLOC_DISABLE_FRAMEBUFFER_HAL?=0
+endif
 # When enabled, buffers will never be allocated with AFBC
 GRALLOC_ARM_NO_EXTERNAL_AFBC?=0
 # Minimum buffer dimensions in pixels when buffer will use AFBC
@@ -98,23 +113,15 @@ GRALLOC_DISP_H?=0
 # Vsync backend(not used)
 GRALLOC_VSYNC_BACKEND?=default
 
-ifdef GRALLOC_USE_LEGACY_ION_API
-    $(warning Setting of 'GRALLOC_USE_LEGACY_ION_API' is ignored. It is derived from SDK version)
-endif
-
-# Use new libion from Android P/9.0 onwards
-ifeq ($(PLATFORM_SDK_LESS_THAN_28), 1)
-    GRALLOC_USE_LEGACY_ION_API = 1
+ifeq ($(PLATFORM_SDK_GREATER_THAN_28), 1)
+    GRALLOC_USE_LEGACY_CALCS_LOCK?=0
+    ifeq ($(GRALLOC_USE_LEGACY_CALCS_LOCK), 1)
+        $(error Legacy calculations are unsupported for Android 10 and above)
+    endif
 else
-    GRALLOC_USE_LEGACY_ION_API = 0
+    GRALLOC_USE_LEGACY_CALCS_LOCK?=1
 endif
 
-ifeq ($(GRALLOC_AML_EXTEND),1)
-GRALLOC_USE_LEGACY_ION_API:=1
-$(warning GRALLOC_USE_LEGACY_ION_API is $(GRALLOC_USE_LEGACY_ION_API))
-endif
-
-GRALLOC_USE_LEGACY_CALCS_LOCK?=1
 GRALLOC_USE_ION_DMABUF_SYNC?=1
 
 ifeq ($(TARGET_BOARD_PLATFORM), juno)
@@ -196,9 +203,10 @@ LOCAL_CFLAGS += -DGRALLOC_USE_ION_COMPOUND_PAGE_HEAP=$(GRALLOC_USE_ION_COMPOUND_
 LOCAL_CFLAGS += -DGRALLOC_INIT_AFBC=$(GRALLOC_INIT_AFBC)
 LOCAL_CFLAGS += -DGRALLOC_FB_BPP=$(GRALLOC_FB_BPP)
 LOCAL_CFLAGS += -DGRALLOC_FB_SWAP_RED_BLUE=$(GRALLOC_FB_SWAP_RED_BLUE)
+LOCAL_CFLAGS += -DGRALLOC_HWC_FORCE_BGRA_8888=$(GRALLOC_HWC_FORCE_BGRA_8888)
+LOCAL_CFLAGS += -DGRALLOC_HWC_FB_DISABLE_AFBC=$(GRALLOC_HWC_FB_DISABLE_AFBC)
 LOCAL_CFLAGS += -DGRALLOC_ARM_NO_EXTERNAL_AFBC=$(GRALLOC_ARM_NO_EXTERNAL_AFBC)
 LOCAL_CFLAGS += -DGRALLOC_LIBRARY_BUILD=1
-LOCAL_CFLAGS += -DGRALLOC_USE_LEGACY_ION_API=$(GRALLOC_USE_LEGACY_ION_API)
 LOCAL_CFLAGS += -DGRALLOC_USE_LEGACY_CALCS=$(GRALLOC_USE_LEGACY_CALCS_LOCK)
 LOCAL_CFLAGS += -DGRALLOC_USE_LEGACY_LOCK=$(GRALLOC_USE_LEGACY_CALCS_LOCK)
 LOCAL_CFLAGS += -DGRALLOC_USE_ION_DMABUF_SYNC=$(GRALLOC_USE_ION_DMABUF_SYNC)
@@ -219,6 +227,13 @@ else ifeq ($(GRALLOC_VERSION_MAJOR), 2)
         ifeq ($(HIDL_MAPPER_VERSION_SCALED), 210)
             LOCAL_SHARED_LIBRARIES += android.hardware.graphics.mapper@2.1
         endif
+    endif
+else ifeq ($(GRALLOC_VERSION_MAJOR), 3)
+    LOCAL_SHARED_LIBRARIES += libhidlbase libhidltransport
+    ifeq ($(GRALLOC_MAPPER), 1)
+        LOCAL_SHARED_LIBRARIES += android.hardware.graphics.mapper@3.0
+    else
+        LOCAL_SHARED_LIBRARIES += android.hardware.graphics.allocator@3.0
     endif
 endif
 
@@ -242,29 +257,30 @@ ifeq ($(shell expr $(GRALLOC_VERSION_MAJOR) \<= 1), 1)
 else ifeq ($(GRALLOC_VERSION_MAJOR), 2)
     ifeq ($(GRALLOC_MAPPER), 1)
         ifeq ($(HIDL_MAPPER_VERSION_SCALED), 200)
-            LOCAL_MODULE := android.hardware.graphics.mapper@2.0-impl
+            LOCAL_MODULE := android.hardware.graphics.mapper@2.0-impl-arm
         else ifeq ($(HIDL_MAPPER_VERSION_SCALED), 210)
-            LOCAL_MODULE := android.hardware.graphics.mapper@2.0-impl-2.1
+            LOCAL_MODULE := android.hardware.graphics.mapper@2.0-impl-2.1-arm
         endif
     else
-        LOCAL_MODULE := android.hardware.graphics.allocator@2.0-impl
+        LOCAL_MODULE := android.hardware.graphics.allocator@2.0-impl-arm
+    endif
+else ifeq ($(GRALLOC_VERSION_MAJOR), 3)
+    ifeq ($(GRALLOC_MAPPER), 1)
+        LOCAL_MODULE := android.hardware.graphics.mapper@3.0-impl-arm
+    else
+        LOCAL_MODULE := android.hardware.graphics.allocator@3.0-impl-arm
     endif
 endif
 
 
 ifeq ($(GRALLOC_AML_EXTEND),1)
-
-LOCAL_CFLAGS += -DGRALLOC_AML_EXTEND
+LOCAL_CFLAGS += -DGRALLOC_AML_EXTEND -DAML_ALLOC_SCANOUT_FOR_COMPOSE
 LOCAL_CFLAGS += -DBOARD_RESOLUTION_RATIO=$(BOARD_RESOLUTION_RATIO)
-
 ifeq ($(GPU_FORMAT_LIMIT),1)
 	LOCAL_CFLAGS += -DGPU_FORMAT_LIMIT=1
 endif
-
 LOCAL_STATIC_LIBRARIES += libamgralloc_internal_static
-LOCAL_C_INCLUDES += hardware/amlogic/gralloc/src/amlogic/
-LOCAL_MODULE := gralloc.amlogic
-
+LOCAL_C_INCLUDES += hardware/amlogic/gralloc/amlogic/
 endif
 
 LOCAL_MODULE_OWNER := arm
@@ -291,6 +307,9 @@ LOCAL_SRC_FILES += \
 endif
 
 ifeq ($(GRALLOC_VERSION_MAJOR), 0)
+    ifeq ($(PLATFORM_SDK_GREATER_THAN_28), 1)
+        $(error Gralloc 0.3 is unsupported for Android 10 and above)
+    endif
     LOCAL_SRC_FILES += mali_gralloc_module.cpp \
                        framebuffer_device.cpp \
                        gralloc_vsync_${GRALLOC_VSYNC_BACKEND}.cpp \
@@ -327,13 +346,22 @@ else ifeq ($(GRALLOC_VERSION_MAJOR), 2)
     else ifeq ($(HIDL_COMMON_VERSION_SCALED), 110)
         LOCAL_EXPORT_SHARED_LIBRARY_HEADERS += android.hardware.graphics.common@1.1
     endif
+else ifeq ($(GRALLOC_VERSION_MAJOR), 3)
+    LOCAL_EXPORT_SHARED_LIBRARY_HEADERS := \
+        libhidlbase \
+        libhidltransport
+
+    ifeq ($(GRALLOC_MAPPER), 1)
+        LOCAL_SRC_FILES += 3.x/GrallocMapper.cpp
+    else
+        LOCAL_SRC_FILES += framebuffer_device.cpp \
+                           3.x/GrallocAllocator.cpp
+        LOCAL_EXPORT_SHARED_LIBRARY_HEADERS += android.hardware.graphics.allocator@3.0
+        LOCAL_EXPORT_SHARED_LIBRARY_HEADERS += android.hardware.graphics.mapper@3.0
+        LOCAL_EXPORT_SHARED_LIBRARY_HEADERS += android.hardware.graphics.common@1.2
+    endif
 endif
 
 LOCAL_MODULE_OWNER := arm
 
 include $(BUILD_SHARED_LIBRARY)
-
-# Amlogic usage & flags api.
-#meson graphics start
-include $(LOCAL_PATH)/amlogic/Android.mk
-#meson graphics end

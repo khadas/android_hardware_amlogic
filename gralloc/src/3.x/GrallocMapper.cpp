@@ -31,6 +31,9 @@
 #include "mali_gralloc_ion.h"
 #include "mali_gralloc_buffer.h"
 #include "format_info.h"
+#ifdef GRALLOC_AML_EXTEND
+#include <am_gralloc_internal.h>
+#endif
 
 namespace android {
 namespace hardware {
@@ -39,9 +42,9 @@ namespace mapper {
 namespace HIDL_IMAPPER_NAMESPACE {
 namespace implementation {
 
-/* Default definitions for IMapper 2.x interface */
-using V2_0::Error;
-using V2_0::BufferDescriptor;
+/* Default definitions for IMapper 3.x interface */
+using V3_0::Error;
+using V3_0::BufferDescriptor;
 
 namespace {
 
@@ -94,7 +97,7 @@ RegisteredHandlePool* gRegisteredHandles = new RegisteredHandlePool;
 
 /**
  *  IMapper constructor. All the state information required for the Gralloc
- *  private module is populated in its default constructor. Gralloc 2.0 specific
+ *  private module is populated in its default constructor. Gralloc 3.x specific
  *  state information can be populated here.
  *
  * @return None
@@ -128,14 +131,12 @@ bool GrallocMapper::validateDescriptorInfo(void *descriptor_attr) const
 {
 	BufferDescriptorInfo * const descriptorInfo = (BufferDescriptorInfo *)descriptor_attr;
 
-	using android::hardware::graphics::common::HIDL_COMMON_NAMESPACE::BufferUsage;
-	using android::hardware::graphics::common::HIDL_COMMON_NAMESPACE::PixelFormat;
+	using android::hardware::graphics::common::V1_1::BufferUsage;
+	using android::hardware::graphics::common::V1_2::PixelFormat;
 
 	const uint64_t validUsageBits =
-#if HIDL_MAPPER_VERSION_SCALED >= 210
 		BufferUsage::GPU_CUBE_MAP |
 		BufferUsage::GPU_MIPMAP_COMPLETE |
-#endif
 		BufferUsage::CPU_READ_MASK | BufferUsage::CPU_WRITE_MASK |
 		BufferUsage::GPU_TEXTURE | BufferUsage::GPU_RENDER_TARGET |
 		BufferUsage::COMPOSER_OVERLAY | BufferUsage::COMPOSER_CLIENT_TARGET |
@@ -152,7 +153,7 @@ bool GrallocMapper::validateDescriptorInfo(void *descriptor_attr) const
 	if (!descriptorInfo->width || !descriptorInfo->height ||
 	    !descriptorInfo->layerCount)
 	{
-		AERR("Invalid buffer descriptor (2.x mapper) attributes, width = %d height = %d  layerCount = %d ",
+		AERR("Invalid buffer descriptor (3.x mapper) attributes, width = %d height = %d  layerCount = %d ",
 		      descriptorInfo->width, descriptorInfo->height, descriptorInfo->layerCount);
 		return false;
 	}
@@ -175,7 +176,7 @@ bool GrallocMapper::validateDescriptorInfo(void *descriptor_attr) const
 /*
  * Creates a buffer descriptor from incoming descriptor attributes
  *
- * @param descriptorInfo [in]  Specifies the (2.0 IMapper) attributes of
+ * @param descriptorInfo [in]  Specifies the (3.x IMapper) attributes of
  *                             the descriptor.
  * @param hidl_cb        [in]  HIDL callback function generating -
  *                             error:      NONE upon success. Otherwise,
@@ -185,7 +186,7 @@ bool GrallocMapper::validateDescriptorInfo(void *descriptor_attr) const
  * @return Void
  */
 Return<void> GrallocMapper::createDescriptor(
-             const V2_0::IMapper::BufferDescriptorInfo& descriptorInfo,
+             const BufferDescriptorInfo& descriptorInfo,
              createDescriptor_cb hidl_cb)
 {
 	if (validateDescriptorInfo((void *)&descriptorInfo))
@@ -194,7 +195,7 @@ Return<void> GrallocMapper::createDescriptor(
 	}
 	else
 	{
-		AERR("Invalid attributes to create descriptor for Mapper 2.0");
+		AERR("Invalid attributes to create descriptor for Mapper 3.x");
 		hidl_cb(Error::BAD_VALUE, BufferDescriptor());
 	}
 
@@ -344,10 +345,12 @@ hidl_handle GrallocMapper::getFenceHandle(int fenceFd, char* handleStorage) cons
  * @param accessRegion [in] Portion of the buffer that the client intends to access
  * @param acquireFence [in] Handle for aquire fence object
  * @param hidl_cb      [in] HIDL callback function generating -
- *                          error: NONE upon success. Otherwise,
- *                                 BAD_BUFFER for an invalid buffer
- *                                 BAD_VALUE for an invalid input parameters
- *                          data:  CPU-accessible pointer to the buffer data
+ *                          error:          NONE upon success. Otherwise,
+ *                                          BAD_BUFFER for an invalid buffer
+ *                                          BAD_VALUE for an invalid input parameters
+ *                          data:           CPU-accessible pointer to the buffer data
+ *                          bytesPerPixel:  Number of bytes per pixel in the buffer
+ *                          bytesPerStride: Bytes per stride of the buffer
  *
  * @return Void
  */
@@ -356,25 +359,32 @@ Return<void> GrallocMapper::lock(void* buffer, uint64_t cpuUsage,
                                  const hidl_handle& acquireFence,
                                  lock_cb hidl_cb)
 {
+	int bytesPerPixel[MAX_PLANES] = {-1, -1, -1};
+	int bytesPerStride[MAX_PLANES] = {-1, -1, -1};
 	buffer_handle_t bufferHandle = gRegisteredHandles->get(buffer);
 	if (!bufferHandle)
 	{
 		AERR("Buffer to lock: %p has not been registered with Gralloc", buffer);
-		hidl_cb(Error::BAD_BUFFER, nullptr);
+		hidl_cb(Error::BAD_BUFFER, nullptr, -1, -1);
 		return Void();
 	}
 
 	int fenceFd;
 	if (!getFenceFd(acquireFence, &fenceFd))
 	{
-		hidl_cb(Error::BAD_VALUE, nullptr);
+		hidl_cb(Error::BAD_VALUE, nullptr, -1, -1);
 		return Void();
 	}
 
 	void* data = nullptr;
 	const Error error = lockBuffer(bufferHandle, cpuUsage, accessRegion, fenceFd, &data);
-	hidl_cb(error, data);
+
+	mali_gralloc_query_get_byte_stride(bufferHandle, bytesPerStride);
+	mali_gralloc_query_get_bytes_per_pixel(bufferHandle, bytesPerPixel);
+
+	hidl_cb(error, data, bytesPerPixel[0], bytesPerStride[0]);
 	return Void();
+
 }
 
 /*
@@ -654,8 +664,6 @@ Error GrallocMapper::unlockBuffer(buffer_handle_t bufferHandle,
 	return Error::NONE;
 }
 
-#if HIDL_MAPPER_VERSION_SCALED >= 210
-
 /*
  * Validates the buffer against specified descriptor attributes
  *
@@ -669,7 +677,7 @@ Error GrallocMapper::unlockBuffer(buffer_handle_t bufferHandle,
  *         Error::BAD_VALUE when any of the specified attributes are invalid
  */
 Return<Error> GrallocMapper::validateBufferSize(void* buffer,
-                                                const V2_1::IMapper::BufferDescriptorInfo& descriptorInfo,
+                                                const V3_0::IMapper::BufferDescriptorInfo& descriptorInfo,
                                                 uint32_t in_stride)
 {
 	/* The buffer must have been allocated by Gralloc */
@@ -693,6 +701,16 @@ Return<Error> GrallocMapper::validateBufferSize(void* buffer,
 		return Error::BAD_VALUE;
 	}
 
+#ifdef GRALLOC_AML_EXTEND
+	/*for omx pts buffer, the real buffer is different as request.*/
+	if (am_gralloc_is_omx_metadata_extend_usage(descriptorInfo.usage))
+	{
+		ALOGV("omx buffer: request wh (%d x %d)",
+			descriptorInfo.width, descriptorInfo.height);
+		return Error::NONE;
+	}
+#endif
+
 	buffer_descriptor_t grallocDescriptor;
 	grallocDescriptor.width = descriptorInfo.width;
 	grallocDescriptor.height = descriptorInfo.height;
@@ -707,7 +725,7 @@ Return<Error> GrallocMapper::validateBufferSize(void* buffer,
 	                                                       &grallocDescriptor);
 	if (result)
 	{
-		AERR("Unable to derive format and size for the given descriptor information. error: %d", result);
+		ALOGV("Unable to derive format and size for the given descriptor information. error: %d", result);
 		return Error::BAD_VALUE;
 	}
 
@@ -722,12 +740,22 @@ Return<Error> GrallocMapper::validateBufferSize(void* buffer,
 		return Error::BAD_VALUE;
 	}
 
+#ifdef GRALLOC_AML_EXTEND
+	/*gralloc_buffer->stride is not used in r21p0 gralloc, but
+	*the it still be resturned to client.
+	*Amlogic hwc use ext api to get the real stride and do import
+	*with the real strid passed, we will failed.
+	*So now we just donot check it for the stride is useless now.
+	*/
+	in_stride;
+#else
 	if (in_stride != 0 && (uint32_t)gralloc_buffer->stride != in_stride)
 	{
 		AERR("Stride mismatch. Expected stride = %d, Buffer stride = %d",
 		                       in_stride, gralloc_buffer->stride);
 		return Error::BAD_VALUE;
 	}
+#endif
 
 	if (gralloc_buffer->internal_format != grallocDescriptor.internal_format)
 	{
@@ -843,33 +871,49 @@ Return<void> GrallocMapper::getTransportSize(void* buffer, getTransportSize_cb h
 }
 
 /*
- * Creates a buffer descriptor from incoming descriptor attributes
+ * Test whether the given BufferDescriptorInfo is allocatable.
  *
- * @param descriptorInfo [in]  Specifies the (2.1 IMapper) attributes of
- *                             the descriptor.
- * @param hidl_cb        [in]  HIDL callback function generating -
- *                             error:      NONE upon success. Otherwise,
- *                                         BAD_VALUE when any of the specified attributes are invalid
- *                             descriptor: Newly created buffer descriptor.
+ * @param description       [in] Description for the buffer
+ * @param hidl_cb           [in] HIDL callback function generating -
+ *                          error:     NONE, for supported description
+ *                                     BAD_VALUE, Otherwise,
+ *                          supported: Whether the description can be allocated
  *
  * @return Void
  */
-Return<void> GrallocMapper::createDescriptor_2_1(const V2_1::IMapper::BufferDescriptorInfo& descriptorInfo,
-                                                 createDescriptor_2_1_cb hidl_cb)
+Return<void> GrallocMapper::isSupported(const V3_0::IMapper::BufferDescriptorInfo& description,
+                                        isSupported_cb hidl_cb)
 {
-	if (validateDescriptorInfo((void *)&descriptorInfo))
+	if (!validateDescriptorInfo((void *)&description))
 	{
-		hidl_cb(Error::NONE, grallocEncodeBufferDescriptor(descriptorInfo));
+		AERR("Invalid descriptor attributes for validating buffer size");
+		hidl_cb(Error::BAD_VALUE, false);
+	}
+
+	buffer_descriptor_t grallocDescriptor;
+	grallocDescriptor.width = description.width;
+	grallocDescriptor.height = description.height;
+	grallocDescriptor.layer_count = description.layerCount;
+	grallocDescriptor.hal_format = static_cast<uint64_t>(description.format);
+	grallocDescriptor.producer_usage = static_cast<uint64_t>(description.usage);
+	grallocDescriptor.consumer_usage = grallocDescriptor.producer_usage;
+	grallocDescriptor.format_type = MALI_GRALLOC_FORMAT_TYPE_USAGE;
+
+	/* Check if it is possible to allocate a buffer for the given description */
+	const int result = mali_gralloc_derive_format_and_size(&privateModule,
+	                                                       &grallocDescriptor);
+	if (result != 0)
+	{
+		ALOGV("Allocation for the given description will not succeed. error: %d", result);
+		hidl_cb(Error::NO_RESOURCES, false);
 	}
 	else
 	{
-		AERR("Invalid (IMapper 2.1) attributes to create descriptor");
-		hidl_cb(Error::BAD_VALUE, V2_0::BufferDescriptor());
+		hidl_cb(Error::NONE, true);
 	}
 
 	return Void();
 }
-#endif /* HIDL_MAPPER_VERSION_SCALED >= 210 */
 
 IMapper* HIDL_FETCH_IMapper(const char* /* name */)
 {

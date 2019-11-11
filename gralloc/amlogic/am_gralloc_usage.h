@@ -18,6 +18,9 @@
  *  limitations under the License.
  */
 
+/*
+ DONT USE ANYMORE!!!
+*/
 
 #ifndef GRALLOC_USAGE_EXT_H
 #define GRALLOC_USAGE_EXT_H

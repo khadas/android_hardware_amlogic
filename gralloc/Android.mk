@@ -32,6 +32,7 @@ endif
 #arm gralloc config by amlogic
 GRALLOC_USE_ION_DMA_HEAP:=1
 GRALLOC_DISABLE_FRAMEBUFFER_HAL:=1
+GRALLOC_HWC_FB_DISABLE_AFBC:=0
 
 endif
 
@@ -43,15 +44,24 @@ endif
 
 include $(TOP_LOCAL_PATH)/gralloc.version.mk
 
-$(warning "the value of GPU_ARCH is $(GPU_ARCH)")
-$(warning "the value of GRALLOC_INIT_AFBC is $(GRALLOC_INIT_AFBC)")
-$(warning "Gralloc version is $(GRALLOC_API_VERSION)")
-$(warning "the value of BOARD_RESOLUTION_RATIO is $(BOARD_RESOLUTION_RATIO)")
+$(warning "GPU_ARCH = $(GPU_ARCH)")
+$(warning "GRALLOC_INIT_AFBC = $(GRALLOC_INIT_AFBC)")
+$(warning "Gralloc API = $(GRALLOC_API_VERSION)")
+$(warning "BOARD_RESOLUTION_RATIO = $(BOARD_RESOLUTION_RATIO)")
+$(warning "AFBC_BASIC =  $(MALI_GPU_SUPPORT_AFBC_BASIC)")
+$(warning "AFBC_SPLIT = $(MALI_GPU_SUPPORT_AFBC_SPLITBLK)")
+$(warning "AFBC_WIDBLK = $(MALI_GPU_SUPPORT_AFBC_WIDEBLK)")
+
+
+# Amlogic usage & flags api.
+#meson graphics start
+include $(TOP_LOCAL_PATH)/amlogic/Android.mk
+#meson graphics end
 
 # Place and access VPU library from /vendor directory in unit testing as default
 # /system is not in the linker permitted paths.
 ifeq ($(MALI_GRALLOC_API_TESTS), 1)
-MALI_GRALLOC_VPU_LIBRARY_PATH := \"/vendor/lib/\"
+MALI_GRALLOC_VPU_LIBRARY_PATH := "\"/vendor/lib/\""
 endif
 
 #Build allocator for version >= 2.x and gralloc libhardware HAL for all previous versions.
@@ -69,6 +79,12 @@ ifeq ($(shell expr $(GRALLOC_VERSION_MAJOR) \>= 2), 1)
    GRALLOC_MAPPER := 1
    $(info Build Gralloc mapper for $(GRALLOC_API_VERSION))
    include $(TOP_LOCAL_PATH)/src/Android.mk
+endif
+
+# Build service for 3.0
+ifeq ($(GRALLOC_VERSION_MAJOR), 3)
+   $(info Build 3.0 IAllocator service.)
+   include $(TOP_LOCAL_PATH)/service/3.x/Android.mk
 endif
 
 # Build gralloc api tests.

@@ -30,7 +30,7 @@ LOCAL_C_INCLUDES := \
 	system/core/libutils/include \
 	hardware/libhardware/include \
 	system/core/libion/kernel-headers \
-	$(LOCAL_PATH)/..
+	hardware/amlogic/gralloc/src
 
 LOCAL_SRC_FILES := \
 	am_gralloc_ext.cpp
@@ -58,7 +58,7 @@ LOCAL_CFLAGS += -DGRALLOC_AML_EXTEND
 LOCAL_C_INCLUDES := \
 	system/core/libutils/include \
 	hardware/libhardware/include \
-	$(LOCAL_PATH)/..
+        hardware/amlogic/gralloc/src
 
 LOCAL_SRC_FILES := \
 	am_gralloc_ext.cpp
@@ -85,7 +85,7 @@ LOCAL_C_INCLUDES := \
 	system/core/libutils/include \
 	system/core/libsystem/include \
 	system/core/libion/kernel-headers \
-	$(LOCAL_PATH)/..
+	hardware/amlogic/gralloc/src
 
 LOCAL_SRC_FILES := \
 	am_gralloc_internal.cpp

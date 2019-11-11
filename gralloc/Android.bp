@@ -18,6 +18,10 @@ cc_library_shared {
         "-DUSE_BUFFER_USAGE=1",
         "-DGRALLOC_AML_EXTEND",
     ],
+    include_dirs: [
+        "hardware/libhardware/include",
+        "hardware/amlogic/gralloc/src",
+    ],
     srcs: [
         "amlogic/am_gralloc_ext.cpp"
     ],
@@ -35,8 +39,9 @@ cc_library_shared {
         "-DUSE_BUFFER_USAGE=1",
         "-DGRALLOC_AML_EXTEND",
     ],
-    include_dirs :[
-        "hardware/libhardware/include"
+    include_dirs: [
+        "hardware/libhardware/include",
+        "hardware/amlogic/gralloc/src",
     ],
     srcs: [
         "amlogic/am_gralloc_ext.cpp"
@@ -57,7 +62,7 @@ cc_library_static {
     include_dirs: [
        "system/core/libutils/include",
        "hardware/libhardware/include",
-       "hardware/amlogic/gralloc",
+       "hardware/amlogic/gralloc/src",
        "system/core/libion/kernel-headers",
     ],
     srcs: [
