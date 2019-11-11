@@ -15,8 +15,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-#Amlogic: this is makefile in top folder(original package).
-
 TOP_LOCAL_PATH := $(call my-dir)
 MALI_GRALLOC_API_TESTS?=0
 
@@ -65,12 +63,12 @@ else ifeq ($(shell expr $(GRALLOC_VERSION_MAJOR) \>= 1), 1)
 else
     $(info Build Gralloc 0.x libhardware HAL)
 endif
-include $(TOP_LOCAL_PATH)/Android-src.mk
+include $(TOP_LOCAL_PATH)/src/Android.mk
 
 ifeq ($(shell expr $(GRALLOC_VERSION_MAJOR) \>= 2), 1)
    GRALLOC_MAPPER := 1
    $(info Build Gralloc mapper for $(GRALLOC_API_VERSION))
-   include $(TOP_LOCAL_PATH)/Android-src.mk
+   include $(TOP_LOCAL_PATH)/src/Android.mk
 endif
 
 # Build gralloc api tests.
@@ -78,8 +76,3 @@ ifeq ($(MALI_GRALLOC_API_TESTS), 1)
    $(info Build gralloc API tests.)
    include $(TOP_LOCAL_PATH)/api_tests/Android.mk
 endif
-
-# Amlogic usage & flags api.
-#meson graphics start
-include $(LOCAL_PATH)/amlogic/Android.mk
-#meson graphics end

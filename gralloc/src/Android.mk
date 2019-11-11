@@ -15,8 +15,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-#Amlogic: this is the makefile in src foloder (original package)
-
 LOCAL_PATH := $(call my-dir)
 
 # HAL module implemenation, not prelinked.
@@ -27,7 +25,7 @@ include $(BUILD_SYSTEM)/version_defaults.mk
 endif
 
 # Include makefile which exports Gralloc Major and Minor version numbers
-include $(LOCAL_PATH)/gralloc.version.mk
+include $(LOCAL_PATH)/../gralloc.version.mk
 
 # Include platform specific makefiles
 include $(if $(wildcard $(LOCAL_PATH)/Android.$(TARGET_BOARD_PLATFORM).mk), $(LOCAL_PATH)/Android.$(TARGET_BOARD_PLATFORM).mk,)
@@ -264,7 +262,7 @@ ifeq ($(GPU_FORMAT_LIMIT),1)
 endif
 
 LOCAL_STATIC_LIBRARIES += libamgralloc_internal_static
-LOCAL_C_INCLUDES += hardware/amlogic/gralloc/amlogic/
+LOCAL_C_INCLUDES += hardware/amlogic/gralloc/src/amlogic/
 LOCAL_MODULE := gralloc.amlogic
 
 endif
@@ -334,3 +332,8 @@ endif
 LOCAL_MODULE_OWNER := arm
 
 include $(BUILD_SHARED_LIBRARY)
+
+# Amlogic usage & flags api.
+#meson graphics start
+include $(LOCAL_PATH)/amlogic/Android.mk
+#meson graphics end
