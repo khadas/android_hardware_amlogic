@@ -141,11 +141,12 @@ static void set_ion_flags(enum ion_heap_type heap_type, uint64_t usage,
  *         -1, otherwise.
  */
 static int alloc_from_ion_heap(uint64_t usage, size_t size,
-                               enum ion_heap_type heap_type, unsigned int flags,
+                               enum ion_heap_type *ptype, unsigned int flags,
                                int *min_pgsz)
 {
 	int shared_fd = -1;
 	int ret = -1;
+	enum ion_heap_type heap_type = *ptype;
 
 	if (ion_client < 0 ||
 	    size <= 0 ||
@@ -300,6 +301,7 @@ static int alloc_from_ion_heap(uint64_t usage, size_t size,
 		*min_pgsz = SZ_4K;
 		break;
 	}
+	*ptype = heap_type;
 
 	return shared_fd;
 }
@@ -751,7 +753,7 @@ int mali_gralloc_ion_allocate(const gralloc_buffer_descriptor_t *descriptors,
 #else
 		set_ion_flags(heap_type, usage, &priv_heap_flag, &ion_flags);
 #endif
-		shared_fd = alloc_from_ion_heap(usage, max_bufDescriptor->size, heap_type, ion_flags, &min_pgsz);
+		shared_fd = alloc_from_ion_heap(usage, max_bufDescriptor->size, &heap_type, ion_flags, &min_pgsz);
 #ifdef GRALLOC_AML_EXTEND
 		am_set_ion_flags(heap_type, usage, &priv_heap_flag, &ion_flags);
 #else
@@ -848,7 +850,7 @@ int mali_gralloc_ion_allocate(const gralloc_buffer_descriptor_t *descriptors,
 #else
             set_ion_flags(heap_type, usage, &priv_heap_flag, &ion_flags);
 #endif
-			shared_fd = alloc_from_ion_heap(usage, bufDescriptor->size, heap_type, ion_flags, &min_pgsz);
+			shared_fd = alloc_from_ion_heap(usage, bufDescriptor->size, &heap_type, ion_flags, &min_pgsz);
 #ifdef GRALLOC_AML_EXTEND
             am_set_ion_flags(heap_type, usage, &priv_heap_flag, &ion_flags);
 #else
