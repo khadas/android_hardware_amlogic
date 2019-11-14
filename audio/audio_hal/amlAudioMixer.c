@@ -1467,12 +1467,17 @@ static void *mixer_16b_threadloop(void *data)
         if (ret >= 0) {
             inport_state = INPORT_NORMAL;
         } else if (!audio_mixer->adev->low_power) {
+            if (last_ret >= 0) {
+                inport_state = INPORT_UNDERRUN;
+            }
             /*enable pcm always output pcm when it is not low power mode*/
             uint32_t delay_frames = 0;
             delay_frames = mixer_get_outport_latency_frames(audio_mixer);
             /*underrun may happen, we need feed some silence data to avoid noise*/
             if ((delay_frames <= ALSA_SILENCE_THRESHOLD) && (delay_frames > 0)) {
-                //ALOGI("underrun will happen avail frames=%d, insert some zero data", delay_frames);
+                if (inport_state == INPORT_UNDERRUN) {
+                    ALOGI("underrun will happen avail frames=%d, insert some zero data", delay_frames);
+                }
                 mixer_outport_feed_silence_frames(audio_mixer);
                 inport_state = INPORT_FEED_SILENCE_DONE;
             }

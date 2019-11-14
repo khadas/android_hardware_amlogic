@@ -115,6 +115,8 @@
 #include "sub_mixing_factory.h"
 #include "audio_a2dp_hw.h"
 
+#include "aml_malloc_debug.h"
+
 #define CARD_AMLOGIC_BOARD 0
 /* ALSA ports for AML */
 #define PORT_I2S 0
@@ -2895,11 +2897,15 @@ rewrite:
             //we take this frame pts as the first apts.
             //this can fix the seek discontinue,we got a fake frame,which maybe cached before the seek
             if (hw_sync->first_apts_flag == false) {
-                if (cur_pts >= (out_get_latency(stream) + hwsync_hdmi_latency) * 90
+                int latency = (out_get_latency(stream) + hwsync_hdmi_latency);
+                if ((latency > 0 && cur_pts >= (uint32_t)latency * 90)
                     /*&& out->last_frames_postion > 0*/) {
-                    cur_pts -= (out_get_latency(stream) + hwsync_hdmi_latency) * 90;
+                    cur_pts -=  latency * 90;
                     aml_audio_hwsync_set_first_pts(out->hwsync, cur_pts);
-                } else {
+                } else if (latency <= 0) {
+                    cur_pts +=  abs(latency) * 90;
+                    aml_audio_hwsync_set_first_pts(out->hwsync, cur_pts);
+                }else {
                     ALOGI("%s(), first pts not set, cur_pts %lld, last position %lld",
                         __func__, cur_pts, out->last_frames_postion);
                 }
@@ -2908,12 +2914,14 @@ rewrite:
                 uint32_t apts32;
                 uint pcr = 0;
                 uint apts_gap = 0;
-                uint64_t latency = (out_get_latency(stream) + hwsync_hdmi_latency) * 90;
+                int latency = (out_get_latency(stream) + hwsync_hdmi_latency) * 90;
                 // check PTS discontinue, which may happen when audio track switching
                 // discontinue means PTS calculated based on first_apts and frame_write_sum
                 // does not match the timestamp of next audio samples
-                if (cur_pts > latency) {
+                if (latency > 0 && cur_pts > (uint32_t)latency) {
                     apts = cur_pts - latency;
+                } else if (latency <= 0) {
+                    apts = cur_pts + abs(latency);
                 } else {
                     apts = 0;
                 }
@@ -2925,7 +2933,7 @@ rewrite:
                     apts_gap = get_pts_gap (pcr, apts32);
                     sync_status = check_hwsync_status (apts_gap);
 
-                    ALOGV("%s()audio pts %dms, pcr %dms, latency %lldms, diff %dms",
+                    ALOGV("%s()audio pts %dms, pcr %dms, latency %dms, diff %dms",
                         __func__, apts32/90, pcr/90, latency/90,
                         (apts32 > pcr) ? (apts32 - pcr)/90 : (pcr - apts32)/90);
 
@@ -3461,16 +3469,6 @@ static int start_input_stream(struct aml_stream_in *in)
     if (ret < 0)
         return -EINVAL;
 
-    if (in->requested_rate != in->config.rate) {
-        ret = add_in_stream_resampler(in);
-        if (ret < 0)
-            return -EINVAL;
-    }
-
-    ALOGD("%s: device(%x) channels=%d rate=%d requested_rate=%d mode= %d",
-        __func__, in->device, in->config.channels,
-        in->config.rate, in->requested_rate, adev->mode);
-
     adev->active_input = in;
     if (adev->mode != AUDIO_MODE_IN_CALL) {
         adev->in_device &= ~AUDIO_DEVICE_IN_ALL;
@@ -3495,6 +3493,19 @@ static int start_input_stream(struct aml_stream_in *in)
         return -ENOMEM;
     }
     ALOGD("pcm_open in: card(%d), port(%d)", card, port);
+
+    if (in->requested_rate != in->config.rate) {
+        ret = add_in_stream_resampler(in);
+        if (ret < 0) {
+            pcm_close (in->pcm);
+            adev->active_input = NULL;
+            return -EINVAL;
+        }
+    }
+
+    ALOGD("%s: device(%x) channels=%d rate=%d requested_rate=%d mode= %d",
+        __func__, in->device, in->config.channels,
+        in->config.rate, in->requested_rate, adev->mode);
 
     /* if no supported sample rate is available, use the resampler */
     if (in->resampler) {
@@ -4397,6 +4408,7 @@ static void adev_close_output_stream(struct audio_hw_device *dev,
 {
     struct aml_stream_out *out = (struct aml_stream_out *)stream;
     struct aml_audio_device *adev = (struct aml_audio_device *)dev;
+    struct aml_stream_out *ms12_out = (struct aml_stream_out *)adev->ms12_out;
 
     ALOGD("%s: enter: dev(%p) stream(%p)", __func__, dev, stream);
 
@@ -4425,6 +4437,13 @@ static void adev_close_output_stream(struct audio_hw_device *dev,
                 aml_ms12_update_runtime_params(&(adev->ms12));
 #endif
             }
+        }
+        if (out->hw_sync_mode) {
+            /*we only suppport one stream hw sync and MS12 always attach with it.
+            So when it is released, ms12 also need set hwsync to NULL*/
+            out->hw_sync_mode = 0;
+            ms12_out->hw_sync_mode = 0;
+            ms12_out->hwsync = NULL;
         }
     }
 
@@ -5483,6 +5502,14 @@ static int adev_set_parameters (struct audio_hw_device *dev, const char *kvpairs
         return 0;
     }
 
+    ret = str_parms_get_str(parms, "show-meminfo", value, sizeof(value));
+    if (ret >= 0) {
+        unsigned int level = (unsigned int)atoi(value);
+        ALOGE ("Amlogic_HAL - %s: ShowMem info level:%d.", __FUNCTION__,level);
+        aml_audio_debug_malloc_showinfo(level);
+        return 0;
+    }
+
 exit:
     str_parms_destroy (parms);
 
@@ -5594,6 +5621,11 @@ static char * adev_get_parameters (const struct audio_hw_device *dev,
        } else {
           sprintf (temp_buf, "0.0");
        }
+        return strdup(temp_buf);
+    }
+    else if (strstr(keys, "HDMI Switch")) {
+        sprintf(temp_buf, "HDMI Switch=%d", (OUTPORT_HDMI == adev->active_outport));
+        ALOGD("temp_buf %s", temp_buf);
         return strdup(temp_buf);
     }
     return strdup("");
@@ -6045,7 +6077,13 @@ int do_output_standby_l(struct audio_stream *stream)
     so we should not disable the output.
     */
     pthread_mutex_lock(&adev->alsa_pcm_lock);
-    if (aml_out->status == STREAM_HW_WRITING && !continous_mode(adev)) {
+    /*SWPL-15191 when exit movie player, it will set continuous and the alsa
+      can't be closed. After playing something alsa will be opend again and can't be
+      closed anymore, because its ref is bigger than 0.
+      Now we add this patch to make sure the alsa will be closed.
+    */
+    if (aml_out->status == STREAM_HW_WRITING &&
+        ((!continous_mode(adev) || (!ms12->dolby_ms12_enable && (eDolbyMS12Lib == adev->dolby_lib_type))))) {
         ALOGI("%s aml_out(%p)standby close", __func__, aml_out);
         aml_alsa_output_close(out);
         if (eDolbyDcvLib == adev->dolby_lib_type && (adev->ddp.digital_raw == 1 || adev->dts_hd.digital_raw == 1)) {
@@ -7989,6 +8027,7 @@ hwsync_rewrite:
          * Since MS12 is essential for main input.
          */
         if (!adev->ms12.dolby_ms12_enable && !is_bypass_dolbyms12(stream)) {
+            ALOGI("ms12 is not enabled, reconfig it");
             need_reconfig_output = true;
         }
     }
@@ -10262,6 +10301,7 @@ static int adev_close(hw_device_t *device)
     pthread_mutex_unlock(&adev->lock);
     pthread_mutex_destroy(&adev->patch_lock);
     free(device);
+    aml_audio_debug_malloc_close();
     return 0;
 }
 
@@ -10512,6 +10552,7 @@ static int adev_open(const hw_module_t* module, const char* name, hw_device_t** 
         ALOGI("*device:%p",*device);
         return 0;
     }
+    aml_audio_debug_malloc_open();
     size_t bytes_per_frame = audio_bytes_per_sample(AUDIO_FORMAT_PCM_16_BIT)
                              * audio_channel_count_from_out_mask(AUDIO_CHANNEL_OUT_STEREO);
     int buffer_size = PLAYBACK_PERIOD_COUNT * DEFAULT_PLAYBACK_PERIOD_SIZE * bytes_per_frame;
