@@ -33,7 +33,6 @@
 #include <utils/threads.h>
 #include <android/native_window.h>
 #include <system/window.h>
-#include <gralloc_priv.h>
 
 #include <aml_screen.h>
 
