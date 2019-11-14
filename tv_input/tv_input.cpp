@@ -18,7 +18,6 @@
 #include <fcntl.h>
 #include <errno.h>
 
-#include <cutils/log.h>
 #include <cutils/native_handle.h>
 
 #include <hardware/tv_input.h>
@@ -28,11 +27,7 @@
 #include <ui/GraphicBuffer.h>
 #include <gralloc_priv.h>
 #include <gralloc_helper.h>
-
-#if PLATFORM_SDK_VERSION > 23
-#include <gralloc_usage_ext.h>
-#endif
-
+#include <amlogic/am_gralloc_ext.h>
 #include <hardware/hardware.h>
 #include <linux/videodev2.h>
 #include <android/native_window.h>
@@ -44,7 +39,7 @@ static const int SCREENSOURCE_GRALLOC_USAGE = (
 static int capWidth;
 static int capHeight;
 
-struct sideband_handle_t *pTvStream = nullptr;
+native_handle_t *pTvStream = nullptr;
 
 void EventCallback::onTvEvent (const source_connect_t &scrConnect) {
     tv_input_private_t *priv = (tv_input_private_t *)(mPri);
@@ -175,16 +170,14 @@ static int getTvStream(tv_stream_t *stream)
 {
     if (stream->stream_id == STREAM_ID_NORMAL) {
         if (pTvStream == nullptr) {
-            pTvStream = (struct sideband_handle_t *)native_handle_create(0, 2);
+            pTvStream = am_gralloc_create_sideband_handle(AM_TV_SIDEBAND, 1);
             if (pTvStream == nullptr) {
                 ALOGE("tvstream can not be initialized");
                 return -EINVAL;
             }
         }
-        pTvStream->identflag = 0xabcdcdef; //magic word
-        pTvStream->usage = GRALLOC_USAGE_AML_VIDEO_OVERLAY;
         stream->type = TV_STREAM_TYPE_INDEPENDENT_VIDEO_SOURCE;
-        stream->sideband_stream_source_handle = (native_handle_t *)pTvStream;
+        stream->sideband_stream_source_handle = pTvStream;
     } else if (stream->stream_id == STREAM_ID_FRAME_CAPTURE) {
         stream->type = TV_STREAM_TYPE_BUFFER_PRODUCER;
     }
