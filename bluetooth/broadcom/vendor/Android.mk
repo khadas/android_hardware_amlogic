@@ -10,6 +10,10 @@ ifneq ($(filter deadpool adt3,$(TARGET_DEVICE)),)
   LOCAL_CFLAGS += -DUSE_CONTROLLER_BDADDR=TRUE
 endif
 
+ifneq ($(filter sabrina,$(TARGET_DEVICE)),)
+  LOCAL_CFLAGS += -DUSE_CONTROLLER_BDADDR=FALSE
+endif
+
 LOCAL_SRC_FILES := \
         src/bt_vendor_brcm.c \
         src/hardware.c \
