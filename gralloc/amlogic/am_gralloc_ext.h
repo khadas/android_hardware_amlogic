@@ -39,8 +39,10 @@ int am_gralloc_get_stride_in_byte(const native_handle_t * hnd);
 int am_gralloc_get_stride_in_pixel(const native_handle_t * hnd);
 int am_gralloc_get_width(const native_handle_t * hnd);
 int am_gralloc_get_height(const native_handle_t * hnd);
+int am_gralloc_get_size(const native_handle_t * hnd);
 uint64_t am_gralloc_get_producer_usage(const native_handle_t * hnd);
 uint64_t am_gralloc_get_consumer_usage(const native_handle_t * hnd);
+uint64_t am_gralloc_get_usage(const native_handle_t * hnd);
 
 /*
 For modules to check special buffer.
