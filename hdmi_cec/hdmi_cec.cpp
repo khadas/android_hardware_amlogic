@@ -26,7 +26,7 @@
  * frameworks/base/services/core/jni/com_android_server_hdmi_HdmiCecController.cpp
  */
 
-#include <cutils/log.h>
+#include <log/log.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
@@ -53,15 +53,7 @@
 #define LOG_TAG "CEC"
 #endif
 
-/* Set to 1 to enable debug messages to the log */
-#define DEBUG 1
-#if DEBUG
-# define D(format, args...) ALOGD("[%s]" format, __FUNCTION__, ##args)
-#else
-# define D(...) do{}while(0)
-#endif
-
-#define  E(format, args...) ALOGE("[%s]" format, __FUNCTION__, ##args)
+//#define  E(format, args...) ALOGE("[%s]" format, __FUNCTION__, ##args)
 
 using namespace android;
 
@@ -88,10 +80,7 @@ void HdmiCecCallback::onEventUpdate(const hdmi_cec_event_t* cecEvent)
     if (cecEvent == NULL)
         return;
 
-    int type = cecEvent->eventType;
-
     if ((cecEvent->eventType & HDMI_EVENT_CEC_MESSAGE) != 0 && hal_info->cb) {
-        D("send cec message, event type = %d", type);
         hdmi_event_t event;
         event.type = HDMI_EVENT_CEC_MESSAGE;
         event.dev = &hal_info->device;
@@ -101,7 +90,6 @@ void HdmiCecCallback::onEventUpdate(const hdmi_cec_event_t* cecEvent)
         memcpy(event.cec.body, cecEvent->cec.body, event.cec.length);
         hal_info->cb(&event, hal_info->cb_data);
     } else if ((cecEvent->eventType & HDMI_EVENT_HOT_PLUG) != 0 && hal_info->cb) {
-        D("cec hot plug, event type = %d", type);
         hdmi_event_t event;
         event.type = HDMI_EVENT_HOT_PLUG;
         event.dev = &hal_info->device;
@@ -292,12 +280,12 @@ static int open_cec( const struct hw_module_t* module, char const *name,
 {
 
     if (strcmp(name, HDMI_CEC_HARDWARE_INTERFACE) != 0) {
-        D("cec strcmp fail !!!");
+        ALOGE("cec strcmp fail !!!");
         return -EINVAL;
     }
 
     if (device == NULL) {
-        D("NULL cec device on open");
+        ALOGE("NULL cec device on open");
         return -EINVAL;
     }
 
@@ -311,7 +299,7 @@ static int open_cec( const struct hw_module_t* module, char const *name,
     dev->fd = dev->hidlClient->openCecDevice();
 
     if (dev->fd < 0) {
-        D("can't open CEC Device!!");
+        ALOGE("can't open CEC Device!!");
         free(dev);
         return -EINVAL;
     }
