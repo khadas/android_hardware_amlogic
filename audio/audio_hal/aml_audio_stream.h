@@ -27,6 +27,36 @@
 
 typedef uint32_t usecase_mask_t;
 
+/* sync with tinymix before TXL */
+enum input_source {
+    SRC_NA = -1,
+    LINEIN  = 0,
+    ATV     = 1,
+    HDMIIN  = 2,
+    SPDIFIN = 3,
+    ARCIN   = 4,
+};
+
+/* sync with tinymix after auge */
+enum auge_input_source {
+    TDMIN_A = 0,
+    TDMIN_B = 1,
+    TDMIN_C = 2,
+    SPDIFIN_AUGE = 3,
+    PDMIN = 4,
+    FRATV = 5,
+    TDMIN_LB    = 6,
+    LOOPBACK_A  = 7,
+    FRHDMIRX    = 8,
+    LOOPBACK_B  = 9,
+    SPDIFIN_LB  = 10,
+    EARCRX_DMAC = 11,
+    RESERVED_0  = 12,
+    RESERVED_1  = 13,
+    RESERVED_2  = 14,
+    VAD     = 15,
+};
+
 /*
  *@brief get this value by adev_set_parameters(), command is "hdmi_format"
  */
@@ -281,7 +311,8 @@ bool is_hdmi_in_stable_hw(struct audio_stream_in *stream);
 bool is_hdmi_in_stable_sw(struct audio_stream_in *stream);
 /*@brief check the ATV audio stability by HW register */
 bool is_atv_in_stable_hw(struct audio_stream_in *stream);
-int set_audio_source(struct aml_mixer_handle *mixer_handle, int audio_source);
+int set_audio_source(struct aml_mixer_handle *mixer_handle,
+        enum input_source audio_source, bool is_auge);
 int enable_HW_resample(struct aml_mixer_handle *mixer_handle, int enable);
 bool Stop_watch(struct timespec start_ts, int64_t time);
 bool signal_status_check(audio_devices_t in_device, int *mute_time,
