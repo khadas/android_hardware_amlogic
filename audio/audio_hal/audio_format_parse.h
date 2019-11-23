@@ -56,21 +56,6 @@ enum audio_type {
 /*min DTSHD Period 2048; max DTSHD Period 65536*/
 #define DTSHD_PERIOD_SIZE (2048)
 
-enum input_source {
-    LINEIN = 0,
-    ATV,
-    HDMIIN,
-    SPDIFIN,
-    REMOTE_SUBMIXIN,
-    WIRED_HEADSETIN,
-    BUILTIN_MIC,
-};
-
-enum auge_input_source {
-	FRATV    = 5,
-	FRHDMIRX = 8,
-};
-
 typedef struct audio_type_parse {
     struct pcm_config config_in;
     struct pcm *in;

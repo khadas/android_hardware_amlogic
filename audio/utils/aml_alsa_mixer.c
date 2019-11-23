@@ -44,6 +44,7 @@ static struct aml_mixer_list gAmlMixerList[] = {
     {AML_MIXER_ID_HDMI_OUT_AUDIO_MUTE,  "Audio hdmi-out mute"},
     /* for HDMI ARC status */
     {AML_MIXER_ID_HDMI_ARC_AUDIO_ENABLE, "HDMI ARC Switch"},
+    {AML_MIXER_ID_HDMI_EARC_AUDIO_ENABLE, "eARC_RX attended type"},
     {AML_MIXER_ID_AUDIO_IN_SRC,         "Audio In Source"},
     {AML_MIXER_ID_I2SIN_AUDIO_TYPE,     "I2SIN Audio Type"},
     {AML_MIXER_ID_SPDIFIN_AUDIO_TYPE,   "SPDIFIN Audio Type"},
