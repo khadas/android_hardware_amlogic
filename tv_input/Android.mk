@@ -26,7 +26,8 @@ LOCAL_SHARED_LIBRARIES := \
     libbinder \
     libui \
     liblog \
-    libhardware
+    libhardware \
+    libamgralloc_ext
 
 LOCAL_REQUIRED_MODULES := libtvbinder
 

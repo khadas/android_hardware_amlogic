@@ -51,12 +51,6 @@ private:
     void *mPri;
 };
 
-struct sideband_handle_t {
-    native_handle_t nativeHandle;
-    int identflag;
-    int usage;
-};
-
 typedef struct tv_input_private {
     tv_input_device_t device;
     const tv_input_callback_ops_t *callback;
