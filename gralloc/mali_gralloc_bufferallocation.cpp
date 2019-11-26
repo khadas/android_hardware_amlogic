@@ -928,8 +928,13 @@ int mali_gralloc_derive_format_and_size(mali_gralloc_module *m,
 	legacy::mali_gralloc_adjust_dimensions(bufDescriptor->internal_format,
 	                                       usage,
 	                                       legacy_alloc_type,
+#ifdef GRALLOC_AML_EXTEND
+	                                       alloc_width,
+	                                       alloc_height,
+#else
 	                                       bufDescriptor->width,
 	                                       bufDescriptor->height,
+#endif
 	                                       &bufDescriptor->old_alloc_width,
 	                                       &bufDescriptor->old_alloc_height);
 
