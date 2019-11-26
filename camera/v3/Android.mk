@@ -62,7 +62,8 @@ LOCAL_SHARED_LIBRARIES:= \
     libexpat \
     libexif \
     libcamera_metadata \
-    libispaaa
+    libispaaa \
+    libamgralloc_ext
 
 LOCAL_STATIC_LIBRARIES := \
     libyuv_static \
