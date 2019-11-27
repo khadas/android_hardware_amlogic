@@ -41,13 +41,6 @@
 #elif GRALLOC_VERSION_MAJOR == 0
 #include <hardware/gralloc.h>
 #endif
-#include "ion_wrapper.h"
-
-#ifdef GRALLOC_AML_EXTEND
-#include "amlogic/am_gralloc_internal.h"
-#else
-#include "gralloc_usage_ext.h"
-#endif
 
 #include "mali_gralloc_module.h"
 #include "mali_gralloc_private_interface_types.h"
@@ -58,6 +51,16 @@
 #include "mali_gralloc_usages.h"
 #include "mali_gralloc_bufferdescriptor.h"
 #include "mali_gralloc_bufferallocation.h"
+
+//meson graphics changes start
+#ifdef GRALLOC_AML_EXTEND
+#include "amlogic/am_gralloc_internal.h"
+ion_heap_type am_gralloc_pick_ion_heap(
+	buffer_descriptor_t *bufDescriptor, uint64_t usage);
+void am_gralloc_set_ion_flags(enum ion_heap_type heap_type, uint64_t usage,
+	unsigned int *priv_heap_flag, unsigned int *ion_flags);
+#endif
+//meson graphics changes end
 
 #define INIT_ZERO(obj) (memset(&(obj), 0, sizeof((obj))))
 
@@ -86,12 +89,6 @@ static int heap_cnt = 0;
 ion_heap_data heap_info[ION_NUM_HEAP_IDS];
 #endif
 
-#ifdef GRALLOC_AML_EXTEND
-enum ion_heap_type am_pick_ion_heap(
-	buffer_descriptor_t *bufDescriptor, uint64_t usage);
-void am_set_ion_flags(enum ion_heap_type heap_type, uint64_t usage,
-	unsigned int *priv_heap_flag, unsigned int *ion_flags);
-#endif
 
 static void set_ion_flags(enum ion_heap_type heap_type, uint64_t usage,
                           unsigned int *priv_heap_flag, unsigned int *ion_flags)
@@ -116,8 +113,7 @@ static void set_ion_flags(enum ion_heap_type heap_type, uint64_t usage,
 		if (heap_type != ION_HEAP_TYPE_DMA)
 		{
 #endif
-			if ((usage & (GRALLOC_USAGE_SW_READ_MASK | GRALLOC_USAGE_SW_WRITE_MASK))
-                    || (usage == GRALLOC_USAGE_HW_TEXTURE))
+			if ((usage & GRALLOC_USAGE_SW_READ_MASK) == GRALLOC_USAGE_SW_READ_OFTEN)
 			{
 				*ion_flags = ION_FLAG_CACHED | ION_FLAG_CACHED_NEEDS_SYNC;
 			}
@@ -141,12 +137,22 @@ static void set_ion_flags(enum ion_heap_type heap_type, uint64_t usage,
  *         -1, otherwise.
  */
 static int alloc_from_ion_heap(uint64_t usage, size_t size,
+//meson graphics changes start
+#ifdef GRALLOC_AML_EXTEND
                                enum ion_heap_type *ptype, unsigned int flags,
+#else
+                               enum ion_heap_type heap_type, unsigned int flags,
+#endif
+//meson graphics changes end
                                int *min_pgsz)
 {
 	int shared_fd = -1;
 	int ret = -1;
+//meson graphics changes start
+#ifdef GRALLOC_AML_EXTEND
 	enum ion_heap_type heap_type = *ptype;
+#endif
+//meson graphics changes end
 
 	if (ion_client < 0 ||
 	    size <= 0 ||
@@ -225,11 +231,13 @@ static int alloc_from_ion_heap(uint64_t usage, size_t size,
 		heap_type = ION_HEAP_TYPE_SYSTEM;
 
 		/* Set ION flags for system heap allocation */
+		//meson graphics changes start
 #ifdef GRALLOC_AML_EXTEND
-		am_set_ion_flags(heap_type, usage, NULL, &flags);
+		am_gralloc_set_ion_flags(heap_type, usage, NULL, &flags);
 #else
 		set_ion_flags(heap_type, usage, NULL, &flags);
 #endif
+		//meson graphics changes end
 
 #if GRALLOC_USE_LEGACY_ION_API != 1
 		if (use_legacy_ion == false)
@@ -301,7 +309,12 @@ static int alloc_from_ion_heap(uint64_t usage, size_t size,
 		*min_pgsz = SZ_4K;
 		break;
 	}
+
+	//meson graphics changes start
+#ifdef GRALLOC_AML_EXTEND
 	*ptype = heap_type;
+#endif
+	//meson graphics changes end
 
 	return shared_fd;
 }
@@ -362,22 +375,26 @@ static bool check_buffers_sharable(const gralloc_buffer_descriptor_t *descriptor
 
 		usage = bufDescriptor->consumer_usage | bufDescriptor->producer_usage;
 
+//meson graphics changes start
 #ifdef GRALLOC_AML_EXTEND
-		heap_type = am_pick_ion_heap(bufDescriptor, usage);
+		heap_type = am_gralloc_pick_ion_heap(bufDescriptor, usage);
 #else
 		heap_type = pick_ion_heap(usage);
 #endif
+//meson graphics changes end
 
 		if (heap_type == ION_HEAP_TYPE_INVALID)
 		{
 			return false;
 		}
 
+//meson graphics changes start
 #ifdef GRALLOC_AML_EXTEND
-		am_set_ion_flags(heap_type, usage, NULL, &ion_flags);
+		am_gralloc_set_ion_flags(heap_type, usage, NULL, &ion_flags);
 #else
 		set_ion_flags(heap_type, usage, NULL, &ion_flags);
 #endif
+//meson graphics changes end
 
 		if (shared_backend_heap_type != ION_HEAP_TYPE_INVALID)
 		{
@@ -737,28 +754,31 @@ int mali_gralloc_ion_allocate(const gralloc_buffer_descriptor_t *descriptors,
 		max_bufDescriptor = (buffer_descriptor_t *)(descriptors[max_buffer_index]);
 		usage = max_bufDescriptor->consumer_usage | max_bufDescriptor->producer_usage;
 
+//meson graphics changes start
 #ifdef GRALLOC_AML_EXTEND
-		heap_type = am_pick_ion_heap(max_bufDescriptor, usage);
+		heap_type = am_gralloc_pick_ion_heap(max_bufDescriptor, usage);
 #else
 		heap_type = pick_ion_heap(usage);
 #endif
+//meson graphics changes end
 		if (heap_type == ION_HEAP_TYPE_INVALID)
 		{
 			AERR("Failed to find an appropriate ion heap");
 			return -1;
 		}
 
+//meson graphics changes start
 #ifdef GRALLOC_AML_EXTEND
-		am_set_ion_flags(heap_type, usage, &priv_heap_flag, &ion_flags);
-#else
-		set_ion_flags(heap_type, usage, &priv_heap_flag, &ion_flags);
-#endif
+		am_gralloc_set_ion_flags(heap_type, usage, NULL, &ion_flags);
 		shared_fd = alloc_from_ion_heap(usage, max_bufDescriptor->size, &heap_type, ion_flags, &min_pgsz);
-#ifdef GRALLOC_AML_EXTEND
-		am_set_ion_flags(heap_type, usage, &priv_heap_flag, &ion_flags);
+		/*update private heap flag*/
+		am_gralloc_set_ion_flags(heap_type, usage, &priv_heap_flag, NULL);
 #else
 		set_ion_flags(heap_type, usage, &priv_heap_flag, &ion_flags);
+
+		shared_fd = alloc_from_ion_heap(usage, max_bufDescriptor->size, heap_type, ion_flags, &min_pgsz);
 #endif
+//meson graphics changes end
 		if (shared_fd < 0)
 		{
 			AERR("ion_alloc failed form client: ( %d )", ion_client);
@@ -833,11 +853,14 @@ int mali_gralloc_ion_allocate(const gralloc_buffer_descriptor_t *descriptors,
 			buffer_descriptor_t *bufDescriptor = (buffer_descriptor_t *)(descriptors[i]);
 			usage = bufDescriptor->consumer_usage | bufDescriptor->producer_usage;
 
+			//meson graphics changes start
 #ifdef GRALLOC_AML_EXTEND
-            heap_type = am_pick_ion_heap(bufDescriptor, usage);
+			heap_type = am_gralloc_pick_ion_heap(bufDescriptor, usage);
 #else
-            heap_type = pick_ion_heap(usage);
+			heap_type = pick_ion_heap(usage);
 #endif
+			//meson graphics changes end
+
 			if (heap_type == ION_HEAP_TYPE_INVALID)
 			{
 				AERR("Failed to find an appropriate ion heap");
@@ -845,17 +868,17 @@ int mali_gralloc_ion_allocate(const gralloc_buffer_descriptor_t *descriptors,
 				return -1;
 			}
 
+			//meson graphics changes start
 #ifdef GRALLOC_AML_EXTEND
-            am_set_ion_flags(heap_type, usage, &priv_heap_flag, &ion_flags);
-#else
-            set_ion_flags(heap_type, usage, &priv_heap_flag, &ion_flags);
-#endif
+			am_gralloc_set_ion_flags(heap_type, usage, NULL, &ion_flags);
 			shared_fd = alloc_from_ion_heap(usage, bufDescriptor->size, &heap_type, ion_flags, &min_pgsz);
-#ifdef GRALLOC_AML_EXTEND
-            am_set_ion_flags(heap_type, usage, &priv_heap_flag, &ion_flags);
+			am_gralloc_set_ion_flags(heap_type, usage, &priv_heap_flag, NULL);
 #else
-            set_ion_flags(heap_type, usage, &priv_heap_flag, &ion_flags);
+			set_ion_flags(heap_type, usage, &priv_heap_flag, &ion_flags);
+			shared_fd = alloc_from_ion_heap(usage, bufDescriptor->size, heap_type, ion_flags, &min_pgsz);
 #endif
+			//meson graphics changes end
+
 			if (shared_fd < 0)
 			{
 				AERR("ion_alloc failed from client ( %d )", ion_client);
@@ -950,6 +973,7 @@ int mali_gralloc_ion_allocate(const gralloc_buffer_descriptor_t *descriptors,
 	return 0;
 }
 
+
 int mali_gralloc_ion_map(private_handle_t *hnd)
 {
 	int retval = -EINVAL;
@@ -1029,7 +1053,8 @@ void mali_gralloc_ion_close(void)
 }
 
 #ifdef GRALLOC_AML_EXTEND
-enum ion_heap_type am_pick_ion_heap(
+/*for ion alloc*/
+enum ion_heap_type am_gralloc_pick_ion_heap(
 	buffer_descriptor_t *bufDescriptor, uint64_t usage)
 {
 	enum ion_heap_type ret = ION_HEAP_TYPE_SYSTEM;
@@ -1079,7 +1104,7 @@ out:
     return ret;
 }
 
-void am_set_ion_flags(enum ion_heap_type heap_type, uint64_t usage,
+void am_gralloc_set_ion_flags(ion_heap_type heap_type, uint64_t usage,
 	unsigned int *priv_heap_flag, unsigned int *ion_flags)
 {
 	if (priv_heap_flag)

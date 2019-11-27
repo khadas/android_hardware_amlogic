@@ -37,7 +37,12 @@ struct attr_region
 	int use_sparse_alloc;
 	mali_hdr_info hdr_info;
 	android_dataspace_t dataspace;
+
+//meson graphics changes start
+#ifdef GRALLOC_AML_EXTEND
 	int am_omx_tunnel;
+#endif
+//meson graphics changes end
 } __attribute__((packed));
 
 typedef struct attr_region attr_region;
@@ -166,10 +171,14 @@ static inline int gralloc_buffer_attr_write(struct private_handle_t *hnd, buf_at
 			rval = 0;
 			break;
 
+//meson graphics changes start
+#ifdef GRALLOC_AML_EXTEND
 		case GRALLOC_ARM_BUFFER_ATTR_AM_OMX_TUNNEL:
 			region->am_omx_tunnel = *val;
 			rval = 0;
  			break;
+#endif
+//meson graphics changes end
 
 		case GRALLOC_ARM_BUFFER_ATTR_DATASPACE:
 			region->dataspace = *((android_dataspace_t *)val);
@@ -217,10 +226,14 @@ static inline int gralloc_buffer_attr_read(struct private_handle_t *hnd, buf_att
 			rval = 0;
 			break;
 
+//meson graphics changes start
+#ifdef GRALLOC_AML_EXTEND
 		case GRALLOC_ARM_BUFFER_ATTR_AM_OMX_TUNNEL:
 			*val = region->am_omx_tunnel;
 			rval = 0;
 			break;
+#endif
+//meson graphics changes end
 
 		case GRALLOC_ARM_BUFFER_ATTR_DATASPACE:
 			*val = region->dataspace;

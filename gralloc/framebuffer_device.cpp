@@ -23,9 +23,7 @@
 #include <sys/ioctl.h>
 #include <linux/fb.h>
 
-#if PLATFORM_SDK_VERSION < 27
 #include <system/window.h>
-#endif
 #include <log/log.h>
 #include <cutils/atomic.h>
 #include <hardware/hardware.h>
