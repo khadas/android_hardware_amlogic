@@ -27,16 +27,25 @@ LOCAL_CFLAGS += -Wno-unused-parameter -Wno-missing-field-initializers
 LOCAL_CFLAGS += -DPLATFORM_SDK_VERSION=$(PLATFORM_SDK_VERSION)
 
 ########################################################################################################
-CAMHAL_GIT_VERSION="$(shell cd $(LOCAL_PATH);git log | grep commit -m 1 | cut -d' ' -f 2)"
+CAMHAL_GIT_VERSION="$(shell cd $(LOCAL_PATH);git rev-parse HEAD)"
 CAMHAL_GIT_UNCOMMIT_FILE_NUM=$(shell cd $(LOCAL_PATH);git diff | grep +++ -c)
-CAMHAL_LAST_CHANGED="$(shell cd $(LOCAL_PATH);git log | grep Date -m 1)"
-CAMHAL_BUILD_TIME=" $(shell date --date=00:00)"
-CAMHAL_BUILD_NAME=" $(shell echo ${LOGNAME})"
-CAMHAL_BRANCH_NAME="$(shell cd $(LOCAL_PATH);git branch -a | sed -n '/'*'/p')"
+CAMHAL_LAST_CHANGED="$(shell cd $(LOCAL_PATH);git show | grep Date -m 1)"
 CAMHAL_BUILD_MODE=$(shell echo ${TARGET_BUILD_VARIANT})
 CAMHAL_HOSTNAME="$(shell hostname)"
+
+ifeq (false, )
+CAMHAL_BUILD_TIME=" $(shell date)"
+CAMHAL_BUILD_NAME=" $(shell echo ${LOGNAME})"
+CAMHAL_BRANCH_NAME="$(shell cd $(LOCAL_PATH);git branch -a | sed -n '/'*'/p')"
 #CAMHAL_IP="$(shell $(IFCONFG_BIN) eth0|grep -oE '([0-9]{1,3}\.?){4}'|head -n 1)"
 CAMHAL_PATH="$(shell pwd)/$(LOCAL_PATH)"
+else
+CAMHAL_BUILD_TIME=$(CAMHAL_LAST_CHANGED)
+CAMHAL_BUILD_NAME="user"
+CAMHAL_BRANCH_NAME="branch"
+#CAMHAL_IP=""
+CAMHAL_PATH="/hardware/amlogic/camera"
+endif
 
 LOCAL_CFLAGS+=-DHAVE_VERSION_INFO
 LOCAL_CFLAGS+=-DCAMHAL_GIT_VERSION=\"${CAMHAL_GIT_VERSION}${CAMHAL_GIT_DIRTY}\"
