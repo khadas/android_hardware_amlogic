@@ -123,11 +123,7 @@ void restore_system_samplerate(struct aml_audio_dec* audec)
 			memset(str,0,sizeof(str));
 			sprintf(str,"sampling_rate=%d",default_sr);
 			AudioSystem::setParameters(handle, String8(str));
-#if ANDROID_PLATFORM_SDK_VERSION >= 22
-			AudioSystem::releaseOutput(handle, AUDIO_STREAM_DEFAULT, AUDIO_SESSION_OUTPUT_STAGE);
-#else
 			AudioSystem::releaseOutput(handle);
-#endif
 		}else{
 			adec_print("WARNIN: handle/%d resetore sysFs failed!\n",handle);
 		}
@@ -299,11 +295,7 @@ void reset_system_samplerate(struct aml_audio_dec* audec)
 					memset(str,0,sizeof(str));
 					sprintf(str,"sampling_rate=%d",Samplerate);
 					AudioSystem::setParameters(handle, String8(str));
-#if ANDROID_PLATFORM_SDK_VERSION >= 22
-					AudioSystem::releaseOutput(handle, AUDIO_STREAM_DEFAULT, AUDIO_SESSION_OUTPUT_STAGE);
-#else
 					AudioSystem::releaseOutput(handle);
-#endif
 				}else{
 					adec_print("WARNIN:handle/%d reset sysFs failed!\n",handle);
 				}
