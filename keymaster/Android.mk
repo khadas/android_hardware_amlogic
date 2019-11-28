@@ -25,18 +25,19 @@ LOCAL_MODULE_TAGS := optional
 LOCAL_MODULE := $(KEYMASTER_TA_BINARY)
 LOCAL_MODULE_SUFFIX := .ta
 LOCAL_MODULE_PATH := $(TARGET_OUT_VENDOR)/lib/teetz
+KEYMASTER_UNSIGNED_TA := $(LOCAL_PATH)/$(LOCAL_MODULE)$(LOCAL_MODULE_SUFFIX)
 ifeq ($(TARGET_ENABLE_TA_SIGN), true)
-$(info $(shell mkdir -p $(shell pwd)/$(PRODUCT_OUT)/signed/keymaster))
-$(info $(shell $(shell pwd)/$(BOARD_AML_VENDOR_PATH)/tdk/ta_export/scripts/sign_ta_auto.py \
-		--in=$(shell pwd)/$(LOCAL_PATH)/$(LOCAL_MODULE)$(LOCAL_MODULE_SUFFIX) \
-		--out=$(shell pwd)/$(PRODUCT_OUT)/signed/keymaster/$(LOCAL_MODULE)$(LOCAL_MODULE_SUFFIX) \
-		--keydir=$(shell pwd)/$(BOARD_AML_TDK_KEY_PATH)))
-LOCAL_SRC_FILES := ../../../$(PRODUCT_OUT)/signed/keymaster/$(LOCAL_MODULE)$(LOCAL_MODULE_SUFFIX)
+include $(BUILD_SYSTEM)/base_rules.mk
+$(LOCAL_BUILT_MODULE): $(KEYMASTER_UNSIGNED_TA)
+	@mkdir -p $(dir $@)
+	$(BOARD_AML_VENDOR_PATH)/tdk/ta_export/scripts/sign_ta_auto.py \
+		--in=$(KEYMASTER_UNSIGNED_TA) \
+		--out=$@ \
+		--keydir=$(BOARD_AML_TDK_KEY_PATH)
 else
-LOCAL_SRC_FILES := $(LOCAL_MODULE)$(LOCAL_MODULE_SUFFIX)
-endif
+LOCAL_PREBUILT_MODULE_FILE := $(KEYMASTER_UNSIGNED_TA)
 include $(BUILD_PREBUILT)
-
+endif
 
 include $(CLEAR_VARS)
 LOCAL_MODULE_RELATIVE_PATH := hw
