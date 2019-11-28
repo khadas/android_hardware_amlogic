@@ -26,7 +26,7 @@ ionvideo_dev_t *new_ionvideo(int flags)
     }
     return dev;
 }
-int ionvideo_setparameters(ionvideo_dev_t *dev, int cmd, void * parameters)
+int ionvideo_setparameters(ionvideo_dev_t *dev __unused, int cmd __unused, void * parameters __unused)
 {
     return 0;
 }
@@ -47,7 +47,7 @@ int ionvideo_getparameters(ionvideo_dev_t *dev, int *width, int *height, int *pi
     }
     return 0;
 }
-int ionvideo_init(ionvideo_dev_t *dev, int flags, int width, int height, int fmt, int buffernum)
+int ionvideo_init(ionvideo_dev_t *dev, int flags __unused, int width, int height, int fmt, int buffernum)
 {
     int ret = -1;
     if (dev->ops.init) {

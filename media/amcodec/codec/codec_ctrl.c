@@ -31,7 +31,6 @@
 #include <codec_error.h>
 #include <codec_type.h>
 #include <codec.h>
-#include <audio_priv.h>
 #include "codec_h_ctrl.h"
 #include <adec-external-ctrl.h>
 #include <Amvideoutils.h>
@@ -55,9 +54,9 @@
 
 int codec_set_eos(codec_para_t *pcodec, int is_eos) {
     int r = codec_h_ioctl(pcodec->handle, AMSTREAM_IOC_SET, AMSTREAM_SET_EOS, is_eos);
-    //if (r < 0) {
+    if (r < 0) {
     //    return system_error_to_codec_error(r);
-    //}
+    }
     CODEC_PRINT("codec_set_eos is_eos =%d\n", is_eos);
     return 0;
 }
@@ -1865,7 +1864,6 @@ int codec_get_pcrscr(codec_para_t *pcodec)
 /* --------------------------------------------------------------------------*/
 int codec_set_pcrscr(codec_para_t *pcodec, int val)
 {
-    unsigned int pcrscr;
     int ret;
 
     if (!pcodec) {
@@ -2075,7 +2073,6 @@ int codec_get_sub_num(codec_para_t *pcodec)
 int codec_get_sub_info(codec_para_t *pcodec, subtitle_info_t *sub_info)
 {
     int ret = 0;
-    int i;
     if (!sub_info) {
         CODEC_PRINT("[codec_get_sub_info] error, NULL pointer!\n");
         ret = CODEC_ERROR_INVAL;
@@ -2439,7 +2436,7 @@ int codec_get_last_checkin_apts(codec_para_t* pcodec, unsigned long* apts)
  * @return 0 for success, or fail type if<0
  */
 
-int codec_get_pcm_level(codec_para_t* pcodec, unsigned int* level)
+int codec_get_pcm_level(codec_para_t* pcodec, unsigned int* level __unused)
 {
     return audio_get_pcm_level(pcodec->adec_priv);
 }
@@ -2449,7 +2446,7 @@ int codec_set_skip_bytes(codec_para_t* pcodec, unsigned int bytes)
     return audio_set_skip_bytes(pcodec->adec_priv, bytes);
 }
 
-int codec_get_dsp_apts(codec_para_t* pcodec, unsigned int * apts)
+int codec_get_dsp_apts(codec_para_t* pcodec, unsigned int * apts __unused)
 {
     return audio_get_pts(pcodec->adec_priv);
 }
@@ -2492,7 +2489,7 @@ int codec_get_cntl_vpts(codec_para_t *pcodec)
 /* --------------------------------------------------------------------------*/
 int codec_disalbe_slowsync(codec_para_t *pcodec, int disable_slowsync)
 {
-    int cntl_vpts, r;
+    int r;
 
     if (pcodec->cntl_handle == 0) {
         CODEC_PRINT("no control handler\n");

@@ -17,7 +17,7 @@ LOCAL_C_INCLUDES := \
 	$(LOCAL_PATH)/audio_ctl
 
 LOCAL_ARM_MODE := arm
-LOCAL_STATIC_LIBRARIES := libamadec
+LOCAL_STATIC_LIBRARIES := libamadec liblog
 LOCAL_MODULE:= libamcodec
 
 ifeq ($(shell test $(PLATFORM_SDK_VERSION) -ge 26 && echo OK),OK)

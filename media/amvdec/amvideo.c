@@ -16,7 +16,6 @@
 #include "amvdec_priv.h"
 #include "amlv4l.h"
 
-
 amvideo_dev_t *new_amvideo(int flags)
 {
     amvideo_dev_t *dev = NULL;
@@ -30,11 +29,11 @@ amvideo_dev_t *new_amvideo(int flags)
     }
     return dev;
 }
-int amvideo_setparameters(amvideo_dev_t *dev, int cmd, void * parameters)
+int amvideo_setparameters(amvideo_dev_t *dev __unused, int cmd __unused, void * parameters __unused)
 {
     return 0;
 }
-int amvideo_init(amvideo_dev_t *dev, int flags, int width, int height, int fmt)
+int amvideo_init(amvideo_dev_t *dev, int flags __unused, int width, int height, int fmt)
 {
     int ret = -1;
     if (dev->ops.init) {

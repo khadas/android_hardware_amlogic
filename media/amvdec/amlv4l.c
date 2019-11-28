@@ -23,7 +23,7 @@ static int amlv4l_mapbufs(amvideo_dev_t *dev);
 int amlv4l_setfmt(amvideo_dev_t *dev, struct v4l2_format *fmt);
 int amlv4l_stop(amvideo_dev_t *dev);
 int amlv4l_release(amvideo_dev_t *dev);
-int amlv4l_init(amvideo_dev_t *dev, int type, int width, int height, int fmt)
+int amlv4l_init(amvideo_dev_t *dev, int type __unused, int width, int height, int fmt)
 {
     int ret;
     amlv4l_dev_t *v4l = dev->devpriv;
@@ -102,8 +102,6 @@ int amlv4l_dequeue_buf(amvideo_dev_t *dev, vframebuf_t *vf)
 int amlv4l_queue_buf(amvideo_dev_t *dev, vframebuf_t *vf)
 {
     struct v4l2_buffer vbuf;
-    int ret;
-    amlv4l_dev_t *v4l = dev->devpriv;
     vbuf.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
     vbuf.memory = V4L2_MEMORY_MMAP;
     vbuf.index = vf->index;
