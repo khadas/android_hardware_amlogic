@@ -26,7 +26,9 @@
 #define LOG_TAG "Lights"
 #endif
 #include <cutils/log.h>
+#include <malloc.h>
 #include <stdint.h>
+#include <stdio.h>
 #include <string.h>
 #include <unistd.h>
 #include <errno.h>
@@ -36,6 +38,10 @@
 #include <sys/types.h>
 #include <hardware/lights.h>
 #include <hardware/hardware.h>
+
+#ifndef __unused
+#define __unused __attribute__((__unused__))
+#endif
 
 /* Set to 1 to enable debug messages to the log */
 #define DEBUG 0
@@ -50,7 +56,7 @@
 
 /* set backlight brightness by LIGHTS_SERVICE_NAME service. */
 static int
-set_light_backlight( struct light_device_t* dev, struct light_state_t const* state )
+set_light_backlight( struct light_device_t* dev __unused, struct light_state_t const* state )
 
 {
     int nwr, ret = -1, fd;
@@ -69,7 +75,7 @@ set_light_backlight( struct light_device_t* dev, struct light_state_t const* sta
 }
 
 static int
-set_light_buttons( struct light_device_t* dev, struct light_state_t const* state )
+set_light_buttons( struct light_device_t* dev __unused, struct light_state_t const* state __unused )
 {
     /* @Waiting for later implementation. */
     D( "%s: Not implemented.", __FUNCTION__ );
@@ -77,7 +83,7 @@ set_light_buttons( struct light_device_t* dev, struct light_state_t const* state
     return 0;
 }
 static int
-set_light_battery( struct light_device_t* dev, struct light_state_t const* state )
+set_light_battery( struct light_device_t* dev __unused, struct light_state_t const* state __unused )
 {
     /* @Waiting for later implementation. */
     D( "%s: Not implemented.", __FUNCTION__ );
@@ -85,7 +91,7 @@ set_light_battery( struct light_device_t* dev, struct light_state_t const* state
     return 0;
 }
 static int
-set_light_keyboard( struct light_device_t* dev, struct light_state_t const* state )
+set_light_keyboard( struct light_device_t* dev __unused, struct light_state_t const* state __unused )
 {
     /* @Waiting for later implementation. */
     D( "%s: Not implemented.", __FUNCTION__ );
@@ -93,7 +99,7 @@ set_light_keyboard( struct light_device_t* dev, struct light_state_t const* stat
     return 0;
 }
 static int
-set_light_notifications( struct light_device_t* dev, struct light_state_t const* state )
+set_light_notifications( struct light_device_t* dev __unused, struct light_state_t const* state __unused )
 {
     /* @Waiting for later implementation. */
     D( "%s: Not implemented.", __FUNCTION__ );
@@ -101,7 +107,7 @@ set_light_notifications( struct light_device_t* dev, struct light_state_t const*
     return 0;
 }
 static int
-set_light_attention( struct light_device_t* dev, struct light_state_t const* state )
+set_light_attention( struct light_device_t* dev __unused, struct light_state_t const* state __unused )
 {
     /* @Waiting for later implementation. */
     D( "%s: Not implemented.", __FUNCTION__ );
@@ -110,7 +116,7 @@ set_light_attention( struct light_device_t* dev, struct light_state_t const* sta
 }
 /** Close the lights device */
 static int
-close_lights( struct light_device_t *dev )
+close_lights( struct light_device_t *dev __unused )
 {
     free( dev );
 
