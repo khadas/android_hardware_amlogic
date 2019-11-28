@@ -136,7 +136,7 @@ int codec_h_control(CODEC_HANDLE h, int cmd, unsigned long paramter)
     }
     r = ioctl(h, cmd, paramter);
     if (r < 0) {
-        CODEC_PRINT("send control failed,handle=%d,cmd=%x,paramter=%x, t=%x errno=%d\n", h, cmd, paramter, r, errno);
+        CODEC_PRINT("send control failed,handle=%d,cmd=%x,paramter=%lx, t=%x errno=%d\n", h, cmd, paramter, r, errno);
         return r;
     }
     return 0;
@@ -335,12 +335,12 @@ static int codec_h_ioctl_set(CODEC_HANDLE h, int subcmd, unsigned long paramter)
     }
 
     if (r < 0) {
-        CODEC_PRINT("codec_h_ioctl_set failed,handle=%d,cmd=%x,paramter=%x, t=%x errno=%d\n", h, subcmd, paramter, r, errno);
+        CODEC_PRINT("codec_h_ioctl_set failed,handle=%d,cmd=%x,paramter=%lx, t=%x errno=%d\n", h, subcmd, paramter, r, errno);
         return r;
     }
     return 0;
 }
-static int codec_h_ioctl_set_ex(CODEC_HANDLE h, int subcmd, unsigned long paramter)
+static int codec_h_ioctl_set_ex(CODEC_HANDLE h __unused, int subcmd __unused, unsigned long paramter __unused)
 {
     return 0;
 }
@@ -364,7 +364,7 @@ static int codec_h_ioctl_set_ptr(CODEC_HANDLE h, int subcmd, unsigned long param
         break;
     }
     if (r < 0) {
-        CODEC_PRINT("codec_h_ioctl_set_ptr failed,handle=%d,subcmd=%x,paramter=%x, t=%x errno=%d\n", h, subcmd, paramter, r, errno);
+        CODEC_PRINT("codec_h_ioctl_set_ptr failed,handle=%d,subcmd=%x,paramter=%lx, t=%x errno=%d\n", h, subcmd, paramter, r, errno);
         return r;
     }
     return 0;
@@ -380,7 +380,7 @@ static int codec_h_ioctl_get(CODEC_HANDLE h, int subcmd, unsigned long paramter)
     parm_new = (unsigned long)&parm;
     r = ioctl(h, AMSTREAM_IOC_GET, parm_new);
     if (r < 0) {
-        CODEC_PRINT("codec_h_ioctl_get failed,handle=%d,subcmd=%x,paramter=%x, t=%x errno=%d\n", h, subcmd, paramter, r, errno);
+        CODEC_PRINT("codec_h_ioctl_get failed,handle=%d,subcmd=%x,paramter=%lx, t=%x errno=%d\n", h, subcmd, paramter, r, errno);
         return r;
     }
     if (paramter != 0) {
@@ -433,7 +433,7 @@ static int codec_h_ioctl_get_ex(CODEC_HANDLE h, int subcmd, unsigned long paramt
         break;
     }
     if (r < 0) {
-        CODEC_PRINT("codec_h_ioctl_get_ex failed,handle=%d,subcmd=%x,paramter=%x, t=%x errno=%d\n", h, subcmd, paramter, r, errno);
+        CODEC_PRINT("codec_h_ioctl_get_ex failed,handle=%d,subcmd=%x,paramter=%lx, t=%x errno=%d\n", h, subcmd, paramter, r, errno);
         return r;
     }
     return 0;
@@ -459,7 +459,7 @@ static int codec_h_ioctl_get_ptr(CODEC_HANDLE h, int subcmd, unsigned long param
         break;
     }
     if (r < 0) {
-        CODEC_PRINT("codec_h_ioctl_get_ptr failed,handle=%d,subcmd=%x,paramter=%x, t=%x errno=%d\n", h, subcmd, paramter, r, errno);
+        CODEC_PRINT("codec_h_ioctl_get_ptr failed,handle=%d,subcmd=%x,paramter=%lx, t=%x errno=%d\n", h, subcmd, paramter, r, errno);
         return r;
     }
     return 0;
@@ -478,8 +478,6 @@ static int codec_h_ioctl_get_ptr(CODEC_HANDLE h, int subcmd, unsigned long param
 int codec_h_ioctl(CODEC_HANDLE h, int cmd, int subcmd, unsigned long paramter)
 {
     int r;
-    int cmd_new;
-    unsigned long parm_new;
     if (h < 0) {
         return -1;
     }
@@ -516,7 +514,7 @@ int codec_h_ioctl(CODEC_HANDLE h, int cmd, int subcmd, unsigned long paramter)
     }
 
     if (r < 0) {
-        CODEC_PRINT("codec_h_ioctl failed,handle=%d,cmd=%x,subcmd=%x, paramter=%x, t=%x errno=%d\n", h, cmd, subcmd, paramter, r, errno);
+        CODEC_PRINT("codec_h_ioctl failed,handle=%d,cmd=%x,subcmd=%x, paramter=%lx, t=%x errno=%d\n", h, cmd, subcmd, paramter, r, errno);
         return r;
     }
     return 0;

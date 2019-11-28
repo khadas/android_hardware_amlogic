@@ -135,7 +135,7 @@ int codec_set_mute(codec_para_t *p, int mute)
 * @return      not used, read failed
 */
 /* --------------------------------------------------------------------------*/
-int codec_get_volume_range(codec_para_t *p, int *min, int *max)
+int codec_get_volume_range(codec_para_t *p __unused, int *min __unused, int *max __unused)
 {
     return -CODEC_ERROR_IO;
 }
@@ -287,7 +287,7 @@ int codec_get_lrvolume(codec_para_t *p, float *lvol, float* rvol)
 * @return     not used, return failed
 */
 /* --------------------------------------------------------------------------*/
-int codec_set_volume_balance(codec_para_t *p, int balance)
+int codec_set_volume_balance(codec_para_t *p __unused, int balance __unused)
 {
     return -CODEC_ERROR_IO;
 }
@@ -406,7 +406,7 @@ int codec_audio_automute(void *priv, int auto_mute)
 * @return     Command result
 */
 /* --------------------------------------------------------------------------*/
-int codec_audio_spectrum_switch(codec_para_t *p, int isStart, int interval)
+int codec_audio_spectrum_switch(codec_para_t *p __unused, int isStart, int interval)
 {
     int  ret = -1;
     char cmd[32];

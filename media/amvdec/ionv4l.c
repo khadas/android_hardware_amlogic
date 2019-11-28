@@ -23,7 +23,7 @@ static int ionv4l_unmapbufs(ionvideo_dev_t *dev);
 static int ionv4l_mapbufs(ionvideo_dev_t *dev);
 int ionv4l_setfmt(ionvideo_dev_t *dev, struct v4l2_format *fmt);
 int ionv4l_stop(ionvideo_dev_t *dev);
-int ionv4l_init(ionvideo_dev_t *dev, int type, int width, int height, int fmt, int buffernum)
+int ionv4l_init(ionvideo_dev_t *dev, int type __unused, int width, int height, int fmt, int buffernum)
 {
     int ret;
     ionv4l_dev_t *v4l = dev->devpriv;
@@ -103,8 +103,6 @@ int ionv4l_queue_buf(ionvideo_dev_t *dev, vframebuf_t *vf)
 {
     struct v4l2_buffer vbuf;
     CLEAR(vbuf);
-    int ret;
-    ionv4l_dev_t *v4l = dev->devpriv;
     vbuf.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
     vbuf.memory = V4L2_MEMORY_DMABUF;
     vbuf.index = vf->index;
@@ -139,14 +137,13 @@ int ionv4l_getfmt(ionvideo_dev_t *dev, struct v4l2_format *fmt)
     return ionv4l_ioctl(dev, VIDIOC_G_FMT, fmt);
 }
 
-static int ionv4l_unmapbufs(ionvideo_dev_t *dev)
+static int ionv4l_unmapbufs(ionvideo_dev_t *dev __unused)
 {
     return 0;
 }
 
 static int ionv4l_mapbufs(ionvideo_dev_t *dev)
 {
-    int ret;
     struct v4l2_requestbuffers rb;
     CLEAR(rb);
     ionv4l_dev_t *v4l = dev->devpriv;
