@@ -25,8 +25,6 @@
 #include <tvcmd.h>
 #include <ui/GraphicBufferMapper.h>
 #include <ui/GraphicBuffer.h>
-#include <gralloc_priv.h>
-#include <gralloc_helper.h>
 #include <amlogic/am_gralloc_ext.h>
 #include <hardware/hardware.h>
 #include <linux/videodev2.h>
