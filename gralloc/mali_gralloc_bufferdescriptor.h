@@ -94,15 +94,8 @@ int mali_gralloc_set_layer_count_internal(gralloc1_buffer_descriptor_t descripto
 int mali_gralloc_get_layer_count_internal(buffer_handle_t buffer, uint32_t *outLayerCount);
 #endif
 #endif
-//meson graphics changes start
-#ifdef GRALLOC_AML_EXTEND
-#if PLATFORM_SDK_VERSION >= 28
-int mali_gralloc_validate_buffer_size(buffer_handle_t buffer, gralloc1_buffer_descriptor_info_t* descriptorInfo, uint32_t stride);
-int mali_gralloc_get_transport_size(buffer_handle_t buffer, uint32_t *outNumFds, uint32_t *outNumInts);
-int mali_gralloc_import_buffer(gralloc1_device_t* device, const buffer_handle_t rawHandle, buffer_handle_t *outBuffer);
-#endif
-#endif
-//meson graphics changes end
 int mali_gralloc_query_getstride(buffer_handle_t handle, int *pixelStride);
+int mali_gralloc_query_get_bytes_per_pixel(buffer_handle_t buffer, int bytesPerPixel[]);
+int mali_gralloc_query_get_byte_stride(buffer_handle_t buffer, int byteStride[]);
 
 #endif /* MALI_GRALLOC_BUFFERDESCRIPTOR_H_ */

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017 ARM Limited. All rights reserved.
+ * Copyright (C) 2017, 2019 ARM Limited. All rights reserved.
  *
  * Copyright (C) 2008 The Android Open Source Project
  *
@@ -87,8 +87,7 @@
 #include "mali_gralloc_usages.h"
 #include "gralloc_helper.h"
 
-#if (GRALLOC_VERSION_MAJOR == 2) || (GRALLOC_VERSION_MAJOR == 0) || \
-    ((GRALLOC_VERSION_MAJOR == 1) && !defined(GRALLOC_DISABLE_PRIVATE_BUFFER_DEF))
+#if (GRALLOC_VERSION_MAJOR != 1) || !defined(GRALLOC_DISABLE_PRIVATE_BUFFER_DEF)
 
 /*
  * This header file contains the private buffer definition. For gralloc 0.3 it will

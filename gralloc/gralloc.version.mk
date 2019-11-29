@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2016-2018 ARM Limited. All rights reserved.
+# Copyright (C) 2016-2019 ARM Limited. All rights reserved.
 #
 # Copyright (C) 2008 The Android Open Source Project
 #
@@ -18,7 +18,7 @@
 # List of all valid Gralloc versions
 GRALLOC_VALID_VERSIONS := 0.x 1.x 2.x
 
-#Set default Gralloc version
+# Set default Gralloc version
 PLATFORM_SDK_GREATER_THAN_24 := $(shell expr $(PLATFORM_SDK_VERSION) \> 24)
 ifeq ($(PLATFORM_SDK_GREATER_THAN_24), 1)
     GRALLOC_API_VERSION?=1.x
@@ -36,7 +36,7 @@ ifdef GRALLOC_USE_GRALLOC1_API
     endif
 endif
 
-# Fail build if GRALLOC_API_VERSION isn't one of the following.
+# Fail build if GRALLOC_API_VERSION is not one of the following.
 ifeq ($(filter $(GRALLOC_API_VERSION),$(GRALLOC_VALID_VERSIONS)),)
     $(error Gralloc version $(GRALLOC_API_VERSION) is not valid. Valid versions are $(GRALLOC_VALID_VERSIONS))
 endif
@@ -69,6 +69,7 @@ ifeq ($(GRALLOC_API_VERSION), 2.x)
     else
         $(error Gralloc 2.x is not supported on platform SDK version $(PLATFORM_SDK_VERSION))
     endif
+
 endif
 
 GRALLOC_VERSION_MAJOR := $(shell echo $(GRALLOC_API_VERSION) | cut -d. -f1)

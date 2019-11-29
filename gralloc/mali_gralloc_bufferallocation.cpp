@@ -705,8 +705,7 @@ static int set_dataspace(private_handle_t * const hnd, uint64_t usage, int32_t f
 		color_space = HAL_DATASPACE_STANDARD_BT709;
 		range = HAL_DATASPACE_RANGE_LIMITED;
 
-		/* SDR 10-bit YUV is assumed to be narrow BT709.
-		 * Dataspace for HDR content will be set (by producer) according to the HDR metadata.
+		/* 10-bit YUV is assumed to be wide BT2020.
 		 */
 		if (formats[format_idx].bps >= 10)
 		{
