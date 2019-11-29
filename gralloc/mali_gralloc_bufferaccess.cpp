@@ -186,7 +186,7 @@ int validate_lock_input_parameters(const buffer_handle_t buffer, const int l,
 		return -EINVAL;
 #elif GRALLOC_VERSION_MAJOR == 1
 		return GRALLOC1_ERROR_UNSUPPORTED;
-#elif GRALLOC_VERSION_MAJOR == 2
+#elif GRALLOC_VERSION_MAJOR >= 2
 		return static_cast<int32_t>(Error::UNSUPPORTED);
 #endif
 	}

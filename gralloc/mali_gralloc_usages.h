@@ -69,6 +69,7 @@
 #define GRALLOC_USAGE_SW_WRITE_OFTEN GRALLOC1_PRODUCER_USAGE_CPU_WRITE_OFTEN
 #define GRALLOC_USAGE_SW_READ_RARELY GRALLOC1_CONSUMER_USAGE_CPU_READ
 #define GRALLOC_USAGE_SW_READ_OFTEN GRALLOC1_CONSUMER_USAGE_CPU_READ_OFTEN
+#define GRALLOC_USAGE_RENDERSCRIPT GRALLOC1_CONSUMER_USAGE_RENDERSCRIPT
 #define GRALLOC_USAGE_HW_FB GRALLOC1_CONSUMER_USAGE_CLIENT_TARGET
 #define GRALLOC_USAGE_HW_2D 0x00000400U
 
@@ -82,6 +83,7 @@
 #define GRALLOC_USAGE_HW_VIDEO_ENCODER GRALLOC1_CONSUMER_USAGE_VIDEO_ENCODER
 #define GRALLOC_USAGE_HW_COMPOSER GRALLOC1_CONSUMER_USAGE_HWCOMPOSER
 #define GRALLOC_USAGE_EXTERNAL_DISP 0x00002000U
+#define GRALLOC_USAGE_CURSOR GRALLOC1_CONSUMER_USAGE_CURSOR
 
 #define GRALLOC_USAGE_SENSOR_DIRECT_DATA GRALLOC1_PRODUCER_USAGE_SENSOR_DIRECT_DATA
 #define GRALLOC_USAGE_GPU_DATA_BUFFER GRALLOC1_CONSUMER_USAGE_GPU_DATA_BUFFER
@@ -90,7 +92,6 @@
 */
 #ifdef GRALLOC_AML_EXTEND
 #define GRALLOC_USAGE_HW_VIDEO_DECODER GRALLOC1_PRODUCER_USAGE_VIDEO_DECODER
-#define GRALLOC_USAGE_RENDERSCRIPT 	   GRALLOC1_CONSUMER_USAGE_RENDERSCRIPT
 #endif
 //meson graphics changes end
 
@@ -171,11 +172,13 @@ typedef enum
 
 } mali_gralloc_usage_type;
 
-#elif GRALLOC_VERSION_MAJOR == 2
+#elif GRALLOC_VERSION_MAJOR >= 2
 #if HIDL_COMMON_VERSION_SCALED == 100
 #include <android/hardware/graphics/common/1.0/types.h>
+using android::hardware::graphics::common::V1_0::BufferUsage;
 #elif HIDL_COMMON_VERSION_SCALED == 110
 #include <android/hardware/graphics/common/1.1/types.h>
+using android::hardware::graphics::common::V1_1::BufferUsage;
 #endif
 
 /* Local macro definitions to emulate Gralloc 1.0 usage interface */
@@ -218,12 +221,11 @@ typedef enum
 	MALI_GRALLOC_USAGE_RANGE_MASK = (GRALLOC_USAGE_PRIVATE_16 | GRALLOC_USAGE_PRIVATE_17),
 } mali_gralloc_usage_type;
 
-using android::hardware::graphics::common::HIDL_COMMON_NAMESPACE::BufferUsage;
-
 #define GRALLOC_USAGE_SW_WRITE_RARELY static_cast<uint64_t>(BufferUsage::CPU_WRITE_RARELY)
 #define GRALLOC_USAGE_SW_WRITE_OFTEN static_cast<uint64_t>(BufferUsage::CPU_WRITE_OFTEN)
 #define GRALLOC_USAGE_SW_READ_RARELY static_cast<uint64_t>(BufferUsage::CPU_READ_RARELY)
 #define GRALLOC_USAGE_SW_READ_OFTEN static_cast<uint64_t>(BufferUsage::CPU_READ_OFTEN)
+#define GRALLOC_USAGE_RENDERSCRIPT static_cast<uint64_t>(BufferUsage::RENDERSCRIPT)
 #define GRALLOC_USAGE_HW_FB static_cast<uint64_t>(BufferUsage::COMPOSER_CLIENT_TARGET)
 
 /* Bit 10 must be zero as per Gralloc 2.x interface specification. Used, however, for backward compatibility */
@@ -232,6 +234,7 @@ using android::hardware::graphics::common::HIDL_COMMON_NAMESPACE::BufferUsage;
 #define GRALLOC_USAGE_SW_WRITE_MASK static_cast<uint64_t>(BufferUsage::CPU_WRITE_MASK)
 #define GRALLOC_USAGE_SW_READ_MASK static_cast<uint64_t>(BufferUsage::CPU_READ_MASK)
 #define GRALLOC_USAGE_PROTECTED static_cast<uint64_t>(BufferUsage::PROTECTED)
+#define GRALLOC_USAGE_CURSOR static_cast<uint64_t>(BufferUsage::COMPOSER_CURSOR)
 #define GRALLOC_USAGE_HW_RENDER static_cast<uint64_t>(BufferUsage::GPU_RENDER_TARGET)
 #define GRALLOC_USAGE_HW_CAMERA_WRITE static_cast<uint64_t>(BufferUsage::CAMERA_OUTPUT)
 #define GRALLOC_USAGE_HW_CAMERA_READ static_cast<uint64_t>(BufferUsage::CAMERA_INPUT)
@@ -247,7 +250,6 @@ using android::hardware::graphics::common::HIDL_COMMON_NAMESPACE::BufferUsage;
 */
 #ifdef GRALLOC_AML_EXTEND
 #define GRALLOC_USAGE_HW_VIDEO_DECODER static_cast<uint64_t>(BufferUsage::VIDEO_DECODER)
-#define GRALLOC_USAGE_RENDERSCRIPT 	   static_cast<uint64_t>(BufferUsage:: RENDERSCRIPT)
 #endif
 //meson graphics changes end
 
@@ -269,22 +271,24 @@ static const uint64_t VALID_USAGE =
     GRALLOC_USAGE_HW_FB |              /* 1U << 12 */
     GRALLOC_USAGE_EXTERNAL_DISP |      /* 1U << 13 */
     GRALLOC_USAGE_PROTECTED |          /* 1U << 14 */
+    GRALLOC_USAGE_CURSOR |             /* 1U << 15 */
     GRALLOC_USAGE_HW_VIDEO_ENCODER |   /* 1U << 16 */
     GRALLOC_USAGE_HW_CAMERA_WRITE |    /* 1U << 17 */
     GRALLOC_USAGE_HW_CAMERA_READ |     /* 1U << 18 */
+    GRALLOC_USAGE_RENDERSCRIPT |       /* 1U << 20 */
+
 #if GRALLOC_VERSION_MAJOR >= 1
     /* As producer and consumer usage are combined there is no way to differentiate these
        but they are both listed here to show that the intention is to include both. */
     GRALLOC_USAGE_SENSOR_DIRECT_DATA | /* 1U << 23 */
     GRALLOC_USAGE_GPU_DATA_BUFFER |    /* 1U << 23 */
+
 //meson graphics changes start
 #ifdef GRALLOC_AML_EXTEND
     GRALLOC_USAGE_HW_VIDEO_DECODER |   /* 1U << 22*/
-	GRALLOC_USAGE_RENDERSCRIPT 	   |   /* 1U << 20*/
 #endif
 //meson graphics changes end
-#endif
-#if GRALLOC_VERSION_MAJOR >= 1
+
     GRALLOC_USAGE_PRIVATE_19 |         /* 1U << 48 */
     GRALLOC_USAGE_PRIVATE_18 |         /* 1U << 49 */
     GRALLOC_USAGE_PRIVATE_17 |         /* 1U << 50 */
