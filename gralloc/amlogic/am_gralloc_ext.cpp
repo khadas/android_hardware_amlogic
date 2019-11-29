@@ -17,6 +17,12 @@
 #include <gralloc_priv.h>
 #include "gralloc_buffer_priv.h"
 
+/*
+Api default have upgrade to support gralloc 3.x.
+For legacy gralloc, need force enable GRALLOC_USE_GRALLOC1_API in file or mk.
+*/
+//#define GRALLOC_USE_GRALLOC1_API 1
+
 bool am_gralloc_is_valid_graphic_buffer(
     const native_handle_t * hnd) {
     private_handle_t const* buffer = hnd ? private_handle_t::dynamicCast(hnd) : NULL;
@@ -161,6 +167,8 @@ int am_gralloc_get_buffer_fd(const native_handle_t * hnd) {
     return -1;
 }
 
+
+#ifdef GRALLOC_USE_GRALLOC1_API
 int am_gralloc_get_stride_in_byte(const native_handle_t * hnd) {
     private_handle_t const* buffer = hnd ? private_handle_t::dynamicCast(hnd) : NULL;
     if (buffer)
@@ -176,6 +184,23 @@ int am_gralloc_get_stride_in_pixel(const native_handle_t * hnd) {
 
     return 0;
 }
+#else
+int am_gralloc_get_stride_in_byte(const native_handle_t * hnd) {
+    private_handle_t const* buffer = hnd ? private_handle_t::dynamicCast(hnd) : NULL;
+    if (buffer)
+        return buffer->plane_info[0].byte_stride;
+
+    return 0;
+}
+
+int am_gralloc_get_stride_in_pixel(const native_handle_t * hnd) {
+    private_handle_t const* buffer = hnd ? private_handle_t::dynamicCast(hnd) : NULL;
+    if (buffer)
+        return buffer->plane_info[0].alloc_width;
+
+    return 0;
+}
+#endif
 
 int am_gralloc_get_width(const native_handle_t * hnd) {
     private_handle_t const* buffer = hnd ? private_handle_t::dynamicCast(hnd) : NULL;
@@ -366,6 +391,7 @@ int am_gralloc_destroy_sideband_handle(native_handle_t * hnd) {
     return ret;
 }
 
+#ifdef GRALLOC_USE_GRALLOC1_API
 int am_gralloc_get_vpu_afbc_mask(const native_handle_t * hnd) {
     private_handle_t const* buffer = hnd ? private_handle_t::dynamicCast(hnd) : NULL;
 
@@ -407,4 +433,47 @@ int am_gralloc_get_vpu_afbc_mask(const native_handle_t * hnd) {
 
     return 0;
 }
+#else
+int am_gralloc_get_vpu_afbc_mask(const native_handle_t * hnd) {
+    private_handle_t const* buffer = hnd ? private_handle_t::dynamicCast(hnd) : NULL;
 
+    if (buffer) {
+        uint64_t internalFormat = buffer->alloc_format;
+        int afbcFormat = 0;
+
+        if (internalFormat & MALI_GRALLOC_INTFMT_AFBCENABLE_MASK) {
+            afbcFormat |=
+                (VPU_AFBC_EN | VPU_AFBC_YUV_TRANSFORM |VPU_AFBC_BLOCK_SPLIT);
+
+            if (internalFormat & MALI_GRALLOC_INTFMT_AFBC_WIDEBLK) {
+                afbcFormat |= VPU_AFBC_SUPER_BLOCK_ASPECT;
+            }
+
+            #if 0
+            if (internalFormat & MALI_GRALLOC_INTFMT_AFBC_SPLITBLK) {
+                afbcFormat |= VPU_AFBC_BLOCK_SPLIT;
+            }
+            #endif
+
+            if (internalFormat & MALI_GRALLOC_INTFMT_AFBC_TILED_HEADERS) {
+                afbcFormat |= VPU_AFBC_TILED_HEADER_EN;
+            }
+
+            #if 0
+            if (gralloc_buffer_attr_map(buffer, 0) >= 0) {
+                int tmp=0;
+                if (gralloc_buffer_attr_read(buffer, GRALLOC_ARM_BUFFER_ATTR_AFBC_YUV_TRANS, &tmp) >= 0) {
+                    if (tmp != 0) {
+                        afbcFormat |= VPU_AFBC_YUV_TRANSFORM;
+                    }
+                }
+            }
+            #endif
+        }
+        return afbcFormat;
+    }
+
+    return 0;
+}
+
+#endif
