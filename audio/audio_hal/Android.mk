@@ -27,6 +27,7 @@ LOCAL_MODULE_CLASS := SHARED_LIBRARIES
 LOCAL_PROPRIETARY_MODULE := true
 LOCAL_MODULE_TARGET_ARCH:= arm arm64
 LOCAL_MULTILIB := both
+LOCAL_SHARED_LIBRARIES := libcutils liblog libutils
 include $(BUILD_PREBUILT)
 
 # The default audio HAL module, which is a stub, that is loaded if no other
