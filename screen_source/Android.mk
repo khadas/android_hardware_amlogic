@@ -19,8 +19,8 @@ LOCAL_C_INCLUDES += \
     frameworks/native/libs/nativewindow/include \
     frameworks/av/include/media \
     system/core/include/utils \
-    system/core/libion/include \
-    system/core/libion/kernel-headers \
+    system/memory/libion/include \
+    system/memory/libion/kernel-headers \
     $(MESON_GRALLOC_DIR)
 
 LOCAL_SHARED_LIBRARIES:= libutils liblog libui libcutils

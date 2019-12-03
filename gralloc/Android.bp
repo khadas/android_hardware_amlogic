@@ -63,7 +63,7 @@ cc_library_static {
        "system/core/libutils/include",
        "hardware/libhardware/include",
        "hardware/amlogic/gralloc/src",
-       "system/core/libion/kernel-headers",
+       "system/memory/libion/kernel-headers",
     ],
     srcs: [
         "amlogic/am_gralloc_ext.cpp"

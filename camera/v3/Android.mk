@@ -99,8 +99,8 @@ LOCAL_C_INCLUDES += external/jpeg \
                     external/jhead/ \
                     frameworks/native/include/media/hardware \
                     external/libyuv/files/include/ \
-                    $(TOP)/system/core/libion/include \
-                    $(TOP)/system/core/libion/kernel-headers \
+                    $(TOP)/system/memory/libion/include \
+                    $(TOP)/system/memory/libion/kernel-headers \
                     $(TOP)/$(MESON_GRALLOC_DIR) \
                     $(LOCAL_PATH)/inc \
                     $(call include-path-for, camera) \

@@ -43,8 +43,8 @@ LOCAL_C_INCLUDES += \
     $(LIB_TV_BINDER_PATH)/include	\
     $(LIB_SQLITE_PATH)/dist \
     system/media/audio_effects/include \
-    system/core/libion/include \
-    system/core/libion/kernel-headers \
+    system/memory/libion/include \
+    system/memory/libion/kernel-headers \
     hardware/amlogic/gralloc \
     hardware/amlogic/screen_source \
     hardware/amlogic/audio/libTVaudio \

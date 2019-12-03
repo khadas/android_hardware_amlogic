@@ -84,8 +84,8 @@ LOCAL_C_INCLUDES += \
     $(MESON_GRALLOC_DIR) \
     $(TOP)/system/media/camera/include \
     system/core/include/utils \
-    system/core/libion/include/ \
-    system/core/libion/kernel-headers \
+    system/memory/libion/include/ \
+    system/memory/libion/kernel-headers \
     external/libyuv/files/include/ \
 
 LOCAL_STATIC_LIBRARIES := \
