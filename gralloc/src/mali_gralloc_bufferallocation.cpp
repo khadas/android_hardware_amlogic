@@ -556,7 +556,11 @@ static void calc_allocation_size(const int width,
 		{
 			*pixel_stride = 0;
 
+#ifdef GRALLOC_AML_EXTEND
+			/*TODO: always need stride info.*/
+#else
 			if (!alloc_type.is_afbc() && has_cpu_usage)
+#endif
 			{
 				assert((plane_info[plane].byte_stride * 8) % format.bpp[plane] == 0);
 				*pixel_stride = (plane_info[plane].byte_stride * 8) / format.bpp[plane];
