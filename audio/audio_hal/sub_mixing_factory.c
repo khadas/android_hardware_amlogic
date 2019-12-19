@@ -1363,9 +1363,6 @@ int out_standby_subMixingPCM(struct audio_stream *stream)
      * pthread_mutex_unlock(&aml_out->lock);
      */
 
-    if ((aml_out->out_device & AUDIO_DEVICE_OUT_ALL_A2DP) && aml_out->a2dp_out)
-        a2dp_out_standby(stream);
-
     pthread_mutex_lock(&adev->lock);
     if (aml_out->standby) {
         goto exit;
@@ -1379,6 +1376,9 @@ int out_standby_subMixingPCM(struct audio_stream *stream)
     aml_out->status = STREAM_STANDBY;
     aml_out->standby = true;
     delete_mixer_input_port(audio_mixer, aml_out->port_index);
+
+    if ((aml_out->out_device & AUDIO_DEVICE_OUT_ALL_A2DP) && aml_out->a2dp_out)
+        a2dp_out_standby(stream);
 
     if (adev->debug_flag > 1) {
         ALOGI("-%s() ret %zd,%p %"PRIu64"\n", __func__, ret, stream, aml_out->total_write_size);

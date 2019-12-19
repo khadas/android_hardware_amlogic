@@ -25,10 +25,8 @@ int32_t FixedDisplayPipe::init(
 }
 
 void FixedDisplayPipe::handleEvent(drm_display_event event, int val) {
-    HwcDisplayPipe::handleEvent(event, val);
-
-    std::lock_guard<std::mutex> lock(mMutex);
     if (event == DRM_EVENT_HDMITX_HOTPLUG) {
+        std::lock_guard<std::mutex> lock(mMutex);
         bool connected = (val == 0) ? false : true;
         std::shared_ptr<PipeStat> pipe;
         drm_connector_type_t targetConnector = DRM_MODE_CONNECTOR_INVALID;
@@ -39,12 +37,14 @@ void FixedDisplayPipe::handleEvent(drm_display_event event, int val) {
                 targetConnector = connected ?
                     DRM_MODE_CONNECTOR_HDMI : DRM_MODE_CONNECTOR_CVBS;
 
+                /*update current connector status, now getpipecfg() need
+                * read connector status to decide connector.
+                */
+                statIt.second->modeConnector->update();
+
                 MESON_LOGD("handleEvent  DRM_EVENT_HDMITX_HOTPLUG %d VS %d",
                     pipe->cfg.hwcConnectorType, targetConnector);
                 if (pipe->cfg.hwcConnectorType != targetConnector) {
-                    /*reset vout displaymode, it will be null.*/
-                    pipe->hwcCrtc->unbind();
-                    pipe->modeCrtc->unbind();
                     /* we need latest connector status, and no one will update
                     *connector not bind to crtc, we update here.
                     */
@@ -56,11 +56,16 @@ void FixedDisplayPipe::handleEvent(drm_display_event event, int val) {
                     /*update display mode, workaround now.*/
                     initDisplayMode(pipe);
                 }
-                break;
-            } else if (connectorType == HWC_HDMI_ONLY && connected) {
-                initDisplayMode(pipe);
+                statIt.second->hwcDisplay->onHotplug(connected);
+            } else if (connectorType == HWC_HDMI_ONLY) {
+                if (connected) {
+                    initDisplayMode(pipe);
+                }
+                statIt.second->hwcDisplay->onHotplug(connected);
             }
         }
+    }else {
+        HwcDisplayPipe::handleEvent(event, val);
     }
 }
 

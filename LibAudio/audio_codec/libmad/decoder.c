@@ -979,7 +979,10 @@ int audio_dec_init(
     mad_stream_options(stream, decoder.options);
 
 #ifndef _WIN32
-    adec_ops->nInBufSize = 5 * 1024;
+     /*[SE][BUG][SWPL-14828][chengshun.wang] decrease audio decode
+     * in buffer size, avoid audio underrun
+     */
+    adec_ops->nInBufSize = 1 * 1024;
     adec_ops->nOutBufSize = 64 * 1024;
 #endif
 

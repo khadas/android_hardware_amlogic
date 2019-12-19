@@ -392,6 +392,7 @@ struct aml_audio_device {
     struct aml_audio_parser *aml_parser;
     int continuous_audio_mode;
     int continuous_audio_mode_default;
+    int delay_disable_continuous;
     bool atoms_lock_flag;
     bool need_remove_conti_mode;
     int  exiting_ms12;
@@ -468,13 +469,20 @@ struct aml_audio_device {
     int sub_apid;
     int sub_afmt;
     int reset_dtv_audio;
-
-    int count;
     bool compensate_video_enable;
 
     int patch_start;
     int mute_start;
     aml_audio_ease_t  *audio_ease;
+    /*four variable used for when audio discontinue and underrun,
+      whether mute output*/
+    int discontinue_mute_flag;
+    int audio_discontinue;
+    int no_underrun_count;
+    int no_underrun_max;
+    int start_mute_flag;
+    int ad_start_enable;
+    int count;
 };
 
 struct meta_data {
@@ -591,6 +599,8 @@ struct aml_stream_out {
     uint64_t total_ddp_frame_nblks;
     int framevalid_flag;
     bool bypass_submix;
+    int need_drop_size;
+    int position_update;
 };
 
 typedef ssize_t (*write_func)(struct audio_stream_out *stream, const void *buffer, size_t bytes);
@@ -730,7 +740,7 @@ audio_format_t get_output_format(struct audio_stream_out *stream);
 void *audio_patch_output_threadloop(void *data);
 
 ssize_t aml_audio_spdif_output(struct audio_stream_out *stream,
-                void *buffer, size_t bytes);
+                                void *buffer, size_t bytes);
 
 /*
  *@brief audio_hal_data_processing
@@ -743,19 +753,19 @@ ssize_t aml_audio_spdif_output(struct audio_stream_out *stream,
  *    -1, fail
  */
 ssize_t audio_hal_data_processing(struct audio_stream_out *stream
-    , const void *input_buffer
-    , size_t input_buffer_bytes
-    , void **output_buffer
-    , size_t *output_buffer_bytes
-    , audio_format_t output_format);
+                                    , const void *input_buffer
+                                    , size_t input_buffer_bytes
+                                    , void **output_buffer
+                                    , size_t *output_buffer_bytes
+                                    , audio_format_t output_format);
 
 /*
  *@brief hw_write the api to write the data to audio hardware
  */
 ssize_t hw_write(struct audio_stream_out *stream
-    , const void *buffer
-                 , size_t bytes
-                 , audio_format_t output_format);
+                    , const void *buffer
+                    , size_t bytes
+                    , audio_format_t output_format);
 
 int do_output_standby_l(struct audio_stream *stream);
 
@@ -772,5 +782,6 @@ enum hwsync_status check_hwsync_status (uint apts_gap);
 void config_output(struct audio_stream_out *stream);
 int start_ease_in(struct aml_audio_device *adev);
 int start_ease_out(struct aml_audio_device *adev);
+int out_standby_direct (struct audio_stream *stream);
 
 #endif

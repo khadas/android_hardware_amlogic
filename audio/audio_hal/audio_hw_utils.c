@@ -623,11 +623,11 @@ int aml_audio_get_ms12_latency_offset(int b_raw)
     if (b_raw == 0) {
         /*for non tunnel ddp2h/heaac case:netlfix AL1 case */
         prop_name = "vendor.media.audio.hal.ms12.latency.pcm";
-        latency_ms = -20;
+        latency_ms = -50;
     }else {
         /*for non tunnel dolby ddp5.1 case:netlfix AL1 case*/
         prop_name = "vendor.media.audio.hal.ms12.latency.raw";
-        latency_ms = -40;
+        latency_ms = -70;
     }
 
     ret = property_get(prop_name, buf, NULL);
@@ -969,7 +969,7 @@ int aml_audio_get_dolby_drc_mode(int *drc_mode, int *drc_cut, int *drc_boost)
         return -1;
     *drc_mode = ac3_drc_control&3;
     ALOGI("drc mode from sysfs %s\n",str_compmode[*drc_mode]);
-    ret = property_get("ro.dolby.drcmode",cEndpoint,"");
+    ret = property_get("ro.vendor.dolby.drcmode",cEndpoint,"");
     if (ret > 0) {
         *drc_mode = atoi(cEndpoint)&3;
         ALOGI("drc mode from prop %s\n",str_compmode[*drc_mode]);

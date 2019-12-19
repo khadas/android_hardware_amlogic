@@ -811,269 +811,272 @@ static AvbSlotVerifyResult load_and_verify_vbmeta(
    */
   descriptors =
       avb_descriptor_get_all(vbmeta_buf, vbmeta_num_read, &num_descriptors);
-  for (n = 0; n < num_descriptors; n++) {
-    AvbDescriptor desc;
 
-    if (!avb_descriptor_validate_and_byteswap(descriptors[n], &desc)) {
-      avb_errorv(full_partition_name, ": Descriptor is invalid.\n", NULL);
-      ret = AVB_SLOT_VERIFY_RESULT_ERROR_INVALID_METADATA;
-      goto out;
-    }
+  if (descriptors != NULL) {
+      for (n = 0; n < num_descriptors; n++) {
+        AvbDescriptor desc;
 
-    switch (desc.tag) {
-      case AVB_DESCRIPTOR_TAG_HASH: {
-        AvbSlotVerifyResult sub_ret;
-        sub_ret = load_and_verify_hash_partition(ops,
-                                                 requested_partitions,
-                                                 ab_suffix,
-                                                 allow_verification_error,
-                                                 descriptors[n],
-                                                 slot_data);
-        if (sub_ret != AVB_SLOT_VERIFY_RESULT_OK) {
-          ret = sub_ret;
-          if (!allow_verification_error || !result_should_continue(ret)) {
-            goto out;
-          }
-        }
-      } break;
-
-      case AVB_DESCRIPTOR_TAG_CHAIN_PARTITION: {
-        AvbSlotVerifyResult sub_ret;
-        AvbChainPartitionDescriptor chain_desc;
-        const uint8_t* chain_partition_name;
-        const uint8_t* chain_public_key;
-
-        /* Only allow CHAIN_PARTITION descriptors in the main vbmeta image. */
-        if (!is_main_vbmeta) {
-          avb_errorv(full_partition_name,
-                     ": Encountered chain descriptor not in main image.\n",
-                     NULL);
+        if (!avb_descriptor_validate_and_byteswap(descriptors[n], &desc)) {
+          avb_errorv(full_partition_name, ": Descriptor is invalid.\n", NULL);
           ret = AVB_SLOT_VERIFY_RESULT_ERROR_INVALID_METADATA;
           goto out;
         }
 
-        if (!avb_chain_partition_descriptor_validate_and_byteswap(
-                (AvbChainPartitionDescriptor*)descriptors[n], &chain_desc)) {
-          avb_errorv(full_partition_name,
-                     ": Chain partition descriptor is invalid.\n",
-                     NULL);
-          ret = AVB_SLOT_VERIFY_RESULT_ERROR_INVALID_METADATA;
-          goto out;
-        }
+        switch (desc.tag) {
+          case AVB_DESCRIPTOR_TAG_HASH: {
+            AvbSlotVerifyResult sub_ret;
+            sub_ret = load_and_verify_hash_partition(ops,
+                                                     requested_partitions,
+                                                     ab_suffix,
+                                                     allow_verification_error,
+                                                     descriptors[n],
+                                                     slot_data);
+            if (sub_ret != AVB_SLOT_VERIFY_RESULT_OK) {
+              ret = sub_ret;
+              if (!allow_verification_error || !result_should_continue(ret)) {
+                goto out;
+              }
+            }
+          } break;
 
-        if (chain_desc.rollback_index_location == 0) {
-          avb_errorv(full_partition_name,
-                     ": Chain partition has invalid "
-                     "rollback_index_location field.\n",
-                     NULL);
-          ret = AVB_SLOT_VERIFY_RESULT_ERROR_INVALID_METADATA;
-          goto out;
-        }
+          case AVB_DESCRIPTOR_TAG_CHAIN_PARTITION: {
+            AvbSlotVerifyResult sub_ret;
+            AvbChainPartitionDescriptor chain_desc;
+            const uint8_t* chain_partition_name;
+            const uint8_t* chain_public_key;
 
-        chain_partition_name = ((const uint8_t*)descriptors[n]) +
-                               sizeof(AvbChainPartitionDescriptor);
-        chain_public_key = chain_partition_name + chain_desc.partition_name_len;
-
-        sub_ret =
-            load_and_verify_vbmeta(ops,
-                                   requested_partitions,
-                                   ab_suffix,
-                                   allow_verification_error,
-                                   toplevel_vbmeta_flags,
-                                   chain_desc.rollback_index_location,
-                                   (const char*)chain_partition_name,
-                                   chain_desc.partition_name_len,
-                                   chain_public_key,
-                                   chain_desc.public_key_len,
-                                   slot_data,
-                                   NULL, /* out_algorithm_type */
-                                   NULL /* out_additional_cmdline_subst */);
-        if (sub_ret != AVB_SLOT_VERIFY_RESULT_OK) {
-          ret = sub_ret;
-          if (!result_should_continue(ret)) {
-            goto out;
-          }
-        }
-      } break;
-
-      case AVB_DESCRIPTOR_TAG_KERNEL_CMDLINE: {
-        const uint8_t* kernel_cmdline;
-        AvbKernelCmdlineDescriptor kernel_cmdline_desc;
-        bool apply_cmdline;
-
-        if (!avb_kernel_cmdline_descriptor_validate_and_byteswap(
-                (AvbKernelCmdlineDescriptor*)descriptors[n],
-                &kernel_cmdline_desc)) {
-          avb_errorv(full_partition_name,
-                     ": Kernel cmdline descriptor is invalid.\n",
-                     NULL);
-          ret = AVB_SLOT_VERIFY_RESULT_ERROR_INVALID_METADATA;
-          goto out;
-        }
-
-        kernel_cmdline = ((const uint8_t*)descriptors[n]) +
-                         sizeof(AvbKernelCmdlineDescriptor);
-
-        if (!avb_validate_utf8(kernel_cmdline,
-                               kernel_cmdline_desc.kernel_cmdline_length)) {
-          avb_errorv(full_partition_name,
-                     ": Kernel cmdline is not valid UTF-8.\n",
-                     NULL);
-          ret = AVB_SLOT_VERIFY_RESULT_ERROR_INVALID_METADATA;
-          goto out;
-        }
-
-        /* Compare the flags for top-level VBMeta struct with flags in
-         * the command-line descriptor so command-line snippets only
-         * intended for a certain mode (dm-verity enabled/disabled)
-         * are skipped if applicable.
-         */
-        apply_cmdline = true;
-        if (toplevel_vbmeta_flags & AVB_VBMETA_IMAGE_FLAGS_HASHTREE_DISABLED) {
-          if (kernel_cmdline_desc.flags &
-              AVB_KERNEL_CMDLINE_FLAGS_USE_ONLY_IF_HASHTREE_NOT_DISABLED) {
-            apply_cmdline = false;
-          }
-        } else {
-          if (kernel_cmdline_desc.flags &
-              AVB_KERNEL_CMDLINE_FLAGS_USE_ONLY_IF_HASHTREE_DISABLED) {
-            apply_cmdline = false;
-          }
-        }
-
-        if (apply_cmdline) {
-          if (slot_data->cmdline == NULL) {
-            slot_data->cmdline =
-                avb_calloc(kernel_cmdline_desc.kernel_cmdline_length + 1);
-            if (slot_data->cmdline == NULL) {
-              ret = AVB_SLOT_VERIFY_RESULT_ERROR_OOM;
+            /* Only allow CHAIN_PARTITION descriptors in the main vbmeta image. */
+            if (!is_main_vbmeta) {
+              avb_errorv(full_partition_name,
+                         ": Encountered chain descriptor not in main image.\n",
+                         NULL);
+              ret = AVB_SLOT_VERIFY_RESULT_ERROR_INVALID_METADATA;
               goto out;
             }
-            avb_memcpy(slot_data->cmdline,
-                       kernel_cmdline,
-                       kernel_cmdline_desc.kernel_cmdline_length);
-          } else {
-            /* new cmdline is: <existing_cmdline> + ' ' + <newcmdline> + '\0' */
-            size_t orig_size = avb_strlen(slot_data->cmdline);
-            size_t new_size =
-                orig_size + 1 + kernel_cmdline_desc.kernel_cmdline_length + 1;
-            char* new_cmdline = avb_calloc(new_size);
-            if (new_cmdline == NULL) {
-              ret = AVB_SLOT_VERIFY_RESULT_ERROR_OOM;
+
+            if (!avb_chain_partition_descriptor_validate_and_byteswap(
+                    (AvbChainPartitionDescriptor*)descriptors[n], &chain_desc)) {
+              avb_errorv(full_partition_name,
+                         ": Chain partition descriptor is invalid.\n",
+                         NULL);
+              ret = AVB_SLOT_VERIFY_RESULT_ERROR_INVALID_METADATA;
               goto out;
             }
-            avb_memcpy(new_cmdline, slot_data->cmdline, orig_size);
-            new_cmdline[orig_size] = ' ';
-            avb_memcpy(new_cmdline + orig_size + 1,
-                       kernel_cmdline,
-                       kernel_cmdline_desc.kernel_cmdline_length);
-            avb_free(slot_data->cmdline);
-            slot_data->cmdline = new_cmdline;
-          }
-        }
-      } break;
 
-      case AVB_DESCRIPTOR_TAG_HASHTREE: {
-        AvbHashtreeDescriptor hashtree_desc;
-
-        if (!avb_hashtree_descriptor_validate_and_byteswap(
-                (AvbHashtreeDescriptor*)descriptors[n], &hashtree_desc)) {
-          avb_errorv(
-              full_partition_name, ": Hashtree descriptor is invalid.\n", NULL);
-          ret = AVB_SLOT_VERIFY_RESULT_ERROR_INVALID_METADATA;
-          goto out;
-        }
-
-        /* We only need to continue when there is no digest in the descriptor.
-         * This is because the only processing here is to find the digest and
-         * make it available on the kernel command line.
-         */
-        if (hashtree_desc.root_digest_len == 0) {
-          char part_name[AVB_PART_NAME_MAX_SIZE];
-          size_t digest_len = 0;
-          uint8_t digest_buf[AVB_SHA512_DIGEST_SIZE];
-          const uint8_t* desc_partition_name =
-              ((const uint8_t*)descriptors[n]) + sizeof(AvbHashtreeDescriptor);
-
-          if (!avb_validate_utf8(desc_partition_name,
-                                 hashtree_desc.partition_name_len)) {
-            avb_error("Partition name is not valid UTF-8.\n");
-            ret = AVB_SLOT_VERIFY_RESULT_ERROR_INVALID_METADATA;
-            goto out;
-          }
-
-          /* No ab_suffix for partitions without a digest in the descriptor
-           * because these partitions hold data unique to this device and are
-           * not updated using an A/B scheme.
-           */
-          if ((hashtree_desc.flags &
-               AVB_HASHTREE_DESCRIPTOR_FLAGS_DO_NOT_USE_AB) == 0 &&
-              avb_strlen(ab_suffix) != 0) {
-            avb_error("Cannot use A/B with a persistent root digest.\n");
-            ret = AVB_SLOT_VERIFY_RESULT_ERROR_INVALID_METADATA;
-            goto out;
-          }
-          if (hashtree_desc.partition_name_len >= AVB_PART_NAME_MAX_SIZE) {
-            avb_error("Partition name does not fit.\n");
-            ret = AVB_SLOT_VERIFY_RESULT_ERROR_INVALID_METADATA;
-            goto out;
-          }
-          avb_memcpy(
-              part_name, desc_partition_name, hashtree_desc.partition_name_len);
-          part_name[hashtree_desc.partition_name_len] = '\0';
-
-          /* Determine the expected digest size from the hash algorithm. */
-          if (avb_strcmp((const char*)hashtree_desc.hash_algorithm, "sha1") ==
-              0) {
-            digest_len = AVB_SHA1_DIGEST_SIZE;
-          } else if (avb_strcmp((const char*)hashtree_desc.hash_algorithm,
-                                "sha256") == 0) {
-            digest_len = AVB_SHA256_DIGEST_SIZE;
-          } else if (avb_strcmp((const char*)hashtree_desc.hash_algorithm,
-                                "sha512") == 0) {
-            digest_len = AVB_SHA512_DIGEST_SIZE;
-          } else {
-            avb_errorv(part_name, ": Unsupported hash algorithm.\n", NULL);
-            ret = AVB_SLOT_VERIFY_RESULT_ERROR_INVALID_METADATA;
-            goto out;
-          }
-
-          ret = read_persistent_digest(ops, part_name, digest_len, digest_buf);
-          if (ret != AVB_SLOT_VERIFY_RESULT_OK) {
-            goto out;
-          }
-
-          if (out_additional_cmdline_subst) {
-            ret =
-                avb_add_root_digest_substitution(part_name,
-                                                 digest_buf,
-                                                 digest_len,
-                                                 out_additional_cmdline_subst);
-            if (ret != AVB_SLOT_VERIFY_RESULT_OK) {
+            if (chain_desc.rollback_index_location == 0) {
+              avb_errorv(full_partition_name,
+                         ": Chain partition has invalid "
+                         "rollback_index_location field.\n",
+                         NULL);
+              ret = AVB_SLOT_VERIFY_RESULT_ERROR_INVALID_METADATA;
               goto out;
             }
-          }
+
+            chain_partition_name = ((const uint8_t*)descriptors[n]) +
+                                   sizeof(AvbChainPartitionDescriptor);
+            chain_public_key = chain_partition_name + chain_desc.partition_name_len;
+
+            sub_ret =
+                load_and_verify_vbmeta(ops,
+                                       requested_partitions,
+                                       ab_suffix,
+                                       allow_verification_error,
+                                       toplevel_vbmeta_flags,
+                                       chain_desc.rollback_index_location,
+                                       (const char*)chain_partition_name,
+                                       chain_desc.partition_name_len,
+                                       chain_public_key,
+                                       chain_desc.public_key_len,
+                                       slot_data,
+                                       NULL, /* out_algorithm_type */
+                                       NULL /* out_additional_cmdline_subst */);
+            if (sub_ret != AVB_SLOT_VERIFY_RESULT_OK) {
+              ret = sub_ret;
+              if (!result_should_continue(ret)) {
+                goto out;
+              }
+            }
+          } break;
+
+          case AVB_DESCRIPTOR_TAG_KERNEL_CMDLINE: {
+            const uint8_t* kernel_cmdline;
+            AvbKernelCmdlineDescriptor kernel_cmdline_desc;
+            bool apply_cmdline;
+
+            if (!avb_kernel_cmdline_descriptor_validate_and_byteswap(
+                    (AvbKernelCmdlineDescriptor*)descriptors[n],
+                    &kernel_cmdline_desc)) {
+              avb_errorv(full_partition_name,
+                         ": Kernel cmdline descriptor is invalid.\n",
+                         NULL);
+              ret = AVB_SLOT_VERIFY_RESULT_ERROR_INVALID_METADATA;
+              goto out;
+            }
+
+            kernel_cmdline = ((const uint8_t*)descriptors[n]) +
+                             sizeof(AvbKernelCmdlineDescriptor);
+
+            if (!avb_validate_utf8(kernel_cmdline,
+                                   kernel_cmdline_desc.kernel_cmdline_length)) {
+              avb_errorv(full_partition_name,
+                         ": Kernel cmdline is not valid UTF-8.\n",
+                         NULL);
+              ret = AVB_SLOT_VERIFY_RESULT_ERROR_INVALID_METADATA;
+              goto out;
+            }
+
+            /* Compare the flags for top-level VBMeta struct with flags in
+             * the command-line descriptor so command-line snippets only
+             * intended for a certain mode (dm-verity enabled/disabled)
+             * are skipped if applicable.
+             */
+            apply_cmdline = true;
+            if (toplevel_vbmeta_flags & AVB_VBMETA_IMAGE_FLAGS_HASHTREE_DISABLED) {
+              if (kernel_cmdline_desc.flags &
+                  AVB_KERNEL_CMDLINE_FLAGS_USE_ONLY_IF_HASHTREE_NOT_DISABLED) {
+                apply_cmdline = false;
+              }
+            } else {
+              if (kernel_cmdline_desc.flags &
+                  AVB_KERNEL_CMDLINE_FLAGS_USE_ONLY_IF_HASHTREE_DISABLED) {
+                apply_cmdline = false;
+              }
+            }
+
+            if (apply_cmdline) {
+              if (slot_data->cmdline == NULL) {
+                slot_data->cmdline =
+                    avb_calloc(kernel_cmdline_desc.kernel_cmdline_length + 1);
+                if (slot_data->cmdline == NULL) {
+                  ret = AVB_SLOT_VERIFY_RESULT_ERROR_OOM;
+                  goto out;
+                }
+                avb_memcpy(slot_data->cmdline,
+                           kernel_cmdline,
+                           kernel_cmdline_desc.kernel_cmdline_length);
+              } else {
+                /* new cmdline is: <existing_cmdline> + ' ' + <newcmdline> + '\0' */
+                size_t orig_size = avb_strlen(slot_data->cmdline);
+                size_t new_size =
+                    orig_size + 1 + kernel_cmdline_desc.kernel_cmdline_length + 1;
+                char* new_cmdline = avb_calloc(new_size);
+                if (new_cmdline == NULL) {
+                  ret = AVB_SLOT_VERIFY_RESULT_ERROR_OOM;
+                  goto out;
+                }
+                avb_memcpy(new_cmdline, slot_data->cmdline, orig_size);
+                new_cmdline[orig_size] = ' ';
+                avb_memcpy(new_cmdline + orig_size + 1,
+                           kernel_cmdline,
+                           kernel_cmdline_desc.kernel_cmdline_length);
+                avb_free(slot_data->cmdline);
+                slot_data->cmdline = new_cmdline;
+              }
+            }
+          } break;
+
+          case AVB_DESCRIPTOR_TAG_HASHTREE: {
+            AvbHashtreeDescriptor hashtree_desc;
+
+            if (!avb_hashtree_descriptor_validate_and_byteswap(
+                    (AvbHashtreeDescriptor*)descriptors[n], &hashtree_desc)) {
+              avb_errorv(
+                  full_partition_name, ": Hashtree descriptor is invalid.\n", NULL);
+              ret = AVB_SLOT_VERIFY_RESULT_ERROR_INVALID_METADATA;
+              goto out;
+            }
+
+            /* We only need to continue when there is no digest in the descriptor.
+             * This is because the only processing here is to find the digest and
+             * make it available on the kernel command line.
+             */
+            if (hashtree_desc.root_digest_len == 0) {
+              char part_name[AVB_PART_NAME_MAX_SIZE];
+              size_t digest_len = 0;
+              uint8_t digest_buf[AVB_SHA512_DIGEST_SIZE];
+              const uint8_t* desc_partition_name =
+                  ((const uint8_t*)descriptors[n]) + sizeof(AvbHashtreeDescriptor);
+
+              if (!avb_validate_utf8(desc_partition_name,
+                                     hashtree_desc.partition_name_len)) {
+                avb_error("Partition name is not valid UTF-8.\n");
+                ret = AVB_SLOT_VERIFY_RESULT_ERROR_INVALID_METADATA;
+                goto out;
+              }
+
+              /* No ab_suffix for partitions without a digest in the descriptor
+               * because these partitions hold data unique to this device and are
+               * not updated using an A/B scheme.
+               */
+              if ((hashtree_desc.flags &
+                   AVB_HASHTREE_DESCRIPTOR_FLAGS_DO_NOT_USE_AB) == 0 &&
+                  avb_strlen(ab_suffix) != 0) {
+                avb_error("Cannot use A/B with a persistent root digest.\n");
+                ret = AVB_SLOT_VERIFY_RESULT_ERROR_INVALID_METADATA;
+                goto out;
+              }
+              if (hashtree_desc.partition_name_len >= AVB_PART_NAME_MAX_SIZE) {
+                avb_error("Partition name does not fit.\n");
+                ret = AVB_SLOT_VERIFY_RESULT_ERROR_INVALID_METADATA;
+                goto out;
+              }
+              avb_memcpy(
+                  part_name, desc_partition_name, hashtree_desc.partition_name_len);
+              part_name[hashtree_desc.partition_name_len] = '\0';
+
+              /* Determine the expected digest size from the hash algorithm. */
+              if (avb_strcmp((const char*)hashtree_desc.hash_algorithm, "sha1") ==
+                  0) {
+                digest_len = AVB_SHA1_DIGEST_SIZE;
+              } else if (avb_strcmp((const char*)hashtree_desc.hash_algorithm,
+                                    "sha256") == 0) {
+                digest_len = AVB_SHA256_DIGEST_SIZE;
+              } else if (avb_strcmp((const char*)hashtree_desc.hash_algorithm,
+                                    "sha512") == 0) {
+                digest_len = AVB_SHA512_DIGEST_SIZE;
+              } else {
+                avb_errorv(part_name, ": Unsupported hash algorithm.\n", NULL);
+                ret = AVB_SLOT_VERIFY_RESULT_ERROR_INVALID_METADATA;
+                goto out;
+              }
+
+              ret = read_persistent_digest(ops, part_name, digest_len, digest_buf);
+              if (ret != AVB_SLOT_VERIFY_RESULT_OK) {
+                goto out;
+              }
+
+              if (out_additional_cmdline_subst) {
+                ret =
+                    avb_add_root_digest_substitution(part_name,
+                                                     digest_buf,
+                                                     digest_len,
+                                                     out_additional_cmdline_subst);
+                if (ret != AVB_SLOT_VERIFY_RESULT_OK) {
+                  goto out;
+                }
+              }
+            }
+          } break;
+
+          case AVB_DESCRIPTOR_TAG_PROPERTY:
+            /* Do nothing. */
+            break;
         }
-      } break;
+      }
 
-      case AVB_DESCRIPTOR_TAG_PROPERTY:
-        /* Do nothing. */
-        break;
-    }
-  }
+      if (rollback_index_location >= AVB_MAX_NUMBER_OF_ROLLBACK_INDEX_LOCATIONS) {
+        avb_errorv(
+            full_partition_name, ": Invalid rollback_index_location.\n", NULL);
+        ret = AVB_SLOT_VERIFY_RESULT_ERROR_INVALID_METADATA;
+        goto out;
+      }
 
-  if (rollback_index_location >= AVB_MAX_NUMBER_OF_ROLLBACK_INDEX_LOCATIONS) {
-    avb_errorv(
-        full_partition_name, ": Invalid rollback_index_location.\n", NULL);
-    ret = AVB_SLOT_VERIFY_RESULT_ERROR_INVALID_METADATA;
-    goto out;
-  }
+      slot_data->rollback_indexes[rollback_index_location] =
+          vbmeta_header.rollback_index;
 
-  slot_data->rollback_indexes[rollback_index_location] =
-      vbmeta_header.rollback_index;
-
-  if (out_algorithm_type != NULL) {
-    *out_algorithm_type = (AvbAlgorithmType)vbmeta_header.algorithm_type;
+      if (out_algorithm_type != NULL) {
+        *out_algorithm_type = (AvbAlgorithmType)vbmeta_header.algorithm_type;
+      }
   }
 
 out:

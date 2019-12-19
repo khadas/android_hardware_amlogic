@@ -72,6 +72,7 @@ include $(BUILD_PREBUILT)
         sub_mixing_factory.c \
         audio_data_process.c \
         aml_audio_timer.c \
+        audio_dtv_ad.c \
         audio_virtual_buf.c \
         aml_audio_ease.c
 
@@ -89,7 +90,8 @@ include $(BUILD_PREBUILT)
         $(LOCAL_PATH)/../utils/ini/include \
         $(LOCAL_PATH)/../rcaudio \
         $(LOCAL_PATH)/../../LibAudio/amadec/include \
-        $(LOCAL_PATH)/../bt_voice/kehwin
+        $(LOCAL_PATH)/../bt_voice/kehwin \
+        vendor/amlogic/common/prebuilt/dvb/include/am_adp
     LOCAL_LDFLAGS_arm += $(LOCAL_PATH)/lib_aml_ng.a
     LOCAL_LDFLAGS_arm += $(LOCAL_PATH)/../bt_voice/kehwin/32/btmic.a
     LOCAL_LDFLAGS_arm64 += $(LOCAL_PATH)/../bt_voice/kehwin/64/btmic.a
@@ -98,6 +100,7 @@ include $(BUILD_PREBUILT)
         liblog libcutils libtinyalsa \
         libaudioutils libdl libaudioroute libutils \
         libdroidaudiospdif libamaudioutils libamlaudiorc libamadec \
+        libam_adp \
         libnano
 #/*[SEI-zhaopf-2018-12-18] add for HBG remote audio support { */
 ifeq ($(BOARD_ENABLE_HBG), true)

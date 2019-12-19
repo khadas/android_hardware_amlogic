@@ -135,6 +135,10 @@ int validate_lock_input_parameters(const buffer_handle_t buffer, const int l,
 	const int lock_pid = getpid();
 	const private_handle_t * const hnd = (private_handle_t *)buffer;
 
+#ifdef GRALLOC_AML_EXTEND
+	if (hnd->format == HAL_PIXEL_FORMAT_BLOB)
+		return 0;
+#endif
 	if ((l < 0) || (t < 0) || (w < 0) || (h < 0))
 	{
 		AERR("Negative values for access region (l = %d t = %d w = %d and "

@@ -194,6 +194,25 @@ vdin_screen_source::vdin_screen_source()
                   : mCameraHandle(-1),
                     mVideoInfo(NULL)
 {
+    mBufferCount = 0;
+    mFrameWidth = 0;
+    mFrameHeight = 0;
+    mBufferSize = 0;
+    flex_ratio = 0;
+    flex_original = 0;
+    m_displaymode = 0;
+    mState = 0;
+    mSetStateCB = NULL;
+    mPixelFormat = 0;
+    mNativeWindowPixelFormat = 0;
+    mFrameType = 0;
+    mDataCB = 0;
+    mOpen = false;
+    mUser = NULL;
+    src_temp[0] = NULL;
+    src_temp[1] = NULL;
+    src_temp[2] = NULL;
+    src_temp[3] = NULL;
     ALOGV("%s %d", __FUNCTION__, __LINE__);
 }
 
@@ -252,7 +271,11 @@ int vdin_screen_source::start_v4l2_device()
 
     ALOGV("[%s %d] mCameraHandle:%x", __FUNCTION__, __LINE__, mCameraHandle);
 
-    ioctl(mCameraHandle, VIDIOC_QUERYCAP, &mVideoInfo->cap);
+    ret = ioctl(mCameraHandle, VIDIOC_QUERYCAP, &mVideoInfo->cap);
+    if (ret < 0) {
+        ALOGE("[%s %d] VIDIOC_QUERYCAP:%d mCameraHandle:%x", __FUNCTION__, __LINE__, ret, mCameraHandle);
+        return ret;
+    }
 
     mVideoInfo->rb.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
     mVideoInfo->rb.memory = V4L2_MEMORY_MMAP;

@@ -10,6 +10,7 @@
 #include <MesonLog.h>
 #include <math.h>
 #include <sys/mman.h>
+#include <cutils/properties.h>
 
 #include "Hwc2Layer.h"
 #include "Hwc2Base.h"
@@ -109,8 +110,10 @@ hwc2_error_t Hwc2Layer::setBuffer(buffer_handle_t buffer, int32_t acquireFence) 
     /*set mFbType by usage of GraphicBuffer.*/
     if (mHwcCompositionType == HWC2_COMPOSITION_CURSOR) {
         mFbType = DRM_FB_CURSOR;
-    /*} else if (am_gralloc_is_omx_v4l_buffer(buffer)) {
-        mFbType = DRM_FB_VIDEO_OMX_V4L;*/
+    } else if (am_gralloc_is_omx_v4l_buffer(buffer)) {
+        mFbType = DRM_FB_VIDEO_OMX_V4L;
+    } else if (am_gralloc_is_omx2_v4l2_buffer(buffer)) {
+        mFbType = DRM_FB_VIDEO_OMX2_V4L2;
     } else if (am_gralloc_is_omx_metadata_buffer(buffer)) {
         int tunnel = 0;
         int ret = am_gralloc_get_omx_metadata_tunnel(buffer, &tunnel);
@@ -126,7 +129,10 @@ hwc2_error_t Hwc2Layer::setBuffer(buffer_handle_t buffer, int32_t acquireFence) 
         //For the buffer which size is 1x1, we treat it as a dim layer.
         handleDimLayer(buffer);
     } else if (am_gralloc_is_coherent_buffer(buffer)) {
-        mFbType = DRM_FB_SCANOUT;
+        if (am_gralloc_get_format(buffer) == HAL_PIXEL_FORMAT_YCrCb_420_SP)
+            mFbType = DRM_FB_VIDEO_DMABUF;
+        else
+            mFbType = DRM_FB_SCANOUT;
     } else {
         mFbType = DRM_FB_RENDER;
     }

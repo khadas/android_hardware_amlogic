@@ -265,6 +265,12 @@ void EmulatedCameraFactory::getvendortagops(vendor_tag_ops_t* ops)
     ops->get_tag_name       = get_tag_name;
     ops->get_tag_type       = get_tag_type;
 }
+
+int EmulatedCameraFactory::setTorchMode(const char* camera_id, bool enabled)
+{
+    return 0;
+}
+
 /****************************************************************************
  * Camera HAL API callbacks.
  ***************************************************************************/
@@ -352,6 +358,12 @@ void EmulatedCameraFactory::get_vendor_tag_ops(vendor_tag_ops_t* ops)
 {
 	 gEmulatedCameraFactory.getvendortagops(ops);
 }
+
+int EmulatedCameraFactory::set_torch_mode(const char* camera_id, bool enabled)
+{
+	 return gEmulatedCameraFactory.setTorchMode(camera_id, enabled);
+}
+
 /********************************************************************************
  * Internal API
  *******************************************************************************/

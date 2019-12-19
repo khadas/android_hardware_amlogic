@@ -33,4 +33,24 @@ int mali_gralloc_ion_map(private_handle_t *hnd);
 void mali_gralloc_ion_unmap(private_handle_t *hnd);
 void mali_gralloc_ion_close(void);
 
+#ifdef GRALLOC_AML_EXTEND
+struct uvm_alloc_data {
+	int size;
+	int align;
+	unsigned int flags;
+	int v4l2_fd;
+	int fd;
+	int byte_stride;
+	uint32_t width;
+	uint32_t height;
+};
+
+#define UVM_IOC_MAGIC 'U'
+#define UVM_IOC_ALLOC _IOWR(UVM_IOC_MAGIC, 0, \
+				struct uvm_alloc_data)
+
+#define UVM_IOC_FREE _IOWR(UVM_IOC_MAGIC, 1, \
+				struct uvm_alloc_data)
+#endif
+
 #endif /* MALI_GRALLOC_ION_H_ */

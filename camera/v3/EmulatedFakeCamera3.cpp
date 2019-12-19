@@ -2150,7 +2150,7 @@ status_t EmulatedFakeCamera3::constructStaticInfo() {
     static const uint8_t awbstate = ANDROID_CONTROL_AWB_STATE_INACTIVE;
     info.update(ANDROID_CONTROL_AWB_STATE,&awbstate,1);
     // android.info
-    const uint8_t supportedHardwareLevel = ANDROID_INFO_SUPPORTED_HARDWARE_LEVEL_LEGACY;
+    const uint8_t supportedHardwareLevel = ANDROID_INFO_SUPPORTED_HARDWARE_LEVEL_EXTERNAL;
         //mFullMode ? ANDROID_INFO_SUPPORTED_HARDWARE_LEVEL_FULL :
         //            ANDROID_INFO_SUPPORTED_HARDWARE_LEVEL_LIMITED;
     info.update(ANDROID_INFO_SUPPORTED_HARDWARE_LEVEL,

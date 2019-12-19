@@ -172,7 +172,7 @@ static inline alsa_device_t usecase_to_device(stream_usecase_t usecase)
         return DIGITAL_DEVICE;
     default:
         return I2S_DEVICE;
-   }
+    }
 }
 
 static inline alsa_device_t usecase_device_adapter_with_ms12(alsa_device_t usecase_device, audio_format_t output_format)
@@ -276,6 +276,7 @@ struct aml_audio_patch {
     int pll_state;
     unsigned int last_apts;
     unsigned int last_pcrpts;
+    unsigned int show_first_frame;
     dtv_avsync_process_cb avsync_callback;
     pthread_mutex_t dtv_output_mutex;
     pthread_mutex_t dtv_input_mutex;
@@ -287,6 +288,8 @@ struct aml_audio_patch {
 	struct resample_para dtv_resample;
 	unsigned char *resample_outbuf;
 	AM_AOUT_OutputMode_t   mode;
+    bool ac3_pcm_dropping;
+    int last_audio_delay;
 };
 
 struct audio_stream_out;

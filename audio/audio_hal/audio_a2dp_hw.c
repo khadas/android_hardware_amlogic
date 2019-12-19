@@ -794,6 +794,7 @@ static int start_audio_datapath(struct audio_stream_out* stream) {
     int a2dp_status = a2dp_command(out, A2DP_CTRL_CMD_START);
     if (a2dp_status < 0) {
         ALOGE("Audiopath start failed (status %d)", a2dp_status);
+        a2dp_command(out, A2DP_CTRL_CMD_SUSPEND);
         goto error;
     } else if (a2dp_status == A2DP_CTRL_ACK_INCALL_FAILURE) {
         ALOGE("Audiopath start failed - in call, move to suspended");
@@ -1198,7 +1199,8 @@ ssize_t a2dp_out_write(struct audio_stream_out* stream, const void* buffer, size
     int sent = -1;
     const void *out_buffer;
     size_t out_size = 0;
-    size_t in_frames = bytes / audio_stream_out_frame_size(stream);
+    int frame_size = 4; //2ch 16bits
+    size_t in_frames = bytes / frame_size;
     int i;
 #if defined(AUDIO_EFFECT_EXTERN_DEVICE)
     int16_t *outbuff;
@@ -1250,7 +1252,7 @@ ssize_t a2dp_out_write(struct audio_stream_out* stream, const void* buffer, size
         if (out_frames == 0) {
             goto finish;
         }
-        out_size = out_frames * audio_stream_out_frame_size(stream);
+        out_size = out_frames * frame_size;
         in_frames = out_frames;
         out_buffer = buffer;
     } else {
@@ -1406,18 +1408,6 @@ int a2dp_output_enable(struct audio_stream_out* stream) {
 
     a2dp_write_output_audio_config(stream);
     a2dp_read_output_audio_config(stream);
-    if (aml_out->hal_format != AUDIO_FORMAT_PCM_16_BIT) {
-        aml_out->hal_format = AUDIO_FORMAT_PCM_16_BIT;
-        config->format = aml_out->hal_format;
-    }
-    if ((aml_out->hal_rate != 48000) && (aml_out->hal_rate != 44100)) {
-        aml_out->hal_rate = 44100;
-        config->sample_rate = aml_out->hal_rate;
-    }
-    if ((aml_out->hal_channel_mask != AUDIO_CHANNEL_OUT_MONO) && (aml_out->hal_channel_mask != AUDIO_CHANNEL_OUT_STEREO)) {
-        aml_out->hal_channel_mask = AUDIO_CHANNEL_OUT_STEREO;
-        config->channel_mask = aml_out->hal_channel_mask;
-    }
 
     ALOGD("Output stream config: format=0x%x sample_rate=%d channel_mask=0x%x buffer_sz=%zu",
             config->format, config->sample_rate, config->channel_mask, out->buffer_sz);

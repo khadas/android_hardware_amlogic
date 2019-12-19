@@ -1466,7 +1466,11 @@ static void *mixer_16b_threadloop(void *data)
          */
         if (ret >= 0) {
             inport_state = INPORT_NORMAL;
-        } else if (!audio_mixer->adev->low_power) {
+        } else if (!audio_mixer->adev->low_power && audio_mixer->adev->patch_src != SRC_DTV) {
+            /*[SE][BUG][SWPL-14813][chengshun.wang] DTV not use this function, because write silence frame
+             * maybe at same time with dtv audio pcm data
+             */
+
             if (last_ret >= 0) {
                 inport_state = INPORT_UNDERRUN;
             }

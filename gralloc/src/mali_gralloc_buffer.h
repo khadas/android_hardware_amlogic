@@ -49,7 +49,11 @@ struct fb_dmabuf_export
 #define NUM_FB_BUFFERS 2
 
 /* Define number of shared file descriptors */
+#ifdef GRALLOC_AML_EXTEND
+#define GRALLOC_ARM_NUM_FDS 3
+#else
 #define GRALLOC_ARM_NUM_FDS 2
+#endif
 
 #define NUM_INTS_IN_PRIVATE_HANDLE ((sizeof(struct private_handle_t) - sizeof(native_handle)) / sizeof(int) - GRALLOC_ARM_NUM_FDS)
 
@@ -170,6 +174,10 @@ struct private_handle_t
 	 */
 	int share_fd;
 	int share_attr_fd;
+        /*extend by aml for passing video buf.*/
+#ifdef GRALLOC_AML_EXTEND
+	int am_extend_fd;
+#endif
 
 	// ints
 	int magic;
@@ -184,9 +192,7 @@ struct private_handle_t
 	 */
 	int width;
 	int height;
-	int format;
 	int req_format;
-	int unused1;
 	uint64_t producer_usage;
 	uint64_t consumer_usage;
 
@@ -275,8 +281,11 @@ struct private_handle_t
 //meson graphics changes start
 #ifdef GRALLOC_AML_EXTEND
 	//for request width and height
+	int format;
 	uint32_t req_width;
 	uint32_t req_height;
+	uint32_t am_extend_type;
+	uint32_t ion_delay_alloc;
 	uint64_t padding_1;
 	uint64_t padding_2;
 #endif
@@ -297,6 +306,9 @@ struct private_handle_t
 	                 int fb_file, off_t fb_offset, int _byte_stride, int _width, int _height, uint64_t _alloc_format)
 	    : share_fd(-1)
 	    , share_attr_fd(-1)
+#ifdef GRALLOC_AML_EXTEND
+	    , am_extend_fd(-1)
+#endif
 	    , magic(sMagic)
 	    , flags(_flags)
 	    , width(0)
@@ -319,6 +331,10 @@ struct private_handle_t
 	    , yuv_info(MALI_YUV_NO_INFO)
 	    , fd(fb_file)
 	    , offset(fb_offset)
+#ifdef GRALLOC_AML_EXTEND
+	    , am_extend_type(0)
+	    , ion_delay_alloc(0)
+#endif
 	{
 		version = sizeof(native_handle);
 		numFds = sNumFds;
@@ -337,6 +353,9 @@ struct private_handle_t
 	                 int _backing_store_size, uint64_t _layer_count, plane_info_t _plane_info[MAX_PLANES])
 	    : share_fd(_shared_fd)
 	    , share_attr_fd(-1)
+#ifdef GRALLOC_AML_EXTEND
+	    , am_extend_fd(-1)
+#endif
 	    , magic(sMagic)
 	    , flags(_flags)
 	    , width(_width)
@@ -365,6 +384,10 @@ struct private_handle_t
 	    , fd(-1)
 	    , offset(0)
 	    , min_pgsz(_min_pgsz)
+#ifdef GRALLOC_AML_EXTEND
+	    , am_extend_type(0)
+	    , ion_delay_alloc(0)
+#endif
 	{
 		version = sizeof(native_handle);
 //meson graphics changes start

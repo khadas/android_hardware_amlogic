@@ -24,4 +24,5 @@ char*  get_hdmi_sink_cap(const char *keys,audio_format_t format,struct aml_arc_h
 char*  get_hdmi_sink_cap_dolbylib(const char *keys,audio_format_t format,struct aml_arc_hdmi_desc *p_hdmi_descs, int conv_support);
 char*  get_hdmi_arc_cap(unsigned *ad, int maxsize, const char *keys);
 char *strdup_hdmi_arc_cap_default(const char *keys, audio_format_t format);
+char *strdup_a2dp_cap_default(const char *keys, audio_format_t format);
 #endif
