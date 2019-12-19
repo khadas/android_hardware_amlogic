@@ -80,6 +80,8 @@ int32_t Hwc2Display::initialize() {
     ComposerFactory::create(MESON_GE2D_COMPOSER, composer);
     mComposers.emplace(MESON_GE2D_COMPOSER, std::move(composer));
 #endif
+    ComposerFactory::create(MESON_DI_COMPOSER, composer);
+    mComposers.emplace(MESON_DI_COMPOSER, std::move(composer));
 
     initLayerIdGenerator();
 
@@ -105,7 +107,7 @@ int32_t Hwc2Display::setDisplayResource(
         if ((*it)->getPlaneType() == OSD_PLANE) {
             osdPlanes ++;
             if (osdPlanes > 1) {
-                strategyFlags |= MUTLI_OSD_PLANES;
+                strategyFlags |= MULTI_PLANES_WITH_DI;
                 break;
             }
         }
@@ -947,14 +949,14 @@ bool Hwc2Display::isPlaneHideForDebug(int id) {
 
 void Hwc2Display::dumpPresentLayers(String8 & dumpstr) {
     dumpstr.append("----------------------------------------------------------"
-        "-------------------------------\n");
-    dumpstr.append("|  id  |  z  |  type  |blend| alpha  |t|"
+        "-----------------------------------\n");
+    dumpstr.append("|  id  |  z  |    type    |blend| alpha  |t|"
         "  AFBC  |    Source Crop    |    Display Frame  |\n");
     for (auto it = mPresentLayers.begin(); it != mPresentLayers.end(); it++) {
         Hwc2Layer *layer = (Hwc2Layer*)(it->get());
-        dumpstr.append("+------+-----+--------+-----+--------+-+--------+"
+        dumpstr.append("+------+-----+------------+-----+--------+-+--------+"
             "-------------------+-------------------+\n");
-        dumpstr.appendFormat("|%6llu|%5d|%8s|%5d|%8f|%1d|%8x|%4d %4d %4d %4d"
+        dumpstr.appendFormat("|%6llu|%5d|%12s|%5d|%8f|%1d|%8x|%4d %4d %4d %4d"
             "|%4d %4d %4d %4d|\n",
             layer->getUniqueId(),
             layer->mZorder,
@@ -974,7 +976,7 @@ void Hwc2Display::dumpPresentLayers(String8 & dumpstr) {
             );
     }
     dumpstr.append("----------------------------------------------------------"
-        "-------------------------------\n");
+        "-----------------------------------\n");
 }
 
 void Hwc2Display::dump(String8 & dumpstr) {
@@ -1006,12 +1008,14 @@ void Hwc2Display::dump(String8 & dumpstr) {
         mHdrCaps.DolbyVisionSupported ?  1 : 0);
     dumpstr.appendFormat("    HLG=%d\n",
         mHdrCaps.HLGSupported ?  1 : 0);
-    dumpstr.appendFormat("    HDR10=%d, maxLuminance=%d,"
-        "avgLuminance=%d, minLuminance=%d\n",
+    dumpstr.appendFormat("    HDR10=%d, HDR10+=%d, "
+        "maxLuminance=%d, avgLuminance=%d, minLuminance=%d\n",
         mHdrCaps.HDR10Supported ? 1 : 0,
+        mHdrCaps.HDR10PlusSupported ? 1 : 0,
         mHdrCaps.maxLuminance,
         mHdrCaps.avgLuminance,
         mHdrCaps.minLuminance);
+
     dumpstr.append("\n");
 
     /* dump display configs*/

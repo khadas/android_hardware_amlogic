@@ -76,7 +76,159 @@ audio_lib_t audio_lib_list[] = {
     {ACODEC_FMT_ADPCM, "libadpcm.so"},
     {ACODEC_FMT_DRA, "libdra.so"}
 } ;
+enum {
+    SYNC_WORD_NOT_GET = 0,
+    SYNC_WORD_START_FIND,
+    SYNC_WORD_FOUND,
+    FRAME_SIZE_FOUND,
+};
 
+
+#define     DDPshort            short
+#define     DDPerr              short
+#define     DDPushort           unsigned short
+#define     BYTESPERWRD         2
+#define     BITSPERWRD          (BYTESPERWRD*8)
+#define     SYNCWRD             ((DDPshort)0x0b77)
+#define     MAXFSCOD            3
+#define     MAXDDDATARATE       38
+#define     BS_BITOFFSET        40
+#define     PTR_HEAD_SIZE       7//20
+
+
+typedef struct {
+    DDPshort       *buf;
+    DDPshort        bitptr;
+    DDPshort        data;
+} DDP_BSTRM;
+
+const DDPushort msktab[] = { 0x0000, 0x8000, 0xc000, 0xe000, 0xf000, 0xf800,
+                             0xfc00, 0xfe00, 0xff00, 0xff80, 0xffc0, 0xffe0, 0xfff0, 0xfff8, 0xfffc,
+                             0xfffe, 0xffff
+                           };
+const DDPshort frmsizetab[MAXFSCOD][MAXDDDATARATE] = {
+    /* 48kHz */
+    {
+        64, 64, 80, 80, 96, 96, 112, 112,
+        128, 128, 160, 160, 192, 192, 224, 224,
+        256, 256, 320, 320, 384, 384, 448, 448,
+        512, 512, 640, 640, 768, 768, 896, 896,
+        1024, 1024, 1152, 1152, 1280, 1280
+    },
+    /* 44.1kHz */
+    {
+        69, 70, 87, 88, 104, 105, 121, 122,
+        139, 140, 174, 175, 208, 209, 243, 244,
+        278, 279, 348, 349, 417, 418, 487, 488,
+        557, 558, 696, 697, 835, 836, 975, 976,
+        1114, 1115, 1253, 1254, 1393, 1394
+    },
+    /* 32kHz */
+    {
+        96, 96, 120, 120, 144, 144, 168, 168,
+        192, 192, 240, 240, 288, 288, 336, 336,
+        384, 384, 480, 480, 576, 576, 672, 672,
+        768, 768, 960, 960, 1152, 1152, 1344, 1344,
+        1536, 1536, 1728, 1728, 1920, 1920
+    }
+};
+
+static DDPerr ddbs_init(DDPshort * buf, DDPshort bitptr, DDP_BSTRM *p_bstrm)
+{
+    p_bstrm->buf = buf;
+    p_bstrm->bitptr = bitptr;
+    p_bstrm->data = *buf;
+    return 0;
+}
+
+static DDPerr ddbs_unprj(DDP_BSTRM *p_bstrm, DDPshort *p_data,  DDPshort numbits)
+{
+    DDPushort data;
+    *p_data = (DDPshort)((p_bstrm->data << p_bstrm->bitptr) & msktab[numbits]);
+    p_bstrm->bitptr += numbits;
+    if (p_bstrm->bitptr >= BITSPERWRD) {
+        p_bstrm->buf++;
+        p_bstrm->data = *p_bstrm->buf;
+        p_bstrm->bitptr -= BITSPERWRD;
+        data = (DDPushort) p_bstrm->data;
+        *p_data |= ((data >> (numbits - p_bstrm->bitptr)) & msktab[numbits]);
+    }
+    *p_data = (DDPshort)((DDPushort)(*p_data) >> (BITSPERWRD - numbits));
+    return 0;
+}
+
+static int dd_get_framezise(void *buf, int *frame_size)
+{
+    DDP_BSTRM bstrm = {NULL, 0, 0};
+    DDP_BSTRM *p_bstrm = &bstrm;
+    short tmp = 0, fscod, frmsizecod;
+    ddbs_init((short*) buf, 0, p_bstrm);
+
+    ddbs_unprj(p_bstrm, &tmp, 16);
+    if (tmp != SYNCWRD) {
+        adec_print("Invalid synchronization word");
+        return 0;
+    }
+    ddbs_unprj(p_bstrm, &tmp, 16);
+    ddbs_unprj(p_bstrm, &fscod, 2);
+    if (fscod == MAXFSCOD) {
+        adec_print("Invalid sampling rate code");
+        return 0;
+    }
+
+    ddbs_unprj(p_bstrm, &frmsizecod, 6);
+    if (frmsizecod >= MAXDDDATARATE) {
+        adec_print("Invalid frame size code");
+        return 0;
+    }
+
+    *frame_size = 2 * frmsizetab[fscod][frmsizecod];
+
+    return 0;
+}
+
+static int ddp_get_framezise(void *buf, int *frame_size)
+{
+    DDP_BSTRM bstrm = {NULL, 0, 0};
+    DDP_BSTRM *p_bstrm = &bstrm;
+    short tmp = 0, strmtyp;
+    ddbs_init((short*) buf, 0, p_bstrm);
+    ddbs_unprj(p_bstrm, &tmp, 16);
+    if (tmp != SYNCWRD) {
+        adec_print("Invalid synchronization word");
+        return -1;
+    }
+
+    ddbs_unprj(p_bstrm, &strmtyp, 2);
+    ddbs_unprj(p_bstrm, &tmp, 3);
+    ddbs_unprj(p_bstrm, &tmp, 11);
+
+    *frame_size = 2 * (tmp + 1);
+    return 0;
+}
+
+static int dolby_get_framezise(void *buf,  int *frame_size, int is_eac3)
+{
+    uint8_t ptr8[PTR_HEAD_SIZE];
+
+    memcpy(ptr8, buf, PTR_HEAD_SIZE);
+    if ((ptr8[0] == 0x0b) && (ptr8[1] == 0x77)) {
+        int i;
+        uint8_t tmp;
+        for (i = 0; i < PTR_HEAD_SIZE; i += 2) {
+            tmp = ptr8[i];
+            ptr8[i] = ptr8[i + 1];
+            ptr8[i + 1] = tmp;
+        }
+    }
+
+    if (is_eac3) {
+        ddp_get_framezise(ptr8, frame_size);
+    } else {
+        dd_get_framezise(ptr8, frame_size);
+    }
+    return 0;
+}
 
 static unsigned long adec_apts_lookup(unsigned long offset)
 {
@@ -213,7 +365,7 @@ int package_list_init(aml_audio_dec_t * audec)
 int package_add(aml_audio_dec_t * audec, char * data, int size)
 {
     lp_lock(&(audec->pack_list.tslock));
-    if (audec->pack_list.pack_num == 4) { //enough
+    if (audec->pack_list.pack_num == 8) { //enough
         lp_unlock(&(audec->pack_list.tslock));
         return -2;
     }
@@ -1045,21 +1197,22 @@ static int get_frame_size(aml_audio_dec_t *audec)
     int extra_data = 8; //?
     StartCode *start_code = &audec->start_code;
 
-    if (start_code->status == 0 || start_code->status == 3) {
+    if (start_code->status == SYNC_WORD_NOT_GET ||
+        start_code->status == FRAME_SIZE_FOUND) {
         memset(start_code, 0, sizeof(StartCode));
     }
     /*ape case*/
     if (audec->format == ACODEC_FMT_APE) {
-        if (start_code->status == 0) { //have not get the sync data
+        if (start_code->status == SYNC_WORD_NOT_GET) { //have not get the sync data
             ret = read_buffer((unsigned char *)start_code->buff, 4);
             if (ret <= 0) {
                 return 0;
             }
             start_code->size = 4;
-            start_code->status = 1;
+            start_code->status = SYNC_WORD_START_FIND;
         }
 
-        if (start_code->status == 1) { //start find sync word
+        if (start_code->status == SYNC_WORD_START_FIND) { //start find sync word
             if (start_code->size < 4) {
                 ret = read_buffer((unsigned char *)(start_code->buff + start_code->size), 4 - start_code->size);
                 if (ret <= 0) {
@@ -1070,7 +1223,7 @@ static int get_frame_size(aml_audio_dec_t *audec)
             if (start_code->size == 4) {
                 if ((start_code->buff[0] == 'A') && (start_code->buff[1] == 'P') && (start_code->buff[2] == 'T') && (start_code->buff[3] == 'S')) {
                     start_code->size = 0;
-                    start_code->status = 2; //sync word found ,start find frame size
+                    start_code->status = SYNC_WORD_FOUND; //sync word found ,start find frame size
                 } else {
                     start_code->size = 3;
                     start_code->buff[0] = start_code->buff[1];
@@ -1082,7 +1235,7 @@ static int get_frame_size(aml_audio_dec_t *audec)
 
         }
 
-        if (start_code->status == 2) {
+        if (start_code->status == SYNC_WORD_FOUND) {
             ret = read_buffer((unsigned char *)start_code->buff, 4);
             if (ret <= 0) {
                 return 0;
@@ -1090,10 +1243,53 @@ static int get_frame_size(aml_audio_dec_t *audec)
             start_code->size = 4;
             frame_szie  = start_code->buff[3] << 24 | start_code->buff[2] << 16 | start_code->buff[1] << 8 | start_code->buff[0] + extra_data;
             frame_szie  = (frame_szie + 3) & (~3);
-            start_code->status = 3; //found frame size
+            start_code->status = FRAME_SIZE_FOUND; //found frame size
             return frame_szie;
         }
     }
+
+    if (audec->format == ACODEC_FMT_AC3 || audec->format == ACODEC_FMT_EAC3) {
+        if (start_code->status == SYNC_WORD_NOT_GET) { //have not get the sync data
+            ret = read_buffer((unsigned char *)start_code->buff, PTR_HEAD_SIZE);
+            if (ret <= 0) {
+                return 0;
+            }
+            start_code->size = PTR_HEAD_SIZE;
+            start_code->status = SYNC_WORD_START_FIND;
+        }
+
+        if (start_code->status == SYNC_WORD_START_FIND) { //start find sync word
+            if (start_code->size < PTR_HEAD_SIZE) {
+                ret = read_buffer((unsigned char *)(start_code->buff + start_code->size), PTR_HEAD_SIZE - start_code->size);
+                if (ret <= 0) {
+                    return 0;
+                }
+                start_code->size = PTR_HEAD_SIZE;
+            }
+            if (start_code->size == PTR_HEAD_SIZE) {
+                if (((start_code->buff[0] == 0x0b) && (start_code->buff[1] == 0x77)) || ((start_code->buff[2] == 0x77) && (start_code->buff[3] == 0x0b))) {
+                    start_code->status = SYNC_WORD_FOUND; //sync word found ,start find frame size
+                } else {
+                    int i = 0;
+                    start_code->size = PTR_HEAD_SIZE -1;
+                    for (i = 0; i < PTR_HEAD_SIZE -1; i++) {
+                        start_code->buff[i] = start_code->buff[i+1];
+                    }
+                    return 0;
+                }
+            }
+
+        }
+
+        if (start_code->status == SYNC_WORD_FOUND) {
+            int is_eac3 = (audec->format == ACODEC_FMT_EAC3) ? 1 : 0;
+            start_code->size = PTR_HEAD_SIZE;
+            dolby_get_framezise(start_code->buff, &frame_szie, is_eac3);
+            //adec_print("[%s]frame_szie %d", __FUNCTION__, frame_szie);
+            return frame_szie;
+        }
+    }
+
     return -1;
 }
 // check if audio format info changed,if changed, apply new parameters to audio track

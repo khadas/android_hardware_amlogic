@@ -75,6 +75,7 @@ static void setInteractive (struct power_module *module, int on) {
             message.destination = (cec_logical_address_t)CEC_ADDR_BROADCAST;
             message.length = 1;
             message.body[0] = CEC_MESSAGE_STANDBY;
+            mHdmiCecHidlClient->setOption(HDMI_OPTION_SYSTEM_CEC_CONTROL, 0);
             mHdmiCecHidlClient->sendMessage(&message, false);
             ALOGI("send <Standby> message before early suspend.");
         }

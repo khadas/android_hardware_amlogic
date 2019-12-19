@@ -43,7 +43,8 @@
 typedef struct _dtv_patch_out {
     aml_audio_dec_t *audec;
     out_pcm_write pcmout_cb;
-    out_get_wirte_space space_cb;
+    out_get_wirte_buffer_info buffer_cb;
+    out_audio_info   info_cb;
     int device_opened;
     int state;
     pthread_t tid;
@@ -62,7 +63,8 @@ enum {
 static dtv_patch_out outparam = {
     .audec = NULL,
     .pcmout_cb = NULL,
-    .space_cb = NULL,
+    .buffer_cb = NULL,
+    .info_cb = NULL,
     .device_opened = 0,
     .state = DTV_PATCH_STATE_CLODED,
     .tid = -1,
@@ -159,9 +161,13 @@ static void *dtv_patch_out_loop(void *args)
                 usleep(10000);
                 continue;
             }
-
-            if (audec->g_bst->buf_level < 1024) {
-                usleep(10000);
+            /*[SE][BUG][SWPL-14813][chengshun.wang] decrease buf_level avoid
+             *dolby stream underrun
+             *XXX 768 is some audio format frame size*/
+            if (audec->g_bst->buf_level < 768) {
+                /*adec_print("the audec level little, audec->g_bst->buf_level=%d\n",
+                  audec->g_bst->buf_level);*/
+                usleep(2000);
                 continue;
             }
 
@@ -173,19 +179,22 @@ static void *dtv_patch_out_loop(void *args)
                 continue;
             }
 
-            if (patchparm->space_cb(patchparm->pargs) < 4096) {
+            if (patchparm->buffer_cb(patchparm->pargs, BUFFER_SPACE) < 4096) {
                 if (patchparm->state == DTV_PATCH_STATE_STOPED) {
-                goto exit;
-            }
+                    goto exit;
+                }
+                adec_print("the amadec no space to write\n");
                 usleep(10000);
                 continue;
             }
-            // pts = audec->adsp_ops.get_cur_pts(&audec->adsp_ops);
-            if (audec->g_bst->buf_level < (OUTPUT_BUFFER_SIZE - len) &&
-                readcount < 25 &&
-                (audec->format == ACODEC_FMT_AC3 ||
+            int audio_raw_format_type = (audec->format == ACODEC_FMT_AC3 ||
                 audec->format == ACODEC_FMT_EAC3 ||
-                audec->format == ACODEC_FMT_DTS) ) {
+                audec->format == ACODEC_FMT_DTS);
+            int dtv_buffer_level = patchparm->buffer_cb(patchparm->pargs, BUFFER_LEVEL);
+            /* XXX 2304 = 3*768, maybe need modify */
+            if (dtv_buffer_level > 2304 &&
+                readcount < 25 &&
+                audio_raw_format_type) {
                 len2 = 0;
                 readcount++;
             } else {
@@ -196,18 +205,24 @@ static void *dtv_patch_out_loop(void *args)
             //adec_print("len2 %d", len2);
             len = len + len2;
             offset = 0;
+            //adec_print("len2 %d, len=%d, audec_buf_level=%d, dtv_buffer_level=%d\n",
+            //  len2, len, audec->g_bst->buf_level, dtv_buffer_level);
+
         }
 
         if (len == 0) {
             if (patchparm->state == DTV_PATCH_STATE_STOPED) {
                 goto exit;
             }
-            usleep(10000);
+            usleep(5000);
             continue;
         }
         audec->pcm_bytes_readed += len;
         {
-
+            if (audec->format == ACODEC_FMT_DRA) {
+                patchparm->info_cb(patchparm->pargs,audec->adec_ops->NchOriginal,
+                                    audec->adec_ops->lfepresent);
+            }
             channels = audec->g_bst->channels;
             samplerate = audec->g_bst->samplerate;
             len2 = patchparm->pcmout_cb((unsigned char *)(buffer + offset), len, samplerate,
@@ -240,11 +255,11 @@ exit:
 }
 
 int dtv_patch_input_open(unsigned int *handle, out_pcm_write pcmcb,
-                         out_get_wirte_space spacecb, void *args)
+                    out_get_wirte_buffer_info buffercb, out_audio_info info_cb,void *args)
 {
     //int ret;
 
-    if (handle == NULL || pcmcb == NULL || spacecb == NULL) {
+    if (handle == NULL || pcmcb == NULL || buffercb == NULL) {
         return -1;
     }
 
@@ -252,7 +267,8 @@ int dtv_patch_input_open(unsigned int *handle, out_pcm_write pcmcb,
 
     pthread_mutex_lock(&patch_out_mutex);
     param->pcmout_cb = pcmcb;
-    param->space_cb = spacecb;
+    param->buffer_cb = buffercb;
+    param->info_cb = info_cb;
     param->pargs = args;
     param->device_opened = 1;
     amthreadpool_system_init();

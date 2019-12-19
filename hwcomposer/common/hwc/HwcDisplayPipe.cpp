@@ -197,7 +197,9 @@ int32_t HwcDisplayPipe::updatePipe(std::shared_ptr<PipeStat> & stat) {
     }
 
     if (resChanged) {
+        /*reset vout displaymode, it will be null.*/
         MESON_LOGD("HwcDisplayPipe::updatePipe %d changed", stat->hwcId);
+        stat->hwcCrtc->unbind();
         stat->hwcCrtc->bind(stat->hwcConnector, stat->hwcPlanes);
         stat->hwcCrtc->loadProperities();
         stat->hwcCrtc->update();
@@ -205,6 +207,7 @@ int32_t HwcDisplayPipe::updatePipe(std::shared_ptr<PipeStat> & stat) {
         if (cfg.modeCrtcId != cfg.hwcCrtcId) {
             std::vector<std::shared_ptr<HwDisplayPlane>> planes;
             getPlanes (cfg.modeCrtcId,  planes);
+            stat->modeCrtc->unbind();
             stat->modeCrtc->bind(stat->modeConnector, planes);
             stat->modeCrtc->loadProperities();
             stat->modeCrtc->update();
@@ -299,11 +302,15 @@ int32_t HwcDisplayPipe::initDisplayMode(std::shared_ptr<PipeStat> & stat) {
     switch (stat->cfg.modeConnectorType) {
         case DRM_MODE_CONNECTOR_CVBS:
             {
+                #if 0
                 const char * cvbs_config_key = "ubootenv.var.cvbsmode";
                 std::string modeName;
                 if (0 == sc_read_bootenv(cvbs_config_key, modeName)) {
                     stat->modeCrtc->writeCurDisplayMode(modeName);
                 }
+                #else
+                /*TODO:*/
+                #endif
             }
             break;
         case DRM_MODE_CONNECTOR_HDMI:

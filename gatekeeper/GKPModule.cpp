@@ -26,6 +26,19 @@
 //using gatekeeper::TrustyGateKeeperDevice;
 using android::SoftGateKeeperDevice;
 
+SoftGateKeeperDevice *myGatekeeper = NULL;
+typedef int (*close_t)(struct hw_device_t* device);
+close_t gCloseFunc = NULL;
+
+static int gatekeeper_close(hw_device_t *device) {
+    gCloseFunc(device);
+
+    if (myGatekeeper)
+        delete myGatekeeper;
+
+    return 0;
+}
+
 static int gatekeeper_open(const hw_module_t *module, const char *name,
         hw_device_t **device) {
 
@@ -35,9 +48,11 @@ static int gatekeeper_open(const hw_module_t *module, const char *name,
 
     //trusty gatekeeper don't implement, so use software instead of
     if (true) {
-        SoftGateKeeperDevice *gatekeeper = new SoftGateKeeperDevice(module);
-        if (gatekeeper == NULL) return -ENOMEM;
-        *device = gatekeeper->sw_device();
+        myGatekeeper = new SoftGateKeeperDevice(module);
+        if (myGatekeeper == NULL) return -ENOMEM;
+        *device = myGatekeeper->sw_device();
+        gCloseFunc = (*device)->close;
+        (*device)->close = (close_t)gatekeeper_close;
     }
     else {
         //TrustyGateKeeperDevice *gatekeeper = new TrustyGateKeeperDevice(module);

@@ -179,3 +179,40 @@ LOCAL_SDK_VERSION := current
 endif
 
 include $(BUILD_SHARED_LIBRARY)
+
+include $(CLEAR_VARS)
+LOCAL_MODULE := bootctrl.amlogic.static
+LOCAL_MODULE_TAGS := optional
+LOCAL_MODULE_RELATIVE_PATH := hw
+LOCAL_REQUIRED_MODULES := libavb_amlogic
+LOCAL_SRC_FILES := \
+    boot_control/boot_control_avb.c
+
+LOCAL_C_INCLUDES += \
+    hardware/libhardware/include \
+    system/core/libcutils/include \
+    system/core/libsystem/include \
+    system/core/libutils/include
+
+LOCAL_CLANG := true
+LOCAL_CFLAGS := $(avb_common_cflags) -DAVB_AB_I_UNDERSTAND_LIBAVB_AB_IS_DEPRECATED
+LOCAL_LDFLAGS := $(avb_common_ldflags)
+LOCAL_SHARED_LIBRARIES := libbase libcutils liblog
+LOCAL_STATIC_LIBRARIES := libfs_mgr libavb_amlogic libfstab
+
+
+ifeq ($(shell test $(PLATFORM_SDK_VERSION) -ge 26 ) && echo OK),OK)
+$(warning here)
+LOCAL_PROPRIETARY_MODULE := true
+endif
+
+ifeq ($(PLATFORM_SDK_VERSION),29)
+LOCAL_PRIVATE_PLATFORM_APIS := true
+LOCAL_PRODUCT_MODULE := true
+LOCAL_JAVA_LIBRARIES += org.apache.http.legacy
+else
+LOCAL_SDK_VERSION := current
+endif
+
+include $(BUILD_STATIC_LIBRARY)
+

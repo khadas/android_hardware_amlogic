@@ -70,8 +70,8 @@ int healthd_board_battery_update(struct android::BatteryProperties *props)
     props->chargerWirelessOnline = false;
     props->maxChargingCurrent = 0;
     props->maxChargingVoltage = 0;
-    props->batteryStatus = android::BATTERY_STATUS_UNKNOWN;
-    props->batteryHealth = android::BATTERY_HEALTH_UNKNOWN;
+    props->batteryStatus = 2;
+    props->batteryHealth = 2;
     props->batteryPresent = false;
     props->batteryLevel = 50;
     props->batteryVoltage = 4;

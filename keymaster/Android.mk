@@ -28,7 +28,7 @@ LOCAL_MODULE_PATH := $(TARGET_OUT_VENDOR)/lib/teetz
 KEYMASTER_UNSIGNED_TA := $(LOCAL_PATH)/$(LOCAL_MODULE)$(LOCAL_MODULE_SUFFIX)
 ifeq ($(TARGET_ENABLE_TA_SIGN), true)
 include $(BUILD_SYSTEM)/base_rules.mk
-$(LOCAL_BUILT_MODULE): $(KEYMASTER_UNSIGNED_TA)
+$(LOCAL_BUILT_MODULE):
 	@mkdir -p $(dir $@)
 	$(BOARD_AML_VENDOR_PATH)/tdk/ta_export/scripts/sign_ta_auto.py \
 		--in=$(KEYMASTER_UNSIGNED_TA) \

@@ -60,6 +60,9 @@ typedef enum drm_fb_type {
     DRM_FB_VIDEO_OMX_PTS_SECOND,
     /*no image data, but with pts.*/
     DRM_FB_VIDEO_OMX_V4L,
+    DRM_FB_VIDEO_DMABUF,
+    /*no image data, but with vf.*/
+    DRM_FB_VIDEO_OMX2_V4L2,
 } drm_fb_type_t;
 
 #define DRM_DISPLAY_MODE_LEN (64)
@@ -117,6 +120,7 @@ typedef struct drm_hdr_capabilities {
     bool DolbyVisionSupported;
     bool HLGSupported;
     bool HDR10Supported;
+    bool HDR10PlusSupported;
 
     int maxLuminance;
     int avgLuminance;

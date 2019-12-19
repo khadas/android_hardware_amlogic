@@ -261,6 +261,7 @@ size_t aml_alsa_output_write(struct audio_stream_out *stream,
 {
     struct aml_stream_out *aml_out = (struct aml_stream_out *)stream;
     struct aml_audio_device *adev = aml_out->dev;
+    struct aml_audio_patch *patch = adev->audio_patch;
     int ret = 0;
     struct pcm_config *config = &aml_out->config;
     size_t frame_size = audio_stream_out_frame_size(stream);
@@ -419,12 +420,53 @@ write:
         memset(buffer,0x0,bytes);
     }
 
+    if (aml_out->pcm == NULL) {
+        ALOGE("%s: pcm is null", __func__);
+        return bytes;
+    }
+    /*+[SE][BUG][SWPL-14811][zhizhong] add drop ac3 pcm function*/
+    if (adev->patch_src ==  SRC_DTV && aml_out->need_drop_size > 0) {
+        if (aml_out->need_drop_size >= (int)bytes) {
+            aml_out->need_drop_size -= bytes;
+            ALOGI("av sync drop %d pcm, need drop:%d more,apts:0x%x,pcr:0x%x\n",
+                (int)bytes, aml_out->need_drop_size, patch->last_apts, patch->last_pcrpts);
+            if (patch->last_apts >= patch->last_pcrpts) {
+                ALOGI("pts already ok, drop finish\n");
+                aml_out->need_drop_size = 0;
+            } else
+                return bytes;
+        } else {
+            ALOGI("bytes:%d, need_drop_size=%d\n", bytes, aml_out->need_drop_size);
+            ret = pcm_write(aml_out->pcm, audio_data + aml_out->need_drop_size,
+                    bytes - aml_out->need_drop_size);
+            aml_out->need_drop_size = 0;
+            ALOGI("drop finish\n");
+            return bytes;
+        }
+    }
+
     {
         struct snd_pcm_status status;
 
         pcm_ioctl(aml_out->pcm, SNDRV_PCM_IOCTL_STATUS, &status);
         if (status.state == PCM_STATE_XRUN) {
             ALOGD("alsa underrun");
+            if (adev->audio_discontinue) {
+                adev->discontinue_mute_flag = 1;
+                adev->no_underrun_count = 0;
+                ALOGD("output_write, audio discontinue, underrun, begin mute\n");
+            }
+        } else if (adev->discontinue_mute_flag == 1 &&
+            adev->no_underrun_count++ >= adev->no_underrun_max){
+            ALOGD("output_write, no underrun, not mute, audio_discontinue=%d,count=%d\n",
+                adev->audio_discontinue, adev->no_underrun_count);
+            adev->discontinue_mute_flag = 0;
+            adev->no_underrun_count = 0;
+        }
+
+        if (adev->patch_src == SRC_DTV && (adev->discontinue_mute_flag ||
+            adev->start_mute_flag)) {
+            memset(buffer, 0x0, bytes);
         }
 
     }
