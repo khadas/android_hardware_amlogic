@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+#define LOG_TAG "AmlogicKeymaster"
+
 #include <log/log.h>
 #include <keymaster/android_keymaster_messages.h>
 #include <keymaster/keymaster_configuration.h>
@@ -52,7 +54,7 @@ int AmlogicKeymaster::Initialize() {
     SetBootParams(setBootParamReq, &setBootParamRsp);
     if (setBootParamRsp.error != KM_ERROR_OK) {
         ALOGE("Failed to set boot params to keymaster %d", setBootParamRsp.error);
-        return -1;
+        //return -1;
     }
 #endif
     ConfigureRequest req;
@@ -236,6 +238,7 @@ VerifyAuthorizationResponse AmlogicKeymaster::VerifyAuthorization(
 }
 #if AMLOGIC_MODIFY
 void AmlogicKeymaster::SetBootParams(SetBootParamsRequest& req, SetBootParamsResponse *rsp) {
+#if 0
     std::string prop_val;
     // SHA256
     uint8_t bootkey_hash[32];
@@ -281,10 +284,15 @@ void AmlogicKeymaster::SetBootParams(SetBootParamsRequest& req, SetBootParamsRes
         req.verified_boot_hash.Reinitialize(vbmeta_digest, sizeof(vbmeta_digest));
     else
         req.verified_boot_hash.Reinitialize(empty_hash_bin, sizeof(empty_hash_bin));
+#endif
+    ALOGE("send empty boot params");
+
+    req.os_version = GetOsVersion();
+    req.os_patchlevel = GetOsPatchlevel();
 
     ForwardCommand(KM_SET_BOOT_PARAMS, req, rsp);
 }
-#if 1
+#if 0
 bool AmlogicKeymaster::NibbleValue(const char& c, uint8_t* value) {
     //CHECK(value != nullptr);
     switch (c) {
@@ -326,7 +334,6 @@ bool AmlogicKeymaster::HexToBytes(uint8_t* bytes, size_t bytes_len, const std::s
     }
     return true;
 }
-#else
 std::string AmlogicKeymaster::hex2bin(std::string const& s) {
 	//assert(s.length() % 2 == 0);
 	std::string sOut;

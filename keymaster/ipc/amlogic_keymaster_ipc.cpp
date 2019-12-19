@@ -82,7 +82,7 @@ TEEC_Result aml_keymaster_connect(TEEC_Context *c, TEEC_Session *s) {
             &operation,
             NULL);
 
-	ALOGE("create id: %d, ctx: %p, ctx: %p\n", s->session_id, s->ctx, c);
+    ALOGD("create id: %d, ctx: %p, ctx: %p\n", s->session_id, s->ctx, c);
     return result;
 }
 
@@ -104,7 +104,7 @@ TEEC_Result aml_keymaster_call(TEEC_Session *s, uint32_t cmd, void* in, uint32_t
             TEEC_VALUE_OUTPUT,
             TEEC_NONE);
 
-	ALOGE("id: %d, ctx: %p, cmd: %d\n", s->session_id, s->ctx, cmd);
+    ALOGD("id: %d, ctx: %p, cmd: %d\n", s->session_id, s->ctx, cmd);
     res = TEEC_InvokeCommand(s, cmd, &op, &ret_orig);
     if (res != TEEC_SUCCESS) {
         ALOGE("Invoke cmd: %u failed with res(%x), ret_orig(%x), return(%d)\n",
@@ -157,7 +157,7 @@ keymaster_error_t aml_keymaster_send(TEEC_Session *s, uint32_t command, const ke
         // TODO(swillden): Distinguish permanent from transient errors and set error_ appropriately.
         return translate_error(rc);
     } else {
-        ALOGE("Received %d byte response\n", rsp_size);
+        ALOGD("Received %d byte response\n", rsp_size);
     }
 
     const keymaster_message* msg = (keymaster_message*)recv_buf;

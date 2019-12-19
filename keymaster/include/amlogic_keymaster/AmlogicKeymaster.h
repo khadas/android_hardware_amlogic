@@ -71,10 +71,9 @@ class AmlogicKeymaster {
 	void ForwardCommand(enum keymaster_command command, const Serializable& req, KeymasterResponse* rsp);
 	private:
 	void SetBootParams(SetBootParamsRequest& request, SetBootParamsResponse* response);
-#if 1
+#if 0
 	bool HexToBytes(uint8_t* bytes, size_t bytes_len, const std::string& hex);
 	bool NibbleValue(const char& c, uint8_t* value);
-#else
 	std::string hex2bin(std::string const& s);
 #endif
     TEEC_Context KM_context;
