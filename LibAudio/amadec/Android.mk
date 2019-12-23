@@ -32,7 +32,7 @@ LOCAL_CFLAGS += -DALSA_OUT
 #ifdef DOLBY_UDC
 LOCAL_CFLAGS+=-DDOLBY_USE_ARMDEC
 #endif
-LOCAL_SHARED_LIBRARIES += libasound audio.primary.amlogic
+LOCAL_SHARED_LIBRARIES += audio.primary.amlogic
 
 LOCAL_SRC_FILES := \
            adec-external-ctrl.c adec-internal-mgt.c adec-ffmpeg-mgt.c adec-message.c adec-pts-mgt.c feeder.c adec_write.c adec_read.c\
