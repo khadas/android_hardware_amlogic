@@ -72,7 +72,11 @@ int AmlogicKeymaster::Initialize() {
     return 0;
 }
 
-AmlogicKeymaster::AmlogicKeymaster() {}
+AmlogicKeymaster::AmlogicKeymaster() {
+    KM_context.fd = 0;
+    KM_session.ctx = NULL;
+    KM_session.session_id = 0;
+}
 
 AmlogicKeymaster::~AmlogicKeymaster() {
 #if AMLOGIC_MODIFY

@@ -67,7 +67,7 @@ TEEC_Result aml_keymaster_connect(TEEC_Context *c, TEEC_Session *s) {
     if (res < 0)
         millis = 0;
     else
-        millis = (time.tv_sec * 1000) + (time.tv_nsec / 1000 / 1000);
+        millis = ((uint64_t)time.tv_sec * 1000) + (time.tv_nsec / 1000 / 1000);
 
     /* Init TA */
     operation.paramTypes = TEEC_PARAM_TYPES(
@@ -163,7 +163,11 @@ keymaster_error_t aml_keymaster_send(TEEC_Session *s, uint32_t command, const ke
     const keymaster_message* msg = (keymaster_message*)recv_buf;
     const uint8_t* p = msg->payload;
 
-    if (!rsp->Deserialize(&p, p + rsp_size)) {
+    // If sizeof "payload + cmd " > sizeof "recv_buf", it might be overflowing
+    if (rsp_size + sizeof(msg->cmd) > sizeof(recv_buf)) {
+        ALOGE("Buffer overflowing! rsp_size(%d), recv_buf size(%d)\n", rsp_size, sizeof(recv_buf));
+        return KM_ERROR_INSUFFICIENT_BUFFER_SPACE;
+    } else if (!rsp->Deserialize(&p, p + rsp_size)) {
         ALOGE("Error deserializing response of size %d\n", (int)rsp_size);
         return KM_ERROR_UNKNOWN_ERROR;
     } else if (rsp->error != KM_ERROR_OK) {

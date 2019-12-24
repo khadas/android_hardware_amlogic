@@ -101,7 +101,12 @@ struct NoRequest : public KeymasterMessage {
 
 struct SetBootParamsRequest : public KeymasterMessage {
     explicit SetBootParamsRequest(int32_t ver = MAX_MESSAGE_VERSION)
-            : KeymasterMessage(ver) {}
+            : KeymasterMessage(ver) {
+        os_version = 0;
+        os_patchlevel = 0;
+        device_locked = 0;
+        verified_boot_state = KM_VERIFIED_BOOT_UNVERIFIED;
+    }
 
     size_t SerializedSize() const override {
         return (sizeof(os_version) + sizeof(os_patchlevel) +
