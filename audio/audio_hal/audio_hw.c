@@ -5715,7 +5715,7 @@ static size_t adev_get_input_buffer_size(const struct audio_hw_device *dev __unu
         return -EINVAL;
     }
 
-    size = get_input_buffer_size(config->frame_count, config->sample_rate, config->format, channel_count);
+    size = get_input_buffer_size(0, config->sample_rate, config->format, channel_count);
 
     ALOGD("%s: exit: buffer_size = %zu", __func__, size);
 
