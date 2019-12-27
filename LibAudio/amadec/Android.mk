@@ -15,11 +15,14 @@ ifdef DOLBY_DS1_UDC
   LOCAL_CFLAGS += -DDOLBY_DS1_UDC
 endif
 
+LOCAL_HEADER_LIBRARIES := libmedia_headers
+
 LOCAL_C_INCLUDES:= \
     $(LOCAL_PATH)/include \
 	$(AMAVUTILS_INCLUDE) \
     system/core/base/include \
     frameworks/av/include \
+    frameworks/av/media/libmedia/include \
     system/media/audio/include
 
 # PLATFORM_SDK_VERSION:
@@ -62,12 +65,13 @@ LOCAL_CFLAGS := \
     LOCAL_CFLAGS+=-DDOLBY_USE_ARMDEC
 #endif
 
-
+LOCAL_HEADER_LIBRARIES := libmedia_headers
 
 LOCAL_C_INCLUDES:= \
     $(LOCAL_PATH)/include \
     $(AMAVUTILS_INCLUDE) \
     frameworks/av/include \
+    frameworks/av/media/libmedia/include \
     system/media/audio/include \
     system/libhidl/transport/token/1.0/utils/include
 
@@ -116,12 +120,13 @@ LOCAL_CFLAGS := \
     LOCAL_CFLAGS+=-DDOLBY_USE_ARMDEC
 #endif
 
-
+LOCAL_HEADER_LIBRARIES := libmedia_headers
  
 LOCAL_C_INCLUDES:= \
     $(LOCAL_PATH)/include \
     $(AMAVUTILS_INCLUDE) \
     frameworks/av/include \
+    frameworks/av/media/libmedia/include \
     system/media/audio/include \
     system/libhidl/transport/token/1.0/utils/include
 
