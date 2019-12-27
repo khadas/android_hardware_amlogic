@@ -1,52 +1,7 @@
 LOCAL_PATH:= $(call my-dir)
 include $(TOP)/hardware/amlogic/media/media_base_config.mk
 AMAVUTILS_INCLUDE=$(AMAVUTILS_PATH)/include/
-ifeq ($(BUILD_WITH_BOOT_PLAYER),true)
-include $(CLEAR_VARS)
 
-LOCAL_CFLAGS := \
-        -fPIC -D_POSIX_SOURCE
-
-
-ifneq (0, $(shell expr $(PLATFORM_VERSION) \< 5.0))
-ifneq (0, $(shell expr $(PLATFORM_VERSION) \>= 5.0))
-ALSA_LIB_DIR=$(BOARD_AML_VENDOR_PATH)/external/alsa-lib/
-else
-ALSA_LIB_DIR=external/alsa-lib/
-endif
-LOCAL_C_INCLUDES:= \
-    $(LOCAL_PATH)/include \
-    $(AMAVUTILS_INCLUDE) \
-    $(TOP)/$(ALSA_LIB_DIR)/include
-
-
-ifneq (0, $(shell expr $(PLATFORM_VERSION) \> 4.1.0))
-    LOCAL_CFLAGS += -D_VERSION_JB
-else
-    ifneq (0, $(shell expr $(PLATFORM_VERSION) \> 4.0.0))
-        LOCAL_CFLAGS += -D_VERSION_ICS
-    endif
-endif
-
-LOCAL_CFLAGS += -DALSA_OUT
-#ifdef DOLBY_UDC
-LOCAL_CFLAGS+=-DDOLBY_USE_ARMDEC
-#endif
-LOCAL_SHARED_LIBRARIES += audio.primary.amlogic
-
-LOCAL_SRC_FILES := \
-           adec-external-ctrl.c adec-internal-mgt.c adec-ffmpeg-mgt.c adec-message.c adec-pts-mgt.c feeder.c adec_write.c adec_read.c\
-           audio_out/alsa-out.c audio_out/aml_resample.c audiodsp_update_format.c spdif_api.c pcmenc_api.c \
-           dts_transenc_api.c dts_enc.c adec_omx_brige.c
-
-LOCAL_MODULE := libamadec_alsa
-
-LOCAL_ARM_MODE := arm
-
-include $(BUILD_STATIC_LIBRARY)
-
-endif
-endif
 
 include $(CLEAR_VARS)
 
