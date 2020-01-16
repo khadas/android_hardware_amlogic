@@ -1561,7 +1561,7 @@ static char *out_get_parameters (const struct audio_stream *stream, const char *
         } else {
             if (out->out_device & AUDIO_DEVICE_OUT_HDMI_ARC) {
                 cap = (char *) strdup_hdmi_arc_cap_default (AUDIO_PARAMETER_STREAM_SUP_SAMPLING_RATES, format);
-            } else if (out->out_device & AUDIO_DEVICE_OUT_ALL_A2DP) {
+            } else if (adev->bHDMIConnected && adev->bHDMIARCon && (out->out_device & AUDIO_DEVICE_OUT_ALL_A2DP)) {
                 cap = (char *) strdup_a2dp_cap_default(AUDIO_PARAMETER_STREAM_SUP_SAMPLING_RATES, format);
             } else {
                 cap = (char *) get_hdmi_sink_cap_dolbylib (AUDIO_PARAMETER_STREAM_SUP_SAMPLING_RATES,format,&(adev->hdmi_descs), adev->dolby_decode_enable);
@@ -1582,7 +1582,7 @@ static char *out_get_parameters (const struct audio_stream *stream, const char *
         } else {
             if (out->out_device & AUDIO_DEVICE_OUT_HDMI_ARC) {
                 cap = (char *) strdup_hdmi_arc_cap_default (AUDIO_PARAMETER_STREAM_SUP_CHANNELS, format);
-            } else if (out->out_device & AUDIO_DEVICE_OUT_ALL_A2DP) {
+            } else if (adev->bHDMIConnected && adev->bHDMIARCon && (out->out_device & AUDIO_DEVICE_OUT_ALL_A2DP)) {
                 cap = (char *) strdup_a2dp_cap_default(AUDIO_PARAMETER_STREAM_SUP_CHANNELS, format);
             } else {
                 cap = (char *) get_hdmi_sink_cap_dolbylib (AUDIO_PARAMETER_STREAM_SUP_CHANNELS,format,&(adev->hdmi_descs), adev->dolby_decode_enable);
@@ -1599,7 +1599,7 @@ static char *out_get_parameters (const struct audio_stream *stream, const char *
     } else if (strstr (keys, AUDIO_PARAMETER_STREAM_SUP_FORMATS) ) {
         if (out->out_device & AUDIO_DEVICE_OUT_HDMI_ARC) {
             cap = (char *) strdup_hdmi_arc_cap_default (AUDIO_PARAMETER_STREAM_SUP_FORMATS, format);
-        } else if (out->out_device & AUDIO_DEVICE_OUT_ALL_A2DP) {
+        } else if (adev->bHDMIConnected && adev->bHDMIARCon && (out->out_device & AUDIO_DEVICE_OUT_ALL_A2DP)) {
             cap = (char *) strdup_a2dp_cap_default(AUDIO_PARAMETER_STREAM_SUP_FORMATS, format);
         } else {
             if (out->is_tv_platform == 1) {
@@ -4258,9 +4258,7 @@ static int adev_open_output_stream(struct audio_hw_device *dev,
             break;
         }
     } else if (flags & AUDIO_OUTPUT_FLAG_DIRECT) {
-        if (devices & AUDIO_DEVICE_OUT_ALL_A2DP)
-            config->format = AUDIO_FORMAT_PCM_16_BIT;
-        else if (config->format == AUDIO_FORMAT_DEFAULT)
+        if (config->format == AUDIO_FORMAT_DEFAULT)
             config->format = AUDIO_FORMAT_AC3;
 
         out->stream.common.get_channels = out_get_channels_direct;
@@ -4812,8 +4810,8 @@ static int adev_set_parameters (struct audio_hw_device *dev, const char *kvpairs
                 adev->reset_dtv_audio = 1;
             }
         } else if (val & AUDIO_DEVICE_OUT_ALL_A2DP) {
-            //adev->a2dp_updated = 1;
-            //adev->out_device |= val;
+            adev->a2dp_updated = 1;
+            adev->out_device |= val;
             ALOGI("adev_set_parameters a2dp connect: %x, device=%x\n", val, adev->out_device);
         }
         goto exit;
@@ -7166,10 +7164,7 @@ ssize_t hw_write (struct audio_stream_out *stream
                 if (is_bypass_dolbyms12(stream))
                     aml_audio_hwsync_audio_process(aml_out->hwsync, aml_out->hwsync->payload_offset, &adjust_ms);
                 else {
-                    uint64_t ms12_payload = dolby_ms12_get_consumed_payload();
-                    if ((aml_out->out_device & AUDIO_DEVICE_OUT_ALL_A2DP) && audio_is_linear_pcm(aml_out->hal_internal_format) && (ms12_payload >= 6144))
-                        ms12_payload -= 6144;
-                    aml_audio_hwsync_audio_process(aml_out->hwsync, ms12_payload, &adjust_ms);
+                    aml_audio_hwsync_audio_process(aml_out->hwsync, dolby_ms12_get_consumed_payload(), &adjust_ms);
                 }
             } else {
                 ALOGV("%s,aml_out->hwsync->aout == NULL",__FUNCTION__);
@@ -7295,7 +7290,12 @@ ssize_t hw_write (struct audio_stream_out *stream
                     }
                 } else {
                     if (aml_out->is_tv_platform == true) {
-                        out_frames = out_frames / 8;
+                        if (aml_out->hal_format == AUDIO_FORMAT_IEC61937 && eDolbyDcvLib == adev->dolby_lib_type) {
+                            aml_out->frame_write_sum = 0;
+                            out_frames = aml_out->input_bytes_size / audio_stream_out_frame_size(stream);
+                        } else {
+                            out_frames = out_frames / 8;
+                        }
                     }
                     aml_out->frame_write_sum += out_frames;
 
@@ -7366,6 +7366,7 @@ ssize_t hw_write (struct audio_stream_out *stream
                 if (!adev->ms12.nbytes_of_dmx_output_pcm_frame)
                     adev->ms12.nbytes_of_dmx_output_pcm_frame = nbytes_of_dolby_ms12_downmix_output_pcm_frame();
                 total_frame = dolby_ms12_get_n_bytes_pcmout_of_udc() / adev->ms12.nbytes_of_dmx_output_pcm_frame;
+                total_frame += aml_out->continuous_audio_offset;
                 write_frames =  aml_out->total_ddp_frame_nblks * 256;/*256samples in one block*/
                 if (adev->debug_flag) {
                     ALOGI("%s,total_frame %llu write_frames %"PRIu64" total frame block nums %"PRIu64"",
@@ -7620,13 +7621,18 @@ void config_output(struct audio_stream_out *stream)
                         }
                     }
                 }
-                if (adev->patch_src == SRC_DTV)
+                if (adev->patch_src == SRC_DTV || aml_out->out_device & AUDIO_DEVICE_OUT_ALL_A2DP)
                     adev->dcvlib_bypass_enable = 0;
                 break;
             default:
                 ddp_dec->digital_raw = 0;
                 break;
             }
+            if (aml_out->out_device & AUDIO_DEVICE_OUT_ALL_A2DP) {
+                ALOGI("disable raw output when a2dp device\n");
+                ddp_dec->digital_raw = 0;
+            }
+
             ALOGI("ddp_dec->digital_raw:%d adev->dcvlib_bypass_enable:%d aml_out->dual_output_flag: %d",
                         ddp_dec->digital_raw, adev->dcvlib_bypass_enable,aml_out->dual_output_flag);
             if (adev->dcvlib_bypass_enable != 1) {
@@ -8141,7 +8147,7 @@ hwsync_rewrite:
         if (ms12_out == NULL) {
             // add protection here
             ALOGI("%s,ERRPR ms12_out = NULL,adev->ms12_out = %p", __func__, adev->ms12_out);
-            return write_bytes;
+            return return_bytes;
         }
         /*
         continous mode,available dolby format coming,need set main dolby dummy to false
@@ -8215,7 +8221,7 @@ hwsync_rewrite:
             aml_audio_spdif_output(stream, (void *)write_buf, write_bytes);
         }
         if (ret < 0) {
-            return write_bytes;
+            return return_bytes;
         }
 
         //add by lianlian.zhu ,for dts cerfication becase dts cd hdmi in pcm output distortion
@@ -8329,9 +8335,6 @@ re_write:
                 }
 
                 if (ret < 0) {
-                    //aml_out->frame_write_sum += aml_out->input_bytes_size  / audio_stream_out_frame_size(stream);
-                    //aml_out->last_frames_postion = aml_out->frame_write_sum;
-                    ALOGD("%s: ****dcv decoder error", __func__);
                     return return_bytes;
                 }
                 /*wirte raw data*/
@@ -8405,8 +8408,6 @@ re_write:
                     }
                 }
 
-                //aml_out->frame_write_sum = aml_out->input_bytes_size  / audio_stream_out_frame_size(stream);
-                //aml_out->last_frames_postion = aml_out->frame_write_sum;
                 return return_bytes;
             }
 
