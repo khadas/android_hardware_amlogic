@@ -1124,10 +1124,6 @@ ssize_t mixer_aux_buffer_write_sm(struct audio_stream_out *stream, const void *b
 
     ALOGV("++%s", __func__);
 
-    if ((aml_out->out_device & AUDIO_DEVICE_OUT_ALL_A2DP) && (adev->a2dp_active == 1)) {
-        //aml_hw_mixer_write(&adev->hw_mixer, buffer, bytes);
-        return bytes;
-    }
     if (adev->out_device != aml_out->out_device) {
         ALOGD("%s:%p device:%x,%x", __func__, stream, aml_out->out_device, adev->out_device);
         aml_out->out_device = adev->out_device;
