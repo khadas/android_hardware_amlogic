@@ -15,7 +15,7 @@ ifdef DOLBY_DS1_UDC
   LOCAL_CFLAGS += -DDOLBY_DS1_UDC
 endif
 
-LOCAL_HEADER_LIBRARIES := libmedia_headers
+LOCAL_HEADER_LIBRARIES := libmedia_headers libmediametrics_headers
 
 LOCAL_C_INCLUDES:= \
     $(LOCAL_PATH)/include \
@@ -65,7 +65,7 @@ LOCAL_CFLAGS := \
     LOCAL_CFLAGS+=-DDOLBY_USE_ARMDEC
 #endif
 
-LOCAL_HEADER_LIBRARIES := libmedia_headers
+LOCAL_HEADER_LIBRARIES := libmedia_headers libmediametrics_headers
 
 LOCAL_C_INCLUDES:= \
     $(LOCAL_PATH)/include \
@@ -120,7 +120,7 @@ LOCAL_CFLAGS := \
     LOCAL_CFLAGS+=-DDOLBY_USE_ARMDEC
 #endif
 
-LOCAL_HEADER_LIBRARIES := libmedia_headers
+LOCAL_HEADER_LIBRARIES := libmedia_headers libmediametrics_headers
  
 LOCAL_C_INCLUDES:= \
     $(LOCAL_PATH)/include \
