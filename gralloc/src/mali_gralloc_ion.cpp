@@ -50,6 +50,10 @@
 #include "mali_gralloc_bufferdescriptor.h"
 #include "mali_gralloc_bufferallocation.h"
 #include "mali_gralloc_ion.h"
+#include <map>
+
+static std::map<int, ion_user_handle_t> imported_user_hnd;
+static std::map<int, int> imported_ion_client;
 
 //meson graphics changes start
 #ifdef GRALLOC_AML_EXTEND
@@ -1137,7 +1141,16 @@ int mali_gralloc_ion_map(private_handle_t *hnd)
 		if (hnd->ion_delay_alloc)
 			return 0;
 
+		ion_device *dev = ion_device::get();
+		if (!dev) {
+			return -1;
+		}
+		ion_user_handle_t user_hnd;
+		ion_import(dev->client(), hnd->share_fd, &user_hnd);
 		unsigned char *mappedAddress = (unsigned char *)mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_SHARED, hnd->share_fd, 0);
+		imported_ion_client.emplace(hnd->share_fd, dev->client());
+		imported_user_hnd.emplace(hnd->share_fd, user_hnd);
+		AINF("ddebug, pair (share_fd=%d, user_hnd=%x, ion_client=%d)", hnd->share_fd, user_hnd, dev->client());
 
 		if (MAP_FAILED == mappedAddress)
 		{
@@ -1172,7 +1185,16 @@ void mali_gralloc_ion_unmap(private_handle_t *hnd)
 			hnd->cpu_read = 0;
 			hnd->cpu_write = 0;
 		}
-
+		auto user_hnd_iter = imported_user_hnd.find(hnd->share_fd);
+		auto ion_client_iter = imported_ion_client.find(hnd->share_fd);
+		if (user_hnd_iter != imported_user_hnd.end()
+				&& ion_client_iter != imported_ion_client.end()) {
+			AINF("ddebug, free share_fd=%d, user_hnd=0x%x, ion client=%d\n",
+				hnd->share_fd, user_hnd_iter->second, ion_client_iter->second);
+			ion_free(ion_client_iter->second, user_hnd_iter->second);
+			imported_user_hnd.erase(user_hnd_iter);
+			imported_ion_client.erase(ion_client_iter);
+		}
 		break;
 	}
 }
