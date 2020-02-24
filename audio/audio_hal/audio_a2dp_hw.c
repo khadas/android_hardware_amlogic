@@ -810,8 +810,10 @@ static int start_audio_datapath(struct audio_stream_out* stream) {
         }
     }
     out->state = (a2dp_state_t)AUDIO_A2DP_STATE_STARTED;
+    if ((aml_out->flags & AUDIO_OUTPUT_FLAG_PRIMARY) == 0)
+        adev->a2dp_active = 1;
     /* check to see if delay reporting is enabled */
-    out->enable_delay_reporting = !property_get_bool("persist.bluetooth.disabledelayreports", false);
+    out->enable_delay_reporting = true;//!property_get_bool("persist.bluetooth.disabledelayreports", false);
     if (aml_out->hal_rate != out->rate) {
         out->aml_resample.input_sr = aml_out->hal_rate;
         out->aml_resample.output_sr = out->rate;
@@ -825,7 +827,10 @@ error:
     return -1;
 }
 
-static int stop_audio_datapath(struct a2dp_stream_out* out) {
+static int stop_audio_datapath(struct audio_stream_out* stream) {
+    struct aml_stream_out* aml_out = (struct aml_stream_out*)stream;
+    struct a2dp_stream_out* out = aml_out->a2dp_out;
+    struct aml_audio_device *adev = aml_out->dev;
     int oldstate = out->state;
 
     ALOGD("stop_audio_datapath state %d (%p)", out->state, out);
@@ -842,6 +847,8 @@ static int stop_audio_datapath(struct a2dp_stream_out* out) {
     }
 
     out->state = (a2dp_state_t)AUDIO_A2DP_STATE_STOPPED;
+    if ((aml_out->flags & AUDIO_OUTPUT_FLAG_PRIMARY) == 0)
+        adev->a2dp_active = 0;
 
     /* disconnect audio path */
     skt_disconnect(out->audio_fd);
@@ -849,7 +856,11 @@ static int stop_audio_datapath(struct a2dp_stream_out* out) {
     return 0;
 }
 
-int suspend_audio_datapath(struct a2dp_stream_out* out, bool standby) {
+int suspend_audio_datapath(struct audio_stream* stream, bool standby) {
+    struct aml_stream_out* aml_out = (struct aml_stream_out*)stream;
+    struct a2dp_stream_out* out = aml_out->a2dp_out;
+    struct aml_audio_device *adev = aml_out->dev;
+
     ALOGD("suspend_audio_datapath state %d", out->state);
     if (out->state == AUDIO_A2DP_STATE_STOPPING)
         return -1;
@@ -859,6 +870,8 @@ int suspend_audio_datapath(struct a2dp_stream_out* out, bool standby) {
         out->state = AUDIO_A2DP_STATE_STANDBY;
     else
         out->state = AUDIO_A2DP_STATE_SUSPENDED;
+    if ((aml_out->flags & AUDIO_OUTPUT_FLAG_PRIMARY) == 0)
+        adev->a2dp_active = 0;
 
     /* disconnect audio path */
     skt_disconnect(out->audio_fd);
@@ -894,7 +907,7 @@ int a2dp_out_set_parameters(struct audio_stream* stream, const char* kvpairs) {
         pthread_mutex_lock(&out->mutex);
         if (strncmp(value, "true", 4) == 0) {
             if (out->state == AUDIO_A2DP_STATE_STARTED)
-                suspend_audio_datapath(out, false);
+                suspend_audio_datapath(stream, false);
         } else {
             if (out->state == AUDIO_A2DP_STATE_SUSPENDED)
                 out->state = AUDIO_A2DP_STATE_STANDBY;
@@ -1366,7 +1379,7 @@ int a2dp_out_standby(struct audio_stream* stream) {
     pthread_mutex_lock(&out->mutex);
     // Do nothing in SUSPENDED state.
     if (out->state != AUDIO_A2DP_STATE_SUSPENDED)
-        retVal = suspend_audio_datapath(out, true);
+        retVal = suspend_audio_datapath(stream, true);
     out->frames_rendered = 0;  // rendered is reset, presented is not
     if (out->vir_buf_handle != NULL)
         audio_virtual_buf_close(&out->vir_buf_handle);
@@ -1455,7 +1468,7 @@ void a2dp_output_disable(struct audio_stream_out* stream) {
     pthread_mutex_lock(&out->mutex);
     ALOGD("a2dp_output_disable  (state %d)", (int)out->state);
     if ((out->state == AUDIO_A2DP_STATE_STARTED) || (out->state == AUDIO_A2DP_STATE_STOPPING)) {
-        stop_audio_datapath(out);
+        stop_audio_datapath(stream);
     }
     if (out->vir_buf_handle != NULL)
         audio_virtual_buf_close(&out->vir_buf_handle);
