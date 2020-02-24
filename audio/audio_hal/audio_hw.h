@@ -306,6 +306,7 @@ struct aml_audio_device {
     struct audio_config output_config;
     struct aml_arc_hdmi_desc hdmi_descs;
     int arc_hdmi_updated;
+    int a2dp_active;
     int a2dp_updated;
     int hdmi_format_updated;
     struct aml_native_postprocess native_postprocess;
