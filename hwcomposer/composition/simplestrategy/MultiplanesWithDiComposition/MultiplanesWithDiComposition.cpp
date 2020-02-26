@@ -950,7 +950,7 @@ void MultiplanesWithDiComposition::handleDiComposition()
             else if (composefbs1.size() > 1)
                 diComposerPair.zorder = zorder;
 
-            MESON_LOGE("commit %d layers to video.composer0.\n", diComposerPair.num_composefbs);
+            MESON_LOGV("commit %d layers to video.composer0.\n", diComposerPair.num_composefbs);
             hwcVideoPlane0->setComposePlane(&diComposerPair, UNBLANK);
 
             hwcPlane = hwcVideoPlane0;
@@ -975,7 +975,7 @@ void MultiplanesWithDiComposition::handleDiComposition()
             else if (composefbs1.size() > 1)
                 diComposerPair.zorder = 0;
 
-            MESON_LOGE("commit %d layers to video.composer1.\n", diComposerPair.num_composefbs);
+            MESON_LOGV("commit %d layers to video.composer1.\n", diComposerPair.num_composefbs);
             hwcVideoPlane1->setComposePlane(&diComposerPair, UNBLANK);
 
             hwcPlane = hwcVideoPlane1;
