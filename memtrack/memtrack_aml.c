@@ -331,7 +331,7 @@ static size_t read_pid_egl_memory(pid_t pid)
                 } else {
                     bufs = NULL;
                 }
-                while (bufs) {
+                while (bufs && (*bufs_size < bufs_array.length)) {
                     //Parse client's buffers lines, which look like this:
                     // handle= ecf9da00     buf= ecf1d600 heap_id= 4    size= 8486912
 
