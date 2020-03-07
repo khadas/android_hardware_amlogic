@@ -1,10 +1,10 @@
-ifeq ($(KERNEL_A32_SUPPORT), true)
-KERNEL_ARCH := arm
-CROSS_COMPILE := /opt/gcc-linaro-6.3.1-2017.02-x86_64_arm-linux-gnueabihf/bin/arm-linux-gnueabihf-
-else
-KERNEL_ARCH := arm64
-CROSS_COMPILE := /opt/gcc-linaro-6.3.1-2017.02-x86_64_aarch64-linux-gnu/bin/aarch64-linux-gnu-
-endif
+#ifeq ($(KERNEL_A32_SUPPORT), true)
+#KERNEL_ARCH := arm
+#CROSS_COMPILE := /opt/gcc-linaro-6.3.1-2017.02-x86_64_arm-linux-gnueabihf/bin/arm-linux-gnueabihf-
+#else
+#KERNEL_ARCH := arm64
+#CROSS_COMPILE := /opt/gcc-linaro-6.3.1-2017.02-x86_64_aarch64-linux-gnu/bin/aarch64-linux-gnu-
+#endif
 
 #ifeq ($(KERNEL_A32_SUPPORT), true)
 #KERNEL_ARCH ?= arm
@@ -23,7 +23,7 @@ $(TB_DETECT_KO):
 	mkdir -p $(DETECT_OUT)
 	cp $(DETECT_IN)/* $(DETECT_OUT)/ -airf
 	@echo "make Amlogic TB Detect module KERNEL_ARCH is $(KERNEL_ARCH)"
-	PATH=$$(cd ./$(TARGET_HOST_TOOL_PATH); pwd):$$PATH $(MAKE) -C $(shell pwd)/$(PRODUCT_OUT)/obj/KERNEL_OBJ M=$(shell pwd)/$(DETECT_OUT)/ ARCH=$(KERNEL_ARCH) CROSS_COMPILE=$(CROSS_COMPILE) CONFIG_TB_DETECT=m modules
+	PATH=$(KERNEL_TOOLPATHS):$$PATH $(MAKE) -C $(shell pwd)/$(PRODUCT_OUT)/obj/KERNEL_OBJ M=$(shell pwd)/$(DETECT_OUT)/ $(KERNEL_ARGS) CONFIG_TB_DETECT=m modules
 
 	mkdir -p $(PRODUCT_OUT)/obj/lib_vendor
 	rm $(PRODUCT_OUT)/obj/lib_vendor/tb_detect.ko -f
