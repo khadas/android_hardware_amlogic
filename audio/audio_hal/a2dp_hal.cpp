@@ -186,6 +186,8 @@ int a2dp_out_close(struct audio_hw_device* dev) {
         ALOGE("a2dp hw already release");
         return -1;
     }
+    adev->a2dp_hal = NULL;
+    hal->mutex_.lock();
     ALOGD("%s: close", __func__);
     hal->a2dphw.Stop();
     hal->a2dphw.TearDown();
@@ -193,8 +195,8 @@ int a2dp_out_close(struct audio_hw_device* dev) {
         delete hal->resample;
     if (hal->buff)
         delete hal->buff;
+    hal->mutex_.unlock();
     delete hal;
-    adev->a2dp_hal = NULL;
     adev->a2dp_active = 0;
     return 0;
 }
@@ -203,7 +205,6 @@ int a2dp_out_resume(struct audio_stream_out* stream) {
     struct aml_stream_out* out = (struct aml_stream_out*)stream;
     struct aml_audio_device *adev = out->dev;
     struct aml_a2dp_hal * hal = (struct aml_a2dp_hal *)adev->a2dp_hal;
-    std::unique_lock<std::mutex> lock(hal->mutex_);
     BluetoothStreamState state;
 
     if (hal == NULL) {
@@ -211,6 +212,7 @@ int a2dp_out_resume(struct audio_stream_out* stream) {
         return -1;
     }
 
+    std::unique_lock<std::mutex> lock(hal->mutex_);
     state = hal->a2dphw.GetState();
     ALOGD("%s: state=%d", __func__, (uint8_t)state);
     if (state == BluetoothStreamState::STANDBY) {
@@ -227,7 +229,6 @@ int a2dp_out_standby(struct audio_stream* stream) {
     struct aml_stream_out* out = (struct aml_stream_out*)stream;
     struct aml_audio_device *adev = out->dev;
     struct aml_a2dp_hal * hal = (struct aml_a2dp_hal *)adev->a2dp_hal;
-    std::unique_lock<std::mutex> lock(hal->mutex_);
     BluetoothStreamState state;
 
     if (hal == NULL) {
@@ -235,6 +236,7 @@ int a2dp_out_standby(struct audio_stream* stream) {
         return -1;
     }
 
+    std::unique_lock<std::mutex> lock(hal->mutex_);
     state = hal->a2dphw.GetState();
     ALOGD("%s: state=%d", __func__, (uint8_t)state);
     if (state == BluetoothStreamState::STARTED) {
@@ -251,7 +253,6 @@ ssize_t a2dp_out_write(struct audio_stream_out* stream, const void* buffer, size
     struct aml_stream_out* out = (struct aml_stream_out*)stream;
     struct aml_audio_device *adev = out->dev;
     struct aml_a2dp_hal * hal = (struct aml_a2dp_hal *)adev->a2dp_hal;
-    std::unique_lock<std::mutex> lock(hal->mutex_);
     BluetoothStreamState state;
     size_t totalWritten = 0;
     int frame_size = 4; //2ch 16bits
@@ -261,7 +262,7 @@ ssize_t a2dp_out_write(struct audio_stream_out* stream, const void* buffer, size
         ALOGE("%s: a2dp hw is release", __func__);
         return -1;
     }
-
+    std::unique_lock<std::mutex> lock(hal->mutex_);
     state = hal->a2dphw.GetState();
     ALOGD("%s: state=%d", __func__, (uint8_t)state);
     lock.unlock();
