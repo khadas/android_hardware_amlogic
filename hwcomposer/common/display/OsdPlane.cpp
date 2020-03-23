@@ -127,7 +127,6 @@ bool OsdPlane::isFbSupport(std::shared_ptr<DrmFramebuffer> & fb) {
             case HAL_PIXEL_FORMAT_BGRA_8888:
                 break;
             default:
-                MESON_LOGE("afbc: %d, Layer format %d not support.", afbc, format);
                 return false;
         }
     } else {
@@ -136,7 +135,6 @@ bool OsdPlane::isFbSupport(std::shared_ptr<DrmFramebuffer> & fb) {
             case HAL_PIXEL_FORMAT_RGBX_8888:
                 break;
             default:
-                MESON_LOGE("afbc: %d, Layer format %d not support.", afbc, format);
                 return false;
         }
     }

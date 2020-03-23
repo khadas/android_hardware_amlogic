@@ -10,6 +10,9 @@
 #include "FixedDisplayPipe.h"
 #include <HwcConfig.h>
 #include <MesonLog.h>
+#include <misc.h>
+
+#define HDMI_HAS_USED_STATE "/sys/class/amhdmitx/amhdmitx0/hdmi_used"
 
 FixedDisplayPipe::FixedDisplayPipe()
     : HwcDisplayPipe() {
@@ -32,19 +35,22 @@ void FixedDisplayPipe::handleEvent(drm_display_event event, int val) {
         drm_connector_type_t targetConnector = DRM_MODE_CONNECTOR_INVALID;
         for (auto statIt : mPipeStats) {
             hwc_connector_t connectorType = HwcConfig::getConnectorType((int)statIt.first);
+            pipe = statIt.second;
+
+            /* update current connector status, now getpipecfg() need
+            * read connector status to decide connector.
+            */
+            statIt.second->modeConnector->update();
+
             if (connectorType == HWC_HDMI_CVBS) {
-                pipe = statIt.second;
                 targetConnector = connected ?
                     DRM_MODE_CONNECTOR_HDMI : DRM_MODE_CONNECTOR_CVBS;
 
-                /*update current connector status, now getpipecfg() need
-                * read connector status to decide connector.
-                */
-                statIt.second->modeConnector->update();
-
                 MESON_LOGD("handleEvent  DRM_EVENT_HDMITX_HOTPLUG %d VS %d",
                     pipe->cfg.hwcConnectorType, targetConnector);
-                if (pipe->cfg.hwcConnectorType != targetConnector) {
+                if (pipe->cfg.hwcConnectorType != targetConnector &&
+                        pipe->cfg.hwcConnectorType == DRM_MODE_CONNECTOR_CVBS &&
+                        hasHdmiConnected()) {
                     /* we need latest connector status, and no one will update
                     *connector not bind to crtc, we update here.
                     */
@@ -64,7 +70,7 @@ void FixedDisplayPipe::handleEvent(drm_display_event event, int val) {
                 statIt.second->hwcDisplay->onHotplug(connected);
             }
         }
-    }else {
+    } else {
         HwcDisplayPipe::handleEvent(event, val);
     }
 }
@@ -80,11 +86,11 @@ int32_t FixedDisplayPipe::getPipeCfg(uint32_t hwcid, PipeCfg & cfg) {
 
 drm_connector_type_t FixedDisplayPipe::getConnetorCfg(uint32_t hwcid) {
     drm_connector_type_t  connector = HwcDisplayPipe::getConnetorCfg(hwcid);
-    if (connector == DRM_MODE_CONNECTOR_INVALID &&
-        HwcConfig::getConnectorType(hwcid) == HWC_HDMI_CVBS) {
+    if (connector == DRM_MODE_CONNECTOR_INVALID ||
+            connector == DRM_MODE_CONNECTOR_CVBS) {
         std::shared_ptr<HwDisplayConnector> hwConnector;
         getConnector(DRM_MODE_CONNECTOR_HDMI, hwConnector);
-        if (hwConnector->isConnected()) {
+        if (hwConnector->isConnected() || hasHdmiConnected()) {
             connector = DRM_MODE_CONNECTOR_HDMI;
         } else {
             connector = DRM_MODE_CONNECTOR_CVBS;
@@ -95,3 +101,8 @@ drm_connector_type_t FixedDisplayPipe::getConnetorCfg(uint32_t hwcid) {
     return connector;
 }
 
+bool FixedDisplayPipe::hasHdmiConnected() {
+    bool ret = sysfs_get_int(HDMI_HAS_USED_STATE, 0) == 1 ? true : false;
+    MESON_LOGD("FixedDisplayPipe::hasHdmiConnected:%d", ret);
+    return ret;
+}

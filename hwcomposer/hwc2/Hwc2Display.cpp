@@ -223,6 +223,11 @@ void Hwc2Display::onHotplug(bool connected) {
     /*call hotplug out of lock, SF may call some hwc function to cause deadlock.*/
     if (bSendPlugOut)
         mObserver->onHotplug(false);
+
+    /* switch to software vsync when hdmi plug out and no cvbs mode */
+    if (mConnector && mConnector->getType() == DRM_MODE_CONNECTOR_HDMI) {
+        mVsync->setSoftwareMode();
+    }
 }
 
 void Hwc2Display::onUpdate(bool bHdcp) {
@@ -1019,7 +1024,9 @@ void Hwc2Display::dump(String8 & dumpstr) {
     dumpstr.append("\n");
 
     /* dump display configs*/
-     mModeMgr->dump(dumpstr);
+    mModeMgr->dump(dumpstr);
+    dumpstr.append("\n");
+    mVsync->dump(dumpstr);
     dumpstr.append("\n");
 
     /*dump detail debug info*/
