@@ -17,7 +17,7 @@
 #include "../libms12/include/aml_audio_ms12.h"
 #include "dolby_lib_api.h"
 #include "alsa_device_parser.h"
-#include "audio_a2dp_hw.h"
+#include "a2dp_hal.h"
 
 //#define DEBUG_TIME
 static int on_notify_cbk(void *data);
@@ -1012,18 +1012,6 @@ int subWrite(
 }
 #endif
 
-void a2dp_switch(struct audio_stream_out *stream) {
-    struct aml_stream_out *aml_out = (struct aml_stream_out *) stream;
-
-    if (aml_out->out_device & AUDIO_DEVICE_OUT_ALL_A2DP) {
-        ALOGD("a2dp_switch: output: %p, a2dp_out=%p", aml_out, aml_out->a2dp_out);
-        if (aml_out->a2dp_out == NULL)
-            a2dp_output_enable(stream);
-    } else {
-        a2dp_output_disable(stream);
-    }
-}
-
 int outSubMixingWrite(
             struct audio_stream_out *stream,
             const void *buf,
@@ -1073,7 +1061,6 @@ ssize_t mixer_main_buffer_write_sm (struct audio_stream_out *stream, const void 
     if (adev->out_device != aml_out->out_device) {
         ALOGD("%s:%p device:%x,%x", __func__, stream, aml_out->out_device, adev->out_device);
         aml_out->out_device = adev->out_device;
-        a2dp_switch(stream);
     }
 
     case_cnt = popcount(adev->usecase_masks & 0xfffffffe);
@@ -1131,7 +1118,6 @@ ssize_t mixer_aux_buffer_write_sm(struct audio_stream_out *stream, const void *b
     if (adev->out_device != aml_out->out_device) {
         ALOGD("%s:%p device:%x,%x", __func__, stream, aml_out->out_device, adev->out_device);
         aml_out->out_device = adev->out_device;
-        a2dp_switch(stream);
         aml_out->stream.common.standby(&aml_out->stream.common);
         goto exit;
     } else if (aml_out->out_device == 0) {
@@ -1381,7 +1367,7 @@ int out_standby_subMixingPCM(struct audio_stream *stream)
     aml_out->standby = true;
     delete_mixer_input_port(audio_mixer, aml_out->port_index);
 
-    if ((aml_out->out_device & AUDIO_DEVICE_OUT_ALL_A2DP) && aml_out->a2dp_out)
+    if ((aml_out->out_device & AUDIO_DEVICE_OUT_ALL_A2DP) && adev->a2dp_hal)
         a2dp_out_standby(stream);
 
     if (adev->debug_flag > 1) {

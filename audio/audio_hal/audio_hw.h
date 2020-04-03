@@ -308,6 +308,7 @@ struct aml_audio_device {
     int arc_hdmi_updated;
     int a2dp_active;
     int a2dp_updated;
+    void * a2dp_hal;
     int hdmi_format_updated;
     struct aml_native_postprocess native_postprocess;
     /* to classify audio patch sources */
@@ -513,7 +514,6 @@ struct aml_stream_out {
     unsigned int rate_convert;
     audio_output_flags_t flags;
     audio_devices_t out_device;
-    struct a2dp_stream_out *a2dp_out;
     struct pcm *pcm;
     struct resampler_itfe *resampler;
     char *buffer;

@@ -44,7 +44,7 @@
 #include "audio_hw.h"
 #include "amlAudioMixer.h"
 #include <audio_utils/primitives.h>
-#include "audio_a2dp_hw.h"
+#include "a2dp_hal.h"
 
 #ifdef LOG_NDEBUG_FUNCTION
 #define LOGFUNC(...) ((void)0)

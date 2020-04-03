@@ -34,7 +34,7 @@
 #include "audio_data_process.h"
 
 #include "audio_hw.h"
-#include "audio_a2dp_hw.h"
+#include "a2dp_hal.h"
 
 #define MIXER_IN_BUFFER_SIZE (512*4)
 #define MIXER_OUT_BUFFER_SIZE MIXER_IN_BUFFER_SIZE
