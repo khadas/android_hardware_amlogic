@@ -92,7 +92,7 @@ ifeq ($(shell test $(PLATFORM_SDK_VERSION) -ge 26 ) && echo OK),OK)
 LOCAL_PROPRIETARY_MODULE := true
 endif
 
-ifeq ($(PLATFORM_SDK_VERSION),29)
+ifeq ($(shell test $(PLATFORM_SDK_VERSION) -ge 29 && echo OK),OK)
 LOCAL_PRIVATE_PLATFORM_APIS := true
 LOCAL_PRODUCT_MODULE := true
 LOCAL_JAVA_LIBRARIES += org.apache.http.legacy
@@ -129,7 +129,7 @@ ifeq ($(shell test $(PLATFORM_SDK_VERSION) -ge 26 ) && echo OK),OK)
 LOCAL_PROPRIETARY_MODULE := true
 endif
 
-ifeq ($(PLATFORM_SDK_VERSION),29)
+ifeq ($(shell test $(PLATFORM_SDK_VERSION) -ge 29 && echo OK),OK)
 LOCAL_PRIVATE_PLATFORM_APIS := true
 LOCAL_PRODUCT_MODULE := true
 LOCAL_JAVA_LIBRARIES += org.apache.http.legacy
@@ -170,7 +170,7 @@ $(warning here)
 LOCAL_PROPRIETARY_MODULE := true
 endif
 
-ifeq ($(PLATFORM_SDK_VERSION),29)
+ifeq ($(shell test $(PLATFORM_SDK_VERSION) -ge 29 && echo OK),OK)
 LOCAL_PRIVATE_PLATFORM_APIS := true
 LOCAL_PRODUCT_MODULE := true
 LOCAL_JAVA_LIBRARIES += org.apache.http.legacy
@@ -206,7 +206,7 @@ $(warning here)
 LOCAL_PROPRIETARY_MODULE := true
 endif
 
-ifeq ($(PLATFORM_SDK_VERSION),29)
+ifeq ($(shell test $(PLATFORM_SDK_VERSION) -ge 29 && echo OK),OK)
 LOCAL_PRIVATE_PLATFORM_APIS := true
 LOCAL_PRODUCT_MODULE := true
 LOCAL_JAVA_LIBRARIES += org.apache.http.legacy
