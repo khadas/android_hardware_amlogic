@@ -18,7 +18,9 @@
 
 #include <system/audio.h>
 #include <cutils/log.h>
+#include <cutils/properties.h>
 #include <android-base/strings.h>
+#include <audio_utils/primitives.h>
 
 #include "a2dp_hal.h"
 #include "a2dp_hw.h"
@@ -44,6 +46,8 @@ struct aml_a2dp_hal {
     size_t buffsize;
     int64_t last_write_time;
     mutable std::mutex mutex_;
+    char * buff_conv_format;
+    size_t buff_size_conv_format;
 };
 
 inline static short clip(int x) {
@@ -163,6 +167,8 @@ int a2dp_out_open(struct audio_hw_device* dev) {
     hal->resample = NULL;
     hal->buff = NULL;
     hal->buffsize = 0;
+    hal->buff_conv_format = NULL;
+    hal->buff_size_conv_format = 0;
     if (!hal->a2dphw.SetUp(AUDIO_DEVICE_OUT_BLUETOOTH_A2DP)) {
         ALOGE("BluetoothAudioPortOut setup fail");
         return -1;
@@ -195,6 +201,8 @@ int a2dp_out_close(struct audio_hw_device* dev) {
         delete hal->resample;
     if (hal->buff)
         delete hal->buff;
+    if (hal->buff_conv_format)
+        delete [] hal->buff_conv_format;
     hal->mutex_.unlock();
     delete hal;
     adev->a2dp_active = 0;
@@ -257,6 +265,8 @@ ssize_t a2dp_out_write(struct audio_stream_out* stream, const void* buffer, size
     size_t totalWritten = 0;
     int frame_size = 4; //2ch 16bits
     size_t frames = bytes / frame_size;
+    int wr_size = bytes;
+    const void * wr_buff = buffer;
 
     if (hal == NULL) {
         ALOGE("%s: a2dp hw is release", __func__);
@@ -280,6 +290,7 @@ ssize_t a2dp_out_write(struct audio_stream_out* stream, const void* buffer, size
             tmp_buffer[2*i] = (tmp_buffer_8ch[8*i]>>16);
             tmp_buffer[2*i+1] = (tmp_buffer_8ch[8*i+1]>>16);
         }
+        wr_size = frames * frame_size;
     }
     struct timespec ts = {.tv_sec = 0, .tv_nsec = 0};
     clock_gettime(CLOCK_MONOTONIC, &ts);
@@ -312,12 +323,59 @@ ssize_t a2dp_out_write(struct audio_stream_out* stream, const void* buffer, size
         if (out_frames == 0) {
             return bytes;
         }
-        out_size = out_frames * frame_size;
         frames = out_frames;
-        totalWritten = hal->a2dphw.WriteData(hal->buff, out_size);
-    } else {
-        totalWritten = hal->a2dphw.WriteData(buffer, bytes);
+        wr_buff = hal->buff;
+        wr_size = out_frames * frame_size;
     }
+
+    if (hal->config.channel_mask == AUDIO_CHANNEL_OUT_MONO) {
+        int16_t *tmp_buffer = (int16_t *)wr_buff;
+        for (int i=0; i<(int)frames; i++) {
+            tmp_buffer[i] = tmp_buffer[2*i];
+        }
+        wr_size = frames * 2;
+    }
+
+    if (hal->config.format == AUDIO_FORMAT_PCM_32_BIT) {
+        int out_size = wr_size*2;
+        if ((hal->buff_size_conv_format < out_size) || (hal->buff_conv_format == NULL)) {
+            if (hal->buff_conv_format)
+                delete [] hal->buff_conv_format;
+            hal->buff_conv_format = new char[out_size];
+            if (hal->buff_conv_format == NULL) {
+                ALOGE("realloc hal->buff fail: %d", out_size);
+                return bytes;
+            }
+            hal->buff_size_conv_format = out_size;
+        }
+        memcpy_to_i32_from_i16((int32_t *)hal->buff_conv_format, (int16_t *)wr_buff, wr_size/2);
+        wr_buff = hal->buff_conv_format;
+        wr_size = out_size;
+    } else if (hal->config.format == AUDIO_FORMAT_PCM_24_BIT_PACKED) {
+        int out_size = (wr_size*3+1)/2;
+        if ((hal->buff_size_conv_format < out_size) || (hal->buff_conv_format == NULL)) {
+            if (hal->buff_conv_format)
+                delete [] hal->buff_conv_format;
+            hal->buff_conv_format = new char[out_size];
+            if (hal->buff_conv_format == NULL) {
+                ALOGE("realloc hal->buff fail: %d", out_size);
+                return bytes;
+            }
+            hal->buff_size_conv_format = out_size;
+        }
+        memcpy_to_p24_from_i16((uint8_t *)hal->buff_conv_format, (int16_t *)wr_buff, wr_size/2);
+        wr_buff = hal->buff_conv_format;
+        wr_size = out_size;
+    }
+    if (property_get_int32("vendor.media.audiohal.a2dpdump", 0) > 0)  {
+        FILE *fp = fopen("/data/audio/a2dp.pcm", "a+");
+        if (fp) {
+            int flen = fwrite((char *)wr_buff, 1, wr_size, fp);
+            fclose(fp);
+        }
+    }
+    totalWritten = hal->a2dphw.WriteData(wr_buff, wr_size);
+
     lock.lock();
     if (totalWritten) {
         hal->last_write_time = ts.tv_sec * 1000000LL + ts.tv_nsec / 1000;
