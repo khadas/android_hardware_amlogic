@@ -114,7 +114,7 @@
 /*[SEI-zhaopf-2018-10-29] add for HBG remote audio support } */
 
 #include "sub_mixing_factory.h"
-#include "audio_a2dp_hw.h"
+#include "a2dp_hal.h"
 
 #include "aml_malloc_debug.h"
 
@@ -1087,7 +1087,7 @@ static int do_output_standby (struct aml_stream_out *out)
 
     ALOGD ("%s(%p)", __FUNCTION__, out);
 
-    if ((out->out_device & AUDIO_DEVICE_OUT_ALL_A2DP) && out->a2dp_out)
+    if ((out->out_device & AUDIO_DEVICE_OUT_ALL_A2DP) && adev->a2dp_hal)
         a2dp_out_standby(&out->stream.common);
 
     if (!out->standby) {
@@ -1157,7 +1157,7 @@ static int do_output_standby_direct (struct aml_stream_out *out)
 
     ALOGI ("%s,out %p", __FUNCTION__,  out);
 
-    if ((out->out_device & AUDIO_DEVICE_OUT_ALL_A2DP) && out->a2dp_out)
+    if ((out->out_device & AUDIO_DEVICE_OUT_ALL_A2DP) && adev->a2dp_hal)
         a2dp_out_standby(&out->stream.common);
 
     if (!out->standby) {
@@ -1515,18 +1515,18 @@ static int out_set_parameters (struct audio_stream *stream, const char *kvpairs)
         ret = 0;
         goto exit;
     }
+/*
     ret = str_parms_get_str (parms, "A2dpSuspended", value, sizeof (value) );
     if (ret >= 0) {
-        if (out->a2dp_out)
-            ret = a2dp_out_set_parameters(stream, kvpairs);
+        ret = a2dp_out_set_parameters(stream, kvpairs);
         goto exit;
     }
     ret = str_parms_get_str (parms, "closing", value, sizeof (value) );
     if (ret >= 0) {
-        if (out->a2dp_out)
-            ret = a2dp_out_set_parameters(stream, kvpairs);
+        ret = a2dp_out_set_parameters(stream, kvpairs);
         goto exit;
     }
+*/
 exit:
     str_parms_destroy (parms);
 
@@ -4783,6 +4783,8 @@ static int adev_set_parameters (struct audio_hw_device *dev, const char *kvpairs
     // HDMI cable plug off
     ret = str_parms_get_int(parms, "disconnect", &val);
     if (ret >= 0) {
+        if (val & AUDIO_DEVICE_BIT_IN)
+            goto exit;
         if ((val & AUDIO_DEVICE_OUT_HDMI_ARC) || (val & AUDIO_DEVICE_OUT_HDMI)) {
             adev->bHDMIConnected = 0;
             adev->bHDMIConnected_update = 1;
@@ -4794,6 +4796,7 @@ static int adev_set_parameters (struct audio_hw_device *dev, const char *kvpairs
         } else if (val & AUDIO_DEVICE_OUT_ALL_A2DP) {
             adev->a2dp_updated = 1;
             adev->out_device &= (~val);
+			a2dp_out_close(dev);
             ALOGI("adev_set_parameters a2dp disconnect: %x, device=%x\n", val, adev->out_device);
         }
         goto exit;
@@ -4802,6 +4805,8 @@ static int adev_set_parameters (struct audio_hw_device *dev, const char *kvpairs
     // HDMI cable plug in
     ret = str_parms_get_int(parms, "connect", &val);
     if (ret >= 0) {
+        if (val & AUDIO_DEVICE_BIT_IN)
+            goto exit;
         if ((val & AUDIO_DEVICE_OUT_HDMI_ARC) || (val & AUDIO_DEVICE_OUT_HDMI)) {
             adev->bHDMIConnected = 1;
             ALOGI("%s,bHDMIConnected: %d\n", __FUNCTION__, val);
@@ -4812,6 +4817,7 @@ static int adev_set_parameters (struct audio_hw_device *dev, const char *kvpairs
         } else if (val & AUDIO_DEVICE_OUT_ALL_A2DP) {
             adev->a2dp_updated = 1;
             adev->out_device |= val;
+			a2dp_out_open(dev);
             ALOGI("adev_set_parameters a2dp connect: %x, device=%x\n", val, adev->out_device);
         }
         goto exit;
@@ -5486,33 +5492,6 @@ static int adev_set_parameters (struct audio_hw_device *dev, const char *kvpairs
         goto exit;
     }
 
-#if defined(AUDIO_EFFECT_EXTERN_DEVICE)
-    if (adev->a2dp_output) {
-        struct a2dp_stream_out* out = (struct a2dp_stream_out*)adev->a2dp_output;
-        ret = str_parms_get_str(parms, "BT_GAIN", value, sizeof(value));
-        if (ret >= 0) {
-            sscanf(value, "%f", &out->bt_gain);
-            ALOGI("%s() audio bt gain: %f", __func__,out->bt_gain);
-        }
-        ret = str_parms_get_str(parms, "BT_MUTE", value, sizeof(value));
-        if (ret >= 0) {
-            sscanf(value, "%d", &out->bt_unmute);
-            ALOGI("%s() audio bt unmute: %d", __func__,out->bt_unmute);
-        }
-
-        ret = str_parms_get_str(parms, "BT_GAIN_RIGHT", value, sizeof(value));
-        if (ret >= 0) {
-            sscanf(value, "%f %f", &out->right_gain,&out->left_gain);
-            ALOGI("%s() audio bt right gain: %f left gain is %f", __func__,out->right_gain, out->left_gain);
-        }
-        ret = str_parms_get_str(parms, "BT_GAIN_LEFT", value, sizeof(value));
-        if (ret >= 0) {
-            sscanf(value, "%f %f", &out->left_gain,&out->right_gain);
-            ALOGI("%s() audio bt left gain: %f right gain is %f", __func__,out->left_gain, out->right_gain);
-        }
-    }
-#endif
-
     ret = str_parms_get_str(parms, "hfp_set_sampling_rate", value, sizeof(value));
     if (ret >= 0) {
         ALOGE ("Amlogic_HAL - %s: hfp_set_sampling_rate. Abort function and return 0.", __FUNCTION__);
@@ -6143,7 +6122,7 @@ int do_output_standby_l(struct audio_stream *stream)
         ALOGI("%s(%p), stream usecase %d invalid ", __func__, aml_out, aml_out->usecase);
     }
 
-    if ((aml_out->out_device & AUDIO_DEVICE_OUT_ALL_A2DP) && aml_out->a2dp_out) {
+    if ((aml_out->out_device & AUDIO_DEVICE_OUT_ALL_A2DP) && adev->a2dp_hal) {
         a2dp_out_standby(stream);
         if ((eDolbyMS12Lib == adev->dolby_lib_type) && (ms12->dolby_ms12_enable == true)) {
             get_dolby_ms12_cleanup(&adev->ms12);
@@ -7171,7 +7150,7 @@ ssize_t hw_write (struct audio_stream_out *stream
             }
         }
     }
-    if (aml_out->pcm || aml_out->a2dp_out) {
+    if (aml_out->pcm || adev->a2dp_hal) {
         if (adjust_ms) {
             int adjust_bytes = 0;
             if ((output_format == AUDIO_FORMAT_E_AC3) || (output_format == AUDIO_FORMAT_AC3)) {
@@ -7209,9 +7188,7 @@ ssize_t hw_write (struct audio_stream_out *stream
                 }
             } else {
                 memset((void*)buffer, 0, bytes);
-                if (aml_out->a2dp_out) {
-                    adjust_bytes = 48 * 4 * abs(adjust_ms); // 2ch 16bit
-                } else if (output_format == AUDIO_FORMAT_E_AC3) {
+                if (output_format == AUDIO_FORMAT_E_AC3) {
                     adjust_bytes = 192 * 4 * abs(adjust_ms);
                 } else if (output_format == AUDIO_FORMAT_AC3) {
                     adjust_bytes = 48 * 4 * abs(adjust_ms);
@@ -7366,7 +7343,6 @@ ssize_t hw_write (struct audio_stream_out *stream
                 if (!adev->ms12.nbytes_of_dmx_output_pcm_frame)
                     adev->ms12.nbytes_of_dmx_output_pcm_frame = nbytes_of_dolby_ms12_downmix_output_pcm_frame();
                 total_frame = dolby_ms12_get_n_bytes_pcmout_of_udc() / adev->ms12.nbytes_of_dmx_output_pcm_frame;
-                total_frame += aml_out->continuous_audio_offset;
                 write_frames =  aml_out->total_ddp_frame_nblks * 256;/*256samples in one block*/
                 if (adev->debug_flag) {
                     ALOGI("%s,total_frame %llu write_frames %"PRIu64" total frame block nums %"PRIu64"",
@@ -7455,13 +7431,6 @@ void config_output(struct audio_stream_out *stream)
         is_arc_connected = 1;
     }
 
-    if (aml_out->out_device & AUDIO_DEVICE_OUT_ALL_A2DP) {
-        ALOGD("config_output: output: %p, a2dp_out=%p", aml_out, aml_out->a2dp_out);
-        if (aml_out->a2dp_out == NULL)
-            a2dp_output_enable(stream);
-    } else {
-        a2dp_output_disable(stream);
-    }
     /*
     *   when ARC is connecting, and user switch [Sound Output Device] to "ARC"
     *   we need to set out_port as OUTPORT_HDMI_ARC ,
@@ -8995,7 +8964,6 @@ int adev_open_output_stream_new(struct audio_hw_device *dev,
             aml_out->stream.resume = out_resume_new;
             aml_out->stream.flush = out_flush_new;
         }
-        a2dp_output_enable(&aml_out->stream);
     }
     aml_out->codec_type = get_codec_type(aml_out->hal_internal_format);
 
@@ -9021,9 +8989,6 @@ void adev_close_output_stream_new(struct audio_hw_device *dev,
     ALOGD("%s: enter usecase = %s", __func__, str_usecases[aml_out->usecase]);
     /* call legacy close to reuse codes */
     adev->active_outputs[aml_out->usecase] = NULL;
-    if (aml_out->out_device & AUDIO_DEVICE_OUT_ALL_A2DP) {
-        a2dp_output_disable(stream);
-    }
 
     if (adev->useSubMix) {
         if (aml_out->is_normal_pcm || aml_out->usecase == STREAM_PCM_HWSYNC) {

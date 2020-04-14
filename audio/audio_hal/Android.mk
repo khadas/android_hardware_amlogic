@@ -52,7 +52,8 @@ include $(BUILD_PREBUILT)
         alsa_manager.c \
         audio_hw_ms12.c \
         audio_hw_dtv.c \
-        audio_a2dp_hw.c \
+        a2dp_hw.cpp \
+        a2dp_hal.cpp \
         aml_audio_stream.c \
         alsa_config_parameters.c \
         spdif_encoder_api.c \
@@ -83,6 +84,7 @@ include $(BUILD_PREBUILT)
         system/media/audio_effects/include \
         system/media/audio_route/include \
         system/core/include \
+        system/libfmq/include \
         hardware/libhardware/include \
         $(LOCAL_PATH)/../libms12/include \
         hardmare/amlogic/audio/libms12/include \
@@ -102,6 +104,15 @@ include $(BUILD_PREBUILT)
         libdroidaudiospdif libamaudioutils libamlaudiorc libamadec \
         libam_adp \
         libnano
+
+    LOCAL_SHARED_LIBRARIES += \
+        android.hardware.bluetooth.audio@2.0 \
+        android.hardware.bluetooth.audio@2.0-impl \
+        libbluetooth_audio_session \
+        libbase \
+        libfmq
+
+
 #/*[SEI-zhaopf-2018-12-18] add for HBG remote audio support { */
 ifeq ($(BOARD_ENABLE_HBG), true)
     LOCAL_SHARED_LIBRARIES += libhbg
