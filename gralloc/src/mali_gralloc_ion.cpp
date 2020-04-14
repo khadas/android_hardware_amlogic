@@ -1150,7 +1150,6 @@ int mali_gralloc_ion_map(private_handle_t *hnd)
 		unsigned char *mappedAddress = (unsigned char *)mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_SHARED, hnd->share_fd, 0);
 		imported_ion_client.emplace(hnd->share_fd, dev->client());
 		imported_user_hnd.emplace(hnd->share_fd, user_hnd);
-		AINF("ddebug, pair (share_fd=%d, user_hnd=%x, ion_client=%d)", hnd->share_fd, user_hnd, dev->client());
 
 		if (MAP_FAILED == mappedAddress)
 		{
@@ -1189,9 +1188,10 @@ void mali_gralloc_ion_unmap(private_handle_t *hnd)
 		auto ion_client_iter = imported_ion_client.find(hnd->share_fd);
 		if (user_hnd_iter != imported_user_hnd.end()
 				&& ion_client_iter != imported_ion_client.end()) {
-			AINF("ddebug, free share_fd=%d, user_hnd=0x%x, ion client=%d\n",
-				hnd->share_fd, user_hnd_iter->second, ion_client_iter->second);
-			ion_free(ion_client_iter->second, user_hnd_iter->second);
+
+			if (ion_is_legacy(ion_client_iter->second) != 0)
+				ion_free(ion_client_iter->second, user_hnd_iter->second);
+
 			imported_user_hnd.erase(user_hnd_iter);
 			imported_ion_client.erase(ion_client_iter);
 		}
