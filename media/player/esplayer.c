@@ -139,6 +139,8 @@ static void signal_handler(int signum)
     vcodec_close(vpcodec);
     fclose(fp);
     set_display_axis(1);
+    osd_blank("/sys/class/graphics/fb0/blank", 0);
+    osd_blank("/sys/class/graphics/fb0/osd_display_debug", 0);
     signal(signum, SIG_DFL);
     raise(signum);
 }
@@ -151,13 +153,16 @@ int main(int argc, char *argv[])
     uint32_t Readlen;
     uint32_t isize;
     struct buf_status vbuf;
+    int end;
+    int cnt = 0;
+    uint32_t last_rp = 1;
 
     if (argc < 6) {
         printf("Corret command: esplayer <filename> <width> <height> <fps> <format(1:mpeg4 2:h264 6:vc1)> [subformat for mpeg4/vc1]\n");
         return -1;
     }
+    osd_blank("/sys/class/graphics/fb0/osd_display_debug", 1);
     osd_blank("/sys/class/graphics/fb0/blank", 1);
-    osd_blank("/sys/class/graphics/fb1/blank", 0);
     set_display_axis(0);
 
     vpcodec = &v_codec_para;
@@ -197,42 +202,62 @@ int main(int argc, char *argv[])
 
     if ((fp = fopen(filename, "rb")) == NULL) {
         printf("open file error!\n");
-        return -1;
+        goto osd_restore;
     }
 
     ret = vcodec_init(vpcodec);
     if (ret != CODEC_ERROR_NONE) {
+        fclose(fp);
         printf("codec init failed, ret=-0x%x", -ret);
-        return -1;
+        goto osd_restore;
     }
     printf("video codec ok!\n");
 
     set_tsync_enable(0);
 
     pcodec = vpcodec;
-    while (!feof(fp)) {
-        Readlen = fread(buffer, 1, READ_SIZE, fp);
-        //printf("Readlen %d\n", Readlen);
-        if (Readlen <= 0) {
-            printf("read file error!\n");
-            rewind(fp);
-        }
+    end = 0;
+    while (1) {
+        if (!end) {
+            Readlen = fread(buffer, 1, READ_SIZE, fp);
+            //printf("Readlen %d\n", Readlen);
+            if (Readlen <= 0) {
+                printf("read file error!\n");
+                rewind(fp);
+            }
+        } else
+            Readlen = 0;
 
         isize = 0;
+        if (end) {
+            memset(buffer, 0 ,READ_SIZE);
+            Readlen = READ_SIZE - 10;
+        }
+        cnt = 0;
         do {
             ret = vcodec_write(pcodec, buffer + isize, Readlen);
-            if (ret < 0) {
+            if (ret <= 0) {
                 if (errno != EAGAIN) {
                     printf("write data failed, errno %d\n", errno);
                     goto error;
                 } else {
+                    usleep(10);
+                    if (++cnt > 2000000) {
+                      end = 1;
+                      break;
+                    }
                     continue;
                 }
             } else {
                 isize += ret;
+                cnt = 0;
             }
             //printf("ret %d, isize %d\n", ret, isize);
         } while (isize < Readlen);
+        if (end)
+            break;
+        if (feof(fp))
+            end = 1;
 
         signal(SIGCHLD, SIG_IGN);
         signal(SIGTSTP, SIG_IGN);
@@ -244,19 +269,29 @@ int main(int argc, char *argv[])
         signal(SIGINT, signal_handler);
         signal(SIGQUIT, signal_handler);
     }
-
+    cnt = 0;
     do {
         ret = vcodec_get_vbuf_state(pcodec, &vbuf);
         if (ret != 0) {
             printf("vcodec_get_vbuf_state error: %x\n", -ret);
             goto error;
         }
+        if (last_rp != vbuf.read_pointer)
+            cnt = 0;
+        last_rp = vbuf.read_pointer;
+        usleep(10000);
+        if (++cnt > 500)
+            break;
     } while (vbuf.data_len > 0x100);
 
+    printf("play end\n");
 error:
     vcodec_close(vpcodec);
     fclose(fp);
+osd_restore:
     set_display_axis(1);
+    osd_blank("/sys/class/graphics/fb0/blank", 0);
+    osd_blank("/sys/class/graphics/fb0/osd_display_debug", 0);
 
     return 0;
 }
