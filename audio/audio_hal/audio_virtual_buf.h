@@ -29,4 +29,5 @@ int audio_virtual_buf_close(void **pphandle);
 
 int audio_virtual_buf_process(void *phandle, uint64_t frame_ns);
 
+int audio_virtual_buf_reset(void *phandle);
 #endif

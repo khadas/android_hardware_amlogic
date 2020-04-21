@@ -76,7 +76,8 @@ include $(BUILD_PREBUILT)
         audio_dtv_ad.c \
         audio_virtual_buf.c \
         aml_audio_ease.c \
-        aml_audio_spdifout.c
+        aml_audio_spdifout.c \
+        aml_mmap_audio.c 
 
 
     LOCAL_C_INCLUDES += \
@@ -84,6 +85,7 @@ include $(BUILD_PREBUILT)
         system/media/audio_utils/include \
         system/media/audio_effects/include \
         system/media/audio_route/include \
+        system/core/libion/include \
         system/core/include \
         system/libfmq/include \
         hardware/libhardware/include \
@@ -104,7 +106,8 @@ include $(BUILD_PREBUILT)
         libaudioutils libdl libaudioroute libutils \
         libdroidaudiospdif libamaudioutils libamlaudiorc libamadec \
         libam_adp \
-        libnano
+        libnano \
+        libion
 
     LOCAL_SHARED_LIBRARIES += \
         android.hardware.bluetooth.audio@2.0 \
