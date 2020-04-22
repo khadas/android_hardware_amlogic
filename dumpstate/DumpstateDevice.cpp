@@ -244,10 +244,10 @@ Return<void> DumpstateDevice::dumpstateBoard(const hidl_handle& handle) {
 #ifdef VENDOR_DUMPSTATE_DEBUG
     (void) handle;
 
-    //std::string path("/sys/kernel/debug/aml_clkmsr/clkmsr");
-    //char buf[2048] = {0};
-    //readSys(path.c_str(), buf, 2048);
-    //ALOGI("read:%s ,value: %s", path.c_str(), buf);
+    std::string path("/proc/pagetrace");
+    char buf[2048] = {0};
+    readSys(path.c_str(), buf, 2048);
+    ALOGI("read:%s ,value: %s", path.c_str(), buf);
 
     //RunCommand("panel", {"vendor/bin/sh", "-c", "echo dump > /sys/class/lcd/debug"}, DONT_DROP_ROOT, 1000*1000);
     return Void();
@@ -270,7 +270,11 @@ Return<void> DumpstateDevice::dumpstateBoard(const hidl_handle& handle) {
 
     //interrupts
     DumpFileToFd(fd, "INTERRUPTS", "/proc/interrupts");
-    DumpFileToFd(fd, "INTERRUPTS", "/sys/module/rdma_mgr/parameters/reset_count");
+
+    //page trace
+    DumpFileToFd(fd, "pagetrace", "/proc/pagetrace");
+
+    DumpFileToFd(fd, "rdma_mgr", "/sys/module/rdma_mgr/parameters/reset_count");
 
     //vframe
     DumpFileToFd(fd, "vframe", "/sys/class/video/vframe_states");
@@ -312,6 +316,7 @@ Return<void> DumpstateDevice::dumpstateBoard(const hidl_handle& handle) {
     DumpFileToFd(fd, "vout", "/sys/class/display/vinfo");
 
     // Dump CBUS/VCBUS registers
+    /*
     RunCommandToFd(fd, "CBUS/VCBUS", {"vendor/bin/sh", "-c", "echo c8834400 128 > /sys/kernel/debug/aml_reg/dump;cat /sys/kernel/debug/aml_reg/dump"}, CommandOptions::WithTimeout(1).Build());
     RunCommandToFd(fd, "CBUS/VCBUS", {"vendor/bin/sh", "-c", "echo c883c000 128 > /sys/kernel/debug/aml_reg/dump;cat /sys/kernel/debug/aml_reg/dump"}, CommandOptions::WithTimeout(1).Build());
     RunCommandToFd(fd, "CBUS/VCBUS", {"vendor/bin/sh", "-c", "echo c883c200 128 > /sys/kernel/debug/aml_reg/dump;cat /sys/kernel/debug/aml_reg/dump"}, CommandOptions::WithTimeout(1).Build());
@@ -321,6 +326,7 @@ Return<void> DumpstateDevice::dumpstateBoard(const hidl_handle& handle) {
     RunCommandToFd(fd, "CBUS/VCBUS", {"vendor/bin/sh", "-c", "echo d0107200 128 > /sys/kernel/debug/aml_reg/dump;cat /sys/kernel/debug/aml_reg/dump"}, CommandOptions::WithTimeout(1).Build());
     RunCommandToFd(fd, "CBUS/VCBUS", {"vendor/bin/sh", "-c", "echo d0109c00 128 > /sys/kernel/debug/aml_reg/dump;cat /sys/kernel/debug/aml_reg/dump"}, CommandOptions::WithTimeout(1).Build());
     RunCommandToFd(fd, "CBUS/VCBUS", {"vendor/bin/sh", "-c", "echo d0109e00 128 > /sys/kernel/debug/aml_reg/dump;cat /sys/kernel/debug/aml_reg/dump"}, CommandOptions::WithTimeout(1).Build());
+    */
 
     //Dump HDMI registers
     RunCommandToFd(fd, "HDMI", {"vendor/bin/sh", "-c", "echo dumptiming  > /sys/class/amhdmitx/amhdmitx0/debug"}, CommandOptions::WithTimeout(1).Build());
@@ -346,7 +352,7 @@ Return<void> DumpstateDevice::dumpstateBoard(const hidl_handle& handle) {
     DumpFileToFd(fd, "super scaler", "/sys/module/amvideo/parameters/sharpness1_sr2_ctrl_32d7");
     DumpFileToFd(fd, "super scaler", "/sys/module/amvideo/parameters/sharpness1_sr2_ctrl_3280");
 
-    RunCommandToFd(fd, "CORE0", {"vendor/bin/sh", "-c", "echo 0xd010c800 0x65 > /sys/kernel/debug/aml_reg/dump;cat /sys/kernel/debug/aml_reg/dump"}, CommandOptions::WithTimeout(1).Build());
+    //RunCommandToFd(fd, "CORE0", {"vendor/bin/sh", "-c", "echo 0xd010c800 0x65 > /sys/kernel/debug/aml_reg/dump;cat /sys/kernel/debug/aml_reg/dump"}, CommandOptions::WithTimeout(1).Build());
 
     //vdin
     RunCommandToFd(fd, "vdin", {"vendor/bin/sh", "-c", "echo state >/sys/devices/platform/vdin0/vdin/vdin0/attr"}, CommandOptions::WithTimeout(1).Build());
@@ -379,8 +385,8 @@ Return<void> DumpstateDevice::dumpstateBoard(const hidl_handle& handle) {
     DumpFileToFd(fd, "amvecm", "/sys/module/am_vecm/parameters/cur_csc_type");
 
     //cm size
-    RunCommandToFd(fd, "cm size", {"vendor/bin/sh", "-c", "echo 0xd01075c0 0x205 > /sys/kernel/debug/aml_reg/paddr;echo 0xd01075c4 > /sys/kernel/debug/aml_reg/paddr;cat /sys/kernel/debug/aml_reg/paddr"}, CommandOptions::WithTimeout(1).Build());
-    RunCommandToFd(fd, "cm size", {"vendor/bin/sh", "-c", "echo 0xd01075c0 0x209 > /sys/kernel/debug/aml_reg/paddr;echo 0xd01075c4 > /sys/kernel/debug/aml_reg/paddr;cat /sys/kernel/debug/aml_reg/paddr"}, CommandOptions::WithTimeout(1).Build());
+    //RunCommandToFd(fd, "cm size", {"vendor/bin/sh", "-c", "echo 0xd01075c0 0x205 > /sys/kernel/debug/aml_reg/paddr;echo 0xd01075c4 > /sys/kernel/debug/aml_reg/paddr;cat /sys/kernel/debug/aml_reg/paddr"}, CommandOptions::WithTimeout(1).Build());
+    //RunCommandToFd(fd, "cm size", {"vendor/bin/sh", "-c", "echo 0xd01075c0 0x209 > /sys/kernel/debug/aml_reg/paddr;echo 0xd01075c4 > /sys/kernel/debug/aml_reg/paddr;cat /sys/kernel/debug/aml_reg/paddr"}, CommandOptions::WithTimeout(1).Build());
 
     //dmc monitor
     RunCommandToFd(fd, "dmc_monitor", {"vendor/bin/sh", "-c", "echo 0x000000000  0x80000000  > /sys/class/dmc_monitor/range"}, CommandOptions::WithTimeout(1).Build());
