@@ -106,11 +106,12 @@ void aml_audio_set_spdif_format(int spdif_port, eMixerSpdif_Format aml_spdif_for
     int spdif_format_ctr_id = AML_MIXER_ID_SPDIF_FORMAT;
     int spdif_to_hdmi_select = AML_SPDIF_A_TO_HDMITX;
 
-    if ((spdif_port != PORT_SPDIF) && (spdif_port != PORT_SPDIFB)) {
+    if ((spdif_port != PORT_SPDIF) && (spdif_port != PORT_SPDIFB) && spdif_port != PORT_I2S2HDMI) {
         return;
     }
 
-    if (spdif_port == PORT_SPDIF) {
+    /* i2s2hdmi multi-ch use spdifa fmt too */
+    if (spdif_port == PORT_SPDIF || spdif_port == PORT_I2S2HDMI) {
         spdif_format_ctr_id = AML_MIXER_ID_SPDIF_FORMAT;
     } else if (spdif_port == PORT_SPDIFB) {
         spdif_format_ctr_id = AML_MIXER_ID_SPDIF_B_FORMAT;
@@ -119,7 +120,7 @@ void aml_audio_set_spdif_format(int spdif_port, eMixerSpdif_Format aml_spdif_for
     aml_mixer_ctrl_set_int(&aml_dev->alsa_mixer, spdif_format_ctr_id, aml_spdif_format);
 
     /*use same source for normal pcm case*/
-    if (aml_spdif_format == AML_STEREO_PCM) {
+    if (aml_spdif_format == AML_STEREO_PCM || aml_spdif_format == AML_MULTI_CH_LPCM) {
         aml_mixer_ctrl_set_int(&aml_dev->alsa_mixer, AML_MIXER_ID_SPDIF_TO_HDMI,  AML_SPDIF_A_TO_HDMITX);
         aml_mixer_ctrl_set_int(&aml_dev->alsa_mixer, AML_MIXER_ID_SPDIF_FORMAT, aml_spdif_format);
         aml_mixer_ctrl_set_int(&aml_dev->alsa_mixer, AML_MIXER_ID_SPDIF_B_FORMAT, aml_spdif_format);
