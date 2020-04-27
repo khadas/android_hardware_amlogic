@@ -75,7 +75,8 @@ include $(BUILD_PREBUILT)
         aml_audio_timer.c \
         audio_dtv_ad.c \
         audio_virtual_buf.c \
-        aml_audio_ease.c
+        aml_audio_ease.c \
+        aml_audio_spdifout.c
 
 
     LOCAL_C_INCLUDES += \

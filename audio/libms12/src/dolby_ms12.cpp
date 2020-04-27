@@ -184,6 +184,17 @@ extern "C" int dolby_ms12_register_bitstream_callback(void *callback, void *priv
     }
 }
 
+extern "C" int dolby_ms12_register_spdif_bitstream_callback(void *callback, void *priv_data)
+{
+    android::DolbyMS12* dolby_ms12_instance = getInstance();
+    if (dolby_ms12_instance) {
+        return dolby_ms12_instance->DolbyMS12RegisterSpdifBitstreamCallback((android::output_callback)callback, priv_data);
+    } else {
+        return -1;
+    }
+}
+
+
 #else
 
 extern "C" int dolby_ms12_output(void *dolbyMS12_pointer

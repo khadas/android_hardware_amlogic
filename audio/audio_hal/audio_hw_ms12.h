@@ -99,6 +99,11 @@ int pcm_output(void *buffer, void *priv_data, size_t size);
 int bitstream_output(void *buffer, void *priv_data, size_t size);
 
 /*
+ *@brief an callback for dolby ms12 bitstream output
+ */
+int spdif_bitstream_output(void *buffer, void *priv_data, size_t size);
+
+/*
  *@brief dolby ms12 register the callback
  */
 int dolby_ms12_register_callback(struct aml_stream_out *aml_out);

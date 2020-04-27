@@ -24,27 +24,32 @@ extern "C" {
 /*
  *@brief init the spdif encoder advanced
  */
-int spdif_encoder_ad_init(audio_format_t format, const void *output, int max_output_size);
+int spdif_encoder_ad_init(void **pphandle, audio_format_t format, const void *output, int max_output_size);
+
+/*
+ *@brief deinit the spdif encoder
+ */
+int spdif_encoder_ad_deinit(void *phandle);
 
 /*
  *@brief send the data to spdif encoder advaned
  */
-int spdif_encoder_ad_write(const void *buffer, size_t numBytes);
+int spdif_encoder_ad_write(void *phandle, const void *buffer, size_t numBytes);
 
 /*
  *@brief get total iec61937 data size
  */
-uint64_t spdif_encoder_ad_get_total();
+uint64_t spdif_encoder_ad_get_total(void *phandle);
 
 /*
  *@brief get current iec61937 data size
  */
-size_t spdif_encoder_ad_get_current_position(void);
+size_t spdif_encoder_ad_get_current_position(void *phandle);
 
 /*
  *@brief flush output iec61937 data current position to zero!
  */
-void spdif_encoder_ad_flush_output_current_position(void);
+void spdif_encoder_ad_flush_output_current_position(void *phandle);
 
 #ifdef __cplusplus
 }

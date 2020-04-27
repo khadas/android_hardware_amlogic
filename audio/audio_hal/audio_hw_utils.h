@@ -68,5 +68,6 @@ void aml_audio_switch_output_mode(int16_t *buf, size_t bytes, AM_AOUT_OutputMode
 int aml_audio_compensate_video_delay( int enable);
 int aml_audio_get_ms12_timestamp_offset(void);
 int aml_audio_delay_timestamp(struct timespec *timestamp, int delay_time_ms);
-
+int halformat_convert_to_spdif(audio_format_t format);
+int alsa_device_get_port_index(alsa_device_t alsa_device);
 #endif

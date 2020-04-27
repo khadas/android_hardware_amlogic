@@ -124,6 +124,15 @@ int dolby_ms12_register_pcm_callback(void *callback, void *priv_data);
     @void *priv_data //priv data
 */
 int dolby_ms12_register_bitstream_callback(void *callback, void *priv_data);
+
+/*@@
+    @brief register the spdif bitstream callback
+
+    @void *callback //spdif bitstream callback handle
+    @void *priv_data //priv data
+*/
+int dolby_ms12_register_spdif_bitstream_callback(void *callback, void *priv_data);
+
 #else
 /*@@
     @brief Get output data

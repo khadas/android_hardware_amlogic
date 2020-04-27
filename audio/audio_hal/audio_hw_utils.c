@@ -45,6 +45,7 @@
 #include "amlAudioMixer.h"
 #include <audio_utils/primitives.h>
 #include "a2dp_hal.h"
+#include "alsa_device_parser.h"
 
 #ifdef LOG_NDEBUG_FUNCTION
 #define LOGFUNC(...) ((void)0)
@@ -1072,4 +1073,45 @@ int aml_audio_delay_timestamp(struct timespec *timestamp, int delay_time_ms) {
     timestamp->tv_nsec = new_time_ns - timestamp->tv_sec*1000000000LL;
 
     return 0;
+}
+
+int halformat_convert_to_spdif(audio_format_t format) {
+    int aml_spdif_format = AML_STEREO_PCM;
+    switch (format) {
+        case AUDIO_FORMAT_PCM_16_BIT:
+            aml_spdif_format = AML_STEREO_PCM;
+            break;
+        case AUDIO_FORMAT_AC3:
+            aml_spdif_format = AML_DOLBY_DIGITAL;
+            break;
+        case AUDIO_FORMAT_E_AC3:
+            aml_spdif_format = AML_DOLBY_DIGITAL_PLUS;
+            break;
+        case AUDIO_FORMAT_DTS:
+            aml_spdif_format = AML_DTS;
+            break;
+        case AUDIO_FORMAT_DTS_HD:
+            aml_spdif_format = AML_DTS_HD;
+            break;
+        default:
+            aml_spdif_format = AML_STEREO_PCM;
+            break;
+    }
+    return aml_spdif_format;
+}
+
+/*
+ * convert alsa_device_t to PORT***
+ */
+int alsa_device_get_port_index(alsa_device_t alsa_device)
+{
+    int alsa_port = -1;
+    if (alsa_device == I2S_DEVICE) {
+        alsa_port = PORT_I2S;
+    } else if (alsa_device == DIGITAL_DEVICE) {
+        alsa_port = PORT_SPDIF;
+    } else if (alsa_device == DIGITAL_DEVICE2) {
+        alsa_port = PORT_SPDIFB;
+    }
+    return alsa_port;
 }

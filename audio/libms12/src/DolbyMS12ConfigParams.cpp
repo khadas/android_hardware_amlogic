@@ -134,6 +134,7 @@ DolbyMS12ConfigParams::DolbyMS12ConfigParams():
     , mHasAssociateInput(false)
     , mHasSystemInput(false)
     , mDualOutputFlag(false)
+    , mDualBitstreamOut(false)
     , mActivateOTTSignal(false)
     , mChannelConfOTTSoundsIn(2)//2.0 if mActivateOTTSignal is true
     , mLFEPresentInOTTSoundIn(0)//on(default) if mActivateOTTSignal is true
@@ -365,6 +366,12 @@ int DolbyMS12ConfigParams::SetInputOutputFileName(char **ConfigParams, int *row_
         (*row_index)++;
         sprintf(ConfigParams[*row_index], "%s", DEFAULT_OUTPUT_DDP_FILE_NAME);
         (*row_index)++;
+        if (mDualBitstreamOut) {
+            sprintf(ConfigParams[*row_index], "%s", "-od");
+            (*row_index)++;
+            sprintf(ConfigParams[*row_index], "%s", DEFAULT_OUTPUT_DD_FILE_NAME);
+            (*row_index)++;
+        }
     } else if ((mDolbyMS12OutFormat == AUDIO_FORMAT_PCM_16_BIT) && (mStereoOutputFlag == false) && (mDAPInitMode != 0)) { //pcm multi
         sprintf(ConfigParams[*row_index], "%s", "-om");
         (*row_index)++;

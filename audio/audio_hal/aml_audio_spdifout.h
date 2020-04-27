@@ -14,13 +14,22 @@
  * limitations under the License.
  */
 
-#ifndef _SPDIF_ENCODER_API_H_
-#define _SPDIF_ENCODER_API_H_
+#ifndef _SPDIF_OUT_API_H_
+#define _SPDIF_OUT_API_H_
 
-int aml_spdif_encoder_open(void **spdifenc_handle, audio_format_t format);
-int aml_spdif_encoder_close(void *phandle);
-int aml_spdif_encoder_process(void *phandle, const void *buffer, size_t numBytes, void **output_buf, size_t *out_size);
+#include "audio_hw.h"
+
+int aml_audio_get_spdif_port(eMixerSpdif_Format spdif_format);
+int aml_audio_get_spdifa_port(void);
+void aml_audio_set_spdif_format(int spdif_port, eMixerSpdif_Format aml_spdif_format, struct aml_stream_out *stream);
+
+void aml_audio_select_spdif_to_hdmi(int spdif_select);
+
+int aml_audio_spdifout_open(void **pphandle, audio_format_t audio_format);
+
+int aml_audio_spdifout_processs(void *phandle, void *buffer, size_t byte);
+
+int aml_audio_spdifout_close(void *phandle);
 
 
-
-#endif // _ALSA_MANAGER_H_
+#endif

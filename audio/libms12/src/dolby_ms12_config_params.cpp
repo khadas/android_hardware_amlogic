@@ -774,6 +774,15 @@ extern "C" void dolby_ms12_set_dual_output_flag(bool need_dual_output)
     }
 }
 
+extern "C" void dolby_ms12_set_dual_bitstream_out(bool need_dual_output)
+{
+    ALOGV("%s()\n", __FUNCTION__);
+    android::DolbyMS12ConfigParams *config_param = getInstance();
+    if (config_param) {
+        return config_param->setDualBitstreamOut(need_dual_output);
+    }
+}
+
 extern "C" void set_dolby_ms12_continuous_mode(bool flag)
 {
     ALOGV("%s()\n", __FUNCTION__);

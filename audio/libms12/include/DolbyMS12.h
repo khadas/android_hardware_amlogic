@@ -87,6 +87,8 @@ public:
 
     virtual int     DolbyMS12RegisterBitstreamCallback(output_callback callback, void *priv_data);
 
+    virtual int     DolbyMS12RegisterSpdifBitstreamCallback(output_callback callback, void *priv_data);
+
 #else
 
     virtual int     DolbyMS12Output(

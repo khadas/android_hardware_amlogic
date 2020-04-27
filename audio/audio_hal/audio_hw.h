@@ -234,8 +234,9 @@ typedef enum stream_usecase {
 
 typedef enum alsa_device {
     I2S_DEVICE = 0,
-    DIGITAL_DEVICE,
+    DIGITAL_DEVICE, /*for spdifa*/
     TDM_DEVICE,
+    DIGITAL_DEVICE2, /*for spdifb*/
     ALSA_DEVICE_CNT
 } alsa_device_t;
 
@@ -339,9 +340,6 @@ struct aml_audio_device {
     /* list head for audio_patch */
     struct listnode patch_list;
 
-    void *temp_buf;
-    int temp_buf_size;
-    int temp_buf_pos;
     bool dual_spdifenc_inited;
     bool dual_decoder_support;
 
@@ -472,7 +470,6 @@ struct aml_audio_device {
     int sub_afmt;
     int reset_dtv_audio;
     bool compensate_video_enable;
-
     int patch_start;
     int mute_start;
     aml_audio_ease_t  *audio_ease;
@@ -485,6 +482,8 @@ struct aml_audio_device {
     int start_mute_flag;
     int ad_start_enable;
     int count;
+    void *alsa_handle[ALSA_DEVICE_CNT];
+    bool dual_spdif_support; /*1 means supports spdif_a & spdif_b & spdif interface*/
 };
 
 struct meta_data {
@@ -497,6 +496,27 @@ struct meta_data_list {
     struct listnode list;
     struct meta_data mdata;
 };
+
+typedef struct aml_stream_config {
+    struct audio_config config;
+} aml_stream_config_t;
+
+typedef struct aml_device_config {
+    uint32_t device_port;
+
+} aml_device_config_t;
+
+typedef enum info_type {
+    PCMOUTPUT_CONFIG_INFO,   // refer to aml_stream_config
+    OUTPUT_INFO_STATUS,      // running or xrun etc..
+    OUTPUT_INFO_DELAYFRAME,  // the delay frames
+} info_type_t;
+
+typedef union output_info {
+    int                 delay_frame;
+
+} output_info_t;
+
 
 struct aml_stream_out {
     struct audio_stream_out stream;
@@ -602,6 +622,11 @@ struct aml_stream_out {
     bool bypass_submix;
     int need_drop_size;
     int position_update;
+    bool spdifenc_init;
+    void *spdifenc_handle;
+    bool dual_spdif;
+    int codec_type2;  /*used for dual bitstream output*/
+    struct pcm *pcm2; /*used for dual bitstream output*/
 };
 
 typedef ssize_t (*write_func)(struct audio_stream_out *stream, const void *buffer, size_t bytes);
@@ -784,5 +809,7 @@ void config_output(struct audio_stream_out *stream);
 int start_ease_in(struct aml_audio_device *adev);
 int start_ease_out(struct aml_audio_device *adev);
 int out_standby_direct (struct audio_stream *stream);
+
+void *adev_get_handle();
 
 #endif
