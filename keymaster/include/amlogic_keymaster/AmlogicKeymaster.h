@@ -67,6 +67,8 @@ class AmlogicKeymaster {
     ComputeSharedHmacResponse ComputeSharedHmac(const ComputeSharedHmacRequest& request);
     VerifyAuthorizationResponse VerifyAuthorization(const VerifyAuthorizationRequest& request);
 #if AMLOGIC_MODIFY
+	DeviceLockedResponse DeviceLocked(const DeviceLockedRequest& request);
+	EarlyBootEndedResponse EarlyBootEnded();
 	/* Move ForwardCommand from static method into class in order to access private members */
 	void ForwardCommand(enum keymaster_command command, const Serializable& req, KeymasterResponse* rsp);
 	private:

@@ -207,7 +207,19 @@ void AmlogicKeymaster::UpdateOperation(const UpdateOperationRequest& request,
 
 void AmlogicKeymaster::FinishOperation(const FinishOperationRequest& request,
                                       FinishOperationResponse* response) {
-    ForwardCommand(KM_FINISH_OPERATION, request, response);
+    uint32_t req_size = request.SerializedSize();
+
+    if (req_size > AMLOGIC_KEYMASTER_SEND_BUF_SIZE) {
+        /* abort the operation, if req is oversize and final */
+        AbortOperationRequest abort_req;
+        AbortOperationResponse abort_rsp;
+
+        abort_req.op_handle = request.op_handle;
+        ForwardCommand(KM_ABORT_OPERATION, abort_req, &abort_rsp);
+        response->error = KM_ERROR_INVALID_INPUT_LENGTH;
+    } else {
+        ForwardCommand(KM_FINISH_OPERATION, request, response);
+    }
 }
 
 void AmlogicKeymaster::AbortOperation(const AbortOperationRequest& request,
@@ -348,5 +360,13 @@ std::string AmlogicKeymaster::hex2bin(std::string const& s) {
 	return sOut;
 }
 #endif
+	DeviceLockedResponse AmlogicKeymaster::DeviceLocked(__attribute__((unused))const DeviceLockedRequest& request) {
+		//TODO: Replace fake implementation here
+		return DeviceLockedResponse(KM_ERROR_OK);
+	}
+	EarlyBootEndedResponse AmlogicKeymaster::EarlyBootEnded() {
+		//TODO: Replace fake implementation here
+		return EarlyBootEndedResponse(KM_ERROR_OK);
+	}
 #endif
 }  // namespace keymaster
