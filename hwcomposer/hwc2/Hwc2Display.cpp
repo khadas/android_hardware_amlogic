@@ -152,6 +152,12 @@ const char * Hwc2Display::getName() {
 }
 
 const drm_hdr_capabilities_t * Hwc2Display::getHdrCapabilities() {
+    if (mConnector->isConnected() == false) {
+        MESON_LOGD("Requested HDR Capabilities, returning null");
+        return nullptr;
+    }
+
+    MESON_LOGD("Requested HDR Capabilities, returning old info");
     if (HwcConfig::defaultHdrCapEnabled()) {
         constexpr int sDefaultMinLumiance = 0;
         constexpr int sDefaultMaxLumiance = 500;
@@ -205,25 +211,31 @@ hwc2_error_t Hwc2Display::setVsyncEnable(hwc2_vsync_t enabled) {
 // accordingly.
 void Hwc2Display::onHotplug(bool connected) {
     bool bSendPlugOut = false;
+    MESON_LOGD("On hot plug: [%s]", connected == true ? "Plug in" : "Plug out");
+
     {
         std::lock_guard<std::mutex> lock(mMutex);
-        MESON_LOGD("On hot plug: [%s]", connected == true ? "Plug in" : "Plug out");
 
         if (connected) {
             mSignalHpd = true;
             return;
         }
         mPowerMode->setConnectorStatus(false);
-        if (mObserver != NULL && mModeMgr->getPolicyType() != FIXED_SIZE_POLICY
-            && mModeMgr->getPolicyType() != ACTIVE_MODE_POLICY) {
+        if (mObserver != NULL && mModeMgr->getPolicyType() != ACTIVE_MODE_POLICY) {
             bSendPlugOut = true;
         }
     }
 
     /*call hotplug out of lock, SF may call some hwc function to cause deadlock.*/
-    if (bSendPlugOut)
-        mObserver->onHotplug(false);
-
+    if (bSendPlugOut) {
+        /* when hdmi plugout, send CONNECT message for "hdmi-only" */
+        if (mConnector && mConnector->getType() == DRM_MODE_CONNECTOR_HDMI) {
+            mModeMgr->update();
+            mObserver->onHotplug(true);
+        } else {
+            mObserver->onHotplug(false);
+        }
+    }
     /* switch to software vsync when hdmi plug out and no cvbs mode */
     if (mConnector && mConnector->getType() == DRM_MODE_CONNECTOR_HDMI) {
         mVsync->setSoftwareMode();
@@ -287,7 +299,7 @@ void Hwc2Display::onModeChanged(int stage) {
     }
     /*call hotplug out of lock, SF may call some hwc function to cause deadlock.*/
     if (bSendPlugIn && mModeMgr->needCallHotPlug()) {
-        MESON_LOGD("mObserver->onHotplug(true)");
+        MESON_LOGD("onModeChanged mObserver->onHotplug(true)");
         mObserver->onHotplug(true);
     } else {
         MESON_LOGD("mModeMgr->resetTags");
@@ -950,6 +962,21 @@ bool Hwc2Display::isPlaneHideForDebug(int id) {
     }
 
     return false;
+}
+
+hwc2_error_t Hwc2Display::getDisplayCapabilities(
+            uint32_t* outNumCapabilities, uint32_t* outCapabilities) {
+    if (outCapabilities == nullptr) {
+        if (mConnector->isConnected() == false)
+            *outNumCapabilities = 1;
+        else
+            *outNumCapabilities = 0;
+    } else {
+        if (mConnector->isConnected() == false && *outNumCapabilities == 1) {
+            outCapabilities[0] = HWC2_DISPLAY_CAPABILITY_INVALID;
+        }
+    }
+    return HWC2_ERROR_NONE;
 }
 
 void Hwc2Display::dumpPresentLayers(String8 & dumpstr) {
