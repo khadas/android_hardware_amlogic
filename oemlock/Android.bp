@@ -1,0 +1,36 @@
+cc_binary {
+    name: "android.hardware.oemlock@1.0-service.droidlogic",
+    vendor: true,
+    relative_install_path: "hw",
+    defaults: ["hidl_defaults"],
+    init_rc: [
+        "android.hardware.oemlock@1.0-service.droidlogic.rc",
+    ],
+    vintf_fragments: [
+        "android.hardware.oemlock@1.0-service.droidlogic.xml",
+    ],
+    srcs: [
+        "OemLock.cpp",
+        "service.cpp",
+    ],
+    shared_libs: [
+        "android.hardware.oemlock@1.0",
+        "libbase",
+        "libcutils",
+        "libdumpstateutil",
+        "libhidlbase",
+        "liblog",
+        "libutils",
+        "libsystemcontrolservice",
+        "vendor.amlogic.hardware.systemcontrol@1.0",
+        "vendor.amlogic.hardware.systemcontrol@1.1",
+    ],
+    // we need to access the private Bionic header <bionic_tls.h>
+    include_dirs: [
+        "vendor/amlogic/common/frameworks/services/systemcontrol",
+        "vendor/amlogic/common/frameworks/services/systemcontrol/PQ/include",
+        ],
+    cflags: [
+        "-DLOG_TAG=\"android.hardware.oemlock@1.0-service.droidlogic\"",
+    ],
+}
