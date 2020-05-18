@@ -2274,9 +2274,6 @@ void Sensor::captureNV21(StreamBuffer b, uint32_t gain) {
         return ;
     }
     while(1){
-        if (mFlushFlag) {
-            break;
-        }
 
         if (mExitSensorThread) {
             break;
@@ -2415,6 +2412,9 @@ void Sensor::captureNV21(StreamBuffer b, uint32_t gain) {
 #endif
         }
         mSensorWorkFlag = true;
+        if (mFlushFlag) {
+            break;
+        }
         break;
     }
 #endif
