@@ -109,9 +109,9 @@ static void get_pcm_hardware_config_parameters(
         hardware_config->format = PCM_FORMAT_S32_LE;
     }
     hardware_config->rate = rate;//defualt sample rate = 48KHz
-    hardware_config->period_count = PLAYBACK_PERIOD_COUNT;
+    hardware_config->period_count = PLAYBACK_PERIOD_COUNT * 2;
     hardware_config->period_size = PERIOD_SIZE;
-    hardware_config->start_threshold = hardware_config->period_size * hardware_config->period_count;
+    hardware_config->start_threshold = hardware_config->period_size * hardware_config->period_count / 4;
     hardware_config->avail_min = 0;
 
     return ;

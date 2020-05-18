@@ -23,6 +23,18 @@
 #include "aml_audio_types_def.h"
 #include "aml_audio_stream.h"
 
+#define ENUM_TYPE_STR_MAX_LEN                           (100)
+
+#define ENUM_TYPE_TO_STR(x, offset, pStr)                   \
+case x: {                                                   \
+    pStr = #x;                                              \
+    pStr += offset;                                         \
+    if (strlen(#x) - offset > 70) {                         \
+        pStr += 70;                                         \
+    }                                                       \
+    break;                                                  \
+}
+
 int64_t aml_gettime(void);
 int get_sysfs_uint(const char *path, uint *value);
 int sysfs_set_sysfs_str(const char *path, const char *val);
@@ -70,4 +82,6 @@ int aml_audio_get_ms12_timestamp_offset(void);
 int aml_audio_delay_timestamp(struct timespec *timestamp, int delay_time_ms);
 int halformat_convert_to_spdif(audio_format_t format);
 int alsa_device_get_port_index(alsa_device_t alsa_device);
+int aml_set_thread_priority(char *pName, pthread_t threadId);
+
 #endif

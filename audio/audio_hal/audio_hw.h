@@ -221,15 +221,16 @@ struct audio_patch_set {
 };
 
 typedef enum stream_usecase {
-    STREAM_PCM_NORMAL = 0,
-    STREAM_PCM_DIRECT,
-    STREAM_PCM_HWSYNC,
-    STREAM_RAW_DIRECT,
-    STREAM_RAW_HWSYNC,
-    STREAM_PCM_PATCH,
-    STREAM_RAW_PATCH,
-    STREAM_USECASE_MAX,
-    STREAM_USECASE_INVAL = -1
+    STREAM_PCM_NORMAL       = 0,
+    STREAM_PCM_DIRECT       = 1,
+    STREAM_PCM_HWSYNC       = 2,
+    STREAM_RAW_DIRECT       = 3,
+    STREAM_RAW_HWSYNC       = 4,
+    STREAM_PCM_PATCH        = 5,
+    STREAM_RAW_PATCH        = 6,
+    STREAM_PCM_MMAP         = 7,
+
+    STREAM_USECASE_MAX      = 8,
 } stream_usecase_t;
 
 typedef enum alsa_device {
@@ -261,7 +262,7 @@ typedef union {
 } aec_timestamp;
 
 struct aml_audio_mixer;
-const char *usecase_to_str(stream_usecase_t usecase);
+const char* usecase2Str(stream_usecase_t enUsecase);
 
 #define MAX_STREAM_NUM   5
 #define HDMI_ARC_MAX_FORMAT  20
@@ -569,7 +570,7 @@ struct aml_stream_out {
     unsigned last_dsp_frame;
     audio_hwsync_t *hwsync;
     struct timespec timestamp;
-	struct timespec lasttimestamp;
+    struct timespec lasttimestamp;
     stream_usecase_t usecase;
     uint32_t dev_usecase_masks;
     /**
@@ -598,7 +599,7 @@ struct aml_stream_out {
     int frame_deficiency;
     bool normal_pcm_mixing_config;
     uint32_t latency_frames;
-    enum MIXER_INPUT_PORT port_index;
+    aml_mixer_input_port_type_e enInputPortType;
     int exiting;
     pthread_mutex_t cond_lock;
     pthread_cond_t cond;
@@ -627,6 +628,7 @@ struct aml_stream_out {
     bool dual_spdif;
     int codec_type2;  /*used for dual bitstream output*/
     struct pcm *pcm2; /*used for dual bitstream output*/
+    void    *pstMmapAudioParam;    // aml_mmap_audio_param_st (aml_mmap_audio.h)
 };
 
 typedef ssize_t (*write_func)(struct audio_stream_out *stream, const void *buffer, size_t bytes);

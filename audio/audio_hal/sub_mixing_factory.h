@@ -91,4 +91,7 @@ int out_standby_subMixingPCM(struct audio_stream *stream);
 int switchNormalStream(struct aml_stream_out *aml_out, bool on);
 struct pcm *getSubMixingPCMdev(struct subMixing *sm);
 
+void subMixingDump(int s32Fd, const struct aml_audio_device *pstAmlDev);
+
+
 #endif /* _SUB_MIXING_FACTORY_H_ */
