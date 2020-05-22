@@ -60,26 +60,31 @@ static void setInteractive (struct power_module *module, int on) {
     }
 
     if (0 == on) {
-        char value[PROPERTY_VALUE_MAX] = {0};
-        const char * split = ",";
-        char * type;
-        int sender  = 0;
-        property_get("persist.vendor.sys.cec.logicaladdress", value, "4");
-        type = strtok(value, split);
-        sender = atoi(type);
-        HdmiCecHidlClient *mHdmiCecHidlClient = NULL;
-        mHdmiCecHidlClient = HdmiCecHidlClient::connect(CONNECT_TYPE_POWER);
-        if (mHdmiCecHidlClient != NULL) {
-            cec_message_t message;
-            message.initiator = (cec_logical_address_t)sender;
-            message.destination = (cec_logical_address_t)CEC_ADDR_BROADCAST;
-            message.length = 1;
-            message.body[0] = CEC_MESSAGE_STANDBY;
-            mHdmiCecHidlClient->setOption(HDMI_OPTION_SYSTEM_CEC_CONTROL, 0);
-            mHdmiCecHidlClient->sendMessage(&message, false);
-            ALOGI("send <Standby> message before early suspend.");
+        char power_assist_standby[PROPERTY_VALUE_MAX];
+        // For products which do not need this compat code in power hal, they could config it to "false"
+        property_get("persist.vendor.sys.cec.power_assist_standby", power_assist_standby, "true");
+        if (strstr(power_assist_standby, "true")) {
+            char value[PROPERTY_VALUE_MAX];
+            const char * split = ",";
+            char * type;
+            int sender = 0;
+            property_get("persist.vendor.sys.cec.logicaladdress", value, "4");
+            type = strtok(value, split);
+            sender = atoi(type);
+            HdmiCecHidlClient *mHdmiCecHidlClient = NULL;
+            mHdmiCecHidlClient = HdmiCecHidlClient::connect(CONNECT_TYPE_POWER);
+            if (mHdmiCecHidlClient != NULL) {
+                cec_message_t message;
+                message.initiator = (cec_logical_address_t)sender;
+                message.destination = (cec_logical_address_t)CEC_ADDR_BROADCAST;
+                message.length = 1;
+                message.body[0] = CEC_MESSAGE_STANDBY;
+                mHdmiCecHidlClient->setOption(HDMI_OPTION_SYSTEM_CEC_CONTROL, 0);
+                mHdmiCecHidlClient->sendMessage(&message, false);
+                ALOGI("send <Standby> message before early suspend.");
+            }
+            delete mHdmiCecHidlClient;
         }
-        delete mHdmiCecHidlClient;
     }
     //resume
     if (1 == on) {
