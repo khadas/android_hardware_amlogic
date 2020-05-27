@@ -186,6 +186,7 @@ enum patch_src_assortion {
     SRC_REMOTE_SUBMIXIN,
     SRC_WIRED_HEADSETIN,
     SRC_BUILTIN_MIC,
+    SRC_ECHO_REFERENCE,
     SRC_ARCIN,
     SRC_OTHER,
     SRC_INVAL
@@ -211,6 +212,7 @@ enum IN_PORT {
     INPORT_REMOTE_SUBMIXIN,
     INPORT_WIRED_HEADSETIN,
     INPORT_BUILTIN_MIC,
+    INPORT_ECHO_REFERENCE,
     INPORT_ARCIN,
     INPORT_MAX
 };
@@ -485,6 +487,7 @@ struct aml_audio_device {
     int count;
     void *alsa_handle[ALSA_DEVICE_CNT];
     bool dual_spdif_support; /*1 means supports spdif_a & spdif_b & spdif interface*/
+    struct aec_t *aec;
 };
 
 struct meta_data {
@@ -690,6 +693,8 @@ struct aml_stream_in {
     pthread_mutex_t aux_mic_mutex;
     pthread_cond_t aux_mic_cond;
 #endif
+    unsigned int frames_read;
+    uint64_t timestamp_nsec;
 };
 typedef  int (*do_standby_func)(struct aml_stream_out *out);
 typedef  int (*do_startup_func)(struct aml_stream_out *out);
@@ -813,5 +818,39 @@ int start_ease_out(struct aml_audio_device *adev);
 int out_standby_direct (struct audio_stream *stream);
 
 void *adev_get_handle();
+
+/* 'bytes' are the number of bytes written to audio FIFO, for which 'timestamp' is valid.
+ * 'available' is the number of frames available to read (for input) or yet to be played
+ * (for output) frames in the PCM buffer.
+ * timestamp and available are updated by pcm_get_htimestamp(), so they use the same
+ * datatypes as the corresponding arguments to that function. */
+struct aec_info {
+    struct timespec timestamp;
+    uint64_t timestamp_usec;
+    unsigned int available;
+    size_t bytes;
+};
+/* Capture codec parameters */
+/* Set up a capture period of 32 ms:
+ * CAPTURE_PERIOD = PERIOD_SIZE / SAMPLE_RATE, so (32e-3) = PERIOD_SIZE / (16e3)
+ * => PERIOD_SIZE = 512 frames, where each "frame" consists of 1 sample of every channel (here, 2ch) */
+#define CAPTURE_PERIOD_MULTIPLIER 16
+#define CAPTURE_PERIOD_SIZE (CODEC_BASE_FRAME_COUNT * CAPTURE_PERIOD_MULTIPLIER)
+#define CAPTURE_PERIOD_COUNT 4
+#define CAPTURE_PERIOD_START_THRESHOLD 0
+#define CAPTURE_CODEC_SAMPLING_RATE 16000
+
+#ifdef ENABLE_AEC_HAL
+#define NUM_AEC_REFERENCE_CHANNELS 1
+#endif
+#ifdef ENABLE_AEC_APP
+/* App AEC uses 2-channel reference */
+#define NUM_AEC_REFERENCE_CHANNELS 2
+#endif /* #ifdef ENABLE_AEC_FUNC */
+#define CODEC_BASE_FRAME_COUNT 32
+#define PLAYBACK_PERIOD_MULTIPLIER 32  /* 21 ms */
+#define PLAYBACK_PERIOD_SIZE (CODEC_BASE_FRAME_COUNT * PLAYBACK_PERIOD_MULTIPLIER)
+#define CHANNEL_STEREO 2
+#define PLAYBACK_CODEC_SAMPLING_RATE 48000
 
 #endif

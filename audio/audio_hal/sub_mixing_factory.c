@@ -18,6 +18,9 @@
 #include "dolby_lib_api.h"
 #include "alsa_device_parser.h"
 #include "a2dp_hal.h"
+#ifdef ENABLE_AEC_APP
+#include "audio_aec.h"
+#endif
 
 //#define DEBUG_TIME
 
@@ -1122,6 +1125,9 @@ ssize_t mixer_aux_buffer_write_sm(struct audio_stream_out *stream, const void *b
         ALOGI("[%s:%d] stream %p input port:%s", __func__, __LINE__, stream,
             inportType2Str(aml_out->enInputPortType));
         aml_out->standby = false;
+#ifdef ENABLE_AEC_APP
+        aec_set_spk_running(adev->aec, true);
+#endif
         /* start padding zero to fill buffer */
         padding_buf = calloc(1, 512 * 4);
         if (padding_buf == NULL) {
@@ -1349,6 +1355,18 @@ static ssize_t out_write_subMixingPCM(struct audio_stream_out *stream,
     pthread_mutex_unlock(&adev->lock);
     if (aml_out->write) {
         ret = aml_out->write(stream, buffer, bytes);
+#ifdef ENABLE_AEC_APP
+        if (ret >= 0) {
+            struct aec_info info;
+            get_pcm_timestamp(getSubMixingPCMdev(adev->sm), aml_out->config.rate, &info, true /*isOutput*/);
+            aml_out->timestamp = info.timestamp;
+            info.bytes = bytes;
+            int aec_ret = write_to_reference_fifo(adev->aec, (void *)buffer, &info);
+            if (aec_ret) {
+                ALOGE("AEC: Write to speaker loopback FIFO failed!");
+            }
+        }
+#endif
     } else {
         ALOGE("%s(), NULL write function", __func__);
     }
@@ -1389,6 +1407,9 @@ int out_standby_subMixingPCM(struct audio_stream *stream)
     }
     aml_out->status = STREAM_STANDBY;
     aml_out->standby = true;
+#ifdef ENABLE_AEC_APP
+    aec_set_spk_running(adev->aec, false);
+#endif
     delete_mixer_input_port(audio_mixer, aml_out->enInputPortType);
 
     if ((aml_out->out_device & AUDIO_DEVICE_OUT_ALL_A2DP) && adev->a2dp_hal)

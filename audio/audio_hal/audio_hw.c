@@ -96,7 +96,7 @@
 //#define SUBMIXER_V1_1
 #define HDMI_LATENCY_MS 60
 
-#ifdef ENABLE_AEC_FUNC
+#ifdef ENABLE_AEC_HAL
 #include "audio_aec_process.h"
 #endif
 
@@ -116,6 +116,12 @@
 #include "a2dp_hal.h"
 
 #include "aml_malloc_debug.h"
+
+#ifdef ENABLE_AEC_APP
+#include "audio_aec.h"
+#endif
+#include <audio_effects/effect_aec.h>
+#include <audio_utils/clock.h>
 
 #define CARD_AMLOGIC_BOARD 0
 /* ALSA ports for AML */
@@ -278,6 +284,13 @@ ssize_t out_write_new(struct audio_stream_out *stream,
                       const void *buffer,
                       size_t bytes);
 static aec_timestamp get_timestamp(void);
+
+static int adev_get_mic_mute(const struct audio_hw_device* dev, bool* state);
+static int adev_get_microphones(const struct audio_hw_device* dev,
+                                struct audio_microphone_characteristic_t* mic_array,
+                                size_t* mic_count);
+static void get_mic_characteristics(struct audio_microphone_characteristic_t* mic_data,
+                                    size_t* mic_count);
 
 static inline bool need_hw_mix(usecase_mask_t masks)
 {
@@ -1077,7 +1090,7 @@ static size_t out_get_buffer_size (const struct audio_stream *stream)
             size = DEFAULT_PLAYBACK_PERIOD_SIZE * 2;
         else
             // bug_id - 158018, modify size value from PERIOD_SIZE to (PERIOD_SIZE * PLAYBACK_PERIOD_COUNT)
-            size = DEFAULT_PLAYBACK_PERIOD_SIZE * PLAYBACK_PERIOD_COUNT;
+            size = DEFAULT_PLAYBACK_PERIOD_SIZE/* * PLAYBACK_PERIOD_COUNT */;
     }
     // remove alignment to have an accurate size
     // size = ( (size + 15) / 16) * 16;
@@ -3532,7 +3545,7 @@ static unsigned int select_port_by_device(audio_devices_t in_device)
             inport = PORT_I2S;
     }
 
-#ifdef ENABLE_AEC_FUNC
+#ifdef ENABLE_AEC_HAL
     /* AEC using inner loopback port */
     if (in_device & AUDIO_DEVICE_IN_BUILTIN_MIC)
         inport = PORT_LOOPBACK;
@@ -3543,10 +3556,15 @@ static unsigned int select_port_by_device(audio_devices_t in_device)
 
 /* TODO: add non 2+2 cases */
 static void update_alsa_config(struct aml_stream_in *in) {
-#ifdef ENABLE_AEC_FUNC
+#ifdef ENABLE_AEC_HAL
     if (in->device & AUDIO_DEVICE_IN_BUILTIN_MIC) {
         in->config.rate = in->requested_rate;
         in->config.channels = 4;
+    }
+#endif
+#ifdef ENABLE_AEC_APP
+    if (in->device & AUDIO_DEVICE_IN_BUILTIN_MIC) {
+        in->config.rate = in->requested_rate;
     }
 #else
     (void)in;
@@ -3650,6 +3668,13 @@ static size_t in_get_buffer_size(const struct audio_stream *stream)
     size = get_input_buffer_size(in->config.period_size, in->requested_rate,
                                   in->hal_format,
                                   audio_channel_count_from_in_mask(in->hal_channel_mask));
+    if (in->source == AUDIO_SOURCE_ECHO_REFERENCE) {
+        size_t frames = CAPTURE_PERIOD_SIZE;
+        frames = CAPTURE_PERIOD_SIZE * PLAYBACK_CODEC_SAMPLING_RATE / CAPTURE_CODEC_SAMPLING_RATE;
+        size = get_input_buffer_size(frames, in->requested_rate,
+                                  in->hal_format,
+                                  audio_channel_count_from_in_mask(in->hal_channel_mask));
+    }
 #endif
     ALOGD("%s: exit: buffer_size = %zu", __func__, size);
 
@@ -3941,7 +3966,7 @@ static ssize_t read_frames (struct aml_stream_in *in, void *buffer, ssize_t fram
 
 static uint32_t mic_buf_print_count = 0;
 
-#ifdef ENABLE_AEC_FUNC
+#ifdef ENABLE_AEC_HAL
 static void inread_proc_aec(struct audio_stream_in *stream,
         void *buffer, size_t bytes)
 {
@@ -4050,6 +4075,60 @@ static ssize_t in_read(struct audio_stream_in *stream, void* buffer, size_t byte
     int in_mute = 0, parental_mute = 0;
     bool stable = true;
 
+    ALOGV("%s(): stream: %d, bytes %zu", __func__, in->source, bytes);
+
+#ifdef ENABLE_AEC_APP
+    /* Special handling for Echo Reference: simply get the reference from FIFO.
+     * The format and sample rate should be specified by arguments to adev_open_input_stream. */
+    if (in->source == AUDIO_SOURCE_ECHO_REFERENCE) {
+        struct aec_info info;
+        info.bytes = bytes;
+        const uint64_t time_increment_nsec = (uint64_t)bytes * NANOS_PER_SECOND /
+                                             audio_stream_in_frame_size(stream) /
+                                             in_get_sample_rate(&stream->common);
+        if (!aec_get_spk_running(adev->aec)) {
+            if (in->timestamp_nsec == 0) {
+                struct timespec now;
+                clock_gettime(CLOCK_MONOTONIC, &now);
+                const int64_t timestamp_nsec = audio_utils_ns_from_timespec(&now);
+                in->timestamp_nsec = timestamp_nsec;
+            } else {
+                in->timestamp_nsec += time_increment_nsec;
+            }
+            memset(buffer, 0, bytes);
+            const uint64_t time_increment_usec = time_increment_nsec / 1000;
+            usleep(time_increment_usec);
+        } else {
+            int ref_ret = get_reference_samples(adev->aec, buffer, &info);
+            if ((ref_ret) || (info.timestamp_usec == 0)) {
+                memset(buffer, 0, bytes);
+                in->timestamp_nsec += time_increment_nsec;
+            } else {
+                in->timestamp_nsec = 1000 * info.timestamp_usec;
+            }
+        }
+        in->frames_read += in_frames;
+
+#if DEBUG_AEC
+        FILE* fp_ref = fopen("/data/local/traces/aec_ref.pcm", "a+");
+        if (fp_ref) {
+            fwrite((char*)buffer, 1, bytes, fp_ref);
+            fclose(fp_ref);
+        } else {
+            ALOGE("AEC debug: Could not open file aec_ref.pcm!");
+        }
+        FILE* fp_ref_ts = fopen("/data/local/traces/aec_ref_timestamps.txt", "a+");
+        if (fp_ref_ts) {
+            fprintf(fp_ref_ts, "%" PRIu64 "\n", in->timestamp_nsec);
+            fclose(fp_ref_ts);
+        } else {
+            ALOGE("AEC debug: Could not open file aec_ref_timestamps.txt!");
+        }
+#endif
+        return info.bytes;
+    }
+#endif
+
     /* acquiring hw device mutex systematically is useful if a low priority thread is waiting
      * on the input stream mutex - e.g. executing select_mode() while holding the hw device
      * mutex
@@ -4112,7 +4191,7 @@ static ssize_t in_read(struct audio_stream_in *stream, void* buffer, size_t byte
         } else
             memset (buffer, 0, bytes);
     }
-#ifdef ENABLE_AEC_FUNC
+#ifdef ENABLE_AEC_HAL
     if (in->device & AUDIO_DEVICE_IN_BUILTIN_MIC) {
         size_t read_size = 0;
         cur_in_frames = in_frames;
@@ -4206,6 +4285,22 @@ static ssize_t in_read(struct audio_stream_in *stream, void* buffer, size_t byte
     }
 #endif
 
+#if defined(ENABLE_AEC_APP)
+    struct aec_info info;
+    get_pcm_timestamp(in->pcm, in->config.rate, &info, false /*isOutput*/);
+    if (ret == 0) {
+        in->frames_read += in_frames;
+        in->timestamp_nsec = audio_utils_ns_from_timespec(&info.timestamp);
+    }
+    bool mic_muted = false;
+    adev_get_mic_mute((struct audio_hw_device*)adev, &mic_muted);
+    if (mic_muted) {
+        memset(buffer, 0, bytes);
+    } else {
+        info.bytes = bytes;
+    }
+#endif
+
 exit:
     if (ret < 0) {
         ALOGE("%s: read failed - sleeping for buffer duration", __func__);
@@ -4223,26 +4318,173 @@ exit:
     }
 #endif
 
+#if DEBUG_AEC && defined(ENABLE_AEC_APP)
+    FILE* fp_in = fopen("/data/local/traces/aec_in.pcm", "a+");
+    if (fp_in) {
+        fwrite((char*)buffer, 1, bytes, fp_in);
+        fclose(fp_in);
+    } else {
+        ALOGE("AEC debug: Could not open file aec_in.pcm!");
+    }
+    FILE* fp_mic_ts = fopen("/data/local/traces/aec_in_timestamps.txt", "a+");
+    if (fp_mic_ts) {
+        fprintf(fp_mic_ts, "%" PRIu64 "\n", in->timestamp_nsec);
+        fclose(fp_mic_ts);
+    } else {
+        ALOGE("AEC debug: Could not open file aec_in_timestamps.txt!");
+    }
+#endif
+
     return bytes;
 }
+
+
+static int in_get_capture_position (const struct audio_stream_in* stream, int64_t* frames,
+                                   int64_t* time) {
+    if (stream == NULL || frames == NULL || time == NULL) {
+        return -EINVAL;
+    }
+    struct aml_stream_in *in = (struct aml_stream_in *)stream;
+
+    *frames = in->frames_read;
+    *time = in->timestamp_nsec;
+
+    return 0;
+}
+
 
 static uint32_t in_get_input_frames_lost (struct audio_stream_in *stream __unused)
 {
     return 0;
 }
 
-static int in_get_active_microphones (const struct audio_stream_in *stream __unused,
-                                     struct audio_microphone_characteristic_t *mic_array __unused,
-                                     size_t *mic_count __unused) {
+static int in_add_audio_effect(const struct audio_stream *stream __unused, effect_handle_t effect __unused)
+{
+    struct aml_stream_in *in = (struct aml_stream_in *)stream;
+    int status;
+    effect_descriptor_t desc;
+
+    pthread_mutex_lock(&in->dev->lock);
+    pthread_mutex_lock(&in->lock);
+    if (in->num_preprocessors >= MAX_PREPROCESSORS) {
+        status = -ENOSYS;
+        goto exit;
+    }
+
+    status = (*effect)->get_descriptor(effect, &desc);
+    if (status != 0)
+        goto exit;
+
+    in->preprocessors[in->num_preprocessors++] = effect;
+
+    if (memcmp(&desc.type, FX_IID_AEC, sizeof(effect_uuid_t)) == 0) {
+        in->need_echo_reference = true;
+        do_input_standby(in);
+    }
+
+exit:
+
+    pthread_mutex_unlock(&in->lock);
+    pthread_mutex_unlock(&in->dev->lock);
+    return status;
+}
+
+static int in_remove_audio_effect(const struct audio_stream *stream,
+                                  effect_handle_t effect)
+{
+    struct aml_stream_in *in = (struct aml_stream_in *)stream;
+    int i;
+    int status = -EINVAL;
+    bool found = false;
+    effect_descriptor_t desc;
+
+    pthread_mutex_lock(&in->dev->lock);
+    pthread_mutex_lock(&in->lock);
+    if (in->num_preprocessors <= 0) {
+        status = -ENOSYS;
+        goto exit;
+    }
+
+    for (i = 0; i < in->num_preprocessors; i++) {
+        if (found) {
+            in->preprocessors[i - 1] = in->preprocessors[i];
+            continue;
+        }
+        if (in->preprocessors[i] == effect) {
+            in->preprocessors[i] = NULL;
+            status = 0;
+            found = true;
+        }
+    }
+
+    if (status != 0)
+        goto exit;
+
+    in->num_preprocessors--;
+
+    status = (*effect)->get_descriptor(effect, &desc);
+    if (status != 0)
+        goto exit;
+    if (memcmp(&desc.type, FX_IID_AEC, sizeof(effect_uuid_t)) == 0) {
+        in->need_echo_reference = false;
+        do_input_standby(in);
+    }
+
+exit:
+
+    pthread_mutex_unlock(&in->lock);
+    pthread_mutex_unlock(&in->dev->lock);
+    return status;
+}
+
+static int in_get_active_microphones (const struct audio_stream_in *stream,
+                                     struct audio_microphone_characteristic_t *mic_array,
+                                     size_t *mic_count) {
+    ALOGV("in_get_active_microphones");
+    if ((mic_array == NULL) || (mic_count == NULL)) {
+        return -EINVAL;
+    }
+    struct aml_stream_in *in = (struct aml_stream_in *)stream;
+    struct audio_hw_device* dev = (struct audio_hw_device*)in->dev;
+    bool mic_muted = false;
+    adev_get_mic_mute(dev, &mic_muted);
+    if ((in->source == AUDIO_SOURCE_ECHO_REFERENCE) || mic_muted) {
+        *mic_count = 0;
+        return 0;
+    }
+    adev_get_microphones(dev, mic_array, mic_count);
     return 0;
 }
 
-static int adev_get_microphones (const struct audio_hw_device *dev __unused,
-                                struct audio_microphone_characteristic_t *mic_array __unused,
-                                size_t *mic_count) {
-    ALOGI("%s", __func__);
-    *mic_count = 0;
+static int adev_get_microphones (const struct audio_hw_device* dev __unused,
+                                struct audio_microphone_characteristic_t* mic_array,
+                                size_t* mic_count) {
+    ALOGV("adev_get_microphones");
+    if ((mic_array == NULL) || (mic_count == NULL)) {
+        return -EINVAL;
+    }
+    get_mic_characteristics(mic_array, mic_count);
     return 0;
+}
+
+static void get_mic_characteristics (struct audio_microphone_characteristic_t* mic_data,
+                                    size_t* mic_count) {
+    *mic_count = 1;
+    memset(mic_data, 0, sizeof(struct audio_microphone_characteristic_t));
+    strlcpy(mic_data->device_id, "builtin_mic", AUDIO_MICROPHONE_ID_MAX_LEN - 1);
+    strlcpy(mic_data->address, "top", AUDIO_DEVICE_MAX_ADDRESS_LEN - 1);
+    memset(mic_data->channel_mapping, AUDIO_MICROPHONE_CHANNEL_MAPPING_UNUSED,
+           sizeof(mic_data->channel_mapping));
+    mic_data->device = AUDIO_DEVICE_IN_BUILTIN_MIC;
+    mic_data->sensitivity = -37.0;
+    mic_data->max_spl = AUDIO_MICROPHONE_SPL_UNKNOWN;
+    mic_data->min_spl = AUDIO_MICROPHONE_SPL_UNKNOWN;
+    mic_data->orientation.x = 0.0f;
+    mic_data->orientation.y = 0.0f;
+    mic_data->orientation.z = 0.0f;
+    mic_data->geometric_location.x = AUDIO_MICROPHONE_COORDINATE_UNKNOWN;
+    mic_data->geometric_location.y = AUDIO_MICROPHONE_COORDINATE_UNKNOWN;
+    mic_data->geometric_location.z = AUDIO_MICROPHONE_COORDINATE_UNKNOWN;
 }
 
 // open corresponding stream by flags, formats and others params
@@ -4720,6 +4962,7 @@ const char *input_ports[] = {
     "INPORT_REMOTE_SUBMIXIN",
     "INPORT_WIRED_HEADSETIN",
     "INPORT_BUILTIN_MIC",
+    "INPORT_ECHO_REFERENCE",
     "INPORT_ARCIN",
     "INPORT_MAX"
 };
@@ -5994,8 +6237,11 @@ static int adev_open_input_stream(struct audio_hw_device *dev,
         in->stream.common.get_parameters = in_get_parameters;
         in->stream.set_gain = in_set_gain;
         in->stream.read = in_read;
+        in->stream.get_capture_position = in_get_capture_position;
         in->stream.get_input_frames_lost = in_get_input_frames_lost;
         in->stream.get_active_microphones = in_get_active_microphones;
+        in->stream.common.add_audio_effect = in_add_audio_effect;
+        in->stream.common.remove_audio_effect = in_remove_audio_effect;
     }
 
     in->device = devices & ~AUDIO_DEVICE_BIT_IN;
@@ -6020,6 +6266,10 @@ static int adev_open_input_stream(struct audio_hw_device *dev,
     } else
         memcpy(&in->config, &pcm_config_in, sizeof(pcm_config_in));
     in->config.channels = channel_count;
+    in->source = source;
+    if (source == AUDIO_SOURCE_ECHO_REFERENCE) {
+        in->config.rate = PLAYBACK_CODEC_SAMPLING_RATE;
+    }
     /* TODO: modify alsa config by params */
     update_alsa_config(in);
 
@@ -6055,10 +6305,23 @@ static int adev_open_input_stream(struct audio_hw_device *dev,
         }
     }
 
-#ifdef ENABLE_AEC_FUNC
+#ifdef ENABLE_AEC_HAL
     // Default 2 ch pdm + 2 ch lb
     if (in->device & AUDIO_DEVICE_IN_BUILTIN_MIC) {
         aec_spk_mic_init(in->requested_rate, 2, 2);
+    }
+#endif
+
+    /* If AEC is in the app, only configure based on ECHO_REFERENCE spec.
+     * If AEC is in the HAL, configure using the given mic stream. */
+#ifdef ENABLE_AEC_APP
+    bool aecInput = (source == AUDIO_SOURCE_ECHO_REFERENCE);
+    if (aecInput) {
+        int aec_ret = init_aec_mic_config(adev->aec, in);
+        if (aec_ret) {
+            ALOGE("AEC: Mic config init failed!");
+            return -EINVAL;
+        }
     }
 #endif
 
@@ -6142,6 +6405,13 @@ static void adev_close_input_stream(struct audio_hw_device *dev,
     unregist_callBack_stream(in->hbg_channel);
 #endif
 /*[SEI-zhaopf-2018-10-29] add for HBG remote audio support } */
+
+#ifdef ENABLE_AEC_APP
+    if (in->device & AUDIO_DEVICE_IN_ECHO_REFERENCE) {
+        destroy_aec_mic_config(adev->aec);
+    }
+#endif
+
     free(stream);
     ALOGD("%s: exit", __func__);
     return;
@@ -6329,6 +6599,9 @@ int do_output_standby_l(struct audio_stream *stream)
         aml_out->normal_pcm_mixing_config = false;
     }
     aml_out->pause_status = false;//clear pause status
+#ifdef ENABLE_AEC_APP
+    aec_set_spk_running(adev->aec, false);
+#endif
     return 0;
 }
 
@@ -9071,6 +9344,13 @@ int adev_open_output_stream_new(struct audio_hw_device *dev,
     ALOGD("-%s: out %p: usecase:%s card:%d alsa devices:%d", __func__,
         aml_out, usecase2Str(aml_out->usecase), aml_out->card, aml_out->device);
 
+#ifdef ENABLE_AEC_APP
+    int aec_ret = init_aec_reference_config(adev->aec, aml_out);
+    if (aec_ret) {
+        ALOGE("AEC: Speaker config init failed!");
+        return -EINVAL;
+    }
+#endif
     return 0;
 }
 
@@ -10003,6 +10283,10 @@ static int adev_create_audio_patch(struct audio_hw_device *dev,
             input_src = SRC_NA;
             inport = INPORT_BUILTIN_MIC;
             aml_dev->patch_src = SRC_BUILTIN_MIC;
+			break;
+        case AUDIO_DEVICE_IN_ECHO_REFERENCE:
+            input_src = SRC_NA;
+            inport = INPORT_ECHO_REFERENCE;
             break;
         default:
             ALOGE("%s: invalid src device type %#x",
@@ -10147,6 +10431,10 @@ static int adev_create_audio_patch(struct audio_hw_device *dev,
             input_src = SRC_NA;
             inport = INPORT_BUILTIN_MIC;
             aml_dev->patch_src = SRC_BUILTIN_MIC;
+            break;
+        case AUDIO_DEVICE_IN_ECHO_REFERENCE:
+            input_src = SRC_NA;
+            inport = INPORT_ECHO_REFERENCE;
             break;
         default:
             ALOGE("%s: invalid src device type %#x",
@@ -10503,6 +10791,9 @@ static int adev_close(hw_device_t *device)
     aml_hwsync_close_tsync(adev->tsync_fd);
     pthread_mutex_unlock(&adev->lock);
     pthread_mutex_destroy(&adev->patch_lock);
+#ifdef ENABLE_AEC_APP
+    release_aec(adev->aec);
+#endif
     free(device);
     aml_audio_debug_malloc_close();
     return 0;
@@ -10660,6 +10951,9 @@ static int adev_set_audio_port_config (struct audio_hw_device *dev, const struct
                 break;
             case AUDIO_DEVICE_IN_BUILTIN_MIC:
                 inport = INPORT_BUILTIN_MIC;
+                break;
+            case AUDIO_DEVICE_IN_ECHO_REFERENCE:
+                inport = INPORT_ECHO_REFERENCE;
                 break;
             }
 
@@ -11030,6 +11324,17 @@ static int adev_open(const hw_module_t* module, const char* name, hw_device_t** 
     // set debug_flag here to see more debug log when debugging.
     adev->debug_flag = aml_audio_get_debug_flag();
     adev->count = 1;
+
+#ifdef ENABLE_AEC_APP
+    pthread_mutex_lock(&adev->lock);
+    if (init_aec(CAPTURE_CODEC_SAMPLING_RATE, NUM_AEC_REFERENCE_CHANNELS,
+                    CHANNEL_STEREO, &adev->aec)) {
+        pthread_mutex_unlock(&adev->lock);
+        return -EINVAL;
+    }
+    pthread_mutex_unlock(&adev->lock);
+#endif
+
     ALOGD("%s: exit", __func__);
     return 0;
 

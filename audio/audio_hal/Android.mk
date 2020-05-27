@@ -163,12 +163,16 @@ endif
 
 #For ATV Far Field AEC
 ifeq ($(BOARD_ENABLE_FAR_FIELD_AEC), true)
-    $(info "audio: ATV far field enabled, compile and link aec lib")
-	LOCAL_CFLAGS += -DENABLE_AEC_FUNC
+    LOCAL_CFLAGS += -DENABLE_AEC_APP
     LOCAL_SRC_FILES += \
-        audio_aec_process.cpp
-    LOCAL_SHARED_LIBRARIES += \
-         libgoogle_aec
+        audio_aec.c \
+        fifo_wrapper.cpp
+    #$(info "audio: ATV far field enabled, compile and link aec lib")
+    #LOCAL_CFLAGS += -DENABLE_AEC_HAL
+    #LOCAL_SRC_FILES += \
+    #    audio_aec_process.cpp
+    #LOCAL_SHARED_LIBRARIES += \
+    #     libgoogle_aec
 endif
 
     include $(BUILD_SHARED_LIBRARY)
