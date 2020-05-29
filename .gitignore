@@ -6,3 +6,5 @@
 # Normal rules
 #
 /media_modules
+/hwcomposer
+/gralloc
