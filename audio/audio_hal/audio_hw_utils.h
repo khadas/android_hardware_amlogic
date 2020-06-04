@@ -54,9 +54,9 @@ int aml_audio_dump_audio_bitstreams(const char *path, const void *buf, size_t by
 int aml_audio_get_arc_latency_offset(int format);
 int aml_audio_get_ddp_latency_offset(int format);
 int aml_audio_get_pcm_latency_offset(int format);
-int aml_audio_get_hwsync_latency_offset(void);
+int aml_audio_get_hwsync_latency_offset(bool b_raw);
 int aml_audio_get_ms12_latency_offset(int b_raw);
-int aml_audio_get_ms12_tunnel_latency_offset(void);
+int aml_audio_get_ms12_tunnel_latency_offset(int b_raw);
 int aml_audio_get_ms12_atmos_latency_offset(int tunnel);
 int aml_audio_get_ddp_frame_size();
 bool is_stream_using_mixer(struct aml_stream_out *out);
@@ -66,7 +66,7 @@ uint32_t out_get_ms12_latency_frames(const struct audio_stream_out *stream);
 int aml_audio_get_spdif_tuning_latency(void);
 int aml_audio_get_arc_tuning_latency(audio_format_t arc_afmt);
 int aml_audio_get_src_tune_latency(enum patch_src_assortion patch_src);
-int sysfs_get_sysfs_str(const char *path, const char *val, int len);
+int sysfs_get_sysfs_str(const char *path, char *val, int len);
 void audio_fade_func(void *buf,int fade_size,int is_fadein);
 void ts_wait_time_us(struct timespec *ts, uint32_t time_us);
 int cpy_16bit_data_with_gain(int16_t *dst, int16_t *src, int size_in_bytes, float vol);
@@ -83,5 +83,6 @@ int aml_audio_delay_timestamp(struct timespec *timestamp, int delay_time_ms);
 int halformat_convert_to_spdif(audio_format_t format);
 int alsa_device_get_port_index(alsa_device_t alsa_device);
 int aml_set_thread_priority(char *pName, pthread_t threadId);
+uint32_t out_get_alsa_latency_frames(const struct audio_stream_out *stream);
 
 #endif

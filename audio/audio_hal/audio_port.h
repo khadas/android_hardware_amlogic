@@ -137,6 +137,7 @@ struct output_port {
     pthread_cond_t cond;
     ssize_t (*write)(struct output_port *port, void *buffer, int bytes);
     struct timespec tval_last;
+    int sound_track_mode;
 };
 bool is_inport_valid(aml_mixer_input_port_type_e index);
 bool is_outport_valid(enum MIXER_OUTPUT_PORT index);

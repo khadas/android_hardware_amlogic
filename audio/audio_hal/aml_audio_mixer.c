@@ -1011,7 +1011,7 @@ int notify_mixer_input_avail(struct aml_audio_mixer *audio_mixer)
     enum MIXER_INPUT_PORT port_index = 0;
     for (port_index = 0; port_index < MIXER_INPUT_PORT_NUM; port_index++) {
         struct input_port *in_port = audio_mixer->in_ports[port_index];
-        if (in_port && in_port->on_notify_cbk)
+        if (in_port && in_port->on_input_avail_cbk)
             in_port->on_input_avail_cbk(in_port->input_avail_cbk_data);
     }
 

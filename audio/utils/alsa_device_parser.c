@@ -213,8 +213,6 @@ void alsa_device_parser_pcm_string(struct alsa_info *p_info, char *InputBuffer)
 
 				if (!strncmp(PortName, ALSAPORT_PCM, strlen(ALSAPORT_PCM)))
 					p_info->pcm_descrpt = mAudioDeviceDescriptor;
-				else if (!strncmp(PortName, ALSAPORT_I2S2HDMI, strlen(ALSAPORT_I2S2HDMI)))
-					p_info->i2s2hdmi_descrpt = mAudioDeviceDescriptor;
 				else if (!strncmp(PortName, ALSAPORT_I2SPLAYPLAYBACK, strlen(ALSAPORT_I2SPLAYPLAYBACK)))
 					p_info->i2s1_descrpt = mAudioDeviceDescriptor;
 				else if (!strncmp(PortName, ALSAPORT_I2SCAPTURE, strlen(ALSAPORT_I2SCAPTURE)))
@@ -248,23 +246,6 @@ void alsa_device_parser_pcm_string(struct alsa_info *p_info, char *InputBuffer)
 		ALOGD("%s mCardindex:%d, mPcmindex:%d, PortName:%s\n", __FUNCTION__, mAudioDeviceDescriptor->mCardindex, mAudioDeviceDescriptor->mPcmIndex, PortName);
 		Rch = strtok(NULL, ": ");
 	}
-}
-
-static void dump_alsa_device_desc(struct alsa_info *p_info)
-{
-	ALOGD("%s %s: %p", __func__, ALSAPORT_PCM, p_info->pcm_descrpt);
-	ALOGD("%s %s: %p", __func__, ALSAPORT_I2S, p_info->i2s_descrpt);
-	ALOGD("%s %s: %p", __func__, ALSAPORT_I2SPLAYPLAYBACK, p_info->i2s1_descrpt);
-	ALOGD("%s %s: %p", __func__, ALSAPORT_I2SCAPTURE, p_info->i2s2_descrpt);
-	ALOGD("%s %s: %p", __func__, ALSAPORT_TDM, p_info->tdm_descrpt);
-	ALOGD("%s %s: %p", __func__, ALSAPORT_PDM, p_info->pdm_descrpt);
-	ALOGD("%s %s: %p", __func__, ALSAPORT_SPDIF, p_info->spdif_descrpt);
-	ALOGD("%s %s: %p", __func__, ALSAPORT_SPDIFB, p_info->spdifb_descrpt);
-	ALOGD("%s %s: %p", __func__, ALSAPORT_I2S2HDMI, p_info->i2s2hdmi_descrpt);
-	ALOGD("%s %s: %p", __func__, ALSAPORT_TV, p_info->tvin_descrpt);
-	ALOGD("%s %s: %p", __func__, ALSAPORT_LPBK, p_info->lpbk_descrpt);
-	ALOGD("%s %s: %p", __func__, ALSAPORT_BUILTINMIC, p_info->builtinmic_descrpt);
-	ALOGD("%s %s: %p", __func__, ALSAPORT_EARC, p_info->earc_descrpt);
 }
 
 /*
@@ -305,8 +286,6 @@ int alsa_device_update_pcm_index(int alsaPORT, int stream)
 			}
 			ALOGD("reach EOF");
 			fclose(mPcmFile);
-			if (0)
-				dump_alsa_device_desc(p_info);
 			p_info->deviced_checked = 1;
 		} else
 			ALOGD("Pcm open fail");

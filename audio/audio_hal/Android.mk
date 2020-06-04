@@ -77,7 +77,8 @@ include $(BUILD_PREBUILT)
         audio_virtual_buf.c \
         aml_audio_ease.c \
         aml_audio_spdifout.c \
-        aml_mmap_audio.c 
+        aml_mmap_audio.c \
+        aml_audio_ac3parser.c
 
 
     LOCAL_C_INCLUDES += \

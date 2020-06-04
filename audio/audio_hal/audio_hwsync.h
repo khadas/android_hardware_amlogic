@@ -44,6 +44,7 @@
 #define APTS_DISCONTINUE_THRESHOLD          (90000/10*11)
 #define APTS_DISCONTINUE_THRESHOLD_MIN    (90000/1000*100)
 #define APTS_DISCONTINUE_THRESHOLD_MIN_35MS    (90000/1000*35)
+
 #define APTS_DISCONTINUE_THRESHOLD_MAX    (5*90000)
 
 #define HWSYNC_APTS_NUM     512
@@ -52,6 +53,13 @@ enum hwsync_status {
     CONTINUATION,  // good sync condition
     ADJUSTMENT,    // can be adjusted by discarding or padding data
     RESYNC,        // pts need resync
+};
+
+enum tsync_status {
+    TSYNC_STATUS_INIT,
+    TSYNC_STATUS_RUNNING,
+    TSYNC_STATUS_PAUSED,
+    TSYNC_STATUS_STOP
 };
 
 typedef struct apts_tab {

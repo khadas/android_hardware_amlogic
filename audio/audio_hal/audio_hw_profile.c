@@ -109,6 +109,9 @@ char*  get_hdmi_sink_cap(const char *keys,audio_format_t format,struct aml_arc_h
                 size += sprintf(aud_cap + size, "|%s", "AUDIO_FORMAT_E_AC3");
                 p_hdmi_descs->ddp_fmt.is_support = 1;
             }
+            if (mystrstr(infobuf, "ATMOS")) {
+                size += sprintf(aud_cap + size, "|%s", "AUDIO_FORMAT_E_AC3_JOC");
+            }
             if (mystrstr(infobuf, "AC-3")) {
                 size += sprintf(aud_cap + size, "|%s", "AUDIO_FORMAT_AC3");
                 p_hdmi_descs->dd_fmt.is_support = 1;
@@ -130,10 +133,10 @@ char*  get_hdmi_sink_cap(const char *keys,audio_format_t format,struct aml_arc_h
             ALOGD("query hdmi channels...\n");
             /* take the 2ch suppported as default */
             size += sprintf(aud_cap, "sup_channels=%s", "AUDIO_CHANNEL_OUT_STEREO");
-            if (mystrstr(infobuf, "PCM, 8 ch") ||
+            if (/*(!alsa_device_is_auge() && mystrstr(infobuf, "PCM, 8 ch")) ||*/
                 (mystrstr(infobuf, "Dobly_Digital+") && format == AUDIO_FORMAT_E_AC3)) {
                 size += sprintf(aud_cap + size, "|%s", "AUDIO_CHANNEL_OUT_5POINT1|AUDIO_CHANNEL_OUT_7POINT1");
-            } else if (mystrstr(infobuf, "PCM, 6 ch") ||
+            } else if (/*(!alsa_device_is_auge() && mystrstr(infobuf, "PCM, 6 ch")) ||*/
                        (mystrstr(infobuf, "AC-3") && format == AUDIO_FORMAT_AC3) ||
                        /* backward compatibility for dd, if TV only supports dd+ */
                        (mystrstr(infobuf, "Dobly_Digital+") && format == AUDIO_FORMAT_AC3)) {
@@ -220,10 +223,13 @@ char*  get_hdmi_sink_cap_dolbylib(const char *keys,audio_format_t format,struct 
         /* check the format cap */
         if (strstr(keys, AUDIO_PARAMETER_STREAM_SUP_FORMATS)) {
             ALOGD("query hdmi format...\n");
-            size += sprintf(aud_cap, "sup_formats=%s", "AUDIO_FORMAT_PCM_16_BIT");
+            size += sprintf(aud_cap, "sup_formats=%s", "AUDIO_FORMAT_PCM_16_BIT|AUDIO_FORMAT_IEC61937");
             if (mystrstr(infobuf, "Dobly_Digital+") || dolby_decoder_sup) {
                 size += sprintf(aud_cap + size, "|%s", "AUDIO_FORMAT_E_AC3");
                 p_hdmi_descs->ddp_fmt.is_support = 1;
+            }
+            if (mystrstr(infobuf, "ATMOS")) {
+                size += sprintf(aud_cap + size, "|%s", "AUDIO_FORMAT_E_AC3_JOC");
             }
             if (mystrstr(infobuf, "AC-3")) {
                 size += sprintf(aud_cap + size, "|%s", "AUDIO_FORMAT_AC3");
@@ -245,10 +251,10 @@ char*  get_hdmi_sink_cap_dolbylib(const char *keys,audio_format_t format,struct 
             ALOGD("query hdmi channels...\n");
             /* take the 2ch suppported as default */
             size += sprintf(aud_cap, "sup_channels=%s", "AUDIO_CHANNEL_OUT_STEREO");
-            if (mystrstr(infobuf, "PCM, 8 ch") ||
+            if (/*(!alsa_device_is_auge() && mystrstr(infobuf, "PCM, 8 ch")) ||*/
                 ((mystrstr(infobuf, "Dobly_Digital+") || dolby_decoder_sup )&& format == AUDIO_FORMAT_E_AC3)) {
                 size += sprintf(aud_cap + size, "|%s", "AUDIO_CHANNEL_OUT_5POINT1|AUDIO_CHANNEL_OUT_7POINT1");
-            } else if (mystrstr(infobuf, "PCM, 6 ch") ||
+            } else if (/*(!alsa_device_is_auge() && mystrstr(infobuf, "PCM, 6 ch")) ||*/
                        (mystrstr(infobuf, "AC-3") && format == AUDIO_FORMAT_AC3) ||
                        /* backward compatibility for dd, if TV only supports dd+ */
                        (mystrstr(infobuf, "Dobly_Digital+") && format == AUDIO_FORMAT_AC3)) {

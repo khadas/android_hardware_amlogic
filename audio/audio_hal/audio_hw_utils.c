@@ -44,8 +44,9 @@
 #include "audio_hw.h"
 #include "amlAudioMixer.h"
 #include <audio_utils/primitives.h>
-#include "a2dp_hal.h"
 #include "alsa_device_parser.h"
+#include "a2dp_hal.h"
+#include "aml_audio_avsync_table.h"
 
 #ifdef LOG_NDEBUG_FUNCTION
 #define LOGFUNC(...) ((void)0)
@@ -199,8 +200,10 @@ int get_sysfs_uint(const char *path, uint *value)
         return -1;
     }
     if (sscanf(valstr, "0x%x", &val) < 1) {
-        ALOGE("unable to get pts from: %s", valstr);
-        return -1;
+        if (sscanf(valstr, "%u", &val) < 1) {
+            ALOGE("unable to get pts from: %s", valstr);
+            return -1;
+        }
     }
     *value = val;
     return 0;
@@ -220,6 +223,24 @@ int sysfs_set_sysfs_str(const char *path, const char *val)
     }
     return -1;
 }
+
+int sysfs_get_sysfs_str(const char *path, char *valstr, int size)
+{
+    int fd;
+    fd = open(path, O_RDONLY);
+    if (fd >= 0) {
+        memset(valstr,0,size);
+        read(fd, valstr, size - 1);
+        valstr[strlen(valstr)] = '\0';
+        close(fd);
+    } else {
+        ALOGE("unable to open file %s,err: %s", path, strerror(errno));
+        sprintf(valstr, "%s", "fail");
+        return -1;
+    };
+    return 0;
+}
+
 
 int get_sysfs_int(const char *path)
 {
@@ -574,7 +595,7 @@ int aml_audio_get_ddp_latency_offset(int aformat)
     char *prop_name = NULL;
     (void)aformat;
     prop_name = "vendor.media.audio.hal.latency.ddp";
-    latency_ms = -50;
+    latency_ms = -80;
     ret = property_get(prop_name, buf, NULL);
     if (ret > 0) {
         latency_ms = atoi(buf);
@@ -590,7 +611,7 @@ int aml_audio_get_pcm_latency_offset(int aformat)
     char *prop_name = NULL;
     (void)aformat;
     prop_name = "vendor.media.audio.hal.latency.pcm";
-    latency_ms = -30;
+    latency_ms = 30;
     ret = property_get(prop_name, buf, NULL);
     if (ret > 0) {
         latency_ms = atoi(buf);
@@ -599,20 +620,24 @@ int aml_audio_get_pcm_latency_offset(int aformat)
 }
 
 
-int aml_audio_get_hwsync_latency_offset(void)
+int aml_audio_get_hwsync_latency_offset(bool b_raw)
 {
-	char buf[PROPERTY_VALUE_MAX];
-	int ret = -1;
-	int latency_ms = 0;
-	char *prop_name = NULL;
-
-	prop_name = "vendor.media.audio.hal.hwsync_latency.ddp";
-	latency_ms = -50;
-	ret = property_get(prop_name, buf, NULL);
-	if (ret > 0) {
-		latency_ms = atoi(buf);
-	}
-	return latency_ms;
+    char buf[PROPERTY_VALUE_MAX];
+    int ret = -1;
+    int latency_ms = 0;
+    char *prop_name = NULL;
+    if (!b_raw) {
+        prop_name = "vendor.media.audio.hal.hwsync_latency.pcm";
+        latency_ms = 60;
+    } else {
+        prop_name = "vendor.media.audio.hal.hwsync_latency.ddp";
+        latency_ms = -50;
+    }
+    ret = property_get(prop_name, buf, NULL);
+    if (ret > 0) {
+        latency_ms = atoi(buf);
+    }
+    return latency_ms;
 }
 
 int aml_audio_get_ms12_latency_offset(int b_raw)
@@ -623,30 +648,40 @@ int aml_audio_get_ms12_latency_offset(int b_raw)
     char *prop_name = NULL;
     if (b_raw == 0) {
         /*for non tunnel ddp2h/heaac case:netlfix AL1 case */
-        prop_name = "vendor.media.audio.hal.ms12.latency.pcm";
-        latency_ms = -50;
+        prop_name = AVSYNC_MS12_NONTUNNEL_PCM_LATENCY_PROPERTY;
+        latency_ms = AVSYNC_MS12_NONTUNNEL_PCM_LATENCY;
     }else {
         /*for non tunnel dolby ddp5.1 case:netlfix AL1 case*/
-        prop_name = "vendor.media.audio.hal.ms12.latency.raw";
-        latency_ms = -70;
+        prop_name = AVSYNC_MS12_NONTUNNEL_RAW_LATENCY_PROPERTY;
+        latency_ms = AVSYNC_MS12_NONTUNNEL_RAW_LATENCY;
     }
 
     ret = property_get(prop_name, buf, NULL);
     if (ret > 0) {
         latency_ms = atoi(buf);
     }
-    return latency_ms;
+    /*because the caller use add fucntion, instead of minus, so we return the minus value*/
+    return -latency_ms;
 }
 
-int aml_audio_get_ms12_tunnel_latency_offset(void)
+int aml_audio_get_ms12_tunnel_latency_offset(int b_raw)
 {
     char buf[PROPERTY_VALUE_MAX];
     int ret = -1;
     int latency_ms = 0;
     char *prop_name = NULL;
     /*tunnle mode case*/
-    prop_name = "vendor.media.audio.hal.ms12.latency.tunnel";
-    latency_ms = 50;
+    latency_ms = 0;
+
+    if (b_raw == 0) {
+        /*for non tunnel ddp2h/heaac case:netlfix AL1 case */
+        prop_name = AVSYNC_MS12_TUNNEL_PCM_LATENCY_PROPERTY;
+        latency_ms = AVSYNC_MS12_TUNNEL_PCM_LATENCY;
+    } else {
+        /*for non tunnel dolby ddp5.1 case:netlfix AL1 case*/
+        prop_name = AVSYNC_MS12_TUNNEL_RAW_LATENCY_PROPERTY;
+        latency_ms = AVSYNC_MS12_TUNNEL_RAW_LATENCY;
+    }
 
     ret = property_get(prop_name, buf, NULL);
     if (ret > 0) {
@@ -664,12 +699,12 @@ int aml_audio_get_ms12_atmos_latency_offset(int tunnel)
     char *prop_name = NULL;
     if (tunnel) {
         /*tunnel atmos case*/
-        prop_name = "vendor.media.audio.hal.ms12.latency.atmos.tunnel";
-        latency_ms = 100;
+        prop_name = AVSYNC_MS12_TUNNEL_ATMOS_LATENCY_PROPERTY;
+        latency_ms = AVSYNC_MS12_TUNNEL_ATMOS_LATENCY;
     }else {
         /*non tunnel atmos case*/
-        prop_name = "vendor.media.audio.hal.ms12.latency.atmos.notunnel";
-        latency_ms = 50;
+        prop_name = AVSYNC_MS12_NONTUNNEL_ATMOS_LATENCY_PROPERTY;
+        latency_ms = AVSYNC_MS12_NONTUNNEL_ATMOS_LATENCY;
     }
     ret = property_get(prop_name, buf, NULL);
     if (ret > 0) {
@@ -743,6 +778,29 @@ uint32_t out_get_latency_frames(const struct audio_stream_out *stream)
         mul = 4;
 
     whole_latency_frames = out->config.period_size * out->config.period_count;
+    if (!out->pcm || !pcm_is_ready(out->pcm)) {
+        return whole_latency_frames / mul;
+    }
+    ret = pcm_ioctl(out->pcm, SNDRV_PCM_IOCTL_DELAY, &frames);
+    if (ret < 0) {
+        return whole_latency_frames / mul;
+    }
+    return frames / mul;
+}
+
+uint32_t out_get_alsa_latency_frames(const struct audio_stream_out *stream)
+{
+    const struct aml_stream_out *out = (const struct aml_stream_out *)stream;
+    snd_pcm_sframes_t frames = 0;
+    uint32_t whole_latency_frames;
+    int ret = 0;
+    int codec_type = get_codec_type(out->hal_internal_format);
+    int mul = 1;
+
+    if (is_4x_rate_fmt(codec_type))
+        mul = 4;
+
+    whole_latency_frames = out->config.period_size * out->config.period_count / 2;
     if (!out->pcm || !pcm_is_ready(out->pcm)) {
         return whole_latency_frames / mul;
     }
@@ -1015,6 +1073,11 @@ void aml_audio_switch_output_mode(int16_t *buf, size_t bytes, AM_AOUT_OutputMode
             case AM_AOUT_OUTPUT_SWAP:
                 tmp = buf[i];
                 buf[i] = buf[i + 1];
+                buf[i + 1] = tmp;
+                break;
+            case AM_AOUT_OUTPUT_LRMIX:
+                tmp = (buf[i] / 2)  + (buf[i + 1] / 2);
+                buf[i] = tmp;
                 buf[i + 1] = tmp;
                 break;
             default :

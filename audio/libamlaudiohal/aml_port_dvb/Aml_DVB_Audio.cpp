@@ -15,7 +15,7 @@ int audio_hal_start_decoder(int fmt, int has_video) {
       sprintf (temp_buf, "fmt=%d", fmt);
       aml_audioport->setParameters(String8(temp_buf));
       memset(temp_buf,0,sizeof(temp_buf));
-      sprintf (temp_buf, "has_video=%d", has_video);
+      sprintf (temp_buf, "has_dtv_video=%d", has_video);
       aml_audioport->setParameters(String8(temp_buf));
       aml_audioport->setParameters(String8("cmd=1"));
    } else {

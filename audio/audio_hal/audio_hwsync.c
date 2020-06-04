@@ -171,6 +171,7 @@ void aml_audio_hwsync_init(audio_hwsync_t *p_hwsync, struct aml_stream_out  *out
         ALOGI("%s open tsync fd %d", __func__, fd);
     }
     ALOGI("%s done", __func__);
+    out->tsync_status = TSYNC_STATUS_INIT;
     return;
 }
 void aml_audio_hwsync_release(audio_hwsync_t *p_hwsync)
@@ -328,7 +329,7 @@ int aml_audio_hwsync_set_first_pts(audio_hwsync_t *p_hwsync, uint64_t pts)
 
     if (aml_hwsync_set_tsync_start_pts(pts32) < 0)
         return -EINVAL;
-
+    p_hwsync->aout->tsync_status = TSYNC_STATUS_RUNNING;
     return 0;
 }
 /*
@@ -350,6 +351,8 @@ int aml_audio_hwsync_audio_process(audio_hwsync_t *p_hwsync, size_t offset, int 
     uint32_t latency_frames = 0;
     struct audio_stream_out *stream = NULL;
     uint32_t latency_pts = 0;
+    struct aml_stream_out  *out = p_hwsync->aout;
+    int b_raw = 0;
 
     // add protection to avoid NULL pointer.
     if (p_hwsync == NULL) {
@@ -368,6 +371,14 @@ int aml_audio_hwsync_audio_process(audio_hwsync_t *p_hwsync, size_t offset, int 
         }
     }
 
+    /*when it is ddp 2ch/heaac we need use different latency control*/
+    if (audio_is_linear_pcm(out->hal_internal_format)) {
+        b_raw = 0;
+    }else {
+        b_raw = 1;
+    }
+
+
     ret = aml_audio_hwsync_lookup_apts(p_hwsync, offset, &apts);
 
     /*get MS12 pipe line delay + alsa delay*/
@@ -377,7 +388,7 @@ int aml_audio_hwsync_audio_process(audio_hwsync_t *p_hwsync, size_t offset, int 
             /*we need get the correct ms12 out pcm */
             latency_frames = out_get_ms12_latency_frames(stream);
             //ALOGI("latency_frames =%d", latency_frames);
-            latency_frames += aml_audio_get_ms12_tunnel_latency_offset()*48; // add 60ms delay for ms12, 32ms pts offset, other is ms12 delay
+            latency_frames += aml_audio_get_ms12_tunnel_latency_offset(b_raw)*48; // add 60ms delay for ms12, 32ms pts offset, other is ms12 delay
 
             if ((adev->ms12.is_dolby_atmos && adev->ms12_main1_dolby_dummy == false) || adev->atoms_lock_flag) {
                 int tunnel = 1;
@@ -496,7 +507,7 @@ int aml_audio_hwsync_lookup_apts(audio_hwsync_t *p_hwsync, size_t offset, unsign
     size_t align  = 0;
     int ret = -1;
     struct aml_audio_device *adev = NULL;
-    struct audio_stream_out *stream = NULL;
+    struct aml_stream_out  *out = NULL;
     int    debug_enable = 0;
     //struct aml_audio_device *adev = p_hwsync->aout->dev;
     //struct audio_stream_out *stream = (struct audio_stream_out *)p_hwsync->aout;
@@ -504,6 +515,10 @@ int aml_audio_hwsync_lookup_apts(audio_hwsync_t *p_hwsync, size_t offset, unsign
     uint32_t latency_frames = 0;
     uint32_t latency_pts = 0;
     apts_tab_t *pts_tab = NULL;
+    uint32_t nearest_pts = 0;
+    uint32_t nearest_offset = 0;
+    uint32_t min_offset = 0x7fffffff;
+    int match_index = -1;
 
     // add protection to avoid NULL pointer.
     if (!p_hwsync) {
@@ -515,8 +530,8 @@ int aml_audio_hwsync_lookup_apts(audio_hwsync_t *p_hwsync, size_t offset, unsign
         ALOGE("%s,p_hwsync->aout == NULL", __func__);
         return -1;
     }
-    stream = (struct audio_stream_out *)p_hwsync->aout;
 
+    out = p_hwsync->aout;
     adev = p_hwsync->aout->dev;
     if (adev == NULL) {
         ALOGE("%s,adev == NULL", __func__);
@@ -545,6 +560,7 @@ int aml_audio_hwsync_lookup_apts(audio_hwsync_t *p_hwsync, size_t offset, unsign
         if (pts_tab[i].valid) {
             if (pts_tab[i].offset == align) {
                 *p_apts = pts_tab[i].pts;
+                nearest_offset = pts_tab[i].offset;
                 ret = 0;
                 if (debug_enable) {
                     ALOGI("%s first flag %d,pts checkout done,offset %zu,align %zu,pts 0x%x",
@@ -552,12 +568,40 @@ int aml_audio_hwsync_lookup_apts(audio_hwsync_t *p_hwsync, size_t offset, unsign
                 }
                 break;
             } else if (pts_tab[i].offset < align) {
+                /*find the nearest one*/
+                if ((align - pts_tab[i].offset) < min_offset) {
+                    min_offset = align - pts_tab[i].offset;
+                    match_index = i;
+                    nearest_pts = pts_tab[i].pts;
+                    nearest_offset = pts_tab[i].offset;
+                }
                 pts_tab[i].valid = 0;
+
             }
         }
     }
     if (i == HWSYNC_APTS_NUM) {
-        ALOGE("%s,apts lookup failed,align %zu,offset %zu", __func__, align, offset);
+        if (nearest_pts) {
+            ret = 0;
+            *p_apts = nearest_pts;
+            ALOGI("find nearest pts 0x%x offset %zu align %zu", *p_apts, nearest_offset, align);
+        } else {
+            ALOGE("%s,apts lookup failed,align %zu,offset %zu", __func__, align, offset);
+        }
+    }
+    if ((ret == 0) && audio_is_linear_pcm(out->hal_internal_format)) {
+        int diff = 0;
+        int pts_diff = 0;
+        uint32_t frame_size = out->hal_frame_size;
+        uint32_t sample_rate  = out->hal_rate;
+        diff = (offset >= nearest_offset) ? (offset - nearest_offset) : 0;
+        if ((frame_size != 0) && (sample_rate != 0)) {
+            pts_diff = (diff * 1000/frame_size)/sample_rate;
+        }
+        *p_apts +=  pts_diff * 90;
+        if (debug_enable) {
+            ALOGI("data offset =%d pts offset =%d diff =%d pts=0x%x pts diff =%d", offset, nearest_offset, offset - nearest_offset, *p_apts, pts_diff);
+        }
     }
     pthread_mutex_unlock(&p_hwsync->lock);
     return ret;

@@ -96,6 +96,7 @@ static unsigned int DEFAULT_OUT_SAMPLING_RATE = 48000;
 
 #define DDP_FRAME_SIZE      768
 #define EAC3_MULTIPLIER 4
+#define  JITTER_DURATION_MS  3
 enum {
     TYPE_PCM = 0,
     TYPE_AC3 = 2,
@@ -462,7 +463,7 @@ struct aml_audio_device {
     //int cnt_stream_using_mixer;
     int tsync_fd;
     bool rawtopcm_flag;
-    bool is_ms12sys_lat;
+    bool is_netflix;
     int dtv_aformat;
     unsigned int dtv_i2s_clock;
     unsigned int dtv_spidif_clock;
@@ -485,9 +486,11 @@ struct aml_audio_device {
     int start_mute_flag;
     int ad_start_enable;
     int count;
+    int sound_track_mode;
     void *alsa_handle[ALSA_DEVICE_CNT];
     bool dual_spdif_support; /*1 means supports spdif_a & spdif_b & spdif interface*/
     struct aec_t *aec;
+    uint64_t  sys_audio_frame_written;
 };
 
 struct meta_data {
@@ -529,12 +532,15 @@ struct aml_stream_out {
     struct audio_config audioCfg;
     /* config which set to ALSA device */
     struct pcm_config config;
+    audio_format_t    alsa_output_format;
     /* channel mask exposed to AudioFlinger. */
     audio_channel_mask_t hal_channel_mask;
     /* format mask exposed to AudioFlinger. */
     audio_format_t hal_format;
     /* samplerate exposed to AudioFlinger. */
     unsigned int hal_rate;
+    unsigned int hal_ch;
+    unsigned int hal_frame_size;
     unsigned int rate_convert;
     audio_output_flags_t flags;
     audio_devices_t out_device;
@@ -559,6 +565,7 @@ struct aml_stream_out {
     void *audioeffect_tmp_buffer;
     bool pause_status;
     bool hw_sync_mode;
+    int  tsync_status;
     float volume_l;
     float volume_r;
     float last_volume_l;
@@ -631,7 +638,13 @@ struct aml_stream_out {
     bool dual_spdif;
     int codec_type2;  /*used for dual bitstream output*/
     struct pcm *pcm2; /*used for dual bitstream output*/
+    bool tv_src_stream;
+    unsigned int write_func;
+    uint64_t  last_frame_reported;
+    struct timespec  last_timestamp_reported;
     void    *pstMmapAudioParam;    // aml_mmap_audio_param_st (aml_mmap_audio.h)
+    bool ac3_parser_init;
+    void * ac3_parser_handle;
 };
 
 typedef ssize_t (*write_func)(struct audio_stream_out *stream, const void *buffer, size_t bytes);

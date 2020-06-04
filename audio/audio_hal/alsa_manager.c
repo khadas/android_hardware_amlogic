@@ -42,8 +42,10 @@
 #define MAX_AVSYNC_GAP (10*90000)
 #define MAX_AVSYNC_WAIT_TIME (3*1000*1000)
 
-#define ALSA_OUT_BUF_NS (10000000000LL)   //10s
-#define ALSA_PREFILL_BUF_NS (10000000000LL)   //10s
+#define ALSA_OUT_BUF_NS (64000000LL)
+#define ALSA_DELAY_UP_THRESHOLD_MS (50)  /*the start threshold is 42ms, so we assume it as 50ms*/
+#define VIRTUAL_BUF_DELAY_PERIOD_MS (4)
+#define MS_TO_NANO_SEC  (1000000LL)
 
 
 /*
@@ -96,15 +98,35 @@ int aml_alsa_output_open(struct audio_stream_out *stream)
                 ALOGI("%s stream device(%d) differ with current device(%d)!", __func__, aml_out->device, device);
                 aml_out->is_device_differ_with_ms12 = true;
             }
+        } else {
+            audio_format_t output_format = aml_out->alsa_output_format;
+            get_hardware_config_parameters(
+                config
+                , output_format
+                , audio_channel_count_from_out_mask(aml_out->hal_channel_mask)
+                , aml_out->config.rate
+                , aml_out->is_tv_platform);
+            switch (output_format) {
+                case AUDIO_FORMAT_E_AC3:
+                    device = DIGITAL_DEVICE;
+                    break;
+                case AUDIO_FORMAT_AC3:
+                    device = DIGITAL_DEVICE;
+                    break;
+                case AUDIO_FORMAT_PCM_16_BIT:
+                default:
+                    device = I2S_DEVICE;
+                    break;
+            }
         }
     } else if (eDolbyDcvLib == adev->dolby_lib_type) {
         if (aml_out->dual_output_flag && adev->optical_format != AUDIO_FORMAT_PCM_16_BIT) {
             device = I2S_DEVICE;
             config->rate = MM_FULL_POWER_SAMPLING_RATE;
-        } else if (adev->sink_format != AUDIO_FORMAT_PCM_16_BIT &&
+        } else if (aml_out->alsa_output_format != AUDIO_FORMAT_PCM_16_BIT &&
                    aml_out->hal_format != AUDIO_FORMAT_PCM_16_BIT) {
             memset(&config_raw, 0, sizeof(struct pcm_config));
-            int period_mul = (adev->sink_format  == AUDIO_FORMAT_E_AC3) ? 4 : 1;
+            int period_mul = (aml_out->alsa_output_format  == AUDIO_FORMAT_E_AC3) ? 4 : 1;
             config_raw.channels = 2;
             config_raw.rate = aml_out->config.rate;//MM_FULL_POWER_SAMPLING_RATE ;
             config_raw.period_size = DEFAULT_PLAYBACK_PERIOD_SIZE * period_mul;
@@ -281,8 +303,7 @@ size_t aml_alsa_output_write(struct audio_stream_out *stream,
     int need_drop_inject = 0;
     int64_t pretime = 0;
     unsigned char*audio_data = (unsigned char*)buffer;
-
-    switch (adev->sink_format) {
+    switch (aml_out->alsa_output_format) {
     case AUDIO_FORMAT_E_AC3:
         frame_size = AUDIO_EAC3_FRAME_SIZE;
         break;
@@ -450,7 +471,6 @@ write:
 
     {
         struct snd_pcm_status status;
-
         pcm_ioctl(aml_out->pcm, SNDRV_PCM_IOCTL_STATUS, &status);
         if (status.state == PCM_STATE_XRUN) {
             ALOGD("alsa underrun");
@@ -476,7 +496,9 @@ write:
 
     ret = pcm_write(aml_out->pcm, buffer, bytes);
     if (ret < 0) {
-        ALOGE("%s write failed,pcm handle %p err num %d", __func__, aml_out->pcm, ret);
+        ALOGE("%s write failed,pcm handle %p %s, stream %p, %s",
+            __func__, aml_out->pcm, pcm_get_error(aml_out->pcm),
+            aml_out, usecase2Str(aml_out->usecase));
     }
 
     if ((adev->continuous_audio_mode == 1) && (eDolbyMS12Lib == adev->dolby_lib_type) && (bytes != 0)) {
@@ -495,10 +517,28 @@ write:
         if (aml_out->alsa_vir_buf_handle == NULL) {
             /*set the buf to 10s, and then fill the buff, we will use this to make the data consuming to stable*/
             audio_virtual_buf_open(&aml_out->alsa_vir_buf_handle, "alsa out", ALSA_OUT_BUF_NS, ALSA_OUT_BUF_NS, 0);
-            audio_virtual_buf_process(aml_out->alsa_vir_buf_handle, ALSA_OUT_BUF_NS - input_ns/2);
+            audio_virtual_buf_process(aml_out->alsa_vir_buf_handle, ALSA_OUT_BUF_NS);
         }
-
         audio_virtual_buf_process(aml_out->alsa_vir_buf_handle, input_ns);
+
+        /* alsa output rate is not exactly with system time, we need check whether
+         * the delay is too big, if it is too big, we should delay the virtual buf
+         */
+        {
+            int rate_multiply = 1;
+            uint64_t frame_ms = 0;
+            snd_pcm_sframes_t frames = 0;
+            ret = pcm_ioctl(aml_out->pcm, SNDRV_PCM_IOCTL_DELAY, &frames);
+            if (aml_out->alsa_output_format == AUDIO_FORMAT_E_AC3) {
+                rate_multiply = 4;
+            }
+            frame_ms = (uint64_t)frames * 1000LL/ (sample_rate * rate_multiply);
+            ALOGV("alsa frame delay=%ld ms=%lld", frames, frame_ms);
+            if (frame_ms > ALSA_DELAY_UP_THRESHOLD_MS) {
+                ALOGI("alsa delay is =%lld catch up =%d", frame_ms, VIRTUAL_BUF_DELAY_PERIOD_MS);
+                audio_virtual_buf_process(aml_out->alsa_vir_buf_handle, VIRTUAL_BUF_DELAY_PERIOD_MS * MS_TO_NANO_SEC);
+            }
+        }
         if (mutex_lock_success) {
             pthread_mutex_lock(&adev->alsa_pcm_lock);
         }

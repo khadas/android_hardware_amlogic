@@ -292,7 +292,7 @@ exit:
         //TODO
         if (out->out_device & AUDIO_DEVICE_OUT_ALL_A2DP)
             latency_frames = mixer_get_inport_latency_frames(audio_mixer, out->enInputPortType)
-                    + a2dp_out_get_latency(stream) * out->hal_rate / 1000;
+                    + a2dp_out_get_latency(stream);
         else
             latency_frames = mixer_get_inport_latency_frames(audio_mixer, out->enInputPortType)
                     + mixer_get_outport_latency_frames(audio_mixer);
@@ -657,27 +657,7 @@ static int out_get_presentation_position_port(
     }
 
     if (out->out_device & AUDIO_DEVICE_OUT_ALL_A2DP) {
-        struct timespec stCurTimestamp;
-        int64_t  curr_nanoseconds = 0;
-        int64_t  pre_nanoseconds = 0;
-        int64_t  time_diff = 0;
-        int drift_frames = 0;
-
-        pre_nanoseconds = (long long)out->timestamp.tv_sec * 1000000000 + (long long)out->timestamp.tv_nsec;
-        clock_gettime(CLOCK_MONOTONIC, &stCurTimestamp);
-        curr_nanoseconds = (long long)stCurTimestamp.tv_sec * 1000000000 + (long long)stCurTimestamp.tv_nsec;
-        time_diff = curr_nanoseconds - pre_nanoseconds;
-        if (time_diff <= 100*1000000) {
-            drift_frames = (time_diff * 441) / 10000000;
-            if (adev->debug_flag)
-                ALOGI("[%s:%d] normal time diff=%lld drift_frames=%d", __func__, __LINE__,time_diff, drift_frames);
-        } else {
-            if (adev->debug_flag)
-                ALOGW("[%s:%d] big time diff:%lld", __func__, __LINE__, time_diff);
-            time_diff = 0;
-            drift_frames = 0;
-        }
-        *frames = frames_written_hw + drift_frames;
+        *frames = frames_written_hw;
         *timestamp = out->timestamp;
     } else if (!adev->audio_patching) {
         ret = mixer_get_presentation_position(audio_mixer,
@@ -1176,18 +1156,7 @@ exit:
     aml_out->lasttimestamp.tv_sec = aml_out->timestamp.tv_sec;
     aml_out->lasttimestamp.tv_nsec = aml_out->timestamp.tv_nsec;
 
-
-    if (aml_out->out_device & AUDIO_DEVICE_OUT_ALL_A2DP) {
-        uint64_t latency_frames = aml_out->hal_rate * a2dp_out_get_latency(stream) / 1000 +
-                mixer_get_inport_latency_frames(sm->mixerData, aml_out->enInputPortType);
-        if (aml_out->frame_write_sum > latency_frames)
-            aml_out->last_frames_postion = aml_out->frame_write_sum - latency_frames;
-        else
-            aml_out->last_frames_postion = 0;
-    } else {
-        aml_out->last_frames_postion = aml_out->frame_write_sum;
-    }
-
+    aml_out->last_frames_postion = aml_out->frame_write_sum;
     ALOGV("%s(), frame write sum %lld", __func__, aml_out->frame_write_sum);
     return bytes;
 }
@@ -1297,8 +1266,10 @@ int usecase_change_validate_l_sm(struct aml_stream_out *aml_out, bool is_standby
         if (aml_dev->audio_patching) {
             ALOGV("%s(), tv patching, mixer_aux_buffer_write!", __FUNCTION__);
             aml_out->write = mixer_aux_buffer_write;
+            aml_out->write_func = MIXER_AUX_BUFFER_WRITE;
         } else {
             aml_out->write = mixer_aux_buffer_write_sm;
+            aml_out->write_func = MIXER_AUX_BUFFER_WRITE_SM;
             ALOGV("%s(), mixer_aux_buffer_write_sm !", __FUNCTION__);
         }
     } else if (STREAM_PCM_MMAP == aml_out->usecase) {
@@ -1565,11 +1536,13 @@ int switchNormalStream(struct aml_stream_out *aml_out, bool on)
         aml_out->stream.write = out_write_subMixingPCM;
         aml_out->stream.common.standby = out_standby_subMixingPCM;
         out_standby_subMixingPCM((struct audio_stream *)aml_out);
+        aml_out->write_func = MIXER_AUX_BUFFER_WRITE_SM;
     } else {
-        aml_out->stream.write = mixer_aux_buffer_write;
+        aml_out->stream.write = out_write_new;//mixer_aux_buffer_write;
         aml_out->stream.common.standby = out_standby_new;
         deleteSubMixingInputPcm(aml_out);
         out_standby_new((struct audio_stream *)aml_out);
+        aml_out->write_func = OUT_WRITE_NEW;
     }
 
     return 0;

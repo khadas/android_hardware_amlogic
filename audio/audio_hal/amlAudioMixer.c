@@ -372,7 +372,7 @@ static int mixer_output_write(struct amlAudioMixer *audio_mixer)
     } else if (in_port_system && in_port_system->notify_cbk_data) {
         out = (struct aml_stream_out *)in_port_system->notify_cbk_data;
     }
-
+    out_port->sound_track_mode = audio_mixer->adev->sound_track_mode;
     while (is_output_data_avail(audio_mixer, port_index)) {
         // out_write_callbacks();
         if (out && (out->out_device & AUDIO_DEVICE_OUT_ALL_A2DP))
@@ -655,7 +655,6 @@ static int retrieve_hwsync_header(struct amlAudioMixer *audio_mixer,
 {
     uint32_t frame_size = get_mixer_hwsync_frame_size(audio_mixer);
     uint32_t port_consumed_size = get_inport_consumed_size(in_port);
-    uint32_t aligned_offset = 0;
     int diff_ms = 0;
     struct hw_avsync_header header;
     int ret = 0;
@@ -670,7 +669,6 @@ static int retrieve_hwsync_header(struct amlAudioMixer *audio_mixer,
         return -EINVAL;
     }
 
-    aligned_offset = hwsync_align_to_frame(port_consumed_size, frame_size);
     memset(&header, 0, sizeof(struct hw_avsync_header));
     ALOGV("direct out port bytes before cbk %d", get_outport_data_avail(out_port));
     if (!in_port->meta_data_cbk) {
@@ -679,7 +677,7 @@ static int retrieve_hwsync_header(struct amlAudioMixer *audio_mixer,
     }
     ALOGV("%s(), port %p, data %p", __func__, in_port, in_port->meta_data_cbk_data);
     ret = in_port->meta_data_cbk(in_port->meta_data_cbk_data,
-                aligned_offset, &header, &diff_ms);
+                port_consumed_size, &header, &diff_ms);
     if (ret < 0) {
         if (ret != -EAGAIN)
             ALOGE("meta_data_cbk fail err = %d!!", ret);

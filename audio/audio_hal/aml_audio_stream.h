@@ -66,12 +66,21 @@ enum digital_format {
     AUTO = 5
 };
 
+enum stream_write_func {
+    OUT_WRITE_NEW = 0,
+    MIXER_AUX_BUFFER_WRITE_SM = 1,
+    MIXER_AUX_BUFFER_WRITE = 2,
+    MIXER_MAIN_BUFFER_WRITE = 3,
+    MIXER_WRITE_FUNC_MAX
+};
+
 /**\brief Audio output mode*/
 typedef enum {
     AM_AOUT_OUTPUT_STEREO,     /**< Stereo output*/
     AM_AOUT_OUTPUT_DUAL_LEFT,  /**< Left audio output to dual channel*/
     AM_AOUT_OUTPUT_DUAL_RIGHT, /**< Right audio output to dual channel*/
-    AM_AOUT_OUTPUT_SWAP        /**< Swap left and right channel*/
+    AM_AOUT_OUTPUT_SWAP,        /**< Swap left and right channel*/
+    AM_AOUT_OUTPUT_LRMIX       /**< mix left and right channel*/
 } AM_AOUT_OutputMode_t;
 static inline bool is_main_write_usecase(stream_usecase_t usecase)
 {
@@ -276,6 +285,12 @@ struct aml_audio_patch {
 	AM_AOUT_OutputMode_t   mode;
     bool ac3_pcm_dropping;
     int last_audio_delay;
+    //add only for debug.
+    int dtv_log_retry_cnt;
+    unsigned int last_apts_record;
+    unsigned int last_vpts_record;
+    unsigned int last_pcrpts_record;
+    struct timespec last_debug_record;
 };
 
 struct audio_stream_out;
@@ -314,4 +329,12 @@ void  release_audio_stream(struct audio_stream_out *stream);
 /*@brief check the AV audio stability by HW register */
 bool is_av_in_stable_hw(struct audio_stream_in *stream);
 bool is_dual_output_stream(struct audio_stream_out *stream);
+/* dumpsys media.audio_flinger interfaces */
+const char *audio_port_role_to_str(audio_port_role_t role);
+const char *audio_port_type_to_str(audio_port_type_t type);
+void aml_stream_out_dump(struct aml_stream_out *aml_out, int fd);
+void aml_audio_port_config_dump(struct audio_port_config *port_config, int fd);
+void aml_audio_patch_dump(struct audio_patch *patch, int fd);
+void aml_audio_patches_dump(struct aml_audio_device* aml_dev, int fd);
+
 #endif /* _AML_AUDIO_STREAM_H_ */

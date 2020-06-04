@@ -14,14 +14,23 @@
  * limitations under the License.
  */
 
-#ifndef _SPDIF_ENCODER_API_H_
-#define _SPDIF_ENCODER_API_H_
+#ifndef _AML_AUDIO_AC3PARSER_H_
+#define _AML_AUDIO_AC3PARSER_H_
 
-int aml_spdif_encoder_open(void **spdifenc_handle, audio_format_t format);
-int aml_spdif_encoder_close(void *phandle);
-int aml_spdif_encoder_process(void *phandle, const void *buffer, size_t numBytes, void **output_buf, size_t *out_size);
-int aml_spdif_encoder_mute(void *phandle, bool bmute);
+struct ac3_parser_info {
+    int frame_size;
+    int channel_num;
+    int numblks;
+    int timeslice_61937;
+    int framevalid_flag;
+    int frame_dependent;
+};
 
 
+int aml_ac3_parser_open(void **pparser_handle);
+int aml_ac3_parser_close(void *parser_handle);
+int aml_ac3_parser_process(void *parser_handle, const void *buffer, int32_t numBytes, int32_t *used_size, void **output_buf, int32_t *out_size, struct ac3_parser_info * ac3_info);
+int aml_ac3_parser_reset(void *parser_handle);
 
-#endif // _ALSA_MANAGER_H_
+
+#endif

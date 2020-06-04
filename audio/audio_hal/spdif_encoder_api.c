@@ -35,6 +35,7 @@ struct aml_spdif_encoder {
     void *temp_buf;
     int temp_buf_size;
     int temp_buf_pos;
+    bool bmute;
 };
 
 
@@ -100,6 +101,7 @@ int aml_spdif_encoder_open(void **spdifenc_handle, audio_format_t format)
     }
 
     phandle->format = format;
+    phandle->bmute  = 0;
     *spdifenc_handle = (void *)phandle;
     ALOGI("%s handle =%p", __FUNCTION__, phandle);
     return 0;
@@ -147,8 +149,26 @@ int aml_spdif_encoder_process(void *phandle, const void *buffer, size_t numBytes
     }
     spdif_encoder_ad_flush_output_current_position(spdifenc_handle->spdif_encoder_ad);
 
+    if (spdifenc_handle->bmute) {
+        /*why we just memset it? because it is not always one frame*/
+        if (spdifenc_handle->temp_buf_pos > 0) {
+            memset(spdifenc_handle->temp_buf, 0, spdifenc_handle->temp_buf_pos);
+        }
+    }
     *output_buf = spdifenc_handle->temp_buf;
     *out_size   = spdifenc_handle->temp_buf_pos;
+
     ALOGV("spdif enc format=0x%x size =0x%x", spdifenc_handle->format, *out_size);
     return 0;
 }
+
+int aml_spdif_encoder_mute(void *phandle, bool bmute) {
+    struct aml_spdif_encoder *spdifenc_handle = (struct aml_spdif_encoder *)phandle;
+    if (phandle == NULL) {
+        return -1;
+    }
+
+    spdifenc_handle->bmute  = bmute;
+    return 0;
+}
+

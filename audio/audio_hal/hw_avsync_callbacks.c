@@ -9,6 +9,7 @@
 #include "audio_hw.h"
 #include "audio_hw_utils.h"
 
+
 enum hwsync_status pcm_check_hwsync_status(uint apts_gap)
 {
     enum hwsync_status sync_status;
@@ -59,7 +60,7 @@ int on_meta_data_cbk(void *cookie,
     uint32_t sample_rate = 48000;
     uint64_t pts_delta = 0;
     int ret = 0;
-    uint32_t tunning_latency = 40;
+    int32_t tunning_latency = aml_audio_get_hwsync_latency_offset(false);
 
     if (!cookie || !header) {
         ALOGE("NULL pointer");
@@ -119,20 +120,23 @@ int on_meta_data_cbk(void *cookie,
 
 
     if (!out->first_pts_set) {
-        uint32_t latency = 0;
+        int32_t latency = 0;
         int vframe_ready_cnt = 0;
         int delay_count = 0;
         hwsync_header_construct(header);
-        latency = out_get_outport_latency((struct audio_stream_out *)out);
-        latency += tunning_latency;
+        latency = (int32_t)out_get_outport_latency((struct audio_stream_out *)out) * 90;
+        latency += tunning_latency * 90;
         ALOGD("%s(), set tsync start pts %d, latency %d, last position %lld",
             __func__, pts32, latency, out->last_frames_postion);
-
-        if (pts32 < latency*90) {
-            ALOGI("pts32 = %d latency=%d", pts32/90, latency);
-            return 0;
+        if (latency < 0) {
+            pts32 += abs(latency);
+        } else {
+            if (pts32 < latency) {
+                ALOGI("pts32 = %d latency=%d", pts32/90, latency);
+                return 0;
+            }
+            pts32 -= latency;
         }
-        pts32 -= latency*90;
         while (delay_count < 10) {
             vframe_ready_cnt = get_sysfs_int("/sys/class/video/vframe_ready_cnt");
             ALOGV("/sys/class/video/vframe_ready_cnt is %d", vframe_ready_cnt);
@@ -153,15 +157,19 @@ int on_meta_data_cbk(void *cookie,
         uint32_t pcr = 0;
         uint32_t apts_gap;
         // adjust pts based on latency which is only the outport latency
-        uint64_t latency = out_get_outport_latency((struct audio_stream_out *)out) * 90;
+        int32_t latency = (int32_t)out_get_outport_latency((struct audio_stream_out *)out) * 90;
         latency += tunning_latency * 90;
         // check PTS discontinue, which may happen when audio track switching
         // discontinue means PTS calculated based on first_apts and frame_write_sum
         // does not match the timestamp of next audio samples
-        if (pts32 > latency) {
-            pts32 -= latency;
+        if (latency < 0) {
+            pts32 += abs(latency);
         } else {
-            pts32 = 0;
+            if (pts32 > latency) {
+                pts32 -= latency;
+            } else {
+                pts32 = 0;
+            }
         }
 
         hwsync_extractor = out->hwsync_extractor;
@@ -172,7 +180,7 @@ int on_meta_data_cbk(void *cookie,
                     __func__, adev->tsync_fd, ret);
         }
         if (out->debug_stream)
-            ALOGD("%s()audio pts %dms, pcr %dms, latency %lldms, diff %dms",
+            ALOGD("%s()audio pts %dms, pcr %dms, latency %dms, diff %dms",
                 __func__, pts32/90, pcr/90, latency/90,
                 (pts32 > pcr) ? (pts32 - pcr)/90 : (pcr - pts32)/90);
         apts_gap = get_pts_gap(pcr, pts32);
@@ -185,6 +193,11 @@ int on_meta_data_cbk(void *cookie,
             /*when resume, we need do exactly sync fisrt*/
             out->need_first_sync = false;
             sync_status = ADJUSTMENT;
+        } else if (pcr == 0) {
+            /*during video stop, pcr has been reset by video
+              we need ignore such pcr value*/
+            ALOGI("pcr is reset by video");
+            sync_status = CONTINUATION;
         }
         // limit the gap handle to 0.5~5 s.
         if (sync_status == ADJUSTMENT) {

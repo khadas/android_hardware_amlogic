@@ -387,3 +387,111 @@ bool signal_status_check(audio_devices_t in_device, int *mute_time,
     return true;
 }
 
+const char *audio_port_role[] = {
+    "AUDIO_PORT_ROLE_NONE",
+    "AUDIO_PORT_ROLE_SOURCE",
+    "AUDIO_PORT_ROLE_SINK",
+};
+const char *audio_port_role_to_str(audio_port_role_t role)
+{
+    if (role > AUDIO_PORT_ROLE_SINK)
+        return NULL;
+
+    return audio_port_role[role];
+}
+
+const char *audio_port_type[] = {
+    "AUDIO_PORT_TYPE_NONE",
+    "AUDIO_PORT_TYPE_DEVICE",
+    "AUDIO_PORT_TYPE_MIX",
+    "AUDIO_PORT_TYPE_SESSION",
+};
+
+const char *audio_port_type_to_str(audio_port_type_t type)
+{
+    if (type > AUDIO_PORT_TYPE_SESSION)
+        return NULL;
+
+    return audio_port_type[type];
+}
+
+const char *write_func_strs[MIXER_WRITE_FUNC_MAX] = {
+    "OUT_WRITE_NEW",
+    "MIXER_AUX_BUFFER_WRITE_SM",
+    "MIXER_AUX_BUFFER_WRITE",
+    "MIXER_MAIN_BUFFER_WRITE"
+};
+
+static const char *write_func_to_str(enum stream_write_func func)
+{
+    return write_func_strs[func];
+}
+
+void aml_stream_out_dump(struct aml_stream_out *aml_out, int fd)
+{
+    if (aml_out) {
+        dprintf(fd, "    usecase: %s\n", usecase2Str(aml_out->usecase));
+        dprintf(fd, "    out device: %#x\n", aml_out->out_device);
+        dprintf(fd, "    tv source stream: %d\n", aml_out->tv_src_stream);
+        dprintf(fd, "    status: %d\n", aml_out->status);
+        dprintf(fd, "    standby: %d\n", aml_out->standby);
+        if (aml_out->is_normal_pcm) {
+            dprintf(fd, "    normal pcm: %s\n",
+                write_func_to_str(aml_out->write_func));
+        }
+    }
+}
+
+void aml_audio_port_config_dump(struct audio_port_config *port_config, int fd)
+{
+    if (port_config == NULL)
+        return;
+
+    dprintf(fd, "\t-id(%d), role(%s), type(%s)\n", port_config->id, audio_port_role[port_config->role], audio_port_type[port_config->type]);
+    switch (port_config->type) {
+    case AUDIO_PORT_TYPE_DEVICE:
+        dprintf(fd, "\t-port device: type(%#x) addr(%s)\n",
+               port_config->ext.device.type, port_config->ext.device.address);
+        break;
+    case AUDIO_PORT_TYPE_MIX:
+        dprintf(fd, "\t-port mix: iohandle(%d)\n", port_config->ext.mix.handle);
+        break;
+    default:
+        break;
+    }
+}
+
+void aml_audio_patch_dump(struct audio_patch *patch, int fd)
+{
+    int i = 0;
+
+    dprintf(fd, " handle %d\n", patch->id);
+    for (i = 0; i < patch->num_sources; i++) {
+        dprintf(fd, "    [src  %d]\n", i);
+        aml_audio_port_config_dump(&patch->sources[i], fd);
+    }
+
+    for (i = 0; i < patch->num_sinks; i++) {
+        dprintf(fd, "    [sink %d]\n", i);
+        aml_audio_port_config_dump(&patch->sinks[i], fd);
+    }
+}
+
+void aml_audio_patches_dump(struct aml_audio_device* aml_dev, int fd)
+{
+    struct audio_patch_set *patch_set = NULL;
+    struct audio_patch *patch = NULL;
+    struct listnode *node = NULL;
+    int i = 0;
+
+    dprintf(fd, "\nAML Audio Patches:\n");
+    list_for_each(node, &aml_dev->patch_list) {
+        dprintf(fd, "  patch %d:", i);
+        patch_set = node_to_item (node, struct audio_patch_set, list);
+        if (patch_set)
+            aml_audio_patch_dump(&patch_set->audio_patch, fd);
+
+        i++;
+    }
+}
+
