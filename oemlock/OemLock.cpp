@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017 The Android Open Source Project
+ * Copyright (C) 2020 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -60,16 +60,18 @@ Return<void> OemLock::isOemUnlockAllowedByDevice(isOemUnlockAllowedByDevice_cb _
 
 //if return true, means we can use "fastboot flashing unlock" to unlock the device
 bool OemLock::getLockAbility() {
-    char version_major;
-    char version_minor;
-    char unlock_ability;
-    char lock_state;
-    char lock_critical_state;
-    char lock_bootloader;
+    int version_major;
+    int version_minor;
+    int unlock_ability;
+    int lock_state;
+    int lock_critical_state;
+    int lock_bootloader;
+    int lock_reserve;
 
     std::string value;
     mSysCtrl->getBootEnv("ubootenv.var.lock", value);
-    scanf(value.c_str(), "%d%d%d0%d%d%d0", &version_major, &version_minor, &unlock_ability, &lock_state, &lock_critical_state, &lock_bootloader);
+    sscanf(value.c_str(), "%1d%1d%1d%1d%1d%1d%1d%1d", &version_major, &version_minor,
+        &unlock_ability, &lock_reserve, &lock_state, &lock_critical_state, &lock_bootloader, &lock_reserve);
 
     return (1 == unlock_ability)?true:false;
 }
@@ -84,7 +86,8 @@ void OemLock::setLockAbility(bool allowed) {
 status_t OemLock::dump(int fd, const std::vector<std::string>& args) {
     Mutex::Autolock lock(mLock);
 
-    dprintf(fd, "get bootloader unlock state: %d (1:can unlock, 0:can not unlock)\n", getLockAbility()?1:0);
+    dprintf(fd, "get bootloader unlock state: %d (1:can unlock, 0:can not unlock)\n",
+        getLockAbility()?1:0);
 
     int len = args.size();
     for (int i = 0; i < len; i ++) {
@@ -96,13 +99,14 @@ status_t OemLock::dump(int fd, const std::vector<std::string>& args) {
                 int allow = atoi(allowStr.c_str());
 
                 setLockAbility((1 == allow)?true:false);
-                dprintf(fd, "set bootloader lock state to: %d (1:can unlock, 0:can not unlock)\n", allow);
+                dprintf(fd, "set bootloader unlock state to: %d"
+                    "(1:can unlock, 0:can not unlock)\n", allow);
                 break;
             }
             else {
                 dprintf(fd,
                     "dump bootloader oemlock format error!! should use:\n"
-                    "lshal debug interface -b [set |get] value \n");
+                    "lshal debug interface -l set value \n");
             }
         }
         else if (args[i] == help) {
