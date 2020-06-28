@@ -205,7 +205,6 @@ static int in_remove_audio_effect(const struct audio_stream *stream,
 
 int rc_open_input_stream(struct aml_stream_in **stream,
                         struct audio_config *config) {
-    ALOGD("%s++:build %s, %s", __FUNCTION__, __DATE__, __TIME__);
     assert(stream != NULL);
 
     Mutex::Autolock _l(g_indevice.lock);
