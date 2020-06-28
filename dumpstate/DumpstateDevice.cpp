@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-//#define VENDOR_DUMPSTATE_DEBUG
+#define VENDOR_DUMPSTATE_DEBUG
 
 #include "DumpstateDevice.h"
 
