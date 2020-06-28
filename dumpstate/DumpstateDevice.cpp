@@ -389,6 +389,7 @@ Return<void> DumpstateDevice::dumpstateBoard(const hidl_handle& handle) {
     //RunCommandToFd(fd, "cm size", {"vendor/bin/sh", "-c", "echo 0xd01075c0 0x209 > /sys/kernel/debug/aml_reg/paddr;echo 0xd01075c4 > /sys/kernel/debug/aml_reg/paddr;cat /sys/kernel/debug/aml_reg/paddr"}, CommandOptions::WithTimeout(1).Build());
 
     //dmc monitor
+    /* dmc dump is different for different chip and board
     RunCommandToFd(fd, "dmc_monitor", {"vendor/bin/sh", "-c", "echo 0x000000000  0x80000000  > /sys/class/dmc_monitor/range"}, CommandOptions::WithTimeout(1).Build());
     RunCommandToFd(fd, "dmc_monitor", {"vendor/bin/sh", "-c", "echo \"HDCP\" > /sys/class/dmc_monitor/device"}, CommandOptions::WithTimeout(1).Build());
     RunCommandToFd(fd, "dmc_monitor", {"vendor/bin/sh", "-c", "echo \"HEVC FRONT\" > /sys/class/dmc_monitor/device"}, CommandOptions::WithTimeout(1).Build());
@@ -403,6 +404,7 @@ Return<void> DumpstateDevice::dumpstateBoard(const hidl_handle& handle) {
     RunCommandToFd(fd, "dmc_monitor", {"vendor/bin/sh", "-c", "echo \"HCODEC\" > /sys/class/dmc_monitor/device"}, CommandOptions::WithTimeout(1).Build());
     RunCommandToFd(fd, "dmc_monitor", {"vendor/bin/sh", "-c", "echo \"GE2D\" > /sys/class/dmc_monitor/device"}, CommandOptions::WithTimeout(1).Build());
     DumpFileToFd(fd, "dmc_monitor", "/sys/class/dmc_monitor/dump");
+    */
 
     return Void();
 }
