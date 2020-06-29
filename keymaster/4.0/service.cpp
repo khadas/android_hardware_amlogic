@@ -21,16 +21,30 @@
 #include <amlogic_keymaster/AmlogicKeymaster.h>
 #include <amlogic_keymaster/AmlogicKeymaster4Device.h>
 
+#ifndef KEYMASTER_TEMP_FAILURE_RETRY
+#define KEYMASTER_TEMP_FAILURE_RETRY(exp, retry)            \
+      ({                                       \
+           __typeof__(exp) _rc;                   \
+           int count = 0;                         \
+           do {                                   \
+             usleep(10000);                        \
+             _rc = (exp);                         \
+             count ++;                            \
+           } while (_rc != 0 && count < retry); \
+           _rc;                                   \
+         })
+#endif
+
 int main() {
     ::android::hardware::configureRpcThreadpool(1, true);
-    auto trustyKeymaster = new keymaster::AmlogicKeymaster();
-    int err = trustyKeymaster->Initialize();
+    auto amlKeymaster = new keymaster::AmlogicKeymaster();
+    int err = KEYMASTER_TEMP_FAILURE_RETRY(amlKeymaster->Initialize(), 1000);
     if (err != 0) {
         LOG(FATAL) << "Could not initialize AmlogicKeymaster (" << err << ")";
         return -1;
     }
 
-    auto keymaster = new ::keymaster::V4_0::AmlogicKeymaster4Device(trustyKeymaster);
+    auto keymaster = new ::keymaster::V4_0::AmlogicKeymaster4Device(amlKeymaster);
 
     auto status = keymaster->registerAsService();
     if (status != android::OK) {
