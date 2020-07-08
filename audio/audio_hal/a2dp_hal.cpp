@@ -262,7 +262,7 @@ ssize_t a2dp_out_write(struct audio_stream_out* stream, const void* buffer, size
     struct aml_audio_device *adev = out->dev;
     struct aml_a2dp_hal * hal = (struct aml_a2dp_hal *)adev->a2dp_hal;
     BluetoothStreamState state;
-    size_t totalWritten = 0;
+    size_t totalWritten = bytes;
     int frame_size = 4; //2ch 16bits
     size_t frames = bytes / frame_size;
     int wr_size = bytes;
@@ -274,11 +274,24 @@ ssize_t a2dp_out_write(struct audio_stream_out* stream, const void* buffer, size
     }
     std::unique_lock<std::mutex> lock(hal->mutex_);
     state = hal->a2dphw.GetState();
-    ALOGD("%s: state=%d", __func__, (uint8_t)state);
-    lock.unlock();
+    if (adev->debug_flag)
+        ALOGD("%s:%p bytes=%d, state=%d, format=0x%x, hwsync=%d, continuous=%d",
+                __func__, out, bytes, (uint8_t)state, out->hal_internal_format,
+                out->hw_sync_mode, adev->continuous_audio_mode);
     if (state != BluetoothStreamState::STARTED) {
+        lock.unlock();
         if (a2dp_out_resume(stream)) {
             usleep(10 * 1000);
+        }
+        return totalWritten;
+    } else if (adev->audio_patch) {
+        struct timespec cur = {.tv_sec = 0, .tv_nsec = 0};
+        clock_gettime(CLOCK_MONOTONIC, &cur);
+        int64_t cur_time = cur.tv_sec * 1000000LL + cur.tv_nsec / 1000;
+        if (cur_time - hal->last_write_time > 64000) {
+            ALOGD("%s:%d, for DTV/HDMIIN, input may be has gap: %lld", __func__, __LINE__, cur_time - hal->last_write_time);
+            lock.unlock();
+            a2dp_out_standby(&stream->common);
             return totalWritten;
         }
     }
@@ -376,21 +389,18 @@ ssize_t a2dp_out_write(struct audio_stream_out* stream, const void* buffer, size
     }
     totalWritten = hal->a2dphw.WriteData(wr_buff, wr_size);
 
-    lock.lock();
     if (totalWritten) {
         hal->last_write_time = ts.tv_sec * 1000000LL + ts.tv_nsec / 1000;
     } else {
         const int64_t now = ts.tv_sec * 1000000LL + ts.tv_nsec / 1000;
         const int64_t gap = now - hal->last_write_time;
         int64_t sleep_time = frames * 1000000LL / hal->config.sample_rate - gap;
+        hal->last_write_time = now;
         if (sleep_time > 0) {
+            hal->last_write_time += sleep_time;
             lock.unlock();
             usleep(sleep_time);
-            lock.lock();
-        } else {
-            sleep_time = 0;
         }
-        hal->last_write_time = now + sleep_time;
     }
     return totalWritten;
 }
