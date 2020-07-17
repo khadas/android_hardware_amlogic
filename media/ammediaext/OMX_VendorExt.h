@@ -21,6 +21,8 @@ extern "C" {
 #endif /* __cplusplus */
 
 #include <OMX_Core.h>
+#include <OMX_Audio.h>
+#include <OMX_Video.h>
 
 typedef enum OMX_AUDIO_VENDOR_CODINGEXTTYPE {
     OMX_AUDIO_CodingAndroidDTSHD =   OMX_AUDIO_CodingVendorStartUnused, /**< DTSHD encoded data */

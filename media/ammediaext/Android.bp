@@ -8,6 +8,7 @@ cc_library_shared {
     include_dirs: [
         "frameworks/native/include/media/openmax",
         "system/core/include/utils",
+        "frameworks/native/headers/media_plugin/media/openmax",
     ],
 
     shared_libs: [

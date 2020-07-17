@@ -45,7 +45,7 @@ const char *MEDIA_MIMETYPE_VIDEO_WMV3 = "video/wmv3";
 const char *MEDIA_MIMETYPE_VIDEO_MSWMV3 = "video/x-ms-wmv";
 const char *MEDIA_MIMETYPE_VIDEO_AVS = "video/avs";
 const char *MEDIA_MIMETYPE_VIDEO_AVS2 = "video/avs2";
-
+const char *MEDIA_MIMETYPE_VIDEO_IVF = "video/ivf";
 const char *MEDIA_MIMETYPE_AUDIO_DTS = "audio/dtshd";
 const char *MEDIA_MIMETYPE_AUDIO_MP1 = "audio/mp1";
 const char *MEDIA_MIMETYPE_AUDIO_MP2 = "audio/mp2";

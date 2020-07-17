@@ -49,7 +49,7 @@ extern const char *MEDIA_MIMETYPE_VIDEO_AVS2;
 
 extern const char *MEDIA_MIMETYPE_VIDEO_VC1;
 extern const char *MEDIA_MIMETYPE_VIDEO_WVC1;
-
+extern const char *MEDIA_MIMETYPE_VIDEO_IVF;
 extern const char *MEDIA_MIMETYPE_AUDIO_DTS;
 extern const char *MEDIA_MIMETYPE_AUDIO_MP1;
 extern const char *MEDIA_MIMETYPE_AUDIO_MP2;
