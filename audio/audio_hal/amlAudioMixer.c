@@ -365,12 +365,15 @@ static int mixer_output_write(struct amlAudioMixer *audio_mixer)
     struct output_port *out_port = audio_mixer->out_ports[port_index];
     struct input_port *in_port_direct = audio_mixer->in_ports[AML_MIXER_INPUT_PORT_PCM_DIRECT];
     struct input_port *in_port_system = audio_mixer->in_ports[AML_MIXER_INPUT_PORT_PCM_SYSTEM];
+    struct input_port *in_port_mmap = audio_mixer->in_ports[AML_MIXER_INPUT_PORT_PCM_MMAP];
     struct aml_stream_out *out = NULL;
 
     if (in_port_direct && in_port_direct->notify_cbk_data) {
         out = (struct aml_stream_out *)in_port_direct->notify_cbk_data;
     } else if (in_port_system && in_port_system->notify_cbk_data) {
         out = (struct aml_stream_out *)in_port_system->notify_cbk_data;
+    } else if (in_port_mmap && in_port_mmap->notify_cbk_data) {
+        out = (struct aml_stream_out *)in_port_mmap->notify_cbk_data;
     }
     out_port->sound_track_mode = audio_mixer->adev->sound_track_mode;
     while (is_output_data_avail(audio_mixer, port_index)) {
