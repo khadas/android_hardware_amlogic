@@ -1,0 +1,32 @@
+// Copyright 2005 The Android Open Source Project
+
+cc_binary {
+    name: "testamlconf",
+
+    vendor: true,
+
+    srcs: ["test.c"],
+
+    shared_libs: [
+        "libcutils",
+        "libc",
+        "libamaudioutils",
+    ],
+
+}
+
+cc_binary_host {
+    name: "testdatautils",
+
+    enabled: false,
+
+    cflags: ["-DBUILDHOSTEXE"],
+
+    srcs: [
+        "test_data_utils.c",
+        "../aml_data_utils.c",
+    ],
+
+    shared_libs: [],
+
+}

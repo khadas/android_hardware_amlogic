@@ -9262,7 +9262,7 @@ ssize_t mixer_app_buffer_write(struct audio_stream_out *stream, const void *buff
        ALOGW("[%s:%d] is_bypass_dolbyms12, not support app write", __func__, __LINE__);
        return -1;
    }
-   
+
    while (bytes_remaining && adev->ms12.dolby_ms12_enable && retry > 0) {
        size_t used_size = 0;
        ret = dolby_ms12_app_process(stream, (char *)buffer + bytes_written, bytes_remaining, &used_size);
@@ -9275,7 +9275,7 @@ ssize_t mixer_app_buffer_write(struct audio_stream_out *stream, const void *buff
            aml_audio_sleep(1000);
        }
    }
- 
+
    if (retry <= 10) {
        ALOGE("[%s:%d] write retry=%d ", __func__, __LINE__, retry);
    }

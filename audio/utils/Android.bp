@@ -1,0 +1,52 @@
+
+
+cc_library_shared {
+    name: "libamaudioutils",
+    vendor: true,
+
+    include_dirs: [
+        "system/core/include",
+        "external/tinyalsa/include",
+        "system/media/audio_utils/include",
+    ],
+    export_include_dirs: [
+        "include",
+        "ini/include",
+    ],
+
+    srcs: [
+        "aml_buffer_provider.c",
+        "aml_dump_debug.c",
+        "aml_audio_resampler.c",
+        "aml_ringbuffer.c",
+        "aml_alsa_mixer.c",
+        "aml_android_utils.c",
+        "aml_data_utils.c",
+        "aml_configs/aml_conf_loader.c",
+        "aml_configs/aml_conf_parser.c",
+        "aml_audio_mixer.c",
+        "SPDIFEncoderAD.cpp",
+        "spdifenc_wrap.cpp",
+        "aml_volume_utils.c",
+        "ini/ini.cpp",
+        "ini/IniParser.cpp",
+        "ac3_parser_utils.c",
+        "alsa_device_parser.c",
+        "aml_malloc_debug.c",
+    ],
+
+    header_libs: ["libhardware_headers"],
+
+    shared_libs: [
+        "libc",
+        "libcutils",
+        "libutils",
+        "liblog",
+        "libtinyalsa",
+        "libaudioutils",
+        "libdroidaudiospdif",
+    ],
+
+    cflags: ["-DBUILD_IN_ANDROID"],
+
+}

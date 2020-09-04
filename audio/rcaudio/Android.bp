@@ -1,0 +1,61 @@
+//#################################
+// Audio bluetooth RC HAL
+//#################################
+
+// The default audio HAL module, which is a stub, that is loaded if no other
+// device specific modules are present. The exact load order can be seen in
+// libhardware/hardware.c
+//
+// The format of the name is audio.<type>.<hardware/etc>.so where the only
+// required type is 'primary'. Other possibilites are 'a2dp', 'usb', etc.
+
+cc_library_shared {
+
+    name: "libamlaudiorc",
+
+    proprietary: true,
+
+    srcs: [
+        "audio_hal_thunks.cpp",
+        "AudioHardwareInput.cpp",
+        "AudioStreamIn.cpp",
+        "AudioHotplugThread.cpp",
+        "hidraw/AudioHidrawStreamIn.cpp",
+        "soundcard/AudioSoundCardStreamIn.cpp",
+    ],
+
+    include_dirs: [
+        "external/tinyalsa/include",
+    ],
+    local_include_dirs: [
+        "hidraw",
+        "soundcard",
+    ],
+
+    header_libs: ["libhardware_headers", "libhardware_legacy_headers", "libaudioclient_headers"],
+
+    static_libs: ["audio.bt.remote.static", "libmedia_helper"],
+
+    shared_libs: [
+        "libcutils",
+        "liblog",
+        "libutils",
+        "libtinyalsa",
+        "libaudioutils",
+        "libamaudioutils",
+    ],
+}
+
+cc_prebuilt_library_static {
+    name: "audio.bt.remote.static",
+    proprietary: true,
+    arch: {
+        arm: {
+            srcs: ["hidraw/audio.bt.remote-arm.a"],
+        },
+        arm64: {
+            srcs: ["hidraw/audio.bt.remote-arm64.a"],
+        },
+    },
+}
+
