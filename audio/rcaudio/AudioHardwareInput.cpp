@@ -36,9 +36,6 @@
 #include "AudioHidrawStreamIn.h"
 #include "AudioSoundCardStreamIn.h"
 
-#include <vendor/amlogic/hardware/remotecontrol/1.0/IRemoteControl.h>
-using ::vendor::amlogic::hardware::remotecontrol::V1_0::IRemoteControl;
-
 namespace android {
 
 AudioHardwareInput::AudioHardwareInput()
@@ -247,9 +244,6 @@ void AudioHardwareInput::onDeviceFound(
     if (!foundSlot) {
         ALOGW("AudioHardwareInput::onDeviceFound found more devices than expected! Dropped");
     }
-    else {
-        setRemoteControlDeviceStatus(true);
-    }
 }
 
 // called on the audio hotplug thread
@@ -266,7 +260,6 @@ void AudioHardwareInput::onDeviceRemoved(unsigned int pcmCard, unsigned int pcmD
                 mDeviceInfos[SOUNDCARD_DEVICE][i].valid = false;
                 /* If currently active stream is using this device then restart. */
                 standbyAllInputStreams(&mDeviceInfos[SOUNDCARD_DEVICE][i]);
-                setRemoteControlDeviceStatus(false);
                 break;
             }
         }
@@ -287,26 +280,10 @@ void AudioHardwareInput::onDeviceRemoved(unsigned int hidrawIndex)
                 mDeviceInfos[HIDRAW_DEVICE][i].valid = false;
                 /* If currently active stream is using this device then restart. */
                 standbyAllInputStreams(&mDeviceInfos[HIDRAW_DEVICE][i]);
-                setRemoteControlDeviceStatus(false);
                 break;
             }
         }
     }
-}
-
-bool AudioHardwareInput::onDeviceNotify() {
-    Mutex::Autolock _l(mLock);
-    bool flag = false;
-
-    for (int i = 0; i < MAX_DEVICE_TYPE; i++) {
-        for (int j=0; j<kMaxDevices; j++) {
-            if (mDeviceInfos[i][j].valid && mDeviceInfos[i][j].forVoiceRecognition) {
-                flag = true;
-                break;
-            }
-        }
-    }
-    return setRemoteControlDeviceStatus(flag);
 }
 
 const AudioHotplugThread::DeviceInfo* AudioHardwareInput::getBestDevice(int inputSource)
@@ -342,31 +319,6 @@ const AudioHotplugThread::DeviceInfo* AudioHardwareInput::getBestDevice(int inpu
     }
 
     return (chosenDeviceIndex >= 0) ? &mDeviceInfos[chosenDeviceType][chosenDeviceIndex] : NULL;
-}
-
-void AudioHardwareInput::setRemoteControlMicEnabled(bool flag)
-{
-    sp<IRemoteControl> service = IRemoteControl::getService();
-    if (service == NULL) {
-        ALOGE("%s: No RemoteControl service detected, ignoring", __func__);
-        return;
-    }
-
-    service->setMicEnable(flag == true ? 1 : 0);
-}
-
-bool AudioHardwareInput::setRemoteControlDeviceStatus(bool flag)
-{
-    sp<IRemoteControl> service = IRemoteControl::getService();
-    if (service == NULL) {
-        ALOGW("%s: No RemoteControl service detected, start poll...", __func__);
-        mHotplugThread->polling(flag);
-        return false;
-    }
-
-    service->onDeviceChanged(flag == true ? 1 : 0);
-
-    return true;
 }
 
 }; // namespace android

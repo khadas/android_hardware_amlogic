@@ -41,11 +41,17 @@
 #include <utils/String8.h>
 #include <media/AudioParameter.h>
 
+// for turning Remote mic on/off
+#ifdef REMOTE_CONTROL_INTERFACE
+#include <IRemoteControlService.h>
+#endif
 
 namespace android {
 
 const audio_format_t AudioStreamIn::kAudioFormat = AUDIO_FORMAT_PCM_16_BIT;
 const uint32_t AudioStreamIn::kChannelMask = AUDIO_CHANNEL_IN_MONO;
+const char AudioStreamIn::kRemoteSocketPath[] = "/data/misc/bluedroid/.rc_ctrl";
+int AudioStreamIn::m_fd = -1;
 bool AudioStreamIn::mStandby = true;
 
 AudioStreamIn::AudioStreamIn(AudioHardwareInput& owner)
@@ -61,6 +67,9 @@ AudioStreamIn::AudioStreamIn(AudioHardwareInput& owner)
 
 AudioStreamIn::~AudioStreamIn()
 {
+     if (mStandby) {
+        closeRemoteService();
+    }
 }
 
 // Perform stream initialization that may fail.
@@ -206,6 +215,24 @@ ssize_t AudioStreamIn::read(void* buffer, size_t bytes)
     return bytes;
 }
 
+void AudioStreamIn::setRemoteControlMicEnabled(bool flag)
+{
+#ifdef REMOTE_CONTROL_INTERFACE
+    sp<IRemoteControlService> service = IRemoteControlService::getService();
+    if (service == NULL) {
+        ALOGE("%s: No RemoteControl service detected, ignoring\n", __func__);
+        return;
+    }
+    service->setMicEnable(flag == true ? 1 : 0);
+#else
+    m_fd = openRemoteService();
+    if (m_fd > 0) {
+        char status = (flag == true ? 1 : 0);
+        send(m_fd, &status, sizeof(status), MSG_NOSIGNAL);
+    }
+#endif
+}
+
 status_t AudioStreamIn::startInputStream_l()
 {
     // Get the most appropriate device for the given input source, eg VOICE_RECOGNITION
@@ -218,7 +245,7 @@ status_t AudioStreamIn::startInputStream_l()
 
     // Turn on RemoteControl MIC if we are recording from it.
     if (deviceInfo->forVoiceRecognition) {
-        mOwnerHAL.setRemoteControlMicEnabled(true);
+        setRemoteControlMicEnabled(true);
     }
 
     mCurrentDeviceInfo = deviceInfo;
@@ -235,7 +262,7 @@ status_t AudioStreamIn::standby_l()
     // Turn OFF Remote MIC if we were recording from Remote.
     if (mCurrentDeviceInfo != NULL) {
         if (mCurrentDeviceInfo->forVoiceRecognition) {
-            mOwnerHAL.setRemoteControlMicEnabled(false);
+            setRemoteControlMicEnabled(false);
         }
     }
 
@@ -244,6 +271,63 @@ status_t AudioStreamIn::standby_l()
     mDisabled = false;
 
     return NO_ERROR;
+}
+
+int AudioStreamIn::openRemoteService()
+{
+#ifdef REMOTE_CONTROL_INTERFACE
+    return 0;
+#else
+    int ret = -1;
+    int fd = m_fd;
+    socklen_t alen;
+    size_t namelen;
+    struct sockaddr_un addr;
+
+    if (fd > 0) return fd;
+
+    ALOGD("%s connect socket%s",__FUNCTION__, kRemoteSocketPath);
+
+    fd = socket(AF_LOCAL, SOCK_STREAM, 0);
+
+    namelen = strlen(kRemoteSocketPath);
+    if ((namelen + 1) > sizeof(addr.sun_path))
+        goto done;
+
+    /*
+    * Note: The path in this case is *not* supposed to be
+    * '\0'-terminated. ("man 7 unix" for the gory details.)
+    */
+    addr.sun_path[0] = 0;
+    memcpy(addr.sun_path + 1, kRemoteSocketPath, namelen);
+    addr.sun_family = AF_LOCAL;
+    alen = namelen + offsetof(struct sockaddr_un, sun_path) + 1;
+    ret = connect(fd, (struct sockaddr *)&addr, alen);
+    if (ret < 0) {
+        ALOGE("connect failed:%d", errno);
+        goto done;
+    }
+
+    ALOGD("%s: fd=%d, ret=%d", __func__, fd, ret);
+done:
+    if (ret < 0) {
+        if (fd > 0) close(fd);
+        fd = -1;
+    }
+    return fd;
+#endif
+}
+
+void AudioStreamIn::closeRemoteService() {
+#ifdef REMOTE_CONTROL_INTERFACE
+    //do nothing
+#else
+    ALOGD("%s: fd=%d", __func__, m_fd);
+    if (m_fd > 0) {
+        close(m_fd);
+        m_fd = -1;
+    }
+#endif
 }
 
 }; // namespace android

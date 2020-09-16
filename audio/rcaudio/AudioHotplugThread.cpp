@@ -131,27 +131,23 @@ const char* AudioHotplugThread::kAlsaDeviceDir = "/dev/snd";
 // filename suffix for ALSA nodes representing capture devices
 const char  AudioHotplugThread::kDeviceTypeCapture = 'c';
 
-const uint64_t AudioHotplugThread::kShutdown = 1;
-const uint64_t AudioHotplugThread::kStartPoll = 2;
-const uint64_t AudioHotplugThread::kStopPoll = 3;
-
 AudioHotplugThread::AudioHotplugThread(Callback& callback)
     : mCallback(callback)
-    , mSignalEventFD(-1)
+    , mShutdownEventFD(-1)
 {
 }
 
 AudioHotplugThread::~AudioHotplugThread()
 {
-    if (mSignalEventFD != -1) {
-        ::close(mSignalEventFD);
+    if (mShutdownEventFD != -1) {
+        ::close(mShutdownEventFD);
     }
 }
 
 bool AudioHotplugThread::start()
 {
-    mSignalEventFD = eventfd(0, EFD_NONBLOCK);
-    if (mSignalEventFD == -1) {
+    mShutdownEventFD = eventfd(0, EFD_NONBLOCK);
+    if (mShutdownEventFD == -1) {
         return false;
     }
 
@@ -161,15 +157,9 @@ bool AudioHotplugThread::start()
 void AudioHotplugThread::shutdown()
 {
     requestExit();
-    uint64_t tmp = kShutdown;
-    ::write(mSignalEventFD, &tmp, sizeof(tmp));
+    uint64_t tmp = 1;
+    ::write(mShutdownEventFD, &tmp, sizeof(tmp));
     join();
-}
-
-void AudioHotplugThread::polling(bool flag)
-{
-     uint64_t tmp = (flag == true ? kStartPoll : kStopPoll);
-    ::write(mSignalEventFD, &tmp, sizeof(tmp));
 }
 
 bool AudioHotplugThread::parseCaptureDeviceName(const char* name,
@@ -305,30 +295,10 @@ bool AudioHotplugThread::getDeviceInfo(const unsigned int hidrawIndex,
 
     /*please define array for differnt vid&pid with the same rc platform*/
     if (devInfo.bustype == BUS_BLUETOOTH) {
+        info->forVoiceRecognition = true;
         info->hidraw_index = hidrawIndex;
         info->hidraw_device = devInfo.bustype;
         result = true;
-        //check vendor id & product id
-        if ((devInfo.vendor & 0XFFFF) == HUITONG_TI_VID &&
-            (devInfo.product & 0XFFFF) == HUITONG_TI_PID) {
-            info->forVoiceRecognition = true;
-        }
-        else if ((devInfo.vendor & 0XFFFF) == HUITONG_BCM_VID &&
-            ((devInfo.product & 0XFFFF) == HUITONG_BCM_PID_20734 ||
-            (devInfo.product & 0XFFFF) == HUITONG_BCM_PID_20735)) {
-            info->forVoiceRecognition = true;
-        }
-        else if ((devInfo.vendor & 0XFFFF) == HUITONG_DIALOG_VID &&
-            (devInfo.product & 0XFFFF) == HUITONG_DIALOG_PID) {
-            info->forVoiceRecognition = true;
-        }
-        else if ((devInfo.vendor & 0XFFFF) == HUITONG_NORDIC_VID &&
-            (devInfo.product & 0XFFFF) == HUITONG_NORDIC_PID) {
-            info->forVoiceRecognition = true;
-        }
-        else {
-            result = false;
-        }
     }
 
 done:
@@ -395,15 +365,16 @@ void AudioHotplugThread::handleHidrawEvent(struct inotify_event *event) {
             // Some devices can not be opened immediately after the
             // inotify event occurs.  Add a delay to avoid these
             // races.  (50ms was chosen arbitrarily)
+            /*
             const int kOpenTimeoutMs = 50;
-            struct pollfd pfd = {mSignalEventFD, POLLIN, 0};
+            struct pollfd pfd = {mShutdownEventFD, POLLIN, 0};
             if (poll(&pfd, 1, kOpenTimeoutMs) == -1) {
                 ALOGE("AudioHotplugThread: poll failed");
                 return;
             } else if (pfd.revents & POLLIN) {
                 // shutdown requested
                 return;
-            }
+            }*/
 
             DeviceInfo deviceInfo;
             if (getDeviceInfo(hidrawId, &deviceInfo)) {
@@ -427,7 +398,7 @@ void AudioHotplugThread::handleSoundCardEvent(struct inotify_event *event) {
             // inotify event occurs.  Add a delay to avoid these
             // races.  (50ms was chosen arbitrarily)
             const int kOpenTimeoutMs = 50;
-            struct pollfd pfd = {mSignalEventFD, POLLIN, 0};
+            struct pollfd pfd = {mShutdownEventFD, POLLIN, 0};
             if (poll(&pfd, 1, kOpenTimeoutMs) == -1) {
                 ALOGE("AudioHotplugThread: poll failed");
                 return;
@@ -448,6 +419,8 @@ void AudioHotplugThread::handleSoundCardEvent(struct inotify_event *event) {
 }
 
 int AudioHotplugThread::handleDeviceEvent(int inotifyFD, int wfds[]) {
+
+    // parse the filesystem change events
     char eventBuf[256] = {0};
     int ret = read(inotifyFD, eventBuf, sizeof(eventBuf));
     if (ret == -1) {
@@ -485,43 +458,15 @@ int AudioHotplugThread::handleDeviceEvent(int inotifyFD, int wfds[]) {
     return ret;
 }
 
-int AudioHotplugThread::handleSignalEvent(int fd, int& param) {
-    uint64_t event = 0;
-    int ret = read(fd, &event, sizeof(event));
-    if (ret == -1) {
-        ALOGE("AudioHotplugThread: read failed");
-        return ret;
-    }
-    else if (ret == 0) {
-        ret = -1;
-    }
-    else if (ret == sizeof(uint64_t)) {
-        switch (event) {
-        case kShutdown:
-            //shutdown
-            ret = -1;
-            break;
-        case kStartPoll:
-            //poll start
-            param = 1000; //timeout ms
-            break;
-        case kStopPoll:
-            //poll stop
-            param = -1;
-            break;
-        }
-    }
-
-    return ret;
-}
-
 bool AudioHotplugThread::threadLoop()
 {
     int flags = 0;
-    int timeout = -1;
     int inotifyFD = -1;
     int watchFDs[2] = {-1}; //hidraw + sound card
     const char *devDir[2] = {kDeviceDir, kAlsaDeviceDir};
+
+    //raise thread priority
+    setpriority(PRIO_PROCESS, gettid(), AUDIO_HOTPLUG_THREAD_PRIORITY);
 
     // watch for changes to the ALSA device directory
     inotifyFD = inotify_init();
@@ -551,32 +496,28 @@ bool AudioHotplugThread::threadLoop()
     }
 
     // check for any existing capture devices
-    scanForDevice();
+    //scanForDevice();
     while (!exitPending()) {
         // wait for a change to the ALSA directory or a shutdown signal
         struct pollfd fds[2] = {
             { inotifyFD, POLLIN, 0 },
-            { mSignalEventFD, POLLIN, 0 }
+            { mShutdownEventFD, POLLIN, 0 }
         };
-        int ret = poll(fds, NELEM(fds), timeout);
+        int ret = poll(fds, NELEM(fds), -1);
         if (ret == -1) {
             ALOGE("AudioHotplugThread: poll failed");
             break;
-        }
-        else if (ret == 0) {
-            // timeout, check remote control service
-            if (mCallback.onDeviceNotify())
-                timeout = -1;
-        }
-        else if (fds[0].revents & POLLIN) {
-            // parse the filesystem change events
-            ret = handleDeviceEvent(inotifyFD, watchFDs);
-        }
-        else if (fds[1].revents & POLLIN) {
-            // parse the signal event
-            ret = handleSignalEvent(mSignalEventFD, timeout);
+        } else if (fds[1].revents & POLLIN) {
+            // shutdown requested
+            break;
         }
 
+        if (!(fds[0].revents & POLLIN)) {
+            continue;
+        }
+
+        // parse the filesystem change events
+        ret = handleDeviceEvent(inotifyFD, watchFDs);
         if (ret == -1) break;
     }
 

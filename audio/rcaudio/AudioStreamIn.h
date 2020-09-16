@@ -31,7 +31,9 @@
 
 #include "AudioHotplugThread.h"
 
-
+#ifndef REMOTE_CONTROL_INTERFACE
+//#define REMOTE_CONTROL_INTERFACE 1
+#endif
 
 namespace android {
 
@@ -88,9 +90,13 @@ public:
 protected:
     status_t          startInputStream_l();
     status_t          standby_l();
+    void setRemoteControlMicEnabled(bool flag);
+    int openRemoteService();
+    void closeRemoteService();
 
 private:
-
+    static const char kRemoteSocketPath[];
+    static int m_fd;
 };
 
 }; // namespace android

@@ -42,7 +42,6 @@ class AudioHotplugThread : public Thread {
         virtual void onDeviceFound(const DeviceInfo& devInfo, bool fgHidraw = false) = 0;
         virtual void onDeviceRemoved(unsigned int pcmCard, unsigned int pcmDevice) = 0;
         virtual void onDeviceRemoved(unsigned int hidrawIndex) = 0;
-        virtual bool onDeviceNotify() = 0;
     };
 
     AudioHotplugThread(Callback& callback);
@@ -50,21 +49,17 @@ class AudioHotplugThread : public Thread {
 
     bool        start();
     void        shutdown();
-    void        polling(bool flag);
+    void scanForDevice();
 
   protected:
-    void scanForDevice();
     void scanHidrawDevice();
     void scanSoundCardDevice();
     void handleHidrawEvent(struct inotify_event *event);
     void handleSoundCardEvent(struct inotify_event *event);
     int handleDeviceEvent(int inotifyFD, int wfds[]);
-    int handleSignalEvent(int fd, int& param);
+
 
   private:
-    static const uint64_t kShutdown;
-    static const uint64_t kStartPoll;
-    static const uint64_t kStopPoll;
     static const char* kThreadName;
     static const char* kDeviceDir;
     static const char* kAlsaDeviceDir;
@@ -78,8 +73,10 @@ class AudioHotplugThread : public Thread {
 
     virtual bool threadLoop();
 
+
+
     Callback& mCallback;
-    int mSignalEventFD;
+    int mShutdownEventFD;
 };
 
 }; // namespace android

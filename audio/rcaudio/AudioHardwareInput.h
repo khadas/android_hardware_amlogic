@@ -49,14 +49,10 @@ class AudioHardwareInput : public AudioHotplugThread::Callback {
                                    status_t* status);
     void           closeInputStream(AudioStreamIn* in);
 
-    void setRemoteControlMicEnabled(bool flag);
-    bool setRemoteControlDeviceStatus(bool flag);
-
     // AudioHotplugThread callbacks
     virtual void onDeviceFound(const AudioHotplugThread::DeviceInfo& devInfo, bool fgHidraw = false);
     virtual void onDeviceRemoved(unsigned int pcmCard, unsigned int pcmDevice);
     virtual void onDeviceRemoved(unsigned int hidrawIndex);
-    virtual bool onDeviceNotify();
 
     static size_t calculateInputBufferSize(uint32_t outputSampleRate,
                                            audio_format_t format,
