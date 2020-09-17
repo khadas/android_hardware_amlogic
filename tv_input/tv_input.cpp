@@ -36,6 +36,9 @@ static const int SCREENSOURCE_GRALLOC_USAGE = (
 
 static int capWidth;
 static int capHeight;
+static int supportDevices[20];
+static int count = 0;
+static int streamGivenId = -1;
 
 native_handle_t *pTvStream = nullptr;
 
@@ -122,6 +125,24 @@ int notifyDeviceStatus(tv_input_private_t *priv, tv_source_input_t inputSrc, int
     return 0;
 }
 
+
+static bool checkDeviceID(int device_id) {
+    ALOGD("supportDevices[i] = %d\n", supportDevices[0]);
+    for (int i = 0; i< count; i++) {
+        if (device_id == supportDevices[i]) {
+           return true;
+        }
+    }
+    return false;
+}
+
+static bool checkStreamID(int stream_id) {
+    if (stream_id == STREAM_ID_NORMAL || stream_id == STREAM_ID_FRAME_CAPTURE)
+        return true;
+    else
+        return false;
+}
+
 static int notifyCaptureSucceeded(tv_input_private_t *priv, int device_id, int stream_id, uint32_t seq)
 {
     tv_input_event_t event;
@@ -187,8 +208,6 @@ static int getTvStream(tv_stream_t *stream)
 
 void initTvDevices(tv_input_private_t *priv)
 {
-    int supportDevices[20];
-    int count = 0;
     priv->mpTv->getSupportInputDevices(supportDevices, &count);
 
     if (count == 0) {
@@ -203,7 +222,7 @@ void initTvDevices(tv_input_private_t *priv)
 
     for (int i = 0; i < count; i++) {
         tv_source_input_t inputSrc = (tv_source_input_t)supportDevices[i];
-         notifyDeviceStatus(priv, inputSrc, TV_INPUT_EVENT_DEVICE_AVAILABLE);
+        notifyDeviceStatus(priv, inputSrc, TV_INPUT_EVENT_DEVICE_AVAILABLE);
     }
 }
 
@@ -230,6 +249,10 @@ static int tv_input_get_stream_configurations(const struct tv_input_device *dev 
         const tv_stream_config_t **configs)
 {
     tv_input_private_t *priv = (tv_input_private_t *)dev;
+    ALOGD("device_id = %d\n", device_id);
+    if(!checkDeviceID(device_id))
+        return -EINVAL;
+
     int isHotplugDetectOn = priv->mpTv->getHdmiAvHotplugDetectOnoff();
     if (isHotplugDetectOn == 0) {
         LOGD("%s:Hot plug disabled!\n", __FUNCTION__);
@@ -256,6 +279,17 @@ static int tv_input_open_stream(struct tv_input_device *dev, int device_id,
                                 tv_stream_t *stream)
 {
     tv_input_private_t *priv = (tv_input_private_t *)dev;
+    ALOGD("device_id = %d, streamid = %d \n", device_id, stream->stream_id);
+    if (stream->stream_id != streamGivenId)
+        streamGivenId = stream->stream_id;
+    else {
+        ALOGD("stream has been opened");
+        return -EEXIST;
+    }
+
+    if (!checkDeviceID(device_id) || !checkStreamID(stream->stream_id))
+        return -EINVAL;
+
     if (priv) {
         if (getTvStream(stream) != 0) {
             return -EINVAL;
@@ -292,6 +326,17 @@ static int tv_input_close_stream(struct tv_input_device *dev, int device_id,
                                  int stream_id)
 {
     tv_input_private_t *priv = (tv_input_private_t *)dev;
+    ALOGD("device_id = %d, stream_id = %d\n", device_id, stream_id);
+    if (streamGivenId == stream_id)
+        streamGivenId = -1;
+    else {
+        ALOGD("stream doesn't open");
+        return -ENOENT;
+    }
+
+    if (!checkDeviceID(device_id) || !checkStreamID(stream_id))
+        return -EINVAL;
+
     if (stream_id == STREAM_ID_NORMAL) {
         channelControl(priv, false, device_id);
         return 0;
