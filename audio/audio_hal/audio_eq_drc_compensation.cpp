@@ -28,9 +28,9 @@
 #undef  LOG_TAG
 #define LOG_TAG  "audio_eq_drc_compensation"
 
-#define MODEL_SUM_DEFAULT_PATH "/vendor/etc/tvconfig/model/model_sum.ini"
-#define EQ_DRC_SOC_DEFAULT_PATH "/vendor/etc/tvconfig/audio/AMLOGIC_SOC_DEFAULT.ini"
-#define EXT_AMP_DEFAULT_PATH "/vendor/etc/tvconfig/audio/EXT_AMP_DEFAULT.ini"
+#define MODEL_SUM_DEFAULT_PATH "/odm/etc/tvconfig/model/model_sum.ini"
+#define EQ_DRC_SOC_DEFAULT_PATH "/odm/etc/tvconfig/audio/AMLOGIC_SOC_DEFAULT.ini"
+#define EXT_AMP_DEFAULT_PATH "/odm/etc/tvconfig/audio/EXT_AMP_DEFAULT.ini"
 
 static struct eq_drc_device_config_s dev_cfg[] = {
     {/*amlogic inner EQ & DRC*/
