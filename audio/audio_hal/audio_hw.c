@@ -10426,7 +10426,8 @@ static int adev_create_audio_patch(struct audio_hw_device *dev,
         goto err;
     }
 
-    ALOGI("+%s num_sources [%d] , num_sinks [%d],src_config->type=%d,sink_config->type=%d,aml_dev->patch_src=%d", __func__, num_sources, num_sinks,src_config->type,sink_config->type,aml_dev->patch_src);
+    ALOGI("+%s num_sources [%d] , num_sinks [%d],src_config->type=%d,sink_config->type=%d,aml_dev->patch_src=%d",
+            __func__, num_sources, num_sinks,src_config->type,sink_config->type,aml_dev->patch_src);
     patch_set = register_audio_patch(dev, num_sources, sources,
                                      num_sinks, sinks, handle);
     ALOGI("%s(), patch new handle for AF: %p", __func__, handle);
@@ -10559,10 +10560,12 @@ static int adev_create_audio_patch(struct audio_hw_device *dev,
             aml_dev->patch_src = SRC_WIRED_HEADSETIN;
             break;
         case AUDIO_DEVICE_IN_BUILTIN_MIC:
+            /*fallthrough*/
+        case AUDIO_DEVICE_IN_BACK_MIC:
             input_src = SRC_NA;
             inport = INPORT_BUILTIN_MIC;
             aml_dev->patch_src = SRC_BUILTIN_MIC;
-			break;
+            break;
         case AUDIO_DEVICE_IN_ECHO_REFERENCE:
             input_src = SRC_NA;
             inport = INPORT_ECHO_REFERENCE;
@@ -10706,6 +10709,8 @@ static int adev_create_audio_patch(struct audio_hw_device *dev,
             aml_dev->patch_src = SRC_WIRED_HEADSETIN;
             break;
         case AUDIO_DEVICE_IN_BUILTIN_MIC:
+            /*fallthrough*/
+        case AUDIO_DEVICE_IN_BACK_MIC:
             input_src = SRC_NA;
             inport = INPORT_BUILTIN_MIC;
             aml_dev->patch_src = SRC_BUILTIN_MIC;
