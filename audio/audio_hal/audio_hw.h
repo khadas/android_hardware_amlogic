@@ -491,6 +491,7 @@ struct aml_audio_device {
     bool dual_spdif_support; /*1 means supports spdif_a & spdif_b & spdif interface*/
     struct aec_t *aec;
     uint64_t  sys_audio_frame_written;
+    void* hw_mediasync;
 };
 
 struct meta_data {

@@ -216,7 +216,7 @@ int remove_all_inport_messages(struct input_port *port)
         p_msg = node_to_item(node, struct port_message, list);
         ALOGI("%s(), msg what %s", __func__, port_msg_to_str(p_msg->msg_what));
         if (p_msg->msg_what == MSG_PAUSE)
-            aml_hwsync_set_tsync_pause();
+            aml_hwsync_set_tsync_pause(NULL);
         list_remove(&p_msg->list);
         free(p_msg);
     }

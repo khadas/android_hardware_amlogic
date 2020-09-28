@@ -1584,7 +1584,19 @@ static int out_set_parameters (struct audio_stream *stream, const char *kvpairs)
     ret = str_parms_get_str (parms, "hw_av_sync", value, sizeof (value) );
     if (ret >= 0) {
         int hw_sync_id = atoi(value);
-        unsigned char sync_enable = (hw_sync_id == 12345678) ? 1 : 0;
+        bool ret_set_id = false;
+        if ((hw_sync_id != 12345678) && (hw_sync_id >= 0)) {
+            ALOGI ("[%s]adev->hw_mediasync:%p\n.", __FUNCTION__, adev->hw_mediasync);
+            if (adev->hw_mediasync == NULL) {
+                adev->hw_mediasync = aml_hwsync_mediasync_create();
+            }
+            if (adev->hw_mediasync != NULL) {
+                out->hwsync->use_mediasync = true;
+                out->hwsync->mediasync = adev->hw_mediasync;
+                ret_set_id = aml_audio_hwsync_set_id(out->hwsync, hw_sync_id);
+            }
+        }
+        unsigned char sync_enable = ((hw_sync_id == 12345678) || ret_set_id) ? 1 : 0;
         audio_hwsync_t *hw_sync = out->hwsync;
         ALOGI("(%p)set hw_sync_id %d,%s hw sync mode\n",
                out, hw_sync_id, sync_enable ? "enable" : "disable");
@@ -1867,7 +1879,7 @@ exit1:
 exit:
     if (out->hw_sync_mode) {
         ALOGI("%s set AUDIO_PAUSE when tunnel mode\n",__func__);
-        sysfs_set_sysfs_str (TSYNC_EVENT, "AUDIO_PAUSE");
+        aml_hwsync_set_tsync_pause(out->hwsync);
         out->tsync_status = TSYNC_STATUS_PAUSED;
     }
     pthread_mutex_unlock (&adev->lock);
@@ -1930,14 +1942,14 @@ static int out_resume (struct audio_stream_out *stream)
         ALOGI ("init hal mixer when hwsync resume\n");
         adev->hwsync_output = out;
         aml_hal_mixer_init(&adev->hal_mixer);
-        sysfs_set_sysfs_str(TSYNC_EVENT, "AUDIO_RESUME");
+        aml_hwsync_set_tsync_resume(out->hwsync);
         out->tsync_status = TSYNC_STATUS_RUNNING;
     }
     out->pause_status = false;
 exit:
     if (out->hw_sync_mode) {
         ALOGI("%s set AUDIO_RESUME when tunnel mode\n",__func__);
-        sysfs_set_sysfs_str (TSYNC_EVENT, "AUDIO_RESUME");
+        aml_hwsync_set_tsync_resume(out->hwsync);
         out->tsync_status = TSYNC_STATUS_RUNNING;
     }
     pthread_mutex_unlock (&adev->lock);
@@ -1967,7 +1979,7 @@ static int out_pause_new (struct audio_stream_out *stream)
     send audio pause cmd to  video when tunnel mode.
     */
     if (aml_out->hw_sync_mode) {
-        sysfs_set_sysfs_str(TSYNC_EVENT, "AUDIO_PAUSE");
+        aml_hwsync_set_tsync_pause(aml_out->hwsync);
         aml_out->tsync_status = TSYNC_STATUS_PAUSED;
     }
     if (eDolbyMS12Lib == aml_dev->dolby_lib_type) {
@@ -2004,7 +2016,7 @@ exit1:
     aml_out->pause_status = true;
 
     if (aml_out->hw_sync_mode) {
-        sysfs_set_sysfs_str(TSYNC_EVENT, "AUDIO_PAUSE");
+        aml_hwsync_set_tsync_pause(aml_out->hwsync);
         aml_out->tsync_status = TSYNC_STATUS_PAUSED;
     }
 
@@ -2067,7 +2079,7 @@ static int out_resume_new (struct audio_stream_out *stream)
     }
     aml_out->pause_status = false;
     if (aml_out->hw_sync_mode && !aml_dev->ms12.need_resume) {
-        sysfs_set_sysfs_str(TSYNC_EVENT, "AUDIO_RESUME");
+        aml_hwsync_set_tsync_resume(aml_out->hwsync);
         aml_out->tsync_status = TSYNC_STATUS_RUNNING;
     }
 
@@ -2393,9 +2405,7 @@ static ssize_t out_write_legacy (struct audio_stream_out *stream, const void* bu
                             hw_sync->first_apts = pts;
                             out->frame_write_sum = 0;
                             hw_sync->last_apts_from_header =    pts;
-                            sprintf (buf, "AUDIO_START:0x%"PRIx64"", pts & 0xffffffff);
-                            ALOGI ("tsync -> %s", buf);
-                            if (sysfs_set_sysfs_str (TSYNC_EVENT, buf) == -1) {
+                            if (aml_hwsync_set_tsync_start_pts64(out->hwsync, pts) == -1) {
                                 ALOGE ("set AUDIO_START failed \n");
                             }
                         } else {
@@ -2480,26 +2490,20 @@ static ssize_t out_write_legacy (struct audio_stream_out *stream, const void* bu
                                 // insert end
                                 //adev->first_apts = pts;
                                 out->frame_write_sum +=  insert_size_total / frame_size;
-#if 0
-                                sprintf (buf, "AUDIO_TSTAMP_DISCONTINUITY:0x%lx", pts);
-                                if (sysfs_set_sysfs_str (TSYNC_EVENT, buf) == -1) {
-                                    ALOGE ("unable to open file %s,err: %s", TSYNC_EVENT, strerror (errno) );
-                                }
-#endif
+
                             } else {
                                 uint pcr = 0;
-                                if (get_sysfs_uint (TSYNC_PCRSCR, &pcr) == 0) {
+                                if (aml_hwsync_get_tsync_pts(out->hwsync, &pcr) == 0) {
                                     uint apts_gap = 0;
                                     int32_t apts_cal = apts & 0xffffffff;
                                     apts_gap = get_pts_gap (pcr, apts);
                                     if (apts_gap < SYSTIME_CORRECTION_THRESHOLD) {
                                         // do nothing
                                     } else {
-                                        sprintf (buf, "0x%x", apts_cal);
                                         ALOGI ("tsync -> reset pcrscr 0x%x -> 0x%x, diff %d ms,frame pts %"PRIx64",latency pts %d", pcr, apts_cal, (int) (apts_cal - pcr) / 90, pts, latency);
-                                        int ret_val = sysfs_set_sysfs_str (TSYNC_APTS, buf);
+                                        int ret_val = aml_hwsync_reset_tsync_pcrscr(out->hwsync, apts_cal);;
                                         if (ret_val == -1) {
-                                            ALOGE ("unable to open file %s,err: %s", TSYNC_APTS, strerror (errno) );
+                                            ALOGE ("aml_hwsync_reset_tsync_pcrscr,err: %s", strerror (errno) );
                                         }
                                     }
                                 }
@@ -3085,7 +3089,7 @@ rewrite:
 
                 apts32 = apts & 0xffffffff;
 
-                if (get_sysfs_uint (TSYNC_PCRSCR, &pcr) == 0) {
+                if (aml_hwsync_get_tsync_pts(out->hwsync, &pcr) == 0) {
                     enum hwsync_status sync_status = CONTINUATION;
                     apts_gap = get_pts_gap (pcr, apts32);
                     sync_status = check_hwsync_status (apts_gap);
@@ -3127,13 +3131,12 @@ rewrite:
                             }
                         }
                     } else if (sync_status == RESYNC) {
-                        sprintf (tempbuf, "0x%x", apts32);
                         ALOGI ("tsync -> reset pcrscr 0x%x -> 0x%x, %s big,diff %"PRIx64" ms",
                                pcr, apts32, apts32 > pcr ? "apts" : "pcr", get_pts_gap (apts, pcr) / 90);
 
-                        int ret_val = sysfs_set_sysfs_str (TSYNC_APTS, tempbuf);
+                        int ret_val = aml_hwsync_reset_tsync_pcrscr(out->hwsync, apts32);
                         if (ret_val == -1) {
-                            ALOGE ("unable to open file %s,err: %s", TSYNC_APTS, strerror (errno) );
+                            ALOGE ("aml_hwsync_reset_tsync_pcrscr,err: %s", strerror (errno) );
                         }
                     }
                 }
@@ -5007,7 +5010,16 @@ static void adev_close_output_stream(struct audio_hw_device *dev,
     if (out->hwsync) {
         // release hwsync resource ..zzz
         aml_audio_hwsync_release(out->hwsync);
+        if (out->hwsync->mediasync) {
+            //free(out->hwsync->mediasync);
+            out->hwsync->mediasync = NULL;
+            if (adev->hw_mediasync) {
+                adev->hw_mediasync = NULL;
+            }
+
+        }
         free(out->hwsync);
+        out->hwsync = NULL;
     }
 
     if (out->spdifenc_init) {
@@ -6116,7 +6128,19 @@ static char * adev_get_parameters (const struct audio_hw_device *dev,
     char temp_buf[64] = {0};
 
     if (!strcmp (keys, AUDIO_PARAMETER_HW_AV_SYNC) ) {
-        ALOGI ("get hwsync id\n");
+        ALOGI ("get hw_av_sync id\n");
+        if (adev->hw_mediasync == NULL) {
+            adev->hw_mediasync = aml_hwsync_mediasync_create();
+        }
+        if (adev->hw_mediasync != NULL) {
+            int32_t id = -1;
+            bool ret = aml_audio_hwsync_get_id(adev->hw_mediasync, &id);
+            ALOGI ("ret: %d, id:%d\n", ret, id);
+            if(ret && id != -1) {
+                sprintf (temp_buf, "hw_av_sync=%d", id);
+                return strdup (temp_buf);
+            }
+        }
         return strdup ("hw_av_sync=12345678");
     }
 
@@ -6845,11 +6869,11 @@ int do_output_standby_l(struct audio_stream *stream)
 
     if (aml_out->hw_sync_mode && aml_out->tsync_status != TSYNC_STATUS_STOP) {
         ALOGI("%s set AUDIO_PAUSE\n",__func__);
-        sysfs_set_sysfs_str (TSYNC_EVENT, "AUDIO_PAUSE");
+        aml_hwsync_set_tsync_pause(aml_out->hwsync);
         aml_out->tsync_status = TSYNC_STATUS_PAUSED;
 
         ALOGI("%s set AUDIO_STOP\n",__func__);
-        sysfs_set_sysfs_str (TSYNC_EVENT, "AUDIO_STOP");
+        aml_hwsync_set_tsync_stop(aml_out->hwsync);
         aml_out->tsync_status = TSYNC_STATUS_STOP;
     }
 
@@ -8505,7 +8529,7 @@ hwsync_rewrite:
                         apts = 0;
                     }
                     apts32 = apts & 0xffffffff;
-                    if (get_sysfs_uint (TSYNC_PCRSCR, &pcr) == 0) {
+                    if (aml_hwsync_get_tsync_pts(aml_out->hwsync, &pcr) == 0) {
                         enum hwsync_status sync_status = CONTINUATION;
                         apts_gap = get_pts_gap (pcr, apts32);
                         sync_status = check_hwsync_status (apts_gap);
@@ -8536,13 +8560,12 @@ hwsync_rewrite:
                                 }
                             }
                         } else if (sync_status == RESYNC) {
-                            sprintf (tempbuf, "0x%x", apts32);
                             ALOGI ("tsync -> reset pcrscr 0x%x -> 0x%x, %s big,diff %"PRIx64" ms",
                                    pcr, apts32, apts32 > pcr ? "apts" : "pcr", get_pts_gap (apts, pcr) / 90);
 
-                            int ret_val = sysfs_set_sysfs_str (TSYNC_APTS, tempbuf);
+                            int ret_val = aml_hwsync_reset_tsync_pcrscr(aml_out->hwsync, apts32);
                             if (ret_val == -1) {
-                                ALOGE ("unable to open file %s,err: %s", TSYNC_APTS, strerror (errno) );
+                                ALOGE ("aml_hwsync_reset_tsync_pcrscr,err: %s", strerror (errno) );
                             }
                         }
                     }
@@ -8610,7 +8633,7 @@ hwsync_rewrite:
                 ms12_runtime_update_ret = aml_ms12_update_runtime_params(&(adev->ms12));
                 pthread_mutex_unlock(&ms12->lock);
                 if (aml_out->hw_sync_mode) {
-                    sysfs_set_sysfs_str(TSYNC_EVENT, "AUDIO_RESUME");
+                    aml_hwsync_set_tsync_resume(aml_out->hwsync);
                     aml_out->tsync_status = TSYNC_STATUS_RUNNING;
                     adev->ms12.need_resync = 1;
                 }
@@ -9700,11 +9723,11 @@ void adev_close_output_stream_new(struct audio_hw_device *dev,
     }
     if (aml_out->hw_sync_mode && aml_out->tsync_status != TSYNC_STATUS_STOP) {
         ALOGI("%s set AUDIO_PAUSE when close stream\n",__func__);
-        sysfs_set_sysfs_str (TSYNC_EVENT, "AUDIO_PAUSE");
+        aml_hwsync_set_tsync_pause(aml_out->hwsync);
         aml_out->tsync_status = TSYNC_STATUS_PAUSED;
 
         ALOGI("%s set AUDIO_STOP when close stream\n",__func__);
-        sysfs_set_sysfs_str (TSYNC_EVENT, "AUDIO_STOP");
+        aml_hwsync_set_tsync_stop(aml_out->hwsync);
         aml_out->tsync_status = TSYNC_STATUS_STOP;
     }
     adev_close_output_stream(dev, stream);

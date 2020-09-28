@@ -324,7 +324,7 @@ size_t aml_alsa_output_write(struct audio_stream_out *stream,
     }
 
     // video not comming. skip audio
-    get_sysfs_uint(TSYNC_FIRSTVPTS, (unsigned int *)&first_vpts);
+    aml_hwsync_get_tsync_firstvpts(aml_out->hwsync, &first_vpts);
     if (first_vpts == 0) {
         ALOGI("[audio-startup] video not comming - skip this packet. size:%zu\n", bytes);
         aml_out->dropped_size += bytes;
@@ -335,8 +335,8 @@ size_t aml_alsa_output_write(struct audio_stream_out *stream,
     // av both comming. check need add zero or skip
     //get_sysfs_uint(TSYNC_FIRSTAPTS, (unsigned int *)&(first_apts));
     first_apts = adev->first_apts;
-    get_sysfs_uint(TSYNC_VPTS, (unsigned int *) & (cur_vpts));
-    get_sysfs_uint(TSYNC_PCRSCR, (unsigned int *) & (cur_pcr));
+    aml_hwsync_get_tsync_vpts(aml_out->hwsync, &cur_vpts);
+    aml_hwsync_get_tsync_pts(aml_out->hwsync, &cur_pcr);
     if (cur_vpts <= first_vpts) {
         cur_vpts = first_vpts;
     }
@@ -405,7 +405,7 @@ size_t aml_alsa_output_write(struct audio_stream_out *stream,
     pretime = aml_gettime();
     while (1) {
         usleep(MIN_WRITE_SLEEP_US);
-        get_sysfs_uint(TSYNC_PCRSCR, (unsigned int *) & (cur_vpts));
+        aml_hwsync_get_tsync_pts(aml_out->hwsync, &cur_vpts);
         if (cur_vpts > cur_apts - 10 * 90) {
             break;
         }

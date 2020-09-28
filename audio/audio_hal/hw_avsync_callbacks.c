@@ -4,11 +4,11 @@
 
 #include <errno.h>
 #include <cutils/log.h>
+#include <cutils/properties.h>
 #include "hw_avsync_callbacks.h"
 #include "audio_hwsync.h"
 #include "audio_hw.h"
 #include "audio_hw_utils.h"
-
 
 enum hwsync_status pcm_check_hwsync_status(uint apts_gap)
 {
@@ -115,7 +115,65 @@ int on_meta_data_cbk(void *cookie,
     /*if stream is already paused, we don't need to av sync, it may cause pcr reset*/
     if (out->pause_status) {
         ALOGW("%s(), write in pause status", __func__);
+        if (out->hwsync && out->hwsync->use_mediasync) {
+            if(out->first_pts_set == true)
+                out->first_pts_set = false;
+        }
         return -EINVAL;
+    }
+
+    if (out->hwsync && out->hwsync->use_mediasync) {
+        if (!out->first_pts_set) {
+            int32_t latency = 0;
+            int vframe_ready_cnt = 0;
+            int delay_count = 0;
+            hwsync_header_construct(header);
+            latency = (int32_t)out_get_outport_latency((struct audio_stream_out *)out) * 90;
+            latency += tunning_latency * 90;
+            ALOGD("%s(), set tsync start pts %d, latency %d, last position %lld",
+                __func__, pts32, latency, out->last_frames_postion);
+            if (latency < 0) {
+                pts32 += abs(latency);
+            } else {
+                if (pts32 < latency) {
+                    ALOGI("pts32 = %d latency=%d", pts32/90, latency);
+                    return 0;
+                }
+                pts32 -= latency;
+            }
+
+            ALOGI("%s =============== can drop============", __FUNCTION__);
+            aml_hwsync_wait_video_drop(out->hwsync, pts32);
+
+            out->first_pts_set = true;
+            //*delay_ms = 40;
+            //aml_hwsync_reset_tsync_pcrscr(out->hwsync, pts32);
+        } else {
+            enum hwsync_status sync_status = CONTINUATION;
+            struct hw_avsync_header_extractor *hwsync_extractor;
+            struct aml_audio_device *adev = out->dev;
+            uint32_t pcr = 0;
+            uint32_t apts_gap;
+            // adjust pts based on latency which is only the outport latency
+            int32_t latency = (int32_t)out_get_outport_latency((struct audio_stream_out *)out) * 90;
+            latency += tunning_latency * 90;
+            // check PTS discontinue, which may happen when audio track switching
+            // discontinue means PTS calculated based on first_apts and frame_write_sum
+            // does not match the timestamp of next audio samples
+            if (latency < 0) {
+                pts32 += abs(latency);
+            } else {
+                if (pts32 > latency) {
+                    pts32 -= latency;
+                } else {
+                    pts32 = 0;
+                }
+            }
+
+            hwsync_extractor = out->hwsync_extractor;
+        }
+        aml_hwsync_reset_tsync_pcrscr(out->hwsync, pts32);
+        return 0;
     }
 
 
@@ -147,7 +205,7 @@ int on_meta_data_cbk(void *cookie,
             }
             break;
         }
-        aml_hwsync_set_tsync_start_pts(pts32);
+        aml_hwsync_set_tsync_start_pts(out->hwsync, pts32);
         out->first_pts_set = true;
         //*delay_ms = 40;
     } else {
@@ -214,7 +272,7 @@ int on_meta_data_cbk(void *cookie,
             } else {
                 ALOGW("audio gap: pcr > apts %dms", apts_gap / 90);
                 *delay_ms = -(int)apts_gap / 90;
-                aml_hwsync_reset_tsync_pcrscr(pts32);
+                aml_hwsync_reset_tsync_pcrscr(out->hwsync, pts32);
             }
         } else if (sync_status == RESYNC){
             ALOGI("%s(), tsync -> reset pcrscr %dms -> %dms",
@@ -222,9 +280,9 @@ int on_meta_data_cbk(void *cookie,
             /*during video stop, pcr has been reset to 0 by video,
               we need ignore such pcr value*/
             if (pcr != 0) {
-                int ret_val = aml_hwsync_reset_tsync_pcrscr(pts32);
+                int ret_val = aml_hwsync_reset_tsync_pcrscr(out->hwsync, pts32);
                 if (ret_val < 0) {
-                    ALOGE("unable to open file %s,err: %s", TSYNC_APTS, strerror(errno));
+                    ALOGE("aml_hwsync_reset_tsync_pcrscr,err: %s", strerror(errno));
                 }
             }
         }

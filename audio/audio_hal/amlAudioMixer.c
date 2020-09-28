@@ -500,15 +500,29 @@ static void process_port_msg(struct input_port *port)
     if (msg) {
         ALOGI("%s(), msg: %s", __func__, port_msg_to_str(msg->msg_what));
         switch (msg->msg_what) {
-        case MSG_PAUSE:
+        case MSG_PAUSE: {
+            struct aml_stream_out *out = (struct aml_stream_out *)port->notify_cbk_data;
+            audio_hwsync_t *hwsync = (out != NULL) ? (out->hwsync) : NULL;
+            //ALOGI("[%s:%d] hwsync:%p tsync pause", __func__, __LINE__, hwsync);
+            if ((hwsync != NULL) && (hwsync->use_mediasync)) {
+                aml_hwsync_set_tsync_pause(hwsync);
+            }
             set_inport_state(port, PAUSING);
             break;
+        }
         case MSG_FLUSH:
             set_inport_state(port, FLUSHING);
             break;
-        case MSG_RESUME:
+        case MSG_RESUME: {
+            struct aml_stream_out *out = (struct aml_stream_out *)port->notify_cbk_data;
+            audio_hwsync_t *hwsync = (out != NULL) ? (out->hwsync) : NULL;
+            //ALOGI("[%s:%d] hwsync:%p tsync resume", __func__, __LINE__, hwsync);
+            if ((hwsync != NULL) && (hwsync->use_mediasync)) {
+                aml_hwsync_set_tsync_resume(hwsync);
+            }
             set_inport_state(port, RESUMING);
             break;
+        }
         default:
             ALOGE("%s(), not support", __func__);
         }
@@ -548,9 +562,11 @@ static int mixer_inports_read(struct amlAudioMixer *audio_mixer)
                 if (state == PAUSING) {
                     fade_out = 1;
                 } else if (state == RESUMING) {
+                    struct aml_stream_out *out = (struct aml_stream_out *)in_port->notify_cbk_data;
+                    audio_hwsync_t *hwsync = (out != NULL) ? (out->hwsync) : NULL;
                     fade_in = 1;
                     ALOGI("[%s:%d] input port:%s tsync resume", __func__, __LINE__, inportType2Str(port_index));
-                    aml_hwsync_set_tsync_resume();
+                    aml_hwsync_set_tsync_resume(hwsync);
                     set_inport_state(in_port, ACTIVE);
                 } else if (state == STOPPED || state == PAUSED || state == FLUSHED) {
                     ALOGV("[%s:%d] input port:%s stopped, paused or flushed", __func__, __LINE__, inportType2Str(port_index));
@@ -576,9 +592,12 @@ static int mixer_inports_read(struct amlAudioMixer *audio_mixer)
                 ret = mixer_read_inport(audio_mixer, port_index, in_port->data, in_port->data_len_bytes);
                 if (ret == (int)in_port->data_len_bytes) {
                     if (fade_out) {
+                        struct aml_stream_out *out = (struct aml_stream_out *)in_port->notify_cbk_data;
+                        audio_hwsync_t *hwsync = (out != NULL) ? (out->hwsync) : NULL;
+
                         ALOGI("[%s:%d] output port:%s fade out, pausing->pausing_1, tsync pause audio",
                             __func__, __LINE__, inportType2Str(port_index));
-                        aml_hwsync_set_tsync_pause();
+                        aml_hwsync_set_tsync_pause(hwsync);
                         audio_fade_func(in_port->data, ret, 0);
                         set_inport_state(in_port, PAUSED);
                     } else if (fade_in) {

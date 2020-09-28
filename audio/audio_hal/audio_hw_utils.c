@@ -516,9 +516,11 @@ int aml_audio_start_trigger(void *stream)
     pcm_stop(aml_out->pcm);
     sprintf(tempbuf, "AUDIO_START:0x%x", adev->first_apts);
     ALOGI("audio start set tsync -> %s", tempbuf);
-    sysfs_set_sysfs_str(TSYNC_ENABLE, "1"); // enable avsync
-    sysfs_set_sysfs_str(TSYNC_MODE, "1"); // enable avsync
-    if (sysfs_set_sysfs_str(TSYNC_EVENT, tempbuf) == -1) {
+
+    aml_hwsync_set_tsync_init(aml_out->hwsync);
+
+
+    if (aml_hwsync_set_tsync_start_pts(aml_out->hwsync, adev->first_apts) == -1) {
         ALOGE("set AUDIO_START failed \n");
         return -1;
     }

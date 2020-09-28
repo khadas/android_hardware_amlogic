@@ -117,6 +117,13 @@ include $(BUILD_PREBUILT)
         libbase \
         libfmq
 
+LOCAL_SRC_FILES += \
+        audio_hwsync_wrap.c \
+        audio_mediasync_wrap.c
+
+LOCAL_C_INCLUDES += \
+        vendor/amlogic/common/mediahal_sdk/include
+
 
 #/*[SEI-zhaopf-2018-12-18] add for HBG remote audio support { */
 ifeq ($(BOARD_ENABLE_HBG), true)
@@ -164,7 +171,7 @@ endif
 
 #For ATV Far Field AEC
 ifeq ($(BOARD_ENABLE_FAR_FIELD_AEC), true)
-    LOCAL_CFLAGS += -DENABLE_AEC_APP
+   # LOCAL_CFLAGS += -DENABLE_AEC_APP
     LOCAL_SRC_FILES += \
         audio_aec.c \
         fifo_wrapper.cpp
