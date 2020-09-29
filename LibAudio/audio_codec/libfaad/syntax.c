@@ -2111,7 +2111,7 @@ static uint16_t extension_payload(bitfile *ld, drc_info *drc, uint16_t count)
                 loopCounter++;
             } while (dataElementLengthPart == 255);
 
-            for (i = 0; i < dataElementLength; i++) {
+            if (dataElementLength > 0) {
                 /* data_element_byte[i] = */ faad_getbits(ld, 8
                         DEBUGVAR(1, 402, "extension_payload(): data_element_byte"));
                 return (dataElementLength + loopCounter + 1);
