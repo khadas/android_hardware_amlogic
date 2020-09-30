@@ -26,7 +26,6 @@
 
 #include <hardware/hardware.h>
 #include <hardware/power.h>
-#include <HdmiCecHidlClient.h>
 #include <cutils/properties.h>
 #define DEBUG 0
 
@@ -56,34 +55,6 @@ static void setInteractive (struct power_module *module, int on) {
         if (pm->suspendFp < 0) {
             ALOGE("open %s fail, %s", EARLY_SUSPEND_TRIGGER, strerror(errno));
             return;
-        }
-    }
-
-    if (0 == on) {
-        char power_assist_standby[PROPERTY_VALUE_MAX];
-        // For products which do not need this compat code in power hal, they could config it to "false"
-        property_get("persist.vendor.sys.cec.power_assist_standby", power_assist_standby, "true");
-        if (strstr(power_assist_standby, "true")) {
-            char value[PROPERTY_VALUE_MAX];
-            const char * split = ",";
-            char * type;
-            int sender = 0;
-            property_get("persist.vendor.sys.cec.logicaladdress", value, "4");
-            type = strtok(value, split);
-            sender = atoi(type);
-            HdmiCecHidlClient *mHdmiCecHidlClient = NULL;
-            mHdmiCecHidlClient = HdmiCecHidlClient::connect(CONNECT_TYPE_POWER);
-            if (mHdmiCecHidlClient != NULL) {
-                cec_message_t message;
-                message.initiator = (cec_logical_address_t)sender;
-                message.destination = (cec_logical_address_t)CEC_ADDR_BROADCAST;
-                message.length = 1;
-                message.body[0] = CEC_MESSAGE_STANDBY;
-                mHdmiCecHidlClient->setOption(HDMI_OPTION_SYSTEM_CEC_CONTROL, 0);
-                mHdmiCecHidlClient->sendMessage(&message, false);
-                ALOGI("send <Standby> message before early suspend.");
-            }
-            delete mHdmiCecHidlClient;
         }
     }
     //resume
