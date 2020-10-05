@@ -291,7 +291,7 @@ extern "C" audio_channel_mask_t dolby_ms12_config_params_get_dolby_config_output
     if (config_param) {
         return config_param->GetDolbyConfigOutputChannelMask();
     } else {
-        return -1;
+        return AUDIO_CHANNEL_INVALID;
     }
 }
 

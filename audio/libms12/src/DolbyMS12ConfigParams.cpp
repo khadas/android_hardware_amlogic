@@ -392,7 +392,8 @@ int DolbyMS12ConfigParams::APPSoundChannelMaskConvertToChannelConfiguration(audi
 {
     ALOGV("+%s() line %d\n", __FUNCTION__, __LINE__);
     int ChannelConfiguration = 0;
-    switch (channel_mask) {
+    const uint32_t RawChannelMask = channel_mask;
+    switch (RawChannelMask) {
     case AUDIO_CHANNEL_OUT_MONO:
         ChannelConfiguration = 1;// L
         break;
@@ -430,7 +431,8 @@ int DolbyMS12ConfigParams::SystemSoundChannelMaskConvertToChannelConfiguration(a
 {
     ALOGV("+%s() line %d\n", __FUNCTION__, __LINE__);
     int ChannelConfiguration = 0;
-    switch (channel_mask) {
+    const uint32_t RawChannelMask = channel_mask;
+    switch (RawChannelMask) {
     case AUDIO_CHANNEL_OUT_MONO:
         ChannelConfiguration = 1;// L
         break;
