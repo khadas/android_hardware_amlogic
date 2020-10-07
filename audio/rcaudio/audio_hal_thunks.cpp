@@ -91,7 +91,7 @@ static size_t in_get_buffer_size(const struct audio_stream *stream)
     return tstream->impl->getBufferSize();
 }
 
-static uint32_t in_get_channels(const struct audio_stream *stream)
+static audio_channel_mask_t in_get_channels(const struct audio_stream *stream)
 {
     Mutex::Autolock _l(g_indevice.lock);
     const struct atv_stream_in* tstream =
@@ -99,7 +99,7 @@ static uint32_t in_get_channels(const struct audio_stream *stream)
     if (tstream == NULL || tstream->impl == NULL)
         return 0;
 
-    return tstream->impl->getChannelMask();
+    return static_cast<audio_channel_mask_t>(tstream->impl->getChannelMask());
 }
 
 static audio_format_t in_get_format(const struct audio_stream *stream)
@@ -263,11 +263,13 @@ int rc_open_input_stream(struct aml_stream_in **stream,
     (*stream)->stream.get_input_frames_lost = in_get_input_frames_lost;
 
     //setup in stream
+    uint32_t raw_channel_mask = config->channel_mask;
     in->impl = g_indevice.input->openInputStream((struct audio_stream_in*)(*stream),
                                             &config->format,
-                                            &config->channel_mask,
+                                            &raw_channel_mask,
                                             &config->sample_rate,
                                             reinterpret_cast<status_t*>(&ret));
+    config->channel_mask = static_cast<audio_channel_mask_t>(raw_channel_mask);
 
     ALOGD("%s--, ret=%d",__FUNCTION__, ret);
     return ret;

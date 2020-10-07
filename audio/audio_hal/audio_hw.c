@@ -10740,7 +10740,7 @@ static int adev_create_audio_patch(struct audio_hw_device *dev,
                 set_audio_source(&aml_dev->alsa_mixer,
                         input_src, alsa_device_is_auge());
             ret = create_patch(dev,
-                               src_config->ext.device.type, outport);
+                               src_config->ext.device.type, aml_dev->out_device);
             if (ret) {
                 ALOGE("%s: create patch failed", __func__);
                 goto err_patch;
@@ -11255,6 +11255,9 @@ static int adev_set_audio_port_config (struct audio_hw_device *dev, const struct
             case AUDIO_DEVICE_IN_ECHO_REFERENCE:
                 inport = INPORT_ECHO_REFERENCE;
                 break;
+            default:
+                ALOGE("%s: invalid in device type %#x",
+                        __func__, config->ext.device.type);
             }
 
             aml_dev->src_gain[inport] = 1.0;
