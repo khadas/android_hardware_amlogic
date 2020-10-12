@@ -97,7 +97,7 @@ static audio_channel_mask_t in_get_channels(const struct audio_stream *stream)
     const struct atv_stream_in* tstream =
         reinterpret_cast<const struct atv_stream_in*>(stream);
     if (tstream == NULL || tstream->impl == NULL)
-        return 0;
+        return AUDIO_CHANNEL_NONE;
 
     return static_cast<audio_channel_mask_t>(tstream->impl->getChannelMask());
 }
