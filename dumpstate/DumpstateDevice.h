@@ -13,20 +13,22 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#ifndef ANDROID_HARDWARE_DUMPSTATE_V1_0_DUMPSTATEDEVICE_H
-#define ANDROID_HARDWARE_DUMPSTATE_V1_0_DUMPSTATEDEVICE_H
+#ifndef ANDROID_HARDWARE_DUMPSTATE_V1_1_DUMPSTATEDEVICE_H
+#define ANDROID_HARDWARE_DUMPSTATE_V1_1_DUMPSTATEDEVICE_H
 
 #include <android/hardware/dumpstate/1.0/IDumpstateDevice.h>
+#include <android/hardware/dumpstate/1.1/IDumpstateDevice.h>
 #include <hidl/MQDescriptor.h>
 #include <hidl/Status.h>
 
 namespace android {
 namespace hardware {
 namespace dumpstate {
-namespace V1_0 {
+namespace V1_1 {
 namespace implementation {
 
 using ::android::hardware::dumpstate::V1_0::IDumpstateDevice;
+using ::android::hardware::dumpstate::V1_1::IDumpstateDevice;
 using ::android::hardware::hidl_array;
 using ::android::hardware::hidl_handle;
 using ::android::hardware::hidl_string;
@@ -42,10 +44,14 @@ public:
     // Methods from ::android::hardware::dumpstate::V1_0::IDumpstateDevice follow.
     Return<void> dumpstateBoard(const hidl_handle& h) override;
 
+    // Methods from ::android::hardware::dumpstate::V1_1::IDumpstateDevice follow.
+    Return<void> setVerboseLoggingEnabled(bool enable) override;
+    Return<bool> getVerboseLoggingEnabled() override;
+
 };
 
 }  // namespace implementation
-}  // namespace V1_0
+}  // namespace V1_1
 }  // namespace dumpstate
 }  // namespace hardware
 }  // namespace android

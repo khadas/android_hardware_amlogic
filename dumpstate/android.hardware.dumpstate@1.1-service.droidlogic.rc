@@ -45,10 +45,11 @@ on property:sys.boot_completed=1
     chown root system /sys/class/dmc_monitor/device
     chmod 0664 /sys/class/dmc_monitor/device
 
-service vendor.dumpstate-1-0 /vendor/bin/hw/android.hardware.dumpstate@1.0-service.droidlogic
+service vendor.dumpstate-1-1 /vendor/bin/hw/android.hardware.dumpstate@1.1-service.droidlogic
     class hal
     user system
     group system
     interface android.hardware.dumpstate@1.0::IDumpstateDevice default
+    interface android.hardware.dumpstate@1.1::IDumpstateDevice default
     oneshot
     disabled

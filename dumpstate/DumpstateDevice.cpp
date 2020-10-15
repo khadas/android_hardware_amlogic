@@ -31,7 +31,7 @@ using android::os::dumpstate::RunCommandToFd;
 namespace android {
 namespace hardware {
 namespace dumpstate {
-namespace V1_0 {
+namespace V1_1 {
 namespace implementation {
 
 #ifdef VENDOR_DUMPSTATE_DEBUG
@@ -409,8 +409,19 @@ Return<void> DumpstateDevice::dumpstateBoard(const hidl_handle& handle) {
     return Void();
 }
 
+// Methods from ::android::hardware::dumpstate::V1_1::IDumpstateDevice follow.
+Return<void> DumpstateDevice::setVerboseLoggingEnabled(bool enable)
+{
+    return Void();
+}
+
+Return<bool> DumpstateDevice::getVerboseLoggingEnabled()
+{
+    return true;
+}
+
 }  // namespace implementation
-}  // namespace V1_0
+}  // namespace V1_1
 }  // namespace dumpstate
 }  // namespace hardware
 }  // namespace android
