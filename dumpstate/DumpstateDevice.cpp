@@ -235,9 +235,6 @@ int readSys(const char *path, char *buf, int count) {
 }
 #endif
 
-DumpstateDevice::DumpstateDevice() {
-    dumpstateBoard(nullptr);
-}
 
 // Methods from ::android::hardware::dumpstate::V1_0::IDumpstateDevice follow.
 Return<void> DumpstateDevice::dumpstateBoard(const hidl_handle& handle) {
@@ -305,6 +302,21 @@ Return<void> DumpstateDevice::dumpstateBoard(const hidl_handle& handle) {
 
     DumpFileToFd(fd, "displaymode", "/sys/class/display/mode");
     DumpFileToFd(fd, "displaymode", "/sys/class/amhdmitx/amhdmitx0/disp_mode");
+    DumpFileToFd(fd, "displaymode", "/sys/class/amhdmitx/amhdmitx0/attr");
+    DumpFileToFd(fd, "displaymode", "/sys/class/amhdmitx/amhdmitx0/rawedid");
+    DumpFileToFd(fd, "displaymode", "/sys/class/amhdmitx/amhdmitx0/disp_cap");
+    DumpFileToFd(fd, "displaymode", "/sys/class/amhdmitx/amhdmitx0/dc_cap");
+    DumpFileToFd(fd, "displaymode", "/sys/class/amhdmitx/amhdmitx0/aud_cap");
+    DumpFileToFd(fd, "displaymode", "/sys/class/amhdmitx/amhdmitx0/hdr_cap");
+    DumpFileToFd(fd, "displaymode", "/sys/class/amhdmitx/amhdmitx0/hdr_cap2");
+    DumpFileToFd(fd, "displaymode", "/sys/class/amhdmitx/amhdmitx0/dv_cap");
+    DumpFileToFd(fd, "displaymode", "/sys/class/amhdmitx/amhdmitx0/dv_cap2");
+    DumpFileToFd(fd, "displaymode", "/sys/class/amhdmitx/amhdmitx0/allm_cap");
+    DumpFileToFd(fd, "displaymode", "/sys/class/amhdmitx/amhdmitx0/contenttype_cap");
+    DumpFileToFd(fd, "displaymode", "/sys/class/amhdmitx/amhdmitx0/hpd_state");
+    DumpFileToFd(fd, "displaymode", "/sys/class/amhdmitx/amhdmitx0/hdcp_lstore");
+    DumpFileToFd(fd, "displaymode", "/sys/class/amhdmitx/amhdmitx0/hdcp_mode");
+    DumpFileToFd(fd, "displaymode", "/sys/class/amhdmitx/amhdmitx0/cedst_policy");
 
     //panel
     RunCommandToFd(fd, "panel", {"vendor/bin/sh", "-c", "echo dump > /sys/class/lcd/debug"}, CommandOptions::WithTimeout(1).Build());
@@ -329,15 +341,11 @@ Return<void> DumpstateDevice::dumpstateBoard(const hidl_handle& handle) {
     */
 
     //Dump HDMI registers
-    RunCommandToFd(fd, "HDMI", {"vendor/bin/sh", "-c", "echo dumptiming  > /sys/class/amhdmitx/amhdmitx0/debug"}, CommandOptions::WithTimeout(1).Build());
-    RunCommandToFd(fd, "HDMI", {"vendor/bin/sh", "-c", "echo dumphdmireg > /sys/class/amhdmitx/amhdmitx0/debug"}, CommandOptions::WithTimeout(1).Build());
-
-    DumpFileToFd(fd, "hpd_state", "/sys/class/amhdmitx/amhdmitx0/hpd_state");
-    DumpFileToFd(fd, "hpd_state", "/sys/class/amhdmitx/amhdmitx0/disp_cap");
-    //EDID
-    DumpFileToFd(fd, "EDID", "/sys/class/amhdmitx/amhdmitx0/edid");
-    RunCommandToFd(fd, "EDID", {"vendor/bin/sh", "-c", "echo d0 > /sys/class/amhdmitx/amhdmitx0/edid"}, CommandOptions::WithTimeout(1).Build());
-    RunCommandToFd(fd, "EDID", {"vendor/bin/sh", "-c", "echo d1 > /sys/class/amhdmitx/amhdmitx0/edid"}, CommandOptions::WithTimeout(1).Build());
+    DumpFileToFd(fd, "aud_cts", "/sys/kernel/debug/amhdmitx/aud_cts");
+    DumpFileToFd(fd, "bus_reg", "/sys/kernel/debug/amhdmitx/bus_reg");
+    DumpFileToFd(fd, "hdmi_pkt", "/sys/kernel/debug/amhdmitx/hdmi_pkt");
+    DumpFileToFd(fd, "hdmi_reg", "/sys/kernel/debug/amhdmitx/hdmi_reg");
+    DumpFileToFd(fd, "hdmi_timing", "/sys/kernel/debug/amhdmitx/hdmi_timing");
 
     //DI
     RunCommandToFd(fd, "DI", {"vendor/bin/sh", "-c", "echo dumpreg > /sys/class/deinterlace/di0/debug"}, CommandOptions::WithTimeout(1).Build());
@@ -409,15 +417,50 @@ Return<void> DumpstateDevice::dumpstateBoard(const hidl_handle& handle) {
     return Void();
 }
 
+Return<DumpstateStatus> DumpstateDevice::dumpstateBoard_1_1(const hidl_handle& handle, const DumpstateMode mode,
+                                                            uint64_t /*timeoutMillis*/) {
+   if (handle == nullptr || handle->numFds < 1) {
+            ALOGE("no FDs\n");
+            return DumpstateStatus::ILLEGAL_ARGUMENT;
+    }
+
+    int fd = handle->data[0];
+    if (fd < 0) {
+        ALOGE("invalid FD: %d\n", fd);
+        return DumpstateStatus::ILLEGAL_ARGUMENT;
+    }
+    switch (mode) {
+        case DumpstateMode::FULL:
+        case DumpstateMode::DEFAULT:
+            DumpstateDevice::dumpstateBoard(handle);
+            return DumpstateStatus::OK;
+
+        case DumpstateMode::INTERACTIVE:
+        case DumpstateMode::REMOTE:
+        case DumpstateMode::WEAR:
+        case DumpstateMode::CONNECTIVITY:
+        case DumpstateMode::WIFI:
+        case DumpstateMode::PROTO:
+            ALOGE("The requested mode is not supported: %s\n", toString(mode).c_str());
+            return DumpstateStatus::UNSUPPORTED_MODE;
+
+        default:
+            ALOGE("The requested mode is invalid: %s\n", toString(mode).c_str());
+            return DumpstateStatus::ILLEGAL_ARGUMENT;
+        }
+
+}
+
 // Methods from ::android::hardware::dumpstate::V1_1::IDumpstateDevice follow.
 Return<void> DumpstateDevice::setVerboseLoggingEnabled(bool enable)
 {
+    ::android::base::SetProperty(kVerboseLoggingProperty, enable ? "true" : "false");
     return Void();
 }
 
 Return<bool> DumpstateDevice::getVerboseLoggingEnabled()
 {
-    return true;
+    return ::android::base::GetBoolProperty(kVerboseLoggingProperty, false);
 }
 
 }  // namespace implementation

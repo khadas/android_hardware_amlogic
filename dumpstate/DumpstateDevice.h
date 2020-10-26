@@ -16,7 +16,7 @@
 #ifndef ANDROID_HARDWARE_DUMPSTATE_V1_1_DUMPSTATEDEVICE_H
 #define ANDROID_HARDWARE_DUMPSTATE_V1_1_DUMPSTATEDEVICE_H
 
-#include <android/hardware/dumpstate/1.0/IDumpstateDevice.h>
+#include <android-base/properties.h>
 #include <android/hardware/dumpstate/1.1/IDumpstateDevice.h>
 #include <hidl/MQDescriptor.h>
 #include <hidl/Status.h>
@@ -27,7 +27,6 @@ namespace dumpstate {
 namespace V1_1 {
 namespace implementation {
 
-using ::android::hardware::dumpstate::V1_0::IDumpstateDevice;
 using ::android::hardware::dumpstate::V1_1::IDumpstateDevice;
 using ::android::hardware::hidl_array;
 using ::android::hardware::hidl_handle;
@@ -37,12 +36,14 @@ using ::android::hardware::Return;
 using ::android::hardware::Void;
 using ::android::sp;
 
+const char kVerboseLoggingProperty[] = "persist.dumpstate.verbose_logging.enabled";
+
 struct DumpstateDevice : public IDumpstateDevice {
 public:
-    DumpstateDevice();
+    Return<DumpstateStatus> dumpstateBoard_1_1(const hidl_handle& handle, const DumpstateMode mode, uint64_t /*timeoutMillis*/)override;
 
     // Methods from ::android::hardware::dumpstate::V1_0::IDumpstateDevice follow.
-    Return<void> dumpstateBoard(const hidl_handle& h) override;
+    Return<void> dumpstateBoard(const hidl_handle& handle) override;
 
     // Methods from ::android::hardware::dumpstate::V1_1::IDumpstateDevice follow.
     Return<void> setVerboseLoggingEnabled(bool enable) override;

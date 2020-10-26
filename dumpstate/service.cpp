@@ -13,22 +13,22 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
+#include <android-base/properties.h>
 #include <hidl/HidlSupport.h>
 #include <hidl/HidlTransportSupport.h>
 
 #include "DumpstateDevice.h"
 
 using ::android::hardware::configureRpcThreadpool;
-using ::android::hardware::dumpstate::V1_0::IDumpstateDevice;
-using ::android::hardware::dumpstate::V1_0::implementation::DumpstateDevice;
+using ::android::hardware::dumpstate::V1_1::IDumpstateDevice;
+using ::android::hardware::dumpstate::V1_1::implementation::DumpstateDevice;
 using ::android::hardware::joinRpcThreadpool;
 using ::android::OK;
 using ::android::sp;
 
 int main(int /* argc */, char* /* argv */ []) {
-    sp<IDumpstateDevice> dumpstate = new DumpstateDevice;
     configureRpcThreadpool(1, true /* will join */);
+    sp<IDumpstateDevice> dumpstate = new DumpstateDevice;
     if (dumpstate->registerAsService() != OK) {
         ALOGE("Could not register service.");
         return 1;
