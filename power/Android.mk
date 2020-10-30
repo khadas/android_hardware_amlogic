@@ -34,9 +34,8 @@ LOCAL_MODULE_RELATIVE_PATH := hw
 LOCAL_SRC_FILES := power.cpp
 LOCAL_SHARED_LIBRARIES := \
   liblog \
-  libcutils \
-  vendor.amlogic.hardware.hdmicec@1.0 \
-  libhdmicec
+  libcutils
+
 LOCAL_MODULE_TAGS := optional
 LOCAL_CFLAGS := -Wno-unused-parameter
 
