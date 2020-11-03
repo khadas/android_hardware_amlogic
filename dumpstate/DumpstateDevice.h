@@ -36,7 +36,7 @@ using ::android::hardware::Return;
 using ::android::hardware::Void;
 using ::android::sp;
 
-const char kVerboseLoggingProperty[] = "persist.dumpstate.verbose_logging.enabled";
+const char kVerboseLoggingProperty[] = "persist.vendor.verbose_logging.enabled";
 
 struct DumpstateDevice : public IDumpstateDevice {
 public:
