@@ -1,0 +1,4 @@
+service vendor.power-default /vendor/bin/hw/android.hardware.power.aidl-service.droidlogic
+    class hal
+    user system
+    group system
