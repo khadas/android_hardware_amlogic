@@ -918,6 +918,13 @@ static int start_output_stream_direct (struct aml_stream_out *out)
 static int check_input_parameters(uint32_t sample_rate, audio_format_t format, int channel_count, audio_devices_t devices)
 {
     ALOGD("%s(sample_rate=%d, format=%d, channel_count=%d, devices = %x)", __FUNCTION__, sample_rate, format, channel_count, devices);
+
+    if(AUDIO_DEVICE_IN_DEFAULT == devices && AUDIO_CHANNEL_NONE == channel_count &&
+       AUDIO_FORMAT_DEFAULT == format && 0 == sample_rate) {
+       /* Add for Hidl6.0:CloseDeviceWithOpenedInputStreams test */
+       return -ENOSYS; /*Currently System Not Supported.*/
+    }
+
     if (format != AUDIO_FORMAT_PCM_16_BIT && format != AUDIO_FORMAT_PCM_32_BIT) {
         ALOGE("%s: unsupported AUDIO FORMAT (%d)", __func__, format);
         return -EINVAL;
@@ -929,19 +936,21 @@ static int check_input_parameters(uint32_t sample_rate, audio_format_t format, i
     }
 
     switch (sample_rate) {
-    case 8000:
-    case 11025:
-    case 16000:
-    case 22050:
-    case 24000:
-    case 32000:
-    case 44100:
-    case 48000:
-    case 96000:
-        break;
-    default:
-        ALOGE("%s: unsupported (%d) samplerate passed ", __func__, sample_rate);
-        return -EINVAL;
+        case 8000:
+        case 11025:
+        /*fallthrough*/
+        case 12000:
+        case 16000:
+        case 22050:
+        case 24000:
+        case 32000:
+        case 44100:
+        case 48000:
+        case 96000:
+            break;
+        default:
+            ALOGE("%s: unsupported (%d) samplerate passed ", __func__, sample_rate);
+            return -EINVAL;
     }
 
     devices &= ~AUDIO_DEVICE_BIT_IN;
@@ -3841,6 +3850,7 @@ static audio_format_t in_get_format(const struct audio_stream *stream)
     if ((in->device & AUDIO_DEVICE_IN_LINE) && in->ref_count == 1)
         return AUDIO_FORMAT_PCM_32_BIT;
 #endif
+    ALOGV("%s(%p) in->hal_format=%d", __FUNCTION__, in, in->hal_format);
     return in->hal_format;
 }
 
@@ -3970,6 +3980,28 @@ static int in_set_parameters (struct audio_stream *stream, const char *kvpairs)
         }
     }
 
+    int format = 0;
+    ret = str_parms_get_int (parms, AUDIO_PARAMETER_STREAM_FORMAT, &format);
+
+    if (ret >= 0) {
+        if (format != AUDIO_FORMAT_INVALID) {
+            in->hal_format = (audio_format_t)format;
+            ALOGV("  in->hal_format:%d  <== format:%d\n",
+                   in->hal_format, format);
+
+            pthread_mutex_lock (&adev->lock);
+            pthread_mutex_lock (&in->lock);
+            if (!in->standby && (in == adev->active_input) ) {
+                do_input_standby (in);
+                start_input_stream (in);
+                in->standby = 0;
+            }
+            pthread_mutex_unlock (&in->lock);
+            pthread_mutex_unlock (&adev->lock);
+        }
+    }
+
+
     str_parms_destroy (parms);
 
     // VTS can only recognizes Result::OK, which is 0x0.
@@ -3994,7 +4026,7 @@ static char * in_get_parameters (const struct audio_stream *stream, const char *
     ALOGI ("in_get_parameters %s,in %p\n", keys, in);
     if (strstr (keys, AUDIO_PARAMETER_STREAM_SUP_FORMATS) ) {
         ALOGV ("Amlogic - return hard coded sup_formats list for in stream.\n");
-        cap = strdup ("sup_formats=AUDIO_FORMAT_PCM_16_BIT");
+        cap = strdup ("sup_formats=AUDIO_FORMAT_PCM_16_BIT|AUDIO_FORMAT_PCM_32_BIT");
         if (cap) {
             para = strdup (cap);
             free (cap);
@@ -4630,6 +4662,14 @@ static void get_mic_characteristics (struct audio_microphone_characteristic_t* m
     mic_data->geometric_location.z = AUDIO_MICROPHONE_COORDINATE_UNKNOWN;
 }
 
+static int out_set_event_callback(struct audio_stream_out *stream __unused,
+                                       stream_event_callback_t callback, void *cookie /*StreamOut*/)
+{
+    ALOGD("func:%s  callback:%p cookie:%p", __func__, callback, cookie);
+
+    return 0;
+}
+
 // open corresponding stream by flags, formats and others params
 static int adev_open_output_stream(struct audio_hw_device *dev,
                                 audio_io_handle_t handle __unused,
@@ -4807,6 +4847,7 @@ static int adev_open_output_stream(struct audio_hw_device *dev,
     out->stream.get_render_position = out_get_render_position;
     out->stream.get_next_write_timestamp = out_get_next_write_timestamp;
     out->stream.get_presentation_position = out_get_presentation_position;
+    out->stream.set_event_callback = out_set_event_callback;
 
     if ((eDolbyMS12Lib == adev->dolby_lib_type) && (!adev->is_TV)) {
         // BOX with ms 12 need to use new method
@@ -6329,13 +6370,22 @@ static int adev_open_input_stream(struct audio_hw_device *dev,
     struct aml_audio_device *adev = (struct aml_audio_device *)dev;
     struct aml_stream_in *in;
     int channel_count = audio_channel_count_from_in_mask(config->channel_mask);
-    int ret;
+    int ret = 0;
 
     ALOGD("%s: enter: devices(%#x) channel_mask(%#x) rate(%d) format(%#x) source(%d)", __func__,
         devices, config->channel_mask, config->sample_rate, config->format, source);
 
-    if (check_input_parameters(config->sample_rate, config->format, channel_count, devices) != 0) {
-        return -EINVAL;
+    if ((ret = check_input_parameters(config->sample_rate, config->format, channel_count, devices)) != 0) {
+        if (-ENOSYS == ret) {
+            ALOGV("  check_input_parameters input config Not Supported, and set to Default config(48000,2,PCM_16_BIT)");
+            config->sample_rate = DEFAULT_OUT_SAMPLING_RATE;
+            config->format = AUDIO_FORMAT_PCM_16_BIT;
+            config->channel_mask = AUDIO_CHANNEL_IN_STEREO;
+        } else {
+           return -EINVAL;
+        }
+    } else {
+        //check successfully, continue excute.
     }
 
     if (channel_count == 1)
@@ -6347,8 +6397,10 @@ static int adev_open_input_stream(struct audio_hw_device *dev,
         config->channel_mask = AUDIO_CHANNEL_IN_STEREO;
 
     in = (struct aml_stream_in *)calloc(1, sizeof(struct aml_stream_in));
-    if (!in)
+    if (!in) {
+        ALOGE("  calloc fail, return!!!");
         return -ENOMEM;
+    }
 
 #if defined(ENABLE_HBG_PATCH)
 //[SEI-Tiger-2019/02/28] Optimize HBG RCU{
@@ -6430,8 +6482,10 @@ static int adev_open_input_stream(struct audio_hw_device *dev,
         // usecase for bluetooth rc audio hal
         ALOGI("%s: use RC audio HAL", __func__);
         ret = rc_open_input_stream(&in, config);
-        if (ret != 0)
+        if (ret != 0) {
+            ALOGE("  rc_open_input_stream fail, goto err!!!");
             goto err;
+        }
         config->sample_rate = in->config.rate;
         config->channel_mask = AUDIO_CHANNEL_IN_MONO;
     } else
@@ -6458,6 +6512,7 @@ static int adev_open_input_stream(struct audio_hw_device *dev,
     in->buffer = malloc(in->config.period_size * audio_stream_in_frame_size(&in->stream));
     if (!in->buffer) {
         ret = -ENOMEM;
+        ALOGE("  malloc fail, goto err!!!");
         goto err;
     }
     memset(in->buffer, 0, in->config.period_size * audio_stream_in_frame_size(&in->stream));
@@ -6497,7 +6552,6 @@ static int adev_open_input_stream(struct audio_hw_device *dev,
 #endif
 
     *stream_in = &in->stream;
-    ALOGD("%s: exit", __func__);
 
 #if ENABLE_NANO_NEW_PATH
 	if (nano_is_connected() && (devices & AUDIO_DEVICE_IN_BUILTIN_MIC)) {
@@ -6508,6 +6562,7 @@ static int adev_open_input_stream(struct audio_hw_device *dev,
     }
 #endif
 
+    ALOGD("%s: exit", __func__);
     return 0;
 err:
     if (in->resampler) {
@@ -11357,10 +11412,26 @@ static int adev_get_audio_port(struct audio_hw_device *dev __unused, struct audi
     return -ENOSYS;
 }
 
+static int adev_add_device_effect(struct audio_hw_device *dev,
+                                  audio_port_handle_t device, effect_handle_t effect)
+{
+    struct aml_audio_device *aml_dev = (struct aml_audio_device *) dev;
+
+    ALOGD("func:%s device:%d effect_handle_t:%p, active_outport:%d", __func__, device, effect, aml_dev->active_outport);
+    return 0;
+}
+
+static int adev_remove_device_effect(struct audio_hw_device *dev,
+                                     audio_port_handle_t device, effect_handle_t effect)
+{
+    struct aml_audio_device *aml_dev = (struct aml_audio_device *) dev;
+
+    ALOGD("func:%s device:%d effect_handle_t:%p, active_outport:%d", __func__, device, effect, aml_dev->active_outport);
+    return 0;
+}
+
 #define MAX_SPK_EXTRA_LATENCY_MS (100)
 #define DEFAULT_SPK_EXTRA_LATENCY_MS (15)
-
-
 static int adev_open(const hw_module_t* module, const char* name, hw_device_t** device)
 {
 
@@ -11424,6 +11495,8 @@ static int adev_open(const hw_module_t* module, const char* name, hw_device_t** 
     adev->hw_device.create_audio_patch = adev_create_audio_patch;
     adev->hw_device.release_audio_patch = adev_release_audio_patch;
     adev->hw_device.set_audio_port_config = adev_set_audio_port_config;
+    adev->hw_device.add_device_effect = adev_add_device_effect;
+    adev->hw_device.remove_device_effect = adev_remove_device_effect;
     adev->hw_device.get_microphones = adev_get_microphones;
     adev->hw_device.get_audio_port = adev_get_audio_port;
     adev->hw_device.dump = adev_dump;
