@@ -33,10 +33,8 @@
 /*
  *@brief get sink capability
  */
-static audio_format_t get_sink_capability (struct audio_stream_out *stream)
+static audio_format_t get_sink_capability (struct aml_audio_device *adev)
 {
-    struct aml_stream_out *aml_out = (struct aml_stream_out *) stream;
-    struct aml_audio_device *adev = aml_out->dev;
     struct aml_arc_hdmi_desc *hdmi_desc = &adev->hdmi_descs;
 
     bool dd_is_support = hdmi_desc->dd_fmt.is_support;
@@ -87,12 +85,13 @@ void get_sink_format (struct audio_stream_out *stream)
     audio_format_t sink_audio_format = AUDIO_FORMAT_PCM_16_BIT;
     audio_format_t optical_audio_format = AUDIO_FORMAT_PCM_16_BIT;
 
-    audio_format_t sink_capability = get_sink_capability(stream);
+    audio_format_t sink_capability = get_sink_capability(adev);
     audio_format_t source_format = aml_out->hal_internal_format;
 
-    if (aml_out->out_device & AUDIO_DEVICE_OUT_ALL_A2DP) {
+    if (adev->out_device & AUDIO_DEVICE_OUT_ALL_A2DP) {
         ALOGD("get_sink_format: a2dp set to pcm");
         adev->sink_format = AUDIO_FORMAT_PCM_16_BIT;
+        adev->sink_capability = AUDIO_FORMAT_PCM_16_BIT;
         adev->optical_format = AUDIO_FORMAT_PCM_16_BIT;
         aml_out->dual_output_flag = false;
         return;
@@ -110,6 +109,7 @@ void get_sink_format (struct audio_stream_out *stream)
         ALOGI("%s() source format %#x change to %#x", __FUNCTION__, source_format, AUDIO_FORMAT_PCM_16_BIT);
         source_format = AUDIO_FORMAT_PCM_16_BIT;
     }
+    adev->sink_capability = sink_capability;
 
     // "adev->hdmi_format" is the UI selection item.
     // "adev->active_outport" was set when HDMI ARC cable plug in/off
@@ -418,8 +418,12 @@ const char *audio_port_type_to_str(audio_port_type_t type)
 const char *write_func_strs[MIXER_WRITE_FUNC_MAX] = {
     "OUT_WRITE_NEW",
     "MIXER_AUX_BUFFER_WRITE_SM",
+    "MIXER_MAIN_BUFFER_WRITE_SM,"
+    "MIXER_MMAP_BUFFER_WRITE_SM"
     "MIXER_AUX_BUFFER_WRITE",
-    "MIXER_MAIN_BUFFER_WRITE"
+    "MIXER_MAIN_BUFFER_WRITE",
+    "MIXER_APP_BUFFER_WRITE",
+    "PROCESS_BUFFER_WRITE,"
 };
 
 static const char *write_func_to_str(enum stream_write_func func)
@@ -493,5 +497,24 @@ void aml_audio_patches_dump(struct aml_audio_device* aml_dev, int fd)
 
         i++;
     }
+}
+
+bool is_use_spdifb(struct aml_stream_out *out) {
+    struct aml_audio_device *adev = out->dev;
+    if (eDolbyDcvLib == adev->dolby_lib_type && adev->dolby_decode_enable &&
+        (out->hal_format == AUDIO_FORMAT_E_AC3 || out->hal_internal_format == AUDIO_FORMAT_E_AC3 ||
+        (out->need_convert && out->hal_internal_format == AUDIO_FORMAT_AC3))) {
+        /*dual spdif we need convert
+          or non dual spdif, we need check audio setting and optical format*/
+        if (adev->dual_spdif_support) {
+            out->dual_spdif = true;
+        }
+        if (out->dual_spdif && ((adev->hdmi_format == AUTO) &&
+            adev->optical_format == AUDIO_FORMAT_E_AC3)) {
+            return true;
+        }
+    }
+
+    return false;
 }
 

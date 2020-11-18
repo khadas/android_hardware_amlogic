@@ -135,7 +135,7 @@ void *audio_decode_loop_omx(void *args)
     int outlen_raw = 0;
     int rawoutput_enable;
     buffer_stream_t *g_bst, *g_bst_raw;
-    AudioInfo  g_AudioInfo = {0, 0, 0, 0};
+    AudioInfo  g_AudioInfo = {0, 0, 0, 0, 0};
     adec_print("\n\naudio_decode_loop_omx start!\n");
 
     audec = (aml_audio_dec_t *)args;

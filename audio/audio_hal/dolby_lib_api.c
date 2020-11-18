@@ -36,10 +36,10 @@
 #endif
 
 
-#define DOLBY_MS12_LIB_PATH_A "/vendor/lib/libdolbyms12.so"
-#define DOLBY_MS12_LIB_PATH_B "/system/vendor/lib/libdolbyms12.so"
+#define DOLBY_MS12_LIB_PATH_A "/odm/lib/libdolbyms12.so"
+#define DOLBY_MS12_LIB_PATH_B "/vendor/lib/libdolbyms12.so"
 
-#define DOLBY_DCV_LIB_PATH_A "/vendor/lib/libHwAudio_dcvdec.so"
+#define DOLBY_DCV_LIB_PATH_A "/odm/lib/libHwAudio_dcvdec.so"
 
 
 /*

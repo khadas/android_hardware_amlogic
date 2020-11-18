@@ -105,28 +105,35 @@ void aml_audio_set_spdif_format(int spdif_port, eMixerSpdif_Format aml_spdif_for
     struct aml_audio_device *aml_dev = aml_out->dev;
     int spdif_format_ctr_id = AML_MIXER_ID_SPDIF_FORMAT;
     int spdif_to_hdmi_select = AML_SPDIF_A_TO_HDMITX;
-
-    if ((spdif_port != PORT_SPDIF) && (spdif_port != PORT_SPDIFB)) {
+    if ((spdif_port != PORT_SPDIF) && (spdif_port != PORT_SPDIFB) && spdif_port != PORT_I2S2HDMI) {
         return;
     }
 
-    if (spdif_port == PORT_SPDIF) {
+    /* i2s2hdmi multi-ch use spdifa fmt too */
+    if (spdif_port == PORT_SPDIF || spdif_port == PORT_I2S2HDMI) {
         spdif_format_ctr_id = AML_MIXER_ID_SPDIF_FORMAT;
+        if (aml_spdif_format == AML_DOLBY_DIGITAL_PLUS) {
+            aml_mixer_ctrl_set_int(&aml_dev->alsa_mixer, AML_MIXER_ID_SPDIF_MUTE, 1);
+        } else {
+            aml_mixer_ctrl_set_int(&aml_dev->alsa_mixer, AML_MIXER_ID_SPDIF_MUTE, 0);
+        }
     } else if (spdif_port == PORT_SPDIFB) {
         spdif_format_ctr_id = AML_MIXER_ID_SPDIF_B_FORMAT;
+        aml_mixer_ctrl_set_int(&aml_dev->alsa_mixer, AML_MIXER_ID_SPDIF_MUTE, 0);
     }
+
+    audio_set_spdif_clock(stream, aml_spdif_format);
 
     aml_mixer_ctrl_set_int(&aml_dev->alsa_mixer, spdif_format_ctr_id, aml_spdif_format);
 
     /*use same source for normal pcm case*/
-    if (aml_spdif_format == AML_STEREO_PCM) {
-        aml_mixer_ctrl_set_int(&aml_dev->alsa_mixer, AML_MIXER_ID_SPDIF_TO_HDMI,  AML_SPDIF_A_TO_HDMITX);
+    if (aml_spdif_format == AML_STEREO_PCM || aml_spdif_format == AML_MULTI_CH_LPCM) {
+        //aml_mixer_ctrl_set_int(&aml_dev->alsa_mixer, AML_MIXER_ID_SPDIF_TO_HDMI,  AML_SPDIF_A_TO_HDMITX);
         aml_mixer_ctrl_set_int(&aml_dev->alsa_mixer, AML_MIXER_ID_SPDIF_FORMAT, aml_spdif_format);
-        aml_mixer_ctrl_set_int(&aml_dev->alsa_mixer, AML_MIXER_ID_SPDIF_B_FORMAT, aml_spdif_format);
+        //aml_mixer_ctrl_set_int(&aml_dev->alsa_mixer, AML_MIXER_ID_SPDIF_B_FORMAT, aml_spdif_format);
     }
 
-    ALOGI("%s tinymix AML_MIXER_ID_SPDIF_FORMAT %d\n",
-          __FUNCTION__, aml_spdif_format);
+    ALOGI("%s tinymix spdif_port:%d, AML_MIXER_ID_SPDIF_FORMAT %d", __FUNCTION__, spdif_port, aml_spdif_format);
     return;
 }
 
@@ -293,13 +300,43 @@ int aml_audio_spdifout_processs(void *phandle, void *buffer, size_t byte)
 
     }
 #endif
-
+    if (aml_dev->tv_mute) {
+        memset(output_buffer, 0, output_buffer_bytes);
+    }
     ret = aml_alsa_output_write_new(alsa_handle, output_buffer, output_buffer_bytes);
 
 
     return ret;
 }
 
+int aml_dtv_spdif_output_new (struct audio_stream_out *stream,
+                                      void *buffer, size_t byte)
+{
+    struct aml_stream_out *aml_out = (struct aml_stream_out *) stream;
+    struct aml_audio_device *aml_dev = aml_out->dev;
+    void *spdifout_handle = aml_dev->ddp.spdifout_handle;
+    int ret = 0;
+    if (spdifout_handle == NULL) {
+        ret = aml_audio_spdifout_open(&spdifout_handle, aml_out->hal_internal_format);
+        aml_dev->ddp.spdifout_handle = spdifout_handle;
+    }
+    if (ret != 0) {
+        ALOGE("open spdif out failed\n");
+        return ret;
+    }
+
+    if (aml_dev->sink_gain[OUTPORT_HDMI] < FLOAT_ZERO && aml_dev->active_outport == OUTPORT_HDMI) {
+        aml_audio_spdifout_mute(spdifout_handle, true);
+    } else {
+        aml_audio_spdifout_mute(spdifout_handle, false);
+    }
+    if (aml_dev->patch_src == SRC_DTV && aml_dev->start_mute_flag == 1) {
+        memset(buffer, 0, byte);
+    }
+    ret = aml_audio_spdifout_processs(spdifout_handle, buffer, byte);
+
+    return ret;
+}
 
 int aml_audio_spdifout_close(void *phandle)
 {
@@ -315,7 +352,6 @@ int aml_audio_spdifout_close(void *phandle)
     device_id = spdifout_phandle->device_id;
     alsa_handle = aml_dev->alsa_handle[device_id];
 
-
     if (alsa_handle) {
         ALOGI("%s close dual output bitstream id=%d handle %p", __func__, device_id, alsa_handle);
         aml_alsa_output_close_new(alsa_handle);
@@ -325,12 +361,10 @@ int aml_audio_spdifout_close(void *phandle)
     /*it is spdif a output*/
     if (spdifout_phandle->spdif_port == PORT_SPDIF) {
         aml_mixer_ctrl_set_int(&aml_dev->alsa_mixer, AML_MIXER_ID_SPDIF_FORMAT, AML_STEREO_PCM);
-
     } else if (spdifout_phandle->spdif_port == PORT_SPDIFB) {
         /*it is spdif b output*/
-        aml_mixer_ctrl_set_int(&aml_dev->alsa_mixer, AML_MIXER_ID_SPDIF_B_FORMAT, AML_STEREO_PCM);
+        //aml_mixer_ctrl_set_int(&aml_dev->alsa_mixer, AML_MIXER_ID_SPDIF_B_FORMAT, AML_STEREO_PCM);
     }
-
 
     if (spdifout_phandle) {
         if (spdifout_phandle->spdif_enc_handle) {
@@ -340,3 +374,15 @@ int aml_audio_spdifout_close(void *phandle)
     }
     return ret;
 }
+
+int aml_audio_spdifout_mute(void *phandle, bool bmute) {
+    struct spdifout_handle *spdifout_phandle = (struct spdifout_handle *)phandle;
+    if (phandle == NULL || spdifout_phandle->spdif_enc_handle == NULL) {
+        ALOGE("[%s:%d] invalid param, phandle:%p, spdif_enc_handle:%p", __func__, __LINE__,
+            phandle, spdifout_phandle->spdif_enc_handle);
+        return -1;
+    }
+    aml_spdif_encoder_mute(spdifout_phandle->spdif_enc_handle, bmute);
+    return 0;
+}
+

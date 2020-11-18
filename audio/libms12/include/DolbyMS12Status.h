@@ -151,6 +151,17 @@ public:
     virtual audio_format_t getAudioSystemFormat(void);
 
     /*
+     *@brief set Audio Hal App format
+     */
+    virtual void setAudioAppFormat(audio_format_t format);
+
+    /*
+     *@brief get Audio Hal App format
+     */
+    virtual audio_format_t getAudioAppFormat(void);
+
+
+    /*
      *@brief set dd support flag
      */
     virtual void setDDSupportFlag(bool flag);
@@ -228,6 +239,7 @@ private:
     audio_format_t mAudioMainFormat;
     audio_format_t mAudioAssociateFormat;
     audio_format_t mAudioSystemFormat;
+    audio_format_t mAudioAppFormat;
 
     //for dd(ac3) support
     bool mDDSupportFlag;

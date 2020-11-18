@@ -53,7 +53,7 @@
 
 #include "neaacdec.h"
 //#include "../../amadec/adec_write.h"
-#include "../../amadec/adec-armdec-mgt.h"
+#include "adec-armdec-mgt.h"
 
 
 #define    ACODEC_FMT_NULL   -1

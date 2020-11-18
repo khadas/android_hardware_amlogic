@@ -15,7 +15,8 @@ ifdef DOLBY_DS1_UDC
   LOCAL_CFLAGS += -DDOLBY_DS1_UDC
 endif
 
-LOCAL_HEADER_LIBRARIES := libmedia_headers libmediametrics_headers
+LOCAL_HEADER_LIBRARIES := libmedia_headers
+
 
 LOCAL_C_INCLUDES:= \
     $(LOCAL_PATH)/include \
@@ -23,7 +24,12 @@ LOCAL_C_INCLUDES:= \
     system/core/base/include \
     frameworks/av/include \
     frameworks/av/media/libmedia/include \
-    system/media/audio/include
+	frameworks/av/media/libmediametrics/include \
+    system/media/audio/include \
+    hardware/amlogic/audio/audio_hal \
+    hardware/amlogic//audio/utils/include/ \
+    hardware/amlogic/audio/dtv_audio_utils/audio_read_api \
+    hardware/amlogic/audio/dtv_audio_utils/sync/
 
 # PLATFORM_SDK_VERSION:
 # 4.4 = 19
@@ -65,15 +71,20 @@ LOCAL_CFLAGS := \
     LOCAL_CFLAGS+=-DDOLBY_USE_ARMDEC
 #endif
 
-LOCAL_HEADER_LIBRARIES := libmedia_headers libmediametrics_headers
+LOCAL_HEADER_LIBRARIES := libmedia_headers
 
 LOCAL_C_INCLUDES:= \
     $(LOCAL_PATH)/include \
     $(AMAVUTILS_INCLUDE) \
     frameworks/av/include \
     frameworks/av/media/libmedia/include \
+	frameworks/av/media/libmediametrics/include \
     system/media/audio/include \
-    system/libhidl/transport/token/1.0/utils/include
+    system/libhidl/transport/token/1.0/utils/include \
+    hardware/amlogic/audio/audio_hal \
+    hardware/amlogic/audio/utils/include \
+    hardware/amlogic/audio/dtv_audio_utils/audio_read_api \
+    hardware/amlogic/audio/dtv_audio_utils/sync/
 
 
 LOCAL_CFLAGS += -DANDROID_PLATFORM_SDK_VERSION=$(PLATFORM_SDK_VERSION)
@@ -88,6 +99,10 @@ else
     ifneq (0, $(shell expr $(PLATFORM_VERSION) \> 4.0.0))
         LOCAL_CFLAGS += -D_VERSION_ICS
     endif
+endif
+
+ifeq ($(strip $(BOARD_AML_SECUREBOOT_SOC_TYPE)),sc2)
+LOCAL_CFLAGS += -DDVB_AUDIO_SC2
 endif
 
 LOCAL_SRC_FILES := \
@@ -105,7 +120,7 @@ LOCAL_ARM_MODE := arm
 ##################################################
 #$(shell cp $(LOCAL_PATH)/acodec_lib/*.so $(TARGET_OUT)/lib)
 ###################################################
-LOCAL_SHARED_LIBRARIES += libutils libz libbinder libdl libcutils libc libamavutils liblog
+LOCAL_SHARED_LIBRARIES += libutils libz libbinder libdl libcutils libc libamavutils liblog libdtvad libamaudioutils libdvbaudioutils
 
 LOCAL_PRELINK_MODULE := false
 LOCAL_MODULE_TAGS := optional
@@ -120,13 +135,14 @@ LOCAL_CFLAGS := \
     LOCAL_CFLAGS+=-DDOLBY_USE_ARMDEC
 #endif
 
-LOCAL_HEADER_LIBRARIES := libmedia_headers libmediametrics_headers
+LOCAL_HEADER_LIBRARIES := libmedia_headers
  
 LOCAL_C_INCLUDES:= \
     $(LOCAL_PATH)/include \
     $(AMAVUTILS_INCLUDE) \
     frameworks/av/include \
     frameworks/av/media/libmedia/include \
+	frameworks/av/media/libmediametrics/include \
     system/media/audio/include \
     system/libhidl/transport/token/1.0/utils/include
 

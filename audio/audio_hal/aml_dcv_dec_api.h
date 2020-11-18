@@ -23,25 +23,50 @@
 #include "aml_audio_parser.h"
 #include "aml_audio_types_def.h"
 
+typedef enum  {
+    DDP_CONFIG_MIXER_LEVEL, //runtime param
+    DDP_CONFIG_OUT_BITDEPTH, //static param
+    DDP_CONFIG_OUT_CH, //static param
+    DDP_CONFIG_AD_PCMSCALE, //runtime param
+    DDP_CONFIG_MAIN_PCMSCALE,//runtime param
+} ddp_config_type_t;
+
+typedef enum  {
+    DDP_DECODE_MODE_SINGLE = 1,
+    DDP_DECODE_MODE_AD_DUAL = 2,
+    DDP_DECODE_MODE_AD_SUBSTREAM = 3,
+} ddp_decoding_mode_t;
+
+typedef union ddp_config {
+    int  mixer_level;
+} ddp_config_t;
+
 struct dolby_ddp_dec {
     unsigned char *inbuf;
     unsigned char *outbuf;
     unsigned char *outbuf_raw;
     int status;
+    int inbuf_size;
     int remain_size;
     int outlen_pcm;
     int outlen_raw;
     int nIsEc3;
     int digital_raw;
+    int decoding_mode;
+    int  mixer_level;
     bool is_iec61937;
     int curFrmSize;
-    int (*get_parameters)(void *, int *, int *, int *,int *);
+    int (*get_parameters)(void *, int *, int *, int *,int *,int *);
     int (*decoder_process)(unsigned char*, int, unsigned char *, int *, char *, int *, int, struct pcm_info *);
     pthread_mutex_t lock;
     struct pcm_info pcm_out_info;
     struct resample_para aml_resample;
     unsigned char *resample_outbuf;
     ring_buffer_t output_ring_buf;
+    void *spdifout_handle;
+    int ad_substream_supported;
+    int mainvol_level;
+    int advol_level;
 };
 
 
@@ -54,5 +79,8 @@ int dcv_decoder_init_patch(struct dolby_ddp_dec *ddp_dec);
 int dcv_decoder_release_patch(struct dolby_ddp_dec *ddp_dec);
 int dcv_decoder_process_patch(struct dolby_ddp_dec *ddp_dec, unsigned char*buffer, int bytes);
 int dcv_decoder_get_framesize(unsigned char*buffer, int bytes, int* p_head_offset);
+int is_ad_substream_supported(unsigned char *buffer,int bytes);
+int dcv_decoder_config(ddp_config_type_t config_type, ddp_config_t *config);
+
 
 #endif

@@ -68,6 +68,10 @@ namespace android {
             getHwDevice();
     }
 
+    status_t AmlAudioOutPort::standby() {
+        return outStream->standby();
+    }
+
     status_t AmlAudioOutPort::start() {
         return outStream->start();
     }
@@ -139,6 +143,11 @@ namespace android {
             }
 
             rc = hwDevice->initCheck();
+            if (rc == NO_ERROR) {
+                ALOGI("hwDevice init check success ");
+            } else {
+                ALOGE("hwDevice init check fail");
+            }
          }
 
     }

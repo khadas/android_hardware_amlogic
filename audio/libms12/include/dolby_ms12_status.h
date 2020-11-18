@@ -90,6 +90,17 @@ void set_audio_system_format(audio_format_t format);
 audio_format_t get_audio_system_format(void);
 
 /*
+ *@brief set Audio Hal system format
+ */
+void set_audio_app_format(audio_format_t format);
+
+/*
+ *@brief get Audio Hal system format
+ */
+audio_format_t get_audio_app_format(void);
+
+
+/*
  *@brief set TV audio main format
  */
 void set_dd_support_flag(bool flag);

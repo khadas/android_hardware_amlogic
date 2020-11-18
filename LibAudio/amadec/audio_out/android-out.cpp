@@ -1594,6 +1594,7 @@ extern "C" int android_set_lrvolume(struct aml_audio_dec* audec __unused, float 
 
     return 0;
 }
+#if 0
 extern "C" int android_set_track_rate(struct aml_audio_dec* audec __unused,void *rate)
 {
 #if ANDROID_PLATFORM_SDK_VERSION >= 23
@@ -1616,7 +1617,7 @@ extern "C" int android_set_track_rate(struct aml_audio_dec* audec __unused,void 
 #endif
     return 0;
 }
-
+#endif
 extern "C" void android_basic_init()
 {
     Mutex::Autolock _l(mLock);
@@ -1641,7 +1642,7 @@ extern "C" void get_output_func(struct aml_audio_dec* audec)
     out_ops->mute = android_mute;
     out_ops->set_volume = android_set_volume;
     out_ops->set_lrvolume = android_set_lrvolume;
-    out_ops->set_track_rate = android_set_track_rate;
+    out_ops->set_track_rate = NULL;//android_set_track_rate;
     out_ops->get_out_position = android_get_position;
     out_ops->audio_out_raw_enable = 1;
     /* default set a invalid value*/

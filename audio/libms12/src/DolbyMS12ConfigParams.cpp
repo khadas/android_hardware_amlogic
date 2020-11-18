@@ -40,7 +40,7 @@ namespace android
 
 //here the file path is fake
 //@@pcm [application sounds]
-#define DEFAULT_APPLICATION_PCM_FILE_NAME "/data/application"
+#define DEFAULT_APPLICATION_PCM_FILE_NAME "/data/app48khz.wav"
 //@@pcm [system sounds]
 #define DEFAULT_SYSTEM_PCM_FILE_NAME "/data/system48kHz.wav"
 //@@pcm [ott sounds]
@@ -83,13 +83,13 @@ DolbyMS12ConfigParams::DolbyMS12ConfigParams():
     , mDolbyMS12OutSampleRate(48000)
     , mDolbyMS12OutChannelMask(AUDIO_CHANNEL_OUT_STEREO)
     , mConfigParams(NULL)
-    , mStereoOutputFlag(false)
+    , mStereoOutputFlag(true)
     // , mMultiOutputFlag(true)
     , mDRCBoost(100)
     , mDRCCut(100)
     , mDRCBoostSystem(100)
     , mDRCCutSystem(100)
-    , mChannelConfAppSoundsIn(7)//5.1
+    , mChannelConfAppSoundsIn(2)//5.1
     , mChannelConfSystemIn(2)//2.0
     , mMainFlags(true)
     //, mMainFlags(false) // always have mMainFlags on? zz
@@ -102,7 +102,7 @@ DolbyMS12ConfigParams::DolbyMS12ConfigParams():
     , mDAPDRCMode(0)
     , mDonwmixMode(0)
     , mEvaluationMode(0)
-    , mLFEPresentInAppSoundIn(1)
+    , mLFEPresentInAppSoundIn(0)
     , mLFEPresentInSystemSoundIn(0)
     , mMaxChannels(6)//fixme, here choose 5.1ch
     , mDonwnmix71PCMto51(0)
@@ -133,6 +133,7 @@ DolbyMS12ConfigParams::DolbyMS12ConfigParams():
     , mDAPSurDecEnable(false)
     , mHasAssociateInput(false)
     , mHasSystemInput(false)
+    , mHasAppInput(false)
     , mDualOutputFlag(false)
     , mDualBitstreamOut(false)
     , mActivateOTTSignal(false)
@@ -143,8 +144,8 @@ DolbyMS12ConfigParams::DolbyMS12ConfigParams():
     , mMain1IsDummy(false)
     , mOTTSoundInputEnable(false)
 {
-    ALOGD("+%s() mAudioOutFlags %d mAudioStreamOutFormat %#x mAudioStreamOutChannelMask %#x mHasAssociateInput %d mHasSystemInput %d\n",
-          __FUNCTION__, mAudioOutFlags, mAudioStreamOutFormat, mAudioStreamOutChannelMask, mHasAssociateInput, mHasSystemInput);
+    ALOGD("+%s() mAudioOutFlags %d mAudioStreamOutFormat %#x mAudioStreamOutChannelMask %#x mHasAssociateInput %d mHasSystemInput %d AppInput %d\n",
+          __FUNCTION__, mAudioOutFlags, mAudioStreamOutFormat, mAudioStreamOutChannelMask, mHasAssociateInput, mHasSystemInput, mHasAppInput);
     mConfigParams = PrepareConfigParams(MAX_ARGC, MAX_ARGV_STRING_LEN);
     if (!mConfigParams) {
         ALOGD("%s() line %d prepare the array fail", __FUNCTION__, __LINE__);
@@ -268,7 +269,7 @@ int DolbyMS12ConfigParams::SetInputOutputFileName(char **ConfigParams, int *row_
                 sprintf(ConfigParams[*row_index], "%s%d%s", DEFAULT_APPLICATION_PCM_FILE_NAME, mAudioSteamOutSampleRate, "kHz.wav");
                 (*row_index)++;
                 mMainFlags = true;
-                mAppSoundFlags = false;
+                mAppSoundFlags = true;
                 mSystemSoundFlags = true;
             }
         } else {
@@ -345,6 +346,13 @@ int DolbyMS12ConfigParams::SetInputOutputFileName(char **ConfigParams, int *row_
         sprintf(ConfigParams[*row_index], "%s", "-is");
         (*row_index)++;
         sprintf(ConfigParams[*row_index], "%s", DEFAULT_SYSTEM_PCM_FILE_NAME);
+        (*row_index)++;
+    }
+
+    if (mHasAppInput == true) {
+        sprintf(ConfigParams[*row_index], "%s", "-ias");
+        (*row_index)++;
+        sprintf(ConfigParams[*row_index], "%s", DEFAULT_APPLICATION_PCM_FILE_NAME);
         (*row_index)++;
     }
 

@@ -86,10 +86,10 @@ int deleteHalSubMixing(struct subMixing *smixer);
 int initSubMixingInput(struct aml_stream_out *out,
         struct audio_config *config);
 int deleteSubMixingInput(struct aml_stream_out *out);
-int usecase_change_validate_l_sm(struct aml_stream_out *out, bool is_standby);
 int out_standby_subMixingPCM(struct audio_stream *stream);
 int switchNormalStream(struct aml_stream_out *aml_out, bool on);
 struct pcm *getSubMixingPCMdev(struct subMixing *sm);
+int subMixingOutputRestart(struct aml_audio_device *adev);
 
 void subMixingDump(int s32Fd, const struct aml_audio_device *pstAmlDev);
 

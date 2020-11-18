@@ -23,19 +23,21 @@
 // just keep the original size. Have no idea why
 #define AML_HW_MIXER_BUF_SIZE  64*1024
 //#define AML_HW_MIXER_BUF_SIZE  256*1024
+
 struct aml_hw_mixer {
     unsigned char *start_buf;
     unsigned int wp;
     unsigned int rp;
     unsigned int buf_size;
     unsigned char need_cache_flag;//flag to check if need cache some data before write to mix
+    bool mute_main_flag;
     pthread_mutex_t lock;
 };
 
 int aml_hw_mixer_init(struct aml_hw_mixer *mixer);
 void aml_hw_mixer_deinit(struct aml_hw_mixer *mixer);
 //static uint aml_hw_mixer_get_space(struct aml_hw_mixer *mixer);
-int aml_hw_mixer_get_content(struct aml_hw_mixer *mixer);
+int aml_hw_mixer_get_content_l(struct aml_hw_mixer *mixer);
 //we assue the cached size is always smaller then buffer size
 //need called by device mutux locked
 int aml_hw_mixer_write(struct aml_hw_mixer *mixer, const void *buffer, size_t bytes);

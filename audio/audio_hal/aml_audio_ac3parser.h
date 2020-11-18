@@ -24,6 +24,7 @@ struct ac3_parser_info {
     int timeslice_61937;
     int framevalid_flag;
     int frame_dependent;
+    int sample_rate;
 };
 
 

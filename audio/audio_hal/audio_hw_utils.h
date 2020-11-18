@@ -38,6 +38,7 @@ case x: {                                                   \
 int64_t aml_gettime(void);
 int get_sysfs_uint(const char *path, uint *value);
 int sysfs_set_sysfs_str(const char *path, const char *val);
+int set_sysfs_int(const char *path, int value);
 int get_sysfs_int(const char *path);
 int mystrstr(char *mystr, char *substr) ;
 void set_codec_type(int type);
@@ -48,16 +49,17 @@ int mystrstr(char *mystr, char *substr);
 void *convert_audio_sample_for_output(int input_frames, int input_format, int input_ch, void *input_buf, int *out_size/*,float lvol*/);
 int  aml_audio_start_trigger(void *stream);
 int is_txlx_chip();
+int is_sc2_chip();
 int aml_audio_get_debug_flag();
 int aml_audio_debug_set_optical_format();
 int aml_audio_dump_audio_bitstreams(const char *path, const void *buf, size_t bytes);
 int aml_audio_get_arc_latency_offset(int format);
-int aml_audio_get_ddp_latency_offset(int format);
+int aml_audio_get_ddp_latency_offset(int aformat,  bool dual_spdif);
 int aml_audio_get_pcm_latency_offset(int format);
 int aml_audio_get_hwsync_latency_offset(bool b_raw);
-int aml_audio_get_ms12_latency_offset(int b_raw);
-int aml_audio_get_ms12_tunnel_latency_offset(int b_raw);
-int aml_audio_get_ms12_atmos_latency_offset(int tunnel);
+int aml_audio_get_ms12_latency_offset(bool b_raw_in, bool b_raw_out);
+int aml_audio_get_ms12_tunnel_latency_offset(bool b_raw_in, bool b_raw_out);
+int aml_audio_get_ms12_atmos_latency_offset(bool tunnel);
 int aml_audio_get_ddp_frame_size();
 bool is_stream_using_mixer(struct aml_stream_out *out);
 uint32_t out_get_outport_latency(const struct audio_stream_out *stream);
@@ -71,7 +73,10 @@ void audio_fade_func(void *buf,int fade_size,int is_fadein);
 void ts_wait_time_us(struct timespec *ts, uint32_t time_us);
 int cpy_16bit_data_with_gain(int16_t *dst, int16_t *src, int size_in_bytes, float vol);
 uint64_t get_systime_ns(void);
-int aml_audio_get_hdmi_latency_offset(int aformat);
+int aml_audio_get_hdmi_latency_offset(audio_format_t source_format,
+	                                  audio_format_t sink_format,int ms12_enable);
+int aml_audio_get_latency_offset(enum OUT_PORT port,audio_format_t source_format,
+	                                  audio_format_t sink_format,int ms12_enable);
 uint32_t tspec_diff_to_us(struct timespec tval_old,
         struct timespec tval_new);
 int aml_audio_get_dolby_drc_mode(int *drc_mode, int *drc_cut, int *drc_boost);

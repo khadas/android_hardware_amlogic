@@ -45,6 +45,17 @@ void dolby_ms12_config_params_set_system_flag(bool flag);
 bool dolby_ms12_config_params_get_system_flag(void);
 
 /**
+ * @brief Set app flag
+ */
+void dolby_ms12_config_params_set_app_flag(bool flag);
+
+/**
+ * @brief Get app flag
+ */
+bool dolby_ms12_config_params_get_app_flag(void);
+
+
+/**
  * @brief Set input&output parameters
 
  * @audio_output_flags_t flags //audio stream out flags

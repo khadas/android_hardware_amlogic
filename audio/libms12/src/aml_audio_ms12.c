@@ -86,19 +86,29 @@ int aml_ms12_config(struct dolby_ms12_desc *ms12_desc
                     , audio_format_t output_format)
 {
     ALOGI("+%s() %d\n", __FUNCTION__, __LINE__);
+    int low_latency = 1;
     ms12_desc->input_config_format = config_format;
     ms12_desc->config_channel_mask = config_channel_mask;
     ms12_desc->config_sample_rate = config_sample_rate;
     //ms12_desc->output_format = get_dolby_ms12_suitable_output_format();
     ms12_desc->output_format = output_format;
-    ALOGI("%s() config input format %#x channle mask %#x samplerate %d output format %#x\n",
-          __FUNCTION__, config_format, config_channel_mask, config_sample_rate, output_format);
+    ALOGI("%s() config input format %#x channle mask %#x samplerate %d output format %#x continuous=%d\n",
+          __FUNCTION__, config_format, config_channel_mask, config_sample_rate, output_format, is_dolby_ms12_continuous_mode());
     dolby_ms12_config_params_reset_config_params();
     if (get_audio_system_format() == AUDIO_FORMAT_PCM_16_BIT) {
         dolby_ms12_config_params_set_system_flag(true);
     }
+    /*only enable app input in continuous mode*/
+    if (get_audio_app_format() == AUDIO_FORMAT_PCM_16_BIT && is_dolby_ms12_continuous_mode()) {
+        dolby_ms12_config_params_set_app_flag(true);
+    }
     if ((get_audio_associate_format() == AUDIO_FORMAT_AC3) || (get_audio_associate_format() == AUDIO_FORMAT_E_AC3)) {
         dolby_ms12_config_params_set_associate_flag(true);
+    }
+    if (output_format == AUDIO_FORMAT_PCM_16_BIT) {
+        dolby_ms12_set_encoder_channel_mode_locking_mode(false);
+    } else {
+        dolby_ms12_set_encoder_channel_mode_locking_mode(true);
     }
     dolby_ms12_config_params_set_audio_stream_out_params(
         2 //AUDIO_OUTPUT_FLAG_PRIMARY
@@ -109,6 +119,7 @@ int aml_ms12_config(struct dolby_ms12_desc *ms12_desc
     get_dolby_ms12_output_details(ms12_desc);
 
     get_dolby_ms12_init(ms12_desc);
+    dolby_ms12_set_sys_low_latency(low_latency);
     ALOGI("-%s() %d\n", __FUNCTION__, __LINE__);
     return 0;
 }
@@ -140,6 +151,9 @@ int aml_ms12_update_runtime_params(struct dolby_ms12_desc *ms12_desc)
         dolby_ms12_config_params_reset_config_params();
         if (get_audio_system_format() == AUDIO_FORMAT_PCM_16_BIT) {
             dolby_ms12_config_params_set_system_flag(true);
+        }
+        if (get_audio_app_format() == AUDIO_FORMAT_PCM_16_BIT && is_dolby_ms12_continuous_mode()) {
+            dolby_ms12_config_params_set_app_flag(true);
         }
         if ((get_audio_associate_format() == AUDIO_FORMAT_AC3) || (get_audio_associate_format() == AUDIO_FORMAT_E_AC3)) {
             dolby_ms12_config_params_set_associate_flag(true);

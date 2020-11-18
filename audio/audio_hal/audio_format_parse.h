@@ -27,7 +27,7 @@ enum IEC61937_PC_Value {
     IEC61937_DTS3               = 0x0D,          ///< DTS type III (2048 samples)
     IEC61937_DTSHD              = 0x11,          ///< DTS HD data
     IEC61937_EAC3               = 0x15,          ///< E-AC-3 data
-    IEC61937_TRUEHD             = 0x16,          ///< TrueHD data
+    IEC61937_MAT                = 0x16,          ///< MAT data
     IEC61937_PAUSE              = 0x03,          ///< Pause
 };
 
@@ -38,7 +38,7 @@ enum audio_type {
     DTS,
     DTSCD,
     DTSHD,
-    TRUEHD,
+    MAT,
     PAUSE,
     MUTE,
 };
@@ -48,7 +48,7 @@ enum audio_type {
 /*Period of data burst in IEC60958 frames*/
 #define AC3_PERIOD_SIZE  (6144)
 #define EAC3_PERIOD_SIZE (24576)
-#define THD_PERIOD_SIZE  (61440)
+#define MAT_PERIOD_SIZE  (61440)
 
 #define DTS1_PERIOD_SIZE (2048)
 #define DTS2_PERIOD_SIZE (4096)

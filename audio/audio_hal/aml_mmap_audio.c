@@ -15,30 +15,33 @@
  */
 
 #define LOG_TAG "aml_mmap_audio"
+#define __USE_GNU
 
+#include <cutils/log.h>
+#include <stdlib.h>
 #include <sys/mman.h>
 #include <sys/prctl.h>
-#include <stdlib.h>
-#include <cutils/log.h>
 
-#include "audio_virtual_buf.h"
 #include "audio_hw.h"
-#include "aml_android_utils.h"
-#include "aml_volume_utils.h"
-#include "audio_hw_utils.h"
-#include "aml_mmap_audio.h"
 #include "audio_hw_ms12.h"
+#include "audio_hw_utils.h"
+#include "audio_virtual_buf.h"
+
+#include "aml_android_utils.h"
 #include "aml_audio_timer.h"
+#include "aml_mmap_audio.h"
+#include "aml_volume_utils.h"
 
 
 #define MMAP_FRAME_SIZE_BYTE            (4)
 #define MMAP_SAMPLE_RATE_HZ             (48000)
+#define MMAP_BUFFER_BURSTS_NUM          (4)
 
-#define MMAP_BUFFER_SIZE_BYTE           (MMAP_SAMPLE_RATE_HZ * MMAP_FRAME_SIZE_BYTE * 32 / 1000)
-#define MMAP_WRITE_SIZE_BYTE            (MMAP_SAMPLE_RATE_HZ * MMAP_FRAME_SIZE_BYTE * 8 / 1000)  // every time to write 8ms data
-#define MMAP_WRITE_SIZE_FRAME           (MMAP_WRITE_SIZE_BYTE / MMAP_FRAME_SIZE_BYTE)
-#define MMAP_SAMPLE_RATE_HZ             (48000)
+#define MMAP_WRITE_SIZE_FRAME           (384) // 8ms
+#define MMAP_WRITE_PERIOD_TIME_MS       (MMAP_WRITE_SIZE_FRAME *  1000LL / MMAP_SAMPLE_RATE_HZ)
+#define MMAP_WRITE_SIZE_BYTE            (MMAP_WRITE_SIZE_FRAME * MMAP_FRAME_SIZE_BYTE)
 #define MMAP_WRITE_PERIOD_TIME_NANO     (MMAP_WRITE_SIZE_FRAME * 1000000000LL / MMAP_SAMPLE_RATE_HZ)
+#define MMAP_BUFFER_SIZE_BYTE           (MMAP_WRITE_SIZE_FRAME * MMAP_FRAME_SIZE_BYTE *  MMAP_BUFFER_BURSTS_NUM)
 
 enum {
     MMAP_INIT,
@@ -89,6 +92,7 @@ static void *outMmapThread(void *pArg) {
     unsigned char               *pu8TempBufferAddr = NULL;
     aml_mmap_thread_param_st    *pstThread = &pstParam->stThreadParam;
     struct timespec timestamp;
+    cpu_set_t cpuSet;
 
     ALOGI("[%s:%d] enter threadloop bExitThread:%d, bStopPlay:%d, mmap addr:%p, out:%p", __func__, __LINE__,
         pstThread->bExitThread, pstThread->bStopPlay, pu8StartAddr, out);
@@ -96,27 +100,38 @@ static void *outMmapThread(void *pArg) {
         ALOGE("[%s:%d] pu8MmapAddr is null", __func__, __LINE__);
         return NULL;
     }
-    prctl(PR_SET_NAME, "outMmapThread");
+    prctl(PR_SET_NAME, (unsigned long)"outMmapThread");
     aml_set_thread_priority("outMmapThread", pstThread->threadId);
+
+    CPU_ZERO(&cpuSet);
+    CPU_SET(2, &cpuSet);
+    CPU_SET(3, &cpuSet);
+    int status = sched_setaffinity(0, sizeof(cpu_set_t), &cpuSet);
+    if (status) {
+        ALOGW("%s(), failed to set cpu affinity", __func__);
+    }
+
     pu8TempBufferAddr = (unsigned char *)malloc(MMAP_WRITE_SIZE_BYTE);
     while (false == pstThread->bExitThread) {
         if (false == pstThread->bStopPlay) {
 
             if (pstThread->status == MMAP_START) {
-                ALOGI("MMAP status: start");
+                ALOGI("[%s:%d] MMAP status: start", __func__, __LINE__);
                 pu8CurReadAddr = pu8StartAddr;
                 pstParam->u32FramePosition = 0;
+                clock_gettime(CLOCK_MONOTONIC, &timestamp);
+                pstParam->time_nanoseconds = (long long)timestamp.tv_sec * 1000000000 + (long long)timestamp.tv_nsec;
                 pstThread->status = MMAP_START_DONE;
                 if (pstVirtualBuffer) {
                     audio_virtual_buf_reset(pstVirtualBuffer);
-                    audio_virtual_buf_process((void *)pstVirtualBuffer, MMAP_WRITE_PERIOD_TIME_NANO * 4);
+                    audio_virtual_buf_process((void *)pstVirtualBuffer, MMAP_WRITE_PERIOD_TIME_NANO * MMAP_BUFFER_BURSTS_NUM);
                 }
             }
 
             if (pstVirtualBuffer == NULL) {
                 audio_virtual_buf_open((void **)&pstVirtualBuffer, "aaudio mmap",
-                        MMAP_WRITE_PERIOD_TIME_NANO * 4, MMAP_WRITE_PERIOD_TIME_NANO * 4, 0);
-                audio_virtual_buf_process((void *)pstVirtualBuffer, MMAP_WRITE_PERIOD_TIME_NANO * 4);
+                        MMAP_WRITE_PERIOD_TIME_NANO * MMAP_BUFFER_BURSTS_NUM, MMAP_WRITE_PERIOD_TIME_NANO * MMAP_BUFFER_BURSTS_NUM, 0);
+                audio_virtual_buf_process((void *)pstVirtualBuffer, MMAP_WRITE_PERIOD_TIME_NANO * MMAP_BUFFER_BURSTS_NUM);
             }
             unsigned int u32RemainSizeByte =  (MMAP_BUFFER_SIZE_BYTE + pu8StartAddr) - pu8CurReadAddr;
             if (u32RemainSizeByte >= MMAP_WRITE_SIZE_BYTE) {
@@ -132,6 +147,11 @@ static void *outMmapThread(void *pArg) {
                 memset(pu8StartAddr, 0, MMAP_WRITE_SIZE_BYTE - u32RemainSizeByte);
                 pu8CurReadAddr = pu8StartAddr + MMAP_WRITE_SIZE_BYTE - u32RemainSizeByte;
             }
+            pstParam->u32FramePosition += MMAP_WRITE_SIZE_FRAME;
+            // Absolutet time must be used when get timestamp.
+            clock_gettime(CLOCK_MONOTONIC, &timestamp);
+            pstParam->time_nanoseconds = (long long)timestamp.tv_sec * 1000000000 + (long long)timestamp.tv_nsec;
+
             apply_volume(out->volume_l, pu8TempBufferAddr, 2, MMAP_WRITE_SIZE_BYTE);
             //check_audio_level(pu8TempBufferAddr, MMAP_WRITE_SIZE_BYTE);
             if (out->dev->useSubMix) {
@@ -149,10 +169,6 @@ static void *outMmapThread(void *pArg) {
                 ALOGI("[%s:%d] CurReadAddr:%p, RemainSize:%d, FramePosition:%d offset=%d", __func__, __LINE__,
                     pu8CurReadAddr, u32RemainSizeByte, pstParam->u32FramePosition, pstParam->u32FramePosition%(MMAP_BUFFER_SIZE_BYTE / MMAP_FRAME_SIZE_BYTE));
             }
-            pstParam->u32FramePosition += MMAP_WRITE_SIZE_FRAME;
-            // Absolutet time must be used when get timestamp.
-            clock_gettime(CLOCK_MONOTONIC, &timestamp);
-            pstParam->time_nanoseconds = (long long)timestamp.tv_sec * 1000000000 + (long long)timestamp.tv_nsec;
         } else {
             struct timespec tv;
             clock_gettime(CLOCK_MONOTONIC, &tv);
@@ -238,7 +254,7 @@ static int outMmapCreateBuffer(const struct audio_stream_out *stream,
     info->shared_memory_address = pstParam->pu8MmapAddr;
     info->shared_memory_fd = pstParam->s32IonShareFd;
     info->buffer_size_frames = MMAP_BUFFER_SIZE_BYTE / MMAP_FRAME_SIZE_BYTE;
-    info->burst_size_frames = 384;
+    info->burst_size_frames  = MMAP_WRITE_SIZE_FRAME;
 
     aml_mmap_thread_param_st *pstThread = &pstParam->stThreadParam;
     if (pstThread->threadId != 0) {
@@ -250,15 +266,20 @@ static int outMmapCreateBuffer(const struct audio_stream_out *stream,
         pthread_mutex_unlock(&pstThread->mutex);
         pthread_join(pstThread->threadId, NULL);
         memset(pstThread, 0, sizeof(aml_mmap_thread_param_st));
+    } else {
+        pthread_mutex_init (&pstThread->mutex, NULL);
     }
     pthread_condattr_init(&pstThread->condAttr);
     pthread_condattr_setclock(&pstThread->condAttr, CLOCK_MONOTONIC);
-    pthread_mutex_init (&pstThread->mutex, NULL);
     pthread_cond_init(&pstThread->cond, &pstThread->condAttr);
     pstThread->bExitThread = false;
     pstThread->bStopPlay = true;
     pstThread->status = MMAP_INIT;
-    pthread_create(&pstThread->threadId, NULL, &outMmapThread, out);
+    ret = pthread_create(&pstThread->threadId, NULL, &outMmapThread, out);
+    if (ret != 0) {
+        ALOGE("[%s:%d], Create thread fail!", __func__, __LINE__);
+        return -1;
+    }
     ALOGI("[%s:%d], mmap_fd:%d, mmap address:%p", __func__, __LINE__, info->shared_memory_fd, pstParam->pu8MmapAddr);
     return 0;
 }
@@ -268,32 +289,25 @@ static int outMmapGetPosition(const struct audio_stream_out *stream,
 {
     struct aml_stream_out       *out = (struct aml_stream_out *) stream;
     aml_mmap_audio_param_st     *pstParam = (aml_mmap_audio_param_st *)out->pstMmapAudioParam;
-    struct timespec timestamp;
-    int64_t  curr_nanoseconds = 0;
-    int64_t  time_diff = 0;
-    int drift_frames = 0;
 
-    // Absolutet time must be used when get timestamp.
-    clock_gettime(CLOCK_MONOTONIC, &timestamp);
-    curr_nanoseconds = (long long)timestamp.tv_sec * 1000000000 + (long long)timestamp.tv_nsec;
-    time_diff = curr_nanoseconds - pstParam->time_nanoseconds;
+    position->time_nanoseconds = pstParam->time_nanoseconds;
+    position->position_frames = pstParam->u32FramePosition;
 
-    if (time_diff <= 8*1000000) {
-        drift_frames = (time_diff / 1000000) * (48);
-        ALOGV("normal time diff=%lld drift_frames=%d", time_diff, drift_frames);
-    } else {
-        ALOGI("big time diff =%lld", time_diff);
-        time_diff = 0;
-        drift_frames = 0;
+    if (position->position_frames == 0) {
+        ALOGE("%s no data", __FUNCTION__);
+        return -ENODATA;
     }
-
-    position->time_nanoseconds = pstParam->time_nanoseconds + time_diff;
-    position->position_frames = pstParam->u32FramePosition + drift_frames;
 
     if (out->dev->debug_flag >= 100) {
-        ALOGD("[%s:%d] stream:%p, position_frames:%d, nano:%lld",__func__, __LINE__, stream,
-            position->position_frames, (long long)position->time_nanoseconds);
+        ALOGD("[%s:%d] stream:%p, position_frames:%d, nano:%lld frame diff=%d time diff=%lld",
+            __func__, __LINE__, stream,
+            position->position_frames, (long long)position->time_nanoseconds,
+            (position->position_frames - out->last_mmap_position ) * 1000/48,
+            (position->time_nanoseconds - out->last_mmap_nano_second)/1000);
     }
+    out->last_mmap_position = position->position_frames;
+    out->last_mmap_nano_second   = position->time_nanoseconds;
+
     return 0;
 }
 

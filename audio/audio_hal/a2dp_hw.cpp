@@ -288,7 +288,7 @@ bool BluetoothAudioPortOut::Start() {
   if (state_ == BluetoothStreamState::STANDBY) {
     state_ = BluetoothStreamState::STARTING;
     if (BluetoothAudioSessionControl::StartStream(session_type_)) {
-      retval = CondwaitState(BluetoothStreamState::STARTING);
+      retval = true;//CondwaitState(BluetoothStreamState::STARTING);
     }
   }
   ALOGD("BluetoothAudioPortOut::Start: state=%d, ret=%d", (uint8_t)state_, retval);
@@ -305,7 +305,7 @@ bool BluetoothAudioPortOut::Suspend() {
   if (state_ == BluetoothStreamState::STARTED) {
     state_ = BluetoothStreamState::SUSPENDING;
     if (BluetoothAudioSessionControl::SuspendStream(session_type_)) {
-      retval = CondwaitState(BluetoothStreamState::SUSPENDING);
+      retval = true;//CondwaitState(BluetoothStreamState::SUSPENDING);
     }
   }
   ALOGD("BluetoothAudioPortOut::Suspend state=%d, retval=%d", (uint8_t)state_, retval);

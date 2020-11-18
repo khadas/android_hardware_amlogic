@@ -32,8 +32,8 @@
 #include "aml_audio_stream.h"
 
 #define AD_DEMUX_ID 0
-#define CACHE_TIME 200
-#define DEFAULT_ASSOC_AUDIO_BUFFER_SIZE 512 * 6 * 8 * 8
+#define CACHE_TIME 0
+#define DEFAULT_ASSOC_AUDIO_BUFFER_SIZE 1024 * 256
 
 static pthread_mutex_t assoc_mutex = PTHREAD_MUTEX_INITIALIZER;
 
@@ -57,7 +57,7 @@ typedef struct _dtv_assoc_audio {
 static dtv_assoc_audio assoc_bst = {
     .assoc_enable = 0,
     .sub_apid = 0,
-    .sub_afmt = 0,
+    .sub_afmt = -1,
     .cache = 0,
     .main_frame_size = 0,
     .ad_frame_size = 0,
@@ -109,21 +109,21 @@ static void audio_adcallback(const unsigned char * data, int len, void * handle)
     dtv_assoc_audio *param = get_assoc_audio();
 
     dump_ad_input_data((void*)data, len, MS12_INPUT_AD_FILE);
-
     ring_buffer_t *ringbuffer = &(param->sub_abuf);
     int left;
-    if (param->assoc_enable == DTV_ASSOC_STAT_ENABLE && param->bufinited == 1 && param->cache > 0) {
+    /*add by lianlian.zhu, ad data should not be dropped*/
+    if (param->assoc_enable == DTV_ASSOC_STAT_ENABLE && param->bufinited == 1 /*&& param->cache > 0*/) {
         unsigned short head1 = data[0] << 8 | data[1];
         left = get_buffer_write_space(ringbuffer);
         if (left < len) {
             ALOGI("buffer is full left = %d reset buffer",left);
             ring_buffer_reset(ringbuffer);
         } else if (head1 == 0x0b77 || head1 == 0x770b) {
-
-            //  adec_print("write buffer size:%d,bs->buf_length=%d,bs->buf_level=%d",len,param->g_assoc_bst->buf_length,param->g_assoc_bst->buf_level);
+            //ALOGI("audio_adcallback write buffer size:%d ",len);
             ring_buffer_write(ringbuffer, (unsigned char *)data, len, UNCOVER_WRITE);
         } else {
-            ALOGI("audio_adcallback,not ac3/eac3 data len=%d\n", len);
+            //ALOGI("audio_adcallback,not ac3/eac3 data len=%d\n", len);
+            ring_buffer_write(ringbuffer, (unsigned char *)data, len, UNCOVER_WRITE);
         }
     } else {
         ALOGI("[%s]-[associate_dec_supported:%d]-[g_assoc_bst:%p]\n", __FUNCTION__, param->assoc_enable, param->g_assoc_bst);
@@ -135,7 +135,8 @@ static int audio_ad_set_source(int enable, int pid, int fmt, void *user)
 {
     AM_ErrorCode_t err = AM_SUCCESS;
     dtv_assoc_audio *param = get_assoc_audio();
-    ALOGI("AD set source enable[%d] pid[%d] fmt[%d]", enable, pid, fmt);
+    if (VALID_PID(pid))
+        ALOGI("AD set source enable[%d] pid[%d] fmt[%d]", enable, pid, fmt);
     if ((enable == DTV_ASSOC_STAT_ENABLE) && VALID_PID(pid)) {
         AM_AD_Para_t para = {.dmx_id = AD_DEMUX_ID, .pid = pid, .fmt = fmt};
         err = AM_AD_Create(&param->ad_handle, &para);
@@ -177,7 +178,7 @@ int dtv_assoc_init(void)
     param->assoc_enable = DTV_ASSOC_STAT_DISABLE;
     param->bufinited = 1;
     param->sub_apid = 0;
-    param->sub_afmt = 0;
+    param->sub_afmt = -1;
     param->cache= 0;
     param->main_frame_size= 0;
     param->ad_frame_size= 0;
@@ -206,11 +207,11 @@ int dtv_assoc_deinit(void)
         param->bufinited = 0;
     }
     param->sub_apid = 0;
-    param->sub_afmt = 0;
+    param->sub_afmt = -1;
     param->cache= 0;
     param->main_frame_size= 0;
     param->ad_frame_size= 0;
-	ALOGI("[%s %d] dtv_assoc_deinit success! \n", __FUNCTION__, __LINE__);
+    ALOGI("[%s %d] dtv_assoc_deinit success! \n", __FUNCTION__, __LINE__);
     pthread_mutex_unlock(&assoc_mutex);
     //pthread_mutex_destroy(&assoc_mutex);
     return 0;
@@ -229,6 +230,18 @@ int dtv_assoc_get_avail(void)
     }
 
     return avail;
+}
+int dtv_assoc_resetbuf(void)
+{
+    dtv_assoc_audio *param = get_assoc_audio();
+    int ret = 0;
+    ALOGI("%s",__FUNCTION__);
+    ring_buffer_t *ringbuffer = &(param->sub_abuf);
+    if (param->assoc_enable == DTV_ASSOC_STAT_ENABLE
+        && param->bufinited == 1) {
+        ret = ring_buffer_reset(ringbuffer);
+    }
+    return ret;
 }
 
 //To get the associate data if assoc is able
@@ -306,7 +319,7 @@ int dtv_assoc_audio_start(unsigned int handle, int pid, int fmt)
     int ret = -1;
     pthread_mutex_lock(&assoc_mutex);
     dtv_assoc_audio *param = get_assoc_audio();
-    ALOGV("%s, pid=%d, fmt= %d", __FUNCTION__, pid, fmt);
+    ALOGI("%s, pid=%d, fmt= %d", __FUNCTION__, pid, fmt);
     if (handle == 0 || param->bufinited == 0) {
         ALOGI("%s, buffer was not inited, the handle is %d,return", __FUNCTION__, handle);
     } else if (VALID_PID(pid) && param->assoc_enable == DTV_ASSOC_STAT_DISABLE) {
@@ -325,7 +338,7 @@ int dtv_assoc_audio_start(unsigned int handle, int pid, int fmt)
     } else if (!VALID_PID(pid) && param->assoc_enable == DTV_ASSOC_STAT_ENABLE) {
         ALOGI("%s, assoc is enable, disable it", __FUNCTION__);
         param->sub_apid = 0;
-        param->sub_afmt = 0;
+        param->sub_afmt = -1;
         param->cache= 0;
         param->main_frame_size= 0;
         param->ad_frame_size= 0;
@@ -352,7 +365,7 @@ void dtv_assoc_audio_stop(unsigned int handle)
         ALOGI("%s, disable it\n", __FUNCTION__);
         param->assoc_enable = DTV_ASSOC_STAT_DISABLE;
         param->sub_apid = 0;
-        param->sub_afmt = 0;
+        param->sub_afmt = -1;
         param->cache= 0;
         param->main_frame_size= 0;
         param->ad_frame_size= 0;
@@ -363,7 +376,7 @@ void dtv_assoc_audio_stop(unsigned int handle)
     pthread_mutex_unlock(&assoc_mutex);
 }
 
-static void dtv_assoc_audio_pause(unsigned int handle)
+void dtv_assoc_audio_pause(unsigned int handle)
 {
     if (handle == 0) {
         return;
@@ -380,7 +393,7 @@ static void dtv_assoc_audio_pause(unsigned int handle)
     param->sub_apid = 0;
     return ;
 }
-static void dtv_assoc_audio_resume(unsigned int handle, int pid)
+void dtv_assoc_audio_resume(unsigned int handle, int pid)
 {
     dtv_assoc_audio *param = get_assoc_audio();
     if (handle == 0) {

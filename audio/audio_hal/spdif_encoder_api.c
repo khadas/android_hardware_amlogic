@@ -165,6 +165,7 @@ int aml_spdif_encoder_process(void *phandle, const void *buffer, size_t numBytes
 int aml_spdif_encoder_mute(void *phandle, bool bmute) {
     struct aml_spdif_encoder *spdifenc_handle = (struct aml_spdif_encoder *)phandle;
     if (phandle == NULL) {
+        ALOGE("[%s:%d] invalid param, phandle is null", __func__, __LINE__);
         return -1;
     }
 

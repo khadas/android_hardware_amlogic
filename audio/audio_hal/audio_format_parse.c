@@ -193,9 +193,9 @@ int audio_type_parse(void *buffer, size_t bytes, int *package_size, audio_channe
             /*refer to IEC 61937-5 pdf, table 6*/
             *package_size = DTSHD_PERIOD_SIZE << tmp ;
             break;
-        case IEC61937_TRUEHD:
-            AudioType = TRUEHD;
-            *package_size = THD_PERIOD_SIZE;
+        case IEC61937_MAT:
+            AudioType = MAT;
+            *package_size = MAT_PERIOD_SIZE;
             break;
         case IEC61937_PAUSE:
             AudioType = PAUSE;
@@ -446,7 +446,7 @@ audio_format_t andio_type_convert_to_android_audio_format_t(int codec_type)
         return AUDIO_FORMAT_DTS;
     case DTSHD:
         return AUDIO_FORMAT_DTS_HD;
-    case TRUEHD:
+    case MAT:
         return AUDIO_FORMAT_DOLBY_TRUEHD;
     case LPCM:
 #if defined(IS_ATOM_PROJECT)
@@ -474,7 +474,7 @@ int android_audio_format_t_convert_to_andio_type(audio_format_t format)
     case AUDIO_FORMAT_DTS_HD:
         return DTSHD;
     case AUDIO_FORMAT_DOLBY_TRUEHD:
-        return TRUEHD;
+        return MAT;
     case AUDIO_FORMAT_PCM:
         return LPCM;
     default:

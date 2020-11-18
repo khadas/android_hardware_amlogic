@@ -374,7 +374,6 @@ int mad_layer_II(struct mad_stream *stream, struct mad_frame *frame)
             }
 # endif
         } else { /* nch == 1 */
-#if 0
             if (bitrate_per_channel > 192000) {
                 /*
                  * ISO/IEC 11172-3 does not allow single channel mode for 224, 256,
@@ -383,7 +382,6 @@ int mad_layer_II(struct mad_stream *stream, struct mad_frame *frame)
                 stream->error = MAD_ERROR_BADMODE;
                 return -1;
             }
-#endif
         }
 
         if (bitrate_per_channel <= 48000) {

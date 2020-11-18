@@ -67,11 +67,48 @@ static const char *str_compmode[] = {"custom mode, analog dialnorm","custom mode
 #define DDP_MUTE_FRAME_SIZE 6144
 // add array of dd/ddp mute frame for mute function
 static const unsigned int muted_frame_dd[DD_MUTE_FRAME_SIZE] = {
- 0x4e1ff872, 0x8000001, 0xb49e0b77, 0x43e10840, 0x10806f0, 0x21010808, 0x571f0104, 0xf9f33e7c, 0x9f3ee7cf, 0xfe757cfb, 0xf3e77cf9, 0x3e7ccf9f, 0x9d5ff8ff, 0xf9f33e7c, 0x9f3ee7cf, 0x24432ff,
- 0x8920, 0xb5f30001, 0x9b6de7cf, 0x6f1eb6db, 0x3c00, 0x9f3e0daf, 0x6db67cdb, 0xf1e1db78, 0x8000, 0xd7cf0006, 0x6db69f3e, 0xbc78db6d, 0xf000, 0x7cf936be, 0xb6dbf36d, 0xc7866de3,
- 0x0, 0x5f3e001b, 0xb6db7cf9, 0xf1e36db6, 0xc000, 0xf3e7daf9, 0xdb6dcdb6, 0x1e18b78f, 0x0, 0x7cf9006d, 0xdb6df3e6, 0xc78fb6db, 0x30000, 0xcf9f6be7, 0x6db636db, 0x7860de3c,
- 0x0, 0xf3e701b5, 0x6db6cf9b, 0x1e3cdb6f, 0xd0000, 0x3e7caf9f, 0xb6dbdb6d, 0xe18078f1, 0x0, 0xcf9f06d7, 0xb6db3e6d, 0x78f06dbc, 0x360000, 0xf9f3be7c, 0xdb6d6db6, 0x8000e3c7,
- 0x0, 0xe2560000
+    0x4e1ff872, 0x50000001, 0xcdc80b77, 0xe1ff2430, 0x9200fcf4, 0x5578fc02, 0x187f6186, 0x9f3eceaf, 0xf3e77cf9, 0x3e7ccf9f, 0xe7cff9f3, 0x7cf99f3e, 0xcf9ff3e7, 0xf9f33e7c, 0x9f3ee7cf, 0xf3e77cf9,
+    0x3e7ccf9f, 0xe7cff9f3, 0x7cf99f3e, 0xcf9ff3e7, 0xf9f33e7c, 0x9f3ee7cf, 0xf7ff7cf9, 0x7cf93abe, 0xcf9ff3e7, 0xf9f33e7c, 0x9f3ee7cf, 0xf3e77cf9, 0x3e7ccf9f, 0xe7cff9f3, 0x7cf99f3e, 0xcf9ff3e7,
+    0xf9f33e7c, 0x9f3ee7cf, 0xf3e77cf9, 0x3e7ccf9f, 0xe7cff9f3, 0x7cf99f3e, 0xdffcf3e7, 0xf3e7eaf9, 0x3e7ccf9f, 0xe7cff9f3, 0x7cf99f3e, 0xcf9ff3e7, 0xf9f33e7c, 0x9f3ee7cf, 0xf3e77cf9, 0x3e7ccf9f,
+    0xe7cff9f3, 0x7cf99f3e, 0xcf9ff3e7, 0xf9f33e7c, 0x9f3ee7cf, 0xf3e77cf9, 0x7ff3cf9f, 0xcf9fabe7, 0xf9f33e7c, 0x9f3ee7cf, 0xf3e77cf9, 0x3e7ccf9f, 0xe7cff9f3, 0x7cf99f3e, 0xcf9ff3e7, 0xf9f33e7c,
+    0x9f3ee7cf, 0xf3e77cf9, 0x3e7ccf9f, 0xe7cff9f3, 0x7cf99f3e, 0xcf9ff3e7, 0xffce3e7d, 0x3e7caf9f, 0xe7cff9f3, 0x7cf99f3e, 0xcf9ff3e7, 0xf9f33e7c, 0x9f3ee7cf, 0xf3e77cf9, 0x3e7ccf9f, 0xe7cff9f3,
+    0x7cf99f3e, 0xcf9ff3e7, 0xf9f33e7c, 0x9f3ee7cf, 0xf3e77cf9, 0x3e7ccf9f, 0xff3af9f7, 0x3891e53e, 0x89102244, 0x3fa0fd00, 0xc78f1de3, 0xdddd1ddd,     0xdc00,          0,          0,          0,
+             0,          0, 0xbbbb003b, 0x6db6b6db, 0xcd6bdbe7, 0xb5af5ad6, 0x7cf99f3e, 0xcf9ff3e7, 0xf9f33e7c,     0xe7c0, 0xbc780003, 0xbbbbf1e3, 0x8000bbbb,          0,          0,          0,
+             0,          0,  0x7770000, 0xdb6d7776, 0x7cf9b6db, 0x5ad6ad6b, 0xe7cfb5f3, 0x7cf99f3e, 0xcf9ff3e7, 0xfbf03e7c,   0x67013e, 0x3c778f1e, 0x77707777,          0,          0,          0,
+             0,          0,          0, 0xeedbeeee, 0xdb6f6db6, 0xad6b9f35, 0xbe7c5ad6, 0xe7cff9f3, 0x7cf99f3e, 0xcf9ff3e7,          0, 0xe3c70ef1, 0xeeee8eee,     0xee00,          0,          0,
+             0,          0,          0, 0xdddd001d, 0xb6dbdb6d, 0xe6b56df3, 0x5ad7ad6b, 0x3e7ccf9f, 0xe7cff9f3, 0x7cf99f3e,     0xf3e0, 0xde3c0001, 0xdddd78f1, 0xc000dddd,          0,          0,
+             0,          0,          0,  0x3bb0000, 0x6db6bbbb, 0xbe7cdb6d, 0xad6bd6b5, 0xf3e75af9, 0x3e7ccf9f, 0xe7cff9f3, 0x7c009f3e,   0x3b0000,     0xc07e,   0x7f01fa, 0xc78f403b, 0xbbbb1e3b,
+        0xbbb8,          0,          0,          0,          0,          0, 0x77770000, 0xb6db776d, 0xcf9a6db7, 0xad6bd6b5, 0x7cf95f3e, 0xcf9ff3e7, 0xf9f33e7c, 0x8000e7cf,  0x7780000, 0xc777f1e3,
+    0x77007777,          0,          0,          0,          0,          0,    0xe0000, 0xedb6eeee, 0xb6f9db6d, 0xd6b5f35a, 0xe7cfad6b, 0x7cf99f3e, 0xcf9ff3e7, 0xf9f73e7c, 0x7c00e002, 0x3c78cf1e,
+    0xeeeeeeee,     0xe000,          0,          0,          0,          0,          0, 0xdddd01dd, 0x6db6b6db, 0x6b5adf3e, 0xad7cd6b5, 0xe7cff9f3, 0x7cf99f3e, 0xcf9ff3e7,     0x3e00, 0xe3c7001d,
+    0xdddd8f1d,     0xdddc,          0,          0,          0,          0,          0, 0x3bbb0000, 0xdb6dbbb6, 0xe7cdb6db, 0xd6b56b5a, 0x3e7caf9f, 0xe7cff9f3, 0x7cf99f3e, 0xc000f3e7,  0x3bc0000,
+    0xe3bb78f1, 0xbb80bbbb,          0,          0,          0,          0,          0,    0x70000, 0x76db7777, 0xdb7c6db6, 0x6b5af9ad, 0xf3e7d6b5, 0x3e7ccf9f, 0xe7cff9f3, 0x7cf89f3e,          0,
+    0xfc007780, 0xf4000003, 0x778ffe80, 0x77771e3c, 0x70007777,          0,          0,          0,          0,          0,   0xee0000, 0xdb6deeee, 0x6f9fb6db, 0x6b5a35ad, 0x7cf9d6be, 0xcf9ff3e7,
+    0xf9f33e7c, 0x9f00e7cf,    0xe0000, 0xc78ef1e3, 0xeeeeeeee,          0,          0,          0,          0,          0,          0, 0xdddb1ddd, 0xdb6d6db6, 0xb5adf3e6, 0xd7cf6b5a, 0x7cf99f3e,
+    0xcf9ff3e7, 0xf9f33e7c,  0x4f8efc0, 0x3c78019e, 0xddddf1dd,     0xddc0,          0,          0,          0,          0,          0, 0xbbbb0003, 0xb6dbbb6d, 0x7cd66dbe, 0x6b5ab5ad, 0xe7cff9f3,
+    0x7cf99f3e, 0xcf9ff3e7,     0x3e7c, 0x3bc70000, 0x3bbb8f1e, 0xb800bbbb,          0,          0,          0,          0,          0,   0x770000, 0x6db67777, 0xb7cfdb6d, 0xb5ad9ad6, 0x3e7c6b5f,
+    0xe7cff9f3, 0x7cf99f3e, 0xcf80f3e7,    0x70000, 0xe3c778f1, 0x77777777,          0,          0,          0,          0,          0,          0, 0xeeed0eee, 0x6db6b6db, 0x5ad6f9f3, 0x6be7b5ad,
+    0x3e7ccf9f, 0xe7cff9f3, 0x7cf99f3e,     0xf000,  0x1f800ef,  0x8380000, 0xea4402ad, 0xfd8909ba,  0x7559e6c, 0xf4008783, 0x778ffe80, 0x77771e3c, 0x70007777,          0,          0,          0,
+             0,          0,   0xee0000, 0xdb6deeee, 0x6f9fb6db, 0x6b5a35ad, 0x7cf9d6be, 0xcf9ff3e7, 0xf9f33e7c, 0x9f00e7cf,    0xe0000, 0xc78ef1e3, 0xeeeeeeee,          0,          0,          0,
+             0,          0,          0, 0xdddb1ddd, 0xdb6d6db6, 0xb5adf3e6, 0xd7cf6b5a, 0x7cf99f3e, 0xcf9ff3e7, 0xf9f33e7c,  0x4f8efc0, 0x3c78019e, 0xddddf1dd,     0xddc0,          0,          0,
+             0,          0,          0, 0xbbbb0003, 0xb6dbbb6d, 0x7cd66dbe, 0x6b5ab5ad, 0xe7cff9f3, 0x7cf99f3e, 0xcf9ff3e7,     0x3e7c, 0x3bc70000, 0x3bbb8f1e, 0xb800bbbb,          0,          0,
+             0,          0,          0,   0x770000, 0x6db67777, 0xb7cfdb6d, 0xb5ad9ad6, 0x3e7c6b5f, 0xe7cff9f3, 0x7cf99f3e, 0xcf80f3e7,    0x70000, 0xe3c778f1, 0x77777777,          0,          0,
+             0,          0,          0,          0, 0xeeed0eee, 0x6db6b6db, 0x5ad6f9f3, 0x6be7b5ad, 0x3e7ccf9f, 0xe7cff9f3, 0x7cf99f3e,     0xf000,  0x1f800ef,  0x9600000, 0x678702c0, 0x7755b8ed,
+    0x4cbcd453, 0xab7696aa, 0x4b47bdb4, 0xebe40734, 0x511930e9, 0x3ea40092, 0x684037ec, 0x9db490bc, 0x96bbccc3,  0xf17adba, 0xce80f164, 0x90c75984, 0x1598a7da, 0x20c19a22, 0x7202ee1d, 0xc1106588,
+    0xd9bbc22c, 0x77b2c1c6, 0x56c22a12, 0x36a3b0d1, 0xfe80f400, 0x1e3c778f, 0x77777777,     0x7000,          0,          0,          0,          0,          0, 0xeeee00ee, 0xb6dbdb6d, 0x35ad6f9f,
+    0xd6be6b5a, 0xf3e77cf9, 0x3e7ccf9f, 0xe7cff9f3,     0x9f00, 0xf1e3000e, 0xeeeec78e,     0xeeee,          0,          0,          0,          0,          0, 0x1ddd0000, 0x6db6dddb, 0xf3e6db6d,
+    0x6b5ab5ad, 0x9f3ed7cf, 0xf3e77cf9, 0x3e7ccf9f, 0xefc0f9f3,  0x19e04f8, 0xf1dd3c78, 0xddc0dddd,          0,          0,          0,          0,          0,    0x30000, 0xbb6dbbbb, 0x6dbeb6db,
+    0xb5ad7cd6, 0xf9f36b5a, 0x9f3ee7cf, 0xf3e77cf9, 0x3e7ccf9f,          0, 0x8f1e3bc7, 0xbbbb3bbb,     0xb800,          0,          0,          0,          0,          0, 0x77770077, 0xdb6d6db6,
+    0x9ad6b7cf, 0x6b5fb5ad, 0xf9f33e7c, 0x9f3ee7cf, 0xf3e77cf9,     0xcf80, 0x78f10007, 0x7777e3c7,     0x7777,          0,          0,          0,          0,          0,  0xeee0000, 0xb6dbeeed,
+    0xf9f36db6, 0xb5ad5ad6, 0xcf9f6be7, 0xf9f33e7c, 0x9f3ee7cf, 0xf0007cf9,   0xef0000,      0x1f8,   0x1f095c, 0x152cc7df, 0xe0a1af0b, 0xbd3f4b74, 0x71b859e9, 0xb4da9f21, 0x515fd7d9, 0xfe05c0db,
+    0x819022dd, 0x96c4b6a1, 0xfc593cef, 0x7d127a7c, 0xcfac240e, 0xb6ec0a66, 0xed96e243, 0x3e5e6c62, 0x5c0a6d81, 0x1158a269, 0x1d0ecbd5, 0x39e9a681, 0x2ea4f735, 0xb2077aac,   0xfef3f4, 0x8f1e8077,
+    0x77773c77,     0x7770,          0,          0,          0,          0,          0, 0xeeee0000, 0x6db6eedb, 0x9f35db6f, 0x5ad6ad6b, 0xf9f3be7c, 0x9f3ee7cf, 0xf3e77cf9,     0xcf9f,  0xef10000,
+    0x8eeee3c7, 0xee00eeee,          0,          0,          0,          0,          0,   0x1d0000, 0xdb6ddddd, 0x6df3b6db, 0xad6be6b5, 0xcf9f5ad7, 0xf9f33e7c, 0x9f3ee7cf, 0xf3ef7cf9, 0xf801c004,
+    0x78f19e3c, 0xdddddddd,     0xc000,          0,          0,          0,          0,          0, 0xbbbb03bb, 0xdb6d6db6, 0xd6b5be7c, 0x5af9ad6b, 0xcf9ff3e7, 0xf9f33e7c, 0x9f3ee7cf,     0x7c00,
+    0xc78f003b, 0xbbbb1e3b,     0xbbb8,          0,          0,          0,          0,          0, 0x77770000, 0xb6db776d, 0xcf9a6db7, 0xad6bd6b5, 0x7cf95f3e, 0xcf9ff3e7, 0xf9f33e7c, 0x8000e7cf,
+     0x7780000, 0xc777f1e3, 0x77007777,          0,          0,          0,          0,          0,    0xe0000, 0xedb6eeee, 0xb6f9db6d, 0xd6b5f35a, 0xe7cfad6b, 0x7cf99f3e, 0xcf9ff3e7, 0xf9f03e7c,
+             0, 0xf9e9ef00,          0,          0,          0,          0,          0,          0,          0,          0,          0,          0,          0,          0,          0,          0,
+             0,          0,          0,          0,          0,          0,          0,          0,          0,          0,          0,          0,          0,          0,          0,          0,
 };
 
 static const unsigned int muted_frame_ddp[DDP_MUTE_FRAME_SIZE] = {
@@ -177,7 +214,6 @@ static const unsigned int muted_frame_atmos[DDP_MUTE_FRAME_SIZE] = {
              0,          0,          0,          0,          0,          0,          0,          0,          0,    0x30000, 0x19b76198,          0,          0,          0,          0,          0,
 };
 
-
 int64_t aml_gettime(void)
 {
     struct timeval tv;
@@ -267,7 +303,7 @@ int set_sysfs_int(const char *path, int value)
         write(fd, buf, sizeof(buf));
         close(fd);
     } else {
-        ALOGD("[%s]open %s node failed! return 0\n", path, __FUNCTION__);
+        ALOGI("[%s]open %s node failed! return 0\n", __FUNCTION__, path);
         return -1;
     }
     return 0;
@@ -367,6 +403,15 @@ int is_txlx_chip()
     }
     return false;
 }
+
+int is_sc2_chip()
+{
+#ifdef DVB_AUDIO_SC2
+    return true;
+#endif
+    return false;
+}
+
 
 /*
 convert audio formats to supported audio format
@@ -589,7 +634,7 @@ int aml_audio_get_arc_latency_offset(int aformat)
     return latency_ms;
 }
 
-int aml_audio_get_ddp_latency_offset(int aformat)
+int aml_audio_get_ddp_latency_offset(int aformat,  bool dual_spdif)
 {
     char buf[PROPERTY_VALUE_MAX];
     int ret = -1;
@@ -597,7 +642,15 @@ int aml_audio_get_ddp_latency_offset(int aformat)
     char *prop_name = NULL;
     (void)aformat;
     prop_name = "vendor.media.audio.hal.latency.ddp";
-    latency_ms = -80;
+    /* the difference between dual_spdif and no dual_spdif is:
+     * dcv decode need 2 frame and output 1 frame, spdif enc only
+     * need one frame and can output the frame, so there is one frame diff
+     */
+    if (dual_spdif) {
+        latency_ms = -80;
+    } else {
+        latency_ms = -48;
+    }
     ret = property_get(prop_name, buf, NULL);
     if (ret > 0) {
         latency_ms = atoi(buf);
@@ -642,17 +695,20 @@ int aml_audio_get_hwsync_latency_offset(bool b_raw)
     return latency_ms;
 }
 
-int aml_audio_get_ms12_latency_offset(int b_raw)
+int aml_audio_get_ms12_latency_offset(bool b_raw_in, bool b_raw_out)
 {
     char buf[PROPERTY_VALUE_MAX];
     int ret = -1;
     int latency_ms = 0;
+    int out_latency_ms = 0;
     char *prop_name = NULL;
-    if (b_raw == 0) {
+    /*non tunnle mode case*/
+    ALOGV("non tunnel raw in=%d raw out=%d", b_raw_in, b_raw_out);
+    if (!b_raw_in) {
         /*for non tunnel ddp2h/heaac case:netlfix AL1 case */
         prop_name = AVSYNC_MS12_NONTUNNEL_PCM_LATENCY_PROPERTY;
         latency_ms = AVSYNC_MS12_NONTUNNEL_PCM_LATENCY;
-    }else {
+    } else {
         /*for non tunnel dolby ddp5.1 case:netlfix AL1 case*/
         prop_name = AVSYNC_MS12_NONTUNNEL_RAW_LATENCY_PROPERTY;
         latency_ms = AVSYNC_MS12_NONTUNNEL_RAW_LATENCY;
@@ -662,20 +718,35 @@ int aml_audio_get_ms12_latency_offset(int b_raw)
     if (ret > 0) {
         latency_ms = atoi(buf);
     }
+
+    /* get the different output latency*/
+    if (!b_raw_out) {
+        out_latency_ms = AVSYNC_MS12_PCM_OUT_LATENCY;
+        prop_name = AVSYNC_MS12_PCM_OUT_LATENCY_PROPERTY;
+    } else {
+        out_latency_ms = AVSYNC_MS12_RAW_OUT_LATENCY;
+        prop_name = AVSYNC_MS12_RAW_OUT_LATENCY_PROPERTY;
+    }
+    ret = property_get(prop_name, buf, NULL);
+    if (ret > 0) {
+        out_latency_ms = atoi(buf);
+    }
+    latency_ms += out_latency_ms;
+
     /*because the caller use add fucntion, instead of minus, so we return the minus value*/
     return -latency_ms;
 }
 
-int aml_audio_get_ms12_tunnel_latency_offset(int b_raw)
+int aml_audio_get_ms12_tunnel_latency_offset(bool b_raw_in, bool b_raw_out)
 {
     char buf[PROPERTY_VALUE_MAX];
     int ret = -1;
     int latency_ms = 0;
+    int out_latency_ms = 0;
     char *prop_name = NULL;
     /*tunnle mode case*/
-    latency_ms = 0;
-
-    if (b_raw == 0) {
+    ALOGV("tunnel raw in=%d raw out=%d", b_raw_in, b_raw_out);
+    if (!b_raw_in) {
         /*for non tunnel ddp2h/heaac case:netlfix AL1 case */
         prop_name = AVSYNC_MS12_TUNNEL_PCM_LATENCY_PROPERTY;
         latency_ms = AVSYNC_MS12_TUNNEL_PCM_LATENCY;
@@ -689,11 +760,26 @@ int aml_audio_get_ms12_tunnel_latency_offset(int b_raw)
     if (ret > 0) {
         latency_ms = atoi(buf);
     }
+
+    /* get the different output latency*/
+    if (!b_raw_out) {
+        out_latency_ms = AVSYNC_MS12_PCM_OUT_LATENCY;
+        prop_name = AVSYNC_MS12_PCM_OUT_LATENCY_PROPERTY;
+    } else {
+        out_latency_ms = AVSYNC_MS12_RAW_OUT_LATENCY;
+        prop_name = AVSYNC_MS12_RAW_OUT_LATENCY_PROPERTY;
+    }
+    ret = property_get(prop_name, buf, NULL);
+    if (ret > 0) {
+        out_latency_ms = atoi(buf);
+    }
+    latency_ms += out_latency_ms;
+
     return latency_ms;
 }
 
 
-int aml_audio_get_ms12_atmos_latency_offset(int tunnel)
+int aml_audio_get_ms12_atmos_latency_offset(bool tunnel)
 {
     char buf[PROPERTY_VALUE_MAX];
     int ret = -1;
@@ -731,7 +817,7 @@ int aml_audio_get_ddp_frame_size()
 
 bool is_stream_using_mixer(struct aml_stream_out *out)
 {
-    return is_inport_valid(out->enInputPortType);
+    return is_inport_valid(out->inputPortID);
 }
 
 uint32_t out_get_outport_latency(const struct audio_stream_out *stream)
@@ -760,24 +846,28 @@ uint32_t out_get_outport_latency(const struct audio_stream_out *stream)
     return latency_ms;
 }
 
-static bool is_4x_rate_fmt(int codec_type)
+static bool is_4x_rate_fmt(audio_format_t afmt)
 {
-    return (codec_type == TYPE_EAC3) ||
-        (codec_type == TYPE_DTS_HD_MA) ||
-        (codec_type == TYPE_DTS_HD);
+    return (afmt == AUDIO_FORMAT_E_AC3) ||
+        (afmt == AUDIO_FORMAT_DTS_HD) ||
+        (afmt == AUDIO_FORMAT_DOLBY_TRUEHD);
 }
 
 uint32_t out_get_latency_frames(const struct audio_stream_out *stream)
 {
     const struct aml_stream_out *out = (const struct aml_stream_out *)stream;
+    audio_format_t afmt = get_output_format((struct audio_stream_out *)stream);
     snd_pcm_sframes_t frames = 0;
     uint32_t whole_latency_frames;
     int ret = 0;
-    int codec_type = get_codec_type(out->hal_internal_format);
     int mul = 1;
 
-    if (is_4x_rate_fmt(codec_type))
+    if (is_4x_rate_fmt(afmt))
         mul = 4;
+
+    if (out->out_device & AUDIO_DEVICE_OUT_ALL_A2DP) {
+        return a2dp_out_get_latency(stream)*out->hal_rate/1000;
+    }
 
     whole_latency_frames = out->config.period_size * out->config.period_count;
     if (!out->pcm || !pcm_is_ready(out->pcm)) {
@@ -793,14 +883,18 @@ uint32_t out_get_latency_frames(const struct audio_stream_out *stream)
 uint32_t out_get_alsa_latency_frames(const struct audio_stream_out *stream)
 {
     const struct aml_stream_out *out = (const struct aml_stream_out *)stream;
+    audio_format_t afmt = get_output_format((struct audio_stream_out *)stream);
     snd_pcm_sframes_t frames = 0;
     uint32_t whole_latency_frames;
     int ret = 0;
-    int codec_type = get_codec_type(out->hal_internal_format);
     int mul = 1;
 
-    if (is_4x_rate_fmt(codec_type))
+    if (is_4x_rate_fmt(afmt))
         mul = 4;
+
+    if (out->out_device & AUDIO_DEVICE_OUT_ALL_A2DP) {
+        return a2dp_out_get_latency(stream)*out->hal_rate/1000;
+    }
 
     whole_latency_frames = out->config.period_size * out->config.period_count / 2;
     if (!out->pcm || !pcm_is_ready(out->pcm)) {
@@ -830,6 +924,10 @@ uint32_t out_get_ms12_latency_frames(const struct audio_stream_out *stream)
     }
     if (adev->sink_format == AUDIO_FORMAT_E_AC3) {
         mul = 4;
+    }
+
+    if (ms12_out->out_device & AUDIO_DEVICE_OUT_ALL_A2DP) {
+        return a2dp_out_get_latency(stream)*ms12_out->hal_rate/1000;
     }
 
     whole_latency_frames = config->start_threshold;
@@ -990,7 +1088,54 @@ uint64_t get_systime_ns(void)
     return timespec_ns(tval);
 }
 
-int aml_audio_get_hdmi_latency_offset(int aformat)
+int aml_audio_get_hdmi_latency_offset(audio_format_t source_format,
+                                      audio_format_t sink_format,int ms12_enable)
+{
+    char buf[PROPERTY_VALUE_MAX];
+    char *prop_name = NULL;
+    int ret = -1;
+    int latency_ms = 0;
+
+    if (source_format == AUDIO_FORMAT_PCM_16_BIT || source_format == AUDIO_FORMAT_PCM_32_BIT) {
+        prop_name = "vendor.media.audio.hal.hdmi_latency.pcm";
+        if (ms12_enable) {
+           if (sink_format == AUDIO_FORMAT_E_AC3) {
+              latency_ms = -10;
+           } else if (sink_format == AUDIO_FORMAT_AC3) {
+              latency_ms = -10;
+           } else {
+              latency_ms = 0;
+           }
+        } else
+           latency_ms = -30;
+    } else {
+        prop_name = "vendor.media.audio.hal.hdmi_latency.raw";
+        if (source_format == AUDIO_FORMAT_E_AC3) {
+             if (ms12_enable) {
+                 if (sink_format == AUDIO_FORMAT_E_AC3) {
+                        latency_ms = -80;
+                 } else if (sink_format == AUDIO_FORMAT_PCM_16_BIT) {
+                        latency_ms = -60;
+                 }
+             } else {
+                 latency_ms = -95;
+             }
+        } else  if(source_format == AUDIO_FORMAT_AC3) {
+            if (ms12_enable)
+                latency_ms = 0;
+             else
+                latency_ms = -95;
+        }
+    }
+    ret = property_get(prop_name, buf, NULL);
+    if (ret > 0)
+    {
+        latency_ms = atoi(buf);
+    }
+    return latency_ms;
+}
+
+int aml_audio_get_speaker_latency_offset(int aformat ,int ms12_enable)
 {
     char buf[PROPERTY_VALUE_MAX];
     char *prop_name = NULL;
@@ -999,14 +1144,42 @@ int aml_audio_get_hdmi_latency_offset(int aformat)
 
     (void)aformat;
     // PCM latency
-    prop_name = "vendor.media.audio.hal.hdmi_latency.pcm";
-    latency_ms = -52;
+    if (aformat == AUDIO_FORMAT_PCM_16_BIT || aformat == AUDIO_FORMAT_PCM_32_BIT) {
+        prop_name = "vendor.media.audio.hal.speaker_latency.pcm";
+        if (ms12_enable)
+           latency_ms = 105;
+        else
+           latency_ms = 70;
+    } else {
+        prop_name = "vendor.media.audio.hal.speaker_latency.raw";
+        latency_ms = 80;
+    }
     ret = property_get(prop_name, buf, NULL);
     if (ret > 0)
     {
         latency_ms = atoi(buf);
     }
 
+    return latency_ms;
+}
+int aml_audio_get_latency_offset( enum OUT_PORT port,audio_format_t source_format,
+                                      audio_format_t sink_format,int ms12_enable)
+{
+    int latency_ms = 0;
+    switch (port)  {
+        case OUTPORT_HDMI_ARC:
+            latency_ms = aml_audio_get_arc_latency_offset(source_format);
+            break;
+        case OUTPORT_HDMI:
+            latency_ms = aml_audio_get_hdmi_latency_offset(source_format,sink_format,ms12_enable);
+            break;
+        case OUTPORT_SPEAKER:
+        case OUTPORT_AUX_LINE:
+            latency_ms = aml_audio_get_speaker_latency_offset(source_format,ms12_enable);
+            break;
+        default :
+            break;
+    }
     return latency_ms;
 }
 

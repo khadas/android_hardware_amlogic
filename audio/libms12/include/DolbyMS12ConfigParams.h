@@ -111,6 +111,20 @@ public:
         ALOGI("%s() mHasSystemInput %d\n", __FUNCTION__, mHasSystemInput);
         return mHasSystemInput;
     }
+
+    //app flags
+    virtual void setAppFlag(bool flag)
+    {
+        ALOGI("%s() App flag %d\n", __FUNCTION__, flag);
+        mHasAppInput = flag;
+        mAppSoundFlags = flag;
+    }
+    virtual int getAppFlag(void)
+    {
+        ALOGI("%s() mHasSystemInput %d\n", __FUNCTION__, mHasSystemInput);
+        return mHasAppInput;
+    }
+
     virtual int APPSoundChannelMaskConvertToChannelConfiguration(audio_channel_mask_t channel_mask);
     virtual int SystemSoundChannelMaskConvertToChannelConfiguration(audio_channel_mask_t channel_mask);
 
@@ -583,6 +597,7 @@ private:
     bool mDAPSurDecEnable = true;//DAP surround decoder enable flag (Default 1)
     bool mHasAssociateInput = false;
     bool mHasSystemInput = false;
+    bool mHasAppInput = false;
     DAPSurroundVirtualizer DeviceDAPSurroundVirtualizer = {
         .virtualizer_enable = 1,
         .headphone_reverb = 0,

@@ -68,15 +68,15 @@ int init_mixer_input_port(struct amlAudioMixer *audio_mixer,
         float volume);
 
 int delete_mixer_input_port(struct amlAudioMixer *audio_mixer,
-        aml_mixer_input_port_type_e port_index);
+        unsigned int port_index);
 int send_mixer_inport_message(struct amlAudioMixer *audio_mixer,
         aml_mixer_input_port_type_e port_index , enum PORT_MSG msg);
 
 int mixer_write_inport(struct amlAudioMixer *audio_mixer,
-        aml_mixer_input_port_type_e port_index, const void *buffer, int bytes);
+        unsigned int port_index, const void *buffer, int bytes);
 
 int mixer_read_inport(struct amlAudioMixer *audio_mixer,
-        aml_mixer_input_port_type_e port_index, void *buffer, int bytes);
+        unsigned int port_index, void *buffer, int bytes);
 int mixer_set_inport_state(struct amlAudioMixer *audio_mixer,
         aml_mixer_input_port_type_e port_index, enum port_state state);
 
@@ -100,10 +100,11 @@ int mixer_set_padding_size(
         int padding_bytes);
 
 int mixer_set_continuous_output(struct amlAudioMixer *audio_mixer,
-        bool continuous_output);
+    bool continuous_output);
 
+int mixer_outport_pcm_restart(struct amlAudioMixer *audio_mixer);
 void mixer_dump(int s32Fd, const struct aml_audio_device *pstAmlDev);
-
+bool has_hwsync_stream_running(struct audio_stream_out *stream);
 
 __END_DECLS
 

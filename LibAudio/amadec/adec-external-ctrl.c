@@ -50,7 +50,7 @@ int audio_decode_init(void **handle, arm_audio_info *a_ainfo)
 {
     int ret;
     aml_audio_dec_t *audec;
-
+    adec_print("[adec_kpi] %s Enter.", __func__);
     if (*handle) {
         adec_print("Existing an audio dec instance!Need not to create it !");
         return -1;
@@ -77,6 +77,15 @@ int audio_decode_init(void **handle, arm_audio_info *a_ainfo)
     audec->codec_id = a_ainfo->codec_id;
     audec->auto_mute = a_ainfo->automute;
     audec->has_video = a_ainfo->has_video;
+#ifndef USE_AOUT_IN_ADEC
+    audec->associate_dec_supported = a_ainfo->associate_dec_supported;
+    audec->associate_audio_enable = a_ainfo->associate_mixing_enable;
+    audec->mixing_level = a_ainfo->mixing_level;
+    audec->pid = a_ainfo->pid;
+    audec->demux_id = a_ainfo->demux_id;
+    audec->security_mem_level = a_ainfo->security_mem_level;
+#endif
+
     if (a_ainfo->droppcm_flag) {
         audec->droppcm_flag = a_ainfo->droppcm_flag;
         a_ainfo->droppcm_flag = 0;
@@ -94,7 +103,7 @@ int audio_decode_init(void **handle, arm_audio_info *a_ainfo)
     }
 
     *handle = (void *)audec;
-
+    adec_print("[adec_kpi] %s Exit.", __func__);
     return 0;
 }
 

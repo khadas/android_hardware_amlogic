@@ -249,6 +249,30 @@ extern "C" audio_format_t get_audio_system_format(void)
     }
 }
 
+/*
+ *@brief set Audio Hal system format
+ */
+extern "C" void set_audio_app_format(audio_format_t format)
+{
+    android::DolbyMS12Status* dolby_ms12_status_instance = getInstance();
+    if (dolby_ms12_status_instance) {
+        return dolby_ms12_status_instance->setAudioAppFormat(format);
+    }
+}
+
+/*
+ *@brief get Audio Hal system format
+ */
+extern "C" audio_format_t get_audio_app_format(void)
+{
+    android::DolbyMS12Status* dolby_ms12_status_instance = getInstance();
+    if (dolby_ms12_status_instance) {
+        return dolby_ms12_status_instance->getAudioAppFormat();
+    } else {
+        return AUDIO_FORMAT_INVALID;
+    }
+}
+
 
 /*
  *@brief set TV audio main format

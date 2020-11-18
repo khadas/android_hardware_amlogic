@@ -44,7 +44,7 @@
 #ifndef WIN32
 #include <android/log.h>
 #endif
-
+#include <cutils/properties.h>
 //#define min(a,b) ( (a) < (b) ? (a) : (b) )
 
 /* MicroSoft channel definitions */
@@ -79,7 +79,7 @@
 #define  RSYNC_SKIP_BYTES  1
 #define FRAME_RECORD_NUM   40
 #define FRAME_SIZE_MARGIN  300
-
+#define PROPERTY_FILTER_HEAAC "vendor.media.filter.heaac"
 enum {
     AAC_ERROR_NO_ENOUGH_DATA = -1,
     AAC_ERROR_NEED_RESET_DECODER = -2,
@@ -93,6 +93,7 @@ typedef struct FaadContext {
     int gSampleRate;
     int gChannels;
     int error_count;
+    int error_num; //add for get error num
     int frame_length_his[FRAME_RECORD_NUM];
     unsigned int muted_samples;
     unsigned int muted_count;
@@ -100,6 +101,7 @@ typedef struct FaadContext {
     unsigned init_start_flag; //start flag to summary data cost
     int64_t starttime;
     int64_t endtime;
+    bool filter_heaac;
 } FaadContext;
 
 //typedef int (*findsyncfunc)(unsigned char *buf, int nBytes);
@@ -292,6 +294,7 @@ int audio_dec_init(
     gFaadCxt->gSampleRate = adec_ops->samplerate;
     gFaadCxt->init_flag = 0;
     gFaadCxt->header_type = 1; //default adts
+    gFaadCxt->filter_heaac = property_get_bool(PROPERTY_FILTER_HEAAC, false);
     return 0;
 }
 static int audio_decoder_init(
@@ -379,13 +382,14 @@ int audio_dec_decode(
     unsigned long samplerate;
     unsigned char channels;
     void *sample_buffer;
-    NeAACDecFrameInfo frameInfo;
+    NeAACDecFrameInfo frameInfo = {0};
     int outmaxlen = 0;
     char *dec_buf;
     int    dec_bufsize;
     int  inbuf_consumed = 0;
     int ret = 0;
     FaadContext *gFaadCxt = (FaadContext*)adec_ops->pdecoder;
+    NeAACDecStruct* hDecoder  = NULL;
     dec_bufsize = inlen;
     dec_buf = inbuf;
     outmaxlen = *outlen ;
@@ -401,6 +405,7 @@ int audio_dec_decode(
     }
     if (!gFaadCxt->init_flag) {
         gFaadCxt->error_count = 0;
+        gFaadCxt->error_num = 0;
         audio_codec_print("begin audio_decoder_init,buf size %d  \n", dec_bufsize);
         ret = audio_decoder_init(adec_ops, outbuf, outlen, dec_buf, dec_bufsize, (long *)&inbuf_consumed);
         if (ret ==  AAC_ERROR_NO_ENOUGH_DATA) {
@@ -419,7 +424,7 @@ int audio_dec_decode(
             dec_bufsize = 0;
         }
     }
-    NeAACDecStruct* hDecoder = (NeAACDecStruct*)(gFaadCxt->hDecoder);
+    hDecoder = (NeAACDecStruct*)(gFaadCxt->hDecoder);
     //TODO .fix to LATM aac decoder when ffmpeg parser return LATM aac  type
 #if 0
     if (adec_ops->nAudioDecoderType == ACODEC_FMT_AAC_LATM) {
@@ -490,6 +495,7 @@ int audio_dec_decode(
             audio_codec_print("%s,,inlen %d\n", NeAACDecGetErrorMessage(frameInfo.error), inlen);
         }
         gFaadCxt->error_count++;
+        gFaadCxt->error_num++;
         //err 34,means aac profile changed , PS.SBR,LC ....,normally happens when switch audio source
         if (gFaadCxt->error_count  >= ERROR_RESET_COUNT || frameInfo.error == 34) {
             if (gFaadCxt->hDecoder) {
@@ -506,6 +512,10 @@ exit:
     }
     if (gFaadCxt->init_flag == 0) {
         gFaadCxt->init_cost += (inlen - dec_bufsize);
+    }
+    //disable HE-AAC decoder
+    if (hDecoder && hDecoder->sbr_present_flag == 1 && *outlen > 0 && gFaadCxt->filter_heaac) {
+        memset(outbuf,0,*outlen);
     }
     return inlen - dec_bufsize;
 }
@@ -531,10 +541,15 @@ int audio_dec_release(
 int audio_dec_getinfo(audio_decoder_operations_t *adec_ops, void *pAudioInfo)
 {
     FaadContext *gFaadCxt = (FaadContext*)adec_ops->pdecoder;
-    NeAACDecStruct* hDecoder = (NeAACDecStruct*)gFaadCxt->hDecoder;
-    adec_ops->NchOriginal = hDecoder->fr_channels;
-    ((AudioInfo *)pAudioInfo)->channels = gFaadCxt->gChannels;
-    ((AudioInfo *)pAudioInfo)->samplerate = gFaadCxt->gSampleRate;
+    if (gFaadCxt) {
+        NeAACDecStruct* hDecoder = (NeAACDecStruct*)gFaadCxt->hDecoder;
+        if (hDecoder)
+            adec_ops->NchOriginal = hDecoder->fr_channels;
+        ((AudioInfo *)pAudioInfo)->channels = gFaadCxt->gChannels;
+        ((AudioInfo *)pAudioInfo)->samplerate = gFaadCxt->gSampleRate;
+        ((AudioInfo *)pAudioInfo)->error_num = gFaadCxt->error_num;
+        //audio_codec_print("--%s,gFaadCxt->error_num=%d,gFaadCxt->gSampleRate=%d--\n",__func__,gFaadCxt->error_num,gFaadCxt->gSampleRate);
+    }
     return 0;
 }
 #endif

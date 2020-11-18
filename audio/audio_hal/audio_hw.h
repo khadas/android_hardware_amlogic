@@ -97,6 +97,8 @@ static unsigned int DEFAULT_OUT_SAMPLING_RATE = 48000;
 #define DDP_FRAME_SIZE      768
 #define EAC3_MULTIPLIER 4
 #define  JITTER_DURATION_MS  3
+#define FLOAT_ZERO              (0.000001)
+
 enum {
     TYPE_PCM = 0,
     TYPE_AC3 = 2,
@@ -202,6 +204,8 @@ enum OUT_PORT {
     OUTPORT_HEADPHONE,
     OUTPORT_REMOTE_SUBMIX,
     OUTPORT_A2DP,
+    OUTPORT_BT_SCO,
+    OUTPORT_BT_SCO_HEADSET,
     OUTPORT_MAX
 };
 
@@ -267,6 +271,17 @@ typedef union {
 struct aml_audio_mixer;
 const char* usecase2Str(stream_usecase_t enUsecase);
 
+struct aml_bt_output {
+    bool active;
+    struct pcm *pcm_bt;
+    char *bt_out_buffer;
+    size_t bt_out_frames;
+    struct resampler_itfe *resampler;
+    struct resampler_buffer_provider buf_provider;
+    int16_t *resampler_buffer;
+    size_t resampler_buffer_size_in_frames;
+    size_t resampler_in_frames;
+};
 #define MAX_STREAM_NUM   5
 #define HDMI_ARC_MAX_FORMAT  20
 struct aml_audio_device {
@@ -296,6 +311,7 @@ struct aml_audio_device {
     struct aml_stream_out *hwsync_output;
     struct aml_hal_mixer hal_mixer;
     struct pcm *pcm;
+    struct aml_bt_output bt_output;
     bool pcm_paused;
     unsigned hdmi_arc_ad[HDMI_ARC_MAX_FORMAT];
     bool hi_pcm_mode;
@@ -316,7 +332,7 @@ struct aml_audio_device {
     void * a2dp_hal;
     int hdmi_format_updated;
     struct aml_native_postprocess native_postprocess;
-    /* to classify audio patch sources */
+    /* used only for real TV source */
     enum patch_src_assortion patch_src;
     /* for port config infos */
     float sink_gain[OUTPORT_MAX];
@@ -327,6 +343,7 @@ struct aml_audio_device {
     /* message to handle usecase changes */
     bool usecase_changed;
     uint32_t usecase_masks;
+    int usecase_cnt[STREAM_USECASE_MAX];
     struct aml_stream_out *active_outputs[STREAM_USECASE_MAX];
     pthread_mutex_t patch_lock;
     struct aml_audio_patch *audio_patch;
@@ -340,6 +357,7 @@ struct aml_audio_device {
     struct aml_hw_mixer hw_mixer;
     audio_format_t sink_format;
     audio_format_t optical_format;
+    audio_format_t sink_capability;
     volatile int32_t next_unique_ID;
     /* list head for audio_patch */
     struct listnode patch_list;
@@ -352,8 +370,11 @@ struct aml_audio_device {
     bool dolby_ms12_status;
     struct pcm_config ms12_config;
     int mixing_level;
+    int advol_level;
+    bool ad_switch_enable;
     bool associate_audio_mixing_enable;
     bool need_reset_for_dual_decoder;
+    uint64_t a2dp_no_reconfig_ms12;
     /* Dolby MS12 lib variable end */
 
     /*used for ac3 eac3 decoder*/
@@ -472,7 +493,8 @@ struct aml_audio_device {
     unsigned int tv_mute;
     int sub_apid;
     int sub_afmt;
-    int reset_dtv_audio;
+    int pid;
+    int demux_id;
     bool compensate_video_enable;
     int patch_start;
     int mute_start;
@@ -484,14 +506,19 @@ struct aml_audio_device {
     int no_underrun_count;
     int no_underrun_max;
     int start_mute_flag;
+    int start_mute_count;
+    int start_mute_max;
+    int underrun_mute_flag;
     int ad_start_enable;
     int count;
     int sound_track_mode;
     void *alsa_handle[ALSA_DEVICE_CNT];
     bool dual_spdif_support; /*1 means supports spdif_a & spdif_b & spdif interface*/
-    struct aec_t *aec;
     uint64_t  sys_audio_frame_written;
     void* hw_mediasync;
+    struct aec_t *aec;
+    bool bt_wbs;
+    int security_mem_level;
 };
 
 struct meta_data {
@@ -610,7 +637,7 @@ struct aml_stream_out {
     int frame_deficiency;
     bool normal_pcm_mixing_config;
     uint32_t latency_frames;
-    aml_mixer_input_port_type_e enInputPortType;
+    unsigned int inputPortID;
     int exiting;
     pthread_mutex_t cond_lock;
     pthread_cond_t cond;
@@ -639,6 +666,7 @@ struct aml_stream_out {
     bool dual_spdif;
     int codec_type2;  /*used for dual bitstream output*/
     struct pcm *pcm2; /*used for dual bitstream output*/
+    int pcm2_mute_cnt;
     bool tv_src_stream;
     unsigned int write_func;
     uint64_t  last_frame_reported;
@@ -646,6 +674,12 @@ struct aml_stream_out {
     void    *pstMmapAudioParam;    // aml_mmap_audio_param_st (aml_mmap_audio.h)
     bool ac3_parser_init;
     void * ac3_parser_handle;
+    struct resample_para aml_resample;
+    unsigned char *resample_outbuf;
+    bool restore_hdmitx_selection;
+    bool restore_continuous;
+    int64_t last_mmap_nano_second;
+    int32_t last_mmap_position;
 };
 
 typedef ssize_t (*write_func)(struct audio_stream_out *stream, const void *buffer, size_t bytes);
@@ -780,6 +814,24 @@ inline struct aml_stream_out *direct_active(struct aml_audio_device *adev)
     }
     return NULL;
 }
+
+inline bool need_update_mixing_level(struct aml_audio_device *adev)
+{
+    struct dolby_ddp_dec *ddp_dec = &(adev->ddp);
+    bool update_flag = (ddp_dec->decoding_mode == DDP_DECODE_MODE_AD_DUAL ||
+                                         ddp_dec->decoding_mode == DDP_DECODE_MODE_AD_SUBSTREAM )
+                                       && (adev->ddp.mixer_level != adev->mixing_level);
+     return update_flag;
+}
+inline bool need_update_mixing_ad_pcmscale(struct aml_audio_device *adev)
+{
+    struct dolby_ddp_dec *ddp_dec = &(adev->ddp);
+    bool update_flag = (ddp_dec->decoding_mode == DDP_DECODE_MODE_AD_DUAL ||
+                                         ddp_dec->decoding_mode == DDP_DECODE_MODE_AD_SUBSTREAM )
+                                       && (adev->ddp.advol_level != adev->advol_level);
+     return update_flag;
+}
+
 /*
  *@brief get_output_format get the output format always return the "sink_format" of adev
  */
@@ -832,6 +884,7 @@ int start_ease_out(struct aml_audio_device *adev);
 int out_standby_direct (struct audio_stream *stream);
 
 void *adev_get_handle();
+audio_format_t get_non_ms12_output_format(audio_format_t src_format, struct aml_audio_device *aml_dev);
 
 /* 'bytes' are the number of bytes written to audio FIFO, for which 'timestamp' is valid.
  * 'available' is the number of frames available to read (for input) or yet to be played

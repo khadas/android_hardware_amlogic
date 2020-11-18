@@ -42,7 +42,8 @@ enum {
     NO_ENOUGH_DATA = -1002,
 };
 #define MAX_DECODER_FRAME_LENGTH 32768
-#define READ_PERIOD_LENGTH 2048 * 4
+#define READ_PERIOD_LENGTH 2048  * 4
+#define DOLBY_DTSHD_LIB_PATH     "/odm/lib/libHwAudio_dtshd.so"
 
 //#define MAX_DDP_FRAME_LENGTH 2048
 
@@ -72,7 +73,7 @@ static  int unload_dts_decoder_lib()
 static int dca_decoder_init(int digital_raw)
 {
     //int digital_raw = 1;
-    gDtsDecoderLibHandler = dlopen("/vendor/lib/libHwAudio_dtshd.so", RTLD_NOW);
+    gDtsDecoderLibHandler = dlopen(DOLBY_DTSHD_LIB_PATH, RTLD_NOW);
     if (!gDtsDecoderLibHandler) {
         ALOGE("%s, failed to open (libstagefright_soft_dtshd.so), %s\n", __FUNCTION__, dlerror());
         goto Error;

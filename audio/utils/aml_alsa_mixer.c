@@ -68,6 +68,7 @@ static struct aml_mixer_list gAmlMixerList[] = {
     /* ARCIN and SPDIFIN switch*/
     {AML_MIXER_ID_SPDIFIN_ARCIN_SWITCH, "AudioIn Switch"},
     {AML_MIXER_ID_CHANGE_SPIDIF_PLL,           "SPDIF CLK Fine Setting"},
+    {AML_MIXER_ID_CHANGE_SPIDIFB_PLL,		   "SPDIF_B CLK Fine Setting"},
     {AML_MIXER_ID_CHANGE_I2S_PLL,           "TDM MCLK Fine Setting"},
 };
 

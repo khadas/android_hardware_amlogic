@@ -103,6 +103,26 @@ extern "C" bool dolby_ms12_config_params_get_system_flag(void)
     }
 }
 
+extern "C" void dolby_ms12_config_params_set_app_flag(bool flag)
+{
+    ALOGV("%s() system flag %d\n", __FUNCTION__, flag);
+    android::DolbyMS12ConfigParams *config_param = getInstance();
+    if (config_param) {
+        config_param->setAppFlag(flag);
+    }
+}
+
+extern "C" bool dolby_ms12_config_params_get_app_flag(void)
+{
+    ALOGV("%s()\n", __FUNCTION__);
+    android::DolbyMS12ConfigParams *config_param = getInstance();
+    if (config_param) {
+        return config_param->getAppFlag();
+    } else {
+        return false;
+    }
+}
+
 extern "C" void dolby_ms12_config_params_set_audio_stream_out_params(
     audio_output_flags_t flags
     , audio_format_t input_format

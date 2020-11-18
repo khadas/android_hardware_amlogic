@@ -64,6 +64,7 @@ class AmlAudioOutPort : public RefBase
      //add for to get parament info
      AmlAudioOutPort();
 
+     status_t    standby();
     /* After it's created the track is not active. Call start() to
      * make it active. If set, the callback will start being called.
      * If the track was previously paused, volume is ramped up over the first mix buffer.

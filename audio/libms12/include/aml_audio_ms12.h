@@ -98,6 +98,15 @@ struct dolby_ms12_desc {
     int need_resync; /*handle from pause to resume sync*/
     bool dual_bitstream_support;
     struct bitstream_out_desc bitstream_out[BITSTREAM_OUTPUT_CNT];
+    struct timespec  sys_audio_timestamp;
+    uint64_t  sys_audio_frame_pos;
+    uint64_t  sys_audio_base_pos;
+    uint64_t  last_sys_audio_cost_pos;
+    void * ac3_parser_handle;
+    void * spdif_dec_handle;
+    audio_format_t sink_format;
+    audio_format_t optical_format;
+    bool dual_decoder_support;
 };
 
 /*

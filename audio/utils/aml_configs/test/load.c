@@ -26,12 +26,11 @@
 #include <aml_conf_loader.h>
 #include <aml_conf_parser.h>
 
-int main( int argc, char** argv )
+int main( int argc __unused, char** argv __unused )
 {
-	unsigned char ver[2];
-	struct parser *gParser = NULL;
-    unsigned char *index = "audio.pre.gain.for.av";
-	gParser = aml_config_load(AML_PARAM_AUDIO_HAL_PARAM);
+    struct parser *gParser = NULL;
+    char *index = "audio.pre.gain.for.av";
+    gParser = aml_config_load(AML_PARAM_AUDIO_HAL_PARAM);
     if (gParser != NULL) {
         //section dump
         //printf("\n[Dump TV Section]\n\n");
@@ -45,11 +44,11 @@ int main( int argc, char** argv )
         //get int value
         printf("index: %s, integer value: %d\n",
             index,
-            aml_config_get_int(gParser, "TV", index, NULL));
+            aml_config_get_int(gParser, "TV", index, 0));
         //get int value
         printf("index: %s, integer value: %d\n",
             "audiohal.lfe.gain",
-            aml_config_get_int(gParser, "AUDIO_HAL", "audiohal.lfe.gain", NULL));
+            aml_config_get_int(gParser, "AUDIO_HAL", "audiohal.lfe.gain", 0));
 
         printf("\n[Dump AUDIO_HAL Section][0]\n\n");
 		aml_config_dump(gParser, "AUDIO_HAL");

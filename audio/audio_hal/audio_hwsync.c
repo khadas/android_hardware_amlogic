@@ -462,12 +462,14 @@ int aml_audio_hwsync_audio_process(audio_hwsync_t *p_hwsync, size_t offset, int 
     int debug_enable = 0;
     char tempbuf[32] = {0};
     struct aml_audio_device *adev = NULL;
-    uint32_t latency_frames = 0;
+    int32_t latency_frames = 0;
     struct audio_stream_out *stream = NULL;
     uint32_t latency_pts = 0;
     struct aml_stream_out  *out = p_hwsync->aout;
-    int b_raw = 0;
-    ALOGE("%s,================", __func__);
+    ALOGV("%s,================", __func__);
+    bool b_raw_in = false;
+    bool b_raw_out = false;
+
     // add protection to avoid NULL pointer.
     if (p_hwsync == NULL) {
         ALOGE("%s,p_hwsync == NULL", __func__);
@@ -486,11 +488,9 @@ int aml_audio_hwsync_audio_process(audio_hwsync_t *p_hwsync, size_t offset, int 
     }
 
     /*when it is ddp 2ch/heaac we need use different latency control*/
-    if (audio_is_linear_pcm(out->hal_internal_format)) {
-        b_raw = 0;
-    }else {
-        b_raw = 1;
-    }
+    b_raw_in  = audio_is_linear_pcm(out->hal_internal_format) ? false : true;
+    b_raw_out = audio_is_linear_pcm(adev->ms12.sink_format) ? false : true;
+
 
 
     ret = aml_audio_hwsync_lookup_apts(p_hwsync, offset, &apts);
@@ -500,19 +500,20 @@ int aml_audio_hwsync_audio_process(audio_hwsync_t *p_hwsync, size_t offset, int 
     if (stream) {
         if (adev && adev->continuous_audio_mode && (eDolbyMS12Lib == adev->dolby_lib_type)) {
             /*we need get the correct ms12 out pcm */
-            latency_frames = out_get_ms12_latency_frames(stream);
+            latency_frames = (int32_t)out_get_ms12_latency_frames(stream);
             //ALOGI("latency_frames =%d", latency_frames);
-            latency_frames += aml_audio_get_ms12_tunnel_latency_offset(b_raw)*48; // add 60ms delay for ms12, 32ms pts offset, other is ms12 delay
+            latency_frames += aml_audio_get_ms12_tunnel_latency_offset(b_raw_in, b_raw_out)*48; // add 60ms delay for ms12, 32ms pts offset, other is ms12 delay
 
             if ((adev->ms12.is_dolby_atmos && adev->ms12_main1_dolby_dummy == false) || adev->atoms_lock_flag) {
-                int tunnel = 1;
-                int atmos_tunning_frame = aml_audio_get_ms12_atmos_latency_offset(tunnel) * 48;
+                int atmos_tunning_frame = aml_audio_get_ms12_atmos_latency_offset(true) * 48;
                 latency_frames += atmos_tunning_frame;
             }
         } else {
-            latency_frames = out_get_latency_frames(stream);
+            latency_frames = (int32_t)out_get_latency_frames(stream);
         }
-
+        if (latency_frames < 0) {
+            latency_frames = 0;
+        }
         latency_pts = latency_frames / 48 * 90;
     }
 

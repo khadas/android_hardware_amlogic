@@ -22,6 +22,7 @@
 #include "aml_ringbuffer.h"
 #include "audio_hw.h"
 #include "audio_hw_profile.h"
+#include "aml_audio_hal_avsync.h"
 
 #define RAW_USECASE_MASK ((1<<STREAM_RAW_DIRECT) | (1<<STREAM_RAW_HWSYNC) | (1<<STREAM_RAW_PATCH))
 
@@ -69,8 +70,13 @@ enum digital_format {
 enum stream_write_func {
     OUT_WRITE_NEW = 0,
     MIXER_AUX_BUFFER_WRITE_SM = 1,
-    MIXER_AUX_BUFFER_WRITE = 2,
-    MIXER_MAIN_BUFFER_WRITE = 3,
+    MIXER_MAIN_BUFFER_WRITE_SM = 2,
+    MIXER_MMAP_BUFFER_WRITE_SM = 3,
+    MIXER_AUX_BUFFER_WRITE = 4,
+    MIXER_MAIN_BUFFER_WRITE = 5,
+    MIXER_APP_BUFFER_WRITE = 6,
+    PROCESS_BUFFER_WRITE = 7,
+
     MIXER_WRITE_FUNC_MAX
 };
 
@@ -223,6 +229,14 @@ struct aml_audio_patch {
     audio_channel_mask_t out_chanmask;
     int out_sample_rate;
     audio_format_t out_format;
+    /*start play strategy*/
+    int startplay_avsync_flag;
+    unsigned long startplay_firstvpts;
+    unsigned long startplay_first_checkinapts;
+    unsigned long startplay_pcrpts;
+    unsigned long startplay_apts_lookup;
+    unsigned int startplay_vpts;
+
 #if 0
     struct ring_buffer
     struct thread_read
@@ -245,7 +259,7 @@ struct aml_audio_patch {
     int dtv_has_video;
     int dtv_decoder_state;
     int dtv_decoder_cmd;
-    int dtv_first_apts_flag;
+    int dtv_first_apts_flag; /*first apts looked up flag*/
     unsigned char dtv_NchOriginal;
     unsigned char dtv_lfepresent;
     unsigned int dtv_first_apts;
@@ -256,9 +270,10 @@ struct aml_audio_patch {
     unsigned int decoder_offset ;
     unsigned int outlen_after_last_validpts;
     unsigned long last_valid_pts;
-    unsigned int first_apts_lookup_over;
+    unsigned int first_apts_lookup_over; /*cache audio data before start-play flag*/
     int dtv_symple_rate;
     int dtv_pcm_channel;
+    bool dtv_replay_flag;  //set for the first play
     unsigned int dtv_output_clock;
     unsigned int dtv_default_i2s_clock;
     unsigned int dtv_default_spdif_clock;
@@ -266,11 +281,13 @@ struct aml_audio_patch {
     int spdif_step_clk;
     int i2s_step_clk;
     int dtv_audio_mode;
+    int tsync_mode;
     int dtv_apts_lookup;
     int dtv_audio_tune;
     int pll_state;
     unsigned int last_apts;
     unsigned int last_pcrpts;
+    unsigned int cur_outapts;
     unsigned int show_first_frame;
     dtv_avsync_process_cb avsync_callback;
     pthread_mutex_t dtv_output_mutex;
@@ -291,6 +308,16 @@ struct aml_audio_patch {
     unsigned int last_vpts_record;
     unsigned int last_pcrpts_record;
     struct timespec last_debug_record;
+    bool pcm_inserting;
+    int tsync_pcr_debug;
+    int pre_latency;
+    bool ad_substream_checked_flag;
+    int a_discontinue_threshold;
+    struct avsync_para  sync_para;
+    int pid;
+    int i2s_div_factor;
+    struct timespec speed_time;
+    struct timespec slow_time;
 };
 
 struct audio_stream_out;
@@ -336,5 +363,6 @@ void aml_stream_out_dump(struct aml_stream_out *aml_out, int fd);
 void aml_audio_port_config_dump(struct audio_port_config *port_config, int fd);
 void aml_audio_patch_dump(struct audio_patch *patch, int fd);
 void aml_audio_patches_dump(struct aml_audio_device* aml_dev, int fd);
+bool is_use_spdifb(struct aml_stream_out *out);
 
 #endif /* _AML_AUDIO_STREAM_H_ */

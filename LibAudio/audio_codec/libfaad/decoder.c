@@ -57,8 +57,6 @@
 #include "aacdec.h"
 int AACDataSource = 1;
 static HAACDecoder hAACDecoder;
-static  short  dec_buffer[1024 * 6 * 2];
-static short output_buffer[1024 * 2 * 2];
 static int adts_sample_rates[] = {96000, 88200, 64000, 48000, 44100, 32000, 24000, 22050, 16000, 12000, 11025, 8000, 7350, 0, 0, 0};
 
 static int FindAdtsSRIndex(int sr)
@@ -133,8 +131,6 @@ uint16_t dbg_count;
 
 
 #ifdef NEW_CODE_CHECK_LATM
-static unsigned char temp_bufer[200 * 1024];
-static int temp_size = 0;
 #define LATM_LOG  audio_codec_print
 static const int pi_sample_rates[16] = {
     96000, 88200, 64000, 48000, 44100, 32000, 24000, 22050,
@@ -568,7 +564,7 @@ static int LatmReadStreamMuxConfiguration(latm_mux_t *m, bitfile *ld)
 }
 static int LOASParse(uint8_t *p_buffer, int i_buffer, decoder_sys_t *p_sys)
 {
-    bitfile ld;// = {0};
+    bitfile ld = {0};
     int i_accumulated = 0;
     const latm_stream_t *st;
     faad_initbits(&ld, p_buffer, i_buffer);
@@ -909,7 +905,7 @@ static int latmCheck(latm_header *latm, bitfile *ld)
 #if 0
 static int latm_check_internal(unsigned char *buffer, unsigned buffer_size, unsigned *byte_cost)
 {
-    latm_header l;// = {0};
+    latm_header l = {0};
     int is_latm = 0;
     bitfile ld;
     int byte_consumed = 0;
@@ -947,12 +943,15 @@ long NEAACDECAPI NeAACDecInit(NeAACDecHandle hpDecoder,
     adif_header adif;
     adts_header adts;
     NeAACDecStruct* hDecoder = (NeAACDecStruct*)hpDecoder;
+    unsigned char* temp_bufer = hDecoder->temp_bufer;
+    int temp_size = 0;
     faad_log_info("enter NeAACDecInit \r\n");
 #ifdef NEW_CODE_CHECK_LATM
     int i_frame_size;
-    if (buffer_size > sizeof(temp_bufer)) {
-        //LATM_LOG("init input buffer size tooo big %lu, buffer size %lu \n", buffer_size, sizeof(temp_bufer));
-        buffer_size = sizeof(temp_bufer);
+    if (buffer_size > TMP_BUF_SIZE) {
+        LATM_LOG("init input buffer size too big %lu, buffer size %d \n", buffer_size,TMP_BUF_SIZE);
+        //buffer_size = sizeof(temp_bufer);
+        buffer_size =  TMP_BUF_SIZE ;
     }
     if (buffer_size > 0) {
         memcpy(temp_bufer, buffer, buffer_size);
@@ -1008,7 +1007,7 @@ NEXT_CHECK:
         if (pbuffer_size < (LOAS_HEADER_SIZE + i_frame_size)) {
             LATM_LOG("[%s %d]buffer size  %d small then frame size %d,\n", __FUNCTION__,__LINE__,pbuffer_size, i_frame_size+LOAS_HEADER_SIZE);
             *skipbytes = buffer_size-pbuffer_size;
-            goto exit_check;
+            return -1;
         }
 #if 1
         if (pbuffer[LOAS_HEADER_SIZE + i_frame_size] != 0x56 || (pbuffer[LOAS_HEADER_SIZE + i_frame_size + 1] & 0xe0) != 0xe0) { // next frame LOAS sync header detected
@@ -1695,14 +1694,18 @@ static void* aac_frame_decode(NeAACDecStruct *hDecoder,
     uint16_t i;
     uint8_t channels = 0;
     uint8_t output_channels = 0;
-    bitfile ld;// = {0};
+    bitfile ld = {0};
     uint32_t bitsconsumed;
     uint16_t frame_len;
     void *sample_buffer;
+    uint32_t startbit = 0, endbit = 0, payload_bits = 0;
     int b_multi_sub_frame;
     int mux_length = 0;
+    short* dec_buffer = hDecoder->dec_buffer;
+    short* output_buffer = hDecoder->output_buffer;
+    unsigned char* temp_bufer = hDecoder->temp_bufer;
+    int temp_size = 0;
 #ifdef NEW_CODE_CHECK_LATM
-    uint32_t startbit = 0, endbit = 0, payload_bits = 0;
     int i_frame_size;
     decoder_sys_t *p_sys =  &hDecoder->dec_sys;
 #endif
@@ -1742,9 +1745,10 @@ static void* aac_frame_decode(NeAACDecStruct *hDecoder,
         }
     }
 #ifdef NEW_CODE_CHECK_LATM
-    if (buffer_size > sizeof(temp_bufer)) {
-        //LATM_LOG("input buffer size tooo big %lu, buffer size %lu \n", buffer_size, sizeof(temp_bufer));
-        buffer_size = sizeof(temp_bufer);
+    if (buffer_size > TMP_BUF_SIZE) {
+        LATM_LOG("input buffer size tooo big %lu, buffer size %d \n", buffer_size,TMP_BUF_SIZE);
+        //buffer_size = sizeof(temp_bufer);
+        buffer_size =  TMP_BUF_SIZE;
     }
     if (buffer_size > 0) {
         memcpy(temp_bufer, buffer, buffer_size);

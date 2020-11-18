@@ -31,6 +31,10 @@
 #include <log-print.h>
 #include <adec-armdec-mgt.h>
 #include <adec_write.h>
+#ifndef USE_AOUT_IN_ADEC
+#include <aml_hw_mixer.h>
+#endif
+
 ADEC_BEGIN_DECLS
 
 #define  AUDIO_CTRL_DEVICE    "/dev/amaudio_ctl"
@@ -72,6 +76,7 @@ typedef struct aml_audio_dec    aml_audio_dec_t;
 #define lp_lock_init(x,v)     pthread_mutex_init(x,v)
 #define lp_lock(x)        pthread_mutex_lock(x)
 #define lp_unlock(x)       pthread_mutex_unlock(x)
+
 typedef enum {
     HW_STEREO_MODE = 0,
     HW_LEFT_CHANNEL_MONO,
@@ -82,6 +87,7 @@ struct package {
     char *data;//buf ptr
     int size;               //package size
     struct package * next;//next ptr
+    uint64_t pts;
 };
 
 typedef struct {
@@ -162,11 +168,12 @@ struct aml_audio_dec {
     buffer_stream_t *g_bst_raw;
     pthread_t sn_threadid;//same as the def: 'pthread_t thread_pid;'
     pthread_t sn_getpackage_threadid;//same as the def: 'pthread_t thread_pid;'
+
     int exit_decode_thread;
     int exit_decode_thread_success;
     unsigned long decode_offset;
-	int64_t decode_pcm_offset;
-	int use_get_out_posion;
+    int64_t decode_pcm_offset;
+    int use_get_out_posion;
     int nDecodeErrCount;
     int fd_uio;
     uint64_t last_valid_pts;
@@ -217,11 +224,26 @@ struct aml_audio_dec {
     int DTSHDIEC958_PktType;
     int DTSHDPCM_SamsInFrmAtMaxSR;
     unsigned int has_video;
-    int associate_dec_supported;//support associate or not
-    unsigned int associate_audio_enable;//control output associate audio
     buffer_stream_t *g_assoc_bst;
     fp_arm_omx_codex_read_assoc_data parm_omx_codec_read_assoc_data;
+
+#ifndef USE_AOUT_IN_ADEC
+    audio_decoder_operations_t *ad_adec_ops;
+    pthread_t ad_sn_threadid;
+    pthread_t ad_sn_getpackage_threadid;
+    Package_List ad_pack_list;
+    int associate_dec_supported;//support associate or not
+    unsigned int associate_audio_enable;//control output associate audio
     int mixing_level;//def=50, mixing level between main and associate, [0,100]
+    int security_mem_level;
+    struct aml_hw_mixer hw_mixer;
+	int ad_pcmscale;
+#endif
+    int pid;
+    int demux_id;
+    int use_sw_check_apts;
+    int audio_loopback;
+    int64_t checkin_discontinue_apts;
 };
 
 //from amcodec
@@ -241,7 +263,11 @@ typedef struct {
     int automute;
     unsigned int has_video;
     int associate_dec_supported;//support associate or not
+    int associate_mixing_enable;
     int mixing_level;//def=50, mixing level between main and associate, [0,100]
+    int pid;
+    int demux_id;
+    int security_mem_level;
 } arm_audio_info;
 
 typedef struct {

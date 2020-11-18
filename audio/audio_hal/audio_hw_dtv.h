@@ -70,6 +70,31 @@ enum {
     AUDIO_DTV_PATCH_CMD_NUM,
 };
 
+enum {
+    AVSYNC_ACTION_NORMAL,
+    AVSYNC_ACTION_DROP,
+    AVSYNC_ACTION_HOLD,
+};
+enum {
+    DIRECT_SPEED = 0, // DERIECT_SPEED
+    DIRECT_SLOW,
+    DIRECT_NORMAL,
+};
+enum {
+    AUDIO_FREE = 0,
+    AUDIO_BREAK,
+    AUDIO_LOOKUP,
+    AUDIO_DROP,
+    AUDIO_RAISE,
+    AUDIO_LATENCY,
+    AUDIO_RUNNING,
+};
+enum {
+    TSYNC_MODE_VMASTER = 0,
+    TSYNC_MODE_AMASTER,
+    TSYNC_MODE_PCRMASTER,
+};
+
 int create_dtv_patch(struct audio_hw_device *dev, audio_devices_t input, audio_devices_t output __unused);
 int release_dtv_patch(struct aml_audio_device *dev);
 int release_dtv_patch_l(struct aml_audio_device *dev);
@@ -78,4 +103,27 @@ int dtv_in_read(struct audio_stream_in *stream, void* buffer, size_t bytes);
 void dtv_in_write(struct audio_stream_out *stream, const void* buffer, size_t bytes);
 void save_latest_dtv_aformat(int afmt);
 int audio_set_spdif_clock(struct aml_stream_out *stream,int type);
+int dtv_get_syncmode(void);
+void clean_dtv_patch_pts(struct aml_audio_patch *patch);
+static int create_dtv_output_stream_thread(struct aml_audio_patch *patch);
+static int release_dtv_output_stream_thread(struct aml_audio_patch *patch);
+extern int64_t calc_time_interval_us(struct timespec *ts0, struct timespec *ts1);
+extern size_t aml_alsa_output_write(struct audio_stream_out *stream, void *buffer, size_t bytes);
+
+
+
+extern int get_tsync_pcr_debug(void);
+extern int get_video_delay(void);
+extern void set_video_delay(int delay_ms);
+extern void dtv_do_process_pcm(int avail, struct aml_audio_patch *patch,
+                            struct audio_stream_out *stream_out);
+extern void dtv_do_insert_zero_pcm(struct aml_audio_patch *patch,
+                            struct audio_stream_out *stream_out);
+extern void dtv_do_drop_pcm(int avail, struct aml_audio_patch *patch);
+extern void dtv_adjust_output_clock(struct aml_audio_patch * patch, int direct, int step, bool is_dual);
+extern void dtv_avsync_process(struct aml_audio_patch* patch, struct aml_stream_out* stream_out);
+
+extern void decoder_set_pcrsrc(unsigned int pcrsrc);
+int get_audio_checkin_underrun(void);
+
 #endif

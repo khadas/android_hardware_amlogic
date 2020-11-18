@@ -25,6 +25,9 @@
 #include "a2dp_hal.h"
 #include "a2dp_hw.h"
 #include "audio_hw.h"
+extern "C" {
+#include "aml_audio_timer.h"
+}
 
 using ::android::bluetooth::audio::BluetoothAudioPortOut;
 
@@ -45,6 +48,7 @@ struct aml_a2dp_hal {
     char* buff;
     size_t buffsize;
     int64_t last_write_time;
+    uint64_t mute_time;
     mutable std::mutex mutex_;
     char * buff_conv_format;
     size_t buff_size_conv_format;
@@ -149,9 +153,27 @@ std::unordered_map<std::string, std::string> ParseAudioParams(const std::string&
     return params_map;
 }
 
+bool a2dp_wait_status(BluetoothAudioPortOut * a2dphw) {
+    BluetoothStreamState state = a2dphw->GetState();
+    int retry = 0;
+    while (retry < 100) {
+        if ((state != BluetoothStreamState::STARTING) && (state != BluetoothStreamState::SUSPENDING)) {
+            if (retry > 0)
+                ALOGD("%s: wait for %d ms, state=%d", __func__, retry*10, (uint8_t)state);
+            return true;
+        }
+        usleep(10000);
+        retry++;
+        state = a2dphw->GetState();
+    }
+    ALOGD("%s: wait for %d ms, state=%d", __func__, retry*10, (uint8_t)state);
+    return false;
+}
+
 int a2dp_out_open(struct audio_hw_device* dev) {
     struct aml_audio_device *adev = (struct aml_audio_device *)dev;
     struct aml_a2dp_hal * hal = NULL;
+    struct timespec ts = {.tv_sec = 0, .tv_nsec = 0};
 
     if (adev->a2dp_hal != NULL) {
         ALOGE("BluetoothAudioPortOut already exist");
@@ -178,7 +200,9 @@ int a2dp_out_open(struct audio_hw_device* dev) {
     }
     if (hal->config.channel_mask == AUDIO_CHANNEL_OUT_MONO)
         hal->a2dphw.ForcePcmStereoToMono(true);
-
+    clock_gettime(CLOCK_MONOTONIC, &ts);
+    hal->mute_time = ts.tv_sec * 1000000LL + ts.tv_nsec / 1000;
+    hal->mute_time += 1000000LL; // mute for 1s
     adev->a2dp_hal = (void*)hal;
     ALOGD("LoadAudioConfig: rate=%d, format=%x, ch=%d",
         hal->config.sample_rate, hal->config.format, hal->config.channel_mask);
@@ -195,6 +219,7 @@ int a2dp_out_close(struct audio_hw_device* dev) {
     adev->a2dp_hal = NULL;
     hal->mutex_.lock();
     ALOGD("%s: close", __func__);
+    a2dp_wait_status(&hal->a2dphw);
     hal->a2dphw.Stop();
     hal->a2dphw.TearDown();
     if (hal->resample)
@@ -223,9 +248,10 @@ int a2dp_out_resume(struct audio_stream_out* stream) {
     std::unique_lock<std::mutex> lock(hal->mutex_);
     state = hal->a2dphw.GetState();
     ALOGD("%s: state=%d", __func__, (uint8_t)state);
+    a2dp_wait_status(&hal->a2dphw);
     if (state == BluetoothStreamState::STANDBY) {
         if (hal->a2dphw.Start()) {
-            if ((out->flags & AUDIO_OUTPUT_FLAG_PRIMARY) == 0)
+            if ((out->flags & (AUDIO_OUTPUT_FLAG_PRIMARY|AUDIO_OUTPUT_FLAG_MMAP_NOIRQ)) == 0)
                 adev->a2dp_active = 1;
             return 0;
         }
@@ -247,9 +273,10 @@ int a2dp_out_standby(struct audio_stream* stream) {
     std::unique_lock<std::mutex> lock(hal->mutex_);
     state = hal->a2dphw.GetState();
     ALOGD("%s: state=%d", __func__, (uint8_t)state);
+    a2dp_wait_status(&hal->a2dphw);
     if (state == BluetoothStreamState::STARTED) {
         if (hal->a2dphw.Suspend()) {
-            if ((out->flags & AUDIO_OUTPUT_FLAG_PRIMARY) == 0)
+            if ((out->flags & (AUDIO_OUTPUT_FLAG_PRIMARY|AUDIO_OUTPUT_FLAG_MMAP_NOIRQ)) == 0)
                 adev->a2dp_active = 0;
             return 0;
         }
@@ -262,7 +289,6 @@ ssize_t a2dp_out_write(struct audio_stream_out* stream, const void* buffer, size
     struct aml_audio_device *adev = out->dev;
     struct aml_a2dp_hal * hal = (struct aml_a2dp_hal *)adev->a2dp_hal;
     BluetoothStreamState state;
-    size_t totalWritten = bytes;
     int frame_size = 4; //2ch 16bits
     size_t frames = bytes / frame_size;
     int wr_size = bytes;
@@ -273,28 +299,15 @@ ssize_t a2dp_out_write(struct audio_stream_out* stream, const void* buffer, size
         return -1;
     }
     std::unique_lock<std::mutex> lock(hal->mutex_);
+    if (out->pause_status)
+        return bytes;
+    const int64_t cur_write = aml_audio_get_systime();
     state = hal->a2dphw.GetState();
     if (adev->debug_flag)
         ALOGD("%s:%p bytes=%d, state=%d, format=0x%x, hwsync=%d, continuous=%d",
                 __func__, out, bytes, (uint8_t)state, out->hal_internal_format,
                 out->hw_sync_mode, adev->continuous_audio_mode);
-    if (state != BluetoothStreamState::STARTED) {
-        lock.unlock();
-        if (a2dp_out_resume(stream)) {
-            usleep(10 * 1000);
-        }
-        return totalWritten;
-    } else if (adev->audio_patch) {
-        struct timespec cur = {.tv_sec = 0, .tv_nsec = 0};
-        clock_gettime(CLOCK_MONOTONIC, &cur);
-        int64_t cur_time = cur.tv_sec * 1000000LL + cur.tv_nsec / 1000;
-        if (cur_time - hal->last_write_time > 64000) {
-            ALOGD("%s:%d, for DTV/HDMIIN, input may be has gap: %lld", __func__, __LINE__, cur_time - hal->last_write_time);
-            lock.unlock();
-            a2dp_out_standby(&stream->common);
-            return totalWritten;
-        }
-    }
+
     if (out->is_tv_platform == 1) {
         int16_t *tmp_buffer = (int16_t *)buffer;
         int32_t *tmp_buffer_8ch = (int32_t *)buffer;
@@ -305,12 +318,54 @@ ssize_t a2dp_out_write(struct audio_stream_out* stream, const void* buffer, size
         }
         wr_size = frames * frame_size;
     }
-    struct timespec ts = {.tv_sec = 0, .tv_nsec = 0};
-    clock_gettime(CLOCK_MONOTONIC, &ts);
+
+    if (state == BluetoothStreamState::STARTING) {
+        const int64_t gap = cur_write - hal->last_write_time;
+        int64_t sleep_time = frames * 1000000LL / hal->config.sample_rate - gap;
+        hal->last_write_time = cur_write;
+        if (sleep_time > 0) {
+            hal->last_write_time += sleep_time;
+            lock.unlock();
+            usleep(sleep_time);
+        }
+        return bytes;
+    } else if (state != BluetoothStreamState::STARTED) {
+        lock.unlock();
+        if (a2dp_out_resume(stream)) {
+            usleep(8000);
+        }
+        // a2dp_out_resume maybe cause over 100ms, so set last_write_time after resume,
+        // otherwise, the gap woud always over 64ms, and always standby in dtv
+        hal->last_write_time = aml_audio_get_systime();
+        return 0;
+    } else if (adev->audio_patch) {
+        int64_t write_delta_time_us = cur_write - hal->last_write_time;
+        if (write_delta_time_us > 128000) {
+            ALOGD("%s:%d, for DTV/HDMIIN, input may be has gap: %lld", __func__, __LINE__, cur_write - hal->last_write_time);
+            lock.unlock();
+            a2dp_out_standby(&stream->common);
+            return bytes;
+        }
+        int64_t data_delta_time_us = frames * 1000000LL / hal->config.sample_rate - write_delta_time_us;
+        /* Prevent consuming data too quickly. */
+        if (data_delta_time_us > 0) {
+            usleep(data_delta_time_us / 2);
+        }
+    }
+    if (hal->mute_time > 0) {
+        if (hal->mute_time > cur_write)
+            memset((void*)buffer, 0, bytes);
+        else
+            hal->mute_time = 0;
+    }
 
     if (out->hal_rate != hal->config.sample_rate) {
         int out_frames = 0;
         int out_size = frames*hal->config.sample_rate*frame_size/out->hal_rate+32;
+        if ((hal->resample != NULL) && (hal->resample->input_sr != out->hal_rate)) {
+            delete hal->resample;
+            hal->resample = NULL;
+        }
         if (hal->resample == NULL) {
             hal->resample = new aml_resample;
             if (hal->resample == NULL) {
@@ -361,7 +416,7 @@ ssize_t a2dp_out_write(struct audio_stream_out* stream, const void* buffer, size
             }
             hal->buff_size_conv_format = out_size;
         }
-        memcpy_to_i32_from_i16((int32_t *)hal->buff_conv_format, (int16_t *)wr_buff, wr_size/2);
+        memcpy_to_i32_from_i16((int32_t *)hal->buff_conv_format, (int16_t *)wr_buff, wr_size/sizeof(int16_t));
         wr_buff = hal->buff_conv_format;
         wr_size = out_size;
     } else if (hal->config.format == AUDIO_FORMAT_PCM_24_BIT_PACKED) {
@@ -376,38 +431,49 @@ ssize_t a2dp_out_write(struct audio_stream_out* stream, const void* buffer, size
             }
             hal->buff_size_conv_format = out_size;
         }
-        memcpy_to_p24_from_i16((uint8_t *)hal->buff_conv_format, (int16_t *)wr_buff, wr_size/2);
+        memcpy_to_p24_from_i16((uint8_t *)hal->buff_conv_format, (int16_t *)wr_buff, wr_size/sizeof(int16_t));
         wr_buff = hal->buff_conv_format;
         wr_size = out_size;
     }
-    if (property_get_int32("vendor.media.audiohal.a2dpdump", 0) > 0)  {
+    if (adev->patch_src == SRC_DTV && adev->parental_control_av_mute) {
+        memset((void*)wr_buff,0x0,wr_size);
+    }
+
+    if (property_get_int32("vendor.media.audiohal.a2dpdump", 0) > 0) {
         FILE *fp = fopen("/data/audio/a2dp.pcm", "a+");
         if (fp) {
             int flen = fwrite((char *)wr_buff, 1, wr_size, fp);
             fclose(fp);
         }
     }
-    totalWritten = hal->a2dphw.WriteData(wr_buff, wr_size);
 
+    int writed_bytes = 0;
+    int sent = 0;
+    while (writed_bytes < wr_size && adev->a2dp_hal) {
+        sent = hal->a2dphw.WriteData((char *)wr_buff+writed_bytes, wr_size-writed_bytes);
+        writed_bytes += sent;
+    }
+    hal->last_write_time = cur_write;
+    #if 0
     if (totalWritten) {
-        hal->last_write_time = ts.tv_sec * 1000000LL + ts.tv_nsec / 1000;
+        hal->last_write_time = cur_write;
     } else {
-        const int64_t now = ts.tv_sec * 1000000LL + ts.tv_nsec / 1000;
-        const int64_t gap = now - hal->last_write_time;
+        const int64_t gap = cur_write - hal->last_write_time;
         int64_t sleep_time = frames * 1000000LL / hal->config.sample_rate - gap;
-        hal->last_write_time = now;
+        hal->last_write_time = cur_write;
         if (sleep_time > 0) {
             hal->last_write_time += sleep_time;
             lock.unlock();
             usleep(sleep_time);
         }
     }
-    return totalWritten;
+    #endif
+    return bytes;
 }
 
 uint32_t a2dp_out_get_latency(const struct audio_stream_out* stream) {
     (void *)stream;
-    return 200;
+    return property_get_int32("vendor.media.a2dp.latency", 200);
 }
 
 int a2dp_out_set_parameters (struct audio_stream *stream, const char *kvpairs) {

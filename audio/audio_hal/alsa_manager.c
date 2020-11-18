@@ -30,6 +30,7 @@
 #include "aml_audio_stream.h"
 #include "audio_virtual_buf.h"
 #include "alsa_config_parameters.h"
+#include "audio_hw_dtv.h"
 
 
 #define AML_ZERO_ADD_MIN_SIZE 1024
@@ -105,7 +106,8 @@ int aml_alsa_output_open(struct audio_stream_out *stream)
                 , output_format
                 , audio_channel_count_from_out_mask(aml_out->hal_channel_mask)
                 , aml_out->config.rate
-                , aml_out->is_tv_platform);
+                , aml_out->is_tv_platform
+                , continous_mode(adev));
             switch (output_format) {
                 case AUDIO_FORMAT_E_AC3:
                     device = DIGITAL_DEVICE;
@@ -427,14 +429,10 @@ write:
     //    aml_audio_start_trigger(stream);
     //    adev->first_apts_flag = false;
     //}
-#if 0
-    FILE *fp1 = fopen("/data/pcm_write.pcm", "a+");
-    if (fp1) {
-        int flen = fwrite((char *)buffer, 1, bytes, fp1);
-        //ALOGD("flen = %d---outlen=%d ", flen, out_frames * frame_size);
-        fclose(fp1);
-    } else {
-        ALOGE("could not open file:/data/pcm_write.pcm");
+#if 1
+    if (getprop_bool("vendor.media.audiohal.outdump")) {
+        aml_audio_dump_audio_bitstreams("/data/alsa_pcm_write.pcm",
+            buffer, bytes);
     }
 #endif
 
@@ -461,6 +459,12 @@ write:
                 return bytes;
         } else {
             ALOGI("bytes:%d, need_drop_size=%d\n", bytes, aml_out->need_drop_size);
+            if (adev->discontinue_mute_flag) {
+                ALOGI("drop mute discontinue_mute_flag=%d\n",
+                adev->discontinue_mute_flag);
+                memset(audio_data + aml_out->need_drop_size, 0x0,
+                        bytes - aml_out->need_drop_size);
+            }
             ret = pcm_write(aml_out->pcm, audio_data + aml_out->need_drop_size,
                     bytes - aml_out->need_drop_size);
             aml_out->need_drop_size = 0;
@@ -479,17 +483,31 @@ write:
                 adev->no_underrun_count = 0;
                 ALOGD("output_write, audio discontinue, underrun, begin mute\n");
             }
-        } else if (adev->discontinue_mute_flag == 1 &&
-            adev->no_underrun_count++ >= adev->no_underrun_max){
-            ALOGD("output_write, no underrun, not mute, audio_discontinue=%d,count=%d\n",
-                adev->audio_discontinue, adev->no_underrun_count);
-            adev->discontinue_mute_flag = 0;
-            adev->no_underrun_count = 0;
+        } else if (adev->discontinue_mute_flag == 1 && adev->patch_src ==  SRC_DTV ) {
+            if ((adev->audio_discontinue == 0 &&
+                patch->dtv_audio_tune == AUDIO_RUNNING) ||
+                adev->no_underrun_count++ >= adev->no_underrun_max) {
+                ALOGD("no underrun, not mute, audio_discontinue=%d,count=%d\n",
+                        adev->audio_discontinue, adev->no_underrun_count);
+                ALOGD("dtv_audio_tune=%d\n", patch->dtv_audio_tune);
+                adev->discontinue_mute_flag = 0;
+                adev->no_underrun_count = 0;
+            }
         }
 
         if (adev->patch_src == SRC_DTV && (adev->discontinue_mute_flag ||
-            adev->start_mute_flag)) {
+            adev->underrun_mute_flag)) {
             memset(buffer, 0x0, bytes);
+        }
+
+        if (!adev->continuous_audio_mode && !audio_is_linear_pcm(aml_out->alsa_output_format)) {
+            /*to avoid ca noise in Sony TV when audio format switch*/
+            if (status.state == PCM_STATE_SETUP ||
+                status.state == PCM_STATE_PREPARED ||
+                status.state == PCM_STATE_XRUN) {
+                ALOGI("mute the first dd+ raw data");
+                memset(buffer, 0,bytes);
+            }
         }
 
     }
@@ -655,7 +673,7 @@ int aml_alsa_output_open_new(void **handle, aml_stream_config_t * stream_config,
     }
     channels = audio_channel_count_from_out_mask(stream_config->config.channel_mask);
     rate     = stream_config->config.sample_rate;
-    get_hardware_config_parameters(config, format, channels, rate, platform_is_tv);
+    get_hardware_config_parameters(config, format, channels, rate, platform_is_tv, continous_mode(adev));
 
     config->channels = channels;
     config->rate     = rate;
@@ -747,20 +765,45 @@ void aml_alsa_output_close_new(void *handle)
 size_t aml_alsa_output_write_new(void *handle, const void *buffer, size_t bytes)
 {
     int ret = -1;
+    int write_frames = bytes / 4;
+    int overflow_flag = 0,underrun_flag = 0;
     alsa_handle_t * alsa_handle = NULL;
-    struct pcm *pcm = NULL;
+    struct pcm *dd_pcm = NULL,*ddp_pcm = NULL;
     alsa_handle = (alsa_handle_t *)handle;
-    if ((alsa_handle == NULL) || (buffer == NULL) || (bytes == 0)) {
-        ALOGE("%s handle is NULL\n", __func__);
+    struct aml_audio_device *adev = (struct aml_audio_device *)adev_get_handle();
+    if (alsa_handle->pcm == NULL || alsa_handle == NULL || buffer == NULL || bytes == 0) {
+        ALOGW("[%s:%d] invalid param, pcm:%p, alsa_handle:%p, buffer:%p, bytes:%d",
+            __func__, __LINE__, alsa_handle->pcm, alsa_handle, buffer, bytes);
         return -1;
     }
-
-    if (alsa_handle->pcm == NULL) {
-        ALOGE("%s PCM is NULL\n", __func__);
-        return -1;
-    }
-
     //ALOGD("handle=%p pcm=%p\n",alsa_handle,alsa_handle->pcm);
+    /*add for work around ddp dd ouput ,ddp underrun issue */
+    if (is_sc2_chip() && eDolbyMS12Lib == adev->dolby_lib_type) {
+        snd_pcm_sframes_t delay_ddp = 0,delay_dd = 0;
+        dd_pcm = alsa_handle->pcm;
+        ddp_pcm = adev->pcm_handle[adev->ms12.device];
+
+        ret = pcm_ioctl(dd_pcm, SNDRV_PCM_IOCTL_DELAY, &delay_dd);
+        if (ret < 0) {
+             delay_dd = alsa_handle->config.start_threshold;
+        }
+        ret = pcm_ioctl(ddp_pcm, SNDRV_PCM_IOCTL_DELAY, &delay_ddp);
+        if (ret < 0) {
+             delay_ddp = adev->ms12_config.start_threshold;
+        }
+
+        if (delay_dd + write_frames >= alsa_handle->config.start_threshold * 2)
+            overflow_flag = 1;
+        /* dd write blocked and ddp delay at a low level ,so skip dd data to avoid ddp underun*/
+        if (overflow_flag && delay_ddp <= 2 * 6144)
+            underrun_flag = 1;
+
+        if ( underrun_flag ) {
+           ALOGI("skip dd data for delay_dd frame =%ld  delay_ddp frame %ld\n",delay_dd, delay_ddp);
+           return 0;
+        }
+    }
+
     {
         struct snd_pcm_status status;
         pcm_ioctl(alsa_handle->pcm, SNDRV_PCM_IOCTL_STATUS, &status);
@@ -770,7 +813,6 @@ size_t aml_alsa_output_write_new(void *handle, const void *buffer, size_t bytes)
     }
 
     ret = pcm_write(alsa_handle->pcm, buffer, bytes);
-
     return ret;
 }
 

@@ -29,6 +29,10 @@
 #include "audio_hw_utils.h"
 #include "audio_hwsync.h"
 
+#ifdef ENABLE_AEC_APP
+#include "audio_aec.h"
+#endif
+
 #define BUFF_CNT                    (4)
 #define SYS_BUFF_CNT                (4)
 
@@ -82,16 +86,14 @@ int inport_buffer_level(struct input_port *port)
     return get_buffer_read_space(port->r_buf);
 }
 
-bool ring_buf_ready(struct input_port *port)
+int get_inport_avail_size(struct input_port *port)
 {
     int read_avail = get_buffer_read_space(port->r_buf);
-
     if (0) {
         ALOGI("%s, port index %d, avail %d, chunk len %d",
             __func__, port->enInPortType, read_avail, port->data_len_bytes);
     }
-
-    return (read_avail >= (int)port->data_len_bytes);
+    return read_avail;
 }
 
 bool is_direct_flags(audio_output_flags_t flags) {
@@ -108,7 +110,7 @@ uint32_t inport_get_latency_frames(struct input_port *port) {
     return latency_frames;
 }
 
-aml_mixer_input_port_type_e get_input_port_index(struct audio_config *config,
+aml_mixer_input_port_type_e get_input_port_type(struct audio_config *config,
         audio_output_flags_t flags)
 {
     int channel_cnt = 2;
@@ -300,7 +302,7 @@ struct input_port *new_input_port(
         goto err_rbuf;
     }
 
-    enPortType = get_input_port_index(config, flags);
+    enPortType = get_input_port_type(config, flags);
     // system buffer larger than direct to cache more for mixing?
     if (enPortType == AML_MIXER_INPUT_PORT_PCM_SYSTEM) {
         input_port_rbuf_size = thunk_size * SYS_BUFF_CNT;
@@ -315,6 +317,11 @@ struct input_port *new_input_port(
         ALOGE("init ring buffer fail, buffer_size = %d", input_port_rbuf_size);
         goto err_rbuf_init;
     }
+    port->inport_start_threshold = 0;
+    /* increase the input size to prevent underrun */
+    if (enPortType == AML_MIXER_INPUT_PORT_PCM_MMAP) {
+        port->inport_start_threshold = input_port_rbuf_size / 2;
+    }
 
     port->enInPortType = enPortType;
     //port->format = config->format;
@@ -323,9 +330,12 @@ struct input_port *new_input_port(
     port->data = data;
     port->data_buf_frame_cnt = buf_frames;
     port->data_len_bytes = thunk_size;
+    port->buffer_len_ns = (input_port_rbuf_size / port->cfg.frame_size) * 1000000000LL / port->cfg.sampleRate;
+    port->first_write = true;
+    port->last_write_time_ns = 0;
     port->read = input_port_read;
     port->write = input_port_write;
-    port->rbuf_ready = ring_buf_ready;
+    port->rbuf_avail = get_inport_avail_size;
     port->get_latency_frames = inport_get_latency_frames;
     port->port_status = STOPPED;
     port->is_hwsync = false;
@@ -499,14 +509,31 @@ static ssize_t output_port_write_alsa(struct output_port *port, void *buffer, in
     }
 
     aml_audio_switch_output_mode((int16_t *)buffer, bytes, port->sound_track_mode);
+    if (port->pcm_restart) {
+        pcm_stop(port->pcm_handle);
+        ALOGI("restart pcm device for same src");
+        port->pcm_restart = false;
+    }
+
     do {
         int written = 0;
         ALOGV("%s(), line %d", __func__, __LINE__);
         ret = pcm_write(port->pcm_handle, (void *)buffer, bytes);
+#ifdef ENABLE_AEC_APP
+        if (ret >= 0) {
+            struct aec_info info;
+            get_pcm_timestamp(port->pcm_handle, port->cfg.sampleRate, &info, true /*isOutput*/);
+            info.bytes = bytes;
+            int aec_ret = write_to_reference_fifo(port->aec, (void *)buffer, &info);
+            if (aec_ret) {
+                ALOGE("AEC: Write to speaker loopback FIFO failed!");
+            }
+        }
+#endif
         if (ret == 0) {
            written += bytes;
         } else {
-           ALOGE("pcm_write failed ret = %d, pcm_get_error(out->pcm):%s",
+           ALOGE("pcm_write failed ret = %d, pcm_get_error(port->pcm):%s",
                 ret, pcm_get_error(port->pcm_handle));
            usleep(1000);
         }
@@ -621,7 +648,7 @@ err_data:
 
 bool is_inport_valid(aml_mixer_input_port_type_e index)
 {
-    return (index >= AML_MIXER_INPUT_PORT_PCM_SYSTEM && index < AML_MIXER_INPUT_PORT_BUTT);
+    return (index >= 0 && index < NR_INPORTS);
 }
 
 bool is_outport_valid(enum MIXER_OUTPUT_PORT index)
@@ -638,4 +665,9 @@ int set_inport_pts_valid(struct input_port *in_port, bool valid)
 bool is_inport_pts_valid(struct input_port *in_port)
 {
     return in_port->pts_valid;
+}
+
+void outport_pcm_restart(struct output_port *port)
+{
+    port->pcm_restart = true;
 }

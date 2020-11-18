@@ -69,7 +69,9 @@ int on_meta_data_cbk(void *cookie,
     ALOGV("%s(), pout %p", __func__, out);
 
     frame_size = audio_stream_out_frame_size(&out->stream);
-    sample_rate = out->audioCfg.sample_rate;
+    //sample_rate = out->audioCfg.sample_rate;
+    if (out->audioCfg.sample_rate != sample_rate)
+        offset = (offset * 1000) /(1000 * sample_rate / out->audioCfg.sample_rate);
 
     pthread_mutex_lock(&out->mdata_lock);
     if (!list_empty(&out->mdata_list)) {
@@ -125,7 +127,6 @@ int on_meta_data_cbk(void *cookie,
     if (out->hwsync && out->hwsync->use_mediasync) {
         if (!out->first_pts_set) {
             int32_t latency = 0;
-            int vframe_ready_cnt = 0;
             int delay_count = 0;
             hwsync_header_construct(header);
             latency = (int32_t)out_get_outport_latency((struct audio_stream_out *)out) * 90;
@@ -179,8 +180,6 @@ int on_meta_data_cbk(void *cookie,
 
     if (!out->first_pts_set) {
         int32_t latency = 0;
-        int vframe_ready_cnt = 0;
-        int delay_count = 0;
         hwsync_header_construct(header);
         latency = (int32_t)out_get_outport_latency((struct audio_stream_out *)out) * 90;
         latency += tunning_latency * 90;
@@ -194,16 +193,6 @@ int on_meta_data_cbk(void *cookie,
                 return 0;
             }
             pts32 -= latency;
-        }
-        while (delay_count < 10) {
-            vframe_ready_cnt = get_sysfs_int("/sys/class/video/vframe_ready_cnt");
-            ALOGV("/sys/class/video/vframe_ready_cnt is %d", vframe_ready_cnt);
-            if (vframe_ready_cnt < 2) {
-                usleep(10000);
-                delay_count++;
-                continue;
-            }
-            break;
         }
         aml_hwsync_set_tsync_start_pts(out->hwsync, pts32);
         out->first_pts_set = true;
