@@ -26,6 +26,10 @@ cc_library_shared {
         "ExtHealth.cpp",
     ],
 
+    static_libs: [
+        "android.hardware.health@1.0-convert",
+    ],
+
     // No vintf_fragments because both -impl and -service should have been
     // installed.
 }

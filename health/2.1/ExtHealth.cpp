@@ -16,6 +16,7 @@
 
 #include <memory>
 #include <string_view>
+#include <hal_conversion.h>
 
 #include "ExtHealth.h"
 
@@ -27,17 +28,44 @@ namespace extension {
 
 using namespace std::literals;
 using ::android::hardware::health::V2_1::implementation::Health;
+using android::hardware::health::V1_0::hal_conversion::convertToHealthInfo;
 
 ExtHealth::ExtHealth(std::unique_ptr<healthd_config>&& config) : Health(std::move(config))
 {
 }
 
+int healthd_board_battery_update(struct android::BatteryProperties *props)
+{
+    props->chargerAcOnline = true;
+    props->chargerUsbOnline = false;
+    props->chargerWirelessOnline = false;
+    props->maxChargingCurrent = 0;
+    props->maxChargingVoltage = 0;
+    props->batteryStatus = 2;
+    props->batteryHealth = 2;
+    props->batteryPresent = false;
+    props->batteryLevel = 50;
+    props->batteryVoltage = 4;
+    props->batteryTemperature = 40;
+    props->batteryCurrent = 0;
+    props->batteryCycleCount = 0;
+    props->batteryFullCharge = 0;
+    props->batteryChargeCounter = 10;
+    props->batteryTechnology = "Li-ion";
+
+    return 0;
+}
+
+
 void ExtHealth::UpdateHealthInfo(HealthInfo* health_info)
 {
-   // fake data for batteryChargeTimeToFullNowSeconds there is no battery
+    struct BatteryProperties props;
+    // fake data for batteryChargeTimeToFullNowSeconds there is no battery
     health_info->batteryChargeTimeToFullNowSeconds = 3000ll;
     //fake data for batteryFullChargeDesignCapacityUah there is no battery
     health_info->batteryFullChargeDesignCapacityUah = 200000;
+    healthd_board_battery_update(&props);
+    convertToHealthInfo(&props, health_info->legacy.legacy);
 }
 
 // Passthrough implementation of the health service. Use default configuration.
