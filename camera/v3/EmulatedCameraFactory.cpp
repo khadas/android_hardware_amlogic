@@ -222,6 +222,8 @@ int EmulatedCameraFactory::getCameraInfo(int camera_id, struct camera_info* info
         return -ENODEV;
     }
     valid_id = getValidCameraId();
+    if (!mEmulatedCameras[valid_id])
+        return -ENODEV;
     //return mEmulatedCameras[camera_id]->getCameraInfo(info);
     return mEmulatedCameras[valid_id]->getCameraInfo(info);
 }
