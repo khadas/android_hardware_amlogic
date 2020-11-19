@@ -18,6 +18,7 @@
 #include "dolby_lib_api.h"
 #include "alsa_device_parser.h"
 #include "a2dp_hal.h"
+#include "aml_malloc_debug.h"
 #ifdef ENABLE_AEC_APP
 #include "audio_aec.h"
 #endif
@@ -192,7 +193,7 @@ static int consume_meta_data(void *cookie,
     //struct aml_audio_mixer *audio_mixer = adev->audio_mixer;
     struct subMixing *sm = adev->sm;
     struct amlAudioMixer *audio_mixer = sm->mixerData;
-    struct meta_data_list *mdata_list = calloc(1, sizeof(struct meta_data_list));
+    struct meta_data_list *mdata_list = aml_audio_calloc(1, sizeof(struct meta_data_list));
 
     if (!mdata_list) {
         ALOGE("%s(), no memory", __func__);
@@ -821,7 +822,7 @@ static int deleteSubMixingInputPcm(struct aml_stream_out *out)
             mdata_list = node_to_item(item, struct meta_data_list, list);
             list_remove(item);
             //ALOGI("free medata list=%p", mdata_list);
-            free(mdata_list);
+            aml_audio_free(mdata_list);
         }
         pthread_mutex_unlock(&out->mdata_lock);
     }
@@ -940,7 +941,7 @@ static int newSubMixingFactory(
         res = -EINVAL;
         goto exit;
     }
-    sm = calloc(1, sizeof(struct subMixing));
+    sm = aml_audio_calloc(1, sizeof(struct subMixing));
     if (sm == NULL) {
         ALOGE("%s(), No mem!", __func__);
         res = -ENOMEM;
@@ -978,7 +979,7 @@ static void deleteSubMixing(struct subMixing *sm)
 {
     ALOGI("++%s()", __func__);
     if (sm != NULL) {
-        free(sm);
+        aml_audio_free(sm);
     }
 }
 
@@ -1180,7 +1181,7 @@ ssize_t mixer_aux_buffer_write_sm(struct audio_stream_out *stream, const void *b
         aec_set_spk_running(adev->aec, true);
 #endif
         /* start padding zero to fill buffer */
-        padding_buf = calloc(1, 512 * 4);
+        padding_buf = aml_audio_calloc(1, 512 * 4);
         if (padding_buf == NULL) {
             ALOGE("%s(), no memory", __func__);
             return -ENOMEM;
@@ -1191,7 +1192,7 @@ ssize_t mixer_aux_buffer_write_sm(struct audio_stream_out *stream, const void *b
             aml_out_write_to_mixer(stream, padding_buf, 512 * 4);
             padding_bytes -= 512 * 4;
         }
-        free(padding_buf);
+        aml_audio_free(padding_buf);
     }
     bytes_written = aml_out_write_to_mixer(stream, buffer, bytes);
 
@@ -1581,7 +1582,7 @@ static int out_flush_subMixingPCM(struct audio_stream_out *stream)
                 item = list_head(&aml_out->mdata_list);
                 mdata_list = node_to_item(item, struct meta_data_list, list);
                 list_remove(item);
-                free(mdata_list);
+                aml_audio_free(mdata_list);
             }
             pthread_mutex_unlock(&aml_out->mdata_lock);
         }

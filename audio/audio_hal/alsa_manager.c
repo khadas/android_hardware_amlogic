@@ -48,6 +48,10 @@
 #define VIRTUAL_BUF_DELAY_PERIOD_MS (4)
 #define MS_TO_NANO_SEC  (1000000LL)
 
+#define ALSA_DUMP_PROPERTY       "vendor.media.audiohal.alsadump"
+#define ALSA_OUTPUT_PCM_FILE     "/data/vendor/audiohal/alsa_pcm_write.raw"
+#define ALSA_OUTPUT_SPDIF_FILE   "/data/vendor/audiohal/alsa_spdif_write"
+
 
 /*
 insert bytes of into audio effect buffer to clear intermediate data when exit
@@ -258,7 +262,7 @@ static int aml_alsa_add_zero(struct aml_stream_out *stream, int size)
     struct aml_stream_out *aml_out = (struct aml_stream_out *)stream;
 
     while (retry--) {
-        buf = malloc(AML_ZERO_ADD_MIN_SIZE);
+        buf = aml_audio_malloc(AML_ZERO_ADD_MIN_SIZE);
         if (buf != NULL) {
             break;
         }
@@ -278,7 +282,7 @@ static int aml_alsa_add_zero(struct aml_stream_out *stream, int size)
         }
         adjust_bytes -= write_size;
     }
-    free(buf);
+    aml_audio_free(buf);
     return (size - adjust_bytes);
 }
 
@@ -424,17 +428,9 @@ size_t aml_alsa_output_write(struct audio_stream_out *stream,
 
 write:
 
-    //code here to handle audio start issue to make higher a/v sync precision
-    //if (adev->first_apts_flag) {
-    //    aml_audio_start_trigger(stream);
-    //    adev->first_apts_flag = false;
-    //}
-#if 1
-    if (getprop_bool("vendor.media.audiohal.outdump")) {
-        aml_audio_dump_audio_bitstreams("/data/alsa_pcm_write.pcm",
-            buffer, bytes);
+    if (getprop_bool(ALSA_DUMP_PROPERTY)) {
+        aml_audio_dump_audio_bitstreams(ALSA_OUTPUT_PCM_FILE, buffer, bytes);
     }
-#endif
 
     // SWPL-412, when input source is DTV, and UI set "parental_control_av_mute" command to audio hal
     // we need to mute audio output for PCM output here
@@ -510,6 +506,12 @@ write:
             }
         }
 
+    }
+
+    if (adev->raw_to_pcm_flag) {
+        pcm_stop(aml_out->pcm);
+        adev->raw_to_pcm_flag = false;
+        ALOGI("raw to lpcm switch %s\n",__func__);
     }
 
     ret = pcm_write(aml_out->pcm, buffer, bytes);
@@ -642,6 +644,7 @@ typedef struct alsa_handle {
     struct pcm *pcm;
     int    block_mode;
     unsigned int alsa_port;  /*refer to PORT_SPDIF, PORT***/
+    audio_format_t  format;
 
 } alsa_handle_t;
 
@@ -661,7 +664,7 @@ int aml_alsa_output_open_new(void **handle, aml_stream_config_t * stream_config,
     struct aml_audio_device *adev = (struct aml_audio_device *)adev_get_handle();
 
 
-    alsa_handle = (alsa_handle_t *)calloc(1, sizeof(alsa_handle_t));
+    alsa_handle = (alsa_handle_t *)aml_audio_calloc(1, sizeof(alsa_handle_t));
     if (alsa_handle == NULL) {
         ALOGE("malloc alsa_handle failed\n");
         return -1;
@@ -721,6 +724,7 @@ int aml_alsa_output_open_new(void **handle, aml_stream_config_t * stream_config,
     alsa_handle->alsa_port = pcm_index;
     alsa_handle->pcm = pcm;
     alsa_handle->alsa_port = alsa_port;
+    alsa_handle->format = format;
 
 
     *handle = (void*)alsa_handle;
@@ -729,7 +733,7 @@ int aml_alsa_output_open_new(void **handle, aml_stream_config_t * stream_config,
 
 exit:
     if (alsa_handle) {
-        free(alsa_handle);
+        aml_audio_free(alsa_handle);
     }
     *handle = NULL;
     return -1;
@@ -757,7 +761,7 @@ void aml_alsa_output_close_new(void *handle)
     }
     pcm = alsa_handle->pcm;
     pcm_close(pcm);
-    free(alsa_handle);
+    aml_audio_free(alsa_handle);
 
     ALOGI("-%s()\n\n", __func__);
 }
@@ -778,10 +782,10 @@ size_t aml_alsa_output_write_new(void *handle, const void *buffer, size_t bytes)
     }
     //ALOGD("handle=%p pcm=%p\n",alsa_handle,alsa_handle->pcm);
     /*add for work around ddp dd ouput ,ddp underrun issue */
-    if (is_sc2_chip() && eDolbyMS12Lib == adev->dolby_lib_type) {
+    dd_pcm = alsa_handle->pcm;
+    ddp_pcm = adev->pcm_handle[adev->ms12.device];
+    if (is_sc2_chip() && eDolbyMS12Lib == adev->dolby_lib_type && dd_pcm && ddp_pcm && (alsa_handle->format != AUDIO_FORMAT_MAT)) {
         snd_pcm_sframes_t delay_ddp = 0,delay_dd = 0;
-        dd_pcm = alsa_handle->pcm;
-        ddp_pcm = adev->pcm_handle[adev->ms12.device];
 
         ret = pcm_ioctl(dd_pcm, SNDRV_PCM_IOCTL_DELAY, &delay_dd);
         if (ret < 0) {
@@ -810,6 +814,19 @@ size_t aml_alsa_output_write_new(void *handle, const void *buffer, size_t bytes)
         if (status.state == PCM_STATE_XRUN) {
             ALOGD("%s alsa underrun", __func__);
         }
+    }
+    if (getprop_bool(ALSA_DUMP_PROPERTY)) {
+        char file_name[128] = { 0 };
+        if (alsa_handle->format == AUDIO_FORMAT_AC3) {
+            snprintf(file_name, 128, "%s.%s", ALSA_OUTPUT_SPDIF_FILE, "dd");
+        } else if (alsa_handle->format == AUDIO_FORMAT_E_AC3) {
+            snprintf(file_name, 128, "%s.%s", ALSA_OUTPUT_SPDIF_FILE, "ddp");
+        } else if (alsa_handle->format == AUDIO_FORMAT_MAT) {
+            snprintf(file_name, 128, "%s.%s", ALSA_OUTPUT_SPDIF_FILE, "mat");
+        } else {
+            snprintf(file_name, 128, "%s.%s", ALSA_OUTPUT_SPDIF_FILE, "pcm");
+        }
+        aml_audio_dump_audio_bitstreams(file_name, buffer, bytes);
     }
 
     ret = pcm_write(alsa_handle->pcm, buffer, bytes);

@@ -56,6 +56,7 @@ public:
     virtual void    ReleaseLibHandle(void);
     virtual int     GetMS12OutputMaxSize(void);
     virtual void *  DolbyMS12Init(int configNum, char **configParams);
+    virtual char *  DolbMS12GetVersion(void);
     virtual void    DolbyMS12Release(void *dolbyMS12_pointer);
     virtual int     DolbyMS12InputMain(
         void *dolbyMS12_pointer
@@ -93,7 +94,7 @@ public:
 #ifdef REPLACE_OUTPUT_BUFFER_WITH_CALLBACK
 
     virtual int     DolbyMS12RegisterPCMCallback(output_callback callback, void *priv_data);
-
+    virtual int     DolbyMS12RegisterDAPPCMCallback(output_callback callback, void *priv_data);
     virtual int     DolbyMS12RegisterBitstreamCallback(output_callback callback, void *priv_data);
 
     virtual int     DolbyMS12RegisterSpdifBitstreamCallback(output_callback callback, void *priv_data);

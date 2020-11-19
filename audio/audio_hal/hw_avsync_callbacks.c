@@ -9,6 +9,7 @@
 #include "audio_hwsync.h"
 #include "audio_hw.h"
 #include "audio_hw_utils.h"
+#include "aml_malloc_debug.h"
 
 enum hwsync_status pcm_check_hwsync_status(uint apts_gap)
 {
@@ -100,7 +101,7 @@ int on_meta_data_cbk(void *cookie,
         out->last_pts = pts;
         out->last_payload_offset = offset;
         list_remove(&mdata_list->list);
-        free(mdata_list);
+        aml_audio_free(mdata_list);
         ALOGV("head pts =%lld delta =%lld pts =%lld ",header->pts, pts_delta, pts);
     } else if (offset > out->last_payload_offset) {
         pts_delta = (offset - out->last_payload_offset) * 1000000000LL/(frame_size * sample_rate);

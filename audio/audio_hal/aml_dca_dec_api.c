@@ -35,6 +35,7 @@
 
 #include "aml_dca_dec_api.h"
 //#include "aml_ac3_parser.h"
+#include "aml_malloc_debug.h"
 
 
 enum {
@@ -157,12 +158,12 @@ int dca_decoder_init_patch(struct dca_dts_dec *dts_dec)
     dts_dec->inbuf = NULL;
     dts_dec->outbuf = NULL;
     dts_dec->outbuf_raw = NULL;
-    dts_dec->inbuf = (unsigned char*) malloc(MAX_DECODER_FRAME_LENGTH * 4 * 2);
+    dts_dec->inbuf = (unsigned char*) aml_audio_malloc(MAX_DECODER_FRAME_LENGTH * 4 * 2);
     if (!dts_dec->inbuf) {
         ALOGE("malloc buffer failed\n");
         return -1;
     }
-    dts_dec->outbuf = (unsigned char*) malloc(MAX_DECODER_FRAME_LENGTH * 3 + MAX_DECODER_FRAME_LENGTH + 8);
+    dts_dec->outbuf = (unsigned char*) aml_audio_malloc(MAX_DECODER_FRAME_LENGTH * 3 + MAX_DECODER_FRAME_LENGTH + 8);
     if (!dts_dec->outbuf) {
         ALOGE("malloc buffer failed\n");
         return -1;
@@ -185,8 +186,8 @@ int dca_decoder_release_patch(struct dca_dts_dec *dts_dec)
         dts_dec->outlen_pcm = 0;
         dts_dec->outlen_raw = 0;
         //dts_dec->nIsEc3 = 0;
-        free(dts_dec->inbuf);
-        free(dts_dec->outbuf);
+        aml_audio_free(dts_dec->inbuf);
+        aml_audio_free(dts_dec->outbuf);
         dts_dec->inbuf = NULL;
         dts_dec->outbuf = NULL;
         dts_dec->outbuf_raw = NULL;
@@ -329,17 +330,17 @@ static void *decode_threadloop(void *data)
     int digital_raw = 0;
 
     ALOGI("++ %s, in_sr = %d, out_sr = %d\n", __func__, parser->in_sample_rate, parser->out_sample_rate);
-    outbuf = (unsigned char*) malloc(MAX_DECODER_FRAME_LENGTH * 4 + MAX_DECODER_FRAME_LENGTH + 8);
+    outbuf = (unsigned char*) aml_audio_malloc(MAX_DECODER_FRAME_LENGTH * 4 + MAX_DECODER_FRAME_LENGTH + 8);
     if (!outbuf) {
         ALOGE("malloc buffer failed\n");
         return NULL;
     }
     outbuf_raw = outbuf + MAX_DECODER_FRAME_LENGTH;
-    inbuf = (unsigned char*) malloc(MAX_DECODER_FRAME_LENGTH * 4 * 2);
+    inbuf = (unsigned char*) aml_audio_malloc(MAX_DECODER_FRAME_LENGTH * 4 * 2);
 
     if (!inbuf) {
         ALOGE("malloc inbuf failed\n");
-        free(outbuf);
+        aml_audio_free(outbuf);
         return NULL;
     }
 #ifdef DTS_DECODER_ENABLE
@@ -470,10 +471,10 @@ static void *decode_threadloop(void *data)
 
     parser->decode_enabled = 0;
     if (inbuf) {
-        free(inbuf);
+        aml_audio_free(inbuf);
     }
     if (outbuf) {
-        free(outbuf);
+        aml_audio_free(outbuf);
     }
 #ifdef DTS_DECODER_ENABLE
     unload_dts_decoder_lib();

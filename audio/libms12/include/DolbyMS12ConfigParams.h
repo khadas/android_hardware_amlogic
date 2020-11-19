@@ -24,6 +24,7 @@
 #include <utils/Mutex.h>
 
 #include "dolby_ms12_config_parameter_struct.h"
+#include "dolby_ms12_output_mask.h"
 
 //@@@DDPlus input file
 #define DEFAULT_MAIN_DDP_FILE_NAME "/data/main.ac3"
@@ -51,7 +52,7 @@ public:
                                          , audio_format_t input_format
                                          , audio_channel_mask_t channel_mask
                                          , int sample_rate
-                                         , audio_format_t output_format);
+                                         , int output_config);
     virtual bool SetDolbyMS12ParamsbyOutProfile(audio_policy_forced_cfg_t forceUse);
     virtual int SetInputOutputFileName(char **ConfigParams, int *row_index);
     virtual int SetFunctionalSwitches(char **ConfigParams, int *row_index);
@@ -69,6 +70,7 @@ public:
     virtual char **GetDolbyMS12ConfigParams(int *argc);
     virtual char **GetDolbyMS12RuntimeConfigParams(int *argc);
     virtual char **GetDolbyMS12RuntimeConfigParams_lite(int *argc);
+    virtual char **UpdateDolbyMS12RuntimeConfigParams(int *argc, char *cmd);
 
     //init the  mConfigParams Array
     virtual char **PrepareConfigParams(int max_raw_size, int max_column_size);
@@ -173,7 +175,7 @@ public:
     }
     virtual void setDownmixModes(int val)
     {
-        mDonwmixMode = val;    // 0 or 1
+        mDownmixMode = val;    // 0 or 1
     }
     virtual void setEvalutionMode(int val)
     {
@@ -502,6 +504,8 @@ private:
     // static DolbyMS12ConfigParams *gInstance;
     // static android::Mutex mLock;
     // audio_devices_t mAudioSteamOutDevices;
+    int ms_get_int_array_from_str(char **p_csv_string, int num_el, int *p_vals);
+    int ms_get_int_from_str(char **p_csv_string, int *p_vals);
     int mParamNum;
 
     //dolby ms12 input
@@ -511,6 +515,7 @@ private:
     int mAudioSteamOutSampleRate;
 
     //dolby ms12 output
+    int mDolbyMS12OutConfig;
 
     audio_format_t mDolbyMS12OutFormat;
     int mDolbyMS12OutSampleRate;
@@ -535,7 +540,7 @@ private:
     int mDBGOut;//(default: none)
     int mDRCModesOfDownmixedOutput;
     int mDAPDRCMode;//for multi-ch and dap output[default is 0]
-    int mDonwmixMode;//Lt/Rt[val=0, default] or Lo/Ro
+    int mDownmixMode;//Lt/Rt[val=0, default] or Lo/Ro
     int mEvaluationMode;//default is 0
     int mLFEPresentInAppSoundIn;//default is 1[means on]
     int mLFEPresentInSystemSoundIn;//default is 0[means off]

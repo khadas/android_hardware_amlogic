@@ -26,6 +26,7 @@
 
 #include "aml_audio_timer.h"
 #include "audio_virtual_buf.h"
+#include "aml_malloc_debug.h"
 
 #define MAX_NAME_LENGHT  128
 
@@ -54,7 +55,7 @@ int audio_virtual_buf_open(void ** pphandle, char * buf_name, uint64_t buf_ns_be
     int ret = -1;
     audio_virtual_buf_t * phandle = NULL;
     int name_length = 0;
-    phandle = calloc(1, sizeof(struct audio_virtual_buf));
+    phandle = aml_audio_calloc(1, sizeof(struct audio_virtual_buf));
     if (phandle == NULL) {
         ALOGE("malloc failed\n");
         return -1;
@@ -66,10 +67,12 @@ int audio_virtual_buf_open(void ** pphandle, char * buf_name, uint64_t buf_ns_be
         }
 
         strncpy(phandle->buf_name, buf_name, name_length);
-        phandle->buf_name[name_length + 1] = '\0';
+        phandle->buf_name[name_length] = '\0';
 
     } else {
         ALOGE("buf name is NULL\n");
+        aml_audio_free(phandle);
+        phandle = NULL;
         return -1;
     }
     phandle->state = VIRTUAL_BUF_IDLE;
@@ -90,7 +93,7 @@ int audio_virtual_buf_open(void ** pphandle, char * buf_name, uint64_t buf_ns_be
 int audio_virtual_buf_close(void **pphandle)
 {
     if (*pphandle) {
-        free(*pphandle);
+        aml_audio_free(*pphandle);
         *pphandle = NULL;
     }
 

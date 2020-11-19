@@ -95,7 +95,7 @@ static void dump_ad_input_data(void *buffer, int size, char *file_name)
         FILE *fp1 = fopen(file_name, "a+");
         if (fp1) {
             int flen = fwrite((char *)buffer, 1, size, fp1);
-            ALOGV("%s buffer %p size %d\n", __FUNCTION__, buffer, size);
+            ALOGV("%s buffer %p size %d flen %d\n", __FUNCTION__, buffer, size, flen);
             fclose(fp1);
         }
     }
@@ -420,4 +420,3 @@ void dtv_assoc_audio_resume(unsigned int handle, int pid)
         ALOGI("%s, err... param->assoc_enable=%d", __FUNCTION__, param->assoc_enable);
     }
 }
-

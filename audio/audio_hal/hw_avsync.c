@@ -1,3 +1,11 @@
+/*
+* Copyright (c) 2020 Amlogic, Inc. All rights reserved.
+* *
+This source code is subject to the terms and conditions defined in the
+* file 'LICENSE' which is part of this source code package.
+* *
+Description:
+*/
 
 
 #define LOG_TAG "audio_hw_avsync"
@@ -12,6 +20,7 @@
 
 #include "hw_avsync.h"
 #include "audio_hwsync.h"
+#include "aml_malloc_debug.h"
 
 #ifndef min
 #define min(a,b) ((a) < (b) ? (a) : (b))
@@ -315,7 +324,7 @@ new_hw_avsync_header_extractor(
 {
     struct hw_avsync_header_extractor *header_extractor = NULL;
 
-    header_extractor = (struct hw_avsync_header_extractor *)calloc(1, sizeof(*header_extractor));
+    header_extractor = (struct hw_avsync_header_extractor *)aml_audio_calloc(1, sizeof(*header_extractor));
     if (!header_extractor) {
         return NULL;
     }
@@ -337,7 +346,7 @@ void delete_hw_avsync_header_extractor(struct hw_avsync_header_extractor *header
         //ALOGV("header_extractor->tsync_fd = %d", header_extractor->tsync_fd);
         //aml_hwsync_close_tsync(header_extractor->tsync_fd);
         //header_extractor->tsync_fd = -1;
-        free(header_extractor);
+        aml_audio_free(header_extractor);
         header_extractor = NULL;
     }
 }

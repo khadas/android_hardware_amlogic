@@ -19,10 +19,14 @@
 #define _AML_MALLOC_DEBUG_H
 #include <stdlib.h>
 
+enum {
+    MEMINFO_SHOW_PRINT,
+    MEMINFO_SHOW_FILE
+};
 
 //#define AML_MALLOC_DEBUG
-#ifdef AML_MALLOC_DEBUG
 
+#ifdef AML_MALLOC_DEBUG
 #define aml_audio_malloc(x) aml_audio_debug_malloc(x, __FILE__, __LINE__)
 #define aml_audio_free(x)   aml_audio_debug_free(x)
 #define aml_audio_realloc(x, y) aml_audio_debug_realloc(x, y, __FILE__, __LINE__)

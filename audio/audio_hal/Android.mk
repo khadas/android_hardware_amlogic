@@ -28,6 +28,7 @@ LOCAL_PROPRIETARY_MODULE := true
 LOCAL_MODULE_TARGET_ARCH:= arm arm64
 LOCAL_MULTILIB := both
 LOCAL_SHARED_LIBRARIES := libcutils liblog libutils
+
 include $(BUILD_PREBUILT)
 
 # The default audio HAL module, which is a stub, that is loaded if no other
@@ -49,7 +50,6 @@ include $(BUILD_PREBUILT)
         audio_hwsync.c \
         audio_hw_profile.c \
         alsa_manager.c \
-        audio_hw_ms12.c \
         audio_hw_dtv.c \
         a2dp_hw.cpp \
         a2dp_hal.cpp \
@@ -72,15 +72,26 @@ include $(BUILD_PREBUILT)
         audio_port.c \
         sub_mixing_factory.c \
         audio_data_process.c \
+        ../../../../frameworks/av/media/libaudioprocessing/AudioResampler.cpp \
+        ../../../../frameworks/av/media/libaudioprocessing/AudioResamplerCubic.cpp \
+        ../../../../frameworks/av/media/libaudioprocessing/AudioResamplerSinc.cpp \
+        ../../../../frameworks/av/media/libaudioprocessing/AudioResamplerDyn.cpp \
+        aml_resample_wrap.cpp \
+        audio_simple_resample_api.c \
+        aml_audio_resample_manager.c \
+        audio_android_resample_api.c \
         aml_audio_timer.c \
         audio_virtual_buf.c \
         aml_audio_ease.c \
-        aml_audio_spdifout.c \
-        aml_mmap_audio.c \
         aml_audio_ac3parser.c \
-        aml_audio_hal_avsync.c \
-        aml_audio_spdifdec.c
-
+        aml_mmap_audio.c \
+        aml_audio_ms12_bypass.c \
+        aml_audio_bitsparser.c \
+        aml_audio_ac4parser.c \
+        aml_audio_matparser.c \
+        aml_audio_spdifdec.c \
+        aml_audio_spdifout.c \
+        aml_audio_hal_avsync.c
 
     LOCAL_C_INCLUDES += \
         external/tinyalsa/include \
@@ -91,14 +102,15 @@ include $(BUILD_PREBUILT)
         system/core/include \
         system/libfmq/include \
         hardware/libhardware/include \
-        $(LOCAL_PATH)/../libms12/include \
-        hardmare/amlogic/audio/libms12/include \
         $(LOCAL_PATH)/../utils/include \
         $(LOCAL_PATH)/../utils/ini/include \
         $(LOCAL_PATH)/../rcaudio \
         $(LOCAL_PATH)/../../LibAudio/amadec/include \
         $(LOCAL_PATH)/../bt_voice/kehwin \
         vendor/amlogic/common/prebuilt/dvb/include/am_adp \
+	    frameworks/av/include \
+        $(TOPDIR)frameworks/av/media/libaudioclient/include \
+        $(TOPDIR)frameworks/av/media/libaudioprocessing/include \
         hardware/amlogic/audio/dtv_audio_utils/sync
 
     LOCAL_LDFLAGS_arm += $(LOCAL_PATH)/lib_aml_ng.a
@@ -161,10 +173,22 @@ LOCAL_CFLAGS += -DDVB_AUDIO_SC2
 endif
 
 #add dolby ms12support
-    LOCAL_SHARED_LIBRARIES += libms12api
     LOCAL_CFLAGS += -DDOLBY_MS12_ENABLE
     LOCAL_CFLAGS += -DREPLACE_OUTPUT_BUFFER_WITH_CALLBACK
-    LOCAL_C_INCLUDES += $(LOCAL_PATH)/../libms12/include
+
+
+ifeq ($(TARGET_BUILD_DOLBY_MS12_V2), true)
+    LOCAL_SRC_FILES += audio_hw_ms12_v2.c
+    LOCAL_CFLAGS += -DMS12_V24_ENABLE
+    LOCAL_C_INCLUDES += $(LOCAL_PATH)/../libms12_v24/include \
+                        hardmare/amlogic/audio/libms12_v24/include
+    LOCAL_SHARED_LIBRARIES += libms12api_v24
+else
+    LOCAL_SRC_FILES += audio_hw_ms12.c
+    LOCAL_C_INCLUDES += $(LOCAL_PATH)/../libms12/include \
+                        hardmare/amlogic/audio/libms12/include
+    LOCAL_SHARED_LIBRARIES += libms12api
+endif
 
 #For atom project
 ifeq ($(strip $(TARGET_BOOTLOADER_BOARD_NAME)), atom)
@@ -220,7 +244,7 @@ LOCAL_C_INCLUDES := \
    vendor/amlogic/common/prebuilt/dvb/include/am_adp \
    hardware/amlogic/audio/dtv_audio_utils/sync
 
-LOCAL_CFLAGS += -Werror
+LOCAL_CFLAGS += -Werror -Wall
 LOCAL_MODULE := libdtvad
 LOCAL_MODULE_TAGS := optional
 ifeq ($(shell test $(PLATFORM_SDK_VERSION) -ge 26 && echo OK),OK)

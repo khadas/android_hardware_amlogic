@@ -40,11 +40,15 @@
 #include "aml_audio_types_def.h"
 #include "audio_format_parse.h"
 #include "aml_alsa_mixer.h"
-//#include "aml_audio_ms12.h"
+#ifndef MS12_V24_ENABLE
 #include "../libms12/include/aml_audio_ms12.h"
+#else
+#include "../libms12_v24/include/aml_audio_ms12.h"
+#endif
 //#include "aml_audio_mixer.h"
 #include "audio_port.h"
 #include "aml_audio_ease.h"
+#include "aml_malloc_debug.h"
 
 /* number of frames per period */
 /*
@@ -109,6 +113,12 @@ enum {
     TYPE_TRUE_HD = 7,
     TYPE_DTS_HD_MA = 8,//should not used after we unify DTS-HD&DTS-HD MA
     TYPE_PCM_HIGH_SR = 9,
+    TYPE_AC4 = 10,
+    TYPE_MAT = 11,
+    TYPE_DDP_ATMOS = 12,
+    TYPE_TRUE_HD_ATMOS = 13,
+    TYPE_MAT_ATMOS = 14,
+    TYPE_AC4_ATMOS = 15,
 };
 
 #define FRAMESIZE_16BIT_STEREO 4
@@ -173,11 +183,16 @@ struct format_desc {
 };
 
 struct aml_arc_hdmi_desc {
+    int EDID_length;
     unsigned int avr_port;
+    char SAD[38]; /* 3 bytes for each audio format, max 30 bytes for audio edid, 8 bytes for TLV header */
+    bool default_edid;
     struct format_desc pcm_fmt;
     struct format_desc dts_fmt;
+    struct format_desc dtshd_fmt;
     struct format_desc dd_fmt;
     struct format_desc ddp_fmt;
+    struct format_desc mat_fmt;
 };
 
 enum patch_src_assortion {
@@ -244,7 +259,8 @@ typedef enum alsa_device {
     I2S_DEVICE = 0,
     DIGITAL_DEVICE, /*for spdifa*/
     TDM_DEVICE,
-    DIGITAL_DEVICE2, /*for spdifb*/
+    EARC_DEVICE,
+	DIGITAL_DEVICE2, /*for spdifb*/
     ALSA_DEVICE_CNT
 } alsa_device_t;
 
@@ -318,6 +334,7 @@ struct aml_audio_device {
     bool audio_patching;
     /* audio configuration for dolby HDMI/SPDIF output */
     int hdmi_format;
+    int pre_hdmi_format;
     int spdif_format;
     int hdmi_is_pth_active;
     int disable_pcm_mixing;
@@ -483,7 +500,7 @@ struct aml_audio_device {
     bool useSubMix;
     //int cnt_stream_using_mixer;
     int tsync_fd;
-    bool rawtopcm_flag;
+    bool raw_to_pcm_flag;
     bool is_netflix;
     int dtv_aformat;
     unsigned int dtv_i2s_clock;
@@ -505,6 +522,8 @@ struct aml_audio_device {
     int audio_discontinue;
     int no_underrun_count;
     int no_underrun_max;
+    int   dap_bypass_enable;
+    float dap_bypassgain;
     int start_mute_flag;
     int start_mute_count;
     int start_mute_max;
@@ -513,6 +532,7 @@ struct aml_audio_device {
     int count;
     int sound_track_mode;
     void *alsa_handle[ALSA_DEVICE_CNT];
+    int FactoryChannelReverse;
     bool dual_spdif_support; /*1 means supports spdif_a & spdif_b & spdif interface*/
     uint64_t  sys_audio_frame_written;
     void* hw_mediasync;
@@ -634,7 +654,6 @@ struct aml_stream_out {
     int dropped_size;
     unsigned long long mute_bytes;
     bool is_get_mute_bytes;
-    int frame_deficiency;
     bool normal_pcm_mixing_config;
     uint32_t latency_frames;
     unsigned int inputPortID;
@@ -678,8 +697,11 @@ struct aml_stream_out {
     unsigned char *resample_outbuf;
     bool restore_hdmitx_selection;
     bool restore_continuous;
+    bool continuous_mode_check;
+    void * ac4_parser_handle;
     int64_t last_mmap_nano_second;
     int32_t last_mmap_position;
+    void *spdifout_handle;
 };
 
 typedef ssize_t (*write_func)(struct audio_stream_out *stream, const void *buffer, size_t bytes);
@@ -779,7 +801,11 @@ inline int dolby_stream_active(struct aml_audio_device *adev)
     struct aml_stream_out *out = NULL;
     for (i = 0 ; i < STREAM_USECASE_MAX; i++) {
         out = adev->active_outputs[i];
-        if (out && (out->hal_internal_format == AUDIO_FORMAT_AC3 || out->hal_internal_format == AUDIO_FORMAT_E_AC3)) {
+        if (out && (out->hal_internal_format == AUDIO_FORMAT_AC3
+            || out->hal_internal_format == AUDIO_FORMAT_E_AC3
+            || out->hal_internal_format == AUDIO_FORMAT_DOLBY_TRUEHD
+            || out->hal_internal_format == AUDIO_FORMAT_AC4
+            || out->hal_internal_format == AUDIO_FORMAT_MAT)) {
             is_dolby = 1;
             break;
         }
@@ -878,7 +904,7 @@ int dsp_process_output(struct aml_audio_device *adev, void *in_buffer,
                        size_t bytes);
 int release_patch_l(struct aml_audio_device *adev);
 enum hwsync_status check_hwsync_status (uint apts_gap);
-void config_output(struct audio_stream_out *stream);
+void config_output(struct audio_stream_out *stream, bool reset_decoder);
 int start_ease_in(struct aml_audio_device *adev);
 int start_ease_out(struct aml_audio_device *adev);
 int out_standby_direct (struct audio_stream *stream);

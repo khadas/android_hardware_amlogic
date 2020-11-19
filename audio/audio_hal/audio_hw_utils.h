@@ -80,6 +80,8 @@ int aml_audio_get_latency_offset(enum OUT_PORT port,audio_format_t source_format
 uint32_t tspec_diff_to_us(struct timespec tval_old,
         struct timespec tval_new);
 int aml_audio_get_dolby_drc_mode(int *drc_mode, int *drc_cut, int *drc_boost);
+int aml_audio_get_dolby_dap_drc_mode(int *drc_mode, int *drc_cut, int *drc_boost);
+void aml_audio_set_cpu23_affinity();
 void * aml_audio_get_muteframe(audio_format_t output_format, int * frame_size, int bAtmos);
 void aml_audio_switch_output_mode(int16_t *buf, size_t bytes, AM_AOUT_OutputMode_t mode);
 int aml_audio_compensate_video_delay( int enable);
@@ -89,5 +91,7 @@ int halformat_convert_to_spdif(audio_format_t format);
 int alsa_device_get_port_index(alsa_device_t alsa_device);
 int aml_set_thread_priority(char *pName, pthread_t threadId);
 uint32_t out_get_alsa_latency_frames(const struct audio_stream_out *stream);
-
+bool is_multi_channel_pcm(struct audio_stream_out *stream);
+bool is_high_rate_pcm(struct audio_stream_out *stream);
+bool is_disable_ms12_continuous(struct audio_stream_out *stream);
 #endif

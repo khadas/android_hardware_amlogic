@@ -30,9 +30,12 @@
 #include "ac3_parser_utils.h"
 #include "aml_ac3_parser.h"
 #include "audio_format_parse.h"
+#include "aml_audio_matparser.h"
 
 #define IEC61937_HEADER_SIZE 8
-
+#define IEC61937_AC3_PC_VALUE       (0x1)
+#define IEC61937_EAC3_PC_VALUE      (0x15)
+#define IEC61937_MAT_PC_VALUE       (0x16)
 
 /*
  *Find the position of 61937 sync word in the buffer, need PA/PB/PC/PD, 4*sizeof(short)
@@ -262,7 +265,8 @@ int scan_dolby_main_frame_ext(void *input_buffer
                               , int *used_size
                               , void **main_frame_buffer
                               , int *main_frame_size
-                              , size_t *payload_deficiency)
+                              , size_t *payload_deficiency
+                              , int *mat_stream_profile)
 {
     ALOGV("\n+%s() bytes %zu\n", __FUNCTION__, bytes);
     int ret = 0;
@@ -280,6 +284,7 @@ int scan_dolby_main_frame_ext(void *input_buffer
     int scan_framevalid_flag;
     int is_iec61937_packat = 0;
     int is_ddp = 0;
+    int pc = 0;
     // Pa   16-bit  Sync word 1  F872h
     // Pb   16-bit  Sync word 2  4E1Fh
     // Pc   16-bit  Burst-info  Table 1
@@ -298,10 +303,10 @@ int scan_dolby_main_frame_ext(void *input_buffer
         pcpd = *tmp_pcpd;
         // Data type defined in PC bits 0-6 in IEC 61937-1 consists of conventional data-type (0-4) and
         // subdata-type (5-6) for historical reasons. All data-types are defined in Table 2.
-        int pc = (pcpd & 0x1f);
+        pc = (pcpd & 0x1f);
         ALOGV("%s sync_word_offset %d pcpd %#x pc %#x\n", __FUNCTION__, sync_word_offset, pcpd, pc);
         /*Value of 0-4bit is data type*/
-        if (pc == 0x01) {
+        if (pc == IEC61937_AC3_PC_VALUE) {
             is_ddp = 0;
             payload_size = (pcpd >> 16) / 8;
             //ALOGI("%s sync_word_offset %d payload_size %#x pc %#x\n", __FUNCTION__, sync_word_offset, payload_size, pc);
@@ -326,7 +331,7 @@ int scan_dolby_main_frame_ext(void *input_buffer
                     ret = -1;
                 }
             }
-        } else if (pc == 0x15) {
+        } else if (pc == IEC61937_EAC3_PC_VALUE) {
             is_ddp = 1;
             payload_size = (pcpd >> 16);
             if (bytes - sync_word_offset >= (size_t)payload_size) {
@@ -349,6 +354,29 @@ int scan_dolby_main_frame_ext(void *input_buffer
                     ret = -1;
                 }
             }
+        } else if (pc == IEC61937_MAT_PC_VALUE) {
+            payload_size = (pcpd >> 16);
+            ALOGV("payload_size 0x%x\n", payload_size);
+            if (bytes - sync_word_offset >= (size_t)payload_size) {
+                if (bytes - sync_word_offset >= MAT_PERIOD_SIZE) {
+                    *used_size = sync_word_offset + MAT_PERIOD_SIZE;
+                    is_iec61937_packat = 1;
+                } else {
+                    *used_size = sync_word_offset + payload_size;
+                }
+                ret = 0;
+            } else {
+                if (bytes - sync_word_offset > 0) {
+                    *used_size = bytes;
+                    *payload_deficiency = payload_size - (bytes - sync_word_offset - IEC61937_HEADER_SIZE);
+                    ret = 1;
+                } else {
+                    *used_size = bytes;
+                    ALOGV("%s useful data len %lu mat iec61937 packet size %#x payload_size %#x",
+                         __FUNCTION__, (unsigned long)(bytes - sync_word_offset), MAT_PERIOD_SIZE, payload_size);
+                    ret = -1;
+                }
+            }
         } else {
             ret = -1;
             ALOGE("%s error pc %x\n", __FUNCTION__, pc);
@@ -365,6 +393,10 @@ int scan_dolby_main_frame_ext(void *input_buffer
     if ((ret >= 0) && (payload_size > 0)) {
         *main_frame_buffer = (void *)((char *)input_buffer + sync_word_offset + IEC61937_HEADER_SIZE);
         *main_frame_size = payload_size;
+        if (pc == IEC61937_MAT_PC_VALUE) {
+            *mat_stream_profile = get_stream_profile_from_dolby_mat_frame((const char *)*main_frame_buffer, *main_frame_size);
+            ALOGV("MAT mat_stream_profile %d\n", *mat_stream_profile);
+        }
         ret = 0;
     } else {
         *main_frame_buffer = NULL;

@@ -111,7 +111,7 @@ static void *outMmapThread(void *pArg) {
         ALOGW("%s(), failed to set cpu affinity", __func__);
     }
 
-    pu8TempBufferAddr = (unsigned char *)malloc(MMAP_WRITE_SIZE_BYTE);
+    pu8TempBufferAddr = (unsigned char *)aml_audio_malloc(MMAP_WRITE_SIZE_BYTE);
     while (false == pstThread->bExitThread) {
         if (false == pstThread->bStopPlay) {
 
@@ -184,7 +184,7 @@ static void *outMmapThread(void *pArg) {
     if (pstVirtualBuffer != NULL) {
         audio_virtual_buf_close((void **)&pstVirtualBuffer);
     }
-    free(pu8TempBufferAddr);
+    aml_audio_free(pu8TempBufferAddr);
     pu8TempBufferAddr = NULL;
     ALOGI("[%s:%d]  exit threadloop, out:%p", __func__, __LINE__, out);
     return NULL;
@@ -325,7 +325,7 @@ int outMmapInit(struct aml_stream_out *out)
        ALOGW("[%s:%d] already init, can't again init", __func__, __LINE__);
        return 0;
    }
-   out->pstMmapAudioParam = (aml_mmap_audio_param_st *)malloc(sizeof(aml_mmap_audio_param_st));
+   out->pstMmapAudioParam = (aml_mmap_audio_param_st *)aml_audio_malloc(sizeof(aml_mmap_audio_param_st));
    pstParam = out->pstMmapAudioParam;
    if (pstParam == NULL) {
        ALOGW("[%s:%d] mmap audio param memory malloc fail", __func__, __LINE__);
@@ -375,7 +375,7 @@ int outMmapDeInit(struct aml_stream_out *out)
     munmap(pstParam->pu8MmapAddr, MMAP_BUFFER_SIZE_BYTE);
     ion_free(pstParam->s32IonFd, pstParam->hIonHanndle);
     ion_close(pstParam->s32IonFd);
-    free(pstParam);
+    aml_audio_free(pstParam);
     out->pstMmapAudioParam = NULL;
     return 0;
 }

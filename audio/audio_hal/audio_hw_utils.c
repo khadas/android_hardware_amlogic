@@ -18,6 +18,7 @@
 
 #define LOG_TAG "audio_hw_utils"
 //#define LOG_NDEBUG 0
+#define __USE_GNU
 
 #include <errno.h>
 #include <pthread.h>
@@ -433,7 +434,7 @@ void *convert_audio_sample_for_output(int input_frames, int input_format, int in
         max_ch = 8;
     }
     //our HW need round the frames to 8 channels
-    out_buf = malloc(sizeof(int) * max_ch * input_frames);
+    out_buf = aml_audio_malloc(sizeof(int) * max_ch * input_frames);
     if (out_buf == NULL) {
         ALOGE("malloc buffer failed\n");
         return NULL;
@@ -1215,6 +1216,41 @@ int aml_audio_get_dolby_drc_mode(int *drc_mode, int *drc_cut, int *drc_boost)
     return 0;
 }
 
+int aml_audio_get_dolby_dap_drc_mode(int *drc_mode, int *drc_cut, int *drc_boost)
+{
+    char cEndpoint[PROPERTY_VALUE_MAX];
+    int ret = 0;
+    unsigned dap_drc_control = (DDPI_UDC_COMP_LINE<<DRC_MODE_BIT)|(100<<DRC_HIGH_CUT_BIT)|(100<<DRC_LOW_BST_BIT);
+    dap_drc_control = get_sysfs_int("/sys/class/audiodsp/dap_drc_control");
+
+    if (!drc_mode || !drc_cut || !drc_boost)
+        return -1;
+    *drc_mode = dap_drc_control&3;
+    ALOGI("drc mode from sysfs %s\n",str_compmode[*drc_mode]);
+    ret = property_get("ro.dolby.dapdrcmode",cEndpoint,"");
+    if (ret > 0) {
+        *drc_mode = atoi(cEndpoint)&3;
+        ALOGI("drc mode from prop %s\n",str_compmode[*drc_mode]);
+    }
+    *drc_cut  = (dap_drc_control>>DRC_HIGH_CUT_BIT)&0xff;
+    *drc_boost  = (dap_drc_control>>DRC_LOW_BST_BIT)&0xff;
+    ALOGI("dap drc mode %s,high cut %d pct,low boost %d pct\n",
+        str_compmode[*drc_mode],*drc_cut, *drc_boost);
+    return 0;
+}
+
+void aml_audio_set_cpu23_affinity()
+{
+    cpu_set_t cpuSet;
+    CPU_ZERO(&cpuSet);
+    CPU_SET(2, &cpuSet);
+    CPU_SET(3, &cpuSet);
+    int status = sched_setaffinity(0, sizeof(cpu_set_t), &cpuSet);
+    if (status) {
+        ALOGW("%s(), failed to set cpu affinity", __FUNCTION__);
+    }
+}
+
 void * aml_audio_get_muteframe(audio_format_t output_format, int * frame_size, int bAtmos) {
     if (output_format == AUDIO_FORMAT_AC3) {
         *frame_size = sizeof(muted_frame_dd);
@@ -1331,6 +1367,9 @@ int halformat_convert_to_spdif(audio_format_t format) {
         case AUDIO_FORMAT_DTS_HD:
             aml_spdif_format = AML_DTS_HD;
             break;
+        case AUDIO_FORMAT_MAT:
+            aml_spdif_format = AML_TRUE_HD;
+            break;
         default:
             aml_spdif_format = AML_STEREO_PCM;
             break;
@@ -1368,5 +1407,41 @@ int aml_set_thread_priority(char *pName, pthread_t threadId)
     ALOGD("[%s:%d] thread:%s set priority, ret:%d policy:%d priority:%d",
         __func__, __LINE__, pName, ret, policy, params.sched_priority);
     return ret;
+}
+
+bool is_multi_channel_pcm(struct audio_stream_out *stream) {
+    struct aml_stream_out *aml_out = (struct aml_stream_out *)stream;
+
+    return (audio_is_linear_pcm(aml_out->hal_internal_format) &&
+           (aml_out->hal_ch > 2));
+}
+
+bool is_high_rate_pcm(struct audio_stream_out *stream) {
+    struct aml_stream_out *aml_out = (struct aml_stream_out *)stream;
+
+    return (audio_is_linear_pcm(aml_out->hal_internal_format) &&
+           (aml_out->hal_rate > MM_FULL_POWER_SAMPLING_RATE));
+}
+
+bool is_disable_ms12_continuous(struct audio_stream_out *stream) {
+    struct aml_stream_out *aml_out = (struct aml_stream_out *) stream;
+    struct aml_audio_device *adev = aml_out->dev;
+
+    if ((aml_out->hal_internal_format == AUDIO_FORMAT_DTS)
+        || (aml_out->hal_internal_format == AUDIO_FORMAT_DTS_HD)) {
+        /*dts case, we need disable ms12 continuous mode*/
+        return true;
+    } else if (is_high_rate_pcm(stream) || is_multi_channel_pcm(stream)) {
+        /*high bit rate pcm case, we need disable ms12 continuous mode*/
+        return true;
+    } else if ((aml_out->hal_internal_format == AUDIO_FORMAT_AC3 \
+               || aml_out->hal_internal_format == AUDIO_FORMAT_E_AC3)
+               && (aml_out->hal_rate == 48000 || aml_out->hal_rate == 192000)) {
+        /*only support 48kz ddp/dd*/
+        return false;
+    } else if (aml_out->hal_format == AUDIO_FORMAT_IEC61937) {
+        return true;
+    }
+    return false;
 }
 

@@ -67,5 +67,19 @@ int aml_audio_sleep(uint64_t us)
 }
 
 
+int64_t calc_time_interval_us(struct timespec *ts_start, struct timespec *ts_end)
+{
+    int64_t start_us, end_us;
+    int64_t interval_us;
 
 
+    start_us = ts_start->tv_sec * 1000000LL +
+               ts_start->tv_nsec / 1000LL;
+
+    end_us   = ts_end->tv_sec * 1000000LL +
+               ts_end->tv_nsec / 1000LL;
+
+    interval_us = end_us - start_us;
+
+    return interval_us;
+}

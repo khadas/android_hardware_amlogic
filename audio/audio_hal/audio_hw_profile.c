@@ -86,12 +86,12 @@ char*  get_hdmi_sink_cap(const char *keys,audio_format_t format,struct aml_arc_h
     int size = 0;
     char *aud_cap = NULL;
     ALOGD("%s is running...\n", __func__);
-    infobuf = (char *)malloc(1024 * sizeof(char));
+    infobuf = (char *)aml_audio_malloc(1024 * sizeof(char));
     if (infobuf == NULL) {
         ALOGE("malloc buffer failed\n");
         goto fail;
     }
-    aud_cap = (char*)malloc(1024);
+    aud_cap = (char*)aml_audio_malloc(1024);
     if (aud_cap == NULL) {
         ALOGE("malloc buffer failed\n");
         goto fail;
@@ -125,7 +125,7 @@ char*  get_hdmi_sink_cap(const char *keys,audio_format_t format,struct aml_arc_h
             }
 
             if (mystrstr(infobuf, "MAT")) {
-                size += sprintf(aud_cap + size, "|%s", "AUDIO_FORMAT_DOLBY_TRUEHD");
+                size += sprintf(aud_cap + size, "|%s", "AUDIO_FORMAT_DOLBY_TRUEHD|AUDIO_FORMAT_MAT");
             }
         }
         /*check the channel cap */
@@ -136,13 +136,17 @@ char*  get_hdmi_sink_cap(const char *keys,audio_format_t format,struct aml_arc_h
             /* take the 2ch suppported as default */
             size += sprintf(aud_cap, "sup_channels=%s", "AUDIO_CHANNEL_OUT_STEREO");
             if ((mystrstr(infobuf, "PCM, 8 ch") && is_pcm) ||
-                (mystrstr(infobuf, "Dobly_Digital+") && format == AUDIO_FORMAT_E_AC3)) {
-                size += sprintf(aud_cap + size, "|%s", "AUDIO_CHANNEL_OUT_5POINT1|AUDIO_CHANNEL_OUT_7POINT1");
+                (mystrstr(infobuf, "Dobly_Digital+") && format == AUDIO_FORMAT_E_AC3) ||
+                (mystrstr(infobuf, "DTS-HD") && format == AUDIO_FORMAT_DTS_HD) ||
+                (mystrstr(infobuf, "MAT") && format == AUDIO_FORMAT_DOLBY_TRUEHD) ||
+                format == AUDIO_FORMAT_IEC61937) {
+                size += sprintf(aud_cap + size, "|%s", "AUDIO_CHANNEL_OUT_PENTA|AUDIO_CHANNEL_OUT_5POINT1|AUDIO_CHANNEL_OUT_7POINT1");
             } else if ((mystrstr(infobuf, "PCM, 6 ch")  && is_pcm) ||
                        (mystrstr(infobuf, "AC-3") && format == AUDIO_FORMAT_AC3) ||
                        /* backward compatibility for dd, if TV only supports dd+ */
-                       (mystrstr(infobuf, "Dobly_Digital+") && format == AUDIO_FORMAT_AC3)) {
-                size += sprintf(aud_cap + size, "|%s", "AUDIO_CHANNEL_OUT_5POINT1");
+                       (mystrstr(infobuf, "Dobly_Digital+") && format == AUDIO_FORMAT_AC3)||
+                       (mystrstr(infobuf, "DTS") && format == AUDIO_FORMAT_DTS)) {
+                size += sprintf(aud_cap + size, "|%s", "AUDIO_CHANNEL_OUT_PENTA|AUDIO_CHANNEL_OUT_5POINT1");
             }
         } else if (strstr(keys, AUDIO_PARAMETER_STREAM_SUP_SAMPLING_RATES)) {
             ALOGD("query hdmi sample_rate...\n");
@@ -173,7 +177,7 @@ char*  get_hdmi_sink_cap(const char *keys,audio_format_t format,struct aml_arc_h
         ALOGE("open /sys/class/amhdmitx/amhdmitx0/aud_cap failed!!\n");
     }
     if (infobuf) {
-        free(infobuf);
+        aml_audio_free(infobuf);
     }
     if (fd >= 0) {
         close(fd);
@@ -181,10 +185,10 @@ char*  get_hdmi_sink_cap(const char *keys,audio_format_t format,struct aml_arc_h
     return aud_cap;
 fail:
     if (aud_cap) {
-        free(aud_cap);
+        aml_audio_free(aud_cap);
     }
     if (infobuf) {
-        free(infobuf);
+        aml_audio_free(infobuf);
     }
     return NULL;
 }
@@ -200,12 +204,12 @@ char*  get_hdmi_sink_cap_dolbylib(const char *keys,audio_format_t format,struct 
     char *aud_cap = NULL;
     int dolby_decoder_sup = 0;
     ALOGD("%s is running...\n", __func__);
-    infobuf = (char *)malloc(1024 * sizeof(char));
+    infobuf = (char *)aml_audio_malloc(1024 * sizeof(char));
     if (infobuf == NULL) {
         ALOGE("malloc buffer failed\n");
         goto fail;
     }
-    aud_cap = (char*)malloc(1024);
+    aud_cap = (char*)aml_audio_malloc(1024);
     if (aud_cap == NULL) {
         ALOGE("malloc buffer failed\n");
         goto fail;
@@ -293,7 +297,7 @@ char*  get_hdmi_sink_cap_dolbylib(const char *keys,audio_format_t format,struct 
         ALOGE("open /sys/class/amhdmitx/amhdmitx0/aud_cap failed!!\n");
     }
     if (infobuf) {
-        free(infobuf);
+        aml_audio_free(infobuf);
     }
     if (fd >= 0) {
         close(fd);
@@ -301,10 +305,10 @@ char*  get_hdmi_sink_cap_dolbylib(const char *keys,audio_format_t format,struct 
     return aud_cap;
 fail:
     if (aud_cap) {
-        free(aud_cap);
+        aml_audio_free(aud_cap);
     }
     if (infobuf) {
-        free(infobuf);
+        aml_audio_free(infobuf);
     }
     return NULL;
 }
@@ -320,7 +324,7 @@ char*  get_hdmi_arc_cap(unsigned *ad, int maxsize, const char *keys)
     int iec_added = 0;
     char *aud_cap = NULL;
     unsigned char format, ch, sr;
-    aud_cap = (char*)malloc(1024);
+    aud_cap = (char*)aml_audio_malloc(1024);
     if (aud_cap == NULL) {
         ALOGE("malloc buffer failed\n");
         goto fail;
@@ -403,7 +407,7 @@ char*  get_hdmi_arc_cap(unsigned *ad, int maxsize, const char *keys)
     return aud_cap;
 fail:
     if (aud_cap) {
-        free(aud_cap);
+        aml_audio_free(aud_cap);
     }
     return NULL;
 }

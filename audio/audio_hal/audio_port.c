@@ -28,6 +28,7 @@
 #include "aml_ringbuffer.h"
 #include "audio_hw_utils.h"
 #include "audio_hwsync.h"
+#include "aml_malloc_debug.h"
 
 #ifdef ENABLE_AEC_APP
 #include "audio_aec.h"
@@ -155,7 +156,7 @@ void inport_reset(struct input_port *port)
 
 int send_inport_message(struct input_port *port, enum PORT_MSG msg)
 {
-    struct port_message *p_msg = calloc(1, sizeof(struct port_message));
+    struct port_message *p_msg = aml_audio_calloc(1, sizeof(struct port_message));
     if (p_msg == NULL) {
         ALOGE("%s(), no memory", __func__);
         return -ENOMEM;
@@ -204,7 +205,7 @@ int remove_inport_message(struct input_port *port, struct port_message *p_msg)
     pthread_mutex_lock(&port->msg_lock);
     list_remove(&p_msg->list);
     pthread_mutex_unlock(&port->msg_lock);
-    free(p_msg);
+    aml_audio_free(p_msg);
 
     return 0;
 }
@@ -220,7 +221,7 @@ int remove_all_inport_messages(struct input_port *port)
         if (p_msg->msg_what == MSG_PAUSE)
             aml_hwsync_set_tsync_pause(NULL);
         list_remove(&p_msg->list);
-        free(p_msg);
+        aml_audio_free(p_msg);
     }
     pthread_mutex_unlock(&port->msg_lock);
     return 0;
@@ -246,7 +247,7 @@ static int inport_padding_zero(struct input_port *port, size_t bytes)
     char *feed_mem = NULL;
     ALOGI("%s(), padding size %d 0s to inport %d",
             __func__, bytes, port->enInPortType);
-    feed_mem = calloc(1, bytes);
+    feed_mem = aml_audio_calloc(1, bytes);
     if (!feed_mem) {
         ALOGE("%s(), no memory", __func__);
         return -ENOMEM;
@@ -254,7 +255,7 @@ static int inport_padding_zero(struct input_port *port, size_t bytes)
 
     input_port_write(port, feed_mem, bytes);
     port->padding_frames = bytes / port->cfg.frame_size;
-    free(feed_mem);
+    aml_audio_free(feed_mem);
     return 0;
 }
 
@@ -282,7 +283,7 @@ struct input_port *new_input_port(
     int thunk_size = 0;
     int ret = 0;
 
-    port = calloc(1, sizeof(struct input_port));
+    port = aml_audio_calloc(1, sizeof(struct input_port));
     if (!port) {
         ALOGE("%s(), no memory", __func__);
         goto err;
@@ -290,13 +291,13 @@ struct input_port *new_input_port(
 
     setPortConfig(&port->cfg, config);
     thunk_size = buf_frames * port->cfg.frame_size;
-    data = calloc(1, thunk_size);
+    data = aml_audio_calloc(1, thunk_size);
     if (!data) {
         ALOGE("%s(), no memory", __func__);
         goto err_data;
     }
 
-    ringbuf = calloc(1, sizeof(struct ring_buffer));
+    ringbuf = aml_audio_calloc(1, sizeof(struct ring_buffer));
     if (!ringbuf) {
         ALOGE("%s(), no memory", __func__);
         goto err_rbuf;
@@ -351,11 +352,11 @@ struct input_port *new_input_port(
     return port;
 
 err_rbuf_init:
-    free(ringbuf);
+    aml_audio_free(ringbuf);
 err_rbuf:
-    free(data);
+    aml_audio_free(data);
 err_data:
-    free(port);
+    aml_audio_free(port);
 err:
     return NULL;
 }
@@ -369,9 +370,9 @@ int free_input_port(struct input_port *port)
 
     remove_all_inport_messages(port);
     ring_buffer_release(port->r_buf);
-    free(port->r_buf);
-    free(port->data);
-    free(port);
+    aml_audio_free(port->r_buf);
+    aml_audio_free(port->data);
+    aml_audio_free(port);
 
     return 0;
 }
@@ -408,7 +409,7 @@ int resize_input_port_buffer(struct input_port *port, uint buf_size)
         goto err_rbuf_init;
     }
 
-    port->data = (char *)realloc(port->data, buf_size);
+    port->data = (char *)aml_audio_realloc(port->data, buf_size);
     if (!port->data) {
         ALOGE("%s() no mem", __func__);
         ret = -ENOMEM;
@@ -574,13 +575,13 @@ struct output_port *new_output_port(
     int rbuf_size = buf_frames * cfg.frame_size;
     int ret = 0;
 
-    port = calloc(1, sizeof(struct output_port));
+    port = aml_audio_calloc(1, sizeof(struct output_port));
     if (!port) {
         ALOGE("%s(), no memory", __func__);
         goto err;
     }
 
-    data = calloc(1, rbuf_size);
+    data = aml_audio_calloc(1, rbuf_size);
     if (!data) {
         ALOGE("%s(), no memory", __func__);
         goto err_data;
@@ -598,9 +599,9 @@ struct output_port *new_output_port(
 
     return port;
 err_rbuf:
-    free(data);
+    aml_audio_free(data);
 err_data:
-    free(port);
+    aml_audio_free(port);
 err:
     return NULL;
 }
@@ -612,8 +613,8 @@ int free_output_port(struct output_port *port)
         return -EINVAL;
     }
 
-    free(port->data_buf);
-    free(port);
+    aml_audio_free(port->data_buf);
+    aml_audio_free(port);
 
     return 0;
 }
@@ -633,7 +634,7 @@ int resize_output_port_buffer(struct output_port *port, size_t buf_frames)
     }
     ALOGI("%s(), new buf_frames %d", __func__, buf_frames);
     buf_length = buf_frames * port->cfg.frame_size;
-    port->data_buf = (char *)realloc(port->data_buf, buf_length);
+    port->data_buf = (char *)aml_audio_realloc(port->data_buf, buf_length);
     if (!port->data_buf) {
         ALOGE("%s() no mem", __func__);
         ret = -ENOMEM;

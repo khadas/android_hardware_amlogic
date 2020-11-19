@@ -26,7 +26,7 @@
 #include <system/audio.h>
 #include <system/audio_policy.h>
 #include <hardware/audio_policy.h>
-
+#include "aml_malloc_debug.h"
 
 struct default_ap_module {
     struct audio_policy_module module;
@@ -256,7 +256,7 @@ static int create_default_ap(const struct audio_policy_device *device,
     if (!service || !aps_ops)
         return -EINVAL;
 
-    dap = (struct default_audio_policy *)calloc(1, sizeof(*dap));
+    dap = (struct default_audio_policy *)aml_audio_calloc(1, sizeof(*dap));
     if (!dap)
         return -ENOMEM;
 
@@ -300,14 +300,14 @@ static int destroy_default_ap(const struct audio_policy_device *ap_dev,
                               struct audio_policy *ap)
 {
     ALOGD("%s", __FUNCTION__);
-    free(ap);
+    aml_audio_free(ap);
     return 0;
 }
 
 static int default_ap_dev_close(hw_device_t* device)
 {
     ALOGD("%s", __FUNCTION__);
-    free(device);
+    aml_audio_free(device);
     return 0;
 }
 
@@ -322,7 +322,7 @@ static int default_ap_dev_open(const hw_module_t* module, const char* name,
     if (strcmp(name, AUDIO_POLICY_INTERFACE) != 0)
         return -EINVAL;
 
-    dev = (struct default_ap_device *)calloc(1, sizeof(*dev));
+    dev = (struct default_ap_device *)aml_audio_calloc(1, sizeof(*dev));
     if (!dev)
         return -ENOMEM;
 

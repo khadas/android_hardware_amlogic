@@ -19,13 +19,19 @@
 
 #include "audio_hw.h"
 
+typedef struct {
+    audio_format_t audio_format;
+    audio_format_t sub_format;
+    uint32_t      rate;
+} spdif_config_t;
+
 int aml_audio_get_spdif_port(eMixerSpdif_Format spdif_format);
 int aml_audio_get_spdifa_port(void);
 void aml_audio_set_spdif_format(int spdif_port, eMixerSpdif_Format aml_spdif_format, struct aml_stream_out *stream);
 
 void aml_audio_select_spdif_to_hdmi(int spdif_select);
 
-int aml_audio_spdifout_open(void **pphandle, audio_format_t audio_format);
+int aml_audio_spdifout_open(void **pphandle, spdif_config_t *spdif_config);
 
 int aml_audio_spdifout_processs(void *phandle, void *buffer, size_t byte);
 

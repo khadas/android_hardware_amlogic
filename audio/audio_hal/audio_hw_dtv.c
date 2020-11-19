@@ -948,7 +948,7 @@ static int dtv_patch_pcm_write(unsigned char *pcm_data, int size,
             }
             if (!patch->resample_outbuf) {
                 patch->resample_outbuf =
-                    (unsigned char *)malloc(OUTPUT_BUFFER_SIZE * 3);
+                    (unsigned char *)aml_audio_malloc(OUTPUT_BUFFER_SIZE * 3);
                 if (!patch->resample_outbuf) {
                     ALOGE("malloc buffer failed\n");
                     return -1;
@@ -1342,7 +1342,7 @@ int audio_dtv_patch_output_dolby(struct aml_audio_patch *patch,
             }
         }
         if (eDolbyMS12Lib == aml_dev->dolby_lib_type) {
-            consume_size = dolby_ms12_get_consumed_payload();
+            consume_size = dolby_ms12_get_main_bytes_consumed(stream_out);
             consume_size  = consume_size > ms12_thredhold_size ? consume_size - ms12_thredhold_size : 0;
             if (is_bypass_dolbyms12(stream_out))
                 all_pcm_len1 = aml_out->frame_write_sum * AUDIO_IEC61937_FRAME_SIZE;
@@ -1360,7 +1360,7 @@ int audio_dtv_patch_output_dolby(struct aml_audio_patch *patch,
         ret = out_write_new(stream_out, patch->out_buf, ret);
 
         if (eDolbyMS12Lib == aml_dev->dolby_lib_type) {
-            int size = dolby_ms12_get_consumed_payload();
+            int size = dolby_ms12_get_main_bytes_consumed(stream_out);
             size  = size > ms12_thredhold_size ? size - ms12_thredhold_size : 0;
             dolby_ms12_get_pcm_output_size(&all_pcm_len2, &all_zero_len);
             if (is_bypass_dolbyms12(stream_out)) {
@@ -1790,7 +1790,7 @@ void *audio_dtv_patch_output_threadloop(void *data)
     ALOGI("++%s live create a output stream success now!!!\n ", __FUNCTION__);
 
     patch->out_buf_size = write_bytes * EAC3_MULTIPLIER;
-    patch->out_buf = calloc(1, patch->out_buf_size);
+    patch->out_buf = aml_audio_calloc(1, patch->out_buf_size);
     if (!patch->out_buf) {
         ret = -ENOMEM;
         goto exit_outbuf;
@@ -1841,7 +1841,7 @@ void *audio_dtv_patch_output_threadloop(void *data)
             ret = audio_dtv_patch_output_default(patch, stream_out, &apts_diff);
         }
     }
-    free(patch->out_buf);
+    aml_audio_free(patch->out_buf);
 exit_outbuf:
     adev_close_output_stream_new(dev, stream_out);
 exit_open:
@@ -2333,7 +2333,7 @@ int create_dtv_patch_l(struct audio_hw_device *dev, audio_devices_t input,
             release_patch_l(aml_dev);
         }
     }
-    patch = calloc(1, sizeof(*patch));
+    patch = aml_audio_calloc(1, sizeof(*patch));
     if (!patch) {
         ret = -1;
         goto err;
@@ -2413,7 +2413,7 @@ err_out_thread:
 err_in_thread:
     ring_buffer_release(&(patch->aml_ringbuffer));
 err_ring_buf:
-    free(patch);
+    aml_audio_free(patch);
 err:
     return ret;
 }
@@ -2441,7 +2441,7 @@ int release_dtv_patch_l(struct aml_audio_device *aml_dev)
 
     pthread_mutex_destroy(&patch->dtv_input_mutex);
     if (patch->resample_outbuf) {
-        free(patch->resample_outbuf);
+        aml_audio_free(patch->resample_outbuf);
         patch->resample_outbuf = NULL;
     }
     patch->pid = -1;
@@ -2449,7 +2449,7 @@ int release_dtv_patch_l(struct aml_audio_device *aml_dev)
     release_dtvin_buffer(patch);
     dtv_assoc_deinit();
     ring_buffer_release(&(patch->aml_ringbuffer));
-    free(patch);
+    aml_audio_free(patch);
     if (aml_dev->start_mute_flag != 0)
         aml_dev->start_mute_flag = 0;
     aml_dev->underrun_mute_flag = 0;

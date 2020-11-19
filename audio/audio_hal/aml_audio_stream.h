@@ -64,7 +64,8 @@ enum auge_input_source {
 enum digital_format {
     PCM = 0,
     DD = 4,
-    AUTO = 5
+    AUTO = 5,
+    BYPASS = 6
 };
 
 enum stream_write_func {
@@ -98,6 +99,8 @@ static inline bool is_digital_raw_format(audio_format_t format)
     switch (format) {
     case AUDIO_FORMAT_AC3:
     case AUDIO_FORMAT_E_AC3:
+    case AUDIO_FORMAT_AC4:
+    case AUDIO_FORMAT_MAT:
     case AUDIO_FORMAT_DTS:
     case AUDIO_FORMAT_DTS_HD:
     case AUDIO_FORMAT_DOLBY_TRUEHD:
@@ -190,6 +193,10 @@ static inline alsa_device_t usecase_to_device(stream_usecase_t usecase)
     default:
         return I2S_DEVICE;
     }
+}
+
+static inline bool is_hdmi_out(enum OUT_PORT active_outport) {
+    return (active_outport == OUTPORT_HDMI_ARC || active_outport == OUTPORT_HDMI);
 }
 
 typedef void (*dtv_avsync_process_cb)(struct aml_audio_patch* patch,struct aml_stream_out* stream_out);
@@ -364,5 +371,6 @@ void aml_audio_port_config_dump(struct audio_port_config *port_config, int fd);
 void aml_audio_patch_dump(struct audio_patch *patch, int fd);
 void aml_audio_patches_dump(struct aml_audio_device* aml_dev, int fd);
 bool is_use_spdifb(struct aml_stream_out *out);
+bool is_dolby_ms12_support_compression_format(audio_format_t format);
 
 #endif /* _AML_AUDIO_STREAM_H_ */

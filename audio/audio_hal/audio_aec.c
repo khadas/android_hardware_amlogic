@@ -204,17 +204,17 @@ void destroy_aec_mic_config_no_lock(struct aec_t* aec) {
         return;
     }
     release_resampler(aec->spk_resampler);
-    free(aec->mic_buf);
-    free(aec->spk_buf);
-    free(aec->spk_buf_playback_format);
-    free(aec->spk_buf_resampler_out);
+    aml_audio_free(aec->mic_buf);
+    aml_audio_free(aec->spk_buf);
+    aml_audio_free(aec->spk_buf_playback_format);
+    aml_audio_free(aec->spk_buf_resampler_out);
     memset(&aec->last_mic_info, 0, sizeof(struct aec_info));
     aec->mic_initialized = false;
 }
 
 struct aec_t *init_aec_interface() {
     ALOGV("%s enter", __func__);
-    struct aec_t *aec = (struct aec_t *)calloc(1, sizeof(struct aec_t));
+    struct aec_t *aec = (struct aec_t *)aml_audio_calloc(1, sizeof(struct aec_t));
     if (aec == NULL) {
         ALOGE("Failed to allocate memory for AEC interface!");
     } else {
@@ -231,7 +231,7 @@ void release_aec_interface(struct aec_t *aec) {
     destroy_aec_mic_config_no_lock(aec);
     destroy_aec_reference_config_no_lock(aec);
     pthread_mutex_unlock(&aec->lock);
-    free(aec);
+    aml_audio_free(aec);
     ALOGV("%s exit", __func__);
 }
 
@@ -498,7 +498,7 @@ int init_aec_mic_config(struct aec_t *aec, struct aml_stream_in *in) {
     aec->mic_num_channels = in->config.channels;
 
     aec->mic_buf_size_bytes = in->config.period_size * audio_stream_in_frame_size(&in->stream);
-    aec->mic_buf = (int32_t *)malloc(aec->mic_buf_size_bytes);
+    aec->mic_buf = (int32_t *)aml_audio_malloc(aec->mic_buf_size_bytes);
     if (aec->mic_buf == NULL) {
         ret = -ENOMEM;
         goto exit;
@@ -507,7 +507,7 @@ int init_aec_mic_config(struct aec_t *aec, struct aml_stream_in *in) {
     /* Reference buffer is the same number of frames as mic,
      * only with a different number of channels in the frame. */
     aec->spk_buf_size_bytes = in->config.period_size * aec->spk_frame_size_bytes;
-    aec->spk_buf = (int32_t *)malloc(aec->spk_buf_size_bytes);
+    aec->spk_buf = (int32_t *)aml_audio_malloc(aec->spk_buf_size_bytes);
     if (aec->spk_buf == NULL) {
         ret = -ENOMEM;
         goto exit_1;
@@ -517,13 +517,13 @@ int init_aec_mic_config(struct aec_t *aec, struct aml_stream_in *in) {
     /* Pre-resampler buffer */
     size_t spk_frame_out_format_bytes = aec->spk_sampling_rate / aec->mic_sampling_rate *
                                             aec->spk_buf_size_bytes;
-    aec->spk_buf_playback_format = (int16_t *)malloc(spk_frame_out_format_bytes);
+    aec->spk_buf_playback_format = (int16_t *)aml_audio_malloc(spk_frame_out_format_bytes);
     if (aec->spk_buf_playback_format == NULL) {
         ret = -ENOMEM;
         goto exit_2;
     }
     /* Resampler is 16-bit */
-    aec->spk_buf_resampler_out = (int16_t *)malloc(aec->spk_buf_size_bytes);
+    aec->spk_buf_resampler_out = (int16_t *)aml_audio_malloc(aec->spk_buf_size_bytes);
     if (aec->spk_buf_resampler_out == NULL) {
         ret = -ENOMEM;
         goto exit_3;
@@ -555,13 +555,13 @@ exit:
     return ret;
 
 exit_4:
-    free(aec->spk_buf_resampler_out);
+    aml_audio_free(aec->spk_buf_resampler_out);
 exit_3:
-    free(aec->spk_buf_playback_format);
+    aml_audio_free(aec->spk_buf_playback_format);
 exit_2:
-    free(aec->spk_buf);
+    aml_audio_free(aec->spk_buf);
 exit_1:
-    free(aec->mic_buf);
+    aml_audio_free(aec->mic_buf);
     pthread_mutex_unlock(&aec->lock);
     ALOGV("%s exit", __func__);
     return ret;

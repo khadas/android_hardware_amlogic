@@ -28,6 +28,7 @@
 
 #define IEC61937_PACKET_SIZE_OF_AC3     0x1800
 #define IEC61937_PACKET_SIZE_OF_EAC3    0x6000
+#define IEC61937_PACKET_SIZE_MAT       (61440)
 
 struct aml_spdif_encoder {
     void *spdif_encoder_ad;
@@ -38,6 +39,18 @@ struct aml_spdif_encoder {
     bool bmute;
 };
 
+static bool spdif_encoder_support_format(audio_format_t audio_format) {
+    switch (audio_format) {
+    case AUDIO_FORMAT_AC3:
+    case AUDIO_FORMAT_E_AC3:
+    case AUDIO_FORMAT_DTS:
+    case AUDIO_FORMAT_DTS_HD:
+    case AUDIO_FORMAT_MAT:
+        return true;
+    default:
+        return false;
+    }
+}
 
 /*
  *@brief get the spdif encoder output buffer
@@ -53,11 +66,15 @@ static int config_spdif_encoder_output_buffer(struct aml_spdif_encoder *spdif_en
     int eac3_coef = 32;
     if (format == AUDIO_FORMAT_AC3) {
         spdif_enc->temp_buf_size = IEC61937_PACKET_SIZE_OF_AC3 * ac3_coef;    //0x1800bytes is 6block of ac3
-    } else {
+    } else if (format == AUDIO_FORMAT_E_AC3) {
         spdif_enc->temp_buf_size = IEC61937_PACKET_SIZE_OF_EAC3 * eac3_coef;    //0x6000bytes is 6block of eac3
+    } else if (format == AUDIO_FORMAT_MAT) {
+        spdif_enc->temp_buf_size = IEC61937_PACKET_SIZE_MAT * 2;
+    } else {
+        spdif_enc->temp_buf_size = IEC61937_PACKET_SIZE_MAT * 2;
     }
     spdif_enc->temp_buf_pos = 0;
-    spdif_enc->temp_buf = (void *)malloc(spdif_enc->temp_buf_size);
+    spdif_enc->temp_buf = (void *)aml_audio_malloc(spdif_enc->temp_buf_size);
     ALOGV("-%s() temp_buf_size %x\n", __FUNCTION__, spdif_enc->temp_buf_size);
     if (spdif_enc->temp_buf == NULL) {
         ALOGE("-%s() malloc fail", __FUNCTION__);
@@ -73,12 +90,12 @@ int aml_spdif_encoder_open(void **spdifenc_handle, audio_format_t format)
 {
     int ret = 0;
     struct aml_spdif_encoder *phandle = NULL;
-    if (format != AUDIO_FORMAT_AC3 && format != AUDIO_FORMAT_E_AC3) {
+    if (!spdif_encoder_support_format(format)) {
         ALOGE("%s format not support =0x%x", __FUNCTION__, format);
         return -1;
     }
 
-    phandle = (struct aml_spdif_encoder *) calloc(1, sizeof(struct aml_spdif_encoder));
+    phandle = (struct aml_spdif_encoder *) aml_audio_calloc(1, sizeof(struct aml_spdif_encoder));
     if (phandle == NULL) {
         ALOGE("%s malloc failed\n", __FUNCTION__);
         *spdifenc_handle = NULL;
@@ -109,9 +126,9 @@ int aml_spdif_encoder_open(void **spdifenc_handle, audio_format_t format)
 error:
     if (phandle) {
         if (phandle->temp_buf) {
-            free(phandle->temp_buf);
+            aml_audio_free(phandle->temp_buf);
         }
-        free(phandle);
+        aml_audio_free(phandle);
     }
     *spdifenc_handle = NULL;
     return -1;
@@ -124,9 +141,9 @@ int aml_spdif_encoder_close(void *phandle)
         ALOGI("%s handle=%p", __FUNCTION__, phandle);
         spdif_encoder_ad_deinit(spdifenc_handle->spdif_encoder_ad);
         if (spdifenc_handle->temp_buf) {
-            free(spdifenc_handle->temp_buf);
+            aml_audio_free(spdifenc_handle->temp_buf);
         }
-        free(phandle);
+        aml_audio_free(phandle);
         phandle = NULL;
     }
     return 0;

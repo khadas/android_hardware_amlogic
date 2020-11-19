@@ -121,16 +121,18 @@ int aml_ac3_parser_open(void **pparser_handle)
 {
     struct aml_ac3_parser *parser_hanlde = NULL;
 
-    parser_hanlde = (struct aml_ac3_parser *)calloc(1, sizeof(struct aml_ac3_parser));
+    parser_hanlde = (struct aml_ac3_parser *)aml_audio_calloc(1, sizeof(struct aml_ac3_parser));
     if (parser_hanlde == NULL) {
         ALOGE("%s handle error", __func__);
         goto error;
     }
 
     parser_hanlde->buf_size  = DOLBY_DDPP_MAXSIZE;
-    parser_hanlde->buf  = calloc(1, DOLBY_DDPP_MAXSIZE);
+    parser_hanlde->buf  = aml_audio_calloc(1, DOLBY_DDPP_MAXSIZE);
     if (parser_hanlde->buf == NULL) {
         ALOGE("%s data buffer error", __func__);
+        aml_audio_free(parser_hanlde);
+        parser_hanlde = NULL;
         goto error;
     }
     parser_hanlde->status = PARSER_SYNCING;
@@ -149,9 +151,9 @@ int aml_ac3_parser_close(void *parser_handle)
 
     if (parser_hanlde) {
         if (parser_hanlde->buf) {
-            free(parser_hanlde->buf);
+            aml_audio_free(parser_hanlde->buf);
         }
-        free(parser_hanlde);
+        aml_audio_free(parser_hanlde);
     }
     ALOGE("%s exit", __func__);
     return 0;
@@ -363,6 +365,13 @@ static int parse_dolby_frame_header
             }
             *numblks = numblk_per_frame;
             *frame_dependent = strmtyp;
+            /* TV-23269 the stream has substream id 0,1,2 and depedency frame, we use
+             * numblks to indicate the frame duration, for substrem id != 0, we dont need
+             * this info, so we keep it as 0.
+             */
+            if (substreamid != 0) {
+                *numblks = 0;
+            }
 
         }
         // ALOGV("%s acmod %d lfeOn %d\n", nIsEc3==0?"ac3":"ec3",acmod, lfeOn);
@@ -525,7 +534,7 @@ int aml_ac3_parser_process(void *parser_handle, const void *in_buffer, int32_t n
         if (need_size >= 0) {
             new_buf_size = parser_hanlde->buf_remain + need_size;
             if (new_buf_size > parser_hanlde->buf_size) {
-                parser_hanlde->buf = realloc(parser_hanlde->buf, new_buf_size);
+                parser_hanlde->buf = aml_audio_realloc(parser_hanlde->buf, new_buf_size);
                 if (parser_hanlde->buf == NULL) {
                     ALOGE("%s realloc buf failed =%d", __func__, new_buf_size);
                     parser_hanlde->buf_remain = 0;
@@ -569,7 +578,7 @@ int aml_ac3_parser_process(void *parser_handle, const void *in_buffer, int32_t n
         /*check whether the input buf size is big enough*/
         new_buf_size = parser_hanlde->buf_remain + buf_left;
         if (new_buf_size > parser_hanlde->buf_size) {
-            parser_hanlde->buf = realloc(parser_hanlde->buf, new_buf_size);
+            parser_hanlde->buf = aml_audio_realloc(parser_hanlde->buf, new_buf_size);
             if (parser_hanlde->buf == NULL) {
                 ALOGE("%s realloc buf failed =%d", __func__, new_buf_size);
                 parser_hanlde->buf_remain = 0;

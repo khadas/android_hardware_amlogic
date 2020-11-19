@@ -708,7 +708,10 @@ int aml_audio_hwsync_lookup_apts(audio_hwsync_t *p_hwsync, size_t offset, unsign
         if (nearest_pts) {
             ret = 0;
             *p_apts = nearest_pts;
-            ALOGI("find nearest pts 0x%x offset %zu align %zu", *p_apts, nearest_offset, align);
+            /*keep it as valid, it may be used for next lookup*/
+            pts_tab[match_index].valid = 1;
+            if (debug_enable)
+                ALOGI("find nearest pts 0x%x offset %zu align %zu", *p_apts, nearest_offset, align);
         } else {
             ALOGE("%s,apts lookup failed,align %zu,offset %zu", __func__, align, offset);
         }

@@ -26,12 +26,6 @@
 
 #define MEMINFO_SHOW_FILENAME  "/data/audio_meminfo"
 
-enum {
-    MEMINFO_SHOW_PRINT,
-    MEMINFO_SHOW_FILE
-};
-
-
 struct aml_malloc_node {
     struct listnode list;
     char file_name[128];

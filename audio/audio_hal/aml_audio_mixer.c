@@ -1183,7 +1183,7 @@ struct aml_audio_mixer *new_aml_audio_mixer(struct pcm *pcm_handle)
         ALOGE("%s(), NULL pcm handle", __func__);
         return NULL;
     }
-    audio_mixer = calloc(1, sizeof(*audio_mixer));
+    audio_mixer = aml_audio_calloc(1, sizeof(*audio_mixer));
     if (!audio_mixer) {
         ALOGE("%s(), no memory", __func__);
         return NULL;
@@ -1202,6 +1202,6 @@ void free_aml_audio_mixer(struct aml_audio_mixer *audio_mixer)
     if (audio_mixer) {
         pthread_mutex_destroy(&audio_mixer->lock);
         pthread_cond_destroy(&audio_mixer->cond);
-        free(audio_mixer);
+        aml_audio_free(audio_mixer);
     }
 }

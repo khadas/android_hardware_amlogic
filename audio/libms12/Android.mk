@@ -27,6 +27,7 @@ LOCAL_SRC_FILES:=                     \
 LOCAL_C_INCLUDES := \
     system/media/audio/include \
     hardware/libhardware/include \
+    $(LOCAL_PATH)/../utils/include \
     $(LOCAL_PATH)/include/ \
     $(call include-path-for, audio-utils)
 

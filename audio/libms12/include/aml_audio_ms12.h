@@ -18,6 +18,7 @@
 #include "dolby_ms12.h"
 #include "dolby_ms12_config_params.h"
 #include "dolby_ms12_status.h"
+#include "aml_ringbuffer.h"
 #include <system/audio.h>
 #include <time.h>
 
@@ -42,7 +43,7 @@ struct dolby_ms12_desc {
     audio_format_t input_config_format;
     audio_channel_mask_t config_channel_mask;
     int config_sample_rate;
-    audio_format_t output_format;
+    int output_config;
     int output_samplerate;
     audio_channel_mask_t output_channelmask;
     int ms12_out_bytes;
@@ -73,8 +74,11 @@ struct dolby_ms12_desc {
     bool dolby_ms12_thread_exit;
     bool is_continuous_paused;
     int device;//alsa_device_t
-    struct timespec timestamp; //zzz
+    struct timespec timestamp;
     uint64_t last_frames_postion;
+    uint64_t last_ms12_pcm_out_position;
+    bool     ms12_position_update;
+
     /*
     latency frame is maintained by the whole device output.
     whatever what bistream is outputed we need use this latency frames.
@@ -102,11 +106,31 @@ struct dolby_ms12_desc {
     uint64_t  sys_audio_frame_pos;
     uint64_t  sys_audio_base_pos;
     uint64_t  last_sys_audio_cost_pos;
+    /*ms12 main input information */
+    audio_format_t main_input_fmt;
+    unsigned int   main_input_sr;
     void * ac3_parser_handle;
     void * spdif_dec_handle;
     audio_format_t sink_format;
     audio_format_t optical_format;
     bool dual_decoder_support;
+    void * ms12_bypass_handle;
+    bool   is_bypass_ms12;
+    uint64_t main_input_ns;
+    uint64_t main_output_ns;
+    uint32_t main_input_rate;  /*it is used to calculate the buffer duration*/
+    uint32_t main_buffer_min_level;
+    uint32_t main_buffer_max_level;
+    ring_buffer_t spdif_ring_buffer;
+    unsigned char *lpcm_temp_buffer;
+    int   dap_bypass_enable;
+    float dap_bypassgain;
+    /*
+     *-ac4_de             * <int> [ac4] Dialogue Enhancement gain that will be applied in the decoder
+     *                      Range: 0 to 12 dB (in 1 dB steps, default is 0 dB)
+     */
+    int ac4_de;
+
 };
 
 /*
@@ -134,19 +158,25 @@ int get_dolby_ms12_init(struct dolby_ms12_desc *ms12_desc);
  * ms12_config_format: AUDIO_FORMAT_PCM_16_BIT/AUDIO_FORMAT_PCM_32_BIT/AUDIO_FORMAT_AC3/AUDIO_FORMAT_E_AC3
  * config_channel_mask: AUDIO_CHANNEL_OUT_STEREO/AUDIO_CHANNEL_OUT_5POINT1/AUDIO_CHANNEL_OUT_7POINT1
  * config_sample_rate: sample rate.
+ * output_config: bit mask | of {MS12_OUTPUT_MASK_DD/DDP/MAT/STEREO/SPEAKER}
  */
 int aml_ms12_config(struct dolby_ms12_desc *ms12_desc
                     , audio_format_t config_format
                     , audio_channel_mask_t config_channel_mask
                     , int config_sample_rate
-                    , audio_format_t output_format);
+                    , int output_config);
 /*
  *@brief cleanup the dolby ms12
  */
 int aml_ms12_cleanup(struct dolby_ms12_desc *ms12_desc);
 
-int aml_ms12_update_runtime_params(struct dolby_ms12_desc *ms12_desc);
+int aml_ms12_update_runtime_params(struct dolby_ms12_desc *ms12_desc, char *cmd);
 
 int aml_ms12_update_runtime_params_lite(struct dolby_ms12_desc *ms12_desc);
+
+int aml_ms12_lib_preload();
+
+int aml_ms12_lib_release();
+
 
 #endif //end of __AML_AUDIO_MS12_H__

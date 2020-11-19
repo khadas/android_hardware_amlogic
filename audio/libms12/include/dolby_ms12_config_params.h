@@ -21,6 +21,7 @@
 #include <system/audio.h>
 #include <system/audio_policy.h>
 #include "dolby_ms12_config_parameter_struct.h"
+#include "dolby_ms12_output_mask.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -608,6 +609,9 @@ void dolby_ms12_set_ott_sound_input_enable(bool flag);
  * @brief get ott sound input enable
  */
 bool dolby_ms12_get_ott_sound_input_enable(void);
+
+char **dolby_ms12_config_params_update_runtime_config_params(int *argc, char *cmd);
+
 /*End*/
 
 #ifdef __cplusplus

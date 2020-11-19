@@ -37,6 +37,7 @@
 #include "audio_hw.h"
 #include "a2dp_hal.h"
 #include "audio_bt_sco.h"
+#include "aml_malloc_debug.h"
 
 #define MIXER_FRAME_COUNT                   (384)
 #define MIXER_OUT_FRAME_SIZE                (8)
@@ -1424,14 +1425,14 @@ struct amlAudioMixer *newAmlAudioMixer(
         ALOGE("%s(), NULL pcm handle", __func__);
         return NULL;
     }
-    audio_mixer = calloc(1, sizeof(*audio_mixer));
+    audio_mixer = aml_audio_calloc(1, sizeof(*audio_mixer));
     if (audio_mixer == NULL) {
         ALOGE("%s(), no memory", __func__);
         return NULL;
     }
 
     // 2 channel  32bit
-    audio_mixer->tmp_buffer = calloc(1, MIXER_FRAME_COUNT * MIXER_OUT_FRAME_SIZE);
+    audio_mixer->tmp_buffer = aml_audio_calloc(1, MIXER_FRAME_COUNT * MIXER_OUT_FRAME_SIZE);
     if (audio_mixer->tmp_buffer == NULL) {
         ALOGE("%s(), no memory", __func__);
         goto err_tmp;
@@ -1453,10 +1454,10 @@ struct amlAudioMixer *newAmlAudioMixer(
     return audio_mixer;
 
 err_state:
-    free(audio_mixer->tmp_buffer);
+    aml_audio_free(audio_mixer->tmp_buffer);
     audio_mixer->tmp_buffer = NULL;
 err_tmp:
-    free(audio_mixer);
+    aml_audio_free(audio_mixer);
     audio_mixer = NULL;
 
     return audio_mixer;
@@ -1466,7 +1467,7 @@ void freeAmlAudioMixer(struct amlAudioMixer *audio_mixer)
 {
     if (audio_mixer) {
         pthread_mutex_destroy(&audio_mixer->lock);
-        free(audio_mixer);
+        aml_audio_free(audio_mixer);
     }
 }
 

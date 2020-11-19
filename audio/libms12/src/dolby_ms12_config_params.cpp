@@ -128,12 +128,12 @@ extern "C" void dolby_ms12_config_params_set_audio_stream_out_params(
     , audio_format_t input_format
     , audio_channel_mask_t channel_mask
     , int sample_rate
-    , audio_format_t output_format)
+    , int output_config)
 {
     ALOGV("%s()\n", __FUNCTION__);
     android::DolbyMS12ConfigParams *config_param = getInstance();
     if (config_param) {
-        config_param->SetAudioStreamOutParams(flags, input_format, channel_mask, sample_rate, output_format);
+        config_param->SetAudioStreamOutParams(flags, input_format, channel_mask, sample_rate, output_config);
     }
 }
 
@@ -269,6 +269,17 @@ extern "C" char **dolby_ms12_config_params_prepare_config_params(int max_raw_siz
     android::DolbyMS12ConfigParams *config_param = getInstance();
     if (config_param) {
         return config_param->PrepareConfigParams(max_raw_size, max_column_size);
+    } else {
+        return NULL;
+    }
+}
+
+extern "C" char **dolby_ms12_config_params_update_runtime_config_params(int *argc, char *cmd)
+{
+    ALOGV("%s()\n", __FUNCTION__);
+    android::DolbyMS12ConfigParams *config_param = getInstance();
+    if (config_param) {
+        return config_param->UpdateDolbyMS12RuntimeConfigParams(argc, cmd);
     } else {
         return NULL;
     }

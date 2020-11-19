@@ -21,6 +21,7 @@ extern "C" {
 #include <string.h>
 #include <cutils/log.h>
 #include <aml_ringbuffer.h>
+#include "aml_malloc_debug.h"
 
 /*************************************************
 Function: get_write_space
@@ -229,6 +230,56 @@ size_t ring_buffer_read(struct ring_buffer *rbuffer, unsigned char* buffer, size
 }
 
 /*************************************************
+Function: ring_buffer_read
+Description: read data from ring buffer
+Input: rbuffer: the source ring buffer
+       bytes: data space in byte
+Return: data space has been seeked
+*************************************************/
+size_t ring_buffer_seek(struct ring_buffer *rbuffer, size_t bytes)
+{
+    struct ring_buffer *buf = rbuffer;
+    size_t readable_space, read_bytes;
+    int left_bytes;
+
+    pthread_mutex_lock(&buf->lock);
+
+    if (buf->start_addr == NULL || buf->rd == NULL || buf->wr == NULL
+            || buf->size == 0) {
+        ALOGE("%s, Buffer malloc fail!\n", __FUNCTION__);
+        pthread_mutex_unlock(&buf->lock);
+        return 0;
+    }
+
+    readable_space = get_read_space(buf->wr, buf->rd, buf->size, buf->last_is_write);
+    if (readable_space < bytes) {
+        read_bytes = readable_space;
+    } else {
+        read_bytes = bytes;
+    }
+
+    left_bytes = buf->start_addr + buf->size - buf->rd;
+    if (left_bytes >= (int) bytes) {
+        memset(buf->rd,0,sizeof(unsigned char)*bytes);
+    } else {
+        memset(buf->rd, 0,sizeof(unsigned char)*left_bytes);
+        memset(buf->start_addr,0,sizeof(unsigned char)*(bytes-left_bytes));
+    }
+
+    buf->rd = update_pointer(buf->rd, read_bytes, buf->start_addr, buf->size);
+
+    if (read_bytes)
+        buf->last_is_write = 0;
+    pthread_mutex_unlock(&buf->lock);
+
+    return read_bytes;
+}
+
+
+
+
+
+/*************************************************
 Function: ring_buffer_init
 Description: initialize ring buffer
 Input: rbuffer: the ring buffer to be initialized
@@ -243,7 +294,7 @@ int ring_buffer_init(struct ring_buffer *rbuffer, int buffer_size)
     pthread_mutex_lock(&buf->lock);
 
     buf->size = buffer_size;
-    buf->start_addr = malloc(buffer_size * sizeof(unsigned char));
+    buf->start_addr = aml_audio_malloc(buffer_size * sizeof(unsigned char));
     if (buf->start_addr == NULL) {
         ALOGD("%s, Malloc android out buffer error!\n", __FUNCTION__);
         pthread_mutex_unlock(&buf->lock);
@@ -273,7 +324,7 @@ int ring_buffer_release(struct ring_buffer *rbuffer)
     pthread_mutex_lock(&buf->lock);
 
     if (buf->start_addr != NULL) {
-        free(buf->start_addr);
+        aml_audio_free(buf->start_addr);
         buf->start_addr = NULL;
     }
 

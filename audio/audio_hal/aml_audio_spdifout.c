@@ -39,8 +39,6 @@ typedef struct spdifout_handle {
     bool need_spdif_enc;
     bool spdif_enc_init;
     void *spdif_enc_handle;
-
-
 } spdifout_handle_t;
 
 
@@ -156,6 +154,7 @@ static int spdifout_support_format(audio_format_t audio_format)
     case AUDIO_FORMAT_E_AC3:
     case AUDIO_FORMAT_DTS:
     case AUDIO_FORMAT_DTS_HD:
+    case AUDIO_FORMAT_MAT:
     case AUDIO_FORMAT_IEC61937:
         return true;
     default:
@@ -163,7 +162,7 @@ static int spdifout_support_format(audio_format_t audio_format)
     }
 }
 
-int aml_audio_spdifout_open(void **pphandle, audio_format_t audio_format)
+int aml_audio_spdifout_open(void **pphandle, spdif_config_t *spdif_config)
 {
     int ret = -1;
     struct aml_audio_device *aml_dev = (struct aml_audio_device *)adev_get_handle();
@@ -171,24 +170,35 @@ int aml_audio_spdifout_open(void **pphandle, audio_format_t audio_format)
     struct spdifout_handle *phandle = NULL;
     int device_id = 0;
     int aml_spdif_format = AML_STEREO_PCM;
+    audio_format_t audio_format = AUDIO_FORMAT_PCM_16_BIT;
 
-    if (!spdifout_support_format(audio_format)) {
+    if (spdif_config == NULL) {
+        ALOGE("%s spdif_config is NULL", __func__);
+        return -1;
+    }
+
+    if (!spdifout_support_format(spdif_config->audio_format)) {
         ALOGE("%s format not support =0x%x", __FUNCTION__, audio_format);
         return -1;
     }
 
-    phandle = (struct spdifout_handle *) calloc(1, sizeof(struct spdifout_handle));
+
+    phandle = (struct spdifout_handle *) aml_audio_calloc(1, sizeof(struct spdifout_handle));
     if (phandle == NULL) {
         ALOGE("%s malloc failed\n", __FUNCTION__);
         goto error;
     }
 
-    if (audio_format != AUDIO_FORMAT_IEC61937) {
+    if (spdif_config->audio_format == AUDIO_FORMAT_IEC61937) {
+        phandle->need_spdif_enc = 0;
+        audio_format = spdif_config->sub_format;
+    } else {
         phandle->need_spdif_enc = 1;
+        audio_format = spdif_config->audio_format;
     }
     phandle->audio_format = audio_format;
 
-    if (!phandle->spdif_enc_init) {
+    if (!phandle->spdif_enc_init && phandle->need_spdif_enc) {
         ret = aml_spdif_encoder_open(&phandle->spdif_enc_handle, phandle->audio_format);
         if (ret) {
             ALOGE("%s() aml_spdif_encoder_open failed", __func__);
@@ -218,7 +228,7 @@ int aml_audio_spdifout_open(void **pphandle, audio_format_t audio_format)
         memset(&device_config, 0, sizeof(aml_device_config_t));
         /*config stream info*/
         stream_config.config.channel_mask = AUDIO_CHANNEL_OUT_STEREO;
-        stream_config.config.sample_rate  = MM_FULL_POWER_SAMPLING_RATE;
+        stream_config.config.sample_rate  = spdif_config->rate;
         stream_config.config.format       = AUDIO_FORMAT_IEC61937;
         stream_config.config.offload_info.format = audio_format;
 
@@ -230,8 +240,13 @@ int aml_audio_spdifout_open(void **pphandle, audio_format_t audio_format)
         /*set spdif format*/
         if (phandle->spdif_port == PORT_SPDIF) {
             aml_mixer_ctrl_set_int(&aml_dev->alsa_mixer, AML_MIXER_ID_SPDIF_FORMAT, aml_spdif_format);
+            ALOGI("%s set spdif format 0x%x", __func__, aml_spdif_format);
         } else if (phandle->spdif_port == PORT_SPDIFB) {
             aml_mixer_ctrl_set_int(&aml_dev->alsa_mixer, AML_MIXER_ID_SPDIF_B_FORMAT, aml_spdif_format);
+            aml_audio_select_spdif_to_hdmi(AML_SPDIF_B_TO_HDMITX);
+            ALOGI("%s set spdif_b format 0x%x", __func__, aml_spdif_format);
+        } else {
+            ALOGI("%s not set spdif format", __func__);
         }
 
         /*open output alsa*/
@@ -248,7 +263,7 @@ int aml_audio_spdifout_open(void **pphandle, audio_format_t audio_format)
     phandle->device_id = device_id;
 
     *pphandle = (void *)phandle;
-    ALOGI("%s success ret=%d", __func__, ret);
+    ALOGI("%s success ret=%d format =0x%x", __func__, ret, audio_format);
     return ret;
 
 error:
@@ -256,7 +271,7 @@ error:
         if (phandle->spdif_enc_handle) {
             aml_spdif_encoder_close(phandle->spdif_enc_handle);
         }
-        free(phandle);
+        aml_audio_free(phandle);
     }
     *pphandle = NULL;
     return -1;
@@ -272,6 +287,7 @@ int aml_audio_spdifout_processs(void *phandle, void *buffer, size_t byte)
     void * output_buffer = NULL;
     size_t output_buffer_bytes = 0;
     int device_id = -1;
+    bool b_mute = false;
 
     void *alsa_handle = NULL;
     if (phandle == NULL) {
@@ -300,10 +316,20 @@ int aml_audio_spdifout_processs(void *phandle, void *buffer, size_t byte)
 
     }
 #endif
-    if (aml_dev->tv_mute) {
+    if (aml_dev->patch_src == SRC_DTV && (aml_dev->discontinue_mute_flag || aml_dev->start_mute_flag)) {
+        b_mute = true;
+    } else if (aml_dev->tv_mute) {
+        b_mute = true;
+    }
+
+    if (b_mute) {
         memset(output_buffer, 0, output_buffer_bytes);
     }
-    ret = aml_alsa_output_write_new(alsa_handle, output_buffer, output_buffer_bytes);
+
+    if (output_buffer_bytes) {
+        ALOGV("size =%d", output_buffer_bytes);
+        ret = aml_alsa_output_write_new(alsa_handle, output_buffer, output_buffer_bytes);
+    }
 
 
     return ret;
@@ -317,7 +343,14 @@ int aml_dtv_spdif_output_new (struct audio_stream_out *stream,
     void *spdifout_handle = aml_dev->ddp.spdifout_handle;
     int ret = 0;
     if (spdifout_handle == NULL) {
-        ret = aml_audio_spdifout_open(&spdifout_handle, aml_out->hal_internal_format);
+        spdif_config_t spdif_config = { 0 };
+        spdif_config.audio_format = aml_out->hal_internal_format;
+        spdif_config.sub_format   = aml_out->hal_internal_format;
+        spdif_config.rate         = aml_out->hal_rate;
+        if (spdif_config.rate == 0) {
+            spdif_config.rate = MM_FULL_POWER_SAMPLING_RATE;
+        }
+        ret = aml_audio_spdifout_open(&spdifout_handle, &spdif_config);
         aml_dev->ddp.spdifout_handle = spdifout_handle;
     }
     if (ret != 0) {
@@ -353,9 +386,11 @@ int aml_audio_spdifout_close(void *phandle)
     alsa_handle = aml_dev->alsa_handle[device_id];
 
     if (alsa_handle) {
-        ALOGI("%s close dual output bitstream id=%d handle %p", __func__, device_id, alsa_handle);
+        ALOGI("%s close spdif output bitstream id=%d handle %p", __func__, device_id, alsa_handle);
+        /*when spdif is closed, we need set raw to pcm flag, othwer spdif pcm may have problem*/
         aml_alsa_output_close_new(alsa_handle);
         aml_dev->alsa_handle[device_id] = NULL;
+        aml_dev->raw_to_pcm_flag          = true;
     }
 
     /*it is spdif a output*/
@@ -363,14 +398,15 @@ int aml_audio_spdifout_close(void *phandle)
         aml_mixer_ctrl_set_int(&aml_dev->alsa_mixer, AML_MIXER_ID_SPDIF_FORMAT, AML_STEREO_PCM);
     } else if (spdifout_phandle->spdif_port == PORT_SPDIFB) {
         /*it is spdif b output*/
-        //aml_mixer_ctrl_set_int(&aml_dev->alsa_mixer, AML_MIXER_ID_SPDIF_B_FORMAT, AML_STEREO_PCM);
+        aml_mixer_ctrl_set_int(&aml_dev->alsa_mixer, AML_MIXER_ID_SPDIF_B_FORMAT, AML_STEREO_PCM);
+        aml_audio_select_spdif_to_hdmi(AML_SPDIF_A_TO_HDMITX);
     }
 
     if (spdifout_phandle) {
         if (spdifout_phandle->spdif_enc_handle) {
             ret = aml_spdif_encoder_close(spdifout_phandle->spdif_enc_handle);
         }
-        free(spdifout_phandle);
+        aml_audio_free(spdifout_phandle);
     }
     return ret;
 }

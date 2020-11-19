@@ -66,6 +66,17 @@ extern "C" int get_libdolbyms12_handle(void)
     }
 }
 
+extern "C" int release_libdolbyms12_handle(void)
+{
+    android::DolbyMS12* dolby_ms12_instance = getInstance();
+    if (dolby_ms12_instance) {
+        dolby_ms12_instance->ReleaseLibHandle();
+        return 0;
+    } else {
+        return -1;
+    }
+}
+
 extern "C" int get_dolby_ms12_output_max_size(void)
 {
     android::DolbyMS12* dolby_ms12_instance = getInstance();
@@ -81,6 +92,16 @@ extern "C" void * dolby_ms12_init(int configNum, char **configParams)
     android::DolbyMS12* dolby_ms12_instance = getInstance();
     if (dolby_ms12_instance) {
         return dolby_ms12_instance->DolbyMS12Init(configNum, configParams);
+    } else {
+        return NULL;
+    }
+}
+
+extern "C" char * dolby_ms12_get_version(void)
+{
+    android::DolbyMS12* dolby_ms12_instance = getInstance();
+    if (dolby_ms12_instance) {
+        return dolby_ms12_instance->DolbMS12GetVersion();
     } else {
         return NULL;
     }
@@ -193,6 +214,16 @@ extern "C" int dolby_ms12_register_pcm_callback(void *callback, void *priv_data)
     android::DolbyMS12* dolby_ms12_instance = getInstance();
     if (dolby_ms12_instance) {
         return dolby_ms12_instance->DolbyMS12RegisterPCMCallback((android::output_callback)callback, priv_data);
+    } else {
+        return -1;
+    }
+}
+
+extern "C" int dolby_ms12_register_dap_pcm_callback(void *callback, void *priv_data)
+{
+    android::DolbyMS12* dolby_ms12_instance = getInstance();
+    if (dolby_ms12_instance) {
+        return dolby_ms12_instance->DolbyMS12RegisterDAPPCMCallback((android::output_callback)callback, priv_data);
     } else {
         return -1;
     }

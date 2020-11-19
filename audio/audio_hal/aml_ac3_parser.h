@@ -75,6 +75,7 @@ int scan_dolby_main_frame_ext(void *input_buffer
                               , int *used_size
                               , void **main_frame_buffer
                               , int *main_frame_size
-                              , size_t *payload_deficiency);
+                              , size_t *payload_deficiency
+                              , int *mat_stream_profile);
 #endif
 

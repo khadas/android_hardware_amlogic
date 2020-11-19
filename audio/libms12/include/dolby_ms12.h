@@ -29,6 +29,9 @@ extern "C" {
 //get the handle of dlopen "/vendor/lib/libdolbyms12.so"
 int get_libdolbyms12_handle(void);
 
+//release the handle of dlopen
+int release_libdolbyms12_handle(void);
+
 /*@@
     @brief dolby ms12 self cleanup
 */
@@ -123,6 +126,14 @@ int dolby_ms12_input_app(void *dolby_mS12_pointer
     @void *priv_data //priv data
 */
 int dolby_ms12_register_pcm_callback(void *callback, void *priv_data);
+
+/*@@
+    @brief register the pcm callback
+
+    @void *callback //pcm callback handle
+    @void *priv_data //priv data
+*/
+int dolby_ms12_register_dap_pcm_callback(void *callback, void *priv_data);
 
 /*@@
     @brief register the bitstream callback
@@ -263,6 +274,7 @@ int dolby_ms12_hwsync_init_internal(void);
 int dolby_ms12_hwsync_release_internal(void);
 
 int dolby_ms12_hwsync_checkin_pts_internal(int offset, int apts);
+char * dolby_ms12_get_version(void);
 
 #ifdef __cplusplus
 }

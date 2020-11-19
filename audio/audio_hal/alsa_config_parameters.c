@@ -48,6 +48,27 @@ static void get_dts_hd_hardware_config_parameters(
 }
 
 /*
+ *@brief get the hardware config parameters when the output format is MAT
+*/
+static void get_mat_hardware_config_parameters(
+    struct pcm_config *hardware_config
+    , unsigned int channels __unused
+    , unsigned int rate)
+{
+    hardware_config->channels = 2;
+    hardware_config->format = PCM_FORMAT_S16_LE;
+    // for android P, p212 platform found that the rate should not muliply by 4
+    hardware_config->rate = rate;
+    hardware_config->period_count = PLAYBACK_PERIOD_COUNT;
+    //hardware_config->period_size = PERIOD_SIZE /* * 4 */;
+    hardware_config->period_size = 6144 * 2; /* period_size in frame unit, MAT IEC61937 frame size (61440) bytes */
+    hardware_config->start_threshold = hardware_config->period_size * hardware_config->period_count/2;
+    hardware_config->avail_min = 0;
+
+    return ;
+}
+
+/*
  *@brief get the hardware config parameters when the output format is DDP
 */
 static void get_ddp_hardware_config_parameters(
@@ -156,6 +177,11 @@ int get_hardware_config_parameters(
     //DD
     else if (output_format == AUDIO_FORMAT_AC3) {
         get_dd_hardware_config_parameters(final_config, channels, rate, continuous_mode);
+    }
+    //MAT
+    else if (output_format == AUDIO_FORMAT_MAT) {
+        get_mat_hardware_config_parameters(final_config, channels, rate);
+
     }
     //DTS-HD/TRUE-HD
     else if ((output_format == AUDIO_FORMAT_DTS_HD) || (output_format == AUDIO_FORMAT_DOLBY_TRUEHD)) {
