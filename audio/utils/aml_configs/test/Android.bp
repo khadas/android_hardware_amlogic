@@ -13,4 +13,7 @@ cc_binary {
         "libamaudioutils",
     ],
 
+    cflags: [
+        "-Wno-error",
+    ],
 }

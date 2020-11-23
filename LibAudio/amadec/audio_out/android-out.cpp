@@ -1600,7 +1600,7 @@ extern "C" int android_set_track_rate(struct aml_audio_dec* audec __unused,void 
 #if ANDROID_PLATFORM_SDK_VERSION >= 23
     Mutex::Autolock _l(mLock);
     adec_print("android_set_track_rate");
-    struct AudioPlaybackRate  Rate = *(struct AudioPlaybackRate*)rate;
+    AudioPlaybackRate  Rate = *(AudioPlaybackRate*)rate;
     audio_out_operations_t *out_ops = &audec->aout_ops;
 #if ANDROID_PLATFORM_SDK_VERSION < 19
     //AudioTrack *track = (AudioTrack *)out_ops->private_data;

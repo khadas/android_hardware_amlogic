@@ -40,7 +40,7 @@ int main( int argc __unused, char** argv __unused )
         //get string value
         printf("index: %s, string  value: %s\n",
             index,
-            aml_config_get_str(gParser, "TV", index, NULL));
+            aml_config_get_str(gParser, "TV", index, 0));
         //get int value
         printf("index: %s, integer value: %d\n",
             index,
