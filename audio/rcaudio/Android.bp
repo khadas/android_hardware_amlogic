@@ -36,6 +36,15 @@ cc_library_shared {
 
     static_libs: ["audio.bt.remote.static", "libmedia_helper"],
 
+    arch: {
+        x86: {
+            enabled: false,
+        },
+        x86_64: {
+            enabled: false,
+        },
+    },
+
     shared_libs: [
         "libcutils",
         "liblog",
@@ -55,6 +64,12 @@ cc_prebuilt_library_static {
         },
         arm64: {
             srcs: ["hidraw/audio.bt.remote-arm64.a"],
+        },
+        x86: {
+            enabled: false,
+        },
+        x86_64: {
+            enabled: false,
         },
     },
 }
