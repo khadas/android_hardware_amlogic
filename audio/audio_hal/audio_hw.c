@@ -8973,7 +8973,7 @@ hwsync_rewrite:
                 //FIXME: if patch audio format change, the hal_format need to redefine.
                 //then the out_get_format() can get it.
                 ALOGI ("hal_format changed from %#x to %#x\n", aml_out->hal_format, cur_aformat);
-                if (cur_aformat != AUDIO_FORMAT_PCM_16_BIT || cur_aformat != AUDIO_FORMAT_PCM_32_BIT) {
+                if (cur_aformat != AUDIO_FORMAT_PCM_16_BIT && cur_aformat != AUDIO_FORMAT_PCM_32_BIT) {
                     aml_out->hal_format = AUDIO_FORMAT_IEC61937;
                 } else {
                     aml_out->hal_format = cur_aformat ;
