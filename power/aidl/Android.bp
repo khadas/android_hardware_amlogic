@@ -1,0 +1,38 @@
+
+cc_library {
+    name: "libdisppower",
+    proprietary: true,
+    srcs: [
+        "disp-power/DisplayLowPower.cpp",
+        "disp-power/InteractionHandler.cpp",
+    ],
+     shared_libs: [
+        "libbase",
+        "libcutils",
+        "liblog",
+        "libperfmgr",
+        "libutils",
+    ],
+}
+
+cc_binary {
+    name: "android.hardware.power.aidl-service.droidlogic",
+    relative_install_path: "hw",
+    init_rc: ["default/android.hardware.power-service.libperfmgr.rc"],
+    vintf_fragments: ["default/android.hardware.power-service.xml"],
+    vendor: true,
+    shared_libs: [
+        "android.hardware.power-ndk_platform",
+        "libbase",
+        "libcutils",
+        "liblog",
+        "libutils",
+        "libbinder_ndk",
+        "libdisppower",
+        "libperfmgr",
+    ],
+    srcs: [
+        "default/service.cpp",
+        "default/Power.cpp",
+    ],
+}

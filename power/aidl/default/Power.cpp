@@ -14,9 +14,12 @@
  * limitations under the License.
  */
 
-#define LOG_TAG "android.hardware.power.aidl-service"
+#define ATRACE_TAG (ATRACE_TAG_POWER | ATRACE_TAG_HAL)
+#define LOG_TAG "android.hardware.power-service.libperfmgr"
 
 #include "Power.h"
+
+#include <mutex>
 
 #include <android-base/file.h>
 #include <android-base/logging.h>
@@ -24,59 +27,92 @@
 #include <android-base/stringprintf.h>
 #include <android-base/strings.h>
 
-// FIXED_PERFORMANCE mode is required for all devices which ship on Android 11
-// or later
-#define FIXED_PERFORMANCE 3
+#include <utils/Log.h>
+#include <utils/Trace.h>
+
+#include "disp-power/DisplayLowPower.h"
 
 namespace aidl {
-namespace android {
 namespace hardware {
 namespace power {
 namespace impl {
 namespace droidlogic {
 
-const char *boolToString(bool b) {
-    return b ? "true" : "false";
+
+Power::Power(std::shared_ptr<HintManager> hm, std::shared_ptr<DisplayLowPower> dlpw)
+    : mHintManager(hm),
+      mDisplayLowPower(dlpw),
+      mInteractionHandler(nullptr),
+      mVRModeOn(false),
+      mSustainedPerfModeOn(false) {
+    mInteractionHandler = std::make_unique<InteractionHandler>(mHintManager);
+    mInteractionHandler->Init();
+
+    // Now start to take powerhint
+    ALOGI("PowerHAL ready to process hints");
 }
 
 ndk::ScopedAStatus Power::setMode(Mode type, bool enabled) {
-    LOG(VERBOSE) << "Power setMode: " << static_cast<int32_t>(type) << " to: " << enabled;
+    LOG(ERROR) << "Power setMode: " << toString(type) << " to: " << enabled;
+    ATRACE_INT(toString(type).c_str(), enabled);
+    switch (type) {
+        case Mode::INTERACTIVE:
+            if (enabled) {
+                mHintManager->DoHint("INTERACTIVE");
+            } else {
+                mHintManager->EndHint("INTERACTIVE");
+            }
+            break;
+        default:
+            LOG(INFO) << "Power mode " << toString(type) << " is not supported now";
+            break;
+    }
+
     return ndk::ScopedAStatus::ok();
 }
 
-ndk::ScopedAStatus Power::isModeSupported(Mode type, bool* _aidl_return) {
-    LOG(INFO) << "Power isModeSupported: " << static_cast<int32_t>(type);
-    if (static_cast<int32_t>(type) == FIXED_PERFORMANCE ) {
-        *_aidl_return = true;
-    } else {
-        *_aidl_return = false;
+ndk::ScopedAStatus Power::isModeSupported(Mode type, bool *_aidl_return) {
+    bool supported = mHintManager->IsHintSupported(toString(type));
+    // LOW_POWER handled insides PowerHAL specifically
+    if (type == Mode::LOW_POWER) {
+        supported = true;
     }
+    LOG(INFO) << "Power mode " << toString(type) << " isModeSupported: " << supported;
+    *_aidl_return = supported;
     return ndk::ScopedAStatus::ok();
 }
 
 ndk::ScopedAStatus Power::setBoost(Boost type, int32_t durationMs) {
-    LOG(VERBOSE) << "Power setBoost: " << static_cast<int32_t>(type)
-                 << ", duration: " << durationMs;
+    LOG(INFO) << "Power setBoost: " << toString(type) << " duration: " << durationMs;
+    ATRACE_INT(toString(type).c_str(), durationMs);
+    LOG(INFO) << "Power setBoost: " << toString(type) << " is not supported by now";
     return ndk::ScopedAStatus::ok();
 }
 
-ndk::ScopedAStatus Power::isBoostSupported(Boost type, bool* _aidl_return) {
-    LOG(INFO) << "Power isBoostSupported: " << static_cast<int32_t>(type);
-    *_aidl_return = false;
+ndk::ScopedAStatus Power::isBoostSupported(Boost type, bool *_aidl_return) {
+    bool supported = mHintManager->IsHintSupported(toString(type));
+    LOG(INFO) << "Power boost " << toString(type) << " isBoostSupported: " << supported;
+    *_aidl_return = supported;
     return ndk::ScopedAStatus::ok();
+}
+
+constexpr const char *boolToString(bool b) {
+    return b ? "true" : "false";
 }
 
 binder_status_t Power::dump(int fd, const char **, uint32_t) {
-    ///*
     std::string buf(::android::base::StringPrintf(
-            "android.hardware.power.aidl-service.droidlogic Running: \n"));
-
-    //mHintManager->DumpToFd(fd);
+            "HintManager Running: %s\n"
+            "VRMode: %s\n"
+            "SustainedPerformanceMode: %s\n",
+            boolToString(mHintManager->IsRunning()), boolToString(mVRModeOn),
+            boolToString(mSustainedPerfModeOn)));
+    // Dump nodes through libperfmgr
+    mHintManager->DumpToFd(fd);
     if (!::android::base::WriteStringToFd(buf, fd)) {
         PLOG(ERROR) << "Failed to dump state to fd";
     }
     fsync(fd);
-    //*/
     return STATUS_OK;
 }
 
@@ -84,5 +120,4 @@ binder_status_t Power::dump(int fd, const char **, uint32_t) {
 }  // namespace impl
 }  // namespace power
 }  // namespace hardware
-}  // namespace android
 }  // namespace aidl

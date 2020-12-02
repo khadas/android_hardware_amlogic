@@ -14,22 +14,24 @@
  * limitations under the License.
  */
 
-#include "Power.h"
+#pragma once
 
-#include <android-base/logging.h>
-#include <android/binder_manager.h>
-#include <android/binder_process.h>
+#include <android-base/unique_fd.h>
 
-using aidl::android::hardware::power::impl::droidlogic::Power;
+#include <string_view>
 
-int main() {
-    ABinderProcess_setThreadPoolMaxThreadCount(0);
-    std::shared_ptr<Power> vib = ndk::SharedRefBase::make<Power>();
+class DisplayLowPower {
+  public:
+    DisplayLowPower();
+    ~DisplayLowPower() {}
+    void Init();
+    void SetDisplayLowPower(bool enable);
 
-    const std::string instance = std::string() + Power::descriptor + "/default";
-    binder_status_t status = AServiceManager_addService(vib->asBinder().get(), instance.c_str());
-    CHECK(status == STATUS_OK);
+  private:
+    void ConnectPpsDaemon();
+    int SendPpsCommand(const std::string_view cmd);
+    void SetFoss(bool enable);
 
-    ABinderProcess_joinThreadPool();
-    return EXIT_FAILURE;  // should not reach
-}
+    android::base::unique_fd mPpsSocket;
+    bool mFossStatus;
+};
