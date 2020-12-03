@@ -16,26 +16,46 @@
 
 #pragma once
 
+#include <atomic>
+#include <memory>
+#include <thread>
+
 #include <aidl/android/hardware/power/BnPower.h>
+#include <perfmgr/HintManager.h>
+
+#include "disp-power/DisplayLowPower.h"
+#include "disp-power/InteractionHandler.h"
 
 namespace aidl {
-namespace android {
 namespace hardware {
 namespace power {
 namespace impl {
 namespace droidlogic {
 
-class Power : public BnPower {
+using ::InteractionHandler;
+using ::aidl::android::hardware::power::Boost;
+using ::aidl::android::hardware::power::Mode;
+using ::android::perfmgr::HintManager;
+
+class Power : public ::aidl::android::hardware::power::BnPower {
+  public:
+    Power(std::shared_ptr<HintManager> hm, std::shared_ptr<DisplayLowPower> dlpw);
     ndk::ScopedAStatus setMode(Mode type, bool enabled) override;
-    ndk::ScopedAStatus isModeSupported(Mode type, bool* _aidl_return) override;
+    ndk::ScopedAStatus isModeSupported(Mode type, bool *_aidl_return) override;
     ndk::ScopedAStatus setBoost(Boost type, int32_t durationMs) override;
-    ndk::ScopedAStatus isBoostSupported(Boost type, bool* _aidl_return) override;
+    ndk::ScopedAStatus isBoostSupported(Boost type, bool *_aidl_return) override;
     binder_status_t dump(int fd, const char **args, uint32_t numArgs) override;
+
+  private:
+    std::shared_ptr<HintManager> mHintManager;
+    std::shared_ptr<DisplayLowPower> mDisplayLowPower;
+    std::unique_ptr<InteractionHandler> mInteractionHandler;
+    std::atomic<bool> mVRModeOn;
+    std::atomic<bool> mSustainedPerfModeOn;
 };
 
 }  // namespace droidlogic
 }  // namespace impl
 }  // namespace power
 }  // namespace hardware
-}  // namespace android
 }  // namespace aidl
