@@ -60,6 +60,9 @@ ifdef WIFI_DRIVER_STATE_OFF
 wifi_hal_cflags += -DWIFI_DRIVER_STATE_OFF=\"$(WIFI_DRIVER_STATE_OFF)\"
 endif
 
+ifeq ($(MULTI_WIFI_SUPPORT), true)
+wifi_hal_cflags += -DMULTI_WIFI_SUPPORT
+endif
 # Common code shared between the HALs.
 # ============================================================
 include $(CLEAR_VARS)
