@@ -134,6 +134,7 @@ int aml_hwsync_set_tsync_start_pts64(audio_hwsync_t *p_hwsync, uint64_t pts);
 void aml_hwsync_set_tsync_stop(audio_hwsync_t *p_hwsync);
 int aml_hwsync_get_tsync_pts(audio_hwsync_t *p_hwsync, uint32_t *pts);
 int aml_hwsync_reset_tsync_pcrscr(audio_hwsync_t *p_hwsync, uint32_t pts);
+void aml_hwsync_wait_video_start(audio_hwsync_t *p_hwsync);
 void aml_hwsync_wait_video_drop(audio_hwsync_t *p_hwsync, uint32_t cur_pts);
 void aml_audio_hwsync_init(audio_hwsync_t *p_hwsync, struct aml_stream_out  *out);
 int aml_audio_hwsync_find_frame(audio_hwsync_t *p_hwsync,

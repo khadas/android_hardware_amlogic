@@ -45,6 +45,7 @@ bool mediasync_wrap_getMediaTime(void* handle, int64_t realUs,
 								bool allowPastMaxTime);
 bool mediasync_wrap_getRealTimeFor(void* handle, int64_t targetMediaUs, int64_t *outRealUs);
 bool mediasync_wrap_getRealTimeForNextVsync(void* handle, int64_t *outRealUs);
+bool mediasync_wrap_getTrackMediaTime(void* handle, int64_t *outMeidaUs);
 bool mediasync_wrap_reset(void* handle);
 void mediasync_wrap_destroy(void* handle);
 

@@ -133,7 +133,6 @@ void aml_hwsync_wrap_set_tsync_init(audio_hwsync_t *p_hwsync)
     if (!p_hwsync->use_mediasync) {
         return aml_hwsync_wrap_single_set_tsync_init();
     }
-    mediasync_wrap_setSyncMode(p_hwsync->mediasync, MEDIA_SYNC_AMASTER);
 }
 
 void aml_hwsync_wrap_set_tsync_pause(audio_hwsync_t *p_hwsync)
@@ -237,7 +236,7 @@ int aml_hwsync_wrap_reset_tsync_pcrscr(audio_hwsync_t *p_hwsync, uint32_t pts)
     }
     int64_t timeus = pts / 90 *1000;
     mediasync_wrap_updateAnchor(p_hwsync->mediasync, timeus, 0, 0);
-    
+
     return 0;
 }
 
@@ -269,50 +268,98 @@ bool aml_hwsync_wrap_release(audio_hwsync_t *p_hwsync)
     return false;
 }
 
-void aml_hwsync_wrap_wait_video_drop(audio_hwsync_t *p_hwsync, uint32_t cur_pts, uint32_t wait_count)
+
+void aml_hwsync_wrap_wait_video_start(audio_hwsync_t *p_hwsync, uint32_t wait_count)
 {
-    if(p_hwsync->mediasync) {
-        bool ret = false;
-        int count = 0;
-        int64_t nowUs;
-        int64_t outMediaUs;
-        int64_t outMediaPts;
-        sync_mode mode = MEDIA_SYNC_MODE_MAX;
-        ret = mediasync_wrap_getSyncMode(p_hwsync->mediasync, &mode);
-        if (!ret || (mode != MEDIA_SYNC_VMASTER)) {
-            return;
-        }
-        nowUs = systemTime(SYSTEM_TIME_MONOTONIC) / 1000LL;
-        ret = mediasync_wrap_getMediaTime(p_hwsync->mediasync, nowUs,
-								&outMediaUs, false);
-        if(!ret) {
-            return;
-        }
-        outMediaPts = outMediaUs / 1000LL * 90;
-        ALOGI("====================, now audiopts %d vpts %lld ", cur_pts, outMediaPts);
-        if ((int)(cur_pts - outMediaPts) > SYSTIME_CORRECTION_THRESHOLD) {
-            bool ispause = false;
-            bool ret = mediasync_wrap_getPause(p_hwsync->mediasync, &ispause);
-            if (ret && ispause) {
-                mediasync_wrap_setPause(p_hwsync->mediasync, false);
+    bool ret = false;
+    int count = 0;
+    int64_t outMediaUs = -1;
+    sync_mode mode = MEDIA_SYNC_MODE_MAX;
+
+    if (!p_hwsync->mediasync) {
+        return;
+     }
+    ret = mediasync_wrap_getSyncMode(p_hwsync->mediasync, &mode);
+    if (!ret || (mode != MEDIA_SYNC_VMASTER)) {
+        return;
+    }
+
+    ret = mediasync_wrap_getTrackMediaTime(p_hwsync->mediasync, &outMediaUs);
+    if (!ret) {
+        ALOGI("mediasync_wrap_getTrackMediaTime error");
+        return;
+    }
+    ALOGI("start sync with video %lld", outMediaUs);
+    if (outMediaUs <= 0) {
+        ALOGI("wait video start");
+        while (count < wait_count) {
+            usleep(20000);
+            ret = mediasync_wrap_getTrackMediaTime(p_hwsync->mediasync, &outMediaUs);
+            if (!ret) {
+                return;
             }
-            while (count < wait_count) {
-                int64_t nowUs = systemTime(SYSTEM_TIME_MONOTONIC) / 1000LL;
-                ret = mediasync_wrap_getMediaTime(p_hwsync->mediasync, nowUs,
-                                        &outMediaUs, false);
-                if(!ret) {
-                    return;
-                }
-                outMediaPts = outMediaUs / 1000LL * 90;
-                if ((int)(cur_pts - outMediaPts) <= SYSTIME_CORRECTION_THRESHOLD)
-                    break;
-                usleep(20000);
-                count++;
-                ALOGI("fisrt audio wait video %d ms,now audiopts %d vpts %lld ", count * 20, cur_pts, outMediaPts);
+            if (outMediaUs > 0) {
+                break;
             }
-            mediasync_wrap_setSyncMode(p_hwsync->mediasync, MEDIA_SYNC_AMASTER);
+            count++;
         }
     }
+    ALOGI("video start");
+    return;
+}
+
+void aml_hwsync_wrap_wait_video_drop(audio_hwsync_t *p_hwsync, uint32_t cur_pts, uint32_t wait_count)
+{
+    bool ret = false;
+    int count = 0;
+    int64_t nowUs;
+    int64_t outRealMediaUs;
+    int64_t outMediaPts;
+    sync_mode mode = MEDIA_SYNC_MODE_MAX;
+
+    if (!p_hwsync->mediasync) {
+        return;
+    }
+    ret = mediasync_wrap_getSyncMode(p_hwsync->mediasync, &mode);
+
+    nowUs = systemTime(SYSTEM_TIME_MONOTONIC) / 1000LL;
+    ret = mediasync_wrap_getMediaTime(p_hwsync->mediasync, nowUs,
+                                    &outRealMediaUs, false);
+    if (!ret) {
+        return;
+    }
+    outMediaPts = outRealMediaUs / 1000LL * 90;
+    ALOGI("====================, now audiopts %d vpts %lld ", cur_pts, outMediaPts);
+    if ((int)(cur_pts - outMediaPts) > SYSTIME_CORRECTION_THRESHOLD) {
+        bool ispause = false;
+        bool ret = mediasync_wrap_getPause(p_hwsync->mediasync, &ispause);
+        if (ret && ispause) {
+            mediasync_wrap_setPause(p_hwsync->mediasync, false);
+        }
+        count = 0;
+        while (count < wait_count) {
+            int64_t nowUs = systemTime(SYSTEM_TIME_MONOTONIC) / 1000LL;
+            ret = mediasync_wrap_getMediaTime(p_hwsync->mediasync, nowUs,
+                                    &outRealMediaUs, false);
+            if (!ret) {
+                return;
+            }
+            outMediaPts = outRealMediaUs / 1000LL * 90;
+            if ((int)(cur_pts - outMediaPts) <= SYSTIME_CORRECTION_THRESHOLD)
+                break;
+            usleep(20000);
+            count++;
+            ALOGI("fisrt audio wait video %d ms,now audiopts %d vpts %lld ", count * 20, cur_pts, outMediaPts);
+        }
+    } else {
+        bool ispause = false;
+        bool ret = mediasync_wrap_getPause(p_hwsync->mediasync, &ispause);
+        if (ret && ispause) {
+            mediasync_wrap_setPause(p_hwsync->mediasync, false);
+        }
+    }
+    mediasync_wrap_setSyncMode(p_hwsync->mediasync, MEDIA_SYNC_AMASTER);
+
     return;
 }
 

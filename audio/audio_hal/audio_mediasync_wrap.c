@@ -38,11 +38,11 @@
 typedef void* (*MediaSync_create_func)(void);
 
 typedef mediasync_result (*MediaSync_allocInstance_func)(void* handle, int32_t DemuxId,
-										int32_t PcrPid,
-										int32_t *SyncInsId);
+                                                         int32_t PcrPid,
+                                                         int32_t *SyncInsId);
 
-typedef mediasync_result (*MediaSync_bindInstance_func)(void* handle, uint32_t SyncInsId, 
-										sync_stream_type streamtype);
+typedef mediasync_result (*MediaSync_bindInstance_func)(void* handle, uint32_t SyncInsId,
+                                                         sync_stream_type streamtype);
 typedef mediasync_result (*MediaSync_setSyncMode_func)(void* handle, sync_mode mode);
 
 typedef mediasync_result (*MediaSync_getSyncMode_func)(void* handle, sync_mode *mode);
@@ -51,15 +51,16 @@ typedef mediasync_result (*MediaSync_getPause_func)(void* handle, bool *pause);
 typedef mediasync_result (*MediaSync_setStartingTimeMedia_func)(void* handle, int64_t startingTimeMediaUs);
 typedef mediasync_result (*MediaSync_clearAnchor_func)(void* handle);
 typedef mediasync_result (*MediaSync_updateAnchor_func)(void* handle, int64_t anchorTimeMediaUs,
-								int64_t anchorTimeRealUs,
-								int64_t maxTimeMediaUs);
+                                                        int64_t anchorTimeRealUs,
+                                                        int64_t maxTimeMediaUs);
 typedef mediasync_result (*MediaSync_setPlaybackRate_func)(void* handle, float rate);
-typedef mediasync_result (*MediaSync_getPlaybackRate_func)(void* handle, float *rate); 
+typedef mediasync_result (*MediaSync_getPlaybackRate_func)(void* handle, float *rate);
 typedef mediasync_result (*MediaSync_getMediaTime_func)(void* handle, int64_t realUs,
-								int64_t *outMediaUs,
-								bool allowPastMaxTime);
+                                int64_t *outMediaUs,
+                                bool allowPastMaxTime);
 typedef mediasync_result (*MediaSync_getRealTimeFor_func)(void* handle, int64_t targetMediaUs, int64_t *outRealUs);
 typedef mediasync_result (*MediaSync_getRealTimeForNextVsync_func)(void* handle, int64_t *outRealUs);
+typedef mediasync_result (*MediaSync_getTrackMediaTime_func)(void* handle, int64_t *outMediaUs);
 typedef mediasync_result (*MediaSync_reset_func)(void* handle);
 typedef void (*MediaSync_destroy_func)(void* handle);
 
@@ -76,10 +77,11 @@ static MediaSync_setStartingTimeMedia_func gMediaSync_setStartingTimeMedia = NUL
 static MediaSync_clearAnchor_func gMediaSync_clearAnchor = NULL;
 static MediaSync_updateAnchor_func gMediaSync_updateAnchor = NULL;
 static MediaSync_setPlaybackRate_func gMediaSync_setPlaybackRate = NULL;
-static MediaSync_getPlaybackRate_func gMediaSync_getPlaybackRate = NULL; 
+static MediaSync_getPlaybackRate_func gMediaSync_getPlaybackRate = NULL;
 static MediaSync_getMediaTime_func gMediaSync_getMediaTime = NULL;
 static MediaSync_getRealTimeFor_func gMediaSync_getRealTimeFor = NULL;
 static MediaSync_getRealTimeForNextVsync_func gMediaSync_getRealTimeForNextVsync = NULL;
+static MediaSync_getTrackMediaTime_func gMediaSync_getTrackMediaTime = NULL;
 static MediaSync_reset_func gMediaSync_reset = NULL;
 static MediaSync_destroy_func gMediaSync_destroy = NULL;
 
@@ -214,6 +216,14 @@ static bool mediasync_wrap_create_init()
         ALOGE(" dlsym MediaSync_destroy failed, err=%s \n", dlerror());
         return err;
     }
+
+    gMediaSync_getTrackMediaTime =
+    (MediaSync_getTrackMediaTime_func)dlsym(glibHandle, "MediaSync_getTrackMediaTime");
+    if (gMediaSync_getTrackMediaTime == NULL) {
+        ALOGE(" dlsym MediaSync_destroy failed, err=%s \n", dlerror());
+        return err;
+    }
+
     return true;
 }
 
@@ -230,65 +240,65 @@ void* mediasync_wrap_create() {
 bool mediasync_wrap_allocInstance(void* handle, int32_t DemuxId,
         int32_t PcrPid,
         int32_t *SyncInsId) {
-     if(handle != NULL)  {
+     if (handle != NULL)  {
          mediasync_result ret = gMediaSync_allocInstance(handle, DemuxId, PcrPid, SyncInsId);
          ALOGD(" mediasync_wrap_allocInstance, SyncInsId=%d \n", *SyncInsId);
          if (ret == AM_MEDIASYNC_OK) {
             return true;
          } else {
-             ALOGE("[%s] fail\n", __func__);
+            ALOGE("[%s] fail\n", __func__);
          }
 
      } else {
-             ALOGE("[%s] no handle\n", __func__);
+        ALOGE("[%s] no handle\n", __func__);
      }
      return false;
 }
 
-bool mediasync_wrap_bindInstance(void* handle, uint32_t SyncInsId, 
-										sync_stream_type streamtype) {
-     if(handle != NULL)  {
+bool mediasync_wrap_bindInstance(void* handle, uint32_t SyncInsId,
+                                sync_stream_type streamtype) {
+     if (handle != NULL)  {
          mediasync_result ret = gMediaSync_bindInstance(handle, SyncInsId, streamtype);
          if (ret == AM_MEDIASYNC_OK) {
             return true;
          } else {
-             ALOGE("[%s] fail ret:%d\n", __func__, ret);
+            ALOGE("[%s] fail ret:%d\n", __func__, ret);
          }
      } else {
-             ALOGE("[%s] no handle\n", __func__);
+        ALOGE("[%s] no handle\n", __func__);
      }
      return false;
 }
 bool mediasync_wrap_setSyncMode(void* handle, sync_mode mode) {
-     if(handle != NULL)  {
+     if (handle != NULL)  {
          ALOGD(" mediasync_wrap_setSyncMode, mode=%d \n", mode);
          mediasync_result ret = gMediaSync_setSyncMode(handle, mode);
          if (ret == AM_MEDIASYNC_OK) {
             return true;
          } else {
-             ALOGE("[%s] fail\n", __func__);
+            ALOGE("[%s] fail\n", __func__);
          }
      } else {
-             ALOGE("[%s] no handle\n", __func__);
+        ALOGE("[%s] no handle\n", __func__);
      }
      return false;
 }
 bool mediasync_wrap_getSyncMode(void* handle, sync_mode *mode) {
-     if(handle != NULL)  {
+     if (handle != NULL)  {
          mediasync_result ret = gMediaSync_getSyncMode(handle, mode);
          if (ret == AM_MEDIASYNC_OK) {
             ALOGD(" mediasync_wrap_getSyncMode, mode=%d \n", *mode);
             return true;
          } else {
-             ALOGE("[%s] no ok\n", __func__);
+            ALOGE("[%s] no ok\n", __func__);
          }
      } else {
-             ALOGE("[%s] no handle\n", __func__);
+        ALOGE("[%s] no handle\n", __func__);
      }
      return false;
 }
 bool mediasync_wrap_setPause(void* handle, bool pause) {
-     if(handle != NULL)  {
+     if (handle != NULL)  {
          ALOGD(" mediasync_wrap_setPause, pause=%d \n", pause);
          mediasync_result ret = gMediaSync_setPause(handle, pause);
          if (ret == AM_MEDIASYNC_OK) {
@@ -298,130 +308,144 @@ bool mediasync_wrap_setPause(void* handle, bool pause) {
      return false;
 }
 bool mediasync_wrap_getPause(void* handle, bool *pause) {
-     if(handle != NULL)  {
+     if (handle != NULL)  {
          mediasync_result ret = gMediaSync_getPause(handle, pause);
          if (ret == AM_MEDIASYNC_OK) {
             return true;
          } else {
-             ALOGE("[%s] no ok\n", __func__);
+            ALOGE("[%s] no ok\n", __func__);
          }
      }
      return false;
 }
 bool mediasync_wrap_setStartingTimeMedia(void* handle, int64_t startingTimeMediaUs) {
-     if(handle != NULL)  {
+     if (handle != NULL)  {
          mediasync_result ret = gMediaSync_setStartingTimeMedia(handle, startingTimeMediaUs);
          if (ret == AM_MEDIASYNC_OK) {
             return true;
          } else {
-             ALOGE("[%s] no ok\n", __func__);
+            ALOGE("[%s] no ok\n", __func__);
          }
      }
      return false;
 }
 bool mediasync_wrap_clearAnchor(void* handle) {
-     if(handle != NULL)  {
+     if (handle != NULL)  {
          mediasync_result ret = gMediaSync_clearAnchor(handle);
          if (ret == AM_MEDIASYNC_OK) {
             return true;
          } else {
-             ALOGE("[%s] no ok\n", __func__);
+            ALOGE("[%s] no ok\n", __func__);
          }
      } else {
-             ALOGE("[%s] no handle\n", __func__);
+        ALOGE("[%s] no handle\n", __func__);
      }
      return false;
 }
 bool mediasync_wrap_updateAnchor(void* handle, int64_t anchorTimeMediaUs,
-								int64_t anchorTimeRealUs,
-								int64_t maxTimeMediaUs) {
-     if(handle != NULL)  {
+                                int64_t anchorTimeRealUs,
+                                int64_t maxTimeMediaUs) {
+     if (handle != NULL)  {
          bool ispause = false;
          mediasync_result ret = gMediaSync_getPause(handle, &ispause);
          if ((ret == AM_MEDIASYNC_OK) && ispause) {
-             gMediaSync_setPause(handle, false);
+            gMediaSync_setPause(handle, false);
          }
 
          ret = gMediaSync_updateAnchor(handle, anchorTimeMediaUs, anchorTimeRealUs, maxTimeMediaUs);
          if (ret == AM_MEDIASYNC_OK) {
             return true;
          } else {
-             ALOGE("[%s] no ok\n", __func__);
+            ALOGE("[%s] no ok\n", __func__);
          }
      } else {
-             ALOGE("[%s] no handle\n", __func__);
+        ALOGE("[%s] no handle\n", __func__);
      }
-     return false;                              
+     return false;
 }
 bool mediasync_wrap_setPlaybackRate(void* handle, float rate) {
-     if(handle != NULL)  {
+     if (handle != NULL)  {
          mediasync_result ret = gMediaSync_setPlaybackRate(handle, rate);
          if (ret == AM_MEDIASYNC_OK) {
             return true;
          } else {
-             ALOGE("[%s] no ok\n", __func__);
+            ALOGE("[%s] no ok\n", __func__);
          }
      } else {
-             ALOGE("[%s] no handle\n", __func__);
+        ALOGE("[%s] no handle\n", __func__);
      }
-     return false;       
+     return false;
 }
 bool mediasync_wrap_getPlaybackRate(void* handle, float *rate) {
-     if(handle != NULL)  {
+     if (handle != NULL)  {
          mediasync_result ret = gMediaSync_getPlaybackRate(handle, rate);
          if (ret == AM_MEDIASYNC_OK) {
             return true;
          } else {
-             ALOGE("[%s] no ok\n", __func__);
+            ALOGE("[%s] no ok\n", __func__);
          }
      } else {
-             ALOGE("[%s] no handle\n", __func__);
+        ALOGE("[%s] no handle\n", __func__);
      }
-     return false;        
+     return false;
 }
 bool mediasync_wrap_getMediaTime(void* handle, int64_t realUs,
 								int64_t *outMediaUs,
 								bool allowPastMaxTime) {
-     if(handle != NULL)  {
+     if (handle != NULL)  {
          mediasync_result ret = gMediaSync_getMediaTime(handle, realUs, outMediaUs, allowPastMaxTime);
          if (ret == AM_MEDIASYNC_OK) {
             return true;
          } else {
-             ALOGE("[%s] no ok\n", __func__);
+            ALOGE("[%s] no ok\n", __func__);
          }
      } else {
-             ALOGE("[%s] no handle\n", __func__);
+        ALOGE("[%s] no handle\n", __func__);
      }
-     return false;        
+     return false;
 }
 bool mediasync_wrap_getRealTimeFor(void* handle, int64_t targetMediaUs, int64_t *outRealUs) {
-     if(handle != NULL)  {
+     if (handle != NULL)  {
          mediasync_result ret = gMediaSync_getRealTimeFor(handle, targetMediaUs, outRealUs);
          if (ret == AM_MEDIASYNC_OK) {
             return true;
          } else {
-             ALOGE("[%s] no ok\n", __func__);
+            ALOGE("[%s] no ok\n", __func__);
          }
      } else {
-             ALOGE("[%s] no handle\n", __func__);
+        ALOGE("[%s] no handle\n", __func__);
      }
-     return false; 
+     return false;
 }
 bool mediasync_wrap_getRealTimeForNextVsync(void* handle, int64_t *outRealUs) {
-     if(handle != NULL)  {
+     if (handle != NULL)  {
          mediasync_result ret = gMediaSync_getRealTimeForNextVsync(handle, outRealUs);
          if (ret == AM_MEDIASYNC_OK) {
             return true;
          } else {
-             ALOGE("[%s] no ok\n", __func__);
+            ALOGE("[%s] no ok\n", __func__);
          }
      } else {
-             ALOGE("[%s] no handle\n", __func__);
+        ALOGE("[%s] no handle\n", __func__);
      }
-     return false;     
+     return false;
 }
+bool mediasync_wrap_getTrackMediaTime(void* handle, int64_t *outMeidaUs) {
+     if (handle != NULL)  {
+         mediasync_result ret = gMediaSync_getTrackMediaTime(handle, outMeidaUs);
+         if (ret == AM_MEDIASYNC_OK) {
+            return true;
+         } else {
+            ALOGE("[%s] no ok\n", __func__);
+         }
+     } else {
+        ALOGE("[%s] no handle\n", __func__);
+     }
+     return false;
+}
+
 bool mediasync_wrap_reset(void* handle) {
-     if(handle != NULL)  {
+     if (handle != NULL)  {
          mediasync_result ret = gMediaSync_reset(handle);
          if (ret == AM_MEDIASYNC_OK) {
             return true;
@@ -429,16 +453,16 @@ bool mediasync_wrap_reset(void* handle) {
              ALOGE("[%s] no ok\n", __func__);
          }
      } else {
-             ALOGE("[%s] no handle\n", __func__);
+        ALOGE("[%s] no handle\n", __func__);
      }
-     return false;          
+     return false;
 }
 
 void mediasync_wrap_destroy(void* handle) {
-     if(handle != NULL)  {
+     if (handle != NULL)  {
          gMediaSync_destroy(handle);
-     }   else {
-             ALOGE("[%s] no handle\n", __func__);
-     }                         
+     } else {
+        ALOGE("[%s] no handle\n", __func__);
+     }
 }
 

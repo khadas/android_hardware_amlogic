@@ -144,7 +144,8 @@ int on_meta_data_cbk(void *cookie,
                 pts32 -= latency;
             }
 
-            ALOGI("%s =============== can drop============", __FUNCTION__);
+            //ALOGI("%s =============== can drop============", __FUNCTION__);
+            aml_hwsync_wait_video_start(out->hwsync);
             aml_hwsync_wait_video_drop(out->hwsync, pts32);
 
             out->first_pts_set = true;

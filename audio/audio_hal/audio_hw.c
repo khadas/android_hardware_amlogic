@@ -3065,86 +3065,124 @@ rewrite:
             // if we got the frame body,which means we get a complete frame.
             //we take this frame pts as the first apts.
             //this can fix the seek discontinue,we got a fake frame,which maybe cached before the seek
-            if (hw_sync->first_apts_flag == false) {
-                int latency = (out_get_alsa_latency(stream) + hwsync_hdmi_latency);
-                if ((latency > 0 && cur_pts >= (uint32_t)latency * 90)
-                    /*&& out->last_frames_postion > 0*/) {
-                    cur_pts -=  latency * 90;
-                    aml_audio_hwsync_set_first_pts(out->hwsync, cur_pts);
-                } else if (latency <= 0) {
-                    cur_pts +=  abs(latency) * 90;
-                    aml_audio_hwsync_set_first_pts(out->hwsync, cur_pts);
-                }else {
-                    ALOGI("%s(), first pts not set, cur_pts %lld, last position %lld",
-                        __func__, cur_pts, out->last_frames_postion);
-                }
-            } else {
-                uint64_t apts;
+            if (hw_sync->use_mediasync) {
                 uint32_t apts32;
-                uint pcr = 0;
-                uint apts_gap = 0;
-                int latency = (out_get_alsa_latency(stream) + hwsync_hdmi_latency) * 90;
-                // check PTS discontinue, which may happen when audio track switching
-                // discontinue means PTS calculated based on first_apts and frame_write_sum
-                // does not match the timestamp of next audio samples
-                if (latency > 0 && cur_pts > (uint32_t)latency) {
-                    apts = cur_pts - latency;
-                } else if (latency <= 0) {
-                    apts = cur_pts + abs(latency);
-                } else {
-                    apts = 0;
-                }
-
-                apts32 = apts & 0xffffffff;
-
-                if (aml_hwsync_get_tsync_pts(out->hwsync, &pcr) == 0) {
-                    enum hwsync_status sync_status = CONTINUATION;
-                    apts_gap = get_pts_gap (pcr, apts32);
-                    sync_status = check_hwsync_status (apts_gap);
-
-                    ALOGV("%s()audio pts %dms, pcr %dms, latency %dms, diff %dms",
-                        __func__, apts32/90, pcr/90, latency/90,
-                        (apts32 > pcr) ? (apts32 - pcr)/90 : (pcr - apts32)/90);
-
-                    /*during video stop, pcr has been reset by video
-                      we need ignore such pcr value*/
-                    if (pcr == 0) {
-                        ALOGI("pcr is reset by video");
-                        sync_status = CONTINUATION;
+                if (hw_sync->first_apts_flag == false) {
+                    int latency = (out_get_alsa_latency(stream) + hwsync_hdmi_latency);
+                    if ((latency > 0 && cur_pts >= (uint32_t)latency * 90)
+                        /*&& out->last_frames_postion > 0*/) {
+                        cur_pts -=  latency * 90;
+                        aml_audio_hwsync_set_first_pts(out->hwsync, cur_pts);
+                    } else if (latency <= 0) {
+                        cur_pts +=  abs(latency) * 90;
+                        aml_audio_hwsync_set_first_pts(out->hwsync, cur_pts);
+                    }else {
+                        ALOGI("%s(), first pts not set, cur_pts %lld, last position %lld",
+                            __func__, cur_pts, out->last_frames_postion);
                     }
-                    // limit the gap handle to 0.5~5 s.
-                    if (sync_status == ADJUSTMENT) {
-                        // two cases: apts leading or pcr leading
-                        // apts leading needs inserting frame and pcr leading neads discarding frame
-                        if (apts32 > pcr) {
-                            int insert_size = 0;
-                            if (out->codec_type == TYPE_EAC3) {
-                                insert_size = apts_gap / 90 * 48 * 4 * 4;
-                            } else {
-                                insert_size = apts_gap / 90 * 48 * 4;
-                            }
-                            insert_size = insert_size & (~63);
-                            ALOGI ("audio gap 0x%"PRIx32" ms ,need insert data %d\n", apts_gap / 90, insert_size);
-                            ret = insert_output_bytes_direct(out, insert_size);
-                        } else {
-                            //audio pts smaller than pcr,need skip frame.
-                            //we assume one frame duration is 32 ms for DD+(6 blocks X 1536 frames,48K sample rate)
-                            if ((out->codec_type == TYPE_EAC3 || out->need_convert) && outsize > 0) {
-                                ALOGI ("audio slow 0x%x,skip frame @pts 0x%"PRIx64",pcr 0x%x,cur apts 0x%x\n",
-                                       apts_gap, cur_pts, pcr, apts32);
-                                out->frame_skip_sum  +=   1536;
-                                bytes = outsize;
-                                pthread_mutex_unlock (&adev->lock);
-                                goto exit;
-                            }
-                        }
-                    } else if (sync_status == RESYNC) {
-                        ALOGI ("tsync -> reset pcrscr 0x%x -> 0x%x, %s big,diff %"PRIx64" ms",
-                               pcr, apts32, apts32 > pcr ? "apts" : "pcr", get_pts_gap (apts, pcr) / 90);
+                    apts32 = cur_pts & 0xffffffff;
+                    aml_hwsync_wait_video_start(out->hwsync);
+                    aml_hwsync_wait_video_drop(out->hwsync, apts32);
 
-                        int ret_val = aml_hwsync_reset_tsync_pcrscr(out->hwsync, apts32);
-                        if (ret_val == -1) {
-                            ALOGE ("aml_hwsync_reset_tsync_pcrscr,err: %s", strerror (errno) );
+                } else {
+                    uint64_t apts;
+                    int latency = (out_get_alsa_latency(stream) + hwsync_hdmi_latency) * 90;
+                    // check PTS discontinue, which may happen when audio track switching
+                    // discontinue means PTS calculated based on first_apts and frame_write_sum
+                    // does not match the timestamp of next audio samples
+                    if (latency > 0 && cur_pts > (uint32_t)latency) {
+                        apts = cur_pts - latency;
+                    } else if (latency <= 0) {
+                        apts = cur_pts + abs(latency);
+                    } else {
+                        apts = 0;
+                    }
+
+                    apts32 = apts & 0xffffffff;
+                }
+                aml_hwsync_reset_tsync_pcrscr(out->hwsync, apts32);
+            } else {
+                if (hw_sync->first_apts_flag == false) {
+                    int latency = (out_get_alsa_latency(stream) + hwsync_hdmi_latency);
+                    if ((latency > 0 && cur_pts >= (uint32_t)latency * 90)
+                        /*&& out->last_frames_postion > 0*/) {
+                        cur_pts -=  latency * 90;
+                        aml_audio_hwsync_set_first_pts(out->hwsync, cur_pts);
+                    } else if (latency <= 0) {
+                        cur_pts +=  abs(latency) * 90;
+                        aml_audio_hwsync_set_first_pts(out->hwsync, cur_pts);
+                    }else {
+                        ALOGI("%s(), first pts not set, cur_pts %lld, last position %lld",
+                            __func__, cur_pts, out->last_frames_postion);
+                    }
+                } else {
+                    uint64_t apts;
+                    uint32_t apts32;
+                    uint pcr = 0;
+                    uint apts_gap = 0;
+                    int latency = (out_get_alsa_latency(stream) + hwsync_hdmi_latency) * 90;
+                    // check PTS discontinue, which may happen when audio track switching
+                    // discontinue means PTS calculated based on first_apts and frame_write_sum
+                    // does not match the timestamp of next audio samples
+                    if (latency > 0 && cur_pts > (uint32_t)latency) {
+                        apts = cur_pts - latency;
+                    } else if (latency <= 0) {
+                        apts = cur_pts + abs(latency);
+                    } else {
+                        apts = 0;
+                    }
+
+                    apts32 = apts & 0xffffffff;
+
+                    if (aml_hwsync_get_tsync_pts(out->hwsync, &pcr) == 0) {
+                        enum hwsync_status sync_status = CONTINUATION;
+                        apts_gap = get_pts_gap (pcr, apts32);
+                        sync_status = check_hwsync_status (apts_gap);
+
+                        ALOGV("%s()audio pts %dms, pcr %dms, latency %dms, diff %dms",
+                            __func__, apts32/90, pcr/90, latency/90,
+                            (apts32 > pcr) ? (apts32 - pcr)/90 : (pcr - apts32)/90);
+
+                        /*during video stop, pcr has been reset by video
+                        we need ignore such pcr value*/
+                        if (pcr == 0) {
+                            ALOGI("pcr is reset by video");
+                            sync_status = CONTINUATION;
+                        }
+                        // limit the gap handle to 0.5~5 s.
+                        if (sync_status == ADJUSTMENT) {
+                            // two cases: apts leading or pcr leading
+                            // apts leading needs inserting frame and pcr leading neads discarding frame
+                            if (apts32 > pcr) {
+                                int insert_size = 0;
+                                if (out->codec_type == TYPE_EAC3) {
+                                    insert_size = apts_gap / 90 * 48 * 4 * 4;
+                                } else {
+                                    insert_size = apts_gap / 90 * 48 * 4;
+                                }
+                                insert_size = insert_size & (~63);
+                                ALOGI ("audio gap 0x%"PRIx32" ms ,need insert data %d\n", apts_gap / 90, insert_size);
+                                ret = insert_output_bytes_direct(out, insert_size);
+                            } else {
+                                //audio pts smaller than pcr,need skip frame.
+                                //we assume one frame duration is 32 ms for DD+(6 blocks X 1536 frames,48K sample rate)
+                                if ((out->codec_type == TYPE_EAC3 || out->need_convert) && outsize > 0) {
+                                    ALOGI ("audio slow 0x%x,skip frame @pts 0x%"PRIx64",pcr 0x%x,cur apts 0x%x\n",
+                                        apts_gap, cur_pts, pcr, apts32);
+                                    out->frame_skip_sum  +=   1536;
+                                    bytes = outsize;
+                                    pthread_mutex_unlock (&adev->lock);
+                                    goto exit;
+                                }
+                            }
+                        } else if (sync_status == RESYNC) {
+                            ALOGI ("tsync -> reset pcrscr 0x%x -> 0x%x, %s big,diff %"PRIx64" ms",
+                                pcr, apts32, apts32 > pcr ? "apts" : "pcr", get_pts_gap (apts, pcr) / 90);
+
+                            int ret_val = aml_hwsync_reset_tsync_pcrscr(out->hwsync, apts32);
+                            if (ret_val == -1) {
+                                ALOGE ("aml_hwsync_reset_tsync_pcrscr,err: %s", strerror (errno) );
+                            }
                         }
                     }
                 }
@@ -8769,60 +8807,84 @@ hwsync_rewrite:
                 // if we got the frame body,which means we get a complete frame.
                 //we take this frame pts as the first apts.
                 //this can fix the seek discontinue,we got a fake frame,which maybe cached before the seek
-                if (hw_sync->first_apts_flag == false) {
-                    aml_audio_hwsync_set_first_pts(aml_out->hwsync, cur_pts);
-                } else {
-                    uint64_t apts;
-                    uint32_t apts32;
-                    uint pcr = 0;
-                    uint apts_gap = 0;
-                    uint64_t latency = out_get_latency (stream) * 90;
-                    // check PTS discontinue, which may happen when audio track switching
-                    // discontinue means PTS calculated based on first_apts and frame_write_sum
-                    // does not match the timestamp of next audio samples
-                    if (cur_pts > latency) {
-                        apts = cur_pts - latency;
+                if (hw_sync->use_mediasync) {
+                    uint32_t apts32 = 0;
+                    if (hw_sync->first_apts_flag == false) {
+                        aml_audio_hwsync_set_first_pts(aml_out->hwsync, cur_pts);
+                        apts32 = cur_pts & 0xffffffff;
+                        aml_hwsync_wait_video_start(aml_out->hwsync);
+                        aml_hwsync_wait_video_drop(aml_out->hwsync, apts32);
                     } else {
-                        apts = 0;
+                        uint64_t apts;
+                        uint64_t latency = out_get_latency (stream) * 90;
+                        // check PTS discontinue, which may happen when audio track switching
+                        // discontinue means PTS calculated based on first_apts and frame_write_sum
+                        // does not match the timestamp of next audio samples
+                        if (cur_pts > latency) {
+                            apts = cur_pts - latency;
+                        } else {
+                            apts = 0;
+                        }
+                        apts32 = apts & 0xffffffff;
                     }
-                    apts32 = apts & 0xffffffff;
-                    if (aml_hwsync_get_tsync_pts(aml_out->hwsync, &pcr) == 0) {
-                        enum hwsync_status sync_status = CONTINUATION;
-                        apts_gap = get_pts_gap (pcr, apts32);
-                        sync_status = check_hwsync_status (apts_gap);
+                    aml_hwsync_reset_tsync_pcrscr(aml_out->hwsync, apts32);
+                } else {
 
-                        // limit the gap handle to 0.5~5 s.
-                        if (sync_status == ADJUSTMENT) {
-                            // two cases: apts leading or pcr leading
-                            // apts leading needs inserting frame and pcr leading neads discarding frame
-                            if (apts32 > pcr) {
-                                int insert_size = 0;
-                                if (aml_out->codec_type == TYPE_EAC3) {
-                                    insert_size = apts_gap / 90 * 48 * 4 * 4;
+                    if (hw_sync->first_apts_flag == false) {
+                        aml_audio_hwsync_set_first_pts(aml_out->hwsync, cur_pts);
+                    } else {
+                        uint64_t apts;
+                        uint32_t apts32;
+                        uint pcr = 0;
+                        uint apts_gap = 0;
+                        uint64_t latency = out_get_latency (stream) * 90;
+                        // check PTS discontinue, which may happen when audio track switching
+                        // discontinue means PTS calculated based on first_apts and frame_write_sum
+                        // does not match the timestamp of next audio samples
+                        if (cur_pts > latency) {
+                            apts = cur_pts - latency;
+                        } else {
+                            apts = 0;
+                        }
+                        apts32 = apts & 0xffffffff;
+                        if (aml_hwsync_get_tsync_pts(aml_out->hwsync, &pcr) == 0) {
+                            enum hwsync_status sync_status = CONTINUATION;
+                            apts_gap = get_pts_gap (pcr, apts32);
+                            sync_status = check_hwsync_status (apts_gap);
+
+                            // limit the gap handle to 0.5~5 s.
+                            if (sync_status == ADJUSTMENT) {
+                                // two cases: apts leading or pcr leading
+                                // apts leading needs inserting frame and pcr leading neads discarding frame
+                                if (apts32 > pcr) {
+                                    int insert_size = 0;
+                                    if (aml_out->codec_type == TYPE_EAC3) {
+                                        insert_size = apts_gap / 90 * 48 * 4 * 4;
+                                    } else {
+                                        insert_size = apts_gap / 90 * 48 * 4;
+                                    }
+                                    insert_size = insert_size & (~63);
+                                    ALOGI ("audio gap 0x%"PRIx32" ms ,need insert data %d\n", apts_gap / 90, insert_size);
+                                    ret = insert_output_bytes (aml_out, insert_size);
                                 } else {
-                                    insert_size = apts_gap / 90 * 48 * 4;
+                                    //audio pts smaller than pcr,need skip frame.
+                                    //we assume one frame duration is 32 ms for DD+(6 blocks X 1536 frames,48K sample rate)
+                                    if (aml_out->codec_type == TYPE_EAC3 && outsize > 0) {
+                                        ALOGI ("audio slow 0x%x,skip frame @pts 0x%"PRIx64",pcr 0x%x,cur apts 0x%x\n",
+                                        apts_gap, cur_pts, pcr, apts32);
+                                        aml_out->frame_skip_sum  +=   1536;
+                                        return_bytes = hwsync_cost_bytes;
+                                        goto exit;
+                                    }
                                 }
-                                insert_size = insert_size & (~63);
-                                ALOGI ("audio gap 0x%"PRIx32" ms ,need insert data %d\n", apts_gap / 90, insert_size);
-                                ret = insert_output_bytes (aml_out, insert_size);
-                            } else {
-                                //audio pts smaller than pcr,need skip frame.
-                                //we assume one frame duration is 32 ms for DD+(6 blocks X 1536 frames,48K sample rate)
-                                if (aml_out->codec_type == TYPE_EAC3 && outsize > 0) {
-                                    ALOGI ("audio slow 0x%x,skip frame @pts 0x%"PRIx64",pcr 0x%x,cur apts 0x%x\n",
-                                       apts_gap, cur_pts, pcr, apts32);
-                                    aml_out->frame_skip_sum  +=   1536;
-                                    return_bytes = hwsync_cost_bytes;
-                                    goto exit;
-                                }
-                            }
-                        } else if (sync_status == RESYNC) {
-                            ALOGI ("tsync -> reset pcrscr 0x%x -> 0x%x, %s big,diff %"PRIx64" ms",
-                                   pcr, apts32, apts32 > pcr ? "apts" : "pcr", get_pts_gap (apts, pcr) / 90);
+                            } else if (sync_status == RESYNC) {
+                                ALOGI ("tsync -> reset pcrscr 0x%x -> 0x%x, %s big,diff %"PRIx64" ms",
+                                    pcr, apts32, apts32 > pcr ? "apts" : "pcr", get_pts_gap (apts, pcr) / 90);
 
-                            int ret_val = aml_hwsync_reset_tsync_pcrscr(aml_out->hwsync, apts32);
-                            if (ret_val == -1) {
-                                ALOGE ("aml_hwsync_reset_tsync_pcrscr,err: %s", strerror (errno) );
+                                int ret_val = aml_hwsync_reset_tsync_pcrscr(aml_out->hwsync, apts32);
+                                if (ret_val == -1) {
+                                    ALOGE ("aml_hwsync_reset_tsync_pcrscr,err: %s", strerror (errno) );
+                                }
                             }
                         }
                     }
