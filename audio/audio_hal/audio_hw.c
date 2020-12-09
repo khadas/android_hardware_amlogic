@@ -9538,7 +9538,6 @@ ssize_t mixer_aux_buffer_write(struct audio_stream_out *stream, const void *buff
                     } else {
                         need_reset_decoder = true;
                         if (adev->hdmi_format_updated) {
-                            need_reset_decoder = false;
                             ALOGI("%s(), hdmi format updated, [PCM(0)/SPDIF(4)/AUTO(5)] current %d", __func__, adev->hdmi_format);
                         }
                         else
@@ -12174,6 +12173,8 @@ static int adev_open(const hw_module_t* module, const char* name, hw_device_t** 
     // set debug_flag here to see more debug log when debugging.
     adev->debug_flag = aml_audio_get_debug_flag();
     adev->count = 1;
+
+    memset(&(adev->hdmi_descs), 0, sizeof(struct aml_arc_hdmi_desc));
 
     ALOGD("%s: exit", __func__);
     return 0;

@@ -972,7 +972,7 @@ MAIN_INPUT:
                                 input_ns = 0;
                             }
                             ms12->main_input_rate = ac4_info.sample_rate;
-                            ALOGI("input ns =%lld frame rate=%d frame size=%d", input_ns, ac4_info.frame_rate, ac4_info.frame_size);
+                            ALOGV("input ns =%lld frame rate=%d frame size=%d", input_ns, ac4_info.frame_rate, ac4_info.frame_size);
                         } else {
                             /*
                             for LPCM audio,we support it is 2 ch 48K audio.

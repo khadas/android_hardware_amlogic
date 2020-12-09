@@ -55,7 +55,7 @@ static audio_format_t get_sink_capability (struct aml_audio_device *adev)
         char *cap = NULL;
         cap = (char *) get_hdmi_sink_cap (AUDIO_PARAMETER_STREAM_SUP_FORMATS,0,&(adev->hdmi_descs));
         if (cap) {
-            if (strstr(cap, "AUDIO_FORMAT_MAT") != NULL) {
+            if ((strstr(cap, "AUDIO_FORMAT_MAT_2_0") != NULL) || (strstr(cap, "AUDIO_FORMAT_MAT_2_1") != NULL)) {
                 sink_capability = AUDIO_FORMAT_MAT;
             } else if (strstr(cap, "AUDIO_FORMAT_E_AC3") != NULL) {
                 sink_capability = AUDIO_FORMAT_E_AC3;

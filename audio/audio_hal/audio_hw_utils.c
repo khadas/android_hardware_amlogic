@@ -330,6 +330,33 @@ int mystrstr(char *mystr, char *substr)
     }
     return ok;
 }
+
+int find_offset_in_file_strstr(char *mystr, char *substr)
+{
+    int i = 0;
+    int j = 0;
+    int score = 0;
+    int substrlen = strlen(substr);
+    int ok = 0;
+    for (i = 0; i < 1024 - substrlen; i++) {
+        for (j = 0; j < substrlen; j++) {
+            score += (substr[j] == mystr[i + j]) ? 1 : 0;
+        }
+        if (score == substrlen) {
+            ok = 1;
+            break;
+        }
+        score = 0;
+    }
+    if (ok) {
+        return (i + j - substrlen);
+    }
+    else {
+        return -1;
+    }
+}
+
+
 void set_codec_type(int type)
 {
     char buf[16];

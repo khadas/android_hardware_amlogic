@@ -36,6 +36,7 @@
 #include "alsa_device_parser.h"
 #define SOUND_CARDS_PATH "/proc/asound/cards"
 #define SOUND_PCM_PATH  "/proc/asound/pcm"
+#define MAT_EDID_MAX_LEN 256
 
 /*
   type : 0 -> playback, 1 -> capture
@@ -125,7 +126,42 @@ char*  get_hdmi_sink_cap(const char *keys,audio_format_t format,struct aml_arc_h
             }
 
             if (mystrstr(infobuf, "MAT")) {
-                size += sprintf(aud_cap + size, "|%s", "AUDIO_FORMAT_DOLBY_TRUEHD|AUDIO_FORMAT_MAT");
+                //DLB MAT and DLB TrueHD SAD
+                int mat_edid_offset = find_offset_in_file_strstr(infobuf, "MAT");
+
+                if (mat_edid_offset >= 0) {
+                    char mat_edid_array[MAT_EDID_MAX_LEN] = {};
+                    lseek(fd, mat_edid_offset, SEEK_SET);
+                    int nread = read(fd, mat_edid_array, MAT_EDID_MAX_LEN);
+                    if (nread >= 0) {
+                        if (mystrstr(mat_edid_array, "DepVaule 0x1")) {
+                            //Byte3 bit0:1 bit1:0
+                            //eg: "MAT, 8 ch, 32/44.1/48/88.2/96/176.4/192 kHz, DepVaule 0x1"
+                            size += sprintf(aud_cap + size, "|%s", "AUDIO_FORMAT_DOLBY_TRUEHD|AUDIO_FORMAT_MAT_1_0|AUDIO_FORMAT_MAT_2_0");
+                            p_hdmi_descs->mat_fmt.is_support = 1;
+                        }
+                        else if (mystrstr(mat_edid_array, "DepVaule 0x0")) {
+                            //Byte3 bit0:0 bit1:0
+                            //eg: "MAT, 8 ch, 48/96/192 kHz, DepVaule 0x0"
+                            size += sprintf(aud_cap + size, "|%s", "AUDIO_FORMAT_DOLBY_TRUEHD|AUDIO_FORMAT_MAT_1_0");
+                            p_hdmi_descs->mat_fmt.is_support = 0;//fixme about the mat_fmt.is_support
+                        }
+                        else if (mystrstr(mat_edid_array, "DepVaule 0x3")) {
+                            //Byte3 bit0:0 bit1:1
+                            //eg: "MAT, 8 ch, 48 kHz, DepVaule 0x3"
+                            size += sprintf(aud_cap + size, "|%s", "AUDIO_FORMAT_DOLBY_TRUEHD|AUDIO_FORMAT_MAT_1_0|AUDIO_FORMAT_MAT_2_0|AUDIO_FORMAT_MAT_2_1");
+                            p_hdmi_descs->mat_fmt.is_support = 1;
+                        }
+                        else {
+                            ALOGE("%s line %d MAT SAD Byte3 bit0&bit1 is invalid!", __func__, __LINE__);
+                            p_hdmi_descs->mat_fmt.is_support = 0;
+                        }
+                    }
+                }
+                else {
+                    p_hdmi_descs->mat_fmt.is_support = 0;
+                    ALOGE("%s line %d MAT EDID offset is invalid!", __func__, __LINE__);
+                }
             }
         }
         /*check the channel cap */
@@ -248,8 +284,44 @@ char*  get_hdmi_sink_cap_dolbylib(const char *keys,audio_format_t format,struct 
                 size += sprintf(aud_cap + size, "|%s", "AUDIO_FORMAT_DTS");
                 p_hdmi_descs->dts_fmt.is_support = 1;
             }
+
             if (mystrstr(infobuf, "MAT")) {
-                size += sprintf(aud_cap + size, "|%s", "AUDIO_FORMAT_DOLBY_TRUEHD");
+                //DLB MAT and DLB TrueHD SAD
+                int mat_edid_offset = find_offset_in_file_strstr(infobuf, "MAT");
+
+                if (mat_edid_offset >= 0) {
+                    char mat_edid_array[MAT_EDID_MAX_LEN] = {};
+                    lseek(fd, mat_edid_offset, SEEK_SET);
+                    int nread = read(fd, mat_edid_array, MAT_EDID_MAX_LEN);
+                    if (nread >= 0) {
+                        if (mystrstr(mat_edid_array, "DepVaule 0x1")) {
+                            //Byte3 bit0:1 bit1:0
+                            //eg: "MAT, 8 ch, 32/44.1/48/88.2/96/176.4/192 kHz, DepVaule 0x1"
+                            size += sprintf(aud_cap + size, "|%s", "AUDIO_FORMAT_DOLBY_TRUEHD|AUDIO_FORMAT_MAT_1_0|AUDIO_FORMAT_MAT_2_0");
+                            p_hdmi_descs->mat_fmt.is_support = 1;
+                        }
+                        else if (mystrstr(mat_edid_array, "DepVaule 0x0")) {
+                            //Byte3 bit0:0 bit1:0
+                            //eg: "MAT, 8 ch, 48/96/192 kHz, DepVaule 0x0"
+                            size += sprintf(aud_cap + size, "|%s", "AUDIO_FORMAT_DOLBY_TRUEHD|AUDIO_FORMAT_MAT_1_0");
+                            p_hdmi_descs->mat_fmt.is_support = 0;//fixme about the mat_fmt.is_support
+                        }
+                        else if (mystrstr(mat_edid_array, "DepVaule 0x3")) {
+                            //Byte3 bit0:0 bit1:1
+                            //eg: "MAT, 8 ch, 48 kHz, DepVaule 0x3"
+                            size += sprintf(aud_cap + size, "|%s", "AUDIO_FORMAT_DOLBY_TRUEHD|AUDIO_FORMAT_MAT_1_0|AUDIO_FORMAT_MAT_2_0|AUDIO_FORMAT_MAT_2_1");
+                            p_hdmi_descs->mat_fmt.is_support = 1;
+                        }
+                        else {
+                            ALOGE("%s line %d MAT SAD Byte3 bit0&bit1 is invalid!", __func__, __LINE__);
+                            p_hdmi_descs->mat_fmt.is_support = 0;
+                        }
+                    }
+                }
+                else {
+                    p_hdmi_descs->mat_fmt.is_support = 0;
+                    ALOGE("%s line %d MAT EDID offset is invalid!", __func__, __LINE__);
+                }
             }
         }
         /*check the channel cap */

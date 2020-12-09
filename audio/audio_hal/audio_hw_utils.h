@@ -94,4 +94,5 @@ uint32_t out_get_alsa_latency_frames(const struct audio_stream_out *stream);
 bool is_multi_channel_pcm(struct audio_stream_out *stream);
 bool is_high_rate_pcm(struct audio_stream_out *stream);
 bool is_disable_ms12_continuous(struct audio_stream_out *stream);
+int find_offset_in_file_strstr(char *mystr, char *substr);
 #endif
