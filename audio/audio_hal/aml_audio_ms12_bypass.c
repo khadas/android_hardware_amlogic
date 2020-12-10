@@ -251,36 +251,40 @@ int aml_ms12_bypass_checkout_data(void *phandle, void **output_buf, int32_t *out
 {
     struct aml_ms12_bypass_handle *bypass_handle = (struct aml_ms12_bypass_handle *)phandle;
     struct bypass_frame_item *frame_item = NULL;
-    struct listnode *item = NULL;
+    struct listnode *item = NULL, *n;
     uint32_t frame_size = 0;
     bool find_frame = false;
     if (bypass_handle == NULL) {
         return -1;
     }
+    *out_size = 0;
     ALOGV("check out bypass data =%lld", offset);
     pthread_mutex_lock(&bypass_handle->list_lock);
-    list_for_each(item, &bypass_handle->frame_list) {
+    list_for_each_safe(item, n, &bypass_handle->frame_list) {
         frame_item = node_to_item(item, struct bypass_frame_item, list);
-        if ((frame_item->offset_start <= offset) && (offset <= frame_item->offset_end)) {
+        // LINUX change
+        // send all frames before/include the offset
+        if (frame_item->offset_start <= offset) {
             /*find the offset frame*/
             frame_size = frame_item->frame_size;
             ALOGV("offset=%lld frame size=%d start=%lld end=%lld frame dependency=%d cnt=%d numblks=%d", offset, frame_size, frame_item->offset_start, frame_item->offset_end, frame_item->info.dependency_frame, frame_item->frame_cnt, frame_item->numblks);
-            if (frame_size > bypass_handle->buf_size) {
-                bypass_handle->buf = aml_audio_realloc(bypass_handle->buf, frame_size);
+            if (frame_size + *out_size > bypass_handle->buf_size) {
+                bypass_handle->buf = realloc(bypass_handle->buf, frame_size + *out_size);
                 if (bypass_handle->buf == NULL) {
                     ALOGE("%s realloc buf failed =%d", __FUNCTION__, frame_size);
                     goto error;
                 }
-                bypass_handle->buf_size = frame_size;
+                bypass_handle->buf_size = frame_size + *out_size;
             }
-            memcpy(bypass_handle->buf, frame_item->frame_buf, frame_size);
+            memcpy((char*)bypass_handle->buf + *out_size, frame_item->frame_buf, frame_size);
             memcpy(frame_info, &frame_item->info, sizeof(struct bypass_frame_info));
 
             *output_buf = bypass_handle->buf;
-            *out_size   = frame_size;
+            *out_size  += frame_size;
             find_frame = true;
             list_remove(&frame_item->list);
             delete_bypass_frame(frame_item);
+        } else {
             break;
         }
     }
@@ -295,5 +299,6 @@ error:
     *out_size   = 0;
     return -1;
 }
+
 
 

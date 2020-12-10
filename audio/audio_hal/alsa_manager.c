@@ -780,6 +780,7 @@ size_t aml_alsa_output_write_new(void *handle, const void *buffer, size_t bytes)
             __func__, __LINE__, alsa_handle->pcm, alsa_handle, buffer, bytes);
         return -1;
     }
+#if 0
     //ALOGD("handle=%p pcm=%p\n",alsa_handle,alsa_handle->pcm);
     /*add for work around ddp dd ouput ,ddp underrun issue */
     dd_pcm = alsa_handle->pcm;
@@ -807,7 +808,7 @@ size_t aml_alsa_output_write_new(void *handle, const void *buffer, size_t bytes)
            return 0;
         }
     }
-
+#endif
     {
         struct snd_pcm_status status;
         pcm_ioctl(alsa_handle->pcm, SNDRV_PCM_IOCTL_STATUS, &status);
