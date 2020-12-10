@@ -58,9 +58,9 @@ ndk::ScopedAStatus Power::setMode(Mode type, bool enabled) {
     switch (type) {
         case Mode::INTERACTIVE:
             if (enabled) {
-                mHintManager->DoHint("INTERACTIVE");
-            } else {
                 mHintManager->EndHint("INTERACTIVE");
+            } else {
+                mHintManager->DoHint("INTERACTIVE");
             }
             break;
         default:
@@ -85,7 +85,14 @@ ndk::ScopedAStatus Power::isModeSupported(Mode type, bool *_aidl_return) {
 ndk::ScopedAStatus Power::setBoost(Boost type, int32_t durationMs) {
     LOG(INFO) << "Power setBoost: " << toString(type) << " duration: " << durationMs;
     ATRACE_INT(toString(type).c_str(), durationMs);
-    LOG(INFO) << "Power setBoost: " << toString(type) << " is not supported by now";
+    switch (type) {
+        case Boost::INTERACTION:
+                mHintManager->DoHint("INTERACTION");
+            break;
+        default:
+            LOG(INFO) << "Power setBoost " << toString(type) << " is not supported now";
+            break;
+    }
     return ndk::ScopedAStatus::ok();
 }
 
