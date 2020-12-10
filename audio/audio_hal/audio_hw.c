@@ -10963,6 +10963,8 @@ static int adev_create_audio_patch(struct audio_hw_device *dev,
 
     if ((src_config->ext.device.type == AUDIO_DEVICE_IN_WIRED_HEADSET) || (src_config->ext.device.type == AUDIO_DEVICE_IN_BLUETOOTH_BLE)) {
         ALOGD("bluetooth voice search is in use, bypass adev_create_audio_patch()!!\n");
+        //we can't return error to application because it maybe process the error .
+        ret = 0;
         goto err;
     }
     ALOGI("++%s", __FUNCTION__);
