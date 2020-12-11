@@ -327,7 +327,7 @@ int aml_audio_spdifout_processs(void *phandle, void *buffer, size_t byte)
     }
 
     if (output_buffer_bytes) {
-        ALOGV("size =%d", output_buffer_bytes);
+        ALOGV("size =%zu", output_buffer_bytes);
         ret = aml_alsa_output_write_new(alsa_handle, output_buffer, output_buffer_bytes);
     }
 

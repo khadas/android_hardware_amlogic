@@ -66,9 +66,9 @@
 #define AMSTREAM_IOC_VPAUSE	_IOW((AMSTREAM_IOC_MAGIC), 0x17, int)
 #define AMSTREAM_IOC_SET_DRMMODE _IOW((AMSTREAM_IOC_MAGIC), 0x91, int)
 #define AMSTREAM_IOC_GET_VERSION _IOR((AMSTREAM_IOC_MAGIC), 0xc0, int)
-#define AMSTREAM_IOC_GET	_IOWR((AMSTREAM_IOC_MAGIC), 0xc1, struct am_ioctl_parm)
+#define AMSTREAM_IOC_GET	_IOW((AMSTREAM_IOC_MAGIC), 0xc1, struct am_ioctl_parm)
 #define AMSTREAM_IOC_SET	_IOW((AMSTREAM_IOC_MAGIC), 0xc2, struct am_ioctl_parm)
-#define AMSTREAM_IOC_GET_EX	_IOWR((AMSTREAM_IOC_MAGIC), 0xc3, struct am_ioctl_parm_ex)
+#define AMSTREAM_IOC_GET_EX	_IOW((AMSTREAM_IOC_MAGIC), 0xc3, struct am_ioctl_parm_ex)
 
 // cmds
 #define AMSTREAM_SET_VB_SIZE		0x102

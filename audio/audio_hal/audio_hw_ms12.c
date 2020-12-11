@@ -25,6 +25,7 @@
 #include <aml_android_utils.h>
 #include <sys/prctl.h>
 #include <cutils/properties.h>
+#include <inttypes.h>
 
 #include "audio_hw_ms12.h"
 #include "alsa_config_parameters.h"
@@ -495,7 +496,7 @@ int get_the_dolby_ms12_prepared(
     }
 
     ms12->sys_audio_base_pos = adev->sys_audio_frame_written;
-    ALOGI("set ms12 sys pos =%lld", ms12->sys_audio_base_pos);
+    ALOGI("set ms12 sys pos =%" PRId64 "", ms12->sys_audio_base_pos);
     aml_ac3_parser_open(&ms12->ac3_parser_handle);
     aml_ms12_bypass_open(&ms12->ms12_bypass_handle);
     aml_spdif_decoder_open(&ms12->spdif_dec_handle);
@@ -714,7 +715,7 @@ int dolby_ms12_main_process(
         if (main_buffer_duration_ns /NANO_SECOND_PER_MILLISECOND > ms12->main_buffer_max_level) {
             ms12->main_buffer_max_level = main_buffer_duration_ns / NANO_SECOND_PER_MILLISECOND;
         }
-        ALOGV("main input_ns =%lld output_ns=%lld diff_us=%lld min =%d max=%d",
+        ALOGV("main input_ns =%" PRId64 " output_ns=%" PRId64 " diff_us=%" PRId64 " min =%d max=%d",
             ms12->main_input_ns, ms12->main_output_ns, main_buffer_duration_ns/1000,
             ms12->main_buffer_min_level, ms12->main_buffer_max_level);
 
@@ -774,7 +775,7 @@ int dolby_ms12_main_process(
             if (ac3_info.sample_rate != 0) {
                 sample_rate = ac3_info.sample_rate;
             }
-            ALOGV("Input size =%d used_size =%d output size=%d rate=%d interl format=0x%x rate=%d",
+            ALOGV("Input size =%zu used_size =%d output size=%d rate=%d interl format=0x%x rate=%d",
                 input_bytes, spdif_dec_used_size, main_frame_size, aml_out->hal_rate, aml_out->hal_internal_format, sample_rate);
 
             if (main_frame_size != 0 && adev->continuous_audio_mode) {
@@ -886,7 +887,7 @@ MAIN_INPUT:
                         if (parser_used_size == 0) {
                             *use_size = bytes;
                         }
-                        ALOGE("write dolby main time out, discard data=%d main_frame_size=%d", *use_size, main_frame_size);
+                        ALOGE("write dolby main time out, discard data=%zu main_frame_size=%d", *use_size, main_frame_size);
                         goto exit;
                     }
 
@@ -929,7 +930,7 @@ MAIN_INPUT:
                                 input_ns = 0;
                             }
                             ms12->main_input_rate = sample_rate;
-                            ALOGV("input_ns =%lld ddp_frame_nblks %d dependent_frame %d\n", input_ns, aml_out->ddp_frame_nblks, dependent_frame);
+                            ALOGV("input_ns =%" PRId64 " ddp_frame_nblks %d dependent_frame %d\n", input_ns, aml_out->ddp_frame_nblks, dependent_frame);
                         } else if(aml_out->hal_format == AUDIO_FORMAT_IEC61937) {
                             input_ns = (uint64_t)1536 * 1000000000LL / sample_rate;
                             ms12->main_input_rate = sample_rate;
@@ -940,7 +941,7 @@ MAIN_INPUT:
                             input_ns = (uint64_t)dolby_ms12_input_bytes * 1000000000LL / 4 / ms12->config_sample_rate;
                             ms12->main_input_rate = ms12->config_sample_rate;
                         }
-                        ALOGV("input_ns =%lld", input_ns);
+                        ALOGV("input_ns =%" PRId64 "", input_ns);
                         ms12->main_input_ns += input_ns;
                         audio_virtual_buf_process(ms12->main_virtual_buf_handle, input_ns);
                     }
@@ -967,7 +968,7 @@ MAIN_INPUT:
                 *use_size = input_bytes;
             }
         }
-        ALOGV("in =%d used =%d", input_bytes, *use_size);
+        ALOGV("in =%zu used =%zu", input_bytes, *use_size);
         ms12->is_bypass_ms12 = is_ms12_passthrough(stream);
         ms12->is_dolby_atmos = (dolby_ms12_get_input_atmos_info() == 1);
 exit:
@@ -1359,7 +1360,7 @@ static int ms12_output_master(void *buffer, void *priv_data, size_t size, audio_
             ms12_dec_out_nframes = 0;
         }
         ms12->main_output_ns = ms12_dec_out_nframes * NANO_SECOND_PER_SECOND / sample_rate;
-        ALOGV("format = 0x%x ms12_dec_out_nframes=%lld", aml_out->hal_internal_format, ms12_dec_out_nframes);
+        ALOGV("format = 0x%x ms12_dec_out_nframes=%" PRId64 "", aml_out->hal_internal_format, ms12_dec_out_nframes);
     }
 
     ms12->is_dolby_atmos = (dolby_ms12_get_input_atmos_info() == 1);

@@ -277,7 +277,7 @@ static size_t read_pid_egl_memory(pid_t pid)
             if (fgets(line, sizeof(line), ion_fp) == NULL) {
                 break;
             }
-            num_matched = sscanf(line, "%*s %llx %*s %*u %*s %u %*s %*d %*s %*d",
+            num_matched = sscanf(line, "%*s %" PRIx64 " %*s %*u %*s %zu %*s %*d %*s %*d",
                 &buf_info.id, &buf_info.size);
             if (num_matched == 2) {
                 // We've found an entry ...
@@ -345,7 +345,7 @@ static size_t read_pid_egl_memory(pid_t pid)
                     if (fgets(line, sizeof(line), egl_fp) == NULL) {
                         break;
                     }
-                    num_matched = sscanf(line, " handle= %*x buf= %llx %*s %*d %*s %*u", &buf_id);
+                    num_matched = sscanf(line, " handle= %*x buf= %" PRIx64 " %*s %*d %*s %*u", &buf_id);
                     if (num_matched == 1) {
                         // We've found an entry ...
                         bufs[(*bufs_size)++] = buf_id;
@@ -543,7 +543,7 @@ static size_t read_gl_device_cached_memory(pid_t pid)
                 // 7610 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
                 size_t buf_size;
                 while (fgets(line, sizeof(line), fl_fp) != NULL) {
-                        if (sscanf(line, "%d %*d", &buf_size) != 1)
+                        if (sscanf(line, "%zd %*d", &buf_size) != 1)
                             continue;
                         else {
                             unaccounted_size = buf_size * PAGE_SIZE;
@@ -634,12 +634,12 @@ static int memtrack_get_memory(pid_t pid, enum memtrack_type type,
         unaccounted_size += read_egl_cached_memory(pid);
     }
 
-    if (DEBUG) ALOGD("type:%d for pid:%d, size_up_to:%d", type, pid, unaccounted_size);
+    if (DEBUG) ALOGD("type:%d for pid:%d, size_up_to:%zu", type, pid, unaccounted_size);
 
     if (allocated_records > 0) {
         records[0].size_in_bytes = unaccounted_size;
         if (DEBUG)
-            ALOGD("Graphics type:%d unaccounted_size:%u\n", type, unaccounted_size);
+            ALOGD("Graphics type:%d unaccounted_size:%zu\n", type, unaccounted_size);
     }
 
     return 0;

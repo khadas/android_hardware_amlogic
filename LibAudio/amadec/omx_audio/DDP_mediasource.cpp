@@ -344,7 +344,7 @@ int DDP_MediaSource::GetReadedBytes()
      bytes_used=bytes_readed_sum-bytes_readed_sum_pre;
      if (bytes_used < 0)
      {
-         ALOGI("[%s]bytes_readed_sum(%lld) < bytes_readed_sum_pre(%lld) \n",__FUNCTION__,bytes_readed_sum,bytes_readed_sum_pre);
+         ALOGI("[%s]bytes_readed_sum(%" PRId64 ") < bytes_readed_sum_pre(%lld) \n",__FUNCTION__,bytes_readed_sum,bytes_readed_sum_pre);
          bytes_used=0;
      }
      bytes_readed_sum_pre=bytes_readed_sum;

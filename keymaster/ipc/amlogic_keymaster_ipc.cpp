@@ -25,6 +25,7 @@
 #include <unistd.h>
 
 #include <algorithm>
+#include <inttypes.h>
 
 #include <log/log.h>
 #if !AMLOGIC_MODIFY
@@ -165,7 +166,7 @@ keymaster_error_t aml_keymaster_send(TEEC_Session *s, uint32_t command, const ke
 
     // If sizeof "payload + cmd " > sizeof "recv_buf", it might be overflowing
     if (rsp_size + sizeof(msg->cmd) > sizeof(recv_buf)) {
-        ALOGE("Buffer overflowing! rsp_size(%d), recv_buf size(%d)\n", rsp_size, sizeof(recv_buf));
+        ALOGE("Buffer overflowing! rsp_size(%d), recv_buf size(%" PRIuFAST16 ")\n", rsp_size, sizeof(recv_buf));
         return KM_ERROR_INSUFFICIENT_BUFFER_SPACE;
     } else if (!rsp->Deserialize(&p, p + rsp_size)) {
         ALOGE("Error deserializing response of size %d\n", (int)rsp_size);

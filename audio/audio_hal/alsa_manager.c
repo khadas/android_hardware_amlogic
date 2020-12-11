@@ -21,6 +21,7 @@
 #include <system/audio.h>
 #include <hardware/audio.h>
 #include <tinyalsa/asoundlib.h>
+#include <inttypes.h>
 
 #include "audio_hw.h"
 #include "alsa_manager.h"
@@ -454,7 +455,7 @@ write:
             } else
                 return bytes;
         } else {
-            ALOGI("bytes:%d, need_drop_size=%d\n", bytes, aml_out->need_drop_size);
+            ALOGI("bytes:%zu, need_drop_size=%d\n", bytes, aml_out->need_drop_size);
             if (adev->discontinue_mute_flag) {
                 ALOGI("drop mute discontinue_mute_flag=%d\n",
                 adev->discontinue_mute_flag);
@@ -553,9 +554,9 @@ write:
                 rate_multiply = 4;
             }
             frame_ms = (uint64_t)frames * 1000LL/ (sample_rate * rate_multiply);
-            ALOGV("alsa frame delay=%ld ms=%lld", frames, frame_ms);
+            ALOGV("alsa frame delay=%ld ms=%" PRId64 " ", frames, frame_ms);
             if (frame_ms > ALSA_DELAY_UP_THRESHOLD_MS) {
-                ALOGI("alsa delay is =%lld catch up =%d", frame_ms, VIRTUAL_BUF_DELAY_PERIOD_MS);
+                ALOGI("alsa delay is =%" PRId64 " catch up =%d", frame_ms, VIRTUAL_BUF_DELAY_PERIOD_MS);
                 audio_virtual_buf_process(aml_out->alsa_vir_buf_handle, VIRTUAL_BUF_DELAY_PERIOD_MS * MS_TO_NANO_SEC);
             }
         }
@@ -624,7 +625,7 @@ size_t aml_alsa_input_read(struct audio_stream_in *stream,
                 return 0;
             }
             if (ret >= 0) {
-                ALOGV("ret:%d read_bytes:%d, bytes:%d ",ret,read_bytes,bytes);
+                ALOGV("ret:%d read_bytes:%zu, bytes:%zu ",ret,read_bytes,bytes);
             } else if (ret != -EAGAIN ) {
                 ALOGE("%s:%d, pcm_read fail, ret:%#x, error info:%s", __func__, __LINE__, ret, strerror(errno));
                 return ret;
@@ -776,7 +777,7 @@ size_t aml_alsa_output_write_new(void *handle, const void *buffer, size_t bytes)
     alsa_handle = (alsa_handle_t *)handle;
     struct aml_audio_device *adev = (struct aml_audio_device *)adev_get_handle();
     if (alsa_handle->pcm == NULL || alsa_handle == NULL || buffer == NULL || bytes == 0) {
-        ALOGW("[%s:%d] invalid param, pcm:%p, alsa_handle:%p, buffer:%p, bytes:%d",
+        ALOGW("[%s:%d] invalid param, pcm:%p, alsa_handle:%p, buffer:%p, bytes:%zu",
             __func__, __LINE__, alsa_handle->pcm, alsa_handle, buffer, bytes);
         return -1;
     }

@@ -34,7 +34,7 @@ int get_stream_profile_from_dolby_mat_frame(const char *audio_buffer, size_t aud
     int stream_profile_pos = 0;
 
     if (!audio_buffer || (audio_bytes < STREAM_PROFILE_POS_IN_MAT)) {
-        ALOGE("%s line %d audio_buffer %p audio_bytes %#x\n", __FUNCTION__, __LINE__, audio_buffer, audio_bytes);
+        ALOGE("%s line %d audio_buffer %p audio_bytes %#zx\n", __FUNCTION__, __LINE__, audio_buffer, audio_bytes);
         return -1;
     }
     else {

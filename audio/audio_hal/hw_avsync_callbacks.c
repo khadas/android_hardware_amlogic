@@ -5,6 +5,7 @@
 #include <errno.h>
 #include <cutils/log.h>
 #include <cutils/properties.h>
+#include <inttypes.h>
 #include "hw_avsync_callbacks.h"
 #include "audio_hwsync.h"
 #include "audio_hw.h"
@@ -87,13 +88,13 @@ int on_meta_data_cbk(void *cookie,
         header->pts = mdata_list->mdata.pts;
         aligned_offset = mdata_list->mdata.payload_offset;
         if (out->debug_stream) {
-            ALOGV("%s(), offset %lld, checkout payload offset %lld",
+            ALOGV("%s(), offset %" PRId64 ", checkout payload offset %" PRId64 "",
                         __func__, offset, mdata_list->mdata.payload_offset);
-            ALOGV("%s(), frame_size %d, pts %lldms",
+            ALOGV("%s(), frame_size %d, pts %" PRId64 "ms",
                         __func__, header->frame_size, header->pts/1000000);
         }
     }
-    ALOGV("offset =%lld aligned_offset=%lld frame size=%d samplerate=%d", offset, aligned_offset,frame_size,sample_rate);
+    ALOGV("offset =%" PRId64 " aligned_offset=%" PRId64 " frame size=%d samplerate=%d", offset, aligned_offset,frame_size,sample_rate);
     if (offset >= aligned_offset && mdata_list) {
         pts = header->pts;
         pts_delta = (offset - aligned_offset) * 1000000000LL/(frame_size * sample_rate);
@@ -102,11 +103,11 @@ int on_meta_data_cbk(void *cookie,
         out->last_payload_offset = offset;
         list_remove(&mdata_list->list);
         aml_audio_free(mdata_list);
-        ALOGV("head pts =%lld delta =%lld pts =%lld ",header->pts, pts_delta, pts);
+        ALOGV("head pts =%" PRId64 " delta =%" PRId64 " pts =%" PRId64 " ",header->pts, pts_delta, pts);
     } else if (offset > out->last_payload_offset) {
         pts_delta = (offset - out->last_payload_offset) * 1000000000LL/(frame_size * sample_rate);
         pts = out->last_pts + pts_delta;
-        ALOGV("last pts=%lld delat=%lld pts=%lld ", out->last_pts, pts_delta, pts);
+        ALOGV("last pts=%" PRId64 " delat=%" PRId64 " pts=%" PRId64 " ", out->last_pts, pts_delta, pts);
     } else {
         ret = -EINVAL;
         goto err_lock;
@@ -132,7 +133,7 @@ int on_meta_data_cbk(void *cookie,
             hwsync_header_construct(header);
             latency = (int32_t)out_get_outport_latency((struct audio_stream_out *)out) * 90;
             latency += tunning_latency * 90;
-            ALOGD("%s(), set tsync start pts %d, latency %d, last position %lld",
+            ALOGD("%s(), set tsync start pts %d, latency %d, last position %" PRId64 "",
                 __func__, pts32, latency, out->last_frames_postion);
             if (latency < 0) {
                 pts32 += abs(latency);
@@ -185,7 +186,7 @@ int on_meta_data_cbk(void *cookie,
         hwsync_header_construct(header);
         latency = (int32_t)out_get_outport_latency((struct audio_stream_out *)out) * 90;
         latency += tunning_latency * 90;
-        ALOGD("%s(), set tsync start pts %d, latency %d, last position %lld",
+        ALOGD("%s(), set tsync start pts %d, latency %d, last position %" PRId64 "",
             __func__, pts32, latency, out->last_frames_postion);
         if (latency < 0) {
             pts32 += abs(latency);

@@ -2696,7 +2696,7 @@ void EmulatedFakeCamera3::onSensorEvent(uint32_t frameNumber, Event e,
         nsecs_t timestamp) {
     switch(e) {
         case Sensor::SensorListener::EXPOSURE_START: {
-            ALOGVV("%s: Frame %d: Sensor started exposure at %lld",
+            ALOGVV("%s: Frame %d: Sensor started exposure at %" PRId64 "",
                     __FUNCTION__, frameNumber, timestamp);
             // Trigger shutter notify to framework
             camera3_notify_msg_t msg;
@@ -2900,7 +2900,7 @@ bool EmulatedFakeCamera3::ReadoutThread::threadLoop() {
     if (!workflag)
         return true;
 
-    ALOGVV("Sensor done with readout for frame %d, captured at %lld ",
+    ALOGVV("Sensor done with readout for frame %d, captured at %" PRId64 " ",
             mCurrentRequest.frameNumber, captureTime);
 
     // Check if we need to JPEG encode a buffer, and send it for async

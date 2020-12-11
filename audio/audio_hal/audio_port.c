@@ -91,7 +91,7 @@ int get_inport_avail_size(struct input_port *port)
 {
     int read_avail = get_buffer_read_space(port->r_buf);
     if (0) {
-        ALOGI("%s, port index %d, avail %d, chunk len %d",
+        ALOGI("%s, port index %d, avail %d, chunk len %zu",
             __func__, port->enInPortType, read_avail, port->data_len_bytes);
     }
     return read_avail;
@@ -245,7 +245,7 @@ static int setPortConfig(struct audioCfg *cfg, struct audio_config *config)
 static int inport_padding_zero(struct input_port *port, size_t bytes)
 {
     char *feed_mem = NULL;
-    ALOGI("%s(), padding size %d 0s to inport %d",
+    ALOGI("%s(), padding size %zu 0s to inport %d",
             __func__, bytes, port->enInPortType);
     feed_mem = aml_audio_calloc(1, bytes);
     if (!feed_mem) {
@@ -632,7 +632,7 @@ int resize_output_port_buffer(struct output_port *port, size_t buf_frames)
     if (port->buf_frames == buf_frames) {
         return 0;
     }
-    ALOGI("%s(), new buf_frames %d", __func__, buf_frames);
+    ALOGI("%s(), new buf_frames %zu", __func__, buf_frames);
     buf_length = buf_frames * port->cfg.frame_size;
     port->data_buf = (char *)aml_audio_realloc(port->data_buf, buf_length);
     if (!port->data_buf) {

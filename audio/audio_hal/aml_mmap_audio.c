@@ -21,6 +21,7 @@
 #include <stdlib.h>
 #include <sys/mman.h>
 #include <sys/prctl.h>
+#include <inttypes.h>
 
 #include "audio_hw.h"
 #include "audio_hw_ms12.h"
@@ -299,7 +300,7 @@ static int outMmapGetPosition(const struct audio_stream_out *stream,
     }
 
     if (out->dev->debug_flag >= 100) {
-        ALOGD("[%s:%d] stream:%p, position_frames:%d, nano:%lld frame diff=%d time diff=%lld",
+        ALOGD("[%s:%d] stream:%p, position_frames:%d, nano:%lld frame diff=%d time diff=%" PRId64 "",
             __func__, __LINE__, stream,
             position->position_frames, (long long)position->time_nanoseconds,
             (position->position_frames - out->last_mmap_position ) * 1000/48,

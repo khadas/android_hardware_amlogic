@@ -24,6 +24,7 @@
 #include <stdlib.h>
 #include <stdbool.h>
 #include <dlfcn.h>
+#include <inttypes.h>
 
 #include "DolbyMS12.h"
 #include "DolbyMS12ConfigParams.h"
@@ -808,7 +809,7 @@ unsigned long long DolbyMS12::DolbyMS12GetDecoderNFramesPcmOutput(void *ms12_poi
     }
 
     ret = (*FuncDolbyMS12GetNFramesPCMOutput)(ms12_pointer, format, is_main);
-    ALOGV("-%s() ret %lld", __FUNCTION__, ret);
+    ALOGV("-%s() ret %" PRId64 "", __FUNCTION__, ret);
     return ret;
 }
 

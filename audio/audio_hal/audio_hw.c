@@ -3206,7 +3206,7 @@ rewrite:
             aml_ac3_parser_process(out->ac3_parser_handle, (char *)buffer + bytes_cost,
                                     total_bytes - bytes_cost, &parser_used_size, &frame_buffer,
                                     &frame_length, &ac3_info);
-            ALOGV("bytes cost=%d total=%d frame length=%d", bytes_cost, total_bytes, frame_length);
+            ALOGV("bytes cost=%zu total=%zu frame length=%d", bytes_cost, total_bytes, frame_length);
             if (frame_length > 0) {
                 return_bytes = parser_used_size;
                 in_frames = frame_length / frame_size;
@@ -3282,7 +3282,7 @@ rewrite:
                     memset(output_buffer, 0, output_buffer_bytes);
                 }
             }
-            ALOGV("spdifb output size=%d", output_buffer_bytes);
+            ALOGV("spdifb output size=%zu", output_buffer_bytes);
             if (output_buffer_bytes) {
                 struct snd_pcm_status status;
                 pcm_ioctl(out->pcm2, SNDRV_PCM_IOCTL_STATUS, &status);
@@ -3320,7 +3320,7 @@ rewrite:
                 out->frame_write_sum = spdifenc_get_total() / 4 + out->spdif_enc_init_frame_write_sum;
             }
             //ALOGV ("out %p, after out->frame_write_sum %"PRId64"\n", out, out->frame_write_sum);
-            ALOGV("---after out->frame_write_sum %"PRId64",spdifenc total %lld\n",
+            ALOGV("---after out->frame_write_sum %"PRId64",spdifenc total %" PRId64 "\n",
                 out->frame_write_sum, spdifenc_get_total() / 16);
         }
         goto exit;
@@ -3386,7 +3386,7 @@ exit:
         out->last_frames_postion = total_frame - total_latency_frame;//total_frame;
     }
     if (adev->debug_flag)
-        ALOGD("out %p,out->last_frames_postion %"PRId64", total latency frame = %d, skp sum %lld , tune frames %d,alsa frame %d\n",
+        ALOGD("out %p,out->last_frames_postion %"PRId64", total latency frame = %d, skp sum %" PRId64 " , tune frames %d,alsa frame %d\n",
             out, out->last_frames_postion, total_latency_frame, out->frame_skip_sum,tuning_latency_frame,latency_frames);
     pthread_mutex_unlock (&out->lock);
     if (ret != 0) {
@@ -8157,7 +8157,7 @@ ssize_t hw_write (struct audio_stream_out *stream
                 total_frame = dolby_ms12_get_main_pcm_generated(stream);
                 write_frames =  aml_out->total_ddp_frame_nblks * 256;/*256samples in one block*/
                 if (adev->debug_flag) {
-                    ALOGI("%s,total_frame %llu write_frames %"PRIu64" total frame block nums %"PRIu64"",
+                    ALOGI("%s,total_frame %"PRIu64" write_frames %"PRIu64" total frame block nums %"PRIu64"",
                         __func__, total_frame, write_frames, aml_out->total_ddp_frame_nblks);
                 }
             }
@@ -9454,7 +9454,7 @@ exit:
 
 
     if (adev->debug_flag) {
-        ALOGI("%s return %zu!\n", __FUNCTION__, return_bytes);
+        ALOGI("%s return %d!\n", __FUNCTION__, return_bytes);
     }
     return return_bytes;
 }
@@ -9484,7 +9484,7 @@ ssize_t mixer_aux_buffer_write(struct audio_stream_out *stream, const void *buff
     }
 
     if (adev->debug_flag) {
-        ALOGD("%s:%d size:%d, dolby_lib_type:0x%x, frame_size:%d",
+        ALOGD("%s:%d size:%zu, dolby_lib_type:0x%x, frame_size:%zu",
         __func__, __LINE__, bytes, adev->dolby_lib_type, frame_size);
     }
 
@@ -9577,7 +9577,7 @@ ssize_t mixer_aux_buffer_write(struct audio_stream_out *stream, const void *buff
                 /*during ms12 switch, the frame write may be not matched with
                   the input size, we need to align it*/
                 if (aml_out->frame_write_sum * frame_size != aml_out->input_bytes_size) {
-                    ALOGI("Align the frame write from %lld to %lld", aml_out->frame_write_sum, aml_out->input_bytes_size/frame_size);
+                    ALOGI("Align the frame write from %" PRId64 " to %" PRId64 "", aml_out->frame_write_sum, aml_out->input_bytes_size/frame_size);
                     aml_out->frame_write_sum = aml_out->input_bytes_size/frame_size;
                 }
                 config_output(stream,need_reset_decoder);
@@ -9659,7 +9659,7 @@ ssize_t mixer_aux_buffer_write(struct audio_stream_out *stream, const void *buff
             aml_out->last_frames_postion -= alsa_latency_frame;
         }
         if (adev->debug_flag) {
-            ALOGI("%s stream audio presentation %"PRIu64" latency_frame %d.ms12 system latency_frame %d,total frame=%lld %lld ms",
+            ALOGI("%s stream audio presentation %"PRIu64" latency_frame %d.ms12 system latency_frame %d,total frame=%" PRId64 " %" PRId64 " ms",
                   __func__,aml_out->last_frames_postion, alsa_latency_frame, system_latency,aml_out->frame_write_sum, aml_out->frame_write_sum/48);
         }
     } else {
@@ -9697,7 +9697,7 @@ ssize_t mixer_app_buffer_write(struct audio_stream_out *stream, const void *buff
    int retry = 20;
 
    if (adev->debug_flag) {
-       ALOGD("[%s:%d] size:%d, frame_size:%d", __func__, __LINE__, bytes, frame_size);
+       ALOGD("[%s:%d] size:%zu, frame_size:%zu", __func__, __LINE__, bytes, frame_size);
    }
 
    if (eDolbyMS12Lib != adev->dolby_lib_type) {
@@ -9761,7 +9761,7 @@ ssize_t process_buffer_write(struct audio_stream_out *stream,
         if (gap >= 500*1000) {
             adev->exiting_ms12 = 0;
         } else {
-            ALOGV("during MS12 exiting gap=%lld mute the data", gap);
+            ALOGV("during MS12 exiting gap=%" PRId64 " mute the data", gap);
             memset(data, 0, bytes);
         }
     }
@@ -10245,7 +10245,7 @@ void *audio_patch_input_threadloop(void *data)
 
             // buffer size diff from allocation size, need to resize.
             if (patch->in_buf_size < (size_t)read_bytes * period_mul) {
-                ALOGI("%s: !!realloc in buf size from %zu to %zu", __func__, patch->in_buf_size, read_bytes * period_mul);
+                ALOGI("%s: !!realloc in buf size from %zu to %d", __func__, patch->in_buf_size, read_bytes * period_mul);
                 patch->in_buf = aml_audio_realloc(patch->in_buf, read_bytes * period_mul);
                 patch->in_buf_size = read_bytes * period_mul;
             }
@@ -10393,7 +10393,7 @@ void *audio_patch_output_threadloop(void *data)
 
         // buffer size diff from allocation size, need to resize.
         if (patch->out_buf_size < (size_t)write_bytes * period_mul) {
-            ALOGI("%s: !!realloc out buf size from %zu to %zu", __func__, patch->out_buf_size, write_bytes * period_mul);
+            ALOGI("%s: !!realloc out buf size from %zu to %d", __func__, patch->out_buf_size, write_bytes * period_mul);
             patch->out_buf = aml_audio_realloc(patch->out_buf, write_bytes * period_mul);
             patch->out_buf_size = write_bytes * period_mul;
         }

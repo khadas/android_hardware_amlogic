@@ -826,7 +826,7 @@ int dcv_decoder_process_patch(struct dolby_ddp_dec *ddp_dec, unsigned char*buffe
                  , &associate_frame_buffer
                  , &associate_frame_size);
         if (dual_input_ret) {
-            ALOGE("%s used size %zu dont find the iec61937 format header, rescan next time!\n", __FUNCTION__, dual_decoder_used_bytes);
+            ALOGE("%s used size %d dont find the iec61937 format header, rescan next time!\n", __FUNCTION__, dual_decoder_used_bytes);
             goto EXIT;
         }
         ALOGV("main frame size =%d ad frame size =%d", main_frame_size, associate_frame_size);

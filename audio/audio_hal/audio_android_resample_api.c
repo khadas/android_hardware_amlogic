@@ -122,7 +122,7 @@ int android_resample_process(void *handle, void * in_buffer, size_t bytes, void 
     if (get_buffer_write_space(&resample->ring_buf) > (int)bytes) {
         ring_buffer_write(&resample->ring_buf, in_buffer, bytes, UNCOVER_WRITE);
     } else {
-        ALOGE("Lost data, bytes:%d\n", bytes);
+        ALOGE("Lost data, bytes:%zu\n", bytes);
     }
 
     input_sr = resample->input_sr;

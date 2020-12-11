@@ -282,14 +282,14 @@ int aml_audio_swcheck_lookup_apts(int audio_path, size_t offset, unsigned long *
         if (nearest_pts) {
             ret = 0;
             *p_apts = nearest_pts;
-            ALOGI("find nearest pts 0x%lx offset %zu align %zu offset %zu", *p_apts, nearest_offset, align, offset);
+            ALOGI("find nearest pts 0x%lx offset %u align %zu offset %zu", *p_apts, nearest_offset, align, offset);
         } else {
             ALOGE("%s,apts lookup failed,align %zu,offset %zu", __func__, align, offset);
         }
     }
     if (ret == 0) {
         if (p_swcheck->debug_enable) {
-            ALOGI("data offset =%d pts offset =%d diff =%d pts=0x%lx ", offset, nearest_offset, offset - nearest_offset, *p_apts);
+            ALOGI("data offset =%zu pts offset =%d diff =%zu pts=0x%lx ", offset, nearest_offset, offset - nearest_offset, *p_apts);
         }
     }
     pthread_mutex_unlock(&p_swcheck->lock);

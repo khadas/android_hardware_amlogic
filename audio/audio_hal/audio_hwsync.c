@@ -340,7 +340,7 @@ int aml_audio_hwsync_find_frame(audio_hwsync_t *p_hwsync,
                 p_hwsync->version_num = p_hwsync->hw_sync_header[3];
                 if (p_hwsync->version_num == 1 || p_hwsync->version_num == 2) {
                 } else  {
-                    ALOGI("invalid hwsync version num %zu",p_hwsync->version_num);
+                    ALOGI("invalid hwsync version num %d",p_hwsync->version_num);
                 }
             }
             if ((p_hwsync->version_num  == 1 && p_hwsync->hw_sync_header_cnt == HW_AVSYNC_HEADER_SIZE_V1 ) ||
@@ -745,7 +745,7 @@ int aml_audio_hwsync_lookup_apts(audio_hwsync_t *p_hwsync, size_t offset, unsign
             /*keep it as valid, it may be used for next lookup*/
             pts_tab[match_index].valid = 1;
             if (debug_enable)
-                ALOGI("find nearest pts 0x%x offset %zu align %zu", *p_apts, nearest_offset, align);
+                ALOGI("find nearest pts 0x%x offset %u align %zu", *p_apts, nearest_offset, align);
         } else {
             ALOGE("%s,apts lookup failed,align %zu,offset %zu", __func__, align, offset);
         }
@@ -761,7 +761,7 @@ int aml_audio_hwsync_lookup_apts(audio_hwsync_t *p_hwsync, size_t offset, unsign
         }
         *p_apts +=  pts_diff * 90;
         if (debug_enable) {
-            ALOGI("data offset =%d pts offset =%d diff =%d pts=0x%x pts diff =%d", offset, nearest_offset, offset - nearest_offset, *p_apts, pts_diff);
+            ALOGI("data offset =%zu pts offset =%d diff =%" PRIuFAST16 " pts=0x%x pts diff =%d", offset, nearest_offset, offset - nearest_offset, *p_apts, pts_diff);
         }
     }
     pthread_mutex_unlock(&p_hwsync->lock);

@@ -182,7 +182,7 @@ int aml_hwsync_wrap_set_tsync_start_pts(audio_hwsync_t *p_hwsync, uint32_t pts)
 
 int aml_hwsync_wrap_set_tsync_start_pts64(audio_hwsync_t *p_hwsync, uint64_t pts)
 {
-    ALOGI("%s(), set tsync start pts64: %lld", __func__, pts);
+    ALOGI("%s(), set tsync start pts64: %" PRId64 "", __func__, pts);
     if (!p_hwsync->use_mediasync) {
         return aml_hwsync_wrap_single_set_tsync_start_pts64(pts);
     }
@@ -349,7 +349,7 @@ void aml_hwsync_wrap_wait_video_drop(audio_hwsync_t *p_hwsync, uint32_t cur_pts,
                 break;
             usleep(20000);
             count++;
-            ALOGI("fisrt audio wait video %d ms,now audiopts %d vpts %lld ", count * 20, cur_pts, outMediaPts);
+            ALOGI("fisrt audio wait video %d ms,now audiopts %d vpts %" PRId64 " ", count * 20, cur_pts, outMediaPts);
         }
     } else {
         bool ispause = false;

@@ -241,7 +241,7 @@ int aml_ms12_bypass_checkin_data(void *phandle, const void *buffer, int32_t numB
     pthread_mutex_unlock(&bypass_handle->list_lock);
 
     if (new_frame) {
-        ALOGV("check in bypass frame start=%lld end=%lld size=%d depedency=%d", new_frame->offset_start, new_frame->offset_end, numBytes, new_frame->info.dependency_frame);
+        ALOGV("check in bypass frame start=%" PRId64 " end=%" PRId64 " size=%d depedency=%d", new_frame->offset_start, new_frame->offset_end, numBytes, new_frame->info.dependency_frame);
     }
     return ret;
 }
@@ -258,7 +258,7 @@ int aml_ms12_bypass_checkout_data(void *phandle, void **output_buf, int32_t *out
         return -1;
     }
     *out_size = 0;
-    ALOGV("check out bypass data =%lld", offset);
+    ALOGV("check out bypass data =%" PRId64 "", offset);
     pthread_mutex_lock(&bypass_handle->list_lock);
     list_for_each_safe(item, n, &bypass_handle->frame_list) {
         frame_item = node_to_item(item, struct bypass_frame_item, list);
@@ -267,7 +267,7 @@ int aml_ms12_bypass_checkout_data(void *phandle, void **output_buf, int32_t *out
         if (frame_item->offset_start <= offset) {
             /*find the offset frame*/
             frame_size = frame_item->frame_size;
-            ALOGV("offset=%lld frame size=%d start=%lld end=%lld frame dependency=%d cnt=%d numblks=%d", offset, frame_size, frame_item->offset_start, frame_item->offset_end, frame_item->info.dependency_frame, frame_item->frame_cnt, frame_item->numblks);
+            ALOGV("offset=%" PRId64 " frame size=%d start=%" PRId64 " end=%" PRId64 " frame dependency=%d cnt=%d numblks=%d", offset, frame_size, frame_item->offset_start, frame_item->offset_end, frame_item->info.dependency_frame, frame_item->frame_cnt, frame_item->numblks);
             if (frame_size + *out_size > bypass_handle->buf_size) {
                 bypass_handle->buf = realloc(bypass_handle->buf, frame_size + *out_size);
                 if (bypass_handle->buf == NULL) {

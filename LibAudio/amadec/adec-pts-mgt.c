@@ -749,7 +749,7 @@ int adec_refresh_pts(aml_audio_dec_t *audec)
         if ((gettime() - audec->last_discontinue_time) < audec->apts_reset_scr_delay_ms * 1000 && (abs(vpts - audec->last_discontinue_apts) > audec->avsync_threshold)) {
             return 0;
         } else {
-            adec_print("after %lld ms,apts reset scr delay time out \n", (gettime() - audec->last_discontinue_time) / 1000);
+            adec_print("after %" PRId64 " ms,apts reset scr delay time out \n", (gettime() - audec->last_discontinue_time) / 1000);
             audec->apts_reset_scr_delay_ms = 0;
         }
     } else if (abs(pts - last_pts) >= 90000 && abs(pts - last_pts) < APTS_DISCONTINUE_THRESHOLD) {

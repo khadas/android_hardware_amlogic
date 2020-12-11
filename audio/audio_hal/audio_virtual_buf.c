@@ -22,7 +22,7 @@
 #include <stdlib.h>
 #include <log/log.h>
 #include <string.h>
-
+#include <inttypes.h>
 
 #include "aml_audio_timer.h"
 #include "audio_virtual_buf.h"
@@ -84,7 +84,7 @@ int audio_virtual_buf_open(void ** pphandle, char * buf_name, uint64_t buf_ns_be
     phandle->buf_ns_target = buf_ns_target;
     phandle->ease_time_ns = (uint64_t)ease_time_ms * 1000000LL;
 
-    ALOGD("%s %s buf_begin=%lld buf_target=%lld time=%lld", __FUNCTION__ , phandle->buf_name,
+    ALOGD("%s %s buf_begin=%" PRId64 " buf_target=%" PRId64 " time=%" PRId64 "", __FUNCTION__ , phandle->buf_name,
           phandle->buf_ns_begin, phandle->buf_ns_target, phandle->ease_time_ns);
     * pphandle = (void*)phandle;
     return 0;
@@ -165,7 +165,7 @@ int audio_virtual_buf_process(void *phandle, uint64_t frame_ns)
         if (read_ns > write_ns) {
             virtual_handle->state = VIRTUAL_BUF_RESET;
             break_while = 0;
-            ALOGE("%s underrun happens read=%lld write=%lld diff=%lld", virtual_handle->buf_name, read_ns, write_ns, read_ns - write_ns);
+            ALOGE("%s underrun happens read=%" PRId64 " write=%" PRId64 " diff=%" PRId64 "", virtual_handle->buf_name, read_ns, write_ns, read_ns - write_ns);
         }
 
         if (break_while) {

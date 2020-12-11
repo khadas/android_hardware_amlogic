@@ -175,7 +175,7 @@ int aml_spdif_encoder_process(void *phandle, const void *buffer, size_t numBytes
     *output_buf = spdifenc_handle->temp_buf;
     *out_size   = spdifenc_handle->temp_buf_pos;
 
-    ALOGV("spdif enc format=0x%x size =0x%x", spdifenc_handle->format, *out_size);
+    ALOGV("spdif enc format=0x%x size =0x%zx", spdifenc_handle->format, *out_size);
     return 0;
 }
 

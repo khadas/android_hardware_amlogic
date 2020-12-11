@@ -525,15 +525,15 @@ static void dtv_av_pts_info(struct aml_audio_patch *patch, unsigned int apts, un
         clock_gettime(CLOCK_MONOTONIC, &patch->last_debug_record);
         // add calc to judge audio,video or pcr error.
         if (patch->last_apts_record != 0) {
-            ALOGI("dtv_av_info, apts:0x%x, last_record=0x%x,apts diff:%lld ms, time_const=%d ms\n",
+            ALOGI("dtv_av_info, apts:0x%x, last_record=0x%x,apts diff:%" PRId64 " ms, time_const=%d ms\n",
                 apts, patch->last_apts_record, (int64_t)(apts - patch->last_apts_record) / 90, time_cost_ms);
         }
         if (patch->last_pcrpts_record != 0) {
-            ALOGI("dtv_av_info, pcrpts:0x%x, last_record=0x%x,pcr diff:%lld ms, time_const=%d ms\n",
+            ALOGI("dtv_av_info, pcrpts:0x%x, last_record=0x%x,pcr diff:%" PRId64 " ms, time_const=%d ms\n",
                 pcrpts, patch->last_pcrpts_record, (int64_t)(pcrpts - patch->last_pcrpts_record) / 90, time_cost_ms);
         }
         if (patch->last_vpts_record != 0) {
-            ALOGI("dtv_av_info, cur_vpts:0x%x, last_record=0x%x,vpts diff:%lld ms, time_const=%d ms\n",
+            ALOGI("dtv_av_info, cur_vpts:0x%x, last_record=0x%x,vpts diff:%" PRId64 " ms, time_const=%d ms\n",
                 cur_vpts, patch->last_vpts_record, (int64_t)(cur_vpts - patch->last_vpts_record) / 90, time_cost_ms);
         }
         patch->last_apts_record = apts;
@@ -658,7 +658,7 @@ void dtv_do_insert_zero_pcm(struct aml_audio_patch *patch,
     t2 = t1 / patch->out_buf_size;
     t1 = t1 & ~3;
     insert_size = t1;
-    ALOGI("insert_zero_pcm: ++drop %d,lookup %d,diff %d ms,t2=%d,patch->out_buf_size=%u\n",
+    ALOGI("insert_zero_pcm: ++drop %d,lookup %d,diff %d ms,t2=%d,patch->out_buf_size=%zu\n",
          t1, patch->dtv_apts_lookup, t1 / 192, t2, patch->out_buf_size);
     /*[SE][BUG][SWPL-21122][chengshun] when insert 0, need check write len,
          * and avoid dtv patch write together*/

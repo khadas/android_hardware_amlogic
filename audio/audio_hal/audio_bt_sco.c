@@ -137,7 +137,7 @@ ssize_t write_to_sco(struct audio_stream_out *stream,
     int ret = 0;
 
     if (adev->debug_flag) {
-        ALOGI("[%s:%d] stream:%p bytes:%d, out_device:%#x", __func__, __LINE__, aml_out, bytes, adev->out_device);
+        ALOGI("[%s:%d] stream:%p bytes:%zu, out_device:%#x", __func__, __LINE__, aml_out, bytes, adev->out_device);
     }
 
     if (!bt->active) {

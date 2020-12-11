@@ -52,7 +52,7 @@ AM_Dmx_Audio_ErrorCode_t get_audio_es_package(struct mAudioEsDataInfo  **mAudioE
             return AM_AUDIO_Dmx_ERROR;
         }
 
-        ALOGV("mEsdata->pts : %lld size:%d \n",(*mAudioEsData)->pts,(*mAudioEsData)->size);
+        ALOGV("mEsdata->pts : %" PRId64 " size:%d \n",(*mAudioEsData)->pts,(*mAudioEsData)->size);
     } else {
          ALOGI("ReadBuffer::OnReadBuffer end!!\n");
          return AM_AUDIO_Dmx_ERROR;

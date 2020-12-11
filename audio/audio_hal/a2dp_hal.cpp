@@ -25,6 +25,7 @@
 #include "a2dp_hal.h"
 #include "a2dp_hw.h"
 #include "audio_hw.h"
+#include <inttypes.h>
 extern "C" {
 #include "aml_audio_timer.h"
 }
@@ -304,7 +305,7 @@ ssize_t a2dp_out_write(struct audio_stream_out* stream, const void* buffer, size
     const int64_t cur_write = aml_audio_get_systime();
     state = hal->a2dphw.GetState();
     if (adev->debug_flag)
-        ALOGD("%s:%p bytes=%d, state=%d, format=0x%x, hwsync=%d, continuous=%d",
+        ALOGD("%s:%p bytes=%zu, state=%d, format=0x%x, hwsync=%d, continuous=%d",
                 __func__, out, bytes, (uint8_t)state, out->hal_internal_format,
                 out->hw_sync_mode, adev->continuous_audio_mode);
 
@@ -341,7 +342,7 @@ ssize_t a2dp_out_write(struct audio_stream_out* stream, const void* buffer, size
     } else if (adev->audio_patch) {
         int64_t write_delta_time_us = cur_write - hal->last_write_time;
         if (write_delta_time_us > 128000) {
-            ALOGD("%s:%d, for DTV/HDMIIN, input may be has gap: %lld", __func__, __LINE__, cur_write - hal->last_write_time);
+            ALOGD("%s:%d, for DTV/HDMIIN, input may be has gap: %" PRId64 " ", __func__, __LINE__, cur_write - hal->last_write_time);
             lock.unlock();
             a2dp_out_standby(&stream->common);
             return bytes;
