@@ -4735,6 +4735,10 @@ static int adev_open_output_stream(struct audio_hw_device *dev,
         out->hal_rate = config->sample_rate;
         out->hal_format = config->format;
         out->hal_internal_format = out->hal_format;
+        if (out->hal_internal_format == AUDIO_FORMAT_E_AC3_JOC) {
+            out->hal_internal_format = AUDIO_FORMAT_E_AC3;
+            ALOGD("config hal_format %#x change to hal_internal_format(%#x)!", out->hal_format, out->hal_internal_format);
+        }
 
         out->config = pcm_config_out_direct;
         out->config.channels = audio_channel_count_from_out_mask(config->channel_mask);
