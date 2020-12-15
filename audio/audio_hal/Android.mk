@@ -204,7 +204,7 @@ endif
 
 #For ATV Far Field AEC
 ifeq ($(BOARD_ENABLE_FAR_FIELD_AEC), true)
-   # LOCAL_CFLAGS += -DENABLE_AEC_APP
+    LOCAL_CFLAGS += -DENABLE_AEC_APP
     LOCAL_SRC_FILES += \
         audio_aec.c \
         fifo_wrapper.cpp
