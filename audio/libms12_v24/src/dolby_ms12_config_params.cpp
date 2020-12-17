@@ -139,7 +139,7 @@ extern "C" void dolby_ms12_config_params_set_audio_stream_out_params(
     }
 }
 
-extern "C" void dolby_ms12_config_params_set_channel_mask_app(int mask)
+extern "C" void dolby_ms12_config_params_set_channel_mask_app(audio_channel_mask_t mask)
 {
     ALOGV("%s()\n", __FUNCTION__);
     android::DolbyMS12ConfigParams *config_param = getInstance();
@@ -148,7 +148,7 @@ extern "C" void dolby_ms12_config_params_set_channel_mask_app(int mask)
     }
 }
 
-extern "C" void dolby_ms12_config_params_set_channel_mask_system(int mask)
+extern "C" void dolby_ms12_config_params_set_channel_mask_system(audio_channel_mask_t mask)
 {
     ALOGV("%s()\n", __FUNCTION__);
     android::DolbyMS12ConfigParams *config_param = getInstance();
@@ -157,7 +157,7 @@ extern "C" void dolby_ms12_config_params_set_channel_mask_system(int mask)
     }
 }
 
-extern "C" void dolby_ms12_config_params_set_channel_mask_ui(int mask)
+extern "C" void dolby_ms12_config_params_set_channel_mask_ui(audio_channel_mask_t mask)
 {
     ALOGV("%s()\n", __FUNCTION__);
     android::DolbyMS12ConfigParams *config_param = getInstance();
@@ -358,7 +358,7 @@ extern "C" audio_channel_mask_t dolby_ms12_config_params_get_dolby_config_output
     if (config_param) {
         return config_param->GetDolbyConfigOutputChannelMask();
     } else {
-        return -1;
+        return (audio_channel_mask_t)-1;
     }
 }
 
