@@ -368,6 +368,15 @@ void set_ms12_atmos_lock(struct dolby_ms12_desc *ms12, bool is_atmos_lock_on)
         aml_ms12_update_runtime_params(ms12, parm);
 }
 
+void set_ms12_acmod2ch_lock(struct dolby_ms12_desc *ms12, bool is_lock_on)
+{
+    char parm[64] = "";
+    sprintf(parm, "%s %d", "-acmod2ch_lock", is_lock_on);
+    if ((strlen(parm)) > 0 && ms12)
+        aml_ms12_update_runtime_params(ms12, parm);
+}
+
+
 static inline alsa_device_t usecase_device_adapter_with_ms12(alsa_device_t usecase_device, audio_format_t output_format)
 {
     ALOGI("%s usecase_device %d output_format %#x", __func__, usecase_device, output_format);
@@ -1791,7 +1800,7 @@ int dolby_ms12_main_flush(struct audio_stream_out *stream) {
     dolby_ms12_flush_main_input_buffer();
 
     if (ms12->spdif_dec_handle) {
-        aml_spdif_decoder_reset(ms12->ac3_parser_handle);
+        aml_spdif_decoder_reset(ms12->spdif_dec_handle);
     }
 
     if (ms12->ac3_parser_handle) {
@@ -1817,7 +1826,7 @@ void dolby_ms12_enable_debug()
     ret = property_get("vendor.audio.dolbyms12.debug", buf, NULL);
     if (ret > 0)
     {
-        level = atoi(buf);
+        level = strtol (buf, NULL, 0);
         dolby_ms12_set_debug_level(level);
     }
 }

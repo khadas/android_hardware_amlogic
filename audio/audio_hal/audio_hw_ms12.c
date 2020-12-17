@@ -566,6 +566,14 @@ void set_ms12_atmos_lock(struct dolby_ms12_desc *ms12, bool is_atmos_lock_on)
         aml_ms12_update_runtime_params(ms12, parm);
 }
 
+void set_ms12_acmod2ch_lock(struct dolby_ms12_desc *ms12, bool is_lock_on)
+{
+    char parm[64] = "";
+    sprintf(parm, "%s %d", "-acmod2ch_lock", is_lock_on);
+    if ((strlen(parm)) > 0 && ms12)
+        aml_ms12_update_runtime_params(ms12, parm);
+}
+
 void set_dolby_ms12_runtime_system_mixing_enable(struct dolby_ms12_desc *ms12, int system_mixing_enable)
 {
     char parm[12] = "";
@@ -1679,7 +1687,7 @@ int dolby_ms12_main_flush(struct audio_stream_out *stream) {
     adev->ms12.ms12_position_update = false;
 
     if (ms12->spdif_dec_handle) {
-        aml_spdif_decoder_reset(ms12->ac3_parser_handle);
+        aml_spdif_decoder_reset(ms12->spdif_dec_handle);
     }
 
     if (ms12->ac3_parser_handle) {

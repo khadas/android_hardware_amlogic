@@ -5915,6 +5915,12 @@ static int adev_set_parameters (struct audio_hw_device *dev, const char *kvpairs
                 set_ms12_atmos_lock(&(adev->ms12), adev->atoms_lock_flag);
                 ALOGI("exit netflix, set atmos lock as 0");
             }
+            {
+                bool acmod2ch_lock = !val;
+                //when in netflix, we should always keep ddp5.1, exit netflix we can output ddp2ch
+                set_ms12_acmod2ch_lock(&(adev->ms12), acmod2ch_lock);
+            }
+
             ALOGI("%s ignore the continuous_audio_mode!\n", __func__ );
             adev->is_netflix = val;
             goto exit;
@@ -7042,6 +7048,10 @@ int do_output_standby_l(struct audio_stream *stream)
                             && !audio_is_linear_pcm(aml_out->hal_internal_format)) {
                             dolby_ms12_set_main_dummy(0, true);
                             dolby_ms12_main_flush(out);
+                            if (!adev->is_netflix) {
+                                set_ms12_acmod2ch_lock(&adev->ms12, true);
+                            }
+
                             adev->ms12.is_continuous_paused = false;
                             adev->ms12.need_resume       = 0;
                             adev->ms12.need_resync       = 0;
@@ -8386,6 +8396,11 @@ void config_output(struct audio_stream_out *stream, bool reset_decoder)
                 dolby_ms12_set_main_dummy(0, main1_dummy);
                 dolby_ms12_set_main_dummy(1, !ott_input);
             }
+
+            /*netflix always ddp 5.1 output, other case we need output ddp 2ch*/
+            if (continous_mode(adev) && main1_dummy && !adev->is_netflix) {
+                set_ms12_acmod2ch_lock(&adev->ms12, true);
+            }
             if (adev->ms12_out != NULL && adev->ms12_out->hwsync) {
                 //aml_audio_hwsync_init(adev->ms12_out->hwsync, adev->ms12_out);
                 adev->ms12_out->hwsync->aout = adev->ms12_out;
@@ -9095,6 +9110,9 @@ hwsync_rewrite:
             pthread_mutex_lock(&adev->lock);
             dolby_ms12_set_main_dummy(0, false);
             adev->ms12_main1_dolby_dummy = false;
+            if (!adev->is_netflix) {
+                set_ms12_acmod2ch_lock(&adev->ms12, false);
+            }
             pthread_mutex_unlock(&adev->lock);
             pthread_mutex_lock(&adev->trans_lock);
             ms12_out->hal_internal_format = aml_out->hal_internal_format;
