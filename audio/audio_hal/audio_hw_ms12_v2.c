@@ -1969,6 +1969,47 @@ unsigned long long dolby_ms12_get_main_pcm_generated(struct audio_stream_out *st
     return dolby_ms12_get_decoder_nframes_pcm_output(ms12->dolby_ms12_ptr, audio_format, MAIN_INPUT_STREAM);
 }
 
+bool is_rebuild_the_ms12_pipeline(    audio_format_t main_input_fmt, audio_format_t hal_internal_format)
+{
+    ALOGD("%s line %d main_input_fmt %#x hal_internal_format %#x\n",__func__, __LINE__, main_input_fmt, hal_internal_format);
+
+    bool is_ac4_alive = (main_input_fmt == AUDIO_FORMAT_AC4);
+    bool is_mat_alive = (main_input_fmt == AUDIO_FORMAT_MAT);
+    bool is_ott_format_alive = (main_input_fmt == AUDIO_FORMAT_AC3) || \
+                                ((main_input_fmt & AUDIO_FORMAT_E_AC3) == AUDIO_FORMAT_E_AC3);
+    ALOGD("%s line %d is_ac4_alive %d is_mat_alive %d is_ott_format_alive %d\n",__func__, __LINE__, is_ac4_alive, is_mat_alive, is_ott_format_alive);
+
+    bool request_ac4_alive = (hal_internal_format == AUDIO_FORMAT_AC4);
+    bool request_mat_alive = (hal_internal_format == AUDIO_FORMAT_MAT);
+    bool request_ott_format_alive = (hal_internal_format == AUDIO_FORMAT_AC3) || \
+                                ((hal_internal_format & AUDIO_FORMAT_E_AC3) == AUDIO_FORMAT_E_AC3);
+    ALOGD("%s line %d request_ac4_alive %d request_mat_alive %d request_ott_format_alive %d\n",__func__, __LINE__, request_ac4_alive, request_mat_alive, request_ott_format_alive);
+
+    if (request_ac4_alive && (is_ac4_alive^request_ac4_alive)) {
+        //new AC4 stream appears when last stream played MAT/DD/DDP
+        ALOGD("%s line %d main_input_fmt %#x hal_internal_format %#x request_ac4_alive^is_mat_alive %d request_ac4_alive^is_ott_format_alive %d\n",
+            __func__, __LINE__, main_input_fmt, hal_internal_format, request_ac4_alive^is_mat_alive, request_ac4_alive^is_ott_format_alive);
+        return (request_ac4_alive^is_mat_alive) || (request_ac4_alive^is_ott_format_alive);
+    }
+    else if (request_mat_alive && (is_mat_alive^request_mat_alive)) {
+        //new MAT stream appears when last steam played AC4/DD/DDP
+        ALOGD("%s line %d main_input_fmt %#x hal_internal_format %#x (request_mat_alive^is_ac4_alive) %d (request_mat_alive^is_ott_format_alive) %d\n",
+            __func__, __LINE__, main_input_fmt, hal_internal_format, (request_mat_alive^is_ac4_alive), (request_mat_alive^is_ott_format_alive));
+        return (request_mat_alive^is_ac4_alive) || (request_mat_alive^is_ott_format_alive);
+    }
+    else if (request_ott_format_alive && (is_ott_format_alive^request_ott_format_alive)){
+        //new ott(dd/ddp/ddp_joc) format appears when last stream played AC4/MAT
+        ALOGD("%s line %d main_input_fmt %#x hal_internal_format %#x (request_ott_format_alive^is_ac4_alive) %d (request_ott_format_alive^is_mat_alive) %d\n",
+            __func__, __LINE__, main_input_fmt, hal_internal_format, (request_ott_format_alive^is_ac4_alive), (request_ott_format_alive^is_mat_alive));
+        return (request_ott_format_alive^is_ac4_alive) || (request_ott_format_alive^is_mat_alive);
+    }
+    else {
+        ALOGE("%s line %d main_input_fmt %#x hal_internal_format %#x return false\n",
+            __func__, __LINE__, main_input_fmt, hal_internal_format);
+        return false;
+    }
+}
+
 
 bool is_need_reset_ms12_continuous(struct audio_stream_out *stream) {
     struct aml_stream_out *aml_out = (struct aml_stream_out *) stream;
@@ -1983,7 +2024,7 @@ bool is_need_reset_ms12_continuous(struct audio_stream_out *stream) {
     }
 
     if (is_dolby_ms12_support_compression_format(aml_out->hal_internal_format) && \
-         (aml_out->hal_internal_format != adev->ms12.main_input_fmt || \
+         (is_rebuild_the_ms12_pipeline(adev->ms12.main_input_fmt, aml_out->hal_internal_format) || \
           aml_out->hal_rate != adev->ms12.main_input_sr)) {
         return true;
     }
