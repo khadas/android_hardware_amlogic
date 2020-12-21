@@ -38,6 +38,72 @@
 #define SOUND_PCM_PATH  "/proc/asound/pcm"
 #define MAT_EDID_MAX_LEN 256
 
+#define AC3_SUPPORT_CHANNEL     \
+"AUDIO_CHANNEL_OUT_MONO|\
+AUDIO_CHANNEL_OUT_STEREO|\
+AUDIO_CHANNEL_OUT_MONO|\
+AUDIO_CHANNEL_OUT_TRI|\
+AUDIO_CHANNEL_OUT_TRI_BACK|\
+AUDIO_CHANNEL_OUT_3POINT1|\
+AUDIO_CHANNEL_OUT_QUAD|\
+AUDIO_CHANNEL_OUT_SURROUND|\
+AUDIO_CHANNEL_OUT_PENTA|\
+AUDIO_CHANNEL_OUT_5POINT1"
+
+#define EAC3_SUPPORT_CHANNEL    \
+"AUDIO_CHANNEL_OUT_MONO|\
+AUDIO_CHANNEL_OUT_STEREO|\
+AUDIO_CHANNEL_OUT_MONO|\
+AUDIO_CHANNEL_OUT_TRI|\
+AUDIO_CHANNEL_OUT_TRI_BACK|\
+AUDIO_CHANNEL_OUT_3POINT1|\
+AUDIO_CHANNEL_OUT_QUAD|\
+AUDIO_CHANNEL_OUT_SURROUND|\
+AUDIO_CHANNEL_OUT_PENTA|\
+AUDIO_CHANNEL_OUT_5POINT1|\
+AUDIO_CHANNEL_OUT_7POINT1"
+
+#define EAC3_JOC_SUPPORT_CHANNEL \
+"AUDIO_CHANNEL_OUT_MONO|\
+AUDIO_CHANNEL_OUT_STEREO|\
+AUDIO_CHANNEL_OUT_MONO|\
+AUDIO_CHANNEL_OUT_TRI|\
+AUDIO_CHANNEL_OUT_TRI_BACK|\
+AUDIO_CHANNEL_OUT_3POINT1|\
+AUDIO_CHANNEL_OUT_QUAD|\
+AUDIO_CHANNEL_OUT_SURROUND|\
+AUDIO_CHANNEL_OUT_PENTA|\
+AUDIO_CHANNEL_OUT_5POINT1|\
+AUDIO_CHANNEL_OUT_7POINT1"
+
+
+#define AC4_SUPPORT_CHANNEL     \
+"AUDIO_CHANNEL_OUT_MONO|\
+AUDIO_CHANNEL_OUT_STEREO|\
+AUDIO_CHANNEL_OUT_MONO|\
+AUDIO_CHANNEL_OUT_TRI|\
+AUDIO_CHANNEL_OUT_TRI_BACK|\
+AUDIO_CHANNEL_OUT_3POINT1|\
+AUDIO_CHANNEL_OUT_QUAD|\
+AUDIO_CHANNEL_OUT_SURROUND|\
+AUDIO_CHANNEL_OUT_PENTA|\
+AUDIO_CHANNEL_OUT_5POINT1|\
+AUDIO_CHANNEL_OUT_7POINT1"
+
+#define DTS_SUPPORT_CHANNEL      \
+"AUDIO_CHANNEL_OUT_STEREO|\
+AUDIO_CHANNEL_OUT_5POINT1"
+
+#define DTSHD_SUPPORT_CHANNEL    \
+"AUDIO_CHANNEL_OUT_STEREO|\
+AUDIO_CHANNEL_OUT_5POINT1|\
+AUDIO_CHANNEL_OUT_7POINT1"
+
+#define IEC61937_SUPPORT_CHANNEL  \
+"AUDIO_CHANNEL_OUT_STEREO|\
+AUDIO_CHANNEL_OUT_5POINT1|\
+AUDIO_CHANNEL_OUT_7POINT1"
+
 /*
   type : 0 -> playback, 1 -> capture
 */
@@ -384,6 +450,167 @@ fail:
     }
     return NULL;
 }
+
+char*  get_hdmi_sink_cap_dolby_ms12(const char *keys,audio_format_t format,struct aml_arc_hdmi_desc *p_hdmi_descs)
+{
+    int i = 0;
+    char * infobuf = NULL;
+    int channel = 0;
+    int dgraw = 0;
+    int fd = -1;
+    int size = 0;
+    char *aud_cap = NULL;
+    ALOGD("%s is running...\n", __func__);
+    infobuf = (char *)aml_audio_malloc(1024 * sizeof(char));
+    if (infobuf == NULL) {
+        ALOGE("malloc buffer failed\n");
+        goto fail;
+    }
+    aud_cap = (char*)aml_audio_malloc(1024);
+    if (aud_cap == NULL) {
+        ALOGE("malloc buffer failed\n");
+        goto fail;
+    }
+    memset(aud_cap, 0, 1024);
+    memset(infobuf, 0, 1024);
+    fd = open("/sys/class/amhdmitx/amhdmitx0/aud_cap", O_RDONLY);
+    if (fd >= 0) {
+        int nread = read(fd, infobuf, 1024);
+
+        /* check the format cap */
+        if (strstr(keys, AUDIO_PARAMETER_STREAM_SUP_FORMATS)) {
+            ALOGD("query hdmi format...\n");
+            size += sprintf(aud_cap, "sup_formats=%s", "AUDIO_FORMAT_PCM_16_BIT|AUDIO_FORMAT_IEC61937");
+            size += sprintf(aud_cap + size, "|%s", "AUDIO_FORMAT_AC3");
+            size += sprintf(aud_cap + size, "|%s", "AUDIO_FORMAT_E_AC3");
+            size += sprintf(aud_cap + size, "|%s", "AUDIO_FORMAT_E_AC3_JOC");
+            size += sprintf(aud_cap + size, "|%s", "AUDIO_FORMAT_AC4");
+
+            if (mystrstr(infobuf, "Dobly_Digital+")) {
+                p_hdmi_descs->ddp_fmt.is_support = 1;
+            }
+            if (mystrstr(infobuf, "AC-3")) {
+                p_hdmi_descs->dd_fmt.is_support = 1;
+            }
+            if (mystrstr(infobuf, "DTS-HD")) {
+                size += sprintf(aud_cap + size, "|%s", "AUDIO_FORMAT_DTS|AUDIO_FORMAT_DTS_HD");
+                p_hdmi_descs->dts_fmt.is_support = 1;
+            } else if (mystrstr(infobuf, "DTS")) {
+                size += sprintf(aud_cap + size, "|%s", "AUDIO_FORMAT_DTS");
+                p_hdmi_descs->dts_fmt.is_support = 1;
+            }
+
+            if (mystrstr(infobuf, "MAT")) {
+                //DLB MAT and DLB TrueHD SAD
+                int mat_edid_offset = find_offset_in_file_strstr(infobuf, "MAT");
+
+                if (mat_edid_offset >= 0) {
+                    char mat_edid_array[MAT_EDID_MAX_LEN] = {};
+                    lseek(fd, mat_edid_offset, SEEK_SET);
+                    int nread = read(fd, mat_edid_array, MAT_EDID_MAX_LEN);
+                    if (nread >= 0) {
+                        if (mystrstr(mat_edid_array, "DepVaule 0x1")) {
+                            //Byte3 bit0:1 bit1:0
+                            //eg: "MAT, 8 ch, 32/44.1/48/88.2/96/176.4/192 kHz, DepVaule 0x1"
+                            size += sprintf(aud_cap + size, "|%s", "AUDIO_FORMAT_DOLBY_TRUEHD|AUDIO_FORMAT_MAT_1_0|AUDIO_FORMAT_MAT_2_0");
+                            p_hdmi_descs->mat_fmt.is_support = 1;
+                        }
+                        else if (mystrstr(mat_edid_array, "DepVaule 0x0")) {
+                            //Byte3 bit0:0 bit1:0
+                            //eg: "MAT, 8 ch, 48/96/192 kHz, DepVaule 0x0"
+                            size += sprintf(aud_cap + size, "|%s", "AUDIO_FORMAT_DOLBY_TRUEHD|AUDIO_FORMAT_MAT_1_0");
+                            p_hdmi_descs->mat_fmt.is_support = 0;//fixme about the mat_fmt.is_support
+                        }
+                        else if (mystrstr(mat_edid_array, "DepVaule 0x3")) {
+                            //Byte3 bit0:0 bit1:1
+                            //eg: "MAT, 8 ch, 48 kHz, DepVaule 0x3"
+                            size += sprintf(aud_cap + size, "|%s", "AUDIO_FORMAT_DOLBY_TRUEHD|AUDIO_FORMAT_MAT_1_0|AUDIO_FORMAT_MAT_2_0|AUDIO_FORMAT_MAT_2_1");
+                            p_hdmi_descs->mat_fmt.is_support = 1;
+                        }
+                        else {
+                            ALOGE("%s line %d MAT SAD Byte3 bit0&bit1 is invalid!", __func__, __LINE__);
+                            p_hdmi_descs->mat_fmt.is_support = 0;
+                        }
+                    }
+                }
+                else {
+                    p_hdmi_descs->mat_fmt.is_support = 0;
+                    ALOGE("%s line %d MAT EDID offset is invalid!", __func__, __LINE__);
+                }
+            }
+        }
+        /*check the channel cap */
+        else if (strstr(keys, AUDIO_PARAMETER_STREAM_SUP_CHANNELS)) {
+            ALOGD("query hdmi channels..., format %#x\n", format);
+            if (format == AUDIO_FORMAT_DTS || format == AUDIO_FORMAT_DTS_HD) {
+                if (mystrstr(infobuf, "DTS-HD")) {
+                    size += sprintf(aud_cap, "sup_channels=%s", DTSHD_SUPPORT_CHANNEL);
+                } else if (mystrstr(infobuf, "DTS")) {
+                    size += sprintf(aud_cap, "sup_channels=%s", DTS_SUPPORT_CHANNEL);
+                }
+            } else {
+                switch (format) {
+                    case AUDIO_FORMAT_AC3:
+                        size += sprintf(aud_cap, "sup_channels=%s", AC3_SUPPORT_CHANNEL);
+                        break;
+                    case AUDIO_FORMAT_E_AC3:
+                        size += sprintf(aud_cap, "sup_channels=%s", EAC3_SUPPORT_CHANNEL);
+                        break;
+                    case AUDIO_FORMAT_E_AC3_JOC:
+                        size += sprintf(aud_cap, "sup_channels=%s", EAC3_JOC_SUPPORT_CHANNEL);
+                        break;
+                    case AUDIO_FORMAT_AC4:
+                        size += sprintf(aud_cap, "sup_channels=%s", AC4_SUPPORT_CHANNEL);
+                        break;
+                    case AUDIO_FORMAT_IEC61937:
+                        size += sprintf(aud_cap, "sup_channels=%s", IEC61937_SUPPORT_CHANNEL);
+                        break;
+                    default:
+                        size += sprintf(aud_cap, "sup_channels=%s", "AUDIO_CHANNEL_OUT_STEREO");
+                }
+            }
+        } else if (strstr(keys, AUDIO_PARAMETER_STREAM_SUP_SAMPLING_RATES)) {
+            ALOGD("query hdmi sample_rate...format %#x\n", format);
+            switch (format) {
+                case AUDIO_FORMAT_AC3:
+                    size += sprintf(aud_cap, "sup_sampling_rates=%s", "32000|44100|48000");
+                    break;
+                case AUDIO_FORMAT_E_AC3:
+                    size += sprintf(aud_cap, "sup_sampling_rates=%s", "16000|22050|24000|32000|44100|48000");
+                    break;
+                case AUDIO_FORMAT_E_AC3_JOC:
+                    size += sprintf(aud_cap, "sup_sampling_rates=%s", "16000|22050|24000|32000|44100|48000");
+                    break;
+                case AUDIO_FORMAT_AC4:
+                    size += sprintf(aud_cap, "sup_sampling_rates=%s", "44100|48000");
+                    break;
+                case AUDIO_FORMAT_IEC61937:
+                    size += sprintf(aud_cap, "sup_sampling_rates=%s",
+                    "8000|11025|16000|22050|24000|32000|44100|48000|128000|176400|192000");
+                default:
+                    size += sprintf(aud_cap, "sup_sampling_rates=%s", "32000|44100|48000");
+            }
+        }
+    } else {
+        ALOGE("open /sys/class/amhdmitx/amhdmitx0/aud_cap failed!!\n");
+    }
+    if (infobuf) {
+        aml_audio_free(infobuf);
+    }
+    if (fd >= 0) {
+        close(fd);
+    }
+    return aud_cap;
+fail:
+    if (aud_cap) {
+        aml_audio_free(aud_cap);
+    }
+    if (infobuf) {
+        aml_audio_free(infobuf);
+    }
+    return NULL;
+}
+
 
 char*  get_hdmi_arc_cap(unsigned *ad, int maxsize, const char *keys)
 {

@@ -1662,8 +1662,10 @@ static char *out_get_parameters (const struct audio_stream *stream, const char *
     parms = str_parms_create_str (keys);
     ret = str_parms_get_int(parms, AUDIO_PARAMETER_STREAM_FORMAT, &val_int);
     format = (audio_format_t) val_int;
-
-    ALOGI ("out_get_parameters %s,out %p\n", keys, out);
+    if (format == 0) {
+        format = out->hal_format;
+    }
+    ALOGI ("out_get_parameters %s,out %p format=0x%x hal_format=0x%x\n", keys, out, format, out->hal_format);
 
     if (strstr(keys, AUDIO_PARAMETER_STREAM_SUP_SAMPLING_RATES)) {
         if (out->flags & AUDIO_OUTPUT_FLAG_PRIMARY) {
@@ -1675,7 +1677,11 @@ static char *out_get_parameters (const struct audio_stream *stream, const char *
             } else if (adev->bHDMIConnected && adev->bHDMIARCon && (out->out_device & AUDIO_DEVICE_OUT_ALL_A2DP)) {
                 cap = (char *) strdup_a2dp_cap_default(AUDIO_PARAMETER_STREAM_SUP_SAMPLING_RATES, format);
             } else {
-                cap = (char *) get_hdmi_sink_cap_dolbylib (AUDIO_PARAMETER_STREAM_SUP_SAMPLING_RATES,format,&(adev->hdmi_descs), adev->dolby_decode_enable);
+                if (eDolbyMS12Lib == adev->dolby_lib_type) {
+                    cap = (char *) get_hdmi_sink_cap_dolby_ms12 (AUDIO_PARAMETER_STREAM_SUP_SAMPLING_RATES,format,&(adev->hdmi_descs));
+                } else {
+                    cap = (char *) get_hdmi_sink_cap_dolbylib (AUDIO_PARAMETER_STREAM_SUP_SAMPLING_RATES,format,&(adev->hdmi_descs), adev->dolby_decode_enable);
+                }
             }
         }
         if (cap) {
@@ -1700,7 +1706,11 @@ static char *out_get_parameters (const struct audio_stream *stream, const char *
                     && adev->dolby_lib_type == eDolbyMS12Lib) {
                     cap = strdup ("sup_channels=AUDIO_CHANNEL_OUT_STEREO");
                 } else {
-                    cap = (char *) get_hdmi_sink_cap_dolbylib (AUDIO_PARAMETER_STREAM_SUP_CHANNELS,format,&(adev->hdmi_descs), adev->dolby_decode_enable);
+                    if (eDolbyMS12Lib == adev->dolby_lib_type) {
+                        cap = (char *) get_hdmi_sink_cap_dolby_ms12 (AUDIO_PARAMETER_STREAM_SUP_CHANNELS,format,&(adev->hdmi_descs));
+                    } else {
+                        cap = (char *) get_hdmi_sink_cap_dolbylib (AUDIO_PARAMETER_STREAM_SUP_CHANNELS,format,&(adev->hdmi_descs), adev->dolby_decode_enable);
+                    }
                 }
             }
         }
@@ -1726,7 +1736,11 @@ static char *out_get_parameters (const struct audio_stream *stream, const char *
     cap = strdup ("sup_formats=AUDIO_FORMAT_PCM_16_BIT");
 #endif
             } else {
-                cap = (char *) get_hdmi_sink_cap_dolbylib (AUDIO_PARAMETER_STREAM_SUP_FORMATS,format,&(adev->hdmi_descs), adev->dolby_decode_enable);
+                if (eDolbyMS12Lib == adev->dolby_lib_type) {
+                    cap = (char *) get_hdmi_sink_cap_dolby_ms12 (AUDIO_PARAMETER_STREAM_SUP_FORMATS,format,&(adev->hdmi_descs));
+                } else {
+                    cap = (char *) get_hdmi_sink_cap_dolbylib (AUDIO_PARAMETER_STREAM_SUP_FORMATS,format,&(adev->hdmi_descs), adev->dolby_decode_enable);
+                }
             }
         }
         if (cap) {
@@ -4712,8 +4726,10 @@ static int adev_open_output_stream(struct audio_hw_device *dev,
         devices, config->channel_mask, config->sample_rate, config->format, flags);
 
     out = (struct aml_stream_out *)aml_audio_calloc(1, sizeof(struct aml_stream_out));
-    if (!out)
+    if (!out) {
+        ALOGE("%s malloc error", __func__);
         return -ENOMEM;
+    }
 
     if (flags == AUDIO_OUTPUT_FLAG_NONE)
         flags = AUDIO_OUTPUT_FLAG_PRIMARY;
@@ -4806,9 +4822,7 @@ static int adev_open_output_stream(struct audio_hw_device *dev,
             } else if (out->config.channels >= 6 && out->config.rate == 192000) {
                 out->hal_internal_format = AUDIO_FORMAT_DTS_HD;
             } else {
-                config->format = AUDIO_FORMAT_DEFAULT;
-                ret = -EINVAL;
-                goto err;
+                // do nothing
             }
             ALOGI("convert format IEC61937 to 0x%x\n", out->hal_internal_format);
             break;
@@ -5001,6 +5015,7 @@ err:
     if (out->tmp_buffer_8ch)
         aml_audio_free(out->tmp_buffer_8ch);
     aml_audio_free(out);
+    ALOGE("%s exit failed =%d", __func__, ret);
     return ret;
 }
 
@@ -10005,6 +10020,7 @@ int adev_open_output_stream_new(struct audio_hw_device *dev,
                                     NULL);
     if (ret < 0) {
         ALOGE("%s(), open stream failed", __func__);
+        return ret;
     }
 
     aml_out = (struct aml_stream_out *)(*stream_out);
