@@ -702,6 +702,8 @@ struct aml_stream_out {
     int64_t last_mmap_nano_second;
     int32_t last_mmap_position;
     void *spdifout_handle;
+    uint64_t main_input_ns;
+    bool is_sink_format_prepared;
 };
 
 typedef ssize_t (*write_func)(struct audio_stream_out *stream, const void *buffer, size_t bytes);

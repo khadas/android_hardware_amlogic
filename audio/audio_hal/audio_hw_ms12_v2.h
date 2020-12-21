@@ -222,5 +222,6 @@ unsigned long long dolby_ms12_get_main_pcm_generated(struct audio_stream_out *st
  */
 bool is_need_reset_ms12_continuous(struct audio_stream_out *stream);
 
+bool is_ms12_output_compatible(struct audio_stream_out *stream, audio_format_t new_sink_format, audio_format_t new_optical_format);
 
 #endif //end of _AUDIO_HW_MS12_H_

@@ -67,6 +67,7 @@
 #define NANO_SECOND_PER_SECOND 1000000000LL
 #define NANO_SECOND_PER_MILLISECOND 1000000LL
 
+#define CONVERT_NS_TO_48K_FRAME_NUM(ns)    (ns * 48 / NANO_SECOND_PER_MILLISECOND)
 
 #define MS12_MAIN_BUF_INCREASE_TIME_MS (0)
 #define MS12_SYS_BUF_INCREASE_TIME_MS (1000)
@@ -1685,6 +1686,8 @@ int dolby_ms12_main_flush(struct audio_stream_out *stream) {
     ms12->last_frames_postion = 0;
     ms12->last_ms12_pcm_out_position = 0;
     adev->ms12.ms12_position_update = false;
+    adev->ms12.main_input_start_offset_ns = 0;
+    aml_out->main_input_ns = 0;
 
     if (ms12->spdif_dec_handle) {
         aml_spdif_decoder_reset(ms12->spdif_dec_handle);
@@ -1845,13 +1848,17 @@ unsigned long long dolby_ms12_get_main_bytes_consumed(struct audio_stream_out *s
 unsigned long long dolby_ms12_get_main_pcm_generated(struct audio_stream_out *stream) {
     struct aml_stream_out *aml_out = (struct aml_stream_out *)stream;
     struct aml_audio_device *adev = aml_out->dev;
+    unsigned long long decoded_frame = 0;
+    struct dolby_ms12_desc *ms12 = &(adev->ms12);
+    uint64_t main_input_offset_frame = 0;
+    main_input_offset_frame = CONVERT_NS_TO_48K_FRAME_NUM(ms12->main_input_start_offset_ns);
 
     if (!audio_is_linear_pcm(aml_out->hal_internal_format)) {
-        return dolby_ms12_get_n_bytes_pcmout_of_udc() / adev->ms12.nbytes_of_dmx_output_pcm_frame;
+        decoded_frame = dolby_ms12_get_n_bytes_pcmout_of_udc() / adev->ms12.nbytes_of_dmx_output_pcm_frame;
     } else if (aml_out->hw_sync_mode) {
-        return dolby_ms12_get_consumed_payload() / 4;
+        decoded_frame = dolby_ms12_get_consumed_payload() / 4;
     }
-    return 0;
+    return (main_input_offset_frame + decoded_frame);
 }
 
 
@@ -1873,5 +1880,16 @@ bool is_need_reset_ms12_continuous(struct audio_stream_out *stream) {
     }
 
     return false;
+}
+
+bool is_ms12_output_compatible(struct audio_stream_out *stream, audio_format_t new_sink_format __unused, audio_format_t new_optical_format __unused) {
+    bool is_compatible = false;
+    int  output_config = 0;
+    struct aml_stream_out *aml_out = (struct aml_stream_out *)stream;
+    struct aml_audio_device *adev = aml_out->dev;
+    struct dolby_ms12_desc *ms12 = &(adev->ms12);
+
+    return is_compatible;
+
 }
 

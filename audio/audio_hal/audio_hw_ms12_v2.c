@@ -66,6 +66,7 @@
 #define NANO_SECOND_PER_SECOND 1000000000LL
 #define NANO_SECOND_PER_MILLISECOND 1000000LL
 
+#define CONVERT_NS_TO_48K_FRAME_NUM(ns)    (ns * 48 / NANO_SECOND_PER_MILLISECOND)
 
 #define MS12_MAIN_BUF_INCREASE_TIME_MS (0)
 #define MS12_SYS_BUF_INCREASE_TIME_MS (1000)
@@ -296,6 +297,8 @@ static int get_ms12_output_mask(audio_format_t sink_format,audio_format_t  optic
         output_config =  MS12_OUTPUT_MASK_DDP;
     else if (sink_format == AUDIO_FORMAT_AC3)
         output_config = MS12_OUTPUT_MASK_DD;
+    else if (sink_format == AUDIO_FORMAT_MAT)
+        output_config = MS12_OUTPUT_MASK_MAT;
     else if (sink_format == AUDIO_FORMAT_PCM_16_BIT && optical_format == AUDIO_FORMAT_AC3)
         output_config = MS12_OUTPUT_MASK_DD | MS12_OUTPUT_MASK_SPEAKER;
     else if (is_arc)
@@ -928,7 +931,7 @@ MAIN_INPUT:
                         if (parser_used_size == 0) {
                             *use_size = bytes;
                         }
-                        ALOGE("write dolby main time out, discard data=%d main_frame_size=%d", *use_size, main_frame_size);
+                        ALOGE("write dolby main time out, discard data=%d main_frame_size=%d main_avail=%d max=%d", *use_size, main_frame_size, main_avail, max_size);
                         goto exit;
                     }
 
@@ -1005,6 +1008,7 @@ MAIN_INPUT:
                             ms12->main_input_rate = ms12->config_sample_rate;
                         }
                         ms12->main_input_ns += input_ns;
+                        aml_out->main_input_ns += input_ns;
                         audio_virtual_buf_process(ms12->main_virtual_buf_handle, input_ns);
                     }
 
@@ -1796,6 +1800,8 @@ int dolby_ms12_main_flush(struct audio_stream_out *stream) {
     ms12->last_frames_postion = 0;
     ms12->last_ms12_pcm_out_position = 0;
     adev->ms12.ms12_position_update = false;
+    adev->ms12.main_input_start_offset_ns = 0;
+    aml_out->main_input_ns = 0;
 
     dolby_ms12_flush_main_input_buffer();
 
@@ -1809,6 +1815,7 @@ int dolby_ms12_main_flush(struct audio_stream_out *stream) {
     if (ms12->ms12_bypass_handle) {
         aml_ms12_bypass_reset(ms12->ms12_bypass_handle);
     }
+    ALOGI("%s exit", __func__);
     return 0;
 }
 
@@ -1979,14 +1986,20 @@ unsigned long long dolby_ms12_get_main_pcm_generated(struct audio_stream_out *st
     struct aml_stream_out *aml_out = (struct aml_stream_out *)stream;
     struct aml_audio_device *adev = aml_out->dev;
     struct dolby_ms12_desc *ms12 = &(adev->ms12);
-
+    unsigned long long decoded_frame = 0;
+    uint64_t main_input_offset_frame = 0;
     audio_format_t audio_format = AUDIO_FORMAT_DEFAULT;
     if (aml_out->hwsync && aml_out->hwsync->aout)
         audio_format = aml_out->hwsync->aout->hal_internal_format;
     else {
         audio_format = aml_out->hal_internal_format;
     }
-    return dolby_ms12_get_decoder_nframes_pcm_output(ms12->dolby_ms12_ptr, audio_format, MAIN_INPUT_STREAM);
+    main_input_offset_frame = CONVERT_NS_TO_48K_FRAME_NUM(ms12->main_input_start_offset_ns);
+    decoded_frame = dolby_ms12_get_decoder_nframes_pcm_output(ms12->dolby_ms12_ptr, audio_format, MAIN_INPUT_STREAM);
+    if (adev->debug_flag) {
+        ALOGI("%s main offset =%lld decoded_frame=%lld total =%lld", __func__, main_input_offset_frame, decoded_frame, (main_input_offset_frame + decoded_frame));
+    }
+    return (main_input_offset_frame + decoded_frame);
 }
 
 bool is_rebuild_the_ms12_pipeline(    audio_format_t main_input_fmt, audio_format_t hal_internal_format)
@@ -2052,4 +2065,17 @@ bool is_need_reset_ms12_continuous(struct audio_stream_out *stream) {
     return false;
 }
 
+bool is_ms12_output_compatible(struct audio_stream_out *stream, audio_format_t new_sink_format, audio_format_t new_optical_format) {
+    bool is_compatible = false;
+    int  output_config = 0;
+    struct aml_stream_out *aml_out = (struct aml_stream_out *)stream;
+    struct aml_audio_device *adev = aml_out->dev;
+    struct dolby_ms12_desc *ms12 = &(adev->ms12);
 
+
+    output_config = get_ms12_output_mask(new_sink_format, new_optical_format, false);
+    is_compatible = (ms12->output_config & output_config);
+    ALOGI("ms12 current out=%#x new output=%#x is_compatible=%d", ms12->output_config, output_config, is_compatible);
+    return is_compatible;
+
+}
