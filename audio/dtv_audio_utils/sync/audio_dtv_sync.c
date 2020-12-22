@@ -243,6 +243,13 @@ int aml_audio_swcheck_lookup_apts(int audio_path, size_t offset, unsigned long *
     } else {
         align = offset;
     }
+
+    if (p_swcheck->debug_enable) {
+        if (align > p_swcheck->payload_offset)
+            ALOGI("audio_hal_debug exception apts lookup offset: %zu > checkin offset: %zu",
+                   align, p_swcheck->payload_offset);
+    }
+
     pts_tab = p_swcheck->pts_tab;
     for (i = 0; i < HWSYNC_APTS_NUM; i++) {
         if (pts_tab[i].valid) {

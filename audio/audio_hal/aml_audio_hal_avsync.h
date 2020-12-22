@@ -56,6 +56,8 @@
 #define PROPERTY_AUDIO_TUNING_CLOCK_FACTOR  "vendor.media.audio.tuning.clock.factor"
 #define PROPERTY_AUDIO_DROP_THRESHOLD  "vendor.media.audio.drop.thresholdms"
 #define PROPERTY_AUDIO_LEAST_CACHE  "vendor.media.audio.leastcachems"
+#define PROPERTY_DEBUG_TIME_INTERVAL  "vendor.media.audio.debug.timeinterval"
+
 
 #define DTV_PTS_CORRECTION_THRESHOLD (90000 * 30 / 1000)
 #define AUDIO_PTS_DISCONTINUE_THRESHOLD (90000 * 5)
@@ -79,6 +81,7 @@
 #define DEFAULT_AUDIO_DROP_THRESHOLD_MS (60)
 #define DEFAULT_AUDIO_LEAST_CACHE_MS (50)
 #define AUDIO_PCR_LATENCY_MAX (3000)
+#define DEFULT_DEBUG_TIME_INTERVAL (5000)
 
 //channel define
 #define DEFAULT_CHANNELS 2
@@ -134,6 +137,16 @@ struct avsync_para {
     int underrun_max_time;  //max time of underun to force clear
     struct timespec underrun_starttime; //input-output both underrun starttime
     struct timespec underrun_mute_starttime; //underrun mute start time
+};
+
+struct audiohal_debug_para {
+    int debug_time_interval;
+    unsigned int debug_last_checkin_apts;
+    unsigned int debug_last_checkin_vpts;
+    unsigned int debug_last_out_apts;
+    unsigned int debug_last_out_vpts;
+    unsigned int debug_last_demux_pcr;
+    struct timespec debug_system_time;
 };
 
 extern void dtv_audio_gap_monitor(struct aml_audio_patch *patch);

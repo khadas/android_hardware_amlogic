@@ -80,6 +80,7 @@
 
 #define TSYNC_LAST_DISCONTINUE_CHECKIN_APTS "/sys/class/tsync_pcr/tsync_last_discontinue_checkin_apts"
 #define TSYNC_LAST_CHECKIN_APTS "/sys/class/tsync/last_checkin_apts"
+#define TSYNC_LAST_CHECKIN_VPTS "/sys/class/tsync/last_checkin_vpts"
 
 #define TSYNC_APTS_DIFF "/sys/class/tsync_pcr/tsync_pcr_apts_diff"
 #define TSYNC_FIRSTCHECKIN_APTS "/sys/class/tsync/checkin_firstapts"
@@ -461,10 +462,15 @@ static bool dtv_firstapts_lookup_over(struct aml_audio_patch *patch, struct aml_
     int ret;
     unsigned int first_checkinapts = 0xffffffff;
     unsigned int last_checkinapts = 0xffffffff;
+    unsigned int last_checkinvpts = 0xffffffff;
     unsigned int first_checkinvpts = 0xffffffff;
+    unsigned int cur_vpts = 0xffffffff;
     unsigned int first_vpts = 0xffffffff;
     unsigned int demux_pcr = 0xffffffff;
     unsigned int pcr_inited = 0;
+    int first_checkin_av_diff = 0;
+    int first_out_av_diff = 0;
+
     if (!patch || !aml_dev) {
         return true;
     }
@@ -479,19 +485,25 @@ static bool dtv_firstapts_lookup_over(struct aml_audio_patch *patch, struct aml_
         }
     }
     patch->tsync_mode = dtv_get_tsync_mode();
+    get_sysfs_uint(TSYNC_PCRSCR, &demux_pcr);
+
     if (a_discontinue) {
         get_sysfs_uint(TSYNC_LAST_DISCONTINUE_CHECKIN_APTS, &first_checkinapts);
     } else {
         get_sysfs_uint(TSYNC_FIRSTCHECKIN_APTS, &first_checkinapts);
     }
-    get_sysfs_uint(TSYNC_PCRSCR, &demux_pcr);
 
     if (get_tsync_pcr_debug()) {
         get_sysfs_uint(TSYNC_FIRSTCHECKIN_VPTS, &first_checkinvpts);
         get_sysfs_uint(TSYNC_FIRST_VPTS, &first_vpts);
         get_sysfs_uint(TSYNC_LAST_CHECKIN_APTS, &last_checkinapts);
-        ALOGI("demux_pcr %x first_apts %x,last_checkinapts=%x,first_checkinvpts=%x,first_vpts:0x%x(has_video:%d),discontinue %d, apts_diff=%d",
-                demux_pcr, first_checkinapts, last_checkinapts, first_checkinvpts, first_vpts, patch->dtv_has_video, a_discontinue, *apts_diff);
+        get_sysfs_uint(TSYNC_LAST_CHECKIN_VPTS, &last_checkinvpts);
+        first_checkin_av_diff = (int)(first_checkinapts - first_checkinvpts) / 90;
+        first_out_av_diff = (int)(first_checkinapts - first_vpts) / 90;
+        ALOGI("demux_pcr %x first_checkinapts %x,last_checkinapts=%x,first_checkinvpts=%x,first_vpts:0x%x(has_video:%d),"
+               " last_checkinvpts=%x, discontinue %d, apts_diff=%d, first_checkin_av_diff: %d ms, first_out_av_diff: %d ms",\
+               demux_pcr, first_checkinapts, last_checkinapts, first_checkinvpts, first_vpts, patch->dtv_has_video,\
+               last_checkinvpts, a_discontinue, *apts_diff, first_checkin_av_diff, first_out_av_diff);
     }
 
     if (dtv_get_tsync_mode() == TSYNC_MODE_AMASTER) {
@@ -530,6 +542,18 @@ static bool dtv_firstapts_lookup_over(struct aml_audio_patch *patch, struct aml_
             ALOGI("now must drop size %d\n", aml_dev->dtv_droppcm_size);
         }
     }
+    get_sysfs_uint(TSYNC_FIRSTCHECKIN_VPTS, &first_checkinvpts);
+    get_sysfs_uint(TSYNC_FIRST_VPTS, &first_vpts);
+    get_sysfs_uint(TSYNC_LAST_CHECKIN_APTS, &last_checkinapts);
+    get_sysfs_uint(TSYNC_LAST_CHECKIN_VPTS, &last_checkinvpts);
+    get_sysfs_uint(TSYNC_VPTS, &cur_vpts);
+    first_checkin_av_diff = (int)(first_checkinapts - first_checkinvpts) / 90;
+    first_out_av_diff = (int)(first_checkinapts - first_vpts) / 90;
+    ALOGI("++ demux_pcr %x first_checkinapts %x,last_checkinapts=%x,first_checkinvpts=%x,first_vpts:0x%x(has_video:%d),"
+          " last_checkinvpts=%x,cur_vpts %x,discontinue %d,apts_diff=%d,first_checkin_av_diff: %d ms,first_out_av_diff: %d ms",\
+          demux_pcr, first_checkinapts, last_checkinapts, first_checkinvpts, first_vpts, patch->dtv_has_video,\
+          last_checkinvpts, cur_vpts, a_discontinue, *apts_diff, first_checkin_av_diff, first_out_av_diff);
+
     return true;
 }
 
@@ -2403,6 +2427,12 @@ int create_dtv_patch_l(struct audio_hw_device *dev, audio_devices_t input,
     patch->spdif_step_clk = 0;
     patch->i2s_step_clk = 0;
     patch->pid = -1;
+    patch->debug_para.debug_last_checkin_apts = 0;
+    patch->debug_para.debug_last_checkin_vpts = 0;
+    patch->debug_para.debug_last_out_apts = 0;
+    patch->debug_para.debug_last_out_vpts = 0;
+    patch->debug_para.debug_last_demux_pcr = 0;
+    patch->debug_para.debug_time_interval = property_get_int32(PROPERTY_DEBUG_TIME_INTERVAL, DEFULT_DEBUG_TIME_INTERVAL);
 
     ALOGI("--%s", __FUNCTION__);
     return 0;

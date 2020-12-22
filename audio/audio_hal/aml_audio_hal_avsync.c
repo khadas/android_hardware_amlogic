@@ -502,6 +502,14 @@ static void dtv_av_pts_info(struct aml_audio_patch *patch, unsigned int apts, un
     int time_cost_ms = 0;
     unsigned int mode = 0;
 
+    struct timespec debug_current_time;
+    int debug_time_costms = 0;
+    int checkin_apts_interval = 0;
+    int checkin_vpts_interval = 0;
+    int demux_pcr_interval = 0;
+    int out_apts_interval = 0;
+    int out_vpts_interval = 0;
+
     get_sysfs_uint(TSYNC_VPTS, &cur_vpts);
     get_sysfs_uint(TSYNC_CHECKIN_APTS, &demux_apts);
     get_sysfs_uint(TSYNC_CHECKIN_VPTS, &demux_vpts);
@@ -512,10 +520,43 @@ static void dtv_av_pts_info(struct aml_audio_patch *patch, unsigned int apts, un
     video_receive_frame_count = get_sysfs_int(VIDEO_RECEIVE_FRAME_CNT);
     av_diff_ms = (apts - cur_vpts) / 90;
     ap_diff_ms = (pcrpts - apts) / 90;
-    ALOGI("dtv_av_info,diff:%d,apts:%x(%x,cache:%dms),vpts:%x(%x,cache:%dms),pcrpts:%x,av-diff:%d,size:%d,latency:%d,mode:%d,firstvpts:%d,v_show_cnt:%d,v_rev_cnt:%d\n",
-          (int)(pcrpts - apts) / 90, apts, demux_apts, (int)(demux_apts - apts) / 90,cur_vpts, demux_vpts, (int)(demux_vpts - cur_vpts) / 90, pcrpts,
-          (int)(apts - cur_vpts)/90, get_buffer_read_space(&(patch->aml_ringbuffer)), (int)decoder_get_latency() / 90, mode, firstvpts,
-          video_display_frame_count, video_receive_frame_count);
+    ALOGI("dtv_av_info: pa-pv-av-diff:[%d, %d, %d], apts:%x(%x,cache:%dms), vpts:%x(%x,cache:%dms), pcrpts:%x,"
+          " checkin-pa-pv-av-diff:[%d, %d, %d], size:%d, latency:%d, mode:%d, firstvpts:%d, v_show_cnt:%d, v_rev_cnt:%d\n",\
+           (int)(pcrpts - apts) / 90, (int)(pcrpts - cur_vpts) / 90, (int)(apts - cur_vpts)/90, apts, demux_apts,
+           (int)(demux_apts - apts) / 90,cur_vpts, demux_vpts, (int)(demux_vpts - cur_vpts) / 90, pcrpts,
+           (int)(pcrpts - demux_apts)/90, (int)(pcrpts - demux_vpts)/90, (int)(demux_apts - demux_vpts)/90,
+           get_buffer_read_space(&(patch->aml_ringbuffer)), (int)decoder_get_latency() / 90, mode, firstvpts,
+           video_display_frame_count, video_receive_frame_count);
+
+    if (patch->debug_para.debug_last_checkin_apts == 0 && patch->debug_para.debug_last_out_apts == 0
+        && patch->debug_para.debug_last_checkin_vpts == 0 && patch->debug_para.debug_last_out_vpts == 0
+        && patch->debug_para.debug_last_demux_pcr == 0) {
+          patch->debug_para.debug_last_checkin_apts = demux_apts;
+          patch->debug_para.debug_last_out_apts = apts;
+          patch->debug_para.debug_last_checkin_vpts = demux_vpts;
+          patch->debug_para.debug_last_out_vpts = cur_vpts;
+          patch->debug_para.debug_last_demux_pcr = demux_pcr;
+    }
+
+    clock_gettime(CLOCK_MONOTONIC, &debug_current_time);
+    debug_time_costms = calc_time_interval_us(&patch->debug_para.debug_system_time, &debug_current_time) / 1000;
+    if (debug_time_costms >= patch->debug_para.debug_time_interval) {
+        checkin_apts_interval = (int)(demux_apts - patch->debug_para.debug_last_checkin_apts) / 90;
+        checkin_vpts_interval = (int)(demux_vpts - patch->debug_para.debug_last_checkin_vpts) / 90;
+        demux_pcr_interval = (int)(demux_pcr - patch->debug_para.debug_last_demux_pcr) / 90;
+        out_apts_interval = (int)(apts - patch->debug_para.debug_last_out_apts) / 90;
+        out_vpts_interval = (int)(cur_vpts - patch->debug_para.debug_last_out_vpts) / 90;
+        ALOGI("audio_hal_debug system_time_interval: %d ms, demux_pcr_interval: %d ms,"
+              " apts interval:[in:%d, out:%d], vpts interval:[in:%d, out:%d].",\
+               debug_time_costms, demux_pcr_interval, checkin_apts_interval,
+               out_apts_interval, checkin_vpts_interval, out_vpts_interval);
+        patch->debug_para.debug_last_checkin_apts = demux_apts;
+        patch->debug_para.debug_last_out_apts = apts;
+        patch->debug_para.debug_last_checkin_vpts = demux_vpts;
+        patch->debug_para.debug_last_out_vpts = cur_vpts;
+        patch->debug_para.debug_last_demux_pcr = demux_pcr;
+        clock_gettime(CLOCK_MONOTONIC, &patch->debug_para.debug_system_time);
+    }
 
     if (av_diff_ms > 150 && ap_diff_ms > 0 && ap_diff_ms < 100 && patch->dtv_log_retry_cnt++ > 4) {
         patch->dtv_log_retry_cnt = 0;
@@ -525,15 +566,15 @@ static void dtv_av_pts_info(struct aml_audio_patch *patch, unsigned int apts, un
         clock_gettime(CLOCK_MONOTONIC, &patch->last_debug_record);
         // add calc to judge audio,video or pcr error.
         if (patch->last_apts_record != 0) {
-            ALOGI("dtv_av_info, apts:0x%x, last_record=0x%x,apts diff:%" PRId64 " ms, time_const=%d ms\n",
+            ALOGI("dtv_av_info, apts:0x%x, last_record=0x%x,apts diff:%lld ms, time_const=%d ms\n",
                 apts, patch->last_apts_record, (int64_t)(apts - patch->last_apts_record) / 90, time_cost_ms);
         }
         if (patch->last_pcrpts_record != 0) {
-            ALOGI("dtv_av_info, pcrpts:0x%x, last_record=0x%x,pcr diff:%" PRId64 " ms, time_const=%d ms\n",
+            ALOGI("dtv_av_info, pcrpts:0x%x, last_record=0x%x,pcr diff:%lld ms, time_const=%d ms\n",
                 pcrpts, patch->last_pcrpts_record, (int64_t)(pcrpts - patch->last_pcrpts_record) / 90, time_cost_ms);
         }
         if (patch->last_vpts_record != 0) {
-            ALOGI("dtv_av_info, cur_vpts:0x%x, last_record=0x%x,vpts diff:%" PRId64 " ms, time_const=%d ms\n",
+            ALOGI("dtv_av_info, cur_vpts:0x%x, last_record=0x%x,vpts diff:%lld ms, time_const=%d ms\n",
                 cur_vpts, patch->last_vpts_record, (int64_t)(cur_vpts - patch->last_vpts_record) / 90, time_cost_ms);
         }
         patch->last_apts_record = apts;
@@ -979,6 +1020,7 @@ void process_ac3_sync(struct aml_audio_patch *patch, unsigned long pts, struct a
             aml_dev->start_mute_count = 0;
             ALOGI("set start_mute_flag 1.");
         }
+        clock_gettime(CLOCK_MONOTONIC, &patch->debug_para.debug_system_time);
     } else {
         cur_out_pts = pts;
         if (!patch || !patch->dev || !stream_out) {
@@ -1037,6 +1079,8 @@ void process_pts_sync(unsigned int pcm_lancty, struct aml_audio_patch *patch,
         patch->dtv_first_apts_flag = 1;
         patch->last_valid_pts = pts;
         patch->cur_outapts = pts;
+        clock_gettime(CLOCK_MONOTONIC, &patch->debug_para.debug_system_time);
+
     } else {
         unsigned int pts_diff;
         if (pts != (unsigned long) - 1) {
