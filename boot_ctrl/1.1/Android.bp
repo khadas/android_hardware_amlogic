@@ -1,0 +1,51 @@
+cc_library_shared {
+    name: "android.hardware.boot@1.1-impl.droidlogic",
+    stem: "android.hardware.boot@1.0-impl-1.1.droidlogic",
+    defaults: [
+        "hidl_defaults",
+        "libboot_control_defaults_droidlogic",
+    ],
+    relative_install_path: "hw",
+    vendor: true,
+    recovery_available: true,
+    srcs: ["BootControl.cpp"],
+
+    shared_libs: [
+        "liblog",
+        "libhidlbase",
+        "libhardware",
+        "libutils",
+        "android.hardware.boot@1.0",
+        "android.hardware.boot@1.1",
+    ],
+    static_libs: [
+        "libboot_control_droidlogic",
+        "libfstab",
+        "libsystemcontrol_static",
+        "libcutils",
+        "libz",
+    ],
+}
+
+cc_binary {
+    name: "android.hardware.boot@1.1-service.droidlogic",
+    defaults: ["hidl_defaults"],
+    relative_install_path: "hw",
+    vendor: true,
+    init_rc: ["android.hardware.boot@1.1-service.droidlogic.rc"],
+    srcs: ["service.cpp"],
+
+    vintf_fragments: [
+        "android.hardware.boot@1.1.droidlogic.xml",
+    ],
+
+    shared_libs: [
+        "liblog",
+        "libhardware",
+        "libhidlbase",
+        "libutils",
+        "android.hardware.boot@1.0",
+        "android.hardware.boot@1.1",
+    ],
+
+}

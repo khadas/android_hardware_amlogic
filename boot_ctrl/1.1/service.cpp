@@ -13,34 +13,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
-#pragma once
+#define LOG_TAG "android.hardware.boot@1.1-service.droidlogic"
 
 #include <android/hardware/boot/1.1/IBootControl.h>
-#include <hidl/MQDescriptor.h>
-#include <hidl/Status.h>
+#include <hidl/LegacySupport.h>
 
-namespace android {
-namespace hardware {
-namespace boot {
-namespace V1_1 {
-namespace implementation {
+using android::hardware::defaultPassthroughServiceImplementation;
+using IBootControl_V1_0 = android::hardware::boot::V1_0::IBootControl;
+using IBootControl_V1_1 = android::hardware::boot::V1_1::IBootControl;
 
-using ::android::hardware::Return;
-
-struct BootControlShared : public IBootControl {
-    BootControlShared();
-
-    bool Init();
-
-    Return<bool> setSnapshotMergeStatus(MergeStatus status) override;
-    Return<MergeStatus> getSnapshotMergeStatus() override;
-};
-
-extern "C" IBootControl *HIDL_FETCH_IBootControl(const char *name);
-
-}  // namespace implementation
-}  // namespace V1_1
-}  // namespace boot
-}  // namespace hardware
-}  // namespace android
+int main(int /* argc */, char* /* argv */[]) {
+    return defaultPassthroughServiceImplementation<IBootControl_V1_0, IBootControl_V1_1>();
+}
