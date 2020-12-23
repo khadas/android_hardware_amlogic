@@ -636,6 +636,16 @@ static void endian16_convert(void *buf, int size)
     }
 }
 
+static audio_format_t ms12_get_audio_hal_format(audio_format_t hal_format)
+{
+    if (hal_format == AUDIO_FORMAT_E_AC3_JOC) {
+        return AUDIO_FORMAT_E_AC3;
+    }
+    else {
+        return hal_format;
+    }
+}
+
 /*
  *@brief dolby ms12 main process
  *
@@ -674,6 +684,7 @@ int dolby_ms12_main_process(
     int dependent_frame = 0;
     int sample_rate = 48000;
     struct ac4_parser_info ac4_info = { 0 };
+    audio_format_t ms12_hal_format = ms12_get_audio_hal_format(aml_out->hal_format);
 
     if (adev->debug_flag >= 2) {
         ALOGI("\n%s() in continuous %d input ms12 bytes %d input bytes %zu\n",
@@ -776,7 +787,7 @@ int dolby_ms12_main_process(
                 if (main_frame_size != 0 && adev->continuous_audio_mode) {
                     struct bypass_frame_info frame_info = { 0 };
                     aml_out->ddp_frame_size    = main_frame_size;
-                    frame_info.audio_format    = aml_out->hal_format;
+                    frame_info.audio_format    = ms12_hal_format;
                     frame_info.samplerate      = ac3_info.sample_rate;
                     frame_info.dependency_frame = ac3_info.frame_dependent;
                     frame_info.numblks         = ac3_info.numblks;
@@ -795,8 +806,8 @@ int dolby_ms12_main_process(
          *continuous output with dolby atmos input, the ddp frame size is variable.
          */
         else if (adev->continuous_audio_mode == 1) {
-            if ((aml_out->hal_format == AUDIO_FORMAT_AC3) ||
-                (aml_out->hal_format == AUDIO_FORMAT_E_AC3)) {
+            if ((ms12_hal_format == AUDIO_FORMAT_AC3) ||
+                (ms12_hal_format == AUDIO_FORMAT_E_AC3)) {
                 struct ac3_parser_info ac3_info = { 0 };
                 if (adev->debug_flag) {
                     ALOGI("%s line %d ###### frame size %d #####",
@@ -821,14 +832,14 @@ int dolby_ms12_main_process(
                 if (main_frame_size != 0) {
                     struct bypass_frame_info frame_info = { 0 };
                     aml_out->ddp_frame_size    = main_frame_size;
-                    frame_info.audio_format    = aml_out->hal_format;
+                    frame_info.audio_format    = ms12_hal_format;
                     frame_info.samplerate      = ac3_info.sample_rate;
                     frame_info.dependency_frame = ac3_info.frame_dependent;
                     frame_info.numblks         = ac3_info.numblks;
                     aml_ms12_bypass_checkin_data(ms12->ms12_bypass_handle, main_frame_buffer, main_frame_size, &frame_info);
                 }
 
-           } else if (aml_out->hal_format == AUDIO_FORMAT_AC4) {
+           } else if (ms12_hal_format == AUDIO_FORMAT_AC4) {
                 aml_ac4_parser_process(aml_out->ac4_parser_handle, input_buffer, bytes, &parser_used_size, &main_frame_buffer, &main_frame_size, &ac4_info);
                 ALOGV("frame size =%d frame rate=%d sample rate=%d used =%d", ac4_info.frame_size, ac4_info.frame_rate, ac4_info.sample_rate, parser_used_size);
                 if (main_frame_size == 0 && parser_used_size == 0) {
@@ -882,7 +893,7 @@ MAIN_INPUT:
             }
             /*we check whether there is enough space*/
             if ((adev->continuous_audio_mode == 1)
-                && (is_dolby_ms12_support_compression_format(aml_out->hal_format) || (aml_out->hal_format == AUDIO_FORMAT_IEC61937)))
+                && (is_dolby_ms12_support_compression_format(ms12_hal_format) || (ms12_hal_format == AUDIO_FORMAT_IEC61937)))
             {
                 int max_size = 0;
                 int main_avail = 0;
@@ -953,8 +964,8 @@ MAIN_INPUT:
                         //if pcm input, suppose 2ch/16bits/48kHz
                         //FIXME, that MAT/TrueHD input is TODO!!!
                         uint64_t input_ns = 0;
-                        if ((aml_out->hal_format == AUDIO_FORMAT_AC3) || \
-                            (aml_out->hal_format == AUDIO_FORMAT_E_AC3)) {
+                        if ((ms12_hal_format == AUDIO_FORMAT_AC3) || \
+                            (ms12_hal_format == AUDIO_FORMAT_E_AC3)) {
                             int sample_nums = aml_out->ddp_frame_nblks * SAMPLE_NUMS_IN_ONE_BLOCK;
                             int frame_duration = DDP_FRAME_DURATION(sample_nums*1000, DDP_OUTPUT_SAMPLE_RATE);
                             input_ns = (uint64_t)sample_nums * NANO_SECOND_PER_SECOND / sample_rate;
@@ -963,10 +974,10 @@ MAIN_INPUT:
                                 input_ns = 0;
                             }
                             ms12->main_input_rate = sample_rate;
-                        } else if(aml_out->hal_format == AUDIO_FORMAT_IEC61937) {
+                        } else if(ms12_hal_format == AUDIO_FORMAT_IEC61937) {
                             input_ns = (uint64_t)1536 * 1000000000LL / sample_rate;
                             ms12->main_input_rate = sample_rate;
-                        } else if (aml_out->hal_format == AUDIO_FORMAT_AC4) {
+                        } else if (ms12_hal_format == AUDIO_FORMAT_AC4) {
                             if (ac4_info.frame_rate) {
                                 input_ns = (uint64_t)NANO_SECOND_PER_SECOND * 1000 / ac4_info.frame_rate;
                             } else {
@@ -993,11 +1004,11 @@ MAIN_INPUT:
                     } else {
                         *use_size = dolby_ms12_input_bytes;
                         if (adev->continuous_audio_mode == 1) {
-                            if (((aml_out->hal_format == AUDIO_FORMAT_AC3)
-                               || (aml_out->hal_format == AUDIO_FORMAT_E_AC3)
-                               || (aml_out->hal_format == AUDIO_FORMAT_AC4))) {
+                            if (((ms12_hal_format == AUDIO_FORMAT_AC3)
+                               || (ms12_hal_format == AUDIO_FORMAT_E_AC3)
+                               || (ms12_hal_format == AUDIO_FORMAT_AC4))) {
                                 *use_size = parser_used_size;
-                            } else if (aml_out->hal_format == AUDIO_FORMAT_IEC61937) {
+                            } else if (ms12_hal_format == AUDIO_FORMAT_IEC61937) {
                                 *use_size = spdif_dec_used_size;
                             }
                         }
@@ -1306,8 +1317,8 @@ int dolby_ms12_bypass_process(struct audio_stream_out *stream, void *buffer, siz
     struct aml_audio_device *adev = aml_out->dev;
     struct dolby_ms12_desc *ms12 = &(adev->ms12);
     struct bitstream_out_desc *bitstream_out = &ms12->bitstream_out[BITSTREAM_OUTPUT_A];
-    audio_format_t output_format = aml_out->hal_format;
-    ALOGV("output_format=0x%x internal =0x%x", output_format, aml_out->hal_internal_format);
+    audio_format_t output_format =  ms12_get_audio_hal_format(aml_out->hal_format);
+    ALOGV("output_format=0x%x hal_format=0x%#x internal=0x%x", output_format, aml_out->hal_format, aml_out->hal_internal_format);
     bool is_dolby = (aml_out->hal_internal_format == AUDIO_FORMAT_E_AC3) || (aml_out->hal_internal_format == AUDIO_FORMAT_AC3);
     if (ms12->is_bypass_ms12
         && (adev->continuous_audio_mode == 0)

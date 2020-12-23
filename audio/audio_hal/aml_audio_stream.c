@@ -592,7 +592,7 @@ bool is_use_spdifb(struct aml_stream_out *out) {
 bool is_dolby_ms12_support_compression_format(audio_format_t format)
 {
     return (format == AUDIO_FORMAT_AC3 ||
-            format == AUDIO_FORMAT_E_AC3 ||
+            (format & AUDIO_FORMAT_E_AC3) == AUDIO_FORMAT_E_AC3 ||
             format == AUDIO_FORMAT_DOLBY_TRUEHD ||
             format == AUDIO_FORMAT_AC4 ||
             format == AUDIO_FORMAT_MAT);
