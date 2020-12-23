@@ -25,6 +25,20 @@
 #include "aml_audio_hal_avsync.h"
 
 #define RAW_USECASE_MASK ((1<<STREAM_RAW_DIRECT) | (1<<STREAM_RAW_HWSYNC) | (1<<STREAM_RAW_PATCH))
+/*
+ * 1.AUDIO_FORMAT_PCM_16_BIT is suitable for Speaker
+ * 2.AUDIO_FORMAT_AC3 / AUDIO_FORMAT_E_AC3 / AUDIO_FORMAT_E_AC3_JOC is suitable for Sink device(up to DDP)
+ * 3.AUDIO_FORMAT_MAT(1.0-truehd/2.0-pcm/2.1-pcm-atmos) is suitable for Sink device(up to MAT&depvalue=1/3)
+ * 4.AUDIO_FORMAT_DTS / AUDIO_FORMAT_DTS_HD is suitable for Sink device(up to dts/dts-hd)
+ */
+#define IS_EXTERNAL_DECODER_SUPPORT_FORMAT(format) \
+    ((format == AUDIO_FORMAT_PCM_16_BIT) ||\
+        (format == AUDIO_FORMAT_AC3) ||\
+        ((format & AUDIO_FORMAT_E_AC3) == AUDIO_FORMAT_E_AC3) ||\
+        ((format & AUDIO_FORMAT_MAT) == AUDIO_FORMAT_MAT) ||\
+        (format == AUDIO_FORMAT_DTS) ||\
+        (format == AUDIO_FORMAT_DTS_HD))
+
 
 typedef uint32_t usecase_mask_t;
 
