@@ -2,6 +2,7 @@ cc_library_shared {
     name: "libammediaext",
 
     vendor_available: true,
+    system_ext_specific: true,
 
     srcs: ["AmMediaDefsExt.cpp"],
 
