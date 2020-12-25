@@ -5115,6 +5115,11 @@ static void adev_close_output_stream(struct audio_hw_device *dev,
         aml_ac4_parser_close(out->ac4_parser_handle);
         out->ac4_parser_handle = NULL;
     }
+    /*main stream is closed, close the ms12 main decoder*/
+    if (out->is_ms12_main_decoder) {
+        dolby_ms12_main_close(stream);
+    }
+
 
     pthread_mutex_unlock(&out->lock);
     aml_audio_free(stream);

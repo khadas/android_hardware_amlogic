@@ -130,6 +130,16 @@ int set_system_app_mixing_status(struct aml_stream_out *aml_out, int stream_stat
 int ms12_output(void *buffer, void *priv_data, size_t size, aml_dec_info_t *ms12_info);
 
 /*
+ *@brief dolby ms12 open the main decoder
+ */
+int dolby_ms12_main_open(struct audio_stream_out *stream);
+
+/*
+ *@brief dolby ms12 close the main decoder
+ */
+int dolby_ms12_main_close(struct audio_stream_out *stream);
+
+/*
  *@brief dolby ms12 flush the main related buffer
  */
 int dolby_ms12_main_flush(struct audio_stream_out *stream);

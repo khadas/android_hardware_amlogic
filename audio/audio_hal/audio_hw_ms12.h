@@ -136,6 +136,17 @@ int dolby_ms12_register_callback(struct aml_stream_out *aml_out);
 int nbytes_of_dolby_ms12_downmix_output_pcm_frame();
 
 void dolby_ms12_app_flush();
+
+/*
+ *@brief dolby ms12 open the main decoder
+ */
+int dolby_ms12_main_open(struct audio_stream_out *stream);
+
+/*
+ *@brief dolby ms12 close the main decoder
+ */
+int dolby_ms12_main_close(struct audio_stream_out *stream);
+
 /*
  *@brief dolby ms12 flush the main related buffer
  */
