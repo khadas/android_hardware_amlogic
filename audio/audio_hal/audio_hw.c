@@ -2078,8 +2078,17 @@ static int out_flush_new (struct audio_stream_out *stream)
             aml_audio_sleep(64000);
             pthread_mutex_lock(&ms12->lock);
             dolby_ms12_main_flush(stream);
-            pthread_mutex_unlock(&ms12->lock);
             out->continuous_audio_offset = 0;
+            /*SWPL-39814, when using exo do seek, sometimes audio track will be reused, then the
+             *sequece will be pause->flush->writing data, we need to handle this.
+             *It may causes problem for normal pause/flush/resume
+             */
+            if (adev->ms12.is_continuous_paused && adev->ms12.dolby_ms12_enable) {
+                adev->ms12.is_continuous_paused = false;
+                dolby_ms12_set_pause_flag(adev->ms12.is_continuous_paused);
+                set_dolby_ms12_runtime_pause(&(adev->ms12), adev->ms12.is_continuous_paused);
+            }
+            pthread_mutex_unlock(&ms12->lock);
         }
     }
     if (out->hal_format == AUDIO_FORMAT_AC4) {
