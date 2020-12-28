@@ -171,3 +171,53 @@ int dolby_lib_decode_enable(eDolbyLibType_t lib_type) {
     }
     return enable;
 }
+
+#ifndef MS12_V24_ENABLE
+typedef enum ms_dap_mode_t
+{
+    DAP_NO_PROC = 0,
+    DAP_CONTENT_PROC = 1,
+    DAP_DEVICE_PROC = 2,
+    DAP_DEVICE_CONTENT_PROC = DAP_DEVICE_PROC | DAP_CONTENT_PROC,
+    DAP_SI_PROC = 4,
+} ms_dap_mode_t;
+
+int get_ms12_dap_init_mode(bool is_tv)
+{
+    int dap_init_mode = 0;
+
+    if (is_tv) {
+        dap_init_mode = DAP_SI_PROC;
+    }
+    else {
+        dap_init_mode = DAP_NO_PROC;
+    }
+
+    return dap_init_mode;
+}
+#else
+
+typedef enum ms_dap_mode_t
+{
+    DAP_NO_PROC = 0,
+    DAP_CONTENT_PROC = 1,
+    DAP_CONTENT_PROC_DEVICE_PROC = 2
+} ms_dap_mode_t;
+
+int get_ms12_dap_init_mode(bool is_tv)
+{
+    int dap_init_mode = 0;
+
+    if (is_tv) {
+        dap_init_mode = DAP_CONTENT_PROC_DEVICE_PROC;
+    }
+    else {
+        dap_init_mode = DAP_NO_PROC;
+    }
+
+    return dap_init_mode;
+}
+
+#endif
+
+

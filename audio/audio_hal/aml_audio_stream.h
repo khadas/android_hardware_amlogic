@@ -389,5 +389,7 @@ void aml_audio_patches_dump(struct aml_audio_device* aml_dev, int fd);
 bool is_use_spdifb(struct aml_stream_out *out);
 bool is_dolby_ms12_support_compression_format(audio_format_t format);
 bool is_direct_stream_and_pcm_format(struct aml_stream_out *out);
+void get_audio_indicator(struct aml_audio_device *dev, char *temp_buf);
+void update_audio_format(struct aml_audio_device *adev, audio_format_t format);
 
 #endif /* _AML_AUDIO_STREAM_H_ */

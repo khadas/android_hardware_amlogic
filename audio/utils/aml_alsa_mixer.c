@@ -73,6 +73,7 @@ static struct aml_mixer_list gAmlMixerList[] = {
     {AML_MIXER_ID_CHANGE_SPIDIF_PLL,    "SPDIF CLK Fine Setting"},
     {AML_MIXER_ID_CHANGE_SPIDIFB_PLL,   "SPDIF_B CLK Fine Setting"},
     {AML_MIXER_ID_CHANGE_I2S_PLL,       "TDM MCLK Fine Setting"},
+    {AML_MIXER_ID_AUDIO_HAL_FORMAT,     "Audio HAL Format"},
 };
 
 static char *get_mixer_name_by_id(int mixer_id)

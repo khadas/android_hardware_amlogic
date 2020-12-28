@@ -468,6 +468,8 @@ int get_the_dolby_ms12_prepared(
     }
     dolby_ms12_set_system_app_audio_mixing(system_app_mixing_status);
 
+    /* set DAP init mode */
+    dolby_ms12_set_dap2_initialisation_mode(get_ms12_dap_init_mode(adev->is_TV));
 
     //init the dolby ms12
     ms12->dual_bitstream_support = adev->dual_spdif_support;

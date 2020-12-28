@@ -67,6 +67,7 @@ struct dolby_ddp_dec {
     int ad_substream_supported;
     int mainvol_level;
     int advol_level;
+    int is_dolby_atmos;
 };
 
 

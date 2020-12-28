@@ -630,3 +630,115 @@ bool is_direct_stream_and_pcm_format(struct aml_stream_out *out)
     return audio_is_linear_pcm(out->hal_internal_format) && (out->flags & AUDIO_OUTPUT_FLAG_DIRECT);
 }
 
+void get_audio_indicator(struct aml_audio_device *dev, char *temp_buf) {
+    struct aml_audio_device *adev = (struct aml_audio_device *) dev;
+
+    if (adev->update_type == TYPE_PCM)
+        sprintf (temp_buf, "audioindicator=");
+    else if (adev->update_type == TYPE_AC3)
+        sprintf (temp_buf, "audioindicator=Dolby AC3");
+    else if (adev->update_type == TYPE_EAC3)
+        sprintf (temp_buf, "audioindicator=Dolby EAC3");
+    else if (adev->update_type == TYPE_AC4)
+        sprintf (temp_buf, "audioindicator=Dolby AC4");
+    else if (adev->update_type == TYPE_MAT)
+        sprintf (temp_buf, "audioindicator=Dolby MAT");
+    else if (adev->update_type == TYPE_TRUE_HD)
+        sprintf (temp_buf, "audioindicator=Dolby THD");
+    else if (adev->update_type == TYPE_DDP_ATMOS)
+        sprintf (temp_buf, "audioindicator=Dolby EAC3,Dolby Atmos");
+    else if (adev->update_type == TYPE_TRUE_HD_ATMOS)
+        sprintf (temp_buf, "audioindicator=Dolby THD,Dolby Atmos");
+    else if (adev->update_type == TYPE_MAT_ATMOS)
+        sprintf (temp_buf, "audioindicator=Dolby MAT,Dolby Atmos");
+    else if (adev->update_type == TYPE_AC4_ATMOS)
+        sprintf (temp_buf, "audioindicator=Dolby AC4,Dolby Atmos");
+    else if (adev->update_type == TYPE_DTS)
+        sprintf (temp_buf, "audioindicator=DTS");
+    else if (adev->update_type == TYPE_DTS_HD_MA)
+        sprintf (temp_buf, "audioindicator=DTS HD");
+    ALOGI("%s(), [%s]", __func__, temp_buf);
+}
+
+void update_audio_format(struct aml_audio_device *adev, audio_format_t format)
+{
+    int atmos_flag = 0;
+    int update_type = TYPE_PCM;
+    bool is_dolby_active = dolby_stream_active(adev);
+    bool is_dolby_format = is_dolby_ms12_support_compression_format(format);
+    /*
+     *for dolby & pcm case or dolby case
+     *to update the dolby stream's format
+     */
+    if (is_dolby_active && is_dolby_format) {
+        if (eDolbyMS12Lib == adev->dolby_lib_type) {
+            atmos_flag = adev->ms12.is_dolby_atmos;
+        } else {
+            atmos_flag = adev->ddp.is_dolby_atmos;
+        }
+
+        /* when dap init mode is OFF, there is no ATMOS Experience. */
+        if (get_ms12_dap_init_mode(adev->is_TV) == 0) {
+            atmos_flag = 0;
+        }
+
+        if (adev->hal_internal_format != format ||
+                atmos_flag != adev->is_dolby_atmos) {
+
+            update_type = get_codec_type(format);
+
+            if (atmos_flag == 1) {
+                if (format == AUDIO_FORMAT_E_AC3)
+                    update_type = TYPE_DDP_ATMOS;
+                else if (format == AUDIO_FORMAT_DOLBY_TRUEHD)
+                    update_type = TYPE_TRUE_HD_ATMOS;
+                else if (format == AUDIO_FORMAT_MAT)
+                    update_type = TYPE_MAT_ATMOS;
+                else if (format == AUDIO_FORMAT_AC4)
+                    update_type = TYPE_AC4_ATMOS;
+            }
+
+            aml_mixer_ctrl_set_int(&adev->alsa_mixer, AML_MIXER_ID_AUDIO_HAL_FORMAT, update_type);
+
+            adev->hal_internal_format = format;
+            adev->is_dolby_atmos = atmos_flag;
+            adev->update_type = update_type;
+
+            ALOGD("%s()audio hal format change from %x to %x, atmos flag = %d, update_type = %d\n",
+                __FUNCTION__, adev->hal_internal_format, adev->hal_internal_format,
+                adev->is_dolby_atmos, adev->update_type);
+        }
+    }
+    /*
+     *to update the audio format for other cases
+     *DTS-format / DTS format & Mixer-PCM
+     *only Mixer-PCM
+     */
+    else if (!is_dolby_active && !is_dolby_format) {
+        if (adev->hal_internal_format != format) {
+
+            adev->hal_internal_format = format;
+            adev->is_dolby_atmos = false;
+            adev->update_type = get_codec_type(format);
+
+            aml_mixer_ctrl_set_int(&adev->alsa_mixer, AML_MIXER_ID_AUDIO_HAL_FORMAT, adev->update_type);
+
+            ALOGD("%s()audio hal format change from %x to %x, atmos flag = %d, update_type = %d\n",
+                __FUNCTION__, adev->hal_internal_format, adev->hal_internal_format,
+                adev->is_dolby_atmos, adev->update_type);
+        }
+    }
+    /*
+     * **Dolby stream is active, and get the Mixer-PCM case steam format,
+     * **we should ignore this Mixer-PCM update request.
+     * else if (is_dolby_active && !is_dolby_format) {
+     * }
+     * **If Dolby steam is not active, the available format is LPCM or DTS
+     * **The following case do not exit at all **
+     * else //(!is_dolby_acrive && is_dolby_format) {
+     * }
+     */
+}
+
+
+

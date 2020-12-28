@@ -378,6 +378,7 @@ unsigned char codec_type_is_raw_data(int type)
     case TYPE_DTS:
     case TYPE_DTS_HD:
     case TYPE_DTS_HD_MA:
+    case TYPE_AC4:
         return 1;
     default:
         return 0;
@@ -397,7 +398,11 @@ int get_codec_type(int format)
         return TYPE_DTS_HD;
     case AUDIO_FORMAT_DOLBY_TRUEHD:
         return TYPE_TRUE_HD;
+    case AUDIO_FORMAT_AC4:
+        return TYPE_AC4;
     case AUDIO_FORMAT_PCM:
+    case AUDIO_FORMAT_PCM_16_BIT:
+    case AUDIO_FORMAT_PCM_32_BIT:
         return TYPE_PCM;
     default:
         return TYPE_PCM;

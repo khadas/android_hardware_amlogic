@@ -628,6 +628,9 @@ int get_the_dolby_ms12_prepared(
     }
     dolby_ms12_set_system_app_audio_mixing(adev->system_app_mixing_status);
 
+    /* set DAP init mode */
+    dolby_ms12_set_dap2_initialisation_mode(get_ms12_dap_init_mode(adev->is_TV));
+
     ms12->dual_bitstream_support = adev->dual_spdif_support;
     if (adev->sink_capability == AUDIO_FORMAT_MAT) {
         output_config = MS12_OUTPUT_MASK_STEREO | MS12_OUTPUT_MASK_MAT;

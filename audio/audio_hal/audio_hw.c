@@ -523,7 +523,6 @@ bool format_is_passthrough (audio_format_t fmt)
     case AUDIO_FORMAT_DTS_HD:
     case AUDIO_FORMAT_IEC61937:
     case AUDIO_FORMAT_DOLBY_TRUEHD:
-    case AUDIO_FORMAT_AC4:
         return true;
     default:
         return false;
@@ -2985,6 +2984,9 @@ static ssize_t out_write_direct(struct audio_stream_out *stream, const void* buf
         config_output(stream, true);
     }
 
+    /* update audio format to display audio info banner.*/
+    update_audio_format(adev, out->hal_internal_format);
+
     /*when hi-pcm stopped  and switch to 2-ch , then switch to hi-pcm,hi-pcm-mode must be
      set and wait 20ms for i2s device release*/
     if (get_codec_type(out->hal_internal_format) == TYPE_PCM && !adev->hi_pcm_mode
@@ -4758,6 +4760,10 @@ static int adev_open_output_stream(struct audio_hw_device *dev,
         out->hal_frame_size = 1;
     }
 
+
+    adev->hal_internal_format = AUDIO_FORMAT_PCM;
+    adev->is_dolby_atmos = 0;
+    adev->update_type = TYPE_PCM;
     out->stream.common.get_sample_rate = out_get_sample_rate;
     out->stream.common.set_sample_rate = out_set_sample_rate;
     out->stream.common.get_buffer_size = out_get_buffer_size;
@@ -6320,9 +6326,13 @@ static char * adev_get_parameters (const struct audio_hw_device *dev,
         return strdup(temp_buf);
     }
     else if (strstr (keys, "diaglogue_enhancement") ) {
-       sprintf(temp_buf, "diaglogue_enhancement=%d", adev->ms12.ac4_de);
-       ALOGD("temp_buf %s", temp_buf);
-       return strdup(temp_buf);
+        sprintf(temp_buf, "diaglogue_enhancement=%d", adev->ms12.ac4_de);
+        ALOGD("temp_buf %s", temp_buf);
+        return strdup(temp_buf);
+    }
+    else if (strstr(keys, "audioindicator")) {
+        get_audio_indicator(adev, temp_buf);
+        return strdup(temp_buf);
     }
 
     return strdup("");
@@ -8532,6 +8542,7 @@ ssize_t mixer_main_buffer_write (struct audio_stream_out *stream, const void *bu
     size_t bytes_cost = 0;
     int ms12_write_failed = 0;
     effect_descriptor_t tmpdesc;
+    int return_bytes = bytes;
 
     audio_hwsync_t *hw_sync = aml_out->hwsync;
     bool digital_input_src = (patch && \
@@ -8544,7 +8555,6 @@ ssize_t mixer_main_buffer_write (struct audio_stream_out *stream, const void *bu
         ALOGI("useSubMix:%d, dolby:%d, hal_format:0x%x, usecase:0x%x, usecase_masks:0x%x",
             adev->useSubMix, adev->dolby_lib_type, aml_out->hal_format, aml_out->usecase, adev->usecase_masks);
     }
-    int return_bytes = bytes;
 
     if (buffer == NULL) {
         ALOGE ("%s() invalid buffer %p\n", __FUNCTION__, buffer);
@@ -9930,6 +9940,8 @@ ssize_t out_write_new(struct audio_stream_out *stream,
     pthread_mutex_unlock(&adev->lock);
     if (write_func_p) {
         ret = write_func_p(stream, buffer, bytes);
+        /* update audio format to display audio info banner.*/
+        update_audio_format(adev, aml_out->hal_internal_format);
     }
     if (ret > 0) {
         aml_out->total_write_size += ret;

@@ -103,8 +103,11 @@ static unsigned int DEFAULT_OUT_SAMPLING_RATE = 48000;
 #define  JITTER_DURATION_MS  3
 #define FLOAT_ZERO              (0.000001)
 
-enum {
+
+/*the same as "AUDIO HAL FORMAT" in kernel*/
+enum audio_hal_format {
     TYPE_PCM = 0,
+    TYPE_DTS_EXPRESS = 1,
     TYPE_AC3 = 2,
     TYPE_DTS = 3,
     TYPE_EAC3 = 4,
@@ -507,6 +510,11 @@ struct aml_audio_device {
     struct aec_t *aec;
     bool bt_wbs;
     int security_mem_level;
+
+    /* display audio format on UI, both streaming and hdmiin*/
+    audio_format_t hal_internal_format;
+    bool is_dolby_atmos;
+    int update_type;
 };
 
 struct meta_data {
