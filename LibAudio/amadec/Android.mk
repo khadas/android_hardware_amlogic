@@ -167,6 +167,7 @@ LOCAL_SRC_FILES := \
            adec_omx_brige.c adec-wfd.c
 
 LOCAL_MODULE := libamadec_system
+LOCAL_SYSTEM_EXT_MODULE := true
 LOCAL_CFLAGS+=-DUSE_AOUT_IN_ADEC
 LOCAL_ARM_MODE := arm
 ##################################################

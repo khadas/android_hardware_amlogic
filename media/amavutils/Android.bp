@@ -1,6 +1,7 @@
 cc_library_shared {
     name: "libamavutils",
     vendor_available: true,
+    system_ext_specific: true,
     cflags: ["-DNO_USE_SYSWRITE"] + ["-DFB_BUFFER_NUM=3"] + ["-DANDROID_PLATFORM_SDK_VERSION=28"] + [
         "-Werror",
         "-Wformat",
@@ -70,6 +71,6 @@ cc_library_shared {
         "liblog",
         "libui",
     ],
-    vendor_available: false,
+    system_ext_specific: true,
     name: "libamavutils_sys",
 }

@@ -42,7 +42,7 @@ cc_defaults {
 
 cc_library {
     name: "libperfmgr",
-    vendor_available: true,
+    vendor: true,
     defaults: ["libperfmgr_defaults"],
     export_include_dirs: ["include"],
     srcs: [
@@ -70,6 +70,7 @@ cc_library {
 
 cc_binary {
     name: "perfmgr_config_verifier",
+    vendor: true,
     defaults: ["libperfmgr_defaults"],
     static_libs: ["libperfmgr"],
     srcs: [
