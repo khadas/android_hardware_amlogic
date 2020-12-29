@@ -18,6 +18,16 @@ LOCAL_PATH := $(call my-dir)
 # hw/<POWERS_HARDWARE_MODULE_ID>.default.so
 include $(CLEAR_VARS)
 
+ifeq ($(TARGET_BUILD_KERNEL_4_9), true)
+BUILD_KERNEL_4_9 := true
+else
+BUILD_KERNEL_4_9 := false
+endif
+
+LOCAL_CFLAGS += -DBUILD_KERNEL_4_9=$(BUILD_KERNEL_4_9)
+$(warning "the value of BUILD_KERNEL_4_9 is $(BUILD_KERNEL_4_9)")
+
+LOCAL_CFLAGS += -Wno-unused-parameter
 LOCAL_MODULE_RELATIVE_PATH := hw
 LOCAL_C_INCLUDES += \
 	hardware/libhardware/include \
@@ -25,6 +35,7 @@ LOCAL_C_INCLUDES += \
 	system/core/libsystem/include
 
 LOCAL_SHARED_LIBRARIES := liblog
+LOCAL_SHARED_LIBRARIES += libcutils
 LOCAL_SRC_FILES := memtrack_aml.c
 #LOCAL_MODULE := memtrack.$(TARGET_BOARD_PLATFORM)
 LOCAL_MODULE := memtrack.amlogic
