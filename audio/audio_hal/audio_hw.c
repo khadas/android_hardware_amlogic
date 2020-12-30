@@ -685,6 +685,21 @@ static int start_output_stream_direct (struct aml_stream_out *out)
     int ret = 0;
 
     adev->debug_flag = aml_audio_get_debug_flag();
+
+    /*move it from open function, because when hdmi hot plug, audio service will
+     * call many times open/close to query the hdmi capability, this will affect the
+     * sink format
+     */
+    if (!out->is_sink_format_prepared) {
+        get_sink_format(&out->stream);
+        if (is_use_spdifb(out)) {
+            aml_audio_select_spdif_to_hdmi(AML_SPDIF_B_TO_HDMITX);
+            out->restore_hdmitx_selection = true;
+        }
+        out->is_sink_format_prepared = true;
+    }
+
+
     ALOGI("hdmi format=%d optical_format =0x%x", adev->hdmi_format, adev->optical_format);
     if (eDolbyDcvLib == adev->dolby_lib_type &&
         (out->hal_format == AUDIO_FORMAT_E_AC3 || out->hal_internal_format == AUDIO_FORMAT_E_AC3)) {
