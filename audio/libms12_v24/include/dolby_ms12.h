@@ -26,7 +26,7 @@ extern "C" {
 #include <stddef.h>
 
 
-//get the handle of dlopen "/vendor/lib/libdolbyms12.so"
+//get the handle of dlopen "/odm/lib/ms12/libdolbyms12.so"
 int get_libdolbyms12_handle(void);
 
 //release the handle of dlopen

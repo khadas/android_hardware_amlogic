@@ -37,11 +37,9 @@
 #endif
 
 
-#define DOLBY_MS12_LIB_PATH_A "/odm/lib/libdolbyms12.so"
-#define DOLBY_MS12_LIB_PATH_B "/vendor/lib/libdolbyms12.so"
-
+#define DOLBY_MS12_LIB_PATH_A "/odm/lib/ms12/libdolbyms12.so"
 #define DOLBY_DCV_LIB_PATH_A "/odm/lib/libHwAudio_dcvdec.so"
-#define DOLBY_DCV_LIB_PATH_B "/vendor/lib/libHwAudio_dcvdec.so"
+
 
 #ifndef MS12_V24_ENABLE
     #define MS12_VERSION    "1.3"
@@ -101,8 +99,6 @@ enum eDolbyLibType detect_dolby_lib_type(void) {
     // the priority would be "MS12 > DCV" lib
     if (RET_OK == file_accessible(DOLBY_MS12_LIB_PATH_A)) {
         retVal = eDolbyMS12Lib;
-    } else if (RET_OK == file_accessible(DOLBY_MS12_LIB_PATH_B)) {
-        retVal = eDolbyMS12Lib;
     }
 
     // MS12 is first priority
@@ -110,13 +106,6 @@ enum eDolbyLibType detect_dolby_lib_type(void) {
     {
         //try to open lib see if it's OK?
         hDolbyMS12LibHanle = dlopen(DOLBY_MS12_LIB_PATH_A, RTLD_NOW);
-        if (!hDolbyMS12LibHanle) {
-            hDolbyMS12LibHanle = dlopen(DOLBY_MS12_LIB_PATH_B, RTLD_NOW);
-            if (!hDolbyMS12LibHanle) {
-                ALOGI("%s, failed to load libdolbyms12 lib %s\n", __FUNCTION__, dlerror());
-            }
-        }
-
         if (hDolbyMS12LibHanle != NULL)
         {
             bool b_match = is_ms12_lib_match(hDolbyMS12LibHanle);
@@ -129,13 +118,10 @@ enum eDolbyLibType detect_dolby_lib_type(void) {
                 return eDolbyMS12Lib;
             }
         }
-
     }
 
     // dcv is second priority
     if (RET_OK == file_accessible(DOLBY_DCV_LIB_PATH_A)) {
-        retVal = eDolbyDcvLib;
-    } else if (RET_OK == file_accessible(DOLBY_DCV_LIB_PATH_B)){
         retVal = eDolbyDcvLib;
     } else {
         retVal = eDolbyNull;
@@ -145,12 +131,6 @@ enum eDolbyLibType detect_dolby_lib_type(void) {
     {
         //try to open lib see if it's OK?
         hDolbyDcvLibHanle  = dlopen(DOLBY_DCV_LIB_PATH_A, RTLD_NOW);
-        if (!hDolbyDcvLibHanle) {
-            hDolbyDcvLibHanle  = dlopen(DOLBY_DCV_LIB_PATH_B, RTLD_NOW);
-            if (!hDolbyDcvLibHanle) {
-                ALOGI("%s, failed to load libHwAudio_dcvdec.so, %s\n", __FUNCTION__, dlerror());
-            }
-        }
     }
 
     if (hDolbyDcvLibHanle != NULL)

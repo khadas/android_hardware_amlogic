@@ -28,8 +28,7 @@
 #include "DolbyMS12.h"
 #include "DolbyMS12ConfigParams.h"
 
-#define DOLBY_MS12_LIB_PATH_A "/odm/lib/libdolbyms12.so"
-#define DOLBY_MS12_LIB_PATH_B "/vendor/lib/libdolbyms12.so"
+#define DOLBY_MS12_LIB_PATH_A "/odm/lib/ms12/libdolbyms12.so"
 
 namespace android
 {
@@ -102,11 +101,8 @@ int DolbyMS12::GetLibHandle(void)
     //here there are two paths, "the DOLBY_MS12_LIB_PATH_A/B", where could exit that dolby ms12 libary.
     mDolbyMS12LibHanle = dlopen(DOLBY_MS12_LIB_PATH_A, RTLD_NOW);
     if (!mDolbyMS12LibHanle) {
-        mDolbyMS12LibHanle = dlopen(DOLBY_MS12_LIB_PATH_B, RTLD_NOW);
-        if (!mDolbyMS12LibHanle) {
-            ALOGE("%s, failed to load libdolbyms12 lib %s\n", __FUNCTION__, dlerror());
-            goto ERROR;
-        }
+        ALOGE("%s, failed to load libdolbyms12 lib %s\n", __FUNCTION__, dlerror());
+        goto ERROR;
     }
 
     FuncGetMS12OutputMaxSize = (int (*)(void)) dlsym(mDolbyMS12LibHanle, "get_ms12_output_max_size");
