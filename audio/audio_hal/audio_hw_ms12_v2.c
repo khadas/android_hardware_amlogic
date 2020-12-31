@@ -566,6 +566,7 @@ int get_the_dolby_ms12_prepared(
         ms12->nbytes_of_dmx_output_pcm_frame = nbytes_of_dolby_ms12_downmix_output_pcm_frame();
         ms12->hdmi_format = adev->hdmi_format;
         //ms12->optical_format = adev->optical_format;
+        ms12->main_input_fmt = input_format;
         ms12->main_input_sr = input_sample_rate;
     }
     ms12->sys_audio_base_pos = adev->sys_audio_frame_written;
@@ -2048,13 +2049,15 @@ bool is_rebuild_the_ms12_pipeline(    audio_format_t main_input_fmt, audio_forma
     bool is_ac4_alive = (main_input_fmt == AUDIO_FORMAT_AC4);
     bool is_mat_alive = (main_input_fmt == AUDIO_FORMAT_MAT);
     bool is_ott_format_alive = (main_input_fmt == AUDIO_FORMAT_AC3) || \
-                                ((main_input_fmt & AUDIO_FORMAT_E_AC3) == AUDIO_FORMAT_E_AC3);
+                                ((main_input_fmt & AUDIO_FORMAT_E_AC3) == AUDIO_FORMAT_E_AC3) || \
+                                (main_input_fmt == AUDIO_FORMAT_PCM_16_BIT);
     ALOGD("%s line %d is_ac4_alive %d is_mat_alive %d is_ott_format_alive %d\n",__func__, __LINE__, is_ac4_alive, is_mat_alive, is_ott_format_alive);
 
     bool request_ac4_alive = (hal_internal_format == AUDIO_FORMAT_AC4);
     bool request_mat_alive = (hal_internal_format == AUDIO_FORMAT_MAT);
     bool request_ott_format_alive = (hal_internal_format == AUDIO_FORMAT_AC3) || \
-                                ((hal_internal_format & AUDIO_FORMAT_E_AC3) == AUDIO_FORMAT_E_AC3);
+                                ((hal_internal_format & AUDIO_FORMAT_E_AC3) == AUDIO_FORMAT_E_AC3) || \
+                                (hal_internal_format == AUDIO_FORMAT_PCM_16_BIT);
     ALOGD("%s line %d request_ac4_alive %d request_mat_alive %d request_ott_format_alive %d\n",__func__, __LINE__, request_ac4_alive, request_mat_alive, request_ott_format_alive);
 
     if (request_ac4_alive && (is_ac4_alive^request_ac4_alive)) {
@@ -2086,6 +2089,7 @@ bool is_rebuild_the_ms12_pipeline(    audio_format_t main_input_fmt, audio_forma
 bool is_need_reset_ms12_continuous(struct audio_stream_out *stream) {
     struct aml_stream_out *aml_out = (struct aml_stream_out *) stream;
     struct aml_audio_device *adev = aml_out->dev;
+    unsigned int hal_rate = aml_out->hal_rate;
     /*check the UI setting and source/sink format */
     if (is_bypass_dolbyms12(stream)) {
         return false;
@@ -2095,9 +2099,16 @@ bool is_need_reset_ms12_continuous(struct audio_stream_out *stream) {
         return false;
     }
 
+    /*IEC61937 DDP format, the real samplerate need device by 4*/
+    if (aml_out->hal_format == AUDIO_FORMAT_IEC61937) {
+        if ((aml_out->hal_internal_format & AUDIO_FORMAT_E_AC3) == AUDIO_FORMAT_E_AC3) {
+            hal_rate /= 4;
+        }
+    }
+
     if (is_dolby_ms12_support_compression_format(aml_out->hal_internal_format) && \
          (is_rebuild_the_ms12_pipeline(adev->ms12.main_input_fmt, aml_out->hal_internal_format) || \
-          aml_out->hal_rate != adev->ms12.main_input_sr)) {
+          hal_rate != adev->ms12.main_input_sr)) {
         return true;
     }
 
