@@ -52,7 +52,7 @@ public:
 
     DolbyMS12();
     virtual ~DolbyMS12();
-    virtual int     GetLibHandle(void);
+    virtual int     GetLibHandle(char *dolby_ms12_path);
     virtual void    ReleaseLibHandle(void);
     virtual int     GetMS12OutputMaxSize(void);
     virtual void *  DolbyMS12Init(int configNum, char **configParams);

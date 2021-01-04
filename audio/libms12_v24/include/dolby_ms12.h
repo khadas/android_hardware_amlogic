@@ -27,7 +27,7 @@ extern "C" {
 
 
 //get the handle of dlopen "/odm/lib/ms12/libdolbyms12.so"
-int get_libdolbyms12_handle(void);
+int get_libdolbyms12_handle(char *dolby_ms12_path);
 
 //release the handle of dlopen
 int release_libdolbyms12_handle(void);

@@ -56,11 +56,11 @@ extern "C" void dolby_ms12_self_cleanup(void)
     return ;
 }
 
-extern "C" int get_libdolbyms12_handle(void)
+extern "C" int get_libdolbyms12_handle(char *dolby_ms12_path)
 {
     android::DolbyMS12* dolby_ms12_instance = getInstance();
     if (dolby_ms12_instance) {
-        return dolby_ms12_instance->GetLibHandle();
+        return dolby_ms12_instance->GetLibHandle(dolby_ms12_path);
     } else {
         return -1;
     }

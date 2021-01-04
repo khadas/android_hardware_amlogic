@@ -17,6 +17,7 @@
 #ifndef _DOLBY_LIB_API_H_
 #define _DOLBY_LIB_API_H_
 
+#define DOLBY_MS12_LIB_PATH_A "/odm/lib/ms12/libdolbyms12.so"
 
 /** Dolby Lib Type used in Current System */
 typedef enum eDolbyLibType {
@@ -28,6 +29,6 @@ typedef enum eDolbyLibType {
 
 enum eDolbyLibType detect_dolby_lib_type(void);
 int dolby_lib_decode_enable(eDolbyLibType_t lib_type);
-
+char * get_ms12_path (void);
 
 #endif //_DOLBY_LIB_API_H_

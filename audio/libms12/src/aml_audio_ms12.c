@@ -37,12 +37,12 @@ int get_dolby_ms12_output_details(struct dolby_ms12_desc *ms12_desc)
     return 0;
 }
 
-int get_dolby_ms12_init(struct dolby_ms12_desc *ms12_desc)
+int get_dolby_ms12_init(struct dolby_ms12_desc *ms12_desc, char *dolby_ms12_path)
 {
     int ret = 0;
 
     ALOGD("+%s()\n", __FUNCTION__);
-    ret = get_libdolbyms12_handle();
+    ret = get_libdolbyms12_handle(dolby_ms12_path);
     if (ret) {
         ALOGE("%s, fail to get ms12 handle\n", __FUNCTION__);
         return ret;
@@ -89,7 +89,8 @@ int aml_ms12_config(struct dolby_ms12_desc *ms12_desc
                     , audio_format_t config_format
                     , audio_channel_mask_t config_channel_mask
                     , int config_sample_rate
-                    , int output_config)
+                    , int output_config
+                    , char *dolby_ms12_path)
 {
     ALOGI("+%s() %d\n", __FUNCTION__, __LINE__);
     int low_latency = 1;
@@ -119,17 +120,17 @@ int aml_ms12_config(struct dolby_ms12_desc *ms12_desc
         , ms12_desc->output_config);
     get_dolby_ms12_output_details(ms12_desc);
 
-    get_dolby_ms12_init(ms12_desc);
+    get_dolby_ms12_init(ms12_desc, dolby_ms12_path);
     dolby_ms12_set_sys_low_latency(low_latency);
     ALOGI("-%s() %d\n", __FUNCTION__, __LINE__);
     return 0;
 }
 
-int aml_ms12_lib_preload() {
+int aml_ms12_lib_preload(char *dolby_ms12_path) {
     int ret = 0;
     void * dolby_ms12_ptr = NULL;
     ALOGD("+%s()\n", __FUNCTION__);
-    ret = get_libdolbyms12_handle();
+    ret = get_libdolbyms12_handle(dolby_ms12_path);
     if (ret == 0) {
         dolby_ms12_ptr = dolby_ms12_init(1, NULL);
         if (dolby_ms12_ptr) {

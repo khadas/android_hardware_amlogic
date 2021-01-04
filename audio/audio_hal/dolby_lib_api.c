@@ -36,8 +36,6 @@
 #define RET_FAIL -1
 #endif
 
-
-#define DOLBY_MS12_LIB_PATH_A "/odm/lib/ms12/libdolbyms12.so"
 #define DOLBY_DCV_LIB_PATH_A "/odm/lib/libHwAudio_dcvdec.so"
 
 
@@ -61,6 +59,11 @@ static int file_accessible(char *path)
     }
 }
 
+char * get_ms12_path (void)
+{
+    return DOLBY_MS12_LIB_PATH_A;
+
+}
 
 bool is_ms12_lib_match(void *hDolbyMS12LibHanle) {
     bool b_match = false;

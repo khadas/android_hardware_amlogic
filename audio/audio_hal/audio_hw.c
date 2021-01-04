@@ -8336,7 +8336,7 @@ void config_output(struct audio_stream_out *stream, bool reset_decoder)
     }
     /*get sink format*/
     get_sink_format (stream);
-    ALOGE("%s() adev->dolby_lib_type = %d", __FUNCTION__, adev->dolby_lib_type);
+    ALOGD("%s() adev->dolby_lib_type = %d", __FUNCTION__, adev->dolby_lib_type);
     if (aml_out->hal_internal_format != AUDIO_FORMAT_DTS) {
         if (eDolbyMS12Lib == adev->dolby_lib_type) {
             bool is_compatible = false;

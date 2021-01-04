@@ -464,7 +464,7 @@ int get_the_dolby_ms12_prepared(
     ms12->dual_bitstream_support = adev->dual_spdif_support;
 
     int output_config = MS12_OUTPUT_MASK_DD | MS12_OUTPUT_MASK_DDP | MS12_OUTPUT_MASK_STEREO;
-    aml_ms12_config(ms12, input_format, input_channel_mask, input_sample_rate, output_config);
+    aml_ms12_config(ms12, input_format, input_channel_mask, input_sample_rate, output_config, get_ms12_path());
 
     if (ms12->dolby_ms12_enable) {
         //register Dolby MS12 callback

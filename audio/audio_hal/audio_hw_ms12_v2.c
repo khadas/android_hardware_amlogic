@@ -537,7 +537,7 @@ int get_the_dolby_ms12_prepared(
         output_config = get_ms12_output_mask(adev->sink_format, adev->optical_format,adev->active_outport == OUTPORT_HDMI_ARC);
     }
 #endif
-    aml_ms12_config(ms12, input_format, input_channel_mask, input_sample_rate,output_config);
+    aml_ms12_config(ms12, input_format, input_channel_mask, input_sample_rate, output_config, get_ms12_path());
     if (ms12->dolby_ms12_enable) {
         //register Dolby MS12 callback
         dolby_ms12_register_output_callback(ms12_output, (void *)out);

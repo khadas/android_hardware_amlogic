@@ -152,7 +152,7 @@ int get_dolby_ms12_output_details(struct dolby_ms12_desc *ms12_desc);
 /*
  *@brief init the dolby ms12
  */
-int get_dolby_ms12_init(struct dolby_ms12_desc *ms12_desc);
+int get_dolby_ms12_init(struct dolby_ms12_desc *ms12_desc, char *dolby_ms12_path);
 
 /*
  *@brief get the dolby ms12 config parameters
@@ -166,7 +166,8 @@ int aml_ms12_config(struct dolby_ms12_desc *ms12_desc
                     , audio_format_t config_format
                     , audio_channel_mask_t config_channel_mask
                     , int config_sample_rate
-                    , int output_config);
+                    , int output_config
+                    , char *dolby_ms12_path);
 /*
  *@brief cleanup the dolby ms12
  */
@@ -182,7 +183,7 @@ int aml_ms12_update_runtime_params_direct(struct dolby_ms12_desc *ms12_desc
 int aml_ms12_update_runtime_params_lite(struct dolby_ms12_desc *ms12_desc);
 #endif
 
-int aml_ms12_lib_preload();
+int aml_ms12_lib_preload(char *dolby_ms12_path);
 
 int aml_ms12_lib_release();
 
