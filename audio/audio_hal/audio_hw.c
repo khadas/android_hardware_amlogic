@@ -10155,13 +10155,6 @@ int adev_open_output_stream_new(struct audio_hw_device *dev,
     ALOGD("-%s: out %p: usecase:%s card:%d alsa devices:%d", __func__,
         aml_out, usecase2Str(aml_out->usecase), aml_out->card, aml_out->device);
 
-#ifdef ENABLE_AEC_APP
-    int aec_ret = init_aec_reference_config(adev->aec, aml_out);
-    if (aec_ret) {
-        ALOGE("AEC: Speaker config init failed!");
-        return -EINVAL;
-    }
-#endif
     return 0;
 }
 

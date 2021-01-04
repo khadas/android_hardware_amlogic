@@ -277,30 +277,30 @@ void release_aec(struct aec_t *aec) {
     ALOGV("%s exit", __func__);
 }
 
-int init_aec_reference_config(struct aec_t *aec, struct aml_stream_out *out) {
+int init_aec_reference_config(struct aec_t *aec, struct pcm_config config)
+{
     ALOGV("%s enter", __func__);
     if (!aec) {
         ALOGE("AEC: No valid interface found!");
         return -EINVAL;
     }
 
-    int ret = 0;
+    int ret = 0, frames = 0, frame_size = 0;
     pthread_mutex_lock(&aec->lock);
     if (aec->spk_initialized) {
         destroy_aec_reference_config_no_lock(aec);
     }
 
-    aec->spk_fifo = fifo_init(
-            out->config.period_count * out->config.period_size *
-                audio_stream_out_frame_size(&out->stream),
-            false /* reader_throttles_writer */);
+    frames = config.period_count * config.period_size;
+    frame_size = config.channels * (pcm_format_to_bits(config.format) >> 3);
+    aec->spk_fifo = fifo_init(frames * frame_size, false /* reader_throttles_writer */);
     if (aec->spk_fifo == NULL) {
         ALOGE("AEC: Speaker loopback FIFO Init failed!");
         ret = -EINVAL;
         goto exit;
     }
     aec->ts_fifo = fifo_init(
-            out->config.period_count * sizeof(struct aec_info),
+            config.period_count * sizeof(struct aec_info),
             false /* reader_throttles_writer */);
     if (aec->ts_fifo == NULL) {
         ALOGE("AEC: Speaker timestamp FIFO Init failed!");
@@ -310,8 +310,8 @@ int init_aec_reference_config(struct aec_t *aec, struct aml_stream_out *out) {
     }
 
     aec->spk_sampling_rate = PLAYBACK_CODEC_SAMPLING_RATE;
-    aec->spk_frame_size_bytes = audio_stream_out_frame_size(&out->stream);
-    aec->spk_num_channels = out->config.channels;
+    aec->spk_frame_size_bytes = frame_size;
+    aec->spk_num_channels = config.channels;
     aec->spk_initialized = true;
 exit:
     pthread_mutex_unlock(&aec->lock);

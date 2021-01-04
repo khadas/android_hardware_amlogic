@@ -46,34 +46,68 @@ void *fifo_init(uint32_t bytes, bool reader_throttles_writer) {
 
 void fifo_release(void *fifo_itfe) {
     struct audio_fifo_itfe *interface = static_cast<struct audio_fifo_itfe *>(fifo_itfe);
-    delete interface->p_fifo_writer;
-    delete interface->p_fifo_reader;
-    delete interface->p_fifo;
-    delete[] interface->p_buffer;
-    delete interface;
+    if (interface != NULL) {
+        delete interface->p_fifo_writer;
+        delete interface->p_fifo_reader;
+        delete interface->p_fifo;
+        delete[] interface->p_buffer;
+        delete interface;
+    } else {
+        ALOGW("%s interface is a NULL pointer, so exit directly.", __func__);
+    }
 }
 
 ssize_t fifo_read(void *fifo_itfe, void *buffer, size_t bytes) {
     struct audio_fifo_itfe *interface = static_cast<struct audio_fifo_itfe *>(fifo_itfe);
-    return interface->p_fifo_reader->read(buffer, bytes);
+
+    if (interface != NULL) {
+        return interface->p_fifo_reader->read(buffer, bytes);
+    } else {
+        ALOGE("%s interface is a NULL pointer, so exit directly.", __func__);
+        return -1;
+    }
 }
 
 ssize_t fifo_write(void *fifo_itfe, void *buffer, size_t bytes) {
     struct audio_fifo_itfe *interface = static_cast<struct audio_fifo_itfe *>(fifo_itfe);
-    return interface->p_fifo_writer->write(buffer, bytes);
+
+    if (interface != NULL) {
+        return interface->p_fifo_writer->write(buffer, bytes);
+    } else {
+        ALOGE("%s interface is a NULL pointer, so exit directly.", __func__);
+        return -1;
+    }
 }
 
 ssize_t fifo_available_to_read(void *fifo_itfe) {
     struct audio_fifo_itfe *interface = static_cast<struct audio_fifo_itfe *>(fifo_itfe);
-    return interface->p_fifo_reader->available();
+
+    if (interface != NULL) {
+        return interface->p_fifo_reader->available();
+    } else {
+        ALOGE("%s interface is a NULL pointer, so exit directly.", __func__);
+        return -1;
+    }
 }
 
 ssize_t fifo_available_to_write(void *fifo_itfe) {
     struct audio_fifo_itfe *interface = static_cast<struct audio_fifo_itfe *>(fifo_itfe);
-    return interface->p_fifo_writer->available();
+
+    if (interface != NULL) {
+        return interface->p_fifo_writer->available();
+    } else {
+        ALOGE("%s interface is a NULL pointer, so exit directly.", __func__);
+        return -1;
+    }
 }
 
 ssize_t fifo_flush(void *fifo_itfe) {
     struct audio_fifo_itfe *interface = static_cast<struct audio_fifo_itfe *>(fifo_itfe);
-    return interface->p_fifo_reader->flush();
+
+    if (interface != NULL) {
+        return interface->p_fifo_reader->flush();
+    } else {
+        ALOGE("%s interface is a NULL pointer, so exit directly.", __func__);
+        return -1;
+    }
 }

@@ -28,6 +28,7 @@
 #include <stdint.h>
 #include <pthread.h>
 #include <sys/time.h>
+#include <tinyalsa/asoundlib.h>
 #include <hardware/audio.h>
 #include <audio_utils/resampler.h>
 #include "audio_hw.h"
@@ -75,7 +76,7 @@ void release_aec(struct aec_t* aec);
  * Must be called when a new output stream is opened.
  * Returns -EINVAL if any processing block fails to initialize,
  * else returns 0. */
-int init_aec_reference_config (struct aec_t *aec, struct aml_stream_out *out);
+int init_aec_reference_config (struct aec_t *aec, struct pcm_config config);
 
 /* Clear reference configuration for AEC.
  * Must be called when the output stream is closed. */

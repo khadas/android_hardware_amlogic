@@ -99,6 +99,12 @@ static int initSubMixngOutput(
             res = -ENOMEM;
             goto err;
         }
+#ifdef ENABLE_AEC_APP
+        int aec_ret = init_aec_reference_config(adev->aec, pcm_cfg);
+        if (aec_ret) {
+            ALOGE("AEC: Speaker config init failed!");
+        }
+#endif
         sm->mixerData = amixer;
         startMixingThread(sm);
     } else if (sm->type == MIXER_MS12) {
@@ -126,6 +132,7 @@ static int releaseSubMixingOutput(struct subMixing *sm)
     freeAmlAudioMixer(sm->mixerData);
     pcm_close(sm->pcmDev);
     sm->pcmDev = NULL;
+
     return 0;
 }
 
