@@ -6219,6 +6219,20 @@ static int adev_set_parameters (struct audio_hw_device *dev, const char *kvpairs
         goto exit;
     }
 
+    ret = str_parms_get_str(parms, "diaglogue_enhancement", value, sizeof(value));
+    if (ret >= 0) {
+        adev->ms12.ac4_de = atoi(value);
+        ALOGE ("Amlogic_HAL - %s: set MS12 ac4 Dialogue Enhancement gain :%d.", __FUNCTION__,adev->ms12.ac4_de);
+
+        char parm[32] = "";
+        sprintf(parm, "%s %d", "-ac4_de", adev->ms12.ac4_de);
+        pthread_mutex_lock(&adev->lock);
+        if (strlen(parm) > 0)
+            aml_ms12_update_runtime_params(&(adev->ms12), parm);
+        pthread_mutex_unlock(&adev->lock);
+        goto exit;
+    }
+
 exit:
     str_parms_destroy (parms);
     /* always success to pass VTS */
@@ -6337,6 +6351,12 @@ static char * adev_get_parameters (const struct audio_hw_device *dev,
         sprintf(temp_buf, "parental_control_av_mute = %d", adev->parental_control_av_mute);
         return strdup(temp_buf);
     }
+    else if (strstr (keys, "diaglogue_enhancement") ) {
+       sprintf(temp_buf, "diaglogue_enhancement=%d", adev->ms12.ac4_de);
+       ALOGD("temp_buf %s", temp_buf);
+       return strdup(temp_buf);
+    }
+
     return strdup("");
 }
 
