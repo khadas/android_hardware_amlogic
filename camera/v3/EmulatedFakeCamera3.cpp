@@ -38,7 +38,7 @@
 #include "fake-pipeline2/JpegCompressor.h"
 #include <cmath>
 #include <binder/IPCThreadState.h>
-#include <amlogic/am_gralloc_ext.h>
+#include <am_gralloc_ext.h>
 
 
 #if defined(LOG_NNDEBUG) && LOG_NNDEBUG == 0
