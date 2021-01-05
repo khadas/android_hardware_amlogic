@@ -5505,6 +5505,19 @@ static int adev_set_parameters (struct audio_hw_device *dev, const char *kvpairs
         goto exit;
     }
 
+    ret = str_parms_get_int (parms, "hal_param_spdif_output_enable", &val);
+    if (ret >= 0 ) {
+        ALOGI ("[%s:%d] set spdif output enable:%d", __func__, __LINE__, val);
+        if (val == 0) {
+            audio_route_apply_path(adev->ar, "spdif_off");
+        } else {
+            audio_route_apply_path(adev->ar, "spdif_on");
+        }
+        adev->spdif_enable = (val == 0) ? false : true;
+        audio_route_update_mixer(adev->ar);
+        goto exit;
+    }
+
     ret = str_parms_get_int(parms, "audio_type", &val);
     if (ret >= 0) {
         adev->audio_type = val;
@@ -12109,6 +12122,7 @@ static int adev_open(const hw_module_t* module, const char* name, hw_device_t** 
     adev->continuous_audio_mode_default = 0;
     adev->need_remove_conti_mode = false;
     adev->dual_spdif_support = property_get_bool("ro.vendor.platform.is.dualspdif", false);
+    adev->spdif_enable = true;
 
     /*for ms12 case, we set default continuous mode*/
     if (eDolbyMS12Lib == adev->dolby_lib_type) {

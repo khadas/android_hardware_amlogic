@@ -336,6 +336,7 @@ struct aml_audio_device {
     int hdmi_format;
     int pre_hdmi_format;
     int spdif_format;
+    bool spdif_enable;
     int hdmi_is_pth_active;
     int disable_pcm_mixing;
     /* mute/unmute for vchip  lock control */
