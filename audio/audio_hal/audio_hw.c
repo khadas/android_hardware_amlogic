@@ -1782,10 +1782,14 @@ static int out_set_volume (struct audio_stream_out *stream, float left, float ri
     struct aml_stream_out *out = (struct aml_stream_out *) stream;
     struct aml_audio_device *adev = out->dev;
     int ret = 0;
-    int is_dolby_audio = (out->hal_internal_format == AUDIO_FORMAT_E_AC3) || (out->hal_internal_format == AUDIO_FORMAT_AC3);
-    int is_dts_audio   = (out->hal_internal_format == AUDIO_FORMAT_DTS) || (out->hal_internal_format == AUDIO_FORMAT_DTS_HD);
-    ALOGI("%s(), stream(%p), left:%f right:%f ", __func__, stream, left, right);
-    if (is_dolby_audio || is_dts_audio) {
+    bool is_dolby_format = is_dolby_ms12_support_compression_format(out->hal_internal_format);
+    bool is_direct_pcm = is_direct_stream_and_pcm_format(out);
+
+    ALOGI("%s(), stream(%p), left:%f right:%f, continous_mode(%d), hal_internal_format:%x, is dolby %d is direct pcm %d\n",
+        __func__, stream, left, right, continous_mode(adev), out->hal_internal_format, is_dolby_format, is_direct_pcm);
+
+    /* for not use ms12 case, we can use spdif enc mute, other wise ms12 can handle it*/
+    if (is_dolby_format && (eDolbyDcvLib == adev->dolby_lib_type || is_bypass_dolbyms12(stream) || adev->hdmi_format == BYPASS)) {
         if (out->volume_l < FLOAT_ZERO && left > FLOAT_ZERO) {
             ALOGI("set offload mute: false");
             spdifenc_set_mute(false);
@@ -1799,18 +1803,21 @@ static int out_set_volume (struct audio_stream_out *stream, float left, float ri
     out->volume_l = left;
     out->volume_r = right;
 
-    // When MS12 input is PCM to OTT, ms12 fail to change volume.we will change volume at input side.
-    // When MS12 input is DD/DDP, we adjust main DD/DDP input volume here
-    if ((eDolbyMS12Lib == adev->dolby_lib_type) && is_dolby_audio) {
+    /*
+     *The Dolby format(dd/ddp/ac4/true-hd/mat) and direct&UI-PCM(stereo or multi PCM)
+     *will go through dolby system mixer as main input
+     *use dolby_ms12_set_main_volume to control it.
+     *The volume about mixer-PCM is controled by AudioFlinger
+     */
+    if ((eDolbyMS12Lib == adev->dolby_lib_type) && (is_dolby_format || is_direct_pcm)) {
         if (out->volume_l != out->volume_r) {
             ALOGW("%s, left:%f right:%f NOT match", __FUNCTION__, left, right);
         }
-
         dolby_ms12_set_main_volume(out->volume_l);
-
     }
     return 0;
 }
+
 
 static int out_pause (struct audio_stream_out *stream)
 {

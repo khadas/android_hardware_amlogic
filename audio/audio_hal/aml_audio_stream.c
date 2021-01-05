@@ -624,3 +624,8 @@ bool is_dolby_ms12_support_compression_format(audio_format_t format)
             format == AUDIO_FORMAT_MAT);
 }
 
+bool is_direct_stream_and_pcm_format(struct aml_stream_out *out)
+{
+    return audio_is_linear_pcm(out->hal_internal_format) && (out->flags & AUDIO_OUTPUT_FLAG_DIRECT);
+}
+
