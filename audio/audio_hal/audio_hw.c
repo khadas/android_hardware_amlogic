@@ -5058,7 +5058,7 @@ static void adev_close_output_stream(struct audio_hw_device *dev,
      * then, next stream is new built, this setting is available.
      */
 
-    if ((out->input_bytes_size != 0) &&
+    if ((out->total_write_size != 0) &&
         ((out->hal_internal_format == AUDIO_FORMAT_AC4) || is_support_ms12_reset(stream))) {
         if (adev->continuous_audio_mode) {
             adev->delay_disable_continuous = 0;
