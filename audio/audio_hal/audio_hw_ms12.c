@@ -279,17 +279,26 @@ static inline alsa_device_t usecase_device_adapter_with_ms12(struct dolby_ms12_d
     }
 }
 
-bool is_platform_supported_ddp_atmos(bool atmos_supported, enum OUT_PORT current_out_port)
+bool is_platform_supported_ddp_atmos(bool atmos_supported, enum OUT_PORT current_out_port, bool is_tv)
 {
-    if (current_out_port == OUTPORT_HDMI_ARC) {
+    bool ret = false;
+    ALOGD("%s atmos_supported %d current_out_port %d", __func__, atmos_supported, current_out_port);
+    if ((current_out_port == OUTPORT_HDMI_ARC) || (current_out_port == OUTPORT_HDMI)) {
         /*ARC case*/
-        return atmos_supported;
+        ret = atmos_supported;
     }
     else {
-        /*SPEAKER/HEADPHONE case*/
-        return true;
+        if (is_tv) {
+            /*SPEAKER/HEADPHONE case*/
+            ret = true;
+        }
+        else {
+            /* OTT CVBS case */
+            ret = false;
+        }
     }
-
+    ALOGD("%s Line %d return %s", __func__, __LINE__, ret ? "true": "false");
+    return ret;
 }
 
 bool is_ms12_out_ddp_5_1_suitable(bool is_ddp_atmos __unused)
@@ -1766,7 +1775,7 @@ bool is_dolby_ms12_main_stream(struct audio_stream_out *stream) {
 bool is_support_ms12_reset(struct audio_stream_out *stream) {
     struct aml_stream_out *aml_out = (struct aml_stream_out *)stream;
     struct aml_audio_device *adev = aml_out->dev;
-    bool is_atmos_supported = is_platform_supported_ddp_atmos(adev->hdmi_descs.ddp_fmt.atmos_supported, adev->active_outport);
+    bool is_atmos_supported = is_platform_supported_ddp_atmos(adev->hdmi_descs.ddp_fmt.atmos_supported, adev->active_outport, adev->is_TV);
     bool need_reset_ms12_out = !is_ms12_out_ddp_5_1_suitable(is_atmos_supported);
     /* we meet 3 conditions:
      * 1. edid atmos support not match with currently ms12 output

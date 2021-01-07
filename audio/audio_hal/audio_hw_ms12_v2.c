@@ -237,6 +237,7 @@ static int get_ms12_output_config(audio_format_t format)
 static void set_ms12_out_ddp_5_1(audio_format_t input_format, bool is_sink_supported_ddp_atmos)
 {
     /*In case of AC-4 or Dolby Digital Plus input, set legacy ddp out ON/OFF*/
+    ALOGD("%s input_format 0x%#x is_sink_supported_ddp_atmos %d", __func__, input_format, is_sink_supported_ddp_atmos);
     bool is_ddp = (input_format == AUDIO_FORMAT_AC3) || (input_format == AUDIO_FORMAT_E_AC3);
     bool is_ac4 = (input_format == AUDIO_FORMAT_AC4);
     if (is_ddp || is_ac4) {
@@ -252,17 +253,26 @@ static void set_ms12_out_ddp_5_1(audio_format_t input_format, bool is_sink_suppo
     }
 }
 
-bool is_platform_supported_ddp_atmos(bool atmos_supported, enum OUT_PORT current_out_port)
+bool is_platform_supported_ddp_atmos(bool atmos_supported, enum OUT_PORT current_out_port, bool is_tv)
 {
-    if (current_out_port == OUTPORT_HDMI_ARC) {
+    bool ret = false;
+    ALOGD("%s atmos_supported %d current_out_port %d", __func__, atmos_supported, current_out_port);
+    if ((current_out_port == OUTPORT_HDMI_ARC) || (current_out_port == OUTPORT_HDMI)) {
         /*ARC case*/
-        return atmos_supported;
+        ret = atmos_supported;
     }
     else {
-        /*SPEAKER/HEADPHONE case*/
-        return true;
+        if (is_tv) {
+            /*SPEAKER/HEADPHONE case*/
+            ret = true;
+        }
+        else {
+            /* OTT CVBS case */
+            ret = false;
+        }
     }
-
+    ALOGD("%s Line %d return %s", __func__, __LINE__, ret ? "true": "false");
+    return ret;
 }
 
 bool is_ms12_out_ddp_5_1_suitable(bool is_ddp_atmos)
@@ -583,8 +593,8 @@ int get_the_dolby_ms12_prepared(
      *In case of AC-4 or Dolby Digital Plus input,
      *set output DDP bitstream format DDP Atmos(5.1.2) or DDP(5.1)
      */
-    bool is_atmos_supported = is_platform_supported_ddp_atmos(adev->hdmi_descs.ddp_fmt.atmos_supported, adev->active_outport);
-    //set_ms12_out_ddp_5_1(input_format, is_atmos_supported);
+    bool is_atmos_supported = is_platform_supported_ddp_atmos(adev->hdmi_descs.ddp_fmt.atmos_supported, adev->active_outport, adev->is_TV);
+    set_ms12_out_ddp_5_1(input_format, is_atmos_supported);
 
     /* create  the ms12 output stream here */
     /*************************************/
@@ -2010,7 +2020,7 @@ bool is_dolby_ms12_main_stream(struct audio_stream_out *stream) {
 bool is_support_ms12_reset(struct audio_stream_out *stream) {
     struct aml_stream_out *aml_out = (struct aml_stream_out *)stream;
     struct aml_audio_device *adev = aml_out->dev;
-    bool is_atmos_supported = is_platform_supported_ddp_atmos(adev->hdmi_descs.ddp_fmt.atmos_supported, adev->active_outport);
+    bool is_atmos_supported = is_platform_supported_ddp_atmos(adev->hdmi_descs.ddp_fmt.atmos_supported, adev->active_outport, adev->is_TV);
     bool need_reset_ms12_out = !is_ms12_out_ddp_5_1_suitable(is_atmos_supported);
     /* we meet 3 conditions:
      * 1. edid atmos support not match with currently ms12 output

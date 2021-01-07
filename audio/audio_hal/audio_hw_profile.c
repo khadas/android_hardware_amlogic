@@ -172,13 +172,21 @@ char*  get_hdmi_sink_cap(const char *keys,audio_format_t format,struct aml_arc_h
         if (strstr(keys, AUDIO_PARAMETER_STREAM_SUP_FORMATS)) {
             ALOGD("query hdmi format...\n");
             size += sprintf(aud_cap, "sup_formats=%s", "AUDIO_FORMAT_PCM_16_BIT");
+            p_hdmi_descs->ddp_fmt.is_support = 0;
             if (mystrstr(infobuf, "Dobly_Digital+")) {
                 size += sprintf(aud_cap + size, "|%s", "AUDIO_FORMAT_E_AC3");
                 p_hdmi_descs->ddp_fmt.is_support = 1;
             }
+
+            p_hdmi_descs->ddp_fmt.atmos_supported = 0;//default set ddp-joc atmos_supported as false
             if (mystrstr(infobuf, "ATMOS")) {
                 size += sprintf(aud_cap + size, "|%s", "AUDIO_FORMAT_E_AC3_JOC");
+                p_hdmi_descs->ddp_fmt.atmos_supported = 1;//set ddp-joc atmos_supported as true
             }
+            ALOGD("%s ddp %s ddp-joc(atmos) %s\n", __func__,
+                p_hdmi_descs->ddp_fmt.is_support ? "is supported;" : "is unsupported;",
+                p_hdmi_descs->ddp_fmt.atmos_supported ? "is supported;" : "is unsupported;");
+
             if (mystrstr(infobuf, "AC-3")) {
                 size += sprintf(aud_cap + size, "|%s", "AUDIO_FORMAT_AC3");
                 p_hdmi_descs->dd_fmt.is_support = 1;
@@ -451,6 +459,10 @@ fail:
     return NULL;
 }
 
+/*
+ * fake to get sink capability for dolby ms12 logic
+ * this only used in out_get_parameters()
+ */
 char*  get_hdmi_sink_cap_dolby_ms12(const char *keys,audio_format_t format,struct aml_arc_hdmi_desc *p_hdmi_descs)
 {
     int i = 0;

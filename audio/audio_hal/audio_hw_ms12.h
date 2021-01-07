@@ -176,7 +176,7 @@ bool is_ms12_continous_mode(struct aml_audio_device *adev);
 /*
  *@brief get the platform's capability of DDP-ATMOS.
  */
-bool is_platform_supported_ddp_atmos(bool atmos_supported, enum OUT_PORT current_out_port);
+bool is_platform_supported_ddp_atmos(bool atmos_supported, enum OUT_PORT current_out_port, bool is_tv);
 bool is_dolby_ms12_main_stream(struct audio_stream_out *stream);
 bool is_support_ms12_reset(struct audio_stream_out *stream);
 bool is_bypass_dolbyms12(struct audio_stream_out *stream);
