@@ -3776,11 +3776,7 @@ static int start_input_stream(struct aml_stream_in *in)
     /* this assumes routing is done previously */
     /*default is block mode, if change to non block mode, also need set it as 0*/
     in->pcm_block_mode = 1;
-    if (in->device & AUDIO_DEVICE_IN_BUILTIN_MIC) {
-        in->pcm = pcm_open(card, alsa_device, PCM_IN | PCM_MONOTONIC, &in->config);
-    } else {
-        in->pcm = pcm_open(card, alsa_device, PCM_IN, &in->config);
-    }
+    in->pcm = pcm_open(card, alsa_device, PCM_IN | PCM_MONOTONIC, &in->config);
     if (!pcm_is_ready(in->pcm)) {
         ALOGE("%s: cannot open pcm_in driver: %s", __func__, pcm_get_error(in->pcm));
         pcm_close (in->pcm);
