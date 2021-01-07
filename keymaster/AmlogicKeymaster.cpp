@@ -47,16 +47,7 @@ int AmlogicKeymaster::Initialize() {
         ALOGE("Failed to connect to amlogic keymaster %d", err);
         return err;
     }
-#if AMLOGIC_MODIFY
-    // Set boot parameters before configure
-    SetBootParamsRequest setBootParamReq;
-    SetBootParamsResponse setBootParamRsp;
-    SetBootParams(setBootParamReq, &setBootParamRsp);
-    if (setBootParamRsp.error != KM_ERROR_OK) {
-        ALOGE("Failed to set boot params to keymaster %d", setBootParamRsp.error);
-        //return -1;
-    }
-#endif
+
     ConfigureRequest req;
     req.os_version = GetOsVersion();
     req.os_patchlevel = GetOsPatchlevel();
@@ -253,117 +244,6 @@ VerifyAuthorizationResponse AmlogicKeymaster::VerifyAuthorization(
     return response;
 }
 #if AMLOGIC_MODIFY
-void AmlogicKeymaster::SetBootParams(SetBootParamsRequest& req, SetBootParamsResponse *rsp) {
-#if 0
-    std::string prop_val;
-    // SHA256
-    uint8_t bootkey_hash[32];
-    uint8_t vbmeta_digest[32];
-
-    const uint8_t empty_hash_bin[32] = {0x0};
-    std::string empty_hash_hex_str(64, '0');
-
-    req.os_version = GetOsVersion();
-    req.os_patchlevel = GetOsPatchlevel();
-
-    // device_locked
-    prop_val = android::base::GetProperty("ro.boot.vbmeta.device_state", "unlocked");
-    req.device_locked = !prop_val.compare("locked")? 1: 0;
-
-    // verified_boot_state
-    prop_val = android::base::GetProperty("ro.boot.verifiedbootstate", "red");
-    req.verified_boot_state = KM_VERIFIED_BOOT_FAILED;
-    if (!prop_val.compare("green"))
-        req.verified_boot_state = KM_VERIFIED_BOOT_VERIFIED;
-    else if (!prop_val.compare("yellow"))
-        req.verified_boot_state = KM_VERIFIED_BOOT_SELF_SIGNED;
-    else if (!prop_val.compare("orange"))
-        req.verified_boot_state = KM_VERIFIED_BOOT_UNVERIFIED;
-    else if (!prop_val.compare("red"))
-        req.verified_boot_state = KM_VERIFIED_BOOT_FAILED;
-
-    // verified_boot_key
-    prop_val = android::base::GetProperty("ro.boot.vbmeta.bootkey_hash", empty_hash_hex_str);
-    //ALOGE("bootkey_hash = %s", prop_val.c_str());
-    //bootkey_hash = hex2bin(prop_val);
-    if (HexToBytes(bootkey_hash, sizeof(bootkey_hash), prop_val))
-        req.verified_boot_key.Reinitialize(bootkey_hash, sizeof(bootkey_hash));
-    else
-        req.verified_boot_key.Reinitialize(empty_hash_bin, sizeof(empty_hash_bin));
-
-    // verified_boot_hash
-    prop_val = android::base::GetProperty("ro.boot.vbmeta.digest", empty_hash_hex_str);
-    //ALOGE("vbmeta.digest = %s",  prop_val.c_str());
-
-    //vbmeta_digest = hex2bin(prop_val);
-    if (HexToBytes(vbmeta_digest, sizeof(vbmeta_digest), prop_val))
-        req.verified_boot_hash.Reinitialize(vbmeta_digest, sizeof(vbmeta_digest));
-    else
-        req.verified_boot_hash.Reinitialize(empty_hash_bin, sizeof(empty_hash_bin));
-#endif
-    ALOGE("send empty boot params");
-
-    req.os_version = GetOsVersion();
-    req.os_patchlevel = GetOsPatchlevel();
-
-    ForwardCommand(KM_SET_BOOT_PARAMS, req, rsp);
-}
-#if 0
-bool AmlogicKeymaster::NibbleValue(const char& c, uint8_t* value) {
-    //CHECK(value != nullptr);
-    switch (c) {
-        case '0' ... '9':
-            *value = c - '0';
-            break;
-        case 'a' ... 'f':
-            *value = c - 'a' + 10;
-            break;
-        case 'A' ... 'F':
-            *value = c - 'A' + 10;
-            break;
-        default:
-            return false;
-    }
-
-    return true;
-}
-
-bool AmlogicKeymaster::HexToBytes(uint8_t* bytes, size_t bytes_len, const std::string& hex) {
-    //CHECK(bytes != nullptr);
-
-    if (hex.size() % 2 != 0) {
-        return false;
-    }
-    if (hex.size() / 2 > bytes_len) {
-        return false;
-    }
-    for (size_t i = 0, j = 0, n = hex.size(); i < n; i += 2, ++j) {
-        uint8_t high;
-        if (!NibbleValue(hex[i], &high)) {
-            return false;
-        }
-        uint8_t low;
-        if (!NibbleValue(hex[i + 1], &low)) {
-            return false;
-        }
-        bytes[j] = (high << 4) | low;
-    }
-    return true;
-}
-std::string AmlogicKeymaster::hex2bin(std::string const& s) {
-	//assert(s.length() % 2 == 0);
-	std::string sOut;
-	sOut.reserve(s.length()/2);
-
-	std::string extract;
-	for (std::string::const_iterator pos = s.begin(); pos<s.end(); pos += 2)
-	{
-		extract.assign(pos, pos+2);
-		sOut.push_back(std::stoi(extract, nullptr, 16));
-	}
-	return sOut;
-}
-#endif
 	DeviceLockedResponse AmlogicKeymaster::DeviceLocked(__attribute__((unused))const DeviceLockedRequest& request) {
 		//TODO: Replace fake implementation here
 		return DeviceLockedResponse(KM_ERROR_OK);
