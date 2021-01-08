@@ -27,7 +27,19 @@ endif
 LOCAL_CFLAGS += -DBUILD_KERNEL_4_9=$(BUILD_KERNEL_4_9)
 $(warning "the value of BUILD_KERNEL_4_9 is $(BUILD_KERNEL_4_9)")
 
+PLATFORM_SDK_GREATER_THAN_29 := $(shell expr $(PLATFORM_SDK_VERSION) \> 29)
+ifeq ($(PLATFORM_SDK_GREATER_THAN_29), 1)
+SKIP_COUNT_ION := true
+else
+SKIP_COUNT_ION := false
+endif
+
+LOCAL_CFLAGS += -DSKIP_COUNT_ION=$(SKIP_COUNT_ION)
+$(warning "the valaue of SKIP_COUNT_ION is $(SKIP_COUNT_ION)")
+
 LOCAL_CFLAGS += -Wno-unused-parameter
+LOCAL_CFLAGS += -Wno-unused-variable
+
 LOCAL_MODULE_RELATIVE_PATH := hw
 LOCAL_C_INCLUDES += \
 	hardware/libhardware/include \
