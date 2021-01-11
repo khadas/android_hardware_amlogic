@@ -98,6 +98,7 @@ include $(BUILD_PREBUILT)
         system/media/audio_utils/include \
         system/media/audio_effects/include \
         system/media/audio_route/include \
+        system/memory/libion/kernel-headers/linux \
         system/core/libion/include \
         system/core/include \
         system/libfmq/include \

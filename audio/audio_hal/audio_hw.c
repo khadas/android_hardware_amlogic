@@ -9787,6 +9787,11 @@ ssize_t mixer_app_buffer_write(struct audio_stream_out *stream, const void *buff
        return -1;
    }
 
+   /*for ms12 continuous mode, we need update status here, instead of in hw_write*/
+   if (aml_out->status == STREAM_STANDBY && continous_mode(adev)) {
+       aml_out->status = STREAM_HW_WRITING;
+   }
+
    while (bytes_remaining && adev->ms12.dolby_ms12_enable && retry > 0) {
        size_t used_size = 0;
        ret = dolby_ms12_app_process(stream, (char *)buffer + bytes_written, bytes_remaining, &used_size);
