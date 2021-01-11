@@ -234,4 +234,9 @@ bool is_need_reset_ms12_continuous(struct audio_stream_out *stream);
 
 bool is_ms12_output_compatible(struct audio_stream_out *stream, audio_format_t new_sink_format, audio_format_t new_optical_format);
 
+/*
+ *@brief dynamicly set dolby ms12 drc parameters
+ */
+void dynamic_set_dolby_ms12_drc_parameters(struct dolby_ms12_desc *ms12);
+
 #endif //end of _AUDIO_HW_MS12_H_
