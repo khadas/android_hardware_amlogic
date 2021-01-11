@@ -17,7 +17,7 @@
 
 
 #define LOG_TAG "audio_hwsync_wrap"
-#define LOG_NDEBUG 0
+//#define LOG_NDEBUG 0
 #include <errno.h>
 #include <pthread.h>
 #include <sys/time.h>
@@ -230,7 +230,7 @@ int aml_hwsync_wrap_get_tsync_firstvpts(audio_hwsync_t *p_hwsync, uint32_t *pts)
 
 int aml_hwsync_wrap_reset_tsync_pcrscr(audio_hwsync_t *p_hwsync, uint32_t pts)
 {
-    ALOGI("%s(), reset tsync pcr: %d", __func__, pts);
+    ALOGV("%s(), reset tsync pcr: %d", __func__, pts);
     if (!p_hwsync->use_mediasync) {
         return aml_hwsync_wrap_single_reset_tsync_pcrscr(pts);
     }
@@ -444,7 +444,7 @@ int aml_hwsync_wrap_reset_tsync_pcrscr(uint32_t pts)
     char buf[64] = {0};
 
     snprintf(buf, 64, "0x%x", pts);
-    ALOGI("tsync -> reset pcrscr 0x%x", pts);
+    ALOGV("tsync -> reset pcrscr 0x%x", pts);
     return sysfs_set_sysfs_str(TSYNC_APTS, buf);
 }
 #endif

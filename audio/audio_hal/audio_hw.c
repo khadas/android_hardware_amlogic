@@ -9643,8 +9643,8 @@ ssize_t mixer_aux_buffer_write(struct audio_stream_out *stream, const void *buff
                     need_reconfig_output = true;
                 }
             }
-            /* here to check if ms12 is already enabled */
-            if (!adev->ms12.dolby_ms12_enable) {
+            /* here to check if ms12 is already enabled, if main stream is doing init ms12, we don't need do it */
+            if (!adev->ms12.dolby_ms12_enable && !adev->doing_reinit_ms12) {
                 ALOGI("%s(), 0x%x, Swithing system output to MS12, need MS12 reconfig output", __func__, aml_out->out_device);
                 need_reconfig_output = true;
                 need_reset_decoder = true;
@@ -10004,7 +10004,6 @@ ssize_t out_write_new(struct audio_stream_out *stream,
         if (adev->dolby_lib_type_last == eDolbyMS12Lib) {
             if (is_disable_ms12_continuous(stream)) {
                 if (adev->continuous_audio_mode) {
-                    adev->delay_disable_continuous = 0;
                     ALOGI("Need disable MS12 continuous");
                     get_dolby_ms12_cleanup(&adev->ms12);
                     adev->continuous_audio_mode = 0;
@@ -10014,8 +10013,8 @@ ssize_t out_write_new(struct audio_stream_out *stream,
                 }
             }
             else if (is_need_reset_ms12_continuous(stream)) {
-                    adev->delay_disable_continuous = 0;
                     ALOGI("Need reset MS12 continuous as main audio changed\n");
+                    adev->doing_reinit_ms12 = true;
                     get_dolby_ms12_cleanup(&adev->ms12);
             }
         }

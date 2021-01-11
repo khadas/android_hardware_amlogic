@@ -507,7 +507,7 @@ int get_the_dolby_ms12_prepared(
         if (continous_mode(adev))
             goto Err_dolby_ms12_thread;
     }
-
+    adev->doing_reinit_ms12 = false;
     ALOGI("--%s(), locked", __FUNCTION__);
     pthread_mutex_unlock(&ms12->lock);
     ALOGI("-%s()\n\n", __FUNCTION__);

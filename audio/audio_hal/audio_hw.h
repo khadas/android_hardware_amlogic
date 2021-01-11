@@ -439,6 +439,7 @@ struct aml_audio_device {
     bool atoms_lock_flag;
     bool need_remove_conti_mode;
     int  exiting_ms12;
+    bool doing_reinit_ms12;    /*we are doing reinit ms12*/
     struct timespec ms12_exiting_start;
     int debug_flag;
     int dcvlib_bypass_enable;

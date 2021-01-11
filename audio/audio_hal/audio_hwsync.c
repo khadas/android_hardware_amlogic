@@ -38,6 +38,20 @@
 #include "dolby_lib_api.h"
 #include "audio_hwsync_wrap.h"
 
+
+static int aml_audio_get_hwsync_flag()
+{
+    char buf[PROPERTY_VALUE_MAX];
+    int ret = -1;
+    int debug_flag = 0;
+    ret = property_get("vendor.media.audio.hal.hwsync", buf, NULL);
+    if (ret > 0) {
+        debug_flag = atoi(buf);
+    }
+    return debug_flag;
+}
+
+
 static bool check_support_mediasync()
 {
     /*************************************************/
@@ -139,7 +153,7 @@ int aml_hwsync_get_tsync_firstvpts(audio_hwsync_t *p_hwsync, uint32_t *pts)
 
 int aml_hwsync_reset_tsync_pcrscr(audio_hwsync_t *p_hwsync, uint32_t pts)
 {
-    ALOGI("%s", __func__);
+    ALOGV("%s", __func__);
     return aml_hwsync_wrap_reset_tsync_pcrscr(p_hwsync, pts);
 }
 
@@ -316,7 +330,7 @@ int aml_audio_hwsync_find_frame(audio_hwsync_t *p_hwsync,
     uint64_t time_diff = 0;
     int pts_found = 0;
     struct aml_audio_device *adev = p_hwsync->aout->dev;
-    int debug_enable = (adev->debug_flag > 8);
+    int debug_enable = aml_audio_get_hwsync_flag();
     if (p_hwsync == NULL || in_buffer == NULL) {
         return 0;
     }
@@ -351,10 +365,15 @@ int aml_audio_hwsync_find_frame(audio_hwsync_t *p_hwsync,
                 }
                 p_hwsync->hw_sync_state = HW_SYNC_STATE_BODY;
                 p_hwsync->hw_sync_body_cnt = hwsync_header_get_size(&p_hwsync->hw_sync_header[0]);
+                if (p_hwsync->hw_sync_body_cnt > HWSYNC_MAX_BODY_SIZE) {
+                    ALOGE("body max size =%d hw_sync_body_cnt =%d", HWSYNC_MAX_BODY_SIZE, p_hwsync->hw_sync_body_cnt);
+                    p_hwsync->hw_sync_body_cnt = HWSYNC_MAX_BODY_SIZE;
+                }
+
                 if (p_hwsync->hw_sync_frame_size && p_hwsync->hw_sync_body_cnt) {
                     if (p_hwsync->hw_sync_frame_size != p_hwsync->hw_sync_body_cnt) {
                         p_hwsync->bvariable_frame_size = 1;
-                        ALOGI("old frame size=%d new=%d", p_hwsync->hw_sync_frame_size, p_hwsync->hw_sync_body_cnt);
+                        ALOGV("old frame size=%d new=%d", p_hwsync->hw_sync_frame_size, p_hwsync->hw_sync_body_cnt);
                     }
                 }
                 p_hwsync->hw_sync_frame_size = p_hwsync->hw_sync_body_cnt;
@@ -363,9 +382,9 @@ int aml_audio_hwsync_find_frame(audio_hwsync_t *p_hwsync,
                 pts = hwsync_header_get_pts(&p_hwsync->hw_sync_header[0]);
                 pts = pts * 90 / 1000000;
                 time_diff = get_pts_gap(pts, p_hwsync->last_apts_from_header) / 90;
-                if (debug_enable > 8) {
-                ALOGV("pts 0x%"PRIx64",frame len %u\n", pts, p_hwsync->hw_sync_body_cnt);
-                ALOGV("last pts 0x%"PRIx64",diff 0x%"PRIx64" ms\n", p_hwsync->last_apts_from_header, time_diff);
+                if (debug_enable) {
+                    ALOGI("pts 0x%"PRIx64",frame len %u\n", pts, p_hwsync->hw_sync_body_cnt);
+                    ALOGI("last pts 0x%"PRIx64",diff %lld ms\n", p_hwsync->last_apts_from_header, time_diff);
                 }
                 if (time_diff > 32) {
                     ALOGV("pts  time gap %"PRIx64" ms,last %"PRIx64",cur %"PRIx64"\n", time_diff,
@@ -408,7 +427,7 @@ int aml_audio_hwsync_find_frame(audio_hwsync_t *p_hwsync,
                     if (!pts_found) {
                         *cur_pts = p_hwsync->last_apts_from_header;
                     }
-                    if (debug_enable > 8) {
+                    if (debug_enable) {
                         ALOGV("we found the frame total body,yeah\n");
                     }
                     break;//continue;
@@ -494,7 +513,7 @@ int aml_audio_hwsync_audio_process(audio_hwsync_t *p_hwsync, size_t offset, int 
         if (adev == NULL) {
             ALOGE("%s,adev == NULL", __func__);
         } else {
-            debug_enable = (adev->debug_flag > 8);
+            debug_enable = aml_audio_get_hwsync_flag();
         }
     }
 
@@ -622,7 +641,7 @@ int aml_audio_hwsync_checkin_apts(audio_hwsync_t *p_hwsync, size_t offset, unsig
     int i = 0;
     int ret = -1;
     struct aml_audio_device *adev = p_hwsync->aout->dev;
-    int debug_enable = (adev->debug_flag > 8);
+    int debug_enable = aml_audio_get_hwsync_flag();
     apts_tab_t *pts_tab = NULL;
     if (!p_hwsync) {
         ALOGE("%s null point", __func__);
@@ -694,7 +713,7 @@ int aml_audio_hwsync_lookup_apts(audio_hwsync_t *p_hwsync, size_t offset, unsign
     if (adev == NULL) {
         ALOGE("%s,adev == NULL", __func__);
     } else {
-        debug_enable = (adev->debug_flag > 8);
+        debug_enable = aml_audio_get_hwsync_flag();
     }
 
     if (debug_enable) {
