@@ -1644,6 +1644,7 @@ int bitstream_output(void *buffer, void *priv_data, size_t size)
     struct bitstream_out_desc *bitstream_out = &ms12->bitstream_out[BITSTREAM_OUTPUT_A];
     struct audio_stream_out *stream_out = (struct audio_stream_out *)aml_out;
     int ret = 0;
+    int bitstream_delay_ms = 0;
     ms12->bitsteam_cnt++;
 
     if (adev->debug_flag > 1) {
@@ -1673,6 +1674,8 @@ int bitstream_output(void *buffer, void *priv_data, size_t size)
     output_format = AUDIO_FORMAT_E_AC3;
     ret = aml_ms12_spdif_output_new(stream_out, bitstream_out, output_format, buffer, size);
 
+    bitstream_delay_ms = aml_audio_spdifout_get_delay(bitstream_out->spdifout_handle);
+    ALOGV("%s delay=%d", __func__, bitstream_delay_ms);
 
     if (adev->debug_flag > 1) {
         ALOGI("-%s() ret %d", __FUNCTION__, ret);

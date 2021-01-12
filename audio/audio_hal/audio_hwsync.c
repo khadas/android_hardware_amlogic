@@ -37,6 +37,7 @@
 #include "audio_hw.h"
 #include "dolby_lib_api.h"
 #include "audio_hwsync_wrap.h"
+#include "aml_audio_ms12_sync.h"
 
 
 static int aml_audio_get_hwsync_flag()
@@ -497,8 +498,7 @@ int aml_audio_hwsync_audio_process(audio_hwsync_t *p_hwsync, size_t offset, int 
     uint32_t latency_pts = 0;
     struct aml_stream_out  *out = p_hwsync->aout;
     ALOGV("%s,================", __func__);
-    bool b_raw_in = false;
-    bool b_raw_out = false;
+
 
     // add protection to avoid NULL pointer.
     if (p_hwsync == NULL) {
@@ -517,27 +517,13 @@ int aml_audio_hwsync_audio_process(audio_hwsync_t *p_hwsync, size_t offset, int 
         }
     }
 
-    /*when it is ddp 2ch/heaac we need use different latency control*/
-    b_raw_in  = audio_is_linear_pcm(out->hal_internal_format) ? false : true;
-    b_raw_out = audio_is_linear_pcm(adev->ms12.sink_format) ? false : true;
-
-
-
     ret = aml_audio_hwsync_lookup_apts(p_hwsync, offset, &apts);
 
     /*get MS12 pipe line delay + alsa delay*/
     stream = (struct audio_stream_out *)p_hwsync->aout;
     if (stream) {
-        if (adev && adev->continuous_audio_mode && (eDolbyMS12Lib == adev->dolby_lib_type)) {
-            /*we need get the correct ms12 out pcm */
-            latency_frames = (int32_t)out_get_ms12_latency_frames(stream);
-            //ALOGI("latency_frames =%d", latency_frames);
-            latency_frames += aml_audio_get_ms12_tunnel_latency_offset(b_raw_in, b_raw_out)*48; // add 60ms delay for ms12, 32ms pts offset, other is ms12 delay
-
-            if ((adev->ms12.is_dolby_atmos && adev->ms12_main1_dolby_dummy == false) || adev->atoms_lock_flag) {
-                int atmos_tunning_frame = aml_audio_get_ms12_atmos_latency_offset(true) * 48;
-                latency_frames += atmos_tunning_frame;
-            }
+        if (adev && (eDolbyMS12Lib == adev->dolby_lib_type)) {
+            latency_frames = aml_audio_get_ms12_tunnel_latency(stream);
         } else {
             latency_frames = (int32_t)out_get_latency_frames(stream);
         }

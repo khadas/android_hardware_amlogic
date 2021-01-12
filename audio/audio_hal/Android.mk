@@ -91,7 +91,8 @@ include $(BUILD_PREBUILT)
         aml_audio_matparser.c \
         aml_audio_spdifdec.c \
         aml_audio_spdifout.c \
-        aml_audio_hal_avsync.c
+        aml_audio_hal_avsync.c \
+        aml_audio_ms12_sync.c
 
     LOCAL_C_INCLUDES += \
         external/tinyalsa/include \

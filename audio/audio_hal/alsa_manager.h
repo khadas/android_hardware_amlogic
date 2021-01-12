@@ -18,6 +18,17 @@
 #define _ALSA_MANAGER_H_
 
 #include "audio_hw.h"
+
+typedef enum info_type {
+    OUTPUT_INFO_STATUS,      // running or xrun etc..
+    OUTPUT_INFO_DELAYFRAME,  // the delay frames
+} alsa_info_type_t;
+
+typedef union output_info {
+    int delay_ms;
+} alsa_output_info_t;
+
+
 /**
  * pcm open with configs in streams: card, device, pcm_config
  * If device has been opened, close it and reopen with new params
@@ -54,5 +65,9 @@ size_t aml_alsa_input_read(struct audio_stream_in *stream,
 int aml_alsa_output_open_new(void **handle, aml_stream_config_t * stream_config, aml_device_config_t *device_config);
 void aml_alsa_output_close_new(void *handle);
 size_t aml_alsa_output_write_new(void *handle, const void *buffer, size_t bytes);
-int aml_alsa_output_getinfo(void *handle, info_type_t type, output_info_t * info);
+int aml_alsa_output_getinfo(void *handle, alsa_info_type_t type, alsa_output_info_t * info);
+int aml_alsa_output_pause_new(void *handle);
+int aml_alsa_output_resume_new(void *handle);
+
+
 #endif // _ALSA_MANAGER_H_

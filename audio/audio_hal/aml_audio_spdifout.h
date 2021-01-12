@@ -42,5 +42,10 @@ int aml_audio_spdifout_mute(void *phandle, bool bmute);
 int aml_dtv_spdif_output_new (struct audio_stream_out *stream,
                                       void *buffer, size_t byte);
 
+int aml_audio_spdifout_pause(void *phandle);
+
+int aml_audio_spdifout_resume(void *phandle);
+
+int aml_audio_spdifout_get_delay(void *phandle);
 
 #endif

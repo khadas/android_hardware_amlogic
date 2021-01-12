@@ -563,18 +563,6 @@ typedef struct aml_device_config {
 
 } aml_device_config_t;
 
-typedef enum info_type {
-    PCMOUTPUT_CONFIG_INFO,   // refer to aml_stream_config
-    OUTPUT_INFO_STATUS,      // running or xrun etc..
-    OUTPUT_INFO_DELAYFRAME,  // the delay frames
-} info_type_t;
-
-typedef union output_info {
-    int                 delay_frame;
-
-} output_info_t;
-
-
 struct aml_stream_out {
     struct audio_stream_out stream;
     /* see note below on mutex acquisition order */
@@ -675,7 +663,6 @@ struct aml_stream_out {
     bool offload_mute;
     bool need_convert;
     size_t last_playload_used;
-    void * alsa_vir_buf_handle;
     int ddp_frame_nblks;
     uint64_t total_ddp_frame_nblks;
     int framevalid_flag;

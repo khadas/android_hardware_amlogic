@@ -82,6 +82,7 @@
 #include "dolby_lib_api.h"
 #include "aml_audio_ac3parser.h"
 #include "aml_audio_ac4parser.h"
+#include "aml_audio_ms12_sync.h"
 #define ENABLE_NANO_NEW_PATH 1
 #if ENABLE_NANO_NEW_PATH
 #include "jb_nano.h"
@@ -286,6 +287,8 @@ static int get_audio_patch_by_src_dev(struct audio_hw_device *dev,
 ssize_t out_write_new(struct audio_stream_out *stream,
                       const void *buffer,
                       size_t bytes);
+static int out_get_presentation_position (const struct audio_stream_out *stream, uint64_t *frames, struct timespec *timestamp);
+
 static aec_timestamp get_timestamp(void);
 
 static int adev_get_mic_mute(const struct audio_hw_device* dev, bool* state);
@@ -3430,87 +3433,24 @@ exit:
 static int out_get_render_position (const struct audio_stream_out *stream,
                                     uint32_t *dsp_frames)
 {
-    struct aml_stream_out *out = (struct aml_stream_out *)stream;
+    int ret = 0;
+    uint64_t  dsp_frame_uint64 = 0;
+    struct timespec timetamp = {0};
+    struct aml_stream_out *out = (struct aml_stream_out *) stream;
     struct aml_audio_device *adev = out->dev;
-    uint64_t  dsp_frame_int64 = out->last_frames_postion;
-    int frame_latency = 0;
-    bool b_raw_in = false;
-    bool b_raw_out = false;
-    int latency_ms = 0;
-    *dsp_frames = (uint32_t)(dsp_frame_int64 & 0xffffffff);
-    if (out->flags & AUDIO_OUTPUT_FLAG_IEC958_NONAUDIO) {
-        //dsp_frame_int64 = out->last_frames_postion ;
-        //*dsp_frames = (uint32_t)(dsp_frame_int64 & 0xffffffff);
-        if (out->last_dsp_frame > dsp_frame_int64) {
-            ALOGI("maybe uint32_t wraparound,print something,last %u,now %u", out->last_dsp_frame, *dsp_frames);
-            ALOGI("wraparound,out_get_render_position return %u,playback time %"PRIu64" ms,sr %d\n", *dsp_frames,
-                  out->last_frames_postion * 1000 / out->config.rate, out->config.rate);
-        }
+    *dsp_frames = 0;
+    ret = out_get_presentation_position(stream, &dsp_frame_uint64,&timetamp);
+    if (ret == 0)
+    {
+        *dsp_frames = (uint32_t)(dsp_frame_uint64 & 0xffffffff);
     }
-    if (eDolbyMS12Lib == adev->dolby_lib_type) {
-        int is_dolby_audio = (out->hal_internal_format == AUDIO_FORMAT_E_AC3) || (out->hal_internal_format == AUDIO_FORMAT_AC3);
 
-        if (direct_continous((struct audio_stream_out *)stream)) {
-            dsp_frame_int64 = adev->ms12.last_frames_postion;
-        }
-        else if (out->is_normal_pcm && adev->ms12.dolby_ms12_enable) {
-            dsp_frame_int64 =  (uint32_t)(adev->ms12.sys_audio_frame_pos & 0xffffffff);
-        }
-        if ((out->hal_rate != MM_FULL_POWER_SAMPLING_RATE) &&
-            (!is_bypass_dolbyms12((struct audio_stream_out *)stream))) {
-            dsp_frame_int64 = (dsp_frame_int64 * out->hal_rate) / MM_FULL_POWER_SAMPLING_RATE;
-        }
-        *dsp_frames = (uint32_t)(dsp_frame_int64 & 0xffffffff);
-
-        /*when it is ddp 5.1 or heaac we need use different latency control*/
-        b_raw_in  = audio_is_linear_pcm(out->hal_internal_format) ? false : true;
-        b_raw_out = audio_is_linear_pcm(adev->ms12.sink_format) ? false : true;
-        frame_latency = aml_audio_get_ms12_latency_offset(b_raw_in, b_raw_out) * 48;
-        if (!adev->is_netflix) {
-            if (adev->audio_type == EAC3 || adev->audio_type == AC3) {
-                latency_ms = aml_audio_get_latency_offset(adev->active_outport,
-                                                                 out->hal_internal_format,
-                                                                 adev->sink_format,
-                                                                 adev->ms12.dolby_ms12_enable);
-                frame_latency += (out->hal_rate / 1000) *latency_ms;
-            }
-        }
-        if ((!adev->is_netflix || adev->compensate_video_enable) && audio_is_linear_pcm(out->hal_internal_format))
-                frame_latency = 0;
-        if (*dsp_frames >= (uint64_t)abs(frame_latency)) {
-            *dsp_frames += frame_latency;
-        } else {
-            *dsp_frames = 0;
-        }
-        if (!continous_mode(adev) && is_dolby_audio && out->position_update)
-        {
-            struct timespec time_now;
-            int64_t diff = 0;
-            int drift_frames = 0;
-            clock_gettime (CLOCK_MONOTONIC, &time_now);
-            diff = calc_time_interval_us(&out->lasttimestamp, &time_now);
-            //ALOGI("time diff =%lld", diff);
-            drift_frames = (diff / 1000) * (out->hal_rate / 1000);
-            *dsp_frames += drift_frames;
-
-        }
-    } else if (eDolbyDcvLib == adev->dolby_lib_type) {
-
-        if (adev->audio_type == EAC3 || adev->audio_type == AC3) {
-             latency_ms = aml_audio_get_latency_offset(adev->active_outport,
-                                                             out->hal_internal_format,
-                                                             adev->sink_format,
-                                                             adev->ms12.dolby_ms12_enable);
-             frame_latency = latency_ms * (out->hal_rate * out->rate_convert / 1000);
-             *dsp_frames += frame_latency ;
-         }
-
-    }
     if (adev->debug_flag) {
-        ALOGI("out_get_render_position %d tunned_latency_ms %d\n", *dsp_frames, latency_ms);
+        ALOGD("%s,pos %d\n",__func__,*dsp_frames);
     }
-    return 0;
+    return ret;
 }
+
 
 static int out_add_audio_effect (const struct audio_stream *stream, effect_handle_t effect)
 {
@@ -3605,6 +3545,7 @@ static int out_get_presentation_position (const struct audio_stream_out *stream,
     int frame_latency = 0,timems_latency = 0;
     bool b_raw_in = false;
     bool b_raw_out = false;
+    int ret = 0;
     if (!frames || !timestamp) {
         ALOGI("%s, !frames || !timestamp\n", __FUNCTION__);
         return -EINVAL;
@@ -3618,50 +3559,8 @@ static int out_get_presentation_position (const struct audio_stream_out *stream,
     *timestamp = out->lasttimestamp;
 
     if (eDolbyMS12Lib == adev->dolby_lib_type ) {
-        if (adev->continuous_audio_mode) {
-            if (direct_continous((struct audio_stream_out *)stream)) {
-                frames_written_hw = adev->ms12.last_frames_postion;
-                *timestamp = adev->ms12.timestamp;
-            }
-
-            if (out->is_normal_pcm && adev->ms12.dolby_ms12_enable) {
-                frames_written_hw = adev->ms12.sys_audio_frame_pos;
-                *timestamp = adev->ms12.sys_audio_timestamp;
-            }
-
-            *frames = frames_written_hw;
-
-            /*this tunning is only for netflix*/
-            if (adev->is_netflix) {
-                /* when it is ddp 5.1 or heaac we need use different latency control*/
-                b_raw_in  = audio_is_linear_pcm(out->hal_internal_format) ? false : true;
-                b_raw_out = audio_is_linear_pcm(adev->ms12.sink_format) ? false : true;
-                frame_latency = aml_audio_get_ms12_latency_offset(b_raw_in, b_raw_out) * 48;
-
-                if ((adev->ms12.is_dolby_atmos && adev->ms12_main1_dolby_dummy == false) || adev->atoms_lock_flag) {
-                    frame_latency -= aml_audio_get_ms12_atmos_latency_offset(false) * 48;
-                }
-            }
-
-            if ((!adev->is_netflix || adev->compensate_video_enable) && audio_is_linear_pcm(out->hal_internal_format)) {
-                   frame_latency =  0;
-            }
-        }
-        if (!adev->is_netflix) {
-           timems_latency = aml_audio_get_latency_offset(adev->active_outport,
-                                                         out->hal_internal_format,
-                                                         adev->sink_format,
-                                                         adev->ms12.dolby_ms12_enable);
-           frame_latency +=  timems_latency * (out->hal_rate / 1000);
-        }
-        if (*frames >= (uint64_t)abs(frame_latency)) {
-            *frames += frame_latency;
-        } else {
-            *frames = 0;
-        }
-
+        ret = aml_audio_get_ms12_presentation_position(stream, frames, timestamp);
     } else if (eDolbyDcvLib == adev->dolby_lib_type) {
-
          if (adev->audio_type == EAC3 || adev->audio_type == AC3) {
              timems_latency = aml_audio_get_latency_offset(adev->active_outport,
                                                              out->hal_internal_format,
@@ -3672,22 +3571,9 @@ static int out_get_presentation_position (const struct audio_stream_out *stream,
          }
     }
 
-    if (eDolbyMS12Lib == adev->dolby_lib_type) {
-        if ((out->hal_rate != MM_FULL_POWER_SAMPLING_RATE) &&
-            (!is_bypass_dolbyms12((struct audio_stream_out *)stream))) {
-            *frames = (*frames * out->hal_rate) / MM_FULL_POWER_SAMPLING_RATE;
-        }
-    }
-
-
-    if (adev->compensate_video_enable)
-    {
-        int delay_time_ms = aml_audio_get_ms12_timestamp_offset();
-        aml_audio_delay_timestamp(timestamp, delay_time_ms);
-    }
     if (adev->debug_flag) {
         ALOGI("out_get_presentation_position out %p %"PRIu64", sec = %ld, nanosec = %ld tunned_latency_ms %d\n", out, *frames, timestamp->tv_sec, timestamp->tv_nsec, timems_latency);
-        int64_t  frame_diff_ms =  (*frames - out->last_frame_reported)/48;
+        int64_t  frame_diff_ms =  (*frames - out->last_frame_reported) * 1000 / out->hal_rate;
         int64_t  system_time_ms = 0;
         if (timestamp->tv_nsec < out->last_timestamp_reported.tv_nsec) {
             system_time_ms = (timestamp->tv_nsec + 1000000000 - out->last_timestamp_reported.tv_nsec)/1000000;
@@ -3704,7 +3590,7 @@ static int out_get_presentation_position (const struct audio_stream_out *stream,
         out->last_frame_reported = *frames;
         out->last_timestamp_reported = *timestamp;
     }
-    return 0;
+    return ret;
 }
 static int get_next_buffer (struct resampler_buffer_provider *buffer_provider,
                             struct resampler_buffer* buffer);
@@ -8163,7 +8049,11 @@ ssize_t hw_write (struct audio_stream_out *stream
             }
         }
     }
-    latency_frames = out_get_latency_frames(stream);
+    if (eDolbyMS12Lib == adev->dolby_lib_type) {
+        latency_frames = aml_audio_out_get_ms12_latency_frames(stream);
+    } else {
+        latency_frames = out_get_latency_frames(stream);
+    }
     pthread_mutex_unlock(&adev->alsa_pcm_lock);
 
     if (eDolbyMS12Lib == adev->dolby_lib_type) {

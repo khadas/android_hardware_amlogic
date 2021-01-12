@@ -25,26 +25,42 @@
  */
 
 /*below MS12 tunning is for roku tv*/
-#define  AVSYNC_MS12_NONTUNNEL_PCM_LATENCY               (75)
-#define  AVSYNC_MS12_NONTUNNEL_RAW_LATENCY               (15)
-#define  AVSYNC_MS12_NONTUNNEL_ATMOS_LATENCY             (-15)
-#define  AVSYNC_MS12_TUNNEL_PCM_LATENCY                  (85)
-#define  AVSYNC_MS12_TUNNEL_RAW_LATENCY                  (80)
-#define  AVSYNC_MS12_TUNNEL_ATMOS_LATENCY                (-20)
+#define  AVSYNC_MS12_NONTUNNEL_PCM_LATENCY               (20)
+#define  AVSYNC_MS12_NONTUNNEL_DDP_LATENCY               (50)
+#define  AVSYNC_MS12_NONTUNNEL_ATMOS_LATENCY             (15)
+#define  AVSYNC_MS12_TUNNEL_PCM_LATENCY                  (60)
+#define  AVSYNC_MS12_TUNNEL_DDP_LATENCY                  (70)
+#define  AVSYNC_MS12_TUNNEL_ATMOS_LATENCY                (20)
 
-#define  AVSYNC_MS12_PCM_OUT_LATENCY                     (-40)
-#define  AVSYNC_MS12_RAW_OUT_LATENCY                     (0)
+#define  AVSYNC_MS12_NONTUNNEL_AC4_LATENCY               (60)
+#define  AVSYNC_MS12_TUNNEL_AC4_LATENCY                  (60)
+
+
+#define  AVSYNC_MS12_PCM_OUT_LATENCY                     (10)
+#define  AVSYNC_MS12_DD_OUT_LATENCY                      (50)
+#define  AVSYNC_MS12_DDP_OUT_LATENCY                     (70)
+#define  AVSYNC_MS12_MAT_OUT_LATENCY                     (50)
+
+#define  AVSYNC_MS12_HDMI_ARC_OUT_LATENCY                (0)
+#define  AVSYNC_MS12_HDMI_OUT_LATENCY                    (0)
+#define  AVSYNC_MS12_HDMI_SPEAKER_LATENCY                (0)
+
 
 
 #define  AVSYNC_MS12_NONTUNNEL_PCM_LATENCY_PROPERTY      "vendor.media.audio.hal.ms12.nontunnel.pcm"
-#define  AVSYNC_MS12_NONTUNNEL_RAW_LATENCY_PROPERTY      "vendor.media.audio.hal.ms12.nontunnel.raw"
+#define  AVSYNC_MS12_NONTUNNEL_DDP_LATENCY_PROPERTY      "vendor.media.audio.hal.ms12.nontunnel.ddp"
 #define  AVSYNC_MS12_NONTUNNEL_ATMOS_LATENCY_PROPERTY    "vendor.media.audio.hal.ms12.nontunnel.atmos"
+#define  AVSYNC_MS12_NONTUNNEL_AC4_LATENCY_PROPERTY      "vendor.media.audio.hal.ms12.nontunnel.ac4"
+
 #define  AVSYNC_MS12_TUNNEL_PCM_LATENCY_PROPERTY         "vendor.media.audio.hal.ms12.tunnel.pcm"
-#define  AVSYNC_MS12_TUNNEL_RAW_LATENCY_PROPERTY         "vendor.media.audio.hal.ms12.tunnel.raw"
+#define  AVSYNC_MS12_TUNNEL_DDP_LATENCY_PROPERTY         "vendor.media.audio.hal.ms12.tunnel.ddp"
 #define  AVSYNC_MS12_TUNNEL_ATMOS_LATENCY_PROPERTY       "vendor.media.audio.hal.ms12.tunnel.atmos"
+#define  AVSYNC_MS12_TUNNEL_AC4_LATENCY_PROPERTY         "vendor.media.audio.hal.ms12.tunnel.ac4"
 
 #define  AVSYNC_MS12_PCM_OUT_LATENCY_PROPERTY            "vendor.media.audio.hal.ms12.pcmout"
-#define  AVSYNC_MS12_RAW_OUT_LATENCY_PROPERTY            "vendor.media.audio.hal.ms12.rawout"
+#define  AVSYNC_MS12_DDP_OUT_LATENCY_PROPERTY            "vendor.media.audio.hal.ms12.ddpout"
+#define  AVSYNC_MS12_DD_OUT_LATENCY_PROPERTY             "vendor.media.audio.hal.ms12.ddout"
+#define  AVSYNC_MS12_MAT_OUT_LATENCY_PROPERTY            "vendor.media.audio.hal.ms12.matout"
 
 
 

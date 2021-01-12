@@ -22,6 +22,7 @@
 #include <hardware/audio.h>
 #include <tinyalsa/asoundlib.h>
 #include <inttypes.h>
+#include <cutils/properties.h>
 
 #include "audio_hw.h"
 #include "alsa_manager.h"
@@ -29,9 +30,9 @@
 #include "alsa_device_parser.h"
 #include "dolby_lib_api.h"
 #include "aml_audio_stream.h"
-#include "audio_virtual_buf.h"
 #include "alsa_config_parameters.h"
 #include "audio_hw_dtv.h"
+#include "aml_audio_timer.h"
 
 
 #define AML_ZERO_ADD_MIN_SIZE 1024
@@ -44,14 +45,24 @@
 #define MAX_AVSYNC_GAP (10*90000)
 #define MAX_AVSYNC_WAIT_TIME (3*1000*1000)
 
-#define ALSA_OUT_BUF_NS (64000000LL)
-#define ALSA_DELAY_UP_THRESHOLD_MS (50)  /*the start threshold is 42ms, so we assume it as 50ms*/
-#define VIRTUAL_BUF_DELAY_PERIOD_MS (4)
-#define MS_TO_NANO_SEC  (1000000LL)
+#define ALSA_DELAY_THRESHOLD_MS    (32)
 
 #define ALSA_DUMP_PROPERTY       "vendor.media.audiohal.alsadump"
 #define ALSA_OUTPUT_PCM_FILE     "/data/vendor/audiohal/alsa_pcm_write.raw"
 #define ALSA_OUTPUT_SPDIF_FILE   "/data/vendor/audiohal/alsa_spdif_write"
+
+
+static int aml_audio_get_alsa_debug()
+{
+    char buf[PROPERTY_VALUE_MAX];
+    int ret = -1;
+    int debug_flag = 0;
+    ret = property_get("vendor.media.audio.hal.alsa", buf, NULL);
+    if (ret > 0) {
+        debug_flag = atoi(buf);
+    }
+    return debug_flag;
+}
 
 
 /*
@@ -84,6 +95,57 @@ static int insert_eff_zero_bytes(struct aml_audio_device *adev, size_t size)
 
 exit:
     return 0;
+}
+
+
+
+static void alsa_write_rate_control(struct audio_stream_out *stream, size_t bytes  __unused, audio_format_t out_format) {
+
+    struct aml_stream_out *aml_out = (struct aml_stream_out *)stream;
+    struct aml_audio_device *adev = aml_out->dev;
+    size_t frame_size = audio_stream_out_frame_size(stream);
+    int mutex_lock_status = 0;
+    struct snd_pcm_status status;
+    int sample_rate = MM_FULL_POWER_SAMPLING_RATE;
+    int rate_multiply = 1;
+    uint64_t frame_ms = 0;
+    snd_pcm_sframes_t frames = 0;
+    switch (out_format) {
+    case AUDIO_FORMAT_E_AC3:
+        frame_size = AUDIO_EAC3_FRAME_SIZE;
+        break;
+    case AUDIO_FORMAT_AC3:
+        frame_size = AUDIO_AC3_FRAME_SIZE;
+        break;
+    default:
+        frame_size = (aml_out->is_tv_platform == true) ? AUDIO_TV_PCM_FRAME_SIZE : AUDIO_DEFAULT_PCM_FRAME_SIZE;
+        break;
+    }
+
+    if (adev->ms12_config.rate != 0) {
+        sample_rate = adev->ms12_config.rate;
+    }
+
+    pcm_ioctl(aml_out->pcm, SNDRV_PCM_IOCTL_STATUS, &status);
+
+    if (status.state == PCM_STATE_RUNNING) {
+        pcm_ioctl(aml_out->pcm, SNDRV_PCM_IOCTL_DELAY, &frames);
+        if (out_format == AUDIO_FORMAT_E_AC3) {
+            rate_multiply = 4;
+        }
+        frame_ms = (uint64_t)frames * 1000LL/ (sample_rate * rate_multiply);
+        if (frame_ms > ALSA_DELAY_THRESHOLD_MS) {
+            /*we will go to sleep, unlock mutex*/
+            if (pthread_mutex_unlock(&adev->alsa_pcm_lock) == 0) {
+                mutex_lock_status = 1;
+            }
+            aml_audio_sleep((frame_ms - ALSA_DELAY_THRESHOLD_MS) * 1000);
+            if (mutex_lock_status) {
+                pthread_mutex_lock(&adev->alsa_pcm_lock);
+            }
+        }
+    }
+    return;
 }
 
 int aml_alsa_output_open(struct audio_stream_out *stream)
@@ -248,9 +310,6 @@ void aml_alsa_output_close(struct audio_stream_out *stream)
             adev->pcm_handle[device] = NULL;
         }
     }
-    if ((adev->continuous_audio_mode == 1) && (eDolbyMS12Lib == adev->dolby_lib_type)) {
-        audio_virtual_buf_close(&aml_out->alsa_vir_buf_handle);
-    }
     ALOGI("-%s()\n\n", __func__);
 }
 static int aml_alsa_add_zero(struct aml_stream_out *stream, int size)
@@ -310,6 +369,7 @@ size_t aml_alsa_output_write(struct audio_stream_out *stream,
     int need_drop_inject = 0;
     int64_t pretime = 0;
     unsigned char*audio_data = (unsigned char*)buffer;
+    int debug_enable = aml_audio_get_alsa_debug();
     switch (aml_out->alsa_output_format) {
     case AUDIO_FORMAT_E_AC3:
         frame_size = AUDIO_EAC3_FRAME_SIZE;
@@ -515,54 +575,20 @@ write:
         ALOGI("raw to lpcm switch %s\n",__func__);
     }
 
+    /*for ms12 case, we control the output buffer level*/
+    if ((adev->continuous_audio_mode == 1) && (eDolbyMS12Lib == adev->dolby_lib_type)) {
+        alsa_write_rate_control(stream, bytes, aml_out->alsa_output_format);
+    }
+    if (debug_enable) {
+        snd_pcm_sframes_t frames = 0;
+        ret = pcm_ioctl(aml_out->pcm, SNDRV_PCM_IOCTL_DELAY, &frames);
+        ALOGI("alsa format =0x%x frames =%ld", aml_out->alsa_output_format, frames);
+    }
     ret = pcm_write(aml_out->pcm, buffer, bytes);
     if (ret < 0) {
         ALOGE("%s write failed,pcm handle %p %s, stream %p, %s",
             __func__, aml_out->pcm, pcm_get_error(aml_out->pcm),
             aml_out, usecase2Str(aml_out->usecase));
-    }
-
-    if ((adev->continuous_audio_mode == 1) && (eDolbyMS12Lib == adev->dolby_lib_type) && (bytes != 0)) {
-        uint64_t input_ns = 0;
-        int mutex_lock_success = 0;
-        int sample_rate = 48000;
-        /*we will go to sleep, unlock mutex*/
-        if (pthread_mutex_unlock(&adev->alsa_pcm_lock) == 0) {
-            mutex_lock_success = 1;
-        }
-        if (adev->ms12_config.rate != 0) {
-            sample_rate = adev->ms12_config.rate;
-        }
-        input_ns = (uint64_t)(bytes) * 1000000000LL / frame_size / sample_rate;
-
-        if (aml_out->alsa_vir_buf_handle == NULL) {
-            /*set the buf to 10s, and then fill the buff, we will use this to make the data consuming to stable*/
-            audio_virtual_buf_open(&aml_out->alsa_vir_buf_handle, "alsa out", ALSA_OUT_BUF_NS, ALSA_OUT_BUF_NS, 0);
-            audio_virtual_buf_process(aml_out->alsa_vir_buf_handle, ALSA_OUT_BUF_NS);
-        }
-        audio_virtual_buf_process(aml_out->alsa_vir_buf_handle, input_ns);
-
-        /* alsa output rate is not exactly with system time, we need check whether
-         * the delay is too big, if it is too big, we should delay the virtual buf
-         */
-        {
-            int rate_multiply = 1;
-            uint64_t frame_ms = 0;
-            snd_pcm_sframes_t frames = 0;
-            ret = pcm_ioctl(aml_out->pcm, SNDRV_PCM_IOCTL_DELAY, &frames);
-            if (aml_out->alsa_output_format == AUDIO_FORMAT_E_AC3) {
-                rate_multiply = 4;
-            }
-            frame_ms = (uint64_t)frames * 1000LL/ (sample_rate * rate_multiply);
-            ALOGV("alsa frame delay=%ld ms=%" PRId64 " ", frames, frame_ms);
-            if (frame_ms > ALSA_DELAY_UP_THRESHOLD_MS) {
-                ALOGI("alsa delay is =%" PRId64 " catch up =%d", frame_ms, VIRTUAL_BUF_DELAY_PERIOD_MS);
-                audio_virtual_buf_process(aml_out->alsa_vir_buf_handle, VIRTUAL_BUF_DELAY_PERIOD_MS * MS_TO_NANO_SEC);
-            }
-        }
-        if (mutex_lock_success) {
-            pthread_mutex_lock(&adev->alsa_pcm_lock);
-        }
     }
 
     return ret;
@@ -776,6 +802,7 @@ size_t aml_alsa_output_write_new(void *handle, const void *buffer, size_t bytes)
     struct pcm *dd_pcm = NULL,*ddp_pcm = NULL;
     alsa_handle = (alsa_handle_t *)handle;
     struct aml_audio_device *adev = (struct aml_audio_device *)adev_get_handle();
+    int debug_enable = aml_audio_get_alsa_debug();
     if (alsa_handle->pcm == NULL || alsa_handle == NULL || buffer == NULL || bytes == 0) {
         ALOGW("[%s:%d] invalid param, pcm:%p, alsa_handle:%p, buffer:%p, bytes:%zu",
             __func__, __LINE__, alsa_handle->pcm, alsa_handle, buffer, bytes);
@@ -830,12 +857,18 @@ size_t aml_alsa_output_write_new(void *handle, const void *buffer, size_t bytes)
         }
         aml_audio_dump_audio_bitstreams(file_name, buffer, bytes);
     }
+    if (debug_enable) {
+        snd_pcm_sframes_t frames = 0;
+        ret = pcm_ioctl(alsa_handle->pcm, SNDRV_PCM_IOCTL_DELAY, &frames);
+        ALOGI("alsa format =0x%x frames =%ld", alsa_handle->format, frames);
+    }
+
 
     ret = pcm_write(alsa_handle->pcm, buffer, bytes);
     return ret;
 }
 
-int aml_alsa_output_getinfo(void *handle, info_type_t type, output_info_t * info)
+int aml_alsa_output_getinfo(void *handle, alsa_info_type_t type, alsa_output_info_t * info)
 {
     int ret = -1;
     alsa_handle_t * alsa_handle = NULL;
@@ -847,14 +880,19 @@ int aml_alsa_output_getinfo(void *handle, info_type_t type, output_info_t * info
     switch (type) {
     case OUTPUT_INFO_DELAYFRAME: {
         snd_pcm_sframes_t delay = 0;
-        uint32_t whole_latency_frames = alsa_handle->config.start_threshold;
+        int rate = alsa_handle->config.rate;
+        int rate_multiply = 1;
         ret = pcm_ioctl(alsa_handle->pcm, SNDRV_PCM_IOCTL_DELAY, &delay);
         if (ret < 0) {
-            info->delay_frame = whole_latency_frames;
+            info->delay_ms = 0;
             return -1;
         }
-
-        info->delay_frame = delay;
+        if (alsa_handle->format == AUDIO_FORMAT_MAT) {
+            rate_multiply = 16;
+        } else if (alsa_handle->format == AUDIO_FORMAT_E_AC3) {
+            rate_multiply = 4;
+        }
+        info->delay_ms = delay * 1000 / (rate * rate_multiply);
         return 0;
     }
     default:
@@ -862,3 +900,38 @@ int aml_alsa_output_getinfo(void *handle, info_type_t type, output_info_t * info
     }
     return -1;
 }
+
+int aml_alsa_output_pause_new(void *handle)
+{
+    int ret = -1;
+    alsa_handle_t * alsa_handle = (alsa_handle_t *)handle;
+
+    if (handle == NULL) {
+        return -1;
+    }
+    if (alsa_handle->pcm) {
+        ret = pcm_ioctl(alsa_handle->pcm, SNDRV_PCM_IOCTL_PAUSE, 1);
+        if (ret < 0) {
+            ALOGE("%s error %d", __func__, ret);
+        }
+    }
+    return ret;
+}
+
+int aml_alsa_output_resume_new(void *handle)
+{
+    int ret = -1;
+    alsa_handle_t * alsa_handle = (alsa_handle_t *)handle;
+
+    if (handle == NULL) {
+        return -1;
+    }
+    if (alsa_handle->pcm) {
+        ret = pcm_ioctl(alsa_handle->pcm, SNDRV_PCM_IOCTL_PAUSE, 0);
+        if (ret < 0) {
+            ALOGE("%s error %d", __func__, ret);
+        }
+    }
+    return ret;
+}
+
