@@ -5775,10 +5775,6 @@ static int adev_set_parameters (struct audio_hw_device *dev, const char *kvpairs
                 mixing_level = 100;
             }
             mix_user_prefer = (mixing_level * 64 - 32 * 100) / 100; //[0,100] mapping to [-32,32]
-            if (adev->ad_switch_enable)
-                adev->mixing_level = mix_user_prefer;
-            else
-                adev->mixing_level = -32;
             ALOGI("mixing_level set to %d\n", adev->mixing_level);
             if (eDolbyMS12Lib == adev->dolby_lib_type_last) {
                 pthread_mutex_lock(&ms12->lock);
@@ -5786,19 +5782,6 @@ static int adev_set_parameters (struct audio_hw_device *dev, const char *kvpairs
                 set_ms12_ad_mixing_level(ms12, adev->mixing_level);
                 pthread_mutex_unlock(&ms12->lock);
             }
-            pthread_mutex_unlock(&adev->lock);
-            goto exit;
-        }
-        ret = str_parms_get_int(parms, "ad_switch_enable", &val);
-        if (ret >= 0) {
-            int ad_switch_enable = val;
-            pthread_mutex_lock(&adev->lock);
-            if (ad_switch_enable == 0) {
-                adev->ad_switch_enable = false;
-            } else if (ad_switch_enable == 1) {
-                adev->ad_switch_enable = true;
-            }
-            ALOGI("ad_switch_enable set to %d\n", adev->ad_switch_enable);
             pthread_mutex_unlock(&adev->lock);
             goto exit;
         }
@@ -12073,8 +12056,7 @@ static int adev_open(const hw_module_t* module, const char* name, hw_device_t** 
         adev->dcvlib_bypass_enable = 1;
     }
     adev->sound_track_mode = 0;
-    adev->ad_switch_enable = false;
-    adev->mixing_level = -32;
+    adev->mixing_level = 0;
     adev->advol_level = 100;
 #if ENABLE_NANO_NEW_PATH
     nano_init();
