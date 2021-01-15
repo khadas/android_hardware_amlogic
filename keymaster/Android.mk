@@ -22,7 +22,11 @@ TA_SUFFIX := .ta
 #####################################################
 ifeq ($(PLATFORM_TDK_VERSION), 38)
 PLATFORM_TDK_PATH := $(BOARD_AML_VENDOR_PATH)/tdk_v3
-LOCAL_TA := ta/v3/$(TA_UUID)$(TA_SUFFIX)
+	ifeq ($(filter A311D2 POP1 S905C2 S905X4, $(BOARD_AML_SOC_TYPE)),)
+		LOCAL_TA := ta/v3/$(TA_UUID)$(TA_SUFFIX)
+	else
+		LOCAL_TA := ta/v3/dev/$(BOARD_AML_SOC_TYPE)/$(TA_UUID)$(TA_SUFFIX)
+	endif
 else
 PLATFORM_TDK_PATH := $(BOARD_AML_VENDOR_PATH)/tdk
 LOCAL_TA := ta/$(TA_UUID)$(TA_SUFFIX)
