@@ -487,6 +487,10 @@ int eq_drc_init(struct eq_drc_data *pdata)
     pdata->p_gain.headphone = 1.0;
 
     pdata->dev_num = sizeof(dev_cfg) / sizeof(struct eq_drc_device_config_s);
+    // TODO:
+    /************/
+    pdata->dev_num = 1;
+    /************/
     ALOGD("%s: device num = %d", __FUNCTION__, pdata->dev_num);
 
     pdata->p_attr = (struct audio_eq_drc_info_s *)calloc(pdata->dev_num, sizeof(struct audio_eq_drc_info_s));

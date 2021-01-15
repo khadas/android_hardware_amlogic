@@ -3518,6 +3518,10 @@ static int out_add_audio_effect (const struct audio_stream *stream, effect_handl
     struct aml_audio_device *dev = out->dev;
     int i;
     int status = 0;
+    // TODO:
+    /************/
+    return 0;
+    /************/
 
     pthread_mutex_lock (&dev->lock);
     pthread_mutex_lock (&out->lock);
@@ -3547,6 +3551,10 @@ static int out_remove_audio_effect (const struct audio_stream *stream, effect_ha
     int i;
     int status = -EINVAL;
     bool found = false;
+    // TODO:
+    /************/
+    return 0;
+    /************/
     pthread_mutex_lock (&dev->lock);
     pthread_mutex_lock (&out->lock);
     if (dev->native_postprocess.num_postprocessors <= 0) {
