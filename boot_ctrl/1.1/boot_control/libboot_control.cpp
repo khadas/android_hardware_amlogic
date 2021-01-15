@@ -54,6 +54,8 @@ constexpr unsigned int kDefaultBootAttempts = 7;
 #define EMMC_BLK1BOOT0_PARTITION   "mmcblk1boot0"
 #define EMMC_BLK1BOOT1_PARTITION   "mmcblk1boot1"
 
+#define BOOTLOADER_MAX_SIZE    (4*1024*1024)
+
 static const char *sEmmcPartionName_a[] = {
     EMMC_BLK0BOOT0_PARTITION,
     EMMC_BLK1BOOT0_PARTITION,
@@ -141,7 +143,7 @@ bool write_bootloader_img(unsigned int slot)
     unsigned int i;
     char emmcPartitionPath[128];
     const char *sEmmcPartionName[2];
-    int size = 0;
+    int size = BOOTLOADER_MAX_SIZE;
     int fd = -1;
     int fd2 = -1;
     bool ret = false;
@@ -167,11 +169,7 @@ bool write_bootloader_img(unsigned int slot)
                 LOG(ERROR) << "failed to open " << emmcPartitionPath;
                 goto done;
             }
-            size = lseek(fd, 0, SEEK_END);
-            if (size < 0) {
-                LOG(ERROR) << "get size error";
-                goto done;
-            }
+
             LOG(INFO) << "size = " << size;
             data = (char *)malloc(size);
             if (data == NULL) {
