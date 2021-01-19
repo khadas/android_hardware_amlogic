@@ -30,6 +30,8 @@
 #include <linux/videodev2.h>
 #include <android/native_window.h>
 
+#include <cutils/properties.h>
+
 static const int SCREENSOURCE_GRALLOC_USAGE = (
     GRALLOC_USAGE_HW_TEXTURE | GRALLOC_USAGE_HW_RENDER |
     GRALLOC_USAGE_SW_READ_RARELY | GRALLOC_USAGE_SW_WRITE_NEVER);
@@ -72,7 +74,12 @@ void channelControl(tv_input_private_t *priv, bool opsStart, int device_id) {
             priv->mpTv->startTv();
             priv->mpTv->switchSourceInput((tv_source_input_t) device_id);
         } else if (priv->mpTv->getCurrentSourceInput() == device_id) {
-            priv->mpTv->stopTv();
+            char buf[PROPERTY_VALUE_MAX];
+            int ret = property_get("tv.need.tvview.fast_switch", buf, NULL);
+            if (ret <= 0 || strcmp(buf, "true") != 0) {
+                ALOGI ("%s,  stop tv\n", __FUNCTION__);
+                priv->mpTv->stopTv();
+            }
         }
     }
 }
