@@ -517,6 +517,7 @@ bool format_is_passthrough (audio_format_t fmt)
     switch (fmt) {
     case AUDIO_FORMAT_AC3:
     case AUDIO_FORMAT_E_AC3:
+    case AUDIO_FORMAT_E_AC3_JOC:
     case AUDIO_FORMAT_MAT:
     case AUDIO_FORMAT_DTS:
     case AUDIO_FORMAT_DTS_HD:
@@ -756,7 +757,9 @@ static int start_output_stream_direct (struct aml_stream_out *out)
         break;
     case AUDIO_FORMAT_PCM:
     default:
-        if (out->config.rate == 96000)
+        if (out->hal_format == AUDIO_FORMAT_E_AC3 || out->hal_format == AUDIO_FORMAT_E_AC3_JOC) {
+            out->config.period_size = DEFAULT_PLAYBACK_PERIOD_SIZE * 3 / 2;
+        } else if (out->config.rate == 96000)
             out->config.period_size = DEFAULT_PLAYBACK_PERIOD_SIZE * 2;
         else
             out->config.period_size = DEFAULT_PLAYBACK_PERIOD_SIZE;
@@ -824,7 +827,7 @@ static int start_output_stream_direct (struct aml_stream_out *out)
             return -EINVAL;
         }
         /*if it is ddp, we need spdif enc*/
-        if (out->hal_format == AUDIO_FORMAT_E_AC3) {
+        if (out->hal_format == AUDIO_FORMAT_E_AC3 || out->hal_format == AUDIO_FORMAT_E_AC3_JOC) {
             ret = aml_spdif_encoder_open(&out->spdifenc_handle, AUDIO_FORMAT_E_AC3);
             if (ret) {
                 ALOGE("%s() aml_spdif_encoder_open failed", __func__);
@@ -3207,7 +3210,7 @@ rewrite:
             aml_ac3_parser_process(out->ac3_parser_handle, (char *)buffer + bytes_cost,
                                     total_bytes - bytes_cost, &parser_used_size, &frame_buffer,
                                     &frame_length, &ac3_info);
-            ALOGV("bytes cost=%zu total=%zu frame length=%d", bytes_cost, total_bytes, frame_length);
+            ALOGV("bytes offset=%zu total=%zu parser_used_size=%d frame length=%d", bytes_cost, total_bytes, parser_used_size, frame_length);
             if (frame_length > 0) {
                 return_bytes = parser_used_size;
                 in_frames = frame_length / frame_size;
