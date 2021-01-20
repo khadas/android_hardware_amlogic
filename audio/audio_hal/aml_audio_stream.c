@@ -607,7 +607,8 @@ bool is_use_spdifb(struct aml_stream_out *out) {
             out->dual_spdif = true;
         }
         if (out->dual_spdif && ((adev->hdmi_format == AUTO) &&
-            adev->optical_format == AUDIO_FORMAT_E_AC3)) {
+            adev->optical_format == AUDIO_FORMAT_E_AC3) &&
+            out->hal_rate != 32000) {
             return true;
         }
     }

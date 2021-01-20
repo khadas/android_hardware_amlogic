@@ -815,7 +815,10 @@ static int start_output_stream_direct (struct aml_stream_out *out)
         memcpy(&config, &out->config, sizeof(struct pcm_config));
         config.period_size = DEFAULT_PLAYBACK_PERIOD_SIZE * 4;
         aml_audio_set_spdif_format(port, AML_DOLBY_DIGITAL_PLUS, out);
-        aml_audio_select_spdif_to_hdmi(AML_SPDIF_B_TO_HDMITX);
+        /*because AVR can't support 32k ddp, we should always use 32k dd output*/
+        if (out->hal_rate != 32000) {
+            aml_audio_select_spdif_to_hdmi(AML_SPDIF_B_TO_HDMITX);
+        }
         out->codec_type2 = AML_DOLBY_DIGITAL_PLUS;
 
         ALOGD("%s(), pcm_open spdifb  card %u port %u\n", __func__, card, alsa_device);
