@@ -3443,10 +3443,12 @@ static int out_get_render_position (const struct audio_stream_out *stream,
     if (ret == 0)
     {
         *dsp_frames = (uint32_t)(dsp_frame_uint64 & 0xffffffff);
+    } else {
+        ret = -ENOSYS;
     }
 
     if (adev->debug_flag) {
-        ALOGD("%s,pos %d\n",__func__,*dsp_frames);
+        ALOGD("%s,pos %d ret =%d \n",__func__,*dsp_frames, ret);
     }
     return ret;
 }
