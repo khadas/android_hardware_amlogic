@@ -200,6 +200,9 @@ int aml_alsa_output_open(struct audio_stream_out *stream)
             config_raw.rate = aml_out->config.rate;//MM_FULL_POWER_SAMPLING_RATE ;
             config_raw.period_size = DEFAULT_PLAYBACK_PERIOD_SIZE * period_mul;
             config_raw.period_count = PLAYBACK_PERIOD_COUNT;
+            if ((aml_out->hal_internal_format == AUDIO_FORMAT_DTS) || (aml_out->hal_internal_format == AUDIO_FORMAT_DTS_HD)) {
+                config_raw.period_count *= 4;
+            }
             config_raw.start_threshold = DEFAULT_PLAYBACK_PERIOD_SIZE * PLAYBACK_PERIOD_COUNT;
             config_raw.format = PCM_FORMAT_S16_LE;
             config = &config_raw;
@@ -596,8 +599,19 @@ write:
 
 int aml_alsa_output_get_letancy(struct audio_stream_out *stream)
 {
-    // TODO: add implementation
-    (void) stream;
+    const struct aml_stream_out *aml_out = (const struct aml_stream_out *)stream;
+    struct aml_audio_device *adev = aml_out->dev;
+    int codec_type = get_codec_type(aml_out->hal_internal_format);
+    snd_pcm_sframes_t frames = 0;
+    if (aml_out->pcm && pcm_is_ready(aml_out->pcm)) {
+        if (pcm_ioctl(aml_out->pcm, SNDRV_PCM_IOCTL_DELAY, &frames) >= 0) {
+            if (adev->sink_format == AUDIO_FORMAT_E_AC3 || adev->sink_format == AUDIO_FORMAT_DTS_HD) {
+                frames  = frames / 4;
+            }
+            return (frames * 1000) / aml_out->config.rate;
+        }
+    }
+
     return 0;
 }
 

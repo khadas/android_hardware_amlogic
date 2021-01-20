@@ -1998,6 +1998,7 @@ static void *audio_dtv_patch_process_threadloop(void *data)
                     patch->decoder_offset = 0;
                 } else if (patch->dtv_aformat == ACODEC_FMT_DTS) {
                     patch->aformat = AUDIO_FORMAT_DTS;
+                    dts_dec->frame_info.is_iec61937 = false;
                     dca_decoder_init_patch(dts_dec);
                     patch->decoder_offset = 0;
                 } else {

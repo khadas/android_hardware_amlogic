@@ -19,11 +19,24 @@
 
 #include <hardware/audio.h>
 #include "aml_ringbuffer.h"
-#include "aml_audio_resampler.h"
 #include "aml_audio_parser.h"
 #include "aml_audio_types_def.h"
+#include "aml_audio_resample_manager.h"
 
 
+struct dts_syncword_info {
+    unsigned int syncword;
+    int syncword_pos;
+    int check_pos;
+};
+
+struct dts_frame_info {
+    bool is_dtscd;
+    bool is_iec61937;
+    bool is_little_endian;
+    int iec61937_data_type;
+    int size;
+};
 
 struct dca_dts_dec {
     unsigned char *inbuf;
@@ -33,10 +46,17 @@ struct dca_dts_dec {
     int remain_size;
     int outlen_pcm;
     int outlen_raw;
-    int is_dtscd;
     int digital_raw;
     //int (*get_parameters) (void *, int *, int *, int *);
-    int (*decoder_process)(unsigned char*, int, unsigned char *, int *, char *, int *);
+    int (*decoder_process)(unsigned char*, int, unsigned char *, int *, char *, int *,struct pcm_info *);
+    pthread_mutex_t lock;
+    struct pcm_info pcm_out_info;
+    aml_audio_resample_t *resample_handle;
+    ring_buffer_t output_ring_buf;
+    ring_buffer_t raw_ring_buf;
+    ring_buffer_t input_ring_buf;
+    struct dts_frame_info frame_info;
+    struct dts_syncword_info syncword_info;
 };
 
 int dca_decode_init(struct aml_audio_parser *parser);
