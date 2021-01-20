@@ -23,6 +23,7 @@
 #include <linux/ioctl.h>
 #include <sound/asound.h>
 #include <tinyalsa/asoundlib.h>
+#include <string.h>
 
 #include "audio_port.h"
 #include "aml_ringbuffer.h"
@@ -534,8 +535,11 @@ static ssize_t output_port_write_alsa(struct output_port *port, void *buffer, in
         if (ret == 0) {
            written += bytes;
         } else {
+           const char *err_str = pcm_get_error(port->pcm_handle);
            ALOGE("pcm_write failed ret = %d, pcm_get_error(port->pcm):%s",
-                ret, pcm_get_error(port->pcm_handle));
+                ret, err_str);
+           if (strstr(err_str, "initial") > 0)
+               pcm_ioctl(port->pcm_handle, SNDRV_PCM_IOCTL_PREPARE);
            usleep(1000);
         }
         if (written > 0 && getprop_bool("vendor.media.audiohal.inport")) {
