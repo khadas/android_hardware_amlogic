@@ -542,15 +542,6 @@ static bool is_iec61937_format(struct audio_stream_out *stream)
     return (aml_out->hal_format == AUDIO_FORMAT_IEC61937);
 }
 
-void set_dolby_ms12_runtime_pause(struct dolby_ms12_desc *ms12, int is_pause)
-{
-    char parm[12] = "";
-    sprintf(parm, "%s %d", "-pause", is_pause);
-    if ((strlen(parm) > 0) && ms12) {
-        aml_ms12_update_runtime_params(ms12, parm);
-    }
-}
-
 void set_ms12_ad_mixing_enable(struct dolby_ms12_desc *ms12, int ad_mixing_enable)
 {
     char parm[12] = "";

@@ -355,15 +355,6 @@ void set_ms12_ad_mixing_level(struct dolby_ms12_desc *ms12, int mixing_level)
         aml_ms12_update_runtime_params(ms12, parm);
 }
 
-void set_dolby_ms12_runtime_pause(struct dolby_ms12_desc *ms12, int is_pause)
-{
-    char parm[12] = "";
-    sprintf(parm, "%s %d", "-pause", is_pause);
-    if ((strlen(parm) > 0) && ms12) {
-        aml_ms12_update_runtime_params(ms12, parm);
-    }
-}
-
 void set_dolby_ms12_runtime_system_mixing_enable(struct dolby_ms12_desc *ms12, int system_mixing_enable)
 {
     char parm[12] = "";

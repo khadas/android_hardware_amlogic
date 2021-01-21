@@ -15,11 +15,13 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include <time.h>
+#include <system/audio.h>
+#include <cutils/list.h>
 #include "dolby_ms12.h"
 #include "dolby_ms12_config_params.h"
 #include "dolby_ms12_status.h"
-#include <system/audio.h>
-#include <time.h>
+
 #include "aml_ringbuffer.h"
 
 
@@ -133,6 +135,12 @@ struct dolby_ms12_desc {
     uint32_t main_buffer_max_level;
     int   dap_bypass_enable;
     float dap_bypassgain;
+    pthread_t ms12_mesg_threadID;
+    pthread_mutex_t mutex;
+    pthread_cond_t  cond;
+    bool CommThread_ExitFlag;
+    unsigned char mesg_data[64];  // not used, remove ?
+    struct listnode mesg_list;
 };
 
 /*

@@ -15,14 +15,13 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include <time.h>
+#include <system/audio.h>
+#include <cutils/list.h>
 #include "dolby_ms12.h"
 #include "dolby_ms12_config_params.h"
 #include "dolby_ms12_status.h"
 #include "aml_ringbuffer.h"
-#include <system/audio.h>
-#include <time.h>
-
-
 
 #define DOLBY_SAMPLE_SIZE 4//2ch x 2bytes(16bits) = 4 bytes
 
@@ -131,7 +130,14 @@ struct dolby_ms12_desc {
      *                      Range: 0 to 12 dB (in 1 dB steps, default is 0 dB)
      */
     int ac4_de;
-
+    /*
+     * these variables are used for ms12 message thread.
+     */
+    pthread_t ms12_mesg_threadID;
+    pthread_mutex_t mutex;
+    pthread_cond_t  cond;
+    bool CommThread_ExitFlag;
+    struct listnode mesg_list;
 };
 
 /*

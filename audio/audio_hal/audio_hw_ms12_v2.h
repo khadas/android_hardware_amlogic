@@ -175,11 +175,6 @@ void set_ms12_ad_mixing_enable(struct dolby_ms12_desc *ms12, int ad_mixing_enabl
 void set_ms12_ad_mixing_level(struct dolby_ms12_desc *ms12, int mixing_level);
 
 /*
- *@brief set dolby ms12 pause
- */
-void set_dolby_ms12_runtime_pause(struct dolby_ms12_desc *ms12, int is_pause);
-
-/*
  *@brief set dolby ms12 system mixing enable
  */
 void set_dolby_ms12_runtime_system_mixing_enable(struct dolby_ms12_desc *ms12, int sys_mixing_enable);
