@@ -638,7 +638,7 @@ int get_the_dolby_ms12_prepared(
     dolby_ms12_set_system_app_audio_mixing(adev->system_app_mixing_status);
 
     ms12->dual_bitstream_support = adev->dual_spdif_support;
-    if (ms12->sink_format == AUDIO_FORMAT_MAT) {
+    if (adev->sink_capability == AUDIO_FORMAT_MAT) {
         output_config = MS12_OUTPUT_MASK_STEREO | MS12_OUTPUT_MASK_MAT;
     } else {
         output_config = MS12_OUTPUT_MASK_DD | MS12_OUTPUT_MASK_DDP | MS12_OUTPUT_MASK_STEREO;
@@ -2244,7 +2244,10 @@ bool is_ms12_output_compatible(struct audio_stream_out *stream, audio_format_t n
     struct aml_audio_device *adev = aml_out->dev;
     struct dolby_ms12_desc *ms12 = &(adev->ms12);
 
-
+    if (adev->hdmi_format == BYPASS || adev->hdmi_format == PCM) {
+        /*for bypass case and pcm case, it is always compatible*/
+        return true;
+    }
     output_config = get_ms12_output_mask(new_sink_format, new_optical_format, false);
     is_compatible = (ms12->output_config & output_config);
     ALOGI("ms12 current out=%#x new output=%#x is_compatible=%d", ms12->output_config, output_config, is_compatible);
