@@ -181,7 +181,6 @@ int aml_ms12_bypass_checkin_data(void *phandle, const void *buffer, int32_t numB
     struct bypass_frame_item * new_frame = NULL;
     struct bypass_frame_item * last_frame = NULL;
     struct listnode *item = NULL, *n = NULL;
-    bool need_new_frame = true;
     int frame_no = 0;
     struct aml_ms12_bypass_handle *bypass_handle = (struct aml_ms12_bypass_handle *)phandle;
     if ((bypass_handle == NULL) ||
@@ -191,7 +190,7 @@ int aml_ms12_bypass_checkin_data(void *phandle, const void *buffer, int32_t numB
         ALOGE("%s Invalid parameter", __FUNCTION__);
         return -1;
     }
-    ALOGV("frame info rate=%d dependency=%d numblks=%d", data_info->samplerate, data_info->dependency_frame, data_info->numblks);
+    ALOGV("size =%d frame info rate=%d dependency=%d numblks=%d", numBytes, data_info->samplerate, data_info->dependency_frame, data_info->numblks);
     pthread_mutex_lock(&bypass_handle->list_lock);
     list_for_each_safe(item, n, &bypass_handle->frame_list) {
         frame_no++;
@@ -203,42 +202,19 @@ int aml_ms12_bypass_checkin_data(void *phandle, const void *buffer, int32_t numB
     }
     ALOGV("%s frame_no =%d", __FUNCTION__, frame_no);
     pthread_mutex_lock(&bypass_handle->list_lock);
-    if (!data_info->dependency_frame) {
-        if (!list_empty(&bypass_handle->frame_list)) {
-            item      = list_tail(&bypass_handle->frame_list);
-            last_frame = node_to_item(item, struct bypass_frame_item, list);
-            /*add this buffer to last frame*/
-            if (last_frame->numblks < DDP_FRAME_BLK_NUM) {
-                modify_bypass_frame(last_frame, buffer, numBytes);
-                last_frame->offset_end   = bypass_handle->data_offset + numBytes;
-                last_frame->numblks     += data_info->numblks;
-                bypass_handle->data_offset += numBytes;
-                need_new_frame = false;
-            }
-        }
-        if (need_new_frame)
-        {
-            new_frame = new_bypass_frame(buffer, numBytes, data_info);
-            if (new_frame) {
-                new_frame->offset_start = bypass_handle->data_offset;
-                new_frame->offset_end   = bypass_handle->data_offset + numBytes;
-                new_frame->numblks      = data_info->numblks;
-                list_add_tail(&bypass_handle->frame_list, &new_frame->list);
-                bypass_handle->data_offset += numBytes;
-            } else {
-                ret = -1;
-            }
-        }
+
+    new_frame = new_bypass_frame(buffer, numBytes, data_info);
+    if (new_frame) {
+        new_frame->offset_start = bypass_handle->data_offset;
+        new_frame->offset_end   = bypass_handle->data_offset + numBytes;
+        new_frame->numblks      = data_info->numblks;
+        list_add_tail(&bypass_handle->frame_list, &new_frame->list);
+        bypass_handle->data_offset += numBytes;
     } else {
-        if (!list_empty(&bypass_handle->frame_list)) {
-            item      = list_tail(&bypass_handle->frame_list);
-            new_frame = node_to_item(item, struct bypass_frame_item, list);
-            modify_bypass_frame(new_frame, buffer, numBytes);
-            new_frame->offset_end   = bypass_handle->data_offset + numBytes;
-            new_frame->numblks      = data_info->numblks;
-            bypass_handle->data_offset += numBytes;
-        }
+        ret = -1;
     }
+
+
     pthread_mutex_unlock(&bypass_handle->list_lock);
 
     if (new_frame) {
