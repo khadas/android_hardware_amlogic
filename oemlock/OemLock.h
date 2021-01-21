@@ -39,7 +39,7 @@ using ::android::hardware::Return;
 
 struct OemLock : public IOemLock {
     OemLock() {
-        mSysCtrl = new SystemControlClient();
+        mSysCtrl = SystemControlClient::getInstance();
     }
 
     // Methods from ::android::hardware::oemlock::V1_0::IOemLock follow.

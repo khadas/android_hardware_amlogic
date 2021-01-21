@@ -5,9 +5,11 @@
 android::SystemControlClient *mSystemControl;
 
 size_t FileSystem_create() {
-    mSystemControl = new android::SystemControlClient();
-    if (mSystemControl == NULL)
-        return -1;
+    if (mSystemControl == NULL) {
+        mSystemControl = android::SystemControlClient::getInstance();
+        if (mSystemControl == NULL)
+            return -1;
+    }
     return 0;
 }
 
@@ -43,7 +45,6 @@ size_t FileSystem_release() {
     if (mSystemControl == NULL)
         return -1;
 
-    delete mSystemControl;
     mSystemControl = NULL;
     return 0;
 }
