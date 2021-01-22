@@ -116,16 +116,20 @@ static audio_channel_mask_t get_dolby_channel_mask(const unsigned char *frameBuf
     }
 }
 
-static int hw_audio_format_detection(struct aml_mixer_handle *mixer_handle)
+static int hdmiin_audio_format_detection(struct aml_mixer_handle *mixer_handle)
 {
     int type = 0;
-    type = aml_mixer_ctrl_get_int(mixer_handle,AML_MIXER_ID_SPDIFIN_AUDIO_TYPE);
-    if (type >= LPCM && type <= DTS) {
+
+    if (alsa_device_is_auge())
+        type = aml_mixer_ctrl_get_int(mixer_handle, AML_MIXER_ID_HDMIIN_AUDIO_TYPE);
+    else
+        type = aml_mixer_ctrl_get_int(mixer_handle, AML_MIXER_ID_SPDIFIN_AUDIO_TYPE);
+
+    if (type >= LPCM && type <= PAUSE) {
         return type;
     } else {
         return LPCM;
     }
-
 }
 
 int audio_type_parse(void *buffer, size_t bytes, int *package_size, audio_channel_mask_t *cur_ch_mask)
@@ -344,10 +348,11 @@ void* audio_type_parse_threadloop(void *data)
                 }
             }
 #endif
-            if (alsa_device_is_auge()) {
+            /*if (alsa_device_is_auge()) {
                 audio_type_status->cur_audio_type = LPCM;
+                ALOGI("[%s:%d]  LPCM cur_audio_type:%d", __func__, __LINE__, audio_type_status->cur_audio_type);
                 continue;
-            }
+            }*/
 
             audio_type_status->cur_audio_type = audio_type_parse(audio_type_status->parse_buffer,
                                                 bytes, &(audio_type_status->package_size), &(audio_type_status->audio_ch_mask));
@@ -356,7 +361,7 @@ void* audio_type_parse_threadloop(void *data)
             //we use the hw audio format detection.
             //TODO
             if (!txlx_chip && audio_type_status->cur_audio_type == LPCM) {
-                audio_type_status->cur_audio_type = hw_audio_format_detection(audio_type_status->mixer_handle);
+                audio_type_status->cur_audio_type = hdmiin_audio_format_detection(audio_type_status->mixer_handle);
             }
 
             memcpy(audio_type_status->parse_buffer, audio_type_status->parse_buffer + bytes, 3);
