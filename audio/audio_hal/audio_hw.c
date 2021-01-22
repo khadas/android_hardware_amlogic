@@ -1582,6 +1582,7 @@ static int out_set_parameters (struct audio_stream *stream, const char *kvpairs)
             if (adev->hw_mediasync != NULL) {
                 out->hwsync->use_mediasync = true;
                 out->hwsync->mediasync = adev->hw_mediasync;
+                out->hwsync->hwsync_id = hw_sync_id;
                 ret_set_id = aml_audio_hwsync_set_id(out->hwsync, hw_sync_id);
             }
         }
@@ -2111,7 +2112,8 @@ static int out_flush_new (struct audio_stream_out *stream)
         //normal pcm(mixer thread) do not flush dolby ms12 input buffer
         if (continous_mode(adev) && (out->flags & AUDIO_OUTPUT_FLAG_DIRECT)) {
             pthread_mutex_lock(&ms12->lock);
-            audiohal_send_msg_2_ms12(ms12, MS12_MESG_TYPE_FLUSH);
+            if (adev->ms12.dolby_ms12_enable)
+                audiohal_send_msg_2_ms12(ms12, MS12_MESG_TYPE_FLUSH);
             out->continuous_audio_offset = 0;
             /*SWPL-39814, when using exo do seek, sometimes audio track will be reused, then the
              *sequece will be pause->flush->writing data, we need to handle this.
@@ -5022,7 +5024,8 @@ static void adev_close_output_stream(struct audio_hw_device *dev,
     aml_audio_free(out->tmp_buffer_8ch);
     if (out->hwsync) {
         // release hwsync resource ..zzz
-        aml_audio_hwsync_release(out->hwsync);
+        if (adev->hw_mediasync && (adev->hw_mediasync == out->hwsync->mediasync))
+            aml_audio_hwsync_release(out->hwsync);
         if (out->hwsync->mediasync) {
             //free(out->hwsync->mediasync);
             out->hwsync->mediasync = NULL;
@@ -6852,7 +6855,7 @@ int do_output_standby_l(struct audio_stream *stream)
     ALOGI("[%s:%d] stream usecase:%s , continuous:%d", __func__, __LINE__,
         usecase2Str(aml_out->usecase), adev->continuous_audio_mode);
 
-    if ((aml_out->out_device & AUDIO_DEVICE_OUT_ALL_A2DP) && adev->a2dp_hal) {
+    if (aml_out->out_device & AUDIO_DEVICE_OUT_ALL_A2DP) {
         if ((eDolbyMS12Lib == adev->dolby_lib_type) && (ms12->dolby_ms12_enable == true)) {
             get_dolby_ms12_cleanup(&adev->ms12);
         }
@@ -7922,7 +7925,7 @@ ssize_t hw_write (struct audio_stream_out *stream
                     memset(buf, 0, 1024);
                     while (adjust_bytes > 0) {
                         write_size = adjust_bytes > 1024 ? 1024 : adjust_bytes;
-                        if (adev->out_device & AUDIO_DEVICE_OUT_ALL_A2DP) {
+                        if (adev->active_outport == OUTPORT_A2DP) {
                             ret = a2dp_out_write(stream, (void*)buf, write_size);
                         } else if (is_sco_port(adev->active_outport)) {
                             ret = write_to_sco(stream, buffer, bytes);
@@ -7947,7 +7950,7 @@ ssize_t hw_write (struct audio_stream_out *stream
                 }
             }
         }
-        if (adev->out_device & AUDIO_DEVICE_OUT_ALL_A2DP) {
+        if (adev->active_outport == OUTPORT_A2DP) {
             ret = a2dp_out_write(stream, buffer, bytes);
         } else if (is_sco_port(adev->active_outport)) {
             ret = write_to_sco(stream, buffer, bytes);
@@ -8611,6 +8614,22 @@ ssize_t mixer_main_buffer_write (struct audio_stream_out *stream, const void *bu
         }
     }
 
+    if (aml_out->hw_sync_mode) {
+        // when connect bt, bt stream maybe open before hdmi stream close,
+        // bt stream mediasync is set to adev->hw_mediasync, and it would be
+        // release in hdmi stream close, so bt stream mediasync is invalid
+        if ((aml_out->hwsync->mediasync != NULL) && (adev->hw_mediasync == NULL)) {
+            adev->hw_mediasync = aml_hwsync_mediasync_create();
+            aml_out->hwsync->use_mediasync = true;
+            aml_out->hwsync->mediasync = adev->hw_mediasync;
+            ret = aml_audio_hwsync_set_id(aml_out->hwsync, aml_out->hwsync->hwsync_id);
+            if (!ret)
+                ALOGD("%s: aml_audio_hwsync_set_id fail: ret=%d, id=%d", __func__, ret, aml_out->hwsync->hwsync_id);
+            aml_audio_hwsync_init(aml_out->hwsync, aml_out);
+            if (eDolbyMS12Lib == adev->dolby_lib_type)
+                dolby_ms12_hwsync_init();
+        }
+    }
     // why clean up, ms12 thead will handle all?? zz
     if (eDolbyMS12Lib == adev->dolby_lib_type) {
         if (patch && continous_mode(adev)) {
