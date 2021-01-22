@@ -116,7 +116,7 @@ int dolby_ms12_main_pause(struct audio_stream_out *stream)
     if (aml_out->hw_sync_mode && aml_out->tsync_status != TSYNC_STATUS_PAUSED) {
         //ALOGI(" %s  delay 150ms", __func__);
         //usleep(150 * 1000);
-        sysfs_set_sysfs_str(TSYNC_EVENT, "AUDIO_PAUSE");
+        aml_hwsync_set_tsync_pause(aml_out->hwsync);
         aml_out->tsync_status = TSYNC_STATUS_PAUSED;
     }
 
