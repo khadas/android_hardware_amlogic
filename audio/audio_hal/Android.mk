@@ -57,8 +57,6 @@ include $(BUILD_PREBUILT)
         aml_audio_stream.c \
         alsa_config_parameters.c \
         spdif_encoder_api.c \
-        audio_eq_drc_compensation.cpp \
-        audio_eq_drc_parser.cpp \
         aml_ac3_parser.c \
         aml_dcv_dec_api.c \
         aml_dca_dec_api.c \
@@ -92,7 +90,11 @@ include $(BUILD_PREBUILT)
         aml_audio_spdifdec.c \
         aml_audio_spdifout.c \
         aml_audio_hal_avsync.c \
-        aml_audio_ms12_sync.c
+        aml_audio_ms12_sync.c \
+        ../amlogic_AQ_tools/audio_eq_drc_compensation.c \
+        ../amlogic_AQ_tools/audio_eq_drc_parser.c \
+        ../amlogic_AQ_tools/ini/dictionary.c \
+        ../amlogic_AQ_tools/ini/iniparser.c
 
     LOCAL_C_INCLUDES += \
         external/tinyalsa/include \
@@ -110,12 +112,18 @@ include $(BUILD_PREBUILT)
         $(LOCAL_PATH)/../../LibAudio/amadec/include \
         $(LOCAL_PATH)/../bt_voice/kehwin \
         vendor/amlogic/common/prebuilt/dvb/include/am_adp \
-	    frameworks/av/include \
+        frameworks/av/include \
         $(TOPDIR)frameworks/av/media/libaudioclient/include \
         $(TOPDIR)frameworks/av/media/libaudioprocessing/include \
-        hardware/amlogic/audio/dtv_audio_utils/sync
+        hardware/amlogic/audio/dtv_audio_utils/sync \
+        $(LOCAL_PATH)/../amlogic_AQ_tools \
+        $(LOCAL_PATH)/../amlogic_AQ_tools/ini
 
-    LOCAL_LDFLAGS_arm += $(LOCAL_PATH)/lib_aml_ng.a
+    LOCAL_LDFLAGS_arm += $(LOCAL_PATH)/../amlogic_AQ_tools/lib_aml_ng.a
+    LOCAL_LDFLAGS_arm += $(LOCAL_PATH)/../amlogic_AQ_tools/Amlogic_EQ_Param_Generator.a
+    LOCAL_LDFLAGS_arm += $(LOCAL_PATH)/../amlogic_AQ_tools/Amlogic_DRC_Param_Generator.a
+    LOCAL_LDFLAGS_arm64 += $(LOCAL_PATH)/../amlogic_AQ_tools/Amlogic_EQ_Param_Generator64.a
+    LOCAL_LDFLAGS_arm64 += $(LOCAL_PATH)/../amlogic_AQ_tools/Amlogic_DRC_Param_Generator64.a
     LOCAL_LDFLAGS_arm += $(LOCAL_PATH)/../bt_voice/kehwin/32/btmic.a
     LOCAL_LDFLAGS_arm64 += $(LOCAL_PATH)/../bt_voice/kehwin/64/btmic.a
 

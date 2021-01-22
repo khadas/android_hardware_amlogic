@@ -3438,10 +3438,6 @@ static int out_add_audio_effect (const struct audio_stream *stream, effect_handl
     struct aml_audio_device *dev = out->dev;
     int i;
     int status = 0;
-    // TODO:
-    /************/
-    return 0;
-    /************/
 
     pthread_mutex_lock (&dev->lock);
     pthread_mutex_lock (&out->lock);
@@ -3471,10 +3467,7 @@ static int out_remove_audio_effect (const struct audio_stream *stream, effect_ha
     int i;
     int status = -EINVAL;
     bool found = false;
-    // TODO:
-    /************/
-    return 0;
-    /************/
+
     pthread_mutex_lock (&dev->lock);
     pthread_mutex_lock (&out->lock);
     if (dev->native_postprocess.num_postprocessors <= 0) {
@@ -5910,13 +5903,26 @@ static int adev_set_parameters (struct audio_hw_device *dev, const char *kvpairs
 
 
     }
+
     ret = str_parms_get_str(parms, "SOURCE_GAIN", value, sizeof(value));
     if (ret >= 0) {
-        sscanf(value,"%f %f %f %f", &adev->eq_data.s_gain.atv, &adev->eq_data.s_gain.dtv,
-                &adev->eq_data.s_gain.hdmi, &adev->eq_data.s_gain.av);
-        ALOGI("%s() audio source gain: atv:%f, dtv:%f, hdmiin:%f, av:%f", __func__,
-        adev->eq_data.s_gain.atv, adev->eq_data.s_gain.dtv,
-        adev->eq_data.s_gain.hdmi, adev->eq_data.s_gain.av);
+        float fAtvGainDb = 0, fDtvGainDb = 0, fHdmiGainDb = 0, fAvGainDb = 0, fMediaGainDb = 0;
+        sscanf(value,"%f %f %f %f %f", &fAtvGainDb, &fDtvGainDb, &fHdmiGainDb, &fAvGainDb, &fMediaGainDb);
+        ALOGI("%s() audio source gain: atv:%f, dtv:%f, hdmiin:%f, av:%f, media:%f", __func__,
+        fAtvGainDb, fDtvGainDb, fHdmiGainDb, fAvGainDb, fMediaGainDb);
+        adev->eq_data.s_gain.atv = DbToAmpl(fAtvGainDb);
+        adev->eq_data.s_gain.dtv = DbToAmpl(fDtvGainDb);
+        adev->eq_data.s_gain.hdmi = DbToAmpl(fHdmiGainDb);
+        adev->eq_data.s_gain.av = DbToAmpl(fAvGainDb);
+        adev->eq_data.s_gain.media = DbToAmpl(fMediaGainDb);
+        goto exit;
+    }
+
+    ret = str_parms_get_str(parms, "SOURCE_MUTE", value, sizeof(value));
+    if (ret >= 0) {
+        sscanf(value,"%d", &adev->source_mute);
+        ALOGI("%s() set audio source mute: %s",__func__,
+            adev->source_mute?"mute":"unmute");
         goto exit;
     }
 
@@ -6283,8 +6289,8 @@ static char * adev_get_parameters (const struct audio_hw_device *dev,
         sprintf (temp_buf, "is_passthrough_active=%d",active);
         return  strdup (temp_buf);
     } else if (!strcmp(keys, "SOURCE_GAIN")) {
-        sprintf(temp_buf, "source_gain = %f %f %f %f", adev->eq_data.s_gain.atv, adev->eq_data.s_gain.dtv,
-                adev->eq_data.s_gain.hdmi, adev->eq_data.s_gain.av);
+        sprintf(temp_buf, "source_gain = %f %f %f %f %f", adev->eq_data.s_gain.atv, adev->eq_data.s_gain.dtv,
+                adev->eq_data.s_gain.hdmi, adev->eq_data.s_gain.av, adev->eq_data.s_gain.media);
         return strdup(temp_buf);
     } else if (!strcmp(keys, "POST_GAIN")) {
         sprintf(temp_buf, "post_gain = %f %f %f", adev->eq_data.p_gain.speaker, adev->eq_data.p_gain.spdif_arc,
@@ -6297,7 +6303,11 @@ static char * adev_get_parameters (const struct audio_hw_device *dev,
         return  strdup(temp_buf);
     } else if (strstr(keys, "isReconfigA2dpSupported")) {
         return  strdup("isReconfigA2dpSupported=1");
+    } else if (!strcmp(keys, "SOURCE_MUTE")) {
+        sprintf(temp_buf, "source_mute = %d", adev->source_mute);
+        return strdup(temp_buf);
     }
+
     else if (strstr (keys, "stream_dra_channel") ) {
        if (adev->audio_patch != NULL && adev->patch_src == SRC_DTV) {
           if (adev->audio_patch->dtv_NchOriginal > 8 || adev->audio_patch->dtv_NchOriginal < 1) {
@@ -7579,8 +7589,7 @@ ssize_t audio_hal_data_processing(struct audio_stream_out *stream,
             else if (adev->patch_src == SRC_ATV)
                 source_gain = adev->eq_data.s_gain.atv;
             else
-                source_gain = 1.0;
-
+                source_gain = adev->eq_data.s_gain.media;
             if (adev->patch_src == SRC_DTV && adev->audio_patch != NULL) {
                 aml_audio_switch_output_mode((int16_t *)effect_tmp_buf, bytes, adev->audio_patch->mode);
             } else if ( adev->audio_patch == NULL) {
@@ -11232,10 +11241,10 @@ static int adev_create_audio_patch(struct audio_hw_device *dev,
         }
         if (input_src == LINEIN && aml_dev->aml_ng_enable) {
             aml_dev->aml_ng_handle = init_noise_gate(aml_dev->aml_ng_level,
-                                     aml_dev->aml_ng_attrack_time, aml_dev->aml_ng_release_time);
+                                     aml_dev->aml_ng_attack_time, aml_dev->aml_ng_release_time);
             ALOGE("%s: init amlogic noise gate: level: %fdB, attrack_time = %dms, release_time = %dms",
                   __func__, aml_dev->aml_ng_level,
-                  aml_dev->aml_ng_attrack_time, aml_dev->aml_ng_release_time);
+                  aml_dev->aml_ng_attack_time, aml_dev->aml_ng_release_time);
         }
     }
     return 0;
@@ -11957,18 +11966,18 @@ static int adev_open(const hw_module_t* module, const char* name, hw_device_t** 
 
     adev->eq_data.card = adev->card;
     if (eq_drc_init(&adev->eq_data) == 0) {
-        ALOGI("%s() audio source gain: atv:%f, dtv:%f, hdmiin:%f, av:%f", __func__,
+        ALOGI("%s() audio source gain: atv:%f, dtv:%f, hdmiin:%f, av:%f, media:%f", __func__,
            adev->eq_data.s_gain.atv, adev->eq_data.s_gain.dtv,
-           adev->eq_data.s_gain.hdmi, adev->eq_data.s_gain.av);
+           adev->eq_data.s_gain.hdmi, adev->eq_data.s_gain.av, adev->eq_data.s_gain.media);
         ALOGI("%s() audio device gain: speaker:%f, spdif_arc:%f, headphone:%f", __func__,
            adev->eq_data.p_gain.speaker, adev->eq_data.p_gain.spdif_arc,
               adev->eq_data.p_gain.headphone);
-        adev->aml_ng_enable = adev->eq_data.p_attr->aml_ng_enable;
-        adev->aml_ng_level = adev->eq_data.p_attr->aml_ng_level;
-        adev->aml_ng_attrack_time = adev->eq_data.p_attr->aml_ng_attrack_time;
-        adev->aml_ng_release_time = adev->eq_data.p_attr->aml_ng_release_time;
-        ALOGI("%s() audio noise gate level: %fdB, attrack_time = %dms, release_time = %dms", __func__,
-              adev->aml_ng_level, adev->aml_ng_attrack_time, adev->aml_ng_release_time);
+        adev->aml_ng_enable = adev->eq_data.noise_gate.aml_ng_enable;
+        adev->aml_ng_level = adev->eq_data.noise_gate.aml_ng_level;
+        adev->aml_ng_attack_time = adev->eq_data.noise_gate.aml_ng_attack_time;
+        adev->aml_ng_release_time = adev->eq_data.noise_gate.aml_ng_release_time;
+        ALOGI("%s() audio noise gate level: %fdB, attack_time = %dms, release_time = %dms", __func__,
+              adev->aml_ng_level, adev->aml_ng_attack_time, adev->aml_ng_release_time);
     }
 
     ret = aml_audio_output_routing(&adev->hw_device, OUTPORT_SPEAKER, false);
