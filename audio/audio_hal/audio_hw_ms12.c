@@ -1693,6 +1693,7 @@ int dolby_ms12_main_open(struct audio_stream_out *stream) {
     struct aml_audio_device *adev = aml_out->dev;
     struct dolby_ms12_desc *ms12 = &(adev->ms12);
 
+    ms12->ms12_main_stream_out = aml_out;
     ms12->main_input_fmt = aml_out->hal_internal_format;
     aml_out->is_ms12_main_decoder = true;
     return 0;
@@ -1706,6 +1707,7 @@ int dolby_ms12_main_close(struct audio_stream_out *stream) {
     ms12->is_bypass_ms12 = false;
     adev->ms12.main_input_fmt = AUDIO_FORMAT_PCM_16_BIT;
     aml_out->is_ms12_main_decoder = false;
+    ms12->ms12_main_stream_out = NULL;
     /*the main stream is closed, we should update the sink format now*/
     if (adev->active_outputs[STREAM_PCM_NORMAL]) {
         get_sink_format(&adev->active_outputs[STREAM_PCM_NORMAL]->stream);

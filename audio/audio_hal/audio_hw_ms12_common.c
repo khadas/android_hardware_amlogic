@@ -222,15 +222,20 @@ Repop_Mesg:
         ALOGD("%s(), msg type: %s", __func__, mesg_type_2_string[mesg_p->mesg_type]);
         pthread_mutex_unlock(&ms12->mutex);
 
+        while (NULL == ms12->ms12_main_stream_out && true != ms12->CommThread_ExitFlag) {
+            ALOGV("%s  ms12_out:%p, waiting ==> ms12_main_stream_out:%p", __func__,adev->ms12_out,ms12->ms12_main_stream_out);
+            aml_audio_sleep(5000); //sleep 5ms
+        };
+        ALOGV("%s  ms12_out:%p, ==> ms12_main_stream_out:%p", __func__,adev->ms12_out,ms12->ms12_main_stream_out);
         switch (mesg_p->mesg_type) {
             case MS12_MESG_TYPE_FLUSH:
-                dolby_ms12_main_flush(&adev->ms12_out->stream);
+                dolby_ms12_main_flush(&ms12->ms12_main_stream_out->stream);//&adev->ms12_out->stream
                 break;
             case MS12_MESG_TYPE_PAUSE:
-                dolby_ms12_main_pause(&adev->ms12_out->stream);
+                dolby_ms12_main_pause(&ms12->ms12_main_stream_out->stream);
                 break;
             case MS12_MESG_TYPE_RESUME:
-                dolby_ms12_main_resume(&adev->ms12_out->stream);
+                dolby_ms12_main_resume(&ms12->ms12_main_stream_out->stream);
                 break;
             case MS12_MESG_TYPE_SET_MAIN_DUMMY:
                 break;

@@ -135,12 +135,16 @@ struct dolby_ms12_desc {
     uint32_t main_buffer_max_level;
     int   dap_bypass_enable;
     float dap_bypassgain;
+    /*
+     * these variables are used for ms12 message thread.
+     */
     pthread_t ms12_mesg_threadID;
     pthread_mutex_t mutex;
     pthread_cond_t  cond;
     bool CommThread_ExitFlag;
-    unsigned char mesg_data[64];  // not used, remove ?
     struct listnode mesg_list;
+    struct aml_stream_out *ms12_main_stream_out;
+    struct aml_stream_out *ms12_app_stream_out; /*Reserve for extension*/
 };
 
 /*

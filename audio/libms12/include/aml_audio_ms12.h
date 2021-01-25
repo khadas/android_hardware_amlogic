@@ -138,6 +138,8 @@ struct dolby_ms12_desc {
     pthread_cond_t  cond;
     bool CommThread_ExitFlag;
     struct listnode mesg_list;
+    struct aml_stream_out *ms12_main_stream_out;
+    struct aml_stream_out *ms12_app_stream_out; /*Reserve for extension*/
 };
 
 /*
