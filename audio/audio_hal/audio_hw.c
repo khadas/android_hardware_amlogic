@@ -11760,15 +11760,15 @@ static int adev_open(const hw_module_t* module, const char* name, hw_device_t** 
         ret = -ENOMEM;
         goto err_adev;
     }
+    adev->effect_buf_size = buffer_size;
     memset(adev->effect_buf, 0, buffer_size);
-    adev->spk_output_buf = aml_audio_malloc(buffer_size);
+    adev->spk_output_buf = aml_audio_malloc(adev->effect_buf_size * 2);
     if (adev->spk_output_buf == NULL) {
         ALOGE("no memory for headphone output buffer");
         ret = -ENOMEM;
         goto err_effect_buf;
     }
-    memset(adev->spk_output_buf, 0, buffer_size);
-    adev->effect_buf_size = buffer_size;
+    memset(adev->spk_output_buf, 0, adev->effect_buf_size * 2);
 
     /* init speaker tuning buffers */
     ret = ring_buffer_init(&(adev->spk_tuning_rbuf), spk_tuning_buf_size);
