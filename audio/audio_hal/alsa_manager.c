@@ -902,7 +902,7 @@ int aml_alsa_output_getinfo(void *handle, alsa_info_type_t type, alsa_output_inf
             return -1;
         }
         if (alsa_handle->format == AUDIO_FORMAT_MAT) {
-            rate_multiply = 16;
+            rate_multiply = 4;
         } else if (alsa_handle->format == AUDIO_FORMAT_E_AC3) {
             rate_multiply = 4;
         }

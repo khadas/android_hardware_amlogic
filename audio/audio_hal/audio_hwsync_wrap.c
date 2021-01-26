@@ -162,7 +162,7 @@ void aml_hwsync_wrap_set_tsync_resume(audio_hwsync_t *p_hwsync)
 
 void aml_hwsync_wrap_set_tsync_stop(audio_hwsync_t *p_hwsync)
 {
-    ALOGI("%s(), send resuem event", __func__);
+    ALOGI("%s(), send stop event", __func__);
     if (!p_hwsync->use_mediasync) {
         return aml_hwsync_wrap_single_set_tsync_stop();
     }
@@ -194,13 +194,13 @@ int aml_hwsync_wrap_set_tsync_start_pts64(audio_hwsync_t *p_hwsync, uint64_t pts
 
 int aml_hwsync_wrap_get_tsync_pts(audio_hwsync_t *p_hwsync, uint32_t *pts)
 {
-    ALOGI("%s(), [To do ]get tsync pts", __func__);
+    int64_t pts64 = 0;
+    ALOGV("%s(), get tsync pts", __func__);
     if (!p_hwsync->use_mediasync) {
         return aml_hwsync_wrap_single_get_tsync_pts(pts);
     }
-    /*To do*/
-    (void)p_hwsync;
-    (void)pts;
+    mediasync_wrap_getMediaTime(p_hwsync->mediasync, systemTime(SYSTEM_TIME_MONOTONIC) / 1000LL, &pts64, 0);
+    *pts = pts64;
     return 0;
 }
 

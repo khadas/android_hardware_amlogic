@@ -203,6 +203,11 @@ bool is_need_reset_ms12_continuous(struct audio_stream_out *stream);
 
 bool is_ms12_output_compatible(struct audio_stream_out *stream, audio_format_t new_sink_format, audio_format_t new_optical_format);
 
+/*
+ *@brief get ms12 pipeline latency
+ */
+int dolby_ms12_main_pipeline_latency_frames(struct audio_stream_out *stream);
+
 #endif //end of _AUDIO_HW_MS12_H_
 
 #else

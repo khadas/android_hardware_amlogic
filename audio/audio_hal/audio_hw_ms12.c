@@ -1938,3 +1938,11 @@ bool is_ms12_output_compatible(struct audio_stream_out *stream, audio_format_t n
 
 }
 
+int dolby_ms12_main_pipeline_latency_frames(struct audio_stream_out *stream) {
+    struct aml_stream_out *aml_out = (struct aml_stream_out *)stream;
+    struct aml_audio_device *adev = aml_out->dev;
+    struct dolby_ms12_desc *ms12 = &(adev->ms12);
+    /*after enable ms12 v1.3.2, we need implement it*/
+    return 0;
+}
+

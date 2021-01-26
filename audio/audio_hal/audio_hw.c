@@ -4952,6 +4952,7 @@ static void adev_close_output_stream(struct audio_hw_device *dev,
     } else {
         out_standby_new(&stream->common);
     }
+
     adev->usecase_masks &= ~(1 << out->usecase);
 
     if (continous_mode(adev) && (eDolbyMS12Lib == adev->dolby_lib_type)) {
@@ -7836,13 +7837,13 @@ ssize_t hw_write (struct audio_stream_out *stream
             // in this case dolby_ms12_get_consumed_payload() always return 0, no AV sync can be done zzz
             if (aml_out->hwsync->aout) {
                 if (is_bypass_dolbyms12(stream))
-                    aml_audio_hwsync_audio_process(aml_out->hwsync, aml_out->hwsync->payload_offset, &adjust_ms);
+                    aml_audio_hwsync_audio_process(aml_out->hwsync, aml_out->hwsync->payload_offset, out_frames, &adjust_ms);
                 else {
                     if (!audio_is_linear_pcm(aml_out->hal_internal_format)) {
                         /*if udc decode doens't generate any data, we should not use the consume offset to get pts*/
                         ALOGV("udc generate pcm =%lld", dolby_ms12_get_main_pcm_generated(stream));
                         if (dolby_ms12_get_main_pcm_generated(stream)) {
-                            aml_audio_hwsync_audio_process(aml_out->hwsync, dolby_ms12_get_main_bytes_consumed(stream), &adjust_ms);
+                            aml_audio_hwsync_audio_process(aml_out->hwsync, dolby_ms12_get_main_bytes_consumed(stream), out_frames, &adjust_ms);
                         }
                     } else {
                         /* because the pcm consumed playload offset is at the end of consume buffer,
@@ -7851,10 +7852,7 @@ ssize_t hw_write (struct audio_stream_out *stream
                          */
                         uint64_t consume_payload = dolby_ms12_get_main_bytes_consumed(stream);
                         uint32_t ms12_frame_bytes = 1536 * aml_out->hal_frame_size;
-                        if (consume_payload >= ms12_frame_bytes) {
-                            consume_payload -= ms12_frame_bytes;
-                            aml_audio_hwsync_audio_process(aml_out->hwsync, consume_payload, &adjust_ms);
-                        }
+                        aml_audio_hwsync_audio_process(aml_out->hwsync, consume_payload, out_frames, &adjust_ms);
                     }
                 }
             } else {

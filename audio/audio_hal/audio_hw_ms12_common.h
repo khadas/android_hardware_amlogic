@@ -60,6 +60,12 @@ int dolby_ms12_main_resume(struct audio_stream_out *stream);
 bool ms12_msg_list_is_empty(struct dolby_ms12_desc *ms12);
 
 /*
+ *@brief check whether the mesg list is empty
+ */
+
+bool ms12_msg_list_is_empty(struct dolby_ms12_desc *ms12);
+
+/*
  *@brief Receive message from audiohal to ms12.
  */
 int audiohal_send_msg_2_ms12(struct dolby_ms12_desc *ms12, ms12_mesg_type_t mesg_type);

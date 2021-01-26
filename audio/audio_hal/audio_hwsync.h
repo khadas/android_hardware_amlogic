@@ -84,6 +84,8 @@ typedef struct  audio_hwsync {
     bool use_mediasync;
     void* mediasync;
     int hwsync_id;
+    uint32_t last_output_pts;
+    struct timespec  last_timestamp;
 } audio_hwsync_t;
 static inline bool hwsync_header_valid(uint8_t *header)
 {
@@ -145,7 +147,7 @@ int aml_audio_hwsync_find_frame(audio_hwsync_t *p_hwsync,
 int aml_audio_hwsync_set_first_pts(audio_hwsync_t *p_hwsync, uint64_t pts);
 int aml_audio_hwsync_checkin_apts(audio_hwsync_t *p_hwsync, size_t offset, unsigned apts);
 int aml_audio_hwsync_lookup_apts(audio_hwsync_t *p_hwsync, size_t offset, unsigned *p_apts);
-int aml_audio_hwsync_audio_process(audio_hwsync_t *p_hwsync, size_t offset, int *p_adjust_ms);
+int aml_audio_hwsync_audio_process(audio_hwsync_t *p_hwsync, size_t offset, int frame_len, int *p_adjust_ms);
 void aml_audio_hwsync_release(audio_hwsync_t *p_hwsync);
 bool aml_audio_hwsync_get_id(audio_hwsync_t *p_hwsync, int32_t* id);
 bool aml_audio_hwsync_set_id(audio_hwsync_t *p_hwsync, uint32_t id);

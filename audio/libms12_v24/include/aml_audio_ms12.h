@@ -37,6 +37,8 @@ enum {
 struct bitstream_out_desc {
     audio_format_t audio_format;
     void *spdifout_handle;
+    int  need_drop_frame;
+    bool is_bypass_ms12;
 };
 
 struct dolby_ms12_desc {
@@ -145,6 +147,9 @@ struct dolby_ms12_desc {
     struct listnode mesg_list;
     struct aml_stream_out *ms12_main_stream_out;
     struct aml_stream_out *ms12_app_stream_out; /*Reserve for extension*/
+    uint64_t dap_pcm_frames;
+    uint64_t stereo_pcm_frames;
+    uint64_t master_pcm_frames;
 };
 
 /*

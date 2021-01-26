@@ -33,6 +33,20 @@
 #define SYSTEM_INPUT_STREAM 0
 #define RESERVED_LENGTH 31
 
+#define AUDIO_2MAIN_MIXER_NODE           0xFF000001UL
+#define AUDIO_2MAIN_MIXER_NODE_PRIMARY   0xFF000002UL
+#define AUDIO_2MAIN_MIXER_NODE_SECONDARY 0xFF000003UL
+#define AUDIO_2MAIN_MIXER_NODE_SYSTEM    0xFF000004UL
+
+#define AUDIO_SYSTEM_MIXER_NODE          0xFF000010UL
+#define AUDIO_AD_MIXER_NODE              0xFF000020UL
+
+
+#define MIXER_PRIMARY_INPUT   0
+#define MIXER_SECONDARY_INPUT 1
+#define MIXER_SYSTEM_INPUT    2
+
+
 /*
  *@brief get dolby ms12 prepared
  */
@@ -233,5 +247,10 @@ bool is_ms12_output_compatible(struct audio_stream_out *stream, audio_format_t n
  *@brief dynamicly set dolby ms12 drc parameters
  */
 void dynamic_set_dolby_ms12_drc_parameters(struct dolby_ms12_desc *ms12);
+
+/*
+ *@brief get ms12 pipeline latency
+ */
+int dolby_ms12_main_pipeline_latency_frames(struct audio_stream_out *stream);
 
 #endif //end of _AUDIO_HW_MS12_H_

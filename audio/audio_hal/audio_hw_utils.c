@@ -1317,11 +1317,14 @@ bool is_disable_ms12_continuous(struct audio_stream_out *stream) {
     } else if (is_high_rate_pcm(stream) || is_multi_channel_pcm(stream)) {
         /*high bit rate pcm case, we need disable ms12 continuous mode*/
         return true;
-    } else if ((aml_out->hal_internal_format == AUDIO_FORMAT_AC3 \
-               || aml_out->hal_internal_format == AUDIO_FORMAT_E_AC3)
-               && (aml_out->hal_rate == 48000 || aml_out->hal_rate == 192000)) {
+    } else if (aml_out->hal_internal_format == AUDIO_FORMAT_AC3 \
+               || aml_out->hal_internal_format == AUDIO_FORMAT_E_AC3) {
         /*only support 48kz ddp/dd*/
-        return false;
+        if (aml_out->hal_rate == 48000 || aml_out->hal_rate == 192000) {
+            return false;
+        } else {
+            return true;
+        }
     } else if (aml_out->hal_format == AUDIO_FORMAT_IEC61937) {
         return true;
     }
