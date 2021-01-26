@@ -11,13 +11,13 @@ int audio_hal_start_decoder(int fmt, int has_video) {
    char temp_buf[64] = {0};
    int ret = aml_audioport->createAudioPatch();
    if (ret == NO_ERROR) {
-      aml_audioport->setParameters(String8("tuner_in=dtv"));
-      sprintf (temp_buf, "fmt=%d", fmt);
+      aml_audioport->setParameters(String8("hal_param_tuner_in=dtv"));
+      sprintf (temp_buf, "hal_param_dtv_audio_fmt=%d", fmt);
       aml_audioport->setParameters(String8(temp_buf));
       memset(temp_buf,0,sizeof(temp_buf));
-      sprintf (temp_buf, "has_dtv_video=%d", has_video);
+      sprintf (temp_buf, "hal_param_has_dtv_video=%d", has_video);
       aml_audioport->setParameters(String8(temp_buf));
-      aml_audioport->setParameters(String8("cmd=1"));
+      aml_audioport->setParameters(String8("hal_param_dtv_patch_cmd=1"));
    } else {
       ALOGI("createAudioPatch fail");
       return -1;
@@ -26,17 +26,17 @@ int audio_hal_start_decoder(int fmt, int has_video) {
 }
 
 int audio_hal_stop_decoder(void) {
-   aml_audioport->setParameters(String8("cmd=2"));
+   aml_audioport->setParameters(String8("hal_param_dtv_patch_cmd=2"));
    return aml_audioport->releaseAudioPatch();
 }
 
 int audio_hal_pause_decoder(void) {
-   return aml_audioport->setParameters(String8("cmd=3"));
+   return aml_audioport->setParameters(String8("hal_param_dtv_patch_cmd=3"));
 }
 
 int audio_hal_resume_decoder(void) {
 
-  return aml_audioport->setParameters(String8("cmd=4"));
+  return aml_audioport->setParameters(String8("hal_param_dtv_patch_cmd=4"));
 }
 
 int audio_hal_set_ad(int fmt, int pid) {
@@ -62,7 +62,7 @@ int audio_hal_set_mute(int mute) {
 
 int audio_hal_set_output_mode(int mode) {
     char temp_buf[64] = {0};
-    sprintf (temp_buf, "mode=%d", mode);
+    sprintf (temp_buf, "hal_param_audio_output_mode=%d", mode);
     return aml_audioport->setParameters(String8(temp_buf));
 }
 

@@ -42,7 +42,6 @@
 #include "audio_hw_utils.h"
 
 #include "audio_hwsync.h"
-#include "audio_hw.h"
 #include "amlAudioMixer.h"
 #include <audio_utils/primitives.h>
 #include "alsa_device_parser.h"
@@ -1323,6 +1322,180 @@ bool is_disable_ms12_continuous(struct audio_stream_out *stream) {
     return false;
 }
 
+
+int android_dev_convert_to_hal_dev(audio_devices_t android_dev, int *hal_dev_port)
+{
+    switch (android_dev) {
+    /* audio hal output device port */
+    case AUDIO_DEVICE_OUT_HDMI_ARC:
+        *hal_dev_port = OUTPORT_HDMI_ARC;
+        break;
+    case AUDIO_DEVICE_OUT_HDMI:
+        *hal_dev_port = OUTPORT_HDMI;
+        break;
+    case AUDIO_DEVICE_OUT_SPDIF:
+        *hal_dev_port = OUTPORT_SPDIF;
+        break;
+    case AUDIO_DEVICE_OUT_AUX_LINE:
+        *hal_dev_port = OUTPORT_AUX_LINE;
+        break;
+    case AUDIO_DEVICE_OUT_SPEAKER:
+        *hal_dev_port = OUTPORT_SPEAKER;
+        break;
+    case AUDIO_DEVICE_OUT_WIRED_HEADPHONE:
+        *hal_dev_port = OUTPORT_HEADPHONE;
+        break;
+    case AUDIO_DEVICE_OUT_REMOTE_SUBMIX:
+        *hal_dev_port = OUTPORT_REMOTE_SUBMIX;
+        break;
+    case AUDIO_DEVICE_OUT_BLUETOOTH_SCO:
+        *hal_dev_port = OUTPORT_BT_SCO;
+        break;
+    case AUDIO_DEVICE_OUT_BLUETOOTH_SCO_HEADSET:
+        *hal_dev_port = OUTPORT_BT_SCO_HEADSET;
+        break;
+    case AUDIO_DEVICE_OUT_BLUETOOTH_A2DP:
+    case AUDIO_DEVICE_OUT_BLUETOOTH_A2DP_HEADPHONES:
+    case AUDIO_DEVICE_OUT_BLUETOOTH_A2DP_SPEAKER:
+        *hal_dev_port = OUTPORT_A2DP;
+        break;
+    /* audio hal input device port */
+    case AUDIO_DEVICE_IN_HDMI:
+        *hal_dev_port = INPORT_HDMIIN;
+        break;
+    case AUDIO_DEVICE_IN_HDMI_ARC:
+        *hal_dev_port = INPORT_ARCIN;
+        break;
+    case AUDIO_DEVICE_IN_LINE:
+        *hal_dev_port = INPORT_LINEIN;
+        break;
+    case AUDIO_DEVICE_IN_TV_TUNER:
+        *hal_dev_port = INPORT_TUNER;
+        break;
+    case AUDIO_DEVICE_IN_SPDIF:
+        *hal_dev_port = INPORT_SPDIF;
+        break;
+    case AUDIO_DEVICE_IN_REMOTE_SUBMIX:
+        *hal_dev_port = INPORT_REMOTE_SUBMIXIN;
+        break;
+    case AUDIO_DEVICE_IN_WIRED_HEADSET:
+        *hal_dev_port = INPORT_WIRED_HEADSETIN;
+        break;
+
+    case AUDIO_DEVICE_IN_BUILTIN_MIC:/* fallthrough */
+    case AUDIO_DEVICE_IN_BACK_MIC:
+        *hal_dev_port = INPORT_BUILTIN_MIC;
+        break;
+    case AUDIO_DEVICE_IN_ECHO_REFERENCE:
+        *hal_dev_port = INPORT_ECHO_REFERENCE;
+        break;
+/*
+    case AUDIO_DEVICE_IN_BLUETOOTH_SCO_HEADSET:
+        *hal_dev_port = INPORT_BT_SCO_HEADSET_MIC;
+        break;
+    case AUDIO_DEVICE_IN_USB_DEVICE:
+        *hal_dev_port = INPORT_USB;
+        break;
+    case AUDIO_DEVICE_IN_BUS:
+        *hal_dev_port = INPORT_LOOPBACK;
+        break;
+*/
+    default:
+        if (AUDIO_DEVICE_BIT_IN & android_dev) {
+            *hal_dev_port = INPORT_HDMIIN;
+            ALOGW("[%s:%d] unsupport input dev:%#x, return default HDMIN.", __func__, __LINE__, android_dev);
+        } else {
+            *hal_dev_port = OUTPORT_SPEAKER;
+            ALOGW("[%s:%d] unsupport output dev:%#x, return default SPEAKER.", __func__, __LINE__, android_dev);
+        }
+        return -1;
+    }
+    return 0;
+}
+
+enum patch_src_assortion android_input_dev_convert_to_hal_patch_src(audio_devices_t android_dev)
+{
+    enum patch_src_assortion patch_src = SRC_INVAL;
+    switch (android_dev) {
+    case AUDIO_DEVICE_IN_HDMI:
+        patch_src = SRC_HDMIIN;
+        break;
+    case AUDIO_DEVICE_IN_HDMI_ARC:
+        patch_src = SRC_ARCIN;
+        break;
+    case AUDIO_DEVICE_IN_LINE:
+        patch_src = SRC_LINEIN;
+        break;
+    case AUDIO_DEVICE_IN_SPDIF:
+        patch_src = SRC_SPDIFIN;
+        break;
+    case AUDIO_DEVICE_IN_TV_TUNER:
+        patch_src = SRC_ATV;
+        break;
+    case AUDIO_DEVICE_IN_REMOTE_SUBMIX:
+        patch_src = SRC_REMOTE_SUBMIXIN;
+        break;
+    case AUDIO_DEVICE_IN_WIRED_HEADSET:
+        patch_src = SRC_WIRED_HEADSETIN;
+        break;
+    case AUDIO_DEVICE_IN_BUILTIN_MIC: /* fallthrough */
+    case AUDIO_DEVICE_IN_BACK_MIC:
+        patch_src = SRC_BUILTIN_MIC;
+        break;
+    case AUDIO_DEVICE_IN_ECHO_REFERENCE:
+        patch_src = SRC_ECHO_REFERENCE;
+        break;
+/*
+    case AUDIO_DEVICE_IN_BLUETOOTH_SCO_HEADSET:
+        patch_src = SRC_BT_SCO_HEADSET_MIC;
+        break;
+    case AUDIO_DEVICE_IN_USB_DEVICE:
+        patch_src = SRC_USB;
+        break;
+    case AUDIO_DEVICE_IN_BUS:
+        patch_src = SRC_LOOPBACK;
+        break;
+*/
+    default:
+        ALOGW("[%s:%d] unsupport input dev:%#x, return SRC_INVAL.", __func__, __LINE__, android_dev);
+    }
+    return patch_src;
+}
+
+enum input_source android_input_dev_convert_to_hal_input_src(audio_devices_t android_dev)
+{
+    enum input_source input_src = SRC_NA;
+    switch (android_dev) {
+    case AUDIO_DEVICE_IN_HDMI:
+        input_src = HDMIIN;
+        break;
+    case AUDIO_DEVICE_IN_HDMI_ARC:
+        input_src = ARCIN;
+        break;
+    case AUDIO_DEVICE_IN_LINE:
+        input_src = LINEIN;
+        break;
+    case AUDIO_DEVICE_IN_SPDIF:
+        input_src = SPDIFIN;
+        break;
+    case AUDIO_DEVICE_IN_TV_TUNER:
+        input_src = ATV;
+        break;
+    case AUDIO_DEVICE_IN_REMOTE_SUBMIX:
+    case AUDIO_DEVICE_IN_WIRED_HEADSET:
+    case AUDIO_DEVICE_IN_BUILTIN_MIC: /* fallthrough */
+    case AUDIO_DEVICE_IN_BACK_MIC:
+    case AUDIO_DEVICE_IN_ECHO_REFERENCE:
+        input_src = SRC_NA;
+        break;
+
+    default:
+        input_src = SRC_NA;
+        break;
+    }
+    return input_src;
+}
+
 const char* patchSrc2Str(enum patch_src_assortion type)
 {
     static char acTypeStr[ENUM_TYPE_STR_MAX_LEN];
@@ -1404,6 +1577,23 @@ const char* inputPort2Str(enum IN_PORT type)
         ENUM_TYPE_TO_STR(INPORT_ECHO_REFERENCE, prefixLen, pStr)
         ENUM_TYPE_TO_STR(INPORT_ARCIN, prefixLen, pStr)
         ENUM_TYPE_TO_STR(INPORT_MAX, prefixLen, pStr)
+    }
+    sprintf(acTypeStr, "[%d]%s", type, pStr);
+    return acTypeStr;
+}
+
+const char* dtvAudioPatchCmd2Str(AUDIO_DTV_PATCH_CMD_TYPE type)
+{
+    static char acTypeStr[ENUM_TYPE_STR_MAX_LEN];
+    char *pStr = "INVALID";
+    int prefixLen = strlen("AUDIO_DTV_PATCH_");
+    switch (type) {
+        ENUM_TYPE_TO_STR(AUDIO_DTV_PATCH_CMD_NULL, prefixLen, pStr)
+        ENUM_TYPE_TO_STR(AUDIO_DTV_PATCH_CMD_START, prefixLen, pStr)
+        ENUM_TYPE_TO_STR(AUDIO_DTV_PATCH_CMD_STOP, prefixLen, pStr)
+        ENUM_TYPE_TO_STR(AUDIO_DTV_PATCH_CMD_PAUSE, prefixLen, pStr)
+        ENUM_TYPE_TO_STR(AUDIO_DTV_PATCH_CMD_RESUME, prefixLen, pStr)
+        ENUM_TYPE_TO_STR(AUDIO_DTV_PATCH_CMD_NUM, prefixLen, pStr)
     }
     sprintf(acTypeStr, "[%d]%s", type, pStr);
     return acTypeStr;

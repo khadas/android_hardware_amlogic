@@ -20,6 +20,7 @@
 #define _AUDIO_HW_UTILS_H_
 #include <system/audio.h>
 #include "audio_hw.h"
+#include "audio_hw_dtv.h"
 #include "aml_audio_types_def.h"
 #include "aml_audio_stream.h"
 
@@ -92,9 +93,15 @@ bool is_high_rate_pcm(struct audio_stream_out *stream);
 bool is_disable_ms12_continuous(struct audio_stream_out *stream);
 int find_offset_in_file_strstr(char *mystr, char *substr);
 
+int android_dev_convert_to_hal_dev(audio_devices_t android_dev, int *hal_dev_port);
+enum patch_src_assortion android_input_dev_convert_to_hal_patch_src(audio_devices_t android_dev);
+enum input_source android_input_dev_convert_to_hal_input_src(audio_devices_t android_dev);
+
 const char* patchSrc2Str(enum patch_src_assortion type);
 const char* usecase2Str(stream_usecase_t type);
 const char* outputPort2Str(enum OUT_PORT type);
 const char* inputPort2Str(enum IN_PORT type);
+const char* dtvAudioPatchCmd2Str(AUDIO_DTV_PATCH_CMD_TYPE type);
+
 
 #endif

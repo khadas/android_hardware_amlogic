@@ -5450,7 +5450,7 @@ static int adev_set_parameters (struct audio_hw_device *dev, const char *kvpairs
         goto exit;
     }
 
-    ret = str_parms_get_str (parms, "tuner_in", value, sizeof (value) );
+    ret = str_parms_get_str (parms, "hal_param_tuner_in", value, sizeof (value) );
     // tuner_in=atv: tuner_in=dtv
     if (ret >= 0) {
         if (adev->tuner2mix_patch) {
@@ -5663,7 +5663,7 @@ static int adev_set_parameters (struct audio_hw_device *dev, const char *kvpairs
     }
 
     {
-        ret = str_parms_get_int(parms, "dual_decoder_support", &val);
+        ret = str_parms_get_int(parms, "hal_param_dual_dec_support", &val);
         if (ret >= 0) {
             pthread_mutex_lock(&adev->lock);
             adev->dual_decoder_support = val;
@@ -5687,7 +5687,7 @@ static int adev_set_parameters (struct audio_hw_device *dev, const char *kvpairs
             goto exit;
         }
 
-        ret = str_parms_get_int(parms, "associate_audio_mixing_enable", &val);
+        ret = str_parms_get_int(parms, "hal_param_ad_mix_enable", &val);
         if (ret >= 0) {
             pthread_mutex_lock(&adev->lock);
             if (val == 0) {
@@ -5730,7 +5730,7 @@ static int adev_set_parameters (struct audio_hw_device *dev, const char *kvpairs
             goto exit;
         }
 
-        ret = str_parms_get_int(parms, "dual_decoder_mixing_level", &val);
+        ret = str_parms_get_int(parms, "hal_param_dual_dec_mix_level", &val);
         if (ret >= 0) {
             int mix_user_prefer = 0;
             int mixing_level = val;
@@ -5752,7 +5752,7 @@ static int adev_set_parameters (struct audio_hw_device *dev, const char *kvpairs
             pthread_mutex_unlock(&adev->lock);
             goto exit;
         }
-        ret = str_parms_get_int(parms, "security_mem_level", &val);
+        ret = str_parms_get_int(parms, "hal_param_security_mem_level", &val);
         if (ret >= 0) {
             int security_mem_level = val;
             pthread_mutex_lock(&adev->lock);
@@ -5956,43 +5956,27 @@ static int adev_set_parameters (struct audio_hw_device *dev, const char *kvpairs
         goto exit;
     }
 
-    ret = str_parms_get_str(parms, "cmd", value, sizeof(value));
+    ret = str_parms_get_str(parms, "hal_param_dtv_patch_cmd", value, sizeof(value));
     if (ret > 0) {
-        int cmd = atoi(value);
+        AUDIO_DTV_PATCH_CMD_TYPE cmd = atoi(value);
         if (adev->audio_patch == NULL) {
             ALOGI("%s()the audio patch is NULL \n", __func__);
         }
 
-
 #ifdef ENABLE_DTV_PATCH
-        switch (cmd) {
-        case 1:
-            ALOGI("%s() live AUDIO_DTV_PATCH_CMD_START\n", __func__);
-            dtv_patch_add_cmd(AUDIO_DTV_PATCH_CMD_START);
-            break;
-        case 2:
-            ALOGI("%s() live AUDIO_DTV_PATCH_CMD_PAUSE\n", __func__);
-            dtv_patch_add_cmd(AUDIO_DTV_PATCH_CMD_PAUSE);
-            break;
-        case 3:
-            ALOGI("%s() live AUDIO_DTV_PATCH_CMD_RESUME\n", __func__);
-            dtv_patch_add_cmd(AUDIO_DTV_PATCH_CMD_RESUME);
-            break;
-        case 4:
-            ALOGI("%s() live AUDIO_DTV_PATCH_CMD_STOP\n", __func__);
-            dtv_patch_add_cmd(AUDIO_DTV_PATCH_CMD_STOP);
-            break;
-        default:
-            ALOGI("%s() live %d \n", __func__, cmd);
-            break;
+        if (cmd <= AUDIO_DTV_PATCH_CMD_NULL || cmd >= AUDIO_DTV_PATCH_CMD_NUM) {
+            ALOGW("[%s:%d] Unsupported dtv patch cmd:%d", __func__, __LINE__, cmd);
+        } else {
+            ALOGI("[%s:%d] Send dtv patch cmd:%s", __func__, __LINE__, dtvAudioPatchCmd2Str(cmd));
+            dtv_patch_add_cmd(cmd);
         }
 #endif
         goto exit;
     }
 
-    ret = str_parms_get_str(parms, "mode", value, sizeof(value));
+    ret = str_parms_get_str(parms, "hal_param_audio_output_mode", value, sizeof(value));
     if (ret > 0) {
-        int mode = atoi(value);
+        AM_AOUT_OutputMode_t mode = atoi(value);
         if (adev->audio_patch == NULL) {
             ALOGI("%s()the audio patch is NULL \n", __func__);
             goto exit;
@@ -6015,21 +5999,21 @@ static int adev_set_parameters (struct audio_hw_device *dev, const char *kvpairs
         adev->sound_track_mode = mode;
         goto exit;
     }
-    ret = str_parms_get_str(parms, "demux_id", value, sizeof(value));
+    ret = str_parms_get_str(parms, "hal_param_dtv_demux_id", value, sizeof(value));
     if (ret > 0) {
         unsigned int demux_id = (unsigned int)atoi(value); // zz
         ALOGI("%s() get the audio demux_id %d\n", __func__, demux_id);
         adev->demux_id = demux_id;
         goto exit;
     }
-    ret = str_parms_get_str(parms, "pid", value, sizeof(value));
+    ret = str_parms_get_str(parms, "hal_param_dtv_pid", value, sizeof(value));
     if (ret > 0) {
         unsigned int pid = (unsigned int)atoi(value); // zz
         ALOGI("%s() get the audio pid %d\n", __func__, pid);
         adev->pid = pid;
         goto exit;
     }
-    ret = str_parms_get_str(parms, "fmt", value, sizeof(value));
+    ret = str_parms_get_str(parms, "hal_param_dtv_audio_fmt", value, sizeof(value));
     if (ret > 0) {
         unsigned int audio_fmt = (unsigned int)atoi(value); // zz
         ALOGI("%s() get the audio format %d\n", __func__, audio_fmt);
@@ -6041,7 +6025,7 @@ static int adev_set_parameters (struct audio_hw_device *dev, const char *kvpairs
         goto exit;
     }
 
-    ret = str_parms_get_str(parms, "subapid", value, sizeof(value));
+    ret = str_parms_get_str(parms, "hal_param_dtv_sub_audio_fmt", value, sizeof(value));
     if (ret > 0) {
         int audio_sub_pid = (unsigned int)atoi(value);
         ALOGI("%s() get the sub audio pid %d\n", __func__, audio_sub_pid);
@@ -6053,7 +6037,7 @@ static int adev_set_parameters (struct audio_hw_device *dev, const char *kvpairs
         goto exit;
     }
 
-    ret = str_parms_get_str(parms, "subafmt", value, sizeof(value));
+    ret = str_parms_get_str(parms, "hal_param_dtv_sub_audio_pid", value, sizeof(value));
     if (ret > 0) {
         int audio_sub_fmt = (unsigned int)atoi(value);
         ALOGI("%s() get the sub audio fmt %d\n", __func__, audio_sub_fmt);
@@ -6065,7 +6049,7 @@ static int adev_set_parameters (struct audio_hw_device *dev, const char *kvpairs
         goto exit;
     }
 
-    ret = str_parms_get_str(parms, "has_dtv_video", value, sizeof(value));
+    ret = str_parms_get_str(parms, "hal_param_has_dtv_video", value, sizeof(value));
     if (ret > 0) {
         unsigned int has_video = (unsigned int)atoi(value);
         ALOGI("%s() get the has video parameters %d \n", __func__, has_video);
@@ -6182,7 +6166,7 @@ static int adev_set_parameters (struct audio_hw_device *dev, const char *kvpairs
         goto exit;
     }
 
-    ret = str_parms_get_str(parms, "TV-Mute", value, sizeof(value));
+    ret = str_parms_get_str(parms, "hal_param_tv_mute", value, sizeof(value));
     if (ret >= 0) {
         unsigned int tv_mute = (unsigned int)atoi(value);
         ALOGE ("Amlogic_HAL - %s: TV-Mute:%d.", __FUNCTION__,tv_mute);
@@ -10904,45 +10888,7 @@ static int adev_create_audio_patch(struct audio_hw_device *dev,
             ret = -EINVAL;
             goto err_patch;
         }
-
-        switch (sink_config->ext.device.type) {
-        case AUDIO_DEVICE_OUT_HDMI_ARC:
-            outport = OUTPORT_HDMI_ARC;
-            break;
-        case AUDIO_DEVICE_OUT_HDMI:
-            outport = OUTPORT_HDMI;
-            break;
-        case AUDIO_DEVICE_OUT_SPDIF:
-            outport = OUTPORT_SPDIF;
-            break;
-        case AUDIO_DEVICE_OUT_AUX_LINE:
-            outport = OUTPORT_AUX_LINE;
-            break;
-        case AUDIO_DEVICE_OUT_SPEAKER:
-            outport = OUTPORT_SPEAKER;
-            break;
-        case AUDIO_DEVICE_OUT_WIRED_HEADPHONE:
-            outport = OUTPORT_HEADPHONE;
-            break;
-        case AUDIO_DEVICE_OUT_REMOTE_SUBMIX:
-            outport = OUTPORT_REMOTE_SUBMIX;
-            break;
-        case AUDIO_DEVICE_OUT_BLUETOOTH_A2DP:
-        case AUDIO_DEVICE_OUT_BLUETOOTH_A2DP_HEADPHONES:
-        case AUDIO_DEVICE_OUT_BLUETOOTH_A2DP_SPEAKER:
-            outport = OUTPORT_A2DP;
-            break;
-        case AUDIO_DEVICE_OUT_BLUETOOTH_SCO:
-            outport = OUTPORT_BT_SCO;
-            break;
-        case AUDIO_DEVICE_OUT_BLUETOOTH_SCO_HEADSET:
-            outport = OUTPORT_BT_SCO_HEADSET;
-            break;
-        default:
-            ALOGE("%s: invalid sink device type %#x",
-                  __func__, sink_config->ext.device.type);
-        }
-
+        android_dev_convert_to_hal_dev(sink_config->ext.device.type, (int *)&outport);
         /*
           // when HDMI plug in or UI [Sound Output Device] set to "ARC" ,AUDIO need to output from HDMI ARC
           // while in current design, speaker is an "always on" device
@@ -10985,63 +10931,21 @@ static int adev_create_audio_patch(struct audio_hw_device *dev,
             goto err_patch;
         }
 
-        switch (src_config->ext.device.type) {
-        case AUDIO_DEVICE_IN_HDMI:
-            input_src = HDMIIN;
-            inport = INPORT_HDMIIN;
-            aml_dev->patch_src = SRC_HDMIIN;
-            break;
-        case AUDIO_DEVICE_IN_HDMI_ARC:
-            input_src = ARCIN;
-            inport = INPORT_ARCIN;
-            aml_dev->patch_src = SRC_ARCIN;
-            break;
-        case AUDIO_DEVICE_IN_LINE:
-            input_src = LINEIN;
-            inport = INPORT_LINEIN;
-            aml_dev->patch_src = SRC_LINEIN;
-            break;
-        case AUDIO_DEVICE_IN_SPDIF:
-            input_src = SPDIFIN;
-            inport = INPORT_SPDIF;
-            aml_dev->patch_src = SRC_SPDIFIN;
-            break;
-        case AUDIO_DEVICE_IN_TV_TUNER:
-            input_src = ATV;
-            inport = INPORT_TUNER;
-            aml_dev->tuner2mix_patch = true;
-            break;
-        case AUDIO_DEVICE_IN_REMOTE_SUBMIX:
-            input_src = SRC_NA;
-            inport = INPORT_REMOTE_SUBMIXIN;
-            aml_dev->patch_src = SRC_REMOTE_SUBMIXIN;
-            break;
-        case AUDIO_DEVICE_IN_WIRED_HEADSET:
-            input_src = SRC_NA;
-            inport = INPORT_WIRED_HEADSETIN;
-            aml_dev->patch_src = SRC_WIRED_HEADSETIN;
-            break;
-        case AUDIO_DEVICE_IN_BUILTIN_MIC:
-            /*fallthrough*/
-        case AUDIO_DEVICE_IN_BACK_MIC:
-            input_src = SRC_NA;
-            inport = INPORT_BUILTIN_MIC;
-            aml_dev->patch_src = SRC_BUILTIN_MIC;
-            break;
-        case AUDIO_DEVICE_IN_ECHO_REFERENCE:
-            input_src = SRC_NA;
-            inport = INPORT_ECHO_REFERENCE;
-            break;
-        default:
-            ALOGE("%s: invalid src device type %#x",
-                  __func__, src_config->ext.device.type);
+        ret = android_dev_convert_to_hal_dev(src_config->ext.device.type, (int *)&inport);
+        if (ret != 0) {
+            ALOGE("[%s:%d] device->mix patch: unsupport input dev:%#x.", __func__, __LINE__, src_config->ext.device.type);
             ret = -EINVAL;
             goto err_patch;
         }
+        input_src = android_input_dev_convert_to_hal_input_src(src_config->ext.device.type);
+        if (AUDIO_DEVICE_IN_TV_TUNER == src_config->ext.device.type) {
+            aml_dev->tuner2mix_patch = true;
+        } else if (AUDIO_DEVICE_IN_ECHO_REFERENCE != src_config->ext.device.type) {
+            aml_dev->patch_src = android_input_dev_convert_to_hal_patch_src(src_config->ext.device.type);
+        }
 
         if (input_src != SRC_NA)
-            set_audio_source(&aml_dev->alsa_mixer,
-                    input_src, alsa_device_is_auge());
+            set_audio_source(&aml_dev->alsa_mixer, input_src, alsa_device_is_auge());
 
         aml_dev->active_inport = inport;
         aml_dev->src_gain[inport] = 1.0;
@@ -11071,44 +10975,7 @@ static int adev_create_audio_patch(struct audio_hw_device *dev,
 
     /*device to device audio patch. TODO: unify with the android device type*/
     if (sink_config->type == AUDIO_PORT_TYPE_DEVICE && src_config->type == AUDIO_PORT_TYPE_DEVICE) {
-        switch (sink_config->ext.device.type) {
-        case AUDIO_DEVICE_OUT_HDMI_ARC:
-            outport = OUTPORT_HDMI_ARC;
-            break;
-        case AUDIO_DEVICE_OUT_HDMI:
-            outport = OUTPORT_HDMI;
-            break;
-        case AUDIO_DEVICE_OUT_SPDIF:
-            outport = OUTPORT_SPDIF;
-            break;
-        case AUDIO_DEVICE_OUT_AUX_LINE:
-            outport = OUTPORT_AUX_LINE;
-            break;
-        case AUDIO_DEVICE_OUT_SPEAKER:
-            outport = OUTPORT_SPEAKER;
-            break;
-        case AUDIO_DEVICE_OUT_WIRED_HEADPHONE:
-            outport = OUTPORT_HEADPHONE;
-            break;
-        case AUDIO_DEVICE_OUT_REMOTE_SUBMIX:
-            outport = OUTPORT_REMOTE_SUBMIX;
-            break;
-        case AUDIO_DEVICE_OUT_BLUETOOTH_A2DP:
-        case AUDIO_DEVICE_OUT_BLUETOOTH_A2DP_HEADPHONES:
-        case AUDIO_DEVICE_OUT_BLUETOOTH_A2DP_SPEAKER:
-            outport = OUTPORT_A2DP;
-            break;
-        case AUDIO_DEVICE_OUT_BLUETOOTH_SCO:
-            outport = OUTPORT_BT_SCO;
-            break;
-        case AUDIO_DEVICE_OUT_BLUETOOTH_SCO_HEADSET:
-            outport = OUTPORT_BT_SCO_HEADSET;
-            break;
-        default:
-            ALOGE("%s: invalid sink device type %#x",
-                  __func__, sink_config->ext.device.type);
-        }
-
+        android_dev_convert_to_hal_dev(sink_config->ext.device.type, (int *)&outport);
         /*
            * while in current design, speaker is an "always attached" device
            * when HDMI cable is plug in, there will be 2 sink devices "SPEAKER" and "HDMI ARC"
@@ -11145,63 +11012,23 @@ static int adev_create_audio_patch(struct audio_hw_device *dev,
             channel_cnt = audio_channel_count_from_out_mask(sink_config->channel_mask);
         }
 
-        switch (src_config->ext.device.type) {
-        case AUDIO_DEVICE_IN_HDMI:
-            input_src = HDMIIN;
-            inport = INPORT_HDMIIN;
-            aml_dev->patch_src = SRC_HDMIIN;
-            break;
-        case AUDIO_DEVICE_IN_HDMI_ARC:
-            input_src = ARCIN;
-            inport = INPORT_ARCIN;
-            aml_dev->patch_src = SRC_ARCIN;
-            break;
-        case AUDIO_DEVICE_IN_LINE:
-            input_src = LINEIN;
-            inport = INPORT_LINEIN;
-            aml_dev->patch_src = SRC_LINEIN;
-            break;
-        case AUDIO_DEVICE_IN_TV_TUNER:
-            input_src = ATV;
-            inport = INPORT_TUNER;
-            break;
-        case AUDIO_DEVICE_IN_SPDIF:
-            input_src = SPDIFIN;
-            inport = INPORT_SPDIF;
-            aml_dev->patch_src = SRC_SPDIFIN;
-            break;
-        case AUDIO_DEVICE_IN_REMOTE_SUBMIX:
-            input_src = SRC_NA;
-            inport = INPORT_REMOTE_SUBMIXIN;
-            aml_dev->patch_src = SRC_REMOTE_SUBMIXIN;
-            break;
-        case AUDIO_DEVICE_IN_WIRED_HEADSET:
-            input_src = SRC_NA;
-            inport = INPORT_WIRED_HEADSETIN;
-            aml_dev->patch_src = SRC_WIRED_HEADSETIN;
-            break;
-        case AUDIO_DEVICE_IN_BUILTIN_MIC:
-            /*fallthrough*/
-        case AUDIO_DEVICE_IN_BACK_MIC:
-            input_src = SRC_NA;
-            inport = INPORT_BUILTIN_MIC;
-            aml_dev->patch_src = SRC_BUILTIN_MIC;
-            break;
-        case AUDIO_DEVICE_IN_ECHO_REFERENCE:
-            input_src = SRC_NA;
-            inport = INPORT_ECHO_REFERENCE;
-            break;
-        default:
-            ALOGE("%s: invalid src device type %#x",
-                  __func__, src_config->ext.device.type);
+        ret = android_dev_convert_to_hal_dev(src_config->ext.device.type, (int *)&inport);
+        if (ret != 0) {
+            ALOGE("[%s:%d] device->device patch: unsupport input dev:%#x.", __func__, __LINE__, src_config->ext.device.type);
             ret = -EINVAL;
             goto err_patch;
         }
+
+        if (AUDIO_DEVICE_IN_ECHO_REFERENCE != src_config->ext.device.type &&
+            AUDIO_DEVICE_IN_TV_TUNER != src_config->ext.device.type) {
+            aml_dev->patch_src = android_input_dev_convert_to_hal_patch_src(src_config->ext.device.type);
+        }
+        input_src = android_input_dev_convert_to_hal_input_src(src_config->ext.device.type);
+
         aml_dev->active_inport = inport;
         aml_dev->src_gain[inport] = 1.0;
         //aml_dev->sink_gain[outport] = 1.0;
-        ALOGI("%s: dev->dev patch: inport(%s), outport(%s)",
-              __func__, inputPort2Str(inport), outputPort2Str(outport));
+        ALOGI("%s: dev->dev patch: inport(%s), outport(%s)", __func__, inputPort2Str(inport), outputPort2Str(outport));
 
         // ATV path goes to dev set_params which could
         // tell atv or dtv source and decide to create or not.
@@ -11661,43 +11488,7 @@ static int adev_set_audio_port_config (struct audio_hw_device *dev, const struct
     if (config->type == AUDIO_PORT_TYPE_DEVICE) {
         if (config->role == AUDIO_PORT_ROLE_SINK) {
             if (num_sinks == 1) {
-                switch (config->ext.device.type) {
-                case AUDIO_DEVICE_OUT_HDMI_ARC:
-                    outport = OUTPORT_HDMI_ARC;
-                    break;
-                case AUDIO_DEVICE_OUT_HDMI:
-                    outport = OUTPORT_HDMI;
-                    break;
-                case AUDIO_DEVICE_OUT_SPDIF:
-                    outport = OUTPORT_SPDIF;
-                    break;
-                case AUDIO_DEVICE_OUT_AUX_LINE:
-                    outport = OUTPORT_AUX_LINE;
-                    break;
-                case AUDIO_DEVICE_OUT_SPEAKER:
-                    outport = OUTPORT_SPEAKER;
-                    break;
-                case AUDIO_DEVICE_OUT_WIRED_HEADPHONE:
-                    outport = OUTPORT_HEADPHONE;
-                    break;
-                case AUDIO_DEVICE_OUT_REMOTE_SUBMIX:
-                    outport = OUTPORT_REMOTE_SUBMIX;
-                    break;
-                case AUDIO_DEVICE_OUT_BLUETOOTH_A2DP:
-                case AUDIO_DEVICE_OUT_BLUETOOTH_A2DP_HEADPHONES:
-                case AUDIO_DEVICE_OUT_BLUETOOTH_A2DP_SPEAKER:
-                    outport = OUTPORT_A2DP;
-                    break;
-                case AUDIO_DEVICE_OUT_BLUETOOTH_SCO:
-                    outport = OUTPORT_BT_SCO;
-                    break;
-                case AUDIO_DEVICE_OUT_BLUETOOTH_SCO_HEADSET:
-                    outport = OUTPORT_BT_SCO_HEADSET;
-                    break;
-                default:
-                    ALOGE ("%s: invalid out device type %#x",
-                              __func__, config->ext.device.type);
-                }
+                android_dev_convert_to_hal_dev(config->ext.device.type, (int *)&outport);
             }
 
 #ifdef DEBUG_VOLUME_CONTROL
@@ -11723,39 +11514,7 @@ static int adev_set_audio_port_config (struct audio_hw_device *dev, const struct
             ALOGI("\t- OUTPORT_HDMI->gain[%f]", aml_dev->sink_gain[OUTPORT_HDMI]);
             ALOGI("\t- active outport is: %s", outputPort2Str(aml_dev->active_outport));
         } else if (config->role == AUDIO_PORT_ROLE_SOURCE) {
-            switch (config->ext.device.type) {
-            case AUDIO_DEVICE_IN_HDMI:
-                inport = INPORT_HDMIIN;
-                break;
-            case AUDIO_DEVICE_IN_HDMI_ARC:
-                inport = INPORT_ARCIN;
-                break;
-            case AUDIO_DEVICE_IN_LINE:
-                inport = INPORT_LINEIN;
-                break;
-            case AUDIO_DEVICE_IN_SPDIF:
-                inport = INPORT_SPDIF;
-                break;
-            case AUDIO_DEVICE_IN_TV_TUNER:
-                inport = INPORT_TUNER;
-                break;
-            case AUDIO_DEVICE_IN_REMOTE_SUBMIX:
-                inport = INPORT_REMOTE_SUBMIXIN;
-                break;
-            case AUDIO_DEVICE_IN_WIRED_HEADSET:
-                inport = INPORT_WIRED_HEADSETIN;
-                break;
-            case AUDIO_DEVICE_IN_BUILTIN_MIC:
-                inport = INPORT_BUILTIN_MIC;
-                break;
-            case AUDIO_DEVICE_IN_ECHO_REFERENCE:
-                inport = INPORT_ECHO_REFERENCE;
-                break;
-            default:
-                ALOGE("%s: invalid in device type %#x",
-                        __func__, config->ext.device.type);
-            }
-
+            android_dev_convert_to_hal_dev(config->ext.device.type, (int *)&inport);
             aml_dev->src_gain[inport] = 1.0;
             if (patch->sinks[0].type == AUDIO_PORT_TYPE_DEVICE) {
                 if (num_sinks == 2) {
