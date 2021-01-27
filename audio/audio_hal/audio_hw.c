@@ -3541,6 +3541,12 @@ static int out_get_presentation_position (const struct audio_stream_out *stream,
              frame_latency = timems_latency * (out->hal_rate * out->rate_convert / 1000);
              *frames += frame_latency ;
          }
+         if ((frame_latency + frames_written_hw) <= 0) {
+             ALOGV("%s(), not ready yet", __func__);
+             return -EINVAL;
+         }
+         *frames = (frame_latency + frames_written_hw) * out->hal_rate / out->config.rate;
+         *timestamp = out->lasttimestamp;
     }
 
     if (adev->debug_flag) {
@@ -3562,13 +3568,7 @@ static int out_get_presentation_position (const struct audio_stream_out *stream,
         out->last_frame_reported = *frames;
         out->last_timestamp_reported = *timestamp;
     }
-    if ((frame_latency + frames_written_hw) <= 0) {
-        ALOGV("%s(), not ready yet", __func__);
-        return -EINVAL;
-    }
 
-    *frames = (frame_latency + frames_written_hw) * out->hal_rate / out->config.rate;
-    *timestamp = out->lasttimestamp;
     return ret;
 }
 static int get_next_buffer (struct resampler_buffer_provider *buffer_provider,
