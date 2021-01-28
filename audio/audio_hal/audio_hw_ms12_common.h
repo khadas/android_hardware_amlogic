@@ -54,6 +54,10 @@ struct ms12_mesg_desc {
 int set_dolby_ms12_runtime_pause(struct dolby_ms12_desc *ms12, int is_pause);
 int dolby_ms12_main_pause(struct audio_stream_out *stream);
 int dolby_ms12_main_resume(struct audio_stream_out *stream);
+/*
+ *@brief check whether the mesg list is empty
+ */
+bool ms12_msg_list_is_empty(struct dolby_ms12_desc *ms12);
 
 /*
  *@brief Receive message from audiohal to ms12.

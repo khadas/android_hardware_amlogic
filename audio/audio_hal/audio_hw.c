@@ -2088,6 +2088,10 @@ static int out_flush_new (struct audio_stream_out *stream)
     out->pause_status = false;
 
     if (eDolbyMS12Lib == adev->dolby_lib_type) {
+        if (out->total_write_size == 0) {
+            ALOGI("%s not writing, do nothing", __func__);
+            return 0;
+        }
         if (out->hw_sync_mode) {
             aml_audio_hwsync_init(out->hwsync, out);
             dolby_ms12_hwsync_init();
@@ -4937,6 +4941,19 @@ static void adev_close_output_stream(struct audio_hw_device *dev,
     adev->usecase_masks &= ~(1 << out->usecase);
 
     if (continous_mode(adev) && (eDolbyMS12Lib == adev->dolby_lib_type)) {
+        /*main stream is closed, wait mesg processed*/
+        if (out->is_ms12_main_decoder) {
+            int wait_cnt = 0;
+            while (!ms12_msg_list_is_empty(&adev->ms12)) {
+                aml_audio_sleep(5000);
+                wait_cnt++;
+                if (wait_cnt >= 200) {
+                    break;
+                }
+            }
+            ALOGI("main stream message is processed cost =%d ms", wait_cnt * 5);
+        }
+
         if (out->volume_l != 1.0) {
             if (!audio_is_linear_pcm(out->hal_internal_format)) {
                 dolby_ms12_set_main_volume(1.0);
@@ -8806,32 +8823,6 @@ hwsync_rewrite:
             write_bytes = outsize;
             //in_frames = outsize / frame_size;
             write_buf = hw_sync->hw_sync_body_buf;
-
-            // Tunnel Mode PCM is 16bits
-            if ((eDolbyMS12Lib == adev->dolby_lib_type) && continous_mode(adev) &&
-                audio_is_linear_pcm(aml_out->hal_internal_format) && aml_out->config.channels == 2) {
-                float left_gain_step = 0.0;
-                float right_gain_step = 0.0;
-                short *sample = (short*) write_buf;
-                int l, r;
-                int out_frames = write_bytes / aml_out->config.channels / 2; // 2 bytes per sample
-                int kk;
-                if (out_frames != 0) {
-                    if (aml_out->volume_l != aml_out->last_volume_l) {
-                        left_gain_step = (aml_out->volume_l - aml_out->last_volume_l)/out_frames;
-                    }
-                    if (aml_out->volume_r != aml_out->last_volume_r) {
-                        right_gain_step = (aml_out->volume_r - aml_out->last_volume_r)/out_frames;
-                    }
-                }
-                for (kk = 0; kk <  out_frames; kk++) {
-                    sample[kk * 2] *= (aml_out->last_volume_l + kk*left_gain_step);
-                    sample[kk * 2 + 1] *= (aml_out->last_volume_r + kk*right_gain_step);
-                }
-                aml_out->last_volume_l = aml_out->volume_l;
-                aml_out->last_volume_r = aml_out->volume_r;
-
-            }
 
         } else {
             return_bytes = hwsync_cost_bytes;

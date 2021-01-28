@@ -141,6 +141,25 @@ int dolby_ms12_main_resume(struct audio_stream_out *stream)
 }
 
 /*****************************************************************************
+*   Function Name:  ms12_msg_list_is_empty
+*   Description:    check whether the msg list is empty
+*   Parameters:     struct dolby_ms12_desc: ms12 variable pointer
+*   Return value:   0: not empty, 1 empty
+******************************************************************************/
+bool ms12_msg_list_is_empty(struct dolby_ms12_desc *ms12)
+{
+    bool is_emtpy = true;
+    if (0 != ms12->ms12_mesg_threadID) {
+        pthread_mutex_lock(&ms12->mutex);
+        if (!list_empty(&ms12->mesg_list)) {
+            is_emtpy = false;
+        }
+        pthread_mutex_unlock(&ms12->mutex);
+    }
+    return is_emtpy;
+}
+
+/*****************************************************************************
 *   Function Name:  audiohal_send_msg_2_ms12
 *   Description:    receive message from audio hardware.
 *   Parameters:     struct dolby_ms12_desc: ms12 variable pointer
