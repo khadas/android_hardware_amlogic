@@ -1783,9 +1783,11 @@ static int out_set_volume (struct audio_stream_out *stream, float left, float ri
     int ret = 0;
     bool is_dolby_format = is_dolby_ms12_support_compression_format(out->hal_internal_format);
     bool is_direct_pcm = is_direct_stream_and_pcm_format(out);
+    bool is_mmap_pcm = is_mmap_stream_and_pcm_format(out);
+    bool is_ms12_pcm_volume_control = (is_direct_pcm && !is_mmap_pcm);
 
-    ALOGI("%s(), stream(%p), left:%f right:%f, continous_mode(%d), hal_internal_format:%x, is dolby %d is direct pcm %d\n",
-        __func__, stream, left, right, continous_mode(adev), out->hal_internal_format, is_dolby_format, is_direct_pcm);
+    ALOGI("%s(), stream(%p), left:%f right:%f, continous_mode(%d), hal_internal_format:%x, is dolby %d is direct pcm %d is_mmap_pcm %d\n",
+        __func__, stream, left, right, continous_mode(adev), out->hal_internal_format, is_dolby_format, is_direct_pcm, is_mmap_pcm);
 
     /* for not use ms12 case, we can use spdif enc mute, other wise ms12 can handle it*/
     if (is_dolby_format && (eDolbyDcvLib == adev->dolby_lib_type || is_bypass_dolbyms12(stream) || adev->hdmi_format == BYPASS)) {
@@ -1808,7 +1810,7 @@ static int out_set_volume (struct audio_stream_out *stream, float left, float ri
      *use dolby_ms12_set_main_volume to control it.
      *The volume about mixer-PCM is controled by AudioFlinger
      */
-    if ((eDolbyMS12Lib == adev->dolby_lib_type) && (is_dolby_format || is_direct_pcm)) {
+    if ((eDolbyMS12Lib == adev->dolby_lib_type) && (is_dolby_format || is_ms12_pcm_volume_control)) {
         if (out->volume_l != out->volume_r) {
             ALOGW("%s, left:%f right:%f NOT match", __FUNCTION__, left, right);
         }

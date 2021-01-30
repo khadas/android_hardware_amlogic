@@ -630,6 +630,11 @@ bool is_direct_stream_and_pcm_format(struct aml_stream_out *out)
     return audio_is_linear_pcm(out->hal_internal_format) && (out->flags & AUDIO_OUTPUT_FLAG_DIRECT);
 }
 
+bool is_mmap_stream_and_pcm_format(struct aml_stream_out *out)
+{
+    return audio_is_linear_pcm(out->hal_internal_format) && (out->flags & AUDIO_OUTPUT_FLAG_MMAP_NOIRQ);
+}
+
 void get_audio_indicator(struct aml_audio_device *dev, char *temp_buf) {
     struct aml_audio_device *adev = (struct aml_audio_device *) dev;
 
@@ -739,6 +744,3 @@ void update_audio_format(struct aml_audio_device *adev, audio_format_t format)
      * }
      */
 }
-
-
-
