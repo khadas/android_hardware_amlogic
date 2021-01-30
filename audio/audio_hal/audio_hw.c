@@ -168,6 +168,8 @@
 #define MS12_MAIN_WRITE_LOOP_THRESHOLD                  (2000)
 #define MAX_INPUT_STREAM_CNT                            (3)
 
+#define NETFLIX_DDP_BUFSIZE                             (768)
+
 #define DISABLE_CONTINUOUS_OUTPUT "persist.vendor.audio.continuous.disable"
 
 
@@ -1026,6 +1028,16 @@ static size_t out_get_buffer_size (const struct audio_stream *stream)
                 size = PLAYBACK_PERIOD_COUNT * DEFAULT_PLAYBACK_PERIOD_SIZE;
                 ALOGI("%s eac3 eDolbyDcvLib = size%zu)", __FUNCTION__, size);
             }
+        }
+        /*netflix ddp size is 768, if we change to a big value, then
+         *every process time is too long, it will cause such case failed SWPL-41439
+         */
+        if (adev->is_netflix) {
+            if (out->flags & AUDIO_OUTPUT_FLAG_HW_AV_SYNC) {
+                    size = NETFLIX_DDP_BUFSIZE + 20;
+                } else {
+                    size = NETFLIX_DDP_BUFSIZE;
+                }
         }
         break;
     case AUDIO_FORMAT_AC4:
