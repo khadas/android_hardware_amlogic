@@ -1115,7 +1115,7 @@ static int out_set_parameters (struct audio_stream *stream, const char *kvpairs)
     if (ret >= 0) {
         if (fmt > 0) {
             struct pcm_config *config = &out->config;
-            ALOGI ("audio hw sampling_rate change from %d to %d \n", config->format, fmt);
+            ALOGI ("[%s:%d] audio hw format change from %#x to %#x", __func__, __LINE__, config->format, fmt);
             config->format = fmt;
             pthread_mutex_lock (&adev->lock);
             pthread_mutex_lock (&out->lock);
@@ -3040,7 +3040,7 @@ static int adev_open_output_stream(struct audio_hw_device *dev,
                                 audio_output_flags_t flags,
                                 struct audio_config *config,
                                 struct audio_stream_out **stream_out,
-                                const char *address __unused)
+                                const char *address)
 {
     struct aml_audio_device *adev = (struct aml_audio_device *)dev;
     struct aml_stream_out *out;
@@ -3054,6 +3054,11 @@ static int adev_open_output_stream(struct audio_hw_device *dev,
     if (!out) {
         ALOGE("%s malloc error", __func__);
         return -ENOMEM;
+    }
+
+    if (address && !strncmp(address, "AML_", 4)) {
+        ALOGI("%s(): aml TV source stream", __func__);
+        out->tv_src_stream = true;
     }
 
     if (flags == AUDIO_OUTPUT_FLAG_NONE)
@@ -3443,7 +3448,6 @@ static void adev_close_output_stream(struct audio_hw_device *dev,
         adev->continuous_audio_mode = 1;
 
     }
-
 
     pthread_mutex_lock(&out->lock);
     aml_audio_free(out->audioeffect_tmp_buffer);
@@ -4771,6 +4775,25 @@ exit:
     return 0;
 }
 
+static void adev_get_cec_control_object(struct aml_audio_device *adev, char *temp_buf)
+{
+    int cec_control_tv = 0;
+    if (!adev->is_TV && adev->dolby_lib_type != eDolbyMS12Lib) {
+        enum AML_SPDIF_FORMAT format = AML_STEREO_PCM;
+        enum AML_SPDIF_TO_HDMITX spdif_index = aml_mixer_ctrl_get_int(&adev->alsa_mixer, AML_MIXER_ID_SPDIF_TO_HDMI);
+        if (spdif_index == AML_SPDIF_A_TO_HDMITX) {
+            format = aml_mixer_ctrl_get_int(&adev->alsa_mixer, AML_MIXER_ID_SPDIF_FORMAT);
+        } else if (spdif_index == AML_SPDIF_B_TO_HDMITX) {
+            format = aml_mixer_ctrl_get_int(&adev->alsa_mixer, AML_MIXER_ID_SPDIF_B_FORMAT);
+        } else {
+            ALOGW("[%s:%d] unsupported spdif index:%d, use the 2ch PCM.", __func__, __LINE__, spdif_index);
+        }
+        cec_control_tv = (format == AML_STEREO_PCM) ? 0 : 1;
+    }
+    sprintf (temp_buf, "hal_param_cec_control_tv=%d", cec_control_tv);
+    ALOGI("[%s:%d] hal_param_cec_control_tv:%d", __func__, __LINE__, cec_control_tv);
+}
+
 static char * adev_get_parameters (const struct audio_hw_device *dev,
                                    const char *keys)
 {
@@ -4846,6 +4869,9 @@ static char * adev_get_parameters (const struct audio_hw_device *dev,
         pthread_mutex_unlock (&adev->lock);
         sprintf (temp_buf, "is_passthrough_active=%d",active);
         return  strdup (temp_buf);
+    } else if (strstr(keys, "hal_param_cec_control_tv")) {
+        adev_get_cec_control_object(adev, temp_buf);
+        return  strdup (temp_buf);
     } else if (!strcmp(keys, "SOURCE_GAIN")) {
         sprintf(temp_buf, "source_gain = %f %f %f %f %f", adev->eq_data.s_gain.atv, adev->eq_data.s_gain.dtv,
                 adev->eq_data.s_gain.hdmi, adev->eq_data.s_gain.av, adev->eq_data.s_gain.media);
@@ -4864,9 +4890,7 @@ static char * adev_get_parameters (const struct audio_hw_device *dev,
     } else if (!strcmp(keys, "SOURCE_MUTE")) {
         sprintf(temp_buf, "source_mute = %d", adev->source_mute);
         return strdup(temp_buf);
-    }
-
-    else if (strstr (keys, "stream_dra_channel") ) {
+    } else if (strstr (keys, "stream_dra_channel") ) {
        if (adev->audio_patch != NULL && adev->patch_src == SRC_DTV) {
           if (adev->audio_patch->dtv_NchOriginal > 8 || adev->audio_patch->dtv_NchOriginal < 1) {
               sprintf (temp_buf, "0.0");
@@ -8033,8 +8057,6 @@ int adev_open_output_stream_new(struct audio_hw_device *dev,
     struct aml_stream_out *aml_out = NULL;
     stream_usecase_t usecase = STREAM_PCM_NORMAL;
     int ret;
-    bool is_dtv_invoke = !strcmp(address, "AML_DTV_SOURCE");
-
     ALOGD("%s: enter", __func__);
     ret = adev_open_output_stream(dev,
                                     0,
@@ -8042,19 +8064,13 @@ int adev_open_output_stream_new(struct audio_hw_device *dev,
                                     flags,
                                     config,
                                     stream_out,
-                                    NULL);
+                                    address);
     if (ret < 0) {
         ALOGE("%s(), open stream failed", __func__);
         return ret;
     }
 
     aml_out = (struct aml_stream_out *)(*stream_out);
-    /* only pcm mode use new write method */
-    if (address && !strncmp(address, "AML_TV_SOURCE", 13)) {
-        ALOGI("%s(): aml TV source stream", __func__);
-        aml_out->tv_src_stream = true;
-    }
-
     aml_out->usecase = attr_to_usecase(aml_out->device, aml_out->hal_format, aml_out->flags);
     aml_out->is_normal_pcm = (aml_out->usecase == STREAM_PCM_NORMAL) ? 1 : 0;
     aml_out->out_cfg = *config;
@@ -8073,7 +8089,7 @@ int adev_open_output_stream_new(struct audio_hw_device *dev,
                and the audio patch is enabled, we do not need to wait DTV exit as it is
                enabled by DTV itself */
             if (config->sample_rate == 96000 || config->sample_rate == 88200 ||
-                    audio_channel_count_from_out_mask(config->channel_mask) > 2 || is_dtv_invoke) {
+                    audio_channel_count_from_out_mask(config->channel_mask) > 2 || aml_out->tv_src_stream) {
                 aml_out->bypass_submix = true;
                 aml_out->stream.write = out_write_new;
                 aml_out->stream.common.standby = out_standby_new;
