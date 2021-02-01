@@ -70,7 +70,13 @@ typedef enum MIXER_SPDIFIN_AUDIO_TYPE {
 /* Hardware resample enable */
 typedef enum MIXER_HW_RESAMPLE_ENABLE {
     HW_RESAMPLE_DISABLE = 0,
-    HW_RESAMPLE_ENABLE  = 1,
+    HW_RESAMPLE_32K,
+    HW_RESAMPLE_44K,
+    HW_RESAMPLE_48K,
+    HW_RESAMPLE_88K,
+    HW_RESAMPLE_96K,
+    HW_RESAMPLE_176K,
+    HW_RESAMPLE_192K,
     HW_RESAMPLE_MAX,
 } eMixerHwResample;
 
@@ -93,6 +99,12 @@ struct aml_mixer_ctrl {
     int  ctrl_idx;
     char ctrl_name[50];
 };
+
+/* the same as toddr source*/
+typedef enum ResampleSource {
+    RESAMPLE_FROM_SPDIFIN = 3,
+    RESAMPLE_FROM_FRHDMIRX = 8,
+} eMixerAudioResampleSource;
 
 /*
  *  Alsa Mixer Control Command List
@@ -120,10 +132,15 @@ typedef enum AML_MIXER_CTRL_ID {
     AML_MIXER_ID_AV_IN_AUDIO_STABLE,
     AML_MIXER_ID_EQ_MASTER_VOLUME,
     AML_MIXER_ID_SPDIFIN_ARCIN_SWITCH,
+    AML_MIXER_ID_SPDIFIN_PAO,
+    AML_MIXER_ID_HDMIIN_AUDIO_TYPE,
+    AML_MIXER_ID_SPDIFIN_SRC,
+    AML_MIXER_ID_HDMIIN_AUDIO_PACKET,
     AML_MIXER_ID_CHANGE_SPIDIF_PLL,
     AML_MIXER_ID_CHANGE_SPIDIFB_PLL,
     AML_MIXER_ID_CHANGE_I2S_PLL,
-    AML_MIXER_ID_HDMIIN_AUDIO_TYPE,
+    AML_MIXER_ID_SPDIF_IN_SAMPLERATE,
+    AML_MIXER_ID_HW_RESAMPLE_SOURCE,
     AML_MIXER_ID_AUDIO_HAL_FORMAT,
     AML_MIXER_ID_MAX,
 } eMixerCtrlID;

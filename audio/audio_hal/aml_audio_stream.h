@@ -241,6 +241,7 @@ struct aml_audio_patch {
     audio_devices_t input_src;
     audio_format_t  aformat;
     int  sample_rate;
+    int input_sample_rate;
     audio_channel_mask_t chanmask;
     audio_channel_mask_t in_chanmask;
     int in_sample_rate;
@@ -367,10 +368,13 @@ bool is_hdmi_in_stable_sw(struct audio_stream_in *stream);
 bool is_atv_in_stable_hw(struct audio_stream_in *stream);
 int set_audio_source(struct aml_mixer_handle *mixer_handle,
         enum input_source audio_source, bool is_auge);
-int enable_HW_resample(struct aml_mixer_handle *mixer_handle, int enable);
+int enable_HW_resample(struct aml_mixer_handle *mixer_handle, int enable_sr);
 bool Stop_watch(struct timespec start_ts, int64_t time);
 bool signal_status_check(audio_devices_t in_device, int *mute_time,
                          struct audio_stream_in *stream);
+
+int set_resample_source(struct aml_mixer_handle *mixer_handle, enum ResampleSource source);
+int set_spdifin_pao(struct aml_mixer_handle *mixer_handle,int enable);
 
 /*
  *@brief clean the tmp_buffer_8ch&audioeffect_tmp_buffer and release audio stream
@@ -379,6 +383,11 @@ void  release_audio_stream(struct audio_stream_out *stream);
 /*@brief check the AV audio stability by HW register */
 bool is_av_in_stable_hw(struct audio_stream_in *stream);
 bool is_dual_output_stream(struct audio_stream_out *stream);
+int get_spdifin_samplerate(struct aml_mixer_handle *mixer_handle);
+int get_hdmiin_samplerate(struct aml_mixer_handle *mixer_handle);
+int get_hdmiin_channel(struct aml_mixer_handle *mixer_handle);
+hdmiin_audio_packet_t get_hdmiin_audio_packet(struct aml_mixer_handle *mixer_handle);
+
 /* dumpsys media.audio_flinger interfaces */
 const char *audio_port_role_to_str(audio_port_role_t role);
 const char *audio_port_type_to_str(audio_port_type_t type);

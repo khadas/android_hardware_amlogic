@@ -132,6 +132,20 @@ static int hdmiin_audio_format_detection(struct aml_mixer_handle *mixer_handle)
     }
 }
 
+static int spdifin_audio_format_detection(struct aml_mixer_handle *mixer_handle)
+{
+    int type = 0;
+
+    type = aml_mixer_ctrl_get_int(mixer_handle, AML_MIXER_ID_SPDIFIN_AUDIO_TYPE);
+
+    if (type >= LPCM && type <= PAUSE) {
+        return type;
+    } else {
+        return LPCM;
+    }
+
+}
+
 int audio_type_parse(void *buffer, size_t bytes, int *package_size, audio_channel_mask_t *cur_ch_mask)
 {
     int pos_sync_word = -1, pos_dtscd_sync_word = -1;
@@ -261,7 +275,7 @@ static int audio_type_parse_init(audio_type_parse_t *status)
     }
 
     audio_type_status->in = in;
-    enable_HW_resample(mixer_handle, HW_RESAMPLE_ENABLE);
+    enable_HW_resample(mixer_handle, HW_RESAMPLE_48K);
 
     ALOGD("init parser success: (%d), (%d), (%p)",
           audio_type_status->card, audio_type_status->device, audio_type_status->in);
@@ -282,8 +296,39 @@ static int audio_type_parse_release(audio_type_parse_t *status)
     return 0;
 }
 
+static int audio_transer_samplerate (int hw_sr)
+{
+    int samplerate;
+    switch (hw_sr) {
+    case HW_32K:
+        samplerate = 32000;
+        break;
+    case HW_44K:
+        samplerate = 44100;
+        break;
+    case HW_48K:
+        samplerate = 48000;
+        break;
+    case HW_88K:
+        samplerate = 88000;
+        break;
+    case HW_96K:
+        samplerate = 96000;
+        break;
+    case HW_176K:
+        samplerate = 176000;
+        break;
+    case HW_192K:
+        samplerate = 192000;
+        break;
+    default:
+        samplerate = 48000;
+        break;
+    }
+    return samplerate;
+}
 
-static int update_audio_type(audio_type_parse_t *status, int update_bytes)
+static int update_audio_type(audio_type_parse_t *status, int update_bytes, int sr)
 {
     audio_type_parse_t *audio_type_status = status;
     struct aml_mixer_handle *mixer_handle = audio_type_status->mixer_handle;
@@ -299,7 +344,7 @@ static int update_audio_type(audio_type_parse_t *status, int update_bytes)
             audio_type_status->audio_type = audio_type_status->cur_audio_type;
             audio_type_status->read_bytes = 0;
             ALOGI("no IEC61937 header found, PCM data!\n");
-            enable_HW_resample(mixer_handle, HW_RESAMPLE_ENABLE);
+            enable_HW_resample(mixer_handle, sr);
         }
         audio_type_status->read_bytes += update_bytes;
     } else {
@@ -317,8 +362,12 @@ void* audio_type_parse_threadloop(void *data)
 {
     audio_type_parse_t *audio_type_status = (audio_type_parse_t *)data;
     int bytes, ret = -1;
-
-    int txlx_chip = is_txlx_chip();
+    int cur_samplerate = HW_RESAMPLE_48K;
+    int last_cur_samplerate = HW_RESAMPLE_48K;
+    int read_bytes = 0;
+    int txlx_chip = check_chip_name("txlx", 4);
+    int txl_chip = check_chip_name("txl", 3);
+    int auge_chip = alsa_device_is_auge();
 
     ret = audio_type_parse_init(audio_type_status);
     if (ret < 0) {
@@ -333,40 +382,75 @@ void* audio_type_parse_threadloop(void *data)
     ALOGV("Start thread loop for android audio data parse! data = %p, bytes = %d, in = %p\n",
           data, bytes, audio_type_status->in);
 
-    while (audio_type_status->running_flag && audio_type_status->in != NULL) {
-        ret = pcm_read(audio_type_status->in, audio_type_status->parse_buffer + 3, bytes);
-        if (ret >= 0) {
-#if 0
-            if (getprop_bool("vendor.media.audiohal.parsedump")) {
-                FILE *dump_fp = NULL;
-                dump_fp = fopen("/data/audio_hal/audio_parse.dump", "a+");
-                if (dump_fp != NULL) {
-                    fwrite(audio_type_status->parse_buffer + 3, bytes, 1, dump_fp);
-                    fclose(dump_fp);
-                } else {
-                    ALOGW("[Error] Can't write to /data/audio_hal/audio_parse.dump");
+    if (audio_type_status->input_dev == AUDIO_DEVICE_IN_HDMI) {
+        cur_samplerate = set_resample_source(audio_type_status->mixer_handle, RESAMPLE_FROM_FRHDMIRX);
+    } else if (audio_type_status->input_dev == AUDIO_DEVICE_IN_SPDIF) {
+        cur_samplerate = set_resample_source(audio_type_status->mixer_handle, RESAMPLE_FROM_SPDIFIN);
+    }
+
+    while (audio_type_status->running_flag) {
+        if (audio_type_status->input_dev == AUDIO_DEVICE_IN_HDMI) {
+            cur_samplerate = get_hdmiin_samplerate(audio_type_status->mixer_handle);
+            audio_type_status->audio_samplerate = audio_transer_samplerate(cur_samplerate);
+        } else if (audio_type_status->input_dev == AUDIO_DEVICE_IN_SPDIF) {
+            cur_samplerate = get_spdifin_samplerate(audio_type_status->mixer_handle);
+        } else if (audio_type_status->input_dev == AUDIO_DEVICE_IN_HDMI_ARC) {
+            cur_samplerate = -1;//temp code
+        }
+
+        if (cur_samplerate == -1)
+            cur_samplerate = HW_RESAMPLE_DISABLE;
+
+        /*check hdmiin audio input sr and reset hw resample*/
+        if (cur_samplerate != last_cur_samplerate &&
+                audio_type_status->audio_type == LPCM) {
+            enable_HW_resample(audio_type_status->mixer_handle, cur_samplerate);
+            ALOGD("Reset hdmiin/spdifin audio resample sr from %d to %d\n",
+                last_cur_samplerate, cur_samplerate);
+            last_cur_samplerate = cur_samplerate;
+        }
+
+        if (txlx_chip && audio_type_status->in) {
+            //sw audio format detection.
+            if (cur_samplerate == HW_RESAMPLE_192K) {
+                read_bytes = bytes * 4;
+            } else {
+                read_bytes = bytes;
+            }
+            ret = pcm_read(audio_type_status->in, audio_type_status->parse_buffer + 3, read_bytes);
+            if (ret >= 0) {
+                audio_type_status->cur_audio_type = audio_type_parse(audio_type_status->parse_buffer,
+                                                    read_bytes, &(audio_type_status->package_size),
+                                                    &(audio_type_status->audio_ch_mask));
+                //ALOGD("cur_audio_type=%d\n", audio_type_status->cur_audio_type);
+                memcpy(audio_type_status->parse_buffer, audio_type_status->parse_buffer + read_bytes, 3);
+                update_audio_type(audio_type_status, read_bytes, cur_samplerate);
+            } else {
+                usleep(10 * 1000);
+            }
+        } else {
+            if (auge_chip) {
+                // get audio format from hw.
+                if (audio_type_status->input_dev == AUDIO_DEVICE_IN_HDMI) {
+                    audio_type_status->cur_audio_type = hdmiin_audio_format_detection(audio_type_status->mixer_handle);
+                } else if (audio_type_status->input_dev == AUDIO_DEVICE_IN_SPDIF) {
+                    audio_type_status->cur_audio_type = spdifin_audio_format_detection(audio_type_status->mixer_handle);
+                }
+
+                if (audio_type_status->audio_type != LPCM && audio_type_status->cur_audio_type == LPCM) {
+                    enable_HW_resample(audio_type_status->mixer_handle, cur_samplerate);
+                } else if (audio_type_status->audio_type == LPCM && audio_type_status->cur_audio_type != LPCM){
+                    ALOGV("Raw data found: type(%d)\n", audio_type_status->cur_audio_type);
+                    enable_HW_resample(audio_type_status->mixer_handle, HW_RESAMPLE_DISABLE);
+                }
+
+                audio_type_status->audio_type = audio_type_status->cur_audio_type;
+            } else if (audio_type_status->input_dev == AUDIO_DEVICE_IN_HDMI) {
+                hdmiin_audio_packet_t audio_packet = get_hdmiin_audio_packet(audio_type_status->mixer_handle);
+                if (audio_packet == AUDIO_PACKET_HBR) {
+                    enable_HW_resample(audio_type_status->mixer_handle, HW_RESAMPLE_DISABLE);
                 }
             }
-#endif
-            /*if (alsa_device_is_auge()) {
-                audio_type_status->cur_audio_type = LPCM;
-                ALOGI("[%s:%d]  LPCM cur_audio_type:%d", __func__, __LINE__, audio_type_status->cur_audio_type);
-                continue;
-            }*/
-
-            audio_type_status->cur_audio_type = audio_type_parse(audio_type_status->parse_buffer,
-                                                bytes, &(audio_type_status->package_size), &(audio_type_status->audio_ch_mask));
-            // ALOGD("cur_audio_type=%d\n", audio_type_status->cur_audio_type);
-            //for txl chip,the PAO sw audio format detection is not ready yet.
-            //we use the hw audio format detection.
-            //TODO
-            if (!txlx_chip && audio_type_status->cur_audio_type == LPCM) {
-                audio_type_status->cur_audio_type = hdmiin_audio_format_detection(audio_type_status->mixer_handle);
-            }
-
-            memcpy(audio_type_status->parse_buffer, audio_type_status->parse_buffer + bytes, 3);
-            update_audio_type(audio_type_status, bytes);
-        } else {
             usleep(10 * 1000);
             //ALOGE("fail to read bytes = %d\n", bytes);
         }
@@ -378,10 +462,20 @@ void* audio_type_parse_threadloop(void *data)
     return ((void *) 0);
 }
 
+int audio_parse_get_audio_samplerate(audio_type_parse_t *status)
+{
+    if (!status) {
+        ALOGE("NULL pointer of audio_type_parse_t, return default samperate:48000\n");
+        return 48000;
+    }
+    return status->audio_samplerate;
+}
+
 int creat_pthread_for_audio_type_parse(
                      pthread_t *audio_type_parse_ThreadID,
                      void **status,
-                     struct aml_mixer_handle *mixer)
+                     struct aml_mixer_handle *mixer,
+                     audio_devices_t input_dev)
  {
     pthread_attr_t attr;
     struct sched_param param;
@@ -404,6 +498,7 @@ int creat_pthread_for_audio_type_parse(
     audio_type_status->audio_type = LPCM;
     audio_type_status->audio_ch_mask = AUDIO_CHANNEL_OUT_STEREO;
     audio_type_status->mixer_handle = mixer;
+    audio_type_status->input_dev = input_dev;
 
     pthread_attr_init(&attr);
     pthread_attr_setschedpolicy(&attr, SCHED_RR);

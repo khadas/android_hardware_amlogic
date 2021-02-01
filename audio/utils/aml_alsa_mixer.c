@@ -62,17 +62,23 @@ static struct aml_mixer_list gAmlMixerList[] = {
     {AML_MIXER_ID_SPDIF_B_FORMAT,       "Audio spdif_b format"},
     {AML_MIXER_ID_SPDIF_TO_HDMI,        "Spdif to HDMITX Select"},
 
-    /* HDMI IN audio format */
-    {AML_MIXER_ID_HDMIIN_AUDIO_TYPE,    "HDMIIN Audio Type"},
     /* for AV status */
     {AML_MIXER_ID_AV_IN_AUDIO_STABLE,   "AV audio stable"},
     /* for Speaker master volume */
     {AML_MIXER_ID_EQ_MASTER_VOLUME,     "EQ master volume"},
     /* ARCIN and SPDIFIN switch*/
     {AML_MIXER_ID_SPDIFIN_ARCIN_SWITCH, "AudioIn Switch"},
+    {AML_MIXER_ID_SPDIFIN_PAO,          "SPDIFIN PAO"},
+    /* HDMI IN audio format */
+    {AML_MIXER_ID_HDMIIN_AUDIO_TYPE,    "HDMIIN Audio Type"},
+    /* SPDIF IN audio SRC select */
+    {AML_MIXER_ID_SPDIFIN_SRC,          "Audio spdifin source"},
+    {AML_MIXER_ID_HDMIIN_AUDIO_PACKET,  "HDMIIN Audio Packet"},
     {AML_MIXER_ID_CHANGE_SPIDIF_PLL,    "SPDIF CLK Fine Setting"},
     {AML_MIXER_ID_CHANGE_SPIDIFB_PLL,   "SPDIF_B CLK Fine Setting"},
     {AML_MIXER_ID_CHANGE_I2S_PLL,       "TDM MCLK Fine Setting"},
+    {AML_MIXER_ID_SPDIF_IN_SAMPLERATE,  "SPDIFIN audio samplerate"},
+    {AML_MIXER_ID_HW_RESAMPLE_SOURCE,   "Hw resample module"},
     {AML_MIXER_ID_AUDIO_HAL_FORMAT,     "Audio HAL Format"},
 };
 

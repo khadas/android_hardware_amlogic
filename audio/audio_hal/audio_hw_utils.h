@@ -49,7 +49,7 @@ unsigned char codec_type_is_raw_data(int type);
 int mystrstr(char *mystr, char *substr);
 void *convert_audio_sample_for_output(int input_frames, int input_format, int input_ch, void *input_buf, int *out_size/*,float lvol*/);
 int  aml_audio_start_trigger(void *stream);
-int is_txlx_chip();
+int check_chip_name(char *name, unsigned int length);
 int is_sc2_chip();
 int aml_audio_get_debug_flag();
 int aml_audio_debug_set_optical_format();

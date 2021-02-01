@@ -422,14 +422,15 @@ int getprop_bool(const char *path)
     return 0;
 }
 
-int is_txlx_chip()
+int check_chip_name(char *name, unsigned int length)
 {
     char buf[PROPERTY_VALUE_MAX];
+    char *chip_name = name;
     int ret = -1;
 
     ret = property_get("ro.board.platform", buf, NULL);
     if (ret > 0) {
-        if (strcasecmp(buf, "txlx") == 0) {
+        if (strncasecmp(buf, chip_name, length) == 0) {
             return true;
         }
     }

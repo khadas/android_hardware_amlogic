@@ -435,12 +435,74 @@ int set_audio_source(struct aml_mixer_handle *mixer_handle,
     return aml_mixer_ctrl_set_int(mixer_handle, AML_MIXER_ID_AUDIO_IN_SRC, src);
 }
 
-int enable_HW_resample(struct aml_mixer_handle *mixer_handle, int enable)
+int set_resample_source(struct aml_mixer_handle *mixer_handle, enum ResampleSource source)
 {
-    if (enable == 0)
+    return aml_mixer_ctrl_set_int(mixer_handle, AML_MIXER_ID_HW_RESAMPLE_SOURCE, source);
+}
+
+int set_spdifin_pao(struct aml_mixer_handle *mixer_handle,int enable)
+{
+    return aml_mixer_ctrl_set_int(mixer_handle, AML_MIXER_ID_SPDIFIN_PAO, enable);
+}
+
+int get_spdifin_samplerate(struct aml_mixer_handle *mixer_handle)
+{
+    int index = aml_mixer_ctrl_get_int(mixer_handle, AML_MIXER_ID_SPDIF_IN_SAMPLERATE);
+
+    return index;
+}
+
+int get_hdmiin_samplerate(struct aml_mixer_handle *mixer_handle)
+{
+    int stable = 0;
+
+    stable = aml_mixer_ctrl_get_int(mixer_handle, AML_MIXER_ID_HDMI_IN_AUDIO_STABLE);
+    if (!stable) {
+        return -1;
+    }
+
+    return aml_mixer_ctrl_get_int(mixer_handle, AML_MIXER_ID_HDMI_IN_SAMPLERATE);
+}
+
+int get_hdmiin_channel(struct aml_mixer_handle *mixer_handle)
+{
+    int stable = 0;
+    int channel_index = 0;
+
+    stable = aml_mixer_ctrl_get_int(mixer_handle, AML_MIXER_ID_HDMI_IN_AUDIO_STABLE);
+    if (!stable) {
+        return -1;
+    }
+
+    /*hmdirx audio support: N/A, 2, 3, 4, 5, 6, 7, 8*/
+    channel_index = aml_mixer_ctrl_get_int(mixer_handle, AML_MIXER_ID_HDMI_IN_CHANNELS);
+    if (channel_index != 7)
+        return 2;
+    else
+        return 8;
+}
+
+hdmiin_audio_packet_t get_hdmiin_audio_packet(struct aml_mixer_handle *mixer_handle)
+{
+    int audio_packet = 0;
+    audio_packet = aml_mixer_ctrl_get_int(mixer_handle,AML_MIXER_ID_HDMIIN_AUDIO_PACKET);
+    if (audio_packet < 0) {
+        return AUDIO_PACKET_NONE;
+    }
+    return (hdmiin_audio_packet_t)audio_packet;
+}
+
+int get_HW_resample(struct aml_mixer_handle *mixer_handle)
+{
+    return aml_mixer_ctrl_get_int(mixer_handle, AML_MIXER_ID_HW_RESAMPLE_ENABLE);
+}
+
+int enable_HW_resample(struct aml_mixer_handle *mixer_handle, int enable_sr)
+{
+    if (enable_sr == 0)
         aml_mixer_ctrl_set_int(mixer_handle, AML_MIXER_ID_HW_RESAMPLE_ENABLE, HW_RESAMPLE_DISABLE);
     else
-        aml_mixer_ctrl_set_int(mixer_handle, AML_MIXER_ID_HW_RESAMPLE_ENABLE, HW_RESAMPLE_ENABLE);
+        aml_mixer_ctrl_set_int(mixer_handle, AML_MIXER_ID_HW_RESAMPLE_ENABLE, enable_sr);
     return 0;
 }
 
