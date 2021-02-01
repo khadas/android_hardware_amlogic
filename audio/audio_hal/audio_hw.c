@@ -7627,9 +7627,18 @@ ssize_t audio_hal_data_processing(struct audio_stream_out *stream,
                aml_audio_switch_output_mode((int16_t *)effect_tmp_buf, bytes, adev->sound_track_mode);
             }
 
+            float volume = source_gain;
             /* apply volume for spk/hp, SPDIF/HDMI keep the max volume */
-            gain_speaker *= (adev->sink_gain[OUTPORT_SPEAKER] * source_gain);
-            apply_volume_16to32(gain_speaker, effect_tmp_buf, spk_tmp_buf, bytes);
+            if (adev->out_device & AUDIO_DEVICE_OUT_ALL_A2DP) {
+                if ((adev->patch_src == SRC_DTV || adev->patch_src == SRC_HDMIIN
+                        || adev->patch_src == SRC_LINEIN || adev->patch_src == SRC_ATV)
+                        && adev->audio_patching) {
+                        volume *= adev->sink_gain[OUTPORT_A2DP];
+                }
+            } else {
+                volume *= gain_speaker * adev->sink_gain[OUTPORT_SPEAKER];
+            }
+            apply_volume_16to32(volume, effect_tmp_buf, spk_tmp_buf, bytes);
 
             /* 2 ch 16 bit --> 8 ch 32 bit mapping, need 8X size of input buffer size */
             if (aml_out->tmp_buffer_8ch_size < 8 * bytes) {
