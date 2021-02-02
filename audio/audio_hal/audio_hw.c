@@ -2021,7 +2021,7 @@ exit:
     pthread_mutex_unlock(&aml_out->lock);
     pthread_mutex_unlock(&aml_dev->lock);
 
-    if (aml_dev->useSubMix && is_standby) {
+    if (is_standby) {
         ALOGD("%s(), stream(%p) already in standy, return INVALID_STATE", __func__, stream);
         ret = INVALID_STATE;
     }
