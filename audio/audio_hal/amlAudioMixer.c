@@ -40,8 +40,7 @@
 #include "audio_bt_sco.h"
 #include "aml_malloc_debug.h"
 
-#define MIXER_FRAME_COUNT                   (384)
-#define MIXER_OUT_FRAME_SIZE                (8)
+
 #define MIXER_WRITE_PERIOD_TIME_NANO        (MIXER_FRAME_COUNT * 1000000000LL / 48000)
 
 #define SILENCE_FRAME_MAX                   (6144)

@@ -699,7 +699,11 @@ int aml_audio_get_pcm_latency_offset(int aformat)
     char *prop_name = NULL;
     (void)aformat;
     prop_name = "vendor.media.audio.hal.latency.pcm";
-    latency_ms = 30;
+    //32ms Omx decoder delay
+    //16ms video delay
+    //16ms Sub Mix delay
+    /* 384Bytes*8 = 16ms*48kHz(newAmlAudioMixer tmp_buffer size is MIXER_FRAME_COUNT * MIXER_OUT_FRAME_SIZE) */
+    latency_ms = 64;
     ret = property_get(prop_name, buf, NULL);
     if (ret > 0) {
         latency_ms = atoi(buf);
@@ -991,7 +995,7 @@ int aml_audio_get_hdmi_latency_offset(audio_format_t source_format,
               latency_ms = 0;
            }
         } else
-           latency_ms = -30;
+           latency_ms = 0;
     } else {
         prop_name = "vendor.media.audio.hal.hdmi_latency.raw";
         if (source_format == AUDIO_FORMAT_E_AC3) {
@@ -1002,7 +1006,7 @@ int aml_audio_get_hdmi_latency_offset(audio_format_t source_format,
                         latency_ms = -60;
                  }
              } else {
-                 latency_ms = -95;
+                 latency_ms = -50;
              }
         } else  if(source_format == AUDIO_FORMAT_AC3) {
             if (ms12_enable)
@@ -1033,7 +1037,7 @@ int aml_audio_get_speaker_latency_offset(int aformat ,int ms12_enable)
         if (ms12_enable)
            latency_ms = 105;
         else
-           latency_ms = 70;
+           latency_ms = 0;
     } else {
         prop_name = "vendor.media.audio.hal.speaker_latency.raw";
         latency_ms = 80;

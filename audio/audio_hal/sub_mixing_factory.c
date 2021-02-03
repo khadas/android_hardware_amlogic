@@ -762,9 +762,25 @@ static int out_get_presentation_position_port(
     }
 
     if (adev->debug_flag) {
-        ALOGI("%s() out:%p frames:%"PRIu64", sec:%ld, nanosec:%ld, ret:%d\n",
-                __func__, out, *frames, timestamp->tv_sec, timestamp->tv_nsec, ret);
+        ALOGI("%s() out %p %"PRIu64", sec = %ld, nanosec = %ld\n", __func__, out, *frames, timestamp->tv_sec, timestamp->tv_nsec);
+        int64_t  frame_diff_ms =  (*frames - out->last_frame_reported) * 1000 / out->hal_rate;
+        int64_t  system_time_ms = 0;
+        if (timestamp->tv_nsec < out->last_timestamp_reported.tv_nsec) {
+            system_time_ms = (timestamp->tv_nsec + 1000000000 - out->last_timestamp_reported.tv_nsec)/1000000;
+        }
+        else
+            system_time_ms = (timestamp->tv_nsec - out->last_timestamp_reported.tv_nsec)/1000000;
+        int64_t jitter_diff = llabs(frame_diff_ms - system_time_ms);
+        if  (jitter_diff > JITTER_DURATION_MS) {
+            ALOGI("%s jitter out last pos info: %p %"PRIu64", sec = %ld, nanosec = %ld\n",__func__,out, out->last_frame_reported,
+                out->last_timestamp_reported.tv_sec, out->last_timestamp_reported.tv_nsec);
+            ALOGI("%s jitter  system time diff %"PRIu64" ms, position diff %"PRIu64" ms, jitter %"PRIu64" ms \n",
+                __func__,system_time_ms,frame_diff_ms,jitter_diff);
+        }
+        out->last_frame_reported = *frames;
+        out->last_timestamp_reported = *timestamp;
     }
+
     return ret;
 }
 
@@ -1170,9 +1186,10 @@ ssize_t mixer_aux_buffer_write_sm(struct audio_stream_out *stream, const void *b
         goto exit;
     }
 
+    /* this process will lead audio late about 30ms delay. */
     if (aml_out->standby) {
         char *padding_buf = NULL;
-        int padding_bytes = 512 * 4 * 8;
+        int padding_bytes = MIXER_FRAME_COUNT * 4 * MIXER_OUT_FRAME_SIZE;
         if (aml_out->out_device & AUDIO_DEVICE_OUT_ALL_A2DP)
             padding_bytes = 0;
 
@@ -1187,8 +1204,8 @@ ssize_t mixer_aux_buffer_write_sm(struct audio_stream_out *stream, const void *b
 #ifdef ENABLE_AEC_APP
         aec_set_spk_running(adev->aec, true);
 #endif
-        /* start padding zero to fill buffer */
-        padding_buf = aml_audio_calloc(1, 512 * 4);
+        /* start padding zero to fill padding data to alsa buffer*/
+        padding_buf = aml_audio_calloc(1, MIXER_FRAME_COUNT * 4);
         if (padding_buf == NULL) {
             ALOGE("%s(), no memory", __func__);
             return -ENOMEM;
@@ -1196,8 +1213,8 @@ ssize_t mixer_aux_buffer_write_sm(struct audio_stream_out *stream, const void *b
         mixer_set_padding_size(sm->mixerData, aml_out->inputPortID, padding_bytes);
         while (padding_bytes > 0) {
             ALOGI("padding_bytes %d", padding_bytes);
-            aml_out_write_to_mixer(stream, padding_buf, 512 * 4);
-            padding_bytes -= 512 * 4;
+            aml_out_write_to_mixer(stream, padding_buf, MIXER_FRAME_COUNT * 4);
+            padding_bytes -= MIXER_FRAME_COUNT * 4;
         }
         aml_audio_free(padding_buf);
     }

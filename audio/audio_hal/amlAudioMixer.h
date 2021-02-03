@@ -22,6 +22,9 @@
 #include "aml_ringbuffer.h"
 #include "audio_port.h"
 
+#define MIXER_FRAME_COUNT                   (384)
+#define MIXER_OUT_FRAME_SIZE                (8)
+
 __BEGIN_DECLS
 
 /**

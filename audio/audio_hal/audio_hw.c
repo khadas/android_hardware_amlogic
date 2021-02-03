@@ -3555,24 +3555,40 @@ static int out_get_presentation_position (const struct audio_stream_out *stream,
     if (eDolbyMS12Lib == adev->dolby_lib_type ) {
         ret = aml_audio_get_ms12_presentation_position(stream, frames, timestamp);
     } else if (eDolbyDcvLib == adev->dolby_lib_type) {
-         if (adev->audio_type == EAC3 || adev->audio_type == AC3) {
+         bool is_audio_type_dolby = (adev->audio_type == EAC3 || adev->audio_type == AC3);
+         bool is_hal_format_dolby = (out->hal_format ==AUDIO_FORMAT_AC3 || out->hal_format == AUDIO_FORMAT_E_AC3);
+         if (is_audio_type_dolby || is_hal_format_dolby) {
              timems_latency = aml_audio_get_latency_offset(adev->active_outport,
                                                              out->hal_internal_format,
                                                              adev->sink_format,
                                                              adev->ms12.dolby_ms12_enable);
-             frame_latency = timems_latency * (out->hal_rate * out->rate_convert / 1000);
-             *frames += frame_latency ;
+             if (is_audio_type_dolby) {
+                frame_latency = timems_latency * (out->hal_rate * out->rate_convert / 1000);
+             }
+             else if (is_hal_format_dolby) {
+                frame_latency = timems_latency * (out->hal_rate / 1000);
+             }
          }
-         if ((frame_latency + frames_written_hw) <= 0) {
+         if ((frame_latency < 0) && (frames_written_hw < abs(frame_latency))) {
              ALOGV("%s(), not ready yet", __func__);
              return -EINVAL;
          }
-         *frames = (frame_latency + frames_written_hw) * out->hal_rate / out->config.rate;
+
+        if (frame_latency >= 0)
+            *frames = frame_latency + frames_written_hw;
+        else if (frame_latency < 0) {
+            if (frames_written_hw >= abs(frame_latency))
+                *frames = frame_latency + frames_written_hw;
+            else
+                *frames = 0;
+        }
+        *frames = *frames * out->hal_rate / out->config.rate;
          *timestamp = out->lasttimestamp;
     }
 
     if (adev->debug_flag) {
-        ALOGI("out_get_presentation_position out %p %"PRIu64", sec = %ld, nanosec = %ld tunned_latency_ms %d\n", out, *frames, timestamp->tv_sec, timestamp->tv_nsec, timems_latency);
+        ALOGI("out_get_presentation_position out %p %"PRIu64", sec = %ld, nanosec = %ld tunned_latency_ms %d frame_latency %d\n",
+            out, *frames, timestamp->tv_sec, timestamp->tv_nsec, timems_latency, frame_latency);
         int64_t  frame_diff_ms =  (*frames - out->last_frame_reported) * 1000 / out->hal_rate;
         int64_t  system_time_ms = 0;
         if (timestamp->tv_nsec < out->last_timestamp_reported.tv_nsec) {
