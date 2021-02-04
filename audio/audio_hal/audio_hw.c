@@ -11477,20 +11477,16 @@ static int adev_set_audio_port_config (struct audio_hw_device *dev, const struct
     enum OUT_PORT outport = OUTPORT_SPEAKER;
     enum IN_PORT inport = INPORT_HDMIIN;
     int ret = 0;
-    int num_sinks = 1;
 
-    ALOGI ("++%s", __FUNCTION__);
     if (config == NULL) {
-        ALOGE ("NULL configs");
+        ALOGE("[%s:%d] audio_port_config is null", __func__, __LINE__);
         return -EINVAL;
     }
-
-    //dump_audio_port_config(config);
-    if ( (config->config_mask & AUDIO_PORT_CONFIG_GAIN) == 0) {
-        ALOGE ("null configs");
+    if ((config->config_mask & AUDIO_PORT_CONFIG_GAIN) == 0) {
+        ALOGE("[%s:%d] config_mask:%#x invalid", __func__, __LINE__, config->config_mask);
         return -EINVAL;
     }
-
+    ALOGI("++[%s:%d] audio_port id:%d, role:%d, type:%d", __func__, __LINE__, config->id, config->role, config->type);
     struct audio_patch_set *patch_set = NULL;
     struct audio_patch *patch = NULL;
     struct listnode *node = NULL;
@@ -11514,32 +11510,28 @@ static int adev_set_audio_port_config (struct audio_hw_device *dev, const struct
     }
 
     if (!patch_set || !patch) {
-        ALOGE("%s(): no right patch available", __func__);
+        ALOGW("[%s:%d] no right patch available. patch_set:%p or patch:%p is null", __func__, __LINE__, patch_set, patch);
         return -EINVAL;
     }
 
-    num_sinks = patch->num_sinks;
-    if (num_sinks == 2) {
-        if ((patch->sinks[0].ext.device.type == AUDIO_DEVICE_OUT_HDMI_ARC &&
-             patch->sinks[1].ext.device.type == AUDIO_DEVICE_OUT_SPEAKER) ||
-             (patch->sinks[0].ext.device.type == AUDIO_DEVICE_OUT_SPEAKER &&
-             patch->sinks[1].ext.device.type == AUDIO_DEVICE_OUT_HDMI_ARC)) {
-            if (aml_dev->bHDMIARCon) {
-                outport = OUTPORT_HDMI_ARC;
-                ALOGI("%s() speaker and HDMI_ARC co-exist case, output=ARC", __func__);
-            } else {
-                outport = OUTPORT_SPEAKER;
-                ALOGI("%s() speaker and HDMI_ARC co-exist case, output=SPEAKER", __func__);
+    enum OUT_PORT sink_devs[2] = {OUTPORT_SPEAKER, OUTPORT_SPEAKER};
+    for (int i=0; i<patch->num_sinks; i++) {
+        if (i >= 2) {
+            ALOGW("[%s:%d] invalid num_sinks:%d", __func__, __LINE__, patch->num_sinks);
+            break;
+        } else {
+            android_dev_convert_to_hal_dev(patch->sinks[i].ext.device.type, (int *)&sink_devs[i]);
+            if (aml_dev->debug_flag) {
+                ALOGD("[%s:%d] sink[%d]:%s", __func__, __LINE__, i, outputPort2Str(sink_devs[i]));
             }
         }
     }
 
     if (config->type == AUDIO_PORT_TYPE_DEVICE) {
         if (config->role == AUDIO_PORT_ROLE_SINK) {
-            if (num_sinks == 1) {
+            if (patch->num_sinks == 1) {
                 android_dev_convert_to_hal_dev(config->ext.device.type, (int *)&outport);
             }
-
 #ifdef DEBUG_VOLUME_CONTROL
             int vol = property_get_int32("vendor.media.audio_hal.volume", -1);
             if (vol != -1) {
@@ -11547,11 +11539,9 @@ static int adev_set_audio_port_config (struct audio_hw_device *dev, const struct
                 aml_dev->sink_gain[OUTPORT_SPEAKER] = (float)vol;
             } else
 #endif
-
             {
                 float volume_in_dB = (float)(config->gain.values[0] / 100);
                 aml_dev->sink_gain[outport] = DbToAmpl(volume_in_dB);
-
                 ALOGI(" - set sink device[%#x](outport:%s): volume_Mb[%d], gain[%f]",
                         config->ext.device.type, outputPort2Str(outport),
                         config->gain.values[0], aml_dev->sink_gain[outport]);
@@ -11566,63 +11556,32 @@ static int adev_set_audio_port_config (struct audio_hw_device *dev, const struct
             android_dev_convert_to_hal_dev(config->ext.device.type, (int *)&inport);
             aml_dev->src_gain[inport] = 1.0;
             if (patch->sinks[0].type == AUDIO_PORT_TYPE_DEVICE) {
-                if (num_sinks == 2) {
+                if (patch->num_sinks == 2) {
+                    if ((sink_devs[0] == OUTPORT_HDMI_ARC && sink_devs[1] == OUTPORT_SPEAKER) ||
+                         (sink_devs[0] == OUTPORT_SPEAKER && sink_devs[1] == OUTPORT_HDMI_ARC)) {
+                        outport = (aml_dev->bHDMIARCon ? OUTPORT_HDMI_ARC : OUTPORT_SPEAKER);
+                        ALOGI("[%s:%d] bHDMIARCon:%d speaker and HDMI_ARC co-exist case, ouput:%s.", __func__, __LINE__,
+                            aml_dev->bHDMIARCon, outputPort2Str(outport));
+                    } else if (sink_devs[0] == OUTPORT_A2DP || sink_devs[1] == OUTPORT_A2DP) {
+                        outport = OUTPORT_A2DP;
+                    }
                     switch (outport) {
                     case OUTPORT_HDMI_ARC:
                         aml_dev->sink_gain[outport] = 1.0;
                         break;
                     case OUTPORT_SPEAKER:
+                    case OUTPORT_A2DP:
                         aml_dev->sink_gain[outport] = DbToAmpl((float)(config->gain.values[0] / 100));
                         break;
                     default:
-                        ALOGE("%s: invalid out device type %#x",
-                              __func__, outport);
+                        ALOGW("[%s:%d] invalid out device type:%s", __func__, __LINE__, outputPort2Str(outport));
                     }
-                } else if (num_sinks == 1) {
-                switch (patch->sinks->ext.device.type) {
-                    case AUDIO_DEVICE_OUT_HDMI_ARC:
-                        outport = OUTPORT_HDMI_ARC;
-                        aml_dev->sink_gain[outport] = 1.0;
-                        break;
-                    case AUDIO_DEVICE_OUT_HDMI:
-                        outport = OUTPORT_HDMI;
+                } else if (patch->num_sinks == 1) {
+                    outport = sink_devs[0];
+                    if (OUTPORT_HDMI_ARC == outport || OUTPORT_SPDIF == outport) {
+                        aml_dev->sink_gain[outport] =  1.0;
+                    } else {
                         aml_dev->sink_gain[outport] = DbToAmpl(((float)config->gain.values[0]) / 100);
-                        break;
-                    case AUDIO_DEVICE_OUT_SPDIF:
-                        outport = OUTPORT_SPDIF;
-                        aml_dev->sink_gain[outport] = 1.0;
-                        break;
-                    case AUDIO_DEVICE_OUT_AUX_LINE:
-                        outport = OUTPORT_AUX_LINE;
-                        aml_dev->sink_gain[outport] = DbToAmpl((float)(config->gain.values[0] / 100));
-                        break;
-                    case AUDIO_DEVICE_OUT_SPEAKER:
-                        outport = OUTPORT_SPEAKER;
-                        aml_dev->sink_gain[outport] = DbToAmpl((float)(config->gain.values[0] / 100));
-                        break;
-                    case AUDIO_DEVICE_OUT_WIRED_HEADPHONE:
-                        outport = OUTPORT_HEADPHONE;
-                        aml_dev->sink_gain[outport] = DbToAmpl((float)(config->gain.values[0] / 100));
-                        break;
-                    case AUDIO_DEVICE_OUT_REMOTE_SUBMIX:
-                        outport = OUTPORT_REMOTE_SUBMIX;
-                        aml_dev->sink_gain[outport] = DbToAmpl((float)(config->gain.values[0] / 100));
-                        break;
-                    case AUDIO_DEVICE_OUT_BLUETOOTH_A2DP:
-                    case AUDIO_DEVICE_OUT_BLUETOOTH_A2DP_HEADPHONES:
-                    case AUDIO_DEVICE_OUT_BLUETOOTH_A2DP_SPEAKER:
-                        outport = OUTPORT_A2DP;
-                        aml_dev->sink_gain[outport] = DbToAmpl((float)(config->gain.values[0] / 100));
-                        break;
-                    case AUDIO_DEVICE_OUT_BLUETOOTH_SCO:
-                        outport = OUTPORT_BT_SCO;
-                        break;
-                    case AUDIO_DEVICE_OUT_BLUETOOTH_SCO_HEADSET:
-                        outport = OUTPORT_BT_SCO_HEADSET;
-                        break;
-                default:
-                    ALOGE ("%s: invalid out device type %#x",
-                              __func__, patch->sinks->ext.device.type);
                     }
                 }
                 if (eDolbyMS12Lib == aml_dev->dolby_lib_type) {
@@ -11655,7 +11614,7 @@ static int adev_set_audio_port_config (struct audio_hw_device *dev, const struct
             ALOGI(" - set gain for in_port:%s, active inport:%s",
                    inputPort2Str(inport), inputPort2Str(aml_dev->active_inport));
         } else {
-            ALOGE ("unsupport");
+            ALOGW("[%s:%d] unsupported role:%d type.", __func__, __LINE__, config->role);
         }
     }
 
