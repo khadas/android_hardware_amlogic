@@ -11393,18 +11393,18 @@ static int adev_close(hw_device_t *device)
 {
     struct aml_audio_device *adev = (struct aml_audio_device *)device;
 
-    /* destroy thread for communication between Audio Hal and MS12 */
-    if ((eDolbyMS12Lib == adev->dolby_lib_type) && (!adev->is_TV)) {
-        ms12_mesg_thread_destroy(&adev->ms12);
-        ALOGD("%s, ms12_mesg_thread_destroy finished!\n", __func__);
-    }
-
     pthread_mutex_lock(&adev_mutex);
-    ALOGD("%s: enter", __func__);
+    ALOGD("%s: count:%d enter", __func__, adev->count);
     adev->count--;
     if (adev->count > 0) {
         pthread_mutex_unlock(&adev_mutex);
         return 0;
+    }
+
+    /* destroy thread for communication between Audio Hal and MS12 */
+    if ((eDolbyMS12Lib == adev->dolby_lib_type) && (!adev->is_TV)) {
+        ms12_mesg_thread_destroy(&adev->ms12);
+        ALOGD("%s, ms12_mesg_thread_destroy finished!\n", __func__);
     }
 
 /*[SEI-zhaopf-2018-10-29] add for HBG remote audio support { */
@@ -11446,6 +11446,8 @@ static int adev_close(hw_device_t *device)
     aml_audio_free(device);
     pthread_mutex_unlock(&adev_mutex);
     aml_audio_debug_malloc_close();
+
+    ALOGD("%s:  exit", __func__);
     return 0;
 }
 
