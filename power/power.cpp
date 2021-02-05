@@ -30,7 +30,12 @@
 #define DEBUG 0
 
 #define MP_GPU_CMD                      "/sys/class/mpgpu/mpgpucmd"
-#define EARLY_SUSPEND_TRIGGER           "/sys/power/early_suspend_trigger"
+
+#ifdef KERNEL4_9
+    #define EARLY_SUSPEND_TRIGGER           "/sys/power/early_suspend_trigger"
+#else
+    #define EARLY_SUSPEND_TRIGGER           "/sys/class/meson_pm/early_suspend_trigger"
+#endif
 
 #define PLATFORM_SLEEP_MODES 1
 
