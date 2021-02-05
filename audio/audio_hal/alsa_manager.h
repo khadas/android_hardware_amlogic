@@ -47,6 +47,15 @@ size_t aml_alsa_output_write(struct audio_stream_out *stream,
                         void *buffer,
                         size_t bytes);
 /**
+ * pause the pcm handle saved in stream instance.
+ */
+int aml_alsa_output_pause(struct audio_stream_out *stream);
+/**
+ * resume the pcm handle saved in stream instance.
+ */
+int aml_alsa_output_resume(struct audio_stream_out *stream);
+
+/**
  * get the stream latency.
  */
 int aml_alsa_output_get_letancy(struct audio_stream_out *stream);

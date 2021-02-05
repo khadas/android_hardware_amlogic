@@ -94,14 +94,14 @@ enum MS12_PCM_TYPE {
     DAP_LPCM = 1,
 };
 
-typedef struct aml_dec_info {
+typedef struct aml_ms12_dec_info {
     int output_sr ;   /** the decoded data samplerate*/
     int output_ch ;   /** the decoded data channels*/
     int output_bitwidth; /**the decoded sample bit width*/
     int data_type;
     enum MS12_PCM_TYPE pcm_type;
     int reserved[RESERVED_LENGTH];
-} aml_dec_info_t;
+} aml_ms12_dec_info_t;
 
 
 /*
@@ -141,7 +141,7 @@ int set_system_app_mixing_status(struct aml_stream_out *aml_out, int stream_stat
 /*
  *@brief an callback for dolby ms12 output
  */
-int ms12_output(void *buffer, void *priv_data, size_t size, aml_dec_info_t *ms12_info);
+int ms12_output(void *buffer, void *priv_data, size_t size, aml_ms12_dec_info_t *ms12_info);
 
 /*
  *@brief dolby ms12 open the main decoder

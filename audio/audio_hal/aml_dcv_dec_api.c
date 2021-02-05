@@ -415,7 +415,7 @@ static int dcv_decode_process(unsigned char*input, int input_size, unsigned char
                                  , (char *) spdif_buf
                                  , (int *) raw_size
                                  ,handle);
-    //ALOGI("used_size %d,lpcm out_size %d,raw out size %d",used_size,*out_size,*raw_size);
+    ALOGV("used_size %d,lpcm out_size %d,raw out size %d",used_size,*out_size,*raw_size);
     return used_size;
 }
 
@@ -450,8 +450,9 @@ int Write_buffer(struct aml_audio_parser *parser, unsigned char *buffer, int siz
 #define MAX_DDP_FRAME_LENGTH 2560
 #define MAX_DDP_BUFFER_SIZE (MAX_DECODER_FRAME_LENGTH * 4 + MAX_DECODER_FRAME_LENGTH + 8)
 
-void *decode_threadloop(void *data)
+void *decode_threadloop(void *data __unused)
 {
+#if 0
     struct aml_audio_parser *parser = (struct aml_audio_parser *) data;
     unsigned char *outbuf = NULL;
     unsigned char *inbuf = NULL;
@@ -607,6 +608,7 @@ void *decode_threadloop(void *data)
 
     unload_ddp_decoder_lib();
     ALOGI("-- %s\n", __func__);
+#endif
     return NULL;
 }
 
@@ -646,61 +648,132 @@ int dcv_decode_release(struct aml_audio_parser *parser)
     return stop_decode_thread(parser);
 }
 
-int dcv_decoder_init_patch(struct dolby_ddp_dec *ddp_dec)
+int dcv_decoder_init_patch(aml_dec_t ** ppaml_dec, aml_dec_config_t * dec_config)
 {
-    ddp_dec->status = dcv_decoder_init(ddp_dec->decoding_mode, ddp_dec->digital_raw);
-    if (ddp_dec->status < 0) {
-        return -1;
+    struct dolby_ddp_dec *ddp_dec = NULL;
+    aml_dec_t  *aml_dec = NULL;
+    aml_dcv_config_t *dcv_config = (aml_dcv_config_t *)dec_config;
+    int ret = 0;
+
+    if (dcv_config->decoding_mode != DDP_DECODE_MODE_SINGLE &&
+        dcv_config->decoding_mode != DDP_DECODE_MODE_AD_DUAL &&
+        dcv_config->decoding_mode != DDP_DECODE_MODE_AD_SUBSTREAM) {
+        ALOGE("wrong decoder mode =%d", dcv_config->decoding_mode);
+        goto error;
     }
-    pthread_mutex_init(&ddp_dec->lock, NULL);
-    pthread_mutex_lock(&ddp_dec->lock);
+
+    ddp_dec = aml_audio_calloc(1, sizeof(struct dolby_ddp_dec));
+    if (ddp_dec == NULL) {
+        ALOGE("malloc ddp_dec failed\n");
+        goto error;
+    }
+
+    aml_dec = &ddp_dec->aml_dec;
+
+    dec_data_info_t * dec_pcm_data = &aml_dec->dec_pcm_data;
+    dec_data_info_t * dec_raw_data = &aml_dec->dec_raw_data;
+
+
+    ddp_dec->decoding_mode = dcv_config->decoding_mode;
+    ddp_dec->digital_raw   = dcv_config->digital_raw;
+    ddp_dec->nIsEc3        = dcv_config->nIsEc3;
+    ddp_dec->is_iec61937   = dcv_config->is_iec61937;
+
+    aml_dec->format = dcv_config->format;
+
+
+    ret = dcv_decoder_init(ddp_dec->decoding_mode, ddp_dec->digital_raw);
+    ALOGI("dcv_decoder_init decoding mode =%d, ddp_dec->digital_raw=%d ret =%d", ddp_dec->decoding_mode, ddp_dec->digital_raw, ret);
+    if (ret < 0) {
+        goto error;
+    }
+
     ddp_dec->status = 1;
     ddp_dec->remain_size = 0;
     ddp_dec->outlen_pcm = 0;
     ddp_dec->outlen_raw = 0;
-    ddp_dec->nIsEc3 = 0;
     ddp_dec->curFrmSize = 0;
     ddp_dec->inbuf = NULL;
-    ddp_dec->outbuf = NULL;
-    ddp_dec->outbuf_raw = NULL;
+
     ddp_dec->dcv_pcm_writed = 0;
     ddp_dec->dcv_decoded_samples = 0;
     ddp_dec->dcv_decoded_errcount = 0;
     memset(ddp_dec->sysfs_buf, 0, sizeof(ddp_dec->sysfs_buf));
+
     memset(&ddp_dec->pcm_out_info, 0, sizeof(struct pcm_info));
     memset(&ddp_dec->aml_resample, 0, sizeof(struct resample_para));
     ddp_dec->inbuf_size = MAX_DECODER_FRAME_LENGTH * 4 * 4;
-    ddp_dec->inbuf = (unsigned char*) aml_audio_malloc(ddp_dec->inbuf_size);
+    ddp_dec->inbuf = (unsigned char*) aml_audio_calloc(1, ddp_dec->inbuf_size);
 
     if (!ddp_dec->inbuf) {
         ALOGE("malloc buffer failed\n");
         ddp_dec->inbuf_size = 0;
-        pthread_mutex_unlock(&ddp_dec->lock);
-        return -1;
+
+        goto error;
     }
-    ddp_dec->outbuf = (unsigned char*) aml_audio_malloc(MAX_DDP_BUFFER_SIZE);
-    if (!ddp_dec->outbuf) {
+
+    dec_pcm_data->buf_size = MAX_DECODER_FRAME_LENGTH;
+    dec_pcm_data->buf = (unsigned char*) aml_audio_calloc(1, dec_pcm_data->buf_size);
+    if (!dec_pcm_data->buf) {
         ALOGE("malloc buffer failed\n");
-        pthread_mutex_unlock(&ddp_dec->lock);
-        return -1;
+        goto error;
     }
-    ring_buffer_init(&ddp_dec->output_ring_buf, 6 * MAX_DECODER_FRAME_LENGTH);
-    ddp_dec->outbuf_raw = ddp_dec->outbuf + MAX_DECODER_FRAME_LENGTH;
+
+    dec_raw_data->buf_size = MAX_DECODER_FRAME_LENGTH * 4 + 8;
+    dec_raw_data->buf = (unsigned char*) aml_audio_calloc(1, dec_raw_data->buf_size);
+    if (!dec_raw_data->buf) {
+        ALOGE("malloc buffer failed\n");
+        goto error;
+    }
+
     ddp_dec->decoder_process = dcv_decode_process;
     ddp_dec->get_parameters = Get_Parameters;
 
-    pthread_mutex_unlock(&ddp_dec->lock);
+    * ppaml_dec = (aml_dec_t *)ddp_dec;
+    ALOGI("%s success", __func__);
     return 0;
+
+error:
+    if (ddp_dec) {
+        if (ddp_dec->inbuf) {
+            aml_audio_free(ddp_dec->inbuf);
+        }
+
+        if (dec_pcm_data->buf) {
+            aml_audio_free(dec_pcm_data->buf);
+        }
+
+        if (dec_raw_data->buf) {
+            aml_audio_free(dec_raw_data->buf);
+        }
+
+        aml_audio_free(ddp_dec);
+    }
+    * ppaml_dec = NULL;
+    ALOGE("%s failed", __func__);
+    return -1;
+
+
 }
 
-int dcv_decoder_release_patch(struct dolby_ddp_dec *ddp_dec)
+int dcv_decoder_release_patch(aml_dec_t * aml_dec)
 {
-    pthread_mutex_lock(&ddp_dec->lock);
+    struct dolby_ddp_dec *ddp_dec = (struct dolby_ddp_dec *)aml_dec;
+
+    if (aml_dec == NULL) {
+        ALOGE("%s aml_dec NULL", __func__);
+        return -1;
+    }
+
+    dec_data_info_t * dec_pcm_data = &aml_dec->dec_pcm_data;
+    dec_data_info_t * dec_raw_data = &aml_dec->dec_raw_data;
+
     if (ddp_decoder_cleanup != NULL && handle != NULL) {
         (*ddp_decoder_cleanup)(handle);
         handle = NULL;
     }
-    if (ddp_dec->status == 1) {
+
+    if (ddp_dec && ddp_dec->status == 1) {
         ddp_dec->status = 0;
         ddp_dec->inbuf_size = 0;
         ddp_dec->remain_size = 0;
@@ -715,21 +788,24 @@ int dcv_decoder_release_patch(struct dolby_ddp_dec *ddp_dec)
         ddp_dec->dcv_decoded_errcount = 0;
         memset(ddp_dec->sysfs_buf, 0, sizeof(ddp_dec->sysfs_buf));
         aml_audio_free(ddp_dec->inbuf);
-        aml_audio_free(ddp_dec->outbuf);
         ddp_dec->inbuf = NULL;
-        ddp_dec->outbuf = NULL;
-        ddp_dec->outbuf_raw = NULL;
         ddp_dec->get_parameters = NULL;
         ddp_dec->decoder_process = NULL;
         memset(&ddp_dec->pcm_out_info, 0, sizeof(struct pcm_info));
-        memset(&ddp_dec->aml_resample, 0, sizeof(struct resample_para));
-        ring_buffer_release(&ddp_dec->output_ring_buf);
-        if (!ddp_dec->resample_outbuf) {
-            aml_audio_free(ddp_dec->resample_outbuf);
-            ddp_dec->resample_outbuf = NULL;
+        //memset(&ddp_dec->aml_resample, 0, sizeof(struct resample_para));
+
+        if (dec_pcm_data->buf) {
+            aml_audio_free(dec_pcm_data->buf);
+            dec_pcm_data->buf = NULL;
         }
+
+        if (dec_raw_data->buf) {
+            aml_audio_free(dec_raw_data->buf);
+            dec_raw_data->buf = NULL;
+        }
+        aml_audio_free(ddp_dec);
     }
-    pthread_mutex_unlock(&ddp_dec->lock);
+    ALOGI("%s exit", __func__);
     return 0;
 }
 #define IEC61937_HEADER_SIZE 8
@@ -781,7 +857,7 @@ int is_ad_substream_supported(unsigned char *buffer,int write_len) {
     return 0;
 
 }
-int dcv_decoder_process_patch(struct dolby_ddp_dec *ddp_dec, unsigned char*buffer, int bytes)
+int dcv_decoder_process_patch(aml_dec_t * aml_dec, unsigned char *buffer, int bytes)
 {
     int mSample_rate = 0;
     int mFrame_size = 0;
@@ -799,9 +875,17 @@ int dcv_decoder_process_patch(struct dolby_ddp_dec *ddp_dec, unsigned char*buffe
     int total_size = 0;
     int read_offset = 0;
     int ad_substream_supported = 0;
+    struct dolby_ddp_dec *ddp_dec = (struct dolby_ddp_dec *)aml_dec;
+
     ddp_dec->outlen_pcm = 0;
     ddp_dec->outlen_raw = 0;
     int bit_width = 16;
+
+    dec_data_info_t * dec_pcm_data = &aml_dec->dec_pcm_data;
+    dec_data_info_t * dec_raw_data = &aml_dec->dec_raw_data;
+    dec_pcm_data->data_len = 0;
+    dec_raw_data->data_len = 0;
+
 #if 0
     if (getprop_bool("vendor.media.audio_hal.ddp.outdump")) {
         FILE *fp1 = fopen("/data/tmp/audio_decode_61937.raw", "a+");
@@ -814,7 +898,6 @@ int dcv_decoder_process_patch(struct dolby_ddp_dec *ddp_dec, unsigned char*buffe
     }
 #endif
 
-    pthread_mutex_lock(&ddp_dec->lock);
 
     /* dual input is from dtv, and it is similar with MS12,
      * main and associate is packaged with IEC61937
@@ -935,11 +1018,13 @@ int dcv_decoder_process_patch(struct dolby_ddp_dec *ddp_dec, unsigned char*buffe
         outPCMLen = 0;
         outRAWLen = 0;
         int current_size = 0;
+        ALOGV("ddp_dec->outlen_pcm=%d raw len=%d in =%p dec_pcm_data->buf=%p dec_raw_data->buf=%p",
+            ddp_dec->outlen_pcm, ddp_dec->outlen_raw, read_pointer, dec_pcm_data->buf, dec_raw_data->buf);
         current_size = dcv_decode_process((unsigned char*)read_pointer + used_size,
                                              mFrame_size,
-                                             (unsigned char *)ddp_dec->outbuf + ddp_dec->outlen_pcm,
+                                             (unsigned char *)dec_pcm_data->buf+ ddp_dec->outlen_pcm,
                                              &outPCMLen,
-                                             (char *)ddp_dec->outbuf_raw + ddp_dec->outlen_raw,
+                                             (char *)dec_raw_data->buf + ddp_dec->outlen_raw,
                                              &outRAWLen,
                                              ddp_dec->nIsEc3,
                                              &ddp_dec->pcm_out_info);
@@ -965,68 +1050,82 @@ int dcv_decoder_process_patch(struct dolby_ddp_dec *ddp_dec, unsigned char*buffe
     }
 #endif
 
-    if (ddp_dec->outlen_pcm > 0 && ddp_dec->pcm_out_info.sample_rate > 0 && ddp_dec->pcm_out_info.sample_rate != 48000) {
-        if ((int)ddp_dec->aml_resample.input_sr != ddp_dec->pcm_out_info.sample_rate) {
-            ALOGI("init resampler from %d to 48000!\n", ddp_dec->pcm_out_info.sample_rate);
-            ddp_dec->aml_resample.input_sr = ddp_dec->pcm_out_info.sample_rate;
-            ddp_dec->aml_resample.output_sr = 48000;
-            ddp_dec->aml_resample.channels = ddp_dec->pcm_out_info.channel_num;
-            resampler_init (&ddp_dec->aml_resample);
-            /*max buffer from 32K to 48K*/
-            if (!ddp_dec->resample_outbuf) {
-                ddp_dec->resample_outbuf = (unsigned char*) aml_audio_malloc (MAX_DDP_BUFFER_SIZE *3/2);
-                if (!ddp_dec->resample_outbuf) {
-                    ALOGE ("malloc buffer failed\n");
-                    ret = -1;
-                    goto EXIT;
-                }
-            }
-        }
-        int out_frame = ddp_dec->outlen_pcm >> 2;
-        out_frame = resample_process (&ddp_dec->aml_resample, out_frame,
-                (int16_t *) ddp_dec->outbuf, (int16_t *) ddp_dec->resample_outbuf);
-        ddp_dec->outlen_pcm = out_frame << 2;
+    if (ddp_dec->outlen_pcm > 0) {
+        dec_pcm_data->data_format = AUDIO_FORMAT_PCM_16_BIT;
+        dec_pcm_data->data_ch     = 2;
+        dec_pcm_data->data_sr     = ddp_dec->pcm_out_info.sample_rate;
+        dec_pcm_data->data_len    = ddp_dec->outlen_pcm;
+    }
 
-        if (get_buffer_write_space(&ddp_dec->output_ring_buf) > ddp_dec->outlen_pcm) {
-            ring_buffer_write(&ddp_dec->output_ring_buf, ddp_dec->resample_outbuf,
-                    ddp_dec->outlen_pcm, UNCOVER_WRITE);
-            ALOGV("mFrame_size:%d, outlen_pcm:%d, ret = %d\n", mFrame_size , ddp_dec->outlen_pcm, used_size);
+    if (ddp_dec->outlen_raw > 0) {
+        dec_raw_data->data_format = AUDIO_FORMAT_IEC61937;
+        if (aml_dec->format == AUDIO_FORMAT_E_AC3 && (ddp_dec->digital_raw == 1)) {
+            dec_raw_data->sub_format = AUDIO_FORMAT_AC3;
         } else {
-            ALOGI("Lost data, outlen_pcm:%d\n", ddp_dec->outlen_pcm);
+            dec_raw_data->sub_format = aml_dec->format;
         }
-
-    } else if (ddp_dec->outlen_pcm > 0) {
-        if (get_buffer_write_space(&ddp_dec->output_ring_buf) > ddp_dec->outlen_pcm) {
-            ring_buffer_write(&ddp_dec->output_ring_buf, ddp_dec->outbuf,
-                    ddp_dec->outlen_pcm, UNCOVER_WRITE);
-            ALOGV("mFrame_size:%d, outlen_pcm:%d, ret = %d\n", mFrame_size, ddp_dec->outlen_pcm, used_size);
-        }
+        dec_raw_data->data_ch     = 2;
+        dec_raw_data->data_sr     = ddp_dec->pcm_out_info.sample_rate;;
+        dec_raw_data->data_len    = ddp_dec->outlen_raw;
     } else {
         ddp_dec->dcv_decoded_errcount++;
         sprintf(ddp_dec->sysfs_buf, "decoded_err %d", ddp_dec->dcv_decoded_errcount);
         sysfs_set_sysfs_str(REPORT_DECODED_INFO, ddp_dec->sysfs_buf);
     }
+
     ddp_dec->dcv_pcm_writed += ddp_dec->outlen_pcm;
     ddp_dec->dcv_decoded_samples = (ddp_dec->dcv_pcm_writed * 8 ) / (2 * bit_width);
     sprintf(ddp_dec->sysfs_buf, "decoded_frames %d", ddp_dec->dcv_decoded_samples);
     sysfs_set_sysfs_str(REPORT_DECODED_INFO, ddp_dec->sysfs_buf);
-    pthread_mutex_unlock(&ddp_dec->lock);
+
     return 0;
 EXIT:
-    pthread_mutex_unlock(&ddp_dec->lock);
     return -1;
 }
 
-int dcv_decoder_config(ddp_config_type_t config_type, ddp_config_t *config)
+int dcv_decoder_config(aml_dec_t * aml_dec, aml_dec_config_type_t config_type, aml_dec_config_t * dec_config)
 {
     int ret = -1;
+    struct dolby_ddp_dec *ddp_dec = (struct dolby_ddp_dec *)aml_dec;
 
     if (ddp_decoder_config == NULL || handle == NULL) {
         return ret;
     }
+    switch (config_type) {
+    case AML_DEC_CONFIG_MIXER_LEVEL: {
+        int  mixer_level = dec_config->mixer_level;
+        ret = (*ddp_decoder_config)(handle, DDP_CONFIG_MIXER_LEVEL, (ddp_config_t *)&mixer_level);
+        break;
+    }
+    default:
+        break;
+    }
 
-    ret = (*ddp_decoder_config)(handle, config_type, config);
     return ret;
 }
 
+int dcv_decoder_info(aml_dec_t *aml_dec, aml_dec_info_type_t info_type, aml_dec_info_t * dec_info)
+{
+    int ret = -1;
+    struct dolby_ddp_dec *ddp_dec = (struct dolby_ddp_dec *)aml_dec;
+
+    switch (info_type) {
+    case AML_DEC_REMAIN_SIZE:
+        dec_info->remain_size = ddp_dec->remain_size;
+        return 0;
+    default:
+        break;
+    }
+    return ret;
+}
+
+
+
+aml_dec_func_t aml_dcv_func = {
+    .f_init                 = dcv_decoder_init_patch,
+    .f_release              = dcv_decoder_release_patch,
+    .f_process              = dcv_decoder_process_patch,
+    .f_config               = dcv_decoder_config,
+    .f_info                 = dcv_decoder_info,
+};
 

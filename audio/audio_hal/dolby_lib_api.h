@@ -29,6 +29,7 @@ typedef enum eDolbyLibType {
 
 enum eDolbyLibType detect_dolby_lib_type(void);
 int dolby_lib_decode_enable(eDolbyLibType_t lib_type);
+int dts_lib_decode_enable();
 char * get_ms12_path (void);
 /*
  *@brief get ms12 dap init mode value

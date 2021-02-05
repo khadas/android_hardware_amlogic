@@ -1836,7 +1836,7 @@ int mat_bitstream_output(void *buffer, void *priv_data, size_t size)
 
 
 
-int ms12_output(void *buffer, void *priv_data, size_t size, aml_dec_info_t *ms12_info)
+int ms12_output(void *buffer, void *priv_data, size_t size, aml_ms12_dec_info_t *ms12_info)
 {
     struct aml_stream_out *aml_out = (struct aml_stream_out *)priv_data;
     struct audio_stream_out *stream_out = (struct audio_stream_out *)aml_out;

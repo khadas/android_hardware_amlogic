@@ -91,12 +91,21 @@ AUDIO_CHANNEL_OUT_5POINT1|\
 AUDIO_CHANNEL_OUT_7POINT1"
 
 #define DTS_SUPPORT_CHANNEL      \
-"AUDIO_CHANNEL_OUT_STEREO|\
+"AUDIO_CHANNEL_OUT_MONO|\
+AUDIO_CHANNEL_OUT_STEREO|\
+AUDIO_CHANNEL_OUT_TRI|\
+AUDIO_CHANNEL_OUT_QUAD|\
+AUDIO_CHANNEL_OUT_PENTA|\
 AUDIO_CHANNEL_OUT_5POINT1"
 
 #define DTSHD_SUPPORT_CHANNEL    \
-"AUDIO_CHANNEL_OUT_STEREO|\
+"AUDIO_CHANNEL_OUT_MONO|\
+AUDIO_CHANNEL_OUT_STEREO|\
+AUDIO_CHANNEL_OUT_TRI|\
+AUDIO_CHANNEL_OUT_QUAD|\
+AUDIO_CHANNEL_OUT_PENTA|\
 AUDIO_CHANNEL_OUT_5POINT1|\
+AUDIO_CHANNEL_OUT_6POINT1|\
 AUDIO_CHANNEL_OUT_7POINT1"
 
 #define IEC61937_SUPPORT_CHANNEL  \
@@ -351,11 +360,18 @@ char*  get_hdmi_sink_cap_dolbylib(const char *keys,audio_format_t format,struct 
                 size += sprintf(aud_cap + size, "|%s", "AUDIO_FORMAT_AC3");
                 p_hdmi_descs->dd_fmt.is_support = 1;
             }
+#if 0
             if (mystrstr(infobuf, "DTS-HD")) {
                 size += sprintf(aud_cap + size, "|%s", "AUDIO_FORMAT_DTS|AUDIO_FORMAT_DTS_HD");
-                p_hdmi_descs->dts_fmt.is_support = 1;
+                p_hdmi_descs->dtshd_fmt.is_support = 1;
             } else if (mystrstr(infobuf, "DTS")) {
                 size += sprintf(aud_cap + size, "|%s", "AUDIO_FORMAT_DTS");
+                p_hdmi_descs->dts_fmt.is_support = 1;
+            }
+#endif
+            //we only support dts passthrough by hdmi output, but we can convert dtshd with core frame to dts
+            if (mystrstr(infobuf, "DTS-HD") || mystrstr(infobuf, "DTS")) {
+                size += sprintf(aud_cap + size, "|%s", "AUDIO_FORMAT_DTS|AUDIO_FORMAT_DTS_HD");
                 p_hdmi_descs->dts_fmt.is_support = 1;
             }
 
@@ -430,34 +446,47 @@ char*  get_hdmi_sink_cap_dolbylib(const char *keys,audio_format_t format,struct 
                     size += sprintf(aud_cap, "sup_channels=%s", EAC3_JOC_SUPPORT_CHANNEL);
                 }
                 break;
+            case AUDIO_FORMAT_DTS:
+                if (mystrstr(infobuf, "DTS")) {
+                    size += sprintf(aud_cap, "sup_channels=%s", DTSHD_SUPPORT_CHANNEL);
+                }
+                break;
+            case AUDIO_FORMAT_DTS_HD:
+                if (mystrstr(infobuf, "DTS-HD") || mystrstr(infobuf, "DTS")) {
+                    size += sprintf(aud_cap, "sup_channels=%s", DTSHD_SUPPORT_CHANNEL);
+                }
+                break;
             default:
                 /* take the 2ch suppported as default */
                 size += sprintf(aud_cap, "sup_channels=%s", "AUDIO_CHANNEL_OUT_STEREO");
                 break;
             }
         } else if (strstr(keys, AUDIO_PARAMETER_STREAM_SUP_SAMPLING_RATES)) {
-            ALOGD("query hdmi sample_rate...\n");
-            /* take the 32/44.1/48 khz suppported as default */
-            size += sprintf(aud_cap, "sup_sampling_rates=%s", "32000|44100|48000");
-
-            if (format != AUDIO_FORMAT_IEC61937) {
-                if (mystrstr(infobuf, "88.2")) {
-                    size += sprintf(aud_cap + size, "|%s", "88200");
-                }
-                if (mystrstr(infobuf, "96")) {
-                    size += sprintf(aud_cap + size, "|%s", "96000");
-                }
-                if (mystrstr(infobuf, "176.4")) {
-                    size += sprintf(aud_cap + size, "|%s", "176400");
-                }
-                if (mystrstr(infobuf, "192")) {
-                    size += sprintf(aud_cap + size, "|%s", "192000");
-                }
-            } else {
-              if ((mystrstr(infobuf, "Dobly_Digital+") || mystrstr(infobuf, "DTS-HD") ||
-                  mystrstr(infobuf, "MAT") || dolby_decoder_sup) && format == AUDIO_FORMAT_IEC61937) {
-                  size += sprintf(aud_cap + size, "|%s", "128000|176400|192000");
-              }
+            ALOGD("query hdmi sample_rate...format %#x\n", format);
+            switch (format) {
+                case AUDIO_FORMAT_AC3:
+                    size += sprintf(aud_cap, "sup_sampling_rates=%s", "32000|44100|48000");
+                    break;
+                case AUDIO_FORMAT_E_AC3:
+                    size += sprintf(aud_cap, "sup_sampling_rates=%s", "16000|22050|24000|32000|44100|48000");
+                    break;
+                case AUDIO_FORMAT_E_AC3_JOC:
+                    size += sprintf(aud_cap, "sup_sampling_rates=%s", "16000|22050|24000|32000|44100|48000");
+                    break;
+                case AUDIO_FORMAT_AC4:
+                    size += sprintf(aud_cap, "sup_sampling_rates=%s", "44100|48000");
+                    break;
+                case AUDIO_FORMAT_DTS:
+                    size += sprintf(aud_cap, "sup_sampling_rates=%s", "22050|24000|32000|44100|48000|88200|96000|192000");
+                    break;
+                case AUDIO_FORMAT_DTS_HD:
+                    size += sprintf(aud_cap, "sup_sampling_rates=%s", "22050|24000|32000|44100|48000|88200|96000|192000");
+                    break;
+                case AUDIO_FORMAT_IEC61937:
+                    size += sprintf(aud_cap, "sup_sampling_rates=%s",
+                    "8000|11025|16000|22050|24000|32000|44100|48000|128000|176400|192000");
+                default:
+                    size += sprintf(aud_cap, "sup_sampling_rates=%s", "32000|44100|48000");
             }
         }
     } else {
@@ -525,11 +554,18 @@ char*  get_hdmi_sink_cap_dolby_ms12(const char *keys,audio_format_t format,struc
             if (mystrstr(infobuf, "AC-3")) {
                 p_hdmi_descs->dd_fmt.is_support = 1;
             }
+#if 0
             if (mystrstr(infobuf, "DTS-HD")) {
                 size += sprintf(aud_cap + size, "|%s", "AUDIO_FORMAT_DTS|AUDIO_FORMAT_DTS_HD");
-                p_hdmi_descs->dts_fmt.is_support = 1;
+                p_hdmi_descs->dtshd_fmt.is_support = 1;
             } else if (mystrstr(infobuf, "DTS")) {
                 size += sprintf(aud_cap + size, "|%s", "AUDIO_FORMAT_DTS");
+                p_hdmi_descs->dts_fmt.is_support = 1;
+            }
+#endif
+            //only support dts passthrough by hdmi output, but can convert dtshd with core frame to dts
+            if (mystrstr(infobuf, "DTS-HD") || mystrstr(infobuf, "DTS")) {
+                size += sprintf(aud_cap + size, "|%s", "AUDIO_FORMAT_DTS|AUDIO_FORMAT_DTS_HD");
                 p_hdmi_descs->dts_fmt.is_support = 1;
             }
 
@@ -579,7 +615,7 @@ char*  get_hdmi_sink_cap_dolby_ms12(const char *keys,audio_format_t format,struc
                 if (mystrstr(infobuf, "DTS-HD")) {
                     size += sprintf(aud_cap, "sup_channels=%s", DTSHD_SUPPORT_CHANNEL);
                 } else if (mystrstr(infobuf, "DTS")) {
-                    size += sprintf(aud_cap, "sup_channels=%s", DTS_SUPPORT_CHANNEL);
+                    size += sprintf(aud_cap, "sup_channels=%s", DTSHD_SUPPORT_CHANNEL);
                 }
             } else {
                 switch (format) {
@@ -616,6 +652,12 @@ char*  get_hdmi_sink_cap_dolby_ms12(const char *keys,audio_format_t format,struc
                     break;
                 case AUDIO_FORMAT_AC4:
                     size += sprintf(aud_cap, "sup_sampling_rates=%s", "44100|48000");
+                    break;
+                case AUDIO_FORMAT_DTS:
+                    size += sprintf(aud_cap, "sup_sampling_rates=%s", "22050|24000|32000|44100|48000|88200|96000|192000");
+                    break;
+                case AUDIO_FORMAT_DTS_HD:
+                    size += sprintf(aud_cap, "sup_sampling_rates=%s", "22050|24000|32000|44100|48000|88200|96000|192000");
                     break;
                 case AUDIO_FORMAT_IEC61937:
                     size += sprintf(aud_cap, "sup_sampling_rates=%s",

@@ -94,7 +94,10 @@ include $(BUILD_PREBUILT)
         ../amlogic_AQ_tools/audio_eq_drc_compensation.c \
         ../amlogic_AQ_tools/audio_eq_drc_parser.c \
         ../amlogic_AQ_tools/ini/dictionary.c \
-        ../amlogic_AQ_tools/ini/iniparser.c
+        ../amlogic_AQ_tools/ini/iniparser.c \
+        aml_dec_api.c \
+        aml_pcm_dec_api.c \
+        aml_audio_dec_wrapper.c
 
     LOCAL_C_INCLUDES += \
         external/tinyalsa/include \

@@ -1363,8 +1363,8 @@ int audio_dtv_patch_output_dolby(struct aml_audio_patch *patch,
                    usleep(20000);
                }
                ret = ring_buffer_read(ringbuffer, (unsigned char *)patch->out_buf, write_len);
-               aml_dev->ddp.ad_substream_supported = is_ad_substream_supported(patch->out_buf,write_len);
-               ALOGI("ad_substream_supported %d",aml_dev->ddp.ad_substream_supported);
+               aml_out->ad_substream_supported = is_ad_substream_supported(patch->out_buf,write_len);
+               ALOGI("ad_substream_supported %d",aml_out->ad_substream_supported);
                patch->ad_substream_checked_flag = true;
         } else {
              ret = ring_buffer_read(ringbuffer, (unsigned char *)patch->out_buf, write_len);
@@ -1819,10 +1819,7 @@ void *audio_dtv_patch_output_threadloop(void *data)
         we will output raw/lpcm directly.we need close device directly.
         we need call standy function to release the direct stream
         */
-        if (out_standby_direct == aml_out->stream.common.standby)
-             out_standby_direct((struct audio_stream *)aml_out);
-        else
-            out_standby_new((struct audio_stream *)aml_out);
+        out_standby_new((struct audio_stream *)aml_out);
         pthread_mutex_lock(&aml_dev->lock);
         if (aml_dev->need_remove_conti_mode == true) {
             ALOGI("%s,conntinous mode still there,release ms12 here", __func__);
@@ -2039,8 +2036,7 @@ static void *audio_dtv_patch_process_threadloop(void *data)
                     patch->decoder_offset = 0;
                 } else if (patch->dtv_aformat == ACODEC_FMT_DTS) {
                     patch->aformat = AUDIO_FORMAT_DTS;
-                    dts_dec->frame_info.is_iec61937 = false;
-                    dca_decoder_init_patch(dts_dec);
+                    dts_dec->is_iec61937 = false;
                     patch->decoder_offset = 0;
                 } else {
                     patch->aformat = AUDIO_FORMAT_PCM_16_BIT;

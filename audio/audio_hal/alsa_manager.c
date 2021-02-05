@@ -52,8 +52,7 @@
 #define ALSA_OUTPUT_SPDIF_FILE   "/data/vendor/audiohal/alsa_spdif_write"
 
 
-static int aml_audio_get_alsa_debug()
-{
+static int aml_audio_get_alsa_debug() {
     char buf[PROPERTY_VALUE_MAX];
     int ret = -1;
     int debug_flag = 0;
@@ -64,12 +63,10 @@ static int aml_audio_get_alsa_debug()
     return debug_flag;
 }
 
-
 /*
 insert bytes of into audio effect buffer to clear intermediate data when exit
 */
-static int insert_eff_zero_bytes(struct aml_audio_device *adev, size_t size)
-{
+static int insert_eff_zero_bytes(struct aml_audio_device *adev, size_t size) {
     int ret = 0;
     size_t insert_size = size;
     size_t once_write_size = 0;
@@ -148,8 +145,7 @@ static void alsa_write_rate_control(struct audio_stream_out *stream, size_t byte
     return;
 }
 
-int aml_alsa_output_open(struct audio_stream_out *stream)
-{
+int aml_alsa_output_open(struct audio_stream_out *stream) {
     struct aml_stream_out *aml_out = (struct aml_stream_out *)stream;
     struct aml_audio_device *adev = aml_out->dev;
     struct pcm_config *config = &aml_out->config;
@@ -260,8 +256,7 @@ int aml_alsa_output_open(struct audio_stream_out *stream)
     return 0;
 }
 
-void aml_alsa_output_close(struct audio_stream_out *stream)
-{
+void aml_alsa_output_close(struct audio_stream_out *stream) {
     ALOGI("\n+%s() stream %p\n", __func__, stream);
     struct aml_stream_out *aml_out = (struct aml_stream_out *)stream;
     struct aml_audio_device *adev = aml_out->dev;
@@ -315,8 +310,8 @@ void aml_alsa_output_close(struct audio_stream_out *stream)
     }
     ALOGI("-%s()\n\n", __func__);
 }
-static int aml_alsa_add_zero(struct aml_stream_out *stream, int size)
-{
+
+static int aml_alsa_add_zero(struct aml_stream_out *stream, int size) {
     int ret = 0;
     int retry = 10;
     char *buf = NULL;
@@ -351,8 +346,7 @@ static int aml_alsa_add_zero(struct aml_stream_out *stream, int size)
 
 size_t aml_alsa_output_write(struct audio_stream_out *stream,
                              void *buffer,
-                             size_t bytes)
-{
+                             size_t bytes) {
     struct aml_stream_out *aml_out = (struct aml_stream_out *)stream;
     struct aml_audio_device *adev = aml_out->dev;
     struct aml_audio_patch *patch = adev->audio_patch;
@@ -597,8 +591,47 @@ write:
     return ret;
 }
 
-int aml_alsa_output_get_letancy(struct audio_stream_out *stream)
-{
+int aml_alsa_output_pause(struct audio_stream_out *stream) {
+    struct aml_stream_out *out = (struct aml_stream_out *)stream;
+    struct aml_audio_device *adev = out->dev;
+    int ret = 0;
+    if (out->pcm && pcm_is_ready (out->pcm)) {
+        ret = pcm_ioctl (out->pcm, SNDRV_PCM_IOCTL_PAUSE, 1);
+        if (ret < 0) {
+            ALOGE ("cannot pause channel\n");
+        } else {
+            ret = 0;
+            // set the pcm pause state
+            if (out->pcm == adev->pcm)
+                adev->pcm_paused = true;
+            else
+                ALOGE ("out->pcm and adev->pcm are assumed same handle");
+        }
+    }
+
+    return 0;
+}
+
+int aml_alsa_output_resume(struct audio_stream_out *stream) {
+    struct aml_stream_out *out = (struct aml_stream_out *)stream;
+    struct aml_audio_device *adev = out->dev;
+    int ret = 0;
+    if (out->pcm && pcm_is_ready (out->pcm) ) {
+        ret = pcm_ioctl (out->pcm, SNDRV_PCM_IOCTL_PREPARE, 0);
+        if (ret < 0) {
+            ALOGE ("%s(), cannot resume channel\n", __func__);
+        } else {
+            ret = 0;
+            // clear the pcm pause state
+            if (out->pcm == adev->pcm)
+                adev->pcm_paused = false;
+        }
+    }
+
+    return 0;
+}
+
+int aml_alsa_output_get_letancy(struct audio_stream_out *stream) {
     const struct aml_stream_out *aml_out = (const struct aml_stream_out *)stream;
     struct aml_audio_device *adev = aml_out->dev;
     int codec_type = get_codec_type(aml_out->hal_internal_format);
@@ -615,8 +648,7 @@ int aml_alsa_output_get_letancy(struct audio_stream_out *stream)
     return 0;
 }
 
-void aml_close_continuous_audio_device(struct aml_audio_device *adev)
-{
+void aml_close_continuous_audio_device(struct aml_audio_device *adev) {
     int pcm_index = 0;
     int spdif_index = 1;
     struct pcm *continuous_pcm_device = adev->pcm_handle[pcm_index];
@@ -641,8 +673,7 @@ void aml_close_continuous_audio_device(struct aml_audio_device *adev)
 
 size_t aml_alsa_input_read(struct audio_stream_in *stream,
                         void *buffer,
-                        size_t bytes)
-{
+                        size_t bytes) {
     struct aml_stream_in *in = (struct aml_stream_in *)stream;
     struct aml_audio_device *aml_dev = in->dev;
     struct aml_audio_patch *patch = aml_dev->audio_patch;
@@ -678,6 +709,7 @@ size_t aml_alsa_input_read(struct audio_stream_in *stream,
     }
     return 0;
 }
+
 typedef struct alsa_handle {
     unsigned int card;
     unsigned int pcm_index;   /*used for open the alsa device*/
@@ -689,8 +721,7 @@ typedef struct alsa_handle {
 
 } alsa_handle_t;
 
-int aml_alsa_output_open_new(void **handle, aml_stream_config_t * stream_config, aml_device_config_t *device_config)
-{
+int aml_alsa_output_open_new(void **handle, aml_stream_config_t * stream_config, aml_device_config_t *device_config) {
     int ret = -1;
     struct pcm_config *config = NULL;
     int card = 0;
@@ -782,8 +813,7 @@ exit:
 }
 
 
-void aml_alsa_output_close_new(void *handle)
-{
+void aml_alsa_output_close_new(void *handle) {
     ALOGI("\n+%s() hanlde %p\n", __func__, handle);
     alsa_handle_t * alsa_handle = NULL;
     struct pcm *pcm = NULL;
@@ -807,8 +837,7 @@ void aml_alsa_output_close_new(void *handle)
     ALOGI("-%s()\n\n", __func__);
 }
 
-size_t aml_alsa_output_write_new(void *handle, const void *buffer, size_t bytes)
-{
+size_t aml_alsa_output_write_new(void *handle, const void *buffer, size_t bytes) {
     int ret = -1;
     int write_frames = bytes / 4;
     int overflow_flag = 0,underrun_flag = 0;
@@ -866,6 +895,8 @@ size_t aml_alsa_output_write_new(void *handle, const void *buffer, size_t bytes)
             snprintf(file_name, 128, "%s.%s", ALSA_OUTPUT_SPDIF_FILE, "ddp");
         } else if (alsa_handle->format == AUDIO_FORMAT_MAT) {
             snprintf(file_name, 128, "%s.%s", ALSA_OUTPUT_SPDIF_FILE, "mat");
+        } else if (alsa_handle->format == AUDIO_FORMAT_DTS) {
+            snprintf(file_name, 128, "%s.%s", ALSA_OUTPUT_SPDIF_FILE, "dts");
         } else {
             snprintf(file_name, 128, "%s.%s", ALSA_OUTPUT_SPDIF_FILE, "pcm");
         }
@@ -882,8 +913,7 @@ size_t aml_alsa_output_write_new(void *handle, const void *buffer, size_t bytes)
     return ret;
 }
 
-int aml_alsa_output_getinfo(void *handle, alsa_info_type_t type, alsa_output_info_t * info)
-{
+int aml_alsa_output_getinfo(void *handle, alsa_info_type_t type, alsa_output_info_t * info) {
     int ret = -1;
     alsa_handle_t * alsa_handle = NULL;
     alsa_handle = (alsa_handle_t *)handle;
@@ -915,8 +945,7 @@ int aml_alsa_output_getinfo(void *handle, alsa_info_type_t type, alsa_output_inf
     return -1;
 }
 
-int aml_alsa_output_pause_new(void *handle)
-{
+int aml_alsa_output_pause_new(void *handle) {
     int ret = -1;
     alsa_handle_t * alsa_handle = (alsa_handle_t *)handle;
 
@@ -932,8 +961,7 @@ int aml_alsa_output_pause_new(void *handle)
     return ret;
 }
 
-int aml_alsa_output_resume_new(void *handle)
-{
+int aml_alsa_output_resume_new(void *handle) {
     int ret = -1;
     alsa_handle_t * alsa_handle = (alsa_handle_t *)handle;
 
@@ -948,4 +976,3 @@ int aml_alsa_output_resume_new(void *handle)
     }
     return ret;
 }
-

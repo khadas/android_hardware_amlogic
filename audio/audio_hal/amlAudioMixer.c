@@ -1287,6 +1287,16 @@ static void mixer_outport_feed_silence_frames(struct amlAudioMixer *audio_mixer)
     return;
 }
 
+static bool is_submix_disable(struct amlAudioMixer *audio_mixer) {
+    struct aml_audio_device *adev = audio_mixer->adev;
+
+    if (adev->audio_patching) {
+        return true;
+    } else if (adev->usecase_masks > 1) {
+        return true;
+    }
+    return false;
+}
 
 static void *mixer_16b_threadloop(void *data)
 {
@@ -1318,7 +1328,7 @@ static void *mixer_16b_threadloop(void *data)
         if (audio_mixer->adev->debug_flag > 0) {
             ALOGD("[%s:%d] audio_patching:%d", __func__, __LINE__, audio_mixer->adev->audio_patching);
         }
-        if (!audio_mixer->adev->audio_patching) {
+        if (!is_submix_disable(audio_mixer)) {
             mixer_output_write(audio_mixer);
             mixer_update_tstamp(audio_mixer);
         }

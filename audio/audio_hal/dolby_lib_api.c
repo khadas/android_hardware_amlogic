@@ -37,7 +37,7 @@
 #endif
 
 #define DOLBY_DCV_LIB_PATH_A "/odm/lib/libHwAudio_dcvdec.so"
-
+#define DTS_DCA_LIB_PATH_A "/odm/lib/libHwAudio_dtshd.so"
 
 #ifndef MS12_V24_ENABLE
     #define MS12_VERSION    "1.3"
@@ -148,7 +148,6 @@ enum eDolbyLibType detect_dolby_lib_type(void) {
     return eDolbyNull;
 }
 
-
 int dolby_lib_decode_enable(eDolbyLibType_t lib_type) {
     int enable = 0;
     if (lib_type == eDolbyMS12Lib) {
@@ -171,6 +170,7 @@ int dolby_lib_decode_enable(eDolbyLibType_t lib_type) {
     }
     return enable;
 }
+
 
 #ifndef MS12_V24_ENABLE
 typedef enum ms_dap_mode_t
@@ -221,3 +221,22 @@ int get_ms12_dap_init_mode(bool is_tv)
 #endif
 
 
+
+int dts_lib_decode_enable() {
+    int enable = 0;
+    unsigned int filesize = -1;
+    struct stat stat_info = {0};
+
+    if (stat(DTS_DCA_LIB_PATH_A, &stat_info) < 0) {
+        enable = 0;
+    } else {
+        filesize = stat_info.st_size;
+        if (filesize > 500*1024) {
+            enable = 1;
+        } else {
+            enable = 0;
+        }
+    }
+
+    return enable;
+}

@@ -100,7 +100,6 @@ int audio_virtual_buf_close(void **pphandle)
     return 0;
 }
 
-
 int audio_virtual_buf_process(void *phandle, uint64_t frame_ns)
 {
     int ret = -1;

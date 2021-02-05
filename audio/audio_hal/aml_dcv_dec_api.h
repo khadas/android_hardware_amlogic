@@ -22,6 +22,7 @@
 #include "aml_audio_resampler.h"
 #include "aml_audio_parser.h"
 #include "aml_audio_types_def.h"
+#include "aml_dec_api.h"
 
 #define MAX_BUFF_LEN 36
 typedef enum  {
@@ -43,9 +44,8 @@ typedef union ddp_config {
 } ddp_config_t;
 
 struct dolby_ddp_dec {
+    aml_dec_t  aml_dec;
     unsigned char *inbuf;
-    unsigned char *outbuf;
-    unsigned char *outbuf_raw;
     size_t dcv_pcm_writed;
     size_t dcv_decoded_samples;
     int dcv_decoded_errcount;
@@ -63,11 +63,10 @@ struct dolby_ddp_dec {
     int curFrmSize;
     int (*get_parameters)(void *, int *, int *, int *,int *,int *);
     int (*decoder_process)(unsigned char*, int, unsigned char *, int *, char *, int *, int, struct pcm_info *);
-    pthread_mutex_t lock;
     struct pcm_info pcm_out_info;
     struct resample_para aml_resample;
     unsigned char *resample_outbuf;
-    ring_buffer_t output_ring_buf;
+    //ring_buffer_t output_ring_buf;
     void *spdifout_handle;
     int ad_substream_supported;
     int mainvol_level;
@@ -83,12 +82,14 @@ int dcv_decode_init(struct aml_audio_parser *parser);
 int dcv_decode_release(struct aml_audio_parser *parser);
 
 
-int dcv_decoder_init_patch(struct dolby_ddp_dec *ddp_dec);
-int dcv_decoder_release_patch(struct dolby_ddp_dec *ddp_dec);
-int dcv_decoder_process_patch(struct dolby_ddp_dec *ddp_dec, unsigned char*buffer, int bytes);
+int dcv_decoder_init_patch(aml_dec_t ** ppaml_dec, aml_dec_config_t * dec_config);
+int dcv_decoder_release_patch(aml_dec_t * aml_dec);
+int dcv_decoder_process_patch(aml_dec_t * aml_dec, unsigned char*buffer, int bytes);
 int dcv_decoder_get_framesize(unsigned char*buffer, int bytes, int* p_head_offset);
 int is_ad_substream_supported(unsigned char *buffer,int bytes);
-int dcv_decoder_config(ddp_config_type_t config_type, ddp_config_t *config);
+int dcv_decoder_config(aml_dec_t * aml_dec, aml_dec_config_type_t config_type, aml_dec_config_t * dec_config);
 
+
+extern aml_dec_func_t aml_dcv_func;
 
 #endif

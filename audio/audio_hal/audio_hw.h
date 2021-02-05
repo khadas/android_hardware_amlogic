@@ -423,6 +423,7 @@ struct aml_audio_device {
     int dolby_lib_type;
     int dolby_lib_type_last;
     int dolby_decode_enable;   /*it can decode dolby, not passthrough lib*/
+    int dts_decode_enable;
     /*used for dts decoder*/
     struct dca_dts_dec dts_hd;
     bool bHDMIARCon;
@@ -687,6 +688,9 @@ struct aml_stream_out {
     bool is_sink_format_prepared;
     bool is_ms12_main_decoder;
     bool is_add2active_output;
+    aml_dec_config_t  dec_config;               /*store the decode config*/
+    aml_dec_t *aml_dec;                        /*store the decoder handle*/
+    int ad_substream_supported;
 };
 
 typedef ssize_t (*write_func)(struct audio_stream_out *stream, const void *buffer, size_t bytes);
@@ -797,6 +801,25 @@ inline int dolby_stream_active(struct aml_audio_device *adev)
     }
     return is_dolby;
 }
+
+/* called when adev locked */
+inline int dts_stream_active(struct aml_audio_device *adev)
+{
+    int i = 0;
+    int is_dts = 0;
+    struct aml_stream_out *out = NULL;
+    for (i = 0 ; i < STREAM_USECASE_MAX; i++) {
+        out = adev->active_outputs[i];
+        if (out && (out->hal_internal_format == AUDIO_FORMAT_DTS
+            || out->hal_internal_format == AUDIO_FORMAT_DTS_HD)) {
+            is_dts = 1;
+            break;
+        }
+    }
+    return is_dts;
+}
+
+
 /* called when adev locked */
 inline int hwsync_lpcm_active(struct aml_audio_device *adev)
 {
@@ -826,31 +849,11 @@ inline struct aml_stream_out *direct_active(struct aml_audio_device *adev)
     return NULL;
 }
 
-inline bool need_update_mixing_level(struct aml_audio_device *adev)
-{
-    struct dolby_ddp_dec *ddp_dec = &(adev->ddp);
-    bool update_flag = (ddp_dec->decoding_mode == DDP_DECODE_MODE_AD_DUAL ||
-                                         ddp_dec->decoding_mode == DDP_DECODE_MODE_AD_SUBSTREAM )
-                                       && (adev->ddp.mixer_level != adev->mixing_level);
-     return update_flag;
-}
-inline bool need_update_mixing_ad_pcmscale(struct aml_audio_device *adev)
-{
-    struct dolby_ddp_dec *ddp_dec = &(adev->ddp);
-    bool update_flag = (ddp_dec->decoding_mode == DDP_DECODE_MODE_AD_DUAL ||
-                                         ddp_dec->decoding_mode == DDP_DECODE_MODE_AD_SUBSTREAM )
-                                       && (adev->ddp.advol_level != adev->advol_level);
-     return update_flag;
-}
-
 /*
  *@brief get_output_format get the output format always return the "sink_format" of adev
  */
 audio_format_t get_output_format(struct audio_stream_out *stream);
 void *audio_patch_output_threadloop(void *data);
-
-ssize_t aml_audio_spdif_output(struct audio_stream_out *stream,
-                                void *buffer, size_t bytes);
 
 /*
  *@brief audio_hal_data_processing

@@ -31,38 +31,38 @@ struct dts_syncword_info {
 };
 
 struct dts_frame_info {
-    bool is_dtscd;
-    bool is_iec61937;
+    unsigned int syncword;
+    int syncword_pos;
+    int check_pos;
     bool is_little_endian;
     int iec61937_data_type;
     int size;
 };
 
 struct dca_dts_dec {
+    aml_dec_t  aml_dec;
     unsigned char *inbuf;
-    unsigned char *outbuf;
-    unsigned char *outbuf_raw;
     int status;
     int remain_size;
     int outlen_pcm;
     int outlen_raw;
+    bool is_dtscd;
     int digital_raw;
+    bool is_iec61937;
     //int (*get_parameters) (void *, int *, int *, int *);
-    int (*decoder_process)(unsigned char*, int, unsigned char *, int *, char *, int *,struct pcm_info *);
-    pthread_mutex_t lock;
+    int (*decoder_process)(unsigned char*, int, unsigned char *, int *, unsigned char *, int *, struct pcm_info *);
     struct pcm_info pcm_out_info;
     aml_audio_resample_t *resample_handle;
-    ring_buffer_t output_ring_buf;
-    ring_buffer_t raw_ring_buf;
     ring_buffer_t input_ring_buf;
     struct dts_frame_info frame_info;
-    struct dts_syncword_info syncword_info;
 };
 
 int dca_decode_init(struct aml_audio_parser *parser);
 int dca_decode_release(struct aml_audio_parser *parser);
-int dca_decoder_init_patch(struct dca_dts_dec *dts_dec);
-int dca_decoder_release_patch(struct dca_dts_dec *dts_dec);
-int dca_decoder_process_patch(struct dca_dts_dec *dts_dec, unsigned char*buffer, int bytes);
+int dca_decoder_init_patch(aml_dec_t **ppaml_dec, aml_dec_config_t * dec_config);
+int dca_decoder_release_patch(aml_dec_t *aml_dec);
+int dca_decoder_process_patch(aml_dec_t *aml_dec, unsigned char*buffer, int bytes);
+
+extern aml_dec_func_t aml_dca_func;
 
 #endif
