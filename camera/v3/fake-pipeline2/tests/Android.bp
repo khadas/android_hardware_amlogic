@@ -20,6 +20,16 @@ cc_binary {
         "-g",
     ],
     cppflags: ["-g"],
+
+    arch: {
+        x86: {
+            enabled: false,
+        },
+        x86_64: {
+            enabled: false,
+        },
+    },
+
     shared_libs: [
         "libcutils",
         "liblog",
