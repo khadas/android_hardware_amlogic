@@ -18,6 +18,7 @@
 //#define LOG_NDEBUG 0
 #include <cutils/log.h>
 #include <tinyalsa/asoundlib.h>
+#include <cutils/properties.h>
 
 #include "aml_alsa_mixer.h"
 #include "aml_audio_stream.h"
@@ -76,6 +77,19 @@ static audio_format_t get_sink_capability (struct aml_audio_device *adev)
         }
         ALOGI ("%s dd support %d ddp support %#x\n", __FUNCTION__, dd_is_support, ddp_is_support);
     }
+
+    if (eDolbyMS12Lib == adev->dolby_lib_type) {
+        bool b_force_ddp = adev->ms12_force_ddp_out;
+        ALOGI("force ddp out =%d", b_force_ddp);
+        if (b_force_ddp) {
+            if (ddp_is_support) {
+                sink_capability = AUDIO_FORMAT_E_AC3;
+            } else if (dd_is_support) {
+                sink_capability = AUDIO_FORMAT_AC3;
+            }
+        }
+    }
+
     return sink_capability;
 }
 

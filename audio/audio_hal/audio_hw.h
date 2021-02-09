@@ -522,6 +522,7 @@ struct aml_audio_device {
     void *alsa_handle[ALSA_DEVICE_CNT];
     int FactoryChannelReverse;
     bool dual_spdif_support; /*1 means supports spdif_a & spdif_b & spdif interface*/
+    bool ms12_force_ddp_out; /*1 force ms12 output ddp*/
     uint64_t  sys_audio_frame_written;
     void* hw_mediasync;
     struct aec_t *aec;
