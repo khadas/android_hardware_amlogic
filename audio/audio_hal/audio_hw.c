@@ -8759,6 +8759,12 @@ hwsync_rewrite:
         uint64_t  cur_pts = 0xffffffff;
         int outsize = 0;
         char tempbuf[128];
+
+        if (hw_sync->wait_video_done == false && hw_sync->use_mediasync) {
+            aml_hwsync_wait_video_start(hw_sync);
+            hw_sync->wait_video_done = true;
+        }
+
         ALOGV ("before aml_audio_hwsync_find_frame bytes %zu\n", total_bytes - bytes_cost);
         hwsync_cost_bytes = aml_audio_hwsync_find_frame(aml_out->hwsync, (char *)buffer + bytes_cost, total_bytes - bytes_cost, &cur_pts, &outsize);
         if (cur_pts > 0xffffffff) {

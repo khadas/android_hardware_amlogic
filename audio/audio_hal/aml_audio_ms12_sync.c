@@ -101,6 +101,72 @@ static int get_ms12_tunnel_input_latency(audio_format_t input_format) {
 }
 
 
+static int get_ms12_netflix_nontunnel_input_latency(audio_format_t input_format) {
+    char buf[PROPERTY_VALUE_MAX];
+    int ret = -1;
+    int latency_ms = 0;
+    char *prop_name = NULL;
+    switch (input_format) {
+    case AUDIO_FORMAT_PCM_16_BIT: {
+        prop_name = AVSYNC_MS12_NETFLIX_NONTUNNEL_PCM_LATENCY_PROPERTY;
+        latency_ms = AVSYNC_MS12_NETFLIX_NONTUNNEL_PCM_LATENCY;
+        break;
+    }
+    case AUDIO_FORMAT_AC3:
+    case AUDIO_FORMAT_E_AC3: {
+        prop_name = AVSYNC_MS12_NETFLIX_NONTUNNEL_DDP_LATENCY_PROPERTY;
+        latency_ms = AVSYNC_MS12_NETFLIX_NONTUNNEL_DDP_LATENCY;
+        break;
+    }
+    default:
+        break;
+
+    }
+    if (prop_name) {
+        ret = property_get(prop_name, buf, NULL);
+        if (ret > 0) {
+            latency_ms = atoi(buf);
+        }
+    }
+
+    return latency_ms;
+}
+
+
+static int get_ms12_netflix_tunnel_input_latency(audio_format_t input_format) {
+    char buf[PROPERTY_VALUE_MAX];
+    int ret = -1;
+    int latency_ms = 0;
+    char *prop_name = NULL;
+    switch (input_format) {
+    case AUDIO_FORMAT_PCM_16_BIT: {
+        /*for non tunnel ddp2h/heaac case:netlfix AL1 case */
+        prop_name = AVSYNC_MS12_NETFLIX_TUNNEL_PCM_LATENCY_PROPERTY;
+        latency_ms = AVSYNC_MS12_NETFLIX_TUNNEL_PCM_LATENCY;
+        break;
+    }
+    case AUDIO_FORMAT_AC3:
+    case AUDIO_FORMAT_E_AC3: {
+        /*for non tunnel dolby ddp5.1 case:netlfix AL1 case*/
+        prop_name = AVSYNC_MS12_NETFLIX_TUNNEL_DDP_LATENCY_PROPERTY;
+        latency_ms = AVSYNC_MS12_NETFLIX_TUNNEL_DDP_LATENCY;
+        break;
+    }
+    default:
+        break;
+    }
+
+    if (prop_name) {
+        ret = property_get(prop_name, buf, NULL);
+        if (ret > 0) {
+            latency_ms = atoi(buf);
+        }
+    }
+
+    return latency_ms;
+}
+
+
 static int get_ms12_output_latency(audio_format_t output_format) {
     char buf[PROPERTY_VALUE_MAX];
     int ret = -1;
@@ -212,7 +278,7 @@ static int get_ms12_nontunnel_latency_offset(enum OUT_PORT port, audio_format_t 
     int output_latency_ms = 0;
     int port_latency_ms = 0;
     if (is_netflix) {
-        input_latency_ms  = get_ms12_nontunnel_input_latency(input_format);
+        input_latency_ms  = get_ms12_netflix_nontunnel_input_latency(input_format);
         output_latency_ms = get_ms12_netflix_output_latency(output_format);
     } else {
         input_latency_ms  = get_ms12_nontunnel_input_latency(input_format);
@@ -232,7 +298,7 @@ static int get_ms12_tunnel_latency_offset(enum OUT_PORT port, audio_format_t inp
     int output_latency_ms = 0;
     int port_latency_ms = 0;
     if (is_netflix) {
-        input_latency_ms  = get_ms12_tunnel_input_latency(input_format);
+        input_latency_ms  = get_ms12_netflix_tunnel_input_latency(input_format);
         output_latency_ms = get_ms12_netflix_output_latency(output_format);
     } else {
         input_latency_ms  = get_ms12_tunnel_input_latency(input_format);
