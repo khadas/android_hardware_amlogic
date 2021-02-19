@@ -174,7 +174,7 @@ static void *dtv_patch_out_loop(void *args)
     char *buffer =
         (char *)(((unsigned long)decode_buffer + 32) & (~0x1f));
     dtv_patch_out *patchparm = (dtv_patch_out *)args;
-    int  channels, samplerate;
+    int  channels, samplerate, data_width;
     aml_audio_dec_t *audec = (aml_audio_dec_t *)patchparm->audec;
     while (!(patchparm->state == DTV_PATCH_STATE_STOPED)) {
         // pthread_mutex_lock(&patch_out_mutex);
@@ -271,8 +271,9 @@ static void *dtv_patch_out_loop(void *args)
             }
             channels = audec->g_bst->channels;
             samplerate = audec->g_bst->samplerate;
+            data_width = audec->adec_ops->bps;
             len2 = patchparm->pcmout_cb((unsigned char *)(buffer + offset), len, samplerate,
-                                        channels, patchparm->pargs);
+                                        channels, data_width, patchparm->pargs);
             //  if (len2 == 0)
             // adec_print(
             //     "========now send the data from the buffer len %d  send %d  ",
@@ -365,7 +366,8 @@ int dtv_patch_input_start(unsigned int handle, int demux_id, int pid, int aforma
     if (aformat == ACODEC_FMT_MPEG
         || aformat == ACODEC_FMT_MPEG1
         || aformat == ACODEC_FMT_MPEG2
-        || aformat == ACODEC_FMT_AAC) {
+        || aformat == ACODEC_FMT_AAC
+        || aformat == ACODEC_FMT_AAC_LATM) {
         param.associate_dec_supported = associate_dec_supported;
         param.associate_mixing_enable = associate_audio_mixing_enable;
         param.mixing_level = dual_decoder_mixing_level;
@@ -444,4 +446,38 @@ int dtv_patch_input_resume(unsigned int handle)
     paramout->state = DTV_PATCH_STATE_RUNNING;
     pthread_mutex_unlock(&patch_out_mutex);
     return 0;
+}
+
+int dtv_patch_get_decoder_status(unsigned int *perror_count)
+{
+    if (!perror_count) {
+        return -1;
+    }
+
+    dtv_patch_out *paramout = get_patchout();
+    pthread_mutex_lock(&patch_out_mutex);
+    audio_decoder_get_status(paramout->audec, perror_count);
+    pthread_mutex_unlock(&patch_out_mutex);
+
+    return 0;
+}
+
+int dtv_audio_decpara_get(int *pfs, int *pch, int *lfepresent)
+{
+    int ret = 0;
+    dtv_patch_out *param = get_patchout();
+    aml_audio_dec_t *audec = (aml_audio_dec_t *)param->audec;
+    if (!audec) {
+        adec_print("audio handle is NULL !\n");
+        ret = -1;
+    } else if (pfs != NULL && pch != NULL && lfepresent != NULL) {
+        if (audec->adec_ops != NULL) { //armdecoder case
+            *pch = audec->adec_ops->NchOriginal;
+            *lfepresent = audec->adec_ops->lfepresent;
+        } else { //DSP case
+            *pch = audec->channels;
+        }
+        *pfs = audec->samplerate;
+    }
+    return ret;
 }

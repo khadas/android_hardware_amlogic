@@ -36,7 +36,7 @@ LOCAL_SRC_FILES  +=               \
     dmxwrap/MultiHwDemux/AmLinuxDvb.cpp \
     dmxwrap/MultiHwDemux/AmDmx.cpp \
     dmxwrap/MultiHwDemux/AmHwMultiDemuxWrapper.cpp \
-    audio_read_api/audio_es.cpp \
+    audio_read_api/dmx_audio_es.cpp \
     sync/audio_dtv_sync.c
 
 LOCAL_MODULE := libdvbaudioutils

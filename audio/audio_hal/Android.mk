@@ -116,6 +116,7 @@ include $(BUILD_PREBUILT)
         $(TOPDIR)frameworks/av/media/libaudioclient/include \
         $(TOPDIR)frameworks/av/media/libaudioprocessing/include \
         hardware/amlogic/audio/dtv_audio_utils/sync \
+	hardware/amlogic/audio/dtv_audio_utils/audio_read_api \
         $(LOCAL_PATH)/../amlogic_AQ_tools \
         $(LOCAL_PATH)/../amlogic_AQ_tools/ini
 

@@ -23,6 +23,7 @@
 #include "aml_audio_parser.h"
 #include "aml_audio_types_def.h"
 
+#define MAX_BUFF_LEN 36
 typedef enum  {
     DDP_CONFIG_MIXER_LEVEL, //runtime param
     DDP_CONFIG_OUT_BITDEPTH, //static param
@@ -45,6 +46,10 @@ struct dolby_ddp_dec {
     unsigned char *inbuf;
     unsigned char *outbuf;
     unsigned char *outbuf_raw;
+    size_t dcv_pcm_writed;
+    size_t dcv_decoded_samples;
+    int dcv_decoded_errcount;
+    char sysfs_buf[MAX_BUFF_LEN];
     int status;
     int inbuf_size;
     int remain_size;
@@ -68,6 +73,8 @@ struct dolby_ddp_dec {
     int mainvol_level;
     int advol_level;
     int is_dolby_atmos;
+    unsigned int sourcesr;
+    unsigned int sourcechnum;
 };
 
 

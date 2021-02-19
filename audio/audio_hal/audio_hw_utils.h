@@ -25,6 +25,7 @@
 #include "aml_audio_stream.h"
 
 #define ENUM_TYPE_STR_MAX_LEN                           (100)
+#define REPORT_DECODED_INFO  "/sys/class/amaudio/codec_report_info"
 
 #define ENUM_TYPE_TO_STR(x, offset, pStr)                   \
 case x: {                                                   \

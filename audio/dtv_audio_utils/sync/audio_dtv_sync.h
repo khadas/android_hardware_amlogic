@@ -29,7 +29,7 @@
 
 void aml_audio_swcheck_init(int audio_path);
 int aml_audio_swcheck_get_firstapts(int  audio_path);
-int aml_audio_swcheck_checkin_apts(int audio_path, size_t offset, unsigned apts);
+int aml_audio_swcheck_checkin_apts(int audio_path, size_t offset, unsigned long apts);
 int aml_audio_swcheck_lookup_apts(int audio_path, size_t offset, unsigned long *p_apts);
 void aml_audio_swcheck_release(int audio_path);
 #endif

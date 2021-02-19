@@ -65,9 +65,9 @@ enum {
 typedef enum {
     AUDIO_DTV_PATCH_CMD_NULL        = 0,
     AUDIO_DTV_PATCH_CMD_START       = 1,    /* AUDIO_SERVICE_CMD_START_DECODE */
-    AUDIO_DTV_PATCH_CMD_STOP        = 2,    /* AUDIO_SERVICE_CMD_PAUSE_DECODE */
-    AUDIO_DTV_PATCH_CMD_PAUSE       = 3,    /* AUDIO_SERVICE_CMD_RESUME_DECODE */
-    AUDIO_DTV_PATCH_CMD_RESUME      = 4,    /* AUDIO_SERVICE_CMD_STOP_DECODE */
+    AUDIO_DTV_PATCH_CMD_PAUSE        = 2,    /* AUDIO_SERVICE_CMD_PAUSE_DECODE */
+    AUDIO_DTV_PATCH_CMD_RESUME       = 3,    /* AUDIO_SERVICE_CMD_RESUME_DECODE */
+    AUDIO_DTV_PATCH_CMD_STOP      = 4,    /* AUDIO_SERVICE_CMD_STOP_DECODE */
 
     AUDIO_DTV_PATCH_CMD_NUM         = 5,
 } AUDIO_DTV_PATCH_CMD_TYPE;
@@ -106,7 +106,9 @@ void dtv_in_write(struct audio_stream_out *stream, const void* buffer, size_t by
 void save_latest_dtv_aformat(int afmt);
 int audio_set_spdif_clock(struct aml_stream_out *stream,int type);
 int dtv_get_syncmode(void);
+
 void clean_dtv_patch_pts(struct aml_audio_patch *patch);
+int audio_decoder_status(unsigned int *perror_count);
 static int create_dtv_output_stream_thread(struct aml_audio_patch *patch);
 static int release_dtv_output_stream_thread(struct aml_audio_patch *patch);
 extern int64_t calc_time_interval_us(struct timespec *ts0, struct timespec *ts1);

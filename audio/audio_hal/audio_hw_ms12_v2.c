@@ -1005,6 +1005,9 @@ int dolby_ms12_main_process(
                                        , audio_channel_count_from_out_mask(ms12->config_channel_mask)
                                        , ms12->config_sample_rate
                                       );
+            if (adev->debug_flag >= 2)
+                ALOGI("%s line %d associate_frame_size %d",
+                    __func__, __LINE__, associate_frame_size);
             if (get_ms12_dump_enable(DUMP_MS12_INPUT_ASSOCIATE)) {
                 dump_ms12_output_data((void*)associate_frame_buffer, associate_frame_size, MS12_INPUT_SYS_ASSOCIATE_FILE);
             }

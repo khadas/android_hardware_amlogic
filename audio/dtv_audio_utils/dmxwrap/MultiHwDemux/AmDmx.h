@@ -78,6 +78,7 @@ struct AM_DMX_Filter {
 	int 	   id;		 /**< Filter ID*/
 	AM_DMX_DataCb		cb; 	   /**< 解复用数据回调函数*/
 	void			   *user_data; /**< 数据回调函数用户参数*/
+	bool to_be_stopped;
 };
 class AmLinuxDvd;
 

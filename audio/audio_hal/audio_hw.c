@@ -84,6 +84,7 @@
 #include "aml_audio_ac3parser.h"
 #include "aml_audio_ac4parser.h"
 #include "aml_audio_ms12_sync.h"
+#include "dtv_patch_out.h"
 #define ENABLE_NANO_NEW_PATH 1
 #if ENABLE_NANO_NEW_PATH
 #include "jb_nano.h"
@@ -222,13 +223,23 @@ int start_ease_in(struct aml_audio_device *adev) {
 int start_ease_out(struct aml_audio_device *adev) {
     /*start ease out the audio*/
     ease_setting_t ease_setting;
-    ease_setting.duration = 150;
-    ease_setting.start_volume = 1.0;
-    ease_setting.target_volume = 0.0;
-    adev->audio_ease->ease_type = EaseOutCubic;
-    adev->audio_ease->data_format.format = AUDIO_FORMAT_PCM_16_BIT;
-    adev->audio_ease->data_format.ch = 8;
-    adev->audio_ease->data_format.sr = 48000;
+    if (adev->is_TV) {
+        ease_setting.duration = 150;
+        ease_setting.start_volume = 1.0;
+        ease_setting.target_volume = 0.0;
+        adev->audio_ease->ease_type = EaseOutCubic;
+        adev->audio_ease->data_format.format = AUDIO_FORMAT_PCM_16_BIT;
+        adev->audio_ease->data_format.ch = 8;
+        adev->audio_ease->data_format.sr = 48000;
+    } else {
+        ease_setting.duration = 30;
+        ease_setting.start_volume = 1.0;
+        ease_setting.target_volume = 0.0;
+        adev->audio_ease->ease_type = EaseOutCubic;
+        adev->audio_ease->data_format.format = AUDIO_FORMAT_PCM_16_BIT;
+        adev->audio_ease->data_format.ch = 2;
+        adev->audio_ease->data_format.sr = 48000;
+    }
     aml_audio_ease_config(adev->audio_ease, &ease_setting);
 
     return 0;
@@ -4962,6 +4973,7 @@ static void adev_close_output_stream(struct audio_hw_device *dev,
 
         if (out->codec_type != AML_STEREO_PCM) {
             subMixingOutputRestart(adev);
+            aml_audio_set_spdif_format(PORT_SPDIF, AML_STEREO_PCM, out);
             adev->raw_to_pcm_flag = true;
             ALOGI("enable raw_to_pcm_flag");
         }
@@ -5421,6 +5433,7 @@ static int adev_set_parameters (struct audio_hw_device *dev, const char *kvpairs
         if (adev->hdmi_format != val)
             adev->hdmi_format_updated = 1;
         adev->hdmi_format = val;
+        sysfs_set_sysfs_str(REPORT_DECODED_INFO, kvpairs);
         if ((eDolbyMS12Lib == adev->dolby_lib_type) && (adev->out_device & AUDIO_DEVICE_OUT_ALL_A2DP))
             adev->a2dp_no_reconfig_ms12 = aml_audio_get_systime() + 2000000;
         ALOGI ("HDMI format: %d\n", adev->hdmi_format);
@@ -6087,9 +6100,9 @@ static int adev_set_parameters (struct audio_hw_device *dev, const char *kvpairs
         int audio_sub_pid = (unsigned int)atoi(value);
         ALOGI("%s() get the sub audio pid %d\n", __func__, audio_sub_pid);
         if (audio_sub_pid > 0) {
-            adev->sub_apid = audio_sub_pid;
+            adev->sub_afmt = audio_sub_pid;
         } else {
-            adev->sub_apid = -1;
+            adev->sub_afmt = -1;
         }
         goto exit;
     }
@@ -6099,9 +6112,9 @@ static int adev_set_parameters (struct audio_hw_device *dev, const char *kvpairs
         int audio_sub_fmt = (unsigned int)atoi(value);
         ALOGI("%s() get the sub audio fmt %d\n", __func__, audio_sub_fmt);
         if (audio_sub_fmt >= 0) {
-            adev->sub_afmt = audio_sub_fmt;
+            adev->sub_apid = audio_sub_fmt;
         } else {
-            adev->sub_afmt= -1;
+            adev->sub_apid= -1;
         }
         goto exit;
     }
@@ -7446,7 +7459,7 @@ int dsp_process_output(struct aml_audio_device *adev, void *in_buffer,
 }
 #endif
 
-static void output_mute(struct audio_stream_out *stream, size_t *output_buffer_bytes)
+static void output_mute(struct audio_stream_out *stream, void **output_buffer,size_t *output_buffer_bytes)
 {
     struct aml_stream_out *aml_out = (struct aml_stream_out *)stream;
     struct aml_audio_device *adev = aml_out->dev;
@@ -7478,13 +7491,13 @@ static void output_mute(struct audio_stream_out *stream, size_t *output_buffer_b
             adev->mute_start = true;
             ALOGI ("%s() detect DTV start mute 200ms", __func__);
         }
-        if (aml_out->tmp_buffer_8ch != NULL && adev->mute_start) {
+        if (/*aml_out->tmp_buffer_8ch != NULL && */adev->mute_start) {
             if (!Stop_watch(adev->mute_start_ts, 200)) {
             adev->mute_start = false;
             start_ease_in(adev);
             ALOGI ("%s() DTV unmute, start fade in", __func__);
             } else {
-                memset(aml_out->tmp_buffer_8ch, 0, (*output_buffer_bytes));
+                memset(*output_buffer, 0, (*output_buffer_bytes));
             }
         }
 #else
@@ -7492,7 +7505,7 @@ static void output_mute(struct audio_stream_out *stream, size_t *output_buffer_b
 #endif
     }
     /*ease in or ease out*/
-    aml_audio_ease_process(adev->audio_ease, aml_out->tmp_buffer_8ch, *output_buffer_bytes);
+    aml_audio_ease_process(adev->audio_ease, *output_buffer, *output_buffer_bytes);
     return;
 }
 ssize_t audio_hal_data_processing(struct audio_stream_out *stream,
@@ -7736,6 +7749,37 @@ ssize_t audio_hal_data_processing(struct audio_stream_out *stream,
         }
     }
 
+    if (adev->audio_patch != NULL && adev->patch_src == SRC_DTV) {
+        int sample_rate = 0, pch = 0, lfepresent;
+        char sysfs_buf[VAL_LEN] = {0};
+        if (adev->audio_patch->aformat != AUDIO_FORMAT_E_AC3
+            && adev->audio_patch->aformat != AUDIO_FORMAT_AC3 &&
+            adev->audio_patch->aformat != AUDIO_FORMAT_DTS) {
+            unsigned int errcount;
+            char sysfs_buf[VAL_LEN] = {0};
+            audio_decoder_status(&errcount);
+            sprintf(sysfs_buf, "decoded_err %d", errcount);
+            sysfs_set_sysfs_str(REPORT_DECODED_INFO, sysfs_buf);
+            dtv_audio_decpara_get(&sample_rate, &pch, &lfepresent);
+            pch = pch + lfepresent;
+        } else if (adev->audio_patch->aformat == AUDIO_FORMAT_AC3 ||
+            adev->audio_patch->aformat == AUDIO_FORMAT_E_AC3) {
+            pch = adev->ddp.sourcechnum;
+            sample_rate = adev->ddp.sourcesr;
+        }
+        sprintf(sysfs_buf, "ch_num %d", pch);
+        sysfs_set_sysfs_str(REPORT_DECODED_INFO, sysfs_buf);
+        sprintf(sysfs_buf, "samplerate %d", sample_rate);
+        sysfs_set_sysfs_str(REPORT_DECODED_INFO, sysfs_buf);
+        if (pch == 2) {
+            sprintf (sysfs_buf, "ch_configuration %d", TIF_HAL_PLAYBACK_AUDIO_SOURCE_CHANNEL_CONFIGURATION_STEREO);
+        } else if (pch == 6) {
+            sprintf (sysfs_buf, "ch_configuration %d", TIF_HAL_PLAYBACK_AUDIO_SOURCE_CHANNEL_CONFIGURATION_5_1);
+        } else {
+            ALOGV("unsupport yet");
+        }
+        sysfs_set_sysfs_str(REPORT_DECODED_INFO, sysfs_buf);
+    }
     if (adev->patch_src == SRC_HDMIIN || adev->patch_src == SRC_SPDIFIN) {
         if (adev->active_input != NULL &&
                 adev->spdif_fmt_hw != adev->active_input->spdif_fmt_hw) {
@@ -7750,7 +7794,7 @@ ssize_t audio_hal_data_processing(struct audio_stream_out *stream,
         dtv_in_write(stream,buffer, bytes);
     }
     if (adev->audio_patching) {
-        output_mute(stream,output_buffer_bytes);
+        output_mute(stream,output_buffer,output_buffer_bytes);
     }
     return 0;
 }
@@ -7792,6 +7836,7 @@ ssize_t hw_write (struct audio_stream_out *stream
             if (is_use_spdifb(aml_out)) {
                 aml_audio_set_spdif_format(PORT_SPDIF, halformat_convert_to_spdif(output_format), aml_out);
                 aml_audio_select_spdif_to_hdmi(AML_SPDIF_B_TO_HDMITX);
+                aml_out->restore_hdmitx_selection = true;
             } else if (!aml_out->dual_output_flag) {
                 aml_audio_set_spdif_format(PORT_SPDIF, halformat_convert_to_spdif(output_format), aml_out);
                 aml_audio_select_spdif_to_hdmi(AML_SPDIF_A_TO_HDMITX);
@@ -9876,6 +9921,7 @@ static int usecase_change_validate_l(struct aml_stream_out *aml_out, bool is_sta
 
     /* new output case entered, so no masks has been set to the out stream */
     if (!aml_out->dev_usecase_masks) {
+        aml_dev->usecase_cnt[aml_out->usecase]++;
         if ((1 << aml_out->usecase) & aml_dev->usecase_masks) {
             ALOGE("[%s:%d], usecase: %s already exists!!, aml_out:%p", __func__,  __LINE__, usecase2Str(aml_out->usecase), aml_out);
             return -EINVAL;
@@ -10116,6 +10162,7 @@ int adev_open_output_stream_new(struct audio_hw_device *dev,
                 }
                 ret = initSubMixingInput(aml_out, config);
                 aml_out->bypass_submix = false;
+                aml_out->inputPortID = -1;
                 if (ret < 0) {
                     ALOGE("initSub mixing input failed");
                 }

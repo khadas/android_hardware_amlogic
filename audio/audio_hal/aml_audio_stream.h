@@ -130,6 +130,7 @@ static inline bool is_dolby_format(audio_format_t format) {
     switch (format) {
     case AUDIO_FORMAT_AC3:
     case AUDIO_FORMAT_E_AC3:
+    case AUDIO_FORMAT_E_AC3_JOC:
     case AUDIO_FORMAT_DOLBY_TRUEHD:
         return true;
     default:
@@ -228,6 +229,8 @@ struct aml_audio_patch {
     pthread_cond_t cond;
     void *in_buf;
     size_t in_buf_size;
+    size_t numDecodedSamples;
+    size_t numOutputSamples;
     void *out_buf;
     size_t out_buf_size;
     void *out_tmpbuf;
@@ -316,6 +319,7 @@ struct aml_audio_patch {
     pthread_mutex_t dtv_output_mutex;
     pthread_mutex_t dtv_input_mutex;
     pthread_mutex_t assoc_mutex;
+    pthread_mutex_t apts_cal_mutex;
     /*end dtv play*/
     // correspond to audio_patch:: audio_patch_handle_t id;
 	// patch unique ID

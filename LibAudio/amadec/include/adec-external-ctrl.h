@@ -63,9 +63,10 @@ extern "C"
 		int audio_get_decoded_pcm_delay(void *handle);
 		int audio_decode_basic_init(void);
 		int audio_decoder_set_trackrate(void* handle, void *rate);
-		int audio_decoder_get_enable_status(void* handle);
+    int audio_decoder_get_enable_status(void* handle);
     int audio_set_associate_enable(void *handle, unsigned int enable);
     int audio_send_associate_data(void *handle, uint8_t *buf, size_t size);
+    int audio_decoder_get_status(void *handle, unsigned int *perror_count);
 #ifdef  __cplusplus
 }
 #endif

@@ -36,7 +36,7 @@
 #define MAX_AUDIO_SUPPORTED 2
 
 #define HWSYNC_APTS_NUM     512
-
+#define INTERPOLATE_AUDIO_RESOLUTION (9000 * 10)
 enum hwsync_status {
     CONTINUATION,  // good sync condition
     ADJUSTMENT,    // can be adjusted by discarding or padding data
@@ -76,6 +76,7 @@ typedef struct  audio_swcheck_sync {
     bool use_tsync_check;
     int version_num;
     bool debug_enable;
+    int look_res; /*apts lookup resolution*/
 } audio_swcheck_sync_t;
 
 audio_swcheck_sync_t  *p_swcheck_table[MAX_AUDIO_SUPPORTED];
@@ -122,6 +123,7 @@ void aml_audio_swcheck_init(int audio_path)
     p_swcheck->payload_offset = 0;
     p_swcheck->use_tsync_check = property_get_bool("vendor.dtv.use_tsync_check",false);
     p_swcheck->debug_enable = property_get_bool("vendor.dtv.checkapts.debug",false);
+    p_swcheck->look_res = property_get_int32("vendor.dtv.apts.look_res", 10485760);
     p_swcheck->tsync_fd = open("/dev/tsync", O_CREAT | O_RDWR | O_TRUNC, 0666);
     if (p_swcheck->tsync_fd < 0)
         ALOGI("/dev/tsync open failed !!");
@@ -161,7 +163,7 @@ int aml_audio_swcheck_get_lastapts(int  audio_path)
     ALOGI("%s done", __func__);
 }
 
-int aml_audio_swcheck_checkin_apts(int audio_path, size_t offset, unsigned apts)
+int aml_audio_swcheck_checkin_apts(int audio_path, size_t offset, unsigned long apts)
 {
     int i = 0;
     int ret = -1;
@@ -170,6 +172,7 @@ int aml_audio_swcheck_checkin_apts(int audio_path, size_t offset, unsigned apts)
         if (p_swcheck->first_apts_flag) {
             ret = dtv_tsync_ioc_set_first_checkin_apts(p_swcheck->tsync_fd, apts);
             p_swcheck->first_apts_flag = false;
+            p_swcheck->first_apts = apts;
         }
         ret = dtv_tsync_ioc_set_last_checkin_apts(p_swcheck->tsync_fd, apts);
         if (ret == -1) {
@@ -177,7 +180,7 @@ int aml_audio_swcheck_checkin_apts(int audio_path, size_t offset, unsigned apts)
            return -1;
         }
         if (p_swcheck->debug_enable) {
-            ALOGI("ret %d apts %d",ret,apts);
+            ALOGI("ret %d apts %lu",ret,apts);
         }
         //return ret;
     }
@@ -188,11 +191,9 @@ int aml_audio_swcheck_checkin_apts(int audio_path, size_t offset, unsigned apts)
         return -1;
     }
     if (p_swcheck->debug_enable) {
-        ALOGI("++ %s checkin ,offset %zu,apts 0x%x", __func__, offset, apts);
+        ALOGI("++ %s checkin ,offset %zu,apts 0x%lx", __func__, offset, apts);
     }
     pthread_mutex_lock(&p_swcheck->lock);
-    if (offset == 0)
-        p_swcheck->first_apts = apts;
 	p_swcheck->last_apts_from_header = apts;
     pts_tab = p_swcheck->pts_tab;
     for (i = 0; i < HWSYNC_APTS_NUM; i++) {
@@ -201,7 +202,7 @@ int aml_audio_swcheck_checkin_apts(int audio_path, size_t offset, unsigned apts)
             pts_tab[i].offset = offset;
             pts_tab[i].valid = 1;
             if (p_swcheck->debug_enable) {
-                ALOGI("%s checkin done,offset %zu,apts 0x%x", __func__, offset, apts);
+                ALOGI("%s checkin done,offset %zu,apts 0x%lx", __func__, offset, apts);
             }
             ret = 0;
             break;
@@ -218,17 +219,19 @@ int aml_audio_swcheck_lookup_apts(int audio_path, size_t offset, unsigned long *
     size_t align  = 0;
     int ret = -1;
     apts_tab_t *pts_tab = NULL;
+    apts_tab_t pts_tab0;
     uint32_t nearest_pts = 0;
     uint32_t nearest_offset = 0;
-    uint32_t min_offset = 0x7fffffff;
+    uint32_t min_offset = 0;
     int match_index = -1;
+    memset(&pts_tab0, 0, sizeof(apts_tab_t));
     audio_swcheck_sync_t *p_swcheck = p_swcheck_table[audio_path];
     // add protection to avoid NULL pointer.
     if (!p_swcheck) {
         ALOGE("%s null point", __func__);
         return -1;
     }
-
+    min_offset = p_swcheck->look_res;
     if (p_swcheck->debug_enable) {
         ALOGI("%s offset %zu,first %d", __func__, offset, p_swcheck->first_apts_flag);
     }
@@ -249,12 +252,17 @@ int aml_audio_swcheck_lookup_apts(int audio_path, size_t offset, unsigned long *
             ALOGI("audio_hal_debug exception apts lookup offset: %zu > checkin offset: %zu",
                    align, p_swcheck->payload_offset);
     }
-
+    if (offset == 0) {
+        *p_apts = p_swcheck->first_apts;
+        ALOGI("offset=0, set first_lookup_apts=0x%llx not return\n", p_swcheck->first_apts);
+        pthread_mutex_unlock(&p_swcheck->lock);
+        return 0;
+    }
     pts_tab = p_swcheck->pts_tab;
     for (i = 0; i < HWSYNC_APTS_NUM; i++) {
         if (pts_tab[i].valid) {
             if (pts_tab[i].offset == align) {
-                *p_apts = pts_tab[i].pts;
+                nearest_pts  = pts_tab[i].pts;
                 nearest_offset = pts_tab[i].offset;
                 ret = 0;
                 if (p_swcheck->debug_enable) {
@@ -264,39 +272,32 @@ int aml_audio_swcheck_lookup_apts(int audio_path, size_t offset, unsigned long *
                 break;
             } else if (pts_tab[i].offset < align) {
                 /*find the nearest one*/
-                if ((align - pts_tab[i].offset) < min_offset) {
-                    min_offset = align - pts_tab[i].offset;
-                    match_index = i;
-                    nearest_pts = pts_tab[i].pts;
-                    nearest_offset = pts_tab[i].offset;
+                if (pts_tab0.offset < pts_tab[i].offset) {
+                    pts_tab[i].valid = 0;
+                    pts_tab0.offset = pts_tab[i].offset;
+                    pts_tab0.pts = pts_tab[i].pts;
+                    pts_tab0.valid = 1;
+                    if ((align - pts_tab0.offset) < min_offset) {
+                        min_offset = align - pts_tab0.offset;
+                        match_index = i;
+                        nearest_pts = pts_tab0.pts;
+                        nearest_offset = pts_tab0.offset;
+                    }
                 }
-                pts_tab[i].valid = 0;
-
-            } else if (/*pts_tab[i].offset > align*/ 0) {
-                /*find the nearest one*/
-                if ((pts_tab[i].offset - align) < min_offset) {
-                    min_offset = pts_tab[i].offset - align;
-                    match_index = i;
-                    nearest_pts = pts_tab[i].pts;
-                    nearest_offset = pts_tab[i].offset;
-                }
-                //pts_tab[i].valid = 0;
-
             }
         }
     }
-    if (i == HWSYNC_APTS_NUM) {
-        if (nearest_pts) {
-            ret = 0;
-            *p_apts = nearest_pts;
-            ALOGI("find nearest pts 0x%lx offset %u align %zu offset %zu", *p_apts, nearest_offset, align, offset);
-        } else {
-            ALOGE("%s,apts lookup failed,align %zu,offset %zu", __func__, align, offset);
-        }
+    if (nearest_offset) {
+        ret = 0;
+        *p_apts = nearest_pts;
+        ALOGI("find nearest pts 0x%lx offset %zu align %zu offset %zu",
+                *p_apts, nearest_offset, align, offset);
+    } else {
+        ALOGE("%s,apts lookup failed,align %zu,offset %zu", __func__, align, offset);
     }
     if (ret == 0) {
         if (p_swcheck->debug_enable) {
-            ALOGI("data offset =%zu pts offset =%d diff =%zu pts=0x%lx ", offset, nearest_offset, offset - nearest_offset, *p_apts);
+            ALOGI("data offset =%zu pts offset =%zu diff =%d pts=0x%lx ", offset, nearest_offset, offset - nearest_offset, *p_apts);
         }
     }
     pthread_mutex_unlock(&p_swcheck->lock);

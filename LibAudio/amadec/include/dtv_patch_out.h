@@ -28,7 +28,7 @@ typedef enum {
 }INFO_TYPE_E;
 
 
-typedef int (*out_pcm_write)(unsigned char *pcm_data, int size, int symbolrate, int channel, void *args);
+typedef int (*out_pcm_write)(unsigned char *pcm_data, int size, int symbolrate, int channel, int data_width, void *args);
 typedef int (*out_raw_wirte)(unsigned char *raw_data, int size,
                              void *args);
 /*[SE][BUG][SWPL-14813][chengshun.wang] modify api to get output level,
@@ -47,4 +47,6 @@ unsigned long dtv_patch_get_pts(void);
 int dtv_patch_get_audio_loop(void);
 int dtv_patch_clear_audio_loop(void);
 unsigned long dtv_patch_get_checkin_dicontinue_apts(void);
+int dtv_patch_get_decoder_status(unsigned int *perror_count);
+int dtv_audio_decpara_get(int *pfs, int *pch, int *lfepresent);
 #endif

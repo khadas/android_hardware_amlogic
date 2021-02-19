@@ -43,6 +43,9 @@ typedef struct Am_DemuxWrapper_OpenPara
     int              cntl_fd;     /*control fd*/
     int              aud_fd;      // inject /dev/amstream_mpts or dev/amstream_mpts_schedfd  handle
     int              vid_fd;      // inject /dev/amstream_mpts or dev/amstream_mpts_schedfd  handle
+    int              aud_ad_id;    /**< Audio ad ID, -1 means no audio data*/
+    int              aud_ad_fmt;     /**< Audio AD format*/
+    int              aud_ad_fd;
     void *           dsc_fd;
     AM_AV_DrmMode_t  drm_mode;
 } Am_DemuxWrapper_OpenPara_t;

@@ -861,3 +861,13 @@ int audio_send_associate_data(void* handle __unused, uint8_t *buf __unused, size
     return size;
 #endif
 }
+int audio_decoder_get_status(void *handle, unsigned int *perror_count)
+{
+    aml_audio_dec_t *audec = (aml_audio_dec_t *)handle;
+    if (audec && perror_count) {
+        *perror_count = audec->nDecodeErrCount; //need count
+        return 0;
+    } else {
+        return -1;
+    }
+}

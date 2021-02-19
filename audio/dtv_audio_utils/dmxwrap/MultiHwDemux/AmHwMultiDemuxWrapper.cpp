@@ -33,6 +33,7 @@ static void getVideoEsData(AmHwMultiDemuxWrapper* mDemuxWrapper,int fid,const ui
     return;
 }
 #define  DEMUX_AUDIO_DUMP_PATH "/data/demux_audio.es"
+#define  DEMUX_AD_AUDIO_DUMP_PATH "/data/demux_audio_ad.es"
 static void dump_demux_data(void *buffer, int size, const char* file_name)
 {
    if (property_get_bool("vendor.dvb.demux_audio_es.dump",false)) {
@@ -76,18 +77,49 @@ static void getAudioEsData(AmHwMultiDemuxWrapper* mDemuxWrapper, int fid, const 
 
 }
 
+static void getAudioADEsData(AmHwMultiDemuxWrapper* mDemuxWrapper, int fid, const uint8_t *data, int len, void *user_data) {
+//(void)mDemuxWrapper;
+(void)fid;
+//(void)data;
+//(void)len;
+(void)user_data;
+
+    mEsDataInfo* mEsData = new mEsDataInfo;
+    mEsData->data = (uint8_t*)malloc(len);
+    dmx_non_sec_es_header *es_header = (struct dmx_non_sec_es_header *)(data);
+    if (len > sizeof(struct dmx_non_sec_es_header)) {
+        const unsigned char *data_es  = data + sizeof(struct dmx_non_sec_es_header);
+        memcpy(mEsData->data, data_es, es_header->len);
+        mEsData->size = es_header->len;
+        mEsData->pts = es_header->pts;
+        //ALOGI("getAudioADEsData %d mEsData->size %d mEsData->pts %lld",len,mEsData->size,mEsData->pts);
+        dump_demux_data((void *)data_es, es_header->len, DEMUX_AD_AUDIO_DUMP_PATH);
+    } else {
+        ALOGI("error es data len %d",len);
+    }
+
+    {
+        TSPMutex::Autolock l(mDemuxWrapper->mAudioADEsDataQueueLock);
+        mDemuxWrapper->queueEsData(mDemuxWrapper->mAudioADEsDataQueue,mEsData);
+    }
+
+}
+
 AmHwMultiDemuxWrapper::AmHwMultiDemuxWrapper(){
     ALOGI("AmHwMultiDemuxWrapper \n");
     AmDmxDevice = new AM_DMX_Device(this);
 
     mDemuxPara.vid_id = 0x1fff;
     mDemuxPara.aud_id = 0x1fff;
+    mDemuxPara.aud_ad_id = 0x1fff;
     mDemuxPara.sub_id = 0x1fff;
     mDemuxPara.vid_fmt = -1;
     mDemuxPara.aud_fmt = -1;
+    mDemuxPara.aud_ad_fmt = -1;
     mDemuxPara.sub_type = -1;
     mDemuxPara.drm_mode = AM_AV_NO_DRM;
     mDemuxPara.cntl_fd = -1;
+    mDemuxPara.aud_ad_fd = -1;
 }
 
 AmHwMultiDemuxWrapper::~AmHwMultiDemuxWrapper() {
@@ -102,6 +134,10 @@ AmHwMultiDemuxWrapper::~AmHwMultiDemuxWrapper() {
     {
         TSPMutex::Autolock l(mAudioEsDataQueueLock);
         clearPendingEsData(mAudioEsDataQueue);
+    }
+    {
+        TSPMutex::Autolock l(mAudioADEsDataQueueLock);
+        clearPendingEsData(mAudioADEsDataQueue);
     }
 }
 
@@ -142,6 +178,9 @@ AM_DmxErrorCode_t AmHwMultiDemuxWrapper::AmDemuxWrapperReadData(int pid, mEsData
     } else if (pid == mDemuxPara.aud_id){
         TSPMutex::Autolock l(mAudioEsDataQueueLock);
         *mEsData = dequeueEsData(mAudioEsDataQueue);
+    } else if (pid == mDemuxPara.aud_ad_id) {
+        TSPMutex::Autolock l(mAudioADEsDataQueueLock);
+        *mEsData = dequeueEsData(mAudioADEsDataQueue);
     }
     return AM_Dmx_SUCCESS;
 }
@@ -156,6 +195,84 @@ AM_DmxErrorCode_t AmHwMultiDemuxWrapper::AmDemuxWrapperPause(void) {
 }
 
 AM_DmxErrorCode_t AmHwMultiDemuxWrapper::AmDemuxWrapperResume(void) {
+    return AM_Dmx_SUCCESS;
+}
+AM_DmxErrorCode_t AmHwMultiDemuxWrapper::AmDemuxWrapperSetADAudioParam(int aid, AM_AV_AFormat_t afmt ,int security_mem_level) {
+
+    struct dmx_pes_filter_params aparam;
+    int aud_format;
+    memset(&aparam, 0, sizeof(aparam));
+    int fid_audio = 0;
+    mDemuxPara.aud_ad_id = aid;
+    mDemuxPara.aud_ad_fmt = afmt;
+    switch (afmt) {
+       case ACODEC_FMT_MPEG:
+       case ACODEC_FMT_MPEG1:
+       case ACODEC_FMT_MPEG2:
+           aud_format = AUDIO_MPX;
+           break;
+       case ACODEC_FMT_AC3:
+       case ACODEC_FMT_EAC3:
+           aud_format = AUDIO_AC3;
+           break;
+       case ACODEC_FMT_AAC:
+           aud_format = AUDIO_AAC_ADTS;
+           break;
+       case ACODEC_FMT_AAC_LATM:
+          aud_format = AUDIO_AAC_LOAS;
+          break;
+       case ACODEC_FMT_DTS:
+          aud_format = AUDIO_DTS;
+          break;
+       default:
+          aud_format = AUDIO_UNKNOWN;
+          break;
+    }
+    aparam.pid = mDemuxPara.aud_ad_id;
+    aparam.pes_type = DMX_PES_AUDIO0;
+    //aparam.pes_type = DMX_PES_VIDEO0;
+    aparam.input = DMX_IN_FRONTEND;
+    aparam.output = DMX_OUT_TAP;
+    aparam.flags |= DMX_ES_OUTPUT;
+    if (security_mem_level == 10) {
+        aparam.flags |= DMX_MEM_SEC_LEVEL1;
+        aparam.flags |= ((aud_format & 0xff) << DMX_AUDIO_FORMAT_BIT);
+    } else if (security_mem_level == 11) {
+        aparam.flags |= DMX_MEM_SEC_LEVEL2;
+        aparam.flags |= ((aud_format & 0xff) << DMX_AUDIO_FORMAT_BIT);
+    } else if (security_mem_level == 12) {
+        aparam.flags |= DMX_MEM_SEC_LEVEL3;
+        aparam.flags |= ((aud_format & 0xff) << DMX_AUDIO_FORMAT_BIT);
+    }
+    //aparam.flags |= DMX_OUTPUT_RAW_MODE;
+    AmDmxDevice->AM_DMX_AllocateFilter(&fid_audio);
+    AmDmxDevice->AM_DMX_SetCallback(fid_audio, getAudioADEsData, NULL);
+    AmDmxDevice->AM_DMX_SetBufferSize(fid_audio, 1024 * 1024);
+    ALOGI("AM_DMX_SetPesFilter aparam.flags %0x",aparam.flags);
+    AmDmxDevice->AM_DMX_SetPesFilter(fid_audio, &aparam);
+    mDemuxPara.aud_ad_fd = fid_audio;
+    //AmDmxDevice->AM_DMX_StartFilter(fid_audio);
+    //audio_adcallback = (AM_Audio_AD_DataCb)cb;
+    return AM_Dmx_SUCCESS;
+}
+
+AM_DmxErrorCode_t AmHwMultiDemuxWrapper::AmDemuxWrapperOpenAD(int aid, AM_AV_AFormat_t afmt ,int security_mem_level) {
+    AmDemuxWrapperSetADAudioParam(aid, afmt,security_mem_level);
+    return AM_Dmx_SUCCESS;
+}
+
+AM_DmxErrorCode_t AmHwMultiDemuxWrapper::AmDemuxWrapperStartAD(void) {
+    AmDmxDevice->AM_DMX_StartFilter(mDemuxPara.aud_ad_fd);
+    return AM_Dmx_SUCCESS;
+}
+
+AM_DmxErrorCode_t AmHwMultiDemuxWrapper::AmDemuxWrapperStopAD(void) {
+    AmDmxDevice->AM_DMX_StopFilter(mDemuxPara.aud_ad_fd);
+    return AM_Dmx_SUCCESS;
+}
+
+AM_DmxErrorCode_t AmHwMultiDemuxWrapper::AmDemuxWrapperCloseAD(void) {
+    AmDmxDevice->AM_DMX_FreeFilter(mDemuxPara.aud_ad_fd);
     return AM_Dmx_SUCCESS;
 }
 
@@ -212,7 +329,28 @@ AM_DmxErrorCode_t AmHwMultiDemuxWrapper::AmDemuxWrapperSetAudioParam(int aid, AM
     AmDmxDevice->AM_DMX_SetBufferSize(fid_audio, 1024 * 1024);
     ALOGI("AM_DMX_SetPesFilter aparam.flags %0x",aparam.flags);
     AmDmxDevice->AM_DMX_SetPesFilter(fid_audio, &aparam);
-    AmDmxDevice->AM_DMX_StartFilter(fid_audio);
+    mDemuxPara.aud_fd = fid_audio;
+    //AmDmxDevice->AM_DMX_StartFilter(fid_audio);
+    return AM_Dmx_SUCCESS;
+}
+
+AM_DmxErrorCode_t AmHwMultiDemuxWrapper::AmDemuxWrapperOpenMain(int aid, AM_AV_AFormat_t afmt ,int security_mem_level) {
+    AmDemuxWrapperSetAudioParam(aid, afmt,security_mem_level);
+    return AM_Dmx_SUCCESS;
+}
+
+AM_DmxErrorCode_t AmHwMultiDemuxWrapper::AmDemuxWrapperStartMain(void) {
+    AmDmxDevice->AM_DMX_StartFilter(mDemuxPara.aud_fd);
+    return AM_Dmx_SUCCESS;
+}
+
+AM_DmxErrorCode_t AmHwMultiDemuxWrapper::AmDemuxWrapperStopMain(void) {
+    AmDmxDevice->AM_DMX_StopFilter(mDemuxPara.aud_fd);
+    return AM_Dmx_SUCCESS;
+}
+
+AM_DmxErrorCode_t AmHwMultiDemuxWrapper::AmDemuxWrapperCloseMain(void) {
+    AmDmxDevice->AM_DMX_FreeFilter(mDemuxPara.aud_fd);
     return AM_Dmx_SUCCESS;
 }
 

@@ -209,7 +209,7 @@ static int Get_DD_Parameters(void *buf, int *sample_rate, int *frame_size, int *
     } else {
         numch = 2;
     }
-    *ChNum = numch;
+    *ChNum = numch + lfeon;
     //ALOGI("DEBUG:numch=%d sample_rate=%d %p [%s %d]",ChNum,sample_rate,this,__FUNCTION__,__LINE__);
     return numch;
 }
@@ -256,8 +256,8 @@ static int Get_DDP_Parameters(void *buf, int *sample_rate, int *frame_size, int 
     ddbs_unprj(p_bstrm, &acmod, 3);
     ddbs_unprj(p_bstrm, &lfeon, 1);
     numch = chanary[acmod];
-    numch = 2;
-    *ChNum = numch;
+    //numch = 2;
+    *ChNum = numch + lfeon;
     //ALOGI("DEBUG[%s %d]:numch=%d,sr=%d,frs=%d",__FUNCTION__,__LINE__,*ChNum,*sample_rate,*frame_size);
     return 0;
 }
@@ -663,7 +663,10 @@ int dcv_decoder_init_patch(struct dolby_ddp_dec *ddp_dec)
     ddp_dec->inbuf = NULL;
     ddp_dec->outbuf = NULL;
     ddp_dec->outbuf_raw = NULL;
-
+    ddp_dec->dcv_pcm_writed = 0;
+    ddp_dec->dcv_decoded_samples = 0;
+    ddp_dec->dcv_decoded_errcount = 0;
+    memset(ddp_dec->sysfs_buf, 0, sizeof(ddp_dec->sysfs_buf));
     memset(&ddp_dec->pcm_out_info, 0, sizeof(struct pcm_info));
     memset(&ddp_dec->aml_resample, 0, sizeof(struct resample_para));
     ddp_dec->inbuf_size = MAX_DECODER_FRAME_LENGTH * 4 * 4;
@@ -707,6 +710,10 @@ int dcv_decoder_release_patch(struct dolby_ddp_dec *ddp_dec)
         ddp_dec->curFrmSize = 0;
         ddp_dec->decoding_mode = DDP_DECODE_MODE_SINGLE;
         ddp_dec->mixer_level = 0;
+        ddp_dec->dcv_pcm_writed = 0;
+        ddp_dec->dcv_decoded_samples = 0;
+        ddp_dec->dcv_decoded_errcount = 0;
+        memset(ddp_dec->sysfs_buf, 0, sizeof(ddp_dec->sysfs_buf));
         aml_audio_free(ddp_dec->inbuf);
         aml_audio_free(ddp_dec->outbuf);
         ddp_dec->inbuf = NULL;
@@ -794,6 +801,7 @@ int dcv_decoder_process_patch(struct dolby_ddp_dec *ddp_dec, unsigned char*buffe
     int ad_substream_supported = 0;
     ddp_dec->outlen_pcm = 0;
     ddp_dec->outlen_raw = 0;
+    int bit_width = 16;
 #if 0
     if (getprop_bool("vendor.media.audio_hal.ddp.outdump")) {
         FILE *fp1 = fopen("/data/tmp/audio_decode_61937.raw", "a+");
@@ -865,6 +873,8 @@ int dcv_decoder_process_patch(struct dolby_ddp_dec *ddp_dec, unsigned char*buffe
                         (mChNum == 0) || (mSample_rate == 0)) {
                     } else {
                         in_sync = 1;
+                        ddp_dec->sourcesr = mSample_rate;
+                        ddp_dec->sourcechnum = mChNum;
                         break;
                     }
                 }
@@ -991,7 +1001,15 @@ int dcv_decoder_process_patch(struct dolby_ddp_dec *ddp_dec, unsigned char*buffe
                     ddp_dec->outlen_pcm, UNCOVER_WRITE);
             ALOGV("mFrame_size:%d, outlen_pcm:%d, ret = %d\n", mFrame_size, ddp_dec->outlen_pcm, used_size);
         }
+    } else {
+        ddp_dec->dcv_decoded_errcount++;
+        sprintf(ddp_dec->sysfs_buf, "decoded_err %d", ddp_dec->dcv_decoded_errcount);
+        sysfs_set_sysfs_str(REPORT_DECODED_INFO, ddp_dec->sysfs_buf);
     }
+    ddp_dec->dcv_pcm_writed += ddp_dec->outlen_pcm;
+    ddp_dec->dcv_decoded_samples = (ddp_dec->dcv_pcm_writed * 8 ) / (2 * bit_width);
+    sprintf(ddp_dec->sysfs_buf, "decoded_frames %d", ddp_dec->dcv_decoded_samples);
+    sysfs_set_sysfs_str(REPORT_DECODED_INFO, ddp_dec->sysfs_buf);
     pthread_mutex_unlock(&ddp_dec->lock);
     return 0;
 EXIT:
