@@ -36,11 +36,11 @@ LOCAL_SHARED_LIBRARIES := \
   liblog \
   libcutils
 
+LOCAL_MODULE_TAGS := optional
+LOCAL_CFLAGS := -Wno-unused-parameter
+
 ifeq ($(TARGET_BUILD_KERNEL_4_9), true)
 LOCAL_CFLAGS += -DKERNEL4_9
 endif
-
-LOCAL_MODULE_TAGS := optional
-LOCAL_CFLAGS := -Wno-unused-parameter
 
 include $(BUILD_SHARED_LIBRARY)
