@@ -315,6 +315,7 @@ void aml_hwsync_wrap_wait_video_drop(audio_hwsync_t *p_hwsync, uint32_t cur_pts,
     int64_t nowUs;
     int64_t outRealMediaUs;
     int64_t outMediaPts;
+    int64_t audio_cur_pts = 0;
     sync_mode mode = MEDIA_SYNC_MODE_MAX;
 
     if (!p_hwsync->mediasync) {
@@ -329,8 +330,9 @@ void aml_hwsync_wrap_wait_video_drop(audio_hwsync_t *p_hwsync, uint32_t cur_pts,
         return;
     }
     outMediaPts = outRealMediaUs / 1000LL * 90;
-    ALOGI("====================, now audiopts %d vpts %lld ", cur_pts, outMediaPts);
-    if ((int)(cur_pts - outMediaPts) > SYSTIME_CORRECTION_THRESHOLD) {
+    audio_cur_pts = (int64_t)cur_pts;
+    ALOGI("====================, now audiopts %lld vpts %lld ", audio_cur_pts, outMediaPts);
+    if ((audio_cur_pts - outMediaPts) > SYSTIME_CORRECTION_THRESHOLD) {
         bool ispause = false;
         bool ret = mediasync_wrap_getPause(p_hwsync->mediasync, &ispause);
         if (ret && ispause) {
@@ -345,11 +347,11 @@ void aml_hwsync_wrap_wait_video_drop(audio_hwsync_t *p_hwsync, uint32_t cur_pts,
                 return;
             }
             outMediaPts = outRealMediaUs / 1000LL * 90;
-            if ((int)(cur_pts - outMediaPts) <= SYSTIME_CORRECTION_THRESHOLD)
+            if ((audio_cur_pts - outMediaPts) <= SYSTIME_CORRECTION_THRESHOLD)
                 break;
             usleep(20000);
             count++;
-            ALOGI("fisrt audio wait video %d ms,now audiopts %d vpts %" PRId64 " ", count * 20, cur_pts, outMediaPts);
+            ALOGI("fisrt audio wait video %d ms,now audiopts %lld vpts %" PRId64 " ", count * 20, audio_cur_pts, outMediaPts);
         }
     } else {
         bool ispause = false;
