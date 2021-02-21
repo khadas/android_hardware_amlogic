@@ -560,9 +560,9 @@ int aml_audio_hwsync_audio_process(audio_hwsync_t *p_hwsync, size_t offset, int 
                 return 0;
             }
             clock_gettime(CLOCK_REALTIME, &ts);
-            /*pcr is us*/
+
             ret = aml_hwsync_get_tsync_pts(out->hwsync, &pcr);
-            pcr_pts_gap = apts32 / 90 - pcr / 1000;
+            pcr_pts_gap = (apts32 - pcr) / 90;
             gap = pcr_pts_gap * 90;
             /*resume from pause status, we can sync it exactly*/
             if (adev->ms12.need_resync) {
@@ -602,7 +602,7 @@ int aml_audio_hwsync_audio_process(audio_hwsync_t *p_hwsync, size_t offset, int 
                 int time_gap = (int)calc_time_interval_us(&out->hwsync->last_timestamp, &ts) / 1000;
 
                 if (debug_enable) {
-                    ALOGI("pcr =%d ms pts =0x%x gap =%d ms", pcr / 1000, apts32, pcr_pts_gap);
+                    ALOGI("pcr =%d ms pts =0x%x gap =%d ms", pcr / 90, apts32, pcr_pts_gap);
                     ALOGI("frame len =%d ms =%d latency_frames =%d ms=%d", frame_len, frame_len / 48, latency_frames, latency_frames / 48);
                     ALOGI("pts last =0x%x now =0x%x diff =%d ms time diff =%d ms jitter =%d ms",
                         out->hwsync->last_output_pts, apts32, pts_gap, time_gap, pts_gap - time_gap);

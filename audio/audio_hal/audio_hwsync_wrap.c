@@ -175,7 +175,7 @@ int aml_hwsync_wrap_set_tsync_start_pts(audio_hwsync_t *p_hwsync, uint32_t pts)
     if (!p_hwsync->use_mediasync) {
         return aml_hwsync_wrap_single_set_tsync_start_pts(pts);
     }
-    int64_t timeus = pts / 90 *1000;
+    int64_t timeus = ((int64_t)pts) / 90 *1000;
     mediasync_wrap_setStartingTimeMedia(p_hwsync->mediasync, timeus);
     return 0;
 }
@@ -194,13 +194,13 @@ int aml_hwsync_wrap_set_tsync_start_pts64(audio_hwsync_t *p_hwsync, uint64_t pts
 
 int aml_hwsync_wrap_get_tsync_pts(audio_hwsync_t *p_hwsync, uint32_t *pts)
 {
-    int64_t pts64 = 0;
+    int64_t timeus = 0;
     ALOGV("%s(), get tsync pts", __func__);
     if (!p_hwsync->use_mediasync) {
         return aml_hwsync_wrap_single_get_tsync_pts(pts);
     }
-    mediasync_wrap_getMediaTime(p_hwsync->mediasync, systemTime(SYSTEM_TIME_MONOTONIC) / 1000LL, &pts64, 0);
-    *pts = pts64;
+    mediasync_wrap_getMediaTime(p_hwsync->mediasync, systemTime(SYSTEM_TIME_MONOTONIC) / 1000LL, &timeus, 0);
+    *pts = timeus / 1000 * 90;
     return 0;
 }
 
@@ -234,7 +234,7 @@ int aml_hwsync_wrap_reset_tsync_pcrscr(audio_hwsync_t *p_hwsync, uint32_t pts)
     if (!p_hwsync->use_mediasync) {
         return aml_hwsync_wrap_single_reset_tsync_pcrscr(pts);
     }
-    int64_t timeus = pts / 90 *1000;
+    int64_t timeus = ((int64_t)pts) / 90 *1000;
     mediasync_wrap_updateAnchor(p_hwsync->mediasync, timeus, 0, 0);
 
     return 0;
