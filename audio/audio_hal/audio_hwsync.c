@@ -267,7 +267,7 @@ static int aml_audio_hwsync_get_pcr(audio_hwsync_t *p_hwsync, uint *value)
 
 void aml_audio_hwsync_init(audio_hwsync_t *p_hwsync, struct aml_stream_out  *out)
 {
-    ALOGI("%s", __func__);
+    ALOGI("%s p_hwsync %p out %p\n", __func__, p_hwsync, out);
     int fd = -1;
     if (p_hwsync == NULL) {
         return;

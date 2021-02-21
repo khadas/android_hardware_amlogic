@@ -101,6 +101,7 @@
 #define MS12_INPUT_SYS_APP_FILE          "/data/vendor/audiohal/ms12_input_app.pcm"
 #define MS12_INPUT_SYS_MAIN_IEC_FILE     "/data/vendor/audiohal/ms12_input_main_iec.raw"
 
+#define MS12_OUTPUT_5_1_DDP "vendor.media.audio.ms12.output.5_1_ddp"
 
 #define MS12_MAIN_WRITE_RETIMES             (600)
 #define MS12_ATMOS_TRANSITION_THRESHOLD     (3)
@@ -259,7 +260,7 @@ static void set_ms12_out_ddp_5_1(audio_format_t input_format, bool is_sink_suppo
 bool is_platform_supported_ddp_atmos(bool atmos_supported, enum OUT_PORT current_out_port, bool is_tv)
 {
     bool ret = false;
-    ALOGD("%s atmos_supported %d current_out_port %d", __func__, atmos_supported, current_out_port);
+    //ALOGD("%s atmos_supported %d current_out_port %d", __func__, atmos_supported, current_out_port);
     if ((current_out_port == OUTPORT_HDMI_ARC) || (current_out_port == OUTPORT_HDMI)) {
         /*ARC case*/
         ret = atmos_supported;
@@ -274,7 +275,7 @@ bool is_platform_supported_ddp_atmos(bool atmos_supported, enum OUT_PORT current
             ret = false;
         }
     }
-    ALOGD("%s Line %d return %s", __func__, __LINE__, ret ? "true": "false");
+    //ALOGD("%s Line %d return %s", __func__, __LINE__, ret ? "true": "false");
     return ret;
 }
 
@@ -378,6 +379,12 @@ void set_ms12_atmos_lock(struct dolby_ms12_desc *ms12, bool is_atmos_lock_on)
 void set_ms12_acmod2ch_lock(struct dolby_ms12_desc *ms12, bool is_lock_on)
 {
     char parm[64] = "";
+    bool output_5_1_ddp = getprop_bool(MS12_OUTPUT_5_1_DDP);
+    ALOGI("%s output_5_1_ddp %d", __func__, output_5_1_ddp);
+
+    if (output_5_1_ddp)
+        is_lock_on = false;
+
     sprintf(parm, "%s %d", "-acmod2ch_lock", is_lock_on);
     if ((strlen(parm)) > 0 && ms12)
         aml_ms12_update_runtime_params(ms12, parm);
@@ -548,6 +555,7 @@ int get_the_dolby_ms12_prepared(
     int output_config = MS12_OUTPUT_MASK_STEREO;
     struct aml_audio_patch *patch = adev->audio_patch;
     int ret = 0;
+    bool output_5_1_ddp = getprop_bool(MS12_OUTPUT_5_1_DDP);
 
     ALOGI("\n+%s()", __FUNCTION__);
     pthread_mutex_lock(&ms12->lock);
@@ -595,6 +603,10 @@ int get_the_dolby_ms12_prepared(
      */
     bool is_atmos_supported = is_platform_supported_ddp_atmos(adev->hdmi_descs.ddp_fmt.atmos_supported, adev->active_outport, adev->is_TV);
     set_ms12_out_ddp_5_1(input_format, is_atmos_supported);
+
+    if (output_5_1_ddp) {
+        dolby_ms12_set_encoder_channel_mode_locking_mode(output_5_1_ddp);
+    }
 
     /* create  the ms12 output stream here */
     /*************************************/

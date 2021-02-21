@@ -282,7 +282,7 @@ static inline alsa_device_t usecase_device_adapter_with_ms12(struct dolby_ms12_d
 bool is_platform_supported_ddp_atmos(bool atmos_supported, enum OUT_PORT current_out_port, bool is_tv)
 {
     bool ret = false;
-    ALOGD("%s atmos_supported %d current_out_port %d", __func__, atmos_supported, current_out_port);
+    //ALOGD("%s atmos_supported %d current_out_port %d", __func__, atmos_supported, current_out_port);
     if ((current_out_port == OUTPORT_HDMI_ARC) || (current_out_port == OUTPORT_HDMI)) {
         /*ARC case*/
         ret = atmos_supported;
@@ -297,7 +297,7 @@ bool is_platform_supported_ddp_atmos(bool atmos_supported, enum OUT_PORT current
             ret = false;
         }
     }
-    ALOGD("%s Line %d return %s", __func__, __LINE__, ret ? "true": "false");
+    //ALOGD("%s Line %d return %s", __func__, __LINE__, ret ? "true": "false");
     return ret;
 }
 

@@ -25,6 +25,7 @@
 #include "aml_audio_avsync_table.h"
 #include "aml_audio_spdifout.h"
 
+
 static int get_ms12_nontunnel_input_latency(audio_format_t input_format) {
     char buf[PROPERTY_VALUE_MAX];
     int ret = -1;
@@ -291,7 +292,11 @@ static int get_ms12_nontunnel_latency_offset(enum OUT_PORT port, audio_format_t 
     return latency_ms;
 }
 
-static int get_ms12_tunnel_latency_offset(enum OUT_PORT port, audio_format_t input_format, audio_format_t output_format, bool is_netflix)
+static int get_ms12_tunnel_latency_offset(enum OUT_PORT port
+    , audio_format_t input_format
+    , audio_format_t output_format
+    , bool is_netflix
+    , bool is_output_ddp_atmos)
 {
     int latency_ms = 0;
     int input_latency_ms = 0;
@@ -301,13 +306,21 @@ static int get_ms12_tunnel_latency_offset(enum OUT_PORT port, audio_format_t inp
         input_latency_ms  = get_ms12_netflix_tunnel_input_latency(input_format);
         output_latency_ms = get_ms12_netflix_output_latency(output_format);
     } else {
-        input_latency_ms  = get_ms12_tunnel_input_latency(input_format);
+        /*
+         * TODO:
+         * found the different between DDP_JOC and DDP,
+         * DDP_JOC will has more 32m(in MS12 pipeline) and 20ms(get_ms12_atmos_latency_offset)
+         * and one 32ms in SPDIF Encoder delay for DDP_JOC, but test result is 16ms.
+         * so, better to dig into this hard coding part.
+         */
+        input_latency_ms  = get_ms12_tunnel_input_latency(input_format)
+                            + is_output_ddp_atmos * AVSYNC_MS12_TUNNEL_DIFF_DDP_JOC_VS_DDP_LATENCY;
         output_latency_ms = get_ms12_output_latency(output_format);
         port_latency_ms   = get_ms12_port_latency(port);
     }
     latency_ms = input_latency_ms + output_latency_ms + port_latency_ms;
-    ALOGV("%s total latency =%d ms in=%d ms out=%d ms port=%d ms", __func__,
-        latency_ms, input_latency_ms, output_latency_ms, port_latency_ms);
+    ALOGV("%s total latency =%d ms in=%d ms out=%d ms(is output ddp_atmos %d) port=%d ms", __func__,
+        latency_ms, input_latency_ms, output_latency_ms, is_output_ddp_atmos, port_latency_ms);
     return latency_ms;
 }
 
@@ -417,6 +430,21 @@ uint32_t out_get_ms12_latency_frames(struct audio_stream_out *stream)
     return frames / mul;
 }
 
+static int aml_audio_output_ddp_atmos(struct audio_stream_out *stream)
+{
+    int ret = 0;
+    struct aml_stream_out *out = (struct aml_stream_out *) stream;
+    struct aml_audio_device *adev = out->dev;
+
+    bool is_atmos_supported = is_platform_supported_ddp_atmos(
+                            adev->hdmi_descs.ddp_fmt.atmos_supported
+                            , adev->active_outport
+                            , adev->is_TV);
+
+    bool is_ddp_atmos_format = (out->hal_format == AUDIO_FORMAT_E_AC3_JOC);
+
+    return (is_atmos_supported && is_ddp_atmos_format);
+}
 
 int aml_audio_get_ms12_tunnel_latency(struct audio_stream_out *stream)
 {
@@ -428,6 +456,7 @@ int aml_audio_get_ms12_tunnel_latency(struct audio_stream_out *stream)
     int32_t ms12_pipeline_delay = 0;
     int32_t atmos_tunning_delay = 0;
     int32_t bypass_delay = 0;
+    bool is_output_ddp_atmos = aml_audio_output_ddp_atmos(stream);
 
     /*we need get the correct ms12 out pcm */
     alsa_delay = (int32_t)out_get_ms12_latency_frames(stream);
@@ -435,9 +464,14 @@ int aml_audio_get_ms12_tunnel_latency(struct audio_stream_out *stream)
     tunning_delay = get_ms12_tunnel_latency_offset(adev->active_outport,
                                                       out->hal_internal_format,
                                                       adev->ms12.optical_format,
-                                                      adev->is_netflix) * 48;
+                                                      adev->is_netflix,
+                                                      is_output_ddp_atmos) * 48;
 
     if ((adev->ms12.is_dolby_atmos && adev->ms12_main1_dolby_dummy == false) || adev->atoms_lock_flag) {
+        /*
+         * In DV AV sync, the ATMOS(DDP_JOC) item, it will add atmos_tunning_delay into the latency_frames.
+         * If other case choose an diff value, here seperate by is_netflix.
+         */
         atmos_tunning_delay = get_ms12_atmos_latency_offset(true, adev->is_netflix) * 48;
     }
     /*ms12 pipe line has some delay, we need consider it*/

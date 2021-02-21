@@ -25,11 +25,16 @@
  */
 
 /*First we need tune CVBS output, then tune HDMI PCM, then other format*/
+#define DIFF_DDP_JOC_VS_DDP_LATENCY                     (-60)
+#define DDP_FRAME_DEFAULT_DURATION                      (32)
+#define AVSYNC_MS12_TUNNEL_DIFF_DDP_JOC_VS_DDP_LATENCY  (DIFF_DDP_JOC_VS_DDP_LATENCY + (DDP_FRAME_DEFAULT_DURATION / 2))
+
+
 #define  AVSYNC_MS12_NONTUNNEL_PCM_LATENCY               (10)
 #define  AVSYNC_MS12_NONTUNNEL_DDP_LATENCY               (20)
 #define  AVSYNC_MS12_NONTUNNEL_ATMOS_LATENCY             (15)
-#define  AVSYNC_MS12_TUNNEL_PCM_LATENCY                  (60)
-#define  AVSYNC_MS12_TUNNEL_DDP_LATENCY                  (35)
+#define  AVSYNC_MS12_TUNNEL_PCM_LATENCY                  (-30)
+#define  AVSYNC_MS12_TUNNEL_DDP_LATENCY                  (90)
 #define  AVSYNC_MS12_TUNNEL_ATMOS_LATENCY                (20)
 
 #define  AVSYNC_MS12_NONTUNNEL_AC4_LATENCY               (70)
@@ -41,12 +46,12 @@
 
 #define  AVSYNC_MS12_PCM_OUT_LATENCY                     (0)
 #define  AVSYNC_MS12_DD_OUT_LATENCY                      (50)
-#define  AVSYNC_MS12_DDP_OUT_LATENCY                     (60)
-#define  AVSYNC_MS12_MAT_OUT_LATENCY                     (90)
+#define  AVSYNC_MS12_DDP_OUT_LATENCY                     (75)
+#define  AVSYNC_MS12_MAT_OUT_LATENCY                     (10)
 
 #define  AVSYNC_MS12_HDMI_ARC_OUT_LATENCY                (0)
-#define  AVSYNC_MS12_HDMI_OUT_LATENCY                    (60)
-#define  AVSYNC_MS12_HDMI_SPEAKER_LATENCY                (0)
+#define  AVSYNC_MS12_HDMI_OUT_LATENCY                    (10)
+#define  AVSYNC_MS12_HDMI_SPEAKER_LATENCY                (-25)
 
 #define  AVSYNC_MS12_NONTUNNEL_PCM_LATENCY_PROPERTY      "vendor.media.audio.hal.ms12.nontunnel.pcm"
 #define  AVSYNC_MS12_NONTUNNEL_DDP_LATENCY_PROPERTY      "vendor.media.audio.hal.ms12.nontunnel.ddp"
