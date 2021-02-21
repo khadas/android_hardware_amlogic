@@ -7917,7 +7917,9 @@ ssize_t hw_write (struct audio_stream_out *stream
                     }
                 }
             } else {
-                ALOGV("%s,aml_out->hwsync->aout == NULL",__FUNCTION__);
+                if (adev->debug_flag) {
+                    ALOGI("%s,aml_out->hwsync->aout == NULL",__FUNCTION__);
+                }
             }
         }
     }
@@ -8647,6 +8649,7 @@ ssize_t mixer_main_buffer_write (struct audio_stream_out *stream, const void *bu
     int ms12_write_failed = 0;
     effect_descriptor_t tmpdesc;
     int return_bytes = bytes;
+    uint32_t apts32 = 0;
 
     audio_hwsync_t *hw_sync = aml_out->hwsync;
     bool digital_input_src = (patch && \
@@ -8805,11 +8808,6 @@ hwsync_rewrite:
         int outsize = 0;
         char tempbuf[128];
 
-        if (hw_sync->wait_video_done == false && hw_sync->use_mediasync) {
-            aml_hwsync_wait_video_start(hw_sync);
-            hw_sync->wait_video_done = true;
-        }
-
         ALOGV ("before aml_audio_hwsync_find_frame bytes %zu\n", total_bytes - bytes_cost);
         hwsync_cost_bytes = aml_audio_hwsync_find_frame(aml_out->hwsync, (char *)buffer + bytes_cost, total_bytes - bytes_cost, &cur_pts, &outsize);
         if (cur_pts > 0xffffffff) {
@@ -8826,6 +8824,13 @@ hwsync_rewrite:
         }
         if (cur_pts != 0xffffffff && outsize > 0) {
             if (eDolbyMS12Lib == adev->dolby_lib_type && !is_bypass_dolbyms12(stream)) {
+                if (hw_sync->wait_video_done == false && hw_sync->use_mediasync) {
+                    apts32 = cur_pts & 0xffffffff;
+                    aml_hwsync_wait_video_start(hw_sync);
+                    aml_hwsync_wait_video_drop(hw_sync, apts32);
+                    hw_sync->wait_video_done = true;
+                }
+
                 // missing code with aml_audio_hwsync_checkin_apts, need to add for netflix tunnel mode. zzz
                 aml_audio_hwsync_checkin_apts(aml_out->hwsync, aml_out->hwsync->payload_offset, cur_pts);
                 if (continous_mode(adev) && !audio_is_linear_pcm(aml_out->hal_internal_format) && adev->is_netflix) {
@@ -8837,7 +8842,6 @@ hwsync_rewrite:
                 //we take this frame pts as the first apts.
                 //this can fix the seek discontinue,we got a fake frame,which maybe cached before the seek
                 if (hw_sync->use_mediasync) {
-                    uint32_t apts32 = 0;
                     if (hw_sync->first_apts_flag == false) {
                         aml_audio_hwsync_set_first_pts(aml_out->hwsync, cur_pts);
                         apts32 = cur_pts & 0xffffffff;

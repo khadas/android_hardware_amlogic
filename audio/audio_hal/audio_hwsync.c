@@ -548,7 +548,6 @@ int aml_audio_hwsync_audio_process(audio_hwsync_t *p_hwsync, size_t offset, int 
             ALOGI("%s apts = 0x%x (%d ms) latency=0x%x (%d ms)", __FUNCTION__, apts, apts / 90, latency_pts, latency_pts/90);
             ALOGI("%s aml_audio_hwsync_set_first_pts = 0x%x (%d ms)", __FUNCTION__, apts - latency_pts, (apts - latency_pts)/90);
             apts32 = apts - latency_pts;
-            aml_hwsync_wait_video_drop(p_hwsync, apts32);
             aml_audio_hwsync_set_first_pts(p_hwsync, apts32);
             aml_hwsync_reset_tsync_pcrscr(out->hwsync, apts32);
         } else  if (p_hwsync->first_apts_flag) {
@@ -560,15 +559,14 @@ int aml_audio_hwsync_audio_process(audio_hwsync_t *p_hwsync, size_t offset, int 
                 return 0;
             }
             clock_gettime(CLOCK_REALTIME, &ts);
-
             ret = aml_hwsync_get_tsync_pts(out->hwsync, &pcr);
-            pcr_pts_gap = (apts32 - pcr) / 90;
+            pcr_pts_gap = ((int)(apts32 - pcr)) / 90;
             gap = pcr_pts_gap * 90;
             /*resume from pause status, we can sync it exactly*/
             if (adev->ms12.need_resync) {
                 adev->ms12.need_resync = 0;
-                if (apts32 > pcr) {
-                    *p_adjust_ms = gap_ms;
+                if (pcr_pts_gap > 0) {
+                    *p_adjust_ms = pcr_pts_gap;
                     ALOGE("%s resync p_adjust_ms %d\n", __func__, *p_adjust_ms);
                 }
             }
