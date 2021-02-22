@@ -178,7 +178,7 @@ static const struct pcm_config pcm_config_out = {
     .channels = 2,
     .rate = MM_FULL_POWER_SAMPLING_RATE,
     .period_size = DEFAULT_PLAYBACK_PERIOD_SIZE,
-    .period_count = PLAYBACK_PERIOD_COUNT,
+    .period_count = DEFAULT_PLAYBACK_PERIOD_CNT,
     .format = PCM_FORMAT_S16_LE,
 };
 
