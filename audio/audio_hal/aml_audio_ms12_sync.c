@@ -312,20 +312,32 @@ static int get_ms12_tunnel_latency_offset(enum OUT_PORT port, audio_format_t inp
 }
 
 
-int get_ms12_atmos_latency_offset(bool tunnel)
+int get_ms12_atmos_latency_offset(bool tunnel, bool is_netflix)
 {
     char buf[PROPERTY_VALUE_MAX];
     int ret = -1;
     int latency_ms = 0;
     char *prop_name = NULL;
-    if (tunnel) {
-        /*tunnel atmos case*/
-        prop_name = AVSYNC_MS12_TUNNEL_ATMOS_LATENCY_PROPERTY;
-        latency_ms = AVSYNC_MS12_TUNNEL_ATMOS_LATENCY;
+    if (is_netflix) {
+        if (tunnel) {
+            /*tunnel atmos case*/
+            prop_name = AVSYNC_MS12_NETFLIX_TUNNEL_ATMOS_LATENCY_PROPERTY;
+            latency_ms = AVSYNC_MS12_NETFLIX_TUNNEL_ATMOS_LATENCY;
+        } else {
+            /*non tunnel atmos case*/
+            prop_name = AVSYNC_MS12_NETFLIX_NONTUNNEL_ATMOS_LATENCY_PROPERTY;
+            latency_ms = AVSYNC_MS12_NETFLIX_NONTUNNEL_ATMOS_LATENCY;
+        }
     } else {
-        /*non tunnel atmos case*/
-        prop_name = AVSYNC_MS12_NONTUNNEL_ATMOS_LATENCY_PROPERTY;
-        latency_ms = AVSYNC_MS12_NONTUNNEL_ATMOS_LATENCY;
+        if (tunnel) {
+            /*tunnel atmos case*/
+            prop_name = AVSYNC_MS12_TUNNEL_ATMOS_LATENCY_PROPERTY;
+            latency_ms = AVSYNC_MS12_TUNNEL_ATMOS_LATENCY;
+        } else {
+            /*non tunnel atmos case*/
+            prop_name = AVSYNC_MS12_NONTUNNEL_ATMOS_LATENCY_PROPERTY;
+            latency_ms = AVSYNC_MS12_NONTUNNEL_ATMOS_LATENCY;
+        }
     }
     ret = property_get(prop_name, buf, NULL);
     if (ret > 0) {
@@ -426,7 +438,7 @@ int aml_audio_get_ms12_tunnel_latency(struct audio_stream_out *stream)
                                                       adev->is_netflix) * 48;
 
     if ((adev->ms12.is_dolby_atmos && adev->ms12_main1_dolby_dummy == false) || adev->atoms_lock_flag) {
-        atmos_tunning_delay = get_ms12_atmos_latency_offset(true) * 48;
+        atmos_tunning_delay = get_ms12_atmos_latency_offset(true, adev->is_netflix) * 48;
     }
     /*ms12 pipe line has some delay, we need consider it*/
     ms12_pipeline_delay = dolby_ms12_main_pipeline_latency_frames(stream);
@@ -480,7 +492,7 @@ int aml_audio_get_ms12_presentation_position(const struct audio_stream_out *stre
                                                                adev->ms12.sink_format,
                                                                adev->is_netflix) * 48;
             if ((adev->ms12.is_dolby_atmos && adev->ms12_main1_dolby_dummy == false) || adev->atoms_lock_flag) {
-                frame_latency += get_ms12_atmos_latency_offset(false) * 48;
+                frame_latency += get_ms12_atmos_latency_offset(false, adev->is_netflix) * 48;
             }
         }
     }
