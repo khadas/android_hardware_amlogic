@@ -37,6 +37,7 @@
 #define TSYNC_DEMUX_PCR         "/sys/class/tsync/demux_pcr"
 #define TSYNC_LASTCHECKIN_APTS "/sys/class/tsync/last_checkin_apts"
 #define VIDEO_FIRST_FRAME_SHOW  "/sys/module/amvideo/parameters/first_frame_toggled"
+#define VIDEO_FIRST_FRAME_SHOW_2  "/sys/module/aml_media/parameters/first_frame_toggled"
 #define VIDEO_DISPLAY_FRAME_CNT "/sys/module/amvideo/parameters/display_frame_count"
 #define VIDEO_RECEIVE_FRAME_CNT "/sys/module/amvideo/parameters/receive_frame_count"
 #define VIDEO_SHOW_FIRST_FRAME "/sys/class/video/show_first_frame_nosync"

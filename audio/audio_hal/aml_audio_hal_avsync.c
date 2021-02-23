@@ -1329,7 +1329,7 @@ void dtv_avsync_process(struct aml_audio_patch* patch, struct aml_stream_out* st
     }
 
     if (patch->dtv_has_video && patch->show_first_frame == 0) {
-        patch->show_first_frame = get_sysfs_int(VIDEO_FIRST_FRAME_SHOW);
+        patch->show_first_frame = get_sysfs_int(VIDEO_FIRST_FRAME_SHOW) || get_sysfs_int(VIDEO_FIRST_FRAME_SHOW_2);
         ALOGI("dtv_avsync_process: patch->show_first_frame=%d, firstvpts=0x%x, pcrpts=0x%x, cache:%dms",
             patch->show_first_frame, firstvpts, pcrpts, (int)(firstvpts - pcrpts)/90);
     }
