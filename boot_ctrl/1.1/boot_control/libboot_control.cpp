@@ -55,6 +55,8 @@ constexpr unsigned int kDefaultBootAttempts = 7;
 #define EMMC_BLK1BOOT1_PARTITION   "mmcblk1boot1"
 
 #define BOOTLOADER_MAX_SIZE    (4*1024*1024)
+/*First 512 bytes in bootloader is signed data*/
+#define BOOTLOADER_OFFSET      512
 
 static const char *sEmmcPartionName_a[] = {
     EMMC_BLK0BOOT0_PARTITION,
@@ -140,10 +142,8 @@ bool UpdateAndSaveBootloaderControl(const std::string& misc_device, bootloader_c
 bool write_bootloader_img(unsigned int slot)
 {
     int iRet = 0;
-    unsigned int i;
     char emmcPartitionPath[128];
-    const char *sEmmcPartionName[2];
-    int size = BOOTLOADER_MAX_SIZE;
+    const char **sEmmcPartionName;
     int fd = -1;
     int fd2 = -1;
     bool ret = false;
@@ -151,54 +151,94 @@ bool write_bootloader_img(unsigned int slot)
 
     memset(emmcPartitionPath, 0, sizeof(emmcPartitionPath));
     if (slot == 0) {
-        for (i = 0; i < 2; i ++)
-            sEmmcPartionName[i] = sEmmcPartionName_a[i];
+        sEmmcPartionName = sEmmcPartionName_a;
     } else {
-        for (i = 0; i < 2; i ++)
-            sEmmcPartionName[i] = sEmmcPartionName_b[i];
+        sEmmcPartionName = sEmmcPartionName_b;
     }
 
-    for (i = 0; i < 2; i ++) {
-        memset(emmcPartitionPath, 0, sizeof(emmcPartitionPath));
+    data = (char *)malloc(BOOTLOADER_MAX_SIZE);
+    if (data == NULL) {
+        LOG(ERROR) << "malloc " << BOOTLOADER_MAX_SIZE << " error";
+        goto done;
+    }
+    memset(data, 0, BOOTLOADER_MAX_SIZE);
+
+    for (int i = 0; i < 2; i ++) {
         sprintf(emmcPartitionPath, "/dev/block/%s", sEmmcPartionName[i]);
         LOG(INFO) << "emmcPartitionPath: " << emmcPartitionPath;
+        /* get the bootloader path we write in update_engine
+         * /dev/block/platform/soc/fe08c000.mmc/by-name/bootloader --> /dev/block/bootloader
+         * /dev/block/platform/soc/fe08c000.mmc/by-name/bootloader_a --> /dev/block/mmcblk0boot0
+         * /dev/block/platform/soc/fe08c000.mmc/by-name/bootloader_b --> /dev/block/mmcblk0boot1
+         * for different board, mmcblk0/fe08c000 maybe different
+         * update_engine will update bootloader_a or bootloader_b according to current slot
+        */
         if (!access(emmcPartitionPath, F_OK)) {
-			LOG(INFO) << "find " << emmcPartitionPath;
-            fd = open(emmcPartitionPath, O_RDWR);
-            if (fd < 0) {
-                LOG(ERROR) << "failed to open " << emmcPartitionPath;
-                goto done;
-            }
-
-            LOG(INFO) << "size = " << size;
-            data = (char *)malloc(size);
-            if (data == NULL) {
-                LOG(ERROR) << "malloc " << size << " error";
-                goto done;
-            }
-            memset(data, 0, size);
-            lseek(fd, 0, SEEK_SET);
-            iRet = read(fd, data, size);
-            if (iRet == size) {
-                LOG(INFO) << "read bootloader img successful";
-            } else {
-                LOG(ERROR) << "read bootloader img failed";
-                goto done;
-            }
+            LOG(INFO) << "find " << emmcPartitionPath;
+            break;
         }
     }
 
+    fd = open(emmcPartitionPath, O_RDWR);
+    if (fd < 0) {
+        LOG(ERROR) << "failed to open " << emmcPartitionPath;
+        goto done;
+    }
+    lseek(fd, 0, SEEK_SET);
+    iRet = read(fd, data, BOOTLOADER_MAX_SIZE);
+    if (iRet == BOOTLOADER_MAX_SIZE) {
+        LOG(INFO) << "read bootloader img successful";
+    } else {
+        LOG(ERROR) << "read bootloader img failed";
+        goto done;
+    }
+    /* First 512 bytes in bootloader is signed data
+     * we need write bootloader.img to 512 bytes offset
+     * but update_engine just write bootloader.img to /dev/block
+     * so we read the data and rewrite it here
+    */
+    iRet = lseek(fd, BOOTLOADER_OFFSET, SEEK_SET);
+    if (iRet == -1) {
+        printf("failed to lseek %d\n", BOOTLOADER_OFFSET);
+        goto done;
+    }
+    iRet = write(fd, data, BOOTLOADER_MAX_SIZE - BOOTLOADER_OFFSET);
+    if (iRet == (BOOTLOADER_MAX_SIZE - BOOTLOADER_OFFSET)) {
+        LOG(INFO) << "write bootloader img successful";
+    } else {
+        LOG(ERROR) << "write bootloader img failed";
+        goto done;
+    }
+
+    /* We use robust to rollback bootloader.img in uboot
+     * bootloader  ---> 0
+     * boot0       ---> 1
+     * boot1       ---> 2
+     * It alway bootup from 0 first.
+     * and will switch bootloader by the order: 0->1->2->0 ...
+     * So we write bootloader.img to bootloader here, and set env
+     * reboot_status  ---- reboot_next
+     * expect_index   ---- 0
+     * update_env     ---- 1
+     * after reboot, if the bootloader index is just expect_index, update env too
+     * if the bootloader index isn't expect_index, update error, back to last slot
+    */
     fd2 = open("/dev/block/bootloader", O_RDWR);
     if (fd2 < 0) {
         LOG(ERROR) << "failed to open /dev/block/bootloader ";
         goto done;
     }
-    iRet = write(fd2, data, size);
-    if (iRet == size) {
+    iRet = lseek(fd2, BOOTLOADER_OFFSET, SEEK_SET);
+    if (iRet == -1) {
+        printf("failed to lseek %d\n", BOOTLOADER_OFFSET);
+        goto done;
+    }
+    iRet = write(fd2, data, BOOTLOADER_MAX_SIZE - BOOTLOADER_OFFSET);
+    if (iRet == (BOOTLOADER_MAX_SIZE - BOOTLOADER_OFFSET)) {
         LOG(INFO) << "Write Uboot Image successful";
     } else {
         LOG(ERROR) << "Write Uboot Image failed";
-		goto done;
+        goto done;
     }
 
     ret = true;
