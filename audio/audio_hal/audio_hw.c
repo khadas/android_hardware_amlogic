@@ -4778,9 +4778,11 @@ static int adev_open_output_stream(struct audio_hw_device *dev,
         case TYPE_DTS_HD:
             out->config.period_count *= 4;
             out->raw_61937_frame_size = 16;
+            break;
         case TYPE_PCM:
             if (out->config.channels >= 6 || out->config.rate > 48000)
                 adev->hi_pcm_mode = true;
+            break;
         default:
             out->raw_61937_frame_size = 1;
             break;
