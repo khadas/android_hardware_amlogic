@@ -427,7 +427,9 @@ static int dtv_patch_status_info(void *args, INFO_TYPE_E info_flag)
         ret = get_buffer_write_space(ringbuffer);
     else if (info_flag == BUFFER_LEVEL)
         ret = get_buffer_read_space(ringbuffer);
-    else if (info_flag == AD_MIXING_LEVLE)
+    else if (info_flag == AD_MIXING_ENABLE) {
+        ret = aml_dev->associate_audio_mixing_enable;
+    } else if (info_flag == AD_MIXING_LEVLE)
         ret = aml_dev->mixing_level;
     else if (info_flag == AD_MIXING_PCMSCALE)
         ret = aml_dev->advol_level;

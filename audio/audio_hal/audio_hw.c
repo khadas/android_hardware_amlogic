@@ -5763,7 +5763,10 @@ static int adev_set_parameters (struct audio_hw_device *dev, const char *kvpairs
             if (val == 0) {
                 dtv_assoc_audio_cache(-1);
             }
-            adev->associate_audio_mixing_enable = val;
+            if (adev->ad_switch_enable)
+                adev->associate_audio_mixing_enable = val;
+            else
+                adev->associate_audio_mixing_enable = 0;
             ALOGI("associate_audio_mixing_enable set to %d\n", adev->associate_audio_mixing_enable);
             if (eDolbyMS12Lib == adev->dolby_lib_type_last) {
                 pthread_mutex_lock(&ms12->lock);
@@ -5774,6 +5777,28 @@ static int adev_set_parameters (struct audio_hw_device *dev, const char *kvpairs
             pthread_mutex_unlock(&adev->lock);
 
             goto exit;
+        }
+
+        ret = str_parms_get_int(parms, "ad_switch_enable", &val);
+        if (ret >= 0) {
+            pthread_mutex_lock(&adev->lock);
+            if (val == 0) {
+                dtv_assoc_audio_cache(-1);
+            }
+            adev->ad_switch_enable = val;
+            adev->associate_audio_mixing_enable = val;
+            ALOGI("associate_audio_mixing_enable set to %d\n", adev->associate_audio_mixing_enable);
+            if (eDolbyMS12Lib == adev->dolby_lib_type_last) {
+                pthread_mutex_lock(&ms12->lock);
+                dolby_ms12_set_asscociated_audio_mixing(adev->associate_audio_mixing_enable);
+                set_ms12_ad_mixing_enable(ms12, adev->associate_audio_mixing_enable);
+                pthread_mutex_unlock(&ms12->lock);
+
+            }
+            ALOGI("ad_switch_enable set to %d\n", adev->associate_audio_mixing_enable);
+            pthread_mutex_unlock(&adev->lock);
+            goto exit;
+
         }
 
         ret = str_parms_get_int(parms, "dual_decoder_advol_level", &val);

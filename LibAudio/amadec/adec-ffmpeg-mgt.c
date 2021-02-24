@@ -764,6 +764,7 @@ int aml_amadec_get_debug_flag()
     }
     return debug_flag;
 }
+
 static int audio_codec_init(aml_audio_dec_t *audec)
 {
     //reset static&global
@@ -1491,7 +1492,8 @@ void *audio_getpackage_loop(void *args)
                 amthreadpool_thread_usleep(1000);
                 continue;
             }
-            //adec_print("mEsData->size %d",mEsData->size);
+            if (audec->debug_flag)
+                adec_print("mEsData->size %d",mEsData->size);
             if (last_checkin_apts != 0 &&
                 audec->audio_loopback == 0 &&
                 AM_ABSSUB(last_checkin_apts, mEsData->pts) > 10*90000) {
@@ -1599,7 +1601,8 @@ void *ad_audio_getpackage_loop(void *args)
                         amthreadpool_thread_usleep(1000);
                         continue;
                     }
-                    //adec_print("ad mEsData->size %d",mEsData->size);
+                    if (audec->debug_flag)
+                        adec_print("ad mEsData->size %d",mEsData->size);
                     while ((ret = ad_package_add(audec, (char *)mEsData->data, mEsData->size)) && !audec->exit_decode_thread) {
                         amthreadpool_thread_usleep(1000);
                     }
@@ -1773,7 +1776,8 @@ void *ad_audio_decode_loop(void *args)
                     float mixing_coefficient = ((float)(audec->mixing_level  + 32 ) / 64 ) * (audec->ad_pcmscale / 100.0f) ;
                     if (audec->associate_audio_enable == 0)
                         mixing_coefficient = 0;
-                    //adec_print("mixing_coefficient %f audec->ad_pcmscale %d",mixing_coefficient,audec->ad_pcmscale);
+                    if (audec->debug_flag)
+                        adec_print("mixing_coefficient %f audec->ad_pcmscale %d",mixing_coefficient,audec->ad_pcmscale);
                     apply_volume(mixing_coefficient, outbuf, sizeof(uint16_t), outlen);
                     if (g_AudioInfo.channels == 1 && audec->channels == 2) {
                         int16_t *buf = (int16_t *)outbuf;
@@ -1872,8 +1876,8 @@ void *audio_decode_loop(void *args)
         } else {
            ad_bufferms = AD_DEFEAT_BUF_TIMEMS;
         }
-        while (aml_hw_mixer_get_content_l(&audec->hw_mixer) < (ad_bufferms * 48 * 4) && !audec->exit_decode_thread) {
-             amthreadpool_thread_usleep(10000);
+        if (aml_hw_mixer_get_content_l(&audec->hw_mixer) < (ad_bufferms * 48 * 4) && !audec->exit_decode_thread) {
+             amthreadpool_thread_usleep(ad_bufferms * 1000);
         }
         adec_print("ad buf %d ",aml_hw_mixer_get_content_l(&audec->hw_mixer));
     }
@@ -1977,8 +1981,8 @@ void *audio_decode_loop(void *args)
                         {
                             float mixing_coefficient = 1.0f - (float)(audec->mixing_level  + 32 ) / 64;
                             apply_volume(mixing_coefficient, outbuf, sizeof(uint16_t), outlen);
-                            while (aml_hw_mixer_get_content_l(&audec->hw_mixer) < outlen && !audec->exit_decode_thread)
-                                amthreadpool_thread_usleep(20000);
+                            if (aml_hw_mixer_get_content_l(&audec->hw_mixer) < outlen )
+                                amthreadpool_thread_usleep(outlen * 1000 * 1000/ (audec->samplerate * audec->channels * 2));
                              aml_hw_mixer_mixing(&audec->hw_mixer, outbuf, outlen, AUDIO_FORMAT_PCM_16_BIT);
                         }
                     }

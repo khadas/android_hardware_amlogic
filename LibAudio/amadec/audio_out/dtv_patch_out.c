@@ -219,10 +219,9 @@ static void *dtv_patch_out_loop(void *args)
             }
 #ifndef USE_AOUT_IN_ADEC
                 if (audec->associate_dec_supported) {
-                    if (audec->associate_audio_enable) {
-                      audec->mixing_level =  patchparm->status_cb(patchparm->pargs, AD_MIXING_LEVLE);
-                      audec->ad_pcmscale =  patchparm->status_cb(patchparm->pargs, AD_MIXING_PCMSCALE);
-                    }
+                    audec->associate_audio_enable =  patchparm->status_cb(patchparm->pargs, AD_MIXING_ENABLE);
+                    audec->mixing_level =  patchparm->status_cb(patchparm->pargs, AD_MIXING_LEVLE);
+                    audec->ad_pcmscale =  patchparm->status_cb(patchparm->pargs, AD_MIXING_PCMSCALE);
                 }
 #endif
             if (patchparm->status_cb(patchparm->pargs, BUFFER_SPACE) < 4096) {
