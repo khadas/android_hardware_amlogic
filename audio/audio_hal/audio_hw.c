@@ -9112,6 +9112,8 @@ hwsync_rewrite:
             ms12_out->hal_internal_format = aml_out->hal_internal_format;
             ms12_out->hw_sync_mode = aml_out->hw_sync_mode;
             ms12_out->hwsync = aml_out->hwsync;
+            ms12_out->hal_ch = aml_out->hal_ch;
+            ms12_out->hal_rate = aml_out->hal_rate;
             pthread_mutex_unlock(&adev->trans_lock);
             ALOGI("%s set dolby main1 dummy false", __func__);
         } else if (continous_mode(adev) && adev->ms12_ott_enable == false
@@ -9124,6 +9126,8 @@ hwsync_rewrite:
             ms12_out->hal_internal_format = aml_out->hal_internal_format;
             ms12_out->hw_sync_mode = aml_out->hw_sync_mode;
             ms12_out->hwsync = aml_out->hwsync;
+            ms12_out->hal_ch = aml_out->hal_ch;
+            ms12_out->hal_rate = aml_out->hal_rate;
             pthread_mutex_unlock(&adev->trans_lock);
             ALOGI("%s set dolby ott enable", __func__);
         }
