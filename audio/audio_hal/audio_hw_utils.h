@@ -27,15 +27,26 @@
 #define ENUM_TYPE_STR_MAX_LEN                           (100)
 #define REPORT_DECODED_INFO  "/sys/class/amaudio/codec_report_info"
 
-#define ENUM_TYPE_TO_STR(x, offset, pStr)                   \
+
+#define ENUM_TYPE_TO_STR_DEFAULT_STR            "INVALID_ENUM"
+#define ENUM_TYPE_TO_STR_START(prefix)                      \
+    char *pStr = ENUM_TYPE_TO_STR_DEFAULT_STR;              \
+    int prefixLen = strlen(prefix);                         \
+    switch (type) {
+
+#define ENUM_TYPE_TO_STR(x)                                 \
 case x: {                                                   \
     pStr = #x;                                              \
-    pStr += offset;                                         \
-    if (strlen(#x) - offset > 70) {                         \
+    pStr += prefixLen;                                      \
+    if (strlen(#x) - prefixLen > 70) {                      \
         pStr += 70;                                         \
     }                                                       \
     break;                                                  \
 }
+
+#define ENUM_TYPE_TO_STR_END                                \
+    }                                                       \
+    return pStr;
 
 int64_t aml_gettime(void);
 int get_sysfs_uint(const char *path, uint *value);
@@ -102,6 +113,7 @@ const char* patchSrc2Str(enum patch_src_assortion type);
 const char* usecase2Str(stream_usecase_t type);
 const char* outputPort2Str(enum OUT_PORT type);
 const char* inputPort2Str(enum IN_PORT type);
+const char* mixerInputType2Str(aml_mixer_input_port_type_e type);
 const char* dtvAudioPatchCmd2Str(AUDIO_DTV_PATCH_CMD_TYPE type);
 
 

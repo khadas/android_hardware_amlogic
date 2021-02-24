@@ -40,6 +40,7 @@ static struct aml_mixer_list gAmlMixerList[] = {
     {AML_MIXER_ID_I2S_MUTE,             "Audio i2s mute"},
     /* for spdif out status */
     {AML_MIXER_ID_SPDIF_MUTE,           "Audio spdif mute"},
+    {AML_MIXER_ID_SPDIF_B_MUTE,         "Audio spdif_b mute"},
     /* for HDMI TX status */
     {AML_MIXER_ID_HDMI_OUT_AUDIO_MUTE,  "Audio hdmi-out mute"},
     /* for HDMI ARC status */

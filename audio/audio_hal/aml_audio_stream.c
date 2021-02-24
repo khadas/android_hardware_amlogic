@@ -820,3 +820,24 @@ void update_audio_format(struct aml_audio_device *adev, audio_format_t format)
      * }
      */
 }
+
+int audio_route_set_hdmi_arc_mute(struct aml_mixer_handle *mixer_handle, int enable)
+{
+    int t5_chip = check_chip_name("t5", 2);
+    if (t5_chip) {
+        return aml_mixer_ctrl_set_int(mixer_handle, AML_MIXER_ID_SPDIF_MUTE, enable);
+    } else {
+        return aml_mixer_ctrl_set_int(mixer_handle, AML_MIXER_ID_HDMI_ARC_AUDIO_ENABLE, !enable);
+    }
+}
+
+int audio_route_set_spdif_mute(struct aml_mixer_handle *mixer_handle, int enable)
+{
+    int t5_chip = check_chip_name("t5", 2);
+    if (t5_chip) {
+        return aml_mixer_ctrl_set_int(mixer_handle, AML_MIXER_ID_SPDIF_B_MUTE, enable);
+    } else {
+        return aml_mixer_ctrl_set_int(mixer_handle, AML_MIXER_ID_SPDIF_MUTE, enable);
+    }
+}
+

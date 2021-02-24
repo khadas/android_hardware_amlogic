@@ -17,52 +17,6 @@
 #ifndef _AML_AUDIO_TYPES_DEF_H_
 #define _AML_AUDIO_TYPES_DEF_H_
 
-/*
-enum arc_hdmi_format {
-    _LPCM = 1,
-    _AC3,
-    _MPEG1,
-    _MP3,
-    _MPEG2,
-    _AAC,
-    _DTS,
-    _ATRAC,
-    _ONE_BIT_AUDIO,
-    _DDP,
-    _DTSHD,
-    _MAT,
-    _DST,
-    _WMAPRO
-};
-
-enum patch_src_assortion {
-    SRC_DTV,
-    SRC_ATV,
-    SRC_LINEIN,
-    SRC_HDMIIN,
-    SRC_SPDIFIN,
-    SRC_OTHER,
-    SRC_INVAL
-};
-
-
-enum OUT_PORT {
-    OUTPORT_SPEAKER = 0,
-    OUTPORT_HDMI_ARC,
-    OUTPORT_SPDIF,
-    OUTPORT_AUX_LINE,
-    OUTPORT_HEADPHONE,
-    OUTPORT_MAX
-};
-
-enum IN_PORT {
-    INPORT_TUNER = 0,
-    INPORT_HDMIIN,
-    INPORT_LINEIN,
-    INPORT_MAX
-};
-*/
-
 struct pcm_info {
     int sample_rate;
     int channel_num;

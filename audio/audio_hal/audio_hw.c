@@ -173,7 +173,8 @@
 #define NETFLIX_DDP_BUFSIZE                             (768)
 
 #define DISABLE_CONTINUOUS_OUTPUT "persist.vendor.audio.continuous.disable"
-
+/* Maximum string length in audio hal. */
+#define AUDIO_HAL_CHAR_MAX_LEN                          (64)
 
 static const struct pcm_config pcm_config_out = {
     .channels = 2,
@@ -2840,6 +2841,10 @@ exit:
         ALOGE("AEC debug: Could not open file aec_in_timestamps.txt!");
     }
 #endif
+    if (ret >= 0 && getprop_bool("vendor.media.audiohal.indump")) {
+        aml_audio_dump_audio_bitstreams("/data/audio/alsa_read.raw",
+            buffer, bytes);
+    }
 
     return bytes;
 }
@@ -3527,21 +3532,21 @@ static int set_arc_hdmi (struct audio_hw_device *dev, char *value, size_t len)
     int i = 0;
 
     if (strlen (value) > len) {
-        ALOGE ("value array overflow!");
+        ALOGW("[%s:%d] value array len:%d overflow!", __func__, __LINE__, strlen(value));
         return -EINVAL;
     }
 
     pt = strtok_r (value, "[], ", &tmp);
+    int avr_port = 0;
     while (pt != NULL) {
         //index 1 means avr port
-        if (i == 1)
-            hdmi_desc->avr_port = atoi (pt);
-
+        if (i == 1) {
+            avr_port = atoi (pt);
+        }
         pt = strtok_r (NULL, "[], ", &tmp);
         i++;
     }
-
-    ALOGI ("ARC HDMI AVR port = %d", hdmi_desc->avr_port);
+    ALOGI("[%s:%d] ARC HDMI AVR port:%d", __func__, __LINE__, avr_port);
     return 0;
 }
 
@@ -3565,9 +3570,9 @@ static int set_arc_format (struct audio_hw_device *dev, char *value, size_t len)
     struct format_desc *fmt_desc = NULL;
     char *pt = NULL, *tmp = NULL;
     int i = 0, val = 0;
-    enum arc_hdmi_format format = _LPCM;
+    AML_HDMI_FORMAT_E format = AML_HDMI_FORMAT_LPCM;
     if (strlen (value) > len) {
-        ALOGE ("value array overflow!");
+        ALOGW("[%s:%d] value array len:%d overflow!", __func__, __LINE__, strlen(value));
         return -EINVAL;
     }
 
@@ -3577,28 +3582,23 @@ static int set_arc_format (struct audio_hw_device *dev, char *value, size_t len)
         switch (i) {
         case 0:
             format = val;
-            if (val == _AC3) {
+            if (val == AML_HDMI_FORMAT_AC3) {
                 fmt_desc = &hdmi_desc->dd_fmt;
-                fmt_desc->fmt = val;
-            } else if (val == _DDP) {
+            } else if (val == AML_HDMI_FORMAT_DDP) {
                 fmt_desc = &hdmi_desc->ddp_fmt;
-                fmt_desc->fmt = val;
-            } else if (val == _MAT) {
+            } else if (val == AML_HDMI_FORMAT_MAT) {
                 fmt_desc = &hdmi_desc->mat_fmt;
-                fmt_desc->fmt = val;
-            } else if (val == _LPCM) {
+            } else if (val == AML_HDMI_FORMAT_LPCM) {
                 fmt_desc = &hdmi_desc->pcm_fmt;
-                fmt_desc->fmt = val;
-            } else if (val == _DTS) {
+            } else if (val == AML_HDMI_FORMAT_DTS) {
                 fmt_desc = &hdmi_desc->dts_fmt;
-                fmt_desc->fmt = val;
-            } else if (val == _DTSHD) {
+            } else if (val == AML_HDMI_FORMAT_DTSHD) {
                 fmt_desc = &hdmi_desc->dtshd_fmt;
-                fmt_desc->fmt = val;
             } else {
-                ALOGE ("unsupport fmt %d", val);
+                ALOGW("[%s:%d] unsupport fmt:%d", __func__, __LINE__, val);
                 return -EINVAL;
             }
+            fmt_desc->fmt = val;
             break;
         case 1:
             fmt_desc->is_support = val;
@@ -3610,7 +3610,7 @@ static int set_arc_format (struct audio_hw_device *dev, char *value, size_t len)
             fmt_desc->sample_rate_mask = val;
             break;
         case 4:
-            if (format == _DDP) {
+            if (format == AML_HDMI_FORMAT_DDP) {
                 fmt_desc = &hdmi_desc->ddp_fmt;
                 fmt_desc->atmos_supported = val > 0 ? true : false;
                 aml_mixer_ctrl_set_int (&adev->alsa_mixer, AML_MIXER_ID_HDMI_ATMOS_EDID,fmt_desc->atmos_supported);
@@ -3631,7 +3631,7 @@ static int set_arc_format (struct audio_hw_device *dev, char *value, size_t len)
         pt = strtok_r (NULL, "[], ", &tmp);
         i++;
     }
-
+    memcpy(&adev->hdmi_arc_capability_desc, hdmi_desc, sizeof(struct aml_arc_hdmi_desc));
     dump_format_desc (fmt_desc);
     return 0;
 }
@@ -3719,7 +3719,59 @@ static int aml_audio_input_routing(struct audio_hw_device *dev __unused,
     return 0;
 }
 
-#define VAL_LEN 64
+static int aml_audio_update_arc_status(struct aml_audio_device *adev, bool enable)
+{
+    ALOGI("[%s:%d] set audio hdmi arc status:%d", __func__, __LINE__, enable);
+    audio_route_set_hdmi_arc_mute(&adev->alsa_mixer, !enable);
+    adev->bHDMIARCon = enable;
+    struct aml_arc_hdmi_desc *hdmi_desc = &adev->hdmi_descs;
+    if (enable) {
+        memcpy(hdmi_desc, &adev->hdmi_arc_capability_desc, sizeof(struct aml_arc_hdmi_desc));
+    } else {
+        memset(hdmi_desc, 0, sizeof(struct aml_arc_hdmi_desc));
+        hdmi_desc->pcm_fmt.fmt = AML_HDMI_FORMAT_LPCM;
+        hdmi_desc->dts_fmt.fmt = AML_HDMI_FORMAT_DTS;
+        hdmi_desc->dtshd_fmt.fmt = AML_HDMI_FORMAT_DTSHD;
+        hdmi_desc->dd_fmt.fmt = AML_HDMI_FORMAT_AC3;
+        hdmi_desc->ddp_fmt.fmt = AML_HDMI_FORMAT_DDP;
+        hdmi_desc->mat_fmt.fmt = AML_HDMI_FORMAT_MAT;
+    }
+    /*
+     * when user switch UI setting, means output device changed,
+     * use "arc_hdmi_updated" paramter to notify HDMI ARC have updated status
+     * while in config_output(), it detects this change, then re-route output config.
+     */
+    adev->arc_hdmi_updated = 1;
+    return 0;
+}
+
+static int aml_audio_set_speaker_mute(struct aml_audio_device *adev, char *value)
+{
+    int ret = 0;
+    if (strncmp(value, "true", 4) == 0 || strncmp(value, "1", 1) == 0) {
+        adev->speaker_mute = 1;
+    } else if (strncmp(value, "false", 5) == 0 || strncmp(value, "0", 1) == 0) {
+        adev->speaker_mute = 0;
+    } else {
+        ALOGE("%s() unsupport speaker_mute value: %s", __func__, value);
+    }
+    /*
+     * when ARC is connecting, and user switch [Sound Output Device] to "speaker"
+     * we need to set out_port as OUTPORT_SPEAKER ,
+     * the aml_audio_output_routing() will "mute" ARC and "unmute" speaker.
+     */
+    int out_port = adev->active_outport;
+    if (adev->active_outport == OUTPORT_HDMI_ARC && adev->speaker_mute == 0) {
+        out_port = OUTPORT_SPEAKER;
+    }
+    ret = aml_audio_output_routing(&adev->hw_device, out_port, true);
+    if (ret < 0) {
+        ALOGE("%s() output routing failed", __func__);
+    }
+    return 0;
+}
+
+
 static int adev_set_parameters (struct audio_hw_device *dev, const char *kvpairs)
 {
     ALOGD ("%s(%p, %s)", __FUNCTION__, dev, kvpairs);
@@ -3727,7 +3779,7 @@ static int adev_set_parameters (struct audio_hw_device *dev, const char *kvpairs
     struct aml_audio_device *adev = (struct aml_audio_device *) dev;
     struct str_parms *parms;
     struct dolby_ms12_desc *ms12 = &(adev->ms12);
-    char value[VAL_LEN];
+    char value[AUDIO_HAL_CHAR_MAX_LEN];
     int val = 0;
     int ret = 0;
 
@@ -3764,26 +3816,28 @@ static int adev_set_parameters (struct audio_hw_device *dev, const char *kvpairs
 
     ret = str_parms_get_int(parms, "Audio spdif mute", &val);
     if (ret >= 0) {
-        aml_mixer_ctrl_set_int(&adev->alsa_mixer, AML_MIXER_ID_SPDIF_MUTE, val);
-        ALOGI("audio spdif out status: %d\n", val);
+        audio_route_set_spdif_mute(&adev->alsa_mixer, val);
+        ALOGI("[%s:%d] set SPDIF mute status: %d", __func__, __LINE__, val);
         goto exit;
     }
 
     // HDMI cable plug off
     ret = str_parms_get_int(parms, "disconnect", &val);
     if (ret >= 0) {
+        ALOGI("[%s:%d] disconnect dev:%#x, cur hal out_dev:%#x", __func__, __LINE__, val, adev->out_device);
         if (val & AUDIO_DEVICE_BIT_IN)
             goto exit;
         if ((val & AUDIO_DEVICE_OUT_HDMI_ARC) || (val & AUDIO_DEVICE_OUT_HDMI)) {
             adev->bHDMIConnected = 0;
             adev->bHDMIConnected_update = 1;
-            ALOGI("disconnect bHDMIConnected: %d\n", val);
-
+            if (val & AUDIO_DEVICE_OUT_HDMI_ARC) {
+                aml_audio_set_speaker_mute(adev, "false");
+                aml_audio_update_arc_status(adev, false);
+            }
         } else if (val & AUDIO_DEVICE_OUT_ALL_A2DP) {
             adev->a2dp_updated = 1;
             adev->out_device &= (~val);
             a2dp_out_close(dev);
-            ALOGI("adev_set_parameters a2dp disconnect: %x, device=%x\n", val, adev->out_device);
         }
         goto exit;
     }
@@ -3791,17 +3845,20 @@ static int adev_set_parameters (struct audio_hw_device *dev, const char *kvpairs
     // HDMI cable plug in
     ret = str_parms_get_int(parms, "connect", &val);
     if (ret >= 0) {
+        ALOGI("[%s:%d] connect dev:%#x, cur hal out_dev:%#x", __func__, __LINE__, val, adev->out_device);
         if (val & AUDIO_DEVICE_BIT_IN)
             goto exit;
         if ((val & AUDIO_DEVICE_OUT_HDMI_ARC) || (val & AUDIO_DEVICE_OUT_HDMI)) {
             adev->bHDMIConnected = 1;
             adev->bHDMIConnected_update = 1;
-            ALOGI("%s,connect bHDMIConnected: %d\n", __FUNCTION__, val);
+            if (val & AUDIO_DEVICE_OUT_HDMI_ARC) {
+                aml_audio_set_speaker_mute(adev, "true");
+                aml_audio_update_arc_status(adev, true);
+            }
         } else if (val & AUDIO_DEVICE_OUT_ALL_A2DP) {
             adev->a2dp_updated = 1;
             adev->out_device |= val;
             a2dp_out_open(dev);
-            ALOGI("adev_set_parameters a2dp connect: %x, device=%x\n", val, adev->out_device);
         }
         goto exit;
     }
@@ -3818,16 +3875,7 @@ static int adev_set_parameters (struct audio_hw_device *dev, const char *kvpairs
     //  HDMI plug off and UI [Sound Output Device] set to "speaker" will recieve HDMI ARC Switch = 0
     ret = str_parms_get_int(parms, "HDMI ARC Switch", &val);
     if (ret >= 0) {
-        aml_mixer_ctrl_set_int(&adev->alsa_mixer, AML_MIXER_ID_HDMI_ARC_AUDIO_ENABLE, val);
-        adev->bHDMIARCon = (val == 0) ? 0 : 1;
-        ALOGI("%s audio hdmi arc status: %d\n", __FUNCTION__, adev->bHDMIARCon);
-
-        /*
-           * when user switch UI setting, means output device changed,
-           * use "arc_hdmi_updated" paramter to notify HDMI ARC have updated status
-           * while in config_output(), it detects this change, then re-route output config.
-           */
-        adev->arc_hdmi_updated = 1;
+        aml_audio_update_arc_status(adev, (val != 0));
         goto exit;
     }
     ret = str_parms_get_int(parms, "spdifin/arcin switch", &val);
@@ -3920,13 +3968,13 @@ static int adev_set_parameters (struct audio_hw_device *dev, const char *kvpairs
 
     ret = str_parms_get_str (parms, "set_ARC_hdmi", value, sizeof (value) );
     if (ret >= 0) {
-        set_arc_hdmi (dev, value, VAL_LEN);
+        set_arc_hdmi (dev, value, AUDIO_HAL_CHAR_MAX_LEN);
         goto exit;
     }
 
     ret = str_parms_get_str (parms, "set_ARC_format", value, sizeof (value) );
     if (ret >= 0) {
-        set_arc_format (dev, value, VAL_LEN);
+        set_arc_format (dev, value, AUDIO_HAL_CHAR_MAX_LEN);
         goto exit;
     }
 
@@ -4094,28 +4142,7 @@ static int adev_set_parameters (struct audio_hw_device *dev, const char *kvpairs
     //  HDMI plug in and UI [Sound Output Device] set to "ARC" will recieve speaker_mute = 1
     ret = str_parms_get_str (parms, "speaker_mute", value, sizeof (value) );
     if (ret >= 0) {
-        if (strncmp(value, "true", 4) == 0 || strncmp(value, "1", 1) == 0) {
-            adev->speaker_mute = 1;
-        } else if (strncmp(value, "false", 5) == 0 || strncmp(value, "0", 1) == 0) {
-            adev->speaker_mute = 0;
-        } else {
-            ALOGE("%s() unsupport speaker_mute value: %s",   __func__, value);
-        }
-
-        /*
-            when ARC is connecting, and user switch [Sound Output Device] to "speaker"
-            we need to set out_port as OUTPORT_SPEAKER ,
-            the aml_audio_output_routing() will "mute" ARC and "unmute" speaker.
-           */
-        int out_port = adev->active_outport;
-        if (adev->active_outport == OUTPORT_HDMI_ARC && adev->speaker_mute == 0) {
-            out_port = OUTPORT_SPEAKER;
-        }
-
-        ret = aml_audio_output_routing(dev, out_port, true);
-        if (ret < 0) {
-            ALOGE("%s() output routing failed", __func__);
-        }
+        aml_audio_set_speaker_mute(adev, value);
         goto exit;
     }
 
@@ -4755,12 +4782,12 @@ static char * adev_get_parameters (const struct audio_hw_device *dev,
 
         // query dd support
         fmtdesc = &adev->hdmi_descs.dd_fmt;
-        if (fmtdesc && fmtdesc->fmt == _AC3)
+        if (fmtdesc && fmtdesc->fmt == AML_HDMI_FORMAT_AC3)
             dd = fmtdesc->is_support;
 
         // query ddp support
         fmtdesc = &adev->hdmi_descs.ddp_fmt;
-        if (fmtdesc && fmtdesc->fmt == _DDP)
+        if (fmtdesc && fmtdesc->fmt == AML_HDMI_FORMAT_DDP)
             ddp = fmtdesc->is_support;
 
         sprintf (temp_buf, "hdmi_encodings=%s", "pcm;");
@@ -6051,12 +6078,12 @@ ssize_t audio_hal_data_processing(struct audio_stream_out *stream,
 
     if (adev->audio_patch != NULL && adev->patch_src == SRC_DTV) {
         int sample_rate = 0, pch = 0, lfepresent;
-        char sysfs_buf[VAL_LEN] = {0};
+        char sysfs_buf[AUDIO_HAL_CHAR_MAX_LEN] = {0};
         if (adev->audio_patch->aformat != AUDIO_FORMAT_E_AC3
             && adev->audio_patch->aformat != AUDIO_FORMAT_AC3 &&
             adev->audio_patch->aformat != AUDIO_FORMAT_DTS) {
             unsigned int errcount;
-            char sysfs_buf[VAL_LEN] = {0};
+            char sysfs_buf[AUDIO_HAL_CHAR_MAX_LEN] = {0};
             audio_decoder_status(&errcount);
             sprintf(sysfs_buf, "decoded_err %d", errcount);
             sysfs_set_sysfs_str(REPORT_DECODED_INFO, sysfs_buf);
@@ -6668,7 +6695,19 @@ void config_output(struct audio_stream_out *stream, bool reset_decoder)
             pthread_mutex_unlock(&adev->lock);
         }
     }
-    return;
+    /*TV-4745: After switch from normal PCM playing to MS12, the device will
+     be changed to SPDIF, but when switch back to the normal PCM, the out device
+     is still SPDIF, then the sound is abnormal.
+    */
+    if (!(continous_mode(adev) && (eDolbyMS12Lib == adev->dolby_lib_type))) {
+        if (sink_format == AUDIO_FORMAT_PCM_16_BIT || sink_format == AUDIO_FORMAT_PCM_32_BIT) {
+            aml_out->device = PORT_I2S;
+        } else {
+            aml_out->device = PORT_SPDIF;
+        }
+    }
+    ALOGI("[%s:%d] out stream alsa port device:%d", __func__, __LINE__, aml_out->device);
+    return ;
 }
 
 ssize_t mixer_main_buffer_write (struct audio_stream_out *stream, const void *buffer,
@@ -7797,7 +7836,7 @@ ssize_t out_write_new(struct audio_stream_out *stream,
      * call many times open/close to query the hdmi capability, this will affect the
      * sink format
      */
-    if (!aml_out->is_sink_format_prepared) {
+    if (!aml_out->is_sink_format_prepared && !adev->is_TV) {
         get_sink_format(&aml_out->stream);
         if (is_use_spdifb(aml_out)) {
             aml_audio_select_spdif_to_hdmi(AML_SPDIF_B_TO_HDMITX);
@@ -8663,6 +8702,38 @@ static int get_audio_patch_by_src_dev(struct audio_hw_device *dev, audio_devices
     }
     return 0;
 }
+
+static enum OUT_PORT get_output_dev_for_sinks(enum OUT_PORT *sinks, int num_sinks, enum OUT_PORT sink) {
+    for (int i=0; i<num_sinks; i++) {
+        if (sinks[i] == sink) {
+            return sink;
+        }
+    }
+    return -1;
+}
+
+static enum OUT_PORT get_output_dev_for_strategy(struct aml_audio_device *adev, enum OUT_PORT *sinks, int num_sinks)
+{
+    uint32_t sink = -1;
+    if (sink == -1) {
+        sink = get_output_dev_for_sinks(sinks, num_sinks, OUTPORT_A2DP);
+    }
+    if (sink == -1 && adev->bHDMIARCon) {
+        sink = get_output_dev_for_sinks(sinks, num_sinks, OUTPORT_HDMI_ARC);
+    }
+    if (sink == -1) {
+        sink = get_output_dev_for_sinks(sinks, num_sinks, OUTPORT_HDMI);
+    }
+    if (sink == -1) {
+        sink = get_output_dev_for_sinks(sinks, num_sinks, OUTPORT_SPEAKER);
+    }
+    if (sink == -1) {
+        sink = OUTPORT_SPEAKER;
+    }
+    return sink;
+}
+
+
 /* remove audio patch from dev list */
 static int unregister_audio_patch(struct audio_hw_device *dev __unused,
                                 struct audio_patch_set *patch_set)
@@ -8815,20 +8886,21 @@ static int adev_create_audio_patch(struct audio_hw_device *dev,
 
     if (sink_config->type == AUDIO_PORT_TYPE_DEVICE) {
         android_dev_convert_to_hal_dev(sink_config->ext.device.type, (int *)&outport);
-          /* when HDMI plug in or UI [Sound Output Device] set to "ARC" ,AUDIO need to output from HDMI ARC
-           * while in current design, speaker is an "always on" device
-           * in this case , there will be 2 devices, one is ARC, one is SPEAKER
-           * we need to output audio from ARC, so set outport as OUTPORT_HDMI_ARC */
-        if (num_sinks == 2) {
-            ALOGI("[%s:%d] two sink, sink[0]:%#x, sink[1]:%#x", __func__, __LINE__, sink_config[0].ext.device.type, sink_config[1].ext.device.type);
-            if ((sink_config[0].ext.device.type == AUDIO_DEVICE_OUT_HDMI_ARC && sink_config[1].ext.device.type == AUDIO_DEVICE_OUT_SPEAKER)
-                || (sink_config[0].ext.device.type == AUDIO_DEVICE_OUT_SPEAKER && sink_config[1].ext.device.type == AUDIO_DEVICE_OUT_HDMI_ARC)) {
-                outport = (aml_dev->bHDMIARCon ? OUTPORT_HDMI_ARC : OUTPORT_SPEAKER);
-                ALOGI("[%s:%d] bHDMIARCon:%d speaker and HDMI_ARC co-exist case, ouput:%s.", __func__, __LINE__,
-                    aml_dev->bHDMIARCon, outputPort2Str(outport));
+        /* Only 3 sink devices are allowed to coexist */
+        if (num_sinks > 3) {
+            ALOGW("[%s:%d] not support num_sinks:%d", __func__, __LINE__, num_sinks);
+            return -EINVAL;;
+        } else if (num_sinks > 1) {
+            enum OUT_PORT sink_devs[3] = {OUTPORT_SPEAKER, OUTPORT_SPEAKER, OUTPORT_SPEAKER};
+            for (int i=0; i<num_sinks; i++) {
+                android_dev_convert_to_hal_dev(sink_config[i].ext.device.type, (int *)&sink_devs[i]);
+                if (aml_dev->debug_flag) {
+                    ALOGD("[%s:%d] sink[%d]:%s", __func__, __LINE__, i, outputPort2Str(sink_devs[i]));
+                }
             }
+            outport = get_output_dev_for_strategy(aml_dev, sink_devs, num_sinks);
         } else {
-            ALOGI("[%s:%d] one sink, sink:%#x", __func__, __LINE__, sink_config->ext.device.type);
+            ALOGI("[%s:%d] one sink, sink:%s", __func__, __LINE__, outputPort2Str(outport));
         }
         if (outport != OUTPORT_SPDIF) {
             ret = aml_audio_output_routing(dev, outport, false);
@@ -9353,16 +9425,25 @@ static int adev_set_audio_port_config (struct audio_hw_device *dev, const struct
         patch_set = node_to_item(node, struct audio_patch_set, list);
         patch = &patch_set->audio_patch;
         if (patch->sources[0].ext.device.type == config->ext.device.type) {
-            ALOGI("patch set found id %d, patchset %p", patch->id, patch_set);
-            break;
-        } else if (patch->sources[0].type == AUDIO_PORT_TYPE_MIX &&
-                   patch->sinks[0].type == AUDIO_PORT_TYPE_DEVICE &&
-                   patch->sinks[0].id == config->id) {
-            ALOGI("patch found mix->dev id %d, patchset %p", patch->id, patch_set);
+            ALOGI("[%s:%d] patch set found id:%d, device:%#x, patchset:%p", __func__, __LINE__,
+                patch->id, config->ext.device.type, patch_set);
             break;
         } else {
-            patch_set = NULL;
-            patch = NULL;
+            int i=0;
+            for (i=0; i<patch->num_sinks; i++) {
+                if ((patch->sources[0].type == AUDIO_PORT_TYPE_MIX &&
+                       patch->sinks[i].type == AUDIO_PORT_TYPE_DEVICE &&
+                       patch->sinks[i].id == config->id)) {
+                    ALOGI("patch found mix->dev patch id:%d, sink id:%d, patchset:%p", patch->id, config->id, patch_set);
+                    break;
+                }
+            }
+            if (i >= patch->num_sinks) {
+                patch_set = NULL;
+                patch = NULL;
+            } else {
+                break;
+            }
         }
     }
 
@@ -9371,9 +9452,10 @@ static int adev_set_audio_port_config (struct audio_hw_device *dev, const struct
         return -EINVAL;
     }
 
-    enum OUT_PORT sink_devs[2] = {OUTPORT_SPEAKER, OUTPORT_SPEAKER};
+    /* Only 3 sink devices are allowed to coexist */
+    enum OUT_PORT sink_devs[3] = {OUTPORT_SPEAKER, OUTPORT_SPEAKER, OUTPORT_SPEAKER};
     for (int i=0; i<patch->num_sinks; i++) {
-        if (i >= 2) {
+        if (i >= 3) {
             ALOGW("[%s:%d] invalid num_sinks:%d", __func__, __LINE__, patch->num_sinks);
             break;
         } else {
@@ -9413,25 +9495,18 @@ static int adev_set_audio_port_config (struct audio_hw_device *dev, const struct
             android_dev_convert_to_hal_dev(config->ext.device.type, (int *)&inport);
             aml_dev->src_gain[inport] = 1.0;
             if (patch->sinks[0].type == AUDIO_PORT_TYPE_DEVICE) {
-                if (patch->num_sinks == 2) {
-                    if ((sink_devs[0] == OUTPORT_HDMI_ARC && sink_devs[1] == OUTPORT_SPEAKER) ||
-                         (sink_devs[0] == OUTPORT_SPEAKER && sink_devs[1] == OUTPORT_HDMI_ARC)) {
-                        outport = (aml_dev->bHDMIARCon ? OUTPORT_HDMI_ARC : OUTPORT_SPEAKER);
-                        ALOGI("[%s:%d] bHDMIARCon:%d speaker and HDMI_ARC co-exist case, ouput:%s.", __func__, __LINE__,
-                            aml_dev->bHDMIARCon, outputPort2Str(outport));
-                    } else if (sink_devs[0] == OUTPORT_A2DP || sink_devs[1] == OUTPORT_A2DP) {
-                        outport = OUTPORT_A2DP;
-                    }
+                if (patch->num_sinks == 2 || patch->num_sinks == 3) {
+                    outport = get_output_dev_for_strategy(aml_dev, sink_devs, patch->num_sinks);
                     switch (outport) {
-                    case OUTPORT_HDMI_ARC:
-                        aml_dev->sink_gain[outport] = 1.0;
-                        break;
-                    case OUTPORT_SPEAKER:
-                    case OUTPORT_A2DP:
-                        aml_dev->sink_gain[outport] = DbToAmpl((float)(config->gain.values[0] / 100));
-                        break;
-                    default:
-                        ALOGW("[%s:%d] invalid out device type:%s", __func__, __LINE__, outputPort2Str(outport));
+                        case OUTPORT_HDMI_ARC:
+                            aml_dev->sink_gain[outport] = 1.0;
+                            break;
+                        case OUTPORT_SPEAKER:
+                        case OUTPORT_A2DP:
+                            aml_dev->sink_gain[outport] = DbToAmpl((float)(config->gain.values[0] / 100));
+                            break;
+                        default:
+                            ALOGW("[%s:%d] invalid out device type:%s", __func__, __LINE__, outputPort2Str(outport));
                     }
                 } else if (patch->num_sinks == 1) {
                     outport = sink_devs[0];

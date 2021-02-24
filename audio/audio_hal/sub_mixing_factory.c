@@ -557,7 +557,7 @@ static ssize_t out_write_direct_pcm(struct audio_stream_out *stream, const void 
             on_notify_cbk, out, on_input_avail_cbk, out,
             NULL, NULL, 1.0);
         ALOGI("[%s:%d] direct port:%s", __func__, __LINE__,
-                inportType2Str(get_input_port_type(&out->audioCfg, out->flags)));
+                mixerInputType2Str(get_input_port_type(&out->audioCfg, out->flags)));
         out->standby = false;
     }
 
@@ -1199,7 +1199,7 @@ ssize_t mixer_aux_buffer_write_sm(struct audio_stream_out *stream, const void *b
             NULL, NULL, 1.0);
 
         ALOGI("[%s:%d] stream %p input port:%s", __func__, __LINE__, stream,
-            inportType2Str(get_input_port_type(&aml_out->audioCfg, aml_out->flags)));
+            mixerInputType2Str(get_input_port_type(&aml_out->audioCfg, aml_out->flags)));
         aml_out->standby = false;
 #ifdef ENABLE_AEC_APP
         aec_set_spk_running(adev->aec, true);
@@ -1295,7 +1295,7 @@ ssize_t mixer_mmap_buffer_write_sm(struct audio_stream_out *stream, const void *
        init_mixer_input_port(pstSubMixing->mixerData, &aml_out->audioCfg, aml_out->flags,
            on_notify_cbk, aml_out, on_input_avail_cbk, aml_out, NULL, NULL, 1.0);
        ALOGI("[%s:%d] stream:%p, port_index:%s", __func__, __LINE__,
-            aml_out, inportType2Str(get_input_port_type(&aml_out->audioCfg, aml_out->flags)));
+            aml_out, mixerInputType2Str(get_input_port_type(&aml_out->audioCfg, aml_out->flags)));
        aml_out->standby = false;
    }
 

@@ -38,23 +38,6 @@
 #define BUFF_CNT                    (4)
 #define SYS_BUFF_CNT                (4)
 
-#define ENUM_INPUT_PORT_TYPE_TO_STR(x, pStr)              ENUM_TYPE_TO_STR(x, strlen("AML_MIXER_INPUT_PORT_"), pStr)
-
-const char *inportType2Str(aml_mixer_input_port_type_e enInportType)
-{
-    static char acTypeStr[ENUM_TYPE_STR_MAX_LEN];
-    char *pStr = "INVALID";
-    switch (enInportType) {
-        ENUM_INPUT_PORT_TYPE_TO_STR(AML_MIXER_INPUT_PORT_INVAL, pStr)
-        ENUM_INPUT_PORT_TYPE_TO_STR(AML_MIXER_INPUT_PORT_PCM_SYSTEM, pStr)
-        ENUM_INPUT_PORT_TYPE_TO_STR(AML_MIXER_INPUT_PORT_PCM_DIRECT, pStr)
-        ENUM_INPUT_PORT_TYPE_TO_STR(AML_MIXER_INPUT_PORT_PCM_MMAP, pStr)
-        ENUM_INPUT_PORT_TYPE_TO_STR(AML_MIXER_INPUT_PORT_BUTT, pStr)
-    }
-    sprintf(acTypeStr, "[%d]%s", enInportType, pStr);
-    return acTypeStr;
-}
-
 static ssize_t input_port_write(struct input_port *port, const void *buffer, int bytes)
 {
     unsigned char *data = (unsigned char *)buffer;
@@ -313,7 +296,7 @@ struct input_port *new_input_port(
     }
 
     ALOGD("[%s:%d] inport:%s, rbuf size:%d, direct_on:%d, format:%#x, rate:%d", __func__, __LINE__,
-        inportType2Str(enPortType), input_port_rbuf_size, direct_on, port->cfg.format, port->cfg.sampleRate);
+        mixerInputType2Str(enPortType), input_port_rbuf_size, direct_on, port->cfg.format, port->cfg.sampleRate);
     ret = ring_buffer_init(ringbuf, input_port_rbuf_size);
     if (ret) {
         ALOGE("init ring buffer fail, buffer_size = %d", input_port_rbuf_size);

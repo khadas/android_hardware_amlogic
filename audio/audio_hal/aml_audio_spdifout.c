@@ -96,7 +96,6 @@ int aml_audio_get_spdifa_port(void)
     return spdif_port;
 }
 
-
 void aml_audio_set_spdif_format(int spdif_port, eMixerSpdif_Format aml_spdif_format, struct aml_stream_out *stream)
 {
     struct aml_stream_out *aml_out = (struct aml_stream_out *) stream;
@@ -111,21 +110,20 @@ void aml_audio_set_spdif_format(int spdif_port, eMixerSpdif_Format aml_spdif_for
     if (spdif_port == PORT_SPDIF || spdif_port == PORT_I2S2HDMI) {
         spdif_format_ctr_id = AML_MIXER_ID_SPDIF_FORMAT;
         if (aml_spdif_format == AML_DOLBY_DIGITAL_PLUS) {
-            aml_mixer_ctrl_set_int(&aml_dev->alsa_mixer, AML_MIXER_ID_SPDIF_MUTE, 1);
+            audio_route_set_spdif_mute(&aml_dev->alsa_mixer, 1);
         } else {
             if (aml_dev->spdif_enable) {
-                aml_mixer_ctrl_set_int(&aml_dev->alsa_mixer, AML_MIXER_ID_SPDIF_MUTE, 0);
+                audio_route_set_spdif_mute(&aml_dev->alsa_mixer, 0);
             }
         }
     } else if (spdif_port == PORT_SPDIFB) {
         spdif_format_ctr_id = AML_MIXER_ID_SPDIF_B_FORMAT;
         if (aml_dev->spdif_enable) {
-            aml_mixer_ctrl_set_int(&aml_dev->alsa_mixer, AML_MIXER_ID_SPDIF_MUTE, 0);
+            audio_route_set_spdif_mute(&aml_dev->alsa_mixer, 0);
         }
     }
 
     audio_set_spdif_clock(stream, aml_spdif_format);
-
     aml_mixer_ctrl_set_int(&aml_dev->alsa_mixer, spdif_format_ctr_id, aml_spdif_format);
 
     /*use same source for normal pcm case*/
@@ -134,11 +132,9 @@ void aml_audio_set_spdif_format(int spdif_port, eMixerSpdif_Format aml_spdif_for
         aml_mixer_ctrl_set_int(&aml_dev->alsa_mixer, AML_MIXER_ID_SPDIF_FORMAT, aml_spdif_format);
         //aml_mixer_ctrl_set_int(&aml_dev->alsa_mixer, AML_MIXER_ID_SPDIF_B_FORMAT, aml_spdif_format);
     }
-
-    ALOGI("%s tinymix spdif_port:%d, AML_MIXER_ID_SPDIF_FORMAT %d", __FUNCTION__, spdif_port, aml_spdif_format);
+    ALOGI("%s tinymix spdif_port:%d, SPDIF_FORMAT:%d", __func__, spdif_port, aml_spdif_format);
     return;
 }
-
 
 void aml_audio_select_spdif_to_hdmi(int spdif_select)
 {

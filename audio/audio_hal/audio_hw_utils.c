@@ -1511,104 +1511,90 @@ enum input_source android_input_dev_convert_to_hal_input_src(audio_devices_t and
 
 const char* patchSrc2Str(enum patch_src_assortion type)
 {
-    static char acTypeStr[ENUM_TYPE_STR_MAX_LEN];
-    char *pStr = "INVALID";
-    int prefixLen = strlen("SRC_");
-    switch (type) {
-        ENUM_TYPE_TO_STR(SRC_DTV, prefixLen, pStr)
-        ENUM_TYPE_TO_STR(SRC_ATV, prefixLen, pStr)
-        ENUM_TYPE_TO_STR(SRC_LINEIN, prefixLen, pStr)
-        ENUM_TYPE_TO_STR(SRC_HDMIIN, prefixLen, pStr)
-        ENUM_TYPE_TO_STR(SRC_SPDIFIN, prefixLen, pStr)
-        ENUM_TYPE_TO_STR(SRC_REMOTE_SUBMIXIN, prefixLen, pStr)
-        ENUM_TYPE_TO_STR(SRC_WIRED_HEADSETIN, prefixLen, pStr)
-        ENUM_TYPE_TO_STR(SRC_BUILTIN_MIC, prefixLen, pStr)
-        ENUM_TYPE_TO_STR(SRC_ECHO_REFERENCE, prefixLen, pStr)
-        ENUM_TYPE_TO_STR(SRC_ARCIN, prefixLen, pStr)
-        ENUM_TYPE_TO_STR(SRC_OTHER, prefixLen, pStr)
-        ENUM_TYPE_TO_STR(SRC_INVAL, prefixLen, pStr)
-    }
-    sprintf(acTypeStr, "[%d]%s", type, pStr);
-    return acTypeStr;
+    ENUM_TYPE_TO_STR_START("SRC_");
+    ENUM_TYPE_TO_STR(SRC_DTV)
+    ENUM_TYPE_TO_STR(SRC_ATV)
+    ENUM_TYPE_TO_STR(SRC_LINEIN)
+    ENUM_TYPE_TO_STR(SRC_HDMIIN)
+    ENUM_TYPE_TO_STR(SRC_SPDIFIN)
+    ENUM_TYPE_TO_STR(SRC_REMOTE_SUBMIXIN)
+    ENUM_TYPE_TO_STR(SRC_WIRED_HEADSETIN)
+    ENUM_TYPE_TO_STR(SRC_BUILTIN_MIC)
+    ENUM_TYPE_TO_STR(SRC_ECHO_REFERENCE)
+    ENUM_TYPE_TO_STR(SRC_ARCIN)
+    ENUM_TYPE_TO_STR(SRC_OTHER)
+    ENUM_TYPE_TO_STR(SRC_INVAL)
+    ENUM_TYPE_TO_STR_END
 }
 
 const char* usecase2Str(stream_usecase_t type)
 {
-    static char acTypeStr[ENUM_TYPE_STR_MAX_LEN];
-    char *pStr = "INVALID";
-    int prefixLen = strlen("STREAM_");
-    switch (type) {
-        ENUM_TYPE_TO_STR(STREAM_PCM_NORMAL, prefixLen, pStr)
-        ENUM_TYPE_TO_STR(STREAM_PCM_DIRECT, prefixLen, pStr)
-        ENUM_TYPE_TO_STR(STREAM_PCM_HWSYNC, prefixLen, pStr)
-        ENUM_TYPE_TO_STR(STREAM_RAW_DIRECT, prefixLen, pStr)
-        ENUM_TYPE_TO_STR(STREAM_RAW_HWSYNC, prefixLen, pStr)
-        ENUM_TYPE_TO_STR(STREAM_PCM_PATCH, prefixLen, pStr)
-        ENUM_TYPE_TO_STR(STREAM_RAW_PATCH, prefixLen, pStr)
-        ENUM_TYPE_TO_STR(STREAM_PCM_MMAP, prefixLen, pStr)
-        ENUM_TYPE_TO_STR(STREAM_USECASE_MAX, prefixLen, pStr)
-    }
-    sprintf(acTypeStr, "[%d]%s", type, pStr);
-    return acTypeStr;
+    ENUM_TYPE_TO_STR_START("STREAM_");
+    ENUM_TYPE_TO_STR(STREAM_PCM_NORMAL)
+    ENUM_TYPE_TO_STR(STREAM_PCM_DIRECT)
+    ENUM_TYPE_TO_STR(STREAM_PCM_HWSYNC)
+    ENUM_TYPE_TO_STR(STREAM_RAW_DIRECT)
+    ENUM_TYPE_TO_STR(STREAM_RAW_HWSYNC)
+    ENUM_TYPE_TO_STR(STREAM_PCM_PATCH)
+    ENUM_TYPE_TO_STR(STREAM_RAW_PATCH)
+    ENUM_TYPE_TO_STR(STREAM_PCM_MMAP)
+    ENUM_TYPE_TO_STR(STREAM_USECASE_MAX)
+    ENUM_TYPE_TO_STR_END
 }
 
 const char* outputPort2Str(enum OUT_PORT type)
 {
-    static char acTypeStr[ENUM_TYPE_STR_MAX_LEN];
-    char *pStr = "INVALID";
-    int prefixLen = strlen("OUTPORT_");
-    switch (type) {
-        ENUM_TYPE_TO_STR(OUTPORT_SPEAKER, prefixLen, pStr)
-        ENUM_TYPE_TO_STR(OUTPORT_HDMI_ARC, prefixLen, pStr)
-        ENUM_TYPE_TO_STR(OUTPORT_HDMI, prefixLen, pStr)
-        ENUM_TYPE_TO_STR(OUTPORT_SPDIF, prefixLen, pStr)
-        ENUM_TYPE_TO_STR(OUTPORT_AUX_LINE, prefixLen, pStr)
-        ENUM_TYPE_TO_STR(OUTPORT_HEADPHONE, prefixLen, pStr)
-        ENUM_TYPE_TO_STR(OUTPORT_REMOTE_SUBMIX, prefixLen, pStr)
-        ENUM_TYPE_TO_STR(OUTPORT_A2DP, prefixLen, pStr)
-        ENUM_TYPE_TO_STR(OUTPORT_BT_SCO, prefixLen, pStr)
-        ENUM_TYPE_TO_STR(OUTPORT_BT_SCO_HEADSET, prefixLen, pStr)
-        ENUM_TYPE_TO_STR(OUTPORT_MAX, prefixLen, pStr)
-    }
-    sprintf(acTypeStr, "[%d]%s", type, pStr);
-    return acTypeStr;
+    ENUM_TYPE_TO_STR_START("OUTPORT_");
+    ENUM_TYPE_TO_STR(OUTPORT_SPEAKER)
+    ENUM_TYPE_TO_STR(OUTPORT_HDMI_ARC)
+    ENUM_TYPE_TO_STR(OUTPORT_HDMI)
+    ENUM_TYPE_TO_STR(OUTPORT_SPDIF)
+    ENUM_TYPE_TO_STR(OUTPORT_AUX_LINE)
+    ENUM_TYPE_TO_STR(OUTPORT_HEADPHONE)
+    ENUM_TYPE_TO_STR(OUTPORT_REMOTE_SUBMIX)
+    ENUM_TYPE_TO_STR(OUTPORT_A2DP)
+    ENUM_TYPE_TO_STR(OUTPORT_BT_SCO)
+    ENUM_TYPE_TO_STR(OUTPORT_BT_SCO_HEADSET)
+    ENUM_TYPE_TO_STR(OUTPORT_MAX)
+    ENUM_TYPE_TO_STR_END
 }
 
 const char* inputPort2Str(enum IN_PORT type)
 {
-    static char acTypeStr[ENUM_TYPE_STR_MAX_LEN];
-    char *pStr = "INVALID";
-    int prefixLen = strlen("INPORT_");
-    switch (type) {
-        ENUM_TYPE_TO_STR(INPORT_TUNER, prefixLen, pStr)
-        ENUM_TYPE_TO_STR(INPORT_HDMIIN, prefixLen, pStr)
-        ENUM_TYPE_TO_STR(INPORT_SPDIF, prefixLen, pStr)
-        ENUM_TYPE_TO_STR(INPORT_LINEIN, prefixLen, pStr)
-        ENUM_TYPE_TO_STR(INPORT_REMOTE_SUBMIXIN, prefixLen, pStr)
-        ENUM_TYPE_TO_STR(INPORT_WIRED_HEADSETIN, prefixLen, pStr)
-        ENUM_TYPE_TO_STR(INPORT_BUILTIN_MIC, prefixLen, pStr)
-        ENUM_TYPE_TO_STR(INPORT_ECHO_REFERENCE, prefixLen, pStr)
-        ENUM_TYPE_TO_STR(INPORT_ARCIN, prefixLen, pStr)
-        ENUM_TYPE_TO_STR(INPORT_MAX, prefixLen, pStr)
-    }
-    sprintf(acTypeStr, "[%d]%s", type, pStr);
-    return acTypeStr;
+    ENUM_TYPE_TO_STR_START("INPORT_");
+    ENUM_TYPE_TO_STR(INPORT_TUNER)
+    ENUM_TYPE_TO_STR(INPORT_HDMIIN)
+    ENUM_TYPE_TO_STR(INPORT_SPDIF)
+    ENUM_TYPE_TO_STR(INPORT_LINEIN)
+    ENUM_TYPE_TO_STR(INPORT_REMOTE_SUBMIXIN)
+    ENUM_TYPE_TO_STR(INPORT_WIRED_HEADSETIN)
+    ENUM_TYPE_TO_STR(INPORT_BUILTIN_MIC)
+    ENUM_TYPE_TO_STR(INPORT_ECHO_REFERENCE)
+    ENUM_TYPE_TO_STR(INPORT_ARCIN)
+    ENUM_TYPE_TO_STR(INPORT_MAX)
+    ENUM_TYPE_TO_STR_END
+}
+
+const char* mixerInputType2Str(aml_mixer_input_port_type_e type)
+{
+    ENUM_TYPE_TO_STR_START("AML_MIXER_INPUT_PORT_");
+    ENUM_TYPE_TO_STR(AML_MIXER_INPUT_PORT_INVAL)
+    ENUM_TYPE_TO_STR(AML_MIXER_INPUT_PORT_PCM_SYSTEM)
+    ENUM_TYPE_TO_STR(AML_MIXER_INPUT_PORT_PCM_DIRECT)
+    ENUM_TYPE_TO_STR(AML_MIXER_INPUT_PORT_PCM_MMAP)
+    ENUM_TYPE_TO_STR(AML_MIXER_INPUT_PORT_BUTT)
+    ENUM_TYPE_TO_STR_END
 }
 
 const char* dtvAudioPatchCmd2Str(AUDIO_DTV_PATCH_CMD_TYPE type)
 {
-    static char acTypeStr[ENUM_TYPE_STR_MAX_LEN];
-    char *pStr = "INVALID";
-    int prefixLen = strlen("AUDIO_DTV_PATCH_");
-    switch (type) {
-        ENUM_TYPE_TO_STR(AUDIO_DTV_PATCH_CMD_NULL, prefixLen, pStr)
-        ENUM_TYPE_TO_STR(AUDIO_DTV_PATCH_CMD_START, prefixLen, pStr)
-        ENUM_TYPE_TO_STR(AUDIO_DTV_PATCH_CMD_STOP, prefixLen, pStr)
-        ENUM_TYPE_TO_STR(AUDIO_DTV_PATCH_CMD_PAUSE, prefixLen, pStr)
-        ENUM_TYPE_TO_STR(AUDIO_DTV_PATCH_CMD_RESUME, prefixLen, pStr)
-        ENUM_TYPE_TO_STR(AUDIO_DTV_PATCH_CMD_NUM, prefixLen, pStr)
-    }
-    sprintf(acTypeStr, "[%d]%s", type, pStr);
-    return acTypeStr;
+    ENUM_TYPE_TO_STR_START("AUDIO_DTV_PATCH_");
+    ENUM_TYPE_TO_STR(AUDIO_DTV_PATCH_CMD_NULL)
+    ENUM_TYPE_TO_STR(AUDIO_DTV_PATCH_CMD_START)
+    ENUM_TYPE_TO_STR(AUDIO_DTV_PATCH_CMD_STOP)
+    ENUM_TYPE_TO_STR(AUDIO_DTV_PATCH_CMD_PAUSE)
+    ENUM_TYPE_TO_STR(AUDIO_DTV_PATCH_CMD_RESUME)
+    ENUM_TYPE_TO_STR(AUDIO_DTV_PATCH_CMD_NUM)
+    ENUM_TYPE_TO_STR_END
 }
 

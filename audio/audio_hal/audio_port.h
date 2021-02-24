@@ -204,6 +204,4 @@ int set_inport_pts_valid(struct input_port *in_port, bool valid);
 bool is_inport_pts_valid(struct input_port *in_port);
 void outport_pcm_restart(struct output_port *port);
 
-const char *inportType2Str(aml_mixer_input_port_type_e enInportType);
-
 #endif /* _AUDIO_PORT_H_ */

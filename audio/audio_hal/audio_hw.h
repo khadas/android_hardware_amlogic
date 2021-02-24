@@ -154,25 +154,31 @@ struct aml_hal_mixer {
     pthread_mutex_t lock;
 };
 
-enum arc_hdmi_format {
-    _LPCM = 1,
-    _AC3,
-    _MPEG1,
-    _MP3,
-    _MPEG2,
-    _AAC,
-    _DTS,
-    _ATRAC,
-    _ONE_BIT_AUDIO,
-    _DDP,
-    _DTSHD,
-    _MAT,
-    _DST,
-    _WMAPRO
-};
+/**
+ *  Audio Format Description of CEC Short Audio Descriptor
+ *  CEA-861-D: Table 37. RequestShortAudioDescriptorAction.java
+ */
+typedef enum {
+    AML_HDMI_FORMAT_RESERVED1             = 0x0,    // SAD_CODEC_RESERVED1
+    AML_HDMI_FORMAT_LPCM                  = 0x1,    // SAD_CODEC_LPCM
+    AML_HDMI_FORMAT_AC3                   = 0x2,    // SAD_CODEC_AC3
+    AML_HDMI_FORMAT_MPEG1                 = 0x3,    // SAD_CODEC_MPEG1
+    AML_HDMI_FORMAT_MP3                   = 0x4,    // SAD_CODEC_MP3
+    AML_HDMI_FORMAT_MPEG2MC               = 0x5,    // SAD_CODEC_MPEG2MC
+    AML_HDMI_FORMAT_AAC                   = 0x6,    // SAD_CODEC_AAC
+    AML_HDMI_FORMAT_DTS                   = 0x7,    // SAD_CODEC_DTS
+    AML_HDMI_FORMAT_ATRAC                 = 0x8,    // SAD_CODEC_ATRAC
+    AML_HDMI_FORMAT_OBA                   = 0x9,    // SAD_CODEC_OBA
+    AML_HDMI_FORMAT_DDP                   = 0xA,    // SAD_CODEC_DDP
+    AML_HDMI_FORMAT_DTSHD                 = 0xB,    // SAD_CODEC_DTSHD
+    AML_HDMI_FORMAT_MAT                   = 0xC,    // SAD_CODEC_MAT
+    AML_HDMI_FORMAT_DST                   = 0xD,    // SAD_CODEC_DST
+    AML_HDMI_FORMAT_WMAPRO                = 0xE,    // SAD_CODEC_WMAPRO
+    AML_HDMI_FORMAT_RESERVED2             = 0xF,    // SAD_CODEC_RESERVED2
+} AML_HDMI_FORMAT_E;
 
 struct format_desc {
-    enum arc_hdmi_format fmt;
+    AML_HDMI_FORMAT_E fmt;
     bool is_support;
     unsigned int max_channels;
     /*
@@ -186,10 +192,6 @@ struct format_desc {
 };
 
 struct aml_arc_hdmi_desc {
-    int EDID_length;
-    unsigned int avr_port;
-    char SAD[38]; /* 3 bytes for each audio format, max 30 bytes for audio edid, 8 bytes for TLV header */
-    bool default_edid;
     struct format_desc pcm_fmt;
     struct format_desc dts_fmt;
     struct format_desc dtshd_fmt;
@@ -361,7 +363,10 @@ struct aml_audio_device {
     bool parental_control_av_mute;
     int routing;
     struct audio_config output_config;
+    /* The HDMI ARC capability info currently set. */
     struct aml_arc_hdmi_desc hdmi_descs;
+    /* Save the HDMI ARC actual capability info. */
+    struct aml_arc_hdmi_desc hdmi_arc_capability_desc;
     int arc_hdmi_updated;
     int a2dp_active;
     int a2dp_updated;

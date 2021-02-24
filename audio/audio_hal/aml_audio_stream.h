@@ -405,5 +405,7 @@ bool is_direct_stream_and_pcm_format(struct aml_stream_out *out);
 bool is_mmap_stream_and_pcm_format(struct aml_stream_out *out);
 void get_audio_indicator(struct aml_audio_device *dev, char *temp_buf);
 void update_audio_format(struct aml_audio_device *adev, audio_format_t format);
+int audio_route_set_hdmi_arc_mute(struct aml_mixer_handle *mixer_handle, int enable);
+int audio_route_set_spdif_mute(struct aml_mixer_handle *mixer_handle, int enable);
 
 #endif /* _AML_AUDIO_STREAM_H_ */
