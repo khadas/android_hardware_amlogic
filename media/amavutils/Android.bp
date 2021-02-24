@@ -1,7 +1,6 @@
 cc_library_shared {
     name: "libamavutils",
-    vendor_available: true,
-    product_specific: true,
+    vendor: true,
     cflags: ["-DNO_USE_SYSWRITE"] + ["-DFB_BUFFER_NUM=3"] + ["-DANDROID_PLATFORM_SDK_VERSION=28"] + [
         "-Werror",
         "-Wformat",
