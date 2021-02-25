@@ -39,6 +39,9 @@ endif
 ifdef WIFI_AVOID_IFACE_RESET_MAC_CHANGE
 LOCAL_CPPFLAGS += -DWIFI_AVOID_IFACE_RESET_MAC_CHANGE
 endif
+ifdef MULTI_WIFI_SUPPORT
+LOCAL_CPPFLAGS += -DMULTI_WIFI_SUPPORT
+endif
 # Allow implicit fallthroughs in wifi_legacy_hal.cpp until they are fixed.
 LOCAL_CFLAGS += -Wno-error=implicit-fallthrough
 LOCAL_SRC_FILES := \
