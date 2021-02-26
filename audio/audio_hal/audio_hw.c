@@ -5571,7 +5571,8 @@ static int adev_set_parameters (struct audio_hw_device *dev, const char *kvpairs
                 adev->exiting_ms12 = 1;
                 adev->continuous_audio_mode = 0;
                 clock_gettime(CLOCK_MONOTONIC, &adev->ms12_exiting_start);
-                usecase_change_validate_l(adev->active_outputs[STREAM_PCM_NORMAL], true);
+                if (adev->active_outputs[STREAM_PCM_NORMAL] != NULL)
+                    usecase_change_validate_l(adev->active_outputs[STREAM_PCM_NORMAL], true);
             }
 
             ret = create_dtv_patch(dev, AUDIO_DEVICE_IN_TV_TUNER,
@@ -5599,7 +5600,8 @@ static int adev_set_parameters (struct audio_hw_device *dev, const char *kvpairs
                 adev->exiting_ms12 = 1;
                 adev->continuous_audio_mode = 0;
                 clock_gettime(CLOCK_MONOTONIC, &adev->ms12_exiting_start);
-                usecase_change_validate_l(adev->active_outputs[STREAM_PCM_NORMAL], true);
+                if (adev->active_outputs[STREAM_PCM_NORMAL] != NULL)
+                    usecase_change_validate_l(adev->active_outputs[STREAM_PCM_NORMAL], true);
             }
 
             if (!adev->audio_patching) {
@@ -5911,7 +5913,8 @@ static int adev_set_parameters (struct audio_hw_device *dev, const char *kvpairs
                     adev->continuous_audio_mode = 0;
                     adev->exiting_ms12 = 1;
                     clock_gettime(CLOCK_MONOTONIC, &adev->ms12_exiting_start);
-                    usecase_change_validate_l(adev->active_outputs[STREAM_PCM_NORMAL], true);
+                    if (adev->active_outputs[STREAM_PCM_NORMAL] != NULL)
+                        usecase_change_validate_l(adev->active_outputs[STREAM_PCM_NORMAL], true);
                     //continuous_stream_do_standby(adev);
                 }
             } else {
@@ -5983,7 +5986,8 @@ static int adev_set_parameters (struct audio_hw_device *dev, const char *kvpairs
                 adev->delay_disable_continuous = 0;
 
                 clock_gettime(CLOCK_MONOTONIC, &adev->ms12_exiting_start);
-                usecase_change_validate_l(adev->active_outputs[STREAM_PCM_NORMAL], true);
+                if (adev->active_outputs[STREAM_PCM_NORMAL] != NULL)
+                    usecase_change_validate_l(adev->active_outputs[STREAM_PCM_NORMAL], true);
                 goto exit;
             }else {
                 adev->delay_disable_continuous = 1;
