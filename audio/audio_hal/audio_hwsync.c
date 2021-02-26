@@ -552,7 +552,8 @@ int aml_audio_hwsync_audio_process(audio_hwsync_t *p_hwsync, size_t offset, int 
             if (apts32 == 0) {
                 apts32 = 1 * 90;
             }
-            aml_audio_hwsync_set_first_pts(p_hwsync, apts32);
+            aml_audio_hwsync_set_first_pts(out->hwsync, apts32);
+            aml_hwsync_wait_video_drop(out->hwsync, apts32);
             aml_hwsync_reset_tsync_pcrscr(out->hwsync, apts32);
         } else  if (p_hwsync->first_apts_flag) {
             if (apts >= latency_pts) {
