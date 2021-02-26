@@ -1969,7 +1969,7 @@ static void *audio_dtv_patch_process_threadloop(void *data)
     patch->sync_para.cur_pts_diff = 0;
     patch->sync_para.in_out_underrun_flag = 0;
     patch->sync_para.pcr_adjust_max = property_get_int32(
-                                        PROPERTY_AUDIO_ADJUST_PCR_MAX, 60 * 90);
+                                        PROPERTY_AUDIO_ADJUST_PCR_MAX, 1 * 90000);
     patch->sync_para.underrun_mute_time_min = property_get_int32(
                                         PROPERTY_UNDERRUN_MUTE_MINTIME, 200);
     patch->sync_para.underrun_mute_time_max = property_get_int32(
