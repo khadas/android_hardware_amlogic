@@ -4207,131 +4207,7 @@ static int adev_set_parameters (struct audio_hw_device *dev, const char *kvpairs
         goto exit;
     }
 
-    {
-        ret = str_parms_get_int(parms, "hal_param_dual_dec_support", &val);
-        if (ret >= 0) {
-            pthread_mutex_lock(&adev->lock);
-            adev->dual_decoder_support = val;
-            ALOGI("dual_decoder_support set to %d\n", adev->dual_decoder_support);
-            if (eDolbyMS12Lib == adev->dolby_lib_type_last) {
-                pthread_mutex_lock(&ms12->lock);
-                set_audio_system_format(AUDIO_FORMAT_PCM_16_BIT);
-                set_audio_app_format(AUDIO_FORMAT_PCM_16_BIT);
-                //only use to set associate flag, dd/dd+ format is same.
-                if (adev->dual_decoder_support == 1) {
-                    set_audio_associate_format(AUDIO_FORMAT_AC3);
-                } else {
-                    set_audio_associate_format(AUDIO_FORMAT_INVALID);
-                }
-                dolby_ms12_config_params_set_associate_flag(adev->dual_decoder_support);
-                pthread_mutex_unlock(&ms12->lock);
-            }
-            adev->need_reset_for_dual_decoder = true;
-            pthread_mutex_unlock(&adev->lock);
 
-            goto exit;
-        }
-
-        ret = str_parms_get_int(parms, "hal_param_ad_mix_enable", &val);
-        if (ret >= 0) {
-            pthread_mutex_lock(&adev->lock);
-            if (val == 0) {
-                dtv_assoc_audio_cache(-1);
-            }
-            if (adev->ad_switch_enable)
-                adev->associate_audio_mixing_enable = val;
-            else
-                adev->associate_audio_mixing_enable = 0;
-            ALOGI("associate_audio_mixing_enable set to %d\n", adev->associate_audio_mixing_enable);
-            if (eDolbyMS12Lib == adev->dolby_lib_type_last) {
-                pthread_mutex_lock(&ms12->lock);
-                dolby_ms12_set_asscociated_audio_mixing(adev->associate_audio_mixing_enable);
-                set_ms12_ad_mixing_enable(ms12, adev->associate_audio_mixing_enable);
-                pthread_mutex_unlock(&ms12->lock);
-            }
-            pthread_mutex_unlock(&adev->lock);
-
-            goto exit;
-        }
-
-        ret = str_parms_get_int(parms, "ad_switch_enable", &val);
-        if (ret >= 0) {
-            pthread_mutex_lock(&adev->lock);
-            if (val == 0) {
-                dtv_assoc_audio_cache(-1);
-            }
-            adev->ad_switch_enable = val;
-            adev->associate_audio_mixing_enable = val;
-            ALOGI("associate_audio_mixing_enable set to %d\n", adev->associate_audio_mixing_enable);
-            if (eDolbyMS12Lib == adev->dolby_lib_type_last) {
-                pthread_mutex_lock(&ms12->lock);
-                dolby_ms12_set_asscociated_audio_mixing(adev->associate_audio_mixing_enable);
-                set_ms12_ad_mixing_enable(ms12, adev->associate_audio_mixing_enable);
-                pthread_mutex_unlock(&ms12->lock);
-
-            }
-            ALOGI("ad_switch_enable set to %d\n", adev->associate_audio_mixing_enable);
-            pthread_mutex_unlock(&adev->lock);
-            goto exit;
-
-        }
-
-        ret = str_parms_get_int(parms, "dual_decoder_advol_level", &val);
-        if (ret >= 0) {
-            int madvol_level = val;
-
-            pthread_mutex_lock(&adev->lock);
-            if (madvol_level < 0) {
-                madvol_level = 0;
-            } else if (madvol_level > 100) {
-                madvol_level = 100;
-            }
-            adev->advol_level = madvol_level;
-            ALOGI("madvol_level set to %d\n", madvol_level);
-            if (eDolbyMS12Lib == adev->dolby_lib_type_last) {
-                pthread_mutex_lock(&ms12->lock);
-                madvol_level = (madvol_level * 64 - 32 * 100) / 100; //[0,100] mapping to [-32,32]
-                //dolby_ms12_set_user_control_value_for_mixing_main_and_associated_audio(madvol_level);
-                //int ms12_runtime_update_ret = aml_ms12_update_runtime_params(& (adev->ms12));
-                //ALOGI("aml_ms12_update_runtime_params return %d\n", ms12_runtime_update_ret);
-                pthread_mutex_unlock(&ms12->lock);
-            }
-            pthread_mutex_unlock(&adev->lock);
-            goto exit;
-        }
-
-        ret = str_parms_get_int(parms, "hal_param_dual_dec_mix_level", &val);
-        if (ret >= 0) {
-            int mix_user_prefer = 0;
-            int mixing_level = val;
-
-            pthread_mutex_lock(&adev->lock);
-            if (mixing_level < 0) {
-                mixing_level = 0;
-            } else if (mixing_level > 100) {
-                mixing_level = 100;
-            }
-            mix_user_prefer = (mixing_level * 64 - 32 * 100) / 100; //[0,100] mapping to [-32,32]
-            ALOGI("mixing_level set to %d\n", adev->mixing_level);
-            if (eDolbyMS12Lib == adev->dolby_lib_type_last) {
-                pthread_mutex_lock(&ms12->lock);
-                dolby_ms12_set_user_control_value_for_mixing_main_and_associated_audio(adev->mixing_level);
-                set_ms12_ad_mixing_level(ms12, adev->mixing_level);
-                pthread_mutex_unlock(&ms12->lock);
-            }
-            pthread_mutex_unlock(&adev->lock);
-            goto exit;
-        }
-        ret = str_parms_get_int(parms, "hal_param_security_mem_level", &val);
-        if (ret >= 0) {
-            int security_mem_level = val;
-            pthread_mutex_lock(&adev->lock);
-            adev->security_mem_level = security_mem_level;
-            ALOGI("security_mem_level set to %d\n", adev->security_mem_level);
-            pthread_mutex_unlock(&adev->lock);
-            goto exit;
-        }
-    }
 
     /*use dolby_lib_type_last to check ms12 type, because durig playing DTS file,
       this type will be changed to dcv*/
@@ -4543,34 +4419,110 @@ static int adev_set_parameters (struct audio_hw_device *dev, const char *kvpairs
         goto exit;
     }
 
-    ret = str_parms_get_str(parms, "hal_param_dtv_patch_cmd", value, sizeof(value));
-    if (ret > 0) {
-        AUDIO_DTV_PATCH_CMD_TYPE cmd = atoi(value);
-        if (adev->audio_patch == NULL) {
-            ALOGI("%s()the audio patch is NULL \n", __func__);
-        }
-
-#ifdef ENABLE_DTV_PATCH
-        if (cmd <= AUDIO_DTV_PATCH_CMD_NULL || cmd >= AUDIO_DTV_PATCH_CMD_NUM) {
-            ALOGW("[%s:%d] Unsupported dtv patch cmd:%d", __func__, __LINE__, cmd);
-        } else {
-            ALOGI("[%s:%d] Send dtv patch cmd:%s", __func__, __LINE__, dtvAudioPatchCmd2Str(cmd));
-            dtv_patch_add_cmd(cmd);
-        }
-#endif
-        goto exit;
-    }
-
-    ret = str_parms_get_str(parms, "hal_param_audio_output_mode", value, sizeof(value));
-    if (ret > 0) {
-        AM_AOUT_OutputMode_t mode = atoi(value);
-        if (adev->audio_patch == NULL) {
-            ALOGI("%s()the audio patch is NULL \n", __func__);
+    /* dvb cmd deal with start */
+    {
+        ret = str_parms_get_int(parms, "hal_param_dtv_patch_cmd", &val);
+        if (ret >= 0) {
+            dtv_patch_handle_event(dev, AUDIO_DTV_PATCH_CMD_CONTROL, val);
             goto exit;
         }
-        ALOGI("DTV sound mode %d ",mode );
-        adev->audio_patch->mode = mode;
+
+        ret = str_parms_get_int(parms, "hal_param_dual_dec_support", &val);
+        if (ret >= 0) {
+            dtv_patch_handle_event(dev, AUDIO_DTV_PATCH_CMD_SET_AD_SUPPORT ,val);
+            goto exit;
+        }
+
+        ret = str_parms_get_int(parms, "hal_param_ad_mix_enable", &val);
+        if (ret >= 0) {
+            dtv_patch_handle_event(dev, AUDIO_DTV_PATCH_CMD_SET_AD_ENABLE ,val);
+            goto exit;
+        }
+
+        ret = str_parms_get_int(parms, "ad_switch_enable", &val);
+        if (ret >= 0) {
+            adev->ad_switch_enable = val;
+            dtv_patch_handle_event(dev, AUDIO_DTV_PATCH_CMD_SET_AD_ENABLE, val);
+            ALOGI("ad_switch_enable set to %d\n", adev->associate_audio_mixing_enable);
+            goto exit;
+        }
+
+        ret = str_parms_get_int(parms, "dual_decoder_advol_level", &val);
+        if (ret >= 0) {
+
+            dtv_patch_handle_event(dev, AUDIO_DTV_PATCH_CMD_SET_AD_VOL_LEVEL, val);
+            goto exit;
+        }
+
+        ret = str_parms_get_int(parms, "hal_param_dual_dec_mix_level", &val);
+        if (ret >= 0) {
+
+            dtv_patch_handle_event(dev, AUDIO_DTV_PATCH_CMD_SET_AD_MIX_LEVEL, val);
+            goto exit;
+        }
+        ret = str_parms_get_int(parms, "hal_param_security_mem_level", &val);
+        if (ret >= 0) {
+            dtv_patch_handle_event(dev, AUDIO_DTV_PATCH_CMD_SET_SECURITY_MEM_LEVEL, val);
+            goto exit;
+        }
+        ret = str_parms_get_int(parms, "hal_param_audio_output_mode", &val);
+        if (ret >= 0) {
+            dtv_patch_handle_event(dev, AUDIO_DTV_PATCH_CMD_SET_OUTPUT_MODE, val);
+            goto exit;
+        }
+        ret = str_parms_get_int(parms, "hal_param_dtv_demux_id", &val);
+        if (ret >= 0) {
+            dtv_patch_handle_event(dev, AUDIO_DTV_PATCH_CMD_SET_DEMUX_INFO, val);
+            goto exit;
+        }
+        ret = str_parms_get_int(parms, "hal_param_dtv_pid", &val);
+        if (ret >= 0) {
+            dtv_patch_handle_event(dev, AUDIO_DTV_PATCH_CMD_SET_PID, val);
+            goto exit;
+        }
+
+        ret = str_parms_get_int(parms, "hal_param_dtv_fmt", &val);
+        if (ret >= 0) {
+            dtv_patch_handle_event(dev, AUDIO_DTV_PATCH_CMD_SET_FMT, val);
+            goto exit;
+        }
+        ret = str_parms_get_int(parms, "hal_param_dtv_audio_fmt", &val);
+        if (ret >= 0) {
+            dtv_patch_handle_event(dev, AUDIO_DTV_PATCH_CMD_SET_FMT, val);
+            goto exit;
+        }
+
+        ret = str_parms_get_int(parms, "hal_param_dtv_audio_id", &val);
+        if (ret >= 0) {
+            dtv_patch_handle_event(dev, AUDIO_DTV_PATCH_CMD_SET_PID, val);
+            goto exit;
+        }
+
+        ret = str_parms_get_int(parms, "hal_param_dtv_sub_audio_fmt", &val);
+        if (ret >= 0) {
+            dtv_patch_handle_event(dev, AUDIO_DTV_PATCH_CMD_SET_AD_FMT, val);
+            goto exit;
+        }
+
+        ret = str_parms_get_int(parms, "hal_param_dtv_sub_audio_pid", &val);
+        if (ret >= 0) {
+            dtv_patch_handle_event(dev, AUDIO_DTV_PATCH_CMD_SET_AD_PID, val);
+            goto exit;
+        }
+
+        ret = str_parms_get_int(parms, "hal_param_has_dtv_video", &val);
+        if (ret >= 0) {
+            dtv_patch_handle_event(dev, AUDIO_DTV_PATCH_CMD_SET_HAS_VIDEO, val);
+            goto exit;
+        }
+
+        ret = str_parms_get_int(parms, "hal_param_tv_mute", &val);
+        if (ret >= 0) {
+            dtv_patch_handle_event(dev, AUDIO_DTV_PATCH_CMD_SET_MUTE, val);
+            goto exit;
+        }
     }
+    /* dvb cmd deal with end */
     ret = str_parms_get_str(parms, "sound_track", value, sizeof(value));
     if (ret > 0) {
         int mode = atoi(value);
@@ -4584,68 +4536,6 @@ static int adev_set_parameters (struct audio_hw_device *dev, const char *kvpairs
         }
         ALOGI("video player sound_track mode %d ",mode );
         adev->sound_track_mode = mode;
-        goto exit;
-    }
-    ret = str_parms_get_str(parms, "hal_param_dtv_demux_id", value, sizeof(value));
-    if (ret > 0) {
-        unsigned int demux_id = (unsigned int)atoi(value); // zz
-        ALOGI("%s() get the audio demux_id %d\n", __func__, demux_id);
-        adev->demux_id = demux_id;
-        goto exit;
-    }
-    ret = str_parms_get_str(parms, "hal_param_dtv_pid", value, sizeof(value));
-    if (ret > 0) {
-        unsigned int pid = (unsigned int)atoi(value); // zz
-        ALOGI("%s() get the audio pid %d\n", __func__, pid);
-        adev->pid = pid;
-        goto exit;
-    }
-    ret = str_parms_get_str(parms, "hal_param_dtv_audio_fmt", value, sizeof(value));
-    if (ret > 0) {
-        unsigned int audio_fmt = (unsigned int)atoi(value); // zz
-        ALOGI("%s() get the audio format %d\n", __func__, audio_fmt);
-        if (adev->audio_patch != NULL) {
-            adev->dtv_aformat = adev->audio_patch->dtv_aformat = audio_fmt;
-        } else {
-            ALOGI("%s()the audio patch is NULL \n", __func__);
-        }
-        goto exit;
-    }
-
-    ret = str_parms_get_str(parms, "hal_param_dtv_sub_audio_fmt", value, sizeof(value));
-    if (ret > 0) {
-        int audio_sub_pid = (unsigned int)atoi(value);
-        ALOGI("%s() get the sub audio pid %d\n", __func__, audio_sub_pid);
-        if (audio_sub_pid > 0) {
-            adev->sub_afmt = audio_sub_pid;
-        } else {
-            adev->sub_afmt = -1;
-        }
-        goto exit;
-    }
-
-    ret = str_parms_get_str(parms, "hal_param_dtv_sub_audio_pid", value, sizeof(value));
-    if (ret > 0) {
-        int audio_sub_fmt = (unsigned int)atoi(value);
-        ALOGI("%s() get the sub audio fmt %d\n", __func__, audio_sub_fmt);
-        if (audio_sub_fmt >= 0) {
-            adev->sub_apid = audio_sub_fmt;
-        } else {
-            adev->sub_apid= -1;
-        }
-        goto exit;
-    }
-
-    ret = str_parms_get_str(parms, "hal_param_has_dtv_video", value, sizeof(value));
-    if (ret > 0) {
-        unsigned int has_video = (unsigned int)atoi(value);
-        ALOGI("%s() get the has video parameters %d \n", __func__, has_video);
-        if (adev->audio_patch != NULL) {
-            adev->audio_patch->dtv_has_video = has_video;
-        } else {
-            ALOGI("%s()the audio patch is NULL \n", __func__);
-        }
-
         goto exit;
     }
 
@@ -4753,14 +4643,6 @@ static int adev_set_parameters (struct audio_hw_device *dev, const char *kvpairs
         goto exit;
     }
 
-    ret = str_parms_get_str(parms, "hal_param_tv_mute", value, sizeof(value));
-    if (ret >= 0) {
-        unsigned int tv_mute = (unsigned int)atoi(value);
-        ALOGE ("Amlogic_HAL - %s: TV-Mute:%d.", __FUNCTION__,tv_mute);
-        adev->tv_mute = tv_mute;
-        adev->hw_mixer.mute_main_flag = tv_mute;
-        goto exit;
-    }
 
     ret = str_parms_get_str(parms, "show-meminfo", value, sizeof(value));
     if (ret >= 0) {
@@ -6247,7 +6129,7 @@ ssize_t hw_write (struct audio_stream_out *stream
         ALOGI("+%s() buffer %p bytes %zu, format %#x out %p hw_sync_mode %d\n",
             __func__, buffer, bytes, output_format, aml_out, aml_out->hw_sync_mode);
     }
-    if (is_dtv && need_hw_mix(adev->usecase_masks)) {
+   if (is_dtv && need_hw_mix(adev->usecase_masks)) {
         if (adev->audio_patch && adev->audio_patch->avsync_callback)
             adev->audio_patch->avsync_callback(adev->audio_patch,aml_out);
     }
@@ -9524,6 +9406,7 @@ static int adev_close(hw_device_t *device)
     release_aec(adev->aec);
 #endif
     g_adev = NULL;
+
     aml_audio_free(device);
     pthread_mutex_unlock(&adev_mutex);
     aml_audio_debug_malloc_close();
@@ -9914,6 +9797,7 @@ static int adev_open(const hw_module_t* module, const char* name, hw_device_t** 
         memset(&adev->ddp, 0, sizeof(struct dolby_ddp_dec));
         adev->dcvlib_bypass_enable = 1;
     }
+
     adev->sound_track_mode = 0;
     adev->mixing_level = 0;
     adev->advol_level = 100;

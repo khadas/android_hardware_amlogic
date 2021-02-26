@@ -84,6 +84,7 @@ int audio_decode_init(void **handle, arm_audio_info *a_ainfo)
     audec->pid = a_ainfo->pid;
     audec->demux_id = a_ainfo->demux_id;
     audec->security_mem_level = a_ainfo->security_mem_level;
+    audec->demux_handle = a_ainfo->demux_handle;
 #endif
 
     if (a_ainfo->droppcm_flag) {

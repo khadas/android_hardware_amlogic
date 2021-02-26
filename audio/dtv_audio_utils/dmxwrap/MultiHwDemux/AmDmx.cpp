@@ -92,7 +92,6 @@ void* AM_DMX_Device::dmx_data_thread(void *arg)
                     continue;
                 if (!filter->enable || !filter->used)
                     continue;
-
                 sec_len = BUF_SIZE;
 
 #ifndef DMX_WAIT_CB

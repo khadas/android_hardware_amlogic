@@ -43,8 +43,6 @@
 #include <audio-dec.h>
 #include <amthreadpool.h>
 #include <cutils/properties.h>
-
-
 extern int read_buffer(unsigned char *buffer, int size);
 
 void *audio_decode_loop(void *args);
@@ -513,11 +511,10 @@ unsigned long  armdec_get_pts(dsp_operations_t *dsp_ops)
         return pts;
     }
     audec->out_len_after_last_valid_pts = 0;
-    adec_print("====get pts:%lx offset:%ld frame_num:%lld \n", val, audec->decode_offset, frame_nums);
+    if (audec->debug_flag)
+        adec_print("====get pts:%lx offset:%ld frame_num:%lld \n", val, audec->decode_offset, frame_nums);
 
     val += 90000 / 1000 * pts_delta; // for a/v sync test,some times audio ahead video +28ms.so add +15ms to apts to .....
-    //if (val < 0)
-    //   val = 0;
     return val;
 }
 
@@ -615,11 +612,11 @@ static int InBufferInit(aml_audio_dec_t *audec)
 
     } else {
 #ifndef USE_AOUT_IN_ADEC
-        int ret = Init_Dmx_Main_Audio(audec->format,audec->pid,audec->security_mem_level);
+        /*int ret = Init_Dmx_Main_Audio(audec->format,audec->pid,audec->security_mem_level);
         if (ret < 0) {
             adec_print("uio init error! \n");
             return -1;
-        }
+        }*/
 #endif
     }
 
@@ -632,10 +629,10 @@ static int InBufferRelease(aml_audio_dec_t *audec)
     if (audec->use_sw_check_apts == 0)
         uio_deinit(audec);
     else {
-#ifndef USE_AOUT_IN_ADEC
+/*#ifndef USE_AOUT_IN_ADEC
        (void)audec;
         Destroy_Dmx_Main_Audio();
-#endif
+#endif*/
     }
     return 0;
 }
@@ -1412,9 +1409,6 @@ void *audio_getpackage_loop(void *args)
 #ifndef USE_AOUT_IN_ADEC
     int64_t last_checkin_apts = 0;
     adec_print("audec->use_sw_check_apts %d",audec->use_sw_check_apts);
-    if (audec->use_sw_check_apts) {
-        Start_Dmx_Main_Audio();
-    }
 #endif
     while (1) {
         //exit_decode_loop:
@@ -1486,7 +1480,12 @@ void *audio_getpackage_loop(void *args)
         } else {
 #ifndef USE_AOUT_IN_ADEC
             struct mAudioEsDataInfo *mEsData;
-            nRet = Get_MainAudio_Es(&mEsData);
+            void *demux_handle = audec->demux_handle;
+            if (demux_handle == NULL) {
+                adec_print("demux_handle %p", demux_handle);
+                continue;
+            }
+            nRet = Get_MainAudio_Es(demux_handle,&mEsData);
             if (nRet != 0) {
                 sleeptime++;
                 amthreadpool_thread_usleep(1000);
@@ -1511,11 +1510,6 @@ void *audio_getpackage_loop(void *args)
         }
     }
     //QUIT:
-#ifndef USE_AOUT_IN_ADEC
-    if (audec->use_sw_check_apts) {
-        Stop_Dmx_Main_Audio();
-    }
-#endif
     adec_print("[%s]Exit adec_getpackage_loop Thread finished!", __FUNCTION__);
     pthread_exit(NULL);
     return NULL;
@@ -1595,7 +1589,12 @@ void *ad_audio_getpackage_loop(void *args)
             while (!audec->exit_decode_thread) {
                 if (is_sc2_chip()) {
                     struct mAudioEsDataInfo *mEsData;
-                    nRet = Get_ADAudio_Es(&mEsData);
+                    void *demux_handle = audec->demux_handle;;
+                    if (demux_handle == NULL) {
+                        adec_print("demux_handle %p", demux_handle);
+                        continue;
+                    }
+                    nRet = Get_ADAudio_Es(demux_handle, &mEsData);
                     if (nRet != 0) {
                         sleeptime++;
                         amthreadpool_thread_usleep(1000);

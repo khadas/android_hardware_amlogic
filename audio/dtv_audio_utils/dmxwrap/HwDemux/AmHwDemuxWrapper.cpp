@@ -27,6 +27,7 @@
 #define DSC_DEV_NAME               "/dev/dvb0.ca"
 #define TRICKMODE_NONE      0x00
 #define VALID_PID(_pid_) ((_pid_)>0 && (_pid_)<0x1fff)
+
 #define PATH_LEN                 (64)
 #define STATE_LEN                (30)
 AM_DmxErrorCode_t Dsc_Open(Am_DemuxWrapper_OpenPara_t **mpara)
@@ -547,7 +548,7 @@ AM_DmxErrorCode_t AmHwDemuxWrapper::AmDemuxWrapperSetVideoParam(int vid, AM_AV_V
     return ret;
 }
 
-AM_DmxErrorCode_t AmHwDemuxWrapper::AmDemuxWrapperSetAudioParam(int aid, AM_AV_AFormat_t afmt ,int security_mem_level)
+AM_DmxErrorCode_t AmHwDemuxWrapper::AmDemuxWrapperSetAudioParam(int aid, AM_AV_AFormat_t afmt)
 {
     ALOGV("%s at #line %d\n",__func__,__LINE__);
     AM_DmxErrorCode_t ret = AM_Dmx_SUCCESS;

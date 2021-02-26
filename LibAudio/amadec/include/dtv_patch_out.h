@@ -40,7 +40,9 @@ typedef int (*out_audio_info)(void *args,unsigned char ori_channum,unsigned char
 int dtv_patch_input_open(unsigned int *handle, out_pcm_write pcmcb,
                         out_get_wirte_status_info buffercb,
                         out_audio_info info_cb,void *args);
-int dtv_patch_input_start(unsigned int handle, int demux_id, int pid, int aformat, int has_video,bool associate_dec_supported,bool associate_audio_mixing_enable,int dual_decoder_mixing_level);
+int dtv_patch_input_start(unsigned int handle, int demux_id, int pid, int aformat,
+                               int has_video,bool associate_dec_supported,bool associate_audio_mixing_enable,
+                               int dual_decoder_mixing_level, void *demux_handle);
 int dtv_patch_input_stop(unsigned int handle);
 int dtv_patch_input_pause(unsigned int handle);
 int dtv_patch_input_resume(unsigned int handle);

@@ -237,7 +237,8 @@ struct aml_audio_dec {
     int mixing_level;//def=50, mixing level between main and associate, [0,100]
     int security_mem_level;
     struct aml_hw_mixer hw_mixer;
-	int ad_pcmscale;
+    int ad_pcmscale;
+    void *demux_handle;
 #endif
     int pid;
     int demux_id;
@@ -269,6 +270,7 @@ typedef struct {
     int pid;
     int demux_id;
     int security_mem_level;
+    void *demux_handle;
 } arm_audio_info;
 
 typedef struct {

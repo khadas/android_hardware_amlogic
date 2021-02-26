@@ -131,7 +131,7 @@ public:
    virtual  AM_DmxErrorCode_t AmDemuxWrapperFlushData(int pid); //???
    virtual  AM_DmxErrorCode_t AmDemuxWrapperPause();
    virtual  AM_DmxErrorCode_t AmDemuxWrapperResume();
-   virtual  AM_DmxErrorCode_t AmDemuxWrapperSetAudioParam(int aid, AM_AV_AFormat_t afmt, int security_mem_level);
+   virtual  AM_DmxErrorCode_t AmDemuxWrapperSetAudioParam(int aid, AM_AV_AFormat_t afmt);
    virtual  AM_DmxErrorCode_t AmDemuxWrapperSetAudioDescParam(int aid, AM_AV_AFormat_t afmt);
    virtual  AM_DmxErrorCode_t AmDemuxWrapperSetSubtitleParam(int sid, int stype);
    virtual  AM_DmxErrorCode_t AmDemuxWrapperSetVideoParam(int vid, AM_AV_VFormat_t vfmt);

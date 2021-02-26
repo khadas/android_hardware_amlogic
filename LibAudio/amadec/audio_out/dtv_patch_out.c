@@ -328,7 +328,7 @@ int dtv_patch_input_open(unsigned int *handle, out_pcm_write pcmcb,
 }
 
 int dtv_patch_input_start(unsigned int handle, int demux_id, int pid, int aformat, int has_video,
-           bool associate_dec_supported,bool associate_audio_mixing_enable,int dual_decoder_mixing_level)
+           bool associate_dec_supported,bool associate_audio_mixing_enable,int dual_decoder_mixing_level, void *demux_handle)
 {
     int ret;
     adec_print("now enter the dtv_patch_input_start function handle %d "
@@ -361,6 +361,7 @@ int dtv_patch_input_start(unsigned int handle, int demux_id, int pid, int aforma
     param.has_video = has_video;
     param.pid = pid;
     param.demux_id = demux_id;
+    param.demux_handle = demux_handle;
     paramout->audec = NULL;
     if (aformat == ACODEC_FMT_MPEG
         || aformat == ACODEC_FMT_MPEG1
