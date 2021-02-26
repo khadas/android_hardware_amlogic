@@ -11503,6 +11503,10 @@ static int adev_close(hw_device_t *device)
         ALOGD("%s, ms12_mesg_thread_destroy finished!\n", __func__);
     }
 
+    if (eDolbyMS12Lib == adev->dolby_lib_type) {
+        get_dolby_ms12_cleanup(&adev->ms12);
+    }
+
 /*[SEI-zhaopf-2018-10-29] add for HBG remote audio support { */
 #if defined(ENABLE_HBG_PATCH)
     stopReceiveAudioData();
