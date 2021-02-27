@@ -1586,7 +1586,7 @@ static int out_set_parameters (struct audio_stream *stream, const char *kvpairs)
         int hw_sync_id = atoi(value);
         bool ret_set_id = false;
         if ((hw_sync_id != 12345678) && (hw_sync_id >= 0)) {
-            ALOGI ("[%s]adev->hw_mediasync:%p\n.", __FUNCTION__, adev->hw_mediasync);
+            ALOGI ("[%s]adev->hw_mediasync:%p\n", __FUNCTION__, adev->hw_mediasync);
             if (adev->hw_mediasync == NULL) {
                 adev->hw_mediasync = aml_hwsync_mediasync_create();
             }
@@ -1602,6 +1602,13 @@ static int out_set_parameters (struct audio_stream *stream, const char *kvpairs)
         ALOGI("(%p)set hw_sync_id %d,%s hw sync mode\n",
                out, hw_sync_id, sync_enable ? "enable" : "disable");
         out->hw_sync_mode = sync_enable;
+
+        if (adev->ms12_out != NULL && adev->ms12_out->hwsync) {
+            adev->ms12_out->hw_sync_mode = out->hw_sync_mode;
+            ALOGI("set ms12_out %p hw_sync_mode %d",adev->ms12_out, adev->ms12_out->hw_sync_mode);
+        }
+
+
         hw_sync->first_apts_flag = false;
         pthread_mutex_lock (&adev->lock);
         pthread_mutex_lock (&out->lock);
@@ -7850,7 +7857,8 @@ ssize_t hw_write (struct audio_stream_out *stream
 
     adev->debug_flag = aml_audio_get_debug_flag();
     if (adev->debug_flag) {
-        ALOGI("+%s() buffer %p bytes %zu, format %#x", __func__, buffer, bytes, output_format);
+        ALOGI("+%s() buffer %p bytes %zu, format %#x out %p hw_sync_mode %d\n",
+            __func__, buffer, bytes, output_format, aml_out, aml_out->hw_sync_mode);
     }
     if (is_dtv && need_hw_mix(adev->usecase_masks)) {
         if (adev->audio_patch && adev->audio_patch->avsync_callback)
@@ -7925,8 +7933,9 @@ ssize_t hw_write (struct audio_stream_out *stream
             // one case is no main audio playing, only aux audio playing (Netflix main screen)
             // in this case dolby_ms12_get_consumed_payload() always return 0, no AV sync can be done zzz
             if (aml_out->hwsync->aout) {
-                if (is_bypass_dolbyms12(stream))
+                if (is_bypass_dolbyms12(stream)) {
                     aml_audio_hwsync_audio_process(aml_out->hwsync, aml_out->hwsync->payload_offset, out_frames, &adjust_ms);
+                }
                 else {
                     if (!audio_is_linear_pcm(aml_out->hal_internal_format)) {
                         /*if udc decode doens't generate any data, we should not use the consume offset to get pts*/
@@ -8378,7 +8387,8 @@ void config_output(struct audio_stream_out *stream, bool reset_decoder)
             if (adev->ms12_out != NULL && adev->ms12_out->hwsync) {
                 //aml_audio_hwsync_init(adev->ms12_out->hwsync, adev->ms12_out);
                 adev->ms12_out->hwsync->aout = adev->ms12_out;
-                ALOGI("set ms12 hwsync out to %p",adev->ms12_out);
+                adev->ms12_out->hw_sync_mode = aml_out->hw_sync_mode;
+                ALOGI("set ms12 hwsync out to %p set its hw_sync_mode %d",adev->ms12_out, adev->ms12_out->hw_sync_mode);
             }
 
             adev->mix_init_flag = true;
