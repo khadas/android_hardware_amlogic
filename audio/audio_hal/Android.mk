@@ -119,9 +119,10 @@ include $(BUILD_PREBUILT)
         $(TOPDIR)frameworks/av/media/libaudioclient/include \
         $(TOPDIR)frameworks/av/media/libaudioprocessing/include \
         hardware/amlogic/audio/dtv_audio_utils/sync \
-	hardware/amlogic/audio/dtv_audio_utils/audio_read_api \
+        hardware/amlogic/audio/dtv_audio_utils/audio_read_api \
         $(LOCAL_PATH)/../amlogic_AQ_tools \
-        $(LOCAL_PATH)/../amlogic_AQ_tools/ini
+        $(LOCAL_PATH)/../amlogic_AQ_tools/ini \
+        vendor/amlogic/common/frameworks/av/libaudioeffect/VirtualX
 
     LOCAL_LDFLAGS_arm += $(LOCAL_PATH)/../amlogic_AQ_tools/lib_aml_ng.a
     LOCAL_LDFLAGS_arm += $(LOCAL_PATH)/../amlogic_AQ_tools/Amlogic_EQ_Param_Generator.a

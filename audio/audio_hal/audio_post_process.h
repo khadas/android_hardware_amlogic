@@ -20,12 +20,28 @@
 #include <hardware/audio_effect.h>
 
 #define MAX_POSTPROCESSORS 10
+
 struct aml_native_postprocess {
     int num_postprocessors;
     effect_handle_t postprocessors[MAX_POSTPROCESSORS];
     int total_postprocessors;
+
+    /* VirtualX effect license library exist flag */
+    /* Path: (/vendor/lib/soundfx/libvx.so) */
+    bool libvx_exist;
+    bool vx_force_stereo;
+    /* channel num of effect input */
+    int effect_in_ch;
 };
 
 int audio_post_process(effect_handle_t effect, int16_t *in_buffer, size_t out_frames);
+
+/* VirtualX: */
+/* path of virtualx effect license library */
+#define VIRTUALX_LICENSE_LIB_PATH "/vendor/lib/soundfx/libvx.so"
+
+void VirtualX_reset(struct aml_native_postprocess *native_postprocess);
+void VirtualX_Channel_reconfig(struct aml_native_postprocess *native_postprocess, int ch_num);
+bool Check_VX_lib(void);
 
 #endif

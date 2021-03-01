@@ -115,7 +115,7 @@ void exit_pthread_for_audio_type_parse(
 /*
  *@brief convert the audio type to android audio format
  */
-audio_format_t andio_type_convert_to_android_audio_format_t(int codec_type);
+audio_format_t audio_type_convert_to_android_audio_format_t(int codec_type);
 
 
 /*
@@ -134,6 +134,10 @@ audio_channel_mask_t audio_parse_get_audio_channel_mask(audio_type_parse_t *stat
  *@brief gget current audio fromat from audio parser thread
  */
 int audio_parse_get_audio_type_direct(audio_type_parse_t *status);
+/*
+ *@brief parse the channels in the undecoded DTS stream
+ */
+int get_dts_stream_channels(const char *buffer, size_t bytes);
 /*
  *@brief gget current audio type from buffer data
  */

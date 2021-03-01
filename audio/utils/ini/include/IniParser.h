@@ -73,7 +73,7 @@ private:
 };
 
 //for memory new and delete debug
-#define CC_MEMORY_NEW_DEL_TRACE              (1)
+#define CC_MEMORY_NEW_DEL_TRACE              (0)
 #define CC_MEMORY_NEW_DEL_TRACE_PRINT_ALL    (0)
 
 #if CC_MEMORY_NEW_DEL_TRACE == 1

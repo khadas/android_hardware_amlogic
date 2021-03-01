@@ -1845,7 +1845,7 @@ static int out_get_render_position (const struct audio_stream_out *stream,
 }
 
 
-static int out_add_audio_effect (const struct audio_stream *stream, effect_handle_t effect)
+static int out_add_audio_effect(const struct audio_stream *stream, effect_handle_t effect)
 {
     struct aml_stream_out *out = (struct aml_stream_out *) stream;
     struct aml_audio_device *dev = out->dev;
@@ -1867,13 +1867,36 @@ static int out_add_audio_effect (const struct audio_stream *stream, effect_handl
     }
 
     dev->native_postprocess.postprocessors[dev->native_postprocess.num_postprocessors++] = effect;
+
+    effect_descriptor_t tmpdesc;
+    (*effect)->get_descriptor(effect, &tmpdesc);
+    if (0 == strcmp(tmpdesc.name, "VirtualX")) {
+        dev->native_postprocess.libvx_exist = Check_VX_lib();
+        ALOGI("%s, '%s' exist flag : %s", __FUNCTION__, VIRTUALX_LICENSE_LIB_PATH,
+            (dev->native_postprocess.libvx_exist) ? "true" : "false");
+        /* specify effect order for virtualx. VX does downmix from 5.1 to 2.0 */
+        i = dev->native_postprocess.num_postprocessors;
+        if (dev->native_postprocess.num_postprocessors > 1) {
+            effect_handle_t tmp;
+            tmp = dev->native_postprocess.postprocessors[i];
+            dev->native_postprocess.postprocessors[i] = dev->native_postprocess.postprocessors[0];
+            dev->native_postprocess.postprocessors[0] = tmp;
+            ALOGI("%s, reorder VirtualX at the first of the effect chain.", __FUNCTION__);
+        }
+    }
+    ALOGI("%s, add audio effect: %s in audio hal!, effect ID [%d]", __FUNCTION__,
+        tmpdesc.name, (dev->native_postprocess.num_postprocessors - 1));
+
+    if (dev->native_postprocess.num_postprocessors >= dev->native_postprocess.total_postprocessors)
+        dev->native_postprocess.total_postprocessors = dev->native_postprocess.num_postprocessors;
+
 exit:
     pthread_mutex_unlock (&out->lock);
     pthread_mutex_unlock (&dev->lock);
     return status;
 }
 
-static int out_remove_audio_effect (const struct audio_stream *stream, effect_handle_t effect)
+static int out_remove_audio_effect(const struct audio_stream *stream, effect_handle_t effect)
 {
     struct aml_stream_out *out = (struct aml_stream_out *) stream;
     struct aml_audio_device *dev = out->dev;
@@ -3341,6 +3364,9 @@ static void adev_close_output_stream(struct audio_hw_device *dev,
     struct aml_audio_device *adev = (struct aml_audio_device *)dev;
 
     ALOGD("%s: enter: dev(%p) stream(%p)", __func__, dev, stream);
+
+    VirtualX_reset(&adev->native_postprocess);
+    VirtualX_Channel_reconfig(&adev->native_postprocess, 2);
 
     if (adev->useSubMix) {
         if (out->usecase == STREAM_PCM_NORMAL || out->usecase == STREAM_PCM_HWSYNC)
@@ -5958,19 +5984,6 @@ ssize_t audio_hal_data_processing(struct audio_stream_out *stream,
             memcpy(effect_tmp_buf, tmp_buffer, bytes);
 #endif
 
-            /*aduio effect process for speaker*/
-            for (j = 0; j < adev->native_postprocess.num_postprocessors; j++) {
-                audio_post_process(adev->native_postprocess.postprocessors[j], effect_tmp_buf, out_frames);
-            }
-            if (aml_getprop_bool("vendor.media.audiohal.outdump")) {
-                FILE *fp1 = fopen("/data/audio_spk.pcm", "a+");
-                if (fp1) {
-                    int flen = fwrite((char *)effect_tmp_buf, 1, bytes, fp1);
-                    ALOGV("%s buffer %p size %zu\n", __FUNCTION__, effect_tmp_buf, bytes);
-                    fclose(fp1);
-                }
-            }
-
             if (adev->patch_src == SRC_DTV)
                 source_gain = adev->eq_data.s_gain.dtv;
             else if (adev->patch_src == SRC_HDMIIN)
@@ -5981,10 +5994,38 @@ ssize_t audio_hal_data_processing(struct audio_stream_out *stream,
                 source_gain = adev->eq_data.s_gain.atv;
             else
                 source_gain = adev->eq_data.s_gain.media;
+
             if (adev->patch_src == SRC_DTV && adev->audio_patch != NULL) {
                 aml_audio_switch_output_mode((int16_t *)effect_tmp_buf, bytes, adev->audio_patch->mode);
             } else if ( adev->audio_patch == NULL) {
                aml_audio_switch_output_mode((int16_t *)effect_tmp_buf, bytes, adev->sound_track_mode);
+            }
+
+            /*aduio effect process for speaker*/
+            if (adev->native_postprocess.num_postprocessors == adev->native_postprocess.total_postprocessors
+                && !(adev->out_device & AUDIO_DEVICE_OUT_ALL_A2DP)) {
+                for (j = 0; j < adev->native_postprocess.num_postprocessors; j++) {
+                    if (adev->native_postprocess.effect_in_ch > 2 && adev->native_postprocess.postprocessors[j] != NULL) {
+                        effect_descriptor_t tmpdesc;
+                        (*(adev->native_postprocess.postprocessors[j]))->get_descriptor(
+                            adev->native_postprocess.postprocessors[j], &tmpdesc);
+                        /* here only do 2 channel audio effect processing */
+                        if (0 != strcmp(tmpdesc.name,"VirtualX")) {
+                            audio_post_process(adev->native_postprocess.postprocessors[j], effect_tmp_buf, out_frames);
+                        }
+                    } else {
+                        audio_post_process(adev->native_postprocess.postprocessors[j], effect_tmp_buf, out_frames);
+                    }
+                }
+            }
+
+            if (aml_getprop_bool("media.audiohal.outdump")) {
+                FILE *fp1 = fopen("/data/audio_spk.pcm", "a+");
+                if (fp1) {
+                    int flen = fwrite((char *)effect_tmp_buf, 1, bytes, fp1);
+                    ALOGV("%s buffer %p size %zu\n", __FUNCTION__, effect_tmp_buf, bytes);
+                    fclose(fp1);
+                }
             }
 
             float volume = source_gain;
@@ -6710,7 +6751,7 @@ void config_output(struct audio_stream_out *stream, bool reset_decoder)
     return ;
 }
 
-ssize_t mixer_main_buffer_write (struct audio_stream_out *stream, const void *buffer,
+ssize_t mixer_main_buffer_write(struct audio_stream_out *stream, const void *buffer,
                                  size_t bytes)
 {
     ALOGV("%s write in %zu!\n", __FUNCTION__, bytes);
@@ -7060,58 +7101,64 @@ hwsync_rewrite:
     }
 
     /* here to check if the audio input format changed. */
-    if (adev->audio_patch) {
-        audio_format_t cur_aformat;
-        if (IS_HDMI_IN_HW(patch->input_src) ||
-                patch->input_src == AUDIO_DEVICE_IN_SPDIF) {
-            cur_aformat = audio_parse_get_audio_type (patch->audio_parse_para);
-            if (cur_aformat != patch->aformat) {
-                ALOGI ("HDMI/SPDIF input format changed from %#x to %#x\n", patch->aformat, cur_aformat);
-                patch->aformat = cur_aformat;
-                //FIXME: if patch audio format change, the hal_format need to redefine.
-                //then the out_get_format() can get it.
-                ALOGI ("hal_format changed from %#x to %#x\n", aml_out->hal_format, cur_aformat);
-                if (cur_aformat != AUDIO_FORMAT_PCM_16_BIT && cur_aformat != AUDIO_FORMAT_PCM_32_BIT) {
-                    aml_out->hal_format = AUDIO_FORMAT_IEC61937;
-                } else {
-                    aml_out->hal_format = cur_aformat ;
-                }
-                aml_out->hal_internal_format = cur_aformat;
-                aml_out->hal_channel_mask = audio_parse_get_audio_channel_mask (patch->audio_parse_para);
-                ALOGI ("%s hal_channel_mask %#x\n", __FUNCTION__, aml_out->hal_channel_mask);
-                if (aml_out->hal_internal_format == AUDIO_FORMAT_DTS) {
-                    adev->dolby_lib_type = eDolbyDcvLib;
-                } else {
-                    adev->dolby_lib_type = adev->dolby_lib_type_last;
-                }
-                //we just do not support dts decoder,just mute as LPCM
-                need_reconfig_output = true;
-                /* reset audio patch ringbuffer */
-                ring_buffer_reset(&patch->aml_ringbuffer);
-
-                // HDMI input && HDMI ARC output case, when input format change, output format need also change
-                // for examle: hdmi input DD+ => DD,  HDMI ARC DD +=> DD
-                // so we need to notify to reset spdif output format here.
-                // adev->spdif_encoder_init_flag will be checked elsewhere when doing output.
-                // and spdif_encoder will be initalize by correct format then.
-                if (aml_out->spdifenc_init) {
-                    aml_spdif_encoder_close(aml_out->spdifenc_handle);
-                    aml_out->spdifenc_handle = NULL;
-                    aml_out->spdifenc_init = false;
-                }
-
-                adev->spdif_encoder_init_flag = false;
+    audio_format_t cur_aformat;
+    if (adev->audio_patch &&
+            (IS_HDMI_IN_HW(patch->input_src) || patch->input_src == AUDIO_DEVICE_IN_SPDIF)) {
+        cur_aformat = audio_parse_get_audio_type (patch->audio_parse_para);
+        if (cur_aformat != patch->aformat) {
+            ALOGI ("HDMI/SPDIF input format changed from %#x to %#x\n", patch->aformat, cur_aformat);
+            patch->aformat = cur_aformat;
+            //FIXME: if patch audio format change, the hal_format need to redefine.
+            //then the out_get_format() can get it.
+            ALOGI ("hal_format changed from %#x to %#x\n", aml_out->hal_format, cur_aformat);
+            if (cur_aformat != AUDIO_FORMAT_PCM_16_BIT && cur_aformat != AUDIO_FORMAT_PCM_32_BIT) {
+                aml_out->hal_format = AUDIO_FORMAT_IEC61937;
+            } else {
+                aml_out->hal_format = cur_aformat ;
             }
+            aml_out->hal_internal_format = cur_aformat;
+            aml_out->hal_channel_mask = audio_parse_get_audio_channel_mask (patch->audio_parse_para);
+            ALOGI ("%s hal_channel_mask %#x\n", __FUNCTION__, aml_out->hal_channel_mask);
+            if (aml_out->hal_internal_format == AUDIO_FORMAT_DTS ||
+                aml_out->hal_internal_format == AUDIO_FORMAT_DTS_HD) {
+                adev->dolby_lib_type = eDolbyDcvLib;
+                if (aml_out->hal_internal_format == AUDIO_FORMAT_DTS_HD) {
+                    /* For DTS HBR case, needs enlarge buffer and start threshold to anti-xrun */
+                    aml_out->config.period_count = 6;
+                    aml_out->config.start_threshold =
+                        aml_out->config.period_size * aml_out->config.period_count;
+                }
+            } else {
+                adev->dolby_lib_type = adev->dolby_lib_type_last;
+            }
+            //we just do not support dts decoder,just mute as LPCM
+            need_reconfig_output = true;
+            need_reset_decoder = true;
+            /* reset audio patch ringbuffer */
+            ring_buffer_reset(&patch->aml_ringbuffer);
+
+            // HDMI input && HDMI ARC output case, when input format change, output format need also change
+            // for examle: hdmi input DD+ => DD,  HDMI ARC DD +=> DD
+            // so we need to notify to reset spdif output format here.
+            // adev->spdif_encoder_init_flag will be checked elsewhere when doing output.
+            // and spdif_encoder will be initalize by correct format then.
+            if (aml_out->spdifenc_init) {
+                aml_spdif_encoder_close(aml_out->spdifenc_handle);
+                aml_out->spdifenc_handle = NULL;
+                aml_out->spdifenc_init = false;
+            }
+
+            adev->spdif_encoder_init_flag = false;
         }
     } else if (aml_out->hal_format == AUDIO_FORMAT_IEC61937 &&
         (aml_out->hal_internal_format == AUDIO_FORMAT_DTS || aml_out->hal_internal_format == AUDIO_FORMAT_DTS_HD) &&
         !adev->dts_hd.is_dtscd) {
+
         audio_channel_mask_t cur_ch_mask;
-        audio_format_t cur_aformat;
         int package_size;
         int cur_audio_type = audio_type_parse(write_buf, write_bytes, &package_size, &cur_ch_mask);
 
-        cur_aformat = andio_type_convert_to_android_audio_format_t(cur_audio_type);
+        cur_aformat = audio_type_convert_to_android_audio_format_t(cur_audio_type);
         ALOGI("cur_aformat:%0x cur_audio_type:%d", cur_aformat, cur_audio_type);
         if (cur_audio_type == DTSCD) {
             adev->dts_hd.is_dtscd = true;
@@ -7128,8 +7175,31 @@ hwsync_rewrite:
         } else {
             return return_bytes;
         }
-    } else if (aml_out->hal_internal_format != AUDIO_FORMAT_DTS) {
+    } else if (aml_out->hal_internal_format != AUDIO_FORMAT_DTS &&
+               aml_out->hal_internal_format != AUDIO_FORMAT_DTS_HD) {
         adev->dolby_lib_type = adev->dolby_lib_type_last;
+    }
+
+    if (adev->native_postprocess.libvx_exist && (cur_aformat == AUDIO_FORMAT_DTS || cur_aformat == AUDIO_FORMAT_DTS_HD)) {
+        int cur_channels = get_dts_stream_channels((const char*)buffer, bytes);
+        if (cur_channels >= 6) {
+            cur_channels = 6;
+        }
+        if (adev->audio_patch && cur_aformat != patch->aformat) {
+            cur_channels = 0;
+        }
+        if ((cur_channels != -1) && (!adev->native_postprocess.vx_force_stereo) &&
+                (adev->native_postprocess.effect_in_ch != cur_channels)) {
+            ALOGD("%s, pre_channels = %d, cur_channels = %d", __func__,
+                adev->native_postprocess.effect_in_ch, cur_channels);
+            if (cur_channels == 6) {
+                VirtualX_Channel_reconfig(&adev->native_postprocess, 6);
+            } else {
+                VirtualX_Channel_reconfig(&adev->native_postprocess, 2);
+            }
+            need_reconfig_output = true;
+            need_reset_decoder = true;
+        }
     }
 
     if (adev->need_reset_for_dual_decoder == true) {
