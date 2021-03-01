@@ -685,6 +685,7 @@ struct aml_stream_out {
     uint64_t main_input_ns;
     bool is_sink_format_prepared;
     bool is_ms12_main_decoder;
+    bool is_add2active_output;
 };
 
 typedef ssize_t (*write_func)(struct audio_stream_out *stream, const void *buffer, size_t bytes);

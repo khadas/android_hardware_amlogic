@@ -9668,7 +9668,7 @@ ssize_t mixer_aux_buffer_write(struct audio_stream_out *stream, const void *buff
         }
         if (continous_mode(adev)) {
             /*only system sound active*/
-            if (!hw_mix) {
+            if (!hw_mix && (!(dolby_stream_active(adev) || hwsync_lpcm_active(adev)))) {
                 /* here to check if the audio HDMI ARC format updated. */
                 if (((adev->arc_hdmi_updated) || (adev->a2dp_updated) || (adev->hdmi_format_updated) || (adev->bHDMIConnected_update))
                     && (adev->ms12.dolby_ms12_enable == true)) {
@@ -9919,9 +9919,13 @@ ssize_t process_buffer_write(struct audio_stream_out *stream,
 /* must be called with hw device mutexes locked */
 static int usecase_change_validate_l(struct aml_stream_out *aml_out, bool is_standby)
 {
-    struct aml_audio_device *aml_dev = aml_out->dev;
-    bool hw_mix;
-
+    struct aml_audio_device *aml_dev = NULL;
+    bool hw_mix = false;
+    if (aml_out == NULL) {
+        ALOGE("%s stream is NULL", __func__);
+        return 0;
+    }
+    aml_dev = aml_out->dev;
     if (is_standby) {
         ALOGI("++[%s:%d], dev masks:%#x, is_standby:%d, out usecase:%s", __func__, __LINE__,
             aml_dev->usecase_masks, is_standby, usecase2Str(aml_out->usecase));
@@ -10043,6 +10047,14 @@ ssize_t out_write_new(struct audio_stream_out *stream,
 
     if (adev->debug_flag > 1) {
         ALOGI("+<IN>%s: out_stream(%p) position(%zu)", __func__, stream, bytes);
+    }
+
+    /*when there is data writing in this stream, we can add it to active stream*/
+    if (!aml_out->is_add2active_output) {
+        aml_out->is_add2active_output = true;
+        pthread_mutex_lock(&adev->lock);
+        adev->active_outputs[aml_out->usecase] = aml_out;
+        pthread_mutex_unlock(&adev->lock);
     }
 
     /*move it from open function, because when hdmi hot plug, audio service will
@@ -10237,10 +10249,6 @@ int adev_open_output_stream_new(struct audio_hw_device *dev,
     aml_out->codec_type = get_codec_type(aml_out->hal_internal_format);
     aml_out->continuous_mode_check = true;
 
-    pthread_mutex_lock(&adev->lock);
-    adev->active_outputs[aml_out->usecase] = aml_out;
-    pthread_mutex_unlock(&adev->lock);
-
     if (aml_getprop_bool("vendor.media.audio.hal.debug")) {
         aml_out->debug_stream = 1;
     }
@@ -10258,8 +10266,9 @@ void adev_close_output_stream_new(struct audio_hw_device *dev,
 
     ALOGD("%s: enter usecase = %s", __func__, usecase2Str(aml_out->usecase));
     /* call legacy close to reuse codes */
-    adev->active_outputs[aml_out->usecase] = NULL;
-
+    if (aml_out->is_add2active_output) {
+        adev->active_outputs[aml_out->usecase] = NULL;
+    }
     if (adev->useSubMix) {
         if (aml_out->is_normal_pcm ||
             aml_out->usecase == STREAM_PCM_HWSYNC ||
