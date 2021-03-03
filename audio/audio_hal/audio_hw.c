@@ -4988,19 +4988,6 @@ static void adev_close_output_stream(struct audio_hw_device *dev,
     adev->usecase_masks &= ~(1 << out->usecase);
 
     if (continous_mode(adev) && (eDolbyMS12Lib == adev->dolby_lib_type)) {
-        /*main stream is closed, wait mesg processed*/
-        if (out->is_ms12_main_decoder) {
-            int wait_cnt = 0;
-            while (!ms12_msg_list_is_empty(&adev->ms12)) {
-                aml_audio_sleep(5000);
-                wait_cnt++;
-                if (wait_cnt >= 200) {
-                    break;
-                }
-            }
-            ALOGI("main stream message is processed cost =%d ms", wait_cnt * 5);
-        }
-
         if (out->volume_l != 1.0) {
             if (!audio_is_linear_pcm(out->hal_internal_format)) {
                 dolby_ms12_set_main_volume(1.0);
@@ -5104,6 +5091,46 @@ static void adev_close_output_stream(struct audio_hw_device *dev,
     }
     /*main stream is closed, close the ms12 main decoder*/
     if (out->is_ms12_main_decoder) {
+        pthread_mutex_lock(&adev->ms12.lock);
+        /*after ms12 lock, dolby_ms12_enable may be cleared with clean up function*/
+        if (adev->ms12.dolby_ms12_enable) {
+            if (adev->ms12_main1_dolby_dummy == false
+            && !audio_is_linear_pcm(out->hal_internal_format)) {
+                dolby_ms12_set_main_dummy(0, true);
+                if (!adev->is_netflix) {
+                    set_ms12_acmod2ch_lock(&adev->ms12, true);
+                }
+                adev->ms12_main1_dolby_dummy = true;
+                ALOGI("%s set main dd+ dummy", __func__);
+            } else if (adev->ms12_ott_enable == true
+               && audio_is_linear_pcm(out->hal_internal_format)
+               && (out->flags & AUDIO_OUTPUT_FLAG_HW_AV_SYNC)) {
+
+                dolby_ms12_set_main_dummy(1, true);
+                adev->ms12_ott_enable = false;
+                ALOGI("%s set ott dummy", __func__);
+            }
+            adev->ms12.need_resume = 0;
+            adev->ms12.need_resync = 0;
+            adev->ms12_out->hw_sync_mode = false;
+
+            audiohal_send_msg_2_ms12(&adev->ms12, MS12_MESG_TYPE_FLUSH);
+            audiohal_send_msg_2_ms12(&adev->ms12, MS12_MESG_TYPE_RESUME);
+        }
+        pthread_mutex_unlock(&adev->ms12.lock);
+
+        /*main stream is closed, wait mesg processed*/
+        {
+            int wait_cnt = 0;
+            while (!ms12_msg_list_is_empty(&adev->ms12)) {
+                aml_audio_sleep(5000);
+                wait_cnt++;
+                if (wait_cnt >= 200) {
+                    break;
+                }
+            }
+            ALOGI("main stream message is processed cost =%d ms", wait_cnt * 5);
+        }
         dolby_ms12_main_close(stream);
     }
 
@@ -7029,38 +7056,6 @@ int do_output_standby_l(struct audio_stream *stream)
                         adev->need_remove_conti_mode = false;
                         adev->continuous_audio_mode = 0;
                     }
-
-                    pthread_mutex_lock(&adev->ms12.lock);
-                    /*after ms12 lock, dolby_ms12_enable may be cleared with clean up function*/
-                    if (adev->ms12.dolby_ms12_enable) {
-                        if (adev->ms12_main1_dolby_dummy == false
-                            && !audio_is_linear_pcm(aml_out->hal_internal_format)) {
-                            dolby_ms12_set_main_dummy(0, true);
-                            if (!adev->is_netflix) {
-                                set_ms12_acmod2ch_lock(&adev->ms12, true);
-                            }
-
-                            adev->ms12.need_resume       = 0;
-                            adev->ms12.need_resync       = 0;
-                            adev->ms12_main1_dolby_dummy = true;
-                            adev->ms12_out->hw_sync_mode = false;
-                            aml_out->hwsync->payload_offset = 0;
-                            ALOGI("%s set main dd+ dummy", __func__);
-                        } else if (adev->ms12_ott_enable == true
-                                   && audio_is_linear_pcm(aml_out->hal_internal_format)
-                                   && (aml_out->flags & AUDIO_OUTPUT_FLAG_HW_AV_SYNC)) {
-                            adev->ms12.need_resume       = 0;
-                            adev->ms12.need_resync       = 0;
-                            dolby_ms12_set_main_dummy(1, true);
-                            adev->ms12_ott_enable = false;
-                            adev->ms12_out->hw_sync_mode = false;
-                            aml_out->hwsync->payload_offset = 0;
-                            ALOGI("%s set ott dummy", __func__);
-                        }
-                        audiohal_send_msg_2_ms12(ms12, MS12_MESG_TYPE_FLUSH);
-                        audiohal_send_msg_2_ms12(ms12, MS12_MESG_TYPE_RESUME);
-                    }
-                    pthread_mutex_unlock(&adev->ms12.lock);
                 }
             }
         }
@@ -8994,7 +8989,13 @@ hwsync_rewrite:
                     adev->ms12.need_resync = 1;
                 }
                 adev->ms12.need_resume = 0;
-
+            } else if (aml_out->tsync_status == TSYNC_STATUS_STOP && aml_out->hw_sync_mode) {
+                pthread_mutex_lock(&ms12->lock);
+                audiohal_send_msg_2_ms12(ms12, MS12_MESG_TYPE_RESUME);
+                aml_hwsync_set_tsync_resume(aml_out->hwsync);
+                aml_out->tsync_status = TSYNC_STATUS_RUNNING;
+                ALOGI("resume ms12 and the timer");
+                pthread_mutex_unlock(&ms12->lock);
             }
         }
     }
