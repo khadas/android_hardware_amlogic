@@ -40,7 +40,7 @@ LOCAL_SRC_FILES := \
 LOCAL_MODULE := tv_input.amlogic
 LOCAL_MODULE_TAGS := optional
 LOCAL_C_INCLUDES += \
-    $(LIB_TV_BINDER_PATH)/include	\
+    $(LIB_TV_BINDER_PATH)/include \
     $(LIB_SQLITE_PATH)/dist \
     system/media/audio_effects/include \
     system/memory/libion/include \
@@ -56,6 +56,26 @@ LOCAL_C_INCLUDES += \
 
 ifeq ($(shell test $(PLATFORM_SDK_VERSION) -ge 26 && echo OK),OK)
 LOCAL_PROPRIETARY_MODULE := true
+endif
+
+ifeq ($(PRODUCT_SUPPORT_DTVKIT), true)
+LOCAL_CFLAGS += -DSUPPORT_DTVKIT
+
+LIB_DK_BINDER_PATH += $(BOARD_AML_VENDOR_PATH)/external/DTVKit/android-inputsource/app/src/main/client
+
+LOCAL_SHARED_LIBRARIES += \
+    vendor.amlogic.hardware.dtvkitserver@1.0 \
+    libdtvkithidlclient
+
+LOCAL_STATIC_LIBRARIES += \
+    libjsoncpp
+
+LOCAL_REQUIRED_MODULES += \
+    libdtvkithidlclient
+
+LOCAL_C_INCLUDES += \
+    $(LIB_DK_BINDER_PATH) \
+    external/jsoncpp/include
 endif
 
 include $(BUILD_SHARED_LIBRARY)

@@ -41,6 +41,7 @@ static int capHeight;
 static int supportDevices[20];
 static int count = 0;
 static int streamGivenId = -1;
+static int deviceGivenId = -1;
 
 native_handle_t *pTvStream = nullptr;
 
@@ -64,21 +65,42 @@ void EventCallback::onTvEvent (const source_connect_t &scrConnect) {
     }
 }
 
+static int channelCheckStaus(tv_input_private_t *priv, int check_status, int device_id)
+{
+    int ret = 0;
+
+    if (priv->mpTv && priv->mpTv->isTvPlatform())
+        ret = priv->mpTv->checkSourceStatus((tv_source_input_t) device_id, check_status);
+
+    return ret;
+}
+
 void channelControl(tv_input_private_t *priv, bool opsStart, int device_id) {
     if (priv->mpTv) {
-        ALOGI ("%s, device id:%d ,startTV:%d\n", __FUNCTION__, device_id, opsStart?1:0);
+        ALOGI ("%s, device id:%d, %s.\n", __FUNCTION__, device_id, opsStart ? "startTV": "stopTV");
 
-        if (SOURCE_DTVKIT == device_id)
+        if (SOURCE_DTVKIT == device_id && !(priv->mpTv->isTvPlatform()))
             return;
+
         if (opsStart) {
-            priv->mpTv->startTv();
+            priv->mpTv->startTv((tv_source_input_t) device_id);
             priv->mpTv->switchSourceInput((tv_source_input_t) device_id);
+            deviceGivenId = device_id;
         } else if (priv->mpTv->getCurrentSourceInput() == device_id) {
             char buf[PROPERTY_VALUE_MAX];
             int ret = property_get("tv.need.tvview.fast_switch", buf, NULL);
             if (ret <= 0 || strcmp(buf, "true") != 0) {
-                ALOGI ("%s,  stop tv\n", __FUNCTION__);
-                priv->mpTv->stopTv();
+                ALOGI ("%s,  stop tv: device id:%d\n", __FUNCTION__, device_id);
+                priv->mpTv->stopTv((tv_source_input_t) device_id);
+                deviceGivenId = -1;
+            }
+
+            tv_source_input_t wait_source = priv->mpTv->checkWaitSource(true);
+            if (wait_source != SOURCE_INVALID) {
+                priv->mpTv->startTv(wait_source);
+                priv->mpTv->switchSourceInput(wait_source);
+                deviceGivenId = wait_source;
+                streamGivenId = STREAM_ID_NORMAL;
             }
         }
     }
@@ -134,9 +156,10 @@ int notifyDeviceStatus(tv_input_private_t *priv, tv_source_input_t inputSrc, int
 
 
 static bool checkDeviceID(int device_id) {
-    ALOGD("supportDevices[i] = %d\n", supportDevices[0]);
+    ALOGD("checkDeviceID device_id = %d\n", device_id);
     for (int i = 0; i< count; i++) {
         if (device_id == supportDevices[i]) {
+           ALOGD("checkDeviceID supportDevices[i] = %d\n", supportDevices[i]);
            return true;
         }
     }
@@ -286,23 +309,26 @@ static int tv_input_open_stream(struct tv_input_device *dev, int device_id,
                                 tv_stream_t *stream)
 {
     tv_input_private_t *priv = (tv_input_private_t *)dev;
-    ALOGD("device_id = %d, streamid = %d \n", device_id, stream->stream_id);
-    if (stream->stream_id != streamGivenId)
+    ALOGD("open_stream: device_id = %d, streamid = %d, streamGivenId = %d\n",
+            device_id, stream->stream_id, streamGivenId);
+
+    if (!checkDeviceID(device_id) || !checkStreamID(stream->stream_id))
+        return -EINVAL;
+
+    if (stream->stream_id != streamGivenId || deviceGivenId != device_id)
         streamGivenId = stream->stream_id;
     else {
         ALOGD("stream has been opened");
         return -EEXIST;
     }
 
-    if (!checkDeviceID(device_id) || !checkStreamID(stream->stream_id))
-        return -EINVAL;
-
     if (priv) {
         if (getTvStream(stream) != 0) {
             return -EINVAL;
         }
         if (stream->stream_id == STREAM_ID_NORMAL) {
-            channelControl(priv, true, device_id);
+            if (!channelCheckStaus(priv, 0, device_id))
+                channelControl(priv, true, device_id);
         }
         else if (stream->stream_id == STREAM_ID_FRAME_CAPTURE) {
             aml_screen_module_t* screenModule;
@@ -333,7 +359,12 @@ static int tv_input_close_stream(struct tv_input_device *dev, int device_id,
                                  int stream_id)
 {
     tv_input_private_t *priv = (tv_input_private_t *)dev;
-    ALOGD("device_id = %d, stream_id = %d\n", device_id, stream_id);
+    ALOGD("close_stream: device_id = %d, stream_id = %d, streamGivenId = %d\n",
+            device_id, stream_id, streamGivenId);
+
+    if (!checkDeviceID(device_id) || !checkStreamID(stream_id))
+        return -EINVAL;
+
     if (streamGivenId == stream_id)
         streamGivenId = -1;
     else {
@@ -341,11 +372,9 @@ static int tv_input_close_stream(struct tv_input_device *dev, int device_id,
         return -ENOENT;
     }
 
-    if (!checkDeviceID(device_id) || !checkStreamID(stream_id))
-        return -EINVAL;
-
     if (stream_id == STREAM_ID_NORMAL) {
-        channelControl(priv, false, device_id);
+        if (!channelCheckStaus(priv, 1, device_id))
+            channelControl(priv, false, device_id);
         return 0;
     } else if (stream_id == STREAM_ID_FRAME_CAPTURE) {
         if (priv->mDev) {

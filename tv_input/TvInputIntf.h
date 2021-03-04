@@ -22,7 +22,14 @@
 #ifndef _ANDROID_TV_INPUT_INTERFACE_H_
 #define _ANDROID_TV_INPUT_INTERFACE_H_
 
+#include <pthread.h>
+#include <semaphore.h>
+#include <queue>
+
 #include "TvServerHidlClient.h"
+#ifdef SUPPORT_DTVKIT
+#include "DTVKitHidlClient.h"
+#endif
 
 using namespace android;
 
@@ -70,11 +77,15 @@ class TvInputIntf : public TvListener {
 public:
     TvInputIntf();
     ~TvInputIntf();
-    int startTv();
-    int stopTv();
+    int startTv(tv_source_input_t source_input);
+    int stopTv(tv_source_input_t source_input);
     int switchSourceInput(tv_source_input_t source_input);
     int getSourceConnectStatus(tv_source_input_t source_input);
     int getCurrentSourceInput();
+    int checkSourceStatus(tv_source_input_t source_input, bool check_status);
+    tv_source_input_t checkWaitSource(bool check_status);
+    bool getSourceStatus();
+    bool isTvPlatform();
     int getHdmiAvHotplugDetectOnoff();
     int setTvObserver (TvPlayObserver *ob);
     int getSupportInputDevices(int *devices, int *count);
@@ -82,7 +93,16 @@ public:
     virtual void notify(const tv_parcel_t &parcel);
 
 private:
+    pthread_mutex_t mMutex;
+    bool mSourceStatus;
+    bool mIsTv;
+    std::queue<tv_source_input_t> start_queue;
+    std::queue<tv_source_input_t> stop_queue;
+    tv_source_input_t mSourceInput;
     sp<TvServerHidlClient> mTvSession;
+#ifdef SUPPORT_DTVKIT
+    sp<DTVKitHidlClient> mDkSession;
+#endif
     TvPlayObserver *mpObserver;
 };
 
