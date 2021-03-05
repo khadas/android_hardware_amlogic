@@ -41,14 +41,23 @@ volatile int32_t gCamHal_LogLevel = 4;
 android::EmulatedCameraFactory  gEmulatedCameraFactory;
 default_camera_hal::VendorTags gVendorTags;
 
+#if BUILD_KERNEL_4_9 == 1
 static const char *USB_SENSOR_PATH[]={
     "/dev/video0",
     "/dev/video1",
     "/dev/video2",
     "/dev/video3",
     "/dev/video4",
-    "/dev/video5",
 };
+#else
+static const char *USB_SENSOR_PATH[]={
+    "/dev/video0",
+    "/dev/video2",
+    "/dev/video4",
+    "/dev/video6",
+    "/dev/video8",
+};
+#endif
 
 static const char *BOARD_SENSOR_PATH[]={
     "/dev/video50",
@@ -168,6 +177,27 @@ int EmulatedCameraFactory::getValidCameraId() {
             }
         } else {
             if (0 == access(USB_SENSOR_PATH[i], F_OK | R_OK | W_OK)) {
+                iValidId = i;
+                break;
+            }
+        }
+    }
+    return iValidId;
+}
+
+int EmulatedCameraFactory::checkIsCamera(char * name) {
+    int iValidId = -1;
+    char property[PROPERTY_VALUE_MAX];
+    property_get("ro.vendor.platform.board_camera", property, "false");
+
+    for (int i = 0; i < MAX_CAMERA_NUM; i++ ) {
+        if (strstr(property, "true")) {
+            if (strstr(name, BOARD_SENSOR_PATH[i] + 4)) {
+                iValidId = i;
+                break;
+            }
+        } else {
+            if (strstr(name, USB_SENSOR_PATH[i] + 4)) {
                 iValidId = i;
                 break;
             }
@@ -527,6 +557,8 @@ void EmulatedCameraFactory::onStatusChanged(int cameraId, int newStatus)
     //EmulatedBaseCamera *cam = mEmulatedCameras[cameraId];
     const camera_module_callbacks_t* cb = mCallbacks;
     sprintf(dev_name, "%s%d", "/dev/video", cameraId);
+
+    cameraId = checkIsCamera(dev_name);
 
     /* ignore cameraid >= MAX_CAMERA_NUM to avoid overflow, we now have
      * ion device with device like /dev/video13

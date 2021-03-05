@@ -222,6 +222,12 @@ bool EmulatedCameraHotplugThread::threadLoop() {
             break;
         }
 
+        cameraId = gEmulatedCameraFactory.checkIsCamera(video4linux_string);
+        if (cameraId < 0) {
+            ALOGE("isn't valid camera %s", video4linux_string);
+            continue;
+        }
+
         //string like that: add@/devices/lm1/usb1/1-1/1-1.3/1-1.3:1.0/video4linux/video0
         video4linux_string += 17;
         cameraId = strtol(video4linux_string, NULL, 10);

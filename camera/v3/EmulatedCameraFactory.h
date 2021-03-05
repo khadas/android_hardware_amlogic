@@ -59,7 +59,7 @@ class EmulatedCameraHotplugThread;
  */
 
 #ifndef MAX_CAMERA_NUM
-#define MAX_CAMERA_NUM 6
+#define MAX_CAMERA_NUM 5
 #endif
 class EmulatedCameraFactory {
 public:
@@ -159,6 +159,8 @@ public:
     void onStatusChanged(int cameraId, int newStatus);
 
     int getValidCameraId(void);
+
+    int checkIsCamera(char * name);
 
     /****************************************************************************
      * Private API

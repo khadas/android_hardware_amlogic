@@ -12,6 +12,33 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+soong_config_module_type {
+    name: "arm_camera_cc_defaults",
+    module_type: "cc_defaults",
+    config_namespace: "arm_camera",
+
+    bool_variables: [
+        "build_kernel_4_9_x",
+    ],
+    properties: [
+        "cflags",
+    ],
+}
+
+soong_config_bool_variable {
+    name: "build_kernel_4_9_x",
+}
+
+arm_camera_cc_defaults {
+    name: "arm_camera_defaults",
+    vendor: true,
+
+    soong_config_variables: {
+        build_kernel_4_9_x: {
+            cflags: ["-DBUILD_KERNEL_4_9=1"],
+        },
+    },
+}
 
 cc_library_headers {
     name: "camera_amlogic_headers",
@@ -25,7 +52,9 @@ cc_library_headers {
 
 cc_library_shared {
     name: "camera.amlogic",
-
+    defaults: [
+        "arm_camera_defaults",
+    ],
     vendor: true,
     relative_install_path: "hw",
     cflags: [
