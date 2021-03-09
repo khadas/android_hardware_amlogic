@@ -691,7 +691,7 @@ int aml_audio_get_ddp_latency_offset(int aformat,  bool dual_spdif)
     return latency_ms;
 }
 
-int aml_audio_get_pcm_latency_offset(int aformat)
+int aml_audio_get_pcm_latency_offset(int aformat, bool is_netflix)
 {
     char buf[PROPERTY_VALUE_MAX];
     int ret = -1;
@@ -699,11 +699,15 @@ int aml_audio_get_pcm_latency_offset(int aformat)
     char *prop_name = NULL;
     (void)aformat;
     prop_name = "vendor.media.audio.hal.latency.pcm";
-    //32ms Omx decoder delay
-    //16ms video delay
-    //16ms Sub Mix delay
-    /* 384Bytes*8 = 16ms*48kHz(newAmlAudioMixer tmp_buffer size is MIXER_FRAME_COUNT * MIXER_OUT_FRAME_SIZE) */
-    latency_ms = 64;
+    if (!is_netflix) {
+        //32ms Omx decoder delay
+        //16ms video delay
+        //16ms Sub Mix delay
+        /* 384Bytes*8 = 16ms*48kHz(newAmlAudioMixer tmp_buffer size is MIXER_FRAME_COUNT * MIXER_OUT_FRAME_SIZE) */
+        latency_ms = 64;
+    } else {
+        latency_ms = -40;
+    }
     ret = property_get(prop_name, buf, NULL);
     if (ret > 0) {
         latency_ms = atoi(buf);
@@ -720,10 +724,10 @@ int aml_audio_get_hwsync_latency_offset(bool b_raw)
     char *prop_name = NULL;
     if (!b_raw) {
         prop_name = "vendor.media.audio.hal.hwsync_latency.pcm";
-        latency_ms = 60;
+        latency_ms = 0;
     } else {
         prop_name = "vendor.media.audio.hal.hwsync_latency.ddp";
-        latency_ms = -50;
+        latency_ms = -20;
     }
     ret = property_get(prop_name, buf, NULL);
     if (ret > 0) {

@@ -4488,7 +4488,13 @@ static int adev_set_parameters (struct audio_hw_device *dev, const char *kvpairs
             }
             goto exit;
         }
-
+    } else if (eDolbyDcvLib == adev->dolby_lib_type_last) {
+        ret = str_parms_get_int(parms, "continuous_audio_mode", &val);
+        if (ret >= 0) {
+            ALOGI("%s ignore the continuous_audio_mode!\n", __func__ );
+            adev->is_netflix = val;
+            goto exit;
+        }
     }
 
     ret = str_parms_get_str(parms, "SOURCE_GAIN", value, sizeof(value));

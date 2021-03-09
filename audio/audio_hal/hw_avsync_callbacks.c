@@ -62,6 +62,9 @@ int on_meta_data_cbk(void *cookie,
     uint32_t sample_rate = 48000;
     uint64_t pts_delta = 0;
     int ret = 0;
+    uint32_t pcr = 0;
+    int pcr_pts_gap = 0;
+
     int32_t tunning_latency = aml_audio_get_hwsync_latency_offset(false);
 
     if (!cookie || !header) {
@@ -148,6 +151,7 @@ int on_meta_data_cbk(void *cookie,
             //ALOGI("%s =============== can drop============", __FUNCTION__);
             aml_hwsync_wait_video_start(out->hwsync);
             aml_hwsync_wait_video_drop(out->hwsync, pts32);
+            aml_audio_hwsync_set_first_pts(out->hwsync, pts32);
 
             out->first_pts_set = true;
             //*delay_ms = 40;
@@ -176,11 +180,19 @@ int on_meta_data_cbk(void *cookie,
 
             hwsync_extractor = out->hwsync_extractor;
         }
+
+
+        ret = aml_hwsync_get_tsync_pts(out->hwsync, &pcr);
         aml_hwsync_reset_tsync_pcrscr(out->hwsync, pts32);
+        pcr_pts_gap = ((int)(pts32 - pcr)) / 90;
+        if (abs(pcr_pts_gap) > 50) {
+            ALOGI("%s pcr =%d pts =%d diff =%d", __func__, pcr/90, pts32/90, pcr_pts_gap);
+        }
         return 0;
     }
 
 
+    /*old sync method*/
     if (!out->first_pts_set) {
         int32_t latency = 0;
         hwsync_header_construct(header);
@@ -204,7 +216,6 @@ int on_meta_data_cbk(void *cookie,
         enum hwsync_status sync_status = CONTINUATION;
         struct hw_avsync_header_extractor *hwsync_extractor;
         struct aml_audio_device *adev = out->dev;
-        uint32_t pcr = 0;
         uint32_t apts_gap;
         // adjust pts based on latency which is only the outport latency
         int32_t latency = (int32_t)out_get_outport_latency((struct audio_stream_out *)out) * 90;
