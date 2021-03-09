@@ -345,7 +345,6 @@ size_t aml_alsa_output_write(struct audio_stream_out *stream,
                              size_t bytes) {
     struct aml_stream_out *aml_out = (struct aml_stream_out *)stream;
     struct aml_audio_device *adev = aml_out->dev;
-    struct aml_audio_patch *patch = adev->audio_patch;
     int ret = 0;
     struct pcm_config *config = &aml_out->config;
     size_t frame_size = audio_stream_out_frame_size(stream);
@@ -497,12 +496,12 @@ write:
         return bytes;
     }
     /*+[SE][BUG][SWPL-14811][zhizhong] add drop ac3 pcm function*/
-    if (adev->patch_src ==  SRC_DTV && aml_out->need_drop_size > 0) {
+    if (adev->patch_src ==  SRC_DTV && aml_out->need_drop_size > 0 && adev->audio_patch != NULL) {
         if (aml_out->need_drop_size >= (int)bytes) {
             aml_out->need_drop_size -= bytes;
             ALOGI("av sync drop %d pcm, need drop:%d more,apts:0x%x,pcr:0x%x\n",
-                (int)bytes, aml_out->need_drop_size, patch->last_apts, patch->last_pcrpts);
-            if (patch->last_apts >= patch->last_pcrpts) {
+                (int)bytes, aml_out->need_drop_size, adev->audio_patch->last_apts, adev->audio_patch->last_pcrpts);
+            if (adev->audio_patch->last_apts >= adev->audio_patch->last_pcrpts) {
                 ALOGI("pts already ok, drop finish\n");
                 aml_out->need_drop_size = 0;
             } else
@@ -527,19 +526,22 @@ write:
         struct snd_pcm_status status;
         pcm_ioctl(aml_out->pcm, SNDRV_PCM_IOCTL_STATUS, &status);
         if (status.state == PCM_STATE_XRUN) {
-            ALOGD("alsa underrun");
+            ALOGW("[%s:%d] alsa underrun", __func__, __LINE__);
             if (adev->audio_discontinue) {
                 adev->discontinue_mute_flag = 1;
                 adev->no_underrun_count = 0;
-                ALOGD("output_write, audio discontinue, underrun, begin mute\n");
+                ALOGD("output_write, audio discontinue, underrun, begin mute");
             }
         } else if (adev->discontinue_mute_flag == 1 && adev->patch_src ==  SRC_DTV ) {
-            if ((adev->audio_discontinue == 0 &&
-                patch->dtv_audio_tune == AUDIO_RUNNING) ||
-                adev->no_underrun_count++ >= adev->no_underrun_max) {
-                ALOGD("no underrun, not mute, audio_discontinue=%d,count=%d\n",
+            if (adev->audio_patch != NULL && adev->audio_discontinue == 0 &&
+                adev->audio_patch->dtv_audio_tune == AUDIO_RUNNING) {
+                ALOGD("[%s:%d] no underrun, not mute, dtv_audio_tune is RUNNING, audio_discontinue=%d",
+                    __func__, __LINE__, adev->audio_discontinue);
+                adev->discontinue_mute_flag = 0;
+                adev->no_underrun_count = 0;
+            } else if (adev->no_underrun_count++ >= adev->no_underrun_max) {
+                ALOGD("[%s:%d] no underrun, not mute, audio_discontinue:%d >= count:%d", __func__, __LINE__,
                         adev->audio_discontinue, adev->no_underrun_count);
-                ALOGD("dtv_audio_tune=%d\n", patch->dtv_audio_tune);
                 adev->discontinue_mute_flag = 0;
                 adev->no_underrun_count = 0;
             }
@@ -880,7 +882,7 @@ size_t aml_alsa_output_write_new(void *handle, const void *buffer, size_t bytes)
         struct snd_pcm_status status;
         pcm_ioctl(alsa_handle->pcm, SNDRV_PCM_IOCTL_STATUS, &status);
         if (status.state == PCM_STATE_XRUN) {
-            ALOGD("%s alsa underrun", __func__);
+            ALOGW("[%s:%d] alsa underrun", __func__, __LINE__);
         }
     }
     if (getprop_bool(ALSA_DUMP_PROPERTY)) {
