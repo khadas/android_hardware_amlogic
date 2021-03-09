@@ -137,7 +137,7 @@ static int pcm_decoder_process(aml_dec_t * aml_dec, unsigned char*buffer, int by
     /*now we only support bypass PCM data*/
     memcpy(dec_pcm_data->buf, buffer, bytes);
 
-    dec_pcm_data->data_len = bytes / (audio_bytes_per_sample(pcm_config->pcm_format) * pcm_config->channel);
+    dec_pcm_data->data_len = bytes ;
     dec_pcm_data->data_sr  = pcm_config->samplerate;
     dec_pcm_data->data_ch  = pcm_config->channel;
     dec_pcm_data->data_format  = pcm_config->pcm_format;

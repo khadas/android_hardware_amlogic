@@ -7708,10 +7708,12 @@ static int usecase_change_validate_l(struct aml_stream_out *aml_out, bool is_sta
          * But keep it's own usecase if out_write is called in the future to exit standby mode.
          */
         aml_out->write = NULL;
+
         if (aml_out->dev_usecase_masks) {
             aml_dev->usecase_masks &= ~(1 << aml_out->usecase);
             aml_out->dev_usecase_masks = 0;
         }
+        aml_dev->usecase_cnt[aml_out->usecase]--;
         if ((aml_out->usecase == STREAM_RAW_DIRECT ||
             aml_out->usecase == STREAM_RAW_HWSYNC)
             && (eDolbyDcvLib == aml_dev->dolby_lib_type)) {
@@ -7825,12 +7827,11 @@ ssize_t out_write_new(struct audio_stream_out *stream,
     }
 
     /*when there is data writing in this stream, we can add it to active stream*/
-    if (!aml_out->is_add2active_output) {
-        aml_out->is_add2active_output = true;
-        pthread_mutex_lock(&adev->lock);
-        adev->active_outputs[aml_out->usecase] = aml_out;
-        pthread_mutex_unlock(&adev->lock);
-    }
+
+    pthread_mutex_lock(&adev->lock);
+    adev->active_outputs[aml_out->usecase] = aml_out;
+    pthread_mutex_unlock(&adev->lock);
+
 
     /*move it from open function, because when hdmi hot plug, audio service will
      * call many times open/close to query the hdmi capability, this will affect the
@@ -8041,7 +8042,7 @@ void adev_close_output_stream_new(struct audio_hw_device *dev,
 
     ALOGD("%s: enter usecase = %s", __func__, usecase2Str(aml_out->usecase));
     /* call legacy close to reuse codes */
-    if (aml_out->is_add2active_output) {
+    if (adev->active_outputs[aml_out->usecase] == aml_out) {
         adev->active_outputs[aml_out->usecase] = NULL;
     }
     if (adev->useSubMix) {

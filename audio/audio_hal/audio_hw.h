@@ -692,7 +692,6 @@ struct aml_stream_out {
     uint64_t main_input_ns;
     bool is_sink_format_prepared;
     bool is_ms12_main_decoder;
-    bool is_add2active_output;
     aml_dec_config_t  dec_config;               /*store the decode config*/
     aml_dec_t *aml_dec;                        /*store the decoder handle*/
     int ad_substream_supported;

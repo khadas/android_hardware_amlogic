@@ -1440,7 +1440,7 @@ static ssize_t out_write_subMixingPCM(struct audio_stream_out *stream,
         pthread_mutex_unlock(&adev->lock);
         return ret;
     }
-
+    adev->active_outputs[aml_out->usecase] = aml_out;
     pthread_mutex_unlock(&adev->lock);
     if (aml_out->write) {
         ret = aml_out->write(stream, buffer, bytes);
