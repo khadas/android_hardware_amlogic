@@ -7163,6 +7163,7 @@ hwsync_rewrite:
                 audiohal_send_msg_2_ms12(ms12, MS12_MESG_TYPE_RESUME);
                 aml_hwsync_set_tsync_resume(aml_out->hwsync);
                 aml_out->tsync_status = TSYNC_STATUS_RUNNING;
+                adev->ms12.need_resync = 1;
                 ALOGI("resume ms12 and the timer");
                 pthread_mutex_unlock(&ms12->lock);
             }
