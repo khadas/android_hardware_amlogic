@@ -72,7 +72,7 @@ int aml_audio_decoder_process_wrapper(struct audio_stream_out *stream, const voi
                 return return_bytes;
             }
             left_bytes -= dec_used_size;
-            ALOGV("aml_decoder_process ret =%d pcm len =%d raw len=%d", ret, dec_pcm_data->data_len, dec_raw_data->data_len);
+            ALOGV("%s() ret =%d pcm len =%d raw len=%d", __func__, ret, dec_pcm_data->data_len, dec_raw_data->data_len);
             // write pcm data
             if (dec_pcm_data->data_len > 0) {
                 audio_format_t output_format = AUDIO_FORMAT_PCM_16_BIT;

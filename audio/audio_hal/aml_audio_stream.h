@@ -138,7 +138,7 @@ static inline bool is_dolby_format(audio_format_t format) {
     }
 }
 
-static inline bool is_dts_format(audio_format_t format) {
+inline bool is_dts_format(audio_format_t format) {
     switch (format) {
     case AUDIO_FORMAT_DTS:
     case AUDIO_FORMAT_DTS_HD:

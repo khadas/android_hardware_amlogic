@@ -15,6 +15,7 @@
  */
 
 #define LOG_TAG "aml_audio_dca_dec"
+//#define LOG_NDEBUG 0
 
 #include <unistd.h>
 #include <math.h>
@@ -69,11 +70,11 @@ enum {
 #define AML_DCA_SW_CORE_24                          0x80fe7f01
 #define AML_DCA_SW_SUBSTREAM_M                      0x64582025
 #define AML_DCA_SW_SUBSTREAM                        0x58642520
-#define AML_DCA_PROP_DEBUG_FLAG                     "media.audio.dtsdebug"
-#define AML_DCA_PROP_DUMP_INPUT_RAW                 "media.audio.dtsdump.input.raw"
-#define AML_DCA_PROP_DUMP_OUTPUT_PCM                "media.audio.dtsdump.output.pcm"
-#define AML_DCA_PROP_DUMP_OUTPUT_RAW                "media.audio.dtsdump.output.raw"
-#define AML_DCA_DUMP_FILE_DIR                       "/data/audio_hal/"
+#define AML_DCA_PROP_DEBUG_FLAG                     "vendor.media.audio.dtsdebug"
+#define AML_DCA_PROP_DUMP_INPUT_RAW                 "vendor.media.audio.dtsdump.input.raw"
+#define AML_DCA_PROP_DUMP_OUTPUT_PCM                "vendor.media.audio.dtsdump.output.pcm"
+#define AML_DCA_PROP_DUMP_OUTPUT_RAW                "vendor.media.audio.dtsdump.output.raw"
+#define AML_DCA_DUMP_FILE_DIR                       "/data/vendor/audiohal/"
 
 struct dca_dts_debug {
     bool debug_flag;
@@ -359,6 +360,10 @@ static int _dts_pcm_output(struct dca_dts_dec *dts_dec)
         }
         copy_buffer = dts_dec->resample_handle->resample_buffer;
         copy_size = dts_dec->resample_handle->resample_size;
+
+        if (copy_buffer && ((0 <  copy_size) && (copy_size < dec_pcm_data->buf_size))) {
+            memcpy(dec_pcm_data->buf, copy_buffer, copy_size);
+        }
     }
 
     if (dts_debug.fp_pcm) {
@@ -528,6 +533,8 @@ int dca_decoder_init_patch(aml_dec_t **ppaml_dec, aml_dec_config_t *dec_config)
         ALOGE("%s malloc memory failed!", __func__);
         goto error;
     }
+    memset(dec_pcm_data->buf, 0, dec_pcm_data->buf_size);
+    memset(dec_raw_data->buf , 0, dec_raw_data->buf_size);
 
     if (ring_buffer_init(&dts_dec->input_ring_buf, MAX_DECODER_FRAME_LENGTH)) {
         ALOGE("%s init ring buffer failed!", __func__);

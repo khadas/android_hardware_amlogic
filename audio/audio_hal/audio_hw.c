@@ -799,7 +799,7 @@ static size_t out_get_buffer_size (const struct audio_stream *stream)
         if (stream->get_format(stream) == AUDIO_FORMAT_IEC61937) {
             size = DTS1_PERIOD_SIZE / 2;
         } else {
-            size = DTS1_PERIOD_SIZE;
+            size = DTS2_PERIOD_SIZE ;
         }
         ALOGI("%s AUDIO_FORMAT_DTS buffer size = %zuframes", __FUNCTION__, size);
         break;
@@ -807,7 +807,7 @@ static size_t out_get_buffer_size (const struct audio_stream *stream)
         if (stream->get_format(stream) == AUDIO_FORMAT_IEC61937) {
             size = 4 * PLAYBACK_PERIOD_COUNT * DEFAULT_PLAYBACK_PERIOD_SIZE;
         } else {
-            size = DTSHD_PERIOD_SIZE;
+            size = DTSHD_PERIOD_SIZE*4;
         }
         ALOGI("%s AUDIO_FORMAT_DTS_HD buffer size = %zuframes", __FUNCTION__, size);
         break;
@@ -1964,7 +1964,7 @@ static int out_get_presentation_position (const struct audio_stream_out *stream,
         ret = aml_audio_get_ms12_presentation_position(stream, frames, timestamp);
     } else if (eDolbyDcvLib == adev->dolby_lib_type) {
          bool is_audio_type_dolby = (adev->audio_type == EAC3 || adev->audio_type == AC3);
-         bool is_hal_format_dolby = (out->hal_format ==AUDIO_FORMAT_AC3 || out->hal_format == AUDIO_FORMAT_E_AC3);
+         bool is_hal_format_dolby = (out->hal_format == AUDIO_FORMAT_AC3 || out->hal_format == AUDIO_FORMAT_E_AC3);
          if (is_audio_type_dolby || is_hal_format_dolby) {
              timems_latency = aml_audio_get_latency_offset(adev->active_outport,
                                                              out->hal_internal_format,
@@ -1990,8 +1990,12 @@ static int out_get_presentation_position (const struct audio_stream_out *stream,
             else
                 *frames = 0;
         }
-        *frames = *frames * out->hal_rate / out->config.rate;
-         *timestamp = out->lasttimestamp;
+        aml_dec_t *aml_dec = out->aml_dec;
+        unsigned int output_sr = (out->config.rate) ? (out->config.rate) : (MM_FULL_POWER_SAMPLING_RATE);
+        if (aml_dec && output_sr)
+            output_sr = (aml_dec->dec_pcm_data.data_sr) ? (aml_dec->dec_pcm_data.data_sr) : (output_sr);
+        *frames = *frames * out->hal_rate / output_sr;
+        *timestamp = out->lasttimestamp;
     }
 
     if (adev->debug_flag) {
@@ -3198,6 +3202,8 @@ static int adev_open_output_stream(struct audio_hw_device *dev,
         ret = -EINVAL;
         goto err;
     }
+
+
     out->hal_ch   = audio_channel_count_from_out_mask(out->hal_channel_mask);
     out->hal_frame_size = audio_bytes_per_frame(out->hal_ch, out->hal_internal_format);
     if (out->hal_ch == 0) {
@@ -6193,6 +6199,7 @@ ssize_t hw_write (struct audio_stream_out *stream
 
     if (aml_out->is_tv_platform && audio_is_linear_pcm(output_format)) {
         ch = 8;
+        bytes_per_sample = 4;
     }
     out_frames = bytes / (ch * bytes_per_sample);
 
@@ -6402,8 +6409,31 @@ ssize_t hw_write (struct audio_stream_out *stream
             aml_out->frame_write_sum += out_frames;
         } else {
             if (!continous_mode(adev)) {
-                aml_out->frame_write_sum += out_frames;
-                total_frame =  aml_out->frame_write_sum;
+                if ((output_format == AUDIO_FORMAT_AC3) ||
+                    (output_format == AUDIO_FORMAT_E_AC3) ||
+                    (output_format == AUDIO_FORMAT_MAT) ||
+                    (output_format == AUDIO_FORMAT_DTS)) {
+                    if (is_iec61937_format(stream) == true) {
+                        //continuous_audio_mode = 0, when mixing-off and 7.1ch
+                        //FIXME out_frames 4 or 16 when DD+ output???
+                        aml_out->frame_write_sum += out_frames;
+
+                    } else {
+                        int sample_per_bytes = (output_format == AUDIO_FORMAT_MAT) ? 64 :
+                                                (output_format == AUDIO_FORMAT_E_AC3) ? 16 : 4;
+
+                        if (eDolbyDcvLib == adev->dolby_lib_type && aml_out->hal_format == AUDIO_FORMAT_IEC61937) {
+                            aml_out->frame_write_sum = aml_out->input_bytes_size / audio_stream_out_frame_size(stream);
+                            //aml_out->frame_write_sum += out_frames;
+                        } else {
+                            aml_out->frame_write_sum += bytes / sample_per_bytes; //old code
+                            //aml_out->frame_write_sum = spdif_encoder_ad_get_total() / sample_per_bytes + aml_out->spdif_enc_init_frame_write_sum; //8.1
+                        }
+                    }
+                } else {
+                    aml_out->frame_write_sum += out_frames;
+                    total_frame =  aml_out->frame_write_sum;
+                }
             }
         }
     }
@@ -7175,8 +7205,7 @@ hwsync_rewrite:
         } else {
             return return_bytes;
         }
-    } else if (aml_out->hal_internal_format != AUDIO_FORMAT_DTS &&
-               aml_out->hal_internal_format != AUDIO_FORMAT_DTS_HD) {
+    } else if (!is_dts_format(aml_out->hal_format) && (!is_dts_format(aml_out->hal_internal_format))) {
         adev->dolby_lib_type = adev->dolby_lib_type_last;
     }
 

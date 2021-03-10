@@ -747,6 +747,7 @@ void update_audio_format(struct aml_audio_device *adev, audio_format_t format)
     int update_type = TYPE_PCM;
     bool is_dolby_active = dolby_stream_active(adev);
     bool is_dolby_format = is_dolby_ms12_support_compression_format(format);
+    bool is_dts_active = dts_stream_active(adev);
     /*
      *for dolby & pcm case or dolby case
      *to update the dolby stream's format
@@ -796,7 +797,25 @@ void update_audio_format(struct aml_audio_device *adev, audio_format_t format)
      *only Mixer-PCM
      */
     else if (!is_dolby_active && !is_dolby_format) {
-        if (adev->hal_internal_format != format) {
+
+        /* if there is DTS/DTS alive, only update DTS/DTS-HD */
+        if (is_dts_active) {
+            if (is_dts_format(format) && (adev->hal_internal_format != format)) {
+                adev->hal_internal_format = format;
+                adev->is_dolby_atmos = false;
+                adev->update_type = get_codec_type(format);
+
+                aml_mixer_ctrl_set_int(&adev->alsa_mixer, AML_MIXER_ID_AUDIO_HAL_FORMAT, adev->update_type);
+
+                ALOGD("%s()audio hal format change from %x to %x, atmos flag = %d, update_type = %d\n",
+                    __FUNCTION__, adev->hal_internal_format, adev->hal_internal_format,
+                    adev->is_dolby_atmos, adev->update_type);
+            }
+            /*else case is PCM format, will ignore that PCM*/
+        }
+
+        /* there is none-dolby or none-dts alive, then update PCM format*/
+        if (!is_dts_active && (adev->hal_internal_format != format)) {
 
             adev->hal_internal_format = format;
             adev->is_dolby_atmos = false;
