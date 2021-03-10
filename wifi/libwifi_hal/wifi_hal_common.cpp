@@ -261,9 +261,6 @@ int wifi_load_driver() {
   if (wifi_load_driver_ext() != 0) {
     return -1;
   } else {
-   if (strncmp(get_wifi_vendor_name(), "bcm", 3) == 0)
-      property_set("vendor.bcm_wifi", "bcm");
-
    return 0;
   }
 #endif
