@@ -37,6 +37,7 @@
 
 #define BUFF_CNT                    (4)
 #define SYS_BUFF_CNT                (4)
+#define DIRECT_BUFF_CNT             (8)
 
 static ssize_t input_port_write(struct input_port *port, const void *buffer, int bytes)
 {
@@ -47,9 +48,9 @@ static ssize_t input_port_write(struct input_port *port, const void *buffer, int
     written = ring_buffer_write(port->r_buf, data, bytes_to_write, UNCOVER_WRITE);
     if (getprop_bool("vendor.media.audiohal.inport")) {
         if (port->enInPortType == AML_MIXER_INPUT_PORT_PCM_SYSTEM)
-            aml_audio_dump_audio_bitstreams("/data/audio/inportSys.raw", buffer, written);
-        //else if (port->port_index == AML_MIXER_INPUT_PORT_PCM_DIRECT)
-            //aml_audio_dump_audio_bitstreams("/data/audio/inportDirect.raw", buffer, written);
+            aml_audio_dump_audio_bitstreams("/data/vendor/audiohal/inportSys.raw", buffer, written);
+        else if (port->enInPortType == AML_MIXER_INPUT_PORT_PCM_DIRECT)
+            aml_audio_dump_audio_bitstreams("/data/vendor/audiohal/inportDirect.raw", buffer, written);
     }
 
     ALOGV("%s() written %d", __func__, written);
@@ -107,7 +108,7 @@ aml_mixer_input_port_type_e get_input_port_type(struct audio_config *config,
         case AUDIO_FORMAT_PCM_32_BIT:
             //if (config->sample_rate == 48000) {
             if (1) {
-                ALOGI("%s(), samplerate %d", __func__, config->sample_rate);
+                ALOGI("%s(), samplerate:%d, flags:0x%x, channel_cnt:%d", __func__, config->sample_rate, flags, channel_cnt);
                 // FIXME: remove channel check when PCM_SYSTEM_SOUND supports multi-channel
                 if (AUDIO_OUTPUT_FLAG_MMAP_NOIRQ & flags) {
                     enPortType = AML_MIXER_INPUT_PORT_PCM_MMAP;
@@ -275,6 +276,8 @@ struct input_port *new_input_port(
 
     setPortConfig(&port->cfg, config);
     thunk_size = buf_frames * port->cfg.frame_size;
+    ALOGD("[%s:%d]  buf_frames:%d,frame_size:%d ==> thunk_size:%d", __func__, __LINE__,
+                    buf_frames, port->cfg.frame_size, thunk_size);
     data = aml_audio_calloc(1, thunk_size);
     if (!data) {
         ALOGE("%s(), no memory", __func__);
@@ -291,6 +294,8 @@ struct input_port *new_input_port(
     // system buffer larger than direct to cache more for mixing?
     if (enPortType == AML_MIXER_INPUT_PORT_PCM_SYSTEM) {
         input_port_rbuf_size = thunk_size * SYS_BUFF_CNT;
+    } else if (AML_MIXER_INPUT_PORT_PCM_DIRECT == enPortType) {
+        input_port_rbuf_size = thunk_size * DIRECT_BUFF_CNT;
     } else {
         input_port_rbuf_size = thunk_size * BUFF_CNT;
     }
@@ -302,11 +307,16 @@ struct input_port *new_input_port(
         ALOGE("init ring buffer fail, buffer_size = %d", input_port_rbuf_size);
         goto err_rbuf_init;
     }
+
     port->inport_start_threshold = 0;
     /* increase the input size to prevent underrun */
     if (enPortType == AML_MIXER_INPUT_PORT_PCM_MMAP) {
         port->inport_start_threshold = input_port_rbuf_size / 2;
+    } else if (AML_MIXER_INPUT_PORT_PCM_DIRECT == enPortType) {
+        port->inport_start_threshold = input_port_rbuf_size * 3 / 4;
     }
+    //ALOGD("[%s:%d] inport:%s, rbuf size:%d, direct_on:%d, format:%#x, rate:%d, inport_start_threshold:%d", __func__, __LINE__,
+    //    inportType2Str(enPortType), input_port_rbuf_size, direct_on, port->cfg.format, port->cfg.sampleRate, port->inport_start_threshold);
 
     port->enInPortType = enPortType;
     //port->format = config->format;
@@ -526,7 +536,7 @@ static ssize_t output_port_write_alsa(struct output_port *port, void *buffer, in
            usleep(1000);
         }
         if (written > 0 && getprop_bool("vendor.media.audiohal.inport")) {
-            aml_audio_dump_audio_bitstreams("/data/audio/audioOutPort.raw", buffer, written);
+            aml_audio_dump_audio_bitstreams("/data/vendor/audiohal/audioOutPort.raw", buffer, written);
         }
         bytes_to_write -= written;
     } while (bytes_to_write > 0);

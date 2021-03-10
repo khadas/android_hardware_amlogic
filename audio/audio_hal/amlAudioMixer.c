@@ -638,6 +638,7 @@ static int mixer_inports_read(struct amlAudioMixer *audio_mixer)
                     ALOGI("[%s:%d] input port:%s tsync resume", __func__, __LINE__, mixerInputType2Str(type));
                     aml_hwsync_set_tsync_resume(hwsync);
                     set_inport_state(in_port, ACTIVE);
+                    in_port->first_write = true;
                 } else if (state == STOPPED || state == PAUSED || state == FLUSHED) {
                     ALOGV("[%s:%d] input port:%s stopped, paused or flushed", __func__, __LINE__, mixerInputType2Str(type));
                     continue;
@@ -664,6 +665,8 @@ static int mixer_inports_read(struct amlAudioMixer *audio_mixer)
             if (input_avail_size >= in_port->data_len_bytes) {
                 if (in_port->first_write == true) {
                     if (input_avail_size < in_port->inport_start_threshold) {
+                        //ALOGI("[%s:%d] input port:%s waiting to reach inport_start_threshold, portId:%d, avail:%d, inport_start_threshold:%d", __func__, __LINE__,
+                        //               inportType2Str(type), ID, input_avail_size, in_port->inport_start_threshold);
                         continue;
                     } else {
                         ALOGI("[%s:%d] input port:%s first start, portId:%d, avail:%d", __func__, __LINE__, mixerInputType2Str(type), ID, input_avail_size);

@@ -22,11 +22,11 @@
 #include "aml_ringbuffer.h"
 #include "audio_port.h"
 
+
 #define MIXER_FRAME_COUNT                   (384)
 #define MIXER_OUT_FRAME_SIZE                (8)
 
 __BEGIN_DECLS
-
 /**
  * Audio mixer:
  * mixing two pcm streams with same configs(16-bits, 2-channels).
