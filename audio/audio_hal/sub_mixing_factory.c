@@ -1642,6 +1642,10 @@ int subMixingOutputRestart(struct aml_audio_device *adev)
 int switchNormalStream(struct aml_stream_out *aml_out, bool on)
 {
     ALOGI("+%s() stream %p, on = %d", __func__, aml_out, on);
+    if (aml_out == NULL) {
+        ALOGE("%s(), stream is null", __func__);
+        return -EINVAL;
+    }
     if (!aml_out->is_normal_pcm) {
         ALOGE("%s(), not normal pcm stream", __func__);
         return -EINVAL;
