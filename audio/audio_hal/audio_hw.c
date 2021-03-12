@@ -7755,6 +7755,10 @@ ssize_t out_write_new(struct audio_stream_out *stream,
                     ALOGI("Need reset MS12 continuous as main audio changed\n");
                     adev->doing_reinit_ms12 = true;
                     get_dolby_ms12_cleanup(&adev->ms12);
+            } else if (is_support_ms12_reset(stream)) {
+                ALOGI("is_support_ms12_reset true\n");
+                adev->doing_reinit_ms12 = true;
+                get_dolby_ms12_cleanup(&adev->ms12);
             }
         }
         aml_out->continuous_mode_check = false;

@@ -697,6 +697,12 @@ int get_the_dolby_ms12_prepared(
         ms12->hdmi_format = adev->hdmi_format;
         //ms12->optical_format = adev->optical_format;
         ms12->main_input_fmt = input_format;
+        /*IEC61937 DDP format, the real samplerate need device by 4*/
+        if (aml_out->hal_format == AUDIO_FORMAT_IEC61937) {
+            if ((aml_out->hal_internal_format & AUDIO_FORMAT_E_AC3) == AUDIO_FORMAT_E_AC3) {
+                input_sample_rate /= 4;
+            }
+        }
         ms12->main_input_sr = input_sample_rate;
     }
     ms12->sys_audio_base_pos = adev->sys_audio_frame_written;
@@ -2084,9 +2090,7 @@ bool is_support_ms12_reset(struct audio_stream_out *stream) {
      * 3. it has write some data
      */
     if (is_dolby_ms12_main_stream(stream) && need_reset_ms12_out) {
-        if (aml_out->total_write_size != 0) {
-            return true;
-        }
+        return true;
     }
 
     return false;
