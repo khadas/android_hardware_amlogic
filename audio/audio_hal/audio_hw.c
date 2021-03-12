@@ -4478,7 +4478,16 @@ static int adev_set_parameters (struct audio_hw_device *dev, const char *kvpairs
             goto exit;
         }
 
-
+        /*enable force ddp output for ms12 v2*/
+        ret = str_parms_get_int(parms, "hal_param_force_ddp", &val);
+        if (ret >= 0) {
+            ALOGI("%s hal_param_force_ddp set to %d\n", __func__ , val);
+            if (adev->ms12_force_ddp_out != val) {
+                adev->ms12_force_ddp_out = val;
+                get_dolby_ms12_cleanup(&adev->ms12);
+            }
+            goto exit;
+        }
 
     }
 
