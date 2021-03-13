@@ -6426,7 +6426,7 @@ void config_output(struct audio_stream_out *stream, bool reset_decoder)
     get_sink_format (stream);
     if (eDolbyMS12Lib == adev->dolby_lib_type) {
         bool is_compatible = false;
-        if (ms12->dolby_ms12_enable) {
+        if (continous_mode(adev) && ms12->dolby_ms12_enable) {
             is_compatible = is_ms12_output_compatible(stream, adev->sink_format, adev->optical_format);
         }
         if (is_compatible) {
@@ -8051,7 +8051,7 @@ void *audio_patch_input_threadloop(void *data)
 #endif
         {
             int bytes_avail = 0;
-            int period_mul = (patch->aformat == AUDIO_FORMAT_E_AC3) ? EAC3_MULTIPLIER : 1;
+            int period_mul = convert_audio_format_2_period_mul(patch->aformat);
             int read_threshold = 0;
             if (patch->input_src == AUDIO_DEVICE_IN_LINE) {
                 read_threshold = 4 * read_bytes * period_mul;

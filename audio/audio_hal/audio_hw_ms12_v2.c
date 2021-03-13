@@ -1422,7 +1422,7 @@ exit:
     return ret;
 }
 
-static ssize_t aml_ms12_spdif_output_new (struct audio_stream_out *stream,
+static ssize_t aml_ms12_spdif_output_new(struct audio_stream_out *stream,
                                 struct bitstream_out_desc * bitstream_desc, audio_format_t output_format, void *buffer, size_t byte)
 {
     struct aml_stream_out *aml_out = (struct aml_stream_out *) stream;

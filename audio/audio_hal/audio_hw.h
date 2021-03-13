@@ -98,9 +98,10 @@ static unsigned int DEFAULT_OUT_SAMPLING_RATE = 48000;
 
 #define SYS_NODE_EARC           "/sys/class/extcon/earcrx/state"
 
-#define DDP_FRAME_SIZE      768
-#define EAC3_MULTIPLIER 4
-#define  JITTER_DURATION_MS  3
+#define DDP_FRAME_SIZE      (768)
+#define EAC3_MULTIPLIER     (4) //EAC3 bitstream in IEC61937
+#define HBR_MULTIPLIER      (16) //MAT or DTSHD bitstream in IEC61937
+#define JITTER_DURATION_MS  (3)
 #define FLOAT_ZERO              (0.000001)
 
 

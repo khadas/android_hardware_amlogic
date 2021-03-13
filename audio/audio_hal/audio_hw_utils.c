@@ -1621,3 +1621,23 @@ const char* dtvAudioPatchCmd2Str(AUDIO_DTV_PATCH_CMD_TYPE type)
     ENUM_TYPE_TO_STR_END
 }
 
+int convert_audio_format_2_period_mul(audio_format_t format)
+{
+    int period_mul = 1;
+
+    switch (format) {
+    case AUDIO_FORMAT_E_AC3:
+        period_mul = EAC3_MULTIPLIER;
+        break;
+    case AUDIO_FORMAT_DTS_HD:
+        // 192Khz
+    case AUDIO_FORMAT_MAT:
+        period_mul = HBR_MULTIPLIER;
+        break;
+    default:
+        period_mul = 1;
+        break;
+    }
+
+    return period_mul;
+}

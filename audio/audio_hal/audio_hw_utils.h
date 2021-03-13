@@ -116,5 +116,9 @@ const char* inputPort2Str(enum IN_PORT type);
 const char* mixerInputType2Str(aml_mixer_input_port_type_e type);
 const char* dtvAudioPatchCmd2Str(AUDIO_DTV_PATCH_CMD_TYPE type);
 
+/** convert the audio input format to in buffer's period multi coefficient.
+ * @return period multi coefficient(1/4/16)
+ */
+int convert_audio_format_2_period_mul(audio_format_t format);
 
 #endif
