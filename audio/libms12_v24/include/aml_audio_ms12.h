@@ -98,7 +98,6 @@ struct dolby_ms12_desc {
     int is_dolby_atmos;
     int input_total_ms;
     int bitsteam_cnt;
-    void * main_virtual_buf_handle;
     void * system_virtual_buf_handle;
     ring_buffer_t spdif_ring_buffer;
     unsigned char *lpcm_temp_buffer;
@@ -150,6 +149,8 @@ struct dolby_ms12_desc {
     uint64_t dap_pcm_frames;
     uint64_t stereo_pcm_frames;
     uint64_t master_pcm_frames;
+    bool     b_legacy_ddpout;
+    void *   iec61937_ddp_buf;
 };
 
 /*

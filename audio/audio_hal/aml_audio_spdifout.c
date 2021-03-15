@@ -361,7 +361,6 @@ int aml_audio_spdifout_processs(void *phandle, void *buffer, size_t byte)
         output_buffer = buffer;
         output_buffer_bytes = byte;
     }
-
 #if 0
     {
         output_info_t output_info = { 0 };

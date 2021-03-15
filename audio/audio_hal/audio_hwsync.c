@@ -39,6 +39,7 @@
 #include "audio_hwsync_wrap.h"
 #include "aml_audio_ms12_sync.h"
 #include "aml_audio_timer.h"
+#include "audio_hw_ms12.h"
 
 
 static int aml_audio_get_hwsync_flag()
@@ -501,6 +502,9 @@ int aml_audio_hwsync_audio_process(audio_hwsync_t *p_hwsync, size_t offset, int 
     struct aml_stream_out  *out = p_hwsync->aout;
     struct timespec ts;
     int pcr_pts_gap = 0;
+    int alsa_pcm_delay_frames = 0;
+    int alsa_bitstream_delay_frames = 0;
+    int ms12_pipeline_delay_frames = 0;
     ALOGV("%s,================", __func__);
 
 
@@ -529,6 +533,9 @@ int aml_audio_hwsync_audio_process(audio_hwsync_t *p_hwsync, size_t offset, int 
         if (adev && (eDolbyMS12Lib == adev->dolby_lib_type)) {
             /*the offset is the end of frame, so we need consider the frame len*/
             latency_frames = aml_audio_get_ms12_tunnel_latency(stream) + frame_len;
+            alsa_pcm_delay_frames = out_get_ms12_latency_frames(stream);
+            alsa_bitstream_delay_frames = out_get_ms12_bitstream_latency_ms(stream) * 48;
+            ms12_pipeline_delay_frames = dolby_ms12_main_pipeline_latency_frames(stream);
         } else {
             latency_frames = (int32_t)out_get_latency_frames(stream);
         }
@@ -545,15 +552,18 @@ int aml_audio_hwsync_audio_process(audio_hwsync_t *p_hwsync, size_t offset, int 
     if (p_hwsync->use_mediasync) {
         uint32_t apts32 = 0;
         if (p_hwsync->first_apts_flag == false && offset > 0 && (apts >= latency_pts)) {
-            ALOGI("%s apts = 0x%x (%d ms) latency=0x%x (%d ms)", __FUNCTION__, apts, apts / 90, latency_pts, latency_pts/90);
-            ALOGI("%s aml_audio_hwsync_set_first_pts = 0x%x (%d ms)", __FUNCTION__, apts - latency_pts, (apts - latency_pts)/90);
+            ALOGI("%s offset =%d apts =%#x", __func__, offset, apts);
+            ALOGI("%s alsa pcm delay =%d bitstream delay =%d pipeline =%d", __func__, alsa_pcm_delay_frames, alsa_bitstream_delay_frames, ms12_pipeline_delay_frames);
+            ALOGI("%s apts = 0x%x (%d ms) latency=0x%x (%d ms)", __func__, apts, apts / 90, latency_pts, latency_pts/90);
+            ALOGI("%s aml_audio_hwsync_set_first_pts = 0x%x (%d ms)", __func__, apts - latency_pts, (apts - latency_pts)/90);
             apts32 = apts - latency_pts;
             /*if the pts is zero, to avoid video pcr not set issue, we just set it as 1ms*/
             if (apts32 == 0) {
                 apts32 = 1 * 90;
             }
             aml_audio_hwsync_set_first_pts(out->hwsync, apts32);
-            aml_hwsync_wait_video_drop(out->hwsync, apts32);
+            /*the wait function sometime causes too much time which causes audio break*/
+            //aml_hwsync_wait_video_drop(out->hwsync, apts32);
             aml_hwsync_reset_tsync_pcrscr(out->hwsync, apts32);
         } else  if (p_hwsync->first_apts_flag) {
             if (apts >= latency_pts) {
@@ -607,7 +617,14 @@ int aml_audio_hwsync_audio_process(audio_hwsync_t *p_hwsync, size_t offset, int 
                 int pts_gap = ((int)apts32 - (int)out->hwsync->last_output_pts)/ 90;
                 int time_gap = (int)calc_time_interval_us(&out->hwsync->last_timestamp, &ts) / 1000;
 
-                if (debug_enable) {
+                if (debug_enable || abs(pcr_pts_gap) > 20) {
+                    ALOGI("%s offset =%d apts =%#x", __func__, offset, apts);
+                    ALOGI("%s alsa pcm delay =%d bitstream delay =%d pipeline =%d frame=%d total =%d", __func__,
+                        alsa_pcm_delay_frames,
+                        alsa_bitstream_delay_frames,
+                        ms12_pipeline_delay_frames,
+                        frame_len,
+                        latency_frames);
                     ALOGI("pcr =%d ms pts =0x%x gap =%d ms", pcr / 90, apts32, pcr_pts_gap);
                     ALOGI("frame len =%d ms =%d latency_frames =%d ms=%d", frame_len, frame_len / 48, latency_frames, latency_frames / 48);
                     ALOGI("pts last =0x%x now =0x%x diff =%d ms time diff =%d ms jitter =%d ms",
@@ -616,6 +633,14 @@ int aml_audio_hwsync_audio_process(audio_hwsync_t *p_hwsync, size_t offset, int 
             }
             out->hwsync->last_output_pts = apts32;
             out->hwsync->last_timestamp  = ts;
+        } else {
+            ALOGI("%s not ready offset =%d apts =%#x", __func__, offset, apts);
+            ALOGI("%s alsa pcm delay =%d bitstream delay =%d pipeline =%d frame=%d total =%d", __func__,
+                alsa_pcm_delay_frames,
+                alsa_bitstream_delay_frames,
+                ms12_pipeline_delay_frames,
+                frame_len,
+                latency_frames);
         }
     } else {
 
@@ -807,6 +832,14 @@ int aml_audio_hwsync_lookup_apts(audio_hwsync_t *p_hwsync, size_t offset, unsign
             *p_apts = nearest_pts;
             /*keep it as valid, it may be used for next lookup*/
             pts_tab[match_index].valid = 1;
+            /*sometimes, we can't get the correct ddp pts, but we have a nearest one
+             *we add one frame duration
+             */
+            if (out->hal_internal_format == AUDIO_FORMAT_AC3 ||
+                out->hal_internal_format == AUDIO_FORMAT_E_AC3) {
+                *p_apts += (1536 * 1000) / out->hal_rate * 90;
+                ALOGI("correct nearest pts 0x%x offset %u align %zu", *p_apts, nearest_offset, align);
+            }
             if (debug_enable)
                 ALOGI("find nearest pts 0x%x offset %u align %zu", *p_apts, nearest_offset, align);
         } else {
