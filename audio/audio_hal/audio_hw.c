@@ -6058,7 +6058,7 @@ ssize_t audio_hal_data_processing(struct audio_stream_out *stream,
                 }
             }
 
-            if (aml_getprop_bool("media.audiohal.outdump")) {
+            if (aml_getprop_bool("vendor.media.audiohal.outdump")) {
                 FILE *fp1 = fopen("/data/audio_spk.pcm", "a+");
                 if (fp1) {
                     int flen = fwrite((char *)effect_tmp_buf, 1, bytes, fp1);
