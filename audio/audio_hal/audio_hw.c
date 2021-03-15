@@ -749,7 +749,7 @@ static size_t out_get_buffer_size (const struct audio_stream *stream)
             /*frame align*/
             if (1 /* adev->continuous_audio_mode */) {
                 /*Tunnel sync HEADER is 16 bytes*/
-            if ((out->flags & AUDIO_OUTPUT_FLAG_HW_AV_SYNC) && out->hw_sync_mode) {
+                if ((out->flags & AUDIO_OUTPUT_FLAG_HW_AV_SYNC) && out->hw_sync_mode) {
                     size = out->ddp_frame_size + 20;
                 } else {
                     size = out->ddp_frame_size * 4;
@@ -770,10 +770,10 @@ static size_t out_get_buffer_size (const struct audio_stream *stream)
          */
         if (adev->is_netflix) {
             if (out->flags & AUDIO_OUTPUT_FLAG_HW_AV_SYNC) {
-                    size = NETFLIX_DDP_BUFSIZE + 20;
-                } else {
-                    size = NETFLIX_DDP_BUFSIZE;
-                }
+                size = NETFLIX_DDP_BUFSIZE + 20;
+            } else {
+                size = NETFLIX_DDP_BUFSIZE;
+            }
         }
         break;
     case AUDIO_FORMAT_AC4:
@@ -5213,7 +5213,8 @@ int do_output_standby_l(struct audio_stream *stream)
         ((!continous_mode(adev) || (!ms12->dolby_ms12_enable && (eDolbyMS12Lib == adev->dolby_lib_type))))) {
         ALOGI("%s aml_out(%p)standby close", __func__, aml_out);
         aml_alsa_output_close(out);
-        if (eDolbyDcvLib == adev->dolby_lib_type && (adev->ddp.digital_raw == 1 || adev->dts_hd.digital_raw == 1)) {
+        if (eDolbyDcvLib == adev->dolby_lib_type &&
+            (adev->ddp.digital_raw == AML_DEC_CONTROL_CONVERT || adev->dts_hd.digital_raw == AML_DEC_CONTROL_CONVERT)) {
             struct pcm *pcm = adev->pcm_handle[DIGITAL_DEVICE];
             if (aml_out->dual_output_flag && pcm) {
                 ALOGI("%s close dual output pcm handle %p", __func__, pcm);
@@ -5833,16 +5834,10 @@ ssize_t audio_hal_data_processing(struct audio_stream_out *stream,
                     }
                 }
             }
-
             if (aml_getprop_bool("vendor.media.audiohal.outdump")) {
-                FILE *fp1 = fopen("/data/audio_spk.pcm", "a+");
-                if (fp1) {
-                    int flen = fwrite((char *)effect_tmp_buf, 1, bytes, fp1);
-                    ALOGV("%s buffer %p size %zu\n", __FUNCTION__, effect_tmp_buf, bytes);
-                    fclose(fp1);
-                }
+                aml_audio_dump_audio_bitstreams("/data/audio/audio_spk.pcm",
+                    effect_tmp_buf, bytes);
             }
-
             float volume = source_gain;
             /* apply volume for spk/hp, SPDIF/HDMI keep the max volume */
             if (adev->out_device & AUDIO_DEVICE_OUT_ALL_A2DP) {
@@ -6425,18 +6420,10 @@ void config_output(struct audio_stream_out *stream, bool reset_decoder)
     if (adev->active_outport == OUTPORT_HDMI_ARC && !is_arc_connected) {
         out_port = OUTPORT_SPEAKER;
     }
-
-    ALOGI("%s, out_port = %d reset decoder =%d",__func__,out_port, reset_decoder);
-
+    ALOGI("[%s:%d] out_port:%s, reset decoder:%d", __func__, __LINE__, outputPort2Str(out_port), reset_decoder);
     ret = aml_audio_output_routing((struct audio_hw_device *)adev, out_port, true);
-    if (ret < 0) {
-        ALOGE("%s() output routing failed", __func__);
-    }
     /*get sink format*/
     get_sink_format (stream);
-
-    ALOGE("%s() adev->dolby_lib_type = %d", __FUNCTION__, adev->dolby_lib_type);
-
     if (eDolbyMS12Lib == adev->dolby_lib_type) {
         bool is_compatible = false;
         if (ms12->dolby_ms12_enable) {
@@ -6519,8 +6506,7 @@ void config_output(struct audio_stream_out *stream, bool reset_decoder)
             ALOGI("%s() get_the_dolby_ms12_prepared %s, ott_enable = %d, main1_dummy = %d", __FUNCTION__, (ret == 0) ? "succuss" : "fail", ott_input, main1_dummy);
             pthread_mutex_unlock(&adev->lock);
         }
-    }
-    else {
+    } else {
         bool is_compatible = false;
         if (aml_out->aml_dec) {
             is_compatible = aml_decoder_output_compatible(stream, adev->sink_format, adev->optical_format);
@@ -6624,10 +6610,10 @@ ssize_t mixer_main_buffer_write(struct audio_stream_out *stream, const void *buf
            || patch->input_src == AUDIO_DEVICE_IN_SPDIF
            || patch->input_src == AUDIO_DEVICE_IN_TV_TUNER));
     if (adev->debug_flag) {
-        ALOGI("%s:%d out:%p write in %zu,format:0x%x,ms12_ott:%d,conti:%d,hw_sync:%d", __FUNCTION__, __LINE__,
+        ALOGI("[%s:%d] out:%p bytes:%zu,format:%#x,ms12_ott:%d,conti:%d,hw_sync:%d", __func__, __LINE__,
               aml_out, bytes, aml_out->hal_internal_format,adev->ms12_ott_enable,adev->continuous_audio_mode,aml_out->hw_sync_mode);
-        ALOGI("useSubMix:%d, dolby:%d, hal_format:0x%x, usecase:0x%x, usecase_masks:0x%x",
-            adev->useSubMix, adev->dolby_lib_type, aml_out->hal_format, aml_out->usecase, adev->usecase_masks);
+        ALOGI("[%s:%d] hal_format:%#x, out_usecase:%s, dev_usecase_masks:%#x", __func__, __LINE__,
+            aml_out->hal_format, usecase2Str(aml_out->usecase), adev->usecase_masks);
     }
 
     if (buffer == NULL) {
@@ -6760,7 +6746,8 @@ ssize_t mixer_main_buffer_write(struct audio_stream_out *stream, const void *buf
 
     /* here to check if the audio output routing changed. */
     if (adev->out_device != aml_out->out_device) {
-        ALOGI ("%s(), output routing changed, need reconfig output", __func__);
+        ALOGI ("[%s:%d] output routing changed, need reconfig output, adev_dev:%#x, out_dev:%#x",
+            __func__, __LINE__, adev->out_device, aml_out->out_device);
         need_reconfig_output = true;
         if (eDolbyMS12Lib == adev->dolby_lib_type) {
             need_reset_decoder = false;
@@ -7242,7 +7229,6 @@ re_write:
                 }
             }
         } else if (eDolbyDcvLib == adev->dolby_lib_type) {
-
             ret = aml_audio_decoder_process_wrapper(stream, write_buf, write_bytes);
         }
     }

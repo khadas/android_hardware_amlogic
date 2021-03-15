@@ -60,7 +60,7 @@ static aml_dec_func_t * get_decoder_function(audio_format_t format)
         return &aml_pcm_func;
     }
     default:
-        ALOGE("%s doesn't support decoder", __func__);
+        ALOGE("[%s:%d] doesn't support decoder format:%#x", __func__, __LINE__, format);
         return NULL;
     }
 
@@ -75,10 +75,10 @@ static void ddp_decoder_config_prepare(struct audio_stream_out *stream, aml_dcv_
     adev->dcvlib_bypass_enable = 0;
     switch (adev->hdmi_format) {
     case PCM:
-        ddp_config->digital_raw = 0;
+        ddp_config->digital_raw = AML_DEC_CONTROL_DECODING;
         break;
     case DD:
-        ddp_config->digital_raw = 1;
+        ddp_config->digital_raw = AML_DEC_CONTROL_CONVERT;
         //STB case
         if (!adev->is_TV) {
             aml_out->dual_output_flag = 0;
@@ -93,45 +93,45 @@ static void ddp_decoder_config_prepare(struct audio_stream_out *stream, aml_dcv_
             char *cap = NULL;
             cap = (char *) get_hdmi_sink_cap(AUDIO_PARAMETER_STREAM_SUP_FORMATS, 0, &(adev->hdmi_descs));
             if (cap && mystrstr(cap, "AUDIO_FORMAT_E_AC3")) {
-                ddp_config->digital_raw = 2;
+                ddp_config->digital_raw = AML_DEC_CONTROL_RAW;
             } else if (cap && mystrstr(cap, "AUDIO_FORMAT_AC3")) {
                 if (aml_out->hal_internal_format == AUDIO_FORMAT_E_AC3) {
-                    ddp_config->digital_raw = 1;
+                    ddp_config->digital_raw = AML_DEC_CONTROL_CONVERT;
                 } else if (aml_out->hal_internal_format == AUDIO_FORMAT_AC3) {
-                    ddp_config->digital_raw = 1;
+                    ddp_config->digital_raw = AML_DEC_CONTROL_CONVERT;
                 } else {
-                    ddp_config->digital_raw = 0;
+                    ddp_config->digital_raw = AML_DEC_CONTROL_DECODING;
                 }
             } else {
-                ddp_config->digital_raw = 0;
+                ddp_config->digital_raw = AML_DEC_CONTROL_DECODING;
             }
             if (cap) {
                 aml_audio_free(cap);
             }
         } else {
             if (adev->hdmi_descs.ddp_fmt.is_support) {
-                ddp_config->digital_raw = 2;
+                ddp_config->digital_raw = AML_DEC_CONTROL_RAW;
             //} else if (adev->hdmi_descs.dd_fmt.is_support) {
-            //    ddp_config->digital_raw = 1;
+            //    ddp_config->digital_raw = AML_DEC_CONTROL_CONVERT;
             } else {
-                ddp_config->digital_raw = 1;
+                ddp_config->digital_raw = AML_DEC_CONTROL_CONVERT;
             }
         }
 
         if (adev->patch_src == SRC_DTV) {
             if (adev->dual_spdif_support && adev->optical_format == AUDIO_FORMAT_E_AC3 && adev->dolby_decode_enable == 1) {
-                ddp_config->digital_raw = 1;
+                ddp_config->digital_raw = AML_DEC_CONTROL_CONVERT;
             }
         }
 
         break;
     default:
-        ddp_config->digital_raw = 0;
+        ddp_config->digital_raw = AML_DEC_CONTROL_DECODING;
         break;
     }
     if (aml_out->out_device & AUDIO_DEVICE_OUT_ALL_A2DP) {
         ALOGI("disable raw output when a2dp device\n");
-        ddp_config->digital_raw = 0;
+        ddp_config->digital_raw = AML_DEC_CONTROL_DECODING;
     }
 
     if (/*adev->dcvlib_bypass_enable != 1*/1) {
@@ -171,12 +171,12 @@ static void dts_decoder_config_prepare(struct audio_stream_out *stream, aml_dca_
     adev->dtslib_bypass_enable = 0;
     switch (adev->hdmi_format) {
     case PCM:
-        dts_config->digital_raw = 0;
+        dts_config->digital_raw = AML_DEC_CONTROL_DECODING;
         break;
     case DD:
     case AUTO:
     case BYPASS:
-        dts_config->digital_raw = 1;
+        dts_config->digital_raw = AML_DEC_CONTROL_CONVERT;
         //STB case
         if (!adev->is_TV) {
             aml_out->dual_output_flag = 0;
@@ -186,7 +186,7 @@ static void dts_decoder_config_prepare(struct audio_stream_out *stream, aml_dca_
         adev->optical_format = AUDIO_FORMAT_DTS;
         break;
     default:
-        dts_config->digital_raw = 0;
+        dts_config->digital_raw = AML_DEC_CONTROL_DECODING;
         break;
     }
 
@@ -245,17 +245,23 @@ bool aml_decoder_output_compatible(struct audio_stream_out *stream, audio_format
     struct aml_stream_out *aml_out = (struct aml_stream_out *)stream;
     bool is_compatible = true;
 
+    if (aml_out->hal_internal_format != aml_out->aml_dec->format) {
+        ALOGI("[%s:%d] not compatible. dec format:%#x -> cur format:%#x", __func__, __LINE__,
+            aml_out->aml_dec->format, aml_out->hal_internal_format);
+        return false;
+    }
+
     if ((aml_out->aml_dec->format == AUDIO_FORMAT_AC3)
         || (aml_out->aml_dec->format == AUDIO_FORMAT_E_AC3)) {
         aml_dcv_config_t* dcv_config = (aml_dcv_config_t *)(&aml_out->dec_config);
-        if (((optical_format == AUDIO_FORMAT_PCM_16_BIT) && (dcv_config->digital_raw > 0))
-            || ((optical_format == AUDIO_FORMAT_E_AC3) && (dcv_config->digital_raw != 2))) {
+        if (((optical_format == AUDIO_FORMAT_PCM_16_BIT) && (dcv_config->digital_raw > AML_DEC_CONTROL_DECODING))
+            || ((optical_format == AUDIO_FORMAT_E_AC3) && (dcv_config->digital_raw != AML_DEC_CONTROL_RAW))) {
                 is_compatible = false;
         }
     } else if ((aml_out->aml_dec->format == AUDIO_FORMAT_DTS)
                 || (aml_out->aml_dec->format == AUDIO_FORMAT_DTS_HD)) {
         aml_dca_config_t* dca_config = (aml_dca_config_t *)(&aml_out->dec_config);
-        if ((optical_format == AUDIO_FORMAT_PCM_16_BIT) && (dca_config->digital_raw > 0)) {
+        if ((optical_format == AUDIO_FORMAT_PCM_16_BIT) && (dca_config->digital_raw > AML_DEC_CONTROL_DECODING)) {
             is_compatible = false;
         }
     }
@@ -274,7 +280,7 @@ int aml_decoder_init(aml_dec_t **ppaml_dec, audio_format_t format, aml_dec_confi
         return -1;
     }
 
-    ALOGD("dec_fun->f_init=%p\n", dec_fun->f_init);
+    ALOGD("[%s:%d] dec_fun->f_init=%p, format:%#x", __func__, __LINE__, dec_fun->f_init, format);
     if (dec_fun->f_init) {
         ret = dec_fun->f_init(ppaml_dec, dec_config);
         if (ret < 0) {

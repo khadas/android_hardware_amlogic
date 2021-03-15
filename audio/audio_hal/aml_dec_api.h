@@ -23,15 +23,20 @@
 #include "aml_audio_resampler.h"
 #include "aml_audio_parser.h"
 
-typedef enum  {
+typedef enum {
     AML_DEC_CONFIG_MIXER_LEVEL, //runtime param
 } aml_dec_config_type_t;
 
-typedef enum  {
+typedef enum {
     AML_DEC_REMAIN_SIZE, //runtime param
     AML_DEC_STREMAM_INFO,
 } aml_dec_info_type_t;
 
+typedef enum {
+    AML_DEC_CONTROL_DECODING            = 0,
+    AML_DEC_CONTROL_CONVERT             = 1,
+    AML_DEC_CONTROL_RAW                 = 2,
+} aml_dec_control_type_t;
 
 typedef struct aml_dec_stream_info {
     int stream_sr;    /** the sample rate in stream*/
@@ -61,7 +66,7 @@ typedef struct aml_dec {
 
 typedef struct aml_dcv_config {
     audio_format_t format;
-    int digital_raw;
+    aml_dec_control_type_t digital_raw;
     bool is_iec61937;
     int decoding_mode;
     int nIsEc3;
@@ -69,7 +74,7 @@ typedef struct aml_dcv_config {
 
 typedef struct aml_dca_config {
     audio_format_t format;
-    int digital_raw;
+    aml_dec_control_type_t digital_raw;
     bool is_dtscd;
     bool is_iec61937;
 } aml_dca_config_t;

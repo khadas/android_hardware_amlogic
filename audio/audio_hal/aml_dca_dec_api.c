@@ -387,7 +387,7 @@ static int _dts_raw_output(struct dca_dts_dec *dts_dec)
     }
 
     dec_raw_data->data_format = AUDIO_FORMAT_IEC61937;
-    if (aml_dec->format == AUDIO_FORMAT_DTS_HD && (dts_dec->digital_raw == 1)) {
+    if (aml_dec->format == AUDIO_FORMAT_DTS_HD && (dts_dec->digital_raw == AML_DEC_CONTROL_CONVERT)) {
         dec_raw_data->sub_format = AUDIO_FORMAT_DTS;
     } else {
         dec_raw_data->sub_format = AUDIO_FORMAT_DTS;
@@ -414,9 +414,8 @@ static int unload_dts_decoder_lib()
     return 0;
 }
 
-static int dca_decoder_init(int digital_raw)
+static int dca_decoder_init(aml_dec_control_type_t digital_raw)
 {
-    //int digital_raw = 1;
     gDtsDecoderLibHandler = dlopen(DOLBY_DTSHD_LIB_PATH, RTLD_NOW);
     if (!gDtsDecoderLibHandler) {
         ALOGE("%s, failed to open (libstagefright_soft_dtshd.so), %s\n", __FUNCTION__, dlerror());
@@ -755,7 +754,7 @@ static void *decode_threadloop(void *data)
     int mChNum = 0;
     unsigned char temp;
     int i, j;
-    int digital_raw = 0;
+    aml_dec_control_type_t digital_raw = AML_DEC_CONTROL_DECODING;
     int mute_count = 5;
     struct pcm_info  pcm_out_info;
     int dts_type = 0;

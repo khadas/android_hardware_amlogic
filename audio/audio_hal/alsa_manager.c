@@ -266,7 +266,7 @@ void aml_alsa_output_close(struct audio_stream_out *stream) {
             aml_out->is_device_differ_with_ms12 = false;
         }
     }  else if (eDolbyDcvLib == adev->dolby_lib_type) {
-        if (aml_out->dual_output_flag && adev->ddp.digital_raw == 1) {
+        if (aml_out->dual_output_flag && adev->ddp.digital_raw == AML_DEC_CONTROL_CONVERT) {
             device = I2S_DEVICE;
             ALOGI("dual output,close i2s device");
         }

@@ -56,7 +56,7 @@ struct dolby_ddp_dec {
     int outlen_pcm;
     int outlen_raw;
     int nIsEc3;
-    int digital_raw;
+    aml_dec_control_type_t digital_raw;
     int decoding_mode;
     int  mixer_level;
     bool is_iec61937;

@@ -65,10 +65,7 @@ static int pcm_decoder_init(aml_dec_t **ppaml_dec, aml_dec_config_t * dec_config
     }
 
     aml_dec = &pcm_dec->aml_dec;
-
     memcpy(&pcm_dec->pcm_config, pcm_config, sizeof(aml_pcm_config_t));
-    ALOGI("PCM format=%d samplerate =%d ch=%d\n", pcm_config->pcm_format,
-          pcm_config->samplerate, pcm_config->channel);
 
     dec_pcm_data = &aml_dec->dec_pcm_data;
     dec_pcm_data->buf_size = PCM_MAX_LENGTH;
@@ -80,7 +77,8 @@ static int pcm_decoder_init(aml_dec_t **ppaml_dec, aml_dec_config_t * dec_config
 
     aml_dec->status = 1;
     *ppaml_dec = (aml_dec_t *)pcm_dec;
-    ALOGE("%s success", __func__);
+    ALOGI("[%s:%d] success PCM format=%d, samplerate:%d, ch:%d", __func__, __LINE__,
+        pcm_config->pcm_format, pcm_config->samplerate, pcm_config->channel);
     return 0;
 
 exit:

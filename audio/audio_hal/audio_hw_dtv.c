@@ -928,7 +928,7 @@ static int dtv_do_drop_ac3_pcm(struct aml_audio_patch *patch,
     size_t frame_size = 0;
     switch (adev->sink_format) {
     case AUDIO_FORMAT_E_AC3:
-        if (eDolbyDcvLib == adev->dolby_lib_type && adev->ddp.digital_raw == 1)
+        if (eDolbyDcvLib == adev->dolby_lib_type && adev->ddp.digital_raw == AML_DEC_CONTROL_CONVERT)
             frame_size = AUDIO_AC3_FRAME_SIZE;
         else
             frame_size = AUDIO_EAC3_FRAME_SIZE;
@@ -1191,7 +1191,7 @@ static int dtv_patch_pcm_write(unsigned char *pcm_data, int size,
     // }
 
     if (aml_getprop_bool("vendor.media.audiohal.outdump")) {
-        aml_audio_dump_audio_bitstreams("/data/audio_dtv.pcm",
+        aml_audio_dump_audio_bitstreams("/data/audio/audio_dtv.pcm",
             write_buf, write_size);
     }
     patch->dtv_pcm_writed += return_size;

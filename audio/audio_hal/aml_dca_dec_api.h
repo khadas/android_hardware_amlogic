@@ -47,7 +47,7 @@ struct dca_dts_dec {
     int outlen_pcm;
     int outlen_raw;
     bool is_dtscd;
-    int digital_raw;
+    aml_dec_control_type_t digital_raw;
     bool is_iec61937;
     //int (*get_parameters) (void *, int *, int *, int *);
     int (*decoder_process)(unsigned char*, int, unsigned char *, int *, unsigned char *, int *, struct pcm_info *);

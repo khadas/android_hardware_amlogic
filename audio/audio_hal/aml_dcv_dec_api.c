@@ -341,10 +341,9 @@ static  int unload_ddp_decoder_lib()
     return 0;
 }
 
-static int dcv_decoder_init(int decoding_mode, int digital_raw)
+static int dcv_decoder_init(int decoding_mode, aml_dec_control_type_t digital_raw)
 {
     int input_mode = 1;
-    //int digital_raw = 1;
     gDDPDecoderLibHandler = dlopen(DOLBY_DCV_LIB_PATH_A, RTLD_NOW);
     if (!gDDPDecoderLibHandler) {
         ALOGE("%s, failed to open (libstagefright_soft_dcvdec.so), %s\n", __FUNCTION__, dlerror());
@@ -385,7 +384,7 @@ static int dcv_decoder_init(int decoding_mode, int digital_raw)
         ALOGV("<%s::%d>--[ddp_decoder_config:]", __FUNCTION__, __LINE__);
     }
 
-    (*ddp_decoder_init)(decoding_mode, digital_raw,&handle);
+    (*ddp_decoder_init)(decoding_mode, digital_raw, &handle);
     return 0;
 Error:
     unload_ddp_decoder_lib();
@@ -474,7 +473,7 @@ void *decode_threadloop(void *data __unused)
     int in_sync = 0;
     unsigned char temp;
     int i,ad_substream_supported = 0;
-    int digital_raw = 0;
+    aml_dec_control_type_t digital_raw = AML_DEC_CONTROL_DECODING;
 
     ALOGI ("++ %s, in_sr = %d, out_sr = %d\n", __func__, parser->in_sample_rate, parser->out_sample_rate);
     outbuf = (unsigned char*) aml_audio_malloc (MAX_DDP_BUFFER_SIZE);
@@ -1059,7 +1058,7 @@ int dcv_decoder_process_patch(aml_dec_t * aml_dec, unsigned char *buffer, int by
 
     if (ddp_dec->outlen_raw > 0) {
         dec_raw_data->data_format = AUDIO_FORMAT_IEC61937;
-        if (aml_dec->format == AUDIO_FORMAT_E_AC3 && (ddp_dec->digital_raw == 1)) {
+        if (aml_dec->format == AUDIO_FORMAT_E_AC3 && (ddp_dec->digital_raw == AML_DEC_CONTROL_CONVERT)) {
             dec_raw_data->sub_format = AUDIO_FORMAT_AC3;
         } else {
             dec_raw_data->sub_format = aml_dec->format;
