@@ -739,6 +739,10 @@ struct aml_stream_out {
     //audio_format_t spdif2_audio_format;
     void *spdifout2_handle;
     /*spdif output related info end*/
+    void * virtual_buf_handle;
+    bool is_add2active_output;
+    uint32_t alsa_write_cnt;
+    uint64_t alsa_write_frames;
 };
 
 typedef ssize_t (*write_func)(struct audio_stream_out *stream, const void *buffer, size_t bytes);

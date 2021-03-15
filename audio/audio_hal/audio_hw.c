@@ -6614,7 +6614,7 @@ hwsync_rewrite:
                 if (hw_sync->wait_video_done == false && hw_sync->use_mediasync) {
                     apts32 = cur_pts & 0xffffffff;
                     aml_hwsync_wait_video_start(hw_sync);
-                    //aml_hwsync_wait_video_drop(hw_sync, apts32);
+                    aml_hwsync_wait_video_drop(hw_sync, apts32);
                     hw_sync->wait_video_done = true;
                 }
 

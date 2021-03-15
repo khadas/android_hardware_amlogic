@@ -96,7 +96,7 @@ int audio_virtual_buf_close(void **pphandle)
         aml_audio_free(*pphandle);
         *pphandle = NULL;
     }
-
+    ALOGI("%s exit", __func__);
     return 0;
 }
 

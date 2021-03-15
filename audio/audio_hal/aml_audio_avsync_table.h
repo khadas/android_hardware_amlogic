@@ -95,8 +95,10 @@
 
 #define  AVSYNC_MS12_NETFLIX_PCM_OUT_LATENCY             (0)
 #define  AVSYNC_MS12_NETFLIX_DD_OUT_LATENCY              (0)
-#define  AVSYNC_MS12_NETFLIX_DDP_OUT_LATENCY             (0)
+#define  AVSYNC_MS12_NETFLIX_DDP_OUT_LATENCY             (40)
 #define  AVSYNC_MS12_NETFLIX_MAT_OUT_LATENCY             (0)
+#define  AVSYNC_MS12_NETFLIX_DDP_OUT_TUNNEL_TUNNING      (15)
+
 
 #define  AVSYNC_MS12_NETFLIX_PCM_OUT_LATENCY_PROPERTY    "vendor.media.audio.hal.ms12.netflix.pcmout"
 #define  AVSYNC_MS12_NETFLIX_DDP_OUT_LATENCY_PROPERTY    "vendor.media.audio.hal.ms12.netflix.ddpout"

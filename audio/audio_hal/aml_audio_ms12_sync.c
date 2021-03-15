@@ -305,6 +305,9 @@ static int get_ms12_tunnel_latency_offset(enum OUT_PORT port
     if (is_netflix) {
         input_latency_ms  = get_ms12_netflix_tunnel_input_latency(input_format);
         output_latency_ms = get_ms12_netflix_output_latency(output_format);
+        if ((output_format == AUDIO_FORMAT_E_AC3) || (output_format == AUDIO_FORMAT_AC3)) {
+            output_latency_ms += AVSYNC_MS12_NETFLIX_DDP_OUT_TUNNEL_TUNNING;
+        }
     } else {
         /*
          * TODO:
@@ -429,6 +432,22 @@ uint32_t out_get_ms12_latency_frames(struct audio_stream_out *stream)
     ALOGV("%s frames =%ld mul=%d", __func__, frames, mul);
     return frames / mul;
 }
+
+uint32_t out_get_ms12_bitstream_latency_ms(struct audio_stream_out *stream)
+{
+    struct aml_stream_out *aml_out = (struct aml_stream_out *)stream;
+    struct aml_audio_device *adev = aml_out->dev;
+    struct dolby_ms12_desc *ms12 = &(adev->ms12);
+    int bitstream_delay_ms = 0;
+    struct bitstream_out_desc *bitstream_out = &ms12->bitstream_out[BITSTREAM_OUTPUT_A];
+    int ret = 0;
+
+    bitstream_delay_ms = aml_audio_spdifout_get_delay(bitstream_out->spdifout_handle);
+
+    return bitstream_delay_ms;
+}
+
+
 
 static int aml_audio_output_ddp_atmos(struct audio_stream_out *stream)
 {

@@ -245,6 +245,7 @@ int aml_alsa_output_open(struct audio_stream_out *stream) {
     adev->pcm_refs[device]++;
     aml_out->dropped_size = 0;
     aml_out->device = device;
+    aml_out->alsa_write_frames = 0;
     ALOGI("-%s, audio out(%p) device(%d) refs(%d) is_normal_pcm %d, handle %p\n\n",
           __func__, aml_out, device, adev->pcm_refs[device], aml_out->is_normal_pcm, pcm);
     ALOGI("+%s, adev->pcm_handle[%d] %p", __func__, device, adev->pcm_handle[device]);
@@ -569,11 +570,17 @@ write:
     if ((adev->continuous_audio_mode == 1) && (eDolbyMS12Lib == adev->dolby_lib_type)) {
         alsa_write_rate_control(stream, bytes, aml_out->alsa_output_format);
     }
-    if (debug_enable) {
+
+    aml_out->alsa_write_cnt++;
+    aml_out->alsa_write_frames += pcm_bytes_to_frames(aml_out->pcm, bytes);
+
+    if (debug_enable || (aml_out->alsa_write_cnt % 1000) == 0) {
         snd_pcm_sframes_t frames = 0;
         ret = pcm_ioctl(aml_out->pcm, SNDRV_PCM_IOCTL_DELAY, &frames);
-        ALOGI("alsa format =0x%x frames =%ld", aml_out->alsa_output_format, frames);
+        ALOGI("alsa format =0x%x delay frames =%ld total frames=%lld", aml_out->alsa_output_format, frames, aml_out->alsa_write_frames);
     }
+
+
     ret = pcm_write(aml_out->pcm, buffer, bytes);
     if (ret < 0) {
         ALOGE("%s write failed,pcm handle %p %s, stream %p, %s",
@@ -726,10 +733,45 @@ typedef struct alsa_handle {
     int    block_mode;
     unsigned int alsa_port;  /*refer to PORT_SPDIF, PORT***/
     audio_format_t  format;
-
+    uint32_t write_cnt;
+    uint64_t write_frames;
 } alsa_handle_t;
 
-int aml_alsa_output_open_new(void **handle, aml_stream_config_t * stream_config, aml_device_config_t *device_config) {
+static void alsa_write_new_rate_control(void *handle) {
+
+    alsa_handle_t * alsa_handle = (alsa_handle_t *)handle;
+    struct aml_audio_device *adev = (struct aml_audio_device *)adev_get_handle();
+    snd_pcm_sframes_t frames = 0;
+    struct snd_pcm_status status;
+    int ret = 0;
+    int rate = alsa_handle->config.rate;
+    int rate_multiply = 1;
+    int frame_ms = 0;
+
+    pcm_ioctl(alsa_handle->pcm, SNDRV_PCM_IOCTL_STATUS, &status);
+
+    if (alsa_handle->format == AUDIO_FORMAT_MAT) {
+        rate_multiply = 4;
+    } else if (alsa_handle->format == AUDIO_FORMAT_E_AC3) {
+        rate_multiply = 4;
+    }
+
+    if (status.state == PCM_STATE_RUNNING) {
+        pcm_ioctl(alsa_handle->pcm, SNDRV_PCM_IOCTL_DELAY, &frames);
+
+        frame_ms = (uint64_t)frames * 1000LL/ (rate * rate_multiply);
+        ALOGI("format %#x frame_ms=%d", alsa_handle->format, frame_ms);
+        if (frame_ms > ALSA_DELAY_THRESHOLD_MS) {
+            aml_audio_sleep((frame_ms - ALSA_DELAY_THRESHOLD_MS) * 1000);
+
+        }
+    }
+    return;
+}
+
+
+int aml_alsa_output_open_new(void **handle, aml_stream_config_t * stream_config, aml_device_config_t *device_config)
+{
     int ret = -1;
     struct pcm_config *config = NULL;
     int card = 0;
@@ -805,6 +847,8 @@ int aml_alsa_output_open_new(void **handle, aml_stream_config_t * stream_config,
     alsa_handle->pcm = pcm;
     alsa_handle->alsa_port = alsa_port;
     alsa_handle->format = format;
+    alsa_handle->write_cnt = 0;
+    alsa_handle->write_frames = 0;
 
 
     *handle = (void*)alsa_handle;
@@ -892,7 +936,7 @@ size_t aml_alsa_output_write_new(void *handle, const void *buffer, size_t bytes)
         struct snd_pcm_status status;
         pcm_ioctl(alsa_handle->pcm, SNDRV_PCM_IOCTL_STATUS, &status);
         if (status.state == PCM_STATE_XRUN) {
-            ALOGW("[%s:%d] alsa underrun", __func__, __LINE__);
+            ALOGW("[%s:%d] format =0x%x alsa underrun", __func__, __LINE__, alsa_handle->format);
         }
     }
     if (getprop_bool(ALSA_DUMP_PROPERTY)) {
@@ -910,12 +954,22 @@ size_t aml_alsa_output_write_new(void *handle, const void *buffer, size_t bytes)
         }
         aml_audio_dump_audio_bitstreams(file_name, buffer, bytes);
     }
-    if (debug_enable) {
+
+    alsa_handle->write_cnt++;
+    alsa_handle->write_frames += pcm_bytes_to_frames(alsa_handle->pcm, bytes);
+
+    if (debug_enable || (alsa_handle->write_cnt % 1000) == 0) {
         snd_pcm_sframes_t frames = 0;
         ret = pcm_ioctl(alsa_handle->pcm, SNDRV_PCM_IOCTL_DELAY, &frames);
-        ALOGI("alsa format =0x%x frames =%ld", alsa_handle->format, frames);
+        ALOGI("alsa format =0x%x delay frames =%ld total frames=%lld", alsa_handle->format, frames, alsa_handle->write_frames);
     }
 
+#if 0
+    /*for ms12 case, we control the output buffer level*/
+    if ((adev->continuous_audio_mode == 1) && (eDolbyMS12Lib == adev->dolby_lib_type)) {
+        alsa_write_new_rate_control(alsa_handle);
+    }
+#endif
 
     ret = pcm_write(alsa_handle->pcm, buffer, bytes);
     return ret;
