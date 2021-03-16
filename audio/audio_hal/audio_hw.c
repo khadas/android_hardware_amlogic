@@ -1278,130 +1278,18 @@ exit:
     return ret;
 }
 
-static char *out_get_parameters (const struct audio_stream *stream, const char *keys)
+static char *out_get_parameters(const struct audio_stream *stream, const char *keys)
 {
-    char *cap = NULL;
-    char *para = NULL;
-    struct aml_stream_out *out = (struct aml_stream_out *) stream;
-    struct aml_audio_device *adev = out->dev;
-    struct str_parms *parms;
-    audio_format_t format;
-    int ret = 0, val_int = 0;
-    parms = str_parms_create_str (keys);
-    ret = str_parms_get_int(parms, AUDIO_PARAMETER_STREAM_FORMAT, &val_int);
-    format = (audio_format_t) val_int;
-    if (format == 0) {
-        format = out->hal_format;
+    if (strstr(keys, AUDIO_PARAMETER_STREAM_SUP_SAMPLING_RATES) || \
+        strstr(keys, AUDIO_PARAMETER_STREAM_SUP_CHANNELS) || \
+        strstr(keys, AUDIO_PARAMETER_STREAM_SUP_FORMATS)) {
+        return out_get_parameters_wrapper_about_sup_sampling_rates__channels__formats(stream, keys);
     }
-    ALOGI ("out_get_parameters %s,out %p format=0x%x hal_format=0x%x\n", keys, out, format, out->hal_format);
-
-    if (strstr(keys, AUDIO_PARAMETER_STREAM_SUP_SAMPLING_RATES)) {
-        if (out->flags & AUDIO_OUTPUT_FLAG_PRIMARY) {
-            ALOGV ("Amlogic - return hard coded sample_rate list for primary output stream.\n");
-            cap = strdup ("sup_sampling_rates=8000|11025|16000|22050|24000|32000|44100|48000");
-        } else {
-            if (out->out_device & AUDIO_DEVICE_OUT_HDMI_ARC) {
-                cap = (char *) strdup_hdmi_arc_cap_default (AUDIO_PARAMETER_STREAM_SUP_SAMPLING_RATES, format);
-            } else if (adev->bHDMIConnected && adev->bHDMIARCon && (out->out_device & AUDIO_DEVICE_OUT_ALL_A2DP)) {
-                cap = (char *) strdup_a2dp_cap_default(AUDIO_PARAMETER_STREAM_SUP_SAMPLING_RATES, format);
-            } else {
-                if (eDolbyMS12Lib == adev->dolby_lib_type) {
-                    cap = (char *) get_hdmi_sink_cap_dolby_ms12 (AUDIO_PARAMETER_STREAM_SUP_SAMPLING_RATES,format,&(adev->hdmi_descs));
-                } else {
-                    cap = (char *) get_hdmi_sink_cap_dolbylib (AUDIO_PARAMETER_STREAM_SUP_SAMPLING_RATES,format,&(adev->hdmi_descs), adev->dolby_decode_enable);
-                }
-            }
-        }
-        if (cap) {
-            para = strdup (cap);
-            aml_audio_free (cap);
-        } else {
-            para = strdup ("");
-        }
-        ALOGI ("%s\n", para);
-        return para;
-    } else if (strstr (keys, AUDIO_PARAMETER_STREAM_SUP_CHANNELS) ) {
-        if (out->flags & AUDIO_OUTPUT_FLAG_PRIMARY) {
-            ALOGV ("Amlogic - return hard coded channel_mask list for primary output stream.\n");
-            cap = strdup ("sup_channels=AUDIO_CHANNEL_OUT_MONO|AUDIO_CHANNEL_OUT_STEREO");
-        } else {
-            if (out->out_device & AUDIO_DEVICE_OUT_HDMI_ARC) {
-                cap = (char *) strdup_hdmi_arc_cap_default (AUDIO_PARAMETER_STREAM_SUP_CHANNELS, format);
-            } else if (adev->bHDMIConnected && adev->bHDMIARCon && (out->out_device & AUDIO_DEVICE_OUT_ALL_A2DP)) {
-                cap = (char *) strdup_a2dp_cap_default(AUDIO_PARAMETER_STREAM_SUP_CHANNELS, format);
-            } else {
-                if ((format == AUDIO_FORMAT_PCM_16_BIT || format == AUDIO_FORMAT_PCM_32_BIT)
-                    && adev->dolby_lib_type == eDolbyMS12Lib) {
-                    cap = strdup ("sup_channels=AUDIO_CHANNEL_OUT_STEREO");
-                } else {
-                    if (eDolbyMS12Lib == adev->dolby_lib_type) {
-                        cap = (char *) get_hdmi_sink_cap_dolby_ms12 (AUDIO_PARAMETER_STREAM_SUP_CHANNELS,format,&(adev->hdmi_descs));
-                    } else {
-                        cap = (char *) get_hdmi_sink_cap_dolbylib (AUDIO_PARAMETER_STREAM_SUP_CHANNELS,format,&(adev->hdmi_descs), adev->dolby_decode_enable);
-                    }
-                }
-            }
-        }
-        if (cap) {
-            para = strdup (cap);
-            aml_audio_free (cap);
-        } else {
-            para = strdup ("");
-        }
-        ALOGI ("%s\n", para);
-        return para;
-    } else if (strstr (keys, AUDIO_PARAMETER_STREAM_SUP_FORMATS) ) {
-        if (out->out_device & AUDIO_DEVICE_OUT_HDMI_ARC) {
-            cap = (char *) strdup_hdmi_arc_cap_default (AUDIO_PARAMETER_STREAM_SUP_FORMATS, format);
-        } else if (adev->bHDMIConnected && adev->bHDMIARCon && (out->out_device & AUDIO_DEVICE_OUT_ALL_A2DP)) {
-            cap = (char *) strdup_a2dp_cap_default(AUDIO_PARAMETER_STREAM_SUP_FORMATS, format);
-        } else {
-            if (out->is_tv_platform == 1) {
-                ALOGV ("Amlogic - return hard coded sup_formats list for primary output stream.\n");
-#if defined(IS_ATOM_PROJECT)
-    cap = strdup ("sup_formats=AUDIO_FORMAT_PCM_32_BIT");
-#else
-    cap = strdup ("sup_formats=AUDIO_FORMAT_PCM_16_BIT");
-#endif
-            } else {
-                if (eDolbyMS12Lib == adev->dolby_lib_type) {
-                    cap = (char *) get_hdmi_sink_cap_dolby_ms12 (AUDIO_PARAMETER_STREAM_SUP_FORMATS,format,&(adev->hdmi_descs));
-                } else {
-                    cap = (char *) get_hdmi_sink_cap_dolbylib (AUDIO_PARAMETER_STREAM_SUP_FORMATS,format,&(adev->hdmi_descs), adev->dolby_decode_enable);
-                }
-            }
-        }
-        if (cap) {
-            para = strdup (cap);
-            aml_audio_free (cap);
-        } else {
-            para = strdup ("");
-        }
-        ALOGI ("%s\n", para);
-        return para;
+    else {
+        ALOGE("%s() keys %s is not supported! TODO!\n", __func__, keys);
+        return strdup ("");
     }
-    return strdup ("");
 }
-
-/* redifinition in audio_hw_utils.c
-static uint32_t out_get_latency_frames (const struct audio_stream_out *stream)
-{
-    const struct aml_stream_out *out = (const struct aml_stream_out *) stream;
-    snd_pcm_sframes_t frames = 0;
-    uint32_t whole_latency_frames;
-    int ret = 0;
-
-    whole_latency_frames = out->config.period_size * out->config.period_count;
-    if (!out->pcm || !pcm_is_ready (out->pcm) ) {
-        return whole_latency_frames;
-    }
-    ret = pcm_ioctl (out->pcm, SNDRV_PCM_IOCTL_DELAY, &frames);
-    if (ret < 0) {
-        return whole_latency_frames;
-    }
-    return frames;
-}
-*/
 
 static uint32_t out_get_latency (const struct audio_stream_out *stream)
 {

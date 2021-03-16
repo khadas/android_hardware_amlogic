@@ -26,4 +26,15 @@ char*  get_hdmi_sink_cap_dolby_ms12(const char *keys,audio_format_t format,struc
 char*  get_hdmi_arc_cap(unsigned *ad, int maxsize, const char *keys);
 char *strdup_hdmi_arc_cap_default(const char *keys, audio_format_t format);
 char *strdup_a2dp_cap_default(const char *keys, audio_format_t format);
+
+/*@ brief get the TV board inside capbility
+ * return the strdup.
+ */
+char *strdup_tv_platform_cap_default(const char *keys, audio_format_t format);
+
+/*@ brief out_get_parameters wrapper about the support sampling_rates/channels/formats
+ * return the strdup.
+ */
+char *out_get_parameters_wrapper_about_sup_sampling_rates__channels__formats(const struct audio_stream *stream, const char *keys);
+
 #endif

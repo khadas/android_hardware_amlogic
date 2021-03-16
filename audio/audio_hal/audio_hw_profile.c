@@ -34,6 +34,8 @@
 
 #include "audio_hw_utils.h"
 #include "alsa_device_parser.h"
+#include "dolby_lib_api.h"
+
 #define SOUND_CARDS_PATH "/proc/asound/cards"
 #define SOUND_PCM_PATH  "/proc/asound/pcm"
 #define MAT_EDID_MAX_LEN 256
@@ -895,3 +897,252 @@ char *strdup_a2dp_cap_default(const char *keys, audio_format_t format)
 
     return cap;
 }
+
+char *strdup_tv_platform_cap_default(const char *keys, audio_format_t format)
+{
+    char fmt[64] = "sup_formats=";
+    char ch_mask[512] = "sup_channels=";
+    char sr[256] = "sup_sampling_rates=";
+    char *cap = NULL;
+
+    /* check the format cap */
+    if (strstr(keys, AUDIO_PARAMETER_STREAM_SUP_FORMATS)) {
+        switch (format) {
+        case AUDIO_FORMAT_PCM_16_BIT:
+            strcat(fmt, "AUDIO_FORMAT_PCM_16_BIT");
+            cap = strdup(fmt);
+            break;
+        case AUDIO_FORMAT_AC3:
+            strcat(fmt, "AUDIO_FORMAT_AC3");
+            cap = strdup(fmt);
+            break;
+        case AUDIO_FORMAT_E_AC3:
+            strcat(fmt, "AUDIO_FORMAT_E_AC3");
+            cap = strdup(fmt);
+            break;
+        case AUDIO_FORMAT_E_AC3_JOC:
+            strcat(fmt, "AUDIO_FORMAT_E_AC3_JOC");
+            cap = strdup(fmt);
+            break;
+        case AUDIO_FORMAT_AC4:
+            strcat(fmt, "AUDIO_FORMAT_AC4");
+            cap = strdup(fmt);
+            break;
+        case AUDIO_FORMAT_DTS:
+            strcat(fmt, "AUDIO_FORMAT_DTS");
+            cap = strdup(fmt);
+            break;
+        case AUDIO_FORMAT_DTS_HD:
+            strcat(fmt, "AUDIO_FORMAT_DTS_HD");
+            cap = strdup(fmt);
+            break;
+        case AUDIO_FORMAT_IEC61937:
+            strcat(fmt, "AUDIO_FORMAT_IEC61937");
+            cap = strdup(fmt);
+            break;
+        default:
+            ALOGE("%s, unsupport format: %#x", __FUNCTION__, format);
+            break;
+        }
+    } else if (strstr(keys, AUDIO_PARAMETER_STREAM_SUP_CHANNELS)) {
+        /* take the 2ch suppported as default */
+        switch (format) {
+        case AUDIO_FORMAT_PCM_16_BIT:
+            strcat(ch_mask, "AUDIO_CHANNEL_OUT_STEREO");
+            cap = strdup(ch_mask);
+            break;
+        case AUDIO_FORMAT_AC3:
+            strcat(ch_mask, "AUDIO_CHANNEL_OUT_MONO,AUDIO_CHANNEL_OUT_STEREO,AUDIO_CHANNEL_OUT_MONO,AUDIO_CHANNEL_OUT_TRI,AUDIO_CHANNEL_OUT_TRI_BACK,AUDIO_CHANNEL_OUT_3POINT1,AUDIO_CHANNEL_OUT_QUAD,AUDIO_CHANNEL_OUT_SURROUND,AUDIO_CHANNEL_OUT_PENTA,AUDIO_CHANNEL_OUT_5POINT1");
+            cap = strdup(ch_mask);
+            break;
+        case AUDIO_FORMAT_E_AC3:
+        case AUDIO_FORMAT_E_AC3_JOC:
+            strcat(ch_mask, "AUDIO_CHANNEL_OUT_MONO,AUDIO_CHANNEL_OUT_STEREO,AUDIO_CHANNEL_OUT_MONO,AUDIO_CHANNEL_OUT_TRI,AUDIO_CHANNEL_OUT_TRI_BACK,AUDIO_CHANNEL_OUT_3POINT1,AUDIO_CHANNEL_OUT_QUAD,AUDIO_CHANNEL_OUT_SURROUND,AUDIO_CHANNEL_OUT_PENTA,AUDIO_CHANNEL_OUT_5POINT1");
+            cap = strdup(ch_mask);
+            break;
+        case AUDIO_FORMAT_AC4:
+            strcat(ch_mask, "AUDIO_CHANNEL_OUT_MONO,AUDIO_CHANNEL_OUT_STEREO,AUDIO_CHANNEL_OUT_MONO,AUDIO_CHANNEL_OUT_TRI,AUDIO_CHANNEL_OUT_TRI_BACK,AUDIO_CHANNEL_OUT_3POINT1,AUDIO_CHANNEL_OUT_QUAD,AUDIO_CHANNEL_OUT_SURROUND,AUDIO_CHANNEL_OUT_PENTA,AUDIO_CHANNEL_OUT_5POINT1");
+            cap = strdup(ch_mask);
+            break;
+        case AUDIO_FORMAT_DTS:
+            strcat(ch_mask, "AUDIO_CHANNEL_OUT_MONO,AUDIO_CHANNEL_OUT_STEREO,AUDIO_CHANNEL_OUT_TRI,AUDIO_CHANNEL_OUT_QUAD_BACK,AUDIO_CHANNEL_OUT_QUAD_SIDE,AUDIO_CHANNEL_OUT_PENTA,AUDIO_CHANNEL_OUT_5POINT1,AUDIO_CHANNEL_OUT_7POINT1");
+            cap = strdup(ch_mask);
+            break;
+        case AUDIO_FORMAT_DTS_HD:
+            strcat(ch_mask, "AUDIO_CHANNEL_OUT_MONO,AUDIO_CHANNEL_OUT_STEREO,AUDIO_CHANNEL_OUT_TRI,AUDIO_CHANNEL_OUT_QUAD_BACK,AUDIO_CHANNEL_OUT_QUAD_SIDE,AUDIO_CHANNEL_OUT_PENTA,AUDIO_CHANNEL_OUT_5POINT1,AUDIO_CHANNEL_OUT_7POINT1");
+            cap = strdup(ch_mask);
+            break;
+        case AUDIO_FORMAT_IEC61937:
+            strcat(ch_mask, "AUDIO_CHANNEL_OUT_STEREO,AUDIO_CHANNEL_OUT_5POINT1,AUDIO_CHANNEL_OUT_7POINT1");
+            cap = strdup(ch_mask);
+            break;
+        default:
+            ALOGE("%s, unsupport format: %#x", __FUNCTION__, format);
+            break;
+        }
+    } else if (strstr(keys, AUDIO_PARAMETER_STREAM_SUP_SAMPLING_RATES)) {
+        /* take the 48 khz suppported as default */
+        switch (format) {
+        case AUDIO_FORMAT_PCM_16_BIT:
+            strcat(sr, "32000|44100|48000");
+            cap = strdup(sr);
+            break;
+        case AUDIO_FORMAT_AC3:
+            strcat(sr, "32000|44100|48000");
+            cap = strdup(sr);
+            break;
+        case AUDIO_FORMAT_E_AC3:
+        case AUDIO_FORMAT_E_AC3_JOC:
+            strcat(sr, "16000|22050|24000|32000|44100|48000");
+            cap = strdup(sr);
+            break;
+        case AUDIO_FORMAT_AC4:
+            strcat(sr, "44100|48000");
+            cap = strdup(sr);
+            break;
+        case AUDIO_FORMAT_DTS:
+            strcat(sr, "22050|24000|32000|44100|48000|88200|96000|192000");
+            cap = strdup(sr);
+            break;
+        case AUDIO_FORMAT_DTS_HD:
+            strcat(sr, "22050|24000|32000|44100|48000|88200|96000|192000");
+            cap = strdup(sr);
+            break;
+        case AUDIO_FORMAT_IEC61937:
+            strcat(sr, "8000|11025|16000|22050|24000|32000|44100|48000|128000|176400|192000");
+            cap = strdup(sr);
+            break;
+        default:
+            ALOGE("%s, unsupport format: %#x", __FUNCTION__, format);
+            break;
+        }
+    } else {
+        ALOGE("NOT support yet");
+    }
+
+    if (!cap) {
+        cap = strdup("");
+    }
+
+    return cap;
+}
+
+char *out_get_parameters_wrapper_about_sup_sampling_rates__channels__formats(const struct audio_stream *stream, const char *keys)
+{
+    char *cap = NULL;
+    char *para = NULL;
+    struct aml_stream_out *out = (struct aml_stream_out *) stream;
+    struct aml_audio_device *adev = out->dev;
+    struct str_parms *parms;
+    audio_format_t format;
+    int ret = 0, val_int = 0;
+
+    parms = str_parms_create_str (keys);
+    ret = str_parms_get_int(parms, AUDIO_PARAMETER_STREAM_FORMAT, &val_int);
+
+    format = (audio_format_t) val_int;
+    if (format == 0) {
+        format = out->hal_format;
+    }
+    ALOGI ("out_get_parameters %s,out %p format=0x%x hal_format=0x%x\n", keys, out, format, out->hal_format);
+
+    if (strstr(keys, AUDIO_PARAMETER_STREAM_SUP_SAMPLING_RATES)) {
+        if (out->flags & AUDIO_OUTPUT_FLAG_PRIMARY) {
+            ALOGV ("Amlogic - return hard coded sample_rate list for primary output stream.\n");
+            cap = strdup ("sup_sampling_rates=8000|11025|16000|22050|24000|32000|44100|48000");
+        } else {
+            if (out->out_device & AUDIO_DEVICE_OUT_HDMI_ARC) {
+                cap = (char *) strdup_hdmi_arc_cap_default (AUDIO_PARAMETER_STREAM_SUP_SAMPLING_RATES, format);
+            } else if (adev->bHDMIConnected && adev->bHDMIARCon && (out->out_device & AUDIO_DEVICE_OUT_ALL_A2DP)) {
+                cap = (char *) strdup_a2dp_cap_default(AUDIO_PARAMETER_STREAM_SUP_SAMPLING_RATES, format);
+            } else {
+                if (out->is_tv_platform == 1) {
+                    cap = (char *)strdup_tv_platform_cap_default(AUDIO_PARAMETER_STREAM_SUP_SAMPLING_RATES, format);
+                }
+                else {
+                    if (eDolbyMS12Lib == adev->dolby_lib_type) {
+                        cap = (char *) get_hdmi_sink_cap_dolby_ms12 (AUDIO_PARAMETER_STREAM_SUP_SAMPLING_RATES,format,&(adev->hdmi_descs));
+                    } else {
+                        cap = (char *) get_hdmi_sink_cap_dolbylib (AUDIO_PARAMETER_STREAM_SUP_SAMPLING_RATES,format,&(adev->hdmi_descs), adev->dolby_decode_enable);
+                    }
+                }
+            }
+        }
+        if (cap) {
+            para = strdup (cap);
+            aml_audio_free (cap);
+        } else {
+            para = strdup ("");
+        }
+        ALOGI ("%s\n", para);
+        return para;
+    } else if (strstr (keys, AUDIO_PARAMETER_STREAM_SUP_CHANNELS) ) {
+        if (out->flags & AUDIO_OUTPUT_FLAG_PRIMARY) {
+            ALOGV ("Amlogic - return hard coded channel_mask list for primary output stream.\n");
+            cap = strdup ("sup_channels=AUDIO_CHANNEL_OUT_MONO|AUDIO_CHANNEL_OUT_STEREO");
+        } else {
+            if (out->out_device & AUDIO_DEVICE_OUT_HDMI_ARC) {
+                cap = (char *) strdup_hdmi_arc_cap_default (AUDIO_PARAMETER_STREAM_SUP_CHANNELS, format);
+            } else if (adev->bHDMIConnected && adev->bHDMIARCon && (out->out_device & AUDIO_DEVICE_OUT_ALL_A2DP)) {
+                cap = (char *) strdup_a2dp_cap_default(AUDIO_PARAMETER_STREAM_SUP_CHANNELS, format);
+            } else {
+                if (out->is_tv_platform == 1) {
+                    cap = (char *)strdup_tv_platform_cap_default(AUDIO_PARAMETER_STREAM_SUP_CHANNELS, format);
+                }
+                else {
+                    if ((format == AUDIO_FORMAT_PCM_16_BIT || format == AUDIO_FORMAT_PCM_32_BIT)
+                        && adev->dolby_lib_type == eDolbyMS12Lib) {
+                        cap = strdup ("sup_channels=AUDIO_CHANNEL_OUT_STEREO");
+                    } else {
+                        if (eDolbyMS12Lib == adev->dolby_lib_type) {
+                            cap = (char *) get_hdmi_sink_cap_dolby_ms12 (AUDIO_PARAMETER_STREAM_SUP_CHANNELS,format,&(adev->hdmi_descs));
+                        } else {
+                            cap = (char *) get_hdmi_sink_cap_dolbylib (AUDIO_PARAMETER_STREAM_SUP_CHANNELS,format,&(adev->hdmi_descs), adev->dolby_decode_enable);
+                        }
+                    }
+                }
+            }
+        }
+        if (cap) {
+            para = strdup (cap);
+            aml_audio_free (cap);
+        } else {
+            para = strdup ("");
+        }
+        ALOGI ("%s\n", para);
+        return para;
+    } else if (strstr (keys, AUDIO_PARAMETER_STREAM_SUP_FORMATS) ) {
+        if (out->out_device & AUDIO_DEVICE_OUT_HDMI_ARC) {
+            cap = (char *) strdup_hdmi_arc_cap_default (AUDIO_PARAMETER_STREAM_SUP_FORMATS, format);
+        } else if (adev->bHDMIConnected && adev->bHDMIARCon && (out->out_device & AUDIO_DEVICE_OUT_ALL_A2DP)) {
+            cap = (char *) strdup_a2dp_cap_default(AUDIO_PARAMETER_STREAM_SUP_FORMATS, format);
+        } else {
+            if (out->is_tv_platform == 1) {
+                ALOGV ("Amlogic - return hard coded sup_formats list for primary output stream.\n");
+#if defined(IS_ATOM_PROJECT)
+                cap = strdup ("sup_formats=AUDIO_FORMAT_PCM_32_BIT");
+#else
+                cap = (char *)strdup_tv_platform_cap_default(AUDIO_PARAMETER_STREAM_SUP_FORMATS, format);
+#endif
+            } else {
+                if (eDolbyMS12Lib == adev->dolby_lib_type) {
+                    cap = (char *) get_hdmi_sink_cap_dolby_ms12 (AUDIO_PARAMETER_STREAM_SUP_FORMATS,format,&(adev->hdmi_descs));
+                } else {
+                    cap = (char *) get_hdmi_sink_cap_dolbylib (AUDIO_PARAMETER_STREAM_SUP_FORMATS,format,&(adev->hdmi_descs), adev->dolby_decode_enable);
+                }
+            }
+        }
+        if (cap) {
+            para = strdup (cap);
+            aml_audio_free (cap);
+        } else {
+            para = strdup ("");
+        }
+        ALOGI ("%s\n", para);
+        return para;
+    }
+    return strdup ("");
+}
+
+
+
