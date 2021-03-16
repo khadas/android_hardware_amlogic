@@ -709,11 +709,7 @@ audio_format_t audio_type_convert_to_android_audio_format_t(int codec_type)
     case TRUEHD:
         return AUDIO_FORMAT_DOLBY_TRUEHD;
     case LPCM:
-#if defined(IS_ATOM_PROJECT)
-        return AUDIO_FORMAT_PCM_32_BIT;
-#else
-        return AUDIO_FORMAT_PCM_16_BIT;
-#endif
+
     default:
         return AUDIO_FORMAT_PCM_16_BIT;
     }
