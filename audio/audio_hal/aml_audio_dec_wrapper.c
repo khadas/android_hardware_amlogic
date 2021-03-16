@@ -164,14 +164,14 @@ int aml_audio_decoder_process_wrapper(struct audio_stream_out *stream, const voi
                     patch->sample_rate = dec_pcm_data->data_sr;
                 }
                 if (dec_pcm_data->data_sr != OUTPUT_ALSA_SAMPLERATE ) {
-                     ret = aml_audio_resample_process_wrapper(&aml_out->resample_handle, dec_pcm_data->buf, dec_pcm_data->data_len, dec_pcm_data->data_sr, dec_pcm_data->data_ch);
-                     if (ret != 0) {
-                         ALOGI("aml_audio_resample_process_wrapper failed");
-                     } else {
-                         dec_data = aml_out->resample_handle->resample_buffer;
-                         dec_pcm_data->data_len = aml_out->resample_handle->resample_size;
-                     }
-                 }
+                    ret = aml_audio_resample_process_wrapper(&aml_out->resample_handle, dec_pcm_data->buf, dec_pcm_data->data_len, dec_pcm_data->data_sr, dec_pcm_data->data_ch);
+                    if (ret != 0) {
+                        ALOGI("aml_audio_resample_process_wrapper failed");
+                    } else {
+                        dec_data = aml_out->resample_handle->resample_buffer;
+                        dec_pcm_data->data_len = aml_out->resample_handle->resample_size;
+                    }
+                }
                 //aml_audio_dump_audio_bitstreams("/data/mixing_data.raw", dec_data, dec_pcm_data->data_len);
                 aml_hw_mixer_mixing(&adev->hw_mixer, dec_data, dec_pcm_data->data_len, output_format);
                 if (audio_hal_data_processing(stream, dec_data, dec_pcm_data->data_len, &output_buffer, &output_buffer_bytes, output_format) == 0) {

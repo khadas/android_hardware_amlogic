@@ -740,18 +740,6 @@ struct aml_stream_in {
     size_t input_tmp_buffer_size;
     void *tmp_buffer_8ch;
     size_t tmp_buffer_8ch_size;
-#if defined(IS_ATOM_PROJECT)
-    int ref_count;
-    void *aux_buf;
-    size_t aux_buf_size;
-    size_t aux_buf_write_bytes;
-    void *mic_buf;
-    size_t mic_buf_size;
-    //void *tmp_buffer_8ch;
-    //size_t tmp_buffer_8ch_size;
-    pthread_mutex_t aux_mic_mutex;
-    pthread_cond_t aux_mic_cond;
-#endif
     unsigned int frames_read;
     uint64_t timestamp_nsec;
 

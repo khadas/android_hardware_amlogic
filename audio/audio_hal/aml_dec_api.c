@@ -203,6 +203,8 @@ static void dts_decoder_config_prepare(struct audio_stream_out *stream, aml_dca_
     } else {
         dts_config->is_iec61937 = false;
     }
+
+    dts_config->dev = (void *)adev;
     ALOGI("%s digital_raw:%d, dual_output_flag:%d, is_iec61937:%d, is_dtscd:%d"
         , __func__, dts_config->digital_raw, aml_out->dual_output_flag, dts_config->is_iec61937, dts_config->is_dtscd);
     return;
@@ -337,7 +339,8 @@ int aml_decoder_release(aml_dec_t *aml_dec)
 
 
 }
-int aml_decoder_set_config(aml_dec_t *aml_dec, aml_dec_config_type_t config_type, aml_dec_config_t * dec_config)
+
+int aml_decoder_config(aml_dec_t *aml_dec, aml_dec_config_type_t config_type, aml_dec_config_t * dec_config)
 {
     int ret = -1;
     aml_dec_func_t *dec_fun = NULL;
@@ -357,7 +360,7 @@ int aml_decoder_set_config(aml_dec_t *aml_dec, aml_dec_config_type_t config_type
     return ret;
 }
 
-int aml_decoder_get_info(aml_dec_t *aml_dec, aml_dec_info_type_t info_type, aml_dec_info_t * dec_info)
+int aml_decoder_info(aml_dec_t *aml_dec, aml_dec_info_type_t info_type, aml_dec_info_t * dec_info)
 {
     int ret = -1;
     aml_dec_func_t *dec_fun = NULL;

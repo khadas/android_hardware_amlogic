@@ -39,6 +39,42 @@ struct dts_frame_info {
     int size;
 };
 
+///< Keep the members of dca_config_type_e the same as structure in dca_decoder.h
+///< static param: need to reset decoder
+///< dynamic param: do not neet to reset decoder
+typedef enum  {
+    DCA_CONFIG_OUT_BITDEPTH, //runtime/static param
+    DCA_CONFIG_OUT_CH, //runtime/static param
+    DCA_CONFIG_OUTPUT_SR,   // static param
+} dca_config_type_e;
+
+///< Keep the members of dca_info_type_e the same as structure in dca_decoder.h
+typedef enum  {
+    DCA_OUTPUT_INFO,
+    DCA_STREAM_INFO,
+} dca_info_type_e;
+
+///< Keep the members of dca_config_t the same as structure in dca_decoder.h
+typedef union dca_config_s {
+    uint32_t output_bitwidth;
+    uint32_t output_ch; ///< 0(default): decoder auto config, 2: always 2ch, 6: always 6ch
+    uint32_t output_sr;
+} dca_config_t;
+
+///< Keep the members of dca_info_t the same as structure in dca_decoder.h
+typedef union dca_info_s {
+    struct {
+        uint32_t output_bitwidth; ///< output channels
+        uint32_t output_ch; ///< output channels
+        uint32_t output_sr; ///< output sample rate
+    } output_info;  ///< DCA_GET_OUTPUT_INFO
+
+    struct {
+        uint32_t stream_ch; ///< bitstream origin channels
+        uint32_t stream_sr; ///< bitstream origin sample rate
+    } stream_info;  ///< DCA_GET_STREAM_INFO
+} dca_info_t;
+
 struct dca_dts_dec {
     aml_dec_t  aml_dec;
     unsigned char *inbuf;
@@ -62,6 +98,33 @@ int dca_decode_release(struct aml_audio_parser *parser);
 int dca_decoder_init_patch(aml_dec_t **ppaml_dec, aml_dec_config_t * dec_config);
 int dca_decoder_release_patch(aml_dec_t *aml_dec);
 int dca_decoder_process_patch(aml_dec_t *aml_dec, unsigned char*buffer, int bytes);
+/*
+    If @aml_dec is NULL, static param will take effect after decoder init.
+    If @aml_dec is normal, static/runtime param will take effect after decoder init.
+*/
+int dca_decoder_config(aml_dec_t *aml_dec, aml_dec_config_type_t config_type, aml_dec_config_t *aml_dec_config);
+int dca_decoder_getinfo(aml_dec_t *aml_dec, aml_dec_info_type_t info_type, aml_dec_info_t *aml_dec_info);
+
+///< internal api, for VirtualX.
+
+/**
+* @brief Get dca decoder output channel(internal use).
+* @param None
+* @return [success]: 0 decoder not init.
+*         [success]: 1 ~ 8, output channel number
+*            [fail]: -1 get output channel fail.
+*/
+int dca_get_out_ch_internal(void);
+/**
+* @brief Set dca decoder output channel(internal use).
+* @param ch_num: The num of channels you want the decoder to output
+*              0: Default setting, decoder configs output channel automatically.
+*          1 ~ 8: The decoder outputs the specified number of channels
+*                (At present, @ch_num only supports 2-ch and 6-ch).
+* @return [success]: 0
+*            [fail]: -1 set output channel fail.
+*/
+int dca_set_out_ch_internal(int ch_num);
 
 extern aml_dec_func_t aml_dca_func;
 

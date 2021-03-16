@@ -25,11 +25,13 @@
 
 typedef enum {
     AML_DEC_CONFIG_MIXER_LEVEL, //runtime param
+    AML_DEC_CONFIG_OUTPUT_CHANNEL,  //runtime/static param
 } aml_dec_config_type_t;
 
 typedef enum {
     AML_DEC_REMAIN_SIZE, //runtime param
     AML_DEC_STREMAM_INFO,
+    AML_DEC_OUTPUT_INFO,
 } aml_dec_info_type_t;
 
 typedef enum {
@@ -51,6 +53,13 @@ typedef struct aml_dec_stream_info {
 
 } aml_dec_stream_info_t;
 
+typedef struct aml_dec_output_info {
+    int output_sr;
+    int output_ch;
+    int output_bitwidth;
+
+} aml_dec_output_info_t;
+
 typedef struct dec_data_info {
     audio_format_t data_format;
     audio_format_t sub_format;
@@ -70,6 +79,7 @@ typedef struct aml_dec {
     int status;
     int frame_cnt;
     int fragment_left_size;
+    void *dev;
 } aml_dec_t;
 
 typedef struct aml_dcv_config {
@@ -85,6 +95,8 @@ typedef struct aml_dca_config {
     aml_dec_control_type_t digital_raw;
     bool is_dtscd;
     bool is_iec61937;
+    int output_ch;
+    void *dev;
 } aml_dca_config_t;
 
 typedef struct aml_pcm_config {
@@ -107,6 +119,7 @@ typedef union aml_dec_config {
 typedef union aml_dec_info {
     int remain_size;                         /* AML_DEC_REMAIN_SIZE */
     aml_dec_stream_info_t dec_info;          /* AML_DEC_STREMAM_INFO*/
+    aml_dec_output_info_t dec_output_info;   /* AML_DEC_OUTPUT_INFO */
 } aml_dec_info_t;
 
 

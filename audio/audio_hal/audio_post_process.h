@@ -34,7 +34,8 @@ struct aml_native_postprocess {
     int effect_in_ch;
 };
 
-int audio_post_process(effect_handle_t effect, int16_t *in_buffer, size_t out_frames);
+int audio_post_process(struct aml_native_postprocess *native_postprocess, int16_t *in_buffer, size_t in_frames);
+int audio_VX_post_process(struct aml_native_postprocess *native_postprocess, int16_t *in_buffer, size_t bytes);
 
 /* VirtualX: */
 /* path of virtualx effect license library */

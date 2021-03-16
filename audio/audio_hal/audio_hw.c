@@ -108,12 +108,6 @@
 #include "audio_aec_process.h"
 #endif
 
-#if defined(IS_ATOM_PROJECT)
-#include "harman_dsp_process.h"
-#include "harman_filter.h"
-#include "audio_aec_process.h"
-#endif
-
 /*[SEI-zhaopf-2018-10-29] add for HBG remote audio support { */
 #if defined(ENABLE_HBG_PATCH)
 #include "../hbg_bt_voice/hbg_blehid_mic.h"
@@ -1781,6 +1775,7 @@ static int out_add_audio_effect(const struct audio_stream *stream, effect_handle
 
     pthread_mutex_lock (&dev->lock);
     pthread_mutex_lock (&out->lock);
+
     if (dev->native_postprocess.num_postprocessors >= MAX_POSTPROCESSORS) {
         status = -ENOSYS;
         goto exit;
@@ -1815,7 +1810,10 @@ static int out_add_audio_effect(const struct audio_stream *stream, effect_handle
     ALOGI("%s, add audio effect: %s in audio hal, effect_handle: %p, total num of effects: %d",
         __FUNCTION__, tmpdesc.name, effect, dev->native_postprocess.num_postprocessors);
 
-    if (dev->native_postprocess.num_postprocessors >= dev->native_postprocess.total_postprocessors)
+    ALOGI("%s, add audio effect: %s in audio hal, effect_handle: %p, total num of effects: %d",
+        __FUNCTION__, tmpdesc.name, effect, dev->native_postprocess.num_postprocessors);
+
+    if (dev->native_postprocess.num_postprocessors > dev->native_postprocess.total_postprocessors)
         dev->native_postprocess.total_postprocessors = dev->native_postprocess.num_postprocessors;
 
 exit:
@@ -1856,6 +1854,12 @@ static int out_remove_audio_effect(const struct audio_stream *stream __unused, e
         goto exit;
 
     dev->native_postprocess.num_postprocessors--;
+
+    effect_descriptor_t tmpdesc;
+    (*effect)->get_descriptor(effect, &tmpdesc);
+    ALOGI("%s, remove audio effect: %s in audio hal, effect_handle: %p, total num of effects: %d",
+        __FUNCTION__, tmpdesc.name, effect, dev->native_postprocess.num_postprocessors);
+
 exit:
     pthread_mutex_unlock (&out->lock);
     pthread_mutex_unlock (&dev->lock);
@@ -2099,20 +2103,7 @@ static size_t in_get_buffer_size(const struct audio_stream *stream)
 {
     struct aml_stream_in *in = (struct aml_stream_in *)stream;
     size_t size;
-#if defined(IS_ATOM_PROJECT)
-    audio_channel_mask_t channel_mask = in->hal_channel_mask;
-    audio_format_t format = in->hal_format;
 
-    if ((in->device & AUDIO_DEVICE_IN_LINE) && in->ref_count == 1) {
-        channel_mask = AUDIO_CHANNEL_OUT_STEREO;
-        format = AUDIO_FORMAT_PCM_32_BIT;
-    }
-    ALOGD("%s: enter: channel_mask(%#x) rate(%d) format(%#x)", __func__,
-        channel_mask, in->requested_rate, format);
-    size = get_input_buffer_size(in->config.period_size, in->requested_rate,
-                                  format,
-                                  audio_channel_count_from_in_mask(channel_mask));
-#else
     ALOGD("%s: enter: channel_mask(%#x) rate(%d) format(%#x)", __func__,
         in->hal_channel_mask, in->requested_rate, in->hal_format);
     size = get_input_buffer_size(in->config.period_size, in->requested_rate,
@@ -2125,7 +2116,7 @@ static size_t in_get_buffer_size(const struct audio_stream *stream)
                                   in->hal_format,
                                   audio_channel_count_from_in_mask(in->hal_channel_mask));
     }
-#endif
+
     ALOGD("%s: exit: buffer_size = %zu", __func__, size);
 
     return size;
@@ -2134,20 +2125,14 @@ static size_t in_get_buffer_size(const struct audio_stream *stream)
 static audio_channel_mask_t in_get_channels(const struct audio_stream *stream)
 {
     struct aml_stream_in *in = (struct aml_stream_in *)stream;
-#if defined(IS_ATOM_PROJECT)
-    if ((in->device & AUDIO_DEVICE_IN_LINE) && in->ref_count == 1)
-        return AUDIO_CHANNEL_IN_STEREO;
-#endif
+
     return in->hal_channel_mask;
 }
 
 static audio_format_t in_get_format(const struct audio_stream *stream)
 {
     struct aml_stream_in *in = (struct aml_stream_in *)stream;
-#if defined(IS_ATOM_PROJECT)
-    if ((in->device & AUDIO_DEVICE_IN_LINE) && in->ref_count == 1)
-        return AUDIO_FORMAT_PCM_32_BIT;
-#endif
+
     ALOGV("%s(%p) in->hal_format=%d", __FUNCTION__, in, in->hal_format);
     return in->hal_format;
 }
@@ -2190,14 +2175,6 @@ static int in_standby(struct audio_stream *stream)
 {
     struct aml_stream_in *in = (struct aml_stream_in *)stream;
     int status;
-
-#if defined(IS_ATOM_PROJECT)
-    /*after mic and linein all stopped, stoped the input device*/
-    if ((in->device & (AUDIO_DEVICE_IN_BUILTIN_MIC | AUDIO_DEVICE_IN_LINE)) && in->ref_count == 2) {
-        ALOGD("%s: ref_count = %d", __func__, in->ref_count);
-        return 0;
-    }
-#endif
 
     ALOGD("%s: enter: stream(%p)", __func__, stream);
     pthread_mutex_lock(&in->dev->lock);
@@ -2623,6 +2600,7 @@ static ssize_t in_read(struct audio_stream_in *stream, void* buffer, size_t byte
     if (parser != NULL && parser->decode_enabled == 1) {
         bytes = parserRingBufferDataRead(parser, buffer, bytes);
     }
+
 #ifdef ENABLE_AEC_HAL
     if (in->device & AUDIO_DEVICE_IN_BUILTIN_MIC) {
         size_t read_size = 0;
@@ -2697,14 +2675,12 @@ static ssize_t in_read(struct audio_stream_in *stream, void* buffer, size_t byte
         }
     }
 
-#if !defined(IS_ATOM_PROJECT)
     if (in->device & AUDIO_DEVICE_IN_BUILTIN_MIC) {
         inread_proc_aec(stream, buffer, bytes);
     } else if (!adev->audio_patching) {
         /* case dev->mix, set audio gain to src */
         apply_volume(adev->src_gain[adev->active_inport], buffer, sizeof(uint16_t), bytes);
     }
-#endif
 
 #if defined(ENABLE_AEC_APP)
     struct aec_info info;
@@ -2727,15 +2703,6 @@ exit:
                 in_get_sample_rate(&stream->common));
     }
     pthread_mutex_unlock(&in->lock);
-
-#if defined(IS_ATOM_PROJECT)
-    if ((in->device & AUDIO_DEVICE_IN_LINE) && in->ref_count == 2) {
-        in->aux_buf_write_bytes = cur_in_bytes;
-        if (parental_mute)
-            memset(in->aux_buf, 0, in->aux_buf_write_bytes);
-        pthread_cond_signal(&in->aux_mic_cond);
-    }
-#endif
 
 #if DEBUG_AEC && defined(ENABLE_AEC_APP)
     FILE* fp_in = fopen("/data/local/traces/aec_in.pcm", "a+");
@@ -3264,9 +3231,6 @@ static void adev_close_output_stream(struct audio_hw_device *dev,
 
     ALOGD("%s: enter: dev(%p) stream(%p)", __func__, dev, stream);
 
-    VirtualX_reset(&adev->native_postprocess);
-    VirtualX_Channel_reconfig(&adev->native_postprocess, 2);
-
     if (adev->useSubMix) {
         if (out->usecase == STREAM_PCM_NORMAL || out->usecase == STREAM_PCM_HWSYNC)
             out_standby_subMixingPCM(&stream->common);
@@ -3308,8 +3272,15 @@ static void adev_close_output_stream(struct audio_hw_device *dev,
     }
 
     pthread_mutex_lock(&out->lock);
-    aml_audio_free(out->audioeffect_tmp_buffer);
-    aml_audio_free(out->tmp_buffer_8ch);
+    if (out->audioeffect_tmp_buffer) {
+        aml_audio_free(out->audioeffect_tmp_buffer);
+        out->audioeffect_tmp_buffer = NULL;
+    }
+
+    if (out->tmp_buffer_8ch) {
+        aml_audio_free(out->tmp_buffer_8ch);
+        out->tmp_buffer_8ch = NULL;
+    }
 
     if (out->spdifenc_init) {
         aml_spdif_encoder_close(out->spdifenc_handle);
@@ -3333,7 +3304,7 @@ static void adev_close_output_stream(struct audio_hw_device *dev,
         aml_audio_select_spdif_to_hdmi(AML_SPDIF_A_TO_HDMITX);
         out->restore_hdmitx_selection = false;
     }
-    if (!out->resample_outbuf) {
+    if (out->resample_outbuf) {
         aml_audio_free(out->resample_outbuf);
         out->resample_outbuf = NULL;
     }
@@ -4341,32 +4312,6 @@ static int adev_set_parameters (struct audio_hw_device *dev, const char *kvpairs
         }
         ALOGI("is_has_video set to %d\n", adev->is_has_video);
     }
-#if defined(IS_ATOM_PROJECT)
-    ret = str_parms_get_int(parms, "DSP_EQ_MODE", &val);
-    if (ret >= 0 && adev->has_dsp_lib == true) {
-        if (set_EQ_mode(val) < 0)
-            ALOGE("%s: set eq mode failed", __FUNCTION__);
-        goto exit;
-    }
-    ret = str_parms_get_int(parms, "DSP_SUBWOFFER_VOLUME", &val);
-    if (ret >= 0 && adev->has_dsp_lib == true) {
-        if (set_subwoofer_volume(val) < 0)
-            ALOGE("%s: subwoofer failed", __FUNCTION__);
-        goto exit;
-    }
-    ret = str_parms_get_int(parms, "DSP_SUB_CONNECT", &val);
-    if (ret >= 0 && adev->has_dsp_lib == true) {
-        if (set_subwoofer_connect(val) < 0)
-            ALOGE("%s: set subwoofer connect failed", __FUNCTION__);
-        goto exit;
-    }
-    ret = str_parms_get_int(parms, "DSP_XFADE_DUR", &val);
-    if (ret >= 0 && adev->has_dsp_lib == true) {
-        if (set_xfade_dur(val) < 0)
-            ALOGE("%s: set xfade dur failed", __FUNCTION__);
-        goto exit;
-    }
-#endif
 
     ret = str_parms_get_str(parms, "reconfigA2dp", value, sizeof(value));
     if (ret >= 0) {
@@ -5322,202 +5267,6 @@ static aec_timestamp get_timestamp(void) {
     return return_val;
 }
 
-#if defined(IS_ATOM_PROJECT)
-    int get_atom_stream_type(size_t frames) {
-    int type = STREAM_ANDROID;
-    switch (frames) {
-        case 1024:
-            type = STREAM_OPTAUX;
-            break;
-        case 1536:
-            type = STREAM_HDMI;
-            break;
-        default:
-            type = STREAM_ANDROID;
-    }
-    return type;
-}
-
-void atom_speaker_buffer_reset(struct aml_audio_device *adev) {
-    adev->spk_buf_write_count = 0;
-    adev->spk_buf_read_count = 0;
-    adev->extra_write_bytes = 0;
-    adev->debug_spk_buf_time_last = 0;
-    ring_buffer_reset(&adev->spk_ring_buf);
-    pthread_mutex_lock(&adev->aec_spk_mic_lock);
-    aec_spk_mic_reset();
-    pthread_mutex_unlock(&adev->aec_spk_mic_lock);
-}
-
-void atom_pack_speaker_ring_buffer(struct aml_audio_device *adev, size_t bytes) {
-
-    size_t out_frames = bytes / FRAMESIZE_32BIT_STEREO;
-    atom_stream_type_t stream_type = get_atom_stream_type(out_frames);
-    aec_timestamp cur_time = get_timestamp();
-    int spk_time_diff = (int) (cur_time.timeStamp - adev->spk_buf_last_write_time);
-    if (adev->atom_stream_type_val != stream_type ||
-        spk_time_diff < 0 || spk_time_diff > 300000) {
-        ALOGW("%s: spk buf reset. diff: %d", __func__, spk_time_diff);
-        atom_speaker_buffer_reset(adev);
-        adev->atom_stream_type_val = stream_type;
-        adev->spk_buf_very_first_write_time = cur_time.timeStamp;
-    }
-    adev->spk_buf_last_write_time = cur_time.timeStamp;
-    size_t first_set_len = 0;
-    switch(adev->atom_stream_type_val) {
-        case STREAM_HDMI:
-        case STREAM_OPTAUX:
-            first_set_len = bytes;
-            if (first_set_len > adev->spk_buf_size) {
-                first_set_len = adev->spk_buf_size;
-            }
-            break;
-        default:
-            first_set_len = adev->spk_buf_size - adev->extra_write_bytes;
-    }
-    if (DEBUG_AEC)
-        ALOGW("%s: type: %d, first_set_len: %d, extra_write_bytes: %d",
-         __func__, adev->atom_stream_type_val, first_set_len, adev->extra_write_bytes);
-
-    //[cur_timestamp][spk_buf_data(first_set_len)]
-    if (adev->extra_write_bytes == 0) {
-        // add timestamp
-        ring_buffer_write(&adev->spk_ring_buf, (unsigned char*)cur_time.tsB,
-            TIMESTAMP_LEN, UNCOVER_WRITE);
-
-        if (DEBUG_AEC) {
-            if (adev->spk_buf_write_count++ > 10000000 ) {
-                adev->spk_buf_write_count = 0;
-            }
-            ALOGW("%s: ---- TS[Spk(type:%d)] ---- timestamp(d): %llu, first_set_len: %d, spk_buf[write]: %llu",
-                __func__, adev->atom_stream_type_val, cur_time.timeStamp, first_set_len, adev->spk_buf_write_count);
-        }
-    }
-
-    unsigned char* aec_buf = (unsigned char*)adev->aec_buf;
-
-    // first_set
-    ring_buffer_write(&adev->spk_ring_buf, (unsigned char*)aec_buf,
-            first_set_len, UNCOVER_WRITE);
-
-    if (adev->atom_stream_type_val == STREAM_ANDROID) {
-        // Calculate remaining data
-        adev->extra_write_bytes = adev->spk_write_bytes - first_set_len;
-        // Timestamp will always be needed for the next set of Android streams
-        //[cur_timestamp][spk_buf_data(extra_write_bytes)]
-        // Add bytes/384*1000 ms to this timestamp
-        cur_time.timeStamp += first_set_len/384 * 1000;
-
-        ring_buffer_write(&adev->spk_ring_buf, (unsigned char*)cur_time.tsB,
-            TIMESTAMP_LEN, UNCOVER_WRITE);
-
-        if (DEBUG_AEC) {
-            if (adev->spk_buf_write_count++ > 10000000 ) {
-                adev->spk_buf_write_count = 0;
-            }
-            ALOGW("%s: ---- TS[Spk(type:%d)] ---- timestamp(d): %llu, extra_write_bytes: %d, spk_buf[write]: %llu",
-                __func__, adev->atom_stream_type_val, cur_time.timeStamp, adev->extra_write_bytes, adev->spk_buf_write_count);
-        }
-
-        // second set
-        ring_buffer_write(&adev->spk_ring_buf, (unsigned char*) &aec_buf[first_set_len],
-                adev->extra_write_bytes, UNCOVER_WRITE);
-    } else if (adev->atom_stream_type_val == STREAM_HDMI) {
-        if (adev->extra_write_bytes == 0) {
-            adev->extra_write_bytes = 1536 * FRAMESIZE_32BIT_STEREO;
-        } else {
-            adev->extra_write_bytes = 0;
-        }
-    } else if (adev->atom_stream_type_val == STREAM_OPTAUX) {
-        if (adev->extra_write_bytes == 0) {
-            adev->extra_write_bytes = 2048 * FRAMESIZE_32BIT_STEREO;
-        } else if (adev->extra_write_bytes == (2048 * FRAMESIZE_32BIT_STEREO)) {
-            adev->extra_write_bytes = 1024 * FRAMESIZE_32BIT_STEREO;
-        } else {
-            adev->extra_write_bytes = 0;
-        }
-    }
-
-    // calculate extra_write_bytes for next run
-    if (adev->extra_write_bytes >= adev->spk_buf_size) {
-        adev->extra_write_bytes = 0;
-    }
-}
-
-int dsp_process_output(struct aml_audio_device *adev, void *in_buffer,
-        size_t bytes)
-{
-    int32_t *out_buffer;
-    size_t out_frames = bytes / FRAMESIZE_32BIT_STEREO;
-    int32_t *input32 = (int32_t *)in_buffer;
-    uint i = 0;
-
-    for (i = 0; i < bytes/sizeof(int32_t); i++) {
-        input32[i] = input32[i] >> 3;
-    }
-
-    /*malloc dsp buffer*/
-    if (adev->dsp_frames < out_frames) {
-        pthread_mutex_lock(&adev->dsp_processing_lock);
-        dsp_realloc_buffer(&adev->dsp_in_buf, &adev->effect_buf, &adev->aec_buf, out_frames);
-        pthread_mutex_unlock(&adev->dsp_processing_lock);
-        adev->dsp_frames = out_frames;
-        ALOGI("%s: dsp_buf = %p, effect_buffer = %p, aec_buffer = %p", __func__,
-            adev->dsp_in_buf, adev->effect_buf, adev->aec_buf);
-    }
-
-    pthread_mutex_lock(&adev->dsp_processing_lock);
-    harman_dsp_process(in_buffer, adev->dsp_in_buf, adev->effect_buf, adev->aec_buf, out_frames);
-    pthread_mutex_unlock(&adev->dsp_processing_lock);
-
-    out_buffer = (int32_t *)adev->effect_buf;
-
-    /* when aec is ready, init fir filter*/
-    if (!adev->pstFir_spk)
-        Fir_initModule(&adev->pstFir_spk);
-
-    if (adev->mic_running) {
-        //pthread_mutex_lock(&adev->aec_spk_buf_lock);
-
-        /*copy the speaker playout data to speaker ringbuffer*/
-        if (adev->spk_write_bytes != (size_t)(FRAMESIZE_32BIT_STEREO * out_frames))
-            adev->spk_write_bytes = FRAMESIZE_32BIT_STEREO * out_frames;
-
-        if (adev->spk_running == 0) {
-            adev->spk_running = 1;
-        }
-
-        /*TODO: when overflow, how to do??*/
-        int int_get_buffer_write_space = get_buffer_write_space(&adev->spk_ring_buf);
-        if (int_get_buffer_write_space <
-           (int)((FRAMESIZE_32BIT_STEREO * out_frames) + (2 * TIMESTAMP_LEN))) {
-           if (DEBUG_AEC) {
-               ALOGI("[%s]: Warning: spk_ring_buf overflow, write_bytes = TIMESTAMP_BYTE + %zu",
-                    __func__, FRAMESIZE_32BIT_STEREO * out_frames + (2 * TIMESTAMP_LEN));
-           }
-           // Reset buffers
-           atom_speaker_buffer_reset(adev);
-        } else {
-            if (adev->has_dsp_lib) {
-                if (adev->spk_buf_size != 0) {
-                    atom_pack_speaker_ring_buffer(adev, bytes);
-                }
-            } else
-                ring_buffer_write(&adev->spk_ring_buf, (unsigned char*)in_buffer,
-                        FRAMESIZE_32BIT_STEREO * out_frames, UNCOVER_WRITE);
-        }
-
-        if (DEBUG_AEC) {
-            ALOGW("%s: buffer_write_space: %d, out_frames: %d, extra_write_bytes: %d",
-                __func__, int_get_buffer_write_space, out_frames, adev->extra_write_bytes);
-        }
-        //pthread_mutex_unlock(&adev->aec_spk_buf_lock);
-    }
-
-    return 0;
-}
-#endif
-
 static void output_mute(struct audio_stream_out *stream, void **output_buffer,size_t *output_buffer_bytes)
 {
     struct aml_stream_out *aml_out = (struct aml_stream_out *)stream;
@@ -5562,6 +5311,7 @@ static void output_mute(struct audio_stream_out *stream, void **output_buffer,si
     aml_audio_ease_process(adev->audio_ease, *output_buffer, *output_buffer_bytes);
     return;
 }
+
 ssize_t audio_hal_data_processing(struct audio_stream_out *stream,
                                 const void *buffer,
                                 size_t bytes,
@@ -5585,7 +5335,8 @@ ssize_t audio_hal_data_processing(struct audio_stream_out *stream,
         *output_buffer = (void *) buffer;
         *output_buffer_bytes = bytes;
     } else if ((output_format == AUDIO_FORMAT_AC3) || (output_format == AUDIO_FORMAT_E_AC3)) {
-        //ALOGI("%s, aml_out->hal_format %x , is_iec61937_format = %d, \n", __func__, aml_out->hal_format,is_iec61937_format(stream));
+        //ALOGI("%s, aml_out->hal_format %x , is_iec61937_format = %d, \n", __func__,
+        //      aml_out->hal_format,is_iec61937_format(stream));
         if ((is_iec61937_format(stream) == true) ||
             (adev->dolby_lib_type == eDolbyDcvLib)) {
             *output_buffer = (void *) buffer;
@@ -5709,31 +5460,19 @@ ssize_t audio_hal_data_processing(struct audio_stream_out *stream,
             if (adev->patch_src == SRC_DTV && adev->audio_patch != NULL) {
                 aml_audio_switch_output_mode((int16_t *)effect_tmp_buf, bytes, adev->audio_patch->mode);
             } else if ( adev->audio_patch == NULL) {
-               aml_audio_switch_output_mode((int16_t *)effect_tmp_buf, bytes, adev->sound_track_mode);
+                aml_audio_switch_output_mode((int16_t *)effect_tmp_buf, bytes, adev->sound_track_mode);
             }
 
             /*aduio effect process for speaker*/
-            if (adev->native_postprocess.num_postprocessors == adev->native_postprocess.total_postprocessors
-                && !(adev->out_device & AUDIO_DEVICE_OUT_ALL_A2DP)) {
-                for (j = 0; j < adev->native_postprocess.num_postprocessors; j++) {
-                    if (adev->native_postprocess.effect_in_ch > 2 && adev->native_postprocess.postprocessors[j] != NULL) {
-                        effect_descriptor_t tmpdesc;
-                        (*(adev->native_postprocess.postprocessors[j]))->get_descriptor(
-                            adev->native_postprocess.postprocessors[j], &tmpdesc);
-                        /* here only do 2 channel audio effect processing */
-                        if (0 != strcmp(tmpdesc.name,"VirtualX")) {
-                            audio_post_process(adev->native_postprocess.postprocessors[j], effect_tmp_buf, out_frames);
-                        }
-                    } else {
-                        audio_post_process(adev->native_postprocess.postprocessors[j], effect_tmp_buf, out_frames);
-                    }
-                }
+            if (!(adev->out_device & AUDIO_DEVICE_OUT_ALL_A2DP)) {
+                audio_post_process(&adev->native_postprocess, effect_tmp_buf, out_frames);
             }
 
             if (aml_getprop_bool("vendor.media.audiohal.outdump")) {
                 aml_audio_dump_audio_bitstreams("/data/audio/audio_spk.pcm",
                     effect_tmp_buf, bytes);
             }
+
             float volume = source_gain;
             /* apply volume for spk/hp, SPDIF/HDMI keep the max volume */
             if (adev->out_device & AUDIO_DEVICE_OUT_ALL_A2DP) {
@@ -6875,28 +6614,6 @@ hwsync_rewrite:
         }
     } else if (!is_dts_format(aml_out->hal_format) && (!is_dts_format(aml_out->hal_internal_format))) {
         adev->dolby_lib_type = adev->dolby_lib_type_last;
-    }
-
-    if (adev->native_postprocess.libvx_exist && (cur_aformat == AUDIO_FORMAT_DTS || cur_aformat == AUDIO_FORMAT_DTS_HD)) {
-        int cur_channels = get_dts_stream_channels((const char*)buffer, bytes);
-        if (cur_channels >= 6) {
-            cur_channels = 6;
-        }
-        if (adev->audio_patch && cur_aformat != patch->aformat) {
-            cur_channels = 0;
-        }
-        if ((cur_channels != -1) && (!adev->native_postprocess.vx_force_stereo) &&
-                (adev->native_postprocess.effect_in_ch != cur_channels)) {
-            ALOGD("%s, pre_channels = %d, cur_channels = %d", __func__,
-                adev->native_postprocess.effect_in_ch, cur_channels);
-            if (cur_channels == 6) {
-                VirtualX_Channel_reconfig(&adev->native_postprocess, 6);
-            } else {
-                VirtualX_Channel_reconfig(&adev->native_postprocess, 2);
-            }
-            need_reconfig_output = true;
-            need_reset_decoder = true;
-        }
     }
 
     if (adev->need_reset_for_dual_decoder == true) {
@@ -8209,13 +7926,8 @@ static int create_patch_l(struct audio_hw_device *dev,
     patch->output_src = AUDIO_DEVICE_OUT_SPEAKER;
     patch->out_sample_rate = 48000;
     patch->out_chanmask = AUDIO_CHANNEL_OUT_STEREO;
-#if defined(IS_ATOM_PROJECT)
-    patch->in_format = AUDIO_FORMAT_PCM_32_BIT;
-    patch->out_format = AUDIO_FORMAT_PCM_32_BIT;
-#else
     patch->in_format = AUDIO_FORMAT_PCM_16_BIT;
     patch->out_format = AUDIO_FORMAT_PCM_16_BIT;
-#endif
 
     if (aml_dev->useSubMix) {
         // switch normal stream to old tv mode writing
@@ -8314,11 +8026,6 @@ int release_patch_l(struct aml_audio_device *aml_dev)
     aml_audio_free(patch);
     aml_dev->audio_patch = NULL;
     ALOGD("%s: exit", __func__);
-#if defined(IS_ATOM_PROJECT)
-    aml_audio_free(aml_dev->output_tmp_buf);
-    aml_dev->output_tmp_buf = NULL;
-    aml_dev->output_tmp_buf_size = 0;
-#endif
 
     if (aml_dev->useSubMix) {
         switchNormalStream(aml_dev->active_outputs[STREAM_PCM_NORMAL], 1);
@@ -8521,7 +8228,6 @@ static enum OUT_PORT get_output_dev_for_strategy(struct aml_audio_device *adev, 
     }
     return sink;
 }
-
 
 /* remove audio patch from dev list */
 static int unregister_audio_patch(struct audio_hw_device *dev __unused,
@@ -9179,12 +8885,6 @@ static int adev_close(hw_device_t *device)
     stopReceiveAudioData();
 #endif
 
-#if defined(IS_ATOM_PROJECT)
-    if (adev->aec_buf)
-        aml_audio_free(adev->aec_buf);
-    if (adev->dsp_in_buf)
-        aml_audio_free(adev->dsp_in_buf);
-#endif
     if (adev->effect_buf) {
         aml_audio_free(adev->effect_buf);
     }

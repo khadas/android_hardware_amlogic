@@ -379,7 +379,7 @@ static int dcv_decoder_init(int decoding_mode, aml_dec_control_type_t digital_ra
 
     ddp_decoder_config = (int (*)(void *, ddp_config_type_t, ddp_config_t *)) dlsym(gDDPDecoderLibHandler, "ddp_decoder_config");
     if (ddp_decoder_config == NULL) {
-        ALOGI("%s,cant find decoder lib,%s\n", __FUNCTION__, dlerror());
+        ALOGE("%s,can not find decoder config function,%s\n", __FUNCTION__, dlerror());
     } else {
         ALOGV("<%s::%d>--[ddp_decoder_config:]", __FUNCTION__, __LINE__);
     }

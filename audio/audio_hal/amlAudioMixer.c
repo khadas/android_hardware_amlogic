@@ -884,16 +884,9 @@ static int mixer_do_mixing_32bit(struct amlAudioMixer *audio_mixer)
                 apply_volume(gain_speaker, audio_mixer->tmp_buffer,
                     sizeof(uint32_t), frames * FRAMESIZE_32BIT_STEREO);
             }
-#ifdef IS_ATOM_PROJECT
-            if (adev->has_dsp_lib) {
-                dsp_process_output(audio_mixer->adev,
-                        audio_mixer->tmp_buffer, frames * FRAMESIZE_32BIT_STEREO);
-                extend_channel_5_8(data_mixed,
-                        audio_mixer->adev->effect_buf, frames, 5, 8);
-            } else
-#endif
-                extend_channel_2_8(data_mixed, audio_mixer->tmp_buffer,
-                        frames, 2, 8);
+
+            extend_channel_2_8(data_mixed, audio_mixer->tmp_buffer,
+                    frames, 2, 8);
 
             if (DEBUG_DUMP) {
                 aml_audio_dump_audio_bitstreams("/data/audio/dataInsertMixed.raw",
@@ -918,16 +911,9 @@ static int mixer_do_mixing_32bit(struct amlAudioMixer *audio_mixer)
                 apply_volume(gain_speaker, audio_mixer->tmp_buffer,
                     sizeof(uint32_t), frames * FRAMESIZE_32BIT_STEREO);
             }
-#ifdef IS_ATOM_PROJECT
-            if (adev->has_dsp_lib) {
-                dsp_process_output(audio_mixer->adev,
-                        audio_mixer->tmp_buffer, frames * FRAMESIZE_32BIT_STEREO);
-                extend_channel_5_8(data_mixed,
-                        audio_mixer->adev->effect_buf, frames, 5, 8);
-            } else
-#endif
-                extend_channel_2_8(data_mixed, audio_mixer->tmp_buffer,
-                        frames, 2, 8);
+
+            extend_channel_2_8(data_mixed, audio_mixer->tmp_buffer,
+                    frames, 2, 8);
 
             in_port_drct->data_valid = 0;
             in_port_sys->data_valid = 0;
@@ -964,15 +950,8 @@ static int mixer_do_mixing_32bit(struct amlAudioMixer *audio_mixer)
             aml_audio_dump_audio_bitstreams("/data/audio/sysvol.raw",
                     audio_mixer->tmp_buffer, frames * FRAMESIZE_32BIT_STEREO);
         }
-#ifdef IS_ATOM_PROJECT
-        if (adev->has_dsp_lib) {
-            dsp_process_output(audio_mixer->adev,
-                    audio_mixer->tmp_buffer, frames * FRAMESIZE_32BIT_STEREO);
-            extend_channel_5_8(data_mixed,
-                    audio_mixer->adev->effect_buf, frames, 5, 8);
-        } else
-#endif
-            extend_channel_2_8(data_mixed, audio_mixer->tmp_buffer, frames, 2, 8);
+
+        extend_channel_2_8(data_mixed, audio_mixer->tmp_buffer, frames, 2, 8);
 
         if (DEBUG_DUMP) {
             aml_audio_dump_audio_bitstreams("/data/audio/extandsys.raw",
@@ -1025,16 +1004,9 @@ static int mixer_do_mixing_32bit(struct amlAudioMixer *audio_mixer)
                 apply_volume(gain_speaker, audio_mixer->tmp_buffer,
                     sizeof(uint32_t), frames * FRAMESIZE_32BIT_STEREO);
             }
-#ifdef IS_ATOM_PROJECT
-            if (adev->has_dsp_lib) {
-                dsp_process_output(audio_mixer->adev,
-                        audio_mixer->tmp_buffer, frames * FRAMESIZE_32BIT_STEREO);
-                extend_channel_5_8(data_mixed,
-                        audio_mixer->adev->effect_buf, frames, 5, 8);
-            } else
-#endif
-                extend_channel_2_8(data_mixed, audio_mixer->tmp_buffer,
-                        frames, 2, 8);
+
+            extend_channel_2_8(data_mixed, audio_mixer->tmp_buffer,
+                    frames, 2, 8);
 
             if (DEBUG_DUMP) {
                 aml_audio_dump_audio_bitstreams("/data/audio/exDrct.raw",

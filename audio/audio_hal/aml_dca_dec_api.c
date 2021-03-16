@@ -37,6 +37,8 @@
 #include "audio_hw_utils.h"
 #include "aml_dca_dec_api.h"
 #include "aml_audio_resample_manager.h"
+#include "audio_hw.h"
+#include "audio_post_process.h"
 
 #define DOLBY_DTSHD_LIB_PATH     "/odm/lib/libHwAudio_dtshd.so"
 
@@ -44,7 +46,7 @@ enum {
     EXITING_STATUS = -1001,
     NO_ENOUGH_DATA = -1002,
 };
-#define MAX_DECODER_FRAME_LENGTH 32768
+#define MAX_DCA_FRAME_LENGTH 32768
 #define READ_PERIOD_LENGTH 2048 * 4
 #define DTS_TYPE_I     0xB
 #define DTS_TYPE_II    0xC
@@ -84,11 +86,15 @@ struct dca_dts_debug {
 };
 static struct dca_dts_debug dts_debug = {0};
 
+static unsigned int dca_initparam_out_ch = 2;
+
 ///static struct pcm_info pcm_out_info;
 /*dts decoder lib function*/
-int (*dts_decoder_init)(int, int);
-int (*dts_decoder_cleanup)();
-int (*dts_decoder_process)(char * , int , int *, char *, int *, struct pcm_info *, char *, int *);
+static int (*dts_decoder_init)(int, int);
+static int (*dts_decoder_cleanup)();
+static int (*dts_decoder_process)(char * , int , int *, char *, int *, struct pcm_info *, char *, int *);
+static int (*dts_decoder_config)(dca_config_type_e, union dca_config_s *);
+static int (*dts_decoder_getinfo)(dca_info_type_e, union dca_info_s *);
 void *gDtsDecoderLibHandler = NULL;
 static int _dts_syncword_scan(unsigned char *read_pointer, unsigned int *pTemp0);
 static int _dts_frame_scan(struct dca_dts_dec *dts_dec);
@@ -303,12 +309,15 @@ static int _dts_frame_scan(struct dca_dts_dec *dts_dec)
         //ALOGD("check_pos:%d, syncword_pos:%d, read_pointer:%p, check_size:%d"
         //    , frame_info->check_pos, frame_info->syncword_pos, read_pointer, check_size);
 
-        // no valid frame was found beyond size of MAX_DECODER_FRAME_LENGTH, meybe it is dirty data, so drop it
-        if ((frame_size <= 0) && (check_size >= MAX_DECODER_FRAME_LENGTH)) {
+        // no valid frame was found beyond size of MAX_DCA_FRAME_LENGTH, meybe it is dirty data, so drop it
+        if ((frame_size <= 0) && (check_size >= MAX_DCA_FRAME_LENGTH)) {
             ring_buffer_seek(input_rbuffer, check_size);
             dts_dec->remain_size -= check_size;
             frame_info->syncword_pos = 0;
             frame_info->syncword = 0;
+            frame_size = -1;
+        } else if ((frame_size <= 0) && (check_size < MAX_DCA_FRAME_LENGTH)) {
+            frame_size = 0;
         }
     }
 
@@ -325,53 +334,22 @@ static int _dts_pcm_output(struct dca_dts_dec *dts_dec)
     int ret = 0;
     aml_dec_t *aml_dec = (aml_dec_t *)dts_dec;
     dec_data_info_t *dec_pcm_data = &aml_dec->dec_pcm_data;
-    unsigned char* copy_buffer = dec_pcm_data->buf;
-    int copy_size = dts_dec->outlen_pcm;
-#if 0
-    if (dts_dec->pcm_out_info.sample_rate > 0 && dts_dec->pcm_out_info.sample_rate != 48000) {
-        if (dts_dec->resample_handle) {
-            if (dts_dec->pcm_out_info.sample_rate != (int)dts_dec->resample_handle->resample_config.input_sr) {
-                audio_resample_config_t resample_config;
-                ALOGD("Sample rate is changed from %d to %d, reset the resample\n",dts_dec->resample_handle->resample_config.input_sr, dts_dec->pcm_out_info.sample_rate);
-                aml_audio_resample_close(dts_dec->resample_handle);
-                dts_dec->resample_handle = NULL;
-            }
-        }
+    int channel_num = dts_dec->pcm_out_info.channel_num;
+    struct aml_audio_device *adev = (struct aml_audio_device *)(aml_dec->dev);
+    struct aml_native_postprocess *VX_postprocess = &adev->native_postprocess;
 
-        if (dts_dec->resample_handle == NULL) {
-            audio_resample_config_t resample_config;
-            ALOGI("init resampler from %d to 48000!, channel num = %d\n",
-                dts_dec->pcm_out_info.sample_rate, dts_dec->pcm_out_info.channel_num);
-            resample_config.aformat   = AUDIO_FORMAT_PCM_16_BIT;
-            resample_config.channels  = dts_dec->pcm_out_info.channel_num;
-            resample_config.input_sr  = dts_dec->pcm_out_info.sample_rate;
-            resample_config.output_sr = 48000;
-            ret = aml_audio_resample_init((aml_audio_resample_t **)&dts_dec->resample_handle, AML_AUDIO_ANDROID_RESAMPLE, &resample_config);
-            if (ret < 0) {
-                ALOGE("resample init error\n");
-                return -1;
-            }
-        }
-
-        ret = aml_audio_resample_process(dts_dec->resample_handle, dec_pcm_data->buf, dts_dec->outlen_pcm);
-        if (ret < 0) {
-            ALOGE("resample process error\n");
-            return -1;
-        }
-        copy_buffer = dts_dec->resample_handle->resample_buffer;
-        copy_size = dts_dec->resample_handle->resample_size;
-
-        if (copy_buffer && ((0 <  copy_size) && (copy_size < dec_pcm_data->buf_size))) {
-            memcpy(dec_pcm_data->buf, copy_buffer, copy_size);
-        }
+    ret = audio_VX_post_process(VX_postprocess, (int16_t *)dec_pcm_data->buf, dts_dec->outlen_pcm);
+    if (ret > 0) {
+        dts_dec->outlen_pcm = ret;
+        channel_num /= 3;
     }
 
     if (dts_debug.fp_pcm) {
-        fwrite(copy_buffer, 1, copy_size, dts_debug.fp_pcm);
+        fwrite(dec_pcm_data->buf, 1, dts_dec->outlen_pcm, dts_debug.fp_pcm);
     }
-#endif
+
     dec_pcm_data->data_format = AUDIO_FORMAT_PCM_16_BIT;
-    dec_pcm_data->data_ch = dts_dec->pcm_out_info.channel_num;
+    dec_pcm_data->data_ch = channel_num;
     dec_pcm_data->data_sr = dts_dec->pcm_out_info.sample_rate;
     dec_pcm_data->data_len = dts_dec->outlen_pcm;
 
@@ -393,7 +371,10 @@ static int _dts_raw_output(struct dca_dts_dec *dts_dec)
         dec_raw_data->sub_format = AUDIO_FORMAT_DTS;
     }
     dec_raw_data->data_ch = 2;
-    dec_raw_data->data_sr = dts_dec->pcm_out_info.sample_rate;
+    if (dts_dec->pcm_out_info.sample_rate == 44100)
+        dec_raw_data->data_sr = 44100;
+    else
+        dec_raw_data->data_sr = 48000;
     dec_raw_data->data_len = dts_dec->outlen_raw;
     return 0;
 }
@@ -406,6 +387,8 @@ static int unload_dts_decoder_lib()
     }
     dts_decoder_init = NULL;
     dts_decoder_process = NULL;
+    dts_decoder_config = NULL;
+    dts_decoder_getinfo = NULL;
     dts_decoder_cleanup = NULL;
     if (gDtsDecoderLibHandler != NULL) {
         dlclose(gDtsDecoderLibHandler);
@@ -449,8 +432,29 @@ static int dca_decoder_init(aml_dec_control_type_t digital_raw)
         ALOGV("<%s::%d>--[dts_decoder_cleanup:]", __FUNCTION__, __LINE__);
     }
 
+    dts_decoder_config = (int (*)(dca_config_type_e, union dca_config_s *)) dlsym(gDtsDecoderLibHandler, "dca_decoder_config");
+    if (dts_decoder_config == NULL) {
+        ALOGE("%s,can not find decoder config function,%s\n", __FUNCTION__, dlerror());
+    } else {
+        ALOGV("<%s::%d>--[dts_decoder_config:]", __FUNCTION__, __LINE__);
+    }
+
+    dts_decoder_getinfo = (int (*)(dca_info_type_e, union dca_info_s *)) dlsym(gDtsDecoderLibHandler, "dca_decoder_getinfo");
+    if (dts_decoder_getinfo == NULL) {
+        ALOGE("%s,can not find decoder getinfo function,%s\n", __FUNCTION__, dlerror());
+    } else {
+        ALOGV("<%s::%d>--[dts_decoder_getinfo:]", __FUNCTION__, __LINE__);
+    }
+
     /*TODO: always decode*/
     (*dts_decoder_init)(1, digital_raw);
+
+    if (dts_decoder_config) {
+        dca_config_t dca_config;
+        memset(&dca_config, 0, sizeof(dca_config));
+        dca_config.output_ch = dca_initparam_out_ch;
+        (*dts_decoder_config)(DCA_CONFIG_OUT_CH, (dca_config_t *)&dca_config);
+    }
     return 0;
 Error:
     unload_dts_decoder_lib();
@@ -502,6 +506,7 @@ int dca_decoder_init_patch(aml_dec_t **ppaml_dec, aml_dec_config_t *dec_config)
 
     dec_data_info_t *dec_pcm_data = &aml_dec->dec_pcm_data;
     dec_data_info_t *dec_raw_data = &aml_dec->dec_raw_data;
+    dec_data_info_t *raw_in_data  = &aml_dec->raw_in_data; ///< no use
 
     dts_dec->is_dtscd    = dca_config->is_dtscd;
     dts_dec->digital_raw = dca_config->digital_raw;
@@ -523,10 +528,10 @@ int dca_decoder_init_patch(aml_dec_t **ppaml_dec, aml_dec_config_t *dec_config)
     dts_dec->frame_info.iec61937_data_type = 0;
     dts_dec->frame_info.size = 0;
 
-    dts_dec->inbuf = (unsigned char*) aml_audio_malloc(MAX_DECODER_FRAME_LENGTH);
-    dec_pcm_data->buf_size = MAX_DECODER_FRAME_LENGTH;
+    dts_dec->inbuf = (unsigned char*) aml_audio_malloc(MAX_DCA_FRAME_LENGTH);  ///< same as dca decoder
+    dec_pcm_data->buf_size = MAX_DCA_FRAME_LENGTH * 2;
     dec_pcm_data->buf = (unsigned char *)aml_audio_malloc(dec_pcm_data->buf_size);
-    dec_raw_data->buf_size = MAX_DECODER_FRAME_LENGTH;
+    dec_raw_data->buf_size = MAX_DCA_FRAME_LENGTH;
     dec_raw_data->buf = (unsigned char *)aml_audio_malloc(dec_raw_data->buf_size);
     if (!dec_pcm_data->buf || !dec_raw_data->buf || !dts_dec->inbuf) {
         ALOGE("%s malloc memory failed!", __func__);
@@ -534,8 +539,9 @@ int dca_decoder_init_patch(aml_dec_t **ppaml_dec, aml_dec_config_t *dec_config)
     }
     memset(dec_pcm_data->buf, 0, dec_pcm_data->buf_size);
     memset(dec_raw_data->buf , 0, dec_raw_data->buf_size);
+    memset(raw_in_data, 0, sizeof(dec_data_info_t));  ///< no use
 
-    if (ring_buffer_init(&dts_dec->input_ring_buf, MAX_DECODER_FRAME_LENGTH)) {
+    if (ring_buffer_init(&dts_dec->input_ring_buf, MAX_DCA_FRAME_LENGTH * 2)) {
         ALOGE("%s init ring buffer failed!", __func__);
         goto error;
     }
@@ -576,6 +582,8 @@ int dca_decoder_init_patch(aml_dec_t **ppaml_dec, aml_dec_config_t *dec_config)
     }
     *ppaml_dec = aml_dec;
 
+    aml_dec->dev = dca_config->dev;
+
     ALOGI("%s success", __func__);
     return 0;
 
@@ -583,15 +591,20 @@ error:
     if (dts_dec) {
         if (dts_dec->inbuf) {
             aml_audio_free(dts_dec->inbuf);
+            dts_dec->inbuf = NULL;
         }
         if (dec_pcm_data->buf) {
             aml_audio_free(dec_pcm_data->buf);
+            dec_pcm_data->buf = NULL;
         }
         if (dec_raw_data->buf) {
             aml_audio_free(dec_raw_data->buf);
+            dec_raw_data->buf = NULL;
         }
         ring_buffer_release(&dts_dec->input_ring_buf);
         aml_audio_free(dts_dec);
+        aml_dec = NULL;
+        *ppaml_dec = NULL;
     }
     ALOGE("%s failed", __func__);
     return -1;
@@ -604,19 +617,20 @@ int dca_decoder_release_patch(aml_dec_t *aml_dec)
     dec_data_info_t *dec_raw_data = &aml_dec->dec_raw_data;
 
     ALOGI("%s enter", __func__);
-    if (dts_decoder_cleanup != NULL) {
-        (*dts_decoder_cleanup)();
-    }
+    unload_dts_decoder_lib();
 
     if (dts_dec) {
         if (dts_dec->inbuf) {
             aml_audio_free(dts_dec->inbuf);
+            dts_dec->inbuf = NULL;
         }
         if (dec_pcm_data->buf) {
             aml_audio_free(dec_pcm_data->buf);
+            dec_pcm_data->buf = NULL;
         }
         if (dec_raw_data->buf) {
             aml_audio_free(dec_raw_data->buf);
+            dec_raw_data->buf = NULL;
         }
         ring_buffer_release(&dts_dec->input_ring_buf);
 
@@ -640,6 +654,7 @@ int dca_decoder_release_patch(aml_dec_t *aml_dec)
             dts_debug.fp_pcm = NULL;
         }
         aml_audio_free(dts_dec);
+        dts_dec = NULL;
     }
     return 1;
 }
@@ -652,6 +667,7 @@ int dca_decoder_process_patch(aml_dec_t *aml_dec, unsigned char *buffer, int byt
     dec_data_info_t *dec_raw_data = &aml_dec->dec_raw_data;
     int frame_size = 0;
     int used_size = 0;
+    dts_dec->outlen_pcm = 0;
 
     if (bytes > 0) {
         if (dts_debug.fp_input_raw) {
@@ -669,41 +685,50 @@ int dca_decoder_process_patch(aml_dec_t *aml_dec, unsigned char *buffer, int byt
         }
     }
 
-    do {
-        if ((frame_size = _dts_frame_scan(dts_dec)) > 0) {
-            ring_buffer_read(input_rbuffer, dts_dec->inbuf, frame_size);
-            dts_dec->remain_size -= frame_size;
-            if (dts_dec->is_iec61937 && !dts_dec->frame_info.is_little_endian) {
-                endian16_convert(dts_dec->inbuf, frame_size);
-            }
 
-            used_size = dts_dec->decoder_process(dts_dec->inbuf,
-                                    frame_size,
-                                    dec_pcm_data->buf,
-                                    &dts_dec->outlen_pcm,
-                                    dec_raw_data->buf,
-                                    &dts_dec->outlen_raw,
-                                    &dts_dec->pcm_out_info);
-            if (dts_debug.debug_flag) {
-                ALOGD("%s: used_size:%d, pcm(len:%d, sr:%d, ch:%d), raw len:%d\n"
-                    , __func__, used_size, dts_dec->outlen_pcm, dts_dec->pcm_out_info.sample_rate
-                    , dts_dec->pcm_out_info.channel_num, dts_dec->outlen_raw);
-            }
+    frame_size = _dts_frame_scan(dts_dec);
+    if (frame_size < 0) {
+        return AML_DEC_RETURN_TYPE_FAIL; ///< return -1
+    }
 
-            if ((dts_dec->outlen_pcm > 0) && (used_size > 0)) {
-                _dts_pcm_output(dts_dec);
-            }
+    if (frame_size == 0) {
+        return AML_DEC_RETURN_TYPE_CACHE_DATA;  ///< return 1
+    }
 
-            if ((dts_dec->outlen_raw > 0) && (used_size > 0)) {
-                _dts_raw_output(dts_dec);
-            }
+    if (frame_size > 0) {
+        ring_buffer_read(input_rbuffer, dts_dec->inbuf, frame_size);
+        dts_dec->remain_size -= frame_size;
+        if (dts_dec->is_iec61937 && !dts_dec->frame_info.is_little_endian) {
+            endian16_convert(dts_dec->inbuf, frame_size);
         }
-    } while ((frame_size > 0) && (dts_dec->outlen_pcm <= 0));
+
+        used_size = dts_dec->decoder_process(dts_dec->inbuf,
+                                frame_size,
+                                dec_pcm_data->buf,
+                                &dts_dec->outlen_pcm,
+                                dec_raw_data->buf,
+                                &dts_dec->outlen_raw,
+                                &dts_dec->pcm_out_info);
+        if (dts_debug.debug_flag) {
+            ALOGD("%s: used_size:%d, pcm(len:%d, sr:%d, ch:%d), raw len:%d\n"
+                , __func__, used_size, dts_dec->outlen_pcm, dts_dec->pcm_out_info.sample_rate
+                , dts_dec->pcm_out_info.channel_num, dts_dec->outlen_raw);
+        }
+
+        if ((dts_dec->outlen_pcm > 0) && (used_size > 0)) {
+            _dts_pcm_output(dts_dec);
+        }
+
+        if ((dts_dec->outlen_raw > 0) && (used_size > 0)) {
+            _dts_raw_output(dts_dec);
+        }
+    }
+
 
     if ((dts_dec->outlen_pcm > 0) && (used_size > 0)) {
-        return 0;
+        return AML_DEC_RETURN_TYPE_OK;  ///< return 0
     } else {
-        return -1;
+        return AML_DEC_RETURN_TYPE_FAIL; ///< return -1
     }
 }
 
@@ -769,14 +794,14 @@ static void *decode_threadloop(void *data)
     }
 
     ALOGI("++ %s:%d in_sr = %d, out_sr = %d\n", __func__, __LINE__, parser->in_sample_rate, parser->out_sample_rate);
-    outbuf = (unsigned char*) aml_audio_malloc(MAX_DECODER_FRAME_LENGTH * 4 + MAX_DECODER_FRAME_LENGTH + 8);
+    outbuf = (unsigned char*) aml_audio_malloc(MAX_DCA_FRAME_LENGTH * 4 + MAX_DCA_FRAME_LENGTH + 8);
     if (!outbuf) {
         ALOGE("%s:%d malloc output buffer failed", __func__, __LINE__);
         return NULL;
     }
 
-    outbuf_raw = outbuf + MAX_DECODER_FRAME_LENGTH;
-    inbuf = (unsigned char*) aml_audio_malloc(MAX_DECODER_FRAME_LENGTH * 4 * 2);
+    outbuf_raw = outbuf + MAX_DCA_FRAME_LENGTH;
+    inbuf = (unsigned char*) aml_audio_malloc(MAX_DCA_FRAME_LENGTH * 4 * 2);
 
     if (!inbuf) {
         ALOGE("%s:%d malloc input buffer failed", __func__, __LINE__);
@@ -816,7 +841,7 @@ static void *decode_threadloop(void *data)
         }
 
         //here we call decode api to decode audio frame here
-        if (remain_size + READ_PERIOD_LENGTH <= (MAX_DECODER_FRAME_LENGTH * 4 * 2)) { //input buffer size
+        if (remain_size + READ_PERIOD_LENGTH <= (MAX_DCA_FRAME_LENGTH * 4 * 2)) { //input buffer size
             // read raw DTS data for alsa
             s32AlsaReadFrames = pcm_read(parser->aml_pcm, inbuf + remain_size, READ_PERIOD_LENGTH);
             if (s32AlsaReadFrames < 0) {
@@ -844,7 +869,7 @@ static void *decode_threadloop(void *data)
 #endif
         //find header and get paramters
         read_pointer = inbuf;
-        if  (remain_size > MAX_DECODER_FRAME_LENGTH)
+        if  (remain_size > MAX_DCA_FRAME_LENGTH)
         {
             while (parser->decode_ThreadExitFlag == 0 && !SyncFlag && remain_size > IEC61937_HEADER_LENGTH) {
                 //DTS_SYNCWORD_IEC61937 : 0xF8724E1F
@@ -1066,11 +1091,141 @@ int dca_decode_release(struct aml_audio_parser *parser)
     return s32Ret;
 }
 
+int dca_decoder_config(aml_dec_t * aml_dec, aml_dec_config_type_t config_type, aml_dec_config_t *aml_dec_config)
+{
+    int ret = -1;
+    struct dca_dts_dec *dts_dec = (struct dca_dts_dec *)aml_dec;
+
+    if (!dts_decoder_config || !dts_dec) {
+        if (!aml_dec_config)
+            return ret;
+
+        ///< static param, will take effect after decoder_init.
+        switch (config_type) {
+            case AML_DEC_CONFIG_OUTPUT_CHANNEL:
+            {
+                dca_initparam_out_ch = aml_dec_config->dca_config.output_ch;
+                ret = 0;
+                break;
+            }
+
+            default:    ///< not support runtime param
+                return ret;
+        }
+
+        return ret;
+    }
+
+    if (dts_dec->status != 1) {
+        return ret;
+    }
+
+    ///< runtime/static param, will take effect immediately.
+    switch (config_type) {
+        case AML_DEC_CONFIG_OUTPUT_CHANNEL:
+        {
+            dca_config_t dca_config;
+            memset(&dca_config, 0, sizeof(dca_config));
+            dca_config.output_ch = aml_dec_config->dca_config.output_ch;
+            ret = (*dts_decoder_config)(DCA_CONFIG_OUT_CH, (dca_config_t *)&dca_config);
+            break;
+        }
+
+        default:
+            break;
+    }
+
+    return ret;
+}
+
+int dca_decoder_getinfo(aml_dec_t *aml_dec, aml_dec_info_type_t info_type, aml_dec_info_t *aml_dec_info)
+{
+    int ret = -1;
+    struct dca_dts_dec *dts_dec = (struct dca_dts_dec *)aml_dec;
+
+    if (!dts_decoder_getinfo || !aml_dec_info || !dts_dec) {
+        return ret;
+    }
+
+    if (dts_dec->status != 1) {
+        return ret;
+    }
+
+    switch (info_type) {
+        case AML_DEC_STREMAM_INFO:
+        {
+            dca_info_t dca_info;
+            memset(&dca_info, 0, sizeof(dca_info));
+            ret = (*dts_decoder_getinfo)(DCA_STREAM_INFO, (dca_info_t *)&dca_info);
+            if (ret >= 0) {
+                aml_dec_info->dec_info.stream_ch = dca_info.stream_info.stream_ch;
+                aml_dec_info->dec_info.stream_sr = dca_info.stream_info.stream_sr;
+                ///< aml_dec_info->dec_info.output_bLFE = // not support yet
+            } else {
+                memset(aml_dec_info, 0, sizeof(aml_dec_info_t));
+            }
+            break;
+        }
+
+        case AML_DEC_OUTPUT_INFO:
+        {
+            dca_info_t dca_info;
+            memset(&dca_info, 0, sizeof(dca_info));
+            ret = (*dts_decoder_getinfo)(DCA_OUTPUT_INFO, (dca_info_t *)&dca_info);
+            if (ret >= 0) {
+                aml_dec_info->dec_output_info.output_ch = dca_info.output_info.output_ch;
+                aml_dec_info->dec_output_info.output_sr = dca_info.output_info.output_sr;
+                aml_dec_info->dec_output_info.output_bitwidth = dca_info.output_info.output_bitwidth;
+            } else {
+                memset(aml_dec_info, 0, sizeof(aml_dec_info_t));
+            }
+            break;
+        }
+
+        default:
+            break;
+    }
+    return ret;
+}
+
+int dca_get_out_ch_internal(void)
+{
+    ///< not init yet.
+    if (!dts_decoder_getinfo)
+        return 0;
+
+    dca_info_t dca_info;
+    memset(&dca_info, 0, sizeof(dca_info));
+    int ret = (*dts_decoder_getinfo)(DCA_OUTPUT_INFO, (dca_info_t *)&dca_info);
+    if (!ret) {
+        return dca_info.output_info.output_ch;
+    } else {
+        return -1;
+    }
+}
+
+int dca_set_out_ch_internal(int ch_num)
+{
+    if (!dts_decoder_config) {
+        ///< static param, will take effect after decoder_init.
+        dca_initparam_out_ch = ch_num;
+        ALOGI("%s: DTS Channel Output Mode = %d!", __FUNCTION__, ch_num);
+        return 0;
+    }
+
+    dca_config_t dca_config;
+    memset(&dca_config, 0, sizeof(dca_config));
+    dca_config.output_ch = ch_num;
+    ///< static/runtime param, will take effect immediately.
+    int ret = (*dts_decoder_config)(DCA_CONFIG_OUT_CH, (dca_config_t *)&dca_config);
+
+    return ret;
+}
+
 aml_dec_func_t aml_dca_func = {
     .f_init                 = dca_decoder_init_patch,
     .f_release              = dca_decoder_release_patch,
     .f_process              = dca_decoder_process_patch,
-    .f_config               = NULL,
-    .f_info                 = NULL,
+    .f_config               = dca_decoder_config,
+    .f_info                 = dca_decoder_getinfo,
 };
-
