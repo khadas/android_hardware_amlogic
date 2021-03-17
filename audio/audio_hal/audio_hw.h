@@ -131,6 +131,14 @@ enum audio_hal_format {
 #define FRAMESIZE_32BIT_8ch 32
 
 /* copy from VTS */
+/* hardware/interfaces/audio/core/all-versions/default/include/core/default/Util.h */
+/*
+    0            ->         Result::OK
+    -EINVAL      ->         Result::INVALID_ARGUMENTS
+    -ENODATA     ->         Result::INVALID_STATE
+    -ENODEV      ->         Result::NOT_INITIALIZED
+    -ENOSYS      ->         Result::NOT_SUPPORTED
+*/
 enum Result {
     OK,
     NOT_INITIALIZED,

@@ -197,8 +197,14 @@ static int outMmapStart(const struct audio_stream_out *stream)
     ALOGI("[%s:%d] stream:%p", __func__, __LINE__, stream);
     struct aml_stream_out       *out = (struct aml_stream_out *) stream;
     aml_mmap_audio_param_st     *pstParam = (aml_mmap_audio_param_st *)out->pstMmapAudioParam;
+
+    if (pstParam->stThreadParam.status != MMAP_INIT || pstParam == NULL) {
+        ALOGW("[%s:%d] status:%d not is int or mmap not init", __func__, __LINE__, pstParam->stThreadParam.status);
+        return -ENODATA;
+    }
+
     if (0 == pstParam->stThreadParam.threadId) {
-        ALOGE("[%s:%d]  exit threadloop", __func__, __LINE__);
+        ALOGE("[%s:%d] exit threadloop", __func__, __LINE__);
         return -ENOSYS;
     }
     if (aml_getprop_bool("vendor.media.audiohal.outdump")) {
@@ -220,6 +226,12 @@ static int outMmapStop(const struct audio_stream_out *stream)
     ALOGI("[%s:%d] stream:%p", __func__, __LINE__, stream);
     struct aml_stream_out       *out = (struct aml_stream_out *) stream;
     aml_mmap_audio_param_st     *pstParam = (aml_mmap_audio_param_st *)out->pstMmapAudioParam;
+
+    if (pstParam->stThreadParam.status != MMAP_START_DONE || pstParam == NULL) {
+        ALOGW("[%s:%d] status:%d not start done or mmap not init", __func__, __LINE__, pstParam->stThreadParam.status);
+        return -ENODATA;
+    }
+
     //dolby_ms12_app_flush();
     if (aml_getprop_bool("vendor.media.audiohal.outdump")) {
         if (fp1) {
@@ -248,9 +260,9 @@ static int outMmapCreateBuffer(const struct audio_stream_out *stream,
     aml_mmap_audio_param_st     *pstParam = (aml_mmap_audio_param_st *)out->pstMmapAudioParam;
     int ret = 0;
 
-    if (NULL == pstParam) {
-        ALOGE("[%s:%d] uninitialized, can't create mmap buffer", __func__, __LINE__);
-        return -1;
+    if (NULL == pstParam || min_size_frames >= INT_MAX || min_size_frames <= 0) {
+        ALOGW("[%s:%d] pstParam is null or min_size_frames invalid. ", __func__, __LINE__);
+        return -ENOSYS;
     }
 
     info->shared_memory_address = pstParam->pu8MmapAddr;
@@ -295,9 +307,10 @@ static int outMmapGetPosition(const struct audio_stream_out *stream,
     position->time_nanoseconds = pstParam->time_nanoseconds;
     position->position_frames = pstParam->u32FramePosition;
 
-    if (position->position_frames == 0) {
-        ALOGE("%s no data", __FUNCTION__);
-        return -ENODATA;
+    if (position->position_frames == 0 || pstParam->stThreadParam.status != MMAP_START_DONE) {
+        ALOGW("[%s:%d] status:%d not start done or position:%d is 0", __func__, __LINE__,
+            pstParam->stThreadParam.status, position->position_frames);
+        return -ENOSYS;
     }
 
     if (out->dev->debug_flag >= 100) {
