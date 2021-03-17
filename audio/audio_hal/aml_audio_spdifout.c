@@ -30,6 +30,7 @@
 #include "spdif_encoder_api.h"
 #include "audio_hw_utils.h"
 #include "alsa_manager.h"
+#include "dolby_lib_api.h"
 
 
 typedef struct spdifout_handle {
@@ -41,6 +42,59 @@ typedef struct spdifout_handle {
     void *spdif_enc_handle;
 } spdifout_handle_t;
 
+
+static int select_digital_device(struct spdifout_handle *phandle) {
+    int device_id = DIGITAL_DEVICE;
+    struct aml_audio_device *aml_dev = (struct aml_audio_device *)adev_get_handle();
+    /*
+     *  DIGITAL_DEVICE  --> spdif_a(spdif)
+     *  DIGITAL_DEVICE2 --> spdif_b,
+     *  TV and STB has different hardware config for spdif/spdif_b
+     *
+     */
+
+    if (!aml_dev->is_TV) {
+        if (aml_dev->dual_spdif_support) {
+            if (phandle->audio_format == AUDIO_FORMAT_AC3 ||
+                phandle->audio_format == AUDIO_FORMAT_DTS) {
+                /*if it is dd/dts, we use spdif_a, then it can output to spdif/hdmi at the same time*/
+                device_id = DIGITAL_DEVICE;
+            } else {
+                /*for ddp, we need use spdif_b, then select hdmi to spdif_b, then spdif can output dd*/
+                device_id = DIGITAL_DEVICE2;
+            }
+        } else {
+            /*defaut we only use spdif_a to output spdif/hdmi*/
+            device_id = DIGITAL_DEVICE;
+        }
+    } else {
+        if (aml_dev->dual_spdif_support) {
+            /*TV spdif_a support arc/spdif, spdif_b only support spdif*/
+            if (eDolbyMS12Lib == aml_dev->dolby_lib_type) {
+                /*ddp always used spdif_a*/
+                if (phandle->audio_format == AUDIO_FORMAT_E_AC3) {
+                    device_id = DIGITAL_DEVICE;
+                } else {
+                    if (aml_dev->optical_format == AUDIO_FORMAT_E_AC3) {
+                        /*it has dual output, then dd use spdif_b for spdif only*/
+                        device_id = DIGITAL_DEVICE2;
+                    } else {
+                        /*it doesn't have dual output, then dd use spdif_a for arc/spdif*/
+                        device_id = DIGITAL_DEVICE;
+                    }
+                }
+            } else {
+                /*to do, we will consider ddp version dual output*/
+                device_id = DIGITAL_DEVICE;
+            }
+        } else {
+            /*defaut we only use spdif_a to output spdif/arc*/
+            device_id = DIGITAL_DEVICE;
+        }
+    }
+
+    return device_id;
+}
 
 int aml_audio_get_spdif_port(eMixerSpdif_Format spdif_format)
 {
@@ -207,17 +261,8 @@ int aml_audio_spdifout_open(void **pphandle, spdif_config_t *spdif_config)
         phandle->spdif_enc_init = true;
     }
 
-    /*here is some tricky code, we assume below config for dual output*/
-    if (aml_dev->dual_spdif_support) {
-        if (audio_format == AUDIO_FORMAT_AC3 ||
-            audio_format == AUDIO_FORMAT_DTS) {
-            device_id = DIGITAL_DEVICE;
-        } else {
-            device_id = DIGITAL_DEVICE2;
-        }
-    } else {
-        device_id = DIGITAL_DEVICE;
-    }
+    device_id = select_digital_device(phandle);
+
 
     alsa_handle = aml_dev->alsa_handle[device_id];
 
