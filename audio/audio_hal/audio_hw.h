@@ -747,7 +747,6 @@ struct aml_stream_in {
     struct timespec mute_start_ts;
     int mute_flag;
     int mute_log_cntr;
-    bool first_buffer_discard;
     struct aml_audio_device *dev;
     void *input_tmp_buffer;
     size_t input_tmp_buffer_size;

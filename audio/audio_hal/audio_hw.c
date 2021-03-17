@@ -2673,9 +2673,6 @@ static ssize_t in_read(struct audio_stream_in *stream, void* buffer, size_t byte
 
         /*if need mute input source, don't read data from hardware anymore*/
         if (adev->mic_mute || in_mute || parental_mute || in->spdif_fmt_hw == SPDIFIN_AUDIO_TYPE_PAUSE) {
-            if (adev->in_device & AUDIO_DEVICE_IN_TV_TUNER) {
-                in->first_buffer_discard = true;
-            }
             memset(buffer, 0, bytes);
             usleep(bytes * 1000000 / audio_stream_in_frame_size(stream) /
                 in_get_sample_rate(&stream->common));
@@ -2691,11 +2688,6 @@ static ssize_t in_read(struct audio_stream_in *stream, void* buffer, size_t byte
             }
             if (ret < 0)
                 goto exit;
-            if ((adev->in_device & AUDIO_DEVICE_IN_TV_TUNER) && in->first_buffer_discard) {
-                in->first_buffer_discard = false;
-                memset(buffer, 0, bytes);
-                ret = 0;
-            }
             DoDumpData(buffer, bytes, CC_DUMP_SRC_TYPE_INPUT);
         }
     }
@@ -8425,13 +8417,6 @@ static int release_patch(struct aml_audio_device *aml_dev)
     pthread_mutex_lock(&aml_dev->patch_lock);
     release_patch_l(aml_dev);
     pthread_mutex_unlock(&aml_dev->patch_lock);
-    if (aml_dev->audio_ease) {
-        ALOGI("%s(), do fade out", __func__);
-        start_ease_out(aml_dev);
-        aml_dev->patch_start = false;
-        usleep(200*1000);
-    }
-
     return 0;
 }
 
