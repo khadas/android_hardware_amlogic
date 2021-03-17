@@ -9225,7 +9225,7 @@ static int adev_close(hw_device_t *device)
     }
 
     /* destroy thread for communication between Audio Hal and MS12 */
-    if ((eDolbyMS12Lib == adev->dolby_lib_type) && (!adev->is_TV)) {
+    if ((eDolbyMS12Lib == adev->dolby_lib_type)) {
         ms12_mesg_thread_destroy(&adev->ms12);
         ALOGD("%s, ms12_mesg_thread_destroy finished!\n", __func__);
     }
@@ -9736,7 +9736,7 @@ static int adev_open(const hw_module_t* module, const char* name, hw_device_t** 
 
     ALOGD("%s adev->dolby_lib_type:%d  !adev->is_TV:%d", __func__, adev->dolby_lib_type, !adev->is_TV);
     /* create thread for communication between Audio Hal and MS12 */
-    if ((eDolbyMS12Lib == adev->dolby_lib_type) && (!adev->is_TV)) {
+    if ((eDolbyMS12Lib == adev->dolby_lib_type)) {
         ret = ms12_mesg_thread_create(&adev->ms12);
         if (0 != ret) {
             ALOGE("%s, ms12_mesg_thread_create fail!\n", __func__);

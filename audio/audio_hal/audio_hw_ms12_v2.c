@@ -1446,7 +1446,14 @@ static ssize_t aml_ms12_spdif_output_new(struct audio_stream_out *stream,
         bitstream_desc->spdifout_handle = NULL;
     }
 
+
     if (bitstream_desc->spdifout_handle == NULL) {
+        /*we need update ms12 optical_format in the master pcm output*/
+        if (ms12->optical_format != adev->optical_format) {
+            ALOGI("wait ms12 optical fomrat update");
+            return -1;
+        }
+
         if (output_format == AUDIO_FORMAT_IEC61937) {
             spdif_config.audio_format = AUDIO_FORMAT_IEC61937;
             spdif_config.sub_format   = aml_out->hal_internal_format;
