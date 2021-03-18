@@ -86,6 +86,7 @@
 #include "aml_audio_ms12_sync.h"
 #include "dtv_patch_out.h"
 #include "aml_audio_dec_wrapper.h"
+#include "audio_hdmi_util.h"
 #define ENABLE_NANO_NEW_PATH 1
 #if ENABLE_NANO_NEW_PATH
 #include "jb_nano.h"
@@ -3472,117 +3473,6 @@ static void adev_close_output_stream(struct audio_hw_device *dev,
     ALOGD("%s: exit", __func__);
 }
 
-static int set_arc_hdmi (struct audio_hw_device *dev, char *value, size_t len)
-{
-    struct aml_audio_device *adev = (struct aml_audio_device *) dev;
-    struct aml_arc_hdmi_desc *hdmi_desc = &adev->hdmi_descs;
-    char *pt = NULL, *tmp = NULL;
-    int i = 0;
-
-    if (strlen (value) > len) {
-        ALOGW("[%s:%d] value array len:%d overflow!", __func__, __LINE__, strlen(value));
-        return -EINVAL;
-    }
-
-    pt = strtok_r (value, "[], ", &tmp);
-    int avr_port = 0;
-    while (pt != NULL) {
-        //index 1 means avr port
-        if (i == 1) {
-            avr_port = atoi (pt);
-        }
-        pt = strtok_r (NULL, "[], ", &tmp);
-        i++;
-    }
-    ALOGI("[%s:%d] ARC HDMI AVR port:%d", __func__, __LINE__, avr_port);
-    return 0;
-}
-
-static void dump_format_desc (struct format_desc *desc)
-{
-    if (desc) {
-        ALOGI ("dump format desc = %p", desc);
-        ALOGI ("\t-fmt %d", desc->fmt);
-        ALOGI ("\t-is support %d", desc->is_support);
-        ALOGI ("\t-max channels %d", desc->max_channels);
-        ALOGI ("\t-sample rate masks %#x", desc->sample_rate_mask);
-        ALOGI ("\t-max bit rate %d", desc->max_bit_rate);
-        ALOGI ("\t-atmos supported %d", desc->atmos_supported);
-    }
-}
-
-static int set_arc_format (struct audio_hw_device *dev, char *value, size_t len)
-{
-    struct aml_audio_device *adev = (struct aml_audio_device *) dev;
-    struct aml_arc_hdmi_desc *hdmi_desc = &adev->hdmi_descs;
-    struct format_desc *fmt_desc = NULL;
-    char *pt = NULL, *tmp = NULL;
-    int i = 0, val = 0;
-    AML_HDMI_FORMAT_E format = AML_HDMI_FORMAT_LPCM;
-    if (strlen (value) > len) {
-        ALOGW("[%s:%d] value array len:%d overflow!", __func__, __LINE__, strlen(value));
-        return -EINVAL;
-    }
-
-    pt = strtok_r (value, "[], ", &tmp);
-    while (pt != NULL) {
-        val = atoi (pt);
-        switch (i) {
-        case 0:
-            format = val;
-            if (val == AML_HDMI_FORMAT_AC3) {
-                fmt_desc = &hdmi_desc->dd_fmt;
-            } else if (val == AML_HDMI_FORMAT_DDP) {
-                fmt_desc = &hdmi_desc->ddp_fmt;
-            } else if (val == AML_HDMI_FORMAT_MAT) {
-                fmt_desc = &hdmi_desc->mat_fmt;
-            } else if (val == AML_HDMI_FORMAT_LPCM) {
-                fmt_desc = &hdmi_desc->pcm_fmt;
-            } else if (val == AML_HDMI_FORMAT_DTS) {
-                fmt_desc = &hdmi_desc->dts_fmt;
-            } else if (val == AML_HDMI_FORMAT_DTSHD) {
-                fmt_desc = &hdmi_desc->dtshd_fmt;
-            } else {
-                ALOGW("[%s:%d] unsupport fmt:%d", __func__, __LINE__, val);
-                return -EINVAL;
-            }
-            fmt_desc->fmt = val;
-            break;
-        case 1:
-            fmt_desc->is_support = val;
-            break;
-        case 2:
-            fmt_desc->max_channels = val + 1;
-            break;
-        case 3:
-            fmt_desc->sample_rate_mask = val;
-            break;
-        case 4:
-            if (format == AML_HDMI_FORMAT_DDP) {
-                fmt_desc = &hdmi_desc->ddp_fmt;
-                fmt_desc->atmos_supported = val > 0 ? true : false;
-                aml_mixer_ctrl_set_int (&adev->alsa_mixer, AML_MIXER_ID_HDMI_ATMOS_EDID,fmt_desc->atmos_supported);
-                /**
-                 * Add flag to indicate hdmi arc format updated.
-                 * Out write thread checks it and makes decision on output format.
-                 * NOTICE: assuming that DDP format is the last ARC KV parameters.
-                 */
-                adev->arc_hdmi_updated = 1;
-            } else {
-                fmt_desc->max_bit_rate = val * 80;
-            }
-            break;
-        default:
-            break;
-        }
-
-        pt = strtok_r (NULL, "[], ", &tmp);
-        i++;
-    }
-    memcpy(&adev->hdmi_arc_capability_desc, hdmi_desc, sizeof(struct aml_arc_hdmi_desc));
-    dump_format_desc (fmt_desc);
-    return 0;
-}
 
 static int aml_audio_output_routing(struct audio_hw_device *dev,
                                     enum OUT_PORT outport,
@@ -3839,6 +3729,10 @@ static int adev_set_parameters (struct audio_hw_device *dev, const char *kvpairs
         if (adev->hdmi_format != val)
             adev->hdmi_format_updated = 1;
         adev->hdmi_format = val;
+
+        /* update the DUT's EDID */
+        update_edid_after_edited_audio_sad(adev, &adev->hdmi_descs.ddp_fmt);
+
         sysfs_set_sysfs_str(REPORT_DECODED_INFO, kvpairs);
         if ((eDolbyMS12Lib == adev->dolby_lib_type) && (adev->out_device & AUDIO_DEVICE_OUT_ALL_A2DP))
             adev->a2dp_no_reconfig_ms12 = aml_audio_get_systime() + 2000000;

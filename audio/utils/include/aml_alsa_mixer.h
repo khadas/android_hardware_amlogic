@@ -143,6 +143,7 @@ typedef enum AML_MIXER_CTRL_ID {
     AML_MIXER_ID_SPDIF_IN_SAMPLERATE,
     AML_MIXER_ID_HW_RESAMPLE_SOURCE,
     AML_MIXER_ID_AUDIO_HAL_FORMAT,
+    AML_MIXER_ID_HDMIIN_AUDIO_EDID,
     AML_MIXER_ID_MAX,
 } eMixerCtrlID;
 
@@ -187,6 +188,7 @@ int close_mixer_handle(struct aml_mixer_handle *mixer_handle);
 /*
  * get interface
  **/
+int aml_mixer_ctrl_get_array(struct aml_mixer_handle *mixer_handle, int mixer_id, void *array, int count);
 int aml_mixer_ctrl_get_int(struct aml_mixer_handle *mixer_handle, int mixer_id);
 int aml_mixer_ctrl_get_enum_str_to_int(struct aml_mixer_handle *mixer_handle, int mixer_id, int *ret);
 
@@ -200,6 +202,7 @@ int aml_mixer_get_spdifin_type(int mixer_id);
 /*
  * set interface
  **/
+int aml_mixer_ctrl_set_array(struct aml_mixer_handle *mixer_handle, int mixer_id, void *array, int count);
 int aml_mixer_ctrl_set_int(struct aml_mixer_handle *mixer_handle, int mixer_id, int value);
 int aml_mixer_ctrl_set_str(struct aml_mixer_handle *mixer_handle, int mixer_id, char *value);
 
