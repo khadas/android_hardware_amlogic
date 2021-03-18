@@ -139,6 +139,16 @@ bool UpdateAndSaveBootloaderControl(const std::string& misc_device, bootloader_c
   return true;
 }
 
+bool IsRecoveryMode() {
+    if (access("/system/bin/recovery", F_OK)) {
+        LOG(INFO) << "android mode";
+        return false;
+    } else {
+        LOG(INFO) << "recovery mode";
+        return true;
+    }
+}
+
 bool write_bootloader_img(unsigned int slot)
 {
     int iRet = 0;
@@ -148,6 +158,7 @@ bool write_bootloader_img(unsigned int slot)
     int fd2 = -1;
     bool ret = false;
     char* data = NULL;
+    char data_secure[512] = {0};
 
     memset(emmcPartitionPath, 0, sizeof(emmcPartitionPath));
     if (slot == 0) {
@@ -179,12 +190,12 @@ bool write_bootloader_img(unsigned int slot)
         }
     }
 
+    /* read bootloader.img just update by update_engine*/
     fd = open(emmcPartitionPath, O_RDWR);
     if (fd < 0) {
         LOG(ERROR) << "failed to open " << emmcPartitionPath;
         goto done;
     }
-    lseek(fd, 0, SEEK_SET);
     iRet = read(fd, data, BOOTLOADER_MAX_SIZE);
     if (iRet == BOOTLOADER_MAX_SIZE) {
         LOG(INFO) << "read bootloader img successful";
@@ -192,14 +203,37 @@ bool write_bootloader_img(unsigned int slot)
         LOG(ERROR) << "read bootloader img failed";
         goto done;
     }
+
+    /* read the firset 512 bytes secure data from bootloader*/
+    fd2 = open("/dev/block/bootloader", O_RDWR);
+    if (fd2 < 0) {
+        LOG(ERROR) << "failed to open /dev/block/bootloader ";
+        goto done;
+    }
+    iRet = read(fd2, data_secure, BOOTLOADER_OFFSET);
+    if (iRet == BOOTLOADER_OFFSET) {
+        LOG(INFO) << "read secure data successful";
+    } else {
+        LOG(ERROR) << "read secure data failed";
+        goto done;
+    }
+
     /* First 512 bytes in bootloader is signed data
      * we need write bootloader.img to 512 bytes offset
      * but update_engine just write bootloader.img to /dev/block
-     * so we read the data and rewrite it here
+     * rewrite first 512 secure boot and
+     * rewrite bootloader.img later
     */
-    iRet = lseek(fd, BOOTLOADER_OFFSET, SEEK_SET);
+    iRet = lseek(fd, 0, SEEK_SET);
     if (iRet == -1) {
-        printf("failed to lseek %d\n", BOOTLOADER_OFFSET);
+        LOG(ERROR) << "failed to lseek ";
+        goto done;
+    }
+    iRet = write(fd, data_secure, BOOTLOADER_OFFSET);
+    if (iRet == BOOTLOADER_OFFSET) {
+        LOG(INFO) << "write bootloader head successful";
+    } else {
+        LOG(ERROR) << "write bootloader head failed";
         goto done;
     }
     iRet = write(fd, data, BOOTLOADER_MAX_SIZE - BOOTLOADER_OFFSET);
@@ -209,6 +243,7 @@ bool write_bootloader_img(unsigned int slot)
         LOG(ERROR) << "write bootloader img failed";
         goto done;
     }
+
 
     /* We use robust to rollback bootloader.img in uboot
      * bootloader  ---> 0
@@ -223,16 +258,6 @@ bool write_bootloader_img(unsigned int slot)
      * after reboot, if the bootloader index is just expect_index, update env too
      * if the bootloader index isn't expect_index, update error, back to last slot
     */
-    fd2 = open("/dev/block/bootloader", O_RDWR);
-    if (fd2 < 0) {
-        LOG(ERROR) << "failed to open /dev/block/bootloader ";
-        goto done;
-    }
-    iRet = lseek(fd2, BOOTLOADER_OFFSET, SEEK_SET);
-    if (iRet == -1) {
-        printf("failed to lseek %d\n", BOOTLOADER_OFFSET);
-        goto done;
-    }
     iRet = write(fd2, data, BOOTLOADER_MAX_SIZE - BOOTLOADER_OFFSET);
     if (iRet == (BOOTLOADER_MAX_SIZE - BOOTLOADER_OFFSET)) {
         LOG(INFO) << "Write Uboot Image successful";
@@ -473,11 +498,16 @@ bool BootControl::SetActiveBootSlot(unsigned int slot) {
   ret = UpdateAndSaveBootloaderControl(misc_device_, &bootctrl);
 
   if (ret) {
-    ret = write_bootloader_img(slot);
-  }
-
-  if (ret) {
-    ret = SetBootloaderIndex();
+    /* check if called from update_engine or vts test,
+     * just rewrite when really update
+     */
+    std::string gsid_prop = android::base::GetProperty("init.svc.gsid", "");
+    if (!gsid_prop.empty() || IsRecoveryMode()) {
+      ret = write_bootloader_img(slot);
+      if (ret) {
+        ret = SetBootloaderIndex();
+      }
+    }
   }
 
   return ret;
