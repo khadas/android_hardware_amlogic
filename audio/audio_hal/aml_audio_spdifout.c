@@ -177,7 +177,6 @@ void aml_audio_set_spdif_format(int spdif_port, eMixerSpdif_Format aml_spdif_for
         }
     }
 
-    audio_set_spdif_clock(stream, aml_spdif_format);
     aml_mixer_ctrl_set_int(&aml_dev->alsa_mixer, spdif_format_ctr_id, aml_spdif_format);
 
     /*use same source for normal pcm case*/

@@ -6065,7 +6065,8 @@ ssize_t hw_write (struct audio_stream_out *stream
                 ALOGE("%s() open failed", __func__);
             }
         }
-
+        if (is_dtv)
+            audio_set_spdif_clock(aml_out, get_codec_type(output_format));
         aml_out->status = STREAM_HW_WRITING;
     }
 
