@@ -200,7 +200,17 @@ struct format_desc {
     bool   atmos_supported;
 };
 
+/*
+ *A Short Audio Descriptor is used by HDMI sink devices and HDMI ARC/eARC receiver devices to indicate
+ *support for an audio format (for example, Dolby Digital Plus) to a connected HDMI source device or HDMI
+ *ARC/eARC transmitter device.
+ */
+#define EDID_ARRAY_MAX_LEN 38 /* 3 bytes for each audio format, max 30 bytes for audio edid, 8 bytes for TLV header */
 struct aml_arc_hdmi_desc {
+    int EDID_length;
+    unsigned int avr_port;
+    char SAD[EDID_ARRAY_MAX_LEN];
+    bool default_edid;
     struct format_desc pcm_fmt;
     struct format_desc dts_fmt;
     struct format_desc dtshd_fmt;

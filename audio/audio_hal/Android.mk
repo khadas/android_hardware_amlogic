@@ -97,7 +97,8 @@ include $(BUILD_PREBUILT)
         ../amlogic_AQ_tools/ini/iniparser.c \
         aml_dec_api.c \
         aml_pcm_dec_api.c \
-        aml_audio_dec_wrapper.c
+        aml_audio_dec_wrapper.c \
+        audio_hdmi_util.c
 
     LOCAL_C_INCLUDES += \
         external/tinyalsa/include \

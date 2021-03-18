@@ -81,6 +81,7 @@ static struct aml_mixer_list gAmlMixerList[] = {
     {AML_MIXER_ID_SPDIF_IN_SAMPLERATE,  "SPDIFIN audio samplerate"},
     {AML_MIXER_ID_HW_RESAMPLE_SOURCE,   "Hw resample module"},
     {AML_MIXER_ID_AUDIO_HAL_FORMAT,     "Audio HAL Format"},
+    {AML_MIXER_ID_HDMIIN_AUDIO_EDID,    "HDMIIN AUDIO EDID"},
 };
 
 static char *get_mixer_name_by_id(int mixer_id)
@@ -142,6 +143,31 @@ static struct mixer_ctl *get_mixer_ctl_handle(struct mixer *pmixer, int mixer_id
     return pCtrl;
 }
 
+int aml_mixer_ctrl_get_array(struct aml_mixer_handle *mixer_handle, int mixer_id, void *array, int count)
+{
+    struct mixer *pMixer = mixer_handle->pMixer;
+    struct mixer_ctl *pCtrl;
+
+    if (pMixer == NULL) {
+        ALOGE("[%s:%d] pMixer is invalid!\n", __FUNCTION__, __LINE__);
+        return -1;
+    }
+
+    pthread_mutex_lock(&mixer_handle->lock);
+    pCtrl = get_mixer_ctl_handle(pMixer, mixer_id);
+    if (pCtrl == NULL) {
+        ALOGE("[%s:%d] Failed to open mixer %s\n", __FUNCTION__, __LINE__,
+              get_mixer_name_by_id(mixer_id));
+        pthread_mutex_unlock(&mixer_handle->lock);
+        return -1;
+    }
+    mixer_ctl_get_array(pCtrl, array, count);
+    pthread_mutex_unlock(&mixer_handle->lock);
+
+    return 0;
+}
+
+
 int aml_mixer_ctrl_get_int(struct aml_mixer_handle *mixer_handle, int mixer_id)
 {
     struct mixer *pMixer = mixer_handle->pMixer;
@@ -200,6 +226,31 @@ int aml_mixer_ctrl_get_enum_str_to_int(struct aml_mixer_handle *mixer_handle, in
     }
 }
 
+int aml_mixer_ctrl_set_array(struct aml_mixer_handle *mixer_handle, int mixer_id, void *array, int count)
+{
+    struct mixer *pMixer = mixer_handle->pMixer;
+    struct mixer_ctl *pCtrl;
+
+    if (pMixer == NULL) {
+        ALOGE("[%s:%d] pMixer is invalid!\n", __FUNCTION__, __LINE__);
+        return -1;
+    }
+
+    pthread_mutex_lock(&mixer_handle->lock);
+    pCtrl = get_mixer_ctl_handle(pMixer, mixer_id);
+    if (pCtrl == NULL) {
+        ALOGE("[%s:%d] Failed to open mixer %s\n", __FUNCTION__, __LINE__,
+              get_mixer_name_by_id(mixer_id));
+        pthread_mutex_unlock(&mixer_handle->lock);
+        return -1;
+    }
+    mixer_ctl_set_array(pCtrl, array, count);
+    pthread_mutex_unlock(&mixer_handle->lock);
+
+    return 0;
+}
+
+
 int aml_mixer_ctrl_set_int(struct aml_mixer_handle *mixer_handle, int mixer_id, int value)
 {
     struct mixer *pMixer = mixer_handle->pMixer;
@@ -247,3 +298,5 @@ int aml_mixer_ctrl_set_str(struct aml_mixer_handle *mixer_handle, int mixer_id, 
 
     return 0;
 }
+
+
