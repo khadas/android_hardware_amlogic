@@ -706,7 +706,7 @@ int aml_audio_get_pcm_latency_offset(int aformat, bool is_netflix)
         /* 384Bytes*8 = 16ms*48kHz(newAmlAudioMixer tmp_buffer size is MIXER_FRAME_COUNT * MIXER_OUT_FRAME_SIZE) */
         latency_ms = 64;
     } else {
-        latency_ms = -40;
+        latency_ms = -50;
     }
     ret = property_get(prop_name, buf, NULL);
     if (ret > 0) {
@@ -727,7 +727,7 @@ int aml_audio_get_hwsync_latency_offset(bool b_raw)
         latency_ms = 0;
     } else {
         prop_name = "vendor.media.audio.hal.hwsync_latency.ddp";
-        latency_ms = -20;
+        latency_ms = -30;
     }
     ret = property_get(prop_name, buf, NULL);
     if (ret > 0) {
