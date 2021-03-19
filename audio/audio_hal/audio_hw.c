@@ -1578,10 +1578,10 @@ static int out_flush_new (struct audio_stream_out *stream)
     out->frame_skip_sum = 0;
     out->skip_frame = 0;
     out->input_bytes_size = 0;
-    out->pause_status = false;
 
     if (eDolbyMS12Lib == adev->dolby_lib_type) {
         if (out->total_write_size == 0) {
+            out->pause_status = false;
             ALOGI("%s not writing, do nothing", __func__);
             return 0;
         }
@@ -1599,7 +1599,7 @@ static int out_flush_new (struct audio_stream_out *stream)
              *sequece will be pause->flush->writing data, we need to handle this.
              *It may causes problem for normal pause/flush/resume
              */
-            if (adev->ms12.is_continuous_paused && adev->ms12.dolby_ms12_enable) {
+            if ((out->pause_status || adev->ms12.is_continuous_paused) && adev->ms12.dolby_ms12_enable) {
                 audiohal_send_msg_2_ms12(ms12, MS12_MESG_TYPE_RESUME);
             }
             pthread_mutex_unlock(&ms12->lock);
@@ -1610,6 +1610,7 @@ static int out_flush_new (struct audio_stream_out *stream)
         aml_ac4_parser_reset(out->ac4_parser_handle);
     }
 
+    out->pause_status = false;
     ALOGI("%s(), stream(%p) exit\n", __func__, stream);
     return 0;
 }
@@ -3118,7 +3119,7 @@ static int adev_open_output_stream(struct audio_hw_device *dev,
     out->stream.get_presentation_position = out_get_presentation_position;
     out->stream.set_event_callback = out_set_event_callback;
 
-    if ((eDolbyMS12Lib == adev->dolby_lib_type) && (!adev->is_TV)) {
+    if (eDolbyMS12Lib == adev->dolby_lib_type) {
         // BOX with ms 12 need to use new method
         out->stream.pause = out_pause_new;
         out->stream.resume = out_resume_new;
