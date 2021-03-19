@@ -70,8 +70,15 @@ bool OemLock::getLockAbility() {
 
     std::string value;
     mSysCtrl->getBootEnv("ubootenv.var.lock", value);
-    sscanf(value.c_str(), "%1d%1d%1d%1d%1d%1d%1d%1d", &version_major, &version_minor,
-        &unlock_ability, &lock_reserve, &lock_state, &lock_critical_state, &lock_bootloader, &lock_reserve);
+    sscanf(value.c_str(), "%1d%1d%1d%1d%1d%1d%1d%1d",
+           &version_major,
+           &version_minor,
+           &unlock_ability,
+           &lock_reserve,
+           &lock_state,
+           &lock_critical_state,
+           &lock_bootloader,
+           &lock_reserve);
 
     return (1 == unlock_ability)?true:false;
 }

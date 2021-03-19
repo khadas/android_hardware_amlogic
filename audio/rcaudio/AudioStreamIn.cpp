@@ -296,7 +296,6 @@ int AudioStreamIn::openRemoteService()
 
     /*
     * Note: The path in this case is *not* supposed to be
-    * '\0'-terminated. ("man 7 unix" for the gory details.)
     */
     addr.sun_path[0] = 0;
     memcpy(addr.sun_path + 1, kRemoteSocketPath, namelen);
