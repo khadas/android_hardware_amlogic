@@ -77,6 +77,7 @@ class TvInputIntf : public TvListener {
 public:
     TvInputIntf();
     ~TvInputIntf();
+    void init();
     int startTv(tv_source_input_t source_input);
     int stopTv(tv_source_input_t source_input);
     int switchSourceInput(tv_source_input_t source_input);
@@ -86,6 +87,10 @@ public:
     tv_source_input_t checkWaitSource(bool check_status);
     bool getSourceStatus();
     bool isTvPlatform();
+    int getStreamGivenId();
+    void setStreamGivenId(int stream_id);
+    int getDeviceGivenId();
+    void setDeviceGivenId(int device_id);
     int getHdmiAvHotplugDetectOnoff();
     int setTvObserver (TvPlayObserver *ob);
     int getSupportInputDevices(int *devices, int *count);
@@ -94,6 +99,8 @@ public:
 
 private:
     pthread_mutex_t mMutex;
+    int mStreamGivenId;
+    int mDeviceGivenId;
     bool mSourceStatus;
     bool mIsTv;
     std::queue<tv_source_input_t> start_queue;

@@ -34,8 +34,8 @@
 using namespace android;
 
 TvInputIntf::TvInputIntf() : mpObserver(nullptr) {
-    mSourceStatus = false;
-    mSourceInput = SOURCE_INVALID;
+    init();
+
     mTvSession = TvServerHidlClient::connect(CONNECT_TYPE_HAL);
     mTvSession->setListener(this);
 
@@ -55,6 +55,8 @@ TvInputIntf::TvInputIntf() : mpObserver(nullptr) {
 
 TvInputIntf::~TvInputIntf()
 {
+    init();
+
     mTvSession.clear();
 
 #ifdef SUPPORT_DTVKIT
@@ -62,6 +64,23 @@ TvInputIntf::~TvInputIntf()
 #endif
 
     pthread_mutex_destroy(&mMutex);
+}
+
+void TvInputIntf::init()
+{
+    if (mSourceStatus && mSourceInput != SOURCE_INVALID)
+        stopTv(mSourceInput);
+
+    mStreamGivenId = -1;
+    mDeviceGivenId = -1;
+    mSourceStatus = false;
+    mSourceInput = SOURCE_INVALID;
+
+    while (!start_queue.empty())
+        start_queue.pop();
+
+    while (!stop_queue.empty())
+        stop_queue.pop();
 }
 
 int TvInputIntf::setTvObserver ( TvPlayObserver *ob )
@@ -239,6 +258,26 @@ bool TvInputIntf::isTvPlatform()
     ALOGD("isTvPlatform: %d.", mIsTv);
 
     return mIsTv;
+}
+
+int TvInputIntf::getStreamGivenId()
+{
+    return mStreamGivenId;
+}
+
+void TvInputIntf::setStreamGivenId(int stream_id)
+{
+    mStreamGivenId = stream_id;
+}
+
+int TvInputIntf::getDeviceGivenId()
+{
+    return mDeviceGivenId;
+}
+
+void TvInputIntf::setDeviceGivenId(int device_id)
+{
+    mDeviceGivenId = device_id;
 }
 
 int TvInputIntf::getHdmiAvHotplugDetectOnoff()
