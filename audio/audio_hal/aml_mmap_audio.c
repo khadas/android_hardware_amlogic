@@ -198,8 +198,9 @@ static int outMmapStart(const struct audio_stream_out *stream)
     struct aml_stream_out       *out = (struct aml_stream_out *) stream;
     aml_mmap_audio_param_st     *pstParam = (aml_mmap_audio_param_st *)out->pstMmapAudioParam;
 
-    if (pstParam->stThreadParam.status != MMAP_INIT || pstParam == NULL) {
-        ALOGW("[%s:%d] status:%d not is int or mmap not init", __func__, __LINE__, pstParam->stThreadParam.status);
+    if ((pstParam->stThreadParam.status != MMAP_INIT && pstParam->stThreadParam.status != MMAP_STOP_DONE)
+        || pstParam == NULL) {
+        ALOGW("[%s:%d] status:%d error or mmap no init.", __func__, __LINE__, pstParam->stThreadParam.status);
         return -ENODATA;
     }
 
