@@ -704,6 +704,7 @@ struct aml_stream_out {
     aml_dec_config_t  dec_config;               /*store the decode config*/
     aml_dec_t *aml_dec;                        /*store the decoder handle*/
     int ad_substream_supported;
+    aml_audio_resample_t *resample_handle;
 };
 
 typedef ssize_t (*write_func)(struct audio_stream_out *stream, const void *buffer, size_t bytes);

@@ -28,6 +28,8 @@
 #include "audio_hw_utils.h"
 #include "aml_dec_api.h"
 #include "aml_audio_spdifout.h"
+#define OUTPUT_BUFFER_SIZE (6 * 1024)
+#define OUTPUT_ALSA_SAMPLERATE  (48000)
 
 ssize_t aml_audio_spdif_output(struct audio_stream_out *stream,
                                void *buffer, size_t byte, spdif_config_t *spdif_config)
@@ -44,6 +46,41 @@ ssize_t aml_audio_spdif_output(struct audio_stream_out *stream,
 
     return ret;
 }
+int aml_audio_resample_process_wrapper(aml_audio_resample_t **resample_handle, void *buffer, size_t len, int sr, int ch_num)
+{
+   int ret = 0;
+   if (*resample_handle) {
+        if (sr != (int)(*resample_handle)->resample_config.input_sr) {
+            audio_resample_config_t resample_config;
+            ALOGD("Sample rate is changed from %d to %d, reset the resample\n",(*resample_handle)->resample_config.input_sr, sr);
+            aml_audio_resample_close(*resample_handle);
+            *resample_handle = NULL;
+        }
+    }
+
+    if (*resample_handle == NULL) {
+        audio_resample_config_t resample_config;
+        ALOGI("init resampler from %d to 48000!, channel num = %d\n",
+            sr, ch_num);
+        resample_config.aformat   = AUDIO_FORMAT_PCM_16_BIT;
+        resample_config.channels  = ch_num;
+        resample_config.input_sr  = sr;
+        resample_config.output_sr = OUTPUT_ALSA_SAMPLERATE;
+        ret = aml_audio_resample_init((aml_audio_resample_t **)resample_handle, AML_AUDIO_ANDROID_RESAMPLE, &resample_config);
+        if (ret < 0) {
+            ALOGE("resample init error\n");
+            return -1;
+        }
+    }
+
+    ret = aml_audio_resample_process(*resample_handle, buffer, len);
+    if (ret < 0) {
+        ALOGE("resample process error\n");
+        return -1;
+    }
+    return ret;
+}
+
 
 int aml_audio_decoder_process_wrapper(struct audio_stream_out *stream, const void *buffer, size_t bytes)
 {
@@ -76,6 +113,7 @@ int aml_audio_decoder_process_wrapper(struct audio_stream_out *stream, const voi
             // write pcm data
             if (dec_pcm_data->data_len > 0) {
                 audio_format_t output_format = AUDIO_FORMAT_PCM_16_BIT;
+                void  *dec_data = (void *)dec_pcm_data->buf;
                 if (adev->patch_src  == SRC_DTV && adev->start_mute_flag == 1) {
                     memset(dec_pcm_data->buf, 0, dec_pcm_data->data_len);
                 }
@@ -85,13 +123,21 @@ int aml_audio_decoder_process_wrapper(struct audio_stream_out *stream, const voi
                 if (patch) {
                     patch->sample_rate = dec_pcm_data->data_sr;
                 }
-
-                aml_hw_mixer_mixing(&adev->hw_mixer, dec_pcm_data->buf, dec_pcm_data->data_len, output_format);
-                if (audio_hal_data_processing(stream, dec_pcm_data->buf, dec_pcm_data->data_len, &output_buffer, &output_buffer_bytes, output_format) == 0) {
+                if (dec_pcm_data->data_sr != OUTPUT_ALSA_SAMPLERATE ) {
+                     ret = aml_audio_resample_process_wrapper(&aml_out->resample_handle, dec_pcm_data->buf, dec_pcm_data->data_len, dec_pcm_data->data_sr, dec_pcm_data->data_ch);
+                     if (ret != 0) {
+                         ALOGI("aml_audio_resample_process_wrapper failed");
+                     } else {
+                         dec_data = aml_out->resample_handle->resample_buffer;
+                         dec_pcm_data->data_len = aml_out->resample_handle->resample_size;
+                     }
+                 }
+                //aml_audio_dump_audio_bitstreams("/data/mixing_data.raw", dec_data, dec_pcm_data->data_len);
+                aml_hw_mixer_mixing(&adev->hw_mixer, dec_data, dec_pcm_data->data_len, output_format);
+                if (audio_hal_data_processing(stream, dec_data, dec_pcm_data->data_len, &output_buffer, &output_buffer_bytes, output_format) == 0) {
                     hw_write(stream, output_buffer, output_buffer_bytes, output_format);
                 }
             }
-
             // write raw data
             if (dec_raw_data->data_len > 0) {
                 if (dec_raw_data->data_sr > 0) {

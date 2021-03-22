@@ -3234,6 +3234,7 @@ static int adev_open_output_stream(struct audio_hw_device *dev,
     }
 
     out->ddp_frame_size = aml_audio_get_ddp_frame_size();
+    out->resample_handle = NULL;
     *stream_out = &out->stream;
     ALOGD("%s: exit", __func__);
 
@@ -3434,7 +3435,11 @@ static void adev_close_output_stream(struct audio_hw_device *dev,
         aml_decoder_release(out->aml_dec);
         out->aml_dec = NULL;
     }
-
+    
+    if (out->resample_handle) {
+        aml_audio_resample_close(out->resample_handle);
+        out->resample_handle = NULL;
+    }
 
     pthread_mutex_unlock(&out->lock);
     aml_audio_free(stream);
@@ -6014,7 +6019,7 @@ ssize_t hw_write (struct audio_stream_out *stream
     if (aml_out->status != STREAM_HW_WRITING) {
         ALOGI("%s, aml_out %p alsa open output_format %#x\n", __func__, aml_out, output_format);
         if (eDolbyDcvLib == adev->dolby_lib_type) {
-            if (/*is_use_spdifb(aml_out)*/0) {
+            if (is_use_spdifb(aml_out) && is_dtv) {
                 aml_audio_set_spdif_format(PORT_SPDIF, halformat_convert_to_spdif(output_format), aml_out);
                 aml_audio_select_spdif_to_hdmi(AML_SPDIF_B_TO_HDMITX);
                 aml_out->restore_hdmitx_selection = true;

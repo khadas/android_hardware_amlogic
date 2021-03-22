@@ -327,7 +327,7 @@ static int _dts_pcm_output(struct dca_dts_dec *dts_dec)
     dec_data_info_t *dec_pcm_data = &aml_dec->dec_pcm_data;
     unsigned char* copy_buffer = dec_pcm_data->buf;
     int copy_size = dts_dec->outlen_pcm;
-
+#if 0
     if (dts_dec->pcm_out_info.sample_rate > 0 && dts_dec->pcm_out_info.sample_rate != 48000) {
         if (dts_dec->resample_handle) {
             if (dts_dec->pcm_out_info.sample_rate != (int)dts_dec->resample_handle->resample_config.input_sr) {
@@ -369,10 +369,10 @@ static int _dts_pcm_output(struct dca_dts_dec *dts_dec)
     if (dts_debug.fp_pcm) {
         fwrite(copy_buffer, 1, copy_size, dts_debug.fp_pcm);
     }
-    dts_dec->outlen_pcm = copy_size;
+#endif
     dec_pcm_data->data_format = AUDIO_FORMAT_PCM_16_BIT;
     dec_pcm_data->data_ch = dts_dec->pcm_out_info.channel_num;
-    dec_pcm_data->data_sr = 48000;
+    dec_pcm_data->data_sr = dts_dec->pcm_out_info.sample_rate;
     dec_pcm_data->data_len = dts_dec->outlen_pcm;
 
     return 0;
