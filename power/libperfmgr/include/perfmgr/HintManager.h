@@ -38,6 +38,7 @@ class HintManager {
     HintManager(sp<NodeLooperThread> nm,
                 const std::map<std::string, std::vector<NodeAction>>& actions)
         : nm_(std::move(nm)), actions_(actions) {}
+
     ~HintManager() {
         if (nm_.get() != nullptr) nm_->Stop();
     }
