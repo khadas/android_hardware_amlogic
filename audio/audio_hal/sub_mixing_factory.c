@@ -731,7 +731,6 @@ static int out_get_presentation_position_port(
         ret = mixer_get_presentation_position(audio_mixer,
                 out->inputPortID, frames, timestamp);
         tuning_latency_frame = aml_audio_get_pcm_latency_offset(adev->sink_format, adev->is_netflix)*48;
-        ALOGD("%s  tuning_latency_frame:%d", __func__, tuning_latency_frame);
         if (tuning_latency_frame > 0 && *frames < (uint64_t)tuning_latency_frame) {
             *frames = 0;
         } else {

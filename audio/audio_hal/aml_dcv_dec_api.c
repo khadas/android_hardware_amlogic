@@ -671,6 +671,7 @@ int dcv_decoder_init_patch(aml_dec_t ** ppaml_dec, aml_dec_config_t * dec_config
 
     dec_data_info_t * dec_pcm_data = &aml_dec->dec_pcm_data;
     dec_data_info_t * dec_raw_data = &aml_dec->dec_raw_data;
+    dec_data_info_t * raw_in_data  = &aml_dec->raw_in_data;
 
 
     ddp_dec->decoding_mode = dcv_config->decoding_mode;
@@ -725,6 +726,15 @@ int dcv_decoder_init_patch(aml_dec_t ** ppaml_dec, aml_dec_config_t * dec_config
         goto error;
     }
 
+    raw_in_data->buf_size = MAX_DECODER_FRAME_LENGTH;
+    raw_in_data->buf = (unsigned char*) aml_audio_calloc(1, raw_in_data->buf_size);
+    if (!raw_in_data->buf) {
+        ALOGE("malloc buffer failed\n");
+        goto error;
+    }
+
+
+
     ddp_dec->decoder_process = dcv_decode_process;
     ddp_dec->get_parameters = Get_Parameters;
 
@@ -744,6 +754,10 @@ error:
 
         if (dec_raw_data->buf) {
             aml_audio_free(dec_raw_data->buf);
+        }
+
+        if (raw_in_data->buf) {
+            aml_audio_free(raw_in_data->buf);
         }
 
         aml_audio_free(ddp_dec);
@@ -766,6 +780,7 @@ int dcv_decoder_release_patch(aml_dec_t * aml_dec)
 
     dec_data_info_t * dec_pcm_data = &aml_dec->dec_pcm_data;
     dec_data_info_t * dec_raw_data = &aml_dec->dec_raw_data;
+    dec_data_info_t * raw_in_data  = &aml_dec->raw_in_data;
 
     if (ddp_decoder_cleanup != NULL && handle != NULL) {
         (*ddp_decoder_cleanup)(handle);
@@ -801,6 +816,9 @@ int dcv_decoder_release_patch(aml_dec_t * aml_dec)
         if (dec_raw_data->buf) {
             aml_audio_free(dec_raw_data->buf);
             dec_raw_data->buf = NULL;
+        }
+        if (raw_in_data->buf) {
+            aml_audio_free(raw_in_data->buf);
         }
         aml_audio_free(ddp_dec);
     }
@@ -882,8 +900,11 @@ int dcv_decoder_process_patch(aml_dec_t * aml_dec, unsigned char *buffer, int by
 
     dec_data_info_t * dec_pcm_data = &aml_dec->dec_pcm_data;
     dec_data_info_t * dec_raw_data = &aml_dec->dec_raw_data;
+    dec_data_info_t * raw_in_data  = &aml_dec->raw_in_data;
+
     dec_pcm_data->data_len = 0;
     dec_raw_data->data_len = 0;
+    raw_in_data->data_len  = 0;
 
 #if 0
     if (getprop_bool("vendor.media.audio_hal.ddp.outdump")) {
@@ -1013,6 +1034,14 @@ int dcv_decoder_process_patch(aml_dec_t * aml_dec, unsigned char *buffer, int by
         }
     }
 
+    if (raw_in_data->buf_size >= mFrame_size) {
+        raw_in_data->data_len    = mFrame_size;
+        memcpy(raw_in_data->buf, read_pointer, mFrame_size);
+
+    } else {
+        ALOGE("too  big frame size =%d", mFrame_size);
+    }
+
     while (mFrame_size > 0) {
         outPCMLen = 0;
         outRAWLen = 0;
@@ -1064,18 +1093,29 @@ int dcv_decoder_process_patch(aml_dec_t * aml_dec, unsigned char *buffer, int by
             dec_raw_data->sub_format = aml_dec->format;
         }
         dec_raw_data->data_ch     = 2;
-        dec_raw_data->data_sr     = ddp_dec->pcm_out_info.sample_rate;;
+        dec_raw_data->data_sr     = ddp_dec->pcm_out_info.sample_rate;
         dec_raw_data->data_len    = ddp_dec->outlen_raw;
     } else {
         ddp_dec->dcv_decoded_errcount++;
-        sprintf(ddp_dec->sysfs_buf, "decoded_err %d", ddp_dec->dcv_decoded_errcount);
-        sysfs_set_sysfs_str(REPORT_DECODED_INFO, ddp_dec->sysfs_buf);
+        //sprintf(ddp_dec->sysfs_buf, "decoded_err %d", ddp_dec->dcv_decoded_errcount);
+        //sysfs_set_sysfs_str(REPORT_DECODED_INFO, ddp_dec->sysfs_buf);
+    }
+
+    /*it stores the input raw data*/
+    if (raw_in_data->data_len > 0) {
+        raw_in_data->data_format = aml_dec->format;
+        raw_in_data->sub_format  = aml_dec->format;
+        raw_in_data->data_sr     = ddp_dec->pcm_out_info.sample_rate;
+        /*we don't support 32k ddp*/
+        if (raw_in_data->data_sr == 32000) {
+            raw_in_data->data_len = 0;
+        }
     }
 
     ddp_dec->dcv_pcm_writed += ddp_dec->outlen_pcm;
     ddp_dec->dcv_decoded_samples = (ddp_dec->dcv_pcm_writed * 8 ) / (2 * bit_width);
-    sprintf(ddp_dec->sysfs_buf, "decoded_frames %d", ddp_dec->dcv_decoded_samples);
-    sysfs_set_sysfs_str(REPORT_DECODED_INFO, ddp_dec->sysfs_buf);
+    //sprintf(ddp_dec->sysfs_buf, "decoded_frames %d", ddp_dec->dcv_decoded_samples);
+    //sysfs_set_sysfs_str(REPORT_DECODED_INFO, ddp_dec->sysfs_buf);
 
     return 0;
 EXIT:

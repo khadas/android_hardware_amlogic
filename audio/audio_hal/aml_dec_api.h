@@ -60,6 +60,7 @@ typedef struct aml_dec {
     audio_format_t format;
     dec_data_info_t dec_pcm_data;
     dec_data_info_t dec_raw_data;
+    dec_data_info_t raw_in_data;
     int status;
     int frame_cnt;
 } aml_dec_t;

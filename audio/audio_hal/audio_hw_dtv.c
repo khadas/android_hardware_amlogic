@@ -1592,12 +1592,6 @@ int audio_dtv_patch_output_dolby(struct aml_audio_patch *patch,
             patch->dtv_pcm_readed += ret;
         }
 
-        if (eDolbyDcvLib == aml_dev->dolby_lib_type && patch->input_thread_exit != 1 &&
-            aml_out->need_drop_size == 0) {
-            //write spidfb dd + data
-            if (is_use_spdifb(aml_out))
-                ret = aml_dtv_spdif_output_new(stream_out, patch->out_buf, ret);
-        }
         /* +[SE] [BUG][SWPL-22893][yinli.xia]
               add: reset decode data when replay video*/
         if (aml_dev->debug_flag) {

@@ -697,7 +697,6 @@ struct aml_stream_out {
     void * ac4_parser_handle;
     int64_t last_mmap_nano_second;
     int32_t last_mmap_position;
-    void *spdifout_handle;
     uint64_t main_input_ns;
     bool is_sink_format_prepared;
     bool is_ms12_main_decoder;
@@ -705,6 +704,13 @@ struct aml_stream_out {
     aml_dec_t *aml_dec;                        /*store the decoder handle*/
     int ad_substream_supported;
     aml_audio_resample_t *resample_handle;
+    /*spdif output related info start*/
+    audio_format_t optical_format;
+    //audio_format_t spdif_audio_format;
+    void *spdifout_handle;
+    //audio_format_t spdif2_audio_format;
+    void *spdifout2_handle;
+    /*spdif output related info end*/
 };
 
 typedef ssize_t (*write_func)(struct audio_stream_out *stream, const void *buffer, size_t bytes);

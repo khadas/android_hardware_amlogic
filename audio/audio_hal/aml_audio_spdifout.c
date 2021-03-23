@@ -69,24 +69,23 @@ static int select_digital_device(struct spdifout_handle *phandle) {
         }
     } else {
         if (aml_dev->dual_spdif_support) {
-            /*TV spdif_a support arc/spdif, spdif_b only support spdif*/
-            if (eDolbyMS12Lib == aml_dev->dolby_lib_type) {
-                /*ddp always used spdif_a*/
-                if (phandle->audio_format == AUDIO_FORMAT_E_AC3) {
-                    device_id = DIGITAL_DEVICE;
+            /*TV spdif_a support arc/spdif, spdif_b only support spdif
+             *ddp always used spdif_a
+             */
+            if (phandle->audio_format == AUDIO_FORMAT_E_AC3) {
+                device_id = DIGITAL_DEVICE;
+            } else if (phandle->audio_format == AUDIO_FORMAT_AC3) {
+                if (aml_dev->optical_format == AUDIO_FORMAT_E_AC3) {
+                    /*it has dual output, then dd use spdif_b for spdif only*/
+                    device_id = DIGITAL_DEVICE2;
                 } else {
-                    if (aml_dev->optical_format == AUDIO_FORMAT_E_AC3) {
-                        /*it has dual output, then dd use spdif_b for spdif only*/
-                        device_id = DIGITAL_DEVICE2;
-                    } else {
-                        /*it doesn't have dual output, then dd use spdif_a for arc/spdif*/
-                        device_id = DIGITAL_DEVICE;
-                    }
+                    /*it doesn't have dual output, then dd use spdif_a for arc/spdif*/
+                    device_id = DIGITAL_DEVICE;
                 }
             } else {
-                /*to do, we will consider ddp version dual output*/
                 device_id = DIGITAL_DEVICE;
             }
+
         } else {
             /*defaut we only use spdif_a to output spdif/arc*/
             device_id = DIGITAL_DEVICE;
@@ -314,6 +313,12 @@ error:
     if (phandle) {
         if (phandle->spdif_enc_handle) {
             aml_spdif_encoder_close(phandle->spdif_enc_handle);
+        }
+        if (phandle->spdif_port == PORT_SPDIF) {
+            aml_mixer_ctrl_set_int(&aml_dev->alsa_mixer, AML_MIXER_ID_SPDIF_FORMAT, AML_STEREO_PCM);
+        } else if (phandle->spdif_port == PORT_SPDIFB) {
+            aml_mixer_ctrl_set_int(&aml_dev->alsa_mixer, AML_MIXER_ID_SPDIF_B_FORMAT, AML_STEREO_PCM);
+            aml_audio_select_spdif_to_hdmi(AML_SPDIF_A_TO_HDMITX);
         }
         aml_audio_free(phandle);
     }

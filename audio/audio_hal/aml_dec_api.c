@@ -73,6 +73,8 @@ static void ddp_decoder_config_prepare(struct audio_stream_out *stream, aml_dcv_
     struct aml_audio_device *adev = aml_out->dev;
 
     adev->dcvlib_bypass_enable = 0;
+    /*for dual output case, we always use convet setting*/
+#if 0
     switch (adev->hdmi_format) {
     case PCM:
         ddp_config->digital_raw = AML_DEC_CONTROL_DECODING;
@@ -133,7 +135,8 @@ static void ddp_decoder_config_prepare(struct audio_stream_out *stream, aml_dcv_
         ALOGI("disable raw output when a2dp device\n");
         ddp_config->digital_raw = AML_DEC_CONTROL_DECODING;
     }
-
+#endif
+    ddp_config->digital_raw = AML_DEC_CONTROL_CONVERT;
     if (/*adev->dcvlib_bypass_enable != 1*/1) {
         if (adev->dual_decoder_support) {
             ddp_config->decoding_mode = DDP_DECODE_MODE_AD_DUAL;
@@ -169,6 +172,7 @@ static void dts_decoder_config_prepare(struct audio_stream_out *stream, aml_dca_
     struct aml_audio_device *adev = aml_out->dev;
 
     adev->dtslib_bypass_enable = 0;
+#if 0
     switch (adev->hdmi_format) {
     case PCM:
         dts_config->digital_raw = AML_DEC_CONTROL_DECODING;
@@ -189,7 +193,8 @@ static void dts_decoder_config_prepare(struct audio_stream_out *stream, aml_dca_
         dts_config->digital_raw = AML_DEC_CONTROL_DECODING;
         break;
     }
-
+#endif
+    dts_config->digital_raw = AML_DEC_CONTROL_CONVERT;
     if (aml_out->hal_format == AUDIO_FORMAT_IEC61937) {
         dts_config->is_iec61937 = true;
     } else {
@@ -253,11 +258,7 @@ bool aml_decoder_output_compatible(struct audio_stream_out *stream, audio_format
 
     if ((aml_out->aml_dec->format == AUDIO_FORMAT_AC3)
         || (aml_out->aml_dec->format == AUDIO_FORMAT_E_AC3)) {
-        aml_dcv_config_t* dcv_config = (aml_dcv_config_t *)(&aml_out->dec_config);
-        if (((optical_format == AUDIO_FORMAT_PCM_16_BIT) && (dcv_config->digital_raw > AML_DEC_CONTROL_DECODING))
-            || ((optical_format == AUDIO_FORMAT_E_AC3) && (dcv_config->digital_raw != AML_DEC_CONTROL_RAW))) {
-                is_compatible = false;
-        }
+        is_compatible = true;
     } else if ((aml_out->aml_dec->format == AUDIO_FORMAT_DTS)
                 || (aml_out->aml_dec->format == AUDIO_FORMAT_DTS_HD)) {
         aml_dca_config_t* dca_config = (aml_dca_config_t *)(&aml_out->dec_config);

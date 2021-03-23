@@ -1384,6 +1384,11 @@ static int out_pause (struct audio_stream_out *stream)
         aml_audio_spdifout_pause(out->spdifout_handle);
     }
 
+    if (out->spdifout2_handle) {
+        aml_audio_spdifout_pause(out->spdifout2_handle);
+    }
+
+
 exit1:
     out->pause_status = true;
 exit:
@@ -1424,6 +1429,10 @@ static int out_resume (struct audio_stream_out *stream)
 
     if (out->spdifout_handle) {
         aml_audio_spdifout_resume(out->spdifout_handle);
+    }
+
+    if (out->spdifout2_handle) {
+        aml_audio_spdifout_resume(out->spdifout2_handle);
     }
 
     if (out->hw_sync_mode) {
@@ -3267,7 +3276,7 @@ static void adev_close_output_stream(struct audio_hw_device *dev,
         else
             out_standby_new(&stream->common);
 
-        if (out->codec_type != AML_STEREO_PCM) {
+        if (out->codec_type != AML_STEREO_PCM && out->input_bytes_size != 0) {
             subMixingOutputRestart(adev);
             aml_audio_set_spdif_format(PORT_SPDIF, AML_STEREO_PCM, out);
             adev->raw_to_pcm_flag = true;
@@ -3430,12 +3439,16 @@ static void adev_close_output_stream(struct audio_hw_device *dev,
         aml_audio_spdifout_close(out->spdifout_handle);
         out->spdifout_handle = NULL;
     }
+    if (out->spdifout2_handle) {
+        aml_audio_spdifout_close(out->spdifout2_handle);
+        out->spdifout2_handle = NULL;
+    }
 
     if (out->aml_dec) {
         aml_decoder_release(out->aml_dec);
         out->aml_dec = NULL;
     }
-    
+
     if (out->resample_handle) {
         aml_audio_resample_close(out->resample_handle);
         out->resample_handle = NULL;
@@ -5211,17 +5224,15 @@ int do_output_standby_l(struct audio_stream *stream)
         ((!continous_mode(adev) || (!ms12->dolby_ms12_enable && (eDolbyMS12Lib == adev->dolby_lib_type))))) {
         ALOGI("%s aml_out(%p)standby close", __func__, aml_out);
         aml_alsa_output_close(out);
-        if (eDolbyDcvLib == adev->dolby_lib_type &&
-            (adev->ddp.digital_raw == AML_DEC_CONTROL_CONVERT || adev->dts_hd.digital_raw == AML_DEC_CONTROL_CONVERT)) {
-            struct pcm *pcm = adev->pcm_handle[DIGITAL_DEVICE];
-            if (aml_out->dual_output_flag && pcm) {
-                ALOGI("%s close dual output pcm handle %p", __func__, pcm);
-                pcm_close(pcm);
-                adev->pcm_handle[DIGITAL_DEVICE] = NULL;
-                aml_audio_set_spdif_format(PORT_SPDIF, AML_STEREO_PCM, aml_out);
-                aml_out->dual_output_flag = 0;
-            }
+        if (aml_out->spdifout_handle) {
+            aml_audio_spdifout_close(aml_out->spdifout_handle);
+            aml_out->spdifout_handle = NULL;
         }
+        if (aml_out->spdifout2_handle) {
+            aml_audio_spdifout_close(aml_out->spdifout2_handle);
+            aml_out->spdifout2_handle = NULL;
+        }
+
     }
     aml_out->status = STREAM_STANDBY;
     aml_out->standby= 1;
@@ -5924,7 +5935,8 @@ ssize_t audio_hal_data_processing(struct audio_stream_out *stream,
             apply_volume(gain_speaker, *output_buffer, sizeof(uint16_t), bytes);
         }
     }
-
+    /*when REPORT_DECODED_INFO is added, we will enable it*/
+#if 0
     if (adev->audio_patch != NULL && adev->patch_src == SRC_DTV) {
         int sample_rate = 0, pch = 0, lfepresent;
         char sysfs_buf[AUDIO_HAL_CHAR_MAX_LEN] = {0};
@@ -5956,6 +5968,7 @@ ssize_t audio_hal_data_processing(struct audio_stream_out *stream,
         }
         sysfs_set_sysfs_str(REPORT_DECODED_INFO, sysfs_buf);
     }
+#endif
     if (adev->patch_src == SRC_HDMIIN || adev->patch_src == SRC_SPDIFIN) {
         if (adev->active_input != NULL &&
                 adev->spdif_fmt_hw != adev->active_input->spdif_fmt_hw) {
@@ -6018,33 +6031,6 @@ ssize_t hw_write (struct audio_stream_out *stream
     aml_out->alsa_output_format = output_format;
     if (aml_out->status != STREAM_HW_WRITING) {
         ALOGI("%s, aml_out %p alsa open output_format %#x\n", __func__, aml_out, output_format);
-        if (eDolbyDcvLib == adev->dolby_lib_type) {
-            if (is_use_spdifb(aml_out) && is_dtv) {
-                aml_audio_set_spdif_format(PORT_SPDIF, halformat_convert_to_spdif(output_format), aml_out);
-                aml_audio_select_spdif_to_hdmi(AML_SPDIF_B_TO_HDMITX);
-                aml_out->restore_hdmitx_selection = true;
-            } else if (!aml_out->dual_output_flag) {
-                aml_audio_set_spdif_format(PORT_SPDIF, halformat_convert_to_spdif(output_format), aml_out);
-                aml_audio_select_spdif_to_hdmi(AML_SPDIF_A_TO_HDMITX);
-            }
-        } else {
-        #if 0
-            if (is_bypass_dolbyms12(stream)) {
-                aml_audio_set_spdif_format(PORT_SPDIF, halformat_convert_to_spdif(output_format), aml_out);
-                aml_audio_select_spdif_to_hdmi(AML_SPDIF_A_TO_HDMITX);
-            } else {
-                alsa_port = aml_audio_get_spdif_port(halformat_convert_to_spdif(output_format));
-                aml_audio_set_spdif_format(alsa_port, halformat_convert_to_spdif(output_format), aml_out);
-                if (adev->dual_spdif_support && (output_format == AUDIO_FORMAT_E_AC3)) {
-                    /*ddp to hdmi, dd to spdif*/
-                    aml_audio_select_spdif_to_hdmi(AML_SPDIF_B_TO_HDMITX);
-                } else {
-                    aml_audio_select_spdif_to_hdmi(AML_SPDIF_A_TO_HDMITX);
-                }
-            }
-        #endif
-        }
-
         if (adev->useSubMix) {
             if (/*adev->audio_patching &&*/
                 output_format != AUDIO_FORMAT_PCM_16_BIT &&
@@ -6528,11 +6514,15 @@ void config_output(struct audio_stream_out *stream, bool reset_decoder)
             }
 
             if (aml_out->spdifout_handle) {
-                aml_audio_set_spdif_format(PORT_SPDIF, AML_STEREO_PCM, aml_out);
                 aml_audio_spdifout_close(aml_out->spdifout_handle);
                 aml_out->spdifout_handle = NULL;
                 aml_out->dual_output_flag = 0;
             }
+            if (aml_out->spdifout2_handle) {
+                aml_audio_spdifout_close(aml_out->spdifout2_handle);
+                aml_out->spdifout2_handle = NULL;
+            }
+
             memset(&aml_out->dec_config, 0, sizeof(aml_dec_config_t));
 
             /*prepare the decoder config*/

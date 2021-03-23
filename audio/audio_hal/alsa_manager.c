@@ -265,11 +265,6 @@ void aml_alsa_output_close(struct audio_stream_out *stream) {
             device = ms12->device;
             aml_out->is_device_differ_with_ms12 = false;
         }
-    }  else if (eDolbyDcvLib == adev->dolby_lib_type) {
-        if (aml_out->dual_output_flag && adev->ddp.digital_raw == AML_DEC_CONTROL_CONVERT) {
-            device = I2S_DEVICE;
-            ALOGI("dual output,close i2s device");
-        }
     }
 
     struct pcm *pcm = adev->pcm_handle[device];
@@ -753,7 +748,7 @@ int aml_alsa_output_open_new(void **handle, aml_stream_config_t * stream_config,
 
     if (config->rate == 0 || config->channels == 0) {
 
-        ALOGE("Invalid sampleate=%d channel=%d\n", config->rate == 0, config->channels);
+        ALOGE("Invalid sampleate=%d channel=%d\n", config->rate, config->channels);
         goto exit;
     }
 
@@ -967,7 +962,7 @@ int aml_alsa_output_resume_new(void *handle) {
         return -1;
     }
     if (alsa_handle->pcm) {
-        ret = pcm_ioctl(alsa_handle->pcm, SNDRV_PCM_IOCTL_PAUSE, 0);
+        ret = pcm_ioctl(alsa_handle->pcm, SNDRV_PCM_IOCTL_PREPARE);
         if (ret < 0) {
             ALOGE("%s error %d", __func__, ret);
         }
