@@ -98,10 +98,10 @@ include $(BUILD_PREBUILT)
         aml_dec_api.c \
         aml_pcm_dec_api.c \
         aml_audio_dec_wrapper.c \
-        audio_hdmi_util.c
+        audio_hdmi_util.c \
+        aml_hdmiin2bt_process.c
 
     LOCAL_C_INCLUDES += \
-        external/tinyalsa/include \
         system/media/audio_utils/include \
         system/media/audio_effects/include \
         system/media/audio_route/include \
@@ -115,6 +115,7 @@ include $(BUILD_PREBUILT)
         $(LOCAL_PATH)/../rcaudio \
         $(LOCAL_PATH)/../../LibAudio/amadec/include \
         $(LOCAL_PATH)/../bt_voice/kehwin \
+        $(LOCAL_PATH)/../utils/tinyalsa/include \
         vendor/amlogic/common/prebuilt/dvb/include/am_adp \
         frameworks/av/include \
         $(TOPDIR)frameworks/av/media/libaudioclient/include \
@@ -134,7 +135,7 @@ include $(BUILD_PREBUILT)
     LOCAL_LDFLAGS_arm64 += $(LOCAL_PATH)/../bt_voice/kehwin/64/btmic.a
 
     LOCAL_SHARED_LIBRARIES := \
-        liblog libcutils libtinyalsa \
+        liblog libcutils libamltinyalsa \
         libaudioutils libdl libaudioroute libutils \
         libdroidaudiospdif libamaudioutils libamlaudiorc libamadec \
         libam_adp \

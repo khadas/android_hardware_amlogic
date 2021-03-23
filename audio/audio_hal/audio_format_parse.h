@@ -36,12 +36,14 @@ enum audio_type {
     AC3,
     EAC3,
     DTS,
-    DTSCD,
     DTSHD,
     MAT,
     PAUSE,
+    TRUEHD,
+    DTSCD,
     MUTE,
 };
+
 
 enum audio_sample {
     HW_NONE = 0,

@@ -1,0 +1,18 @@
+cc_library {
+    name: "libamltinyalsa",
+	vendor: true,
+    srcs: [
+        "mixer.c",
+        "pcm.c",
+    ],
+    cflags: ["-Werror", "-Wno-macro-redefined"],
+    export_include_dirs: ["include"],
+    local_include_dirs: ["include"],
+
+    target: {
+        darwin: {
+            enabled: false,
+        },
+    },
+}
+
