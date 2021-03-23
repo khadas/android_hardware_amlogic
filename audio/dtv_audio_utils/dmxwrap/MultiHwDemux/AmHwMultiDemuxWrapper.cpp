@@ -1,4 +1,4 @@
-#define LOG_NDEBUG 0
+//#define LOG_NDEBUG 0
 #define LOG_TAG "AmHwMultiDemuxWrapper"
 #include "tsp_platform.h"
 #include <stdio.h>
@@ -148,10 +148,14 @@ AmHwMultiDemuxWrapper::~AmHwMultiDemuxWrapper() {
 }
 
 AM_DmxErrorCode_t AmHwMultiDemuxWrapper::AmDemuxWrapperOpen(Am_DemuxWrapper_OpenPara_t *mPara) {
+    if (AmDmxDevice == NULL )  {
+       ALOGE("AmDmxDevice is NULL");
+       return AM_Dmx_ERROR;
+    }
     memcpy(&mDemuxPara,mPara,sizeof(Am_DemuxWrapper_OpenPara_t));
     AmDmxDevice->AM_DMX_Open(mDemuxPara.dev_no);
 
-   return AM_Dmx_SUCCESS;
+    return AM_Dmx_SUCCESS;
 }
 
 AM_DmxErrorCode_t AmHwMultiDemuxWrapper::AmDemuxWrapperSetTSSource(Am_DemuxWrapper_OpenPara_t *para,const AM_DevSource_t src) {
@@ -204,6 +208,11 @@ AM_DmxErrorCode_t AmHwMultiDemuxWrapper::AmDemuxWrapperResume(void) {
     return AM_Dmx_SUCCESS;
 }
 AM_DmxErrorCode_t AmHwMultiDemuxWrapper::AmDemuxWrapperSetADAudioParam(int aid, AM_AV_AFormat_t afmt ) {
+
+   if (AmDmxDevice == NULL )  {
+       ALOGE("AmDmxDevice is NULL");
+       return AM_Dmx_ERROR;
+    }
 
     struct dmx_pes_filter_params aparam;
     int aud_format;
@@ -263,11 +272,19 @@ AM_DmxErrorCode_t AmHwMultiDemuxWrapper::AmDemuxWrapperSetADAudioParam(int aid, 
 }
 
 AM_DmxErrorCode_t AmHwMultiDemuxWrapper::AmDemuxWrapperOpenAD(int aid, AM_AV_AFormat_t afmt ) {
+   if (AmDmxDevice == NULL )  {
+       ALOGE("AmDmxDevice is NULL");
+       return AM_Dmx_ERROR;
+    }
     AmDemuxWrapperSetADAudioParam(aid, afmt);
     return AM_Dmx_SUCCESS;
 }
 
 AM_DmxErrorCode_t AmHwMultiDemuxWrapper::AmDemuxWrapperStartAD() {
+    if (AmDmxDevice == NULL )  {
+       ALOGE("AmDmxDevice is NULL");
+       return AM_Dmx_ERROR;
+    }
     AmDmxDevice->AM_DMX_StartFilter(mDemuxPara.aud_ad_fd);
     ALOGI("mDemuxPara.aud_ad_fd %d",mDemuxPara.aud_ad_fd);
     filering_aud_ad_pid = mDemuxPara.aud_ad_id;
@@ -275,17 +292,29 @@ AM_DmxErrorCode_t AmHwMultiDemuxWrapper::AmDemuxWrapperStartAD() {
 }
 
 AM_DmxErrorCode_t AmHwMultiDemuxWrapper::AmDemuxWrapperStopAD() {
+    if (AmDmxDevice == NULL )  {
+       ALOGE("AmDmxDevice is NULL");
+       return AM_Dmx_ERROR;
+    }
     AmDmxDevice->AM_DMX_StopFilter(mDemuxPara.aud_fd);
     return AM_Dmx_SUCCESS;
 }
 
 AM_DmxErrorCode_t AmHwMultiDemuxWrapper::AmDemuxWrapperCloseAD() {
+    if (AmDmxDevice == NULL )  {
+       ALOGE("AmDmxDevice is NULL");
+       return AM_Dmx_ERROR;
+    }
     AmDmxDevice->AM_DMX_FreeFilter(mDemuxPara.aud_fd);
     return AM_Dmx_SUCCESS;
 }
 
 AM_DmxErrorCode_t AmHwMultiDemuxWrapper::AmDemuxWrapperSetAudioParam(int aid, AM_AV_AFormat_t afmt) {
 
+    if (AmDmxDevice == NULL )  {
+        ALOGE("AmDmxDevice is NULL");
+        return AM_Dmx_ERROR;
+    }
     struct dmx_pes_filter_params aparam;
     int aud_format;
     memset(&aparam, 0, sizeof(aparam));
@@ -343,22 +372,38 @@ AM_DmxErrorCode_t AmHwMultiDemuxWrapper::AmDemuxWrapperSetAudioParam(int aid, AM
 }
 
 AM_DmxErrorCode_t AmHwMultiDemuxWrapper::AmDemuxWrapperOpenMain(int aid, AM_AV_AFormat_t afmt) {
+    if (AmDmxDevice == NULL )  {
+       ALOGE("AmDmxDevice is NULL");
+       return AM_Dmx_ERROR;
+    }
     AmDemuxWrapperSetAudioParam(aid, afmt);
     return AM_Dmx_SUCCESS;
 }
 
 AM_DmxErrorCode_t AmHwMultiDemuxWrapper::AmDemuxWrapperStartMain() {
+     if (AmDmxDevice == NULL )  {
+       ALOGE("AmDmxDevice is NULL");
+       return AM_Dmx_ERROR;
+    }
     AmDmxDevice->AM_DMX_StartFilter(mDemuxPara.aud_fd);
     filering_aud_pid = mDemuxPara.aud_id;
     return AM_Dmx_SUCCESS;
 }
 
 AM_DmxErrorCode_t AmHwMultiDemuxWrapper::AmDemuxWrapperStopMain() {
+    if (AmDmxDevice == NULL )  {
+       ALOGE("AmDmxDevice is NULL");
+       return AM_Dmx_ERROR;
+    }
     AmDmxDevice->AM_DMX_StopFilter(mDemuxPara.aud_fd);
     return AM_Dmx_SUCCESS;
 }
 
 AM_DmxErrorCode_t AmHwMultiDemuxWrapper::AmDemuxWrapperCloseMain() {
+    if (AmDmxDevice == NULL )  {
+       ALOGE("AmDmxDevice is NULL");
+       return AM_Dmx_ERROR;
+    }
     AmDmxDevice->AM_DMX_FreeFilter(mDemuxPara.aud_fd);
     return AM_Dmx_SUCCESS;
 }
