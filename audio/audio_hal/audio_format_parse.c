@@ -66,10 +66,15 @@ static int seek_dts_cd_sync_word(char *buffer, int size)
     for (i = 0; i < (size - 5); i++) {
         if ((buffer[i + 0] == 0xFF && buffer[i + 1] == 0x1F
              && buffer[i + 2] == 0x00 && buffer[i + 3] == 0xE8
-             && buffer[i + 4] == 0xF1 && buffer[i + 5] == 0x07) ||
+             && buffer[i + 4] == 0xF0 && buffer[i + 5] == 0x07) ||
             (buffer[i + 0] == 0xE8 && buffer[i + 1] == 0x00
              && buffer[i + 2] == 0x1F && buffer[i + 3] == 0xFF
-             && buffer[i + 6] == 0x07 && buffer[i + 7] == 0xF1)) {
+             && buffer[i + 6] == 0x07 && buffer[i + 7] == 0xF1) ||
+             (buffer[i + 0] == 0xFF && buffer[i + 1] == 0x1F
+             && buffer[i + 2] == 0x00 && buffer[i + 3] == 0xE8
+             && buffer[i + 4] == 0xF1 && buffer[i + 5] == 0x07) ||
+             (buffer[i + 0] == 0xFE && buffer[i + 1] == 0x7F
+             && buffer[i + 2] == 0x01 && buffer[i + 3] == 0x80)) {
             return i;
         }
     }
@@ -419,15 +424,14 @@ static int audio_type_parse_init(audio_type_parse_t *status)
         return -1;
     }
 
-    in = pcm_open(audio_type_status->card, audio_type_status->device,
+    /*in = pcm_open(audio_type_status->card, audio_type_status->device,
                   PCM_IN, &audio_type_status->config_in);
     if (!pcm_is_ready(in)) {
         ALOGE("open device failed: %s\n", pcm_get_error(in));
         pcm_close(in);
         goto error;
     }
-
-    audio_type_status->in = in;
+    audio_type_status->in = in;*/
     enable_HW_resample(mixer_handle, HW_RESAMPLE_48K);
 
     ALOGD("init parser success: (%d), (%d), (%p)",
@@ -442,7 +446,7 @@ static int audio_type_parse_release(audio_type_parse_t *status)
 {
     audio_type_parse_t *audio_type_status = status;
 
-    pcm_close(audio_type_status->in);
+    //pcm_close(audio_type_status->in);
     audio_type_status->in = NULL;
     aml_audio_free(audio_type_status->parse_buffer);
 
@@ -552,10 +556,11 @@ void* audio_type_parse_threadloop(void *data)
         }
 
         if (cur_samplerate == -1)
-            cur_samplerate = HW_RESAMPLE_DISABLE;
+            cur_samplerate = HW_RESAMPLE_48K;
 
         /*check hdmiin audio input sr and reset hw resample*/
-        if (cur_samplerate != last_cur_samplerate &&
+        if (cur_samplerate != HW_RESAMPLE_DISABLE &&
+                cur_samplerate != last_cur_samplerate &&
                 audio_type_status->audio_type == LPCM) {
             enable_HW_resample(audio_type_status->mixer_handle, cur_samplerate);
             ALOGD("Reset hdmiin/spdifin audio resample sr from %d to %d\n",
@@ -694,12 +699,14 @@ audio_format_t audio_type_convert_to_android_audio_format_t(int codec_type)
         return AUDIO_FORMAT_AC3;
     case EAC3:
         return AUDIO_FORMAT_E_AC3;
+    case MAT:
+        return AUDIO_FORMAT_MAT;
     case DTS:
     case DTSCD:
         return AUDIO_FORMAT_DTS;
     case DTSHD:
         return AUDIO_FORMAT_DTS_HD;
-    case MAT:
+    case TRUEHD:
         return AUDIO_FORMAT_DOLBY_TRUEHD;
     case LPCM:
 #if defined(IS_ATOM_PROJECT)
@@ -722,18 +729,21 @@ int android_audio_format_t_convert_to_andio_type(audio_format_t format)
         return AC3;
     case AUDIO_FORMAT_E_AC3:
         return EAC3;
+    case AUDIO_FORMAT_MAT:
+        return MAT;
     case AUDIO_FORMAT_DTS:
         return  DTS;//DTSCD;
     case AUDIO_FORMAT_DTS_HD:
         return DTSHD;
     case AUDIO_FORMAT_DOLBY_TRUEHD:
-        return MAT;
+        return TRUEHD;
     case AUDIO_FORMAT_PCM:
         return LPCM;
     default:
         return LPCM;
     }
 }
+
 
 int audio_parse_get_audio_type_direct(audio_type_parse_t *status)
 {

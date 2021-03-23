@@ -75,6 +75,9 @@
 #define RESAMPLER_BUFFER_FRAMES (DEFAULT_PLAYBACK_PERIOD_SIZE * 6)
 #define RESAMPLER_BUFFER_SIZE (4 * RESAMPLER_BUFFER_FRAMES)
 
+/* bluetootch and usb in read data period delay count, for audio format detection too slow */
+#define BT_AND_USB_PERIOD_DELAY_BUF_CNT (3)
+
 static unsigned int DEFAULT_OUT_SAMPLING_RATE = 48000;
 
 /* sampling rate when using MM low power port */
@@ -318,6 +321,13 @@ typedef enum atom_stream_type {
     STREAM_OPTAUX
 } atom_stream_type_t;
 #endif
+
+typedef enum AML_INPUT_STREAM_CONFIG_TYPE {
+    AML_INPUT_STREAM_CONFIG_TYPE_CHANNELS   = 0,
+    AML_INPUT_STREAM_CONFIG_TYPE_PERIODS    = 1,
+
+    AML_INPUT_STREAM_CONFIG_TYPE_BUTT       = -1,
+} AML_INPUT_STREAM_CONFIG_TYPE_E;
 
 typedef union {
     unsigned long long timeStamp;
@@ -791,6 +801,13 @@ struct aml_stream_in {
 #endif
     unsigned int frames_read;
     uint64_t timestamp_nsec;
+
+    void        *pBtUsbPeriodDelayBuf[BT_AND_USB_PERIOD_DELAY_BUF_CNT];
+    void        *pBtUsbTempDelayBuf;
+    size_t      delay_buffer_size;
+
+    bool bt_sco_active;
+    hdmiin_audio_packet_t audio_packet_type;
 };
 typedef  int (*do_standby_func)(struct aml_stream_out *out);
 typedef  int (*do_startup_func)(struct aml_stream_out *out);
@@ -936,6 +953,10 @@ int out_standby_direct (struct audio_stream *stream);
 
 void *adev_get_handle();
 audio_format_t get_non_ms12_output_format(audio_format_t src_format, struct aml_audio_device *aml_dev);
+
+int start_input_stream(struct aml_stream_in *in);
+
+int do_input_standby (struct aml_stream_in *in);
 
 /* 'bytes' are the number of bytes written to audio FIFO, for which 'timestamp' is valid.
  * 'available' is the number of frames available to read (for input) or yet to be played

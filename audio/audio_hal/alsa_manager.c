@@ -703,6 +703,21 @@ size_t aml_alsa_input_read(struct audio_stream_in *stream,
     return 0;
 }
 
+int aml_alsa_input_flush(struct audio_stream_in *stream)
+{
+    struct aml_stream_in *in = (struct aml_stream_in *)stream;
+    struct pcm *pcm_handle = in->pcm;
+    int ret = 0;
+
+    ret = pcm_ioctl(pcm_handle, SNDRV_PCM_IOCTL_RESET, 0);
+    if (ret < 0) {
+        ALOGE("cannot reset pcm!");
+        return ret;
+    }
+
+    return 0;
+}
+
 typedef struct alsa_handle {
     unsigned int card;
     unsigned int pcm_index;   /*used for open the alsa device*/
