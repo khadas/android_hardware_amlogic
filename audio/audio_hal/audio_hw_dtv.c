@@ -572,6 +572,8 @@ int dtv_patch_handle_event(struct audio_hw_device *dev,int cmd, int val) {
                         patch->pid = demux_info->main_pid;
                         patch->demux_handle = demux_handle;
                         patch->demux_info = demux_info;
+                        patch->dtv_has_video = demux_info->has_video;
+                        ALOGI("dtv_has_video %d",patch->dtv_has_video);
                         ALOGI("demux_index_working %d handle %p",dtv_audio_instances.demux_index_working, dtv_audio_instances.demux_handle[path_id]);
                     }
                     if (path_id == dtv_audio_instances.demux_index_working) {
