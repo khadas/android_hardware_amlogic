@@ -121,4 +121,14 @@ const char* dtvAudioPatchCmd2Str(AUDIO_DTV_PATCH_CMD_TYPE type);
  */
 int convert_audio_format_2_period_mul(audio_format_t format);
 
+static inline void endian16_convert(void *buf, int size)
+{
+    int i;
+    unsigned short *p = (unsigned short *)buf;
+    for (i = 0; i < size / 2; i++, p++) {
+        *p = ((*p & 0xff) << 8) | ((*p) >> 8);
+    }
+}
+
+
 #endif

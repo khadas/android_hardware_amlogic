@@ -611,15 +611,6 @@ bool is_ms12_passthrough(struct audio_stream_out *stream) {
     return bypass_ms12;
 }
 
-static void endian16_convert(void *buf, int size)
-{
-    int i;
-    unsigned short *p = (unsigned short *)buf;
-    for (i = 0; i < size / 2; i++, p++) {
-        *p = ((*p & 0xff) << 8) | ((*p) >> 8);
-    }
-}
-
 
 static int scan_dolby_frame_info(const unsigned char *frame_buf,
         int length,

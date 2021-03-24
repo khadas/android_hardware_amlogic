@@ -673,6 +673,9 @@ int dca_decoder_process_patch(aml_dec_t *aml_dec, unsigned char *buffer, int byt
         if ((frame_size = _dts_frame_scan(dts_dec)) > 0) {
             ring_buffer_read(input_rbuffer, dts_dec->inbuf, frame_size);
             dts_dec->remain_size -= frame_size;
+            if (dts_dec->is_iec61937 && !dts_dec->frame_info.is_little_endian) {
+                endian16_convert(dts_dec->inbuf, frame_size);
+            }
 
             used_size = dts_dec->decoder_process(dts_dec->inbuf,
                                     frame_size,

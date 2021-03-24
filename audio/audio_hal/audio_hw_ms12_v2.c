@@ -779,15 +779,6 @@ bool is_ms12_passthrough(struct audio_stream_out *stream) {
     return bypass_ms12;
 }
 
-static void endian16_convert(void *buf, int size)
-{
-    int i;
-    unsigned short *p = (unsigned short *)buf;
-    for (i = 0; i < size / 2; i++, p++) {
-        *p = ((*p & 0xff) << 8) | ((*p) >> 8);
-    }
-}
-
 static audio_format_t ms12_get_audio_hal_format(audio_format_t hal_format)
 {
     if (hal_format == AUDIO_FORMAT_E_AC3_JOC) {
