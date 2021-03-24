@@ -3109,9 +3109,9 @@ static int adev_open_output_stream(struct audio_hw_device *dev,
     }
 
 
-    adev->hal_internal_format = AUDIO_FORMAT_PCM;
-    adev->is_dolby_atmos = 0;
-    adev->update_type = TYPE_PCM;
+    adev->audio_hal_info.format = AUDIO_FORMAT_PCM;
+    adev->audio_hal_info.is_dolby_atmos = 0;
+    adev->audio_hal_info.update_type = TYPE_PCM;
     out->stream.common.get_sample_rate = out_get_sample_rate;
     out->stream.common.set_sample_rate = out_set_sample_rate;
     out->stream.common.get_buffer_size = out_get_buffer_size;

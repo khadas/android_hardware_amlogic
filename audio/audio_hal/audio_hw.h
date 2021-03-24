@@ -316,6 +316,13 @@ typedef union {
 
 struct aml_audio_mixer;
 
+typedef struct audio_hal_info{
+    audio_format_t format;
+    bool is_dolby_atmos;
+    int update_type;
+    int update_cnt;
+} audio_hal_info_t;
+
 struct aml_bt_output {
     bool active;
     struct pcm *pcm_bt;
@@ -545,9 +552,8 @@ struct aml_audio_device {
     int security_mem_level;
 
     /* display audio format on UI, both streaming and hdmiin*/
-    audio_format_t hal_internal_format;
-    bool is_dolby_atmos;
-    int update_type;
+    audio_hal_info_t audio_hal_info;
+    /* -End- */
 };
 
 struct meta_data {
