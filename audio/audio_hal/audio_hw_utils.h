@@ -67,7 +67,7 @@ int aml_audio_debug_set_optical_format();
 int aml_audio_dump_audio_bitstreams(const char *path, const void *buf, size_t bytes);
 int aml_audio_get_arc_latency_offset(int format);
 int aml_audio_get_ddp_latency_offset(int aformat,  bool dual_spdif);
-int aml_audio_get_pcm_latency_offset(int format, bool is_netflix);
+int aml_audio_get_pcm_latency_offset(int format, bool is_netflix, stream_usecase_t usecase);
 int aml_audio_get_hwsync_latency_offset(bool b_raw);
 int aml_audio_get_ddp_frame_size();
 bool is_stream_using_mixer(struct aml_stream_out *out);

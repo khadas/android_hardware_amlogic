@@ -730,7 +730,8 @@ static int out_get_presentation_position_port(
     } else if (!adev->audio_patching) {
         ret = mixer_get_presentation_position(audio_mixer,
                 out->inputPortID, frames, timestamp);
-        tuning_latency_frame = aml_audio_get_pcm_latency_offset(adev->sink_format, adev->is_netflix)*48;
+        tuning_latency_frame = aml_audio_get_pcm_latency_offset(adev->sink_format, adev->is_netflix, out->usecase)*48;
+        ALOGV("%s  usecase:%s tuning_latency_frame:%d", __func__, usecase2Str(out->usecase), tuning_latency_frame);
         if (tuning_latency_frame > 0 && *frames < (uint64_t)tuning_latency_frame) {
             *frames = 0;
         } else {
