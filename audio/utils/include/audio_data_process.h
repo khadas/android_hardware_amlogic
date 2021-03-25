@@ -18,7 +18,12 @@
 #ifndef _AUDIO_DATA_PROCESS_H_
 #define _AUDIO_DATA_PROCESS_H_
 
-#include "sub_mixing_factory.h"
+struct audioCfg {
+    uint32_t sampleRate;
+    uint32_t channelCnt;
+    audio_format_t format;
+    uint32_t frame_size;
+};
 int processing_and_convert(void *data_mixed,
         void *data_sys, size_t frames, struct audioCfg inCfg, struct audioCfg mixerCfg);
 int do_mixing_2ch(void *data_mixed,

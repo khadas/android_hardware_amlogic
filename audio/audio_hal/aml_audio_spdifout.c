@@ -388,43 +388,6 @@ int aml_audio_spdifout_processs(void *phandle, void *buffer, size_t byte)
     return ret;
 }
 
-int aml_dtv_spdif_output_new (struct audio_stream_out *stream,
-                                      void *buffer, size_t byte)
-{
-    struct aml_stream_out *aml_out = (struct aml_stream_out *) stream;
-    struct aml_audio_device *aml_dev = aml_out->dev;
-    void *spdifout_handle = aml_dev->ddp.spdifout_handle;
-    int ret = 0;
-    if (spdifout_handle == NULL) {
-        spdif_config_t spdif_config = { 0 };
-        spdif_config.audio_format = aml_out->hal_internal_format;
-        spdif_config.sub_format   = aml_out->hal_internal_format;
-        spdif_config.rate         = aml_out->hal_rate;
-        if (spdif_config.rate == 0) {
-            spdif_config.rate = MM_FULL_POWER_SAMPLING_RATE;
-        }
-        spdif_config.channel_mask = AUDIO_CHANNEL_OUT_STEREO;
-        ret = aml_audio_spdifout_open(&spdifout_handle, &spdif_config);
-        aml_dev->ddp.spdifout_handle = spdifout_handle;
-    }
-    if (ret != 0) {
-        ALOGE("open spdif out failed\n");
-        return ret;
-    }
-
-    if (aml_dev->sink_gain[OUTPORT_HDMI] < FLOAT_ZERO && aml_dev->active_outport == OUTPORT_HDMI) {
-        aml_audio_spdifout_mute(spdifout_handle, true);
-    } else {
-        aml_audio_spdifout_mute(spdifout_handle, false);
-    }
-    if (aml_dev->patch_src == SRC_DTV && aml_dev->start_mute_flag == 1) {
-        memset(buffer, 0, byte);
-    }
-    ret = aml_audio_spdifout_processs(spdifout_handle, buffer, byte);
-
-    return ret;
-}
-
 int aml_audio_spdifout_close(void *phandle)
 {
     int ret = -1;

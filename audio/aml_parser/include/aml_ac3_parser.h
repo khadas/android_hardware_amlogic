@@ -22,10 +22,10 @@
 #define BS_AXE           16
 #define ISDDP(bsid)      ((bsid) <= BS_AXE && (bsid) > 10)
 
-//#define AC3_PERIOD_SIZE  0x1800
-//#define EAC3_PERIOD_SIZE 0x6000
+#define AC3_PERIOD_SIZE  0x1800
+#define EAC3_PERIOD_SIZE 0x6000
+#define MAT_PERIOD_SIZE  (61440)
 
-#define IEC61937_HEADER_SIZE 8
 
 /*
  *@brief scan_dolby_main_associate_frame

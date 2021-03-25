@@ -17,6 +17,7 @@
 #include <system/audio.h>
 #include <tinyalsa/asoundlib.h>
 #include <aml_alsa_mixer.h>
+#include "aml_ac3_parser.h"
 
 /*IEC61937 package presamble Pc value 0-4bit */
 enum IEC61937_PC_Value {
@@ -69,9 +70,9 @@ typedef enum hdmiin_audio_packet {
 #define PARSER_DEFAULT_PERIOD_SIZE  (1024)
 
 /*Period of data burst in IEC60958 frames*/
-#define AC3_PERIOD_SIZE  (6144)
-#define EAC3_PERIOD_SIZE (24576)
-#define MAT_PERIOD_SIZE  (61440)
+//#define AC3_PERIOD_SIZE  (6144)
+//#define EAC3_PERIOD_SIZE (24576)
+//#define MAT_PERIOD_SIZE  (61440)
 
 #define DTS1_PERIOD_SIZE (2048)
 #define DTS2_PERIOD_SIZE (4096)

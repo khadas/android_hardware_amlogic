@@ -7,7 +7,7 @@
  * Description:
  */
 
-#define LOG_NDEBUG 0
+//#define LOG_NDEBUG 0
 #define LOG_TAG "AmHwDemuxWrapper"
 //#include "tsp_platform.h"
 #include <stdio.h>

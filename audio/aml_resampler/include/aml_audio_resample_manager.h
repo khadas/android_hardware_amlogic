@@ -16,8 +16,7 @@
 #ifndef AML_AUDIO_RESAMPLE_H
 #define AML_AUDIO_RESAMPLE_H
 
-
-//#include "aml_audio_stream.h"
+#include <system/audio.h>
 
 typedef enum {
     AML_AUDIO_SIMPLE_RESAMPLE,
@@ -58,7 +57,6 @@ typedef struct audio_resample_func {
 } audio_resample_func_t;
 
 
-
 int aml_audio_resample_init(aml_audio_resample_t ** ppresample_handle, resample_type_t resample_type, audio_resample_config_t *resample_config);
 
 int aml_audio_resample_close(aml_audio_resample_t * resample_handle);
@@ -66,6 +64,7 @@ int aml_audio_resample_close(aml_audio_resample_t * resample_handle);
 int aml_audio_resample_process(aml_audio_resample_t * resample_handle, void * in_data, size_t size);
 
 int aml_audio_resample_reset(aml_audio_resample_t * aml_audio_resample);
+int aml_audio_resample_process_wrapper(aml_audio_resample_t **resample_handle, void *buffer, size_t len, int sr, int ch_num);
 
 #endif
 

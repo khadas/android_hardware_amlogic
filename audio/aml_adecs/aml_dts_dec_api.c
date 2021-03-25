@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#define LOG_TAG "aml_audio_dca_dec"
+#define LOG_TAG "aml_audio_dts_dec"
 //#define LOG_NDEBUG 0
 
 #include <unistd.h>
@@ -32,13 +32,12 @@
 #include <sys/time.h>
 #include <sound/asound.h>
 #include <cutils/log.h>
-#include <tinyalsa/asoundlib.h>
+#include <cutils/properties.h>
 
-#include "audio_hw_utils.h"
-#include "aml_dca_dec_api.h"
-#include "aml_audio_resample_manager.h"
 #include "audio_hw.h"
-#include "audio_post_process.h"
+#include "aml_dts_dec_api.h"
+
+
 
 #define DOLBY_DTSHD_LIB_PATH     "/odm/lib/libHwAudio_dtshd.so"
 
@@ -121,6 +120,14 @@ static int _dts_pcm_output(struct dca_dts_dec *dts_dec);
 static int _dts_raw_output(struct dca_dts_dec *dts_dec);
 static int _dts_stream_type_mapping(unsigned int stream_type);
 
+static void endian16_convert(void *buf, int size)
+{
+    int i;
+    unsigned short *p = (unsigned short *)buf;
+    for (i = 0; i < size / 2; i++, p++) {
+      *p = ((*p & 0xff) << 8) | ((*p) >> 8);
+    }
+ }
 
 static int _dts_syncword_scan(unsigned char *read_pointer, unsigned int *pTemp0)
 {
@@ -355,6 +362,8 @@ static int _dts_pcm_output(struct dca_dts_dec *dts_dec)
     aml_dec_t *aml_dec = (aml_dec_t *)dts_dec;
     dec_data_info_t *dec_pcm_data = &aml_dec->dec_pcm_data;
     int channel_num = dts_dec->pcm_out_info.channel_num;
+    /* audio_VX_post_process  need to at common post_process of output */
+#if 0
     struct aml_audio_device *adev = (struct aml_audio_device *)(aml_dec->dev);
     struct aml_native_postprocess *VX_postprocess = &adev->native_postprocess;
 
@@ -368,6 +377,7 @@ static int _dts_pcm_output(struct dca_dts_dec *dts_dec)
         dts_dec->outlen_pcm = ret;
         channel_num /= 3;
     }
+#endif
 
     if (dts_debug.fp_pcm) {
         fwrite(dec_pcm_data->buf, 1, dts_dec->outlen_pcm, dts_debug.fp_pcm);
@@ -609,7 +619,7 @@ int dca_decoder_init_patch(aml_dec_t **ppaml_dec, aml_dec_config_t *dec_config)
         goto error;
     }
 
-    if (getprop_bool(AML_DCA_PROP_DUMP_INPUT_RAW)) {
+    if (property_get_bool(AML_DCA_PROP_DUMP_INPUT_RAW, 0)) {
         char name[64] = {0};
         snprintf(name, 64, "%sdts_input_raw.dts", AML_DCA_DUMP_FILE_DIR);
         dts_debug.fp_input_raw = fopen(name, "a+");
@@ -618,7 +628,7 @@ int dca_decoder_init_patch(aml_dec_t **ppaml_dec, aml_dec_config_t *dec_config)
         }
     }
 
-    if (getprop_bool(AML_DCA_PROP_DUMP_OUTPUT_RAW)) {
+    if (property_get_bool(AML_DCA_PROP_DUMP_OUTPUT_RAW, 0)) {
         char name[64] = {0};
         snprintf(name, 64, "%sdts_output_raw.dts", AML_DCA_DUMP_FILE_DIR);
         dts_debug.fp_output_raw = fopen(name, "a+");
@@ -627,7 +637,7 @@ int dca_decoder_init_patch(aml_dec_t **ppaml_dec, aml_dec_config_t *dec_config)
         }
     }
 
-    if (getprop_bool(AML_DCA_PROP_DUMP_OUTPUT_PCM)) {
+    if (property_get_bool(AML_DCA_PROP_DUMP_OUTPUT_PCM, 0)) {
         char name[64] = {0};
         snprintf(name, 64, "%sdts_%d_%dch.pcm", AML_DCA_DUMP_FILE_DIR, 48000, 2);
         dts_debug.fp_pcm = fopen(name, "a+");
@@ -636,7 +646,7 @@ int dca_decoder_init_patch(aml_dec_t **ppaml_dec, aml_dec_config_t *dec_config)
         }
     }
 
-    if (getprop_bool(AML_DCA_PROP_DEBUG_FLAG)) {
+    if (property_get_bool(AML_DCA_PROP_DEBUG_FLAG, 0)) {
         ALOGD("true");
         dts_debug.debug_flag = true;
     } else {
@@ -698,10 +708,10 @@ int dca_decoder_release_patch(aml_dec_t *aml_dec)
         }
         ring_buffer_release(&dts_dec->input_ring_buf);
 
-        if (dts_dec->resample_handle) {
+        /*if (dts_dec->resample_handle) {
             aml_audio_resample_close(dts_dec->resample_handle);
             dts_dec->resample_handle = NULL;
-        }
+        }*/
 
         if (dts_debug.fp_input_raw) {
             fclose(dts_debug.fp_input_raw);
@@ -815,7 +825,7 @@ int dca_decoder_process_patch(aml_dec_t *aml_dec, unsigned char *buffer, int byt
             aml_dec->frame_cnt++;
             return AML_DEC_RETURN_TYPE_NEED_DEC_AGAIN;
         } else {
-            return AML_DEC_RETURN_TYPE_FAIL;
+            return AML_DEC_RETURN_TYPE_NEED_DEC_AGAIN;
         }
     } else if (frame_size == 0) {
         return AML_DEC_RETURN_TYPE_CACHE_DATA;
@@ -823,7 +833,7 @@ int dca_decoder_process_patch(aml_dec_t *aml_dec, unsigned char *buffer, int byt
         return AML_DEC_RETURN_TYPE_FAIL;
     }
 }
-
+#if 0
 static int Write_buffer(struct aml_audio_parser *parser, unsigned char *buffer, int size)
 {
     int writecnt = -1;
@@ -1067,7 +1077,7 @@ static void *decode_threadloop(void *data)
         ALOGV("%s:%d Framesize:%d, remain_size:%d, dts_type:%d", __func__, __LINE__, s32DtsFramesize, remain_size, dts_type);
         used_size = dca_decode_process(read_pointer, s32DtsFramesize, outbuf,
                                        &outlen_pcm, outbuf_raw, &outlen_raw,&pcm_out_info);
-    if (getprop_bool("media.audiohal.dtsdump")) {
+    if (property_get_bool("media.audiohal.dtsdump", 0)) {
         FILE *dump_fp = NULL;
         dump_fp = fopen("/data/audio_hal/audio2dca.dts", "a+");
         if (dump_fp != NULL) {
@@ -1107,7 +1117,7 @@ static void *decode_threadloop(void *data)
                 mute_count--;
             }
 #if 1
-            if (getprop_bool("media.audiohal.dtsdump")) {
+            if (property_get_bool("media.audiohal.dtsdump", 0)) {
                 FILE *dump_fp = NULL;
                 dump_fp = fopen("/data/audio_hal/dtsout.pcm", "a+");
                 if (dump_fp != NULL) {
@@ -1182,6 +1192,7 @@ int dca_decode_release(struct aml_audio_parser *parser)
     ring_buffer_reset(&(parser->aml_ringbuffer));
     return s32Ret;
 }
+#endif
 
 int dca_decoder_config(aml_dec_t * aml_dec, aml_dec_config_type_t config_type, aml_dec_config_t *aml_dec_config)
 {

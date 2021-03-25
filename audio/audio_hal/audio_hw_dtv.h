@@ -17,49 +17,13 @@
 #ifndef _AUDIO_HW_DTV_H_
 #define _AUDIO_HW_DTV_H_
 
-#define ACODEC_FMT_NULL -1
-#define ACODEC_FMT_MPEG 0
-#define ACODEC_FMT_PCM_S16LE 1
-#define ACODEC_FMT_AAC 2
-#define ACODEC_FMT_AC3 3
-#define ACODEC_FMT_ALAW 4
-#define ACODEC_FMT_MULAW 5
-#define ACODEC_FMT_DTS 6
-#define ACODEC_FMT_PCM_S16BE 7
-#define ACODEC_FMT_FLAC 8
-#define ACODEC_FMT_COOK 9
-#define ACODEC_FMT_PCM_U8 10
-#define ACODEC_FMT_ADPCM 11
-#define ACODEC_FMT_AMR 12
-#define ACODEC_FMT_RAAC 13
-#define ACODEC_FMT_WMA 14
-#define ACODEC_FMT_WMAPRO 15
-#define ACODEC_FMT_PCM_BLURAY 16
-#define ACODEC_FMT_ALAC 17
-#define ACODEC_FMT_VORBIS 18
-#define ACODEC_FMT_AAC_LATM 19
-#define ACODEC_FMT_APE 20
-#define ACODEC_FMT_EAC3 21
-#define ACODEC_FMT_WIFIDISPLAY 22
-#define ACODEC_FMT_DRA 23
-#define ACODEC_FMT_TRUEHD 25
-#define ACODEC_FMT_MPEG1                                                       \
-  26 // AFORMAT_MPEG-->mp3,AFORMAT_MPEG1-->mp1,AFROMAT_MPEG2-->mp2
-#define ACODEC_FMT_MPEG2 27
-#define ACODEC_FMT_WMAVOI 28
-#define ACODEC_FMT_AC4    29
-
-//}
-
-#define IS_DOBLBY_FORMAT(format) ((format == ACODEC_FMT_AC3) || (format == ACODEC_FMT_EAC3))
-#define IS_DTS_FORMAT(format) (format == ACODEC_FMT_DTS)
 enum {
     AUDIO_DTV_PATCH_DECODER_STATE_INIT,
     AUDIO_DTV_PATCH_DECODER_STATE_START,
     AUDIO_DTV_PATCH_DECODER_STATE_RUNING,
     AUDIO_DTV_PATCH_DECODER_STATE_PAUSE,
     AUDIO_DTV_PATCH_DECODER_STATE_RESUME,
-    AUDIO_DTV_PATCH_DECODER_RELEASE,
+    AUDIO_DTV_PATCH_DECODER_STATE_RELEASE,
 };
 
 /* refer to AudioSystemCmdManager */
@@ -120,7 +84,7 @@ enum {
 int create_dtv_patch(struct audio_hw_device *dev, audio_devices_t input, audio_devices_t output __unused);
 int release_dtv_patch(struct aml_audio_device *dev);
 int release_dtv_patch_l(struct aml_audio_device *dev);
-int dtv_patch_add_cmd(int cmd);
+//int dtv_patch_add_cmd(int cmd);
 int dtv_in_read(struct audio_stream_in *stream, void* buffer, size_t bytes);
 void dtv_in_write(struct audio_stream_out *stream, const void* buffer, size_t bytes);
 void save_latest_dtv_aformat(int afmt);
@@ -129,8 +93,6 @@ int dtv_get_syncmode(void);
 
 void clean_dtv_patch_pts(struct aml_audio_patch *patch);
 int audio_decoder_status(unsigned int *perror_count);
-static int create_dtv_output_stream_thread(struct aml_audio_patch *patch);
-static int release_dtv_output_stream_thread(struct aml_audio_patch *patch);
 extern int64_t calc_time_interval_us(struct timespec *ts0, struct timespec *ts1);
 extern size_t aml_alsa_output_write(struct audio_stream_out *stream, void *buffer, size_t bytes);
 

@@ -22,6 +22,7 @@
 #include "aml_ringbuffer.h"
 #include "audio_hw.h"
 #include "audio_hw_profile.h"
+#include "audio_dtv_utils.h"
 #include "aml_audio_hal_avsync.h"
 
 #define RAW_USECASE_MASK ((1<<STREAM_RAW_DIRECT) | (1<<STREAM_RAW_HWSYNC) | (1<<STREAM_RAW_PATCH))
@@ -219,6 +220,7 @@ static inline bool is_hdmi_out(enum OUT_PORT active_outport) {
 
 typedef void (*dtv_avsync_process_cb)(struct aml_audio_patch* patch,struct aml_stream_out* stream_out);
 
+
 /* all latency in unit 'ms' */
 struct audio_patch_latency_detail {
     unsigned int ringbuffer_latency;
@@ -236,6 +238,7 @@ struct aml_audio_patch {
     ring_buffer_t dtvin_ringbuffer;
     ring_buffer_t assoc_ringbuffer;
     pthread_t audio_input_threadID;
+    pthread_t audio_cmd_process_threadID;
     pthread_t audio_output_threadID;
     pthread_t audio_parse_threadID;
     pthread_mutex_t mutex;
@@ -250,6 +253,7 @@ struct aml_audio_patch {
     size_t out_tmpbuf_size;
     int dtvin_buffer_inited;
     int assoc_buffer_inited;
+    int cmd_process_thread_exit;
     int input_thread_exit;
     int output_thread_exit;
     int parse_thread_exit;
@@ -312,6 +316,7 @@ struct aml_audio_patch {
     unsigned int dtv_pcm_writed;
     unsigned int dtv_pcm_readed;
     unsigned int dtv_decoder_ready;
+    unsigned int input_thread_created;
     unsigned int ouput_thread_created;
     unsigned int decoder_offset ;
     unsigned int outlen_after_last_validpts;
@@ -334,10 +339,12 @@ struct aml_audio_patch {
     unsigned int last_apts;
     unsigned int last_pcrpts;
     unsigned int cur_outapts;
+    unsigned int anchor_apts;
     unsigned int show_first_frame;
     dtv_avsync_process_cb avsync_callback;
     pthread_mutex_t dtv_output_mutex;
     pthread_mutex_t dtv_input_mutex;
+    pthread_mutex_t dtv_cmd_process_mutex;
     pthread_mutex_t assoc_mutex;
     pthread_mutex_t apts_cal_mutex;
     /*end dtv play*/
@@ -370,6 +377,11 @@ struct aml_audio_patch {
     struct mAudioEsDataInfo *mADEsData;
     void *demux_handle;
     void *demux_info;
+    int uio_fd;
+    struct cmd_node *dtv_cmd_list;
+    void *dtv_package_list;
+    struct package *cur_package;
+    bool skip_amadec_flag;
 };
 
 struct audio_stream_out;

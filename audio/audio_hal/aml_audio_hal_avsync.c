@@ -63,7 +63,7 @@
 #include "aml_audio_hal_avsync.h"
 #include <audio_dtv_sync.h>
 
-static unsigned long decoder_apts_lookup(unsigned int offset)
+unsigned long decoder_apts_lookup(unsigned int offset)
 {
     unsigned int pts = 0;
     int ret;
@@ -617,23 +617,6 @@ static int dtv_calc_abuf_level(struct aml_audio_patch *patch, struct aml_stream_
         return 1;
     }
     return 0;
-}
-
-static int dtv_get_ac3_frame_size(struct aml_audio_patch *patch, int main_avail)
-{
-    unsigned char main_head[32] = {0};
-    int main_frame_size = 0, main_head_offset = 0;
-    int ret;
-
-    while (main_frame_size == 0 && main_avail >= (int)sizeof(main_head)) {
-        memset(main_head, 0, sizeof(main_head));
-        ret = ring_buffer_read(&(patch->aml_ringbuffer), main_head, sizeof(main_head));
-        main_frame_size = dcv_decoder_get_framesize(main_head,
-                          ret, &main_head_offset);
-        main_avail -= ret;
-        ALOGI("++%s main_avail %d, main_frame_size %d", __FUNCTION__, main_avail, main_frame_size);
-    }
-    return main_frame_size;
 }
 
 void dtv_do_drop_pcm(int avail, struct aml_audio_patch *patch)

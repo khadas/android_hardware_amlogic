@@ -17,9 +17,7 @@
 #define LOG_TAG "aml_audio_pcm_dec"
 
 #include <cutils/log.h>
-#include "audio_hw.h"
 #include "aml_dec_api.h"
-#include "aml_audio_stream.h"
 #include "aml_malloc_debug.h"
 
 #define PCM_MAX_LENGTH (8192*2*2)
@@ -120,7 +118,7 @@ static int pcm_decoder_init(aml_dec_t **ppaml_dec, aml_dec_config_t * dec_config
     dec_pcm_data->buf = (unsigned char*) aml_audio_calloc(1, dec_pcm_data->buf_size);
     if (!dec_pcm_data->buf) {
         ALOGE("malloc buffer failed\n");
-        return -1;
+        goto exit;
     }
 
     raw_in_data = &aml_dec->raw_in_data;
@@ -253,7 +251,7 @@ static int pcm_decoder_process(aml_dec_t * aml_dec, unsigned char*buffer, int by
         raw_in_data->data_format  = pcm_config->pcm_format;
         ALOGV("%s multi data_in=%d ch =%d out=%d ch=%d", __func__, bytes, pcm_config->channel, downmix_size, pcm_config->channel);
     }
-    return AML_DEC_RETURN_TYPE_OK;
+    return bytes;
 }
 
 

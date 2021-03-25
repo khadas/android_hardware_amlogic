@@ -17,7 +17,6 @@ cc_library_shared {
     srcs: [
         "aml_buffer_provider.c",
         "aml_dump_debug.c",
-        "aml_audio_resampler.c",
         "aml_ringbuffer.c",
         "aml_alsa_mixer.c",
         "aml_android_utils.c",
@@ -30,9 +29,9 @@ cc_library_shared {
         "aml_volume_utils.c",
         "ini/ini.cpp",
         "ini/IniParser.cpp",
-        "ac3_parser_utils.c",
         "alsa_device_parser.c",
-		"aml_hw_mixer.c",
+        "aml_hw_mixer.c",
+        "audio_data_process.c",
         "aml_malloc_debug.c",
     ],
 
@@ -48,6 +47,10 @@ cc_library_shared {
         "libdroidaudiospdif",
     ],
 
-    cflags: ["-DBUILD_IN_ANDROID"],
+    cflags: ["-DBUILD_IN_ANDROID",
+             "-Werror",
+             "-Wno-unused-parameter",
+             "-Wno-unused-variable",
+             "-Wno-unused-function"],
 
 }

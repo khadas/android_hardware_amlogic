@@ -36,23 +36,28 @@
 #include "audio_post_process.h"
 #include "aml_hw_mixer.h"
 #include "../amlogic_AQ_tools/audio_eq_drc_compensation.h"
-#include "aml_dcv_dec_api.h"
-#include "aml_dca_dec_api.h"
 #include "aml_audio_types_def.h"
-#include "audio_format_parse.h"
 #include "aml_alsa_mixer.h"
 #ifndef MS12_V24_ENABLE
 #include "../libms12/include/aml_audio_ms12.h"
 #else
 #include "../libms12_v24/include/aml_audio_ms12.h"
 #endif
+
 #include "audio_port.h"
 #include "aml_audio_ease.h"
 #include "aml_malloc_debug.h"
 #include "audio_hdmi_util.h"
+
 #ifdef ADD_AUDIO_DELAY_INTERFACE
 #include "aml_audio_delay.h"
 #endif
+
+#include "aml_audio_resample_manager.h"
+#include "aml_audio_resampler.h"
+#include "aml_dec_api.h"
+#include "aml_dts_dec_api.h"
+#include "audio_format_parse.h"
 
 /* number of frames per period */
 /*
@@ -416,8 +421,6 @@ struct aml_audio_device {
     uint64_t a2dp_no_reconfig_ms12;
     /* Dolby MS12 lib variable end */
 
-    /*used for ac3 eac3 decoder*/
-    struct dolby_ddp_dec ddp;
     /**
      * enum eDolbyLibType
      * DolbyDcvLib  = dcv dec lib   , libHwAudio_dcvdec.so
@@ -427,6 +430,7 @@ struct aml_audio_device {
     int dolby_lib_type_last;
     int dolby_decode_enable;   /*it can decode dolby, not passthrough lib*/
     int dts_decode_enable;
+
     /*used for dts decoder*/
     struct dca_dts_dec dts_hd;
     bool bHDMIARCon;
@@ -543,7 +547,7 @@ struct aml_audio_device {
     struct aec_t *aec;
     bool bt_wbs;
     int security_mem_level;
-
+    void *aml_dtv_audio_instances;
     /* display audio format on UI, both streaming and hdmiin*/
     audio_hal_info_t audio_hal_info;
     bool is_ms12_tuning_dat; /* a flag to determine the MS12 tuning data file is existing */

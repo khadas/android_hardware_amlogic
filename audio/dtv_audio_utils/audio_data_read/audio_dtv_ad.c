@@ -29,7 +29,6 @@
 #include "am_ad.h"
 #include "aml_ringbuffer.h"
 #include "audio_dtv_ad.h"
-#include "aml_audio_stream.h"
 
 #define AD_DEMUX_ID 0
 #define CACHE_TIME 0

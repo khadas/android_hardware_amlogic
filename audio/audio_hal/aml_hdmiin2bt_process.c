@@ -28,8 +28,8 @@
 
 #include "aml_hdmiin2bt_process.h"
 
-#include "aml_dcv_dec_api.h" /*ddp decoder api*/
-#include "aml_dca_dec_api.h" /*dts decoder api*/
+#include "aml_ddp_dec_api.h" /*ddp decoder api*/
+#include "aml_dts_dec_api.h" /*dts decoder api*/
 //#include "aml_mat_dec_api.h" /*mat decoder api*/
 
 int in_reset_config_param(struct aml_stream_in *in, AML_INPUT_STREAM_CONFIG_TYPE_E enType, const void *pValue)
@@ -84,7 +84,7 @@ void processBtAndUsbCardData(struct aml_stream_in *in, audio_format_t format, vo
         memcpy(in->pBtUsbPeriodDelayBuf[0], in->pBtUsbTempDelayBuf, bytes);
     }
 }
-
+#if 0
 static void release_the_decoder(audio_format_t format, struct aml_audio_parser *parser)
 {
     /*release the last decoder*/
@@ -165,7 +165,7 @@ static void init_the_decoder(audio_format_t format, struct aml_audio_parser *par
     }
 
 }
-
+#endif
 void processHdmiInputFormatChange(struct aml_stream_in *in, struct aml_audio_parser *parser)
 {
     struct aml_audio_device *adev = NULL;
@@ -192,9 +192,9 @@ void processHdmiInputFormatChange(struct aml_stream_in *in, struct aml_audio_par
 
         parser->in = in;
 
-        release_the_decoder(parser->aformat, parser);
+        //release_the_decoder(parser->aformat, parser);
         reconfig_read_param_through_hdmiin(adev, in, NULL, 0);
-        init_the_decoder(enCurFormat, parser);
+        //init_the_decoder(enCurFormat, parser);
         parser->aformat = enCurFormat;
     }
 }

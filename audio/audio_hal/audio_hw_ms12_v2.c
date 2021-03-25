@@ -372,6 +372,19 @@ static int get_ms12_output_mask(audio_format_t sink_format,audio_format_t  optic
     return output_config;
 }
 
+static audio_format_t ms12_get_audio_hal_format(audio_format_t hal_format)
+{
+    if (hal_format == AUDIO_FORMAT_E_AC3_JOC) {
+        return AUDIO_FORMAT_E_AC3;
+    } else if (hal_format == AUDIO_FORMAT_MP2 ||
+               hal_format == AUDIO_FORMAT_MP3 ||
+               hal_format == AUDIO_FORMAT_AAC ||
+               hal_format == AUDIO_FORMAT_AAC_LATM ) {
+        return AUDIO_FORMAT_PCM_16_BIT;
+    } else {
+        return hal_format;
+    }
+}
 
 static void update_ms12_atmos_info(struct dolby_ms12_desc *ms12) {
     int is_atmos = 0;
@@ -613,6 +626,7 @@ int get_the_dolby_ms12_prepared(
     ms12->optical_format = adev->optical_format;
     ms12->sink_format    = adev->sink_format;
     set_audio_system_format(AUDIO_FORMAT_PCM_16_BIT);
+    input_format = ms12_get_audio_hal_format(input_format);
     /*
     when HDMITX send pause frame,we treated as INVALID format.
     for MS12,we treat it as LPCM and mute the frame
@@ -855,15 +869,6 @@ bool is_ms12_passthrough(struct audio_stream_out *stream) {
     return bypass_ms12;
 }
 
-static audio_format_t ms12_get_audio_hal_format(audio_format_t hal_format)
-{
-    if (hal_format == AUDIO_FORMAT_E_AC3_JOC) {
-        return AUDIO_FORMAT_E_AC3;
-    }
-    else {
-        return hal_format;
-    }
-}
 
 /*
  *@brief dolby ms12 main process
@@ -1656,12 +1661,13 @@ int ms12_passthrough_output(struct aml_stream_out *aml_out) {
     int32_t out_size = 0;
     struct bypass_frame_info frame_info = { 0 };
     int  passthrough_delay_ms = 0;
-    uint64_t ms12_dec_out_nframes = dolby_ms12_get_decoder_nframes_pcm_output(adev->ms12.dolby_ms12_ptr, aml_out->hal_internal_format, MAIN_INPUT_STREAM);
+    audio_format_t hal_internal_format = ms12_get_audio_hal_format(aml_out->hal_internal_format);
+    uint64_t ms12_dec_out_nframes = dolby_ms12_get_decoder_nframes_pcm_output(adev->ms12.dolby_ms12_ptr, hal_internal_format, MAIN_INPUT_STREAM);
     struct bitstream_out_desc *bitstream_out = &ms12->bitstream_out[BITSTREAM_OUTPUT_A];
 
     if (ms12_dec_out_nframes != 0 &&
-        (aml_out->hal_internal_format == AUDIO_FORMAT_E_AC3 || aml_out->hal_internal_format == AUDIO_FORMAT_AC3)) {
-        uint64_t consume_offset = dolby_ms12_get_decoder_n_bytes_consumed(ms12->dolby_ms12_ptr, aml_out->hal_internal_format, MAIN_INPUT_STREAM);
+        (hal_internal_format == AUDIO_FORMAT_E_AC3 || hal_internal_format == AUDIO_FORMAT_AC3)) {
+        uint64_t consume_offset = dolby_ms12_get_decoder_n_bytes_consumed(ms12->dolby_ms12_ptr, hal_internal_format, MAIN_INPUT_STREAM);
         aml_ms12_bypass_checkout_data(ms12->ms12_bypass_handle, &output_buf, &out_size, consume_offset, &frame_info);
     }
     if ((adev->hdmi_format != BYPASS)) {
@@ -1679,7 +1685,7 @@ int ms12_passthrough_output(struct aml_stream_out *aml_out) {
 
     if (ms12->is_bypass_ms12) {
         ALOGV("bypass ms12 size=%d", out_size);
-        output_format = aml_out->hal_internal_format;
+        output_format = hal_internal_format;
         /*nts have one test case, when passthrough and pause, we should close spdif output*/
         if (ms12->is_continuous_paused) {
             for (i = 0; i < BITSTREAM_OUTPUT_CNT; i++) {
@@ -2122,8 +2128,9 @@ int dolby_ms12_main_open(struct audio_stream_out *stream) {
     struct aml_audio_device *adev = aml_out->dev;
     struct dolby_ms12_desc *ms12 = &(adev->ms12);
 
+    audio_format_t hal_internal_format = ms12_get_audio_hal_format(aml_out->hal_internal_format);
     ms12->ms12_main_stream_out = aml_out;
-    ms12->main_input_fmt = aml_out->hal_internal_format;
+    ms12->main_input_fmt = hal_internal_format;
     aml_out->is_ms12_main_decoder = true;
     if (adev->continuous_audio_mode && (aml_out->virtual_buf_handle == NULL)) {
         uint64_t buf_ns_begin  = MS12_MAIN_INPUT_BUF_NONEPCM_NS;
@@ -2241,8 +2248,9 @@ bool is_ms12_continous_mode(struct aml_audio_device *adev)
 
 bool is_dolby_ms12_main_stream(struct audio_stream_out *stream) {
     struct aml_stream_out *aml_out = (struct aml_stream_out *)stream;
-    bool is_bitstream_stream = !audio_is_linear_pcm(aml_out->hal_internal_format);
-    bool is_hwsync_pcm_stream = (audio_is_linear_pcm(aml_out->hal_internal_format) && (aml_out->flags & AUDIO_OUTPUT_FLAG_HW_AV_SYNC));
+    audio_format_t hal_internal_format = ms12_get_audio_hal_format(aml_out->hal_internal_format);
+    bool is_bitstream_stream = !audio_is_linear_pcm(hal_internal_format);
+    bool is_hwsync_pcm_stream = (audio_is_linear_pcm(hal_internal_format) && (aml_out->flags & AUDIO_OUTPUT_FLAG_HW_AV_SYNC));
     if (is_bitstream_stream || is_hwsync_pcm_stream) {
         return true;
     } else {
@@ -2277,8 +2285,9 @@ bool is_bypass_dolbyms12(struct audio_stream_out *stream)
 {
     struct aml_stream_out *aml_out = (struct aml_stream_out *)stream;
     struct aml_audio_device *adev = aml_out->dev;
-    bool is_dts = is_dts_format(aml_out->hal_internal_format);
-    bool is_dolby_audio = is_dolby_format(aml_out->hal_internal_format);
+    audio_format_t hal_internal_format = ms12_get_audio_hal_format(aml_out->hal_internal_format);
+    bool is_dts = is_dts_format(hal_internal_format);
+    bool is_dolby_audio = is_dolby_format(hal_internal_format);
 
     return (is_dts
             || is_high_rate_pcm(stream)
@@ -2394,8 +2403,8 @@ unsigned long long dolby_ms12_get_main_bytes_consumed(struct audio_stream_out *s
     struct aml_stream_out *aml_out = (struct aml_stream_out *)stream;
     struct aml_audio_device *adev = aml_out->dev;
     struct dolby_ms12_desc *ms12 = &(adev->ms12);
-
-    return dolby_ms12_get_decoder_n_bytes_consumed(ms12->dolby_ms12_ptr, aml_out->hal_internal_format, MAIN_INPUT_STREAM);
+    audio_format_t hal_internal_format = ms12_get_audio_hal_format(aml_out->hal_internal_format);
+    return dolby_ms12_get_decoder_n_bytes_consumed(ms12->dolby_ms12_ptr, hal_internal_format, MAIN_INPUT_STREAM);
 }
 
 unsigned long long dolby_ms12_get_main_pcm_generated(struct audio_stream_out *stream) {
@@ -2408,11 +2417,13 @@ unsigned long long dolby_ms12_get_main_pcm_generated(struct audio_stream_out *st
     unsigned long long master_pcm_frame = 0;
     unsigned long long main_mixer_write_pcm_frame = 0;
     int latency_frames = 0;
+
     if (aml_out->hwsync && aml_out->hwsync->aout)
         audio_format = aml_out->hwsync->aout->hal_internal_format;
     else {
         audio_format = aml_out->hal_internal_format;
     }
+    audio_format = ms12_get_audio_hal_format(audio_format);
     if (adev->continuous_audio_mode) {
         if (audio_format == AUDIO_FORMAT_AC4) {
             pcm_frame_generated = ms12->master_pcm_frames;
@@ -2498,6 +2509,7 @@ bool is_need_reset_ms12_continuous(struct audio_stream_out *stream) {
     struct aml_stream_out *aml_out = (struct aml_stream_out *) stream;
     struct aml_audio_device *adev = aml_out->dev;
     unsigned int hal_rate = aml_out->hal_rate;
+    audio_format_t hal_internal_format = ms12_get_audio_hal_format(aml_out->hal_internal_format);
     /*check the UI setting and source/sink format */
     if (is_bypass_dolbyms12(stream)) {
         return false;
@@ -2509,13 +2521,13 @@ bool is_need_reset_ms12_continuous(struct audio_stream_out *stream) {
 
     /*IEC61937 DDP format, the real samplerate need device by 4*/
     if (aml_out->hal_format == AUDIO_FORMAT_IEC61937) {
-        if ((aml_out->hal_internal_format & AUDIO_FORMAT_E_AC3) == AUDIO_FORMAT_E_AC3) {
+        if ((hal_internal_format & AUDIO_FORMAT_E_AC3) == AUDIO_FORMAT_E_AC3) {
             hal_rate /= 4;
         }
     }
 
-    if (is_dolby_ms12_support_compression_format(aml_out->hal_internal_format) && \
-         (is_rebuild_the_ms12_pipeline(adev->ms12.main_input_fmt, aml_out->hal_internal_format) || \
+    if (is_dolby_ms12_support_compression_format(hal_internal_format) && \
+         (is_rebuild_the_ms12_pipeline(adev->ms12.main_input_fmt,hal_internal_format) || \
           hal_rate != adev->ms12.main_input_sr)) {
         return true;
     }
@@ -2551,10 +2563,11 @@ int dolby_ms12_main_pipeline_latency_frames(struct audio_stream_out *stream) {
     /*ms12 output total frames*/
     unsigned long long master_pcm_frame = 0;
     audio_format_t audio_format = AUDIO_FORMAT_DEFAULT;
+    audio_format_t hal_internal_format = ms12_get_audio_hal_format(aml_out->hal_internal_format);
     if (aml_out->hwsync && aml_out->hwsync->aout)
         audio_format = aml_out->hwsync->aout->hal_internal_format;
     else {
-        audio_format = aml_out->hal_internal_format;
+        audio_format = hal_internal_format;
     }
 
     if (adev->continuous_audio_mode) {

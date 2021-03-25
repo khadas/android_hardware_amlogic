@@ -10,7 +10,7 @@
 
 typedef enum
 {
-    AM_AUDIO__Dmx_SUCCESS,
+    AM_AUDIO_Dmx_SUCCESS,
     AM_AUDIO_Dmx_ERROR,
     AM_AUDIO_Dmx_DEVOPENFAIL,
     AM_AUDIO_Dmx_SETSOURCEFAIL,
@@ -34,6 +34,7 @@ typedef struct aml_demux__audiopara {
 
 typedef struct aml_dtv_audio_instances {
     int demux_index_working;
+    int dvb_path_count;
     void *demux_handle[DVB_DEMUX_SUPPORT_MAX_NUM];
     aml_demux_audiopara_t demux_info[DVB_DEMUX_SUPPORT_MAX_NUM];
 } aml_dtv_audio_instances_t;

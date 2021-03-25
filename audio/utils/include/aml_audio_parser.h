@@ -43,7 +43,6 @@ struct aml_audio_parser {
     struct pcm *aml_pcm;
     int in_sample_rate;
     int out_sample_rate;
-    struct resample_para aml_resample;
     int data_ready;
     struct pcm_info pcm_out_info;
     struct aml_stream_in *in;
