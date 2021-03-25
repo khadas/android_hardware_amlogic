@@ -14,11 +14,12 @@
  * limitations under the License.
  */
 #define LOG_TAG "audio_ac4_parser"
-
+#include <stdlib.h>
+#include <string.h>
 #include <cutils/log.h>
-#include "audio_hw.h"
 #include "aml_audio_ac4parser.h"
 #include "aml_audio_bitsparser.h"
+#include "aml_malloc_debug.h"
 
 /**
  *

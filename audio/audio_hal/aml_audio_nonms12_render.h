@@ -13,8 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#ifndef _AML_AUDIO_DEC_WRAPPER_H_
-#define _AML_AUDIO_DEC_WRAPPER_H_
+#ifndef _AML_AUDIO_NONMS12_RENDER_H_
+#define _AML_AUDIO_NONMS12_RENDER_H_
 
 #include "audio_hw.h"
 
@@ -23,6 +23,8 @@
  *
  * @returns the process result
  */
-int aml_audio_decoder_process_wrapper(struct audio_stream_out *stream, const void *buffer, size_t bytes);
+int aml_audio_nonms12_render(struct audio_stream_out *stream, const void *buffer, size_t bytes);
+bool aml_decoder_output_compatible(struct audio_stream_out *stream, audio_format_t sink_format, audio_format_t optical_format);
+int aml_decoder_config_prepare(struct audio_stream_out *stream, audio_format_t format, aml_dec_config_t * dec_config);
 #endif
 

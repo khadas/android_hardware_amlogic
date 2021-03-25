@@ -20,8 +20,41 @@
 #include <hardware/audio.h>
 #include <system/audio.h>
 #include "aml_ringbuffer.h"
-#include "aml_audio_resampler.h"
-#include "aml_audio_parser.h"
+#include "aml_volume_utils.h"
+#include "aml_malloc_debug.h"
+
+#define ACODEC_FMT_NULL -1
+#define ACODEC_FMT_MPEG 0
+#define ACODEC_FMT_PCM_S16LE 1
+#define ACODEC_FMT_AAC 2
+#define ACODEC_FMT_AC3 3
+#define ACODEC_FMT_ALAW 4
+#define ACODEC_FMT_MULAW 5
+#define ACODEC_FMT_DTS 6
+#define ACODEC_FMT_PCM_S16BE 7
+#define ACODEC_FMT_FLAC 8
+#define ACODEC_FMT_COOK 9
+#define ACODEC_FMT_PCM_U8 10
+#define ACODEC_FMT_ADPCM 11
+#define ACODEC_FMT_AMR 12
+#define ACODEC_FMT_RAAC 13
+#define ACODEC_FMT_WMA 14
+#define ACODEC_FMT_WMAPRO 15
+#define ACODEC_FMT_PCM_BLURAY 16
+#define ACODEC_FMT_ALAC 17
+#define ACODEC_FMT_VORBIS 18
+#define ACODEC_FMT_AAC_LATM 19
+#define ACODEC_FMT_APE 20
+#define ACODEC_FMT_EAC3 21
+#define ACODEC_FMT_WIFIDISPLAY 22
+#define ACODEC_FMT_DRA 23
+#define ACODEC_FMT_TRUEHD 25
+#define ACODEC_FMT_MPEG1                                                       \
+  26 // AFORMAT_MPEG-->mp3,AFORMAT_MPEG1-->mp1,AFROMAT_MPEG2-->mp2
+#define ACODEC_FMT_MPEG2 27
+#define ACODEC_FMT_WMAVOI 28
+#define ACODEC_FMT_AC4    29
+
 
 typedef enum {
     AML_DEC_CONFIG_MIXING_ENABLE,
@@ -45,8 +78,8 @@ typedef enum {
 typedef enum {
     AML_DEC_RETURN_TYPE_FAIL            = -1,
     AML_DEC_RETURN_TYPE_OK              = 0,
-    AML_DEC_RETURN_TYPE_CACHE_DATA      = 1,    /* Not enough decoded data. */
-    AML_DEC_RETURN_TYPE_NEED_DEC_AGAIN  = 2,    /* Cache a lot of data, needs to be decoded multiple times. */
+    AML_DEC_RETURN_TYPE_CACHE_DATA      = -2,    /* Not enough decoded data. */
+    AML_DEC_RETURN_TYPE_NEED_DEC_AGAIN  = -3,    /* Cache a lot of data, needs to be decoded multiple times. */
 } aml_dec_return_type_t;
 
 typedef struct aml_dec_stream_info {
@@ -77,8 +110,13 @@ typedef struct dec_data_info {
 typedef struct aml_dec {
     audio_format_t format;
     dec_data_info_t dec_pcm_data;
+    dec_data_info_t ad_dec_pcm_data;
     dec_data_info_t dec_raw_data;
     dec_data_info_t raw_in_data;
+    char *ad_data;
+    int ad_size;
+    int in_frame_pts;
+    int out_frame_pts;
     int status;
     int frame_cnt;
     int fragment_left_size;
@@ -109,10 +147,25 @@ typedef struct aml_pcm_config {
     int max_out_channels;
 } aml_pcm_config_t;
 
+
+typedef struct aml_faad_config {
+    audio_format_t aac_format;
+    int samplerate;
+    int channel;
+} aml_faad_config_t;
+
+typedef struct aml_mad_config {
+    audio_format_t mpeg_format;
+    int samplerate;
+    int channel;
+} aml_mad_config_t;
+
 typedef struct aml_dec_config {
     /*config for decoder init*/
     aml_dcv_config_t dcv_config;
     aml_dca_config_t dca_config;
+    aml_mad_config_t mad_config;
+    aml_faad_config_t faad_config;
     aml_pcm_config_t pcm_config;
 
     /*config for runtime*/
@@ -145,12 +198,12 @@ typedef struct aml_dec_func {
     F_Info                  f_info;
 } aml_dec_func_t;
 
-int aml_decoder_config_prepare(struct audio_stream_out *stream, audio_format_t format, aml_dec_config_t * dec_config);
 int aml_decoder_init(aml_dec_t **aml_dec, audio_format_t format, aml_dec_config_t * dec_config);
 int aml_decoder_release(aml_dec_t *aml_dec);
-int aml_decoder_config(aml_dec_t *aml_dec, aml_dec_config_type_t config_type, aml_dec_config_t * dec_config);
 int aml_decoder_info(aml_dec_t *aml_dec, aml_dec_info_type_t info_type, aml_dec_info_t * dec_info);
 int aml_decoder_process(aml_dec_t *aml_dec, unsigned char*buffer, int bytes, int * used_bytes);
-bool aml_decoder_output_compatible(struct audio_stream_out *stream, audio_format_t sink_format, audio_format_t optical_format);
+int aml_decoder_set_config(aml_dec_t *aml_dec, aml_dec_config_type_t config_type, aml_dec_config_t * dec_config);
+
+
 
 #endif

@@ -51,43 +51,27 @@ include $(BUILD_PREBUILT)
         audio_hw_profile.c \
         alsa_manager.c \
         audio_hw_dtv.c \
+        audio_dtv_utils.c \
         a2dp_hw.cpp \
         a2dp_hal.cpp \
         audio_bt_sco.c \
         aml_audio_stream.c \
         alsa_config_parameters.c \
         spdif_encoder_api.c \
-        aml_ac3_parser.c \
-        aml_dcv_dec_api.c \
-        aml_dca_dec_api.c \
         audio_post_process.c \
         aml_avsync_tuning.c \
-        audio_format_parse.c \
         dolby_lib_api.c \
         amlAudioMixer.c \
         hw_avsync.c \
         hw_avsync_callbacks.c \
         audio_port.c \
         sub_mixing_factory.c \
-        audio_data_process.c \
-        ../../../../frameworks/av/media/libaudioprocessing/AudioResampler.cpp \
-        ../../../../frameworks/av/media/libaudioprocessing/AudioResamplerCubic.cpp \
-        ../../../../frameworks/av/media/libaudioprocessing/AudioResamplerSinc.cpp \
-        ../../../../frameworks/av/media/libaudioprocessing/AudioResamplerDyn.cpp \
-        aml_resample_wrap.cpp \
-        audio_simple_resample_api.c \
-        aml_audio_resample_manager.c \
-        audio_android_resample_api.c \
         aml_audio_timer.c \
         audio_virtual_buf.c \
         aml_audio_ease.c \
-        aml_audio_ac3parser.c \
         aml_mmap_audio.c \
         aml_audio_ms12_bypass.c \
-        aml_audio_bitsparser.c \
-        aml_audio_ac4parser.c \
         aml_audio_delay.c \
-        aml_audio_matparser.c \
         aml_audio_spdifdec.c \
         aml_audio_spdifout.c \
         aml_audio_hal_avsync.c \
@@ -96,11 +80,11 @@ include $(BUILD_PREBUILT)
         ../amlogic_AQ_tools/audio_eq_drc_parser.c \
         ../amlogic_AQ_tools/ini/dictionary.c \
         ../amlogic_AQ_tools/ini/iniparser.c \
-        aml_dec_api.c \
-        aml_pcm_dec_api.c \
-        aml_audio_dec_wrapper.c \
-        audio_hdmi_util.c \
-        aml_hdmiin2bt_process.c
+        audio_format_parse.c \
+        aml_hdmiin2bt_process.c \
+        audio_hdmi_util.c  \
+        aml_audio_ms12_render.c \
+        aml_audio_nonms12_render.c
 
     LOCAL_C_INCLUDES += \
         system/media/audio_utils/include \
@@ -111,6 +95,7 @@ include $(BUILD_PREBUILT)
         system/core/include \
         system/libfmq/include \
         hardware/libhardware/include \
+        $(LOCAL_PATH)/../utils \
         $(LOCAL_PATH)/../utils/include \
         $(LOCAL_PATH)/../utils/ini/include \
         $(LOCAL_PATH)/../rcaudio \
@@ -119,13 +104,14 @@ include $(BUILD_PREBUILT)
         $(LOCAL_PATH)/../utils/tinyalsa/include \
         vendor/amlogic/common/prebuilt/dvb/include/am_adp \
         frameworks/av/include \
-        $(TOPDIR)frameworks/av/media/libaudioclient/include \
-        $(TOPDIR)frameworks/av/media/libaudioprocessing/include \
         hardware/amlogic/audio/dtv_audio_utils/sync \
         hardware/amlogic/audio/dtv_audio_utils/audio_read_api \
         $(LOCAL_PATH)/../amlogic_AQ_tools \
         $(LOCAL_PATH)/../amlogic_AQ_tools/ini \
-        vendor/amlogic/common/frameworks/av/libaudioeffect/VirtualX
+        vendor/amlogic/common/frameworks/av/libaudioeffect/VirtualX \
+        hardware/amlogic/audio/aml_adecs/include \
+        hardware/amlogic/audio/aml_resampler/include \
+        hardware/amlogic/audio/aml_parser/include
 
     LOCAL_LDFLAGS_arm += $(LOCAL_PATH)/../amlogic_AQ_tools/lib_aml_ng.a
     LOCAL_LDFLAGS_arm += $(LOCAL_PATH)/../amlogic_AQ_tools/Amlogic_EQ_Param_Generator.a
@@ -142,7 +128,9 @@ include $(BUILD_PREBUILT)
         libam_adp \
         libnano \
         libion \
-        libdtvad \
+        libamladecs \
+        libamlresampler \
+        libamlparser \
         libdvbaudioutils
 
     LOCAL_SHARED_LIBRARIES += \
@@ -239,38 +227,6 @@ endif
     include $(BUILD_SHARED_LIBRARY)
 
 endif # BOARD_ALSA_AUDIO
-
-
-include $(CLEAR_VARS)
-
-LOCAL_SRC_FILES := \
-    audio_dtv_ad.c
-
-LOCAL_SHARED_LIBRARIES := \
-    libcutils \
-    liblog \
-    libutils \
-    libamaudioutils \
-    libam_adp
-
-LOCAL_C_INCLUDES := \
-   external/tinyalsa/include \
-   system/media/audio_utils/include \
-   system/media/audio/include \
-   $(LOCAL_PATH)/../utils/include \
-   system/core/libion/include \
-   system/core/include \
-   hardware/libhardware/include \
-   vendor/amlogic/common/prebuilt/dvb/include/am_adp \
-   hardware/amlogic/audio/dtv_audio_utils/sync
-
-LOCAL_CFLAGS += -Werror -Wall
-LOCAL_MODULE := libdtvad
-LOCAL_MODULE_TAGS := optional
-ifeq ($(shell test $(PLATFORM_SDK_VERSION) -ge 26 && echo OK),OK)
-    LOCAL_PROPRIETARY_MODULE := true
-endif
-include $(BUILD_SHARED_LIBRARY)
 
 
 #########################################################

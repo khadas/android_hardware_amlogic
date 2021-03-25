@@ -19,7 +19,6 @@
 
 #include <hardware/audio.h>
 #include "aml_ringbuffer.h"
-#include "aml_audio_resampler.h"
 #include "aml_audio_parser.h"
 #include "aml_audio_types_def.h"
 #include "aml_dec_api.h"
@@ -64,8 +63,8 @@ struct dolby_ddp_dec {
     int (*get_parameters)(void *, int *, int *, int *,int *,int *);
     int (*decoder_process)(unsigned char*, int, unsigned char *, int *, char *, int *, int, struct pcm_info *);
     struct pcm_info pcm_out_info;
-    struct resample_para aml_resample;
-    unsigned char *resample_outbuf;
+    //struct resample_para aml_resample;
+    //unsigned char *resample_outbuf;
     //ring_buffer_t output_ring_buf;
     void *spdifout_handle;
     int ad_substream_supported;

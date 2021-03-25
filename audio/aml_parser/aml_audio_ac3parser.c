@@ -15,10 +15,17 @@
  */
 #define LOG_TAG "audio_ac3_parser"
 
+#include <pthread.h>
+#include <stdio.h>
+#include <string.h>
+#include <stdlib.h>
+#include <errno.h>
+#include <pthread.h>
+#include <sys/prctl.h>
 #include <cutils/log.h>
-#include "audio_hw.h"
-#include "audio_format_parse.h"
+
 #include "aml_audio_ac3parser.h"
+#include "aml_malloc_debug.h"
 
 #define DOLBY_DDPP_MAXSIZE          (32768)
 #define DOLBY_DDP_HEADER_SIZE       (12)

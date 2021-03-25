@@ -17,7 +17,7 @@
 #include "audio_post_process.h"
 #include "Virtualx.h"
 #include "aml_dec_api.h"
-#include "aml_dca_dec_api.h"
+#include "aml_dts_dec_api.h"
 
 static int check_dts_config(struct aml_native_postprocess *native_postprocess) {
     int cur_channels = dca_get_out_ch_internal();

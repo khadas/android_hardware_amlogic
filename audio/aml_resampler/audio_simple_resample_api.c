@@ -18,7 +18,6 @@
 
 #include <cutils/log.h>
 #include <stdlib.h>
-#include "aml_audio_stream.h"
 #include "audio_simple_resample_api.h"
 #include "aml_audio_resampler.h"
 

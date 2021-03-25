@@ -23,7 +23,7 @@
 #include <sound/asound.h>
 #include <tinyalsa/asoundlib.h>
 #include <hardware/audio.h>
-
+#include "audio_data_process.h"
 enum MIXER_TYPE {
     MIXER_LPCM = 1,
     MIXER_MS12 = 2,
@@ -45,12 +45,6 @@ typedef int (*writeSysBuf_t)(
             struct subMixing *sm,
             void *buffer,
             size_t bytes);
-struct audioCfg {
-    uint32_t sampleRate;
-    uint32_t channelCnt;
-    audio_format_t format;
-    uint32_t frame_size;
-};
 
 struct subMixing {
     enum MIXER_TYPE type;

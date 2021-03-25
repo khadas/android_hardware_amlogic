@@ -768,11 +768,7 @@ void audio_patch_dump(struct aml_audio_device* aml_dev, int fd)
                 dd_is_support, ddp_is_support, mat_is_support);
     }
 
-    struct dolby_ddp_dec *ddp_dec = &aml_dev->ddp;
-    if (ddp_dec) {
-        dprintf(fd, "[AML_HAL]      -ddp_dec: status %d\n", ddp_dec->status);
-        dprintf(fd, "[AML_HAL]      -ddp_dec: digital_raw %d\n", ddp_dec->digital_raw);
-    }
+
 }
 
 bool is_use_spdifb(struct aml_stream_out *out) {
@@ -929,9 +925,7 @@ void update_audio_format(struct aml_audio_device *adev, audio_format_t format)
     if (is_dolby_active && is_dolby_format) {
         if (eDolbyMS12Lib == adev->dolby_lib_type) {
             atmos_flag = adev->ms12.is_dolby_atmos;
-        } else {
-            atmos_flag = adev->ddp.is_dolby_atmos;
-        }
+        } 
 
         #ifdef MS12_V24_ENABLE
         /* when DAP is not in audio postprocessing, there is no ATMOS Experience. */

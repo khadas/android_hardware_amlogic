@@ -18,6 +18,7 @@
 #define __AML_RESAMPLE_WRAP_H__
 #include <stdint.h>
 #include <stdlib.h>
+#include <system/audio.h>
 #include "aml_ringbuffer.h"
 
 
