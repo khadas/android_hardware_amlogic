@@ -187,7 +187,7 @@ int aml_audio_decoder_process_wrapper(struct audio_stream_out *stream, const voi
                     aml_audio_spdif_output(stream, &aml_out->spdifout_handle, dec_raw_data);
                 }
             }
-        } while (dec_pcm_data->data_len || dec_raw_data->data_len);
+        } while (dec_pcm_data->data_len || dec_raw_data->data_len || raw_in_data->data_len);
     }
     return return_bytes;
 }

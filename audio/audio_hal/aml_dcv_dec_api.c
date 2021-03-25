@@ -819,6 +819,7 @@ int dcv_decoder_release_patch(aml_dec_t * aml_dec)
         }
         if (raw_in_data->buf) {
             aml_audio_free(raw_in_data->buf);
+            raw_in_data->buf = NULL;
         }
         aml_audio_free(ddp_dec);
     }
@@ -1033,9 +1034,10 @@ int dcv_decoder_process_patch(aml_dec_t * aml_dec, unsigned char *buffer, int by
             read_pointer[2 * i] = temp;
         }
     }
+    Get_Parameters(read_pointer, &mSample_rate, &mFrame_size, &mChNum,&is_eac3, &ad_substream_supported);
 
     if (raw_in_data->buf_size >= mFrame_size) {
-        raw_in_data->data_len    = mFrame_size;
+        raw_in_data->data_len = mFrame_size;
         memcpy(raw_in_data->buf, read_pointer, mFrame_size);
 
     } else {
@@ -1105,7 +1107,7 @@ int dcv_decoder_process_patch(aml_dec_t * aml_dec, unsigned char *buffer, int by
     if (raw_in_data->data_len > 0) {
         raw_in_data->data_format = aml_dec->format;
         raw_in_data->sub_format  = aml_dec->format;
-        raw_in_data->data_sr     = ddp_dec->pcm_out_info.sample_rate;
+        raw_in_data->data_sr     = mSample_rate;
         /*we don't support 32k ddp*/
         if (raw_in_data->data_sr == 32000) {
             raw_in_data->data_len = 0;
