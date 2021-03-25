@@ -3133,7 +3133,9 @@ static int adev_open_output_stream(struct audio_hw_device *dev,
     out->inputPortID = AML_MIXER_INPUT_PORT_BUTT;
 
     if (flags & AUDIO_OUTPUT_FLAG_MMAP_NOIRQ) {
-        if ((eDolbyMS12Lib == adev->dolby_lib_type) && !adev->ms12.dolby_ms12_enable) {
+        if ((eDolbyMS12Lib == adev->dolby_lib_type) &&
+            !adev->ms12.dolby_ms12_enable &&
+            adev->continuous_audio_mode) {
            config_output((struct audio_stream_out *)out, true);
         }
         outMmapInit(out);
@@ -4094,43 +4096,7 @@ static int adev_set_parameters (struct audio_hw_device *dev, const char *kvpairs
         ret = str_parms_get_int(parms, "is_ms12_continuous", &val);
         if (ret >= 0) {
             ALOGI("%s is_ms12_continuous set to %d\n", __func__ , val);
-            /* if we want enable MS12 continuous, we can enable it here,
-             * if we want to disable it, then we need disbale it for raw
-             * data case in open_stream
-             */
-            if (val == 1) {
-                if ((adev->patch_src == SRC_DTV) && adev->audio_patching) {
-                    ALOGI("we are already in dtv patching");
-                    goto exit;
-                }
-                if (adev->continuous_audio_mode != 1) {
-                    get_dolby_ms12_cleanup(&adev->ms12);
-                }
-                if (!val) {
-                    adev->exiting_ms12 = 1;
-                } else {
-                    /*sometimes this type is changed after playing dts
-                    we need to restore it ms12lib, when enter ms12*/
-                    adev->dolby_lib_type = eDolbyMS12Lib;
-                    adev->exiting_ms12   = 0;
-                }
-                /*if ms12 continuos is defaut on, we need do on/off for local player*/
-                if (adev->continuous_audio_mode_default == 1) {
-                    adev->continuous_audio_mode = val;
-                }else {
-                    adev->continuous_audio_mode = 0;
-                }
-                adev->delay_disable_continuous = 0;
-
-                clock_gettime(CLOCK_MONOTONIC, &adev->ms12_exiting_start);
-                if (adev->active_outputs[STREAM_PCM_NORMAL] != NULL)
-                    usecase_change_validate_l(adev->active_outputs[STREAM_PCM_NORMAL], true);
-                goto exit;
-            }else {
-                adev->delay_disable_continuous = 1;
-
-                goto exit;
-            }
+            goto exit;
         }
         /*after enable MS12 continuous mode, the audio delay is big, we
         need use this API to compensate some delay to video*/
@@ -7595,6 +7561,9 @@ ssize_t out_write_new(struct audio_stream_out *stream,
             if (is_disable_ms12_continuous(stream)) {
                 if (adev->continuous_audio_mode) {
                     ALOGI("Need disable MS12 continuous");
+                    if (adev->dolby_lib_type == eDolbyMS12Lib) {
+                        adev->doing_reinit_ms12 = true;
+                    }
                     get_dolby_ms12_cleanup(&adev->ms12);
                     adev->continuous_audio_mode = 0;
                     adev->exiting_ms12 = 1;
