@@ -596,7 +596,7 @@ int aml_ac3_parser_process(void *parser_handle, const void *in_buffer, int32_t n
     }
     if (parser_hanlde->framesize != frame_size) {
         parser_hanlde->framesize = frame_size;
-        ALOGI("New frame size =%d", frame_size);
+        ALOGV("New frame size =%d", frame_size);
     }
     return 0;
 
