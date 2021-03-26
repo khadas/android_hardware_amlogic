@@ -3049,6 +3049,7 @@ static int adev_open_output_stream(struct audio_hw_device *dev,
                     out->hal_internal_format = AUDIO_FORMAT_DTS;
                     adev->dts_hd.is_dtscd = false;
                     adev->dolby_lib_type = eDolbyDcvLib;
+                    out->restore_dolby_lib_type = true;
                 } else {
                     out->hal_internal_format = AUDIO_FORMAT_AC3;
                 }
@@ -3062,11 +3063,9 @@ static int adev_open_output_stream(struct audio_hw_device *dev,
         case AUDIO_FORMAT_AC3:
         case AUDIO_FORMAT_E_AC3:
         case AUDIO_FORMAT_AC4:
-            adev->dolby_lib_type = adev->dolby_lib_type_last;
             break;
         case AUDIO_FORMAT_DTS:
         case AUDIO_FORMAT_DTS_HD:
-            adev->dolby_lib_type = eDolbyDcvLib;
             break;
         default:
             break;
@@ -3323,13 +3322,6 @@ static void adev_close_output_stream(struct audio_hw_device *dev,
         dolby_ms12_hwsync_release();
     }
 
-    /*when open dts decoder, the dolby lib is changed, so we need restore it*/
-    if (out->hal_internal_format == AUDIO_FORMAT_DTS) {
-        if (eDolbyMS12Lib == adev->dolby_lib_type_last) {
-            adev->dolby_lib_type = eDolbyMS12Lib;
-        }
-    }
-
     /*TBD .to fix the AC-4 continous function in ms12 lib then remove this */
     /*
      * will close MS12 if the AVR DDP-ATMOS capbility is changed,
@@ -3467,6 +3459,12 @@ static void adev_close_output_stream(struct audio_hw_device *dev,
     if (out->resample_handle) {
         aml_audio_resample_close(out->resample_handle);
         out->resample_handle = NULL;
+    }
+
+    /*the dolby lib is changed, so we need restore it*/
+    if (out->restore_dolby_lib_type) {
+        adev->dolby_lib_type = adev->dolby_lib_type_last;
+        ALOGI("%s restore dolby lib =%d", __func__, adev->dolby_lib_type);
     }
 
     pthread_mutex_unlock(&out->lock);
@@ -7000,6 +6998,7 @@ hwsync_rewrite:
             aml_out->hal_internal_format = cur_aformat;
             if (aml_out->hal_internal_format == AUDIO_FORMAT_DTS) {
                 adev->dolby_lib_type = eDolbyDcvLib;
+                aml_out->restore_dolby_lib_type = true;
             } else if (aml_out->hal_internal_format == AUDIO_FORMAT_AC3) {
                 adev->dolby_lib_type = adev->dolby_lib_type_last;
             }
@@ -7753,6 +7752,12 @@ ssize_t out_write_new(struct audio_stream_out *stream,
 
     if (aml_out->continuous_mode_check) {
         if (adev->dolby_lib_type_last == eDolbyMS12Lib) {
+            /*if these format can't be supported by ms12, we can bypass it*/
+            if (is_bypass_dolbyms12(stream)) {
+                adev->dolby_lib_type = eDolbyDcvLib;
+                aml_out->restore_dolby_lib_type = true;
+                ALOGI("bypass ms12 change dolby dcv lib type");
+            }
             if (is_disable_ms12_continuous(stream)) {
                 if (adev->continuous_audio_mode) {
                     ALOGI("Need disable MS12 continuous");

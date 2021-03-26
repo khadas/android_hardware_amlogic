@@ -699,6 +699,7 @@ struct aml_stream_out {
     unsigned char *resample_outbuf;
     bool restore_hdmitx_selection;
     bool restore_continuous;
+    bool restore_dolby_lib_type;
     bool continuous_mode_check;
     void * ac4_parser_handle;
     int64_t last_mmap_nano_second;
