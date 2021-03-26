@@ -542,45 +542,45 @@ int dtv_patch_handle_event(struct audio_hw_device *dev,int cmd, int val) {
             }
             if (val <= AUDIO_DTV_PATCH_CMD_NULL || val >= AUDIO_DTV_PATCH_CMD_NUM) {
                 ALOGW("[%s:%d] Unsupported dtv patch cmd:%d", __func__, __LINE__, val);
+                break;
+            }
+            ALOGI("[%s:%d] Send dtv patch cmd:%s", __func__, __LINE__, dtvAudioPatchCmd2Str(val));
+            if (val == AUDIO_DTV_PATCH_CMD_OPEN) {
+                if (is_sc2_chip()) {
+                    Open_Dmx_Audio(&demux_handle,demux_info->demux_id, demux_info->security_mem_level);
+                    ALOGI("path_id %d demux_hanle %p ",path_id, demux_handle);
+                    dtv_audio_instances.demux_handle[path_id] = demux_handle;
+                    Init_Dmx_Main_Audio(demux_handle, demux_info->main_fmt, demux_info->main_pid);
+                    if (adev->dual_decoder_support)
+                        Init_Dmx_AD_Audio(demux_handle, demux_info->ad_fmt, demux_info->ad_pid);
+                }
+            } else if (val == AUDIO_DTV_PATCH_CMD_CLOSE) {
+                if (is_sc2_chip()) {
+                    Destroy_Dmx_Main_Audio(demux_handle);
+                    if (adev->dual_decoder_support)
+                        Destroy_Dmx_AD_Audio(demux_handle);
+                    Close_Dmx_Audio(demux_handle);
+                    demux_handle = NULL;
+                    if (patch)
+                        patch->demux_handle = NULL;
+                }
+                memset(demux_info, 0, sizeof(aml_demux_audiopara_t));
             } else {
-                ALOGI("[%s:%d] Send dtv patch cmd:%s", __func__, __LINE__, dtvAudioPatchCmd2Str(val));
-                if (val == AUDIO_DTV_PATCH_CMD_OPEN) {
-                    if (is_sc2_chip()) {
-                        Open_Dmx_Audio(&demux_handle,demux_info->demux_id, demux_info->security_mem_level);
-                        ALOGI("path_id %d demux_hanle %p ",path_id, demux_handle);
-                        dtv_audio_instances.demux_handle[path_id] = demux_handle;
-                        Init_Dmx_Main_Audio(demux_handle, demux_info->main_fmt, demux_info->main_pid);
-                        if (adev->dual_decoder_support)
-                            Init_Dmx_AD_Audio(demux_handle, demux_info->ad_fmt, demux_info->ad_pid);
-                    }
-                } else if (val == AUDIO_DTV_PATCH_CMD_CLOSE) {
-                    if (is_sc2_chip()) {
-                        Destroy_Dmx_Main_Audio(demux_handle);
-                        if (adev->dual_decoder_support)
-                            Destroy_Dmx_AD_Audio(demux_handle);
-                        Close_Dmx_Audio(demux_handle);
-                        demux_handle = NULL;
-                        if (patch)
-                            patch->demux_handle = NULL;
-                    }
-                    memset(demux_info, 0, sizeof(aml_demux_audiopara_t));
+                if (patch && val == AUDIO_DTV_PATCH_CMD_START) {
+                    dtv_audio_instances.demux_index_working = path_id;
+                    patch->mode = demux_info->output_mode;
+                    patch->dtv_aformat = demux_info->main_fmt;
+                    patch->pid = demux_info->main_pid;
+                    patch->demux_handle = demux_handle;
+                    patch->demux_info = demux_info;
+                    patch->dtv_has_video = demux_info->has_video;
+                    ALOGI("dtv_has_video %d",patch->dtv_has_video);
+                    ALOGI("demux_index_working %d handle %p",dtv_audio_instances.demux_index_working, dtv_audio_instances.demux_handle[path_id]);
+                }
+                if (path_id == dtv_audio_instances.demux_index_working) {
+                    dtv_patch_add_cmd(val);
                 } else {
-                    if (val == AUDIO_DTV_PATCH_CMD_START) {
-                        dtv_audio_instances.demux_index_working = path_id;
-                        patch->mode = demux_info->output_mode;
-                        patch->dtv_aformat = demux_info->main_fmt;
-                        patch->pid = demux_info->main_pid;
-                        patch->demux_handle = demux_handle;
-                        patch->demux_info = demux_info;
-                        patch->dtv_has_video = demux_info->has_video;
-                        ALOGI("dtv_has_video %d",patch->dtv_has_video);
-                        ALOGI("demux_index_working %d handle %p",dtv_audio_instances.demux_index_working, dtv_audio_instances.demux_handle[path_id]);
-                    }
-                    if (path_id == dtv_audio_instances.demux_index_working) {
-                        dtv_patch_add_cmd(val);
-                    } else {
-                        ALOGI("path_id %d not work ,cmd %d invalid",path_id, val);
-                    }
+                    ALOGI("path_id %d not work ,cmd %d invalid",path_id, val);
                 }
             }
             break;
