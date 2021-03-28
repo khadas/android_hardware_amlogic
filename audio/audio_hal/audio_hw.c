@@ -992,13 +992,28 @@ static int out_flush (struct audio_stream_out *stream)
 
     pthread_mutex_lock (&adev->lock);
     pthread_mutex_lock (&out->lock);
-    if (out->pause_status == true && out->pcm) {
+    if (out->pause_status == true) {
         // when pause status, set status prepare to avoid static pop sound
-        ret = pcm_ioctl (out->pcm, SNDRV_PCM_IOCTL_PREPARE);
+        ret = aml_alsa_output_resume(stream);
         if (ret < 0) {
-            ALOGE ("cannot prepare pcm!");
-            goto exit;
+            ALOGE("aml_alsa_output_resume error =%d", ret);
         }
+
+        if (out->spdifout_handle) {
+            ret = aml_audio_spdifout_resume(out->spdifout_handle);
+            if (ret < 0) {
+                ALOGE("aml_audio_spdifout_resume error =%d", ret);
+            }
+
+        }
+
+        if (out->spdifout2_handle) {
+            ret = aml_audio_spdifout_resume(out->spdifout2_handle);
+            if (ret < 0) {
+                ALOGE("aml_audio_spdifout_resume error =%d", ret);
+            }
+        }
+
     }
     standy_func (out);
     out->frame_write_sum  = 0;
