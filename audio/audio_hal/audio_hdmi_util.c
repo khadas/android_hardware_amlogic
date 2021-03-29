@@ -49,9 +49,10 @@
 #include <cutils/log.h>
 
 #include "audio_hw.h"
+#include "audio_hw_utils.h"
+#include "audio_hdmi_util.h"
 #include "aml_alsa_mixer.h"
 #include "aml_audio_stream.h"
-#include "audio_hdmi_util.h"
 
 struct audio_format_code_list {
     AML_HDMI_FORMAT_E  id;
@@ -302,19 +303,6 @@ static char *get_audio_format_code_name_by_id(int fmt_id)
     return NULL;
 }
 
-static void dump_format_desc (struct format_desc *desc)
-{
-    if (desc) {
-        ALOGI ("dump format desc = %p", desc);
-        ALOGI ("\t-fmt %s", get_audio_format_code_name_by_id(desc->fmt));
-        ALOGI ("\t-is support %d", desc->is_support);
-        ALOGI ("\t-max channels %d", desc->max_channels);
-        ALOGI ("\t-sample rate masks %#x", desc->sample_rate_mask);
-        ALOGI ("\t-max bit rate %d", desc->max_bit_rate);
-        ALOGI ("\t-atmos supported %d", desc->atmos_supported);
-    }
-}
-
 #if 1
 /*
  *SAD buffer protocol for Amlogic
@@ -342,7 +330,10 @@ static void padding_edid_array_to_protocol_array(
 int update_edid_after_edited_audio_sad(struct aml_audio_device *adev, struct format_desc *fmt_desc)
 {
     struct aml_arc_hdmi_desc *hdmi_desc = &adev->hdmi_descs;
-    dump_format_desc (fmt_desc);
+    if (fmt_desc) {
+        ALOGI("--[%s] support:%d, ch:%d, sample_mask:%#x, bit_rate:%d, atmos:%d after_update_edid", hdmiFormat2Str(fmt_desc->fmt),
+            fmt_desc->is_support, fmt_desc->max_channels, fmt_desc->sample_rate_mask, fmt_desc->max_bit_rate, fmt_desc->atmos_supported);
+    }
 
     if (BYPASS == adev->hdmi_format) {
         /* first step, reset the audio default EDID */
@@ -499,7 +490,10 @@ int set_arc_format(struct audio_hw_device *dev, char *value, size_t len)
         i++;
     }
     memcpy(&adev->hdmi_arc_capability_desc, hdmi_desc, sizeof(struct aml_arc_hdmi_desc));
-    dump_format_desc (fmt_desc);
+    if (fmt_desc) {
+        ALOGI("----[%s] support:%d, ch:%d, sample_mask:%#x, bit_rate:%d, atmos:%d", hdmiFormat2Str(fmt_desc->fmt),fmt_desc->is_support,
+            fmt_desc->max_channels, fmt_desc->sample_rate_mask, fmt_desc->max_bit_rate, fmt_desc->atmos_supported);
+    }
     return 0;
 }
 

@@ -45,10 +45,11 @@
 #else
 #include "../libms12_v24/include/aml_audio_ms12.h"
 #endif
-//#include "aml_audio_mixer.h"
 #include "audio_port.h"
 #include "aml_audio_ease.h"
 #include "aml_malloc_debug.h"
+#include "audio_hdmi_util.h"
+
 
 /* number of frames per period */
 /*
@@ -164,62 +165,6 @@ struct aml_hal_mixer {
     /* flag to check if need cache some data before write to mix */
     unsigned char need_cache_flag;
     pthread_mutex_t lock;
-};
-
-/**
- *  Audio Format Description of CEC Short Audio Descriptor
- *  CEA-861-D: Table 37. RequestShortAudioDescriptorAction.java
- */
-typedef enum {
-    AML_HDMI_FORMAT_RESERVED1             = 0x0,    // SAD_CODEC_RESERVED1
-    AML_HDMI_FORMAT_LPCM                  = 0x1,    // SAD_CODEC_LPCM
-    AML_HDMI_FORMAT_AC3                   = 0x2,    // SAD_CODEC_AC3
-    AML_HDMI_FORMAT_MPEG1                 = 0x3,    // SAD_CODEC_MPEG1
-    AML_HDMI_FORMAT_MP3                   = 0x4,    // SAD_CODEC_MP3
-    AML_HDMI_FORMAT_MPEG2MC               = 0x5,    // SAD_CODEC_MPEG2MC
-    AML_HDMI_FORMAT_AAC                   = 0x6,    // SAD_CODEC_AAC
-    AML_HDMI_FORMAT_DTS                   = 0x7,    // SAD_CODEC_DTS
-    AML_HDMI_FORMAT_ATRAC                 = 0x8,    // SAD_CODEC_ATRAC
-    AML_HDMI_FORMAT_OBA                   = 0x9,    // SAD_CODEC_OBA
-    AML_HDMI_FORMAT_DDP                   = 0xA,    // SAD_CODEC_DDP
-    AML_HDMI_FORMAT_DTSHD                 = 0xB,    // SAD_CODEC_DTSHD
-    AML_HDMI_FORMAT_MAT                   = 0xC,    // SAD_CODEC_MAT
-    AML_HDMI_FORMAT_DST                   = 0xD,    // SAD_CODEC_DST
-    AML_HDMI_FORMAT_WMAPRO                = 0xE,    // SAD_CODEC_WMAPRO
-    AML_HDMI_FORMAT_RESERVED2             = 0xF,    // SAD_CODEC_RESERVED2
-} AML_HDMI_FORMAT_E;
-
-struct format_desc {
-    AML_HDMI_FORMAT_E fmt;
-    bool is_support;
-    unsigned int max_channels;
-    /*
-     * bit:    6     5     4    3    2    1    0
-     * rate: 192  176.4   96  88.2  48  44.1   32
-     */
-    unsigned int sample_rate_mask;
-    unsigned int max_bit_rate;
-    /* only used by dd+ format */
-    bool   atmos_supported;
-};
-
-/*
- *A Short Audio Descriptor is used by HDMI sink devices and HDMI ARC/eARC receiver devices to indicate
- *support for an audio format (for example, Dolby Digital Plus) to a connected HDMI source device or HDMI
- *ARC/eARC transmitter device.
- */
-#define EDID_ARRAY_MAX_LEN 38 /* 3 bytes for each audio format, max 30 bytes for audio edid, 8 bytes for TLV header */
-struct aml_arc_hdmi_desc {
-    int EDID_length;
-    unsigned int avr_port;
-    char SAD[EDID_ARRAY_MAX_LEN];
-    bool default_edid;
-    struct format_desc pcm_fmt;
-    struct format_desc dts_fmt;
-    struct format_desc dtshd_fmt;
-    struct format_desc dd_fmt;
-    struct format_desc ddp_fmt;
-    struct format_desc mat_fmt;
 };
 
 enum patch_src_assortion {

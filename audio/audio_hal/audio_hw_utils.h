@@ -33,18 +33,17 @@
     char *pStr = ENUM_TYPE_TO_STR_DEFAULT_STR;              \
     int prefixLen = strlen(prefix);                         \
     switch (type) {
-
 #define ENUM_TYPE_TO_STR(x)                                 \
-case x: {                                                   \
-    pStr = #x;                                              \
-    pStr += prefixLen;                                      \
-    if (strlen(#x) - prefixLen > 70) {                      \
-        pStr += 70;                                         \
-    }                                                       \
-    break;                                                  \
-}
-
+    case x:                                                 \
+        pStr = #x;                                          \
+        pStr += prefixLen;                                  \
+        if (strlen(#x) - prefixLen > 70) {                  \
+            pStr += 70;                                     \
+        }                                                   \
+        break;
 #define ENUM_TYPE_TO_STR_END                                \
+    default:                                                \
+        break;                                              \
     }                                                       \
     return pStr;
 
@@ -115,6 +114,7 @@ const char* outputPort2Str(enum OUT_PORT type);
 const char* inputPort2Str(enum IN_PORT type);
 const char* mixerInputType2Str(aml_mixer_input_port_type_e type);
 const char* dtvAudioPatchCmd2Str(AUDIO_DTV_PATCH_CMD_TYPE type);
+const char* hdmiFormat2Str(AML_HDMI_FORMAT_E type);
 
 /** convert the audio input format to in buffer's period multi coefficient.
  * @return period multi coefficient(1/4/16)
