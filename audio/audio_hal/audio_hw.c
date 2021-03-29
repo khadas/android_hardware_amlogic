@@ -1288,7 +1288,9 @@ exit:
     // We shall return Result::OK, which is 0, if parameter is NULL,
     // or we can not pass VTS test.
     if (ret < 0) {
-        ALOGE ("Amlogic_HAL - %s: parameter is NULL, change ret value to 0 in order to pass VTS test.", __FUNCTION__);
+        if (adev->debug_flag) {
+            ALOGW("Amlogic_HAL - %s: parameter is NULL, change ret value to 0 in order to pass VTS test.", __func__);
+        }
         ret = 0;
     }
     return ret;
@@ -3473,7 +3475,6 @@ static void adev_close_output_stream(struct audio_hw_device *dev,
     ALOGD("%s: exit", __func__);
 }
 
-
 static int aml_audio_output_routing(struct audio_hw_device *dev,
                                     enum OUT_PORT outport,
                                     bool user_setting)
@@ -3810,13 +3811,13 @@ static int adev_set_parameters (struct audio_hw_device *dev, const char *kvpairs
 
     ret = str_parms_get_str (parms, "set_ARC_hdmi", value, sizeof (value) );
     if (ret >= 0) {
-        set_arc_hdmi (dev, value, AUDIO_HAL_CHAR_MAX_LEN);
+        set_arc_hdmi(dev, value, AUDIO_HAL_CHAR_MAX_LEN);
         goto exit;
     }
 
     ret = str_parms_get_str (parms, "set_ARC_format", value, sizeof (value) );
     if (ret >= 0) {
-        set_arc_format (dev, value, AUDIO_HAL_CHAR_MAX_LEN);
+        set_arc_format(dev, value, AUDIO_HAL_CHAR_MAX_LEN);
         goto exit;
     }
 
