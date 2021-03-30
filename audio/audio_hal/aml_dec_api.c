@@ -209,9 +209,13 @@ static void dts_decoder_config_prepare(struct audio_stream_out *stream, aml_dca_
 static void pcm_decoder_config_prepare(struct audio_stream_out *stream, aml_pcm_config_t * pcm_config)
 {
     struct aml_stream_out *aml_out = (struct aml_stream_out *)stream;
+    struct aml_audio_device *adev = aml_out->dev;
+
     pcm_config->channel    = aml_out->hal_ch;
     pcm_config->samplerate = aml_out->hal_rate;
     pcm_config->pcm_format = aml_out->hal_format;
+    pcm_config->max_out_channels = adev->hdmi_descs.pcm_fmt.max_channels;
+
     return;
 }
 

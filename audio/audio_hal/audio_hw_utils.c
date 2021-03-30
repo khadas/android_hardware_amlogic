@@ -1240,11 +1240,14 @@ int aml_audio_delay_timestamp(struct timespec *timestamp, int delay_time_ms) {
     return 0;
 }
 
-int halformat_convert_to_spdif(audio_format_t format) {
+int halformat_convert_to_spdif(audio_format_t format, int ch_mask) {
     int aml_spdif_format = AML_STEREO_PCM;
     switch (format) {
         case AUDIO_FORMAT_PCM_16_BIT:
             aml_spdif_format = AML_STEREO_PCM;
+            if (audio_channel_count_from_out_mask(ch_mask) > 2) {
+                aml_spdif_format = AML_MULTI_CH_LPCM;
+            }
             break;
         case AUDIO_FORMAT_AC3:
             aml_spdif_format = AML_DOLBY_DIGITAL;
@@ -1280,6 +1283,8 @@ int alsa_device_get_port_index(alsa_device_t alsa_device)
         alsa_port = PORT_SPDIF;
     } else if (alsa_device == DIGITAL_DEVICE2) {
         alsa_port = PORT_SPDIFB;
+    } else if (alsa_device == TDM_DEVICE) {
+        alsa_port = PORT_I2S2HDMI;
     }
     return alsa_port;
 }

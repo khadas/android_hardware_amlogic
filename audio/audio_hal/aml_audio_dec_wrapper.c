@@ -45,8 +45,15 @@ ssize_t aml_audio_spdif_output(struct audio_stream_out *stream, void **spdifout_
     if (*spdifout_handle == NULL) {
         spdif_config_t spdif_config = { 0 };
         spdif_config.audio_format = data_info->data_format;
+        spdif_config.channel_mask = AUDIO_CHANNEL_OUT_STEREO;
         if (spdif_config.audio_format == AUDIO_FORMAT_IEC61937) {
             spdif_config.sub_format = data_info->sub_format;
+        } else if (audio_is_linear_pcm(spdif_config.audio_format)) {
+            if (data_info->data_ch == 6) {
+                spdif_config.channel_mask = AUDIO_CHANNEL_OUT_5POINT1;
+            } else if (data_info->data_ch == 8) {
+                spdif_config.channel_mask = AUDIO_CHANNEL_OUT_7POINT1;
+            }
         }
         spdif_config.rate = data_info->data_sr;
         ret = aml_audio_spdifout_open(spdifout_handle, &spdif_config);
@@ -115,6 +122,7 @@ int aml_audio_decoder_process_wrapper(struct audio_stream_out *stream, const voi
         config_output(stream, true);
     }
     aml_dec_t *aml_dec = aml_out->aml_dec;
+    ALOGV("[%s %d] enter", __func__, __LINE__);
     if (aml_dec) {
         dec_data_info_t * dec_pcm_data = &aml_dec->dec_pcm_data;
         dec_data_info_t * dec_raw_data = &aml_dec->dec_raw_data;
@@ -170,6 +178,12 @@ int aml_audio_decoder_process_wrapper(struct audio_stream_out *stream, const voi
                 }
             }
 
+            /*for pcm case, we check whether it has muti channel pcm*/
+            if (audio_is_linear_pcm(aml_dec->format) && raw_in_data->data_ch > 2) {
+                aml_audio_spdif_output(stream, &aml_out->spdifout_handle, raw_in_data);
+            }
+
+
             if (aml_out->optical_format != AUDIO_FORMAT_PCM_16_BIT) {
                 // write raw data
                 if (dec_raw_data->data_sr > 0) {
@@ -189,6 +203,7 @@ int aml_audio_decoder_process_wrapper(struct audio_stream_out *stream, const voi
             }
         } while (dec_pcm_data->data_len || dec_raw_data->data_len || raw_in_data->data_len);
     }
+    ALOGV("[%s %d] exit", __func__, __LINE__);
     return return_bytes;
 }
 

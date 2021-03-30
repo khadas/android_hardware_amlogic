@@ -3292,13 +3292,6 @@ static void adev_close_output_stream(struct audio_hw_device *dev,
             out_standby_subMixingPCM(&stream->common);
         else
             out_standby_new(&stream->common);
-
-        if (out->codec_type != AML_STEREO_PCM && out->input_bytes_size != 0) {
-            subMixingOutputRestart(adev);
-            aml_audio_set_spdif_format(PORT_SPDIF, AML_STEREO_PCM, out);
-            adev->raw_to_pcm_flag = true;
-            ALOGI("enable raw_to_pcm_flag");
-        }
     } else {
         out_standby_new(&stream->common);
     }
@@ -5144,18 +5137,6 @@ int do_output_standby_l(struct audio_stream *stream)
     }
     aml_out->status = STREAM_STANDBY;
     aml_out->standby= 1;
-    /*
-     *belive that audio is discontinuous in the dtv
-     *ignore the val of adev->continuous_audio_mode
-     */
-    if (adev->patch_src == SRC_DTV && adev->audio_patch != NULL) {
-        int dtv_format = adev->audio_patch->dtv_aformat;
-        ALOGI("dtv_format: %#x hal format=0x%x internal format=0x%x",dtv_format, aml_out->hal_format, aml_out->hal_internal_format);
-        if (!audio_is_linear_pcm(aml_out->hal_internal_format) &&
-            (IS_DOBLBY_FORMAT(dtv_format) || IS_DTS_FORMAT(dtv_format)) &&
-            !aml_out->dual_output_flag && (AUDIO_FORMAT_PCM_16_BIT != get_output_format(out)))
-            aml_audio_set_spdif_format(PORT_SPDIF, AML_STEREO_PCM, aml_out);
-    }
 
     if (adev->continuous_audio_mode == 0) {
         // release buffers
@@ -7761,9 +7742,7 @@ int adev_open_output_stream_new(struct audio_hw_device *dev,
         if (aml_out->usecase == STREAM_PCM_NORMAL ||
             aml_out->usecase == STREAM_PCM_HWSYNC ||
             aml_out->usecase == STREAM_PCM_MMAP ||
-            (aml_out->usecase == STREAM_PCM_DIRECT &&
-            config->sample_rate == 48000 &&
-            audio_channel_count_from_out_mask(config->channel_mask) == 2)) {
+            (aml_out->usecase == STREAM_PCM_DIRECT)) {
             /*for 96000, we need bypass submix, this is for DTS certification*/
             /* for DTV case, maybe this function is called by the DTV output thread,
                and the audio patch is enabled, we do not need to wait DTV exit as it is
@@ -7773,6 +7752,7 @@ int adev_open_output_stream_new(struct audio_hw_device *dev,
                 aml_out->bypass_submix = true;
                 aml_out->stream.write = out_write_new;
                 aml_out->stream.common.standby = out_standby_new;
+                ALOGI("bypass submix");
             } else {
                 int retry_count = 0;
                 /* when dvb switch to neflix,dvb send cmd stop and dtv decoder_state

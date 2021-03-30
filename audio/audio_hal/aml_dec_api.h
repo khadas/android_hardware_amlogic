@@ -84,6 +84,7 @@ typedef struct aml_pcm_config {
     audio_format_t pcm_format;
     int samplerate;
     int channel;
+    int max_out_channels;
 } aml_pcm_config_t;
 
 typedef union aml_dec_config {

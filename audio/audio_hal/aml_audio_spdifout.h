@@ -23,6 +23,7 @@ typedef struct {
     audio_format_t audio_format;
     audio_format_t sub_format;
     uint32_t      rate;
+    audio_channel_mask_t channel_mask;
 } spdif_config_t;
 
 int aml_audio_get_spdif_port(eMixerSpdif_Format spdif_format);
