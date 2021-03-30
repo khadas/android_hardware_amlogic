@@ -29,6 +29,28 @@ struct pcm_dec_t {
     aml_pcm_config_t pcm_config;
 };
 
+static inline short CLIP16(int r)
+{
+    return (r >  0x7fff) ? 0x7fff :
+           (r < -0x8000) ? -0x8000 :
+           r;
+}
+
+static void downmix_6ch_to_2ch(void *in_buf, void *out_buf, int bytes, int audio_format) {
+    int frames_num = 0;
+    int channel = 6;
+    int i = 0;
+    if (audio_format == AUDIO_FORMAT_PCM_16_BIT) {
+        frames_num = bytes / (channel * 2);
+        int16_t *src = (int16_t *)in_buf;
+        int16_t *dst = (int16_t *)out_buf;
+        for (i = 0; i < frames_num; i++) {
+            dst[2*i]   = (int16_t)CLIP16((int)src[channel*i] * 0.5     + (int)src[channel*i + 2] * 0.25 + (int)src[channel*i + 3] * 0.25 + (int)src[channel*i + 5] * 0.25) ;
+            dst[2*i+1] = (int16_t)CLIP16((int)src[channel*i + 1] * 0.5 + (int)src[channel*i + 2] * 0.25 + (int)src[channel*i + 4] * 0.25 + (int)src[channel*i + 5] * 0.25);
+        }
+    }
+    return;
+}
 
 static int pcm_decoder_init(aml_dec_t **ppaml_dec, aml_dec_config_t * dec_config)
 {
@@ -36,6 +58,7 @@ static int pcm_decoder_init(aml_dec_t **ppaml_dec, aml_dec_config_t * dec_config
     aml_dec_t  *aml_dec = NULL;
     aml_pcm_config_t *pcm_config = NULL;
     dec_data_info_t * dec_pcm_data = NULL;
+    dec_data_info_t * raw_in_data = NULL;
 
     if (dec_config == NULL) {
         ALOGE("PCM config is NULL\n");
@@ -75,6 +98,15 @@ static int pcm_decoder_init(aml_dec_t **ppaml_dec, aml_dec_config_t * dec_config
         return -1;
     }
 
+    raw_in_data = &aml_dec->raw_in_data;
+    raw_in_data->buf_size = PCM_MAX_LENGTH;
+    raw_in_data->buf = (unsigned char*) aml_audio_calloc(1, raw_in_data->buf_size);
+    if (!raw_in_data->buf) {
+        ALOGE("malloc buffer failed\n");
+        return -1;
+    }
+
+
     aml_dec->status = 1;
     *ppaml_dec = (aml_dec_t *)pcm_dec;
     ALOGI("[%s:%d] success PCM format=%d, samplerate:%d, ch:%d", __func__, __LINE__,
@@ -86,6 +118,9 @@ exit:
         if (dec_pcm_data->buf) {
             aml_audio_free(dec_pcm_data->buf);
         }
+        if (raw_in_data->buf) {
+            aml_audio_free(raw_in_data->buf);
+        }
         aml_audio_free(pcm_dec);
     }
     *ppaml_dec = NULL;
@@ -96,12 +131,18 @@ exit:
 static int pcm_decoder_release(aml_dec_t * aml_dec)
 {
     dec_data_info_t * dec_pcm_data = NULL;
+    dec_data_info_t * raw_in_data = NULL;
 
     if (aml_dec != NULL) {
         dec_pcm_data = &aml_dec->dec_pcm_data;
+        raw_in_data = &aml_dec->raw_in_data;
         if (dec_pcm_data->buf) {
             aml_audio_free(dec_pcm_data->buf);
         }
+        if (raw_in_data->buf) {
+            aml_audio_free(raw_in_data->buf);
+        }
+
         aml_audio_free(aml_dec);
     }
     return 0;
@@ -111,7 +152,10 @@ static int pcm_decoder_process(aml_dec_t * aml_dec, unsigned char*buffer, int by
 {
     struct pcm_dec_t *pcm_dec = NULL;
     aml_pcm_config_t *pcm_config = NULL;
-
+    int src_channel = 0;
+    int dst_channel = 0;
+    int downmix_conf = 1;
+    int downmix_size = 0;
     if (aml_dec == NULL) {
         ALOGE("%s aml_dec is NULL", __func__);
         return -1;
@@ -120,26 +164,64 @@ static int pcm_decoder_process(aml_dec_t * aml_dec, unsigned char*buffer, int by
     pcm_dec = (struct pcm_dec_t *)aml_dec;
     pcm_config = &pcm_dec->pcm_config;
     dec_data_info_t * dec_pcm_data = &aml_dec->dec_pcm_data;
+    dec_data_info_t * raw_in_data = &aml_dec->raw_in_data;
 
-    if (dec_pcm_data->buf_size < bytes) {
-        ALOGI("realloc outbuf_max_len  from %zu to %zu\n", dec_pcm_data->buf_size, bytes);
-        dec_pcm_data->buf = aml_audio_realloc(dec_pcm_data->buf, bytes);
+    dec_pcm_data->data_len = 0;
+    raw_in_data->data_len = 0;
+
+
+    src_channel = pcm_config->channel;
+    dst_channel = 2;
+    downmix_conf = src_channel / dst_channel;
+    downmix_size = bytes / downmix_conf;
+
+    if (dec_pcm_data->buf_size < downmix_size) {
+        ALOGI("realloc outbuf_max_len  from %zu to %zu\n", dec_pcm_data->buf_size, downmix_size);
+        dec_pcm_data->buf = aml_audio_realloc(dec_pcm_data->buf, downmix_size);
         if (dec_pcm_data->buf == NULL) {
-            ALOGE("realloc pcm buffer failed size %zu\n", bytes);
+            ALOGE("realloc pcm buffer failed size %zu\n", downmix_size);
             return -1;
         }
-        dec_pcm_data->buf_size = bytes;
-        memset(dec_pcm_data->buf, 0, bytes);
+        dec_pcm_data->buf_size = downmix_size;
+        memset(dec_pcm_data->buf, 0, downmix_size);
     }
 
-    /*now we only support bypass PCM data*/
-    memcpy(dec_pcm_data->buf, buffer, bytes);
 
-    dec_pcm_data->data_len = bytes ;
+    if (pcm_config->channel == 2) {
+        /*now we only support bypass PCM data*/
+        memcpy(dec_pcm_data->buf, buffer, bytes);
+    } else if (pcm_config->channel == 6) {
+        downmix_6ch_to_2ch(buffer, dec_pcm_data->buf, bytes, pcm_config->pcm_format);
+    } else {
+        ALOGI("unsupport channel =%d", pcm_config->channel);
+        return 0;
+    }
+
+
+    dec_pcm_data->data_len = downmix_size;
     dec_pcm_data->data_sr  = pcm_config->samplerate;
-    dec_pcm_data->data_ch  = pcm_config->channel;
+    dec_pcm_data->data_ch  = 2;
     dec_pcm_data->data_format  = pcm_config->pcm_format;
+    ALOGV("%s data_in=%d ch =%d out=%d ch=%d", __func__, bytes, pcm_config->channel, downmix_size, 2);
 
+    if (pcm_config->max_out_channels >= pcm_config->channel) {
+        if (raw_in_data->buf_size < bytes) {
+            ALOGI("realloc outbuf_max_len  from %zu to %zu\n", raw_in_data->buf_size, bytes);
+            raw_in_data->buf = aml_audio_realloc(raw_in_data->buf, bytes);
+            if (raw_in_data->buf == NULL) {
+                ALOGE("realloc pcm buffer failed size %zu\n", bytes);
+                return -1;
+            }
+            raw_in_data->buf_size = bytes;
+            memset(raw_in_data->buf, 0, bytes);
+        }
+        memcpy(raw_in_data->buf, buffer, bytes);
+        raw_in_data->data_len = bytes ;
+        raw_in_data->data_sr  = pcm_config->samplerate;
+        raw_in_data->data_ch  = pcm_config->channel;
+        raw_in_data->data_format  = pcm_config->pcm_format;
+        ALOGV("%s multi data_in=%d ch =%d out=%d ch=%d", __func__, bytes, pcm_config->channel, downmix_size, pcm_config->channel);
+    }
     return 0;
 }
 

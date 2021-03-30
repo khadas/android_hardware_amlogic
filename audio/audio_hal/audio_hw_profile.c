@@ -183,6 +183,7 @@ char*  get_hdmi_sink_cap(const char *keys,audio_format_t format,struct aml_arc_h
         if (strstr(keys, AUDIO_PARAMETER_STREAM_SUP_FORMATS)) {
             ALOGD("query hdmi format...\n");
             size += sprintf(aud_cap, "sup_formats=%s", "AUDIO_FORMAT_PCM_16_BIT");
+            p_hdmi_descs->pcm_fmt.max_channels = 2;
             p_hdmi_descs->ddp_fmt.is_support = 0;
             if (mystrstr(infobuf, "Dobly_Digital+")) {
                 size += sprintf(aud_cap + size, "|%s", "AUDIO_FORMAT_E_AC3");
@@ -208,6 +209,13 @@ char*  get_hdmi_sink_cap(const char *keys,audio_format_t format,struct aml_arc_h
             } else if (mystrstr(infobuf, "DTS")) {
                 size += sprintf(aud_cap + size, "|%s", "AUDIO_FORMAT_DTS");
                 p_hdmi_descs->dts_fmt.is_support = 1;
+            }
+
+            if (mystrstr(infobuf, "PCM, 6 ch")) {
+                p_hdmi_descs->pcm_fmt.max_channels = 6;
+            }
+            if (mystrstr(infobuf, "PCM, 8 ch")) {
+                p_hdmi_descs->pcm_fmt.max_channels = 8;
             }
 
             if (mystrstr(infobuf, "MAT")) {

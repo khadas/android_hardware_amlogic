@@ -67,6 +67,9 @@ static int select_digital_device(struct spdifout_handle *phandle) {
             /*defaut we only use spdif_a to output spdif/hdmi*/
             device_id = DIGITAL_DEVICE;
         }
+        if (audio_is_linear_pcm(phandle->audio_format)) {
+            device_id = TDM_DEVICE;
+        }
     } else {
         if (aml_dev->dual_spdif_support) {
             /*TV spdif_a support arc/spdif, spdif_b only support spdif
@@ -208,6 +211,7 @@ static int spdifout_support_format(audio_format_t audio_format)
     case AUDIO_FORMAT_DTS_HD:
     case AUDIO_FORMAT_MAT:
     case AUDIO_FORMAT_IEC61937:
+    case AUDIO_FORMAT_PCM_16_BIT:
         return true;
     default:
         return false;
@@ -234,7 +238,6 @@ int aml_audio_spdifout_open(void **pphandle, spdif_config_t *spdif_config)
         return -1;
     }
 
-
     phandle = (struct spdifout_handle *) aml_audio_calloc(1, sizeof(struct spdifout_handle));
     if (phandle == NULL) {
         ALOGE("%s malloc failed\n", __FUNCTION__);
@@ -244,6 +247,9 @@ int aml_audio_spdifout_open(void **pphandle, spdif_config_t *spdif_config)
     if (spdif_config->audio_format == AUDIO_FORMAT_IEC61937) {
         phandle->need_spdif_enc = 0;
         audio_format = spdif_config->sub_format;
+    } else if (audio_is_linear_pcm(spdif_config->audio_format)) {
+        phandle->need_spdif_enc = 0;
+        audio_format = spdif_config->audio_format;
     } else {
         phandle->need_spdif_enc = 1;
         audio_format = spdif_config->audio_format;
@@ -270,7 +276,7 @@ int aml_audio_spdifout_open(void **pphandle, spdif_config_t *spdif_config)
         memset(&stream_config, 0, sizeof(aml_stream_config_t));
         memset(&device_config, 0, sizeof(aml_device_config_t));
         /*config stream info*/
-        stream_config.config.channel_mask = AUDIO_CHANNEL_OUT_STEREO;
+        stream_config.config.channel_mask = spdif_config->channel_mask;;
         stream_config.config.sample_rate  = spdif_config->rate;
         stream_config.config.format       = AUDIO_FORMAT_IEC61937;
         stream_config.config.offload_info.format = audio_format;
@@ -278,10 +284,9 @@ int aml_audio_spdifout_open(void **pphandle, spdif_config_t *spdif_config)
         device_config.device_port = alsa_device_get_port_index(device_id);
         phandle->spdif_port       = device_config.device_port;
 
-        aml_spdif_format = halformat_convert_to_spdif(audio_format);
-
+        aml_spdif_format = halformat_convert_to_spdif(audio_format, stream_config.config.channel_mask);
         /*set spdif format*/
-        if (phandle->spdif_port == PORT_SPDIF) {
+        if (phandle->spdif_port == PORT_SPDIF || phandle->spdif_port == PORT_I2S2HDMI) {
             aml_mixer_ctrl_set_int(&aml_dev->alsa_mixer, AML_MIXER_ID_SPDIF_FORMAT, aml_spdif_format);
             ALOGI("%s set spdif format 0x%x", __func__, aml_spdif_format);
         } else if (phandle->spdif_port == PORT_SPDIFB) {
@@ -399,6 +404,7 @@ int aml_dtv_spdif_output_new (struct audio_stream_out *stream,
         if (spdif_config.rate == 0) {
             spdif_config.rate = MM_FULL_POWER_SAMPLING_RATE;
         }
+        spdif_config.channel_mask = AUDIO_CHANNEL_OUT_STEREO;
         ret = aml_audio_spdifout_open(&spdifout_handle, &spdif_config);
         aml_dev->ddp.spdifout_handle = spdifout_handle;
     }
@@ -439,16 +445,22 @@ int aml_audio_spdifout_close(void *phandle)
         /*when spdif is closed, we need set raw to pcm flag, othwer spdif pcm may have problem*/
         aml_alsa_output_close_new(alsa_handle);
         aml_dev->alsa_handle[device_id] = NULL;
-        aml_dev->raw_to_pcm_flag          = true;
+        aml_dev->raw_to_pcm_flag        = true;
     }
 
     /*it is spdif a output*/
-    if (spdifout_phandle->spdif_port == PORT_SPDIF) {
+    if (spdifout_phandle->spdif_port == PORT_SPDIF ||
+        spdifout_phandle->spdif_port == PORT_I2S2HDMI) {
         aml_mixer_ctrl_set_int(&aml_dev->alsa_mixer, AML_MIXER_ID_SPDIF_FORMAT, AML_STEREO_PCM);
     } else if (spdifout_phandle->spdif_port == PORT_SPDIFB) {
         /*it is spdif b output*/
         aml_mixer_ctrl_set_int(&aml_dev->alsa_mixer, AML_MIXER_ID_SPDIF_B_FORMAT, AML_STEREO_PCM);
         aml_audio_select_spdif_to_hdmi(AML_SPDIF_A_TO_HDMITX);
+    }
+
+    if (aml_dev->useSubMix) {
+        subMixingOutputRestart(aml_dev);
+        ALOGI("%s reset submix", __func__);
     }
 
     if (spdifout_phandle) {
