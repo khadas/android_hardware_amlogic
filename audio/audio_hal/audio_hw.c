@@ -1363,6 +1363,7 @@ static int out_set_volume (struct audio_stream_out *stream, float left, float ri
         if (out->volume_l != out->volume_r) {
             ALOGW("%s, left:%f right:%f NOT match", __FUNCTION__, left, right);
         }
+        out->ms12_vol_ctrl = true;
         dolby_ms12_set_main_volume(out->volume_l);
     }
     return 0;
@@ -3162,6 +3163,7 @@ static int adev_open_output_stream(struct audio_hw_device *dev,
     out->volume_r = 1.0;
     out->last_volume_l = 0.0;
     out->last_volume_r = 0.0;
+    out->ms12_vol_ctrl = false;
     out->dev = adev;
     out->standby = true;
     out->frame_write_sum = 0;
@@ -5627,10 +5629,13 @@ ssize_t audio_hal_data_processing(struct audio_stream_out *stream,
     } else if (output_format == AUDIO_FORMAT_PCM_32_BIT) {
         int32_t *tmp_buffer = (int32_t *)buffer;
         size_t out_frames = bytes / FRAMESIZE_32BIT_STEREO;
-        float gain_speaker = adev->sink_gain[OUTPORT_SPEAKER];
-        if (aml_out->hw_sync_mode)
-             gain_speaker *= aml_out->volume_l;
-        apply_volume(gain_speaker, tmp_buffer, sizeof(uint32_t), bytes);
+        if (!aml_out->ms12_vol_ctrl) {
+           float gain_speaker = adev->sink_gain[OUTPORT_SPEAKER];
+            if (aml_out->hw_sync_mode)
+                gain_speaker *= aml_out->volume_l;
+            apply_volume(gain_speaker, tmp_buffer, sizeof(uint32_t), bytes);
+
+        }
 
         /* 2 ch 32 bit --> 8 ch 32 bit mapping, need 8X size of input buffer size */
         if (aml_out->tmp_buffer_8ch_size < FRAMESIZE_32BIT_8ch * out_frames) {
@@ -5805,13 +5810,7 @@ ssize_t audio_hal_data_processing(struct audio_stream_out *stream,
                     gain_speaker, aml_out->out_device, adev->active_outport);
             }
 
-            /*
-            for dolby audio with ms12 enabled,the gain will apply to
-            ms12 main audio, there is no need to apply any more.
-            */
-            int is_dolby_audio = (aml_out->hal_internal_format == AUDIO_FORMAT_E_AC3) \
-                                 || (aml_out->hal_internal_format == AUDIO_FORMAT_AC3);
-            if ((eDolbyMS12Lib == adev->dolby_lib_type) && is_dolby_audio) {
+            if ((eDolbyMS12Lib == adev->dolby_lib_type) && aml_out->ms12_vol_ctrl) {
                 gain_speaker = 1.0;
             }
 
@@ -7048,21 +7047,11 @@ hwsync_rewrite:
             else {
                 /*not continuous mode, we use sink gain control the volume*/
                 if (!continous_mode(adev)) {
-                    /*for pcm output, we will control it in hal_data_process*/
-                    if (!adev->is_TV && (adev->audio_patching)) {
-                        float out_gain = 1.0f;
-                        out_gain = adev->sink_gain[adev->active_outport];
-                        if (adev->patch_src == SRC_DTV && (adev->tv_mute ||
-                            adev->start_mute_flag == 1))
-                            out_gain = 0.0f;
-                        if (!audio_is_linear_pcm(aml_out->hal_internal_format)) {
-                            dolby_ms12_set_main_volume(out_gain);
-                        } else {
-                            if (adev->patch_src == SRC_DTV && (adev->tv_mute ||
-                                adev->start_mute_flag == 1))
-                                apply_volume(0.0f , write_buf, sizeof(int16_t), write_bytes);
-                        }
-                    }
+
+                    float out_gain = 1.0f;
+                    out_gain = adev->sink_gain[adev->active_outport];
+                    dolby_ms12_set_main_volume(out_gain);
+                    aml_out->ms12_vol_ctrl = true;
                     /*when it is non continuous mode, we bypass data here*/
                     dolby_ms12_bypass_process(stream, write_buf, write_bytes);
                 }
