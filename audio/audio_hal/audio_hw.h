@@ -631,6 +631,7 @@ struct aml_stream_out {
     float volume_r;
     float last_volume_l;
     float last_volume_r;
+    bool ms12_vol_ctrl;
     int last_codec_type;
     /**
      * as raw audio framesize  is 1 computed by audio_stream_out_frame_size
