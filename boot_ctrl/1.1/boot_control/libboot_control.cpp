@@ -501,8 +501,8 @@ bool BootControl::SetActiveBootSlot(unsigned int slot) {
     /* check if called from update_engine or vts test,
      * just rewrite when really update
      */
-    std::string gsid_prop = android::base::GetProperty("init.svc.gsid", "");
-    if (!gsid_prop.empty() || IsRecoveryMode()) {
+    std::string device_prop = android::base::GetProperty("ro.product.device", "");
+    if (device_prop != "generic" || IsRecoveryMode()) {
       ret = write_bootloader_img(slot);
       if (ret) {
         ret = SetBootloaderIndex();
