@@ -61,8 +61,10 @@ typedef struct tv_input_private {
 } tv_input_private_t;
 
 enum {
-    STREAM_ID_NORMAL            = 1,
-    STREAM_ID_FRAME_CAPTURE = 2,
+    STREAM_ID_NORMAL        = 1,
+    STREAM_ID_MAIN          = 2,
+    STREAM_ID_PIP           = 3,
+    STREAM_ID_FRAME_CAPTURE = 4,
 };
 
 void channelControl(tv_input_private_t *priv, bool opsStart, int device_id);

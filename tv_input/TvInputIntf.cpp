@@ -294,12 +294,21 @@ int TvInputIntf::getSupportInputDevices(int *devices, int *count)
     int len = 0;
     const char *seg = ",";
     char *pT = strtok((char*)input_list, seg);
+    bool needVitualDtvkit = false;
     while (pT) {
         len ++;
         *devices = atoi(pT);
+        if (*devices == SOURCE_DTVKIT) {
+            //add for pip hardware support
+            needVitualDtvkit = true;
+        }
         ALOGD("devices: %d: %d", len , *devices);
         devices ++;
         pT = strtok(NULL, seg);
+    }
+    if (needVitualDtvkit) {
+        *devices = SOURCE_DTVKIT_PIP;
+        len++;
     }
     *count = len;
     return 0;
