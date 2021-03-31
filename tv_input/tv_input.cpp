@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#define LOG_TAG "TvInput"
+#define LOG_TAG "tv_input"
 #include <fcntl.h>
 #include <errno.h>
 
@@ -42,6 +42,9 @@ static int supportDevices[20];
 static int count = 0;
 
 native_handle_t *pTvStream = nullptr;
+native_handle_t *pMainTvStream = nullptr;
+native_handle_t *pPipTvStream = nullptr;
+
 
 void EventCallback::onTvEvent (const source_connect_t &scrConnect) {
     tv_input_private_t *priv = (tv_input_private_t *)(mPri);
@@ -77,7 +80,7 @@ void channelControl(tv_input_private_t *priv, bool opsStart, int device_id) {
     if (priv->mpTv) {
         ALOGI ("%s, device id:%d, %s.\n", __FUNCTION__, device_id, opsStart ? "startTV": "stopTV");
 
-        if (SOURCE_DTVKIT == device_id && !(priv->mpTv->isTvPlatform())) {
+        if ((SOURCE_DTVKIT == device_id || SOURCE_DTVKIT_PIP == device_id) && !(priv->mpTv->isTvPlatform())) {
             priv->mpTv->setDeviceGivenId(opsStart ? device_id : -1);
             return;
         }
@@ -119,6 +122,7 @@ int notifyDeviceStatus(tv_input_private_t *priv, tv_source_input_t inputSrc, int
         case SOURCE_DTV:
         case SOURCE_ADTV:
         case SOURCE_DTVKIT:
+        case SOURCE_DTVKIT_PIP:
             event.device_info.type = TV_INPUT_TYPE_TUNER;
             event.device_info.audio_type = AUDIO_DEVICE_IN_TV_TUNER;
             break;
@@ -167,7 +171,7 @@ static bool checkDeviceID(int device_id) {
 }
 
 static bool checkStreamID(int stream_id) {
-    if (stream_id == STREAM_ID_NORMAL || stream_id == STREAM_ID_FRAME_CAPTURE)
+    if (stream_id >= STREAM_ID_NORMAL && stream_id <= STREAM_ID_FRAME_CAPTURE)
         return true;
     else
         return false;
@@ -198,14 +202,38 @@ static int notifyCaptureFail(tv_input_private_t *priv, int device_id, int stream
 static bool getAvailableStreamConfigs(int dev_id __unused, int *num_configurations, const tv_stream_config_t **configs)
 {
     static tv_stream_config_t mconfig[2];
-    mconfig[0].stream_id = STREAM_ID_NORMAL;
-    mconfig[0].type = TV_STREAM_TYPE_INDEPENDENT_VIDEO_SOURCE ;
-    mconfig[0].max_video_width = 1920;
-    mconfig[0].max_video_height = 1080;
-    mconfig[1].stream_id = STREAM_ID_FRAME_CAPTURE;
-    mconfig[1].type = TV_STREAM_TYPE_BUFFER_PRODUCER ;
-    mconfig[1].max_video_width = 1920;
-    mconfig[1].max_video_height = 1080;
+    switch (tv_source_input_t(dev_id)) {
+        case SOURCE_DTVKIT:
+            mconfig[0].stream_id = STREAM_ID_NORMAL;
+            mconfig[0].type = TV_STREAM_TYPE_INDEPENDENT_VIDEO_SOURCE ;
+            mconfig[0].max_video_width = 1920;
+            mconfig[0].max_video_height = 1080;
+            mconfig[1].stream_id = STREAM_ID_MAIN;
+            mconfig[1].type = TV_STREAM_TYPE_INDEPENDENT_VIDEO_SOURCE ;
+            mconfig[1].max_video_width = 1920;
+            mconfig[1].max_video_height = 1080;
+            break;
+        case SOURCE_DTVKIT_PIP:
+            mconfig[0].stream_id = STREAM_ID_PIP;
+            mconfig[0].type = TV_STREAM_TYPE_INDEPENDENT_VIDEO_SOURCE ;
+            mconfig[0].max_video_width = 320;
+            mconfig[0].max_video_height = 240;
+            mconfig[1].stream_id = STREAM_ID_FRAME_CAPTURE;
+            mconfig[1].type = TV_STREAM_TYPE_BUFFER_PRODUCER ;
+            mconfig[1].max_video_width = 1920;
+            mconfig[1].max_video_height = 1080;
+            break;
+        default:
+            mconfig[0].stream_id = STREAM_ID_NORMAL;
+            mconfig[0].type = TV_STREAM_TYPE_INDEPENDENT_VIDEO_SOURCE ;
+            mconfig[0].max_video_width = 1920;
+            mconfig[0].max_video_height = 1080;
+            mconfig[1].stream_id = STREAM_ID_FRAME_CAPTURE;
+            mconfig[1].type = TV_STREAM_TYPE_BUFFER_PRODUCER ;
+            mconfig[1].max_video_width = 1920;
+            mconfig[1].max_video_height = 1080;
+            break;
+    }
     *num_configurations = 2;
     *configs = mconfig;
     return true;
@@ -220,6 +248,7 @@ static int getUnavailableStreamConfigs(int dev_id __unused, int *num_configurati
 
 static int getTvStream(tv_stream_t *stream)
 {
+    ALOGD("getTvStream stream_id = %d", stream->stream_id);
     if (stream->stream_id == STREAM_ID_NORMAL) {
         if (pTvStream == nullptr) {
             pTvStream = am_gralloc_create_sideband_handle(AM_TV_SIDEBAND, 1);
@@ -230,6 +259,30 @@ static int getTvStream(tv_stream_t *stream)
         }
         stream->type = TV_STREAM_TYPE_INDEPENDENT_VIDEO_SOURCE;
         stream->sideband_stream_source_handle = pTvStream;
+    } else if (stream->stream_id == STREAM_ID_MAIN) {
+        //add such for pip function
+        if (pMainTvStream == nullptr) {
+            ALOGD("getTvStream stream_id=%d tunnelId=%d", stream->stream_id, 1);
+            pMainTvStream = am_gralloc_create_sideband_handle(AM_FIXED_TUNNEL, 1);
+            if (pMainTvStream == nullptr) {
+                ALOGE("tvstream can not be initialized");
+                return -EINVAL;
+            }
+        }
+        stream->type = TV_STREAM_TYPE_INDEPENDENT_VIDEO_SOURCE;
+        stream->sideband_stream_source_handle = pMainTvStream;
+    } else if (stream->stream_id == STREAM_ID_PIP) {
+        //add such for pip function
+        if (pPipTvStream == nullptr) {
+            ALOGD("getTvStream stream_id=%d tunnelId=%d", stream->stream_id, 2);
+            pPipTvStream = am_gralloc_create_sideband_handle(AM_FIXED_TUNNEL, 2);
+            if (pPipTvStream == nullptr) {
+                ALOGE("pip tvstream can not be initialized");
+                return -EINVAL;
+            }
+        }
+        stream->type = TV_STREAM_TYPE_INDEPENDENT_VIDEO_SOURCE;
+        stream->sideband_stream_source_handle = pPipTvStream;
     } else if (stream->stream_id == STREAM_ID_FRAME_CAPTURE) {
         stream->type = TV_STREAM_TYPE_BUFFER_PRODUCER;
     }
@@ -323,7 +376,7 @@ static int tv_input_open_stream(struct tv_input_device *dev, int device_id,
     if (!checkDeviceID(device_id) || !checkStreamID(stream->stream_id))
         return -EINVAL;
 
-    if (stream->stream_id != priv->mpTv->getStreamGivenId() ||
+    if ((stream->stream_id == STREAM_ID_MAIN || stream->stream_id == STREAM_ID_PIP) || stream->stream_id != priv->mpTv->getStreamGivenId() ||
             device_id != priv->mpTv->getDeviceGivenId())
         priv->mpTv->setStreamGivenId(stream->stream_id);
     else {
@@ -335,7 +388,7 @@ static int tv_input_open_stream(struct tv_input_device *dev, int device_id,
         if (getTvStream(stream) != 0) {
             return -EINVAL;
         }
-        if (stream->stream_id == STREAM_ID_NORMAL) {
+        if (stream->stream_id == STREAM_ID_NORMAL || stream->stream_id == STREAM_ID_MAIN || stream->stream_id == STREAM_ID_PIP) {
             if (!channelCheckStaus(priv, 0, device_id))
                 channelControl(priv, true, device_id);
         }
@@ -378,14 +431,14 @@ static int tv_input_close_stream(struct tv_input_device *dev, int device_id,
     if (!checkDeviceID(device_id) || !checkStreamID(stream_id))
         return -EINVAL;
 
-    if (priv->mpTv->getStreamGivenId() == stream_id)
+    if ((stream_id == STREAM_ID_MAIN || stream_id == STREAM_ID_PIP) || priv->mpTv->getStreamGivenId() == stream_id)
         priv->mpTv->setStreamGivenId(-1);
     else {
         ALOGD("stream doesn't open");
         return -ENOENT;
     }
 
-    if (stream_id == STREAM_ID_NORMAL) {
+    if (stream_id == STREAM_ID_NORMAL || stream_id == STREAM_ID_MAIN || stream_id == STREAM_ID_PIP) {
         if (!channelCheckStaus(priv, 1, device_id))
             channelControl(priv, false, device_id);
         return 0;
@@ -470,8 +523,15 @@ static int tv_input_device_close(struct hw_device_t *dev)
             priv->eventCallback = nullptr;
         }
         free(priv);
-
-        native_handle_delete((native_handle_t*)pTvStream);
+        if (pTvStream) {
+            native_handle_delete((native_handle_t*)pTvStream);
+        }
+        if (pMainTvStream) {
+            native_handle_delete((native_handle_t*)pMainTvStream);
+        }
+        if (pPipTvStream) {
+            native_handle_delete((native_handle_t*)pPipTvStream);
+        }
     }
 
     ALOGD("%s", __FUNCTION__);

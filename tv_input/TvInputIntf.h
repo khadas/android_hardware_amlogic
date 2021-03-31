@@ -58,6 +58,7 @@ typedef enum tv_source_input_e {
     SOURCE_ARC,
     SOURCE_DTVKIT,
     SOURCE_MAX,
+    SOURCE_DTVKIT_PIP = SOURCE_DTVKIT + 100,
 } tv_source_input_t;
 
 typedef struct source_connect_s {
