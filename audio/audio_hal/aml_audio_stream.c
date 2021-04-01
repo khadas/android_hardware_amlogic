@@ -175,7 +175,7 @@ static audio_format_t get_suitable_output_format(audio_format_t source_format, a
  *      2.digital format is dd, sink format is min (source format,  AUDIO_FORMAT_AC3)
  *      3.digital format is auto, sink format is min (source format, digital format)
  */
-void get_sink_format (struct audio_stream_out *stream)
+void get_sink_format(struct audio_stream_out *stream)
 {
     struct aml_stream_out *aml_out = (struct aml_stream_out *) stream;
     struct aml_audio_device *adev = aml_out->dev;
@@ -943,4 +943,43 @@ int reconfig_read_param_through_hdmiin(struct aml_audio_device *aml_dev,
     }
 }
 
+int update_sink_format_after_hotplug(struct aml_audio_device *adev)
+{
+    struct audio_stream_out *stream = NULL;
+    /* raw stream is at high priority */
+    if (adev->active_outputs[STREAM_RAW_DIRECT]) {
+        stream = (struct audio_stream_out *)adev->active_outputs[STREAM_RAW_DIRECT];
+    }
+    else if (adev->active_outputs[STREAM_RAW_HWSYNC]) {
+        stream = (struct audio_stream_out *)adev->active_outputs[STREAM_RAW_HWSYNC];
+    }
+    /* pcm direct/hwsync stream is at medium priority */
+    else if (adev->active_outputs[STREAM_PCM_HWSYNC]) {
+        stream = (struct audio_stream_out *)adev->active_outputs[STREAM_PCM_HWSYNC];
+    }
+    else if (adev->active_outputs[STREAM_PCM_DIRECT]) {
+        stream = (struct audio_stream_out *)adev->active_outputs[STREAM_PCM_DIRECT];
+    }
+    /* pcm stream from mixer is at lower priority */
+    else if (adev->active_outputs[STREAM_PCM_NORMAL]){
+        stream = (struct audio_stream_out *)adev->active_outputs[STREAM_PCM_NORMAL];
+    }
+
+
+    if (stream) {
+        ALOGD("%s() active stream %p\n", __FUNCTION__, stream);
+        get_sink_format(stream);
+    }
+    else {
+        if (adev->ms12_out && continous_mode(adev)) {
+            ALOGD("%s() active stream is ms12_out %p\n", __FUNCTION__, adev->ms12_out);
+            get_sink_format((struct audio_stream_out *)adev->ms12_out);
+        }
+        else {
+            ALOGD("%s() active stream %p ms12_out %p\n", __FUNCTION__, stream, adev->ms12_out);
+        }
+    }
+
+    return 0;
+}
 

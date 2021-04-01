@@ -471,6 +471,13 @@ int set_arc_format(struct audio_hw_device *dev, char *value, size_t len)
 
                 /* when arc is connected update AVR SAD to hdmi edid */
                 update_edid_after_edited_audio_sad(adev, fmt_desc);
+                /*
+                 * if the ARC capbility format is changed, it should not support HBR(MAT/DTS-HD)
+                 * for the sequence is LPCM -> DD -> DTS -> DDP -> DTSHD,
+                 * which is defined in "private void setAudioFormat()" at file:DroidLogicEarcService.java
+                 * so, here we choose the DDP part to update the sink format.
+                 */
+                update_sink_format_after_hotplug(adev);
             } else {
                 fmt_desc->max_bit_rate = val * 80;
             }

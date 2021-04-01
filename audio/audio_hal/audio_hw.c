@@ -3514,6 +3514,8 @@ static int aml_audio_update_arc_status(struct aml_audio_device *adev, bool enabl
     audio_route_set_hdmi_arc_mute(&adev->alsa_mixer, !enable);
     adev->bHDMIARCon = enable;
     struct aml_arc_hdmi_desc *hdmi_desc = &adev->hdmi_descs;
+    int is_arc_connected = 0;
+
     if (enable) {
         memcpy(hdmi_desc, &adev->hdmi_arc_capability_desc, sizeof(struct aml_arc_hdmi_desc));
     } else {
@@ -3531,6 +3533,32 @@ static int aml_audio_update_arc_status(struct aml_audio_device *adev, bool enabl
      * while in config_output(), it detects this change, then re-route output config.
      */
     adev->arc_hdmi_updated = 1;
+
+    if (adev->bHDMIARCon && adev->bHDMIConnected && adev->speaker_mute) {
+        is_arc_connected = 1;
+    }
+
+    /*
+    *   when ARC is connecting, and user switch [Sound Output Device] to "ARC"
+    *   we need to set out_port as OUTPORT_HDMI_ARC ,
+    *   the aml_audio_output_routing() will "UNmute" ARC and "mute" speaker.
+    */
+    int out_port = adev->active_outport;
+    if (adev->active_outport == OUTPORT_SPEAKER && is_arc_connected) {
+        out_port = OUTPORT_HDMI_ARC;
+    }
+
+    /*
+    *   when ARC is connecting, and user switch [Sound Output Device] to "speaker"
+    *   we need to set out_port as OUTPORT_SPEAKER ,
+    *   the aml_audio_output_routing() will "mute" ARC and "unmute" speaker.
+    */
+    if (adev->active_outport == OUTPORT_HDMI_ARC && !is_arc_connected) {
+        out_port = OUTPORT_SPEAKER;
+    }
+    ALOGI("[%s:%d] out_port:%s", __func__, __LINE__, outputPort2Str(out_port));
+    aml_audio_output_routing((struct audio_hw_device *)adev, out_port, true);
+
     return 0;
 }
 
@@ -3644,6 +3672,7 @@ static int adev_set_parameters (struct audio_hw_device *dev, const char *kvpairs
                 aml_audio_set_speaker_mute(adev, "true");
                 aml_audio_update_arc_status(adev, true);
             }
+            update_sink_format_after_hotplug(adev);
         } else if (val & AUDIO_DEVICE_OUT_ALL_A2DP) {
             adev->a2dp_updated = 1;
             adev->out_device |= val;
@@ -6223,30 +6252,6 @@ void config_output(struct audio_stream_out *stream, bool reset_decoder)
     adev->dcvlib_bypass_enable = 0;
     adev->dtslib_bypass_enable = 0;
 
-    if (adev->bHDMIARCon && adev->bHDMIConnected && adev->speaker_mute) {
-        is_arc_connected = 1;
-    }
-
-    /*
-    *   when ARC is connecting, and user switch [Sound Output Device] to "ARC"
-    *   we need to set out_port as OUTPORT_HDMI_ARC ,
-    *   the aml_audio_output_routing() will "UNmute" ARC and "mute" speaker.
-    */
-    int out_port = adev->active_outport;
-    if (adev->active_outport == OUTPORT_SPEAKER && is_arc_connected) {
-        out_port = OUTPORT_HDMI_ARC;
-    }
-
-    /*
-    *   when ARC is connecting, and user switch [Sound Output Device] to "speaker"
-    *   we need to set out_port as OUTPORT_SPEAKER ,
-    *   the aml_audio_output_routing() will "mute" ARC and "unmute" speaker.
-    */
-    if (adev->active_outport == OUTPORT_HDMI_ARC && !is_arc_connected) {
-        out_port = OUTPORT_SPEAKER;
-    }
-    ALOGI("[%s:%d] out_port:%s, reset decoder:%d", __func__, __LINE__, outputPort2Str(out_port), reset_decoder);
-    ret = aml_audio_output_routing((struct audio_hw_device *)adev, out_port, true);
     /*get sink format*/
     get_sink_format (stream);
     if (eDolbyMS12Lib == adev->dolby_lib_type) {
