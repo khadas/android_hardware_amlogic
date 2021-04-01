@@ -413,4 +413,10 @@ int reconfig_read_param_through_hdmiin(struct aml_audio_device *aml_dev,
                                        struct aml_stream_in *stream_in,
                                        ring_buffer_t *ringbuffer, int buffer_size);
 
+/*
+ *@brief update the sink format after HDMI/HDMI-ARC hot pluged
+ * return zero if success.
+ */
+int update_sink_format_after_hotplug(struct aml_audio_device *adev);
+
 #endif /* _AML_AUDIO_STREAM_H_ */
