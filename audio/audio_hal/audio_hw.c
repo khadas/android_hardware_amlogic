@@ -4213,6 +4213,12 @@ static int adev_set_parameters (struct audio_hw_device *dev, const char *kvpairs
             goto exit;
         }
 
+        ret = str_parms_get_int(parms, "hal_param_media_sync_id", &val);
+        if (ret >= 0) {
+            dtv_patch_handle_event(dev, AUDIO_DTV_PATCH_CMD_SET_MEDIA_SYNC_ID ,val);
+            goto exit;
+        }
+
         ret = str_parms_get_int(parms, "ad_switch_enable", &val);
         if (ret >= 0) {
             adev->ad_switch_enable = val;
