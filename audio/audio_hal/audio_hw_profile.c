@@ -96,18 +96,20 @@ AUDIO_CHANNEL_OUT_7POINT1"
 "AUDIO_CHANNEL_OUT_MONO|\
 AUDIO_CHANNEL_OUT_STEREO|\
 AUDIO_CHANNEL_OUT_TRI|\
-AUDIO_CHANNEL_OUT_QUAD|\
+AUDIO_CHANNEL_OUT_QUAD_BACK|\
+AUDIO_CHANNEL_OUT_QUAD_SIDE|\
 AUDIO_CHANNEL_OUT_PENTA|\
-AUDIO_CHANNEL_OUT_5POINT1"
+AUDIO_CHANNEL_OUT_5POINT1|\
+AUDIO_CHANNEL_OUT_7POINT1"
 
 #define DTSHD_SUPPORT_CHANNEL    \
 "AUDIO_CHANNEL_OUT_MONO|\
 AUDIO_CHANNEL_OUT_STEREO|\
 AUDIO_CHANNEL_OUT_TRI|\
-AUDIO_CHANNEL_OUT_QUAD|\
+AUDIO_CHANNEL_OUT_QUAD_BACK|\
+AUDIO_CHANNEL_OUT_QUAD_SIDE|\
 AUDIO_CHANNEL_OUT_PENTA|\
 AUDIO_CHANNEL_OUT_5POINT1|\
-AUDIO_CHANNEL_OUT_6POINT1|\
 AUDIO_CHANNEL_OUT_7POINT1"
 
 #define IEC61937_SUPPORT_CHANNEL  \
@@ -672,6 +674,7 @@ char*  get_hdmi_sink_cap_dolby_ms12(const char *keys,audio_format_t format,struc
                 case AUDIO_FORMAT_IEC61937:
                     size += sprintf(aud_cap, "sup_sampling_rates=%s",
                     "8000|11025|16000|22050|24000|32000|44100|48000|128000|176400|192000");
+                    break;
                 default:
                     size += sprintf(aud_cap, "sup_sampling_rates=%s", "32000|44100|48000");
             }
@@ -695,6 +698,116 @@ fail:
     }
     return NULL;
 }
+
+/*
+ *It is used to get all the offload cap
+ *
+ */
+char*  get_offload_cap(const char *keys,audio_format_t format)
+{
+    int i = 0;
+    int channel = 0;
+    int dgraw = 0;
+    int size = 0;
+    char *aud_cap = NULL;
+    struct aml_audio_device *adev = adev_get_handle();
+
+    ALOGD("%s is running...\n", __func__);
+
+    aud_cap = (char*)aml_audio_malloc(1024);
+    if (aud_cap == NULL) {
+        ALOGE("malloc buffer failed\n");
+        goto fail;
+    }
+    memset(aud_cap, 0, 1024);
+
+
+    /* check the format cap */
+    if (strstr(keys, AUDIO_PARAMETER_STREAM_SUP_FORMATS)) {
+        ALOGD("query hdmi format...\n");
+        size += sprintf(aud_cap, "sup_formats=%s", "AUDIO_FORMAT_PCM_16_BIT|AUDIO_FORMAT_IEC61937");
+
+        if (eDolbyMS12Lib == adev->dolby_lib_type) {
+            size += sprintf(aud_cap + size, "|%s", "AUDIO_FORMAT_AC3");
+            size += sprintf(aud_cap + size, "|%s", "AUDIO_FORMAT_E_AC3");
+            size += sprintf(aud_cap + size, "|%s", "AUDIO_FORMAT_E_AC3_JOC");
+            size += sprintf(aud_cap + size, "|%s", "AUDIO_FORMAT_AC4");
+        } else {
+            /*todo if dcv decoder is supprted*/
+            //if (adev->dolby_decode_enable)
+            size += sprintf(aud_cap + size, "|%s", "AUDIO_FORMAT_AC3");
+            size += sprintf(aud_cap + size, "|%s", "AUDIO_FORMAT_E_AC3");
+        }
+        /*todo if dts decoder is supported*/
+        //if (adev->dts_decode_enable)
+        size += sprintf(aud_cap + size, "|%s", "AUDIO_FORMAT_DTS|AUDIO_FORMAT_DTS_HD");
+
+    }
+    /*check the channel cap */
+    else if (strstr(keys, AUDIO_PARAMETER_STREAM_SUP_CHANNELS)) {
+        ALOGD("query hdmi channels..., format %#x\n", format);
+        switch (format) {
+            case AUDIO_FORMAT_AC3:
+                size += sprintf(aud_cap, "sup_channels=%s", AC3_SUPPORT_CHANNEL);
+                break;
+            case AUDIO_FORMAT_E_AC3:
+                size += sprintf(aud_cap, "sup_channels=%s", EAC3_SUPPORT_CHANNEL);
+                break;
+            case AUDIO_FORMAT_E_AC3_JOC:
+                size += sprintf(aud_cap, "sup_channels=%s", EAC3_JOC_SUPPORT_CHANNEL);
+                break;
+            case AUDIO_FORMAT_AC4:
+                size += sprintf(aud_cap, "sup_channels=%s", AC4_SUPPORT_CHANNEL);
+                break;
+            case AUDIO_FORMAT_DTS:
+                size += sprintf(aud_cap, "sup_channels=%s", DTS_SUPPORT_CHANNEL);
+                break;
+            case AUDIO_FORMAT_DTS_HD:
+                size += sprintf(aud_cap, "sup_channels=%s", DTSHD_SUPPORT_CHANNEL);
+                break;
+            case AUDIO_FORMAT_IEC61937:
+                size += sprintf(aud_cap, "sup_channels=%s", IEC61937_SUPPORT_CHANNEL);
+                break;
+            default:
+                size += sprintf(aud_cap, "sup_channels=%s", "AUDIO_CHANNEL_OUT_STEREO");
+        }
+    } else if (strstr(keys, AUDIO_PARAMETER_STREAM_SUP_SAMPLING_RATES)) {
+        ALOGD("query hdmi sample_rate...format %#x\n", format);
+        switch (format) {
+            case AUDIO_FORMAT_AC3:
+                size += sprintf(aud_cap, "sup_sampling_rates=%s", "32000|44100|48000");
+                break;
+            case AUDIO_FORMAT_E_AC3:
+                size += sprintf(aud_cap, "sup_sampling_rates=%s", "16000|22050|24000|32000|44100|48000");
+                break;
+            case AUDIO_FORMAT_E_AC3_JOC:
+                size += sprintf(aud_cap, "sup_sampling_rates=%s", "16000|22050|24000|32000|44100|48000");
+                break;
+            case AUDIO_FORMAT_AC4:
+                size += sprintf(aud_cap, "sup_sampling_rates=%s", "44100|48000");
+                break;
+            case AUDIO_FORMAT_DTS:
+                size += sprintf(aud_cap, "sup_sampling_rates=%s", "22050|24000|32000|44100|48000|88200|96000|192000");
+                break;
+            case AUDIO_FORMAT_DTS_HD:
+                size += sprintf(aud_cap, "sup_sampling_rates=%s", "22050|24000|32000|44100|48000|88200|96000|192000");
+                break;
+            case AUDIO_FORMAT_IEC61937:
+                size += sprintf(aud_cap, "sup_sampling_rates=%s",
+                "8000|11025|16000|22050|24000|32000|44100|48000|128000|176400|192000");
+                break;
+            default:
+                size += sprintf(aud_cap, "sup_sampling_rates=%s", "32000|44100|48000");
+        }
+    }
+    return aud_cap;
+fail:
+    if (aud_cap) {
+        aml_audio_free(aud_cap);
+    }
+    return NULL;
+}
+
 
 inline static int hdmi_arc_process_sample_rate_str(struct format_desc *format_desc, char *aud_cap)
 {
@@ -1008,7 +1121,9 @@ char *out_get_parameters_wrapper_about_sup_sampling_rates__channels__formats(con
             if (out->is_tv_platform == 1) {
                 cap = (char *)strdup_tv_platform_cap_default(keys, format);
             } else {
-                if ((format == AUDIO_FORMAT_PCM_16_BIT || format == AUDIO_FORMAT_PCM_32_BIT) &&
+                if (out->flags & AUDIO_OUTPUT_FLAG_COMPRESS_OFFLOAD) {
+                        cap = (char *) get_offload_cap(AUDIO_PARAMETER_STREAM_SUP_SAMPLING_RATES,format);
+                } else if ((format == AUDIO_FORMAT_PCM_16_BIT || format == AUDIO_FORMAT_PCM_32_BIT) &&
                     strstr (keys, AUDIO_PARAMETER_STREAM_SUP_CHANNELS) && adev->dolby_lib_type == eDolbyMS12Lib) {
                     cap = strdup ("sup_channels=AUDIO_CHANNEL_OUT_STEREO");
                 } else {
