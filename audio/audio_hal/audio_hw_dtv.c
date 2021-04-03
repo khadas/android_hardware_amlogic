@@ -433,6 +433,10 @@ int dtv_patch_handle_event(struct audio_hw_device *dev,int cmd, int val) {
     aml_demux_audiopara_t *demux_info = &dtv_audio_instances.demux_info[path_id];
     val = val & ((1 << DVB_DEMUX_ID_BASE) - 1);
     switch (cmd) {
+        case AUDIO_DTV_PATCH_CMD_SET_MEDIA_SYNC_ID:
+            demux_info->media_sync_id = val;
+            ALOGI("demux_info->media_sync_id  %d", demux_info->media_sync_id);
+            break;
         case AUDIO_DTV_PATCH_CMD_SET_OUTPUT_MODE:
             ALOGI("DTV sound mode %d ", val);
             demux_info->output_mode = val;
@@ -570,6 +574,7 @@ int dtv_patch_handle_event(struct audio_hw_device *dev,int cmd, int val) {
                     dtv_audio_instances.demux_index_working = path_id;
                     patch->mode = demux_info->output_mode;
                     patch->dtv_aformat = demux_info->main_fmt;
+                    patch->media_sync_id = demux_info->media_sync_id;
                     patch->pid = demux_info->main_pid;
                     patch->demux_handle = demux_handle;
                     patch->demux_info = demux_info;

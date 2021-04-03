@@ -5,7 +5,7 @@
     (fmt == ACODEC_FMT_MPEG) || (fmt == ACODEC_FMT_MPEG1) || \
     (fmt == ACODEC_FMT_MPEG2) || (fmt == ACODEC_FMT_AAC) || (fmt == ACODEC_FMT_AAC_LATM))
 
-#define  DVB_DEMUX_ID_BASE 14
+#define  DVB_DEMUX_ID_BASE 20
 #define DVB_DEMUX_SUPPORT_MAX_NUM 6
 
 typedef enum
@@ -29,6 +29,7 @@ typedef struct aml_demux__audiopara {
     int main_pid;
     int ad_fmt;
     int ad_pid;
+    int media_sync_id;
 } aml_demux_audiopara_t;
 
 typedef struct aml_dtv_audio_instances {
