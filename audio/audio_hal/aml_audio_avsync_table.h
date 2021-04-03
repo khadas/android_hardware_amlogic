@@ -34,7 +34,19 @@
 #define  AVSYNC_MS12_NONTUNNEL_DDP_LATENCY               (20)
 #define  AVSYNC_MS12_NONTUNNEL_ATMOS_LATENCY             (15)
 #define  AVSYNC_MS12_TUNNEL_PCM_LATENCY                  (-30)
-#define  AVSYNC_MS12_TUNNEL_DDP_LATENCY                  (90)
+
+/*
+ *First version, the value of "vendor.media.audio.hal.ms12.tunnel.ddp" is 90.
+ *The CVBS-AVSYNC result about AV-Sync_DDP_JOC_UHD_H265_MP4_50fps.mp4 is +11/+8/+7 ms
+ * commit 0d78b1f789ac6178119064dd0370e392e34f228e
+ *   audio: MS12 AV sync tuning [1/1]
+ *   PD#SWPL-40617
+ *But recent version, re-test that AVSYNC item.
+ *The CVBS-AVSYNC result about AV-Sync_DDP_JOC_UHD_H265_MP4_50fps.mp4 is (-54) ms
+ *so, change the value from 90 to 40ms.
+ *The result is about +9ms.
+ */
+#define  AVSYNC_MS12_TUNNEL_DDP_LATENCY                  (40)
 #define  AVSYNC_MS12_TUNNEL_ATMOS_LATENCY                (20)
 
 #define  AVSYNC_MS12_NONTUNNEL_AC4_LATENCY               (70)
