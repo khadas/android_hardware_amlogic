@@ -290,12 +290,17 @@ static int get_ms12_netflix_output_latency(audio_format_t output_format) {
 }
 
 
-int get_ms12_port_latency( enum OUT_PORT port)
+int get_ms12_port_latency( enum OUT_PORT port, audio_format_t output_format)
 {
     int latency_ms = 0;
     switch (port)  {
         case OUTPORT_HDMI_ARC:
-            latency_ms = AVSYNC_MS12_HDMI_ARC_OUT_LATENCY;
+            if (output_format == AUDIO_FORMAT_AC3)
+                latency_ms = AVSYNC_MS12_HDMI_ARC_OUT_DD_LATENCY;
+            else if (output_format == AUDIO_FORMAT_E_AC3)
+                latency_ms = AVSYNC_MS12_HDMI_ARC_OUT_DDP_LATENCY;
+            else
+                latency_ms = AVSYNC_MS12_HDMI_ARC_OUT_PCM_LATENCY;
             break;
         case OUTPORT_HDMI:
             latency_ms = AVSYNC_MS12_HDMI_OUT_LATENCY;
@@ -323,7 +328,7 @@ static int get_ms12_nontunnel_latency_offset(enum OUT_PORT port, audio_format_t 
     } else {
         input_latency_ms  = get_ms12_nontunnel_input_latency(input_format);
         output_latency_ms = get_ms12_output_latency(output_format);
-        port_latency_ms   = get_ms12_port_latency(port);
+        port_latency_ms   = get_ms12_port_latency(port, output_format);
     }
     latency_ms = input_latency_ms + output_latency_ms + port_latency_ms;
     ALOGV("%s total latency =%d ms in=%d ms out=%d ms port=%d ms", __func__,
@@ -363,7 +368,7 @@ static int get_ms12_tunnel_latency_offset(enum OUT_PORT port
             input_latency_ms += get_ms12_dv_tunnel_input_latency(input_format);
         }
         output_latency_ms = get_ms12_output_latency(output_format);
-        port_latency_ms   = get_ms12_port_latency(port);
+        port_latency_ms   = get_ms12_port_latency(port, output_format);
     }
     latency_ms = input_latency_ms + output_latency_ms + port_latency_ms;
     ALOGV("%s total latency =%d ms in=%d ms out=%d ms(is output ddp_atmos %d) port=%d ms", __func__,
@@ -509,6 +514,26 @@ static int aml_audio_output_ddp_atmos(struct audio_stream_out *stream)
     return (is_atmos_supported && is_ddp_atmos_format);
 }
 
+static int get_ms12_tunnel_video_delay(void) {
+    char buf[PROPERTY_VALUE_MAX];
+    int ret = -1;
+    int latency_ms = 0;
+    char *prop_name = NULL;
+
+    prop_name= AVSYNC_MS12_TUNNEL_VIDEO_DELAY_PROPERTY;
+    latency_ms = AVSYNC_MS12_TUNNEL_VIDEO_DELAY;
+    if (prop_name) {
+        ret = property_get(prop_name, buf, NULL);
+        if (ret > 0) {
+            latency_ms = atoi(buf);
+        }
+    }
+    ALOGV("%s latency ms =%d", __func__, latency_ms);
+    return latency_ms;
+
+}
+
+
 int aml_audio_get_ms12_tunnel_latency(struct audio_stream_out *stream)
 {
     struct aml_stream_out *out = (struct aml_stream_out *) stream;
@@ -519,6 +544,7 @@ int aml_audio_get_ms12_tunnel_latency(struct audio_stream_out *stream)
     int32_t ms12_pipeline_delay = 0;
     int32_t atmos_tunning_delay = 0;
     int32_t bypass_delay = 0;
+    int32_t video_delay = 0;
     bool is_output_ddp_atmos = aml_audio_output_ddp_atmos(stream);
 
     /*we need get the correct ms12 out pcm */
@@ -544,10 +570,14 @@ int aml_audio_get_ms12_tunnel_latency(struct audio_stream_out *stream)
         bypass_delay = get_ms12_bypass_latency_offset(true) * 48;
     }
 
-    latency_frames = alsa_delay + tunning_delay + atmos_tunning_delay + ms12_pipeline_delay + bypass_delay;
+    if (adev->is_TV) {
+        video_delay = get_ms12_tunnel_video_delay() * 48;
+    }
 
-    ALOGV("latency frames =%d alsa delay=%d ms tunning delay=%d ms ms12 pipe =%d ms atmos =%d ms",
-        latency_frames, alsa_delay / 48, tunning_delay / 48, ms12_pipeline_delay / 48, atmos_tunning_delay / 48);
+    latency_frames = alsa_delay + tunning_delay + atmos_tunning_delay + ms12_pipeline_delay + bypass_delay + video_delay;
+
+    ALOGV("latency frames =%d alsa delay=%d ms tunning delay=%d ms ms12 pipe =%d ms atmos =%d ms video delay %d ms",
+        latency_frames, alsa_delay / 48, tunning_delay / 48, ms12_pipeline_delay / 48, atmos_tunning_delay / 48, video_delay / 48);
     return latency_frames;
 }
 
