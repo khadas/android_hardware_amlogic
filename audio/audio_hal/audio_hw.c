@@ -2662,14 +2662,14 @@ static ssize_t in_read(struct audio_stream_in *stream, void* buffer, size_t byte
             if (in->mute_log_cntr++ >= 100)
                 in->mute_log_cntr = 0;
             clock_gettime(CLOCK_MONOTONIC, &in->mute_start_ts);
-            in->mute_flag = 1;
+            in->mute_flag = true;
         }
-        if (in->mute_flag == 1) {
+        if (in->mute_flag) {
             in_mute = Stop_watch(in->mute_start_ts, mute_mdelay);
             if (!in_mute) {
                 ALOGI("%s: unmute audio since audio signal is stable", __func__);
                 in->mute_log_cntr = 0;
-                in->mute_flag = 0;
+                in->mute_flag = false;
                 /* fade in start */
                 ALOGI("start fade in");
                 start_ease_in(adev);
@@ -5528,7 +5528,7 @@ static void output_mute(struct audio_stream_out *stream, void **output_buffer,si
             || adev->patch_src == SRC_HDMIIN) {
         if (adev->active_input != NULL && (!adev->patch_start)) {
             clock_gettime(CLOCK_MONOTONIC, &adev->mute_start_ts);
-            adev->patch_start = 1;
+            adev->patch_start = true;
             adev->mute_start = true;
             ALOGI ("%s() detect AUX/SPDIF start mute 1000ms", __func__);
         }
@@ -5536,17 +5536,15 @@ static void output_mute(struct audio_stream_out *stream, void **output_buffer,si
             if (!Stop_watch(adev->mute_start_ts, 1000)) {
                 adev->mute_start = false;
                 start_ease_in(adev);
-
                 ALOGI ("%s() AUX/SPDIF/ARC unmute, start fade in", __func__);
             } else {
                 memset(aml_out->tmp_buffer_8ch, 0, (*output_buffer_bytes));
             }
         }
     } else if (adev->patch_src == SRC_DTV) {
-#if 1
         if (adev->audio_patch != NULL && (!adev->patch_start)) {
             clock_gettime(CLOCK_MONOTONIC, &adev->mute_start_ts);
-            adev->patch_start = 1;
+            adev->patch_start = true;
             adev->mute_start = true;
             ALOGI ("%s() detect DTV start mute 200ms", __func__);
         }
@@ -5559,9 +5557,6 @@ static void output_mute(struct audio_stream_out *stream, void **output_buffer,si
                 memset(*output_buffer, 0, (*output_buffer_bytes));
             }
         }
-#else
-        return;
-#endif
     }
     /*ease in or ease out*/
     aml_audio_ease_process(adev->audio_ease, *output_buffer, *output_buffer_bytes);
@@ -7884,6 +7879,12 @@ void *audio_patch_input_threadloop(void *data)
     }
 
     in = (struct aml_stream_in *)stream_in;
+    /* CVBS IN signal is stable very quickly, sometimes there is no unstable state,
+     * we need to do ease in before playing CVBS IN at in_read func.
+     */
+    if (in->device & AUDIO_DEVICE_IN_LINE) {
+        in->mute_flag = true;
+    }
 #if defined(IS_ATOM_PROJECT)
     if (in->device & AUDIO_DEVICE_IN_LINE) {
         pthread_mutex_init(&in->aux_mic_mutex, NULL);

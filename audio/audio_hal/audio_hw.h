@@ -492,8 +492,8 @@ struct aml_audio_device {
     int pid;
     int demux_id;
     bool compensate_video_enable;
-    int patch_start;
-    int mute_start;
+    bool patch_start;
+    bool mute_start;
     aml_audio_ease_t  *audio_ease;
     /*four variable used for when audio discontinue and underrun,
       whether mute output*/
@@ -733,7 +733,7 @@ struct aml_stream_in {
     /* SW parser audio format */
     audio_format_t spdif_fmt_sw;
     struct timespec mute_start_ts;
-    int mute_flag;
+    bool mute_flag;
     int mute_log_cntr;
     struct aml_audio_device *dev;
     void *input_tmp_buffer;
