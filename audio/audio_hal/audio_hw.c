@@ -3305,17 +3305,6 @@ static void adev_close_output_stream(struct audio_hw_device *dev,
                 dolby_ms12_set_main_volume(1.0);
             }
         }
-        if (out->hw_sync_mode) {
-            /*we only suppport one stream hw sync and MS12 always attach with it.
-            So when it is released, ms12 also need set hwsync to NULL*/
-            struct aml_stream_out *ms12_out = (struct aml_stream_out *)adev->ms12_out;
-            out->hw_sync_mode = 0;
-            if (ms12_out != NULL) {
-                ms12_out->hw_sync_mode = 0;
-                ms12_out->hwsync = NULL;
-            }
-        }
-        dolby_ms12_hwsync_release();
     }
 
     /*TBD .to fix the AC-4 continous function in ms12 lib then remove this */
@@ -3346,21 +3335,6 @@ static void adev_close_output_stream(struct audio_hw_device *dev,
     pthread_mutex_lock(&out->lock);
     aml_audio_free(out->audioeffect_tmp_buffer);
     aml_audio_free(out->tmp_buffer_8ch);
-    if (out->hwsync) {
-        // release hwsync resource ..zzz
-        if (adev->hw_mediasync && (adev->hw_mediasync == out->hwsync->mediasync))
-            aml_audio_hwsync_release(out->hwsync);
-        if (out->hwsync->mediasync) {
-            //free(out->hwsync->mediasync);
-            out->hwsync->mediasync = NULL;
-            if (adev->hw_mediasync) {
-                adev->hw_mediasync = NULL;
-            }
-
-        }
-        aml_audio_free(out->hwsync);
-        out->hwsync = NULL;
-    }
 
     if (out->spdifenc_init) {
         aml_spdif_encoder_close(out->spdifenc_handle);
@@ -3435,9 +3409,33 @@ static void adev_close_output_stream(struct audio_hw_device *dev,
             }
             ALOGI("main stream message is processed cost =%d ms", wait_cnt * 5);
         }
+        if (out->hw_sync_mode) {
+            /*we only suppport one stream hw sync and MS12 always attach with it.
+            So when it is released, ms12 also need set hwsync to NULL*/
+            struct aml_stream_out *ms12_out = (struct aml_stream_out *)adev->ms12_out;
+            out->hw_sync_mode = 0;
+            if (ms12_out != NULL) {
+                ms12_out->hw_sync_mode = 0;
+                ms12_out->hwsync = NULL;
+            }
+            dolby_ms12_hwsync_release();
+        }
         dolby_ms12_main_close(stream);
     }
+    if (out->hwsync) {
+        if (adev->hw_mediasync && (adev->hw_mediasync == out->hwsync->mediasync))
+            aml_audio_hwsync_release(out->hwsync);
+        if (out->hwsync->mediasync) {
+            //free(out->hwsync->mediasync);
+            out->hwsync->mediasync = NULL;
+            if (adev->hw_mediasync) {
+                adev->hw_mediasync = NULL;
+            }
 
+        }
+        aml_audio_free(out->hwsync);
+        out->hwsync = NULL;
+    }
     if (out->spdifout_handle) {
         aml_audio_spdifout_close(out->spdifout_handle);
         out->spdifout_handle = NULL;
