@@ -39,6 +39,9 @@
 #include "aml_pcm_dec_api.h"
 #include "dolby_lib_api.h"
 
+#define AML_DEC_FRAGMENT_FRAMES     (512)
+#define AML_DEC_MAX_FRAMES          (AML_DEC_FRAGMENT_FRAMES * 4)
+
 static aml_dec_func_t * get_decoder_function(audio_format_t format)
 {
     switch (format) {
@@ -298,6 +301,7 @@ int aml_decoder_init(aml_dec_t **ppaml_dec, audio_format_t format, aml_dec_confi
     aml_dec_handel = *ppaml_dec;
     aml_dec_handel->frame_cnt = 0;
     aml_dec_handel->format = format;
+    aml_dec_handel->fragment_left_size = 0;
 
     return ret;
 
@@ -386,6 +390,8 @@ int aml_decoder_process(aml_dec_t *aml_dec, unsigned char*buffer, int bytes, int
     int32_t n_bytes_payload = 0;
     unsigned char *spdif_src = NULL;
     int spdif_offset = 0;
+    int frame_size = 0;
+    int fragment_size = 0;
     dec_data_info_t * dec_pcm_data = &aml_dec->dec_pcm_data;
     dec_data_info_t * dec_raw_data = &aml_dec->dec_raw_data;
 
@@ -398,6 +404,27 @@ int aml_decoder_process(aml_dec_t *aml_dec, unsigned char*buffer, int bytes, int
     if (dec_fun == NULL) {
         return -1;
     }
+    /*if we have fragment size output*/
+    if (aml_dec->fragment_left_size > 0) {
+        ALOGV("[%s:%d] fragment_left_size=%d ", __func__, __LINE__, aml_dec->fragment_left_size);
+        frame_size = audio_bytes_per_sample(dec_pcm_data->data_format) * dec_pcm_data->data_ch;
+        fragment_size = AML_DEC_FRAGMENT_FRAMES * frame_size;
+        memmove(dec_pcm_data->buf, (unsigned char *)dec_pcm_data->buf + fragment_size, aml_dec->fragment_left_size);
+        memmove(dec_raw_data->buf, (unsigned char *)dec_raw_data->buf + fragment_size, aml_dec->fragment_left_size);
+
+        if (aml_dec->fragment_left_size >= fragment_size) {
+            dec_pcm_data->data_len = fragment_size;
+            dec_raw_data->data_len = fragment_size;
+            aml_dec->fragment_left_size -= fragment_size;
+        } else {
+            dec_pcm_data->data_len = AML_DEC_FRAGMENT_FRAMES * aml_dec->fragment_left_size;
+            dec_raw_data->data_len = AML_DEC_FRAGMENT_FRAMES * aml_dec->fragment_left_size;
+            aml_dec->fragment_left_size = 0;
+        }
+        *used_bytes = 0;
+        return 0;
+    }
+
     dec_pcm_data->data_len = 0;
     dec_raw_data->data_len = 0;
 
@@ -406,6 +433,18 @@ int aml_decoder_process(aml_dec_t *aml_dec, unsigned char*buffer, int bytes, int
     } else {
         return -1;
     }
+
+    frame_size = audio_bytes_per_sample(dec_pcm_data->data_format) * dec_pcm_data->data_ch;
+    /*one decoded frame length is too big, we need seprate it*/
+    if ((dec_pcm_data->data_len >= AML_DEC_MAX_FRAMES * frame_size) &&
+        (dec_raw_data->data_format == AUDIO_FORMAT_IEC61937) &&
+        (dec_raw_data->data_len == dec_pcm_data->data_len)) {
+        fragment_size = AML_DEC_FRAGMENT_FRAMES * frame_size;
+        aml_dec->fragment_left_size = dec_pcm_data->data_len - fragment_size;
+        dec_pcm_data->data_len = fragment_size;
+        dec_raw_data->data_len = fragment_size;
+    }
+
     // todo, we should consider the used_bytes
     *used_bytes = bytes;
     return ret;

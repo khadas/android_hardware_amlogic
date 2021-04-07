@@ -63,6 +63,7 @@ typedef struct aml_dec {
     dec_data_info_t raw_in_data;
     int status;
     int frame_cnt;
+    int fragment_left_size;
 } aml_dec_t;
 
 typedef struct aml_dcv_config {
