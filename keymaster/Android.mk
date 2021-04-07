@@ -63,7 +63,7 @@ LOCAL_SRC_FILES := 4.0/service.cpp \
 LOCAL_CFLAGS += -DAMLOGIC_MODIFY=1
 LOCAL_C_INCLUDES := \
 			$(LOCAL_PATH)/include \
-			$(BOARD_AML_VENDOR_PATH)/tdk/ca_export_arm/include
+			$(PLATFORM_TDK_PATH)/ca_export_arm/include
 
 LOCAL_SHARED_LIBRARIES := \
         		liblog \
@@ -97,7 +97,7 @@ LOCAL_SRC_FILES := 4.1/service.cpp \
 LOCAL_CFLAGS += -DAMLOGIC_MODIFY=1
 LOCAL_C_INCLUDES := \
 			$(LOCAL_PATH)/include \
-			$(BOARD_AML_VENDOR_PATH)/tdk/ca_export_arm/include
+			$(PLATFORM_TDK_PATH)/ca_export_arm/include
 
 LOCAL_SHARED_LIBRARIES := \
                                 liblog \
