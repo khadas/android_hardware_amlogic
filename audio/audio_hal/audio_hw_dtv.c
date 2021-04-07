@@ -1144,7 +1144,7 @@ static int dtv_patch_pcm_write(unsigned char *pcm_data, int size,
                 write_size = ((left) < (OUTPUT_BUFFER_SIZE * 2)) ? (left) : (OUTPUT_BUFFER_SIZE * 2);
             }
         }
-        if (/*need_resample == 1*/ 0) {
+        if (need_resample == 1) {
             if (patch->dtv_resample.input_sr != (unsigned int)patch->sample_rate) {
                 patch->dtv_resample.input_sr = patch->sample_rate;
                 patch->dtv_resample.output_sr = 48000;
