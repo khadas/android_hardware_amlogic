@@ -6797,6 +6797,10 @@ hwsync_rewrite:
             need_reset_decoder = true;
             /* reset audio patch ringbuffer */
             ring_buffer_reset(&patch->aml_ringbuffer);
+            /* we need standy a2dp when switch the format, in order to prevent UNDERFLOW in a2dp stack. */
+            if (adev->active_outport == OUTPORT_A2DP) {
+                a2dp_out_standby(&stream->common);
+            }
 
             // HDMI input && HDMI ARC output case, when input format change, output format need also change
             // for examle: hdmi input DD+ => DD,  HDMI ARC DD +=> DD
@@ -9019,6 +9023,30 @@ static int aml_dev_dump_latency(struct aml_audio_device *aml_dev, int fd)
     return 0;
 }
 
+static void audio_patch_dump(struct aml_audio_device* aml_dev, int fd)
+{
+    struct aml_audio_patch *pstPatch = aml_dev->audio_patch;
+    if (NULL == pstPatch) {
+        dprintf(fd, "-------------[AML_HAL] audio patch [not create]-----------\n");
+        return;
+    }
+    dprintf(fd, "-------------[AML_HAL] audio patch [%p]---------------\n", pstPatch);
+    if (pstPatch->aml_ringbuffer.size != 0) {
+        uint32_t u32AvailDataSize = get_buffer_read_space(&pstPatch->aml_ringbuffer);
+        dprintf(fd, "[AML_HAL]      RingBuf   size: %10d Byte| Avail data:%10d Byte(%d%%)\n",
+        pstPatch->aml_ringbuffer.size, u32AvailDataSize, u32AvailDataSize* 100 / pstPatch->aml_ringbuffer.size);
+    } else {
+        dprintf(fd, "[AML_HAL]  patch  RingBuf    : buffer size is 0\n");
+    }
+    enum IN_PORT input_outport;
+    enum OUT_PORT output_outport;
+    android_dev_convert_to_hal_dev(pstPatch->input_src, (int *)&input_outport);
+    android_dev_convert_to_hal_dev(pstPatch->output_src, (int *)&output_outport);
+    dprintf(fd, "[AML_HAL]      IN_SRC        : %15s| OUT_SRC   :%14s\n",
+        inputPort2Str(input_outport), outputPort2Str(output_outport));
+    dprintf(fd, "[AML_HAL]      IN_Format     : %#10x     | OUT_Format:%#10x\n", pstPatch->in_format, pstPatch->out_format);
+}
+
 static int adev_dump(const audio_hw_device_t *device, int fd)
 {
     struct aml_audio_device* aml_dev = (struct aml_audio_device*)device;
@@ -9070,6 +9098,7 @@ static int adev_dump(const audio_hw_device_t *device, int fd)
     }
 
     aml_audio_patches_dump(aml_dev, fd);
+    audio_patch_dump(aml_dev, fd);
 
     return 0;
 }

@@ -38,6 +38,12 @@ typedef enum {
     AML_DEC_CONTROL_RAW                 = 2,
 } aml_dec_control_type_t;
 
+typedef enum {
+    AML_DEC_RETURN_TYPE_FAIL          = -1,
+    AML_DEC_RETURN_TYPE_OK            = 0,
+    AML_DEC_RETURN_TYPE_CACHE_DATA    = 1,
+} aml_dec_return_type_t;
+
 typedef struct aml_dec_stream_info {
     int stream_sr;    /** the sample rate in stream*/
     int stream_ch;    /** the original channels in stream*/

@@ -322,11 +322,11 @@ struct aml_audio_patch {
     pthread_mutex_t apts_cal_mutex;
     /*end dtv play*/
     // correspond to audio_patch:: audio_patch_handle_t id;
-	// patch unique ID
-	int patch_hdl;
-	struct resample_para dtv_resample;
-	unsigned char *resample_outbuf;
-	AM_AOUT_OutputMode_t   mode;
+    // patch unique ID
+    int patch_hdl;
+    struct resample_para dtv_resample;
+    unsigned char *resample_outbuf;
+    AM_AOUT_OutputMode_t   mode;
     bool ac3_pcm_dropping;
     int last_audio_delay;
     //add only for debug.

@@ -25,7 +25,7 @@
 #include "a2dp_hal.h"
 #include "a2dp_hw.h"
 #include "audio_hw.h"
-#include <inttypes.h>
+#include "aml_audio_stream.h"
 extern "C" {
 #include "aml_audio_timer.h"
 }
@@ -289,11 +289,12 @@ ssize_t a2dp_out_write(struct audio_stream_out* stream, const void* buffer, size
     struct aml_stream_out* out = (struct aml_stream_out*)stream;
     struct aml_audio_device *adev = out->dev;
     struct aml_a2dp_hal * hal = (struct aml_a2dp_hal *)adev->a2dp_hal;
-    BluetoothStreamState state;
+    BluetoothStreamState state = BluetoothStreamState::UNKNOWN;
     int frame_size = 4; //2ch 16bits
     size_t frames = bytes / frame_size;
     int wr_size = bytes;
     const void * wr_buff = buffer;
+    unsigned int rate = out->hal_rate;
 
     if (hal == NULL) {
         ALOGE("%s: a2dp hw is release", __func__);
@@ -322,7 +323,7 @@ ssize_t a2dp_out_write(struct audio_stream_out* stream, const void* buffer, size
 
     if (state == BluetoothStreamState::STARTING) {
         const int64_t gap = cur_write - hal->last_write_time;
-        int64_t sleep_time = frames * 1000000LL / hal->config.sample_rate - gap;
+        int64_t sleep_time = frames * 1000000LL / rate - gap;
         hal->last_write_time = cur_write;
         if (sleep_time > 0) {
             hal->last_write_time += sleep_time;
@@ -330,8 +331,32 @@ ssize_t a2dp_out_write(struct audio_stream_out* stream, const void* buffer, size
             usleep(sleep_time);
         }
         return bytes;
-    } else if (state != BluetoothStreamState::STARTED) {
+    } else if (state == BluetoothStreamState::STARTED) {
+        if (adev->audio_patch) {
+            int64_t write_delta_time_us = cur_write - hal->last_write_time;
+            if (write_delta_time_us > 128000) {
+                ALOGD("%s:%d, for DTV/HDMIIN, input may be has gap: %lld", __func__, __LINE__, cur_write - hal->last_write_time);
+                lock.unlock();
+                a2dp_out_standby(&stream->common);
+                return bytes;
+            }
+            int64_t data_delta_time_us = frames * 1000000LL / rate - write_delta_time_us;
+            /* Prevent consuming data too quickly. */
+            if (data_delta_time_us > 0) {
+                usleep(data_delta_time_us / 2);
+            }
+        }
+    } else {
         lock.unlock();
+        struct aml_audio_patch *patch = adev->audio_patch;
+        /* 1.We need sleep 64ms when playing Dolby in HDMI_IN, decoder need 2 frames to decoded a frame, need waste of a frame.
+         * 2.Look for the sync bytes head in the worst case, need waste of a frame.
+         * 3.So, we need delay at least 2 frames(32ms * 2) to accumulate data, to prevent a2dp UNDERFLOW.
+         */
+        if (patch && patch->input_src == AUDIO_DEVICE_IN_HDMI && is_dolby_format(patch->aformat)) {
+            usleep(64000);
+        }
+
         if (a2dp_out_resume(stream)) {
             usleep(8000);
         }
@@ -339,31 +364,19 @@ ssize_t a2dp_out_write(struct audio_stream_out* stream, const void* buffer, size
         // otherwise, the gap woud always over 64ms, and always standby in dtv
         hal->last_write_time = aml_audio_get_systime();
         return 0;
-    } else if (adev->audio_patch) {
-        int64_t write_delta_time_us = cur_write - hal->last_write_time;
-        if (write_delta_time_us > 128000) {
-            ALOGD("%s:%d, for DTV/HDMIIN, input may be has gap: %" PRId64 " ", __func__, __LINE__, cur_write - hal->last_write_time);
-            lock.unlock();
-            a2dp_out_standby(&stream->common);
-            return bytes;
-        }
-        int64_t data_delta_time_us = frames * 1000000LL / hal->config.sample_rate - write_delta_time_us;
-        /* Prevent consuming data too quickly. */
-        if (data_delta_time_us > 0) {
-            usleep(data_delta_time_us / 2);
-        }
     }
     if (hal->mute_time > 0) {
-        if (hal->mute_time > cur_write)
+        if (hal->mute_time > cur_write) {
             memset((void*)buffer, 0, bytes);
-        else
+        } else {
             hal->mute_time = 0;
+        }
     }
 
-    if (out->hal_rate != hal->config.sample_rate) {
+    if (rate != hal->config.sample_rate) {
         int out_frames = 0;
-        int out_size = frames*hal->config.sample_rate*frame_size/out->hal_rate+32;
-        if ((hal->resample != NULL) && (hal->resample->input_sr != out->hal_rate)) {
+        int out_size = frames*hal->config.sample_rate*frame_size/rate+32;
+        if ((hal->resample != NULL) && (hal->resample->input_sr != rate)) {
             delete hal->resample;
             hal->resample = NULL;
         }
@@ -373,7 +386,7 @@ ssize_t a2dp_out_write(struct audio_stream_out* stream, const void* buffer, size
                 ALOGD("%s: new resample_para error", __func__);
                 return bytes;
             }
-            hal->resample->input_sr = out->hal_rate;
+            hal->resample->input_sr = rate;
             hal->resample->output_sr = hal->config.sample_rate;
             hal->resample->channels = 2;
             resampler_init(hal->resample);
