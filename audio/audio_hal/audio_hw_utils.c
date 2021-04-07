@@ -1639,6 +1639,8 @@ int convert_audio_format_2_period_mul(audio_format_t format)
     case AUDIO_FORMAT_MAT:
         period_mul = HBR_MULTIPLIER;
         break;
+    case AUDIO_FORMAT_PCM_32_BIT:
+        period_mul = 2;
     default:
         period_mul = 1;
         break;

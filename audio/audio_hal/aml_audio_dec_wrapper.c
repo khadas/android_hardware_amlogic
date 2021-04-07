@@ -113,7 +113,6 @@ int aml_audio_decoder_process_wrapper(struct audio_stream_out *stream, const voi
     int left_bytes = 0;
     struct aml_stream_out *aml_out = (struct aml_stream_out *) stream;
     struct aml_audio_device *adev = aml_out->dev;
-    int return_bytes = bytes;
     struct aml_audio_patch *patch = adev->audio_patch;
     void *output_buffer = NULL;
     size_t output_buffer_bytes = 0;
@@ -130,9 +129,12 @@ int aml_audio_decoder_process_wrapper(struct audio_stream_out *stream, const voi
         left_bytes = bytes;
         do {
             ret = aml_decoder_process(aml_dec, (unsigned char *)buffer, left_bytes, &dec_used_size);
-            if (ret < 0) {
-                ALOGV("aml_decoder_process error");
-                return return_bytes;
+            if (ret == AML_DEC_RETURN_TYPE_CACHE_DATA) {
+                ALOGV("[%s:%d] cache the data to decode", __func__, __LINE__);
+                return bytes;
+            } else if (ret < 0) {
+                ALOGE("[%s:%d] aml_decoder_process error, ret:%d", __func__, __LINE__, ret);
+                return 0;
             }
             left_bytes -= dec_used_size;
             ALOGV("%s() ret =%d pcm len =%d raw len=%d", __func__, ret, dec_pcm_data->data_len, dec_raw_data->data_len);
@@ -147,7 +149,6 @@ int aml_audio_decoder_process_wrapper(struct audio_stream_out *stream, const voi
                     aml_audio_spdifout_close(aml_out->spdifout2_handle);
                     aml_out->spdifout2_handle = NULL;
                 }
-
             }
             // write pcm data
             if (dec_pcm_data->data_len > 0) {
@@ -176,6 +177,8 @@ int aml_audio_decoder_process_wrapper(struct audio_stream_out *stream, const voi
                 if (audio_hal_data_processing(stream, dec_data, dec_pcm_data->data_len, &output_buffer, &output_buffer_bytes, output_format) == 0) {
                     hw_write(stream, output_buffer, output_buffer_bytes, output_format);
                 }
+            } else {
+                ALOGI("[%s:%d] decode success, but data_len:%d invalid.", __func__, __LINE__, dec_pcm_data->data_len);
             }
 
             /*for pcm case, we check whether it has muti channel pcm*/
@@ -201,10 +204,10 @@ int aml_audio_decoder_process_wrapper(struct audio_stream_out *stream, const voi
                     aml_audio_spdif_output(stream, &aml_out->spdifout_handle, dec_raw_data);
                 }
             }
-        } while (dec_pcm_data->data_len || dec_raw_data->data_len || raw_in_data->data_len);
+        } while (left_bytes > 0 && (dec_pcm_data->data_len || dec_raw_data->data_len || raw_in_data->data_len));
     }
     ALOGV("[%s %d] exit", __func__, __LINE__);
-    return return_bytes;
+    return bytes;
 }
 
 

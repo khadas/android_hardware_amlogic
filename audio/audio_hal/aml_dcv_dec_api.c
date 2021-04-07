@@ -1019,8 +1019,7 @@ int dcv_decoder_process_patch(aml_dec_t * aml_dec, unsigned char *buffer, int by
     if (ddp_dec->remain_size < mFrame_size || in_sync == 0) {
         //ALOGI("remain %d,frame size %d, read more\n",remain_size,mFrame_size);
         memcpy(ddp_dec->inbuf, read_pointer, ddp_dec->remain_size);
-        goto EXIT;
-
+        return AML_DEC_RETURN_TYPE_CACHE_DATA;
     }
     ddp_dec->curFrmSize = mFrame_size;
     read_pointer += read_offset;

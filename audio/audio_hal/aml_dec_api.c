@@ -395,13 +395,15 @@ int aml_decoder_process(aml_dec_t *aml_dec, unsigned char*buffer, int bytes, int
     dec_data_info_t * dec_pcm_data = &aml_dec->dec_pcm_data;
     dec_data_info_t * dec_raw_data = &aml_dec->dec_raw_data;
 
+    *used_bytes = 0;
     if (aml_dec == NULL) {
-        ALOGE("%s aml_dec is NULL\n", __func__);
+        ALOGE("[%s:%d] aml_dec is null", __func__, __LINE__);
         return -1;
     }
 
     dec_fun = get_decoder_function(aml_dec->format);
     if (dec_fun == NULL) {
+        ALOGW("[%s:%d] get_decoder_function format:%#x is null", __func__, __LINE__, aml_dec->format);
         return -1;
     }
     /*if we have fragment size output*/
@@ -431,6 +433,7 @@ int aml_decoder_process(aml_dec_t *aml_dec, unsigned char*buffer, int bytes, int
     if (dec_fun->f_process) {
         ret = dec_fun->f_process(aml_dec, buffer, bytes);
     } else {
+        ALOGE("[%s:%d] f_process is null", __func__, __LINE__);
         return -1;
     }
 
