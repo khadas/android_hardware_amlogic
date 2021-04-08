@@ -1762,7 +1762,6 @@ static int out_get_render_position (const struct audio_stream_out *stream,
     return ret;
 }
 
-
 static int out_add_audio_effect(const struct audio_stream *stream, effect_handle_t effect)
 {
     struct aml_stream_out *out = (struct aml_stream_out *) stream;
@@ -1777,6 +1776,7 @@ static int out_add_audio_effect(const struct audio_stream *stream, effect_handle
         goto exit;
     }
 
+    /* save audio effect handle in audio hal. if it is saved, skip this. */
     for (i = 0; i < dev->native_postprocess.num_postprocessors; i++) {
         if (dev->native_postprocess.postprocessors[i] == effect) {
             status = 0;
@@ -1790,7 +1790,7 @@ static int out_add_audio_effect(const struct audio_stream *stream, effect_handle
     (*effect)->get_descriptor(effect, &tmpdesc);
     if (0 == strcmp(tmpdesc.name, "VirtualX")) {
         dev->native_postprocess.libvx_exist = Check_VX_lib();
-        ALOGI("%s, '%s' exist flag : %s", __FUNCTION__, VIRTUALX_LICENSE_LIB_PATH,
+        ALOGI("%s, add audio effect: '%s' exist flag : %s", __FUNCTION__, VIRTUALX_LICENSE_LIB_PATH,
             (dev->native_postprocess.libvx_exist) ? "true" : "false");
         /* specify effect order for virtualx. VX does downmix from 5.1 to 2.0 */
         i = dev->native_postprocess.num_postprocessors;
@@ -1799,11 +1799,11 @@ static int out_add_audio_effect(const struct audio_stream *stream, effect_handle
             tmp = dev->native_postprocess.postprocessors[i];
             dev->native_postprocess.postprocessors[i] = dev->native_postprocess.postprocessors[0];
             dev->native_postprocess.postprocessors[0] = tmp;
-            ALOGI("%s, reorder VirtualX at the first of the effect chain.", __FUNCTION__);
+            ALOGI("%s, add audio effect: Reorder VirtualX at the first of the effect chain.", __FUNCTION__);
         }
     }
-    ALOGI("%s, add audio effect: %s in audio hal!, effect ID [%d]", __FUNCTION__,
-        tmpdesc.name, (dev->native_postprocess.num_postprocessors - 1));
+    ALOGI("%s, add audio effect: %s in audio hal, effect_handle: %p, total num of effects: %d",
+        __FUNCTION__, tmpdesc.name, effect, dev->native_postprocess.num_postprocessors);
 
     if (dev->native_postprocess.num_postprocessors >= dev->native_postprocess.total_postprocessors)
         dev->native_postprocess.total_postprocessors = dev->native_postprocess.num_postprocessors;
@@ -1814,9 +1814,9 @@ exit:
     return status;
 }
 
-static int out_remove_audio_effect(const struct audio_stream *stream, effect_handle_t effect)
+static int out_remove_audio_effect(const struct audio_stream *stream __unused, effect_handle_t effect __unused)
 {
-    struct aml_stream_out *out = (struct aml_stream_out *) stream;
+    /*struct aml_stream_out *out = (struct aml_stream_out *) stream;
     struct aml_audio_device *dev = out->dev;
     int i;
     int status = -EINVAL;
@@ -1849,8 +1849,10 @@ static int out_remove_audio_effect(const struct audio_stream *stream, effect_han
 exit:
     pthread_mutex_unlock (&out->lock);
     pthread_mutex_unlock (&dev->lock);
-    return status;
+    return status;*/
+    return 0;
 }
+
 static int out_get_next_write_timestamp (const struct audio_stream_out *stream __unused,
         int64_t *timestamp __unused)
 {
@@ -5718,6 +5720,7 @@ ssize_t audio_hal_data_processing(struct audio_stream_out *stream,
                     }
                 }
             }
+
             if (aml_getprop_bool("vendor.media.audiohal.outdump")) {
                 aml_audio_dump_audio_bitstreams("/data/audio/audio_spk.pcm",
                     effect_tmp_buf, bytes);
