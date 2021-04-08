@@ -52,6 +52,31 @@ static void downmix_6ch_to_2ch(void *in_buf, void *out_buf, int bytes, int audio
     return;
 }
 
+static void downmix_8ch_to_2ch(void *in_buf, void *out_buf, int bytes, int audio_format) {
+    int frames_num = 0;
+    int channel = 8;
+    int i = 0;
+    if (audio_format == AUDIO_FORMAT_PCM_16_BIT) {
+        frames_num = bytes / (channel * 2);
+        int16_t *src = (int16_t *)in_buf;
+        int16_t *dst = (int16_t *)out_buf;
+        for (i = 0; i < frames_num; i++) {
+            dst[2*i]   = (int16_t)CLIP16((int)src[channel*i] * 0.5
+                       + (int)src[channel*i + 2] * 0.25
+                       + (int)src[channel*i + 3] * 0.25
+                       + (int)src[channel*i + 4] * 0.25
+                       + (int)src[channel*i + 6] * 0.25) ;
+            dst[2*i+1] = (int16_t)CLIP16((int)src[channel*i + 1] * 0.5
+                       + (int)src[channel*i + 2] * 0.25
+                       + (int)src[channel*i + 3] * 0.25
+                       + (int)src[channel*i + 5] * 0.25
+                       + (int)src[channel*i + 7] * 0.25);
+        }
+    }
+    return;
+}
+
+
 static int pcm_decoder_init(aml_dec_t **ppaml_dec, aml_dec_config_t * dec_config)
 {
     struct pcm_dec_t *pcm_dec;
@@ -192,7 +217,9 @@ static int pcm_decoder_process(aml_dec_t * aml_dec, unsigned char*buffer, int by
         memcpy(dec_pcm_data->buf, buffer, bytes);
     } else if (pcm_config->channel == 6) {
         downmix_6ch_to_2ch(buffer, dec_pcm_data->buf, bytes, pcm_config->pcm_format);
-    } else {
+    } else if (pcm_config->channel == 8) {
+        downmix_8ch_to_2ch(buffer, dec_pcm_data->buf, bytes, pcm_config->pcm_format);
+    }else {
         ALOGI("unsupport channel =%d", pcm_config->channel);
         return 0;
     }
