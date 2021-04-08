@@ -369,8 +369,12 @@ char*  get_hdmi_sink_cap_dolbylib(const char *keys,audio_format_t format,struct 
                 size += sprintf(aud_cap + size, "|%s", "AUDIO_FORMAT_E_AC3_JOC");
             }
             if (mystrstr(infobuf, "AC-3")) {
-                size += sprintf(aud_cap + size, "|%s", "AUDIO_FORMAT_AC3");
-                p_hdmi_descs->dd_fmt.is_support = 1;
+                if (mystrstr(infobuf, "AC-3, 2 ch")) {
+                    p_hdmi_descs->dd_fmt.is_support = 0;
+                } else {
+                    size += sprintf(aud_cap + size, "|%s", "AUDIO_FORMAT_AC3");
+                    p_hdmi_descs->dd_fmt.is_support = 1;
+                }
             }
 #if 0
             if (mystrstr(infobuf, "DTS-HD")) {
@@ -565,6 +569,10 @@ char*  get_hdmi_sink_cap_dolby_ms12(const char *keys,audio_format_t format,struc
             }
             if (mystrstr(infobuf, "AC-3")) {
                 p_hdmi_descs->dd_fmt.is_support = 1;
+                /*if the sink device only support ac3 2ch, we need output pcm*/
+                if (mystrstr(infobuf, "AC-3, 2 ch")) {
+                    p_hdmi_descs->dd_fmt.is_support = 0;
+                }
             }
 #if 0
             if (mystrstr(infobuf, "DTS-HD")) {
