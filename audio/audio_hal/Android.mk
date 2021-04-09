@@ -86,6 +86,7 @@ include $(BUILD_PREBUILT)
         aml_audio_ms12_bypass.c \
         aml_audio_bitsparser.c \
         aml_audio_ac4parser.c \
+        aml_audio_delay.c \
         aml_audio_matparser.c \
         aml_audio_spdifdec.c \
         aml_audio_spdifout.c \
