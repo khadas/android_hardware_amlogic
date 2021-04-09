@@ -419,8 +419,8 @@ int aml_decoder_process(aml_dec_t *aml_dec, unsigned char*buffer, int bytes, int
             dec_raw_data->data_len = fragment_size;
             aml_dec->fragment_left_size -= fragment_size;
         } else {
-            dec_pcm_data->data_len = AML_DEC_FRAGMENT_FRAMES * aml_dec->fragment_left_size;
-            dec_raw_data->data_len = AML_DEC_FRAGMENT_FRAMES * aml_dec->fragment_left_size;
+            dec_pcm_data->data_len = aml_dec->fragment_left_size;
+            dec_raw_data->data_len = aml_dec->fragment_left_size;
             aml_dec->fragment_left_size = 0;
         }
         *used_bytes = 0;
