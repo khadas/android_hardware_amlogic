@@ -194,12 +194,17 @@ int aml_audio_decoder_process_wrapper(struct audio_stream_out *stream, const voi
                 }
 
                 if (aml_dec->format == AUDIO_FORMAT_E_AC3 || aml_dec->format == AUDIO_FORMAT_AC3) {
-                    /*output raw ddp to hdmi*/
-                    if (aml_dec->format == AUDIO_FORMAT_E_AC3 && aml_out->optical_format == AUDIO_FORMAT_E_AC3) {
+                    if (adev->dual_spdif_support) {
+                        /*output raw ddp to hdmi*/
+                        if (aml_dec->format == AUDIO_FORMAT_E_AC3 && aml_out->optical_format == AUDIO_FORMAT_E_AC3) {
+                            aml_audio_spdif_output(stream, &aml_out->spdifout_handle, raw_in_data);
+                        }
+
+                        /*output dd data to spdif*/
+                        aml_audio_spdif_output(stream, &aml_out->spdifout2_handle, dec_raw_data);
+                    } else {
                         aml_audio_spdif_output(stream, &aml_out->spdifout_handle, raw_in_data);
                     }
-                    /*output dd data to spdif*/
-                    aml_audio_spdif_output(stream, &aml_out->spdifout2_handle, dec_raw_data);
                 } else {
                     aml_audio_spdif_output(stream, &aml_out->spdifout_handle, dec_raw_data);
                 }
