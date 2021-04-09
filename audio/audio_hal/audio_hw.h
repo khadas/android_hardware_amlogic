@@ -31,6 +31,7 @@
 #define PORT_MM 1
 #endif
 
+#define ADD_AUDIO_DELAY_INTERFACE
 #include "audio_hwsync.h"
 #include "audio_post_process.h"
 #include "aml_hw_mixer.h"
@@ -49,7 +50,9 @@
 #include "aml_audio_ease.h"
 #include "aml_malloc_debug.h"
 #include "audio_hdmi_util.h"
-
+#ifdef ADD_AUDIO_DELAY_INTERFACE
+#include "aml_audio_delay.h"
+#endif
 
 /* number of frames per period */
 /*
@@ -421,6 +424,7 @@ struct aml_audio_device {
      * buffer size equal to efect_buf_size
      */
     void *spk_output_buf;
+    void *spdif_output_buf;
     void *effect_buf;
     size_t effect_buf_size;
     size_t spk_tuning_lvl;

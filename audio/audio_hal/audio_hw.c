@@ -3952,16 +3952,12 @@ static int adev_set_parameters (struct audio_hw_device *dev, const char *kvpairs
                 if (adev->patch_src == SRC_HDMIIN) {
                     release_parser(adev);
                 }
-
-                //adev->in_device &= ~AUDIO_DEVICE_IN_ALL;
-                //adev->in_device = AUDIO_DEVICE_IN_LINE;
                 adev->active_inport = INPORT_LINEIN;
-                adev->patch_src == SRC_LINEIN;
+                adev->patch_src = SRC_LINEIN;
                 pAudPatchTmp->sources[0].ext.device.type = AUDIO_DEVICE_IN_LINE;
                 set_audio_source(&adev->alsa_mixer,
                         LINEIN, alsa_device_is_auge());
             }
-
         }
     }
 
@@ -4158,7 +4154,23 @@ static int adev_set_parameters (struct audio_hw_device *dev, const char *kvpairs
         adev->eq_data.p_gain.headphone);
         goto exit;
     }
-
+#ifdef ADD_AUDIO_DELAY_INTERFACE
+    ret = str_parms_get_int(parms, "hal_param_speaker_delay_time_ms", &val);
+    if (ret >= 0) {
+        aml_audio_delay_set_time(AML_DELAY_OUTPORT_SPEAKER, val);
+        goto exit;
+    }
+    ret = str_parms_get_int(parms, "hal_param_spdif_delay_time_ms", &val);
+    if (ret >= 0) {
+        aml_audio_delay_set_time(AML_DELAY_OUTPORT_SPDIF, val);
+        goto exit;
+    }
+    ret = str_parms_get_int(parms, "hal_param_all_delay_time_ms", &val);
+    if (ret >= 0) {
+        aml_audio_delay_set_time(AML_DELAY_OUTPORT_ALL, val);
+        goto exit;
+    }
+#endif
     ret = str_parms_get_str(parms, "DTS_POST_GAIN", value, sizeof(value));
     if (ret >= 0) {
         sscanf(value,"%f", &adev->dts_post_gain);
@@ -5622,6 +5634,7 @@ ssize_t audio_hal_data_processing(struct audio_stream_out *stream,
 
             int16_t *effect_tmp_buf;
             int32_t *spk_tmp_buf;
+            int32_t *ps32SpdifTempBuffer = NULL;
             float source_gain;
             float gain_speaker = adev->eq_data.p_gain.speaker;
 
@@ -5641,11 +5654,17 @@ ssize_t audio_hal_data_processing(struct audio_stream_out *stream,
                     ALOGE ("realloc headphone buf failed size %zu format = %#x", bytes, output_format);
                     return -ENOMEM;
                 }
+                // 16bit -> 32bit, need realloc
+                adev->spdif_output_buf = realloc(adev->spdif_output_buf, bytes * 2);
+                if (!adev->spdif_output_buf) {
+                    ALOGE ("realloc spdif buf failed size %zu format = %#x", bytes, output_format);
+                    return -ENOMEM;
+                }
             }
 
             effect_tmp_buf = (int16_t *)adev->effect_buf;
             spk_tmp_buf = (int32_t *)adev->spk_output_buf;
-
+            ps32SpdifTempBuffer = (int32_t *)adev->spdif_output_buf;
 #ifdef ENABLE_AVSYNC_TUNING
             tuning_spker_latency(adev, effect_tmp_buf, tmp_buffer, bytes);
 #else
@@ -5703,7 +5722,16 @@ ssize_t audio_hal_data_processing(struct audio_stream_out *stream,
                 volume *= gain_speaker * adev->sink_gain[OUTPORT_SPEAKER];
             }
             apply_volume_16to32(volume, effect_tmp_buf, spk_tmp_buf, bytes);
-
+            apply_volume_16to32(source_gain, tmp_buffer, ps32SpdifTempBuffer, bytes);
+#ifdef ADD_AUDIO_DELAY_INTERFACE
+            aml_audio_delay_process(AML_DELAY_OUTPORT_SPEAKER, spk_tmp_buf,
+                            out_frames * 2 * 4, AUDIO_FORMAT_PCM_32_BIT);
+            if (OUTPORT_SPEAKER == adev->active_outport && AUDIO_FORMAT_PCM_16_BIT == aml_out->hal_internal_format) {
+                // spdif(PCM) out delay process, frame size 2ch * 4 Byte
+                aml_audio_delay_process(AML_DELAY_OUTPORT_SPDIF, ps32SpdifTempBuffer,
+                        out_frames * 2 * 4, AUDIO_FORMAT_PCM_32_BIT);
+            }
+#endif
             /* 2 ch 16 bit --> 8 ch 32 bit mapping, need 8X size of input buffer size */
             if (aml_out->tmp_buffer_8ch_size < 8 * bytes) {
                 aml_out->tmp_buffer_8ch = aml_audio_realloc(aml_out->tmp_buffer_8ch, 8 * bytes);
@@ -5719,23 +5747,23 @@ ssize_t audio_hal_data_processing(struct audio_stream_out *stream,
             }
             if (alsa_device_is_auge()) {
                 for (i = 0; i < out_frames; i++) {
-                    aml_out->tmp_buffer_8ch[8 * i + 0] = (int32_t)spk_tmp_buf[2 * i];
-                    aml_out->tmp_buffer_8ch[8 * i + 1] = (int32_t)spk_tmp_buf[2 * i + 1];
-                    aml_out->tmp_buffer_8ch[8 * i + 2] = (int32_t)tmp_buffer[2 * i] << 16;
-                    aml_out->tmp_buffer_8ch[8 * i + 3] = (int32_t)tmp_buffer[2 * i + 1] << 16;
-                    aml_out->tmp_buffer_8ch[8 * i + 4] = (int32_t)tmp_buffer[2 * i] << 16;
-                    aml_out->tmp_buffer_8ch[8 * i + 5] = (int32_t)tmp_buffer[2 * i + 1] << 16;
-                    aml_out->tmp_buffer_8ch[8 * i + 6] = (int32_t)tmp_buffer[2 * i] << 16;
-                    aml_out->tmp_buffer_8ch[8 * i + 7] = (int32_t)tmp_buffer[2 * i + 1] << 16;
+                    aml_out->tmp_buffer_8ch[8 * i + 0] = spk_tmp_buf[2 * i];
+                    aml_out->tmp_buffer_8ch[8 * i + 1] = spk_tmp_buf[2 * i + 1];
+                    aml_out->tmp_buffer_8ch[8 * i + 2] = ps32SpdifTempBuffer[2 * i];
+                    aml_out->tmp_buffer_8ch[8 * i + 3] = ps32SpdifTempBuffer[2 * i + 1];
+                    aml_out->tmp_buffer_8ch[8 * i + 4] = tmp_buffer[2 * i] << 16;
+                    aml_out->tmp_buffer_8ch[8 * i + 5] = tmp_buffer[2 * i + 1] << 16;
+                    aml_out->tmp_buffer_8ch[8 * i + 6] = tmp_buffer[2 * i] << 16;
+                    aml_out->tmp_buffer_8ch[8 * i + 7] = tmp_buffer[2 * i + 1] << 16;
                 }
             } else {
                 for (i = 0; i < out_frames; i++) {
-                    aml_out->tmp_buffer_8ch[8 * i + 0] = (int32_t)tmp_buffer[2 * i] << 16;
-                    aml_out->tmp_buffer_8ch[8 * i + 1] = (int32_t)tmp_buffer[2 * i + 1] << 16;
-                    aml_out->tmp_buffer_8ch[8 * i + 2] = (int32_t)spk_tmp_buf[2 * i];
-                    aml_out->tmp_buffer_8ch[8 * i + 3] = (int32_t)spk_tmp_buf[2 * i + 1];
-                    aml_out->tmp_buffer_8ch[8 * i + 4] = (int32_t)tmp_buffer[2 * i] << 16;
-                    aml_out->tmp_buffer_8ch[8 * i + 5] = (int32_t)tmp_buffer[2 * i + 1] << 16;
+                    aml_out->tmp_buffer_8ch[8 * i + 0] = tmp_buffer[2 * i] << 16;
+                    aml_out->tmp_buffer_8ch[8 * i + 1] = tmp_buffer[2 * i + 1] << 16;
+                    aml_out->tmp_buffer_8ch[8 * i + 2] = spk_tmp_buf[2 * i];
+                    aml_out->tmp_buffer_8ch[8 * i + 3] = spk_tmp_buf[2 * i + 1];
+                    aml_out->tmp_buffer_8ch[8 * i + 4] = tmp_buffer[2 * i] << 16;
+                    aml_out->tmp_buffer_8ch[8 * i + 5] = tmp_buffer[2 * i + 1] << 16;
                     aml_out->tmp_buffer_8ch[8 * i + 6] = 0;
                     aml_out->tmp_buffer_8ch[8 * i + 7] = 0;
                 }
@@ -5936,6 +5964,12 @@ ssize_t hw_write (struct audio_stream_out *stream
         }
     }
     if (aml_out->pcm || adev->a2dp_hal || is_sco_port(adev->active_outport)) {
+#ifdef ADD_AUDIO_DELAY_INTERFACE
+        ret = aml_audio_delay_process(AML_DELAY_OUTPORT_ALL, (void *) tmp_buffer, bytes, output_format);
+        if (ret < 0) {
+            //ALOGW("aml_audio_delay_process skip, ret:%#x", ret);
+        }
+#endif
         if (adjust_ms) {
             int adjust_bytes = 0;
             if ((output_format == AUDIO_FORMAT_E_AC3) || (output_format == AUDIO_FORMAT_AC3)) {
@@ -6766,6 +6800,11 @@ hwsync_rewrite:
             need_reset_decoder = true;
             /* reset audio patch ringbuffer */
             ring_buffer_reset(&patch->aml_ringbuffer);
+#ifdef ADD_AUDIO_DELAY_INTERFACE
+            // fixed switch between RAW and PCM noise, drop delay residual data
+            aml_audio_delay_clear(AML_DELAY_OUTPORT_SPDIF);
+            aml_audio_delay_clear(AML_DELAY_OUTPORT_ALL);
+#endif
             /* we need standy a2dp when switch the format, in order to prevent UNDERFLOW in a2dp stack. */
             if (adev->active_outport == OUTPORT_A2DP) {
                 a2dp_out_standby(&stream->common);
@@ -8555,7 +8594,6 @@ static struct audio_patch_set *register_audio_patch(struct audio_hw_device *dev,
     list_add_head(&aml_dev->patch_list, &patch_set_new->list);
     ALOGI("--%s: after registering new patch, patch sets will be:", __func__);
     //dump_aml_audio_patch_sets(dev);
-
     return patch_set_new;
 }
 
@@ -8881,6 +8919,11 @@ static int adev_release_audio_patch(struct audio_hw_device *dev,
     unregister_audio_patch(dev, patch_set);
     ALOGI("--%s: after releasing patch, patch sets will be:", __func__);
     //dump_aml_audio_patch_sets(dev);
+#ifdef ADD_AUDIO_DELAY_INTERFACE
+    aml_audio_delay_clear(AML_DELAY_OUTPORT_SPEAKER);
+    aml_audio_delay_clear(AML_DELAY_OUTPORT_SPDIF);
+    aml_audio_delay_clear(AML_DELAY_OUTPORT_ALL);
+#endif
 #if defined(IS_ATOM_PROJECT)
 #ifdef DEBUG_VOLUME_CONTROL
     int vol = property_get_int32("vendor.media.audio_hal.volume", -1);
@@ -9016,7 +9059,7 @@ static void audio_patch_dump(struct aml_audio_device* aml_dev, int fd)
     android_dev_convert_to_hal_dev(pstPatch->output_src, (int *)&output_outport);
     dprintf(fd, "[AML_HAL]      IN_SRC        : %15s| OUT_SRC   :%14s\n",
         inputPort2Str(input_outport), outputPort2Str(output_outport));
-    dprintf(fd, "[AML_HAL]      IN_Format     : %#10x     | OUT_Format:%#10x\n", pstPatch->in_format, pstPatch->out_format);
+    dprintf(fd, "[AML_HAL]      IN_Format     : %#10x     | OUT_Format:%#10x\n", pstPatch->aformat, pstPatch->out_format);
 }
 
 static int adev_dump(const audio_hw_device_t *device, int fd)
@@ -9120,6 +9163,9 @@ static int adev_close(hw_device_t *device)
     if (adev->spk_output_buf) {
         aml_audio_free(adev->spk_output_buf);
     }
+    if (adev->spdif_output_buf) {
+        free(adev->spdif_output_buf);
+    }
     if (adev->aml_ng_handle) {
         release_noise_gate(adev->aml_ng_handle);
         adev->aml_ng_handle = NULL;
@@ -9135,6 +9181,11 @@ static int adev_close(hw_device_t *device)
     }
     aml_hwsync_close_tsync(adev->tsync_fd);
     pthread_mutex_destroy(&adev->patch_lock);
+#ifdef ADD_AUDIO_DELAY_INTERFACE
+    if (adev->is_TV) {
+        aml_audio_delay_deinit();
+    }
+#endif
 #ifdef ENABLE_AEC_APP
     release_aec(adev->aec);
 #endif
@@ -9442,21 +9493,30 @@ static int adev_open(const hw_module_t* module, const char* name, hw_device_t** 
 
     adev->next_unique_ID = 1;
     list_init(&adev->patch_list);
+    adev->effect_buf_size = buffer_size;
     adev->effect_buf = aml_audio_malloc(buffer_size);
     if (adev->effect_buf == NULL) {
         ALOGE("malloc effect buffer failed");
         ret = -ENOMEM;
         goto err_adev;
     }
-    adev->effect_buf_size = buffer_size;
     memset(adev->effect_buf, 0, buffer_size);
-    adev->spk_output_buf = aml_audio_malloc(adev->effect_buf_size * 2);
+
+    adev->spk_output_buf = aml_audio_malloc(buffer_size * 2);
     if (adev->spk_output_buf == NULL) {
         ALOGE("no memory for headphone output buffer");
         ret = -ENOMEM;
         goto err_effect_buf;
     }
-    memset(adev->spk_output_buf, 0, adev->effect_buf_size * 2);
+    memset(adev->spk_output_buf, 0, buffer_size * 2);
+
+    adev->spdif_output_buf = aml_audio_malloc(buffer_size * 2);
+    if (adev->spdif_output_buf == NULL) {
+        ALOGE("no memory for spdif output buffer");
+        ret = -ENOMEM;
+        goto err_adev;
+    }
+    memset(adev->spdif_output_buf, 0, buffer_size);
 
     /* init speaker tuning buffers */
     ret = ring_buffer_init(&(adev->spk_tuning_rbuf), spk_tuning_buf_size);
@@ -9549,6 +9609,13 @@ static int adev_open(const hw_module_t* module, const char* name, hw_device_t** 
 #if defined(TV_AUDIO_OUTPUT)
     adev->is_TV = true;
     ALOGI("%s(), TV platform", __func__);
+#ifdef ADD_AUDIO_DELAY_INTERFACE
+    ret = aml_audio_delay_init();
+    if (ret < 0) {
+        ALOGE("[%s:%d] aml_audio_delay_init fail", __func__, __LINE__);
+        goto err;
+    }
+#endif
 #else
     adev->is_STB = property_get_bool("ro.vendor.platform.is.stb", false);
     adev->sink_gain[OUTPORT_SPEAKER] = 1.0;
