@@ -186,6 +186,10 @@ static int pcm_decoder_process(aml_dec_t * aml_dec, unsigned char*buffer, int by
         return -1;
     }
 
+    if (bytes <= 0) {
+        return -1;
+    }
+
     pcm_dec = (struct pcm_dec_t *)aml_dec;
     pcm_config = &pcm_dec->pcm_config;
     dec_data_info_t * dec_pcm_data = &aml_dec->dec_pcm_data;
