@@ -1589,6 +1589,14 @@ int ms12_passthrough_output(struct aml_stream_out *aml_out) {
         ms12->is_bypass_ms12 = false;
     }
 
+    if (ms12->is_bypass_ms12 != bitstream_out->is_bypass_ms12) {
+        ALOGI("change to bypass mode from =%d to %d", bitstream_out->is_bypass_ms12, ms12->is_bypass_ms12);
+        if (bitstream_out->spdifout_handle) {
+            aml_audio_spdifout_close(bitstream_out->spdifout_handle);
+        }
+        memset(bitstream_out, 0, sizeof(struct bitstream_out_desc));
+    }
+
 
     if (ms12->is_bypass_ms12) {
         ALOGV("bypass ms12 size=%d", out_size);
@@ -1603,12 +1611,6 @@ int ms12_passthrough_output(struct aml_stream_out *aml_out) {
                 }
             }
             out_size = 0;
-        }
-
-        if (ms12->is_bypass_ms12 != bitstream_out->is_bypass_ms12) {
-            aml_audio_spdifout_close(bitstream_out->spdifout_handle);
-            memset(bitstream_out, 0, sizeof(struct bitstream_out_desc));
-            ALOGI("change to bypass mode");
         }
 
         if (out_size != 0 && output_buf != NULL) {
