@@ -133,7 +133,7 @@ int aml_audio_decoder_process_wrapper(struct audio_stream_out *stream, const voi
                 ALOGV("[%s:%d] cache the data to decode", __func__, __LINE__);
                 return bytes;
             } else if (ret < 0) {
-                ALOGE("[%s:%d] aml_decoder_process error, ret:%d", __func__, __LINE__, ret);
+                ALOGV("[%s:%d] aml_decoder_process error, ret:%d", __func__, __LINE__, ret);
                 return 0;
             }
             left_bytes -= dec_used_size;

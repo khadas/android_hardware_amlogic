@@ -3440,14 +3440,13 @@ static int aml_audio_output_routing(struct audio_hw_device *dev,
             audio_route_apply_path(aml_dev->ar, "headphone_off");
             break;
         case OUTPORT_A2DP:
-            ALOGE("%s: active_outport = %d A2DP off", __func__, aml_dev->active_outport);
             break;
         case OUTPORT_BT_SCO:
         case OUTPORT_BT_SCO_HEADSET:
             close_btSCO_device(aml_dev);
             break;
         default:
-            ALOGE("%s: active_outport = %d unsupport", __func__, aml_dev->active_outport);
+            ALOGW("%s: pre active_outport:%d unsupport", __func__, aml_dev->active_outport);
             break;
         }
 
@@ -3469,13 +3468,11 @@ static int aml_audio_output_routing(struct audio_hw_device *dev,
             audio_route_apply_path(aml_dev->ar, "spdif");
             break;
         case OUTPORT_A2DP:
-            ALOGE("%s: active_outport = %d A2DP on", __func__, aml_dev->active_outport);
-            break;
         case OUTPORT_BT_SCO:
         case OUTPORT_BT_SCO_HEADSET:
             break;
         default:
-            ALOGE("%s: outport = %d unsupport", __func__, outport);
+            ALOGW("%s: cur outport:%d unsupport", __func__, outport);
             break;
         }
 
@@ -5464,7 +5461,7 @@ ssize_t audio_hal_data_processing(struct audio_stream_out *stream,
             }
 
             /*aduio effect process for speaker*/
-            if (!(adev->out_device & AUDIO_DEVICE_OUT_ALL_A2DP)) {
+            if (adev->active_outport != OUTPORT_A2DP) {
                 audio_post_process(&adev->native_postprocess, effect_tmp_buf, out_frames);
             }
 
@@ -5475,7 +5472,7 @@ ssize_t audio_hal_data_processing(struct audio_stream_out *stream,
 
             float volume = source_gain;
             /* apply volume for spk/hp, SPDIF/HDMI keep the max volume */
-            if (adev->out_device & AUDIO_DEVICE_OUT_ALL_A2DP) {
+            if (adev->active_outport == OUTPORT_A2DP) {
                 if ((adev->patch_src == SRC_DTV || adev->patch_src == SRC_HDMIIN
                         || adev->patch_src == SRC_LINEIN || adev->patch_src == SRC_ATV)
                         && adev->audio_patching) {
