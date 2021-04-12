@@ -285,6 +285,27 @@ int a2dp_out_standby(struct audio_stream* stream) {
     return -1;
 }
 
+/*+[SE][BUG][SWPL-46800][yinli.xia] add drop ac3 pcm function*/
+int a2dp_out_drop(struct aml_stream_out* stream, size_t bytes)
+{
+    struct aml_audio_device *adev = stream->dev;
+    struct aml_audio_patch *patch = adev->audio_patch;
+    if (adev->patch_src ==  SRC_DTV && stream->need_drop_size > 0 && adev->audio_patch != NULL) {
+        if (stream->need_drop_size >= (int)bytes) {
+            stream->need_drop_size -= bytes;
+            ALOGI("av sync drop %d pcm, need drop:%d more,apts:0x%x,pcr:0x%x\n",
+                    (int)bytes, stream->need_drop_size, patch->last_apts, patch->last_pcrpts);
+            if (patch->last_apts >= patch->last_pcrpts) {
+                ALOGI("pts already ok, drop finish\n");
+                stream->need_drop_size = 0;
+            } else {
+                return 0;
+            }
+        }
+    }
+    return 1;
+}
+
 ssize_t a2dp_out_write(struct audio_stream_out* stream, const void* buffer, size_t bytes) {
     struct aml_stream_out* out = (struct aml_stream_out*)stream;
     struct aml_audio_device *adev = out->dev;
@@ -458,6 +479,18 @@ ssize_t a2dp_out_write(struct audio_stream_out* stream, const void* buffer, size
         if (fp) {
             int flen = fwrite((char *)wr_buff, 1, wr_size, fp);
             fclose(fp);
+        }
+    }
+
+    /*+[SE][BUG][SWPL-46800][yinli.xia] add drop ac3 pcm function*/
+    if (out->need_drop_size > 0) {
+        int ret = a2dp_out_drop(out, bytes);
+        if (ret) {
+            wr_size -= out->need_drop_size;
+            out->need_drop_size = 0;
+            ALOGI("drop finish\n");
+        } else {
+            return bytes;
         }
     }
 
