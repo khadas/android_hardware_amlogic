@@ -3289,11 +3289,6 @@ static void adev_close_output_stream(struct audio_hw_device *dev,
             clock_gettime(CLOCK_MONOTONIC, &adev->ms12_exiting_start);
         }
     }
-    if (out->restore_continuous == true) {
-        ALOGI("restore ms12 continuous mode");
-        adev->continuous_audio_mode = 1;
-
-    }
 
     pthread_mutex_lock(&out->lock);
     aml_audio_free(out->audioeffect_tmp_buffer);
@@ -3372,7 +3367,7 @@ static void adev_close_output_stream(struct audio_hw_device *dev,
             }
             ALOGI("main stream message is processed cost =%d ms", wait_cnt * 5);
         }
-        if (out->hw_sync_mode) {
+        if (out->hw_sync_mode && continous_mode(adev)) {
             /*we only suppport one stream hw sync and MS12 always attach with it.
             So when it is released, ms12 also need set hwsync to NULL*/
             struct aml_stream_out *ms12_out = (struct aml_stream_out *)adev->ms12_out;
@@ -3416,6 +3411,12 @@ static void adev_close_output_stream(struct audio_hw_device *dev,
     if (out->resample_handle) {
         aml_audio_resample_close(out->resample_handle);
         out->resample_handle = NULL;
+    }
+
+    /*all the ms12 related function is done */
+    if (out->restore_continuous == true) {
+        ALOGI("restore ms12 continuous mode");
+        adev->continuous_audio_mode = 1;
     }
 
     /*the dolby lib is changed, so we need restore it*/
