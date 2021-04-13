@@ -743,8 +743,7 @@ static int enable_raw_output(aml_audio_dec_t *audec)
     int enable = 0;
     enable = amsysfs_get_sysfs_int("/sys/class/audiodsp/digital_raw");
     if (enable) {
-        if (audec->format == ACODEC_FMT_AC3 || audec->format == ACODEC_FMT_EAC3 || audec->format == ACODEC_FMT_DTS ||
-            audec->format == ACODEC_FMT_TRUEHD) {
+        if (is_dolby_format(audec->format) || audec->format == ACODEC_FMT_DTS) {
             return 1;
         }
     }
@@ -1423,7 +1422,8 @@ void *audio_getpackage_loop(void *args)
         nNextFrameSize = get_frame_size(audec); /*step 2  get read buffer size*/
         if (nNextFrameSize == -1) {
             nNextFrameSize = adec_ops->nInBufSize;
-            if (audec->format == ACODEC_FMT_AC3 || audec->format == ACODEC_FMT_EAC3 || audec->format == ACODEC_FMT_DTS) {
+            if (is_dolby_format(audec->format) ||
+                audec->format == ACODEC_FMT_DTS) {
                 nNextFrameSize = 512;
             }
         } else if (nNextFrameSize == 0) {
@@ -1911,8 +1911,9 @@ void *audio_decode_loop(void *args)
                      int ret = aml_audio_swcheck_checkin_apts(0, audec->decode_offset, anchor);
                      if (ret < 0)
                             adec_print("audio_dtv_checkin_apts failed ret %d",ret);
-                } else if (nAudioFormat == ACODEC_FMT_AC3 || nAudioFormat == ACODEC_FMT_EAC3 ||
-                           nAudioFormat == ACODEC_FMT_DTS || adec_ops->nAudioDecoderType == ACODEC_FMT_AAC_LATM) {
+                } else if (is_dolby_format(nAudioFormat) ||
+                           nAudioFormat == ACODEC_FMT_DTS ||
+                           adec_ops->nAudioDecoderType == ACODEC_FMT_AAC_LATM) {
                      int ret = aml_audio_swcheck_checkin_apts(0, total_insize, anchor);
                      if (ret < 0)
                          adec_print("audio_dtv_checkin_apts failed ret %d",ret);
@@ -1960,7 +1961,8 @@ void *audio_decode_loop(void *args)
                         break;
                     }
                 }
-                if (nAudioFormat == ACODEC_FMT_AC3 || nAudioFormat == ACODEC_FMT_EAC3 || nAudioFormat == ACODEC_FMT_DTS) {
+                if (is_dolby_format(nAudioFormat) ||
+                    nAudioFormat == ACODEC_FMT_DTS) {
                     outlen = inlen;
                     dlen =  inlen;
                     memcpy(outbuf , inbuf, inlen);
@@ -1969,7 +1971,8 @@ void *audio_decode_loop(void *args)
                     dlen = adec_ops->decode(audec->adec_ops, outbuf, &outlen, inbuf + declen, inlen);
                 }
                 if (outlen > 0) {
-                    if (nAudioFormat != ACODEC_FMT_AC3 && nAudioFormat != ACODEC_FMT_EAC3 && nAudioFormat != ACODEC_FMT_DTS) {
+                    if (!is_dolby_format(nAudioFormat) &&
+                        nAudioFormat != ACODEC_FMT_DTS) {
                         check_audio_info_changed(audec);
                         if (adec_ops->nAudioDecoderType != ACODEC_FMT_AAC_LATM)
                             latencys += outlen * 90000 / (audec->samplerate * audec->channels * 2);
@@ -2036,9 +2039,10 @@ void *audio_decode_loop(void *args)
                 }
 
 #ifndef USE_AOUT_IN_ADEC
-                if (audec->use_sw_check_apts && outlen && nAudioFormat != ACODEC_FMT_AC3 && nAudioFormat != ACODEC_FMT_EAC3
-                    && nAudioFormat != ACODEC_FMT_DTS
-                    && adec_ops->nAudioDecoderType != ACODEC_FMT_AAC_LATM) {
+                if (audec->use_sw_check_apts && outlen &&
+                    !is_dolby_format(nAudioFormat) &&
+                    nAudioFormat != ACODEC_FMT_DTS &&
+                    adec_ops->nAudioDecoderType != ACODEC_FMT_AAC_LATM) {
                     int ret = aml_audio_swcheck_checkin_apts(0, audec->decode_offset, anchor + latencys);
                     if (ret < 0)
                        adec_print("audio_dtv_checkin_apts failed ret %d",ret);

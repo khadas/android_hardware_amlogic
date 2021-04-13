@@ -232,9 +232,7 @@ static void *dtv_patch_out_loop(void *args)
                 usleep(10000);
                 continue;
             }
-            int audio_raw_format_type = (audec->format == ACODEC_FMT_AC3 ||
-                audec->format == ACODEC_FMT_EAC3 ||
-                audec->format == ACODEC_FMT_DTS);
+            int audio_raw_format_type = (is_dolby_format(audec->format) || audec->format == ACODEC_FMT_DTS);
             int dtv_buffer_level = patchparm->status_cb(patchparm->pargs, BUFFER_LEVEL);
             /* XXX 2304 = 3*768, maybe need modify */
             if (dtv_buffer_level > 2304 &&

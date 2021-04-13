@@ -329,9 +329,15 @@ struct adec_status {
 #define    ACODEC_FMT_MPEG1  26  //AFORMAT_MPEG-->mp3,AFORMAT_MPEG1-->mp1,AFROMAT_MPEG2-->mp2
 #define    ACODEC_FMT_MPEG2  27
 #define    ACODEC_FMT_WMAVOI 28
+#define    ACODEC_FMT_AC4    29
 
 
-
+static inline int is_dolby_format(int audio_format) {
+    return (audio_format == ACODEC_FMT_AC3 ||
+            audio_format == ACODEC_FMT_EAC3 ||
+            audio_format == ACODEC_FMT_AC4 ||
+            audio_format == ACODEC_FMT_TRUEHD);
+}
 
 
 /***********************************************************************************************/

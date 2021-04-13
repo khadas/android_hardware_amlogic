@@ -2052,7 +2052,8 @@ void *audio_dtv_patch_output_threadloop(void *data)
         //    (patch->aformat == AUDIO_FORMAT_E_AC3) ? EAC3_MULTIPLIER : 1;
         aml_out->codec_type = get_codec_type(patch->aformat);
         if ((patch->aformat == AUDIO_FORMAT_AC3) ||
-            (patch->aformat == AUDIO_FORMAT_E_AC3)) {
+            (patch->aformat == AUDIO_FORMAT_E_AC3) ||
+            (patch->aformat == AUDIO_FORMAT_AC4)) {
             ALOGV("AD %d %d %d", aml_dev->dolby_lib_type, aml_dev->dual_decoder_support, demux_info->ad_pid);
             if (aml_dev->dual_decoder_support && VALID_PID(demux_info->ad_pid)) {
                 if (aml_dev->dolby_lib_type == eDolbyMS12Lib) {
@@ -2214,6 +2215,10 @@ static void *audio_dtv_patch_process_threadloop(void *data)
                     patch->aformat = AUDIO_FORMAT_DTS;
                     dts_dec->is_iec61937 = false;
                     patch->decoder_offset = 0;
+                } else if (patch->dtv_aformat == ACODEC_FMT_AC4) {
+                    patch->aformat = AUDIO_FORMAT_AC4;
+                    patch->decoder_offset = 0;
+                    patch->first_apts_lookup_over = 0;
                 } else {
                     patch->aformat = AUDIO_FORMAT_PCM_16_BIT;
                     patch->decoder_offset = 0;
