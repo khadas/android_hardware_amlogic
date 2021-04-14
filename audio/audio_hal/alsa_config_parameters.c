@@ -1,3 +1,4 @@
+
 /*
  * Copyright (C) 2017 Amlogic Corporation.
  *
@@ -22,6 +23,7 @@
 #include <hardware/audio.h>
 #include <tinyalsa/asoundlib.h>
 
+
 #include "alsa_config_parameters.h"
 
 #define PERIOD_SIZE                     1024
@@ -30,6 +32,7 @@
 #define HARDWARE_CHANNEL_7_1_MULTI      8
 #define LOW_LATENCY_PERIOD_SIZE                     256
 #define LOW_LATENCY_PLAYBACK_PERIOD_COUNT           3
+
 
 /*
  *@brief get the hardware config parameters when the output format is DTS-HD/TRUE-HD
@@ -139,12 +142,12 @@ static void get_pcm_hardware_config_parameters(
             hardware_config->format = PCM_FORMAT_S16_LE;
         }
         else {
-            hardware_config->channels = HARDWARE_CHANNEL_7_1_MULTI;
+            hardware_config->channels = channels;
             hardware_config->format = PCM_FORMAT_S32_LE;
         }
     }
     else {
-        hardware_config->channels = HARDWARE_CHANNEL_7_1_MULTI;
+        hardware_config->channels = channels;
         hardware_config->format = PCM_FORMAT_S32_LE;
     }
     hardware_config->rate = rate;//defualt sample rate = 48KHz
@@ -152,7 +155,12 @@ static void get_pcm_hardware_config_parameters(
         hardware_config->period_size = PERIOD_SIZE;
     else
         hardware_config->period_size = LOW_LATENCY_PERIOD_SIZE;
-    if (continuous_mode) {
+    /*
+    Currently, alsa buffer configured a limited buffer size max 32bit * 8 ch  1024 *8
+    the configuration will return fail when channel > 8 as need larger dma buffer size.
+    to save mem, we use low buffer memory when 8 ch + speaker product.
+   */
+    if (continuous_mode && channels <= 8) {
         hardware_config->period_count = PLAYBACK_PERIOD_COUNT * 2;
         hardware_config->start_threshold = hardware_config->period_size * hardware_config->period_count / 4;
     } else {
@@ -184,21 +192,22 @@ int get_hardware_config_parameters(
 {
     ALOGI("%s()\n", __FUNCTION__);
     //DD+
+    /* for raw data, we fixed to 2ch as it use spdif module */
     if (output_format == AUDIO_FORMAT_E_AC3) {
-        get_ddp_hardware_config_parameters(final_config, channels, rate, continuous_mode);
+        get_ddp_hardware_config_parameters(final_config, 2, rate, continuous_mode);
     }
     //DD
     else if (output_format == AUDIO_FORMAT_AC3) {
-        get_dd_hardware_config_parameters(final_config, channels, rate, continuous_mode);
+        get_dd_hardware_config_parameters(final_config, 2, rate, continuous_mode);
     }
     //MAT
     else if (output_format == AUDIO_FORMAT_MAT) {
-        get_mat_hardware_config_parameters(final_config, channels, rate);
+        get_mat_hardware_config_parameters(final_config, 2, rate);
 
     }
     //DTS-HD/TRUE-HD
     else if ((output_format == AUDIO_FORMAT_DTS_HD) || (output_format == AUDIO_FORMAT_DOLBY_TRUEHD)) {
-        get_dd_hardware_config_parameters(final_config, channels, rate, continuous_mode);
+        get_dd_hardware_config_parameters(final_config, 2, rate, continuous_mode);
     }
     //PCM
     else {

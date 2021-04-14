@@ -117,6 +117,8 @@ static unsigned int DEFAULT_OUT_SAMPLING_RATE = 48000;
 #define HBR_MULTIPLIER      (16) //MAT or DTSHD bitstream in IEC61937
 #define JITTER_DURATION_MS  (3)
 #define FLOAT_ZERO              (0.000001)
+#define TV_SPEAKER_OUTPUT_CH_NUM    10
+
 
 /*the same as "AUDIO HAL FORMAT" in kernel*/
 enum audio_hal_format {
@@ -495,6 +497,7 @@ struct aml_audio_device {
     struct aml_audio_mixer *audio_mixer;
     bool is_TV;
     bool is_STB;
+    bool is_SBR;
     bool useSubMix;
     //int cnt_stream_using_mixer;
     int tsync_fd;
@@ -551,6 +554,13 @@ struct aml_audio_device {
     /* display audio format on UI, both streaming and hdmiin*/
     audio_hal_info_t audio_hal_info;
     bool is_ms12_tuning_dat; /* a flag to determine the MS12 tuning data file is existing */
+    /* 
+    defined for default speaker output channels:
+    stb: default 2 channels.
+    tv:  default 8 channels(2ch speaker,2ch spdif,2ch headphone)
+    soundbar:depending on the prop defined by device 
+    */
+    int  default_alsa_ch;
     /* -End- */
 };
 
@@ -925,6 +935,23 @@ ssize_t audio_hal_data_processing(struct audio_stream_out *stream
                                     , void **output_buffer
                                     , size_t *output_buffer_bytes
                                     , audio_format_t output_format);
+/*
+ *@brief audio_hal_data_processing_ms12v2
+ * format:
+ *    if pcm-16bits-8ch, mapping to 8ch
+ *    if raw data, packet it to IEC61937 format with spdif encoder
+ *    if IEC61937 format, write them to hardware
+ * return
+ *    0, success
+ *    -1, fail
+ */
+ssize_t audio_hal_data_processing_ms12v2(struct audio_stream_out *stream
+                                  , const void *input_buffer
+                                  , size_t input_buffer_bytes
+                                  , void **output_buffer
+                                  , size_t *output_buffer_bytes
+                                  , audio_format_t output_format
+                                  , int n_ms12_channel);
 
 /*
  *@brief hw_write the api to write the data to audio hardware
