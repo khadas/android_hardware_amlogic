@@ -8,6 +8,7 @@ cc_library {
     cflags: ["-Werror", "-Wno-macro-redefined"],
     export_include_dirs: ["include"],
     local_include_dirs: ["include"],
+    shared_libs: ["libcutils","libutils","liblog"],
 
     target: {
         darwin: {

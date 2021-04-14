@@ -39,7 +39,8 @@ int get_hardware_config_parameters(
     , unsigned int channels
     , unsigned int rate
     , bool platform_is_tv
-    , bool continuous_mode);
+    , bool continuous_mode
+    , bool game_mode);
 
 #endif // _ALSA_MANAGER_H_
 

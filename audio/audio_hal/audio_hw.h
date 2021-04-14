@@ -63,7 +63,8 @@
 #define DEFAULT_CAPTURE_PERIOD_SIZE  1024
 #define DEFAULT_PLAYBACK_PERIOD_CNT 6
 
-//#define DEFAULT_PERIOD_SIZE 512
+#define LOW_LATENCY_PLAYBACK_PERIOD_SIZE 256
+#define LOW_LATENCY_CAPTURE_PERIOD_SIZE  512
 
 /* number of ICE61937 format frames per period */
 #define DEFAULT_IEC_SIZE 6144
@@ -72,6 +73,7 @@
 #define PLAYBACK_PERIOD_COUNT 4
 /* number of periods for capture */
 #define CAPTURE_PERIOD_COUNT 4
+#define PATCH_PERIOD_COUNT  4
 
 /* minimum sleep time in out_write() when write threshold is not reached */
 #define MIN_WRITE_SLEEP_US 5000
@@ -110,7 +112,6 @@ static unsigned int DEFAULT_OUT_SAMPLING_RATE = 48000;
 #define HBR_MULTIPLIER      (16) //MAT or DTSHD bitstream in IEC61937
 #define JITTER_DURATION_MS  (3)
 #define FLOAT_ZERO              (0.000001)
-
 
 /*the same as "AUDIO HAL FORMAT" in kernel*/
 enum audio_hal_format {
@@ -270,6 +271,18 @@ typedef enum atom_stream_type {
 } atom_stream_type_t;
 #endif
 
+/* Base on user settings */
+typedef enum picture_mode {
+    PQ_STANDARD = 0,
+    PQ_MOVIE,
+    PQ_DYNAMIC,
+    PQ_NATURAL,
+    PQ_GAME,
+    PQ_PC,
+    PQ_CUSTOM,
+    PQ_MODE_MAX
+} picture_mode_t ;
+
 typedef enum AML_INPUT_STREAM_CONFIG_TYPE {
     AML_INPUT_STREAM_CONFIG_TYPE_CHANNELS   = 0,
     AML_INPUT_STREAM_CONFIG_TYPE_PERIODS    = 1,
@@ -302,6 +315,7 @@ struct aml_bt_output {
     size_t resampler_buffer_size_in_frames;
     size_t resampler_in_frames;
 };
+
 #define HDMI_ARC_MAX_FORMAT  20
 struct aml_audio_device {
     struct audio_hw_device hw_device;
@@ -499,7 +513,7 @@ struct aml_audio_device {
     int audio_discontinue;
     int no_underrun_count;
     int no_underrun_max;
-    int   dap_bypass_enable;
+    int dap_bypass_enable;
     float dap_bypassgain;
     int start_mute_flag;
     int start_mute_count;
@@ -512,6 +526,15 @@ struct aml_audio_device {
     int FactoryChannelReverse;
     bool dual_spdif_support; /*1 means supports spdif_a & spdif_b & spdif interface*/
     bool ms12_force_ddp_out; /*1 force ms12 output ddp*/
+
+    /* user setting picture mode */
+    picture_mode_t pic_mode;
+    bool game_mode;
+    bool mode_reconfig_in;
+    bool mode_reconfig_out;
+    bool mode_reconfig_ms12;
+    /* user setting picture mode end */
+
     uint64_t  sys_audio_frame_written;
     void* hw_mediasync;
     struct aec_t *aec;
@@ -703,7 +726,6 @@ struct aml_stream_in {
 #endif
     pthread_mutex_t lock;       /* see note below on mutex acquisition order */
     struct pcm_config config;
-    int pcm_block_mode;         /*0 open with non block mode, 1 open with block mode*/
     struct pcm *pcm;
     unsigned int device;
     audio_channel_mask_t hal_channel_mask;
@@ -734,6 +756,7 @@ struct aml_stream_in {
     struct timespec mute_start_ts;
     bool mute_flag;
     int mute_log_cntr;
+    int mute_mdelay;
     struct aml_audio_device *dev;
     void *input_tmp_buffer;
     size_t input_tmp_buffer_size;

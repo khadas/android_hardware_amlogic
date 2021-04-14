@@ -738,7 +738,8 @@ int get_the_dolby_ms12_prepared(
             , audio_channel_count_from_out_mask(AUDIO_CHANNEL_OUT_STEREO)
             , ms12->output_samplerate
             , out->is_tv_platform
-            , continous_mode(adev));
+            , continous_mode(adev)
+            , adev->game_mode);
 
         if (continous_mode(adev)) {
             ms12->dolby_ms12_thread_exit = false;

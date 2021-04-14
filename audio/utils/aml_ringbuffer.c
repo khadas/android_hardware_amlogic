@@ -230,49 +230,47 @@ size_t ring_buffer_read(struct ring_buffer *rbuffer, unsigned char* buffer, size
 }
 
 /*************************************************
-Function: ring_buffer_read
-Description: read data from ring buffer
+Function: ring_buffer_seek
+Description: seek read or write pointer to add or
+            reduce audio latency
 Input: rbuffer: the source ring buffer
-       bytes: data space in byte
-Return: data space has been seeked
+       bytes: seek space in byte,
+              bytes > 0, reduce audio latency, move read pointer
+              bytes < 0, add audio latency, move write pointer
+Return: 0: do nothing for ringbuffer.
+        bytes: moved space in byte
 *************************************************/
-size_t ring_buffer_seek(struct ring_buffer *rbuffer, size_t bytes)
+int ring_buffer_seek(struct ring_buffer *rbuffer, int bytes)
 {
     struct ring_buffer *buf = rbuffer;
-    size_t readable_space, read_bytes;
-    int left_bytes;
+    int seek_bytes = 0;
 
     pthread_mutex_lock(&buf->lock);
 
     if (buf->start_addr == NULL || buf->rd == NULL || buf->wr == NULL
-            || buf->size == 0) {
-        ALOGE("%s, Buffer malloc fail!\n", __FUNCTION__);
+            || buf->size == 0 || bytes == 0) {
         pthread_mutex_unlock(&buf->lock);
         return 0;
     }
 
-    readable_space = get_read_space(buf->wr, buf->rd, buf->size, buf->last_is_write);
-    if (readable_space < bytes) {
-        read_bytes = readable_space;
+    if (bytes > 0) {
+        seek_bytes = get_read_space(buf->wr, buf->rd, buf->size, buf->last_is_write);
+        if (seek_bytes > bytes) {
+            seek_bytes = bytes;
+        }
+        buf->rd = update_pointer(buf->rd, seek_bytes, buf->start_addr, buf->size);
     } else {
-        read_bytes = bytes;
+        seek_bytes = get_write_space(buf->wr, buf->rd, buf->size, buf->last_is_write);
+        bytes *= -1;
+        if (seek_bytes > bytes) {
+            seek_bytes = bytes;
+        }
+        buf->wr = update_pointer(buf->wr, seek_bytes, buf->start_addr, buf->size);
+        seek_bytes *= -1;
     }
 
-    left_bytes = buf->start_addr + buf->size - buf->rd;
-    if (left_bytes >= (int) bytes) {
-        memset(buf->rd,0,sizeof(unsigned char)*bytes);
-    } else {
-        memset(buf->rd, 0,sizeof(unsigned char)*left_bytes);
-        memset(buf->start_addr,0,sizeof(unsigned char)*(bytes-left_bytes));
-    }
-
-    buf->rd = update_pointer(buf->rd, read_bytes, buf->start_addr, buf->size);
-
-    if (read_bytes)
-        buf->last_is_write = 0;
     pthread_mutex_unlock(&buf->lock);
-
-    return read_bytes;
+    return seek_bytes;
 }
 
 

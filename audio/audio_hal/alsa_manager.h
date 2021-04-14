@@ -80,5 +80,5 @@ int aml_alsa_output_getinfo(void *handle, alsa_info_type_t type, alsa_output_inf
 int aml_alsa_output_pause_new(void *handle);
 int aml_alsa_output_resume_new(void *handle);
 
-
+void alsa_out_reconfig_params(struct audio_stream_out *stream);
 #endif // _ALSA_MANAGER_H_

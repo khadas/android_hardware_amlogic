@@ -217,6 +217,17 @@ static inline bool is_hdmi_out(enum OUT_PORT active_outport) {
 
 typedef void (*dtv_avsync_process_cb)(struct aml_audio_patch* patch,struct aml_stream_out* stream_out);
 
+/* all latency in unit 'ms' */
+struct audio_patch_latency_detail {
+    unsigned int ringbuffer_latency;
+    unsigned int user_tune_latency;
+    unsigned int alsa_in_latency;
+    unsigned int alsa_i2s_out_latency;
+    unsigned int alsa_spdif_out_latency;
+    unsigned int ms12_latency;
+    unsigned int total_latency;
+};
+
 struct aml_audio_patch {
     struct audio_hw_device *dev;
     ring_buffer_t aml_ringbuffer;
@@ -273,12 +284,19 @@ struct aml_audio_patch {
 #endif
 
     /* for AVSYNC tuning */
-    int is_src_stable;
-    int av_diffs;
-    int do_tune;
+    int vltcy;
+    int altcy;
+    int average_vltcy;
+    int average_altcy;
     int avsync_sample_accumed;
-    int avsync_sample_max_cnt;
-    int avsync_sample_interval;
+    int max_video_latency;
+    bool need_do_avsync;
+    bool input_signal_stable;
+    bool is_avsync_start;
+    bool skip_frames;
+    int skip_avsync_cnt;
+    bool game_mode;
+    struct audio_patch_latency_detail audio_latency;
     /* end of AVSYNC tuning */
     /*for dtv play parameters */
     int dtv_aformat;
@@ -403,6 +421,8 @@ void aml_stream_out_dump(struct aml_stream_out *aml_out, int fd);
 void aml_audio_port_config_dump(struct audio_port_config *port_config, int fd);
 void aml_audio_patch_dump(struct audio_patch *patch, int fd);
 void aml_audio_patches_dump(struct aml_audio_device* aml_dev, int fd);
+int aml_dev_dump_latency(struct aml_audio_device *aml_dev, int fd);
+void audio_patch_dump(struct aml_audio_device* aml_dev, int fd);
 bool is_use_spdifb(struct aml_stream_out *out);
 bool is_dolby_ms12_support_compression_format(audio_format_t format);
 bool is_direct_stream_and_pcm_format(struct aml_stream_out *out);
@@ -420,5 +440,7 @@ int reconfig_read_param_through_hdmiin(struct aml_audio_device *aml_dev,
  * return zero if success.
  */
 int update_sink_format_after_hotplug(struct aml_audio_device *adev);
+
+int stream_check_reconfig_param(struct audio_stream_out *stream);
 
 #endif /* _AML_AUDIO_STREAM_H_ */

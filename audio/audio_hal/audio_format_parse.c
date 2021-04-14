@@ -740,6 +740,29 @@ int android_audio_format_t_convert_to_andio_type(audio_format_t format)
     }
 }
 
+char* audio_type_convert_to_string(int s32AudioType)
+{
+    switch (s32AudioType) {
+    case AC3:
+        return "AC3";
+    case EAC3:
+        return "EAC3";
+    case DTS:
+        return "DTS";
+    case DTSCD:
+        return "DTSCD";
+    case DTSHD:
+        return "DTSHD";
+    case TRUEHD:
+        return "TRUEHD";
+    case LPCM:
+        return "LPCM";
+    case MAT:
+        return "MAT";
+    default:
+        return "UNKNOWN";
+    }
+}
 
 int audio_parse_get_audio_type_direct(audio_type_parse_t *status)
 {
