@@ -302,7 +302,6 @@ struct aml_bt_output {
     size_t resampler_buffer_size_in_frames;
     size_t resampler_in_frames;
 };
-#define MAX_STREAM_NUM   5
 #define HDMI_ARC_MAX_FORMAT  20
 struct aml_audio_device {
     struct audio_hw_device hw_device;
@@ -320,8 +319,6 @@ struct aml_audio_device {
     audio_devices_t out_device;
     int in_call;
     struct aml_stream_in *active_input;
-    struct aml_stream_out *active_output[MAX_STREAM_NUM];
-    unsigned char active_output_count;
     bool mic_mute;
     bool speaker_mute;
     unsigned int card;
@@ -354,6 +351,7 @@ struct aml_audio_device {
     int arc_hdmi_updated;
     int a2dp_active;
     int a2dp_updated;
+    bool need_reset_a2dp;
     void * a2dp_hal;
     int hdmi_format_updated;
     struct aml_native_postprocess native_postprocess;

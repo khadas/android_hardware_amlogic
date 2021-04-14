@@ -322,6 +322,14 @@ ssize_t a2dp_out_write(struct audio_stream_out* stream, const void* buffer, size
         return -1;
     }
     std::unique_lock<std::mutex> lock(hal->mutex_);
+    if (adev->need_reset_a2dp) {
+        lock.unlock();
+        adev->need_reset_a2dp = false;
+        ALOGI("[%s:%d] need_reset_a2dp", __func__, __LINE__);
+        a2dp_out_standby(&stream->common);
+        return bytes;
+    }
+
     if (out->pause_status)
         return bytes;
     const int64_t cur_write = aml_audio_get_systime();
@@ -355,7 +363,7 @@ ssize_t a2dp_out_write(struct audio_stream_out* stream, const void* buffer, size
     } else if (state == BluetoothStreamState::STARTED) {
         if (adev->audio_patch) {
             int64_t write_delta_time_us = cur_write - hal->last_write_time;
-            if (write_delta_time_us > 128000) {
+            if (write_delta_time_us > 64000) {
                 ALOGD("%s:%d, for DTV/HDMIIN, input may be has gap: %lld", __func__, __LINE__, cur_write - hal->last_write_time);
                 lock.unlock();
                 a2dp_out_standby(&stream->common);
@@ -377,7 +385,6 @@ ssize_t a2dp_out_write(struct audio_stream_out* stream, const void* buffer, size
         if (patch && patch->input_src == AUDIO_DEVICE_IN_HDMI && is_dolby_format(patch->aformat)) {
             usleep(64000);
         }
-
         if (a2dp_out_resume(stream)) {
             usleep(8000);
         }
@@ -501,20 +508,6 @@ ssize_t a2dp_out_write(struct audio_stream_out* stream, const void* buffer, size
         writed_bytes += sent;
     }
     hal->last_write_time = cur_write;
-    #if 0
-    if (totalWritten) {
-        hal->last_write_time = cur_write;
-    } else {
-        const int64_t gap = cur_write - hal->last_write_time;
-        int64_t sleep_time = frames * 1000000LL / hal->config.sample_rate - gap;
-        hal->last_write_time = cur_write;
-        if (sleep_time > 0) {
-            hal->last_write_time += sleep_time;
-            lock.unlock();
-            usleep(sleep_time);
-        }
-    }
-    #endif
     return bytes;
 }
 
