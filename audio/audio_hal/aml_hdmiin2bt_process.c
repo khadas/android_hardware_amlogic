@@ -34,7 +34,6 @@
 
 int in_reset_config_param(struct aml_stream_in *in, AML_INPUT_STREAM_CONFIG_TYPE_E enType, const void *pValue)
 {
-    int s32Ret = 0;
     struct aml_audio_device *adev = in->dev;
 
     switch (enType) {
@@ -51,19 +50,8 @@ int in_reset_config_param(struct aml_stream_in *in, AML_INPUT_STREAM_CONFIG_TYPE
             ALOGW("%s:%d not support input stream type:%#x", __func__, __LINE__, enType);
             return -1;
     }
-
-    if (0 == in->standby) {
-        do_input_standby(in);
-    }
-    s32Ret = start_input_stream(in);
-    in->standby = 0;
-    if (s32Ret < 0) {
-        ALOGW("start input stream failed! ret:%#x", s32Ret);
-    }
-    return s32Ret;
+    return 0;
 }
-
-
 
 /* here to fix pcm switch to raw nosie issue ,it is caused by hardware format detection later than output
 so we delay pcm output one frame to work around the issue,but it has a negative effect on av sync when normal

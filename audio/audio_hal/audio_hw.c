@@ -481,7 +481,6 @@ static int start_output_stream (struct aml_stream_out *out)
     unsigned int card = CARD_AMLOGIC_BOARD;
     unsigned int port = PORT_I2S;
     int ret = 0;
-    int i  = 0;
     struct aml_stream_out *out_removed = NULL;
     int channel_count = popcount (out->hal_channel_mask);
     bool hwsync_lpcm = (out->flags & AUDIO_OUTPUT_FLAG_HW_AV_SYNC && out->config.rate  <= 48000 &&
@@ -494,19 +493,6 @@ static int start_output_stream (struct aml_stream_out *out)
     }
     if (out->hw_sync_mode == true) {
         adev->hwsync_output = out;
-#if 0
-        for (i = 0; i < MAX_STREAM_NUM; i++) {
-            if (adev->active_output[i]) {
-                out_removed = adev->active_output[i];
-                pthread_mutex_lock (&out_removed->lock);
-                if (!out_removed->standby) {
-                    ALOGI ("hwsync start,force %p standby\n", out_removed);
-                    do_output_standby (out_removed);
-                }
-                pthread_mutex_unlock (&out_removed->lock);
-            }
-        }
-#endif
     }
     card = alsa_device_get_card_index();
     if (adev->out_device & AUDIO_DEVICE_OUT_ALL_SCO) {
@@ -590,17 +576,6 @@ static int start_output_stream (struct aml_stream_out *out)
 
     if (out->hw_sync_mode == 1) {
         ALOGD ("start_output_stream with hw sync enable %p\n", out);
-    }
-    for (i = 0; i < MAX_STREAM_NUM; i++) {
-        if (adev->active_output[i] == NULL) {
-            ALOGI ("store out (%p) to index %d\n", out, i);
-            adev->active_output[i] = out;
-            adev->active_output_count++;
-            break;
-        }
-    }
-    if (i == MAX_STREAM_NUM) {
-        ALOGE ("error,no space to store the dev stream \n");
     }
     return 0;
 }
@@ -880,10 +855,7 @@ static int out_set_format(struct audio_stream *stream __unused, audio_format_t f
 static int do_output_standby (struct aml_stream_out *out)
 {
     struct aml_audio_device *adev = out->dev;
-    int i = 0;
-
     ALOGD ("%s(%p)", __FUNCTION__, out);
-
     if ((out->out_device & AUDIO_DEVICE_OUT_ALL_A2DP) && adev->a2dp_hal)
         a2dp_out_standby(&out->stream.common);
 
@@ -899,42 +871,20 @@ static int do_output_standby (struct aml_stream_out *out)
             release_resampler (out->resampler);
             out->resampler = NULL;
         }
-
         out->standby = 1;
-        for (i  = 0; i < MAX_STREAM_NUM; i++) {
-            if (adev->active_output[i] == out) {
-                adev->active_output[i]  = NULL;
-                adev->active_output_count--;
-                ALOGI ("remove out (%p) from index %d\n", out, i);
-                break;
-            }
-        }
         if (out->hw_sync_mode == 1 || adev->hwsync_output == out) {
-#if 0
-            //here to check if hwsync in pause status,if that,chear the status
-            //to release the sound card to other active output stream
-            if (out->pause_status == true && adev->active_output_count > 0) {
-                if (pcm_is_ready (out->pcm) ) {
-                    int r = pcm_ioctl (out->pcm, SNDRV_PCM_IOCTL_PAUSE, 0);
-                    if (r < 0) {
-                        ALOGE ("here cannot resume channel\n");
-                    } else {
-                        r = 0;
-                    }
-                    ALOGI ("clear the hwsync output pause status.resume pcm\n");
-                }
-                out->pause_status = false;
-            }
-#endif
             out->pause_status = false;
             adev->hwsync_output = NULL;
             ALOGI ("clear hwsync_output when hwsync standby\n");
         }
-        if (i == MAX_STREAM_NUM) {
-            ALOGE ("error, not found stream in dev stream list\n");
+        int cnt = 0;
+        for (cnt=0; cnt<STREAM_USECASE_MAX; cnt++) {
+            if (adev->active_outputs[cnt] != NULL) {
+                break;
+            }
         }
         /* no active output here,we can close the pcm to release the sound card now*/
-        if (adev->active_output_count == 0) {
+        if (cnt >= STREAM_USECASE_MAX) {
             if (adev->pcm) {
                 ALOGI ("close pcm %p\n", adev->pcm);
                 pcm_close (adev->pcm);
@@ -1056,21 +1006,19 @@ static int out_set_parameters (struct audio_stream *stream, const char *kvpairs)
         pthread_mutex_lock (&adev->lock);
         pthread_mutex_lock (&out->lock);
         if ( ( (adev->out_device & AUDIO_DEVICE_OUT_ALL) != val) && (val != 0) ) {
-            if (1/* out == adev->active_output[0]*/) {
-                ALOGI ("audio hw select device!\n");
+            ALOGI ("audio hw select device!\n");
+            standy_func (out);
+            /* a change in output device may change the microphone selection */
+            if (adev->active_input &&
+                adev->active_input->source == AUDIO_SOURCE_VOICE_COMMUNICATION) {
+                force_input_standby = true;
+            }
+            /* force standby if moving to/from HDMI */
+            if ( ( (val & AUDIO_DEVICE_OUT_AUX_DIGITAL) ^
+                   (adev->out_device & AUDIO_DEVICE_OUT_AUX_DIGITAL) ) ||
+                 ( (val & AUDIO_DEVICE_OUT_DGTL_DOCK_HEADSET) ^
+                   (adev->out_device & AUDIO_DEVICE_OUT_DGTL_DOCK_HEADSET) ) ) {
                 standy_func (out);
-                /* a change in output device may change the microphone selection */
-                if (adev->active_input &&
-                    adev->active_input->source == AUDIO_SOURCE_VOICE_COMMUNICATION) {
-                    force_input_standby = true;
-                }
-                /* force standby if moving to/from HDMI */
-                if ( ( (val & AUDIO_DEVICE_OUT_AUX_DIGITAL) ^
-                       (adev->out_device & AUDIO_DEVICE_OUT_AUX_DIGITAL) ) ||
-                     ( (val & AUDIO_DEVICE_OUT_DGTL_DOCK_HEADSET) ^
-                       (adev->out_device & AUDIO_DEVICE_OUT_DGTL_DOCK_HEADSET) ) ) {
-                    standy_func (out);
-                }
             }
             adev->out_device &= ~AUDIO_DEVICE_OUT_ALL;
             adev->out_device |= val;
@@ -1386,14 +1334,18 @@ static int out_pause (struct audio_stream_out *stream)
     }
     if (out->hw_sync_mode) {
         adev->hwsync_output = NULL;
-        if (adev->active_output_count > 1) {
+        int cnt = 0;
+        for (int i=0; i<STREAM_USECASE_MAX; i++) {
+            if (adev->active_outputs[i] != NULL) {
+                cnt++;
+            }
+        }
+        if (cnt > 1) {
             ALOGI ("more than one active stream,skip alsa hw pause\n");
             goto exit1;
         }
     }
-
     r = aml_alsa_output_pause(stream);
-
     if (out->spdifout_handle) {
         aml_audio_spdifout_pause(out->spdifout_handle);
     }
@@ -1401,8 +1353,6 @@ static int out_pause (struct audio_stream_out *stream)
     if (out->spdifout2_handle) {
         aml_audio_spdifout_pause(out->spdifout2_handle);
     }
-
-
 exit1:
     out->pause_status = true;
 exit:
@@ -5032,7 +4982,17 @@ int do_output_standby_l(struct audio_stream *stream)
         if ((eDolbyMS12Lib == adev->dolby_lib_type) && (ms12->dolby_ms12_enable == true)) {
             get_dolby_ms12_cleanup(&adev->ms12);
         }
-        a2dp_out_standby(stream);
+        int cnt = 0;
+        for (int i=0; i<STREAM_USECASE_MAX; i++) {
+            struct aml_stream_out *stream_temp = adev->active_outputs[i];
+            if (stream_temp != NULL && !stream_temp->standby) {
+                cnt++;
+            }
+        }
+        if (cnt <= 1) {
+            ALOGI("[%s:%d] stream cnt:%d", __func__, __LINE__, cnt);
+            a2dp_out_standby(stream);
+        }
     }
 
     /*
@@ -6208,12 +6168,9 @@ ssize_t mixer_main_buffer_write(struct audio_stream_out *stream, const void *buf
         return -1;
     }
 
-    if (adev->useSubMix) {
-        // For compatible by lianlian
-        if (aml_out->standby) {
-            ALOGI("%s(), standby to unstandby", __func__);
-            aml_out->standby = false;
-        }
+    if (aml_out->standby) {
+        ALOGI("%s(), standby to unstandby", __func__);
+        aml_out->standby = false;
     }
 
     if (aml_out->hw_sync_mode) {
@@ -6565,7 +6522,7 @@ hwsync_rewrite:
 #endif
             /* we need standy a2dp when switch the format, in order to prevent UNDERFLOW in a2dp stack. */
             if (adev->active_outport == OUTPORT_A2DP) {
-                a2dp_out_standby(&stream->common);
+                adev->need_reset_a2dp = true;
             }
 
             // HDMI input && HDMI ARC output case, when input format change, output format need also change
@@ -6884,12 +6841,9 @@ ssize_t mixer_aux_buffer_write(struct audio_stream_out *stream, const void *buff
         aml_out->status = STREAM_MIXING;
     }
 
-    if (adev->useSubMix) {
-        // For compatible by lianlian
-        if (aml_out->standby) {
-            ALOGI("%s(), standby to unstandby", __func__);
-            aml_out->standby = false;
-        }
+    if (aml_out->standby) {
+        ALOGI("%s(), standby to unstandby", __func__);
+        aml_out->standby = false;
     }
 
     if (aml_out->is_normal_pcm && !aml_out->normal_pcm_mixing_config) {
@@ -7354,7 +7308,6 @@ ssize_t out_write_new(struct audio_stream_out *stream,
         aml_out->continuous_mode_check = false;
     }
 
-
     if ((adev->dolby_lib_type_last == eDolbyMS12Lib) &&
         ((adev->patch_src == SRC_DTV) && adev->audio_patching)) {
         /*in dtv case, we can't use continuous mode*/
@@ -7667,7 +7620,6 @@ void *audio_patch_input_threadloop(void *data)
                 patch->in_buf = aml_audio_realloc(patch->in_buf, read_bytes);
                 patch->in_buf_size = read_bytes;
             }
-
             bytes_avail = in_read(stream_in, patch->in_buf, read_bytes);
             if (aml_dev->tv_mute) {
                 memset(patch->in_buf, 0, bytes_avail);
@@ -7684,6 +7636,8 @@ void *audio_patch_input_threadloop(void *data)
                         ret = reconfig_read_param_through_hdmiin(aml_dev, in, ringbuffer, ring_buffer_size);
                         pthread_mutex_unlock(&in->lock);
                         if (ret == 0) {
+                            /* we need standy a2dp when switch the hdmiin param, in order to prevent UNDERFLOW in a2dp stack. */
+                            aml_dev->need_reset_a2dp = true;
                             break;
                         }
                     }

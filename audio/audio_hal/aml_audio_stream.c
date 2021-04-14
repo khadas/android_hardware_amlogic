@@ -893,8 +893,8 @@ int reconfig_read_param_through_hdmiin(struct aml_audio_device *aml_dev,
                                        ring_buffer_t *ringbuffer, int buffer_size)
 {
     int ring_buffer_size = buffer_size;
-    struct aml_stream_in *in;
     int last_channel_count = 2;
+    int s32Ret = 0;
     bool is_channel_changed = false;
     bool is_audio_packet_changed = false;
     hdmiin_audio_packet_t last_audio_packet = AUDIO_PACKET_AUDS;
@@ -919,9 +919,8 @@ int reconfig_read_param_through_hdmiin(struct aml_audio_device *aml_dev,
         int channel = 2;
         bool bSpdifin_PAO = false;
 
-        ALOGD("HDMI Format Switch from last_type=%d, cur_type=%d, is_audio_packet_changed %d last_ch = %d, cur_ch = %d is_channel_changed %d\n",
+        ALOGI("HDMI Format Switch [audio_packet pre:%d->cur:%d changed:%d] [channel pre:%d->cur:%d changed:%d]",
             last_audio_packet, cur_audio_packet, is_audio_packet_changed, last_channel_count, current_channel, is_channel_changed);
-
         if (cur_audio_packet == AUDIO_PACKET_HBR) {
             // if it is high bitrate bitstream, use PAO and increase the buffer size
             bSpdifin_PAO = true;
@@ -943,6 +942,14 @@ int reconfig_read_param_through_hdmiin(struct aml_audio_device *aml_dev,
 
         in_reset_config_param(stream_in, AML_INPUT_STREAM_CONFIG_TYPE_PERIODS, &period_size);
         in_reset_config_param(stream_in, AML_INPUT_STREAM_CONFIG_TYPE_CHANNELS, &channel);
+        if (!stream_in->standby) {
+            do_input_standby(stream_in);
+        }
+        s32Ret = start_input_stream(stream_in);
+        stream_in->standby = 0;
+        if (s32Ret < 0) {
+            ALOGE("[%s:%d] start input stream failed! ret:%#x", __func__, __LINE__, s32Ret);
+        }
         stream_in->audio_packet_type = cur_audio_packet;
         return 0;
     } else {
