@@ -25,6 +25,45 @@
 #include "aml_audio_avsync_table.h"
 #include "aml_audio_spdifout.h"
 
+#define MS12_OUTPUT_5_1_DDP "vendor.media.audio.ms12.output.5_1_ddp"
+
+static int get_ms12_dv_tunnel_input_latency(audio_format_t input_format) {
+    char buf[PROPERTY_VALUE_MAX];
+    int ret = -1;
+    int latency_ms = 0;
+    char *prop_name = NULL;
+    switch (input_format) {
+    case AUDIO_FORMAT_PCM_16_BIT: {
+        /*for non tunnel ddp2h/heaac case:netlfix AL1 case */
+        prop_name = AVSYNC_MS12_DV_TUNNEL_PCM_LATENCY_PROPERTY;
+        latency_ms = AVSYNC_MS12_DV_TUNNEL_PCM_LATENCY;
+        break;
+    }
+    case AUDIO_FORMAT_AC3:
+    case AUDIO_FORMAT_E_AC3: {
+        /*for non tunnel dolby ddp5.1 case:netlfix AL1 case*/
+        prop_name = AVSYNC_MS12_DV_TUNNEL_DDP_LATENCY_PROPERTY;
+        latency_ms = AVSYNC_MS12_DV_TUNNEL_DDP_LATENCY;
+        break;
+    }
+    case AUDIO_FORMAT_AC4: {
+        prop_name = AVSYNC_MS12_DV_TUNNEL_AC4_LATENCY_PROPERTY;
+        latency_ms = AVSYNC_MS12_DV_TUNNEL_AC4_LATENCY;
+        break;
+    }
+    default:
+        break;
+    }
+
+    if (prop_name) {
+        ret = property_get(prop_name, buf, NULL);
+        if (ret > 0) {
+            latency_ms = atoi(buf);
+        }
+    }
+
+    return latency_ms;
+}
 
 static int get_ms12_nontunnel_input_latency(audio_format_t input_format) {
     char buf[PROPERTY_VALUE_MAX];
@@ -302,6 +341,8 @@ static int get_ms12_tunnel_latency_offset(enum OUT_PORT port
     int input_latency_ms = 0;
     int output_latency_ms = 0;
     int port_latency_ms = 0;
+    int is_dv = getprop_bool(MS12_OUTPUT_5_1_DDP); /* suppose that Dolby Vision is under test */
+
     if (is_netflix) {
         input_latency_ms  = get_ms12_netflix_tunnel_input_latency(input_format);
         output_latency_ms = get_ms12_netflix_output_latency(output_format);
@@ -318,6 +359,9 @@ static int get_ms12_tunnel_latency_offset(enum OUT_PORT port
          */
         input_latency_ms  = get_ms12_tunnel_input_latency(input_format)
                             + is_output_ddp_atmos * AVSYNC_MS12_TUNNEL_DIFF_DDP_JOC_VS_DDP_LATENCY;
+        if (is_dv) {
+            input_latency_ms += get_ms12_dv_tunnel_input_latency(input_format);
+        }
         output_latency_ms = get_ms12_output_latency(output_format);
         port_latency_ms   = get_ms12_port_latency(port);
     }
