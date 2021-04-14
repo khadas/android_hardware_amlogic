@@ -28,6 +28,11 @@
 #include "alsa_manager.h"
 #include "alsa_device_parser.h"
 #include "aml_hdmiin2bt_process.h"
+#include "aml_avsync_tuning.h"
+#include "aml_android_utils.h"
+#include "audio_format_parse.h"
+#include "alsa_config_parameters.h"
+#include "audio_hw_ms12.h"
 
 #ifdef MS12_V24_ENABLE
 #include "audio_hw_ms12_v2.h"
@@ -336,18 +341,17 @@ bool is_hdmi_in_stable_hw (struct audio_stream_in *stream)
 
     stable = aml_mixer_ctrl_get_int (&aml_dev->alsa_mixer, AML_MIXER_ID_HDMI_IN_AUDIO_STABLE);
     if (!stable) {
-        ALOGD("%s() amixer %s get %d\n", __func__, "HDMIIN audio stable", stable);
+        ALOGV("%s() amixer %s get %d\n", __func__, "HDMIIN audio stable", stable);
         return false;
     }
 
-/*
-    type = aml_mixer_ctrl_get_int (&aml_dev->alsa_mixer, AML_MIXER_ID_SPDIFIN_AUDIO_TYPE);
+    type = aml_mixer_ctrl_get_int (&aml_dev->alsa_mixer, AML_MIXER_ID_HDMIIN_AUDIO_TYPE);
     if (type != in->spdif_fmt_hw) {
         ALOGD ("%s(), in type changed from %d to %d", __func__, in->spdif_fmt_hw, type);
         in->spdif_fmt_hw = type;
         return false;
     }
-*/
+
     return true;
 }
 
@@ -562,34 +566,30 @@ bool Stop_watch(struct timespec start_ts, int64_t time) {
 
 bool signal_status_check(audio_devices_t in_device, int *mute_time,
                         struct audio_stream_in *stream) {
-    /*if ((in_device & AUDIO_DEVICE_IN_HDMI) &&
-            (!is_hdmi_in_stable_hw(stream) ||
-            !is_hdmi_in_stable_sw(stream))) {
-        *mute_time = 600;
-        return false;
-    }
-    */
-    if (in_device & AUDIO_DEVICE_IN_HDMI)
-    {
+    if (in_device & AUDIO_DEVICE_IN_HDMI) {
         bool hw_stable = is_hdmi_in_stable_hw(stream);
         bool sw_stable = is_hdmi_in_stable_sw(stream);
         if (!hw_stable || !sw_stable) {
-            ALOGD("%s() hw_stable %d sw_stable %d\n", __func__, hw_stable, sw_stable);
-            *mute_time = 600;
+            ALOGV("%s() hw_stable %d sw_stable %d\n", __func__, hw_stable, sw_stable);
+            *mute_time = 100;
             return false;
         }
     }
     if ((in_device & AUDIO_DEVICE_IN_TV_TUNER) &&
             !is_atv_in_stable_hw (stream)) {
-        *mute_time = 2500;
+        *mute_time = 100;
         return false;
     }
     if (((in_device & AUDIO_DEVICE_IN_SPDIF) ||
-            ((in_device & AUDIO_DEVICE_IN_HDMI_ARC) &&
-                    (access(SYS_NODE_EARC, F_OK) == -1))) &&
+            (in_device & AUDIO_DEVICE_IN_HDMI_ARC)) &&
             !is_spdif_in_stable_hw(stream)) {
-        *mute_time = 1000;
+        *mute_time = 100;
         return false;
+    }
+    if ((in_device & AUDIO_DEVICE_IN_LINE) &&
+            !is_av_in_stable_hw(stream)) {
+       *mute_time = 100;
+       return false;
     }
     return true;
 }
@@ -599,6 +599,7 @@ const char *audio_port_role[] = {
     "AUDIO_PORT_ROLE_SOURCE",
     "AUDIO_PORT_ROLE_SINK",
 };
+
 const char *audio_port_role_to_str(audio_port_role_t role)
 {
     if (role > AUDIO_PORT_ROLE_SINK)
@@ -703,6 +704,74 @@ void aml_audio_patches_dump(struct aml_audio_device* aml_dev, int fd)
             aml_audio_patch_dump(&patch_set->audio_patch, fd);
 
         i++;
+    }
+}
+
+int aml_dev_dump_latency(struct aml_audio_device *aml_dev, int fd)
+{
+    struct aml_stream_in *in = aml_dev->active_input;
+    struct aml_audio_patch *patch = aml_dev->audio_patch;
+
+    dprintf(fd, "-------------[AML_HAL] audio Latency--------------------------\n");
+
+    if (patch) {
+        aml_dev_sample_audio_path_latency(aml_dev, NULL);
+        dprintf(fd, "[AML_HAL]      audio patch latency         : %6d ms\n", patch->audio_latency.ringbuffer_latency);
+        dprintf(fd, "[AML_HAL]      audio spk tuning latency    : %6d ms\n", patch->audio_latency.user_tune_latency);
+        dprintf(fd, "[AML_HAL]      MS12 buffer latency         : %6d ms\n", patch->audio_latency.ms12_latency);
+        dprintf(fd, "[AML_HAL]      alsa out hw i2s latency     : %6d ms\n", patch->audio_latency.alsa_i2s_out_latency);
+        dprintf(fd, "[AML_HAL]      alsa out hw spdif latency   : %6d ms\n", patch->audio_latency.alsa_spdif_out_latency);
+        dprintf(fd, "[AML_HAL]      alsa in hw latency          : %6d ms\n\n", patch->audio_latency.alsa_in_latency);
+        dprintf(fd, "[AML_HAL]      audio total latency         :%6d ms\n", patch->audio_latency.total_latency);
+
+        int v_ltcy = aml_dev_sample_video_path_latency(patch);
+        if (v_ltcy > 0) {
+            dprintf(fd, "[AML_HAL]      video path total latency    : %6d ms\n", v_ltcy);
+        } else {
+            dprintf(fd, "[AML_HAL]      video path total latency    : N/A\n");
+        }
+    }
+    return 0;
+}
+
+void audio_patch_dump(struct aml_audio_device* aml_dev, int fd)
+{
+    struct aml_audio_patch *pstPatch = aml_dev->audio_patch;
+    if (NULL == pstPatch) {
+        dprintf(fd, "-------------[AML_HAL] audio patch [not create]-----------\n");
+        return;
+    }
+    dprintf(fd, "-------------[AML_HAL] audio patch [%p]---------------\n", pstPatch);
+    if (pstPatch->aml_ringbuffer.size != 0) {
+        uint32_t u32FreeBuffer = get_buffer_write_space(&pstPatch->aml_ringbuffer);
+        dprintf(fd, "[AML_HAL]      RingBuf   size: %10d Byte|  UnusedBuf:%10d Byte(%d%%)\n",
+        pstPatch->aml_ringbuffer.size, u32FreeBuffer, u32FreeBuffer* 100 / pstPatch->aml_ringbuffer.size);
+    } else {
+        dprintf(fd, "[AML_HAL]      patch  RingBuf    : buffer size is 0\n");
+    }
+    if (pstPatch->audio_parse_para) {
+        int s32AudioType = ((audio_type_parse_t*)pstPatch->audio_parse_para)->audio_type;
+        dprintf(fd, "[AML_HAL]      Hal audio Type: [0x%x]%-10s| Src Format:%#10x\n", s32AudioType,
+            audio_type_convert_to_string(s32AudioType),  pstPatch->aformat);
+    }
+
+    dprintf(fd, "[AML_HAL]      IN_SRC        : %#10x     | OUT_SRC   :%#10x\n", pstPatch->input_src, pstPatch->output_src);
+    dprintf(fd, "[AML_HAL]      IN_Format     : %#10x     | OUT_Format:%#10x\n", pstPatch->in_format, pstPatch->out_format);
+    dprintf(fd, "[AML_HAL]      sink format: %#x\n", aml_dev->sink_format);
+    if (aml_dev->active_outport == OUTPORT_HDMI_ARC) {
+        struct aml_arc_hdmi_desc *hdmi_desc = &aml_dev->hdmi_descs;
+        bool dd_is_support = hdmi_desc->dd_fmt.is_support;
+        bool ddp_is_support = hdmi_desc->ddp_fmt.is_support;
+        bool mat_is_support = hdmi_desc->mat_fmt.is_support;
+
+        dprintf(fd, "[AML_HAL]      -dd: %d, ddp: %d, mat: %d\n",
+                dd_is_support, ddp_is_support, mat_is_support);
+    }
+
+    struct dolby_ddp_dec *ddp_dec = &aml_dev->ddp;
+    if (ddp_dec) {
+        dprintf(fd, "[AML_HAL]      -ddp_dec: status %d\n", ddp_dec->status);
+        dprintf(fd, "[AML_HAL]      -ddp_dec: digital_raw %d\n", ddp_dec->digital_raw);
     }
 }
 
@@ -937,10 +1006,33 @@ int reconfig_read_param_through_hdmiin(struct aml_audio_device *aml_dev,
     bool is_channel_changed = false;
     bool is_audio_packet_changed = false;
     hdmiin_audio_packet_t last_audio_packet = AUDIO_PACKET_AUDS;
+    int period_size = 0;
+    int buf_size = 0;
 
     if (!aml_dev || !stream_in) {
         ALOGE("%s line %d aml_dev %p stream_in %p\n", __func__, __LINE__, aml_dev, stream_in);
         return -1;
+    }
+
+    /* check game mode change and reconfig input */
+    if (aml_dev->mode_reconfig_in) {
+        int play_buffer_size = DEFAULT_PLAYBACK_PERIOD_SIZE * PLAYBACK_PERIOD_COUNT;
+
+        if (aml_dev->game_mode) {
+            period_size = LOW_LATENCY_CAPTURE_PERIOD_SIZE;
+            buf_size = 2 * 4 * LOW_LATENCY_PLAYBACK_PERIOD_SIZE;
+        } else {
+            period_size = DEFAULT_CAPTURE_PERIOD_SIZE;
+            buf_size = 4 * 2 * 2 * play_buffer_size * PATCH_PERIOD_COUNT;
+        }
+        ALOGD("%s(), game pic mode %d, period size %d",
+                __func__, aml_dev->game_mode, period_size);
+        in_reset_config_param(stream_in, AML_INPUT_STREAM_CONFIG_TYPE_PERIODS, &period_size);
+        if (ringbuffer) {
+            ring_buffer_reset_size(ringbuffer, buf_size);
+        }
+
+        aml_dev->mode_reconfig_in = false;
     }
 
     last_channel_count = stream_in->config.channels;
@@ -994,6 +1086,32 @@ int reconfig_read_param_through_hdmiin(struct aml_audio_device *aml_dev,
     } else {
         return -1;
     }
+}
+
+int stream_check_reconfig_param(struct audio_stream_out *stream)
+{
+    struct aml_stream_out *out = (struct aml_stream_out *)stream;
+    struct aml_audio_device *adev = out->dev;
+    struct dolby_ms12_desc *ms12 = &(adev->ms12);
+    int period_size = 0;
+
+    if (adev->mode_reconfig_out) {
+        ALOGD("%s(), game reconfig out", __func__);
+        if (ms12->dolby_ms12_enable && !is_bypass_dolbyms12(stream)) {
+            ALOGD("%s(), game reconfig out line %d", __func__, __LINE__);
+            get_hardware_config_parameters(&(adev->ms12_config),
+                AUDIO_FORMAT_PCM_16_BIT,
+                audio_channel_count_from_out_mask(ms12->output_channelmask),
+                ms12->output_samplerate,
+                out->is_tv_platform, continous_mode(adev),
+                adev->game_mode);
+
+            alsa_out_reconfig_params(stream);
+            adev->mode_reconfig_ms12 = true;
+        }
+        adev->mode_reconfig_out = false;
+    }
+    return 0;
 }
 
 int update_sink_format_after_hotplug(struct aml_audio_device *adev)

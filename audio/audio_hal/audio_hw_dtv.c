@@ -92,7 +92,6 @@
 #define PROPERTY_ENABLE_AUDIO_RESAMPLE "vendor.media.audio.resample"
 #define PROPERTY_AUDIO_DISCONTINUE_THRESHOLD "vendor.media.audio.discontinue_threshold"
 
-#define PATCH_PERIOD_COUNT 4
 #define DTV_PTS_CORRECTION_THRESHOLD (90000 * 30 / 1000)
 #define DTV_PCR_DIS_DIFF_THRESHOLD (90000 * 150 / 1000)
 #define AUDIO_PTS_DISCONTINUE_THRESHOLD (90000 * 5)
@@ -2593,9 +2592,6 @@ int audio_set_spdif_clock(struct aml_stream_out *stream, int type)
     return 0;
 }
 
-#define AVSYNC_SAMPLE_INTERVAL (50)
-#define AVSYNC_SAMPLE_MAX_CNT (10)
-
 static int create_dtv_output_stream_thread(struct aml_audio_patch *patch)
 {
     int ret = 0;
@@ -2670,7 +2666,6 @@ int create_dtv_patch_l(struct audio_hw_device *dev, audio_devices_t input,
     patch->dev = dev;
     patch->input_src = input;
     patch->aformat = AUDIO_FORMAT_PCM_16_BIT;
-    patch->avsync_sample_max_cnt = AVSYNC_SAMPLE_MAX_CNT;
     patch->is_dtv_src = true;
     patch->startplay_avsync_flag = 1;
     patch->ad_substream_checked_flag = false;

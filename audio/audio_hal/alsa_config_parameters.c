@@ -22,10 +22,14 @@
 #include <hardware/audio.h>
 #include <tinyalsa/asoundlib.h>
 
+#include "alsa_config_parameters.h"
+
 #define PERIOD_SIZE                     1024
 #define PLAYBACK_PERIOD_COUNT           4
 #define HARDWARE_CHANNEL_STEREO         2
 #define HARDWARE_CHANNEL_7_1_MULTI      8
+#define LOW_LATENCY_PERIOD_SIZE                     256
+#define LOW_LATENCY_PLAYBACK_PERIOD_COUNT           3
 
 /*
  *@brief get the hardware config parameters when the output format is DTS-HD/TRUE-HD
@@ -126,7 +130,8 @@ static void get_pcm_hardware_config_parameters(
     , unsigned int channels
     , unsigned int rate
     , bool platform_is_tv
-    , bool continuous_mode)
+    , bool continuous_mode
+    , bool game_mode)
 {
     if (platform_is_tv == false) {
         if (channels <= 2) {
@@ -143,14 +148,21 @@ static void get_pcm_hardware_config_parameters(
         hardware_config->format = PCM_FORMAT_S32_LE;
     }
     hardware_config->rate = rate;//defualt sample rate = 48KHz
-    hardware_config->period_size = PERIOD_SIZE;
-
+    if (!game_mode)
+        hardware_config->period_size = PERIOD_SIZE;
+    else
+        hardware_config->period_size = LOW_LATENCY_PERIOD_SIZE;
     if (continuous_mode) {
         hardware_config->period_count = PLAYBACK_PERIOD_COUNT * 2;
         hardware_config->start_threshold = hardware_config->period_size * hardware_config->period_count / 4;
     } else {
-        hardware_config->period_count = PLAYBACK_PERIOD_COUNT;
-        hardware_config->start_threshold = hardware_config->period_size * hardware_config->period_count / 2;
+        if (!game_mode) {
+            hardware_config->period_count = PLAYBACK_PERIOD_COUNT;
+            hardware_config->start_threshold = hardware_config->period_size * hardware_config->period_count / 2;
+        } else {
+            hardware_config->period_count = LOW_LATENCY_PLAYBACK_PERIOD_COUNT;
+            hardware_config->start_threshold = hardware_config->period_size;
+        }
     }
     hardware_config->avail_min = 0;
 
@@ -167,7 +179,8 @@ int get_hardware_config_parameters(
     , unsigned int channels
     , unsigned int rate
     , bool platform_is_tv
-    , bool continuous_mode)
+    , bool continuous_mode
+    , bool game_mode)
 {
     ALOGI("%s()\n", __FUNCTION__);
     //DD+
@@ -189,7 +202,8 @@ int get_hardware_config_parameters(
     }
     //PCM
     else {
-        get_pcm_hardware_config_parameters(final_config, channels, rate, platform_is_tv, continuous_mode);
+        get_pcm_hardware_config_parameters(final_config, channels, rate,
+                platform_is_tv, continuous_mode, game_mode);
     }
     ALOGI("%s() channels %d format %d period_count %d period_size %d rate %d\n",
             __FUNCTION__, final_config->channels, final_config->format, final_config->period_count,

@@ -166,7 +166,8 @@ int aml_alsa_output_open(struct audio_stream_out *stream) {
                 , audio_channel_count_from_out_mask(aml_out->hal_channel_mask)
                 , aml_out->config.rate
                 , aml_out->is_tv_platform
-                , continous_mode(adev));
+                , continous_mode(adev)
+                , adev->game_mode);
             switch (output_format) {
                 case AUDIO_FORMAT_E_AC3:
                     device = DIGITAL_DEVICE;
@@ -671,6 +672,7 @@ void aml_close_continuous_audio_device(struct aml_audio_device *adev) {
     return ;
 }
 
+#define WAIT_COUNT_MAX 30
 size_t aml_alsa_input_read(struct audio_stream_in *stream,
                         void *buffer,
                         size_t bytes) {
@@ -680,32 +682,44 @@ size_t aml_alsa_input_read(struct audio_stream_in *stream,
     char  *read_buf = (char *)buffer;
     int ret = 0;
     size_t  read_bytes = 0;
+    int nodata_count = 0;
     struct pcm *pcm_handle = in->pcm;
-    if (in->pcm_block_mode) {
-        ret = pcm_read(pcm_handle, buffer, bytes);
-        return ret;
-    } else {
-        size_t frame_size = in->config.channels * pcm_format_to_bits(in->config.format) / 8;
-        while (read_bytes < bytes) {
-            ret = pcm_read(pcm_handle, (unsigned char *)buffer + read_bytes, bytes - read_bytes);
-            if (ret >= 0) {
-                read_bytes += ret*frame_size;
-            }
-            if (patch && patch->input_thread_exit) {
-                memset((void*)buffer,0,bytes);
-                return 0;
-            }
-            if (ret >= 0) {
-                ALOGV("ret:%d read_bytes:%zu, bytes:%zu ",ret,read_bytes,bytes);
-            } else if (ret != -EAGAIN ) {
-                ALOGE("%s:%d, pcm_read fail, ret:%#x, error info:%s", __func__, __LINE__, ret, strerror(errno));
-                return ret;
-            } else {
-                 usleep( (bytes - read_bytes) * 1000000 / audio_stream_in_frame_size(stream) /
-                    in->requested_rate / 2);
-            }
+    size_t frame_size = in->config.channels * pcm_format_to_bits(in->config.format) / 8;
+
+    while (read_bytes < bytes) {
+        if (patch && patch->input_thread_exit) {
+            memset((void*)buffer,0,bytes);
+            return 0;
         }
-        return 0;
+
+        pcm_handle = in->pcm;
+        if (pcm_handle == NULL) {
+            ALOGE("%s pcm_handle is NULL", __FUNCTION__);
+            return -1;
+        }
+
+        ret = pcm_read(pcm_handle, (unsigned char *)buffer + read_bytes, bytes - read_bytes);
+        if (ret >= 0) {
+            nodata_count = 0;
+            read_bytes += ret*frame_size;
+            ALOGV("pcm_handle:%p, ret:%d read_bytes:%d, bytes:%d ",
+                pcm_handle,ret,read_bytes,bytes);
+        } else if (ret != -EAGAIN) {
+            ALOGD("%s:%d, pcm_read fail, ret:%#x, error info:%s",
+                __func__, __LINE__, ret, strerror(errno));
+            memset((void*)buffer,0,bytes);
+            return ret;
+        } else {
+             usleep( (bytes - read_bytes) * 1000000 / audio_stream_in_frame_size(stream) /
+                in->requested_rate / 2);
+             nodata_count++;
+             if (nodata_count >= WAIT_COUNT_MAX) {
+                 nodata_count = 0;
+                 ALOGV("aml_alsa_input_read immediate return");
+                 memset((void*)buffer,0,bytes);
+                 return 0;
+             }
+        }
     }
     return 0;
 }
@@ -798,7 +812,8 @@ int aml_alsa_output_open_new(void **handle, aml_stream_config_t * stream_config,
     }
     channels = audio_channel_count_from_out_mask(stream_config->config.channel_mask);
     rate     = stream_config->config.sample_rate;
-    get_hardware_config_parameters(config, format, channels, rate, platform_is_tv, continous_mode(adev));
+    get_hardware_config_parameters(config, format, channels, rate, platform_is_tv,
+                continous_mode(adev), adev->game_mode);
 
     config->channels = channels;
     config->rate     = rate;
@@ -1038,3 +1053,11 @@ int aml_alsa_output_resume_new(void *handle) {
     }
     return ret;
 }
+
+void alsa_out_reconfig_params(struct audio_stream_out *stream)
+{
+    ALOGD("%s()!", __func__);
+    aml_alsa_output_close(stream);
+    aml_alsa_output_open(stream);
+}
+

@@ -26,6 +26,9 @@
 ** DAMAGE.
 */
 
+#define LOG_TAG "audio_hw_primary"
+#include <cutils/log.h>
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <fcntl.h>
@@ -905,6 +908,8 @@ struct pcm *pcm_open(unsigned int card, unsigned int device,
 
     snprintf(fn, sizeof(fn), "/dev/snd/pcmC%uD%u%c", card, device,
              flags & PCM_IN ? 'c' : 'p');
+
+    ALOGI("pcm_open: flag = %x, card = %d, device = %d", flags, card, device);
 
     pcm->flags = flags;
     pcm->fd = open(fn, O_RDWR|O_NONBLOCK);

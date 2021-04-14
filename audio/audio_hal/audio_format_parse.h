@@ -119,6 +119,10 @@ void exit_pthread_for_audio_type_parse(
  */
 audio_format_t audio_type_convert_to_android_audio_format_t(int codec_type);
 
+/*
+ *@brief convert the audio type to string format
+ */
+char* audio_type_convert_to_string(int s32AudioType);
 
 /*
  *@brief convert android audio format to the audio type
