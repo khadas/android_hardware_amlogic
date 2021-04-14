@@ -63,6 +63,7 @@ int  aml_audio_start_trigger(void *stream);
 int check_chip_name(char *name, unsigned int length);
 int is_sc2_chip();
 int aml_audio_get_debug_flag();
+int aml_audio_get_default_alsa_output_ch();
 int aml_audio_debug_set_optical_format();
 int aml_audio_dump_audio_bitstreams(const char *path, const void *buf, size_t bytes);
 int aml_audio_get_arc_latency_offset(int format);
@@ -117,6 +118,7 @@ const char* inputPort2Str(enum IN_PORT type);
 const char* mixerInputType2Str(aml_mixer_input_port_type_e type);
 const char* dtvAudioPatchCmd2Str(AUDIO_DTV_PATCH_CMD_TYPE type);
 const char* hdmiFormat2Str(AML_HDMI_FORMAT_E type);
+bool aml_audio_check_sbr_product();
 
 /** convert the audio input format to in buffer's period multi coefficient.
  * @return period multi coefficient(1/4/16)

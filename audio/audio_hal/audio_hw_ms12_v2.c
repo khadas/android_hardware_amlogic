@@ -720,8 +720,11 @@ int get_the_dolby_ms12_prepared(
     if (adev->sink_capability == AUDIO_FORMAT_MAT) {
         output_config = MS12_OUTPUT_MASK_STEREO | MS12_OUTPUT_MASK_MAT;
     } else {
-        output_config = MS12_OUTPUT_MASK_DD | MS12_OUTPUT_MASK_DDP | MS12_OUTPUT_MASK_STEREO;
+        output_config = MS12_OUTPUT_MASK_DD | MS12_OUTPUT_MASK_DDP | MS12_OUTPUT_MASK_STEREO | MS12_OUTPUT_MASK_SPEAKER;
     }
+    /* for soundbar, we only need speaker output */
+    if (adev->is_SBR)
+        output_config = MS12_OUTPUT_MASK_SPEAKER;
 
     set_dolby_ms12_drc_parameters(input_format, output_config);
 #if 0
@@ -751,7 +754,7 @@ int get_the_dolby_ms12_prepared(
         get_hardware_config_parameters(
             &(adev->ms12_config)
             , AUDIO_FORMAT_PCM_16_BIT
-            , audio_channel_count_from_out_mask(AUDIO_CHANNEL_OUT_STEREO)
+            , adev->default_alsa_ch
             , ms12->output_samplerate
             , out->is_tv_platform
             , continous_mode(adev)
@@ -1711,7 +1714,7 @@ int ms12_passthrough_output(struct aml_stream_out *aml_out) {
 }
 
 /*this is the master output, it will do position calculate and av sync*/
-static int ms12_output_master(void *buffer, void *priv_data, size_t size, audio_format_t output_format) {
+static int ms12_output_master(void *buffer, void *priv_data, size_t size, audio_format_t output_format,aml_ms12_dec_info_t *ms12_info) {
     struct aml_stream_out *aml_out = (struct aml_stream_out *)priv_data;
     struct aml_audio_device *adev = aml_out->dev;
     struct dolby_ms12_desc *ms12 = &(adev->ms12);
@@ -1742,11 +1745,19 @@ static int ms12_output_master(void *buffer, void *priv_data, size_t size, audio_
     }
 
     ms12->is_dolby_atmos = (dolby_ms12_get_input_atmos_info() == 1);
+	//TODO support 24/32 bit sample  */
     ms12->master_pcm_frames += size / 4;
     ALOGV("dap pcm =%lld stereo pcm =%lld master =%lld", ms12->dap_pcm_frames, ms12->stereo_pcm_frames, ms12->master_pcm_frames);
 
-    if (audio_hal_data_processing((struct audio_stream_out *)aml_out, buffer, size, &output_buffer, &output_buffer_bytes, output_format) == 0) {
-        ret = hw_write((struct audio_stream_out *)aml_out, output_buffer, output_buffer_bytes, output_format);
+    if (ms12_info->output_ch == 2) {
+        if (audio_hal_data_processing((struct audio_stream_out *)aml_out, buffer, size, &output_buffer, &output_buffer_bytes, output_format) == 0) {
+            ret = hw_write((struct audio_stream_out *)aml_out, output_buffer, output_buffer_bytes, output_format);
+        }
+    }
+    else {
+        if (audio_hal_data_processing_ms12v2((struct audio_stream_out *)aml_out, buffer, size, &output_buffer, &output_buffer_bytes, output_format, ms12_info->output_ch) == 0) {
+            ret = hw_write((struct audio_stream_out *)aml_out, output_buffer, output_buffer_bytes, output_format);
+        }
     }
 
     /*we put passthrough ms12 data here*/
@@ -1755,7 +1766,7 @@ static int ms12_output_master(void *buffer, void *priv_data, size_t size, audio_
 
 }
 
-int dap_pcm_output(void *buffer, void *priv_data, size_t size)
+int dap_pcm_output(void *buffer, void *priv_data, size_t size,aml_ms12_dec_info_t *ms12_info)
 {
     struct aml_stream_out *aml_out = (struct aml_stream_out *)priv_data;
     struct aml_audio_device *adev = aml_out->dev;
@@ -1767,7 +1778,7 @@ int dap_pcm_output(void *buffer, void *priv_data, size_t size)
     int i;
 
     if (adev->debug_flag > 1) {
-        ALOGI("+%s() size %zu", __FUNCTION__, size);
+        ALOGI("+%s() size %zu,ch %d", __FUNCTION__, size,ms12_info->output_ch);
     }
 
     ms12->dap_pcm_frames += size / 4;
@@ -1776,7 +1787,7 @@ int dap_pcm_output(void *buffer, void *priv_data, size_t size)
         dump_ms12_output_data(buffer, size, MS12_OUTPUT_SPEAKER_PCM_FILE);
     }
     if (is_dolbyms12_dap_enable(aml_out)) {
-        ms12_output_master(buffer, priv_data, size, output_format);
+        ms12_output_master(buffer, priv_data, size, output_format,ms12_info);
     } else
         return ret;
     if (adev->debug_flag > 1) {
@@ -1786,7 +1797,7 @@ int dap_pcm_output(void *buffer, void *priv_data, size_t size)
     return ret;
 }
 
-int stereo_pcm_output(void *buffer, void *priv_data, size_t size)
+int stereo_pcm_output(void *buffer, void *priv_data, size_t size, aml_ms12_dec_info_t *ms12_info)
 {
     struct aml_stream_out *aml_out = (struct aml_stream_out *)priv_data;
     struct aml_audio_device *adev = aml_out->dev;
@@ -1813,7 +1824,7 @@ int stereo_pcm_output(void *buffer, void *priv_data, size_t size)
             ring_buffer_write(&ms12->spdif_ring_buffer, buffer, size, UNCOVER_WRITE);
         }
     } else {
-        ms12_output_master(buffer, priv_data, size, output_format);
+        ms12_output_master(buffer, priv_data, size, output_format, ms12_info);
     }
 
     if (adev->debug_flag > 1) {
@@ -2005,9 +2016,9 @@ int ms12_output(void *buffer, void *priv_data, size_t size, aml_ms12_dec_info_t 
     }
     if (audio_is_linear_pcm(output_format)) {
         if (ms12_info->pcm_type == DAP_LPCM) {
-            dap_pcm_output(buffer, priv_data, size);
+            dap_pcm_output(buffer, priv_data, size, ms12_info);
         } else {
-            stereo_pcm_output(buffer, priv_data, size);
+            stereo_pcm_output(buffer, priv_data, size, ms12_info);
         }
     } else {
         if (output_format == AUDIO_FORMAT_E_AC3) {

@@ -3104,10 +3104,10 @@ static int adev_open_output_stream(struct audio_hw_device *dev,
      */
     if (adev->is_TV) {
         out->is_tv_platform = 1;
-        out->config.channels = 8;
+        out->config.channels = adev->default_alsa_ch;
         out->config.format = PCM_FORMAT_S32_LE;
 
-        out->tmp_buffer_8ch_size = out->config.period_size * 4 * 8;
+        out->tmp_buffer_8ch_size = out->config.period_size * 4 * adev->default_alsa_ch;
         out->tmp_buffer_8ch = aml_audio_malloc(out->tmp_buffer_8ch_size);
         if (!out->tmp_buffer_8ch) {
             ALOGE("%s: alloc tmp_buffer_8ch failed", __func__);
@@ -5333,6 +5333,103 @@ static void output_mute(struct audio_stream_out *stream, void **output_buffer,si
     return;
 }
 
+
+ssize_t audio_hal_data_processing_ms12v2(struct audio_stream_out *stream,
+                                const void *buffer,
+                                size_t bytes,
+                                void **output_buffer,
+                                size_t *output_buffer_bytes,
+                                audio_format_t output_format,
+                                int nchannels)
+{
+    struct aml_stream_out *aml_out = (struct aml_stream_out *)stream;
+    struct aml_audio_device *adev = aml_out->dev;
+    int16_t *tmp_buffer = (int16_t *) buffer;
+    int32_t *effect_tmp_buf = NULL;
+    /* TODO  support 24/32 bit sample */
+    int out_frames = bytes / (nchannels * 2); /* input is nchannels 16 bit */
+    size_t i;
+    int j, ret;
+    uint32_t latency_frames = 0;
+    uint64_t total_frame = 0;
+    int enable_dump = aml_getprop_bool("vendor.media.audiohal.outdump");
+    if (adev->debug_flag) {
+        ALOGD("%s,size %zu,format %x,ch %d\n",__func__,bytes,output_format,nchannels);
+    }
+    {
+        /* nchannels 16 bit PCM, and there is no effect applied after MS12 processing */
+        {
+            int16_t *tmp_buffer = (int16_t *)buffer;
+            size_t out_frames = bytes / (nchannels * 2); /* input is nchannels 16 bit */
+            if (enable_dump) {
+                FILE *fp1 = fopen("/data/vendor/audiohal/ms12_out_spk.pcm", "a+");
+                if (fp1) {
+                    int flen = fwrite((char *)tmp_buffer, 1, bytes, fp1);
+                    ALOGV("%s buffer %p size %zu\n", __FUNCTION__, effect_tmp_buf, bytes);
+                    fclose(fp1);
+                }
+            }
+            if (adev->effect_buf_size < bytes*2) {
+                adev->effect_buf = aml_audio_realloc(adev->effect_buf, bytes*2);
+                if (!adev->effect_buf) {
+                    ALOGE ("realloc effect buf failed size %zu format = %#x", bytes, output_format);
+                    return -ENOMEM;
+                } else {
+                    ALOGI("realloc effect_buf size from %zu to %zu format = %#x", adev->effect_buf_size, bytes, output_format);
+                }
+                adev->effect_buf_size = bytes*2;
+            }
+            /* apply volume for spk/hp, SPDIF/HDMI keep the max volume */
+            float gain_speaker = adev->sink_gain[OUTPORT_SPEAKER];
+            effect_tmp_buf = (int32_t *)adev->effect_buf;
+            apply_volume_16to32(gain_speaker, (int16_t *)tmp_buffer,effect_tmp_buf, bytes);
+            if (enable_dump) {
+                FILE *fp1 = fopen("/data/vendor/audiohal/ms12_out_spk-volume-32bit.pcm", "a+");
+                if (fp1) {
+                    int flen = fwrite((char *)effect_tmp_buf, 1, bytes*2, fp1);
+                    ALOGV("%s buffer %p size %zu\n", __FUNCTION__, effect_tmp_buf, bytes);
+                    fclose(fp1);
+                }
+            }
+            /* nchannels 32 bit --> 8 channel 32 bit mapping */
+            if (aml_out->tmp_buffer_8ch_size < out_frames * 4*adev->default_alsa_ch) {
+                aml_out->tmp_buffer_8ch = realloc(aml_out->tmp_buffer_8ch, out_frames * 4*adev->default_alsa_ch);
+                if (!aml_out->tmp_buffer_8ch) {
+                    ALOGE("%s: realloc tmp_buffer_8ch buf failed size = %zu format = %#x",
+                        __func__, 8 * bytes, output_format);
+                    return -ENOMEM;
+                } else {
+                    ALOGI("%s: realloc tmp_buffer_8ch size from %zu to %zu format = %#x",
+                        __func__, aml_out->tmp_buffer_8ch_size, out_frames * 4*adev->default_alsa_ch, output_format);
+                }
+                aml_out->tmp_buffer_8ch_size = out_frames * 4*adev->default_alsa_ch;
+            }
+
+            for (i = 0; i < out_frames; i++) {
+                for (j = 0; j < nchannels; j++) {
+                    aml_out->tmp_buffer_8ch[adev->default_alsa_ch * i + j] = effect_tmp_buf[nchannels * i + j];
+                }
+                for(j = nchannels; j < adev->default_alsa_ch; j++) {
+                    aml_out->tmp_buffer_8ch[adev->default_alsa_ch * i + j] = 0;
+                }
+            }
+            *output_buffer = aml_out->tmp_buffer_8ch;
+            *output_buffer_bytes = out_frames * 4*adev->default_alsa_ch; /* from nchannels 32 bit to 8 ch 32 bit */
+            if (enable_dump) {
+                FILE *fp1 = fopen("/data/vendor/audiohal/ms12_out_10_spk.pcm", "a+");
+                if (fp1) {
+                    int flen = fwrite((char *)aml_out->tmp_buffer_8ch, 1,out_frames *4*adev->default_alsa_ch, fp1);
+                    fclose(fp1);
+                }
+            }
+        }
+    }
+    if (adev->audio_patching) {
+        output_mute(stream,output_buffer,output_buffer_bytes);
+    }
+    return 0;
+}
+
 ssize_t audio_hal_data_processing(struct audio_stream_out *stream,
                                 const void *buffer,
                                 size_t bytes,
@@ -5667,7 +5764,7 @@ ssize_t hw_write (struct audio_stream_out *stream
     int  alsa_port = -1;
 
     if (aml_out->is_tv_platform && audio_is_linear_pcm(output_format)) {
-        ch = 8;
+        ch = adev->default_alsa_ch;
         bytes_per_sample = 4;
     }
     out_frames = bytes / (ch * bytes_per_sample);
@@ -9317,7 +9414,10 @@ static int adev_open(const hw_module_t* module, const char* name, hw_device_t** 
 /*[SEI-zhaopf-2018-10-29] add for HBG remote audio support } */
 #if defined(TV_AUDIO_OUTPUT)
     adev->is_TV = true;
-    ALOGI("%s(), TV platform", __func__);
+    adev->default_alsa_ch =  aml_audio_get_default_alsa_output_ch();
+    /*Now SoundBar type is depending on TV audio as only tv support multi-channel LPCM output*/
+    adev->is_SBR = aml_audio_check_sbr_product();
+    ALOGI("%s(), TV platform,soundbar platform %d", __func__,adev->is_SBR);
 #ifdef ADD_AUDIO_DELAY_INTERFACE
     ret = aml_audio_delay_init();
     if (ret < 0) {
@@ -9326,6 +9426,8 @@ static int adev_open(const hw_module_t* module, const char* name, hw_device_t** 
     }
 #endif
 #else
+    /* for stb/ott, fixed 2 channels speaker output for alsa*/
+    adev->default_alsa_ch = 2;
     adev->is_STB = property_get_bool("ro.vendor.platform.is.stb", false);
     adev->sink_gain[OUTPORT_SPEAKER] = 1.0;
     adev->sink_gain[OUTPORT_HDMI] = 1.0;

@@ -617,6 +617,37 @@ int aml_audio_get_debug_flag()
     return debug_flag;
 }
 
+int aml_audio_get_default_alsa_output_ch()
+{
+    char buf[PROPERTY_VALUE_MAX];
+    int ret = -1;
+    /* default 8 channels for TV product */
+    int chan_num =  8;
+    ret = property_get("ro.vendor.platform.alsa.spk.ch", buf, NULL);
+    if (ret > 0) {
+        chan_num = atoi(buf);
+    }
+    return chan_num;
+}
+
+/*
+this prop judgement is borrowed from CEC framework, which is used
+to detect TV/SBR product, audio HAL can also use that.
+*/
+bool aml_audio_check_sbr_product()
+{
+    char buf[PROPERTY_VALUE_MAX] ={0};
+    int ret = -1;
+    char *sbr_str = NULL;
+    ret = property_get("ro.vendor.platform.hdmi.device_type", buf, NULL);
+    if (ret > 0) {
+        sbr_str = strstr(buf,"5");
+        if (sbr_str)
+            return true;
+    }
+    return false;
+}
+
 int aml_audio_debug_set_optical_format()
 {
     char buf[PROPERTY_VALUE_MAX];

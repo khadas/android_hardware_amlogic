@@ -182,21 +182,21 @@ endif
     LOCAL_CFLAGS += -DDOLBY_MS12_ENABLE
     LOCAL_CFLAGS += -DREPLACE_OUTPUT_BUFFER_WITH_CALLBACK
 
-
-ifeq ($(TARGET_BUILD_DOLBY_MS12_V2), true)
+#by default, we compile V2,V1 is not used now. TBD
+#ifeq ($(TARGET_BUILD_DOLBY_MS12_V2), true)
     LOCAL_SRC_FILES += audio_hw_ms12_common.c
     LOCAL_SRC_FILES += audio_hw_ms12_v2.c
     LOCAL_CFLAGS += -DMS12_V24_ENABLE
     LOCAL_C_INCLUDES += $(LOCAL_PATH)/../libms12_v24/include \
                         hardmare/amlogic/audio/libms12_v24/include
     LOCAL_SHARED_LIBRARIES += libms12api_v24
-else
-    LOCAL_SRC_FILES += audio_hw_ms12_common.c
-    LOCAL_SRC_FILES += audio_hw_ms12.c
-    LOCAL_C_INCLUDES += $(LOCAL_PATH)/../libms12/include \
-                        hardmare/amlogic/audio/libms12/include
-    LOCAL_SHARED_LIBRARIES += libms12api
-endif
+#else
+#    LOCAL_SRC_FILES += audio_hw_ms12_common.c
+#    LOCAL_SRC_FILES += audio_hw_ms12.c
+#    LOCAL_C_INCLUDES += $(LOCAL_PATH)/../libms12/include \
+#                        hardmare/amlogic/audio/libms12/include
+#    LOCAL_SHARED_LIBRARIES += libms12api
+#endif
 
 #For atom project
 ifeq ($(strip $(TARGET_BOOTLOADER_BOARD_NAME)), atom)

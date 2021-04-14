@@ -163,7 +163,7 @@ int aml_alsa_output_open(struct audio_stream_out *stream) {
             get_hardware_config_parameters(
                 config
                 , output_format
-                , audio_channel_count_from_out_mask(aml_out->hal_channel_mask)
+                , adev->default_alsa_ch/*audio_channel_count_from_out_mask(aml_out->hal_channel_mask)*/
                 , aml_out->config.rate
                 , aml_out->is_tv_platform
                 , continous_mode(adev)
@@ -812,7 +812,7 @@ int aml_alsa_output_open_new(void **handle, aml_stream_config_t * stream_config,
     }
     channels = audio_channel_count_from_out_mask(stream_config->config.channel_mask);
     rate     = stream_config->config.sample_rate;
-    get_hardware_config_parameters(config, format, channels, rate, platform_is_tv,
+    get_hardware_config_parameters(config, format, adev->default_alsa_ch/*channels*/, rate, platform_is_tv,
                 continous_mode(adev), adev->game_mode);
 
     config->channels = channels;

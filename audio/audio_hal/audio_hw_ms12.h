@@ -111,12 +111,12 @@ int set_system_app_mixing_status(struct aml_stream_out *aml_out, int stream_stat
 /*
  *@brief an callback for dolby ms12 pcm output
  */
-int dap_pcm_output(void *buffer, void *priv_data, size_t size);
+int dap_pcm_output(void *buffer, void *priv_data, size_t size,aml_ms12_dec_info_t *ms12_info);
 
 /*
  *@brief an callback for dolby ms12 pcm output
  */
-int stereo_pcm_output(void *buffer, void *priv_data, size_t size);
+int stereo_pcm_output(void *buffer, void *priv_data, size_t size,aml_ms12_dec_info_t *ms12_info);
 
 /*
  *@brief an callback for dolby ms12 bitstream output
