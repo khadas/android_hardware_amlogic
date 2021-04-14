@@ -704,6 +704,13 @@ static int out_get_presentation_position_port(
         return -EINVAL;
     }
 
+    /* add this code for VTS. */
+    if (0 == frames_written_hw) {
+        *frames = frames_written_hw;
+        *timestamp = out->timestamp;
+        return ret;
+    }
+
     if (out->out_device & AUDIO_DEVICE_OUT_ALL_A2DP) {
         struct timespec stCurTimestamp;
         int64_t  curr_nanoseconds = 0;

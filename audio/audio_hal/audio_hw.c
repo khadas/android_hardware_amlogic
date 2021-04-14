@@ -1880,7 +1880,14 @@ static int out_get_presentation_position (const struct audio_stream_out *stream,
         return -EINVAL;
     }
 
-    if (eDolbyMS12Lib == adev->dolby_lib_type ) {
+    /* add this code for VTS. */
+    if (0 == frames_written_hw) {
+        *frames = frames_written_hw;
+        *timestamp = out->lasttimestamp;
+        return ret;
+    }
+
+    if (eDolbyMS12Lib == adev->dolby_lib_type) {
         ret = aml_audio_get_ms12_presentation_position(stream, frames, timestamp);
     } else if (eDolbyDcvLib == adev->dolby_lib_type) {
          bool is_audio_type_dolby = (adev->audio_type == EAC3 || adev->audio_type == AC3);
