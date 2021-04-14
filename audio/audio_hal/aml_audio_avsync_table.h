@@ -84,6 +84,16 @@
 #define  AVSYNC_MS12_DD_OUT_LATENCY_PROPERTY             "vendor.media.audio.hal.ms12.ddout"
 #define  AVSYNC_MS12_MAT_OUT_LATENCY_PROPERTY            "vendor.media.audio.hal.ms12.matout"
 
+/* MS12 and Dolby Vision tunning part*/
+
+#define  AVSYNC_MS12_DV_TUNNEL_PCM_LATENCY                  (0)//won't change it
+#define  AVSYNC_MS12_DV_TUNNEL_DDP_LATENCY                  (30)
+#define  AVSYNC_MS12_DV_TUNNEL_AC4_LATENCY                  (0)//todo
+
+#define  AVSYNC_MS12_DV_TUNNEL_PCM_LATENCY_PROPERTY         "vendor.media.audio.hal.ms12_dv.tunnel.pcm"
+#define  AVSYNC_MS12_DV_TUNNEL_DDP_LATENCY_PROPERTY         "vendor.media.audio.hal.ms12_dv.tunnel.ddp"
+//#define  AVSYNC_MS12_DV_TUNNEL_ATMOS_LATENCY_PROPERTY       "vendor.media.audio.hal.ms12_dv.tunnel.atmos"
+#define  AVSYNC_MS12_DV_TUNNEL_AC4_LATENCY_PROPERTY         "vendor.media.audio.hal.ms12_dv.tunnel.ac4"
 
 /*netflix tunning part*/
 #define  AVSYNC_MS12_NETFLIX_NONTUNNEL_PCM_LATENCY       (10)
