@@ -202,8 +202,12 @@ char*  get_hdmi_sink_cap(const char *keys,audio_format_t format,struct aml_arc_h
                 p_hdmi_descs->ddp_fmt.atmos_supported ? "is supported;" : "is unsupported;");
 
             if (mystrstr(infobuf, "AC-3")) {
-                size += sprintf(aud_cap + size, "|%s", "AUDIO_FORMAT_AC3");
-                p_hdmi_descs->dd_fmt.is_support = 1;
+                if (mystrstr(infobuf, "AC-3, 2 ch")) {
+                    p_hdmi_descs->dd_fmt.is_support = 0;
+                } else {
+                    size += sprintf(aud_cap + size, "|%s", "AUDIO_FORMAT_AC3");
+                    p_hdmi_descs->dd_fmt.is_support = 1;
+                }
             }
             if (mystrstr(infobuf, "DTS-HD")) {
                 size += sprintf(aud_cap + size, "|%s", "AUDIO_FORMAT_DTS|AUDIO_FORMAT_DTS_HD");
