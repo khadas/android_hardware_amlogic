@@ -3241,26 +3241,6 @@ static void adev_close_output_stream(struct audio_hw_device *dev,
         }
     }
 
-    /*TBD .to fix the AC-4 continous function in ms12 lib then remove this */
-    /*
-     * will close MS12 if the AVR DDP-ATMOS capbility is changed,
-     * such as switch from DDP-AVR to ATMOS-AVR
-     * then, next stream is new built, this setting is available.
-     */
-
-    if ((out->total_write_size != 0) &&
-        ((out->hal_internal_format == AUDIO_FORMAT_AC4) || is_support_ms12_reset(stream))) {
-        if (adev->continuous_audio_mode) {
-            adev->delay_disable_continuous = 0;
-            ALOGI("%s Need disable MS12 continuous", __func__);
-            get_dolby_ms12_cleanup(&adev->ms12);
-            adev->continuous_audio_mode = 0;
-            adev->exiting_ms12 = 1;
-            out->restore_continuous = true;
-            clock_gettime(CLOCK_MONOTONIC, &adev->ms12_exiting_start);
-        }
-    }
-
     pthread_mutex_lock(&out->lock);
     if (out->audioeffect_tmp_buffer) {
         aml_audio_free(out->audioeffect_tmp_buffer);
@@ -3391,6 +3371,25 @@ static void adev_close_output_stream(struct audio_hw_device *dev,
         out->resample_handle = NULL;
     }
 
+    /*TBD .to fix the AC-4 continous function in ms12 lib then remove this */
+    /*
+     * will close MS12 if the AVR DDP-ATMOS capbility is changed,
+     * such as switch from DDP-AVR to ATMOS-AVR
+     * then, next stream is new built, this setting is available.
+     */
+    if ((out->total_write_size != 0) &&
+        ((out->hal_internal_format == AUDIO_FORMAT_AC4) || is_support_ms12_reset(stream))) {
+        if (adev->continuous_audio_mode) {
+            adev->delay_disable_continuous = 0;
+            ALOGI("%s Need disable MS12 continuous", __func__);
+            get_dolby_ms12_cleanup(&adev->ms12);
+            adev->continuous_audio_mode = 0;
+            adev->exiting_ms12 = 1;
+            out->restore_continuous = true;
+            clock_gettime(CLOCK_MONOTONIC, &adev->ms12_exiting_start);
+        }
+    }
+
     /*all the ms12 related function is done */
     if (out->restore_continuous == true) {
         ALOGI("restore ms12 continuous mode");
@@ -3404,6 +3403,7 @@ static void adev_close_output_stream(struct audio_hw_device *dev,
     }
 
     pthread_mutex_unlock(&out->lock);
+
     aml_audio_free(stream);
     ALOGD("%s: exit", __func__);
 }
