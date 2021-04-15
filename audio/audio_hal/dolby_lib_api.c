@@ -195,6 +195,11 @@ int get_ms12_dap_init_mode(bool is_tv)
 
     return dap_init_mode;
 }
+
+bool is_ms12_tuning_dat_in_dut() //Invalid in Dolby MS12 V1.3
+{
+    return false;
+}
 #else
 
 typedef enum ms_dap_mode_t
@@ -216,6 +221,14 @@ int get_ms12_dap_init_mode(bool is_tv)
     }
 
     return dap_init_mode;
+}
+
+bool is_ms12_tuning_dat_in_dut() //availabe in Dolby MS12 V2.4 or later
+{
+    if (file_accessible(DOLBY_TUNING_DAT) == 0)
+        return true;
+    else
+        return false;
 }
 
 #endif
