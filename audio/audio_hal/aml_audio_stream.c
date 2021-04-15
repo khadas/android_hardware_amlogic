@@ -29,6 +29,9 @@
 #include "alsa_device_parser.h"
 #include "aml_hdmiin2bt_process.h"
 
+#ifdef MS12_V24_ENABLE
+#include "audio_hw_ms12_v2.h"
+#endif
 #define min(a,b)            (((a) < (b)) ? (a) : (b))
 #define UPDATE_THRESHOLD    (5)
 
@@ -827,10 +830,14 @@ void update_audio_format(struct aml_audio_device *adev, audio_format_t format)
             atmos_flag = adev->ddp.is_dolby_atmos;
         }
 
-        /* when dap init mode is OFF, there is no ATMOS Experience. */
-        if (get_ms12_dap_init_mode(adev->is_TV) == 0) {
+        #ifdef MS12_V24_ENABLE
+        /* when DAP is not in audio postprocessing, there is no ATMOS Experience. */
+        if (is_audio_postprocessing_add_dolbyms12_dap(adev) == 0) {
             atmos_flag = 0;
         }
+        #else
+        atmos_flag = 0; /* Todo: MS12 V1, how to indicate the Dolby ATMOS? */
+        #endif
 
         update_audio_hal_info(adev, format, atmos_flag);
     }

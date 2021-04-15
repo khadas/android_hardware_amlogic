@@ -1797,8 +1797,14 @@ bool is_support_ms12_reset(struct audio_stream_out *stream) {
             || is_multi_channel_pcm(stream));
 }
 
+bool is_audio_postprocessing_add_dolbyms12_dap(struct aml_audio_device *adev)
+{
+    return false;
+}
+
 bool is_dolbyms12_dap_enable(struct aml_stream_out *aml_out) {
     struct aml_audio_device *adev = aml_out->dev;
+
     struct dolby_ms12_desc *ms12 = &(adev->ms12);
     bool is_dap_enable = (adev->active_outport != OUTPORT_HDMI_ARC) && (!adev->ms12.dap_bypass_enable);
     is_dap_enable = (ms12->dolby_ms12_enable && is_dap_enable && (ms12->output_config & MS12_OUTPUT_MASK_SPEAKER)) ? true : false;

@@ -522,6 +522,7 @@ struct aml_audio_device {
 
     /* display audio format on UI, both streaming and hdmiin*/
     audio_hal_info_t audio_hal_info;
+    bool is_ms12_tuning_dat; /* a flag to determine the MS12 tuning data file is existing */
     /* -End- */
 };
 

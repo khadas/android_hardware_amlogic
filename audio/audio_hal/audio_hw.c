@@ -9268,6 +9268,7 @@ static int adev_open(const hw_module_t* module, const char* name, hw_device_t** 
     adev->dolby_lib_type_last = adev->dolby_lib_type;
     adev->dolby_decode_enable = dolby_lib_decode_enable(adev->dolby_lib_type_last);
     adev->dts_decode_enable = dts_lib_decode_enable();
+    adev->is_ms12_tuning_dat = is_ms12_tuning_dat_in_dut();
 
     /* convert MS to data buffer length need to cache */
     adev->spk_tuning_lvl = (spdif_tuning_latency * bytes_per_frame * MM_FULL_POWER_SAMPLING_RATE) / 1000;
