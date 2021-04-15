@@ -1296,7 +1296,7 @@ static bool is_submix_disable(struct amlAudioMixer *audio_mixer) {
 
     if (adev->audio_patching) {
         return true;
-    } else if (adev->usecase_masks > 1) {
+    } else if (is_bypass_submix_active(adev)) {
         return true;
     }
     return false;

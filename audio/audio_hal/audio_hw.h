@@ -856,6 +856,20 @@ inline struct aml_stream_out *direct_active(struct aml_audio_device *adev)
     return NULL;
 }
 
+inline bool is_bypass_submix_active(struct aml_audio_device *adev)
+{
+    int i = 0;
+    struct aml_stream_out *out = NULL;
+    for (i = 0 ; i < STREAM_USECASE_MAX; i++) {
+        out = adev->active_outputs[i];
+        if (out && (out->bypass_submix)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+
 /*
  *@brief get_output_format get the output format always return the "sink_format" of adev
  */
