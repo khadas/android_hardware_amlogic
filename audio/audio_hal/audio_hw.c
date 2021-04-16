@@ -6378,8 +6378,12 @@ hwsync_rewrite:
                 //this can fix the seek discontinue,we got a fake frame,which maybe cached before the seek
                 if (hw_sync->use_mediasync) {
                     if (hw_sync->first_apts_flag == false) {
-                        aml_audio_hwsync_set_first_pts(aml_out->hwsync, cur_pts);
                         apts32 = cur_pts & 0xffffffff;
+                         /*if the pts is zero, to avoid video pcr not set issue, we just set it as 1ms*/
+                        if (apts32 == 0) {
+                            apts32 = 1 * 90;
+                        }
+                        aml_audio_hwsync_set_first_pts(aml_out->hwsync, apts32);
                         aml_hwsync_wait_video_start(aml_out->hwsync);
                         aml_hwsync_wait_video_drop(aml_out->hwsync, apts32);
                     } else {
@@ -6394,6 +6398,10 @@ hwsync_rewrite:
                             apts = 0;
                         }
                         apts32 = apts & 0xffffffff;
+                        /*if the pts is zero, to avoid video pcr not set issue, we just set it as 1ms*/
+                        if (apts32 == 0) {
+                            apts32 = 1 * 90;
+                        }
                     }
                     aml_hwsync_reset_tsync_pcrscr(aml_out->hwsync, apts32);
                 } else {
