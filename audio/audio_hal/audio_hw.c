@@ -6898,6 +6898,10 @@ hwsync_rewrite:
         need_reconfig_output = true;
         need_reset_decoder = true;
         adev->need_reset_for_dual_decoder = false;
+        /*for dual decoder setting, we must reset ms12*/
+        if (eDolbyMS12Lib == adev->dolby_lib_type) {
+            get_dolby_ms12_cleanup(&adev->ms12);
+        }
         ALOGI("%s get the dual decoder support, need reset decoder", __FUNCTION__);
     }
 
