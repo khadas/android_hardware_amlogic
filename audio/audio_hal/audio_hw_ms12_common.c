@@ -236,8 +236,17 @@ static void *ms12_message_threadloop(void *data)
         }
 
 Repop_Mesg:
+        if (list_empty(&ms12->mesg_list)) {
+            ALOGD("%s list is empty", __func__);
+            pthread_mutex_unlock(&ms12->mutex);
+            continue;
+        }
         item = list_head(&ms12->mesg_list);
         mesg_p = (struct ms12_mesg_desc *)item;
+        if (mesg_p->mesg_type > MS12_MESG_TYPE_MAX) {
+            ALOGE("%s wrong message type =%d", __func__, mesg_p->mesg_type);
+            mesg_p->mesg_type = MS12_MESG_TYPE_NONE;
+        }
         ALOGD("%s(), msg type: %s", __func__, mesg_type_2_string[mesg_p->mesg_type]);
         pthread_mutex_unlock(&ms12->mutex);
 
