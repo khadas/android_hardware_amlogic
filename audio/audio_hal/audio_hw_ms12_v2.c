@@ -2125,6 +2125,9 @@ int dolby_ms12_main_close(struct audio_stream_out *stream) {
     adev->ms12.main_input_fmt = AUDIO_FORMAT_PCM_16_BIT;
     aml_out->is_ms12_main_decoder = false;
     ms12->ms12_main_stream_out = NULL;
+    /*when main stream is closed, we must set the pause to false*/
+    dolby_ms12_set_pause_flag(false);
+    adev->ms12.is_continuous_paused = false;
     /*the main stream is closed, we should update the sink format now*/
     if (adev->active_outputs[STREAM_PCM_NORMAL]) {
         get_sink_format(&adev->active_outputs[STREAM_PCM_NORMAL]->stream);
