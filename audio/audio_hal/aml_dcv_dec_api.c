@@ -887,7 +887,7 @@ int dcv_decoder_process_patch(aml_dec_t * aml_dec, unsigned char *buffer, int by
     int i = 0;
     unsigned char *read_pointer = NULL;
     size_t main_frame_deficiency = 0;
-    int ret = 0;
+    int ret = AML_DEC_RETURN_TYPE_OK;
     unsigned char temp;
     int outPCMLen = 0;
     int outRAWLen = 0;
@@ -956,8 +956,7 @@ int dcv_decoder_process_patch(aml_dec_t * aml_dec, unsigned char *buffer, int by
         read_pointer = ddp_dec->inbuf;
         read_offset = 0;
         in_sync = 1;
-    }
-    else {
+    } else {
         //check if the buffer overflow
         if ((ddp_dec->remain_size + bytes) > ddp_dec->inbuf_size) {
             ALOGE("too big input size =%d %d", ddp_dec->remain_size, bytes);
@@ -1039,7 +1038,6 @@ int dcv_decoder_process_patch(aml_dec_t * aml_dec, unsigned char *buffer, int by
     if (raw_in_data->buf_size >= mFrame_size) {
         raw_in_data->data_len = mFrame_size;
         memcpy(raw_in_data->buf, read_pointer, mFrame_size);
-
     } else {
         ALOGE("too  big frame size =%d", mFrame_size);
     }
@@ -1119,9 +1117,13 @@ int dcv_decoder_process_patch(aml_dec_t * aml_dec, unsigned char *buffer, int by
     //sprintf(ddp_dec->sysfs_buf, "decoded_frames %d", ddp_dec->dcv_decoded_samples);
     //sysfs_set_sysfs_str(REPORT_DECODED_INFO, ddp_dec->sysfs_buf);
 
-    return 0;
+    /* Cache a lot of data, needs to be decoded multiple times. */
+    if (ddp_dec->remain_size > 0) {
+        ret = AML_DEC_RETURN_TYPE_NEED_DEC_AGAIN;
+    }
+    return ret;
 EXIT:
-    return -1;
+    return AML_DEC_RETURN_TYPE_FAIL;
 }
 
 int dcv_decoder_config(aml_dec_t * aml_dec, aml_dec_config_type_t config_type, aml_dec_config_t * dec_config)

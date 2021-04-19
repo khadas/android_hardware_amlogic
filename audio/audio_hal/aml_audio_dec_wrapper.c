@@ -122,7 +122,7 @@ int aml_audio_resample_process_wrapper(aml_audio_resample_t **resample_handle, v
 
 int aml_audio_decoder_process_wrapper(struct audio_stream_out *stream, const void *buffer, size_t bytes)
 {
-    int ret = -1;
+    int decode_ret = -1;
     int dec_used_size = 0;
     int left_bytes = 0;
     struct aml_stream_out *aml_out = (struct aml_stream_out *) stream;
@@ -142,16 +142,16 @@ int aml_audio_decoder_process_wrapper(struct audio_stream_out *stream, const voi
         dec_data_info_t * raw_in_data  = &aml_dec->raw_in_data;
         left_bytes = bytes;
         do {
-            ret = aml_decoder_process(aml_dec, (unsigned char *)buffer, left_bytes, &dec_used_size);
-            if (ret == AML_DEC_RETURN_TYPE_CACHE_DATA) {
+            decode_ret = aml_decoder_process(aml_dec, (unsigned char *)buffer, left_bytes, &dec_used_size);
+            if (decode_ret == AML_DEC_RETURN_TYPE_CACHE_DATA) {
                 ALOGV("[%s:%d] cache the data to decode", __func__, __LINE__);
                 return bytes;
-            } else if (ret < 0) {
-                ALOGV("[%s:%d] aml_decoder_process error, ret:%d", __func__, __LINE__, ret);
+            } else if (decode_ret < 0) {
+                ALOGE("[%s:%d] aml_decoder_process error, ret:%d", __func__, __LINE__, decode_ret);
                 return 0;
             }
             left_bytes -= dec_used_size;
-            ALOGV("%s() ret =%d pcm len =%d raw len=%d", __func__, ret, dec_pcm_data->data_len, dec_raw_data->data_len);
+            ALOGV("%s() ret =%d pcm len =%d raw len=%d", __func__, decode_ret, dec_pcm_data->data_len, dec_raw_data->data_len);
             if (aml_out->optical_format != adev->optical_format) {
                 ALOGI("optical format change from 0x%x --> 0x%x", aml_out->optical_format, adev->optical_format);
                 aml_out->optical_format = adev->optical_format;
@@ -175,8 +175,9 @@ int aml_audio_decoder_process_wrapper(struct audio_stream_out *stream, const voi
                 if (patch) {
                     patch->sample_rate = dec_pcm_data->data_sr;
                 }
-                if (dec_pcm_data->data_sr != OUTPUT_ALSA_SAMPLERATE ) {
-                    ret = aml_audio_resample_process_wrapper(&aml_out->resample_handle, dec_pcm_data->buf, dec_pcm_data->data_len, dec_pcm_data->data_sr, dec_pcm_data->data_ch);
+                if (dec_pcm_data->data_sr != OUTPUT_ALSA_SAMPLERATE) {
+                     int ret = aml_audio_resample_process_wrapper(&aml_out->resample_handle, dec_pcm_data->buf,
+                                dec_pcm_data->data_len, dec_pcm_data->data_sr, dec_pcm_data->data_ch);
                     if (ret != 0) {
                         ALOGI("aml_audio_resample_process_wrapper failed");
                     } else {
@@ -198,14 +199,14 @@ int aml_audio_decoder_process_wrapper(struct audio_stream_out *stream, const voi
                     hw_write(stream, output_buffer, output_buffer_bytes, output_format);
                 }
             } else {
-                ALOGI("[%s:%d] decode success, but data_len:%d invalid.", __func__, __LINE__, dec_pcm_data->data_len);
+                /* Decode successfully, but no valid data. */
+                ALOGV("[%s:%d] decode success, but data_len:%d invalid.", __func__, __LINE__, dec_pcm_data->data_len);
             }
 
             /*for pcm case, we check whether it has muti channel pcm*/
             if (audio_is_linear_pcm(aml_dec->format) && raw_in_data->data_ch > 2) {
                 aml_audio_spdif_output(stream, &aml_out->spdifout_handle, raw_in_data);
             }
-
 
             if (aml_out->optical_format != AUDIO_FORMAT_PCM_16_BIT) {
                 // write raw data
@@ -225,7 +226,7 @@ int aml_audio_decoder_process_wrapper(struct audio_stream_out *stream, const voi
                     aml_audio_spdif_output(stream, &aml_out->spdifout_handle, dec_raw_data);
                 }
             }
-        } while (dec_pcm_data->data_len || dec_raw_data->data_len || raw_in_data->data_len);
+        } while (decode_ret == AML_DEC_RETURN_TYPE_NEED_DEC_AGAIN || left_bytes > 0);
     }
     ALOGV("[%s %d] exit", __func__, __LINE__);
     return bytes;
