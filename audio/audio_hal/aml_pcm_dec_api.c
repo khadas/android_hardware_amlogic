@@ -183,11 +183,11 @@ static int pcm_decoder_process(aml_dec_t * aml_dec, unsigned char*buffer, int by
     int downmix_size = 0;
     if (aml_dec == NULL) {
         ALOGE("%s aml_dec is NULL", __func__);
-        return -1;
+        return AML_DEC_RETURN_TYPE_FAIL;
     }
 
     if (bytes <= 0) {
-        return -1;
+        return AML_DEC_RETURN_TYPE_FAIL;
     }
 
     pcm_dec = (struct pcm_dec_t *)aml_dec;
@@ -209,7 +209,7 @@ static int pcm_decoder_process(aml_dec_t * aml_dec, unsigned char*buffer, int by
         dec_pcm_data->buf = aml_audio_realloc(dec_pcm_data->buf, downmix_size);
         if (dec_pcm_data->buf == NULL) {
             ALOGE("realloc pcm buffer failed size %zu\n", downmix_size);
-            return -1;
+            return AML_DEC_RETURN_TYPE_FAIL;
         }
         dec_pcm_data->buf_size = downmix_size;
         memset(dec_pcm_data->buf, 0, downmix_size);
@@ -225,7 +225,7 @@ static int pcm_decoder_process(aml_dec_t * aml_dec, unsigned char*buffer, int by
         downmix_8ch_to_2ch(buffer, dec_pcm_data->buf, bytes, pcm_config->pcm_format);
     }else {
         ALOGI("unsupport channel =%d", pcm_config->channel);
-        return 0;
+        return AML_DEC_RETURN_TYPE_OK;
     }
 
 
@@ -241,7 +241,7 @@ static int pcm_decoder_process(aml_dec_t * aml_dec, unsigned char*buffer, int by
             raw_in_data->buf = aml_audio_realloc(raw_in_data->buf, bytes);
             if (raw_in_data->buf == NULL) {
                 ALOGE("realloc pcm buffer failed size %zu\n", bytes);
-                return -1;
+                return AML_DEC_RETURN_TYPE_FAIL;
             }
             raw_in_data->buf_size = bytes;
             memset(raw_in_data->buf, 0, bytes);
@@ -253,7 +253,7 @@ static int pcm_decoder_process(aml_dec_t * aml_dec, unsigned char*buffer, int by
         raw_in_data->data_format  = pcm_config->pcm_format;
         ALOGV("%s multi data_in=%d ch =%d out=%d ch=%d", __func__, bytes, pcm_config->channel, downmix_size, pcm_config->channel);
     }
-    return 0;
+    return AML_DEC_RETURN_TYPE_OK;
 }
 
 

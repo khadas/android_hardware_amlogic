@@ -41,9 +41,10 @@ typedef enum {
 } aml_dec_control_type_t;
 
 typedef enum {
-    AML_DEC_RETURN_TYPE_FAIL          = -1,
-    AML_DEC_RETURN_TYPE_OK            = 0,
-    AML_DEC_RETURN_TYPE_CACHE_DATA    = 1,
+    AML_DEC_RETURN_TYPE_FAIL            = -1,
+    AML_DEC_RETURN_TYPE_OK              = 0,
+    AML_DEC_RETURN_TYPE_CACHE_DATA      = 1,    /* Not enough decoded data. */
+    AML_DEC_RETURN_TYPE_NEED_DEC_AGAIN  = 2,    /* Cache a lot of data, needs to be decoded multiple times. */
 } aml_dec_return_type_t;
 
 typedef struct aml_dec_stream_info {

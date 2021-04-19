@@ -687,14 +687,6 @@ int dca_decoder_process_patch(aml_dec_t *aml_dec, unsigned char *buffer, int byt
 
 
     frame_size = _dts_frame_scan(dts_dec);
-    if (frame_size < 0) {
-        return AML_DEC_RETURN_TYPE_FAIL; ///< return -1
-    }
-
-    if (frame_size == 0) {
-        return AML_DEC_RETURN_TYPE_CACHE_DATA;  ///< return 1
-    }
-
     if (frame_size > 0) {
         ring_buffer_read(input_rbuffer, dts_dec->inbuf, frame_size);
         dts_dec->remain_size -= frame_size;
@@ -722,13 +714,16 @@ int dca_decoder_process_patch(aml_dec_t *aml_dec, unsigned char *buffer, int byt
         if ((dts_dec->outlen_raw > 0) && (used_size > 0)) {
             _dts_raw_output(dts_dec);
         }
-    }
-
-
-    if ((dts_dec->outlen_pcm > 0) && (used_size > 0)) {
-        return AML_DEC_RETURN_TYPE_OK;  ///< return 0
+        if ((dts_dec->outlen_pcm > 0) && (used_size > 0)) {
+            /* Cache a lot of data, needs to be decoded multiple times. */
+            return AML_DEC_RETURN_TYPE_NEED_DEC_AGAIN;
+        } else {
+            return AML_DEC_RETURN_TYPE_FAIL;
+        }
+    } else if (frame_size == 0) {
+        return AML_DEC_RETURN_TYPE_CACHE_DATA;
     } else {
-        return AML_DEC_RETURN_TYPE_FAIL; ///< return -1
+        return AML_DEC_RETURN_TYPE_FAIL;
     }
 }
 
