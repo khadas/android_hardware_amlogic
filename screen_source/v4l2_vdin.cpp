@@ -164,6 +164,7 @@ static int  getNativeWindowFormat(int format)
             nativeFormat = HAL_PIXEL_FORMAT_YV12;
             break;
         case V4L2_PIX_FMT_NV21:
+        case V4L2_PIX_FMT_NV12:
             nativeFormat = HAL_PIXEL_FORMAT_YCrCb_420_SP;
             break;
         case V4L2_PIX_FMT_YUYV:
@@ -746,6 +747,7 @@ int vdin_screen_source::aquire_buffer(aml_screen_buffer_info_t *buff_info)
                 yv12_memcpy_align32((unsigned char*)src_temp[mVideoInfo->buf.index], (unsigned char*)mVideoInfo->mem[mVideoInfo->buf.index], mFrameWidth, mFrameHeight);
                 break;
             case V4L2_PIX_FMT_NV21:
+	    case V4L2_PIX_FMT_NV12:
                 nv21_memcpy_align32((unsigned char*)src_temp[mVideoInfo->buf.index], (unsigned char*)mVideoInfo->mem[mVideoInfo->buf.index], mFrameWidth, mFrameHeight);
                 break;
             case V4L2_PIX_FMT_YUYV:
