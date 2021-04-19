@@ -1797,7 +1797,7 @@ bool is_support_ms12_reset(struct audio_stream_out *stream) {
             || is_multi_channel_pcm(stream));
 }
 
-bool is_audio_postprocessing_add_dolbyms12_dap(struct aml_audio_device *adev)
+bool is_audio_postprocessing_add_dolbyms12_dap(struct aml_audio_device *adev __unused)
 {
     return false;
 }
