@@ -1697,6 +1697,7 @@ int audio_dtv_patch_output_dolby_dual_decoder(struct aml_audio_patch *patch,
     struct aml_audio_device *aml_dev = (struct aml_audio_device *)dev;
     ring_buffer_t *ringbuffer = &(patch->aml_ringbuffer);
     struct aml_stream_out *aml_out = (struct aml_stream_out *)stream_out;
+    struct mAudioEsDataInfo *mEsData = patch->mADEsData;
     //int apts_diff = 0;
 
     unsigned char main_head[32];
@@ -1782,9 +1783,10 @@ int audio_dtv_patch_output_dolby_dual_decoder(struct aml_audio_patch *patch,
             main_avail -= ret;
             if (main_frame_size != 0) {
                 main_head_left = ret - main_head_offset;
-                //ALOGI("AD main_frame_size=%d  ", main_frame_size);
+                ALOGV("AD main_frame_size=%d  ", main_frame_size);
             }
         }
+
         dtv_assoc_set_main_frame_size(main_frame_size);
 
         if (main_frame_size > 0 && (main_avail >= main_frame_size - main_head_left)) {
@@ -1813,28 +1815,48 @@ int audio_dtv_patch_output_dolby_dual_decoder(struct aml_audio_patch *patch,
         }
         memset(ad_buffer, 0, sizeof(ad_buffer));
         if (is_sc2_chip()) {
-            struct mAudioEsDataInfo *mEsData = NULL;
-            int try_count = 3;
-            if (patch->demux_handle == NULL) {
-                ALOGI("demux_handle %p", patch->demux_handle);
-            }
-            while (Get_ADAudio_Es(patch->demux_handle, &mEsData) != 0 ) {
-                if ( patch->output_thread_exit == 1) {
-                    pthread_mutex_unlock(&(patch->dtv_output_mutex));
-                    return 0;
+            //struct mAudioEsDataInfo *mEsData = NULL;
+            if ( mEsData == NULL) {
+                int try_count = 3;
+                if (patch->demux_handle == NULL) {
+                    ALOGI("demux_handle %p", patch->demux_handle);
                 }
-                if (try_count-- <= 0)
-                    break;
-                usleep(1000);
+                while (Get_ADAudio_Es(patch->demux_handle, &mEsData) != 0 ) {
+                    if ( patch->output_thread_exit == 1) {
+                        pthread_mutex_unlock(&(patch->dtv_output_mutex));
+                        return 0;
+                    }
+                    if (try_count-- <= 0)
+                        break;
+                    usleep(20000);
+                }
+                if (mEsData == NULL) {
+                    ad_size = 0;
+                } else {
+                    ALOGV("ad mEsData->size %d",mEsData->size);
+                    patch->mADEsData = mEsData;
+                }
+
             }
-            if (mEsData == NULL) {
-                ad_size = 0;
-            } else {
-                ad_size = mEsData->size;
-                ALOGV("ad mEsData->size %d",mEsData->size);
-                memcpy(ad_buffer,mEsData->data, mEsData->size);
-                free(mEsData);
-                mEsData = NULL;
+            if (mEsData) {
+                ad_frame_size = dcv_decoder_get_framesize(mEsData->data + mEsData->used_size,
+                        mEsData->size, &ad_head_offset);
+                ALOGV("ad_frame_size %d ad_head_offset %d", ad_frame_size ,ad_head_offset);
+                if (mEsData->size - mEsData->used_size  >= ad_frame_size + ad_head_offset) {
+                     memcpy(ad_buffer,mEsData->data + mEsData->used_size + ad_head_offset, ad_frame_size);
+                     ad_size = ad_frame_size;
+                     mEsData->used_size += (ad_frame_size + ad_head_offset);
+                } else {
+                    ALOGI("ad_frame_size %d mEsData->used_size %d mEsData->size %d",
+                        ad_frame_size, mEsData->used_size, mEsData->size);
+                    mEsData->used_size = mEsData->size;
+                }
+                if (mEsData->size  == mEsData->used_size) {
+                   aml_audio_free(mEsData->data);
+                   aml_audio_free(mEsData);
+                   patch->mADEsData = NULL;
+                }
+
             }
 
         } else {
@@ -2037,6 +2059,7 @@ void *audio_dtv_patch_output_threadloop(void *data)
         ret = -ENOMEM;
         goto exit_outbuf;
     }
+    patch->mADEsData = NULL;
     patch->dtv_audio_mode = get_dtv_audio_mode();
     patch->dtv_audio_tune = AUDIO_FREE;
     patch->first_apts_lookup_over = 0;
