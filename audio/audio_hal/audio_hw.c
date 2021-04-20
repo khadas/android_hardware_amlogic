@@ -5945,12 +5945,16 @@ ssize_t hw_write (struct audio_stream_out *stream
 audio_format_t get_non_ms12_output_format(audio_format_t src_format, struct aml_audio_device *aml_dev)
 {
     audio_format_t output_format = AUDIO_FORMAT_PCM_16_BIT;
+    struct aml_arc_hdmi_desc *hdmi_desc = &aml_dev->hdmi_descs;
     if (aml_dev->hdmi_format == AUTO) {
-        if (src_format == AUDIO_FORMAT_E_AC3 && aml_dev->sink_capability == AUDIO_FORMAT_E_AC3) {
-            output_format = AUDIO_FORMAT_E_AC3;
-        } else if (src_format == AUDIO_FORMAT_AC3 &&
-                (aml_dev->sink_capability == AUDIO_FORMAT_E_AC3 || aml_dev->sink_capability == AUDIO_FORMAT_AC3)) {
-            output_format = AUDIO_FORMAT_AC3;
+        if (src_format == AUDIO_FORMAT_E_AC3 ) {
+            if (hdmi_desc->ddp_fmt.is_support)
+               output_format = AUDIO_FORMAT_E_AC3;
+            else if (hdmi_desc->dd_fmt.is_support)
+                output_format = AUDIO_FORMAT_AC3;
+        } else if (src_format == AUDIO_FORMAT_AC3 ) {
+            if (hdmi_desc->dd_fmt.is_support)
+                output_format = AUDIO_FORMAT_AC3;
         }
     }
     return output_format;
