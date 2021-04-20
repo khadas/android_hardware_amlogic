@@ -9002,6 +9002,7 @@ static int adev_close(hw_device_t *device)
 
     aml_audio_free(device);
     pthread_mutex_unlock(&adev_mutex);
+    aml_audio_debug_close();
     aml_audio_debug_malloc_close();
 
     ALOGD("%s:  exit", __func__);
@@ -9190,6 +9191,7 @@ static int adev_open(const hw_module_t* module, const char* name, hw_device_t** 
 {
     struct aml_audio_device *adev;
     aml_audio_debug_malloc_open();
+    aml_audio_debug_open();
     size_t bytes_per_frame = audio_bytes_per_sample(AUDIO_FORMAT_PCM_16_BIT)
                              * audio_channel_count_from_out_mask(AUDIO_CHANNEL_OUT_STEREO);
     int buffer_size = PLAYBACK_PERIOD_COUNT * DEFAULT_PLAYBACK_PERIOD_SIZE * bytes_per_frame;

@@ -77,8 +77,6 @@
 #define MS12_DD_FRAME_SIZE          (6144)
 #define MS12_DDP_FRAME_SIZE         (24576)
 
-#define MS12_DUMP_PROPERTY               "vendor.media.audiohal.ms12dump"
-
 #define DUMP_MS12_OUTPUT_SPEAKER_PCM     0x1
 #define DUMP_MS12_OUTPUT_SPDIF_PCM       0x2
 #define DUMP_MS12_OUTPUT_BITSTREAN       0x4
@@ -211,15 +209,8 @@ static const unsigned int ms12_muted_ddp_raw[] = {
 static int nbytes_of_dolby_ms12_downmix_output_pcm_frame();
 
 static int get_ms12_dump_enable(int dump_type) {
-
-    char buf[PROPERTY_VALUE_MAX];
-    int ret = -1;
     int value = 0;
-
-    ret = property_get(MS12_DUMP_PROPERTY, buf, NULL);
-    if (ret > 0) {
-        value = strtol (buf, NULL, 0);
-    }
+    value = get_debug_value(AML_DUMP_AUDIOHAL_MS12);
     return (value & dump_type);
 }
 
@@ -993,6 +984,10 @@ int dolby_ms12_main_process(
 
     pthread_mutex_lock(&ms12->main_lock);
 
+    if (get_debug_value(AML_DEBUG_AUDIOHAL_LEVEL_DETECT) && audio_is_linear_pcm(aml_out->hal_internal_format)) {
+        check_audio_level("ms12_main", buffer, bytes);
+    }
+
     if (ms12->dolby_ms12_enable) {
         //ms12 input main
         int dual_input_ret = 0;
@@ -1365,6 +1360,10 @@ int dolby_ms12_system_process(
     int ms12_output_size = 0;
     int ret = -1;
 
+    if (get_debug_value(AML_DEBUG_AUDIOHAL_LEVEL_DETECT)) {
+        check_audio_level("ms12_system", buffer, bytes);
+    }
+
     pthread_mutex_lock(&ms12->lock);
     if (ms12->dolby_ms12_enable) {
         /*set the dolby ms12 debug level*/
@@ -1434,6 +1433,9 @@ int dolby_ms12_app_process(
     int dolby_ms12_input_bytes = 0;
     int ms12_output_size = 0;
     int ret = 0;
+    if (get_debug_value(AML_DEBUG_AUDIOHAL_LEVEL_DETECT)) {
+        check_audio_level("ms12_app", buffer, bytes);
+    }
 
     pthread_mutex_lock(&ms12->lock);
     if (ms12->dolby_ms12_enable) {
@@ -2148,8 +2150,14 @@ int ms12_output(void *buffer, void *priv_data, size_t size, aml_ms12_dec_info_t 
     }
     if (audio_is_linear_pcm(output_format)) {
         if (ms12_info->pcm_type == DAP_LPCM) {
+            if (get_debug_value(AML_DEBUG_AUDIOHAL_LEVEL_DETECT)) {
+                check_audio_level("ms12_dap_pcm", buffer, size);
+            }
             dap_pcm_output(buffer, priv_data, size, ms12_info);
         } else {
+            if (get_debug_value(AML_DEBUG_AUDIOHAL_LEVEL_DETECT)) {
+                check_audio_level("ms12_stereo_pcm", buffer, size);
+            }
             stereo_pcm_output(buffer, priv_data, size, ms12_info);
         }
     } else {
