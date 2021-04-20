@@ -72,6 +72,17 @@
 #define MAX(a, b) ((a) > (b)) ? (a) : (b)
 
 #define INPUT_PACKAGE_MAXCOUNT 40
+
+
+#define AD_PACK_STATUS_DROP_THRESHOLD_MS 600
+#define AD_PACK_STATUS_HOLD_THRESHOLD_MS 200
+
+typedef enum  {
+    AD_PACK_STATUS_NORMAL,
+    AD_PACK_STATUS_DROP,
+    AD_PACK_STATUS_HOLD,
+} AD_PACK_STATUS_T;
+
 struct cmd_list {
     struct cmd_list *next;
     int cmd;
@@ -122,6 +133,8 @@ int dtv_patch_add_cmd(struct cmd_node *dtv_cmd_list,int cmd, int path_id);
 
 int dtv_patch_get_cmd(struct cmd_node *dtv_cmd_list,int *cmd, int *path_id);
 int dtv_patch_cmd_is_empty(struct cmd_node *dtv_cmd_list);
+
+AD_PACK_STATUS_T check_ad_package_status(int64_t main_pts, int64_t ad_pts);
 
 
 #endif
