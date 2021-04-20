@@ -651,7 +651,7 @@ int dcv_decoder_init_patch(aml_dec_t ** ppaml_dec, aml_dec_config_t * dec_config
 {
     struct dolby_ddp_dec *ddp_dec = NULL;
     aml_dec_t  *aml_dec = NULL;
-    aml_dcv_config_t *dcv_config = (aml_dcv_config_t *)dec_config;
+    aml_dcv_config_t *dcv_config = &dec_config->dcv_config;
     int ret = 0;
 
     if (dcv_config->decoding_mode != DDP_DECODE_MODE_SINGLE &&
@@ -680,6 +680,7 @@ int dcv_decoder_init_patch(aml_dec_t ** ppaml_dec, aml_dec_config_t * dec_config
     ddp_dec->is_iec61937   = dcv_config->is_iec61937;
 
     aml_dec->format = dcv_config->format;
+
 
 
     ret = dcv_decoder_init(ddp_dec->decoding_mode, ddp_dec->digital_raw);
@@ -1009,6 +1010,7 @@ int dcv_decoder_process_patch(aml_dec_t * aml_dec, unsigned char *buffer, int by
                 read_pointer++;
             }
             read_offset = 8;
+            Get_Parameters(read_pointer, &mSample_rate, &mFrame_size, &mChNum,&is_eac3, &ad_substream_supported);
         }
     }
     ALOGV("remain %d, frame size %d,in sync %d\n", ddp_dec->remain_size, mFrame_size, in_sync);
@@ -1032,7 +1034,6 @@ int dcv_decoder_process_patch(aml_dec_t * aml_dec, unsigned char *buffer, int by
             read_pointer[2 * i] = temp;
         }
     }
-    Get_Parameters(read_pointer, &mSample_rate, &mFrame_size, &mChNum,&is_eac3, &ad_substream_supported);
 
     if (raw_in_data->buf_size >= mFrame_size) {
         raw_in_data->data_len = mFrame_size;
@@ -1136,11 +1137,26 @@ int dcv_decoder_config(aml_dec_t * aml_dec, aml_dec_config_type_t config_type, a
     switch (config_type) {
     case AML_DEC_CONFIG_MIXER_LEVEL: {
         int  mixer_level = dec_config->mixer_level;
+        ALOGI("dec_config->mixer_level %d", mixer_level);
+        ret = (*ddp_decoder_config)(handle, DDP_CONFIG_MIXER_LEVEL, (ddp_config_t *)&mixer_level);
+        break;
+    }
+    case AML_DEC_CONFIG_AD_VOL: {
+        int  advol_level = dec_config->advol_level;
+        ALOGI("advol_level %d",advol_level);
+        ret = (*ddp_decoder_config)(handle, DDP_CONFIG_AD_PCMSCALE, (ddp_config_t *)&advol_level);
+        break;
+    }
+    case AML_DEC_CONFIG_MIXING_ENABLE: {
+        int  mixer_level = dec_config->mixer_level;
+        if (!dec_config->ad_mixing_enable)
+            mixer_level = -32;
+        ALOGI("dec_config->mixer_level %d",mixer_level);
         ret = (*ddp_decoder_config)(handle, DDP_CONFIG_MIXER_LEVEL, (ddp_config_t *)&mixer_level);
         break;
     }
     default:
-        break;
+        ALOGI("config_type %d not supported", config_type);
     }
 
     return ret;

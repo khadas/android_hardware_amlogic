@@ -509,6 +509,9 @@ int dtv_patch_handle_event(struct audio_hw_device *dev,int cmd, int val) {
                 dolby_ms12_set_asscociated_audio_mixing(adev->associate_audio_mixing_enable);
                 set_ms12_ad_mixing_enable(ms12, adev->associate_audio_mixing_enable);
                 pthread_mutex_unlock(&ms12->lock);
+            } else if (eDolbyDcvLib == adev->dolby_lib_type_last) {
+                 if (adev->associate_audio_mixing_enable == 0)
+                    adev->mixing_level = -32;
             }
             pthread_mutex_unlock(&adev->lock);
             break;
@@ -1976,7 +1979,6 @@ int audio_dtv_patch_output_dolby_dual_decoder(struct aml_audio_patch *patch,
             patch->decoder_offset += remain_size + main_size - aml_dev->ddp.remain_size;
             patch->dtv_pcm_readed += main_size;
         }
-
         pthread_mutex_unlock(&(patch->dtv_output_mutex));
     } else {
         dtv_audio_gap_monitor(patch);
@@ -2106,6 +2108,20 @@ void *audio_dtv_patch_output_threadloop(void *data)
             ret = audio_dtv_patch_output_dts(patch, stream_out);
         } else {
             ret = audio_dtv_patch_output_default(patch, stream_out, &apts_diff);
+        }
+
+        aml_dec_t *aml_dec = aml_out->aml_dec;
+        if (aml_dev->mixing_level != aml_out->dec_config.mixer_level ) {
+            aml_out->dec_config.mixer_level = aml_dev->mixing_level;
+            aml_decoder_config(aml_dec, AML_DEC_CONFIG_MIXER_LEVEL, &aml_out->dec_config);
+        }
+        if (aml_dev->associate_audio_mixing_enable != aml_out->dec_config.ad_mixing_enable) {
+           aml_out->dec_config.ad_mixing_enable = aml_dev->associate_audio_mixing_enable;
+           aml_decoder_config(aml_dec, AML_DEC_CONFIG_MIXING_ENABLE, &aml_out->dec_config);
+        }
+        if (aml_dev->advol_level != aml_out->dec_config.advol_level) {
+           aml_out->dec_config.advol_level = aml_dev->advol_level;
+           aml_decoder_config(aml_dec, AML_DEC_CONFIG_AD_VOL, &aml_out->dec_config);
         }
     }
     aml_audio_free(patch->out_buf);

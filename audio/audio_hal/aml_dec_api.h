@@ -24,6 +24,8 @@
 #include "aml_audio_parser.h"
 
 typedef enum {
+    AML_DEC_CONFIG_MIXING_ENABLE,
+    AML_DEC_CONFIG_AD_VOL,
     AML_DEC_CONFIG_MIXER_LEVEL, //runtime param
     AML_DEC_CONFIG_OUTPUT_CHANNEL,  //runtime/static param
 } aml_dec_config_type_t;
@@ -107,15 +109,19 @@ typedef struct aml_pcm_config {
     int max_out_channels;
 } aml_pcm_config_t;
 
-typedef union aml_dec_config {
+typedef struct aml_dec_config {
     /*config for decoder init*/
     aml_dcv_config_t dcv_config;
     aml_dca_config_t dca_config;
     aml_pcm_config_t pcm_config;
 
     /*config for runtime*/
+    bool ad_decoder_supported;
+    bool ad_mixing_enable;
+    int advol_level;
     int  mixer_level;   /* AML_DEC_CONFIG_MIXER_LEVEL */
 } aml_dec_config_t;
+
 
 typedef union aml_dec_info {
     int remain_size;                         /* AML_DEC_REMAIN_SIZE */

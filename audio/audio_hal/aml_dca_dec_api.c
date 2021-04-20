@@ -502,7 +502,7 @@ int dca_decoder_init_patch(aml_dec_t **ppaml_dec, aml_dec_config_t *dec_config)
     }
 
     aml_dec = &dts_dec->aml_dec;
-    aml_dca_config_t *dca_config = (aml_dca_config_t *)dec_config;
+    aml_dca_config_t *dca_config = &dec_config->dca_config;
 
     dec_data_info_t *dec_pcm_data = &aml_dec->dec_pcm_data;
     dec_data_info_t *dec_raw_data = &aml_dec->dec_raw_data;

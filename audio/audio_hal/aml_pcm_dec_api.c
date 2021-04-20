@@ -89,7 +89,7 @@ static int pcm_decoder_init(aml_dec_t **ppaml_dec, aml_dec_config_t * dec_config
         ALOGE("PCM config is NULL\n");
         return -1;
     }
-    pcm_config = (aml_pcm_config_t *)dec_config;
+    pcm_config = &dec_config->pcm_config;
 
     if (pcm_config->channel <= 0 || pcm_config->channel > 8) {
         ALOGE("PCM config channel is invalid=%d\n", pcm_config->channel);

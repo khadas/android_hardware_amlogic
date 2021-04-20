@@ -232,19 +232,19 @@ int aml_decoder_config_prepare(struct audio_stream_out *stream, audio_format_t f
     switch (format) {
     case AUDIO_FORMAT_AC3:
     case AUDIO_FORMAT_E_AC3: {
-        ddp_decoder_config_prepare(stream, (aml_dcv_config_t *)dec_config);
+        ddp_decoder_config_prepare(stream, &dec_config->dcv_config);
         return 0;
     }
     case AUDIO_FORMAT_DTS:
     case AUDIO_FORMAT_DTS_HD: {
-        dts_decoder_config_prepare(stream, (aml_dca_config_t *)dec_config);
+        dts_decoder_config_prepare(stream, &dec_config->dca_config);
         return 0;
     }
     case AUDIO_FORMAT_PCM_16_BIT:
     case AUDIO_FORMAT_PCM_32_BIT:
     case AUDIO_FORMAT_PCM_8_BIT:
     case AUDIO_FORMAT_PCM_8_24_BIT: {
-        pcm_decoder_config_prepare(stream, (aml_pcm_config_t *)dec_config);
+        pcm_decoder_config_prepare(stream, &dec_config->pcm_config);
         return 0;
     }
     default:
@@ -304,6 +304,8 @@ int aml_decoder_init(aml_dec_t **ppaml_dec, audio_format_t format, aml_dec_confi
     aml_dec_handel->frame_cnt = 0;
     aml_dec_handel->format = format;
     aml_dec_handel->fragment_left_size = 0;
+    dec_config->advol_level = 100;
+    dec_config->mixer_level = 0;
 
     return ret;
 
