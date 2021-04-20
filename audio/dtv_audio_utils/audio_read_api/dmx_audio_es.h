@@ -42,6 +42,7 @@ struct mAudioEsDataInfo {
     uint8_t *data;
     int size;
     int64_t pts;
+    int used_size;
 };
 AM_Dmx_Audio_ErrorCode_t Open_Dmx_Audio (void **demux_handle, int  demux_id, int security_mem_level);
 AM_Dmx_Audio_ErrorCode_t Init_Dmx_Main_Audio(void *demux_handle, int fmt, int pid);

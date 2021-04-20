@@ -61,6 +61,7 @@ static void getAudioEsData(AmHwMultiDemuxWrapper* mDemuxWrapper, int fid, const 
         memcpy(mEsData->data, data_es, es_header->len);
         mEsData->size = es_header->len;
         mEsData->pts = es_header->pts;
+        mEsData->used_size = 0;
         ALOGV("getAudioEsData %d mEsData->size %d mEsData->pts %lld",len,mEsData->size,mEsData->pts);
         dump_demux_data((void *)data_es, es_header->len, DEMUX_AUDIO_DUMP_PATH);
     } else {
@@ -92,6 +93,7 @@ static void getAudioADEsData(AmHwMultiDemuxWrapper* mDemuxWrapper, int fid, cons
         memcpy(mEsData->data, data_es, es_header->len);
         mEsData->size = es_header->len;
         mEsData->pts = es_header->pts;
+        mEsData->used_size = 0;
         ALOGV("getAudioADEsData %d mEsData->size %d mEsData->pts %lld",len,mEsData->size,mEsData->pts);
         dump_demux_data((void *)data_es, es_header->len, DEMUX_AD_AUDIO_DUMP_PATH);
     } else {

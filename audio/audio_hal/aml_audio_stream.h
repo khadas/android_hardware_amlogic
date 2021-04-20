@@ -347,6 +347,7 @@ struct aml_audio_patch {
     struct timespec slow_time;
     struct audiohal_debug_para debug_para;
     int media_sync_id;
+    struct mAudioEsDataInfo *mADEsData;
     void *demux_handle;
     void *demux_info;
 };
