@@ -159,14 +159,19 @@ bool is_sink_support_dolby_passthrough(audio_format_t sink_capability)
  *3. if source format is AUDIO_FORMAT_AC4, we can not use the min(a,b) to get the
  *   suitable format but use the sink device max capbility format.
  */
-static audio_format_t get_suitable_output_format(audio_format_t source_format, audio_format_t sink_format)
+static audio_format_t get_suitable_output_format(struct aml_stream_out *out,
+        audio_format_t source_format, audio_format_t sink_format)
 {
+    audio_format_t output_format;
     if (IS_EXTERNAL_DECODER_SUPPORT_FORMAT(source_format)) {
-        return min(source_format, sink_format);
+        output_format = min(source_format, sink_format);
+    } else {
+        output_format = sink_format;
     }
-    else {
-        return sink_format;
+    if (out->hal_rate == 32000 && out->hal_rate == 128000 && output_format == AUDIO_FORMAT_E_AC3) {
+        output_format = AUDIO_FORMAT_AC3;
     }
+    return output_format;
 }
 
 /*
@@ -229,7 +234,7 @@ void get_sink_format(struct audio_stream_out *stream)
             break;
         case DD:
             if (adev->continuous_audio_mode == 0) {
-                sink_audio_format = get_suitable_output_format(source_format, AUDIO_FORMAT_AC3);
+                sink_audio_format = get_suitable_output_format(aml_out, source_format, AUDIO_FORMAT_AC3);
             } else {
                 sink_audio_format = AUDIO_FORMAT_AC3;
                 if (source_format == AUDIO_FORMAT_PCM_16_BIT) {
@@ -242,7 +247,7 @@ void get_sink_format(struct audio_stream_out *stream)
             if (is_dts_format(source_format)) {
                 sink_audio_format = min(source_format, sink_dts_capability);
             } else {
-                sink_audio_format = get_suitable_output_format(source_format, sink_capability);
+                sink_audio_format = get_suitable_output_format(aml_out, source_format, sink_capability);
             }
             if (eDolbyMS12Lib == adev->dolby_lib_type && !is_dts_format(source_format)) {
                 sink_audio_format = min(ms12_max_support_output_format(), sink_capability);
@@ -253,7 +258,7 @@ void get_sink_format(struct audio_stream_out *stream)
             if (is_dts_format(source_format)) {
                 sink_audio_format = min(source_format, sink_dts_capability);
             } else {
-                sink_audio_format = get_suitable_output_format(source_format, sink_capability);
+                sink_audio_format = get_suitable_output_format(aml_out, source_format, sink_capability);
             }
             optical_audio_format = sink_audio_format;
             break;
