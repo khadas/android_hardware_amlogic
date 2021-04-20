@@ -538,6 +538,9 @@ static ssize_t output_port_write_alsa(struct output_port *port, void *buffer, in
         if (written > 0 && getprop_bool("vendor.media.audiohal.inport")) {
             aml_audio_dump_audio_bitstreams("/data/vendor/audiohal/audioOutPort.raw", buffer, written);
         }
+        if (get_debug_value(AML_DEBUG_AUDIOHAL_LEVEL_DETECT)) {
+            check_audio_level("alsa_out", buffer, written);
+        }
         bytes_to_write -= written;
     } while (bytes_to_write > 0);
 

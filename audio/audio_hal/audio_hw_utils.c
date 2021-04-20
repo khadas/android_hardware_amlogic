@@ -611,13 +611,8 @@ int aml_audio_start_trigger(void *stream)
 
 int aml_audio_get_debug_flag()
 {
-    char buf[PROPERTY_VALUE_MAX];
-    int ret = -1;
     int debug_flag = 0;
-    ret = property_get("vendor.media.audio.hal.debug", buf, NULL);
-    if (ret > 0) {
-        debug_flag = atoi(buf);
-    }
+    debug_flag = get_debug_value(AML_DEBUG_AUDIOHAL_DEBUG);
     return debug_flag;
 }
 
@@ -1911,3 +1906,33 @@ int aml_audio_trace_int(char *name, int value)
 
     return 0;
 }
+
+void check_audio_level(const char *name, const void *buffer, size_t bytes) {
+    int num_frame = bytes/4;
+    int i = 0;
+    short *p = (short *)buffer;
+    int silence = 0;
+    int silence_cnt = 0;
+    int max = 0;
+    int min = 0;
+    int max_pos = 0;
+
+    min = max = *p;
+    for (int i=0; i<num_frame;i++) {
+        if (max < *(p+2*i)) {
+            max = *(p+2*i);
+            max_pos = i;
+        }
+        if (min > *(p+2*i)) {
+            min = *(p+2*i);
+        }
+        if (*(p+2*i) == 0) {
+             silence_cnt ++;
+        }
+    }
+    if (max < 10) {
+        silence = 1;
+    }
+    ALOGI("%-24s data detect min=%8d max=%8d silence=%d silence_cnt=%5d frames=%5d", name, min, max, silence, silence_cnt, num_frame);
+}
+

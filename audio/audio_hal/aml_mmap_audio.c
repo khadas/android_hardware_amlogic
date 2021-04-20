@@ -55,36 +55,6 @@ enum {
 
 static FILE *fp1 = NULL;
 
-
-static void check_audio_level(const void *buffer, size_t bytes) {
-    int num_frame = bytes/4;
-    int i = 0;
-    short *p = (short *)buffer;
-    int silence = 0;
-    int silence_cnt = 0;
-    int max = 0;
-    int min = 0;
-    int max_pos = 0;
-
-    min = max = *p;
-    for (int i=0; i<num_frame;i++) {
-        if (max < *(p+2*i)) {
-            max = *(p+2*i);
-            max_pos = i;
-        }
-        if (min > *(p+2*i)) {
-            min = *(p+2*i);
-        }
-        if (*(p+2*i) == 0) {
-             silence_cnt ++;
-        }
-    }
-    if (max < 10) {
-        silence = 1;
-    }
-    ALOGI("mmap data detect min=%d max=%d silence=%d silence_cnt=%d pos=%d", min, max, silence, silence_cnt, max_pos);
-}
-
 static void *outMmapThread(void *pArg) {
     struct aml_stream_out       *out = (struct aml_stream_out *) pArg;
     aml_mmap_audio_param_st     *pstParam = (aml_mmap_audio_param_st *)out->pstMmapAudioParam;
@@ -154,8 +124,12 @@ static void *outMmapThread(void *pArg) {
             clock_gettime(CLOCK_MONOTONIC, &timestamp);
             pstParam->time_nanoseconds = (long long)timestamp.tv_sec * 1000000000 + (long long)timestamp.tv_nsec;
 
+            if (get_debug_value(AML_DEBUG_AUDIOHAL_LEVEL_DETECT)) {
+                check_audio_level("aaudio_in", pu8TempBufferAddr, MMAP_WRITE_SIZE_BYTE);
+            }
+
             apply_volume(out->volume_l, pu8TempBufferAddr, 2, MMAP_WRITE_SIZE_BYTE);
-            //check_audio_level(pu8TempBufferAddr, MMAP_WRITE_SIZE_BYTE);
+
             if (out->dev->useSubMix) {
                 out->stream.write(&out->stream, pu8TempBufferAddr, MMAP_WRITE_SIZE_BYTE);
             } else {

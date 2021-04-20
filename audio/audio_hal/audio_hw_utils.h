@@ -24,7 +24,7 @@
 #include "aml_audio_types_def.h"
 #include "aml_audio_stream.h"
 #include "MediaSyncInterface.h"
-
+#include "aml_dump_debug.h"
 #define ENUM_TYPE_STR_MAX_LEN                           (100)
 #define REPORT_DECODED_INFO  "/sys/class/amaudio/codec_report_info"
 
@@ -121,6 +121,7 @@ const char* mediasyncAudiopolicyType2Str(audio_policy type);
 const char* dtvAudioPatchCmd2Str(AUDIO_DTV_PATCH_CMD_TYPE type);
 const char* hdmiFormat2Str(AML_HDMI_FORMAT_E type);
 bool aml_audio_check_sbr_product();
+void check_audio_level(const char *name, const void *buffer, size_t bytes);
 
 int aml_audio_trace_int(char *name, int value);
 int aml_audio_trace_debug_level(void);
@@ -138,6 +139,5 @@ static inline void endian16_convert(void *buf, int size)
         *p = ((*p & 0xff) << 8) | ((*p) >> 8);
     }
 }
-
 
 #endif

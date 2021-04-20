@@ -1054,6 +1054,9 @@ static int mixer_do_mixing_16bit(struct amlAudioMixer *audio_mixer)
             sprintf(acFilePathStr, "/data/audio/%s", mixerInputType2Str(pstInputPort->enInPortType));
             aml_audio_dump_audio_bitstreams(acFilePathStr, pstInputPort->data, pstInputPort->data_len_bytes);
         }
+        if (get_debug_value(AML_DEBUG_AUDIOHAL_LEVEL_DETECT)) {
+            check_audio_level(mixerInputType2Str(pstInputPort->enInPortType), pstInputPort->data, pstInputPort->data_len_bytes);
+        }
         if (AML_MIXER_INPUT_PORT_PCM_DIRECT == pstInputPort->enInPortType) {
             if (pstInputPort->is_hwsync && pstInputPort->bytes_to_insert < pstInputPort->data_len_bytes) {
                 retrieve_hwsync_header(audio_mixer, pstInputPort, pstOutPort);
@@ -1085,6 +1088,9 @@ static int mixer_do_mixing_16bit(struct amlAudioMixer *audio_mixer)
     if (getprop_bool("vendor.media.audiohal.outdump")) {
         aml_audio_dump_audio_bitstreams("/data/audio/audio_mixed", pstOutPort->data_buf,
             MIXER_FRAME_COUNT * pstOutPort->cfg.frame_size);
+    }
+    if (get_debug_value(AML_DEBUG_AUDIOHAL_LEVEL_DETECT)) {
+        check_audio_level("audio_mixed", pstOutPort->data_buf, MIXER_FRAME_COUNT * pstOutPort->cfg.frame_size);
     }
     set_outport_data_avail(pstOutPort, MIXER_FRAME_COUNT * pstOutPort->cfg.frame_size);
     return 0;

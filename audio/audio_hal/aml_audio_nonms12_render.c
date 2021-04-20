@@ -155,7 +155,13 @@ int aml_audio_nonms12_render(struct audio_stream_out *stream, const void *buffer
                 return bytes;
             } else if (decoder_ret < 0) {
                 ALOGV("[%s:%d] aml_decoder_process error, ret:%d", __func__, __LINE__, decoder_ret);
+
             }
+            if (get_debug_value(AML_DEBUG_AUDIOHAL_LEVEL_DETECT)) {
+                if (dec_pcm_data->data_len)
+                check_audio_level("dec pcm", dec_pcm_data->buf, dec_pcm_data->data_len);
+            }
+
 
             left_bytes -= used_size;
             dec_used_size += used_size;
@@ -261,11 +267,18 @@ int aml_audio_nonms12_render(struct audio_stream_out *stream, const void *buffer
                         }
                     }
                 }
-                aml_hw_mixer_mixing(&adev->hw_mixer, dec_data, pcm_len, output_format);
-                if (audio_hal_data_processing(stream, dec_data, pcm_len, &output_buffer, &output_buffer_bytes, output_format) == 0) {
-                    hw_write(stream, output_buffer, output_buffer_bytes, output_format);
+
+                if (get_debug_value(AML_DEBUG_AUDIOHAL_LEVEL_DETECT)) {
+                    check_audio_level("render pcm", dec_data, pcm_len);
                 }
 
+                aml_hw_mixer_mixing(&adev->hw_mixer, dec_data, pcm_len, output_format);
+                if (audio_hal_data_processing(stream, dec_data, pcm_len, &output_buffer, &output_buffer_bytes, output_format) == 0) {
+                    if (get_debug_value(AML_DEBUG_AUDIOHAL_LEVEL_DETECT)) {
+                        check_audio_level("after process", output_buffer, output_buffer_bytes);
+                    }
+                    hw_write(stream, output_buffer, output_buffer_bytes, output_format);
+                }
             }
 
             // write raw data

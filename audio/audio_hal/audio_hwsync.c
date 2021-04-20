@@ -44,13 +44,8 @@
 
 static int aml_audio_get_hwsync_flag()
 {
-    char buf[PROPERTY_VALUE_MAX];
-    int ret = -1;
     int debug_flag = 0;
-    ret = property_get("vendor.media.audio.hal.hwsync", buf, NULL);
-    if (ret > 0) {
-        debug_flag = atoi(buf);
-    }
+    debug_flag = get_debug_value(AML_DEBUG_AUDIOHAL_HW_SYNC);
     return debug_flag;
 }
 

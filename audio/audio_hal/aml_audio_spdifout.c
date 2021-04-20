@@ -500,7 +500,6 @@ int aml_audio_spdifout_get_delay(void *phandle) {
     void *alsa_handle = NULL;
     int delay_ms = 0;
     if (phandle == NULL) {
-        ALOGE("[%s:%d] invalid param, phandle:%p", __func__, __LINE__, phandle);
         return -1;
     }
     device_id = spdifout_phandle->device_id;
