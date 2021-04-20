@@ -57,6 +57,16 @@ static void stop_decode_thread(aml_audio_dec_t *audec);
 
 #define AVCODEC_MAX_AUDIO_FRAME_SIZE 500*1024
 #define AD_MIXER_BUF_SIZE  128 * 1024
+
+#define AD_PACK_STATUS_DROP_THRESHOLD (600 * 90)
+#define AD_PACK_STATUS_HOLD_THRESHOLD (200 * 90)
+
+typedef enum  {
+    AD_PACK_STATUS_NORMAL,
+    AD_PACK_STATUS_DROP,
+    AD_PACK_STATUS_HOLD,
+} AD_PACK_STATUS_T;
+
 #define AM_ABSSUB(a,b) ((a)>=(b))?((a)-(b)):((b)-(a))
 #define AD_DEFEAT_BUF_TIMEMS 100
 /*audio decoder list structure*/
@@ -344,7 +354,7 @@ int ad_package_list_init(aml_audio_dec_t * audec)
     return 0;
 }
 
-int ad_package_add(aml_audio_dec_t * audec, char * data, int size)
+int ad_package_add(aml_audio_dec_t * audec, char * data, int size, uint64_t pts)
 {
     lp_lock(&(audec->ad_pack_list.tslock));
     if (audec->ad_pack_list.pack_num == 8) { //enough
@@ -358,6 +368,7 @@ int ad_package_add(aml_audio_dec_t * audec, char * data, int size)
     }
     p->data = data;
     p->size = size;
+    p->pts = pts;
     if (audec->ad_pack_list.pack_num == 0) { //first package
         audec->ad_pack_list.first = p;
         audec->ad_pack_list.current = p;
@@ -1606,7 +1617,7 @@ void *ad_audio_getpackage_loop(void *args)
                     }
                     if (audec->debug_flag)
                         adec_print("ad mEsData->size %d",mEsData->size);
-                    while ((ret = ad_package_add(audec, (char *)mEsData->data, mEsData->size)) && !audec->exit_decode_thread) {
+                    while ((ret = ad_package_add(audec, (char *)mEsData->data, mEsData->size, mEsData->pts)) && !audec->exit_decode_thread) {
                         amthreadpool_thread_usleep(1000);
                     }
                     free(mEsData);
@@ -1636,7 +1647,7 @@ void *ad_audio_getpackage_loop(void *args)
             nCurrentReadCount = rlen;
             rlen += inlen;
             ret = -1;
-            while ((ret = ad_package_add(audec, inbuf, rlen)) && !audec->exit_decode_thread) {
+            while ((ret = ad_package_add(audec, inbuf, rlen, 0)) && !audec->exit_decode_thread) {
                 amthreadpool_thread_usleep(1000);
             }
             if (ret) {
@@ -1649,6 +1660,27 @@ void *ad_audio_getpackage_loop(void *args)
     adec_print("[%s]Exit ad adec_getpackage_loop Thread finished!", __FUNCTION__);
     pthread_exit(NULL);
     return NULL;
+}
+
+
+AD_PACK_STATUS_T check_ad_and_main_discontinue(int64_t ad_pts, int64_t main_pts)
+{
+       int64_t diff = 0;
+       if (ad_pts < main_pts) {
+           diff = main_pts - ad_pts;
+           if (diff > AD_PACK_STATUS_DROP_THRESHOLD) {
+              adec_print("DROP AD ,main ahead time %lld ms", diff / 90);
+              return AD_PACK_STATUS_DROP;
+           }
+
+       } else {
+           diff = ad_pts - main_pts;
+           if (diff > AD_PACK_STATUS_HOLD_THRESHOLD) {
+                adec_print("WAIT MAIN ,ad ahead time %lld ms", diff / 90);
+                return AD_PACK_STATUS_HOLD;;
+           }
+       }
+       return AD_PACK_STATUS_NORMAL;
 }
 
 static char ad_pcm_buf_tmp[AVCODEC_MAX_AUDIO_FRAME_SIZE];//max frame size out buf
@@ -1668,6 +1700,7 @@ void *ad_audio_decode_loop(void *args)
     char *outbuf = ad_pcm_buf_tmp;
     int outlen = AVCODEC_MAX_AUDIO_FRAME_SIZE;
     struct package *p_Package = NULL;
+    AD_PACK_STATUS_T checked_status = AD_PACK_STATUS_NORMAL;
 
     //AudioInfo g_AudioInfo;
     adec_print("[%s]ad_adec_armdec_loop start!\n", __FUNCTION__);
@@ -1699,11 +1732,19 @@ void *ad_audio_decode_loop(void *args)
             continue;
         }
         dump_amadec_data(p_Package->data,p_Package->size,"/data/adec_ad.es");
+        if (audec->use_sw_check_apts) {
+            checked_status =  check_ad_and_main_discontinue(p_Package->pts, audec->main_anchor);
+            if (checked_status == AD_PACK_STATUS_DROP) {
+                 continue;
+            } else if (checked_status == AD_PACK_STATUS_HOLD) {
+                 amthreadpool_thread_usleep(100000);
+            }
+        }
+
         if (inbuf != NULL) {
             free(inbuf);
             inbuf = NULL;
         }
-
         if (inlen && pRestData) {
             rlen = p_Package->size + inlen;
             inbuf = malloc(rlen);
@@ -1909,6 +1950,7 @@ void *audio_decode_loop(void *args)
              anchor = p_Package->pts;
              latencys = 0;
 #ifndef USE_AOUT_IN_ADEC
+            audec->main_anchor = anchor;
             frame_size = p_Package->size;
             if (audec->use_sw_check_apts) {
                 if (audec->decode_offset == 0) {

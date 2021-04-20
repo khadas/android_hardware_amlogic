@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 #define LOG_TAG "audio_dtv_utils"
-#define LOG_NDEBUG 0
+//#define LOG_NDEBUG 0
 
 #include <cutils/atomic.h>
 #include <cutils/log.h>
@@ -183,5 +183,27 @@ int dtv_patch_cmd_is_empty(struct cmd_node *dtv_cmd_list)
     }
     pthread_mutex_unlock(&dtv_cmd_list->dtv_cmd_mutex);
     return 0;
+}
+
+AD_PACK_STATUS_T check_ad_package_status(int64_t main_pts, int64_t ad_pts)
+{
+    int timems_diff = 0;
+    ALOGV("main_pts %lld ad_pts %lld", main_pts, ad_pts);
+    if (main_pts > ad_pts) {
+        timems_diff = (main_pts - ad_pts) / 90;
+        if ( timems_diff > AD_PACK_STATUS_DROP_THRESHOLD_MS) {
+            ALOGI("main and ad timems_diff %d ms  need drop ", timems_diff);
+            return AD_PACK_STATUS_DROP;
+        }
+
+    } else {
+        timems_diff = (ad_pts - main_pts) / 90;
+        if (timems_diff > AD_PACK_STATUS_HOLD_THRESHOLD_MS) {
+            ALOGI("normally it is impossible , ad ahead of main timems_diff %d ", timems_diff);
+            return AD_PACK_STATUS_HOLD;
+        }
+    }
+    ALOGV("timems_diff %d", timems_diff);
+    return AD_PACK_STATUS_NORMAL;
 }
 

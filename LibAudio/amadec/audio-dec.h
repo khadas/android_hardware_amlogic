@@ -83,6 +83,7 @@ typedef enum {
     HW_RIGHT_CHANNEL_MONO,
     HW_CHANNELS_SWAP,
 } hw_command_t;
+
 struct package {
     char *data;//buf ptr
     int size;               //package size
@@ -239,6 +240,7 @@ struct aml_audio_dec {
     struct aml_hw_mixer hw_mixer;
     int ad_pcmscale;
     void *demux_handle;
+    int64_t  main_anchor;
 #endif
     int pid;
     int demux_id;
@@ -246,6 +248,7 @@ struct aml_audio_dec {
     int audio_loopback;
     int debug_flag;
     int64_t checkin_discontinue_apts;
+
 };
 
 //from amcodec
