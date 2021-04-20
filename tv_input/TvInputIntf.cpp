@@ -291,6 +291,11 @@ int TvInputIntf::getSupportInputDevices(int *devices, int *count)
     const char *input_list = serverDevices.c_str();
     ALOGD("getAllTvDevices input list = %s", input_list);
 
+    if (0 == strcmp(input_list, "null")) {
+        *count = 0;
+        return 0;
+    }
+
     int len = 0;
     const char *seg = ",";
     char *pT = strtok((char*)input_list, seg);
