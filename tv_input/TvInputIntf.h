@@ -86,7 +86,9 @@ public:
     int getCurrentSourceInput();
     int checkSourceStatus(tv_source_input_t source_input, bool check_status);
     tv_source_input_t checkWaitSource(bool check_status);
+    tv_source_input_t checkHoldSource();
     bool getSourceStatus();
+    void setSourceStatus(bool status);
     bool isTvPlatform();
     int getStreamGivenId();
     void setStreamGivenId(int stream_id);
@@ -106,6 +108,7 @@ private:
     bool mIsTv;
     std::queue<tv_source_input_t> start_queue;
     std::queue<tv_source_input_t> stop_queue;
+    std::queue<tv_source_input_t> hold_queue;
     tv_source_input_t mSourceInput;
     sp<TvServerHidlClient> mTvSession;
 #ifdef SUPPORT_DTVKIT
