@@ -34,8 +34,6 @@
 using namespace android;
 
 TvInputIntf::TvInputIntf() : mpObserver(nullptr) {
-    init();
-
     mTvSession = TvServerHidlClient::connect(CONNECT_TYPE_HAL);
     mTvSession->setListener(this);
 
@@ -51,6 +49,8 @@ TvInputIntf::TvInputIntf() : mpObserver(nullptr) {
         mIsTv = true;
     else
         mIsTv = false;
+
+    init();
 }
 
 TvInputIntf::~TvInputIntf()
@@ -81,6 +81,9 @@ void TvInputIntf::init()
 
     while (!stop_queue.empty())
         stop_queue.pop();
+
+    while (!hold_queue.empty())
+        hold_queue.pop();
 }
 
 int TvInputIntf::setTvObserver ( TvPlayObserver *ob )
@@ -115,9 +118,9 @@ int TvInputIntf::startTv(tv_source_input_t source_input)
 
     ALOGD("startTv source_input: %d.", source_input);
 
-    mSourceStatus = true;
+    setSourceStatus(true);
 
-    if (SOURCE_DTVKIT == source_input) {
+    if (SOURCE_DTVKIT == source_input || SOURCE_DTVKIT_PIP == source_input) {
 #ifdef SUPPORT_DTVKIT
         mDkSession->request(std::string("Dvb.requestDtvDevice"),
                 writer.write(json));
@@ -144,9 +147,9 @@ int TvInputIntf::stopTv(tv_source_input_t source_input)
 
     ALOGD("stopTv source_input: %d.", source_input);
 
-    mSourceStatus = false;
+    setSourceStatus(false);
 
-    if (SOURCE_DTVKIT == source_input) {
+    if (SOURCE_DTVKIT == source_input || SOURCE_DTVKIT_PIP == source_input) {
 #ifdef SUPPORT_DTVKIT
         mDkSession->request(std::string("Dvb.releaseDtvDevice"),
                 writer.write(json));
@@ -170,7 +173,7 @@ int TvInputIntf::switchSourceInput(tv_source_input_t source_input)
 
     ALOGD("switchSourceInput: %d.", source_input);
 
-    if (SOURCE_DTVKIT == source_input)
+    if (SOURCE_DTVKIT == source_input || SOURCE_DTVKIT_PIP == source_input)
         ret = 0;
     else
         ret = mTvSession->switchInputSrc(source_input);
@@ -182,7 +185,7 @@ int TvInputIntf::switchSourceInput(tv_source_input_t source_input)
 
 int TvInputIntf::getSourceConnectStatus(tv_source_input_t source_input)
 {
-    if (SOURCE_DTVKIT == source_input)
+    if (SOURCE_DTVKIT == source_input || SOURCE_DTVKIT_PIP == source_input)
         return 0;
     else
         return mTvSession->getInputSrcConnectStatus(source_input);
@@ -194,6 +197,8 @@ int TvInputIntf::getCurrentSourceInput()
 
     if (mSourceInput == SOURCE_DTVKIT)
         return SOURCE_DTVKIT;
+    else if (mSourceInput == SOURCE_DTVKIT_PIP)
+        return SOURCE_DTVKIT_PIP;
     else
         return mTvSession->getCurrentInputSrc();
 }
@@ -203,9 +208,6 @@ int TvInputIntf::checkSourceStatus(tv_source_input_t source_input, bool check_st
     int ret = 0;
 
     pthread_mutex_lock(&mMutex);
-
-    ALOGD("Current [mSourceInput: %d], [switch source_input: %d], [mSourceStatus: %d], [check_status: %d].",
-            mSourceInput, source_input, mSourceStatus, check_status);
 
     if (mSourceInput != SOURCE_INVALID && source_input != SOURCE_INVALID && mSourceInput != source_input) {
         if (!check_status && mSourceStatus) {
@@ -218,7 +220,11 @@ int TvInputIntf::checkSourceStatus(tv_source_input_t source_input, bool check_st
         }
     }
 
-    ALOGD("checkSourceStatus: ret %d (%s).", ret, strerror(ret));
+    if (check_status && mSourceStatus && (SOURCE_DTVKIT == source_input || SOURCE_DTVKIT_PIP == source_input))
+        hold_queue.push(source_input);
+
+    ALOGD("%s [mSourceInput: %d], [switch source_input: %d], [mSourceStatus: %d], [check_status: %d], status: %d (%s).",
+            __FUNCTION__, mSourceInput, source_input, mSourceStatus, check_status, ret, ret ? "BUSY" : "OK");
 
     pthread_mutex_unlock(&mMutex);
 
@@ -246,11 +252,34 @@ tv_source_input_t TvInputIntf::checkWaitSource(bool check_status)
     return source;
 }
 
+tv_source_input_t TvInputIntf::checkHoldSource()
+{
+    tv_source_input_t source = SOURCE_INVALID;
+
+    pthread_mutex_lock(&mMutex);
+
+    if (!hold_queue.empty()) {
+        source = hold_queue.front();
+        hold_queue.pop();
+    }
+
+    ALOGD("checkHoldSource: source %d.", source);
+
+    pthread_mutex_unlock(&mMutex);
+
+    return source;
+}
+
 bool TvInputIntf::getSourceStatus()
 {
     ALOGD("getSourceStatus: mSourceStatus %d.", mSourceStatus);
 
     return mSourceStatus;
+}
+
+void TvInputIntf::setSourceStatus(bool status)
+{
+	mSourceStatus = status;
 }
 
 bool TvInputIntf::isTvPlatform()

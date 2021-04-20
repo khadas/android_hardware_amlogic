@@ -61,6 +61,15 @@ void EventCallback::onTvEvent (const source_connect_t &scrConnect) {
         }
         break;
 
+        case CHECK_SOURCE_VALID: {
+            bool source_status = priv->mpTv->getSourceStatus();
+            tv_source_input_t hold_source = priv->mpTv->checkHoldSource();
+            if (!source_status && (SOURCE_DTVKIT == hold_source || SOURCE_DTVKIT_PIP == hold_source)) {
+                priv->mpTv->stopTv(hold_source);
+            }
+        }
+        break;
+
         default:
             break;
     }
@@ -86,14 +95,35 @@ void channelControl(tv_input_private_t *priv, bool opsStart, int device_id) {
         }
 
         if (opsStart) {
+            tv_source_input_t hold_source = priv->mpTv->checkHoldSource();
+            if (SOURCE_DTVKIT == hold_source || SOURCE_DTVKIT_PIP == hold_source) {
+                if (SOURCE_DTVKIT == (tv_source_input_t) device_id ||
+                    SOURCE_DTVKIT_PIP == (tv_source_input_t) device_id) {
+                    priv->mpTv->switchSourceInput((tv_source_input_t) device_id);
+                    priv->mpTv->setDeviceGivenId(device_id);
+
+                    return;
+                } else {
+                    priv->mpTv->stopTv(hold_source);
+                }
+            }
+
             priv->mpTv->startTv((tv_source_input_t) device_id);
             priv->mpTv->switchSourceInput((tv_source_input_t) device_id);
             priv->mpTv->setDeviceGivenId(device_id);
         } else if (priv->mpTv->getCurrentSourceInput() == device_id) {
+            /* DTVKit is actually stopped only when a new source is entered */
+            if (SOURCE_DTVKIT == (tv_source_input_t) device_id ||
+                SOURCE_DTVKIT_PIP == (tv_source_input_t) device_id) {
+                priv->mpTv->setDeviceGivenId(-1);
+                priv->mpTv->setSourceStatus(false);
+
+                return;
+            }
+
             char buf[PROPERTY_VALUE_MAX];
             int ret = property_get("tv.need.tvview.fast_switch", buf, NULL);
             if (ret <= 0 || strcmp(buf, "true") != 0) {
-                ALOGI ("%s,  stop tv: device id:%d\n", __FUNCTION__, device_id);
                 priv->mpTv->stopTv((tv_source_input_t) device_id);
                 priv->mpTv->setDeviceGivenId(-1);
             }
@@ -160,13 +190,13 @@ int notifyDeviceStatus(tv_input_private_t *priv, tv_source_input_t inputSrc, int
 
 
 static bool checkDeviceID(int device_id) {
-    ALOGD("checkDeviceID device_id = %d\n", device_id);
     for (int i = 0; i< count; i++) {
         if (device_id == supportDevices[i]) {
            ALOGD("checkDeviceID supportDevices[%d] = %d\n", i, supportDevices[i]);
            return true;
         }
     }
+    ALOGD("checkDeviceID device_id = %d fail.\n", device_id);
     return false;
 }
 
@@ -336,7 +366,7 @@ static int tv_input_get_stream_configurations(const struct tv_input_device *dev 
         const tv_stream_config_t **configs)
 {
     tv_input_private_t *priv = (tv_input_private_t *)dev;
-    ALOGD("device_id = %d\n", device_id);
+
     if (!checkDeviceID(device_id))
         return -EINVAL;
 
