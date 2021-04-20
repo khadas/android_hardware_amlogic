@@ -175,6 +175,9 @@
 
 #define NETFLIX_DDP_BUFSIZE                             (768)
 
+/*Tunnel sync HEADER is 20 bytes*/
+#define TUNNEL_SYNC_HEADER_SIZE    (20)
+
 #define DISABLE_CONTINUOUS_OUTPUT "persist.vendor.audio.continuous.disable"
 /* Maximum string length in audio hal. */
 #define AUDIO_HAL_CHAR_MAX_LEN                          (64)
@@ -826,7 +829,7 @@ static size_t out_get_buffer_size (const struct audio_stream *stream)
         if (adev->continuous_audio_mode && audio_is_linear_pcm(out->hal_internal_format)) {
             /*Tunnel sync HEADER is 20 bytes*/
             if (out->flags & AUDIO_OUTPUT_FLAG_HW_AV_SYNC) {
-                size = (8192 + 20);
+                size = (8192 + TUNNEL_SYNC_HEADER_SIZE);
                 return size;
             } else {
                 /* roll back the change for SWPL-15974 to pass the gts failure SWPL-20926*/
@@ -838,9 +841,16 @@ static size_t out_get_buffer_size (const struct audio_stream *stream)
         else
             size = DEFAULT_PLAYBACK_PERIOD_SIZE * PLAYBACK_PERIOD_COUNT;
     }
+
+    if (out->flags & AUDIO_OUTPUT_FLAG_HW_AV_SYNC && audio_is_linear_pcm(out->hal_internal_format)) {
+        size = (size * audio_stream_out_frame_size((struct audio_stream_out *) stream)) + TUNNEL_SYNC_HEADER_SIZE;
+    } else {
+        size = (size * audio_stream_out_frame_size((struct audio_stream_out *) stream));
+    }
+
     // remove alignment to have an accurate size
     // size = ( (size + 15) / 16) * 16;
-    return size * audio_stream_out_frame_size ( (struct audio_stream_out *) stream);
+    return size;
 }
 
 static audio_channel_mask_t out_get_channels(const struct audio_stream *stream __unused)
