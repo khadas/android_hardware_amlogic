@@ -157,9 +157,7 @@ int aml_audio_decoder_process_wrapper(struct audio_stream_out *stream, const voi
                 if (adev->patch_src  == SRC_DTV && adev->start_mute_flag == 1) {
                     memset(dec_pcm_data->buf, 0, dec_pcm_data->data_len);
                 }
-                if (dec_pcm_data->data_sr > 0) {
-                    aml_out->config.rate = dec_pcm_data->data_sr;
-                }
+
                 if (patch) {
                     patch->sample_rate = dec_pcm_data->data_sr;
                 }
@@ -174,6 +172,10 @@ int aml_audio_decoder_process_wrapper(struct audio_stream_out *stream, const voi
                     }
 
                     aml_out->config.rate = OUTPUT_ALSA_SAMPLERATE;
+                } else if (dec_pcm_data->data_sr > 0) {
+                    aml_out->config.rate = dec_pcm_data->data_sr;
+                } else {
+                    //do nothing.
                 }
                 //aml_audio_dump_audio_bitstreams("/data/mixing_data.raw", dec_data, dec_pcm_data->data_len);
                 aml_hw_mixer_mixing(&adev->hw_mixer, dec_data, dec_pcm_data->data_len, output_format);
@@ -192,10 +194,6 @@ int aml_audio_decoder_process_wrapper(struct audio_stream_out *stream, const voi
 
             if (aml_out->optical_format != AUDIO_FORMAT_PCM_16_BIT) {
                 // write raw data
-                if (dec_raw_data->data_sr > 0) {
-                    aml_out->config.rate = dec_raw_data->data_sr;
-                }
-
                 if (aml_dec->format == AUDIO_FORMAT_E_AC3 || aml_dec->format == AUDIO_FORMAT_AC3) {
                     if (adev->dual_spdif_support) {
                         /*output raw ddp to hdmi*/
