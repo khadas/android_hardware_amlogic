@@ -1881,10 +1881,8 @@ static int out_get_presentation_position (const struct audio_stream_out *stream,
             else
                 *frames = 0;
         }
-        aml_dec_t *aml_dec = out->aml_dec;
+
         unsigned int output_sr = (out->config.rate) ? (out->config.rate) : (MM_FULL_POWER_SAMPLING_RATE);
-        if (aml_dec && output_sr)
-            output_sr = (aml_dec->dec_pcm_data.data_sr) ? (aml_dec->dec_pcm_data.data_sr) : (output_sr);
         *frames = *frames * out->hal_rate / output_sr;
         *timestamp = out->lasttimestamp;
     }
