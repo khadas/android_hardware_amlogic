@@ -562,7 +562,9 @@ public:
         else
             return false;
     }
-
+    virtual void setEnforceTimeslice(bool is_enforce) {
+        mEnforceTimeslice = is_enforce;
+    }
 
     //*End||Add the APT to set the params*//
 
@@ -737,6 +739,7 @@ private:
     };//System sound mixer gain values for System Sounds input
     bool mIsLegecyDDPOut;
     int mDolbyInputCMDMask;
+    bool mEnforceTimeslice;
 }; //class DolbyMS12ConfigParams
 
 

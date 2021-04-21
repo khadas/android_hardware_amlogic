@@ -715,6 +715,15 @@ int get_the_dolby_ms12_prepared(
         output_config = get_ms12_output_mask(adev->sink_format, adev->optical_format,adev->active_outport == OUTPORT_HDMI_ARC);
     }
 #endif
+
+    if (patch && patch->input_src == AUDIO_DEVICE_IN_HDMI) {
+        if (!adev->continuous_audio_mode &&
+            ((input_format == AUDIO_FORMAT_AC3) || (input_format == AUDIO_FORMAT_E_AC3))) {
+            dolby_ms12_set_enforce_timeslice(true);
+            ALOGI("hdmi in ddp/dd case, use enforce timeslice");
+        }
+    }
+
     aml_ms12_config(ms12, input_format, input_channel_mask, input_sample_rate, output_config, get_ms12_path());
     if (ms12->dolby_ms12_enable) {
         //register Dolby MS12 callback
@@ -1407,6 +1416,7 @@ int get_dolby_ms12_cleanup(struct dolby_ms12_desc *ms12)
     dolby_ms12_flush_main_input_buffer();
     dolby_ms12_config_params_set_system_flag(false);
     dolby_ms12_config_params_set_app_flag(false);
+    dolby_ms12_set_enforce_timeslice(false);
     aml_ms12_cleanup(ms12);
     ms12->output_config = 0;
     ms12->dolby_ms12_enable = false;

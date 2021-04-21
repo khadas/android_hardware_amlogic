@@ -645,6 +645,13 @@ void dolby_ms12_set_ddp_5_1_out(bool flag);
  */
 bool dolby_ms12_get_ddp_5_1_out(void);
 
+
+/**
+ * @brief set ddp enforce mode, then it can save one frame latency,
+ * it is only used for hdmi case
+ */
+void dolby_ms12_set_enforce_timeslice(bool is_enforce);
+
 /*End*/
 
 #ifdef __cplusplus

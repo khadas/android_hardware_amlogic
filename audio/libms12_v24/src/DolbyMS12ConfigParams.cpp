@@ -161,6 +161,7 @@ DolbyMS12ConfigParams::DolbyMS12ConfigParams():
     , mOTTSoundInputEnable(false)
     , mIsLegecyDDPOut(false)
     , mDolbyInputCMDMask(0)
+    , mEnforceTimeslice(0)
 {
     ALOGD("+%s() mAudioOutFlags %d mAudioStreamOutFormat %#x mHasAssociateInput %d mHasSystemInput %d AppInput %d\n",
           __FUNCTION__, mAudioOutFlags, mAudioStreamOutFormat, mHasAssociateInput, mHasSystemInput, mHasAppInput);
@@ -258,6 +259,13 @@ int DolbyMS12ConfigParams::SetInputOutputFileName(char **ConfigParams, int *row_
             if ((mAudioStreamOutFormat == AUDIO_FORMAT_AC3) || (mAudioStreamOutFormat == AUDIO_FORMAT_E_AC3)) {
                 sprintf(ConfigParams[*row_index], "%s", DEFAULT_MAIN_DDP_FILE_NAME);
                 (*row_index)++;
+                if (mEnforceTimeslice == true) {
+                    sprintf(ConfigParams[*row_index], "%s", "-enforce_timeslice");
+                    (*row_index)++;
+                    sprintf(ConfigParams[*row_index], "%d", mEnforceTimeslice);
+                    (*row_index)++;
+                }
+
                 mMainFlags = true;
                 mAppSoundFlags = false;
                 mSystemSoundFlags = false;

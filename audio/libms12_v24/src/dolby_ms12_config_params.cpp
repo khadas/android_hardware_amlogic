@@ -993,6 +993,15 @@ extern "C" bool dolby_ms12_get_ddp_5_1_out(void)
 }
 
 
+extern "C" void dolby_ms12_set_enforce_timeslice(bool is_enforce)
+{
+    ALOGV("%s()\n", __FUNCTION__);
+    android::DolbyMS12ConfigParams *config_param = getInstance();
+    if (config_param) {
+        return config_param->setEnforceTimeslice(is_enforce);
+    }
+}
+
 /*****************************************************************************************************************/
 /*END*/
 /*****************************************************************************************************************/
