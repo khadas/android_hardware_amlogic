@@ -2134,17 +2134,30 @@ int dolby_ms12_main_close(struct audio_stream_out *stream) {
     struct aml_audio_device *adev = aml_out->dev;
     struct dolby_ms12_desc *ms12 = &(adev->ms12);
 
-    ms12->is_bypass_ms12 = false;
-    adev->ms12.main_input_fmt = AUDIO_FORMAT_PCM_16_BIT;
     aml_out->is_ms12_main_decoder = false;
-    ms12->ms12_main_stream_out = NULL;
-    /*when main stream is closed, we must set the pause to false*/
-    dolby_ms12_set_pause_flag(false);
-    adev->ms12.is_continuous_paused = false;
-    /*the main stream is closed, we should update the sink format now*/
-    if (adev->active_outputs[STREAM_PCM_NORMAL]) {
-        get_sink_format(&adev->active_outputs[STREAM_PCM_NORMAL]->stream);
+
+    /** for low probability timing case, open1-->***-->open2->close1->****-->close2
+    *** like above case, the ms12_main_stream_out is setted null when close1 output_stream,
+    *** it lead to ms12 flush/pause/resume message cant send to ms12 thread in open2 output_stream.
+    *** so add ms12_main_stream_out address pointed check to protect this case.
+    **/
+    if ((unsigned char *)aml_out == (unsigned char*)ms12->ms12_main_stream_out) {
+        ms12->ms12_main_stream_out = NULL;
+        ms12->is_bypass_ms12 = false;
+        adev->ms12.main_input_fmt = AUDIO_FORMAT_PCM_16_BIT;
+
+        /*when main stream is closed, we must set the pause to false*/
+        dolby_ms12_set_pause_flag(false);
+        adev->ms12.is_continuous_paused = false;
+
+        /*the main stream is closed, we should update the sink format now*/
+        if (adev->active_outputs[STREAM_PCM_NORMAL]) {
+            get_sink_format(&adev->active_outputs[STREAM_PCM_NORMAL]->stream);
+        }
+    } else {
+        ALOGD("%s  aml_out is not equal with ms12_main_stream_out, ms12 resource not release.", __func__);
     }
+
     if (aml_out->virtual_buf_handle) {
         audio_virtual_buf_close(&aml_out->virtual_buf_handle);
     }
