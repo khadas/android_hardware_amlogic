@@ -1,0 +1,71 @@
+cc_library_shared {
+    name: "libamlaudiohal@6.0",
+    proprietary: true,
+
+    srcs: [
+        "DeviceHalLocal.cpp",
+        "DevicesFactoryHalHybrid.cpp",
+        "DevicesFactoryHalLocal.cpp",
+        "StreamHalLocal.cpp",
+ 
+        "ConversionHelperHidl.cpp",
+        "DeviceHalHidl.cpp",
+        "DevicesFactoryHalHidl.cpp",
+        "EffectBufferHalHidl.cpp",
+        "EffectHalHidl.cpp",
+        "EffectsFactoryHalHidl.cpp",
+        "StreamHalHidl.cpp",
+    ],
+
+    include_dirs: [
+        "frameworks/av/media/libaudiohal/impl/",
+        "frameworks/av/media/libaudiohal/include/",
+        "frameworks/av/include/",
+        "frameworks/av/media/utils/include/"
+    ],
+
+    cflags: [
+        "-Wall",
+        "-Wextra",
+        "-Werror",
+        "-fvisibility=hidden",
+        "-include common/all-versions/VersionMacro.h",
+        "-DMAJOR_VERSION=6",
+        "-DMINOR_VERSION=0",
+    ],
+
+    shared_libs: [
+        "android.hardware.audio.common-util",
+        "libamlaudiohal_deathhandler",
+        "libaudiofoundation",
+        "libaudioutils",
+        "libbase",
+        "libbinder",
+        "libcutils",
+        "libfmq",
+        "libhardware",
+        "libhidlbase",
+        "libhidlmemory",
+        "liblog",
+        "libutils",
+        "android.hardware.audio@6.0",
+        "android.hardware.audio.common-util",
+        "android.hardware.audio.common@6.0",
+        "android.hardware.audio.common@6.0-util",
+        "android.hardware.audio.effect@6.0",
+        "android.hidl.allocator@1.0",
+        "android.hidl.memory@1.0",
+        "libmedia_helper",
+        "libamlmediautils",
+    ],
+
+    header_libs: [
+        "android.hardware.audio.common.util@all-versions",
+        "libamlaudiohal_headers",
+        "libaudioclient_headers",
+    ],
+
+    export_shared_lib_headers: [
+        "libfmq",
+    ],
+}

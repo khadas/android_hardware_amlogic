@@ -1,0 +1,77 @@
+cc_library_shared {
+    name: "libamlaudiohal",
+    vendor: true,
+    proprietary: true,
+
+    srcs: [
+        "DevicesFactoryHalInterface.cpp",
+        "EffectsFactoryHalInterface.cpp",
+        "FactoryHalHidl.cpp",
+    ],
+
+    cflags: [
+        "-Wall",
+        "-Wextra",
+        "-Werror",
+    ],
+
+    shared_libs: [
+        "libdl",
+        "libhidlbase",
+        "liblog",
+        "libutils",
+        "libamlaudiohal@6.0",
+    ],
+
+    header_libs: [
+        "libamlaudiohal_headers"
+    ],
+
+    include_dirs: [
+        "system/media/audio_utils/include",
+        "system/media/audio/include/",
+        "frameworks/av/include/",
+        "frameworks/av/media/libaudiohal/impl/",
+        "frameworks/av/media/libaudiohal/include/",
+        "frameworks/native/libs/binder/include/"
+    ],
+}
+
+cc_library_shared {
+    name: "libamlaudiohal_deathhandler",
+    vendor: true,
+    proprietary: true,
+
+    include_dirs: [
+        "frameworks/av/media/libaudiohal/include/"
+    ],
+
+    srcs: [
+        "HalDeathHandlerHidl.cpp",
+    ],
+
+    cflags: [
+        "-Wall",
+        "-Werror",
+    ],
+
+    shared_libs: [
+        "libhidlbase",
+        "libutils",
+        "liblog",
+    ],
+
+    header_libs: [
+        "libamlaudiohal_headers"
+    ]
+}
+
+cc_library_headers {
+    name: "libamlaudiohal_headers",
+    vendor: true,
+    proprietary: true,
+
+    include_dirs: [
+        "frameworks/av/media/libaudiohal/include/"
+    ],
+}
