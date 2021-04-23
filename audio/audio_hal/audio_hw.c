@@ -3343,8 +3343,8 @@ static void adev_close_output_stream(struct audio_hw_device *dev,
         if (adev->continuous_audio_mode) {
             adev->delay_disable_continuous = 0;
             ALOGI("%s Need disable MS12 continuous", __func__);
-            get_dolby_ms12_cleanup(&adev->ms12);
-            adev->continuous_audio_mode = 0;
+            bool set_ms12_non_continuous = true;
+            get_dolby_ms12_cleanup(&adev->ms12, set_ms12_non_continuous);
             adev->exiting_ms12 = 1;
             out->restore_continuous = true;
             clock_gettime(CLOCK_MONOTONIC, &adev->ms12_exiting_start);
@@ -3788,9 +3788,9 @@ static int adev_set_parameters (struct audio_hw_device *dev, const char *kvpairs
             adev->patch_src = SRC_DTV;
             if (eDolbyMS12Lib == adev->dolby_lib_type && adev->continuous_audio_mode)
             {
-                get_dolby_ms12_cleanup(&adev->ms12);
+                bool set_ms12_non_continuous = true;
+                get_dolby_ms12_cleanup(&adev->ms12, set_ms12_non_continuous);
                 adev->exiting_ms12 = 1;
-                adev->continuous_audio_mode = 0;
                 clock_gettime(CLOCK_MONOTONIC, &adev->ms12_exiting_start);
                 if (adev->active_outputs[STREAM_PCM_NORMAL] != NULL)
                     usecase_change_validate_l(adev->active_outputs[STREAM_PCM_NORMAL], true);
@@ -3817,9 +3817,9 @@ static int adev_set_parameters (struct audio_hw_device *dev, const char *kvpairs
 #endif
             if (eDolbyMS12Lib == adev->dolby_lib_type && adev->continuous_audio_mode) {
                 ALOGI("In ATV exit MS12 continuous mode");
-                get_dolby_ms12_cleanup(&adev->ms12);
+                bool set_ms12_non_continuous = true;
+                get_dolby_ms12_cleanup(&adev->ms12, set_ms12_non_continuous);
                 adev->exiting_ms12 = 1;
-                adev->continuous_audio_mode = 0;
                 clock_gettime(CLOCK_MONOTONIC, &adev->ms12_exiting_start);
                 if (adev->active_outputs[STREAM_PCM_NORMAL] != NULL)
                     usecase_change_validate_l(adev->active_outputs[STREAM_PCM_NORMAL], true);
@@ -3982,9 +3982,9 @@ static int adev_set_parameters (struct audio_hw_device *dev, const char *kvpairs
                     adev->need_remove_conti_mode = true;
                 } else {
                     ALOGI("%s Dolby MS12 is at continuous output mode, here go to end it!\n", __FUNCTION__);
-                    get_dolby_ms12_cleanup(&adev->ms12);
+                    bool set_ms12_non_continuous = true;
+                    get_dolby_ms12_cleanup(&adev->ms12, set_ms12_non_continuous);
                     //ALOGI("[%s:%d] get_dolby_ms12_cleanup\n", __FUNCTION__, __LINE__);
-                    adev->continuous_audio_mode = 0;
                     adev->exiting_ms12 = 1;
                     clock_gettime(CLOCK_MONOTONIC, &adev->ms12_exiting_start);
                     if (adev->active_outputs[STREAM_PCM_NORMAL] != NULL)
@@ -4049,7 +4049,7 @@ static int adev_set_parameters (struct audio_hw_device *dev, const char *kvpairs
             ALOGI("%s hal_param_force_ddp set to %d\n", __func__ , val);
             if (adev->ms12_force_ddp_out != val) {
                 adev->ms12_force_ddp_out = val;
-                get_dolby_ms12_cleanup(&adev->ms12);
+                get_dolby_ms12_cleanup(&adev->ms12, false);
             }
             goto exit;
         }
@@ -5024,7 +5024,7 @@ int do_output_standby_l(struct audio_stream *stream)
 
     if (aml_out->out_device & AUDIO_DEVICE_OUT_ALL_A2DP) {
         if ((eDolbyMS12Lib == adev->dolby_lib_type) && (ms12->dolby_ms12_enable == true)) {
-            get_dolby_ms12_cleanup(&adev->ms12);
+            get_dolby_ms12_cleanup(&adev->ms12, false);
         }
         int cnt = 0;
         for (int i=0; i<STREAM_USECASE_MAX; i++) {
@@ -5092,7 +5092,7 @@ int do_output_standby_l(struct audio_stream *stream)
                     // Add some condition here to protect.
                     // TODO: debug later
                     if (ms12->dolby_ms12_enable == true) {
-                        get_dolby_ms12_cleanup(&adev->ms12);
+                        get_dolby_ms12_cleanup(&adev->ms12, false);
                     }
                     //ALOGI("[%s:%d] get_dolby_ms12_cleanup\n", __FUNCTION__, __LINE__);
                     pthread_mutex_lock(&adev->alsa_pcm_lock);
@@ -5122,13 +5122,13 @@ int do_output_standby_l(struct audio_stream *stream)
                 if (eDolbyMS12Lib == adev->dolby_lib_type && adev->ms12.dolby_ms12_enable) {
                     if (adev->need_remove_conti_mode == true) {
                         ALOGI("%s,release ms12 here", __func__);
-                        get_dolby_ms12_cleanup(&adev->ms12);
+                        bool set_ms12_non_continuous = true;
+                        get_dolby_ms12_cleanup(&adev->ms12, set_ms12_non_continuous);
                         //ALOGI("[%s:%d] get_dolby_ms12_cleanup\n", __FUNCTION__, __LINE__);
                         adev->ms12.is_continuous_paused = false;
                         adev->ms12.need_resume       = 0;
                         adev->ms12.need_resync       = 0;
                         adev->need_remove_conti_mode = false;
-                        adev->continuous_audio_mode = 0;
                     }
                 }
             }
@@ -6026,7 +6026,7 @@ void config_output(struct audio_stream_out *stream, bool reset_decoder)
 
         if (!is_bypass_dolbyms12(stream) && (reset_decoder == true)) {
             pthread_mutex_lock(&adev->lock);
-            get_dolby_ms12_cleanup(&adev->ms12);
+            get_dolby_ms12_cleanup(&adev->ms12, false);
             pthread_mutex_lock(&adev->alsa_pcm_lock);
             struct pcm *pcm = adev->pcm_handle[DIGITAL_DEVICE];
             if (aml_out->dual_output_flag && pcm) {
@@ -6248,7 +6248,7 @@ ssize_t mixer_main_buffer_write(struct audio_stream_out *stream, const void *buf
         if (patch && continous_mode(adev)) {
             if (adev->ms12.dolby_ms12_enable) {
                 pthread_mutex_lock(&adev->lock);
-                get_dolby_ms12_cleanup(&adev->ms12);
+                get_dolby_ms12_cleanup(&adev->ms12, false);
                 pthread_mutex_unlock(&adev->lock);
             }
             return return_bytes;
@@ -6272,9 +6272,9 @@ ssize_t mixer_main_buffer_write(struct audio_stream_out *stream, const void *buf
         if (eDolbyMS12Lib == adev->dolby_lib_type) {
             if (case_cnt > MAX_INPUT_STREAM_CNT && adev->need_remove_conti_mode == true) {
                 ALOGI("%s,exit continuous release ms12 here", __func__);
-                get_dolby_ms12_cleanup(&adev->ms12);
+                bool set_ms12_non_continuous = true;
+                get_dolby_ms12_cleanup(&adev->ms12, set_ms12_non_continuous);
                 adev->need_remove_conti_mode = false;
-                adev->continuous_audio_mode = 0;
             }
         }
         need_reconfig_output = true;
@@ -6628,7 +6628,7 @@ hwsync_rewrite:
         adev->need_reset_for_dual_decoder = false;
         /*for dual decoder setting, we must reset ms12*/
         if (eDolbyMS12Lib == adev->dolby_lib_type) {
-            get_dolby_ms12_cleanup(&adev->ms12);
+            get_dolby_ms12_cleanup(&adev->ms12, false);
         }
         ALOGI("%s get the dual decoder support, need reset decoder", __FUNCTION__);
     }
@@ -7346,8 +7346,8 @@ ssize_t out_write_new(struct audio_stream_out *stream,
                     if (adev->dolby_lib_type == eDolbyMS12Lib) {
                         adev->doing_reinit_ms12 = true;
                     }
-                    get_dolby_ms12_cleanup(&adev->ms12);
-                    adev->continuous_audio_mode = 0;
+                    bool set_ms12_non_continuous = true;
+                    get_dolby_ms12_cleanup(&adev->ms12, set_ms12_non_continuous);
                     adev->exiting_ms12 = 1;
                     aml_out->restore_continuous = true;
                     clock_gettime(CLOCK_MONOTONIC, &adev->ms12_exiting_start);
@@ -7356,25 +7356,27 @@ ssize_t out_write_new(struct audio_stream_out *stream,
             else if (is_need_reset_ms12_continuous(stream)) {
                     ALOGI("Need reset MS12 continuous as main audio changed\n");
                     adev->doing_reinit_ms12 = true;
-                    get_dolby_ms12_cleanup(&adev->ms12);
+                    get_dolby_ms12_cleanup(&adev->ms12, false);
             } else if (is_support_ms12_reset(stream)) {
                 ALOGI("is_support_ms12_reset true\n");
                 adev->doing_reinit_ms12 = true;
-                get_dolby_ms12_cleanup(&adev->ms12);
+                get_dolby_ms12_cleanup(&adev->ms12, false);
             }
         }
         aml_out->continuous_mode_check = false;
     }
 
     if ((adev->dolby_lib_type_last == eDolbyMS12Lib) &&
-        ((adev->patch_src == SRC_DTV) && adev->audio_patching)) {
-        /*in dtv case, we can't use continuous mode*/
+        (adev->audio_patching)) {
+        /*in patching case, we can't use continuous mode*/
         if (adev->continuous_audio_mode) {
-            ALOGI("in dtv case, we need disable continuous mode");
-            get_dolby_ms12_cleanup(&adev->ms12);
-            adev->continuous_audio_mode = 0;
+            bool set_ms12_non_continuous = true;
+            ALOGI("in patch case src =%d, we need disable continuous mode", adev->patch_src);
+            get_dolby_ms12_cleanup(&adev->ms12, set_ms12_non_continuous);
+            adev->doing_reinit_ms12 = true;
         }
     }
+
 
     /**
      * deal with the device output changes
@@ -7794,7 +7796,7 @@ void *audio_patch_output_threadloop(void *data)
         do_output_standby_l((struct audio_stream *)aml_out);
         pthread_mutex_unlock(&aml_out->lock);
         if (eDolbyMS12Lib == aml_dev->dolby_lib_type) {
-            get_dolby_ms12_cleanup(&aml_dev->ms12);
+            get_dolby_ms12_cleanup(&aml_dev->ms12, false);
         }
         if (aml_dev->need_remove_conti_mode == true) {
             ALOGI("%s,conntinous mode still there,release ms12 here", __func__);
@@ -8477,9 +8479,9 @@ static int adev_create_audio_patch(struct audio_hw_device *dev,
                     inport == INPORT_TUNER) {
                     if (eDolbyMS12Lib == aml_dev->dolby_lib_type && aml_dev->continuous_audio_mode)
                     {
-                        get_dolby_ms12_cleanup(&aml_dev->ms12);
+                        bool set_ms12_non_continuous = true;
+                        get_dolby_ms12_cleanup(&aml_dev->ms12, set_ms12_non_continuous);
                         aml_dev->exiting_ms12 = 1;
-                        aml_dev->continuous_audio_mode = 0;
                         clock_gettime(CLOCK_MONOTONIC, &aml_dev->ms12_exiting_start);
                         usecase_change_validate_l(aml_dev->active_outputs[STREAM_PCM_NORMAL], true);
                         ALOGI("enter patching mode, exit MS12 continuous mode");
@@ -8775,7 +8777,7 @@ static int adev_close(hw_device_t *device)
     }
 
     if (eDolbyMS12Lib == adev->dolby_lib_type) {
-        get_dolby_ms12_cleanup(&adev->ms12);
+        get_dolby_ms12_cleanup(&adev->ms12, false);
     }
 
 /*[SEI-zhaopf-2018-10-29] add for HBG remote audio support { */
