@@ -108,6 +108,8 @@
 
 #define MS12_BYPASS_DROP_CNT                (5)  /*5 frames is about 150ms*/
 
+#define ms12_to_adev(ms12_ptr)  (struct aml_audio_device *) (((char*) (ms12_ptr)) - offsetof(struct aml_audio_device, ms12))
+
 static const unsigned int ms12_muted_dd_raw[] = {
     0x8f6d770b, 0xffe13024,   0x92f4fc, 0x785502fc, 0x7f188661, 0x3e9fafce, 0xe7f3f97c, 0x7c3e9fcf, 0xcfe7f3f9, 0xf97c3e9f, 0x9fcfe7f3, 0xf3f97c3e, 0x3e9fcfe7, 0xe7f3f97c, 0x7c3e9fcf, 0xcfe7f3f9,
      0xf97c3e9f, 0x9fcfe7f3, 0xf3f97c3e, 0x3e9fcfe7, 0xfff7f97c, 0xf97cbe3a, 0x9fcfe7f3, 0xf3f97c3e, 0x3e9fcfe7, 0xe7f3f97c, 0x7c3e9fcf, 0xcfe7f3f9, 0xf97c3e9f, 0x9fcfe7f3, 0xf3f97c3e, 0x3e9fcfe7,
@@ -1374,19 +1376,26 @@ int dolby_ms12_app_process(
 /*
  *@brief get dolby ms12 cleanup
  */
-int get_dolby_ms12_cleanup(struct dolby_ms12_desc *ms12)
+int get_dolby_ms12_cleanup(struct dolby_ms12_desc *ms12, bool set_non_continuous)
 {
     int is_quit = 1;
     int i = 0;
+    struct aml_audio_device *adev = NULL;
     ALOGI("+%s()", __FUNCTION__);
     if (!ms12) {
         return -EINVAL;
     }
+    adev = ms12_to_adev(ms12);
 
     if (!ms12->dolby_ms12_init_flags) {
         ALOGI("ms12 is not init, don't need cleanup");
+        if (set_non_continuous) {
+            adev->continuous_audio_mode = 0;
+            ALOGI("%s set ms12 to non continuous mode", __func__);
+        }
         return 0;
     }
+
 
     pthread_mutex_lock(&ms12->lock);
     pthread_mutex_lock(&ms12->main_lock);
@@ -1446,7 +1455,11 @@ int get_dolby_ms12_cleanup(struct dolby_ms12_desc *ms12)
         aml_audio_free(ms12->iec61937_ddp_buf);
         ms12->iec61937_ddp_buf = NULL;
     }
-
+    /*because we are still in lock, we can set continuous_audio_mode here safely*/
+    if (set_non_continuous) {
+        adev->continuous_audio_mode = 0;
+        ALOGI("%s set ms12 to non continuous mode", __func__);
+    }
 
     ALOGI("--%s(), locked", __FUNCTION__);
     pthread_mutex_unlock(&ms12->main_lock);
