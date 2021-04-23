@@ -8,6 +8,11 @@ cc_library_shared {
         "system/core/include",
         "external/tinyalsa/include",
         "system/media/audio_utils/include",
+        "frameworks/av/media/libaudiohal/include",
+        "frameworks/av/include",
+        "frameworks/native/libs/binder/include",
+        "system/media/audio/include",
+        "system/media/audio/include",
     ],
     export_include_dirs: [
         "include",
@@ -33,6 +38,7 @@ cc_library_shared {
         "aml_hw_mixer.c",
         "audio_data_process.c",
         "aml_malloc_debug.c",
+        "aml_android_hidl_utils.cpp",
     ],
 
     header_libs: ["libhardware_headers"],
@@ -45,12 +51,20 @@ cc_library_shared {
         "libtinyalsa",
         "libaudioutils",
         "libdroidaudiospdif",
+        "libamlaudiohal",
     ],
+
 
     cflags: ["-DBUILD_IN_ANDROID",
              "-Werror",
              "-Wno-unused-parameter",
              "-Wno-unused-variable",
              "-Wno-unused-function"],
+
+    static_libs: [
+        "android.hardware.audio@6.0",
+        "android.hardware.audio.common@6.0",
+    ],
+
 
 }
