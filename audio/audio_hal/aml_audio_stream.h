@@ -142,6 +142,8 @@ inline bool is_dts_format(audio_format_t format) {
     switch (format) {
     case AUDIO_FORMAT_DTS:
     case AUDIO_FORMAT_DTS_HD:
+    ///< audio_format_t does not include dts_express. So we get the format(dts_express especially) from the decoder.
+    // case AUDIO_FORMAT_DTS_EXPRESS:
         return true;
     default:
         return false;

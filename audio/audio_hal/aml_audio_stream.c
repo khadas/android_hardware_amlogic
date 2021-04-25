@@ -726,7 +726,8 @@ bool is_use_spdifb(struct aml_stream_out *out) {
 bool is_dolby_ms12_support_compression_format(audio_format_t format)
 {
     return (format == AUDIO_FORMAT_AC3 ||
-            (format & AUDIO_FORMAT_E_AC3) == AUDIO_FORMAT_E_AC3 ||
+            format == AUDIO_FORMAT_E_AC3 ||
+            format == AUDIO_FORMAT_E_AC3_JOC ||
             format == AUDIO_FORMAT_DOLBY_TRUEHD ||
             format == AUDIO_FORMAT_AC4 ||
             format == AUDIO_FORMAT_MAT);
@@ -775,12 +776,28 @@ void get_audio_indicator(struct aml_audio_device *dev, char *temp_buf) {
 static int update_audio_hal_info(struct aml_audio_device *adev, audio_format_t format, int atmos_flag)
 {
     int update_type = get_codec_type(format);
+    int update_threshold = UPDATE_THRESHOLD;
+
+    ///< audio_format_t does not include dts_express. So we get the format(dts_express especially) from the decoder.
+    if (format == AUDIO_FORMAT_DTS || format == AUDIO_FORMAT_DTS_HD) {
+        update_threshold = 1;
+
+        ///< will update after decoder at least one frame.
+        if (adev->dts_hd.stream_type <= 0 /*TYPE_PCM*/) {   ///< decoder has not return the correct dts type yet
+            adev->audio_hal_info.update_cnt = 0;
+        }
+
+        update_type = adev->dts_hd.stream_type;
+        if (update_type != adev->audio_hal_info.update_type) {
+            adev->audio_hal_info.update_cnt = 0;
+        }
+    }
 
     if ((format != adev->audio_hal_info.format) || (atmos_flag != adev->audio_hal_info.is_dolby_atmos)) {
         adev->audio_hal_info.update_cnt = 0;
     }
     // avoid the value out-of-bounds
-    else if (adev->audio_hal_info.update_cnt < (UPDATE_THRESHOLD * 2)) {
+    else if (adev->audio_hal_info.update_cnt < (update_threshold * 2)) {
         adev->audio_hal_info.update_cnt++;
     }
     ALOGV("%s() update_cnt %d format %#x vs hal_internal_format %#x  atmos_flag %d vs is_dolby_atmos %d update_type %d\n",
@@ -802,11 +819,15 @@ static int update_audio_hal_info(struct aml_audio_device *adev, audio_format_t f
     adev->audio_hal_info.is_dolby_atmos = atmos_flag;
     adev->audio_hal_info.update_type = update_type;
 
-    if (adev->audio_hal_info.update_cnt == UPDATE_THRESHOLD) {
+    if (adev->audio_hal_info.update_cnt == update_threshold) {
 
+        if ((format == AUDIO_FORMAT_DTS || format == AUDIO_FORMAT_DTS_HD) && adev->dts_hd.is_headphone_x) {
+            aml_mixer_ctrl_set_int(&adev->alsa_mixer, AML_MIXER_ID_AUDIO_HAL_FORMAT, TYPE_DTS_HP);
+        }
         aml_mixer_ctrl_set_int(&adev->alsa_mixer, AML_MIXER_ID_AUDIO_HAL_FORMAT, update_type);
-        ALOGD("%s()audio hal format change to %x, atmos flag = %d, update_type = %d\n",
-            __FUNCTION__, adev->audio_hal_info.format, adev->audio_hal_info.is_dolby_atmos, adev->audio_hal_info.update_type);
+        ALOGD("%s()audio hal format change to %x, atmos flag = %d, dts_hp_x = %d, update_type = %d\n",
+            __FUNCTION__, adev->audio_hal_info.format, adev->audio_hal_info.is_dolby_atmos,
+            adev->dts_hd.is_headphone_x, adev->audio_hal_info.update_type);
     }
 
     return 0;

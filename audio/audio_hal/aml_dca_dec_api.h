@@ -72,25 +72,33 @@ typedef union dca_info_s {
     struct {
         uint32_t stream_ch; ///< bitstream origin channels
         uint32_t stream_sr; ///< bitstream origin sample rate
+        uint32_t stream_type; ///< bitstream origin stream type
     } stream_info;  ///< DCA_GET_STREAM_INFO
 } dca_info_t;
 
 struct dca_dts_dec {
+    ///< Control
     aml_dec_t  aml_dec;
-    unsigned char *inbuf;
+    aml_audio_resample_t *resample_handle;
+    //int (*get_parameters) (void *, int *, int *, int *);
+    int (*decoder_process)(unsigned char*, int, unsigned char *, int *, unsigned char *, int *, struct pcm_info *);
+
+    ///< Information
     int status;
     int remain_size;
     int outlen_pcm;
     int outlen_raw;
-    bool is_dtscd;
-    aml_dec_control_type_t digital_raw;
-    bool is_iec61937;
-    //int (*get_parameters) (void *, int *, int *, int *);
-    int (*decoder_process)(unsigned char*, int, unsigned char *, int *, unsigned char *, int *, struct pcm_info *);
+    int stream_type;    ///< enum audio_hal_format
+    bool is_headphone_x;
     struct pcm_info pcm_out_info;
-    aml_audio_resample_t *resample_handle;
+    struct dts_frame_info frame_info;   ///< for frame parsing
+
+    ///< Parameter
+    bool is_dtscd;
+    bool is_iec61937;
+    unsigned char *inbuf;
+    aml_dec_control_type_t digital_raw;
     ring_buffer_t input_ring_buf;
-    struct dts_frame_info frame_info;
 };
 
 int dca_decode_init(struct aml_audio_parser *parser);
