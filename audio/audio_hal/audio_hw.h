@@ -131,6 +131,8 @@ enum audio_hal_format {
     TYPE_TRUE_HD_ATMOS = 13,
     TYPE_MAT_ATMOS = 14,
     TYPE_AC4_ATMOS = 15,
+    TYPE_DTS_HP = 16,
+    // TYPE_DTS_X = 17,
 };
 
 #define FRAMESIZE_16BIT_STEREO 4

@@ -9244,6 +9244,8 @@ static int adev_open(const hw_module_t* module, const char* name, hw_device_t** 
         adev->dcvlib_bypass_enable = 1;
     }
 
+    memset(&adev->dts_hd, 0, sizeof(struct dca_dts_dec));
+
     adev->sound_track_mode = 0;
     adev->mixing_level = 0;
     adev->advol_level = 100;
