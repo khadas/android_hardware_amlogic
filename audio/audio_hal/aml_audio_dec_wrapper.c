@@ -22,6 +22,7 @@
 #include <errno.h>
 #include <pthread.h>
 #include <cutils/log.h>
+#include <aml_volume_utils.h>
 
 
 #include "audio_hw.h"
@@ -31,6 +32,13 @@
 #define OUTPUT_BUFFER_SIZE (6 * 1024)
 #define OUTPUT_ALSA_SAMPLERATE  (48000)
 
+static void aml_audio_stream_volume_process(struct audio_stream_out *stream, void *buf, int sample_size, int channels, int bytes) {
+    struct aml_stream_out *aml_out = (struct aml_stream_out *) stream;
+    apply_volume_fade(aml_out->last_volume_l, aml_out->volume_l, buf, sample_size, channels, bytes);
+    aml_out->last_volume_l = aml_out->volume_l;
+    aml_out->last_volume_r = aml_out->volume_r;
+    return;
+}
 
 ssize_t aml_audio_spdif_output(struct audio_stream_out *stream, void **spdifout_handle, dec_data_info_t * data_info)
 {
@@ -176,6 +184,8 @@ int aml_audio_decoder_process_wrapper(struct audio_stream_out *stream, const voi
                 } else {
                     //do nothing.
                 }
+                /*process the stream volume before mix*/
+                aml_audio_stream_volume_process(stream, dec_data, sizeof(int16_t), dec_pcm_data->data_ch, dec_pcm_data->data_len);
                 //aml_audio_dump_audio_bitstreams("/data/mixing_data.raw", dec_data, dec_pcm_data->data_len);
                 aml_hw_mixer_mixing(&adev->hw_mixer, dec_data, dec_pcm_data->data_len, output_format);
                 if (audio_hal_data_processing(stream, dec_data, dec_pcm_data->data_len, &output_buffer, &output_buffer_bytes, output_format) == 0) {
