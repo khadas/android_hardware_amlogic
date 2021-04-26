@@ -567,6 +567,19 @@ typedef struct aml_device_config {
 
 } aml_device_config_t;
 
+typedef enum audio_data_handle_state {
+    AUDIO_DATA_HANDLE_NONE = 0,
+    AUDIO_DATA_HANDLE_START,
+    AUDIO_DATA_HANDLE_DETECT,
+    AUDIO_DATA_HANDLE_DETECTED,
+    AUDIO_DATA_HANDLE_EASE_CONFIG,
+    AUDIO_DATA_HANDLE_EASING,
+    AUDIO_DATA_HANDLE_FINISHED,
+
+    AUDIO_DATA_HANDLE_MAX
+} audio_data_handle_state_t;
+
+
 struct aml_stream_out {
     struct audio_stream_out stream;
     /* see note below on mutex acquisition order */
@@ -714,6 +727,9 @@ struct aml_stream_out {
     bool is_add2active_output;
     uint32_t alsa_write_cnt;
     uint64_t alsa_write_frames;
+    aml_audio_ease_t  *audio_stream_ease;
+    audio_data_handle_state_t audio_data_handle_state;
+    uint16_t easing_time;
 };
 
 typedef ssize_t (*write_func)(struct audio_stream_out *stream, const void *buffer, size_t bytes);
