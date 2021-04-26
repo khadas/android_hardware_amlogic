@@ -6859,6 +6859,7 @@ ssize_t mixer_aux_buffer_write(struct audio_stream_out *stream, const void *buff
 
     if (aml_out->standby) {
         ALOGI("%s(), standby to unstandby", __func__);
+        aml_out->audio_data_handle_state = AUDIO_DATA_HANDLE_START;
         aml_out->standby = false;
     }
 
@@ -6956,6 +6957,11 @@ ssize_t mixer_aux_buffer_write(struct audio_stream_out *stream, const void *buff
             /*for ms12 system input, we need do track switch before enter ms12*/
             {
                 aml_audio_switch_output_mode((int16_t *)buffer, bytes, adev->sound_track_mode);
+            }
+
+            /* audio zero data detect, and do fade in */
+            if (adev->is_netflix && STREAM_PCM_NORMAL == aml_out->usecase) {
+                aml_audio_data_handle(stream, buffer, bytes);
             }
 
             while (bytes_remaining && adev->ms12.dolby_ms12_enable && retry < 20) {
@@ -7468,6 +7474,13 @@ int adev_open_output_stream_new(struct audio_hw_device *dev,
     aml_out->codec_type = get_codec_type(aml_out->hal_internal_format);
     aml_out->continuous_mode_check = true;
 
+    /* init ease for stream */
+    if (aml_audio_ease_init(&aml_out->audio_stream_ease) < 0) {
+        ALOGE("%s  aml_audio_ease_init faild\n", __func__);
+        ret = -EINVAL;
+        goto AUDIO_EASE_INIT_FAIL;
+    }
+
     if (aml_getprop_bool("vendor.media.audio.hal.debug")) {
         aml_out->debug_stream = 1;
     }
@@ -7475,6 +7488,10 @@ int adev_open_output_stream_new(struct audio_hw_device *dev,
         aml_out, handle, usecase2Str(aml_out->usecase), aml_out->card, aml_out->device);
 
     return 0;
+
+AUDIO_EASE_INIT_FAIL:
+    adev_close_output_stream(dev, *stream_out);
+    return ret;
 }
 
 void adev_close_output_stream_new(struct audio_hw_device *dev,
@@ -7484,6 +7501,10 @@ void adev_close_output_stream_new(struct audio_hw_device *dev,
     struct aml_stream_out *aml_out = (struct aml_stream_out *)stream;
 
     ALOGD("%s: enter usecase = %s", __func__, usecase2Str(aml_out->usecase));
+
+    /* free stream ease resource  */
+    aml_audio_ease_close(aml_out->audio_stream_ease);
+
     /* call legacy close to reuse codes */
     if (adev->active_outputs[aml_out->usecase] == aml_out) {
         adev->active_outputs[aml_out->usecase] = NULL;
@@ -8832,6 +8853,9 @@ static int adev_close(hw_device_t *device)
         pthread_mutex_unlock(&adev_mutex);
         return 0;
     }
+
+    /* free ease resource  */
+    aml_audio_ease_close(adev->audio_ease);
 
     /* destroy thread for communication between Audio Hal and MS12 */
     if ((eDolbyMS12Lib == adev->dolby_lib_type)) {

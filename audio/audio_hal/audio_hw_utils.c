@@ -1195,6 +1195,137 @@ void aml_audio_switch_output_mode(int16_t *buf, size_t bytes, AM_AOUT_OutputMode
     }
 }
 
+/*****************************************************************************
+*   Function Name:  aml_audio_data_detect
+*   Description:    accumulate buf in bytes, then compare with detect_value.
+*                   the purpose is to detect value of buf that is zero or not.
+*   Parameters:     int16_t *: the audio data buffer.
+*                   size_t bytes: the buffer length.
+*                   int: for compared value.
+*   Return value:   true if buf value is zero, or false.
+******************************************************************************/
+bool aml_audio_data_detect(int16_t *buf, size_t bytes, int detect_value)
+{
+    int ret = false;
+    uint64_t buf_value = 0;
+    uint32_t i = 0;
+
+    while (i <= bytes/2) {
+        buf_value +=  abs(buf[i++]);
+    };
+
+    ALOGV("%s  i:%u  buf_value:%lld (%#llx),  sizeof(uint64_t):%u sizeof(size_t):%u", __func__,
+                i, buf_value, buf_value,  sizeof(uint64_t), sizeof(size_t));
+    if (buf_value <= detect_value) {
+        ret = true;
+    } else {
+        ret = false;
+    }
+
+    return ret;
+}
+
+static int mixer_aux_start_ease_in(struct aml_stream_out *aml_out) {
+    /*start ease in the audio*/
+    ease_setting_t ease_setting;
+    aml_out->audio_stream_ease->data_format.format = AUDIO_FORMAT_PCM_16_BIT;
+    aml_out->audio_stream_ease->data_format.ch = 2;
+    aml_out->audio_stream_ease->data_format.sr = 48000;
+    aml_out->audio_stream_ease->ease_type = EaseLinear;
+    ease_setting.duration = 40;
+    ease_setting.start_volume = 0.0;
+    ease_setting.target_volume = 1.0;
+    aml_audio_ease_config(aml_out->audio_stream_ease, &ease_setting);
+
+    ALOGV("%s ", __func__);
+    return 0;
+}
+
+/*****************************************************************************
+*   Function Name:  aml_audio_data_handle
+*   Description:    handle audio data before send to driver or decoder.
+*                   the purpose is to detect and fade in.
+*   Parameters:     struct audio_stream_out: audio output stream pointer.
+*                   const void *: the buffer pointer.
+*                   size_t: the buffer length.
+*   Return value:   true if buf value is zero, or false.
+******************************************************************************/
+int aml_audio_data_handle(struct audio_stream_out *stream, const void* buffer, size_t bytes)
+{
+// 8ms audio data
+#define DETECT_AUDIO_TIME_UNIT (8)
+#define DETECT_AUDIO_DATA_UNIT (DETECT_AUDIO_TIME_UNIT * out->hal_frame_size * out->hal_rate / 1000)
+/* value 2000 for filter noise data,
+** this value is confirmed according logs.
+*/
+#define AML_DETECT_VALUE (2000)
+
+    struct aml_stream_out *out = (struct aml_stream_out *)stream;
+    struct aml_audio_device *adev = out->dev;
+    bool ret = false;
+    int unit_size = 0;
+    int detected_size = 0;
+    size_t remaining_size = bytes;
+
+    ALOGV("%s out_stream usecase:%d-->%s, hal_format:%#x hal_ch:%u --> hal_frame_size:%u, hal_rate:%u, DETECT_AUDIO_DATA_UNIT:%zu, bytes:%zu", __func__,
+          out->usecase, usecase2Str(out->usecase), out->hal_format, out->hal_ch, out->hal_frame_size, out->hal_rate, DETECT_AUDIO_DATA_UNIT, bytes);
+
+    while (out->audio_data_handle_state < AUDIO_DATA_HANDLE_FINISHED && remaining_size) {
+        ALOGD("%s remaing_size:%zu,  out->audio_data_handle_status:%u", __func__, remaining_size, out->audio_data_handle_state);
+        switch (out->audio_data_handle_state) {
+            case AUDIO_DATA_HANDLE_START:
+                FALLTHROUGH_INTENDED; /* [[fallthrough]] */
+            case AUDIO_DATA_HANDLE_DETECT:
+                out->audio_data_handle_state = AUDIO_DATA_HANDLE_DETECT;
+                while (remaining_size > 0) {
+                    if (remaining_size > DETECT_AUDIO_DATA_UNIT) {
+                        unit_size = DETECT_AUDIO_DATA_UNIT;
+                    } else {
+                        unit_size = remaining_size;
+                    }
+
+                    ret = aml_audio_data_detect((int16_t *)((int8_t *)buffer + detected_size), unit_size , AML_DETECT_VALUE);
+                    if (false == ret) {
+                        out->audio_data_handle_state = AUDIO_DATA_HANDLE_DETECTED;
+                        ALOGD("%s  detected the nonzero data, remaing_size:%zu  detected_size:%zu", __func__, remaining_size, detected_size);
+                        break;
+                    }
+
+                    remaining_size -= unit_size;
+                    detected_size += unit_size;
+                }
+                break;
+            // detect finished, then do fade in.
+            case AUDIO_DATA_HANDLE_DETECTED:
+                out->audio_data_handle_state = AUDIO_DATA_HANDLE_EASE_CONFIG;
+                break;
+            case AUDIO_DATA_HANDLE_EASE_CONFIG:
+                mixer_aux_start_ease_in(out);
+                out->easing_time = 0;
+                out->audio_data_handle_state = AUDIO_DATA_HANDLE_EASING;
+                break;
+            case AUDIO_DATA_HANDLE_EASING:
+                aml_audio_ease_process(out->audio_stream_ease, (void *)((uint8_t *)buffer + detected_size), remaining_size);
+                out->easing_time += remaining_size/(out->hal_frame_size * out->hal_rate / 1000);
+                ALOGD("%s  easing_time:%u, audio_stream_ease->ease_time:%u", __func__, out->easing_time, out->audio_stream_ease->ease_time);
+                remaining_size = 0;
+                if (out->easing_time >=  out->audio_stream_ease->ease_time) {
+                    out->audio_data_handle_state = AUDIO_DATA_HANDLE_FINISHED;
+                }
+                break;
+            case AUDIO_DATA_HANDLE_FINISHED:
+                out->audio_data_handle_state = AUDIO_DATA_HANDLE_FINISHED;
+                ALOGD("%s  handle finished", __func__);
+                break;
+            default :
+                break;
+        };
+    }
+
+    return 0;
+}
+
+
 int aml_audio_compensate_video_delay( int enable) {
     int video_delay = 0;
     char buf[PROPERTY_VALUE_MAX];

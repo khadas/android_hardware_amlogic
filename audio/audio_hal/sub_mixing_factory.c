@@ -148,6 +148,10 @@ static ssize_t aml_out_write_to_mixer(struct audio_stream_out *stream, const voi
     uint32_t latency_frames = 0;
     struct timespec ts;
 
+    if (adev->is_netflix && STREAM_PCM_NORMAL == out->usecase) {
+        aml_audio_data_handle(stream, buffer, bytes);
+    }
+
     do {
         ssize_t written = 0;
         ALOGV("%s(), stream usecase: %s, written_total %zu, bytes %zu",
@@ -1201,6 +1205,7 @@ ssize_t mixer_aux_buffer_write_sm(struct audio_stream_out *stream, const void *b
         if (aml_out->out_device & AUDIO_DEVICE_OUT_ALL_A2DP)
             padding_bytes = 0;
 
+        aml_out->audio_data_handle_state = AUDIO_DATA_HANDLE_START;
         //set_thread_affinity();
         init_mixer_input_port(sm->mixerData, &aml_out->audioCfg, aml_out->flags,
             on_notify_cbk, aml_out, on_input_avail_cbk, aml_out,
@@ -1226,6 +1231,7 @@ ssize_t mixer_aux_buffer_write_sm(struct audio_stream_out *stream, const void *b
         }
         aml_audio_free(padding_buf);
     }
+
     bytes_written = aml_out_write_to_mixer(stream, buffer, bytes);
 
 #ifdef DEBUG_TIME

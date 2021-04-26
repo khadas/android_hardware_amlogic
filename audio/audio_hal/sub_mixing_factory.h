@@ -93,5 +93,4 @@ int subMixingOutputRestart(struct aml_audio_device *adev);
 
 void subMixingDump(int s32Fd, const struct aml_audio_device *pstAmlDev);
 
-
 #endif /* _SUB_MIXING_FACTORY_H_ */
