@@ -41,9 +41,12 @@ typedef struct aml_audio_resample {
     size_t resample_size;   /*the resampled data size*/
     size_t resample_buffer_size; /*the total buffer size*/
     void *resample_buffer;
-    void * resample_handle;
+    void *resample_handle;
     size_t total_in;
     size_t total_out;
+    int align_size;
+    int last_left_size;
+    int last_copy_size;
 } aml_audio_resample_t;
 
 

@@ -27,6 +27,7 @@
 
 
 #define RESAMPLE_LENGTH (1024);
+#define ALIGN_FRAME_SIZE (256);
 
 static audio_resample_func_t * get_resample_function(resample_type_t resample_type)
 {
@@ -92,7 +93,10 @@ int aml_audio_resample_init(aml_audio_resample_t ** ppaml_audio_resample, resamp
 
     aml_audio_resample->frame_bytes = audio_bytes_per_sample(resample_config->aformat) * resample_config->channels;
 
-    aml_audio_resample->resample_buffer_size =  2 * aml_audio_resample->frame_bytes * RESAMPLE_LENGTH;
+    aml_audio_resample->align_size = sizeof(int16_t) * resample_config->channels * ALIGN_FRAME_SIZE;
+
+    /* alloc more buffer size to align output data */
+    aml_audio_resample->resample_buffer_size =  2 * aml_audio_resample->frame_bytes * RESAMPLE_LENGTH + aml_audio_resample->align_size;
 
     aml_audio_resample->resample_buffer = aml_audio_calloc(1, aml_audio_resample->resample_buffer_size);
 
@@ -100,7 +104,6 @@ int aml_audio_resample_init(aml_audio_resample_t ** ppaml_audio_resample, resamp
         ALOGE("resample_buffer is NULL\n");
         goto exit;
     }
-
 
     ret = resample_func->resample_open(&aml_audio_resample->resample_handle, &aml_audio_resample->resample_config);
     if (ret < 0) {
@@ -174,7 +177,7 @@ int aml_audio_resample_process(aml_audio_resample_t * aml_audio_resample, void *
     out_size = size * aml_audio_resample->resample_rate * 2 ; /*we make it for slightly larger*/
 
     if (out_size > aml_audio_resample->resample_buffer_size) {
-        int new_buf_size = out_size;
+        int new_buf_size = out_size + aml_audio_resample->align_size;
         aml_audio_resample->resample_buffer = aml_audio_realloc(aml_audio_resample->resample_buffer, new_buf_size);
         if (aml_audio_resample->resample_buffer == NULL) {
             ALOGE("realloc resample_buffer is failed\n");
@@ -190,10 +193,17 @@ int aml_audio_resample_process(aml_audio_resample_t * aml_audio_resample, void *
         return -1;
     }
 
-    memset(aml_audio_resample->resample_buffer, 0, aml_audio_resample->resample_buffer_size);
+    /* move left data to the head of buffer */
+    memmove(aml_audio_resample->resample_buffer,
+            (char *)aml_audio_resample->resample_buffer + aml_audio_resample->last_copy_size,
+            aml_audio_resample->last_left_size);
 
-    ret = resample_func->resample_process(aml_audio_resample->resample_handle,
-                                          in_data, size, aml_audio_resample->resample_buffer, &out_size);
+    memset((char *)aml_audio_resample->resample_buffer + aml_audio_resample->last_left_size, 0,
+           aml_audio_resample->resample_buffer_size - aml_audio_resample->last_left_size);
+
+    ret = resample_func->resample_process(aml_audio_resample->resample_handle, in_data, size,
+                                          (char *)aml_audio_resample->resample_buffer + aml_audio_resample->last_left_size,
+                                          &out_size);
     if (ret < 0) {
         aml_audio_resample->resample_size = 0;
         ALOGE("resmaple error=%d, output size=%zu, buf size=%zu\n",
@@ -201,9 +211,12 @@ int aml_audio_resample_process(aml_audio_resample_t * aml_audio_resample, void *
         return ret;
     }
 
-    aml_audio_resample->resample_size = out_size;
+    int current_left_size = (aml_audio_resample->last_left_size + out_size) % aml_audio_resample->align_size;
+    aml_audio_resample->last_copy_size = out_size + aml_audio_resample->last_left_size - current_left_size;
+    aml_audio_resample->last_left_size = current_left_size;
+    aml_audio_resample->resample_size = aml_audio_resample->last_copy_size;
     aml_audio_resample->total_in += size;
-    aml_audio_resample->total_out += out_size;
+    aml_audio_resample->total_out += aml_audio_resample->last_copy_size;
     //ALOGE("total rate=%f\n",(float)aml_audio_resample->total_out/(float)aml_audio_resample->total_in);
 
 #if 0
