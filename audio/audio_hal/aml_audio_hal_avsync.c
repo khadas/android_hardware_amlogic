@@ -654,7 +654,7 @@ void dtv_do_drop_pcm(int avail, struct aml_audio_patch *patch)
 
     if (ap_diff_ms > drop_threshold) {
         if ((avail >= drop_size + least_size) ||
-            (pts_latency == AUDIO_PCR_LATENCY_MAX)) {
+            (pts_latency == AUDIO_PCR_LATENCY_MAX * 90)) {
             ALOGI("Enough audio data to drop, pts_latency=%d\n", pts_latency);
             t1 = drop_size / patch->out_buf_size;
             for (t2 = 0; t2 < t1; t2++) {
