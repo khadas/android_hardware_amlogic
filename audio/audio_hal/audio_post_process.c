@@ -34,6 +34,7 @@ static int check_dts_config(struct aml_native_postprocess *native_postprocess) {
             __func__, native_postprocess->effect_in_ch,
             cur_channels, native_postprocess->vx_force_stereo);
 
+        VirtualX_reset(native_postprocess);
         if (cur_channels == 6) {
             VirtualX_Channel_reconfig(native_postprocess, 6);
         } else {
