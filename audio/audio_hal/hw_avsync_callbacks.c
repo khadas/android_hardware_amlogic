@@ -148,6 +148,11 @@ int on_meta_data_cbk(void *cookie,
                 pts32 -= latency;
             }
 
+             /*if the pts is zero, to avoid video pcr not set issue, we just set it as 1ms*/
+            if (pts32 == 0) {
+                pts32 = 1 * 90;
+            }
+
             //ALOGI("%s =============== can drop============", __FUNCTION__);
             aml_hwsync_wait_video_start(out->hwsync);
             aml_hwsync_wait_video_drop(out->hwsync, pts32);
@@ -181,6 +186,10 @@ int on_meta_data_cbk(void *cookie,
             hwsync_extractor = out->hwsync_extractor;
         }
 
+        /*if the pts is zero, to avoid video pcr not set issue, we just set it as 1ms*/
+        if (pts32 == 0) {
+            pts32 = 1 * 90;
+        }
 
         ret = aml_hwsync_get_tsync_pts(out->hwsync, &pcr);
         aml_hwsync_reset_tsync_pcrscr(out->hwsync, pts32);
