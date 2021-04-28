@@ -134,6 +134,7 @@ static void check_skip_frames(struct aml_audio_device *aml_dev)
     struct pcm *pcm_handle_spdif = aml_dev->pcm_handle[DIGITAL_DEVICE];
 
     int alsa_out_i2s_ltcy = -1;
+    patch->skip_frames = 0;
     /* for spk, check i2s device latency */
     if (pcm_handle && patch && patch->need_do_avsync == true &&
         patch->is_avsync_start == false && aml_dev->bHDMIARCon == 0) {
@@ -143,8 +144,6 @@ static void check_skip_frames(struct aml_audio_device *aml_dev)
             /* start to skip the output frames to reduce alsa out latency */
             if (alsa_out_i2s_ltcy >= AVSYNC_ALSA_OUT_MAX_LATENCY) {
                 patch->skip_frames = 1;
-            } else {
-                patch->skip_frames = 0;
             }
         }
     }
@@ -159,8 +158,6 @@ static void check_skip_frames(struct aml_audio_device *aml_dev)
             /* start to skip the output frames to reduce alsa out latency */
             if (alsa_out_spdif_ltcy >= AVSYNC_ALSA_OUT_MAX_LATENCY_ARC) {
                 patch->skip_frames = 1;
-            } else {
-                patch->skip_frames = 0;
             }
         }
     }
