@@ -264,6 +264,7 @@ int aml_audio_swcheck_lookup_apts(int audio_path, size_t offset, unsigned long *
             if (pts_tab[i].offset == align) {
                 nearest_pts  = pts_tab[i].pts;
                 nearest_offset = pts_tab[i].offset;
+                pts_tab[i].valid = 0;
                 ret = 0;
                 if (p_swcheck->debug_enable) {
                     ALOGI("%s first flag %d,pts checkout done,offset %zu,align %zu,pts 0x%lx",
