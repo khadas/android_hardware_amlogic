@@ -40,8 +40,7 @@
 #define APTS_DISCONTINUE_THRESHOLD_MAX    (5*90000)
 
 #define HWSYNC_APTS_NUM     512
-/*6 ch 16 bit  he-aac  size  6*2*2048 */
-#define  HWSYNC_MAX_BODY_SIZE  (6*2*2048)
+#define HWSYNC_MAX_BODY_SIZE  (32768)  ///< Will do fine tune according to the bitstream.
 
 enum hwsync_status {
     CONTINUATION,  // good sync condition
