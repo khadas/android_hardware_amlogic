@@ -6363,7 +6363,6 @@ hwsync_rewrite:
     if (aml_out->hw_sync_mode) {
         uint64_t  cur_pts = 0xffffffff;
         int outsize = 0;
-        char tempbuf[128];
 
         ALOGV ("before aml_audio_hwsync_find_frame bytes %zu\n", total_bytes - bytes_cost);
         hwsync_cost_bytes = aml_audio_hwsync_find_frame(aml_out->hwsync, (char *)buffer + bytes_cost, total_bytes - bytes_cost, &cur_pts, &outsize);
