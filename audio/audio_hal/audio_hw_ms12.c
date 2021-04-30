@@ -1127,6 +1127,7 @@ int get_dolby_ms12_cleanup(struct dolby_ms12_desc *ms12, bool set_non_continuous
 
     pthread_mutex_lock(&ms12->lock);
     pthread_mutex_lock(&ms12->main_lock);
+    adev->doing_cleanup_ms12 = true;
     ALOGI("++%s(), locked", __FUNCTION__);
     ALOGI("%s() dolby_ms12_set_quit_flag %d", __FUNCTION__, is_quit);
     dolby_ms12_set_quit_flag(is_quit);
@@ -1183,6 +1184,7 @@ int get_dolby_ms12_cleanup(struct dolby_ms12_desc *ms12, bool set_non_continuous
         adev->continuous_audio_mode = 0;
         ALOGI("%s set ms12 to non continuous mode", __func__);
     }
+    adev->doing_cleanup_ms12 = false;
 
     ALOGI("--%s(), locked", __FUNCTION__);
     pthread_mutex_unlock(&ms12->main_lock);

@@ -6962,7 +6962,7 @@ ssize_t mixer_aux_buffer_write(struct audio_stream_out *stream, const void *buff
                 }
             }
             /* here to check if ms12 is already enabled, if main stream is doing init ms12, we don't need do it */
-            if (!adev->ms12.dolby_ms12_enable && !adev->doing_reinit_ms12) {
+            if (!adev->ms12.dolby_ms12_enable && !adev->doing_reinit_ms12 && !adev->doing_cleanup_ms12) {
                 ALOGI("%s(), 0x%x, Swithing system output to MS12, need MS12 reconfig output", __func__, aml_out->out_device);
                 need_reconfig_output = true;
                 need_reset_decoder = true;
