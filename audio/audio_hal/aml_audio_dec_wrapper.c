@@ -49,6 +49,12 @@ ssize_t aml_audio_spdif_output(struct audio_stream_out *stream, void **spdifout_
     if (data_info->data_len <= 0) {
         return -1;
     }
+    if (aml_dev->patch_src ==  SRC_DTV && aml_out->need_drop_size > 0) {
+        if (aml_dev->debug_flag > 1)
+            ALOGI("%s, av sync drop data,need_drop_size=%d\n",
+                __FUNCTION__, aml_out->need_drop_size);
+        return ret;
+    }
 
     if (*spdifout_handle == NULL) {
         spdif_config_t spdif_config = { 0 };
