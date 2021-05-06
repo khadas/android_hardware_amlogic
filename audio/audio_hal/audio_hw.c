@@ -781,7 +781,12 @@ static size_t out_get_buffer_size (const struct audio_stream *stream)
         if (stream->get_format(stream) == AUDIO_FORMAT_IEC61937) {
             size = 4 * PLAYBACK_PERIOD_COUNT * DEFAULT_PLAYBACK_PERIOD_SIZE;
         } else {
-            size = DTSHD_PERIOD_SIZE*4;
+            /*for channel less than 2.1*/
+            if (audio_channel_count_from_out_mask(out->hal_channel_mask ) <= 3) {
+                size = DTSHD_PERIOD_SIZE / 2;
+            } else {
+                size = DTSHD_PERIOD_SIZE * 4;
+            }
         }
         ALOGI("%s AUDIO_FORMAT_DTS_HD buffer size = %zuframes", __FUNCTION__, size);
         break;
