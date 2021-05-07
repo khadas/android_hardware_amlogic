@@ -151,7 +151,7 @@ static int Get_DD_Parameters(void *buf, int *sample_rate, int *frame_size, int *
 
     ddbs_unprj(p_bstrm, &tmp, 16);
     if (tmp != SYNCWRD) {
-        ALOGI("Invalid synchronization word");
+        ALOGW("[%s:%d] Invalid synchronization word", __func__, __LINE__);
         return 0;
     }
     ddbs_unprj(p_bstrm, &tmp, 16);
@@ -223,7 +223,7 @@ static int Get_DDP_Parameters(void *buf, int *sample_rate, int *frame_size, int 
     ddbs_init((short*) buf, 0, p_bstrm);
     ddbs_unprj(p_bstrm, &tmp, 16);
     if (tmp != SYNCWRD) {
-        ALOGI("Invalid synchronization word");
+        ALOGW("[%s:%d] Invalid synchronization word", __func__, __LINE__);
         return -1;
     }
 
@@ -972,7 +972,7 @@ int dcv_decoder_process_patch(aml_dec_t * aml_dec, unsigned char *buffer, int by
             while (ddp_dec->remain_size > 16) {
                 if ((read_pointer[0] == 0x0b && read_pointer[1] == 0x77) || \
                     (read_pointer[0] == 0x77 && read_pointer[1] == 0x0b)) {
-                    Get_Parameters(read_pointer, &mSample_rate, &mFrame_size, &mChNum,&is_eac3, &ad_substream_supported);
+                    Get_Parameters(read_pointer, &mSample_rate, &mFrame_size, &mChNum, &is_eac3, &ad_substream_supported);
                     if ((mFrame_size == 0) || (mFrame_size < PTR_HEAD_SIZE) || \
                         (mChNum == 0) || (mSample_rate == 0)) {
                     } else {
@@ -1010,7 +1010,9 @@ int dcv_decoder_process_patch(aml_dec_t * aml_dec, unsigned char *buffer, int by
                 read_pointer++;
             }
             read_offset = 8;
-            Get_Parameters(read_pointer, &mSample_rate, &mFrame_size, &mChNum,&is_eac3, &ad_substream_supported);
+            if (in_sync) {
+                Get_Parameters(read_pointer + read_offset, &mSample_rate, &mFrame_size, &mChNum, &is_eac3, &ad_substream_supported);
+            }
         }
     }
     ALOGV("remain %d, frame size %d,in sync %d\n", ddp_dec->remain_size, mFrame_size, in_sync);
