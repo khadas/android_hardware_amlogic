@@ -358,6 +358,11 @@ static int _dts_pcm_output(struct dca_dts_dec *dts_dec)
     struct aml_audio_device *adev = (struct aml_audio_device *)(aml_dec->dev);
     struct aml_native_postprocess *VX_postprocess = &adev->native_postprocess;
 
+    if (channel_num > 2 && aml_dec->frame_cnt == 0) {
+        ALOGI("mute the first frame");
+        memset(dec_pcm_data->buf, 0, dts_dec->outlen_pcm);
+    }
+
     ret = audio_VX_post_process(VX_postprocess, (int16_t *)dec_pcm_data->buf, dts_dec->outlen_pcm);
     if (ret > 0) {
         dts_dec->outlen_pcm = ret;
@@ -566,6 +571,7 @@ int dca_decoder_init_patch(aml_dec_t **ppaml_dec, aml_dec_config_t *dec_config)
     dts_dec->is_dtscd    = dca_config->is_dtscd;
     dts_dec->digital_raw = dca_config->digital_raw;
     dts_dec->is_iec61937 = dca_config->is_iec61937;
+    aml_dec->frame_cnt = 0;
     aml_dec->format = dca_config->format;
     dts_dec->stream_type = 0;
     dts_dec->is_headphone_x = false;
@@ -715,6 +721,7 @@ int dca_decoder_release_patch(aml_dec_t *aml_dec)
         adev = (struct aml_audio_device *)(aml_dec->dev);
         adev->dts_hd.stream_type = 0;
         adev->dts_hd.is_headphone_x = false;
+        aml_dec->frame_cnt = 0;
 
         aml_audio_free(dts_dec);
         dts_dec = NULL;
@@ -805,6 +812,7 @@ int dca_decoder_process_patch(aml_dec_t *aml_dec, unsigned char *buffer, int byt
 
         if ((dts_dec->outlen_pcm > 0) && (used_size > 0)) {
             /* Cache a lot of data, needs to be decoded multiple times. */
+            aml_dec->frame_cnt++;
             return AML_DEC_RETURN_TYPE_NEED_DEC_AGAIN;
         } else {
             return AML_DEC_RETURN_TYPE_FAIL;
