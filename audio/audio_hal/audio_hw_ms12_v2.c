@@ -756,6 +756,7 @@ int get_the_dolby_ms12_prepared(
         ms12->main_input_sr = input_sample_rate;
     }
     ms12->sys_audio_base_pos = adev->sys_audio_frame_written;
+    ms12->sys_audio_skip     = 0;
     ms12->dap_pcm_frames     = 0;
     ms12->stereo_pcm_frames  = 0;
     ms12->master_pcm_frames  = 0;
