@@ -779,7 +779,14 @@ static int dtv_audio_tune_check(struct aml_audio_patch *patch, int cur_pts_diff,
         }
         return 1;
     }
-
+    if (patch->dtv_audio_tune != AUDIO_RUNNING) {
+        uint demux_apts = 0;
+        get_sysfs_uint(TSYNC_CHECKIN_APTS, &demux_apts);
+        /*if demux apts is less pcrpts, don`t tune avsync*/
+        if (demux_apts && (int)demux_apts != -1 && patch->last_pcrpts > demux_apts) {
+            return 1;
+        }
+    }
     if (patch->dtv_audio_tune == AUDIO_LOOKUP) {
         if (abs(last_pts_diff - cur_pts_diff) < DTV_PTS_CORRECTION_THRESHOLD) {
             patch->dtv_apts_lookup = (last_pts_diff + cur_pts_diff) / 2;
