@@ -115,6 +115,7 @@ struct dolby_ms12_desc {
     struct timespec  sys_audio_timestamp;
     uint64_t  sys_audio_frame_pos;
     uint64_t  sys_audio_base_pos;
+    uint64_t  sys_audio_skip;
     uint64_t  last_sys_audio_cost_pos;
     /*ms12 main input information */
     audio_format_t main_input_fmt;

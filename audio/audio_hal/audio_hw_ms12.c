@@ -508,6 +508,7 @@ int get_the_dolby_ms12_prepared(
     }
 
     ms12->sys_audio_base_pos = adev->sys_audio_frame_written;
+    ms12->sys_audio_skip     = 0;
     ALOGI("set ms12 sys pos =%" PRId64 "", ms12->sys_audio_base_pos);
     aml_ac3_parser_open(&ms12->ac3_parser_handle);
     aml_ms12_bypass_open(&ms12->ms12_bypass_handle);

@@ -6080,11 +6080,11 @@ ssize_t hw_write (struct audio_stream_out *stream
             adev->ms12.sys_audio_timestamp.tv_sec = ts.tv_sec;
             adev->ms12.sys_audio_timestamp.tv_nsec = ts.tv_nsec;
             /*FIXME. 2ch 16 bit audio */
-            adev->ms12.sys_audio_frame_pos = adev->ms12.sys_audio_base_pos + sys_total_cost/4 - latency_frames;
+            adev->ms12.sys_audio_frame_pos = adev->ms12.sys_audio_base_pos + adev->ms12.sys_audio_skip + sys_total_cost/4 - latency_frames;
         }
         if (adev->debug_flag)
-            ALOGI("sys audio pos %"PRIu64" ms ,sys_total_cost %"PRIu64",base pos %"PRIu64",latency %d \n",
-                    adev->ms12.sys_audio_frame_pos/48,sys_total_cost,adev->ms12.sys_audio_base_pos,latency_frames);
+            ALOGI("sys audio pos %"PRIu64" ms ,sys_total_cost %"PRIu64",base pos %"PRIu64",skip pos %"PRIu64", latency %d \n",
+                    adev->ms12.sys_audio_frame_pos/48,sys_total_cost,adev->ms12.sys_audio_base_pos,adev->ms12.sys_audio_skip,latency_frames);
         adev->ms12.last_sys_audio_cost_pos = sys_total_cost;
     }
     if (adev->debug_flag) {
@@ -7097,9 +7097,10 @@ ssize_t mixer_aux_buffer_write(struct audio_stream_out *stream, const void *buff
          *when disable_pcm_mixing is true and offload format is ddp and output format is ddp
          *the system tone voice should not be mixed
          */
-        if (is_bypass_dolbyms12(stream))
+        if (is_bypass_dolbyms12(stream)) {
+            ms12->sys_audio_skip += bytes / frame_size;
             usleep(bytes * 1000000 /frame_size/out_get_sample_rate(&stream->common)*5/6);
-        else {
+        } else {
             /*
              *when disable_pcm_mixing is true and offload format is dolby
              *the system tone voice should not be mixed
@@ -7135,9 +7136,17 @@ ssize_t mixer_aux_buffer_write(struct audio_stream_out *stream, const void *buff
                     aml_audio_sleep(5000);
                 }
             }
+            if (bytes_remaining) {
+                ms12->sys_audio_skip += bytes_remaining / frame_size;
+                ALOGI("bytes_remaining =%d totoal skip =%lld", bytes_remaining, ms12->sys_audio_skip);
+            }
         }
     } else {
         bytes_written = aml_hw_mixer_write(&adev->hw_mixer, buffer, bytes);
+        /*these data is skip for ms12, we still need calculate it*/
+        if (eDolbyMS12Lib == adev->dolby_lib_type_last) {
+            ms12->sys_audio_skip += bytes / frame_size;
+        }
         usleep(bytes_written * 1000000 / frame_size / out_get_sample_rate(&stream->common));
         if (getprop_bool("vendor.media.audiohal.mixer")) {
             aml_audio_dump_audio_bitstreams("/data/audio/mixerAux.raw", buffer, bytes);
@@ -7190,7 +7199,6 @@ ssize_t mixer_aux_buffer_write(struct audio_stream_out *stream, const void *buff
             aml_audio_sleep(minum_sleep_time_us - cost_time_us);
         }
     }
-
     return bytes;
 
 }
