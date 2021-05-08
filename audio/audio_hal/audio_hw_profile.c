@@ -380,7 +380,7 @@ char*  get_hdmi_sink_cap_dolbylib(const char *keys,audio_format_t format,struct 
                     p_hdmi_descs->dd_fmt.is_support = 1;
                 }
             }
-#if 0
+
             if (mystrstr(infobuf, "DTS-HD")) {
                 size += sprintf(aud_cap + size, "|%s", "AUDIO_FORMAT_DTS|AUDIO_FORMAT_DTS_HD");
                 p_hdmi_descs->dtshd_fmt.is_support = 1;
@@ -388,12 +388,7 @@ char*  get_hdmi_sink_cap_dolbylib(const char *keys,audio_format_t format,struct 
                 size += sprintf(aud_cap + size, "|%s", "AUDIO_FORMAT_DTS");
                 p_hdmi_descs->dts_fmt.is_support = 1;
             }
-#endif
-            //we only support dts passthrough by hdmi output, but we can convert dtshd with core frame to dts
-            if (mystrstr(infobuf, "DTS-HD") || mystrstr(infobuf, "DTS")) {
-                size += sprintf(aud_cap + size, "|%s", "AUDIO_FORMAT_DTS|AUDIO_FORMAT_DTS_HD");
-                p_hdmi_descs->dts_fmt.is_support = 1;
-            }
+
 
             if (mystrstr(infobuf, "MAT")) {
                 //DLB MAT and DLB TrueHD SAD
@@ -578,18 +573,12 @@ char*  get_hdmi_sink_cap_dolby_ms12(const char *keys,audio_format_t format,struc
                     p_hdmi_descs->dd_fmt.is_support = 0;
                 }
             }
-#if 0
+
             if (mystrstr(infobuf, "DTS-HD")) {
                 size += sprintf(aud_cap + size, "|%s", "AUDIO_FORMAT_DTS|AUDIO_FORMAT_DTS_HD");
                 p_hdmi_descs->dtshd_fmt.is_support = 1;
             } else if (mystrstr(infobuf, "DTS")) {
                 size += sprintf(aud_cap + size, "|%s", "AUDIO_FORMAT_DTS");
-                p_hdmi_descs->dts_fmt.is_support = 1;
-            }
-#endif
-            //only support dts passthrough by hdmi output, but can convert dtshd with core frame to dts
-            if (mystrstr(infobuf, "DTS-HD") || mystrstr(infobuf, "DTS")) {
-                size += sprintf(aud_cap + size, "|%s", "AUDIO_FORMAT_DTS|AUDIO_FORMAT_DTS_HD");
                 p_hdmi_descs->dts_fmt.is_support = 1;
             }
 
