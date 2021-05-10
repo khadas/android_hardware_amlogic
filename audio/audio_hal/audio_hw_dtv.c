@@ -3407,6 +3407,30 @@ int release_dtv_patch(struct aml_audio_device *aml_dev)
     pthread_mutex_unlock(&aml_dev->patch_lock);
     return ret;
 }
+
+bool is_dtv_patch_alive(struct aml_audio_device *aml_dev)
+{
+    int ret = false;
+    aml_dtv_audio_instances_t *dtv_instances = (aml_dtv_audio_instances_t *)aml_dev->aml_dtv_audio_instances;
+
+    if (dtv_instances) {
+        pthread_mutex_lock(&aml_dev->patch_lock);
+        if (dtv_instances->dvb_path_count == 0) {
+            ret = false;
+        }
+        else {
+            ret = true;
+        }
+        pthread_mutex_unlock(&aml_dev->patch_lock);
+    }
+    else {
+        ret = false;
+	}
+
+    return ret;
+}
+
+
 int audio_decoder_status(unsigned int *perror_count)
 {
     int ret = 0;

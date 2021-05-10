@@ -8797,8 +8797,8 @@ static int adev_release_audio_patch(struct audio_hw_device *dev,
 #endif
             }
         }
-        /*for no patch case, we need to restore it*/
-        if (eDolbyMS12Lib == aml_dev->dolby_lib_type && (aml_dev->continuous_audio_mode_default == 1))
+        /* for no patch case, we need to restore it, especially note the multi-instance audio-patch */
+        if (eDolbyMS12Lib == aml_dev->dolby_lib_type && (aml_dev->continuous_audio_mode_default == 1) && !is_dtv_patch_alive(aml_dev))
         {
             get_dolby_ms12_cleanup(&aml_dev->ms12, false);  
             aml_dev->continuous_audio_mode = 1;
