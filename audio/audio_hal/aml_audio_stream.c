@@ -176,7 +176,7 @@ static audio_format_t get_suitable_output_format(struct aml_stream_out *out,
     } else {
         output_format = sink_format;
     }
-    if (out->hal_rate == 32000 && out->hal_rate == 128000 && output_format == AUDIO_FORMAT_E_AC3) {
+    if ((out->hal_rate == 32000 || out->hal_rate == 128000) && output_format == AUDIO_FORMAT_E_AC3) {
         output_format = AUDIO_FORMAT_AC3;
     }
     return output_format;
@@ -925,7 +925,7 @@ void update_audio_format(struct aml_audio_device *adev, audio_format_t format)
     if (is_dolby_active && is_dolby_format) {
         if (eDolbyMS12Lib == adev->dolby_lib_type) {
             atmos_flag = adev->ms12.is_dolby_atmos;
-        } 
+        }
 
         #ifdef MS12_V24_ENABLE
         /* when DAP is not in audio postprocessing, there is no ATMOS Experience. */
