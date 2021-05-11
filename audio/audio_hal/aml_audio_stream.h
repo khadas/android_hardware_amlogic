@@ -344,6 +344,7 @@ struct aml_audio_patch {
     dtv_avsync_process_cb avsync_callback;
     pthread_mutex_t dtv_output_mutex;
     pthread_mutex_t dtv_input_mutex;
+    pthread_cond_t  dtv_cmd_process_cond;
     pthread_mutex_t dtv_cmd_process_mutex;
     pthread_mutex_t assoc_mutex;
     pthread_mutex_t apts_cal_mutex;
