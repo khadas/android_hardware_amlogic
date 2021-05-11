@@ -437,6 +437,7 @@ int dtv_patch_handle_event(struct audio_hw_device *dev,int cmd, int val) {
                     ALOGW("[%s:%d] Unsupported AUDIO_DTV_PATCH_CMD_CONTROL :%d", __func__, __LINE__, val);
                     break;
                 }
+                pthread_mutex_lock(&patch->dtv_cmd_process_mutex);
                 if (val == AUDIO_DTV_PATCH_CMD_START) {
                     dtv_audio_instances->demux_index_working = path_id;
                     patch->mode = demux_info->output_mode;
@@ -458,18 +459,22 @@ int dtv_patch_handle_event(struct audio_hw_device *dev,int cmd, int val) {
                 }
                 if (path_id == dtv_audio_instances->demux_index_working) {
                     dtv_patch_add_cmd(patch->dtv_cmd_list, val, path_id);
+                    pthread_cond_signal(&patch->dtv_cmd_process_cond);
                 } else {
                     ALOGI("path_id %d not work ,cmd %d invalid",path_id, val);
                 }
+                pthread_mutex_unlock(&patch->dtv_cmd_process_mutex);
             }
             break;
         default:
             ALOGI("invalid cmd %d", cmd);
     }
+
     return 0;
 exit:
-        ALOGI("dtv_patch_handle_event failed ");
-        return -1;
+
+    ALOGI("dtv_patch_handle_event failed ");
+    return -1;
 }
 static int dtv_patch_status_info(void *args, INFO_TYPE_E info_flag)
 {
@@ -1428,11 +1433,12 @@ int audio_dtv_patch_output_dolby(struct aml_audio_patch *patch,
             ALOGV("consume_size %d,size %d,ret %d,validpts %d patch->decoder_offset %d",consume_size,size,ret,patch->outlen_after_last_validpts,patch->decoder_offset);
             patch->dtv_pcm_readed += ret;
         }
- 
+
         /* +[SE] [BUG][SWPL-22893][yinli.xia]
               add: reset decode data when replay video*/
         if (aml_dev->debug_flag) {
-            ALOGI("after decode: decode_offset: %d, ddp.remain_size=%d\n",
+            if (ddp_dec)
+                ALOGI("after decode: decode_offset: %d, ddp.remain_size=%d\n",
                    patch->decoder_offset, ddp_dec->remain_size);
         }
         pthread_mutex_unlock(&(patch->dtv_output_mutex));
@@ -2024,6 +2030,7 @@ static void *audio_dtv_patch_process_threadloop(void *data)
     ALOGI("[audiohal_kpi]++%s Enter.\n", __FUNCTION__);
     patch->dtv_decoder_state = AUDIO_DTV_PATCH_DECODER_STATE_INIT;
     aml_demux_audiopara_t *demux_info = NULL;
+    aml_dtv_audio_instances_t *dtv_audio_instances =  (aml_dtv_audio_instances_t *)aml_dev->aml_dtv_audio_instances;
     while (!patch->cmd_process_thread_exit ) {
 
         pthread_mutex_lock(&patch->dtv_cmd_process_mutex);
@@ -2059,8 +2066,8 @@ static void *audio_dtv_patch_process_threadloop(void *data)
             }
 
             if (patch_thread_get_cmd(patch, &cmd, &path_id) != 0) {
+                pthread_cond_wait(&patch->dtv_cmd_process_cond, &patch->dtv_cmd_process_mutex);
                 pthread_mutex_unlock(&patch->dtv_cmd_process_mutex);
-                usleep(50000);
                 continue;
             }
 
@@ -2161,7 +2168,6 @@ static void *audio_dtv_patch_process_threadloop(void *data)
                 ALOGI("++%s line %d  live state unsupport state %d cmd %d !\n",
                       __FUNCTION__, __LINE__, patch->dtv_decoder_state, cmd);
                 pthread_mutex_unlock(&patch->dtv_cmd_process_mutex);
-                usleep(50000);
                 continue;
             }
             break;
@@ -2208,8 +2214,8 @@ static void *audio_dtv_patch_process_threadloop(void *data)
             }
 
             if (patch_thread_get_cmd(patch, &cmd, &path_id) != 0) {
+                pthread_cond_wait(&patch->dtv_cmd_process_cond, &patch->dtv_cmd_process_mutex);
                 pthread_mutex_unlock(&patch->dtv_cmd_process_mutex);
-                usleep(50000);
                 continue;
             }
 
@@ -2217,9 +2223,13 @@ static void *audio_dtv_patch_process_threadloop(void *data)
                 ALOGI("++%s live now start  pause  the audio decoder now \n",
                       __FUNCTION__);
                 dtv_patch_input_pause(adec_handle);
-                if (is_sc2_chip() && patch->demux_handle) {
-                    Stop_Dmx_Main_Audio(patch->demux_handle);
-                    Stop_Dmx_AD_Audio(patch->demux_handle);
+                if (is_sc2_chip() ) {
+                    path_id = dtv_audio_instances->demux_index_working;
+                    patch->demux_handle = dtv_audio_instances->demux_handle[path_id];
+                    if (patch->demux_handle) {
+                        Stop_Dmx_Main_Audio(patch->demux_handle);
+                        Stop_Dmx_AD_Audio(patch->demux_handle);
+                    }
                 } else {
                     dtv_assoc_audio_pause(1);
                 }
@@ -2233,10 +2243,14 @@ static void *audio_dtv_patch_process_threadloop(void *data)
                 release_dtv_output_stream_thread(patch);
                 dtv_adjust_output_clock(patch, DIRECT_NORMAL, DEFAULT_DTV_ADJUST_CLOCK, false);
                 dtv_patch_input_stop(adec_handle);
-                if (is_sc2_chip() && patch->demux_handle) {
-                    Stop_Dmx_Main_Audio(patch->demux_handle);
-                    Stop_Dmx_AD_Audio(patch->demux_handle);
-                } else {
+                if (is_sc2_chip() ) {
+                    path_id = dtv_audio_instances->demux_index_working;
+                    patch->demux_handle = dtv_audio_instances->demux_handle[path_id];
+                    if (patch->demux_handle) {
+                        Stop_Dmx_Main_Audio(patch->demux_handle);
+                        Stop_Dmx_AD_Audio(patch->demux_handle);
+                    }
+                }  else {
                     dtv_assoc_audio_stop(1);
                 }
                 aml_dev->ad_start_enable = 0;
@@ -2246,7 +2260,6 @@ static void *audio_dtv_patch_process_threadloop(void *data)
                 ALOGI("++%s line %d  live state unsupport state %d cmd %d !\n",
                       __FUNCTION__, __LINE__, patch->dtv_decoder_state, cmd);
                 pthread_mutex_unlock(&patch->dtv_cmd_process_mutex);
-                usleep(50000);
                 continue;
             }
 
@@ -2254,9 +2267,14 @@ static void *audio_dtv_patch_process_threadloop(void *data)
 
         case AUDIO_DTV_PATCH_DECODER_STATE_PAUSE:
             if (patch_thread_get_cmd(patch, &cmd, &path_id) != 0) {
+                pthread_cond_wait(&patch->dtv_cmd_process_cond, &patch->dtv_cmd_process_mutex);
                 pthread_mutex_unlock(&patch->dtv_cmd_process_mutex);
-                usleep(50000);
                 continue;
+            }
+
+            if (is_sc2_chip()) {
+                path_id = dtv_audio_instances->demux_index_working;
+                patch->demux_handle = dtv_audio_instances->demux_handle[path_id];
             }
             if (cmd == AUDIO_DTV_PATCH_CMD_RESUME) {
                 dtv_patch_input_resume(adec_handle);
@@ -2271,10 +2289,14 @@ static void *audio_dtv_patch_process_threadloop(void *data)
                 ALOGI("[audiohal_kpi]++%s live now  stop  the audio decoder now \n",
                      __FUNCTION__);
                 dtv_patch_input_stop(adec_handle);
-                if (is_sc2_chip()) {
-                    Stop_Dmx_Main_Audio(patch->demux_handle);
-                    Stop_Dmx_AD_Audio(patch->demux_handle);
-                } else {
+                if (is_sc2_chip() ) {
+                    path_id = dtv_audio_instances->demux_index_working;
+                    patch->demux_handle = dtv_audio_instances->demux_handle[path_id];
+                    if (patch->demux_handle) {
+                        Stop_Dmx_Main_Audio(patch->demux_handle);
+                        Stop_Dmx_AD_Audio(patch->demux_handle);
+                    }
+                }  else {
                     dtv_assoc_audio_stop(1);
                 }
                 aml_dev->ad_start_enable = 0;
@@ -2284,7 +2306,6 @@ static void *audio_dtv_patch_process_threadloop(void *data)
                 ALOGI("++%s line %d  live state unsupport state %d cmd %d !\n",
                       __FUNCTION__, __LINE__, patch->dtv_decoder_state, cmd);
                 pthread_mutex_unlock(&patch->dtv_cmd_process_mutex);
-                usleep(50000);
                 continue;
             }
             break;
@@ -2919,6 +2940,7 @@ static void *audio_dtv_patch_process_threadloop_v2(void *data)
     ALOGI("[audiohal_kpi]++%s Enter.\n", __FUNCTION__);
     patch->dtv_decoder_state = AUDIO_DTV_PATCH_DECODER_STATE_INIT;
     aml_demux_audiopara_t *demux_info = NULL;
+    aml_dtv_audio_instances_t *dtv_audio_instances =  (aml_dtv_audio_instances_t *)aml_dev->aml_dtv_audio_instances;
     while (!patch->cmd_process_thread_exit ) {
 
         pthread_mutex_lock(&patch->dtv_cmd_process_mutex);
@@ -2950,8 +2972,8 @@ static void *audio_dtv_patch_process_threadloop_v2(void *data)
             }
 
             if (patch_thread_get_cmd(patch, &cmd, &path_id) != 0) {
+                pthread_cond_wait(&patch->dtv_cmd_process_cond, &patch->dtv_cmd_process_mutex);
                 pthread_mutex_unlock(&patch->dtv_cmd_process_mutex);
-                usleep(50000);
                 continue;
             }
 
@@ -3026,7 +3048,6 @@ static void *audio_dtv_patch_process_threadloop_v2(void *data)
                 ALOGI("++%s line %d  live state unsupport state %d cmd %d !\n",
                       __FUNCTION__, __LINE__, patch->dtv_decoder_state, cmd);
                 pthread_mutex_unlock(&patch->dtv_cmd_process_mutex);
-                usleep(50000);
                 continue;
             }
             break;
@@ -3036,7 +3057,6 @@ static void *audio_dtv_patch_process_threadloop_v2(void *data)
                 pthread_mutex_unlock(&patch->dtv_cmd_process_mutex);
                 goto exit;
             }
-
 
             if (aml_dev->ad_start_enable == 0 && need_enable_dual_decoder(patch)) {
                 int ad_start_flag;
@@ -3051,18 +3071,22 @@ static void *audio_dtv_patch_process_threadloop_v2(void *data)
             }
 
             if (patch_thread_get_cmd(patch, &cmd, &path_id) != 0) {
+                pthread_cond_wait(&patch->dtv_cmd_process_cond, &patch->dtv_cmd_process_mutex);
                 pthread_mutex_unlock(&patch->dtv_cmd_process_mutex);
-                usleep(50000);
                 continue;
             }
 
             if (cmd == AUDIO_DTV_PATCH_CMD_PAUSE) {
                 ALOGI("++%s live now start  pause  the audio decoder now \n",
                       __FUNCTION__);
-                if (is_sc2_chip()) {
-                    Stop_Dmx_Main_Audio(patch->demux_handle);
-                    Stop_Dmx_AD_Audio(patch->demux_handle);
-                } else {
+                if (is_sc2_chip() ) {
+                    path_id = dtv_audio_instances->demux_index_working;
+                    patch->demux_handle = dtv_audio_instances->demux_handle[path_id];
+                    if (patch->demux_handle) {
+                        Stop_Dmx_Main_Audio(patch->demux_handle);
+                        Stop_Dmx_AD_Audio(patch->demux_handle);
+                    }
+                }  else {
                     dtv_assoc_audio_pause(1);
                 }
                 patch->dtv_decoder_state = AUDIO_DTV_PATCH_DECODER_STATE_PAUSE;
@@ -3075,10 +3099,14 @@ static void *audio_dtv_patch_process_threadloop_v2(void *data)
                 release_dtv_input_stream_thread(patch);
                 release_dtv_output_stream_thread(patch);
                 dtv_adjust_output_clock(patch, DIRECT_NORMAL, DEFAULT_DTV_ADJUST_CLOCK, false);
-                if (is_sc2_chip()) {
-                    Stop_Dmx_Main_Audio(patch->demux_handle);
-                    Stop_Dmx_AD_Audio(patch->demux_handle);
-                } else {
+                if (is_sc2_chip() ) {
+                    path_id = dtv_audio_instances->demux_index_working;
+                    patch->demux_handle = dtv_audio_instances->demux_handle[path_id];
+                    if (patch->demux_handle) {
+                        Stop_Dmx_Main_Audio(patch->demux_handle);
+                        Stop_Dmx_AD_Audio(patch->demux_handle);
+                    }
+                }  else {
                     dtv_assoc_audio_stop(1);
                 }
                 aml_dev->ad_start_enable = 0;
@@ -3088,7 +3116,6 @@ static void *audio_dtv_patch_process_threadloop_v2(void *data)
                 ALOGI("++%s line %d  live state unsupport state %d cmd %d !\n",
                       __FUNCTION__, __LINE__, patch->dtv_decoder_state, cmd);
                 pthread_mutex_unlock(&patch->dtv_cmd_process_mutex);
-                usleep(50000);
                 continue;
             }
             break;
@@ -3096,8 +3123,8 @@ static void *audio_dtv_patch_process_threadloop_v2(void *data)
         case AUDIO_DTV_PATCH_DECODER_STATE_PAUSE:
 
             if (patch_thread_get_cmd(patch, &cmd, &path_id) != 0) {
+                pthread_cond_wait(&patch->dtv_cmd_process_cond, &patch->dtv_cmd_process_mutex);
                 pthread_mutex_unlock(&patch->dtv_cmd_process_mutex);
-                usleep(50000);
                 continue;
             }
 
@@ -3113,10 +3140,14 @@ static void *audio_dtv_patch_process_threadloop_v2(void *data)
                 ALOGI("[audiohal_kpi]++%s live now  stop  the audio decoder now \n",
                      __FUNCTION__);
 
-                if (is_sc2_chip()) {
-                    Stop_Dmx_Main_Audio(patch->demux_handle);
-                    Stop_Dmx_AD_Audio(patch->demux_handle);
-                } else {
+                if (is_sc2_chip() ) {
+                    path_id = dtv_audio_instances->demux_index_working;
+                    patch->demux_handle = dtv_audio_instances->demux_handle[path_id];
+                    if (patch->demux_handle) {
+                        Stop_Dmx_Main_Audio(patch->demux_handle);
+                        Stop_Dmx_AD_Audio(patch->demux_handle);
+                    }
+                }  else {
                     dtv_assoc_audio_stop(1);
                 }
                 aml_dev->ad_start_enable = 0;
@@ -3126,7 +3157,6 @@ static void *audio_dtv_patch_process_threadloop_v2(void *data)
                 ALOGI("++%s line %d  live state unsupport state %d cmd %d !\n",
                       __FUNCTION__, __LINE__, patch->dtv_decoder_state, cmd);
                 pthread_mutex_unlock(&patch->dtv_cmd_process_mutex);
-                usleep(50000);
                 continue;
             }
             break;
@@ -3290,6 +3320,7 @@ int create_dtv_patch_l(struct audio_hw_device *dev, audio_devices_t input,
     aml_dev->audio_patch = patch;
     pthread_mutex_init(&patch->mutex, NULL);
     pthread_cond_init(&patch->cond, NULL);
+    pthread_cond_init(&patch->dtv_cmd_process_cond, NULL);
     pthread_mutex_init(&patch->dtv_cmd_process_mutex, NULL);
     pthread_mutex_init(&patch->apts_cal_mutex, NULL);
 
@@ -3393,9 +3424,10 @@ int release_dtv_patch_l(struct aml_audio_device *aml_dev)
     }
 
     patch->cmd_process_thread_exit = 1;
-
+    pthread_cond_signal(&patch->dtv_cmd_process_cond);
     pthread_join(patch->audio_cmd_process_threadID, NULL);
     pthread_mutex_destroy(&patch->dtv_cmd_process_mutex);
+    pthread_cond_destroy(&patch->dtv_cmd_process_cond);
     if (patch->resample_outbuf) {
         aml_audio_free(patch->resample_outbuf);
         patch->resample_outbuf = NULL;
