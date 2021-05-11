@@ -38,6 +38,7 @@ static pthread_mutex_t assoc_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 typedef struct _dtv_assoc_audio {
     int assoc_enable;
+    int demux_id;
     int sub_apid;
     int sub_afmt;
     int cache;
@@ -138,6 +139,7 @@ static int audio_ad_set_source(int enable, int pid, int fmt, void *user)
         ALOGI("AD set source enable[%d] pid[%d] fmt[%d]", enable, pid, fmt);
     if ((enable == DTV_ASSOC_STAT_ENABLE) && VALID_PID(pid)) {
         AM_AD_Para_t para = {.dmx_id = AD_DEMUX_ID, .pid = pid, .fmt = fmt};
+        para.dmx_id = param->demux_id;
         err = AM_AD_Create(&param->ad_handle, &para);
         if (err == AM_SUCCESS) {
             ALOGI("AM_AD_Create success\n");
@@ -313,7 +315,7 @@ void dtv_assoc_audio_cache(int value)
     }
 }
 
-int dtv_assoc_audio_start(unsigned int handle, int pid, int fmt)
+int dtv_assoc_audio_start(unsigned int handle, int pid, int fmt, int demux_id)
 {
     int ret = -1;
     pthread_mutex_lock(&assoc_mutex);
@@ -322,7 +324,8 @@ int dtv_assoc_audio_start(unsigned int handle, int pid, int fmt)
     if (handle == 0 || param->bufinited == 0) {
         ALOGI("%s, buffer was not inited, the handle is %d,return", __FUNCTION__, handle);
     } else if (VALID_PID(pid) && param->assoc_enable == DTV_ASSOC_STAT_DISABLE) {
-        ALOGI("%s, pid %d, fmt %d,return", __FUNCTION__, pid, fmt);
+        ALOGI("%s, pid %d, fmt %d demux_id %d", __FUNCTION__, pid, fmt, demux_id);
+        param->demux_id = demux_id;
         param->sub_apid = pid;
         param->sub_afmt = fmt;
         param->cache = 0;
@@ -363,6 +366,7 @@ void dtv_assoc_audio_stop(unsigned int handle)
     } else if (param->assoc_enable == DTV_ASSOC_STAT_ENABLE) {
         ALOGI("%s, disable it\n", __FUNCTION__);
         param->assoc_enable = DTV_ASSOC_STAT_DISABLE;
+        param->demux_id  = 0;
         param->sub_apid = 0;
         param->sub_afmt = -1;
         param->cache= 0;

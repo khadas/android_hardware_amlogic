@@ -344,8 +344,6 @@ int dtv_patch_handle_event(struct audio_hw_device *dev,int cmd, int val) {
                 set_ms12_ad_mixing_enable(ms12, adev->associate_audio_mixing_enable);
                 pthread_mutex_unlock(&ms12->lock);
             } else if (eDolbyDcvLib == adev->dolby_lib_type_last) {
-                 if (adev->associate_audio_mixing_enable == 0)
-                    adev->mixing_level = -32;
             }
             pthread_mutex_unlock(&adev->lock);
             break;
@@ -2163,7 +2161,7 @@ static void *audio_dtv_patch_process_threadloop(void *data)
                         if (is_sc2_chip()) {
                             ad_start_flag = Start_Dmx_AD_Audio(patch->demux_handle);
                         } else {
-                            ad_start_flag = dtv_assoc_audio_start(1, demux_info->ad_pid, demux_info->ad_fmt);
+                            ad_start_flag = dtv_assoc_audio_start(1, demux_info->ad_pid, demux_info->ad_fmt, demux_info->demux_id);
                         }
                         if (ad_start_flag == 0) {
                             aml_dev->ad_start_enable = 1;
@@ -2180,7 +2178,7 @@ static void *audio_dtv_patch_process_threadloop(void *data)
                         if (is_sc2_chip()) {
                             ad_start_flag = Start_Dmx_AD_Audio(patch->demux_handle);
                         } else {
-                            ad_start_flag = dtv_assoc_audio_start(1, demux_info->ad_pid, demux_info->ad_fmt);
+                            ad_start_flag = dtv_assoc_audio_start(1, demux_info->ad_pid, demux_info->ad_fmt, demux_info->demux_id);
                         }
                         if (ad_start_flag == 0) {
                             aml_dev->ad_start_enable = 1;
@@ -2246,7 +2244,7 @@ static void *audio_dtv_patch_process_threadloop(void *data)
                     Start_Dmx_Main_Audio(patch->demux_handle);
                     Start_Dmx_AD_Audio(patch->demux_handle);
                 } else {
-                    dtv_assoc_audio_resume(1,aml_dev->sub_apid);
+                    dtv_assoc_audio_resume(1,demux_info->ad_pid);
                 }
                 patch->dtv_decoder_state = AUDIO_DTV_PATCH_DECODER_STATE_RUNING;
             } else if (cmd == AUDIO_DTV_PATCH_CMD_STOP) {
@@ -2997,7 +2995,7 @@ static void *audio_dtv_patch_process_threadloop_v2(void *data)
                 if (is_sc2_chip()) {
                     ad_start_flag = Start_Dmx_AD_Audio(patch->demux_handle);
                 } else {
-                    ad_start_flag = dtv_assoc_audio_start(1, demux_info->ad_pid, demux_info->ad_fmt);
+                    ad_start_flag = dtv_assoc_audio_start(1, demux_info->ad_pid, demux_info->ad_fmt, demux_info->demux_id);
                 }
                 if (ad_start_flag == 0) {
                     aml_dev->ad_start_enable = 1;
@@ -3060,7 +3058,7 @@ static void *audio_dtv_patch_process_threadloop_v2(void *data)
                     Start_Dmx_Main_Audio(patch->demux_handle);
                     Start_Dmx_AD_Audio(patch->demux_handle);
                 } else {
-                    dtv_assoc_audio_resume(1,aml_dev->sub_apid);
+                    dtv_assoc_audio_resume(1,demux_info->ad_pid);
                 }
                 patch->dtv_decoder_state = AUDIO_DTV_PATCH_DECODER_STATE_RUNING;
             } else if (cmd == AUDIO_DTV_PATCH_CMD_STOP) {
