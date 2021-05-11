@@ -48,6 +48,7 @@
 #include "aml_audio_ease.h"
 #include "aml_malloc_debug.h"
 #include "audio_hdmi_util.h"
+#include "aml_audio_speed_manager.h"
 
 #ifdef ADD_AUDIO_DELAY_INTERFACE
 #include "aml_audio_delay.h"
@@ -733,6 +734,8 @@ struct aml_stream_out {
     aml_dec_t *aml_dec;                        /*store the decoder handle*/
     int ad_substream_supported;
     aml_audio_resample_t *resample_handle;
+    aml_audio_speed_t *speed_handle;
+
     /*spdif output related info start*/
     audio_format_t optical_format;
     //audio_format_t spdif_audio_format;
@@ -747,6 +750,8 @@ struct aml_stream_out {
     aml_audio_ease_t  *audio_stream_ease;
     audio_data_handle_state_t audio_data_handle_state;
     uint16_t easing_time;
+    float output_speed;
+    int dtvsync_enable;
 };
 
 typedef ssize_t (*write_func)(struct audio_stream_out *stream, const void *buffer, size_t bytes);

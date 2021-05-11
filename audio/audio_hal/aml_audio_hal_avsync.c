@@ -204,7 +204,7 @@ static unsigned int compare_clock(unsigned int clock1, unsigned int clock2)
     return false;
 }
 
-static void dtv_adjust_i2s_output_clock(struct aml_audio_patch* patch, int direct, int step)
+void dtv_adjust_i2s_output_clock(struct aml_audio_patch* patch, int direct, int step)
 {
     struct audio_hw_device *adev = patch->dev;
     struct aml_audio_device * aml_dev = (struct aml_audio_device*)adev;
@@ -271,7 +271,7 @@ static void dtv_adjust_i2s_output_clock(struct aml_audio_patch* patch, int direc
     return;
 }
 
-static void dtv_adjust_spdif_output_clock(struct aml_audio_patch* patch, int direct, int step, bool spdifb)
+void dtv_adjust_spdif_output_clock(struct aml_audio_patch* patch, int direct, int step, bool spdifb)
 {
     struct audio_hw_device *adev = patch->dev;
     struct aml_audio_device *aml_dev = (struct aml_audio_device *) adev;

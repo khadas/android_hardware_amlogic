@@ -46,6 +46,13 @@ bool mediasync_wrap_getMediaTime(void* handle, int64_t realUs,
 bool mediasync_wrap_getRealTimeFor(void* handle, int64_t targetMediaUs, int64_t *outRealUs);
 bool mediasync_wrap_getRealTimeForNextVsync(void* handle, int64_t *outRealUs);
 bool mediasync_wrap_getTrackMediaTime(void* handle, int64_t *outMeidaUs);
+bool mediasync_wrap_setParameter(void* handle, mediasync_parameter type, void* arg);
+bool mediasync_wrap_getParameter(void* handle, mediasync_parameter type, void* arg);
+bool mediasync_wrap_queueAudioFrame(void* handle, int64_t apts, int size, int duration, mediasync_time_unit tunit);
+bool mediasync_wrap_AudioProcess(void* handle, int64_t apts, int64_t cur_apts,
+                                 mediasync_time_unit tunit,
+                                 struct mediasync_audio_policy* asyncPolicy);
+
 bool mediasync_wrap_reset(void* handle);
 void mediasync_wrap_destroy(void* handle);
 

@@ -107,6 +107,9 @@ int aml_audio_nonms12_render(struct audio_stream_out *stream, const void *buffer
     void *input_buffer = (void *)buffer;
     void *output_buffer = NULL;
     size_t output_buffer_bytes = 0;
+    int duration = 0;
+    bool speed_enabled = false;
+    dtvsync_process_res process_result = DTVSYNC_AUDIO_OUTPUT;
 
     if (aml_out->aml_dec == NULL) {
         config_output(stream, true);
@@ -145,6 +148,19 @@ int aml_audio_nonms12_render(struct audio_stream_out *stream, const void *buffer
              ALOGV("used_size %d total used size %d %s() left_bytes =%d pcm len =%d raw len=%d",
                  used_size, dec_used_size, __func__, left_bytes, dec_pcm_data->data_len, dec_raw_data->data_len);
 
+            if (aml_out->optical_format != adev->optical_format) {
+                ALOGI("optical format change from 0x%x --> 0x%x", aml_out->optical_format, adev->optical_format);
+                aml_out->optical_format = adev->optical_format;
+                if (aml_out->spdifout_handle != NULL) {
+                    aml_audio_spdifout_close(aml_out->spdifout_handle);
+                    aml_out->spdifout_handle = NULL;
+                }
+                if (aml_out->spdifout2_handle != NULL) {
+                    aml_audio_spdifout_close(aml_out->spdifout2_handle);
+                    aml_out->spdifout2_handle = NULL;
+                }
+
+            }
              // write pcm data
              if (dec_pcm_data->data_len > 0) {
                  aml_audio_dump_audio_bitstreams("/data/dec_data.raw", dec_pcm_data->buf, dec_pcm_data->data_len);
@@ -175,6 +191,9 @@ int aml_audio_nonms12_render(struct audio_stream_out *stream, const void *buffer
                          aml_out->config.rate = dec_pcm_data->data_sr;
                   }
 
+                if (dec_pcm_data->data_ch != 0)
+                    duration =  (dec_pcm_data->data_len * 1000) /
+                                (2 * dec_pcm_data->data_ch * OUTPUT_ALSA_SAMPLERATE);
                  /*process the stream volume before mix*/
                  aml_audio_stream_volume_process(stream, dec_data, sizeof(int16_t), dec_pcm_data->data_ch, dec_pcm_data->data_len);
 
@@ -186,6 +205,34 @@ int aml_audio_nonms12_render(struct audio_stream_out *stream, const void *buffer
                     }
                  }
 
+                if (do_sync_flag) {
+                    if (patch->skip_amadec_flag) {
+                        alsa_latency = 90 *(out_get_alsa_latency_frames(stream)  * 1000) / aml_out->config.rate;;
+                        patch->dtvsync->cur_outapts = aml_dec->out_frame_pts - decoder_latency - alsa_latency;
+
+                    }
+                    //sync process here
+                    if (adev->patch_src  == SRC_DTV && aml_out->dtvsync_enable) {
+
+                        process_result = aml_dtvsync_nonms12_process(stream, duration, &speed_enabled);
+                        if (process_result == DTVSYNC_AUDIO_DROP)
+                            continue;
+                    }
+                    if (fabs(aml_out->output_speed - 1.0f) > 1e-6) {
+                        ret = aml_audio_speed_process_wrapper(&aml_out->speed_handle, dec_data,
+                                                dec_pcm_data->data_len, aml_out->output_speed,
+                                                OUTPUT_ALSA_SAMPLERATE, dec_pcm_data->data_ch);
+                        if (ret != 0) {
+                            ALOGI("aml_audio_speed_process_wrapper failed");
+                        } else {
+
+                            ALOGV("data_len=%d, speed_size=%d\n",
+                            dec_pcm_data->data_len, aml_out->speed_handle->speed_size);
+                            dec_data = aml_out->speed_handle->speed_buffer;
+                            dec_pcm_data->data_len = aml_out->speed_handle->speed_size;
+                        }
+                    }
+                }
                  aml_hw_mixer_mixing(&adev->hw_mixer, dec_data, dec_pcm_data->data_len, output_format);
                  if (audio_hal_data_processing(stream, dec_data, dec_pcm_data->data_len, &output_buffer, &output_buffer_bytes, output_format) == 0) {
                     hw_write(stream, output_buffer, output_buffer_bytes, output_format);
@@ -195,24 +242,11 @@ int aml_audio_nonms12_render(struct audio_stream_out *stream, const void *buffer
 
 
              // write raw data
-             if (aml_out->optical_format != adev->optical_format) {
-                ALOGI("optical format change from 0x%x --> 0x%x", aml_out->optical_format, adev->optical_format);
-                aml_out->optical_format = adev->optical_format;
-                if (aml_out->spdifout_handle != NULL) {
-                    aml_audio_spdifout_close(aml_out->spdifout_handle);
-                    aml_out->spdifout_handle = NULL;
-                }
-                if (aml_out->spdifout2_handle != NULL) {
-                    aml_audio_spdifout_close(aml_out->spdifout2_handle);
-                    aml_out->spdifout2_handle = NULL;
-                }
-
-             }
              /*for pcm case, we check whether it has muti channel pcm*/
-             if (audio_is_linear_pcm(aml_dec->format) && raw_in_data->data_ch > 2) {
+            if (!speed_enabled && audio_is_linear_pcm(aml_dec->format) && raw_in_data->data_ch > 2) {
                 aml_audio_spdif_output(stream, &aml_out->spdifout_handle, raw_in_data);
              }
-             if (aml_out->optical_format != AUDIO_FORMAT_PCM_16_BIT) {
+            if (!speed_enabled && aml_out->optical_format != AUDIO_FORMAT_PCM_16_BIT) {
                 if (dec_raw_data->data_sr > 0) {
                     aml_out->config.rate = dec_raw_data->data_sr;
                 }
@@ -235,19 +269,6 @@ int aml_audio_nonms12_render(struct audio_stream_out *stream, const void *buffer
                 } else {
                     aml_audio_spdif_output(stream, &aml_out->spdifout_handle, dec_raw_data);
                 }
-             }
-             if (do_sync_flag) {
-                if (patch->skip_amadec_flag) {
-                    alsa_latency = 90 *(out_get_alsa_latency_frames(stream)  * 1000) / aml_out->config.rate;;
-                    patch->cur_outapts = aml_dec->out_frame_pts - decoder_latency - alsa_latency;
-                    ALOGI("aml_dec->in_frame_pts %d patch->cur_outapts %u",aml_dec->in_frame_pts, patch->cur_outapts);
-                } else {
-                    //todo
-                }
-             }
-
-            //sync process here
-             if (adev->patch_src  == SRC_DTV ) {
 
              }
 

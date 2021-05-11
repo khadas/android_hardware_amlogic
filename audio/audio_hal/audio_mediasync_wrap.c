@@ -61,6 +61,12 @@ typedef mediasync_result (*MediaSync_getMediaTime_func)(void* handle, int64_t re
 typedef mediasync_result (*MediaSync_getRealTimeFor_func)(void* handle, int64_t targetMediaUs, int64_t *outRealUs);
 typedef mediasync_result (*MediaSync_getRealTimeForNextVsync_func)(void* handle, int64_t *outRealUs);
 typedef mediasync_result (*MediaSync_getTrackMediaTime_func)(void* handle, int64_t *outMediaUs);
+typedef mediasync_result (*MediaSync_setParameter_func)(void* handle, mediasync_parameter type, void* arg);
+typedef mediasync_result (*MediaSync_getParameter_func)(void* handle, mediasync_parameter type, void* arg);
+typedef mediasync_result (*MediaSync_queueAudioFrame_func)(void* handle, int64_t apts, int size, int duration, mediasync_time_unit tunit);
+typedef mediasync_result (*MediaSync_AudioProcess_func)(void* handle, int64_t apts, int64_t cur_apts, mediasync_time_unit tunit, struct mediasync_audio_policy* asyncPolicy);
+
+
 typedef mediasync_result (*MediaSync_reset_func)(void* handle);
 typedef void (*MediaSync_destroy_func)(void* handle);
 
@@ -82,6 +88,10 @@ static MediaSync_getMediaTime_func gMediaSync_getMediaTime = NULL;
 static MediaSync_getRealTimeFor_func gMediaSync_getRealTimeFor = NULL;
 static MediaSync_getRealTimeForNextVsync_func gMediaSync_getRealTimeForNextVsync = NULL;
 static MediaSync_getTrackMediaTime_func gMediaSync_getTrackMediaTime = NULL;
+static MediaSync_setParameter_func gMediaSync_setParameter = NULL;
+static MediaSync_getParameter_func gMediaSync_getParameter = NULL;
+static MediaSync_queueAudioFrame_func gMediaSync_queueAudioFrame = NULL;
+static MediaSync_AudioProcess_func gMediaSync_AudioProcess = NULL;
 static MediaSync_reset_func gMediaSync_reset = NULL;
 static MediaSync_destroy_func gMediaSync_destroy = NULL;
 
@@ -221,6 +231,34 @@ static bool mediasync_wrap_create_init()
     (MediaSync_getTrackMediaTime_func)dlsym(glibHandle, "MediaSync_getTrackMediaTime");
     if (gMediaSync_getTrackMediaTime == NULL) {
         ALOGE(" dlsym MediaSync_destroy failed, err=%s \n", dlerror());
+        return err;
+    }
+
+    gMediaSync_setParameter =
+    (MediaSync_setParameter_func)dlsym(glibHandle, "mediasync_setParameter");
+    if (gMediaSync_setParameter == NULL) {
+        ALOGE(" dlsym mediasync_setParameter failed, err=%s\n", dlerror());
+        return err;
+    }
+
+    gMediaSync_getParameter =
+    (MediaSync_getParameter_func)dlsym(glibHandle, "mediasync_getParameter");
+    if (gMediaSync_getParameter == NULL) {
+        ALOGE(" dlsym mediasync_getParameter failed, err=%s\n", dlerror());
+        return err;
+    }
+
+    gMediaSync_queueAudioFrame =
+    (MediaSync_queueAudioFrame_func)dlsym(glibHandle, "MediaSync_queueAudioFrame");
+    if (gMediaSync_queueAudioFrame == NULL) {
+        ALOGE(" dlsym MediaSync_queueAudioFrame failed, err=%s\n", dlerror());
+        return err;
+    }
+
+    gMediaSync_AudioProcess =
+    (MediaSync_AudioProcess_func)dlsym(glibHandle, "MediaSync_AudioProcess");
+    if (gMediaSync_AudioProcess == NULL) {
+        ALOGE(" dlsym MediaSync_AudioProcess failed, err=%s\n", dlerror());
         return err;
     }
 
@@ -442,6 +480,64 @@ bool mediasync_wrap_getTrackMediaTime(void* handle, int64_t *outMeidaUs) {
         ALOGE("[%s] no handle\n", __func__);
      }
      return false;
+}
+
+bool mediasync_wrap_setParameter(void* handle, mediasync_parameter type, void* arg) {
+     if (handle != NULL)  {
+         mediasync_result ret = gMediaSync_setParameter(handle, type, arg);
+         if (ret == AM_MEDIASYNC_OK) {
+            return true;
+         } else {
+            ALOGE("[%s] no ok\n", __func__);
+         }
+     } else {
+        ALOGE("[%s] no handle\n", __func__);
+     }
+     return false;
+}
+
+bool mediasync_wrap_getParameter(void* handle, mediasync_parameter type, void* arg) {
+     if (handle != NULL)  {
+         mediasync_result ret = gMediaSync_getParameter(handle, type, arg);
+         if (ret == AM_MEDIASYNC_OK) {
+            return true;
+         } else {
+            ALOGE("[%s] no ok\n", __func__);
+         }
+     } else {
+        ALOGE("[%s] no handle\n", __func__);
+     }
+     return false;
+}
+
+bool mediasync_wrap_queueAudioFrame(void* handle, int64_t apts, int size, int duration, mediasync_time_unit tunit) {
+     if (handle != NULL)  {
+         mediasync_result ret = gMediaSync_queueAudioFrame(handle, apts, size, duration, tunit);
+         if (ret == AM_MEDIASYNC_OK) {
+            return true;
+         } else {
+            ALOGE("[%s] no ok\n", __func__);
+         }
+     } else {
+        ALOGE("[%s] no handle\n", __func__);
+     }
+     return false;
+}
+
+bool mediasync_wrap_AudioProcess(void* handle, int64_t apts, int64_t cur_apts, mediasync_time_unit tunit, struct mediasync_audio_policy* asyncPolicy) {
+
+    if (handle != NULL) {
+        mediasync_result ret = gMediaSync_AudioProcess(handle, apts, cur_apts, tunit, asyncPolicy);
+        if (ret == AM_MEDIASYNC_OK) {
+            return true;
+        } else {
+            ALOGE("[%s] no ok\n", __func__);
+         }
+     } else {
+        ALOGE("[%s] no handle\n", __func__);
+     }
+
+    return false;
 }
 
 bool mediasync_wrap_reset(void* handle) {

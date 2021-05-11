@@ -16,7 +16,9 @@ LOCAL_C_INCLUDES +=                      \
     $(LOCAL_PATH)/sync \
     $(LOCAL_PATH)/../utils/include \
     hardware/amlogic/media/amavutils/include/ \
-    vendor/amlogic/common/prebuilt/dvb/include/am_adp
+    vendor/amlogic/common/prebuilt/dvb/include/am_adp \
+    vendor/amlogic/common/mediahal_sdk/include 
+
 
 
 LOCAL_SRC_FILES  +=               \

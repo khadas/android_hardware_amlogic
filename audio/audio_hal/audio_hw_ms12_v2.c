@@ -1761,7 +1761,6 @@ static int ms12_output_master(void *buffer, void *priv_data, size_t size, audio_
 
     ms12->is_dolby_atmos = (dolby_ms12_get_input_atmos_info() == 1);
 	//TODO support 24/32 bit sample  */
-    ms12->master_pcm_frames += size / 4;
     ALOGV("dap pcm =%lld stereo pcm =%lld master =%lld", ms12->dap_pcm_frames, ms12->stereo_pcm_frames, ms12->master_pcm_frames);
 
     if (ms12_info->output_ch == 2) {
@@ -1795,8 +1794,8 @@ int dap_pcm_output(void *buffer, void *priv_data, size_t size,aml_ms12_dec_info_
     if (adev->debug_flag > 1) {
         ALOGI("+%s() size %zu,ch %d", __FUNCTION__, size,ms12_info->output_ch);
     }
-
-    ms12->dap_pcm_frames += size / 4;
+    if (ms12_info->output_ch != 0)
+        ms12->dap_pcm_frames += size / (2 * ms12_info->output_ch);
     /*dump ms12 pcm output*/
     if (get_ms12_dump_enable(DUMP_MS12_OUTPUT_SPEAKER_PCM)) {
         dump_ms12_output_data(buffer, size, MS12_OUTPUT_SPEAKER_PCM_FILE);
@@ -1826,8 +1825,8 @@ int stereo_pcm_output(void *buffer, void *priv_data, size_t size, aml_ms12_dec_i
     if (adev->debug_flag > 1) {
         ALOGI("+%s() size %zu", __FUNCTION__, size);
     }
-
-    ms12->stereo_pcm_frames += size / 4;
+    if (ms12_info->output_ch != 0)
+        ms12->stereo_pcm_frames += size / (2 * ms12_info->output_ch);
     /*dump ms12 pcm output*/
     if (get_ms12_dump_enable(DUMP_MS12_OUTPUT_SPDIF_PCM)) {
         dump_ms12_output_data(buffer, size, MS12_OUTPUT_SPDIF_PCM_FILE);
@@ -2020,7 +2019,9 @@ int ms12_output(void *buffer, void *priv_data, size_t size, aml_ms12_dec_info_t 
     struct audio_stream_out *stream_out = (struct audio_stream_out *)aml_out;
     struct aml_audio_device *adev = aml_out->dev;
     struct dolby_ms12_desc *ms12 = &(adev->ms12);
-
+    struct aml_audio_patch *patch = adev->audio_patch;
+    bool do_sync_flag = adev->patch_src  == SRC_DTV && patch && patch->skip_amadec_flag;
+    dtvsync_process_res process_result = DTVSYNC_AUDIO_OUTPUT;
     audio_format_t output_format = (ms12_info) ? ms12_info->data_type : AUDIO_FORMAT_PCM_16_BIT;
     int ret = 0;
 
@@ -2028,6 +2029,25 @@ int ms12_output(void *buffer, void *priv_data, size_t size, aml_ms12_dec_info_t 
         ALOGI("+%s() output size %zu,out format 0x%x.dual_output = %d, optical_format = 0x%x, sink_format = 0x%x, out total=%d main in=%d",
             __FUNCTION__, size,output_format, aml_out->dual_output_flag, adev->optical_format, adev->sink_format,
             ms12->bitsteam_cnt, ms12->input_total_ms);
+    }
+
+    /*update the master pcm frame, which is used for av sync*/
+    if (audio_is_linear_pcm(output_format)) {
+        if (ms12_info->pcm_type == DAP_LPCM) {
+            if (is_dolbyms12_dap_enable(aml_out)) {
+                ms12->master_pcm_frames += size / (2 * ms12_info->output_ch);
+            }
+        } else {
+            if (!is_dolbyms12_dap_enable(aml_out)) {
+                ms12->master_pcm_frames += size / (2 * ms12_info->output_ch);
+            }
+        }
+    }
+
+    if (do_sync_flag && aml_out->dtvsync_enable) {
+        process_result = aml_dtvsync_ms12_process_policy(priv_data, ms12_info);
+        if (process_result == DTVSYNC_AUDIO_DROP)
+            return ret;
     }
     if (audio_is_linear_pcm(output_format)) {
         if (ms12_info->pcm_type == DAP_LPCM) {

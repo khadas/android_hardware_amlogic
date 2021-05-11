@@ -32,11 +32,44 @@ typedef struct aml_demux__audiopara {
     int media_sync_id;
 } aml_demux_audiopara_t;
 
+
+typedef enum {
+    DTVSYNC_AUDIO_UNKNOWN = 0,
+    DTVSYNC_AUDIO_NORMAL_OUTPUT,
+    DTVSYNC_AUDIO_DROP_PCM,
+    DTVSYNC_AUDIO_INSERT,
+    DTVSYNC_AUDIO_HOLD,
+    DTVSYNC_AUDIO_MUTE,
+    DTVSYNC_AUDIO_RESAMPLE,
+    DTVSYNC_AUDIO_ADJUST_CLOCK,
+} dtvsync_policy;
+
+
+struct dtvsync_audio_policy {
+    dtvsync_policy audiopolicy;
+    int32_t  param1;
+    int32_t  param2;
+};
+
+
+typedef struct  aml_dtvsync {
+    bool use_mediasync;
+    void* mediasync;
+    int mediasync_id;
+    int64_t cur_outapts;
+    int cur_speed;
+    struct dtvsync_audio_policy apolicy;
+    int pcm_dropping;
+    int duration;
+} aml_dtvsync_t;
+
+
 typedef struct aml_dtv_audio_instances {
     int demux_index_working;
     int dvb_path_count;
     void *demux_handle[DVB_DEMUX_SUPPORT_MAX_NUM];
     aml_demux_audiopara_t demux_info[DVB_DEMUX_SUPPORT_MAX_NUM];
+    aml_dtvsync_t dtvsync[DVB_DEMUX_SUPPORT_MAX_NUM];
 } aml_dtv_audio_instances_t;
 
 struct mAudioEsDataInfo {

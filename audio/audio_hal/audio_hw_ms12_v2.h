@@ -263,4 +263,14 @@ int dolby_ms12_main_pipeline_latency_frames(struct audio_stream_out *stream);
  */
 bool is_audio_postprocessing_add_dolbyms12_dap(struct aml_audio_device *adev);
 
+int bitstream_output(void *buffer, void *priv_data, size_t size);
+
+int spdif_bitstream_output(void *buffer, void *priv_data, size_t size);
+
+int dap_pcm_output(void *buffer, void *priv_data, size_t size, aml_ms12_dec_info_t *ms12_info);
+
+int stereo_pcm_output(void *buffer, void *priv_data, size_t size, aml_ms12_dec_info_t *ms12_info);
+
+int mat_bitstream_output(void *buffer, void *priv_data, size_t size);
+
 #endif //end of _AUDIO_HW_MS12_H_

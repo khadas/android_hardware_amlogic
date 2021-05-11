@@ -84,9 +84,11 @@ include $(BUILD_PREBUILT)
         aml_hdmiin2bt_process.c \
         audio_hdmi_util.c  \
         aml_audio_ms12_render.c \
-        aml_audio_nonms12_render.c
+        aml_audio_nonms12_render.c \
+        aml_dtvsync.c
 
     LOCAL_C_INCLUDES += \
+        hardware/amlogic/audio/aml_speed/include \
         system/media/audio_utils/include \
         system/media/audio_effects/include \
         system/media/audio_route/include \
@@ -111,7 +113,8 @@ include $(BUILD_PREBUILT)
         vendor/amlogic/common/frameworks/av/libaudioeffect/VirtualX \
         hardware/amlogic/audio/aml_adecs/include \
         hardware/amlogic/audio/aml_resampler/include \
-        hardware/amlogic/audio/aml_parser/include
+        hardware/amlogic/audio/aml_parser/include \
+        hardware/amlogic/audio/aml_speed/include
 
     LOCAL_LDFLAGS_arm += $(LOCAL_PATH)/../amlogic_AQ_tools/lib_aml_ng.a
     LOCAL_LDFLAGS_arm += $(LOCAL_PATH)/../amlogic_AQ_tools/Amlogic_EQ_Param_Generator.a
@@ -131,7 +134,8 @@ include $(BUILD_PREBUILT)
         libamladecs \
         libamlresampler \
         libamlparser \
-        libdvbaudioutils
+        libdvbaudioutils \
+        libamlspeed
 
     LOCAL_SHARED_LIBRARIES += \
         android.hardware.bluetooth.audio@2.0 \

@@ -25,6 +25,7 @@ LOCAL_C_INCLUDES := \
    hardware/libhardware/include \
    $(LOCAL_PATH)/include \
    $(LOCAL_PATH)/../aml_resampler/include \
+   $(LOCAL_PATH)/../aml_speed/include \
    $(LOCAL_PATH)/../audio_hal \
    $(LOCAL_PATH)/../aml_parser/include
 
