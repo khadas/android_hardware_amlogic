@@ -23,6 +23,7 @@
 #include "audio_hw_dtv.h"
 #include "aml_audio_types_def.h"
 #include "aml_audio_stream.h"
+#include "MediaSyncInterface.h"
 
 #define ENUM_TYPE_STR_MAX_LEN                           (100)
 #define REPORT_DECODED_INFO  "/sys/class/amaudio/codec_report_info"
@@ -116,6 +117,7 @@ const char* usecase2Str(stream_usecase_t type);
 const char* outputPort2Str(enum OUT_PORT type);
 const char* inputPort2Str(enum IN_PORT type);
 const char* mixerInputType2Str(aml_mixer_input_port_type_e type);
+const char* mediasyncAudiopolicyType2Str(audio_policy type);
 const char* dtvAudioPatchCmd2Str(AUDIO_DTV_PATCH_CMD_TYPE type);
 const char* hdmiFormat2Str(AML_HDMI_FORMAT_E type);
 bool aml_audio_check_sbr_product();

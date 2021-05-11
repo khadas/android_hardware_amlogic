@@ -159,6 +159,8 @@ extern int get_dtv_pcr_sync_mode(void);
 extern int get_video_delay(void);
 extern unsigned long decoder_apts_lookup(unsigned int offset);
 
+void dtv_adjust_i2s_output_clock(struct aml_audio_patch* patch, int direct, int step);
+void dtv_adjust_spdif_output_clock(struct aml_audio_patch* patch, int direct, int step, bool spdifb);
 
 
 

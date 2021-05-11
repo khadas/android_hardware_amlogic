@@ -29,6 +29,7 @@ cc_library_shared {
         "hardware/amlogic/audio/aml_resampler/include",
         "hardware/amlogic/audio/aml_adecs/include",
         "hardware/amlogic/audio/aml_parser/include",
+        "hardware/amlogic/audio/aml_speed/include",
     ],
     local_include_dirs: [
         "hidraw",

@@ -24,7 +24,7 @@
 #include "audio_hw_profile.h"
 #include "audio_dtv_utils.h"
 #include "aml_audio_hal_avsync.h"
-
+#include "aml_dtvsync.h"
 #define RAW_USECASE_MASK ((1<<STREAM_RAW_DIRECT) | (1<<STREAM_RAW_HWSYNC) | (1<<STREAM_RAW_PATCH))
 /*
  * 1.AUDIO_FORMAT_PCM_16_BIT is suitable for Speaker
@@ -377,6 +377,7 @@ struct aml_audio_patch {
     struct mAudioEsDataInfo *mADEsData;
     void *demux_handle;
     void *demux_info;
+    aml_dtvsync_t *dtvsync;
     int uio_fd;
     struct cmd_node *dtv_cmd_list;
     void *dtv_package_list;
