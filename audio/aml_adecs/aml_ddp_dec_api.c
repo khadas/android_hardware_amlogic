@@ -677,6 +677,7 @@ int dcv_decoder_process_patch(aml_dec_t * aml_dec, unsigned char *buffer, int by
     ddp_dec->outlen_pcm = 0;
     ddp_dec->outlen_raw = 0;
     int bit_width = 16;
+    int n_bytes_frame = 0;
 
     dec_data_info_t * dec_pcm_data = &aml_dec->dec_pcm_data;
     dec_data_info_t * dec_raw_data = &aml_dec->dec_raw_data;
@@ -718,6 +719,7 @@ int dcv_decoder_process_patch(aml_dec_t * aml_dec, unsigned char *buffer, int by
         memcpy((char *)ddp_dec->inbuf + main_frame_size, associate_frame_buffer, associate_frame_size);
         ddp_dec->remain_size = main_frame_size + associate_frame_size;
         mFrame_size = main_frame_size + associate_frame_size;
+        n_bytes_frame = mFrame_size; // not used currently
         read_pointer = ddp_dec->inbuf;
         read_offset = 0;
         in_sync = 1;
@@ -790,7 +792,7 @@ int dcv_decoder_process_patch(aml_dec_t * aml_dec, unsigned char *buffer, int by
     if (ddp_dec->remain_size < mFrame_size || in_sync == 0) {
         //ALOGI("remain %d,frame size %d, read more\n",remain_size,mFrame_size);
         memcpy(ddp_dec->inbuf, read_pointer, ddp_dec->remain_size);
-        return bytes;
+        return AML_DEC_RETURN_TYPE_CACHE_DATA;
     }
     ddp_dec->curFrmSize = mFrame_size;
     read_pointer += read_offset;
@@ -813,6 +815,7 @@ int dcv_decoder_process_patch(aml_dec_t * aml_dec, unsigned char *buffer, int by
         ALOGE("too  big frame size =%d", mFrame_size);
     }
 
+    n_bytes_frame = mFrame_size; // to record the frame size
     while (mFrame_size > 0) {
         outPCMLen = 0;
         outRAWLen = 0;
@@ -833,8 +836,12 @@ int dcv_decoder_process_patch(aml_dec_t * aml_dec, unsigned char *buffer, int by
         if (used_size > 0)
             mFrame_size -= current_size;
     }
-    if (ddp_dec->decoding_mode != DDP_DECODE_MODE_AD_DUAL)
-       total_used_size += used_size;
+    if (ddp_dec->decoding_mode != DDP_DECODE_MODE_AD_DUAL) {
+        total_used_size += used_size;
+        if (used_size > n_bytes_frame) {
+            ALOGE("%s line %d used_size %d n_bytes_frame %d\n", __func__, __LINE__, used_size, n_bytes_frame);
+        }
+    }
 
     if (ddp_dec->outlen_pcm > 0) {
         dec_pcm_data->data_format = AUDIO_FORMAT_PCM_16_BIT;
@@ -873,8 +880,9 @@ int dcv_decoder_process_patch(aml_dec_t * aml_dec, unsigned char *buffer, int by
     //sysfs_set_sysfs_str(REPORT_DECODED_INFO, ddp_dec->sysfs_buf);
 
     ddp_dec->remain_size = 0;
-    
-    return total_used_size - last_remain_size;
+    /* Fixme: sometimes here total_used_size - last_remain_size is larger than bytes about 8bytes. */
+    ret = ((total_used_size - last_remain_size) > bytes) ? bytes : (total_used_size - last_remain_size);
+    return ret;
 
 EXIT:
     return AML_DEC_RETURN_TYPE_FAIL;

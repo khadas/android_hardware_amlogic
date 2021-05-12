@@ -258,7 +258,7 @@ int aml_audio_nonms12_render(struct audio_stream_out *stream, const void *buffer
                 try_again = true;
              }
 
-         } while (left_bytes || aml_dec->fragment_left_size || try_again);
+         } while ((left_bytes > 0) || aml_dec->fragment_left_size || try_again);
     }
     if (patch)
        patch->decoder_offset +=return_bytes;
