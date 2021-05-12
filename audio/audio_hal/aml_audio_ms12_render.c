@@ -264,7 +264,7 @@ int aml_audio_ms12_render(struct audio_stream_out *stream, const void *buffer, s
                     }
                 }
 
-            } while (left_bytes || aml_dec->fragment_left_size);
+            } while ((left_bytes > 0) || aml_dec->fragment_left_size);
         }
 
     }
