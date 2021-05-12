@@ -759,9 +759,9 @@ static size_t out_get_buffer_size (const struct audio_stream *stream)
          *1.offload write interval is 10ms
          *2.AC4 datarate: ac4 frame size=16391 frame rate =23440 sample rate=48000
          *       16391Bytes/42.6ms
-         *3.set the audio hal buffer size as 4608Bytes
+         *3.set the audio hal buffer size as 8192 Bytes, it is about 24ms
          */
-        size = (DEFAULT_PLAYBACK_PERIOD_SIZE << 3) + DEFAULT_PLAYBACK_PERIOD_SIZE;
+        size = (DEFAULT_PLAYBACK_PERIOD_SIZE << 4);
         break;
     case AUDIO_FORMAT_DOLBY_TRUEHD:
         if (out->flags & AUDIO_OUTPUT_FLAG_IEC958_NONAUDIO) {
