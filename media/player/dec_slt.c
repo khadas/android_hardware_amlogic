@@ -1,16 +1,13 @@
-
 /*
- * Copyright (c) 2014 Amlogic, Inc. All rights reserved.
+ * Copyright (c) 2019 Amlogic, Inc. All rights reserved.
  *
  * This source code is subject to the terms and conditions defined in the
  * file 'LICENSE' which is part of this source code package.
  *
  * Description:
  */
-
-
 /**************************************************
-* example based on amcodec
+* example based on multi instance frame check code
 **************************************************/
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -18,24 +15,21 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <stdbool.h>
 #include <signal.h>
 #include <errno.h>
 #include <stdbool.h>
 #include <ctype.h>
 #include <unistd.h>
+#include <vcodec.h>
 #include <dec_slt_res.h>
-#include "vcodec.h"
 
-//#define DEBUG_WITH_BLOCK
-
-#define READ_SIZE (64 * 1024)
+#define READ_SIZE       (64 * 1024)
 #define EXTERNAL_PTS    (1)
 #define SYNC_OUTSIDE    (2)
 #define UNIT_FREQ       96000
 #define PTS_FREQ        90000
-#define AV_SYNC_THRESH    PTS_FREQ*30
-
+#define AV_SYNC_THRESH  PTS_FREQ*30
+#define BUFFER_SIZE (1024*1024*2)
 
 #define TEST_CASE_HEVC 0
 #define TEST_CASE_VDEC 1
@@ -48,37 +42,17 @@
 #define LPRINT0
 #define LPRINT1(...)        printf(__VA_ARGS__)
 
-#define ERRP(con, rt, p, ...) do {    \
-    if (con) {                        \
-        LPRINT##p(__VA_ARGS__);    \
-        rt;                            \
-    }                                \
+#define ERRP(con, rt, p, ...) do {  \
+    if (con) {                      \
+        LPRINT##p(__VA_ARGS__); \
+        rt;                         \
+    }                               \
 } while(0)
-
-int id;
-char *name = NULL;
-FILE* fp = NULL;
 
 static vcodec_para_t v_codec_para;
 static vcodec_para_t *pcodec, *vpcodec;
-static char *filename;
-static int axis[8] = {0};
-
-int osd_blank(char *path, int cmd)
-{
-    int fd;
-    char  bcmd[16];
-    fd = open(path, O_CREAT | O_RDWR | O_TRUNC, 0644);
-
-    if (fd >= 0) {
-        sprintf(bcmd, "%d", cmd);
-        write(fd, bcmd, strlen(bcmd));
-        close(fd);
-        return 0;
-    }
-
-    return -1;
-}
+int id;
+char *name;
 
 int set_tsync_enable(int enable)
 {
@@ -96,83 +70,39 @@ int set_tsync_enable(int enable)
     return -1;
 }
 
-int parse_para(const char *para, int para_num, int *result)
-{
-    char *endp;
-    const char *startp = para;
-    int *out = result;
-    int len = 0, count = 0;
-
-    if (!startp) {
-        return 0;
-    }
-
-    len = strlen(startp);
-
-    do {
-        //filter space out
-        while (startp && (isspace(*startp) || !isgraph(*startp)) && len) {
-            startp++;
-            len--;
-        }
-
-        if (len == 0) {
-            break;
-        }
-
-        *out++ = strtol(startp, &endp, 0);
-
-        len -= endp - startp;
-        startp = endp;
-        count++;
-
-    } while ((endp) && (count < para_num) && (len > 0));
-
-    return count;
-}
-
-int set_display_axis(int recovery)
+int set_cmd(const char *str, const char *path)
 {
     int fd;
-    char *path = "/sys/class/display/axis";
-    char str[128];
-    int count;
-
     fd = open(path, O_CREAT | O_RDWR | O_TRUNC, 0644);
     if (fd >= 0) {
-        if (!recovery) {
-            read(fd, str, 128);
-            printf("read axis %s, length %zu\n", str, strlen(str));
-            count = parse_para(str, 8, axis);
-        }
-        if (recovery) {
-            sprintf(str, "%d %d %d %d %d %d %d %d",
-                    axis[0], axis[1], axis[2], axis[3], axis[4], axis[5], axis[6], axis[7]);
-        } else {
-            sprintf(str, "2048 %d %d %d %d %d %d %d",
-                    axis[1], axis[2], axis[3], axis[4], axis[5], axis[6], axis[7]);
-        }
         write(fd, str, strlen(str));
         close(fd);
+        printf("[success]: %s > %s\n", str, path);
         return 0;
     }
-
+    printf("[failed]: %s > %s\n", str, path);
     return -1;
 }
 
-static void signal_handler(int signum)
+bool is_video_file_type_ivf(FILE *fp, int video_type, char *buffer)
 {
-    printf("Get signum=%x\n", signum);
-    vcodec_close(vpcodec);
-    fclose(fp);
-    set_display_axis(1);
-    osd_blank("/sys/class/graphics/fb0/blank", 0);
-    osd_blank("/sys/class/graphics/fb0/osd_display_debug", 0);
-    signal(signum, SIG_DFL);
-    raise(signum);
+    if (fp && video_type == VFORMAT_AV1) {
+        fread(buffer, 1, 4, fp);
+        fseek(fp, 0, SEEK_SET);
+        if ((buffer[0] == 0x44) &&
+            (buffer[1] == 0x4B) &&
+            (buffer[2] == 0x49) &&
+            (buffer[3] == 0x46))
+            return true;
+    } else if (video_type == VFORMAT_AV1) {
+        if ((buffer[0] == 0x44) &&
+            (buffer[1] == 0x4B) &&
+            (buffer[2] == 0x49) &&
+            (buffer[3] == 0x46))
+            return true;
+    }
+    return false;
 }
-
-
 
 int send_buffer_to_device(char *buffer, int Readlen)
 {
@@ -730,27 +660,6 @@ int parser_frame(
     return 0;
 }
 
-
-bool is_video_file_type_ivf(FILE *fp, int video_type, char *buffer)
-{
-    if (fp && video_type == VFORMAT_AV1) {
-        fread(buffer, 1, 4, fp);
-        fseek(fp, 0, SEEK_SET);
-        if ((buffer[0] == 0x44) &&
-            (buffer[1] == 0x4B) &&
-            (buffer[2] == 0x49) &&
-            (buffer[3] == 0x46))
-            return true;
-    } else if (video_type == VFORMAT_AV1) {
-        if ((buffer[0] == 0x44) &&
-            (buffer[1] == 0x4B) &&
-            (buffer[2] == 0x49) &&
-            (buffer[3] == 0x46))
-            return true;
-    }
-    return false;
-}
-
 int ivf_write_dat(FILE *src_fp, uint8_t *src_buffer)
 {
     int frame_count = 0;
@@ -816,368 +725,6 @@ int ivf_write_dat(FILE *src_fp, uint8_t *src_buffer)
     return 0;
 }
 
-/****************** end of ivf parer *************/
-
-#if 1
-//AV1
-static int obu_frame_frame_head_come_after_tile = 0;
-//static int frame_decoded = 0;
-static int decoding_data_flag = 0;
-#endif
-
-unsigned char is_picture_start(int video_type, int nal_unit_type)
-{
-    unsigned char ret = 0;
-    if (video_type == VFORMAT_AVS) {
-        if (nal_unit_type == 0xB3 || //I_PICTURE_START_CODE
-                nal_unit_type == 0xB6  //PB_PICTURE_START_CODE
-           )
-            ret = 1;
-    } else if (video_type == VFORMAT_VP9) {
-        /*to do*/
-        goto check_av1;
-    } else if (video_type == VFORMAT_AV1) {
-check_av1:
-        if (nal_unit_type == OBU_FRAME_HEADER ||
-                nal_unit_type == OBU_FRAME) {
-            ret = 1;
-            obu_frame_frame_head_come_after_tile = 1;
-            if (nal_unit_type == OBU_FRAME) { /*have tile group in this OBU*/
-                obu_frame_frame_head_come_after_tile = 0;
-                decoding_data_flag = 1;
-            }
-
-        }
-    }
-    else
-        ret = 1;
-    return ret;
-}
-
-unsigned char is_picture_end(int video_type, int nal_unit_type)
-{
-    unsigned char ret = 0;
-    if (video_type == VFORMAT_AVS) {
-        if (nal_unit_type == 0xB3 || //I_PICTURE_START_CODE
-                nal_unit_type == 0xB6 || //PB_PICTURE_START_CODE
-                nal_unit_type == 0xB0 || //SEQUENCE_HEADER_CODE
-                nal_unit_type == 0xB1  //SEQUENCE_END_CODE
-           )
-            ret = 1;
-    } else if (video_type == VFORMAT_VP9) {
-        /*to do*/
-        goto check_av1;
-    } else if (video_type == VFORMAT_AV1) {
-check_av1:
-        if (nal_unit_type == OBU_TILE_GROUP) {
-            obu_frame_frame_head_come_after_tile = 0;
-            decoding_data_flag = 1;
-        }
-        else if (nal_unit_type == OBU_FRAME_HEADER ||
-                nal_unit_type == OBU_FRAME) {
-            if (decoding_data_flag)
-                ret = 1;
-            decoding_data_flag = 0;
-            obu_frame_frame_head_come_after_tile = 1;
-            if (nal_unit_type == OBU_FRAME) { /*have tile group in this OBU*/
-                obu_frame_frame_head_come_after_tile = 0;
-                decoding_data_flag = 1;
-            }
-        } else if (nal_unit_type == OBU_REDUNDANT_FRAME_HEADER &&
-                obu_frame_frame_head_come_after_tile == 0) {
-            decoding_data_flag = 0;
-            printf("Warning, OBU_REDUNDANT_FRAME_HEADER come without OBU_FRAME or OBU_FRAME_HEAD\n");
-        }
-    }
-
-    else
-        ret = 1;
-    return ret;
-}
-
-typedef struct
-{
-    int startcodeprefix_len;      //! 4 for parameter sets and first slice in picture, 3 for everything else (suggested)
-    unsigned len;                 //! Length of the NAL unit (Excluding the start code, which does not belong to the NALU)
-    unsigned max_size;            //! Nal Unit Buffer size
-    int forbidden_bit;            //! should be always FALSE
-    int nal_reference_idc;        //! NALU_PRIORITY_xxxx
-    int nal_unit_type;            //! NALU_TYPE_xxxx
-    unsigned char *buf;                    //! contains the first byte followed by the EBSP
-    unsigned short lost_packets;  //! true, if packet loss is detected
-} NALU_t;
-
-NALU_t *AllocNALU(int buffersize)
-{
-    NALU_t *n;
-
-    if ((n = (NALU_t*)calloc (1, sizeof (NALU_t))) == NULL)
-    {
-        printf("AllocNALU: n");
-        exit(0);
-    }
-
-    n->max_size=buffersize;
-
-    if ((n->buf = (unsigned char*)calloc (buffersize, sizeof (char))) == NULL)
-    {
-        free (n);
-        printf ("AllocNALU: n->buf");
-        exit(0);
-    }
-
-    return n;
-}
-
-void FreeNALU(NALU_t *n)
-{
-    if (n)
-    {
-        if (n->buf)
-        {
-            free(n->buf);
-            n->buf=NULL;
-        }
-        free (n);
-    }
-}
-
-static int FindStartCode2 (unsigned char *Buf)
-{
-    if ((Buf[0] != 0) || (Buf[1] != 0) || (Buf[2] != 1)) return 0; //0x000001
-    else return 1;
-}
-
-static int FindStartCode3 (unsigned char *Buf)
-{
-    if ((Buf[0] != 0) || (Buf[1] != 0) || (Buf[2] != 0) || (Buf[3] != 1)) return 0;//0x00000001
-    else return 1;
-}
-
-static int FindAmlStartCode(unsigned char *Buf)
-{
-    unsigned int len;
-    unsigned int len2;
-    len = (Buf[0] << 24) | (Buf[1] << 16) | (Buf[2] << 8) | (Buf[3] << 0);
-    len2 = (Buf[4] << 24) | (Buf[5] << 16) | (Buf[6] << 8) | (Buf[7] << 0);
-    if (((len + len2) == 0xffffffff) &&
-            (Buf[8] == 0 && Buf[9] == 0 && Buf[10] == 0 && Buf[11] == 1) &&
-            (Buf[12] == 0x41 && Buf[13] == 0x4d && Buf[14] == 0x4c && Buf[15] == 0x56)) {
-        return 1;
-    }
-    return 0;
-}
-
-int GetAnnexbNALU (FILE* fe, NALU_t *nalu, int format)
-{
-    int pos = 0;
-    int StartCodeFound, rewind;
-    unsigned char *Buf;
-    int info2 = 0, info3 = 0;
-    int i;
-    int prefix_len = 4;
-    if (format == VFORMAT_VP9 || format == VFORMAT_AV1)
-        prefix_len = 16;
-    if ((Buf = (unsigned char*)calloc (nalu->max_size , sizeof(char))) == NULL)
-        printf ("GetAnnexbNALU: Could not allocate Buf memory\n");
-
-    nalu->startcodeprefix_len=0;
-    while (!feof(fe)) {
-        if (nalu->startcodeprefix_len<prefix_len) {
-            Buf[nalu->startcodeprefix_len++] = fgetc(fe);
-        }
-        else{
-            if (prefix_len == 4) {
-                for (i = 0; i < 3; i++)
-                    Buf[i] = Buf[i+1];
-            }
-            else {
-                for (i = 0; i < prefix_len; i++)
-                    Buf[i] = Buf[i+1];
-            }
-            Buf[nalu->startcodeprefix_len - 1] = fgetc(fe);
-        }
-        if (prefix_len == 4) {
-            if (nalu->startcodeprefix_len >= 3) {
-                if (FindStartCode2(Buf)) {
-                    pos = nalu->startcodeprefix_len;
-                    nalu->startcodeprefix_len = 3;
-                    break;
-                }
-            }
-            if (nalu->startcodeprefix_len == 4) {
-                if (FindStartCode3(Buf)) {
-                    pos = nalu->startcodeprefix_len;
-                    break;
-                }
-            }
-        } else {
-            if (nalu->startcodeprefix_len == prefix_len) {
-                if (FindAmlStartCode(Buf)) {
-                    pos = nalu->startcodeprefix_len;
-                    break;
-                }
-            }
-        }
-    }
-    StartCodeFound = 0;
-    info2 = 0;
-    info3 = 0;
-
-    while (!StartCodeFound)
-    {
-        if (feof (fe))
-        {
-            rewind = -1;
-            goto fill_data;
-        }
-        Buf[pos++] = fgetc (fe);
-        if (prefix_len == 4) {
-            info3 = FindStartCode3(&Buf[pos - 4]);
-            if (info3 != 1)
-                info2 = FindStartCode2(&Buf[pos - 3]);
-            StartCodeFound = (info2 == 1 || info3 == 1);
-        } else {
-            StartCodeFound = FindAmlStartCode(&Buf[pos-prefix_len]);
-        }
-    }
-
-    // Here, we have found another start code (and read length of startcode bytes more than we should
-    // have.  Hence, go back in the file
-    if (prefix_len == 4)
-        rewind = (info3 == 1) ? -4 : -3;
-    else
-        rewind = -prefix_len;
-
-    if (0 != fseek (fe, rewind, SEEK_CUR))
-    {
-        free(Buf);
-        printf("GetAnnexbNALU: Cannot fseek in the bit stream file");
-    }
-
-    // Here the Start code, the complete NALU, and the next start code is in the Buf.
-    // The size of Buf is pos, pos+rewind are the number of bytes excluding the next
-    // start code, and (pos+rewind)-startcodeprefix_len is the size of the NALU excluding the start code
-fill_data:
-    nalu->len = (pos + rewind);
-    if (nalu->len > MAX_SIZE) {
-        printf("%d: Error: to many data to copy %d\n", __LINE__, nalu->len);
-        exit(0);
-    }
-    memcpy (nalu->buf, &Buf[0], nalu->len);//copy nalu, include 0x000001 or 0x00000001
-    if (format == VFORMAT_VP9 || format == VFORMAT_AV1) {
-        unsigned char* p = &nalu->buf[nalu->startcodeprefix_len];
-        while ((*p++)&0x80) {
-
-        }
-        nalu->nal_reference_idc = 0;
-        nalu->forbidden_bit = *p & 0x80;
-        nalu->nal_unit_type = (*p>>3)&0xf;
-    } else {
-        nalu->forbidden_bit = nalu->buf[nalu->startcodeprefix_len] & 0x80; //1 bit
-        nalu->nal_reference_idc = nalu->buf[nalu->startcodeprefix_len] & 0x60; // 2 bit
-        //nalu->nal_unit_type = (nalu->buf[0]) & 0x1f;// 5 bit
-        nalu->nal_unit_type = (nalu->buf[nalu->startcodeprefix_len]);
-    }
-    free(Buf);
-
-    return (pos + rewind);
-}
-
-static void dump(NALU_t *n)
-{
-    if (!n)return;
-    /*
-       printf("a new nal:");
-
-       printf(" len: %d  ", n->len);
-       printf("nal_unit_type: %x\n", n->nal_unit_type);
-       */
-
-}
-
-#define BUFFER_SIZE (1024*1024*2)
-
-int av1_frame_mode_write_dat(FILE *fp, vcodec_para_t *vpcodec, char *buffer)
-{
-    NALU_t *n = AllocNALU(MAX_SIZE);
-    int buf_pos = 0;
-
-
-    //unsigned char pic_head_found = 0;
-    while (!feof(fp))
-    {
-        GetAnnexbNALU(fp, n, vpcodec->video_type);
-        dump(n);
-        if ((buf_pos + n->len) > BUFFER_SIZE) {
-            printf("%d: Error: to many data to copy %d\n", __LINE__, buf_pos + n->len);
-            exit(0);
-        }
-        memcpy(&buffer[buf_pos], n->buf, n->len);
-        buf_pos += n->len;
-        if (is_picture_start(vpcodec->video_type, n->nal_unit_type)) {
-            break;
-        }
-    }
-
-    while (!feof(fp))
-    {
-        GetAnnexbNALU(fp, n, vpcodec->video_type);
-        if (is_picture_end(vpcodec->video_type, n->nal_unit_type)) {
-            //printf("Send Data Size =%d\n", buf_pos);
-#ifndef TEST_ON_PC
-            /*
-               int delay_time = 0;
-               if (delay_time > 0)
-               delay(delay_time);
-               */
-            if (send_buffer_to_device(buffer, buf_pos) < 0)
-                goto error_ret;
-#endif
-            buf_pos = 0;
-        }
-
-        if ((buf_pos + n->len) > BUFFER_SIZE) {
-            printf("%d: Error: to many data to copy %d\n", __LINE__, buf_pos + n->len);
-            goto error_ret;
-        }
-
-        memcpy(&buffer[buf_pos], n->buf, n->len);
-        buf_pos += n->len;
-        dump(n);
-    }
-error_ret:
-    free(n);
-    return 0;
-}
-
-enum {
-    ESPLAYER,
-    ES_FILE_NAME,
-    ES_WIDTH,
-    ES_HEGIHT,
-    ES_FPS,
-    ES_MODE,    /*single, stream, frame*/
-    ES_FORMAT,
-    ES_SUB_FORMAT,
-    ES_MAX_OPT,
-} OPT_ARGS_INDEX;
-
-int set_cmd(const char *str, const char *path)
-{
-    int fd;
-    fd = open(path, O_CREAT | O_RDWR | O_TRUNC, 0644);
-    if (fd >= 0) {
-        write(fd, str, strlen(str));
-        close(fd);
-        printf("[success]: %s > %s\n", str, path);
-        return 0;
-    }
-    printf("[failed]: %s > %s\n", str, path);
-    return -1;
-}
-
-
 int ivf_write_dat_with_size(uint8_t *src_buffer,unsigned int size)
 {
     int frame_count = 0;
@@ -1211,15 +758,14 @@ int ivf_write_dat_with_size(uint8_t *src_buffer,unsigned int size)
     process_count = *p_size;
     printf("frame number = %d\n", process_count);
     while (frame_count < process_count) {
-    memcpy(buffer, src_buffer, 12);
-    src_buffer += 12;
-
+        memcpy(buffer, src_buffer, 12);
+        src_buffer += 12;
         p_size = (unsigned int *)buffer;
         src_frame_size = *p_size;
         printf("frame %d, size %d\n", frame_count, src_frame_size);
 
-    memcpy(buffer, src_buffer, src_frame_size);
-    src_buffer += src_frame_size;
+        memcpy(buffer, src_buffer, src_frame_size);
+        src_buffer += src_frame_size;
 
         dst_buffer = calloc(1, src_frame_size + 4096);
         if (!dst_buffer) {
@@ -1248,6 +794,9 @@ int ivf_write_dat_with_size(uint8_t *src_buffer,unsigned int size)
     free(meta_buffer);
     return 0;
 }
+
+
+/****************** end of ivf parer *************/
 
 
 void get_vdec_id()
@@ -1295,7 +844,7 @@ static int slt_test_set(int tcase, int enable)
         } else if (tcase == TEST_CASE_HEVC_VP9) {
             set_cmd("2000", "/sys/module/amvdec_vp9/parameters/start_decode_buf_level");
             set_cmd("0x80000001", "/sys/module/amvdec_vp9/parameters/double_write_mode");
-        }  else if (tcase == TEST_CASE_HEVC_AV1) {
+        } else if (tcase == TEST_CASE_HEVC_AV1) {
             set_cmd("0x80000001", "/sys/module/amvdec_av1/parameters/double_write_mode");
         }
     } else {
@@ -1314,7 +863,6 @@ static int slt_test_set(int tcase, int enable)
         (enable == 0)?"end":"start");
     return 0;
 }
-
 
 static int do_video_decoder(int tcase)
 {
@@ -1341,11 +889,11 @@ static int do_video_decoder(int tcase)
             .param = (void *)(EXTERNAL_PTS | SYNC_OUTSIDE),
         },
         [3] = {
-                .format = VIDEO_DEC_FORMAT_AV1,
-                .width = 426,
-                .height = 240,
-                .rate = 96000/30,
-                .param = (void *)(EXTERNAL_PTS | SYNC_OUTSIDE),
+            .format = VIDEO_DEC_FORMAT_AV1,
+            .width = 426,
+            .height = 240,
+            .rate = 96000/30,
+            .param = (void *)(EXTERNAL_PTS | SYNC_OUTSIDE),
         }
     };
     int ret = CODEC_ERROR_NONE;
@@ -1411,7 +959,7 @@ static int do_video_decoder(int tcase)
         rest_size = sizeof(vp9_stream);
         vcodec_set_frame_cmp_crc(vpcodec, vp9_crc,
             sizeof(vp9_crc)/(sizeof(int)*2), id);
-    }  else if (tcase == TEST_CASE_HEVC_AV1) {
+    } else if (tcase == TEST_CASE_HEVC_AV1) {
         /*
         video:
         Animation_1c9d_240p.ivf
@@ -1502,19 +1050,26 @@ tst_error_0:
     return ((ret < 0)?ret:-1);
 }
 
-static void do_dec_slt(int tcase)
+int main(int argc, char *argv[])
 {
-    int retry = 0;
+    int tcase = TEST_CASE_HEVC;
     int ret = 0;
-    static char* const name_table[] =
-        {
-            "hevc core:h265",
-            "vdec core:h264",
-            "hevc core:vp9",
-            "hevc core:av1"
-        };
+    int retry = 0;
 
-    name = name_table[tcase];
+    name = "hevc core:h265";
+    if (argc > 1) {
+        ret = atoi(argv[1]);
+        if (ret == 1) {
+            tcase = TEST_CASE_VDEC;
+            name = "vdec core:h264";
+        } else if (ret == 2) {
+            tcase = TEST_CASE_HEVC_VP9;
+            name = "hevc core:vp9";
+        } else if (ret == 3) {
+            tcase = TEST_CASE_HEVC_AV1;
+            name = "hevc core:av1";
+        }
+    }
     printf("Decoder SLT Test [%s]\n",name);
 
     /* set cmd for test */
@@ -1544,278 +1099,7 @@ static void do_dec_slt(int tcase)
 
     printf("\n\n{\"result\": %s, \"item\": %s}\n\n\n",
         ret?"false":"true", name);
-}
 
-static void print_help()
-{
-    printf("Command help:\n");
-    printf("1. To play a video: esplayer <filename> <width> <height> <fps> <mode> <format>\n");
-    printf("<mode> : (No stream mode will be forced to single mode)\n");
-    printf("\t0   --single mode\n");
-    printf("\t1   --stream mode\n");
-    printf("\t2   --frame mode(av1)\n");
-    printf("<format> : subformat for mpeg4/vc1\n");
-    printf("\t0   --mpeg12\n");
-    printf("\t1   --mpeg4\n");
-    printf("\t2   --h264\n");
-    printf("\t3   --mjpeg\n");
-    printf("\t4   --real\n");
-    printf("\t6   --vc1\n");
-    printf("\t7   --avs\n");
-    printf("\t11  --h265\n");
-    printf("\t14  --vp9\n");
-    printf("\t15  --avs2\n");
-    printf("\t16  --av1\n");
-    printf("\t21  --h265_10bit\n");
-    printf("\t24  --vp9_10bit\n");
-    printf("\t25  --avs2_10bit\n");
-    printf("2. SLT Test (Currently only supported in these formats: H265, H264, VP9, AV1): esplayer <format>\n");
-    printf("<format> : (h264/h265/vp9/av1)\n");
-    printf("example : esplayer h264 //for h264 slt test\n");
-}
-
-static int parse_arg2(const char* arg2)
-{
-    char c;
-
-    if (arg2 == NULL) {
-        return -1;
-    }
-    c = arg2[0];
-    if (c == 'h') {
-        c = arg2[1];
-        if (c != '2') {
-            return -1;
-        }
-        c = arg2[2];
-        if (c != '6') {
-            return -1;
-        }
-        c = arg2[3];
-        if (c == '4') {
-            return 1;
-        } else if (c == '5') {
-            return 0;
-        }
-        return -1;
-    } else if (c == 'v') {
-        c = arg2[1];
-        if (c != 'p') {
-            return -1;
-        }
-        c = arg2[2];
-        if (c != '9') {
-            return -1;
-        }
-        return 2;
-    } else if (c == 'a') {
-        c = arg2[1];
-        if (c != 'v') {
-            return -1;
-        }
-        c = arg2[2];
-        if (c != '1') {
-            return -1;
-        }
-        return 3;
-    }
-    return -1;
-}
-
-int main(int argc, char *argv[])
-{
-    char *buffer = NULL;
-
-    int ret = CODEC_ERROR_NONE;
-    //char buffer[READ_SIZE];
-
-    uint32_t Readlen;
-    uint32_t isize;
-    struct buf_status vbuf;
-    int end;
-    int cnt = 0;
-    uint32_t last_rp = 1;
-
-    if (argc < 2) {
-        print_help();
-        return -1;
-    } else if (argc == 2) {
-        int tcase = parse_arg2(argv[1]);
-        if (tcase < 0) {
-            print_help();
-            return -1;
-        }
-        do_dec_slt(tcase);
-        return 0;
-    } else if (argc < 7) {
-        print_help();
-        return -1;
-    }
-
-    osd_blank("/sys/class/graphics/fb0/osd_display_debug", 1);
-    osd_blank("/sys/class/graphics/fb0/blank", 1);
-    osd_blank("/sys/class/video/disable_video", 2);
-    osd_blank("/sys/class/video/video_global_output", 1);
-    set_display_axis(0);
-
-    buffer = malloc(BUFFER_SIZE);
-    if (NULL == buffer) {
-        printf("malloc write buffer fail\n");
-        return -1;
-    }
-    memset(buffer, 0, BUFFER_SIZE);
-
-    vpcodec = &v_codec_para;
-    memset(vpcodec, 0, sizeof(vcodec_para_t));
-    vpcodec->has_video = 1;
-    vpcodec->has_audio = 0;
-    vpcodec->noblock = 0;
-
-    vpcodec->mode = atoi(argv[ES_MODE]);
-    vpcodec->video_type = atoi(argv[ES_FORMAT]);
-    if ((vpcodec->mode == FRAME_MODE) &&
-        (vpcodec->video_type != VFORMAT_AV1)) {
-        vpcodec->mode = STREAM_MODE;
-    }
-    printf("play with mode %s\n", (vpcodec->mode != 0)?
-            ((vpcodec->mode == 1)?"STREAM_MODE":"FRAME_MODE"):"SINGLE_MODE");
-
-    if (vpcodec->video_type == VFORMAT_H264) {
-        vpcodec->am_sysinfo.format = VIDEO_DEC_FORMAT_H264;
-        vpcodec->am_sysinfo.param = (void *)(EXTERNAL_PTS | SYNC_OUTSIDE);
-    } else if (vpcodec->video_type == VFORMAT_VC1) {
-        if (argc < ES_MAX_OPT) {
-            printf("No subformat for vc1, take the default VIDEO_DEC_FORMAT_WVC1\n");
-            vpcodec->am_sysinfo.format = VIDEO_DEC_FORMAT_WVC1;
-        } else {
-            vpcodec->am_sysinfo.format = atoi(argv[ES_SUB_FORMAT]);
-        }
-    } else if (vpcodec->video_type == VFORMAT_MPEG4) {
-        if (argc < ES_MAX_OPT) {
-            printf("No subformat for mpeg4, take the default VIDEO_DEC_FORMAT_MPEG4_5\n");
-            vpcodec->am_sysinfo.format = VIDEO_DEC_FORMAT_MPEG4_5;
-        } else {
-            vpcodec->am_sysinfo.format = atoi(argv[ES_SUB_FORMAT]);
-        }
-    }
-
-    vpcodec->stream_type = STREAM_TYPE_ES_VIDEO;
-    vpcodec->am_sysinfo.rate =
-        96000 / atoi(argv[ES_FPS]);
-    vpcodec->am_sysinfo.height =
-        atoi(argv[ES_HEGIHT]);
-    vpcodec->am_sysinfo.width =
-        atoi(argv[ES_WIDTH]);
-
-    printf("\n*********CODEC PLAYER DEMO************\n\n");
-
-    filename = argv[ES_FILE_NAME];
-    printf("file %s to be played\n", filename);
-
-    if ((fp = fopen(filename, "rb")) == NULL) {
-        printf("open file error!\n");
-        goto osd_restore;
-    }
-
-    ret = vcodec_init(vpcodec);
-    if (ret != CODEC_ERROR_NONE) {
-        fclose(fp);
-        printf("codec init failed, ret=-0x%x", -ret);
-        goto osd_restore;
-    }
-    printf("video codec ok!\n");
-
-    set_tsync_enable(0);
-
-    pcodec = vpcodec;
-    end = 0;
-
-    if (is_video_file_type_ivf(fp, vpcodec->video_type, buffer)) {
-        printf("input video file is ivf with av1.\n");
-        ivf_write_dat(fp, (uint8_t *)buffer);
-    } else if (vpcodec->mode == FRAME_MODE) {
-        av1_frame_mode_write_dat(fp, vpcodec, buffer);
-    } else {
-        while (1) {
-            if (!end) {
-                Readlen = fread(buffer, 1, READ_SIZE, fp);
-                //printf("Readlen %d\n", Readlen);
-                if (Readlen <= 0) {
-                    printf("read file error!\n");
-                    rewind(fp);
-                }
-            } else
-                Readlen = 0;
-
-            isize = 0;
-            if (end) {
-                memset(buffer, 0 ,READ_SIZE);
-                Readlen = READ_SIZE - 10;
-            }
-            cnt = 0;
-            do {
-                ret = vcodec_write(pcodec, buffer + isize, Readlen-isize);
-                if (ret <= 0) {
-                    if (errno != EAGAIN) {
-                        printf("write data failed, errno %d\n", errno);
-                        goto error;
-                    } else {
-                        usleep(10);
-                        if (++cnt > 2000000) {
-                            end = 1;
-                            break;
-                        }
-                        continue;
-                    }
-                } else {
-                    isize += ret;
-                    cnt = 0;
-                }
-                //printf("ret %d, isize %d\n", ret, isize);
-            } while (isize < Readlen);
-            if (end)
-                break;
-            if (feof(fp))
-                end = 1;
-
-            signal(SIGCHLD, SIG_IGN);
-            signal(SIGTSTP, SIG_IGN);
-            signal(SIGTTOU, SIG_IGN);
-            signal(SIGTTIN, SIG_IGN);
-            signal(SIGHUP, signal_handler);
-            signal(SIGTERM, signal_handler);
-            signal(SIGSEGV, signal_handler);
-            signal(SIGINT, signal_handler);
-            signal(SIGQUIT, signal_handler);
-        }
-    }
-
-    cnt = 0;
-    do {
-        ret = vcodec_get_vbuf_state(pcodec, &vbuf);
-        if (ret != 0) {
-            printf("vcodec_get_vbuf_state error: %x\n", -ret);
-            goto error;
-        }
-        if (last_rp != vbuf.read_pointer)
-            cnt = 0;
-        last_rp = vbuf.read_pointer;
-        usleep(10000);
-#ifndef DEBUG_WITH_BLOCK
-        if (++cnt > 500)
-            break;
-#endif
-    } while (vbuf.data_len > 0x100);
-
-    printf("play end\n");
-error:
-    vcodec_close(vpcodec);
-    fclose(fp);
-osd_restore:
-    set_display_axis(1);
-    osd_blank("/sys/class/graphics/fb0/blank", 0);
-    osd_blank("/sys/class/graphics/fb0/osd_display_debug", 0);
-    free(buffer);
     return 0;
 }
 
