@@ -380,6 +380,8 @@ static void dts_decoder_config_prepare(struct audio_stream_out *stream, aml_dca_
     } else {
         dts_config->is_iec61937 = false;
     }
+
+    dts_config->dev = (void *)adev;
     ALOGI("%s digital_raw:%d, dual_output_flag:%d, is_iec61937:%d, is_dtscd:%d"
         , __func__, dts_config->digital_raw, aml_out->dual_output_flag, dts_config->is_iec61937, dts_config->is_dtscd);
     return;
