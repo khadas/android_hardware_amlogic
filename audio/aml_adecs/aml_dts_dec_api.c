@@ -74,6 +74,8 @@
 #define AML_DCA_DUMP_FILE_DIR                       "/data/vendor/audiohal/"
 
 
+#define DCA_CHECK_NULL_STR(x)     (NULL == x ? #x : "")
+
 enum
 {
     EXITING_STATUS = -1001,
@@ -358,26 +360,19 @@ static int _dts_frame_scan(struct dca_dts_dec *dts_dec)
 
 static int _dts_pcm_output(struct dca_dts_dec *dts_dec)
 {
-    int ret = 0;
     aml_dec_t *aml_dec = (aml_dec_t *)dts_dec;
     dec_data_info_t *dec_pcm_data = &aml_dec->dec_pcm_data;
     int channel_num = dts_dec->pcm_out_info.channel_num;
-    /* audio_VX_post_process  need to at common post_process of output */
-#if 0
-    struct aml_audio_device *adev = (struct aml_audio_device *)(aml_dec->dev);
-    struct aml_native_postprocess *VX_postprocess = &adev->native_postprocess;
 
+    /* VX(VirtualX) uses 2CH as input by default.
+     * When the output changes from stereo to multi-ch,
+     * VX needs at least one frame of decoded information to configure the number of channel correctly.
+     * So mute to the first frame to avoid abnormal sound caused by wrong configuration.
+     */
     if (channel_num > 2 && aml_dec->frame_cnt == 0) {
         ALOGI("mute the first frame");
         memset(dec_pcm_data->buf, 0, dts_dec->outlen_pcm);
     }
-
-    ret = audio_VX_post_process(VX_postprocess, (int16_t *)dec_pcm_data->buf, dts_dec->outlen_pcm);
-    if (ret > 0) {
-        dts_dec->outlen_pcm = ret;
-        channel_num /= 3;
-    }
-#endif
 
     if (dts_debug.fp_pcm) {
         fwrite(dec_pcm_data->buf, 1, dts_dec->outlen_pcm, dts_debug.fp_pcm);
@@ -741,16 +736,32 @@ int dca_decoder_release_patch(aml_dec_t *aml_dec)
 
 int dca_decoder_process_patch(aml_dec_t *aml_dec, unsigned char *buffer, int bytes)
 {
-    struct dca_dts_dec *dts_dec = (struct dca_dts_dec *)aml_dec;
-    struct aml_audio_device *adev = (struct aml_audio_device *)(aml_dec->dev);
-    struct ring_buffer *input_rbuffer = &dts_dec->input_ring_buf;
-    dec_data_info_t *dec_pcm_data = &aml_dec->dec_pcm_data;
-    dec_data_info_t *dec_raw_data = &aml_dec->dec_raw_data;
+    struct dca_dts_dec *dts_dec = NULL;
+    struct aml_audio_device *adev = NULL;
+    struct ring_buffer *input_rbuffer = NULL;
+    dec_data_info_t *dec_pcm_data = NULL;
+    dec_data_info_t *dec_raw_data = NULL;
     int frame_size = 0;
     int used_size = 0;
+
+    if (!aml_dec || !buffer) {
+        ALOGE("[%s:%d] Invalid parameter: %s %s", __func__, __LINE__, DCA_CHECK_NULL_STR(aml_dec), DCA_CHECK_NULL_STR(buffer));
+        return AML_DEC_RETURN_TYPE_FAIL;
+    }
+
+    dts_dec = (struct dca_dts_dec *)aml_dec;
+    input_rbuffer = &dts_dec->input_ring_buf;
+    dec_pcm_data = &aml_dec->dec_pcm_data;
+    dec_raw_data = &aml_dec->dec_raw_data;
     dts_dec->outlen_pcm = 0;
     dts_dec->stream_type = TYPE_DTS;
     dts_dec->is_headphone_x = false;
+
+    adev = (struct aml_audio_device *)(aml_dec->dev);
+    if (!adev) {
+        ALOGE("[%s:%d] Invalid parameter %s", __func__, __LINE__, DCA_CHECK_NULL_STR(adev));
+        return AML_DEC_RETURN_TYPE_FAIL;
+    }
 
     if (bytes > 0) {
         if (dts_debug.fp_input_raw) {
