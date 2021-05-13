@@ -47,6 +47,7 @@
 // ports
 #define CODEC_VIDEO_ES_DEVICE		"/dev/amstream_vbuf"
 #define CODEC_VIDEO_ES_DEVICE_SCHED	"/dev/amstream_vbuf_sched"
+#define CODEC_VIDEO_ES_HEVC_DEVICE_SCHED	"/dev/amstream_hevc_sched"
 #define CODEC_TS_DEVICE			"/dev/amstream_mpts"
 #define CODEC_PS_DEVICE			"/dev/amstream_mpps"
 #define CODEC_RM_DEVICE			"/dev/amstream_rm"
@@ -54,6 +55,9 @@
 #define CODEC_VIDEO_DVAVC_DEVICE	"/dev/amstream_dves_avc"
 #define CODEC_VIDEO_DVHEVC_DEVICE	"/dev/amstream_dves_hevc"
 #define CODEC_CNTL_DEVICE		"/dev/amvideo"
+#define CODEC_VIDEO_FRAME_DEVICE "/dev/amstream_vframe"
+#define CODEC_HEVC_FRAME_DEVICE "/dev/amstream_hevc_frame"
+/*#define CODEC_VIDEO_DVAV1_DEVICE	"/dev/amstream_dves_av1"*/
 
 // ioctl
 #define AMSTREAM_IOC_MAGIC  'S'
@@ -66,9 +70,12 @@
 #define AMSTREAM_IOC_VPAUSE	_IOW((AMSTREAM_IOC_MAGIC), 0x17, int)
 #define AMSTREAM_IOC_SET_DRMMODE _IOW((AMSTREAM_IOC_MAGIC), 0x91, int)
 #define AMSTREAM_IOC_GET_VERSION _IOR((AMSTREAM_IOC_MAGIC), 0xc0, int)
-#define AMSTREAM_IOC_GET	_IOW((AMSTREAM_IOC_MAGIC), 0xc1, struct am_ioctl_parm)
+#define AMSTREAM_IOC_GET	_IOWR((AMSTREAM_IOC_MAGIC), 0xc1, struct am_ioctl_parm)
 #define AMSTREAM_IOC_SET	_IOW((AMSTREAM_IOC_MAGIC), 0xc2, struct am_ioctl_parm)
-#define AMSTREAM_IOC_GET_EX	_IOW((AMSTREAM_IOC_MAGIC), 0xc3, struct am_ioctl_parm_ex)
+#define AMSTREAM_IOC_GET_EX	_IOWR((AMSTREAM_IOC_MAGIC), 0xc3, struct am_ioctl_parm_ex)
+
+#define AMSTREAM_IOC_SET_CRC _IOW((AMSTREAM_IOC_MAGIC), 0xc9, struct usr_crc_info_t)
+#define AMSTREAM_IOC_GET_CRC_CMP_RESULT _IOWR((AMSTREAM_IOC_MAGIC), 0xca, int)
 
 // cmds
 #define AMSTREAM_SET_VB_SIZE		0x102
@@ -573,16 +580,18 @@ int vcodec_get_vbuf_state(vcodec_para_t *p, struct buf_status *buf)
 * @brief  vcodec_video_es_init  Initialize the codec device for es video
 *
 * @param[in]  pcodec  Pointer of codec parameter structure
+*             sched   Chose single mode device or stream mode device
 *
 * @return     Success or fail error type
 */
 /* --------------------------------------------------------------------------*/
-static inline int vcodec_video_es_init(vcodec_para_t *pcodec)
+static inline int vcodec_video_es_init(vcodec_para_t *pcodec, int sched)
 {
     int handle;
     int r;
     int codec_r;
     int flags = O_WRONLY;
+    char *amstream_dev = CODEC_VIDEO_ES_DEVICE;
 
     if (!pcodec->has_video) {
         return CODEC_ERROR_NONE;
@@ -590,19 +599,38 @@ static inline int vcodec_video_es_init(vcodec_para_t *pcodec)
 
     flags |= pcodec->noblock ? O_NONBLOCK : 0;
 
-    if (pcodec->video_type == VFORMAT_HEVC || pcodec->video_type == VFORMAT_VP9 ||
-        pcodec->video_type == VFORMAT_AVS2) {
-        if (pcodec->dv_enable && pcodec->video_type == VFORMAT_HEVC)
-            handle = vcodec_h_open(CODEC_VIDEO_DVHEVC_DEVICE, flags);
+    if (pcodec->video_type == VFORMAT_AV1) {
+        if (sched == FRAME_MODE)
+            amstream_dev = CODEC_HEVC_FRAME_DEVICE;	//av1 hevc frame mode
         else
-            handle = vcodec_h_open(CODEC_VIDEO_HEVC_DEVICE, flags);
+            amstream_dev = CODEC_VIDEO_HEVC_DEVICE;
+    } else if (pcodec->video_type == VFORMAT_HEVC ||
+               pcodec->video_type == VFORMAT_VP9 ||
+               pcodec->video_type == VFORMAT_AVS2) {
+        if (sched != SINGLE_MODE)
+            amstream_dev = CODEC_VIDEO_ES_HEVC_DEVICE_SCHED;
+        else
+            amstream_dev = CODEC_VIDEO_HEVC_DEVICE;
+
+        if ((pcodec->dv_enable) && (pcodec->video_type == VFORMAT_HEVC))
+                amstream_dev = CODEC_VIDEO_DVHEVC_DEVICE;
     } else {
+        if ((pcodec->video_type == VFORMAT_H264) ||
+            (pcodec->video_type == VFORMAT_MPEG12) ||
+            (pcodec->video_type == VFORMAT_MPEG4) ||
+            (pcodec->video_type == VFORMAT_MJPEG)) {
+            if (sched != SINGLE_MODE)
+                amstream_dev = CODEC_VIDEO_ES_DEVICE_SCHED;
+            else
+                amstream_dev = CODEC_VIDEO_ES_DEVICE;
+        } else
+            amstream_dev = CODEC_VIDEO_ES_DEVICE;
+
         if (pcodec->video_type == VFORMAT_H264 && pcodec->dv_enable)
-            handle = vcodec_h_open(CODEC_VIDEO_DVAVC_DEVICE, flags);
-        else
-            //handle = vcodec_h_open(CODEC_VIDEO_ES_DEVICE, flags);
-            handle = vcodec_h_open(CODEC_VIDEO_ES_DEVICE_SCHED, flags);
+            amstream_dev = CODEC_VIDEO_DVAVC_DEVICE;
     }
+    printf("vcodec open device %s \n", amstream_dev);
+    handle = vcodec_h_open(amstream_dev, flags);
     if (handle < 0) {
         return CODEC_OPEN_HANDLE_FAILED;
     }
@@ -652,7 +680,7 @@ int vcodec_init(vcodec_para_t *pcodec)
 
     switch (pcodec->stream_type) {
     case STREAM_TYPE_ES_VIDEO:
-        ret = vcodec_video_es_init(pcodec);
+        ret = vcodec_video_es_init(pcodec, pcodec->mode);
         break;
 
     case STREAM_TYPE_UNKNOW:
@@ -840,5 +868,91 @@ int vcodec_close_cntl(vcodec_para_t *pcodec)
         }
     }
     return res;
+}
+
+/* --------------------------------------------------------------------------*/
+/**
+* @brief  vcodec_set_frame_cmp_crc  write every frame crc for compare;
+*
+* @param[in]  pcodec Pointer of codec parameter structure, crc poll pointer and size
+*
+* @return     Success or fail error
+*/
+/* --------------------------------------------------------------------------*/
+int vcodec_set_frame_cmp_crc(vcodec_para_t *vcodec, const int *crc, int size, int id)
+{
+    int ret = -1;
+    struct usr_crc_info_t crc_info;
+    int i;
+
+    if (vcodec == NULL)
+        return -1;
+
+    for (i = 0; i < size; i++) {
+        crc_info.id = id;    /* only for one instance */
+        crc_info.pic_num = i;
+        crc_info.y_crc = crc[i * 2];
+        crc_info.uv_crc = crc[i * 2 + 1];
+        ret = vcodec_h_control(vcodec->handle,
+            AMSTREAM_IOC_SET_CRC, (unsigned long)&crc_info);
+        if (ret < 0) {
+            printf("set frame compare crc32 value failed, i = %d\n", i);
+            return -1;
+        }
+    }
+
+    return 0;
+}
+
+/* --------------------------------------------------------------------------*/
+/**
+* @brief  vcodec_get_crc_check_result  get all crc cmp result
+*
+* @param[in]  pcodec  Pointer of codec parameter structure, Vdec ID
+*
+* @return     Success or fail error type, cmp result.
+*/
+/* --------------------------------------------------------------------------*/
+int vcodec_get_crc_check_result(vcodec_para_t *vcodec, int vdec_id)
+{
+    int ret, result = 0x00ff;
+
+    if (vcodec == NULL)
+        return -1;
+
+    result &= vdec_id; /*set the vdec id */
+    ret = vcodec_h_control(vcodec->handle,
+            AMSTREAM_IOC_GET_CRC_CMP_RESULT, (unsigned long)&result);
+    //printf("get result ret = %d, result = %d\n", ret, result);
+    if (ret < 0)
+        return ret;
+
+    return result;
+}
+
+/* --------------------------------------------------------------------------*/
+/**
+* @brief  is_dec_cmp_ongoing  require decoding and compare crc num;
+*
+* @param[in]  pcodec  Pointer of codec parameter structure, Vdec ID.
+*
+* @return     Fail error type, or rest compare frame num;
+*/
+/* --------------------------------------------------------------------------*/
+int is_crc_cmp_ongoing(vcodec_para_t *vcodec, int vdec_id)
+{
+    int ret = 0;
+    int rest_num = 0xff00;
+
+    if (vcodec == NULL)
+        return -1;
+
+    rest_num |= vdec_id;
+    ret = vcodec_h_control(vcodec->handle,
+            AMSTREAM_IOC_GET_CRC_CMP_RESULT, (unsigned long)&rest_num);
+    if (ret < 0)
+        return ret;
+
+    return rest_num;
 }
 

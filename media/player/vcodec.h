@@ -1,6 +1,19 @@
+/*
+ * Copyright (c) 2014 Amlogic, Inc. All rights reserved.
+ *
+ * This source code is subject to the terms and conditions defined in the
+ * file 'LICENSE' which is part of this source code package.
+ *
+ * Description:
+ */
+
 #ifndef CODEC_H_
 #define CODEC_H_
 
+
+#define SINGLE_MODE 0
+#define STREAM_MODE 1
+#define FRAME_MODE 2
 // video fromat
 #define VFORMAT_UNKNOWN		(-1)
 #define VFORMAT_MPEG12		(0)
@@ -19,6 +32,7 @@
 #define VFORMAT_JPEG_ENC	(13)
 #define VFORMAT_VP9		(14)
 #define VFORMAT_AVS2		(15)
+#define VFORMAT_AV1		(16)
 #define VFORMAT_MAX		(INT_MAX)
 
 // video type for sysinfo
@@ -40,7 +54,8 @@
 #define VIDEO_DEC_FORMAT_HEVC		(15)
 #define VIDEO_DEC_FORMAT_VP9		(16)
 #define VIDEO_DEC_FORMAT_AVS2		(17)
-#define VIDEO_DEC_FORMAT_MAX		(18)
+#define VIDEO_DEC_FORMAT_AV1           (18)
+#define VIDEO_DEC_FORMAT_MAX		(19)
 
 // err status
 #define C_PAE                               (0x01000000)
@@ -137,6 +152,7 @@ unsigned int dv_enable:
     int associate_dec_supported;//support associate or not
     int mixing_level;
     unsigned int drmmode;
+    int mode;
 } vcodec_para_t;
 
 struct buf_status {
@@ -155,8 +171,15 @@ struct vdec_status {
     unsigned int status;
 };
 
+struct usr_crc_info_t {
+    unsigned int id;
+    unsigned int pic_num;
+    unsigned int y_crc;
+    unsigned int uv_crc;
+};
+
 // codec api
-int vcodec_init(vcodec_para_t *);
+int vcodec_init(vcodec_para_t *pcodec);
 int vcodec_close(vcodec_para_t *);
 int vcodec_reset(vcodec_para_t *);
 int vcodec_init_cntl(vcodec_para_t *);
@@ -166,5 +189,8 @@ int vcodec_read(vcodec_para_t *pcodec, void *buffer, int len);
 int vcodec_pause(vcodec_para_t *);
 int vcodec_resume(vcodec_para_t *);
 int vcodec_get_vbuf_state(vcodec_para_t *p, struct buf_status *buf);
+int vcodec_set_frame_cmp_crc(vcodec_para_t *vcodec, const int *crc, int size, int id);
+int vcodec_get_crc_check_result(vcodec_para_t *vcodec, int vdec_id);
+int is_crc_cmp_ongoing(vcodec_para_t *vcodec, int vdec_id);
 
 #endif //CODEC_H_
