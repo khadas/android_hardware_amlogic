@@ -116,7 +116,7 @@ static unsigned int DEFAULT_OUT_SAMPLING_RATE = 48000;
 #define EAC3_MULTIPLIER     (4) //EAC3 bitstream in IEC61937
 #define HBR_MULTIPLIER      (16) //MAT or DTSHD bitstream in IEC61937
 #define JITTER_DURATION_MS  (3)
-#define FLOAT_ZERO              (0.000001)
+#define FLOAT_ZERO              (0.00002)   /* the APM mute volume is 0.00001, less than 0.00002 we think is mute. */
 #define TV_SPEAKER_OUTPUT_CH_NUM    10
 
 
@@ -554,11 +554,11 @@ struct aml_audio_device {
     /* display audio format on UI, both streaming and hdmiin*/
     audio_hal_info_t audio_hal_info;
     bool is_ms12_tuning_dat; /* a flag to determine the MS12 tuning data file is existing */
-    /* 
+    /*
     defined for default speaker output channels:
     stb: default 2 channels.
     tv:  default 8 channels(2ch speaker,2ch spdif,2ch headphone)
-    soundbar:depending on the prop defined by device 
+    soundbar:depending on the prop defined by device
     */
     int  default_alsa_ch;
     /* -End- */
