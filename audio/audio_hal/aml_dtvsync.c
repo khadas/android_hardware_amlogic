@@ -523,6 +523,12 @@ int aml_dtvsync_ms12_process_insert(void *priv_data, int insert_time_ms,
     memset(patch->out_buf, 0, patch->out_buf_size);
 
     do {
+
+        if (patch->output_thread_exit == 1) {
+                ALOGI("input exit, break now\n");
+                break;
+        }
+
         if (audio_is_linear_pcm(output_format)) {
 
             if (ms12_info->pcm_type == DAP_LPCM) {
