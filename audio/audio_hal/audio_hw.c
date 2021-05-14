@@ -785,12 +785,7 @@ static size_t out_get_buffer_size (const struct audio_stream *stream)
         if (stream->get_format(stream) == AUDIO_FORMAT_IEC61937) {
             size = 4 * PLAYBACK_PERIOD_COUNT * DEFAULT_PLAYBACK_PERIOD_SIZE;
         } else {
-            /*for channel less than 2.1*/
-            if (audio_channel_count_from_out_mask(out->hal_channel_mask ) <= 3) {
-                size = DTSHD_PERIOD_SIZE / 2;
-            } else {
-                size = DTSHD_PERIOD_SIZE * 4;
-            }
+            size = DTSHD_PERIOD_SIZE * 4;
         }
         ALOGI("%s AUDIO_FORMAT_DTS_HD buffer size = %zuframes", __FUNCTION__, size);
         break;
@@ -6963,7 +6958,14 @@ exit:
         if (return_bytes > 0 && total_bytes > (return_bytes + bytes_cost)) {
             bytes_cost += return_bytes;
             //ALOGI("total bytes=%d cost=%d return=%d", total_bytes,bytes_cost,return_bytes);
-            goto hwsync_rewrite;
+
+            /* We need to wait for Google to fix the issue:
+             * Issue: After pause, there will be residual sound in AF, which will cause NTS fail.
+             * Now we need to judge whether the current format is DTS */
+            if (is_dts_format(aml_out->hal_internal_format))
+                return bytes_cost;
+            else
+                goto hwsync_rewrite;
         }
         else if (return_bytes < 0)
             return return_bytes;
