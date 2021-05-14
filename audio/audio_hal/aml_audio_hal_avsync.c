@@ -425,7 +425,7 @@ static void dtv_adjust_output_clock_continue(struct aml_audio_patch * patch, int
     static int last_div = 0;
     int adjust_interval = 0;
     patch->i2s_div_factor = property_get_int32(PROPERTY_AUDIO_TUNING_CLOCK_FACTOR, DEFAULT_TUNING_CLOCK_FACTOR);
-    adjust_interval = property_get_int32("media.audio_hal.adjtime", 1000);
+    adjust_interval = property_get_int32("vendor.media.audio_hal.adjtime", 1000);
     if (last_div != patch->i2s_div_factor) {
         ALOGI("new_div=%d, adjust_interval=%d ms,spdif_format_set=%d\n",
             patch->i2s_div_factor, adjust_interval, patch->spdif_format_set);
