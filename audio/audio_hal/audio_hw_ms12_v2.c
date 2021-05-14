@@ -602,6 +602,21 @@ void set_dolby_ms12_drc_parameters(audio_format_t input_format, int output_confi
     }
 }
 
+static void set_dolby_ms12_dap_init_mode(struct aml_audio_device *adev)
+{
+    struct dolby_ms12_desc *ms12 = &(adev->ms12);
+    int dap_init_mode = 0;
+
+    /* Dolby MS12 V2 uses DAP Tuning file */
+    if (adev->is_ms12_tuning_dat) {
+        dap_init_mode = get_ms12_dap_init_mode(adev->is_TV);
+    }
+    else {
+        dap_init_mode = 0;
+    }
+    dolby_ms12_set_dap2_initialisation_mode(dap_init_mode);
+}
+
 /*
  *@brief get dolby ms12 prepared
  */
@@ -714,7 +729,7 @@ int get_the_dolby_ms12_prepared(
     dolby_ms12_set_system_app_audio_mixing(adev->system_app_mixing_status);
 
     /* set DAP init mode */
-    dolby_ms12_set_dap2_initialisation_mode(get_ms12_dap_init_mode(adev->is_TV));
+    set_dolby_ms12_dap_init_mode(adev);
 
     ms12->dual_bitstream_support = adev->dual_spdif_support;
     if (adev->sink_capability == AUDIO_FORMAT_MAT) {

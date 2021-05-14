@@ -4412,6 +4412,14 @@ static int adev_set_parameters (struct audio_hw_device *dev, const char *kvpairs
             goto exit;
         }
     }
+
+    ret = str_parms_get_str(parms, "bypass_dap", value, sizeof(value));
+    if (ret >= 0) {
+        sscanf(value,"%d %f", &adev->ms12.dap_bypass_enable, &adev->ms12.dap_bypassgain);
+        ALOGD("dap_bypass_enable is %d and dap_bypassgain is %f",adev->ms12.dap_bypass_enable, adev->ms12.dap_bypassgain);
+        goto exit;
+    }
+
 exit:
     str_parms_destroy (parms);
     /* always success to pass VTS */
