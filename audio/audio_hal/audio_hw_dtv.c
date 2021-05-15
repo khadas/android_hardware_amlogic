@@ -399,6 +399,14 @@ int dtv_patch_handle_event(struct audio_hw_device *dev,int cmd, int val) {
                         dtvsync->mediasync = aml_dtvsync_create();
                         if (dtvsync->mediasync == NULL)
                             ALOGI("mediasync create failed\n");
+                        else {
+                            dtvsync->mediasync_id = demux_info->media_sync_id;
+                            ALOGI("path_id:%d,dtvsync media_sync_id=%d\n", path_id, dtvsync->mediasync_id);
+                            aml_dtvsync_setParameter(dtvsync, MEDIASYNC_KEY_ISOMXTUNNELMODE, &audio_sync_mode);
+                            aml_dtvsync_bindinstance(dtvsync, dtvsync->mediasync_id);
+                            ALOGI("normal output version CMD start audio bind syncId:%d\n", dtvsync->mediasync_id);
+                            aml_dtvsync_setParameter(dtvsync, MEDIASYNC_KEY_HASAUDIO, &has_audio);
+                        }
                     }
                     ALOGI("create mediasync:%p\n", dtvsync->mediasync);
                 } else {
@@ -444,12 +452,6 @@ int dtv_patch_handle_event(struct audio_hw_device *dev,int cmd, int val) {
                     patch->dtv_aformat = demux_info->main_fmt;
                     patch->media_sync_id = demux_info->media_sync_id;
                     patch->pid = demux_info->main_pid;
-                    dtvsync->mediasync_id = demux_info->media_sync_id;
-                    ALOGI("path_id:%d,dtvsync media_sync_id=%d\n", path_id, dtvsync->mediasync_id);
-                    aml_dtvsync_setParameter(dtvsync, MEDIASYNC_KEY_ISOMXTUNNELMODE, &audio_sync_mode);
-                    aml_dtvsync_bindinstance(dtvsync, dtvsync->mediasync_id);
-                    ALOGI("normal output version CMD start audio bind syncId:%d\n", dtvsync->mediasync_id);
-                    aml_dtvsync_setParameter(dtvsync, MEDIASYNC_KEY_HASAUDIO, &has_audio);
                     patch->demux_info = demux_info;
                     patch->dtvsync = dtvsync;
                     patch->dtv_has_video = demux_info->has_video;
