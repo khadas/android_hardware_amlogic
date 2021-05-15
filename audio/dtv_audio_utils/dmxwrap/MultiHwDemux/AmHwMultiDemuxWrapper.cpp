@@ -54,10 +54,10 @@ static void getAudioEsData(AmHwMultiDemuxWrapper* mDemuxWrapper, int fid, const 
 (void)user_data;
 
     mEsDataInfo* mEsData = new mEsDataInfo;
-    mEsData->data = (uint8_t*)malloc(len);
     dmx_non_sec_es_header *es_header = (struct dmx_non_sec_es_header *)(data);
-    if (len > sizeof(struct dmx_non_sec_es_header)) {
+    if (len == (es_header->len + sizeof(struct dmx_non_sec_es_header))) {
         const unsigned char *data_es  = data + sizeof(struct dmx_non_sec_es_header);
+        mEsData->data = (uint8_t*)malloc(es_header->len);
         memcpy(mEsData->data, data_es, es_header->len);
         mEsData->size = es_header->len;
         mEsData->pts = es_header->pts;
@@ -65,7 +65,10 @@ static void getAudioEsData(AmHwMultiDemuxWrapper* mDemuxWrapper, int fid, const 
         ALOGV("getAudioEsData %d mEsData->size %d mEsData->pts %lld",len,mEsData->size,mEsData->pts);
         dump_demux_data((void *)data_es, es_header->len, DEMUX_AUDIO_DUMP_PATH);
     } else {
-        ALOGI("error es data len %d",len);
+        ALOGI("error es data len %d es_header->len %d",len, es_header->len);
+        delete mEsData;
+        mEsData = NULL;
+        return;
     }
 
     {
@@ -86,10 +89,10 @@ static void getAudioADEsData(AmHwMultiDemuxWrapper* mDemuxWrapper, int fid, cons
 (void)user_data;
 
     mEsDataInfo* mEsData = new mEsDataInfo;
-    mEsData->data = (uint8_t*)malloc(len);
     dmx_non_sec_es_header *es_header = (struct dmx_non_sec_es_header *)(data);
-    if (len > sizeof(struct dmx_non_sec_es_header)) {
+    if ( len == (es_header->len + sizeof(struct dmx_non_sec_es_header))) {
         const unsigned char *data_es  = data + sizeof(struct dmx_non_sec_es_header);
+        mEsData->data = (uint8_t*)malloc(es_header->len);
         memcpy(mEsData->data, data_es, es_header->len);
         mEsData->size = es_header->len;
         mEsData->pts = es_header->pts;
@@ -97,7 +100,10 @@ static void getAudioADEsData(AmHwMultiDemuxWrapper* mDemuxWrapper, int fid, cons
         ALOGV("getAudioADEsData %d mEsData->size %d mEsData->pts %lld",len,mEsData->size,mEsData->pts);
         dump_demux_data((void *)data_es, es_header->len, DEMUX_AD_AUDIO_DUMP_PATH);
     } else {
-        ALOGI("error es data len %d",len);
+        ALOGI("error es data len %d es_header->len %d",len, es_header->len);
+        delete mEsData;
+        mEsData = NULL;
+        return;
     }
 
     {
