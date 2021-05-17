@@ -77,9 +77,13 @@ ssize_t aml_audio_spdif_output(struct audio_stream_out *stream, void **spdifout_
             return -1;
         }
     }
-    if (aml_dev->tv_mute ||
-        (aml_dev->patch_src == SRC_DTV && aml_dev->start_mute_flag == 1)) {
-        memset(data_info->buf, 0, data_info->data_len);
+
+    if ((aml_dev->patch_src == SRC_DTV && aml_dev->audio_patch) &&
+        (aml_dev->discontinue_mute_flag || aml_dev->start_mute_flag || 
+         aml_dev->tv_mute)) {
+        aml_audio_spdifout_mute(spdifout_handle, true);
+    } else {
+        aml_audio_spdifout_mute(spdifout_handle, false);
     }
     ALOGV("[%s:%d] format =0x%x length =%d", __func__, __LINE__, data_info->data_format, data_info->data_len);
     aml_audio_spdifout_processs(*spdifout_handle, data_info->buf, data_info->data_len);
