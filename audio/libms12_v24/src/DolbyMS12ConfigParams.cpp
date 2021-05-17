@@ -1688,7 +1688,8 @@ char **DolbyMS12ConfigParams::UpdateDolbyMS12RuntimeConfigParams(int *argc, char
         } else if (strcmp(opt, "dmx") == 0) {
             val = atoi(mConfigParams[index]);
             if ((val >= 0) && (val <= 2)) {
-                ALOGI("-c DRCCutStereo: %d", val);
+                ALOGI("-c Downmix Mode: %d", val);
+                /* Fixme: [he-aac] 2 = ARIB is not used on AOSP */
                 mDownmixMode = val;
             }
         } else if (strcmp(opt, "drc") == 0) {
