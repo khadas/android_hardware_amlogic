@@ -80,6 +80,8 @@
 #define FRAME_RECORD_NUM   40
 #define FRAME_SIZE_MARGIN  300
 #define PROPERTY_FILTER_HEAAC "vendor.media.filter.heaac"
+#define PROPERTY_FAAD_DETECT_FORMAT_DISABLE "vendor.media.faad.detect.format.disable"
+
 enum {
     AAC_ERROR_NO_ENOUGH_DATA = -1,
     AAC_ERROR_NEED_RESET_DECODER = -2,
@@ -102,6 +104,7 @@ typedef struct FaadContext {
     int64_t starttime;
     int64_t endtime;
     bool filter_heaac;
+    bool isDetectFormatDisable;//Fixme: default value as false
 } FaadContext;
 
 //typedef int (*findsyncfunc)(unsigned char *buf, int nBytes);
@@ -295,6 +298,8 @@ int audio_dec_init(
     gFaadCxt->init_flag = 0;
     gFaadCxt->header_type = 1; //default adts
     gFaadCxt->filter_heaac = property_get_bool(PROPERTY_FILTER_HEAAC, false);
+    gFaadCxt->isDetectFormatDisable = property_get_bool(PROPERTY_FAAD_DETECT_FORMAT_DISABLE, false);
+    audio_codec_print("got property %s %s\n", PROPERTY_FAAD_DETECT_FORMAT_DISABLE, gFaadCxt->isDetectFormatDisable ? "true": "false");
     return 0;
 }
 static int audio_decoder_init(
@@ -318,24 +323,28 @@ static int audio_decoder_init(
         audio_codec_print(" input/output buffer null or input len is 0 \n");
     }
 retry:
-    //fixed to LATM aac frame header sync to speed up seek speed
-#if  1
-    if (adec_ops->nAudioDecoderType == ACODEC_FMT_AAC_LATM) {
-        islatm = 1;
-        int nSeekNum = AACFindLATMSyncWord((unsigned char *)in_buf, inbuf_size);
-        if (nSeekNum == (inbuf_size - 2)) {
-            audio_codec_print("[%s %d]%d bytes data not found latm sync header \n", __FUNCTION__,__LINE__, nSeekNum);
-        } else {
-            audio_codec_print("[%s %d]latm seek sync header cost %d,total %d,left %d \n", __FUNCTION__,__LINE__, nSeekNum, inbuf_size, inbuf_size - nSeekNum);
-        }
-        inbuf_size = inbuf_size - nSeekNum;
-        if (inbuf_size < (int)(get_frame_size(gFaadCxt) + FRAME_SIZE_MARGIN)/*AAC_INPUTBUF_SIZE/2*/) {
-            audio_codec_print("[%s %d]input size %d at least %d ,need more data \n", __FUNCTION__,__LINE__, inbuf_size, (get_frame_size(gFaadCxt) + FRAME_SIZE_MARGIN));
-            *inbuf_consumed = inlen - inbuf_size;
-            return AAC_ERROR_NO_ENOUGH_DATA;
+    if (gFaadCxt->isDetectFormatDisable == true) {
+        /*
+         *fixed to LATM aac frame header sync to speed up seek speed
+         *set property PROPERTY_FAAD_NOT_DETECT_FORMAT as true
+         */
+        if (adec_ops->nAudioDecoderType == ACODEC_FMT_AAC_LATM) {
+            islatm = 1;
+            int nSeekNum = AACFindLATMSyncWord((unsigned char *)in_buf, inbuf_size);
+            if (nSeekNum == (inbuf_size - 2)) {
+                audio_codec_print("[%s %d]%d bytes data not found latm sync header \n", __FUNCTION__,__LINE__, nSeekNum);
+            } else {
+                audio_codec_print("[%s %d]latm seek sync header cost %d,total %d,left %d \n", __FUNCTION__,__LINE__, nSeekNum, inbuf_size, inbuf_size - nSeekNum);
+            }
+            inbuf_size = inbuf_size - nSeekNum;
+            if (inbuf_size < (int)(get_frame_size(gFaadCxt) + FRAME_SIZE_MARGIN)/*AAC_INPUTBUF_SIZE/2*/) {
+                audio_codec_print("[%s %d]input size %d at least %d ,need more data \n", __FUNCTION__,__LINE__, inbuf_size, (get_frame_size(gFaadCxt) + FRAME_SIZE_MARGIN));
+                *inbuf_consumed = inlen - inbuf_size;
+                return AAC_ERROR_NO_ENOUGH_DATA;
+            }
         }
     }
-#endif
+
     gFaadCxt->hDecoder = NeAACDecOpen();
     config = NeAACDecGetCurrentConfiguration(gFaadCxt->hDecoder);
     config->defObjectType = LC;
