@@ -2896,6 +2896,11 @@ exit_open:
     if (get_video_delay() != 0) {
         set_video_delay(0);
     }
+
+    if (patch->dtvsync) {
+        ALOGI("reset_dtvsync (mediasync:%p)", patch->dtvsync->mediasync);
+        aml_dtvsync_reset(patch->dtvsync);
+    }
     ALOGI("--%s ", __FUNCTION__);
     return ((void *)0);
 }
