@@ -22,6 +22,9 @@
 static int check_dts_config(struct aml_native_postprocess *native_postprocess) {
     int cur_channels = dca_get_out_ch_internal();
 
+    if (native_postprocess->vx_force_stereo == 1)
+        cur_channels = 2;
+
     if (cur_channels >= 6) {
         cur_channels = 6;
     } else {

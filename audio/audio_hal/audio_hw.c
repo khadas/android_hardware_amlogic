@@ -4415,6 +4415,20 @@ static int adev_set_parameters (struct audio_hw_device *dev, const char *kvpairs
         goto exit;
     }
 
+    ret = str_parms_get_str(parms, "VX_SET_DTS_Mode", value, sizeof(value));
+    if (ret >= 0) {
+        int dts_decoder_output_mode = atoi(value);
+        if (dts_decoder_output_mode > 6 || dts_decoder_output_mode < 0)
+            goto exit;
+        if (dts_decoder_output_mode == 2)
+            adev->native_postprocess.vx_force_stereo = 1;
+        else
+            adev->native_postprocess.vx_force_stereo = 0;
+        dca_set_out_ch_internal(dts_decoder_output_mode);
+        ALOGD("set dts decoder output mode to %d", dts_decoder_output_mode);
+        goto exit;
+    }
+
 exit:
     str_parms_destroy (parms);
     /* always success to pass VTS */
@@ -8810,7 +8824,7 @@ static int adev_release_audio_patch(struct audio_hw_device *dev,
         /* for no patch case, we need to restore it, especially note the multi-instance audio-patch */
         if (eDolbyMS12Lib == aml_dev->dolby_lib_type && (aml_dev->continuous_audio_mode_default == 1) && !is_dtv_patch_alive(aml_dev))
         {
-            get_dolby_ms12_cleanup(&aml_dev->ms12, false);  
+            get_dolby_ms12_cleanup(&aml_dev->ms12, false);
             aml_dev->continuous_audio_mode = 1;
             ALOGI("%s restore continuous_audio_mode=%d", __func__, aml_dev->continuous_audio_mode);
         }
