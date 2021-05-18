@@ -724,6 +724,7 @@ dtvsync_process_res aml_dtvsync_ms12_process_policy(void *priv_data, aml_ms12_de
         }
     }
 
+    async_policy->audiopolicy = DTVSYNC_AUDIO_UNKNOWN;
     return DTVSYNC_AUDIO_OUTPUT;
 }
 
