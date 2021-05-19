@@ -90,8 +90,6 @@ exit:
     return 0;
 }
 
-
-
 static void alsa_write_rate_control(struct audio_stream_out *stream, size_t bytes  __unused, audio_format_t out_format) {
 
     struct aml_stream_out *aml_out = (struct aml_stream_out *)stream;
@@ -649,7 +647,8 @@ int aml_alsa_output_get_letancy(struct audio_stream_out *stream) {
     return 0;
 }
 
-void aml_close_continuous_audio_device(struct aml_audio_device *adev) {
+void aml_close_continuous_audio_device(struct audio_hw_device *dev) {
+    struct aml_audio_device *adev = (struct aml_audio_device *)dev;
     int pcm_index = 0;
     int spdif_index = 1;
     struct pcm *continuous_pcm_device = adev->pcm_handle[pcm_index];

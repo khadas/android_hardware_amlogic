@@ -14,17 +14,12 @@
  * limitations under the License.
  */
 
-#ifndef _AML_HDMIIN2BT_PROCESS_H_
-#define _AML_HDMIIN2BT_PROCESS_H_
+#ifndef _AML_DEV2MIX_PROCESS_H_
+#define _AML_DEV2MIX_PROCESS_H_
 
-
-
-void processBtAndUsbCardData(struct aml_stream_in *in, audio_format_t format, void *pBuffer, size_t bytes);
-void processHdmiInputFormatChange(struct aml_stream_in *in, struct aml_audio_parser *parser);
-size_t parserRingBufferDataRead(struct aml_audio_parser *parser, void* buffer, size_t bytes);
-int in_reset_config_param(struct aml_stream_in       *in, AML_INPUT_STREAM_CONFIG_TYPE_E enType, const void *pValue);
-
-
+size_t aml_dev2mix_parser_process(struct aml_stream_in *in, unsigned char *buffer, size_t bytes);
+int aml_dev2mix_parser_create(struct audio_hw_device *dev, audio_devices_t input_dev);
+int aml_dev2mix_parser_release(struct aml_audio_device *aml_dev);
 
 #endif
 

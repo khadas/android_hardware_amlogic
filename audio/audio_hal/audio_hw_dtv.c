@@ -55,11 +55,11 @@
 #include "audio_hw_profile.h"
 #include "audio_hw_utils.h"
 #include "dtv_patch_out.h"
-#include "aml_audio_parser.h"
 #include "aml_audio_resampler.h"
 #include "audio_hw_ms12.h"
 #include "dolby_lib_api.h"
 #include "audio_dtv_ad.h"
+#include "alsa_config_parameters.h"
 #include "alsa_device_parser.h"
 #include "aml_audio_hal_avsync.h"
 #include "aml_audio_spdifout.h"
@@ -126,7 +126,7 @@ static void dtv_do_ease_out(struct aml_audio_device *aml_dev)
         start_ease_out(aml_dev);
         if (aml_dev->is_TV)
             usleep(AUDIO_FADEOUT_TV_SLEEP_US);
-        else 
+        else
             usleep(AUDIO_FADEOUT_STB_SLEEP_US);
     }
 }
@@ -1496,7 +1496,7 @@ int audio_dtv_patch_output_dts(struct aml_audio_patch *patch, struct audio_strea
             /*ALOGE("%s(), live ring_buffer read 0 data!", __func__);*/
             return -EAGAIN;
         }
-        if (dtshd) 
+        if (dtshd)
             remain_size = dtshd->remain_size;
 
         /* +[SE] [BUG][SWPL-22893][yinli.xia]
@@ -3538,6 +3538,7 @@ void release_dtvin_buffer(struct aml_audio_patch *patch)
         ring_buffer_release(&(patch->dtvin_ringbuffer));
     }
 }
+#endif
 
 void dtv_in_write(struct audio_stream_out *stream, const void* buffer, size_t bytes)
 {
@@ -3547,8 +3548,8 @@ void dtv_in_write(struct audio_stream_out *stream, const void* buffer, size_t by
     int abuf_level = 0;
 
     if (stream == NULL || buffer == NULL || bytes == 0) {
-        ALOGI("[%s] pls check the input parameters \n", __FUNCTION__);
-        return ;
+        ALOGW("[%s:%d] stream:%p or buffer:%p is null, or bytes:%d = 0.", __func__, __LINE__, stream, buffer, bytes);
+        return;
     }
     if ((adev->patch_src == SRC_DTV) && (patch->dtvin_buffer_inited == 1)) {
         abuf_level = get_buffer_write_space(&patch->dtvin_ringbuffer);
@@ -3568,11 +3569,11 @@ int dtv_in_read(struct audio_stream_in *stream, void* buffer, size_t bytes)
     struct aml_audio_device *adev = in->dev;
 
     if (stream == NULL || buffer == NULL || bytes == 0) {
-        ALOGI("[%s] pls check the input parameters \n", __FUNCTION__);
+        ALOGW("[%s:%d] stream:%p or buffer:%p is null, or bytes:%d = 0.", __func__, __LINE__, stream, buffer, bytes);
+        return bytes;
     }
 
     struct aml_audio_patch *patch = adev->audio_patch;
-    struct dolby_ddp_dec *ddp_dec = & (adev->ddp);
     //ALOGI("[%s] patch->aformat=0x%x patch->dtv_decoder_ready=%d bytes:%d\n", __FUNCTION__,patch->aformat,patch->dtv_decoder_ready,bytes);
 
     if (patch->dtvin_buffer_inited == 1) {
@@ -3592,6 +3593,5 @@ int dtv_in_read(struct audio_stream_in *stream, void* buffer, size_t bytes)
     }
     return ret;
 }
-#endif
 
 

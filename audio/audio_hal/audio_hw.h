@@ -74,11 +74,6 @@
 
 /* number of ICE61937 format frames per period */
 #define DEFAULT_IEC_SIZE 6144
-
-/* number of periods for low power playback */
-#define PLAYBACK_PERIOD_COUNT 4
-/* number of periods for capture */
-#define CAPTURE_PERIOD_COUNT 4
 #define PATCH_PERIOD_COUNT  4
 
 /* minimum sleep time in out_write() when write threshold is not reached */
@@ -86,9 +81,6 @@
 
 #define RESAMPLER_BUFFER_FRAMES (DEFAULT_PLAYBACK_PERIOD_SIZE * 6)
 #define RESAMPLER_BUFFER_SIZE (4 * RESAMPLER_BUFFER_FRAMES)
-
-/* bluetootch and usb in read data period delay count, for audio format detection too slow */
-#define BT_AND_USB_PERIOD_DELAY_BUF_CNT (3)
 
 static unsigned int DEFAULT_OUT_SAMPLING_RATE = 48000;
 
@@ -293,13 +285,6 @@ typedef enum picture_mode {
     PQ_MODE_MAX
 } picture_mode_t ;
 
-typedef enum AML_INPUT_STREAM_CONFIG_TYPE {
-    AML_INPUT_STREAM_CONFIG_TYPE_CHANNELS   = 0,
-    AML_INPUT_STREAM_CONFIG_TYPE_PERIODS    = 1,
-
-    AML_INPUT_STREAM_CONFIG_TYPE_BUTT       = -1,
-} AML_INPUT_STREAM_CONFIG_TYPE_E;
-
 typedef union {
     unsigned long long timeStamp;
     unsigned char tsB[8];
@@ -462,7 +447,7 @@ struct aml_audio_device {
     */
     bool first_apts_flag;
     size_t frame_trigger_thred;
-    struct aml_audio_parser *aml_parser;
+    void *dev_to_mix_parser;
     int continuous_audio_mode;
     int continuous_audio_mode_default;
     int delay_disable_continuous;
@@ -575,15 +560,6 @@ struct meta_data_list {
     struct listnode list;
     struct meta_data mdata;
 };
-
-typedef struct aml_stream_config {
-    struct audio_config config;
-} aml_stream_config_t;
-
-typedef struct aml_device_config {
-    uint32_t device_port;
-
-} aml_device_config_t;
 
 typedef enum audio_data_handle_state {
     AUDIO_DATA_HANDLE_NONE = 0,
@@ -802,11 +778,6 @@ struct aml_stream_in {
     size_t tmp_buffer_8ch_size;
     unsigned int frames_read;
     uint64_t timestamp_nsec;
-
-    void        *pBtUsbPeriodDelayBuf[BT_AND_USB_PERIOD_DELAY_BUF_CNT];
-    void        *pBtUsbTempDelayBuf;
-    size_t      delay_buffer_size;
-
     bool bt_sco_active;
     hdmiin_audio_packet_t audio_packet_type;
 };
@@ -1007,8 +978,7 @@ struct aec_info {
  * => PERIOD_SIZE = 512 frames, where each "frame" consists of 1 sample of every channel (here, 2ch) */
 #define CAPTURE_PERIOD_MULTIPLIER 16
 #define CAPTURE_PERIOD_SIZE (CODEC_BASE_FRAME_COUNT * CAPTURE_PERIOD_MULTIPLIER)
-#define CAPTURE_PERIOD_COUNT 4
-#define CAPTURE_PERIOD_START_THRESHOLD 0
+#define CAPTURE_PERIOD_START_THRESHOLD 4
 #define CAPTURE_CODEC_SAMPLING_RATE 16000
 
 #ifdef ENABLE_AEC_HAL
@@ -1023,5 +993,4 @@ struct aec_info {
 #define PLAYBACK_PERIOD_SIZE (CODEC_BASE_FRAME_COUNT * PLAYBACK_PERIOD_MULTIPLIER)
 #define CHANNEL_STEREO 2
 #define PLAYBACK_CODEC_SAMPLING_RATE 48000
-
 #endif

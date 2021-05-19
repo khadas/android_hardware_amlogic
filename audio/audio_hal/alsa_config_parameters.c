@@ -27,7 +27,6 @@
 #include "alsa_config_parameters.h"
 
 #define PERIOD_SIZE                     1024
-#define PLAYBACK_PERIOD_COUNT           4
 #define HARDWARE_CHANNEL_STEREO         2
 #define HARDWARE_CHANNEL_7_1_MULTI      8
 #define LOW_LATENCY_PERIOD_SIZE                     256

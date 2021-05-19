@@ -27,7 +27,6 @@
 #include "audio_hw_profile.h"
 #include "alsa_manager.h"
 #include "alsa_device_parser.h"
-#include "aml_hdmiin2bt_process.h"
 #include "aml_avsync_tuning.h"
 #include "aml_android_utils.h"
 #include "audio_format_parse.h"
@@ -756,7 +755,7 @@ void audio_patch_dump(struct aml_audio_device* aml_dev, int fd)
     }
 
     dprintf(fd, "[AML_HAL]      IN_SRC        : %#10x     | OUT_SRC   :%#10x\n", pstPatch->input_src, pstPatch->output_src);
-    dprintf(fd, "[AML_HAL]      IN_Format     : %#10x     | OUT_Format:%#10x\n", pstPatch->in_format, pstPatch->out_format);
+    dprintf(fd, "[AML_HAL]      IN_Format     : %#10x     | OUT_Format:%#10x\n", pstPatch->aformat, pstPatch->out_format);
     dprintf(fd, "[AML_HAL]      sink format: %#x\n", aml_dev->sink_format);
     if (aml_dev->active_outport == OUTPORT_HDMI_ARC) {
         struct aml_arc_hdmi_desc *hdmi_desc = &aml_dev->hdmi_descs;
@@ -1021,7 +1020,7 @@ int reconfig_read_param_through_hdmiin(struct aml_audio_device *aml_dev,
         }
         ALOGD("%s(), game pic mode %d, period size %d",
                 __func__, aml_dev->game_mode, period_size);
-        in_reset_config_param(stream_in, AML_INPUT_STREAM_CONFIG_TYPE_PERIODS, &period_size);
+        stream_in->config.period_size = period_size;
         if (ringbuffer) {
             ring_buffer_reset_size(ringbuffer, buf_size);
         }
@@ -1064,9 +1063,8 @@ int reconfig_read_param_through_hdmiin(struct aml_audio_device *aml_dev,
         if (ringbuffer) {
             ring_buffer_reset_size(ringbuffer, buf_size);
         }
-
-        in_reset_config_param(stream_in, AML_INPUT_STREAM_CONFIG_TYPE_PERIODS, &period_size);
-        in_reset_config_param(stream_in, AML_INPUT_STREAM_CONFIG_TYPE_CHANNELS, &channel);
+        stream_in->config.period_size = period_size;
+        stream_in->config.channels = channel;
         if (!stream_in->standby) {
             do_input_standby(stream_in);
         }

@@ -457,9 +457,6 @@ int dcv_decoder_init_patch(aml_dec_t ** ppaml_dec, aml_dec_config_t * dec_config
     ddp_dec->is_iec61937   = dcv_config->is_iec61937;
 
     aml_dec->format = dcv_config->format;
-
-
-
     ret = dcv_decoder_init(ddp_dec->decoding_mode, ddp_dec->digital_raw);
     ALOGI("dcv_decoder_init decoding mode =%d, ddp_dec->digital_raw=%d ret =%d", ddp_dec->decoding_mode, ddp_dec->digital_raw, ret);
     if (ret < 0) {

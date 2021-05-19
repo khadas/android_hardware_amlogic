@@ -17,7 +17,7 @@
 #ifndef _ALSA_MANAGER_H_
 #define _ALSA_MANAGER_H_
 
-#include "audio_hw.h"
+#include <hardware/audio.h>
 
 typedef enum info_type {
     OUTPUT_INFO_STATUS,      // running or xrun etc..
@@ -28,6 +28,14 @@ typedef union output_info {
     int delay_ms;
 } alsa_output_info_t;
 
+typedef struct aml_stream_config {
+    struct audio_config config;
+} aml_stream_config_t;
+
+typedef struct aml_device_config {
+    uint32_t device_port;
+
+} aml_device_config_t;
 
 /**
  * pcm open with configs in streams: card, device, pcm_config
@@ -63,7 +71,7 @@ int aml_alsa_output_get_letancy(struct audio_stream_out *stream);
 /*
  *@brief close continuous audio device
  */
-void aml_close_continuous_audio_device(struct aml_audio_device *adev);
+void aml_close_continuous_audio_device(struct audio_hw_device *dev);
 
 /**
  * pcm_read to the pcm handle saved in stream instance.

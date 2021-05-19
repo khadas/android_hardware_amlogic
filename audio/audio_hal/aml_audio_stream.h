@@ -256,7 +256,6 @@ struct aml_audio_patch {
     int cmd_process_thread_exit;
     int input_thread_exit;
     int output_thread_exit;
-    int parse_thread_exit;
     void *audio_parse_para;
     audio_devices_t input_src;
     audio_format_t  aformat;
