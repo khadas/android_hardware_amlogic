@@ -101,6 +101,7 @@ void channelControl(tv_input_private_t *priv, bool opsStart, int device_id) {
                     SOURCE_DTVKIT_PIP == (tv_source_input_t) device_id) {
                     priv->mpTv->switchSourceInput((tv_source_input_t) device_id);
                     priv->mpTv->setDeviceGivenId(device_id);
+                    priv->mpTv->setSourceStatus(true);
 
                     return;
                 } else {
@@ -112,9 +113,12 @@ void channelControl(tv_input_private_t *priv, bool opsStart, int device_id) {
             priv->mpTv->switchSourceInput((tv_source_input_t) device_id);
             priv->mpTv->setDeviceGivenId(device_id);
         } else if (priv->mpTv->getCurrentSourceInput() == device_id) {
+            tv_source_input_t wait_source = priv->mpTv->checkWaitSource(true);
+
             /* DTVKit is actually stopped only when a new source is entered */
-            if (SOURCE_DTVKIT == (tv_source_input_t) device_id ||
-                SOURCE_DTVKIT_PIP == (tv_source_input_t) device_id) {
+            if (wait_source == SOURCE_INVALID &&
+                (SOURCE_DTVKIT == (tv_source_input_t) device_id ||
+                SOURCE_DTVKIT_PIP == (tv_source_input_t) device_id)) {
                 priv->mpTv->setDeviceGivenId(-1);
                 priv->mpTv->setSourceStatus(false);
 
@@ -128,7 +132,6 @@ void channelControl(tv_input_private_t *priv, bool opsStart, int device_id) {
                 priv->mpTv->setDeviceGivenId(-1);
             }
 
-            tv_source_input_t wait_source = priv->mpTv->checkWaitSource(true);
             if (wait_source != SOURCE_INVALID) {
                 priv->mpTv->startTv(wait_source);
                 priv->mpTv->switchSourceInput(wait_source);
