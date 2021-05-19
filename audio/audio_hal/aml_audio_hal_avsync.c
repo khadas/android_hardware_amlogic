@@ -54,7 +54,6 @@
 #include "audio_hw_profile.h"
 #include "audio_hw_utils.h"
 #include "dtv_patch_out.h"
-#include "aml_audio_parser.h"
 #include "aml_audio_resampler.h"
 #include "audio_hw_ms12.h"
 #include "dolby_lib_api.h"

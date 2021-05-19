@@ -23,10 +23,10 @@
 #include "aml_malloc_debug.h"
 #include "audio_simple_resample_api.h"
 #include "audio_android_resample_api.h"
+#include "alsa_config_parameters.h"
 
 #define RESAMPLE_LENGTH (1024);
 #define ALIGN_FRAME_SIZE (256);
-#define OUTPUT_ALSA_SAMPLERATE  (48000)
 
 static audio_resample_func_t * get_resample_function(resample_type_t resample_type)
 {

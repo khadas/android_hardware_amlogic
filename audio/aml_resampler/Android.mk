@@ -20,6 +20,8 @@ LOCAL_SHARED_LIBRARIES := \
 
 LOCAL_C_INCLUDES := \
    $(LOCAL_PATH)/include \
+   $(LOCAL_PATH)/../audio_hal \
+   $(LOCAL_PATH)/../utils/tinyalsa/include \
    $(TOPDIR)system/media/audio_utils/include \
    $(TOPDIR)system/media/audio/include \
    $(TOPDIR)system/core/libion/include \

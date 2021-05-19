@@ -36,6 +36,7 @@
 #include "AudioHardwareInput.h"
 #include "AudioHidrawStreamIn.h"
 #include "../../audio_hal/audio_hw.h"
+#include "../../audio_hal/alsa_config_parameters.h"
 #include "huitong_audio.h"
 
 namespace android {

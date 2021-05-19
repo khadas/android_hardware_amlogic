@@ -19,7 +19,6 @@
 
 #include <hardware/audio.h>
 #include "aml_ringbuffer.h"
-#include "aml_audio_parser.h"
 #include "aml_audio_types_def.h"
 #include "aml_dec_api.h"
 
@@ -74,12 +73,6 @@ struct dolby_ddp_dec {
     unsigned int sourcesr;
     unsigned int sourcechnum;
 };
-
-
-
-int dcv_decode_init(struct aml_audio_parser *parser);
-int dcv_decode_release(struct aml_audio_parser *parser);
-
 
 int dcv_decoder_init_patch(aml_dec_t ** ppaml_dec, aml_dec_config_t * dec_config);
 int dcv_decoder_release_patch(aml_dec_t * aml_dec);

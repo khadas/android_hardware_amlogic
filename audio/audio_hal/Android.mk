@@ -81,7 +81,7 @@ include $(BUILD_PREBUILT)
         ../amlogic_AQ_tools/ini/dictionary.c \
         ../amlogic_AQ_tools/ini/iniparser.c \
         audio_format_parse.c \
-        aml_hdmiin2bt_process.c \
+        aml_audio_dev2mix_process.c \
         audio_hdmi_util.c  \
         aml_audio_ms12_render.c \
         aml_audio_nonms12_render.c \

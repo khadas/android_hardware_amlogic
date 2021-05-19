@@ -37,7 +37,6 @@
 #include "audio_hw_ms12_v2.h"
 #define DD_MUTE_FRAME_SIZE 1536
 #define EAC3_IEC61937_FRAME_SIZE 24576
-#define OUTPUT_ALSA_SAMPLERATE (48000)
 #define MS12_MAT_RAW_LENGTH                 (0x0f7e)
 
 extern int aml_audio_ms12_process_wrapper(struct audio_stream_out *stream, const void *write_buf, size_t write_bytes);
@@ -575,7 +574,7 @@ int aml_dtvsync_process_resample(struct audio_stream_out *stream,
     struct aml_audio_patch *patch = adev->audio_patch;
     float speed = 0.0f;
     int ret = -1;
-    
+
     if (p_policy->param2 != 0)
         speed = ((float)(p_policy->param1)) / p_policy->param2;
     else
@@ -594,7 +593,7 @@ int aml_dtvsync_process_resample(struct audio_stream_out *stream,
 
     } else
         *speed_enabled = false;
-    
+
     return 0;
 }
 
@@ -646,7 +645,7 @@ dtvsync_process_res  aml_dtvsync_nonms12_process(struct audio_stream_out *stream
         aml_dtvsync_nonms12_process_insert(stream,  &m_audiopolicy);
 
     } else if (m_audiopolicy.audiopolicy == MEDIASYNC_AUDIO_ADJUST_CLOCK) {
- 
+
         aml_dtvsync_adjustclock(stream, &m_audiopolicy);
 
     } else if (m_audiopolicy.audiopolicy == MEDIASYNC_AUDIO_RESAMPLE) {

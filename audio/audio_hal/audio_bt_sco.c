@@ -20,6 +20,7 @@
 #include <tinyalsa/asoundlib.h>
 #include <audio_utils/channels.h>
 #include "audio_bt_sco.h"
+#include "alsa_config_parameters.h"
 #include "alsa_device_parser.h"
 #include "aml_audio_timer.h"
 

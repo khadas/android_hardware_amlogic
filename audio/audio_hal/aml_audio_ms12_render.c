@@ -31,9 +31,10 @@
 #include "aml_volume_utils.h"
 #include "audio_hw_ms12.h"
 #include "aml_audio_timer.h"
+#include "alsa_config_parameters.h"
+
 #define MS12_MAIN_WRITE_LOOP_THRESHOLD                  (2000)
 #define AUDIO_IEC61937_FRAME_SIZE 4
-#define OUTPUT_ALSA_SAMPLERATE  (48000)
 
 extern unsigned long decoder_apts_lookup(unsigned int offset);
 

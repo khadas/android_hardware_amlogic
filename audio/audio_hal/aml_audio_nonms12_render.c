@@ -30,8 +30,8 @@
 #include "aml_dec_api.h"
 #include "aml_ddp_dec_api.h"
 #include "aml_audio_spdifout.h"
-#define OUTPUT_BUFFER_SIZE (6 * 1024)
-#define OUTPUT_ALSA_SAMPLERATE  (48000)
+#include "alsa_config_parameters.h"
+
 extern unsigned long decoder_apts_lookup(unsigned int offset);
 static void aml_audio_stream_volume_process(struct audio_stream_out *stream, void *buf, int sample_size, int channels, int bytes) {
     struct aml_stream_out *aml_out = (struct aml_stream_out *) stream;
@@ -121,7 +121,6 @@ int aml_audio_nonms12_render(struct audio_stream_out *stream, const void *buffer
         dec_data_info_t * raw_in_data  = &aml_dec->raw_in_data;
         left_bytes = bytes;
 
-        
         if (do_sync_flag) {
              if(patch->skip_amadec_flag) {
                   aml_dec->in_frame_pts = patch->cur_package->pts;
@@ -393,7 +392,6 @@ static void mad_decoder_config_prepare(struct audio_stream_out *stream, aml_mad_
     mad_config->samplerate = aml_out->hal_rate;
     mad_config->mpeg_format = aml_out->hal_format;
     return;
-    return;
 }
 
 static void faad_decoder_config_prepare(struct audio_stream_out *stream, aml_faad_config_t * faad_config){
@@ -418,7 +416,6 @@ static void pcm_decoder_config_prepare(struct audio_stream_out *stream, aml_pcm_
 
     return;
 }
-
 
 int aml_decoder_config_prepare(struct audio_stream_out *stream, audio_format_t format, aml_dec_config_t * dec_config)
 {

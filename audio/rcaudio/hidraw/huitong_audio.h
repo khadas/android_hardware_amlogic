@@ -64,14 +64,10 @@ extern "C"
 #define PORT_MM 0    // this macro is different between amlogic and huitong
 #endif
 /* number of frames per period */
-#define DEFAULT_WFD_PERIOD_SIZE  256
-#define DEFAULT_CAPTURE_PERIOD_SIZE  1024
 #define MIXER_XML_PATH "/system/etc/mixer_paths.xml"
 
 /* number of frames per period */
 #define DEFAULT_PERIOD_SIZE  1024   //(1024 * 2)
-/* number of periods for low power playback */
-#define PLAYBACK_PERIOD_COUNT 4
 
 ////////////////////////// huitong_audio_hw.c /////////////////////////////////////////////////
 

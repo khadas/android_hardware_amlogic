@@ -43,7 +43,6 @@
 #define PROPERTY_ENABLE_AUDIO_RESAMPLE "vendor.media.audio.resample"
 #define PROPERTY_AUDIO_DISCONTINUE_THRESHOLD "vendor.media.audio.discontinue_threshold"
 
-#define PATCH_PERIOD_COUNT 4
 #define DTV_PTS_CORRECTION_THRESHOLD (90000 * 30 / 1000)
 #define DTV_PCR_DIS_DIFF_THRESHOLD (90000 * 150 / 1000)
 #define AUDIO_PTS_DISCONTINUE_THRESHOLD (90000 * 5)
@@ -72,8 +71,7 @@
 #define MAX_BUFF_LEN 36
 #define MAX(a, b) ((a) > (b)) ? (a) : (b)
 
-#define OUTPUT_BUFFER_SIZE (6 * 1024)
-#define INPUT_PACKAGE_MAXCOUNT 40 
+#define INPUT_PACKAGE_MAXCOUNT 40
 struct cmd_list {
     struct cmd_list *next;
     int cmd;
