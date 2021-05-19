@@ -139,16 +139,6 @@ bool UpdateAndSaveBootloaderControl(const std::string& misc_device, bootloader_c
   return true;
 }
 
-bool IsRecoveryMode() {
-    if (access("/system/bin/recovery", F_OK)) {
-        LOG(INFO) << "android mode";
-        return false;
-    } else {
-        LOG(INFO) << "recovery mode";
-        return true;
-    }
-}
-
 bool write_bootloader_img(unsigned int slot)
 {
     int iRet = 0;
@@ -502,7 +492,11 @@ bool BootControl::SetActiveBootSlot(unsigned int slot) {
      * just rewrite when really update
      */
     std::string device_prop = android::base::GetProperty("ro.product.device", "");
-    if (device_prop != "generic" || IsRecoveryMode()) {
+    std::string fastbootd_prop = android::base::GetProperty("init.svc.fastbootd", "");
+    LOG(INFO) << "device_prop: " << device_prop;
+    LOG(INFO) << "fastbootd_prop: " << fastbootd_prop;
+
+    if (device_prop != "generic" && fastbootd_prop != "running") {
       ret = write_bootloader_img(slot);
       if (ret) {
         ret = SetBootloaderIndex();
