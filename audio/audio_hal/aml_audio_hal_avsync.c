@@ -136,9 +136,11 @@ unsigned long dtv_hal_get_pts(struct aml_audio_patch *patch,
     unsigned long delay_pts;
     unsigned int checkin_firstapts;
     char value[PROPERTY_VALUE_MAX];
+    struct audio_hw_device *adev = patch->dev;
+    struct aml_audio_device * aml_dev = (struct aml_audio_device*)adev;
 
     get_sysfs_uint(DTV_DECODER_CHECKIN_FIRSTAPTS_PATH, &checkin_firstapts);
-    if (is_sc2_chip()&& !property_get_bool("vendor.dtv.use_tsync_check",false)) {
+    if (aml_dev->is_multi_demux && !property_get_bool("vendor.dtv.use_tsync_check",false)) {
         if (aml_audio_swcheck_lookup_apts(0,patch->decoder_offset,&pts) == -1) {
             pts = 0;
         }

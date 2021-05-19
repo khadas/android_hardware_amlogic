@@ -514,6 +514,7 @@ struct aml_audio_device {
     int sub_afmt;
     int pid;
     int demux_id;
+    int is_multi_demux;
     bool compensate_video_enable;
     bool patch_start;
     bool mute_start;

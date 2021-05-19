@@ -94,13 +94,18 @@ enum {
     SYNC_WORD_FOUND,
     FRAME_SIZE_FOUND,
 };
-int is_sc2_chip()
+
+#ifndef USE_AOUT_IN_ADEC
+static int is_multi_demux()
 {
-#ifdef DVB_AUDIO_SC2
-    return true;
-#endif
-    return false;
+    if (access("/sys/module/dvb_demux/",F_OK) == 0) {
+        adec_print("amadec use AmHwMultiDemux mode\n");
+        return 1;
+    }
+    adec_print("amadec use AmHwDemux mode\n");
+    return 0;
 }
+#endif
 
 static unsigned long adec_apts_lookup(unsigned long offset)
 {
@@ -791,8 +796,7 @@ static int audio_codec_init(aml_audio_dec_t *audec)
     audec->hw_mixer.buf_size = AD_MIXER_BUF_SIZE;
     audec->ad_pcmscale = 100;
     aml_hw_mixer_init(&audec->hw_mixer);
-    if (is_sc2_chip())
-        audec->use_sw_check_apts = 1;
+    audec->use_sw_check_apts = is_multi_demux();
 #endif
     while (0 != set_sysfs_int(DECODE_ERR_PATH, DECODE_NONE_ERR)) {
         adec_print("[%s %d]set codec fatal failed ! \n", __FUNCTION__, __LINE__);
@@ -1585,9 +1589,9 @@ void *ad_audio_getpackage_loop(void *args)
         int nReadSizePerTime = 1024;
         rlen = 0;
         int sleeptime = 0;
-        if (is_sc2_chip()) {
+        if (audec->use_sw_check_apts) {
             while (!audec->exit_decode_thread) {
-                if (is_sc2_chip()) {
+                if (audec->use_sw_check_apts) {
                     struct mAudioEsDataInfo *mEsData;
                     void *demux_handle = audec->demux_handle;;
                     if (demux_handle == NULL) {

@@ -9502,6 +9502,7 @@ static int adev_open(const hw_module_t* module, const char* name, hw_device_t** 
     // set debug_flag here to see more debug log when debugging.
     adev->debug_flag = aml_audio_get_debug_flag();
     adev->count = 1;
+    adev->is_multi_demux = is_multi_demux();
 
     memset(&(adev->hdmi_descs), 0, sizeof(struct aml_arc_hdmi_desc));
 
