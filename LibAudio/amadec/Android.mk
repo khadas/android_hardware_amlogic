@@ -101,10 +101,6 @@ else
     endif
 endif
 
-ifeq ($(strip $(BOARD_AML_SECUREBOOT_SOC_TYPE)),sc2)
-LOCAL_CFLAGS += -DDVB_AUDIO_SC2
-endif
-
 LOCAL_SRC_FILES := \
            adec-external-ctrl.c adec-internal-mgt.c adec-ffmpeg-mgt.c adec-message.c adec-pts-mgt.c adec_write.c adec_read.c\
            audio_out/dtv_patch_out.c  \

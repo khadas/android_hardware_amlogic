@@ -376,7 +376,7 @@ int dtv_patch_handle_event(struct audio_hw_device *dev,int cmd, int val) {
             }
             ALOGI("[%s:%d] Send dtv patch cmd:%s", __func__, __LINE__, dtvAudioPatchCmd2Str(val));
             if (val == AUDIO_DTV_PATCH_CMD_OPEN) {
-                if (is_sc2_chip()) {
+                if (adev->is_multi_demux) {
                     Open_Dmx_Audio(&demux_handle,demux_info->demux_id, demux_info->security_mem_level);
                     ALOGI("path_id %d demux_hanle %p ",path_id, demux_handle);
                     dtv_audio_instances->demux_handle[path_id] = demux_handle;
@@ -405,7 +405,7 @@ int dtv_patch_handle_event(struct audio_hw_device *dev,int cmd, int val) {
                     }*/
                 }
             } else if (val == AUDIO_DTV_PATCH_CMD_CLOSE) {
-                if (is_sc2_chip()) {
+                if (adev->is_multi_demux) {
                     if (demux_handle) {
                         Destroy_Dmx_Main_Audio(demux_handle);
                         if (demux_info->dual_decoder_support)
@@ -1302,7 +1302,7 @@ int audio_dtv_patch_output_dolby(struct aml_audio_patch *patch,
     unsigned long long all_zero_len = 0;
     struct dolby_ddp_dec *ddp_dec = (struct dolby_ddp_dec *)aml_out->aml_dec;
     int avail = get_buffer_read_space(ringbuffer);
-    if (is_sc2_chip())
+    if (aml_dev->is_multi_demux)
         audio_dtv_underrun_loop_mute_check(patch, stream_out);
 
     if (avail > 0) {
@@ -1557,7 +1557,7 @@ int audio_dtv_patch_output_dolby_dual_decoder(struct aml_audio_patch *patch,
     unsigned long long all_pcm_len2 = 0;
     unsigned long long all_zero_len = 0;
     int main_avail = get_buffer_read_space(ringbuffer);
-    if (is_sc2_chip())
+    if (aml_dev->is_multi_demux)
         audio_dtv_underrun_loop_mute_check(patch, stream_out);
     int ad_avail = dtv_assoc_get_avail();
     dtv_assoc_get_main_frame_size(&last_main_frame_size);
@@ -1657,7 +1657,7 @@ int audio_dtv_patch_output_dolby_dual_decoder(struct aml_audio_patch *patch,
             return -EAGAIN;
         }
         memset(ad_buffer, 0, sizeof(ad_buffer));
-        if (is_sc2_chip()) {
+        if (aml_dev->is_multi_demux) {
             //struct mAudioEsDataInfo *mEsData = NULL;
             if ( mEsData == NULL) {
                 int try_count = 3;
@@ -2165,7 +2165,7 @@ static void *audio_dtv_patch_process_threadloop(void *data)
                 patch->dtv_pcm_readed = patch->dtv_pcm_writed = 0;
                 patch->numDecodedSamples = patch->numOutputSamples = 0;
                 create_dtv_output_stream_thread(patch);
-                if (is_sc2_chip())
+                if (aml_dev->is_multi_demux)
                     Start_Dmx_Main_Audio(patch->demux_handle);
             } else {
                 ALOGI("++%s line %d  live state unsupport state %d cmd %d !\n",
@@ -2187,7 +2187,7 @@ static void *audio_dtv_patch_process_threadloop(void *data)
                     if (aml_dev->disable_pcm_mixing == false || aml_dev->hdmi_format == PCM ||
                         aml_dev->sink_capability == AUDIO_FORMAT_PCM_16_BIT || aml_dev->sink_capability == AUDIO_FORMAT_PCM_32_BIT) {
                         int ad_start_flag;
-                        if (is_sc2_chip()) {
+                        if (aml_dev->is_multi_demux) {
                             ad_start_flag = Start_Dmx_AD_Audio(patch->demux_handle);
                         } else {
                             ad_start_flag = dtv_assoc_audio_start(1, demux_info->ad_pid, demux_info->ad_fmt, demux_info->demux_id);
@@ -2204,7 +2204,7 @@ static void *audio_dtv_patch_process_threadloop(void *data)
                         // non ms12, bypass Dolby, not support 2 stream.
                     } else {
                         int ad_start_flag;
-                        if (is_sc2_chip()) {
+                        if (aml_dev->is_multi_demux) {
                             ad_start_flag = Start_Dmx_AD_Audio(patch->demux_handle);
                         } else {
                             ad_start_flag = dtv_assoc_audio_start(1, demux_info->ad_pid, demux_info->ad_fmt, demux_info->demux_id);
@@ -2226,7 +2226,7 @@ static void *audio_dtv_patch_process_threadloop(void *data)
                 ALOGI("++%s live now start  pause  the audio decoder now \n",
                       __FUNCTION__);
                 dtv_patch_input_pause(adec_handle);
-                if (is_sc2_chip() ) {
+                if (aml_dev->is_multi_demux) {
                     path_id = dtv_audio_instances->demux_index_working;
                     patch->demux_handle = dtv_audio_instances->demux_handle[path_id];
                     if (patch->demux_handle) {
@@ -2246,7 +2246,7 @@ static void *audio_dtv_patch_process_threadloop(void *data)
                 release_dtv_output_stream_thread(patch);
                 dtv_adjust_output_clock(patch, DIRECT_NORMAL, DEFAULT_DTV_ADJUST_CLOCK, false);
                 dtv_patch_input_stop(adec_handle);
-                if (is_sc2_chip() ) {
+                if (aml_dev->is_multi_demux) {
                     path_id = dtv_audio_instances->demux_index_working;
                     patch->demux_handle = dtv_audio_instances->demux_handle[path_id];
                     if (patch->demux_handle) {
@@ -2275,13 +2275,13 @@ static void *audio_dtv_patch_process_threadloop(void *data)
                 continue;
             }
 
-            if (is_sc2_chip()) {
+            if (aml_dev->is_multi_demux) {
                 path_id = dtv_audio_instances->demux_index_working;
                 patch->demux_handle = dtv_audio_instances->demux_handle[path_id];
             }
             if (cmd == AUDIO_DTV_PATCH_CMD_RESUME) {
                 dtv_patch_input_resume(adec_handle);
-                if (is_sc2_chip()) {
+                if (aml_dev->is_multi_demux) {
                     Start_Dmx_Main_Audio(patch->demux_handle);
                     Start_Dmx_AD_Audio(patch->demux_handle);
                 } else {
@@ -2292,7 +2292,7 @@ static void *audio_dtv_patch_process_threadloop(void *data)
                 ALOGI("[audiohal_kpi]++%s live now  stop  the audio decoder now \n",
                      __FUNCTION__);
                 dtv_patch_input_stop(adec_handle);
-                if (is_sc2_chip() ) {
+                if (aml_dev->is_multi_demux) {
                     path_id = dtv_audio_instances->demux_index_working;
                     patch->demux_handle = dtv_audio_instances->demux_handle[path_id];
                     if (patch->demux_handle) {
@@ -2571,7 +2571,7 @@ void *audio_dtv_patch_input_threadloop(void *data)
 
         int nRet = 0;
         pthread_mutex_lock(&patch->mutex);
-        if (!is_sc2_chip()) {
+        if (!aml_dev->is_multi_demux) {
             if (inbuf != NULL) {
                 aml_audio_free(inbuf);
                 inbuf = NULL;
@@ -3075,7 +3075,7 @@ static void *audio_dtv_patch_process_threadloop_v2(void *data)
                 patch->numDecodedSamples = patch->numOutputSamples = 0;
                 create_dtv_input_stream_thread(patch);
                 create_dtv_output_stream_thread(patch);
-                if (is_sc2_chip())
+                if (aml_dev->is_multi_demux)
                     Start_Dmx_Main_Audio(patch->demux_handle);
             } else {
                 ALOGI("++%s line %d  live state unsupport state %d cmd %d !\n",
@@ -3093,7 +3093,7 @@ static void *audio_dtv_patch_process_threadloop_v2(void *data)
 
             if (aml_dev->ad_start_enable == 0 && need_enable_dual_decoder(patch)) {
                 int ad_start_flag;
-                if (is_sc2_chip()) {
+                if (aml_dev->is_multi_demux) {
                     ad_start_flag = Start_Dmx_AD_Audio(patch->demux_handle);
                 } else {
                     ad_start_flag = dtv_assoc_audio_start(1, demux_info->ad_pid, demux_info->ad_fmt, demux_info->demux_id);
@@ -3112,7 +3112,7 @@ static void *audio_dtv_patch_process_threadloop_v2(void *data)
             if (cmd == AUDIO_DTV_PATCH_CMD_PAUSE) {
                 ALOGI("++%s live now start  pause  the audio decoder now \n",
                       __FUNCTION__);
-                if (is_sc2_chip() ) {
+                if (aml_dev->is_multi_demux) {
                     path_id = dtv_audio_instances->demux_index_working;
                     patch->demux_handle = dtv_audio_instances->demux_handle[path_id];
                     if (patch->demux_handle) {
@@ -3132,7 +3132,7 @@ static void *audio_dtv_patch_process_threadloop_v2(void *data)
                 release_dtv_input_stream_thread(patch);
                 release_dtv_output_stream_thread(patch);
                 dtv_adjust_output_clock(patch, DIRECT_NORMAL, DEFAULT_DTV_ADJUST_CLOCK, false);
-                if (is_sc2_chip() ) {
+                if (aml_dev->is_multi_demux) {
                     path_id = dtv_audio_instances->demux_index_working;
                     patch->demux_handle = dtv_audio_instances->demux_handle[path_id];
                     if (patch->demux_handle) {
@@ -3162,7 +3162,7 @@ static void *audio_dtv_patch_process_threadloop_v2(void *data)
             }
 
             if (cmd == AUDIO_DTV_PATCH_CMD_RESUME) {
-                if (is_sc2_chip()) {
+                if (aml_dev->is_multi_demux) {
                     Start_Dmx_Main_Audio(patch->demux_handle);
                     Start_Dmx_AD_Audio(patch->demux_handle);
                 } else {
@@ -3173,7 +3173,7 @@ static void *audio_dtv_patch_process_threadloop_v2(void *data)
                 ALOGI("[audiohal_kpi]++%s live now  stop  the audio decoder now \n",
                      __FUNCTION__);
 
-                if (is_sc2_chip() ) {
+                if (aml_dev->is_multi_demux) {
                     path_id = dtv_audio_instances->demux_index_working;
                     patch->demux_handle = dtv_audio_instances->demux_handle[path_id];
                     if (patch->demux_handle) {
@@ -3382,7 +3382,7 @@ int create_dtv_patch_l(struct audio_hw_device *dev, audio_devices_t input,
     }
 
     /* now  only sc2  can use new dtv path */
-    if (property_get_bool("vendor.dtv.audio.skipamadec",false) && is_sc2_chip()) {
+    if (property_get_bool("vendor.dtv.audio.skipamadec",false) && aml_dev->is_multi_demux) {
         patch->skip_amadec_flag = true;
     } else {
         patch->skip_amadec_flag = false;

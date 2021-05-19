@@ -438,14 +438,15 @@ int check_chip_name(char *name, unsigned int length)
     return false;
 }
 
-int is_sc2_chip()
+int is_multi_demux()
 {
-#ifdef DVB_AUDIO_SC2
-    return true;
-#endif
-    return false;
+    if (access("/sys/module/dvb_demux/",F_OK) == 0) {
+        ALOGI("use AmHwMultiDemux mode\n");
+        return 1;
+    }
+    ALOGI("use AmHwDemux mode\n");
+    return 0;
 }
-
 
 /*
 convert audio formats to supported audio format
