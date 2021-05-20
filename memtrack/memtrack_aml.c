@@ -24,10 +24,11 @@
 #include <dirent.h>
 #include <cutils/properties.h>
 
-#define IONPATH "/d/ion/heaps"
-#define GPUT8X "/d/mali0/ctx"
+#define IONHEAP "/d/ion/heaps"
+#define IONPATH "/d/ion"
+#define GPUCTX "/d/mali0/ctx"
 #define MALI0 "/d/mali0"
-#define PLATFORM_DEVICE "/sys/devices/platform"
+#define PLATFORM_DEVICE "/sys/class/misc/mali0/device"
 #define ARRAY_SIZE(x) (sizeof(x)/sizeof(x[0]))
 
 #define CHAR_BUFFER_SIZE        1024
@@ -40,9 +41,13 @@
  * 0 -> close memtrack
  * 1 -> close memtrack debug log (default)
  * 2 -> open memtrack debug log
+ * 3 -> choose GPU sysfs path
  */
 static int debug_level = 1;
 
+static int sf_pid;
+
+#if BUILD_KERNEL_4_9 == true
 /**
  * Auxilary struct to keep information about single buffer.
  */
@@ -130,24 +135,24 @@ static int get_bufs_size(bufs_array_t* bufs_info, uint64_t* bufs, size_t bufs_si
 
 static int is_allocate_client(const char *client_name, int size) {
     static const char * comms[] = {
-        "allocator@1.0-s",
         "allocator@2.0-s",
         "allocator@3.0-s",
         "allocator@4.0-s",
     };
-    int i, result = 0;
+    unsigned int i, result = 0;
 
     // the comm is 16 chars
     if (client_name == NULL || size <= 0) {
         return 0;
     }
 
-    for (i=0; i<sizeof(comms)/sizeof(const char *); i++) {
+    for (i=0; i < sizeof(comms) / sizeof(const char *); i++) {
         result |= (strncmp(client_name, comms[i], size) == 0);
     }
 
     return result;
 }
+#endif
 
 static struct hw_module_methods_t memtrack_module_methods = {
     .open = NULL,
@@ -169,78 +174,37 @@ struct memtrack_record record_templates[] = {
 */
 };
 
+static void memtrack_get_taskname_of_pid(pid_t pid, char ** task_name)
+{
+    // get pid-name by pid
+    char proc_pid_path[CHAR_BUFFER_SIZE];
+    char buf[CHAR_BUFFER_SIZE];
+
+    memset(proc_pid_path, 0, sizeof(proc_pid_path));
+    sprintf(proc_pid_path, "/proc/%d/comm", pid);
+    FILE* fp = fopen(proc_pid_path, "r");
+    if (NULL == fp) {
+        return;
+    } else {
+        memset(buf, 0, sizeof(buf));
+        if (fgets(buf, CHAR_BUFFER_SIZE-1, fp) == NULL) {
+            ALOGD("fgets error %s", strerror(errno));
+            fclose(fp);
+            fp = NULL;
+            return;
+        }
+        fclose(fp);
+        fp = NULL;
+        sscanf(buf, "%s", *task_name);
+        ALOGD("get task_name %s", *task_name);
+    }
+}
+
 // just return 0
 int aml_memtrack_init(const struct memtrack_module *module __unused)
 {
     ALOGD("memtrack init");
     return 0;
-}
-
-static unsigned int memtrack_read_smaps(FILE *fp)
-{
-    char line[1024];
-    unsigned int size, sum = 0;
-    int skip, done = 0;
-
-    uint64_t start;
-    uint64_t end = 0;
-    int len;
-    char *name;
-    int nameLen, name_pos;
-
-    if(fgets(line, sizeof(line), fp) == 0) {
-        return 0;
-    }
-
-    while (!done) {
-        skip = 0;
-
-        len = strlen(line);
-        if (len < 1)
-            return 0;
-
-        line[--len] = 0;
-
-        if (sscanf(line, "%"SCNx64 "-%"SCNx64 " %*s %*x %*x:%*x %*d%n", &start, &end, &name_pos) != 2) {
-            skip = 1;
-        } else {
-            while (isspace(line[name_pos])) {
-                name_pos += 1;
-            }
-            name = line + name_pos;
-            nameLen = strlen(name);
-
-            if (nameLen >= 8 &&
-                    (!strncmp(name, "/dev/mali", 6) || !strncmp(name, "/dev/ump", 6))) {
-                skip = 0;
-            } else {
-                skip = 1;
-            }
-
-        }
-
-        while (1) {
-            if (fgets(line, 1024, fp) == 0) {
-                done = 1;
-                break;
-            }
-
-            if(!skip) {
-                if (line[0] == 'S' && sscanf(line, "Size: %d kB", &size) == 1) {
-                    sum += size;
-                }
-            }
-
-            if (sscanf(line, "%" SCNx64 "-%" SCNx64 " %*s %*x %*x:%*x %*d", &start, &end) == 2) {
-                // looks like a new mapping
-                // example: "10000000-10001000 ---p 10000000 00:00 0"
-                break;
-            }
-        }
-    }
-
-    // converted into Bytes
-    return (sum * 1024);
 }
 
 static size_t read_pid_egl_memory(pid_t pid)
@@ -252,10 +216,12 @@ static size_t read_pid_egl_memory(pid_t pid)
     FILE *ion_fp;
     FILE *egl_fp;
     char tmp[CHAR_BUFFER_SIZE];
-    char egl_ion_dir[] = IONPATH;
     struct dirent  *de;
     DIR *p_dir;
 
+    memset(tmp, 0, sizeof(tmp));
+#if BUILD_KERNEL_4_9 == true
+    char egl_ion_dir[] = IONHEAP;
     p_dir = opendir( egl_ion_dir );
     if (!p_dir) {
         ALOGD("fail to open %s\n", egl_ion_dir);
@@ -266,7 +232,6 @@ static size_t read_pid_egl_memory(pid_t pid)
     while ((de = readdir(p_dir))) {
         if (!strcmp(de->d_name, ".") || !strcmp(de->d_name, ".."))
             continue;
-
         snprintf(tmp, CHAR_BUFFER_SIZE, "%s/%s", egl_ion_dir, de->d_name);
         if ((ion_fp = fopen(tmp, "r")) == NULL) {
             ALOGD("open file %s error %s", tmp, strerror(errno));
@@ -277,6 +242,8 @@ static size_t read_pid_egl_memory(pid_t pid)
             ALOGD("open file %s error %s", tmp, strerror(errno));
             fclose(ion_fp);
             closedir(p_dir);
+            ion_fp = NULL;
+            p_dir = NULL;
             return 0;
         }
         //Parse bufs. Entries appear as follows:
@@ -432,23 +399,69 @@ static size_t read_pid_egl_memory(pid_t pid)
         }
         fclose(ion_fp);
         fclose(egl_fp);
+        ion_fp = NULL
+        egl_fp = NULL
     }
 
     closedir(p_dir);
+#else
+    ALOGD("sf_pid:%d", sf_pid);
+    if (sf_pid != pid)
+        return 0;
+    char egl_ion_dir[] = IONPATH;
+    char line[CHAR_BUFFER_SIZE];
 
+    memset(line, 0, sizeof(line));
+    snprintf(tmp, CHAR_BUFFER_SIZE-1, "%s/%s", egl_ion_dir, "ion-dev/num_of_alloc_bytes");
+    ALOGD("tmp1:%s", tmp);
+    if ((ion_fp = fopen(tmp, "r")) == NULL) {
+        ALOGD("open file %s error %s", tmp, strerror(errno));
+        return 0;
+    }
+    while (fgets(line, sizeof(line), ion_fp) != NULL) {
+        ALOGD("line1:%s", line);
+        int num_matched = 0;
+        size_t alloc_bytes = 0;
+        num_matched = sscanf(line, "%zd", &alloc_bytes);
+        ALOGD("alloc_bytes1:%zd", alloc_bytes);
+        if (num_matched == 1) {
+            unaccounted_size = alloc_bytes;
+        }
+    }
+    fclose(ion_fp);
+    ion_fp = NULL;
+
+    memset(tmp, 0, sizeof(tmp));
+    memset(line, 0, sizeof(line));
+    snprintf(tmp, CHAR_BUFFER_SIZE-1, "%s/%s", egl_ion_dir, "ion_system_heap/num_of_alloc_bytes");
+    if ((ion_fp = fopen(tmp, "r")) == NULL) {
+        ALOGD("open file %s error %s", tmp, strerror(errno));
+        return 0;
+    }
+
+    while (fgets(line, sizeof(line), ion_fp) != NULL) {
+        int num_matched = 0;
+        size_t alloc_bytes = 0;
+        num_matched = sscanf(line, "%zd", &alloc_bytes);
+        if (num_matched == 1) {
+            unaccounted_size += alloc_bytes;
+        }
+    }
+#endif
+    fclose(ion_fp);
+    ion_fp = NULL;
     return unaccounted_size;
 }
 
 static size_t read_egl_cached_memory(pid_t pid)
 {
-#if SKIP_COUNT_ION == true
-        return 0;
-#endif
+
+#if BUILD_KERNEL_4_9 == true
     size_t unaccounted_size = 0;
     FILE *ion_fp;
     char tmp[CHAR_BUFFER_SIZE];
     char line[CHAR_BUFFER_SIZE];
-    char egl_ion_dir[] = IONPATH;
+    char egl_ion_dir[] = IONHEAP;
 
     snprintf(tmp, CHAR_BUFFER_SIZE, "%s/%s", egl_ion_dir, "vmalloc_ion");
     if ((ion_fp = fopen(tmp, "r")) == NULL) {
@@ -487,13 +500,18 @@ static size_t read_egl_cached_memory(pid_t pid)
 
     //close file fd
     fclose(ion_fp);
+    ion_fp = NULL;
     if (debug_level == 2 && unaccounted_size > 0)
         ALOGD("EGL cached mtrack: pid %d unaccounted_size:%u\n", pid, unaccounted_size);
     return unaccounted_size;
+#else
+    UNUSED(pid);
+    return 0;
+#endif
 }
 
-// mali t82x t83x
-static int memtrack_get_gpuT8X(char *path)
+// mali midgard/bifrost
+static int debugfs_read_gl_app_cached_memory(char *path)
 {
     FILE *file;
     char line[1024];
@@ -512,18 +530,16 @@ static int memtrack_get_gpuT8X(char *path)
                 break;
     }
     fclose(file);
+    file = NULL;
     return gpu_size * PAGE_SIZE;
 }
 
-static size_t read_pid_gl_used_memory(pid_t pid)
+static size_t read_pid_gl_used_memory(pid_t pid, char *tmp)
 {
     size_t unaccounted_size = 0;
     FILE *ion_fp;
-    char tmp[CHAR_BUFFER_SIZE];
     char line[CHAR_BUFFER_SIZE];
-    char gl_mem_dir[] = MALI0;
 
-    snprintf(tmp, CHAR_BUFFER_SIZE, "%s/%s", gl_mem_dir, "gpu_memory");
     if ((ion_fp = fopen(tmp, "r")) == NULL) {
         ALOGD("open file %s error %s", tmp, strerror(errno));
         return -errno;
@@ -541,20 +557,69 @@ static size_t read_pid_gl_used_memory(pid_t pid)
         if (unaccounted_size > 0)
             break;
         num_matched = sscanf(line, "%*x %d %d", &alloc_pid, &ctx_used_mem);
+        if (debug_level == 2)
+            ALOGD("alloc_pid:%d sf_pid:%d", alloc_pid, sf_pid);
         if (num_matched == 2) {
+            if (sf_pid == 0 || alloc_pid < sf_pid)
+                sf_pid = alloc_pid;
             if (pid == alloc_pid) {
                 unaccounted_size = ctx_used_mem;
                 if (debug_level == 2)
                     ALOGI("read_pid_gl_used_memory: unaccounted_size=%d", unaccounted_size);
                 fclose(ion_fp);
+                ion_fp = NULL;
                 return unaccounted_size * PAGE_SIZE;
             }
         }
     }
     //close file fd
     fclose(ion_fp);
+    ion_fp = NULL;
     return unaccounted_size * PAGE_SIZE;
 }
+
+static size_t sysfs_read_gl_app_cached_memory(pid_t pid, char *tmp)
+{
+    size_t unaccounted_size = 0;
+    FILE *ion_fp;
+    char line[CHAR_BUFFER_SIZE];
+
+    if ((ion_fp = fopen(tmp, "r")) == NULL) {
+        ALOGD("open file %s error %s", tmp, strerror(errno));
+        return -errno;
+    }
+
+    // Parse clients. Entries appear as follows:
+    //kctx             pid              cached_pages
+    //----------------------------------------------------
+    //000000009e078926       2649        116
+    while (fgets(line, sizeof(line), ion_fp) != NULL) {
+        pid_t    alloc_pid;
+        int      num_matched;
+        int      ctx_cached_mem;
+
+        if (unaccounted_size > 0)
+            break;
+        num_matched = sscanf(line, "%*x %d %d", &alloc_pid, &ctx_cached_mem);
+        if (debug_level == 2)
+                ALOGD("sysfs_read_gl_app_cached_memory num_matched:%d alloc_pid:%d sf_pid:%d", num_matched, alloc_pid, sf_pid);
+        if (num_matched == 2) {
+            if (pid == alloc_pid) {
+                unaccounted_size = ctx_cached_mem;
+                if (debug_level == 2)
+                    ALOGI("read_pid_gl_used_memory: unaccounted_size=%d", unaccounted_size);
+                fclose(ion_fp);
+                ion_fp = NULL;
+                return unaccounted_size * PAGE_SIZE;
+            }
+        }
+    }
+    //close file fd
+    fclose(ion_fp);
+    ion_fp = NULL;
+    return unaccounted_size * PAGE_SIZE;
+}
+
 
 static size_t read_gl_device_cached_memory(pid_t pid)
 {
@@ -568,7 +633,7 @@ static size_t read_gl_device_cached_memory(pid_t pid)
     bool get_gl_dev_cached_mem = false;
 
 #if BUILD_KERNEL_4_9 == true
-    char gl_ion_dir[] = IONPATH;
+    char gl_ion_dir[] = IONHEAP;
 
     snprintf(tmp, CHAR_BUFFER_SIZE, "%s/%s", gl_ion_dir, "vmalloc_ion");
     if ((ion_fp = fopen(tmp, "r")) == NULL) {
@@ -596,6 +661,7 @@ static size_t read_gl_device_cached_memory(pid_t pid)
                 if (platform_dir == NULL) {
                     ALOGE("open %s failed!", PLATFORM_DEVICE);
                     fclose(ion_fp);
+                    ion_fp = NULL;
                     return 0;
                 }
                 while ((dir = readdir(platform_dir))) {
@@ -612,6 +678,7 @@ static size_t read_gl_device_cached_memory(pid_t pid)
                 if ((fl_fp = fopen(tmp, "r")) == NULL) {
                     ALOGE("open %s failed!", tmp);
                     fclose(ion_fp);
+                    ion_fp = NULL;
                     return 0;
                 }
                 ALOGI("open %s success!", tmp);
@@ -624,65 +691,35 @@ static size_t read_gl_device_cached_memory(pid_t pid)
                         else {
                             unaccounted_size = buf_size * PAGE_SIZE;
                             fclose(fl_fp);
+                            ion_fp = NULL;
                             get_gl_dev_cached_mem = true;
                             break;
                         }
                     }
                 if (!get_gl_dev_cached_mem)
                     fclose(fl_fp);
+                    ion_fp = NULL;
                 }
             }
         }
 
     //close file fd
     fclose(ion_fp);
+    ion_fp = NULL;
 #else
     FILE *fl_fp = NULL;
-    char task_name[50];
+    char task_name[CHAR_BUFFER_SIZE];
     int num_matched;
 
-    {
-        // get pid-name by pid
-        char proc_pid_path[CHAR_BUFFER_SIZE];
-        char buf[CHAR_BUFFER_SIZE];
+    char * sname = task_name;
+    memset(task_name, 0, sizeof(task_name));
+    memtrack_get_taskname_of_pid(pid, &sname);
 
-        sprintf(proc_pid_path, "/proc/%d/status", pid);
-        if (debug_level == 2)
-            ALOGI("read_gl_device_cached_memory proc_pid_path:%s", proc_pid_path);
-        FILE* fp = fopen(proc_pid_path, "r");
-        if (NULL == fp) {
-            return 0;
-        } else {
-            if (fgets(buf, CHAR_BUFFER_SIZE-1, fp) == NULL) {
-                fclose(fp);
-                return 0;
-            }
-            fclose(fp);
-            sscanf(buf, "%*s %s", task_name);
-        }
-    }
     // count GL device cached memory into allocator service
     if (debug_level == 2)
         ALOGI("read_gl_device_cached_memory task_name:%s", task_name);
-    if (is_allocate_client(task_name, sizeof(task_name))) {
-        platform_dir = opendir(PLATFORM_DEVICE);
-        if (platform_dir == NULL) {
-            ALOGE("open %s failed!", PLATFORM_DEVICE);
-            return 0;
-        }
-        while ((dir = readdir(platform_dir))) {
-            if (!strcmp(dir->d_name, ".") || !strcmp(dir->d_name, ".."))
-                continue;
-            if (strstr(dir->d_name, "bifrost") ||
-                strstr(dir->d_name, "mali")) {
-                snprintf(gl_dev_dir, CHAR_BUFFER_SIZE, "%s/%s", PLATFORM_DEVICE, dir->d_name);
-                break;
-            }
-        }
-        if (debug_level == 2)
-            ALOGD("read_gl_device_cached_memory gl_dev_dir:%s", gl_dev_dir);
-        closedir(platform_dir);
-        snprintf(tmp, CHAR_BUFFER_SIZE, "%s/%s", gl_dev_dir, "mem_pool_size");
+    if (strstr(task_name, "allocator")) {
+        snprintf(tmp, CHAR_BUFFER_SIZE-1, "%s/%s", PLATFORM_DEVICE, "mem_pool_size");
         if ((fl_fp = fopen(tmp, "r")) == NULL) {
             ALOGE("open %s failed!", tmp);
             return 0;
@@ -697,12 +734,15 @@ static size_t read_gl_device_cached_memory(pid_t pid)
                 else {
                     unaccounted_size = buf_size * PAGE_SIZE;
                     fclose(fl_fp);
+                    ion_fp = NULL;
                     get_gl_dev_cached_mem = true;
                     break;
                 }
             }
-        if (!get_gl_dev_cached_mem)
+        if (!get_gl_dev_cached_mem) {
             fclose(fl_fp);
+            fl_fp = NULL;
+        }
         }
 #endif
     return unaccounted_size;
@@ -713,27 +753,39 @@ static unsigned int memtrack_get_gpuMem(int pid)
     FILE *fp;
     char *cp, tmp[CHAR_BUFFER_SIZE];
     unsigned int result = 0;
-
-    DIR *gpudir;
+    DIR *gpu_debugfs_ctx_dir;
+    DIR *gpu_sysfs_ctx_dir;
     struct dirent *dir;
     int gpid = -1;
+    char debugfs_gl_mem_dir[] = MALI0;
+    char sysfs_gl_mem_dir[] = PLATFORM_DEVICE;
 
-    gpudir = opendir(GPUT8X);
+    gpu_debugfs_ctx_dir = opendir(GPUCTX);
 
-    if (!gpudir) {
-        ALOGD("open %s error %s\n", GPUT8X, strerror(errno));
-        sprintf(tmp, "/proc/%d/smaps", pid);
-        fp = fopen(tmp, "r");
-        if (fp == NULL) {
-            ALOGD("open file %s error %s", tmp, strerror(errno));
-            return 0;
-        }
-        result = memtrack_read_smaps(fp);
-
-        fclose(fp);
+    if (!gpu_debugfs_ctx_dir || debug_level == 3) {
+        ALOGD("sysfs path");
+        snprintf(tmp, CHAR_BUFFER_SIZE, "%s/%s", sysfs_gl_mem_dir, "gpu_memory");
+        result = read_pid_gl_used_memory(pid, tmp);
+        if (debug_level == 2 && result > 0)
+            ALOGD("pid=%d gl_used_memory=%d", pid, result);
+        int result_cache = read_gl_device_cached_memory(pid);
+        result += result_cache;
+        if (debug_level == 2 && result_cache > 0)
+            ALOGD("pid=%d gl_device_cached_memory=%d",
+                pid, result_cache);
+        memset(tmp,0,sizeof(char) * CHAR_BUFFER_SIZE);
+        snprintf(tmp, CHAR_BUFFER_SIZE, "%s/%s", sysfs_gl_mem_dir, "ctx_mem_pool_size");
+        int result_ctx_cache = sysfs_read_gl_app_cached_memory(pid, tmp);
+        if (debug_level == 2 && result_cache > 0)
+            ALOGD("pid=%d sysfs_read_gl_app_cached_memory=%d",
+                pid, result_ctx_cache);
+        result += result_ctx_cache;
+        closedir(gpu_debugfs_ctx_dir);
         return result;
     } else {
-        result = read_pid_gl_used_memory(pid);
+        ALOGD("debugfs path");
+        snprintf(tmp, CHAR_BUFFER_SIZE, "%s/%s", debugfs_gl_mem_dir, "gpu_memory");
+        result = read_pid_gl_used_memory(pid, tmp);
         if (debug_level == 2 && result > 0)
             ALOGD("pid=%d gl_used_memory=%d", pid, result);
         int result_cache = read_gl_device_cached_memory(pid);
@@ -741,7 +793,8 @@ static unsigned int memtrack_get_gpuMem(int pid)
         if (debug_level == 2 && result_cache > 0)
             ALOGD("pid=%d gl_device_cached_memory=%d",
                     pid, result_cache);
-        while ((dir = readdir(gpudir))) {
+        while ((dir = readdir(gpu_debugfs_ctx_dir))) {
+            memset(tmp,0,sizeof(char) * CHAR_BUFFER_SIZE);
             strcpy(tmp, dir->d_name);
             if (debug_level > 2) ALOGD("gpudir name=%s\n", dir->d_name);
             if ((cp=strchr(tmp, '_'))) {
@@ -749,14 +802,14 @@ static unsigned int memtrack_get_gpuMem(int pid)
                 gpid = atoi(tmp);
                 if (debug_level > 2) ALOGD("gpid=%d, pid=%d\n", gpid, pid);
                 if (gpid == pid) {
-                    sprintf(tmp, GPUT8X"/%s/%s", dir->d_name, "mem_pool_size");
-                    result += memtrack_get_gpuT8X(tmp);
-                    closedir(gpudir);
+                    sprintf(tmp, GPUCTX"/%s/%s", dir->d_name, "mem_pool_size");
+                    result += debugfs_read_gl_app_cached_memory(tmp);
+                    closedir(gpu_debugfs_ctx_dir);
                     return result;
                 }
             }
         }
-        closedir(gpudir);
+        closedir(gpu_debugfs_ctx_dir);
     }
     return result;
 }
