@@ -22,12 +22,13 @@
 #include <string.h>
 
 #include "aml_audio_delay.h"
+#include "audio_hw_utils.h"
 
 #define ALIGN(size, align) ((size + align - 1) & (~(align - 1)))
 
 
 static aml_audio_delay_st g_stAudioOutputDelay[AML_DELAY_OUTPORT_BUTT];
-static const int g_u32OutDelayMaxDefault[AML_DELAY_OUTPORT_BUTT] = {1000, 1000, 1000};
+static const int g_u32OutDelayMaxDefault[AML_DELAY_OUTPORT_BUTT] = {1000, 1000, 1000, 1000};
 static bool g_bAudioDelayInit = false;
 
 int aml_audio_delay_init()
@@ -185,3 +186,22 @@ int aml_audio_delay_process(aml_audio_delay_type_e enAudioDelayType, void *pData
     return 0;
 }
 
+aml_audio_delay_type_e out_dev_convert_to_delay_type(aml_audio_out_dev_type_e type)
+{
+    aml_audio_delay_type_e ret = AML_DELAY_OUTPORT_SPEAKER;
+    switch (type) {
+    case AML_AUDIO_OUT_DEV_TYPE_SPEAKER:
+        ret = AML_DELAY_OUTPORT_SPEAKER;
+        break;
+    case AML_AUDIO_OUT_DEV_TYPE_SPDIF:
+        ret = AML_DELAY_OUTPORT_SPDIF;
+        break;
+    case AML_AUDIO_OUT_DEV_TYPE_HEADPHONE:
+        ret = AML_DELAY_OUTPORT_HEADPHONE;
+        break;
+    default:
+        AM_LOGW("unsupport type:%d, return SPK.", type);
+        break;
+    }
+    return ret;
+}

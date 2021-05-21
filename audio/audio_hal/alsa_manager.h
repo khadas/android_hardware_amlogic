@@ -37,6 +37,19 @@ typedef struct aml_device_config {
 
 } aml_device_config_t;
 
+typedef enum AML_AUDIO_OUT_DEV_TYPE{
+    AML_AUDIO_OUT_DEV_TYPE_SPEAKER                  = 0,
+    AML_AUDIO_OUT_DEV_TYPE_SPDIF                    = 1,
+    AML_AUDIO_OUT_DEV_TYPE_HEADPHONE                = 2,
+    AML_AUDIO_OUT_DEV_TYPE_OTHER                    = 3,
+
+    AML_AUDIO_OUT_DEV_TYPE_BUTT                     = 4,
+} aml_audio_out_dev_type_e;
+
+/* 0: alsa auge. 1: alsa non auge. */
+/* speaker, spdif, headphone, other. refer aml_audio_out_dev_type_e.*/
+extern aml_audio_out_dev_type_e alsa_out_ch_mask[2][AML_AUDIO_OUT_DEV_TYPE_BUTT];
+
 /**
  * pcm open with configs in streams: card, device, pcm_config
  * If device has been opened, close it and reopen with new params

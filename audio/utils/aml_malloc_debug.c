@@ -235,9 +235,28 @@ void aml_audio_debug_malloc_showinfo(uint32_t level)
         fwrite((char *)aml_malloc_temp_buf, 1, sizeof(aml_malloc_temp_buf), fp1);
         fclose(fp1);
     }
-
-
     pthread_mutex_unlock(&pmalloc_handle->malloc_lock);
-
     return;
 }
+
+int aml_audio_check_and_realloc(void** pointer, size_t* cur_size, size_t need_size)
+{
+    if (pointer == NULL || cur_size == NULL) {
+        ALOGE("[%s:%d] pointer:%p or cur_size:%p is null", __func__, __LINE__, pointer, cur_size);
+        return -1;
+    }
+
+    if (*cur_size < need_size || *pointer == NULL) {
+        void *p = aml_audio_realloc(*pointer, need_size);
+        if (p == NULL) {
+            ALOGE("[%s:%d] realloc buffer failed size:%d", __func__, __LINE__, need_size);
+            return -ENOMEM;
+        } else {
+            memset(p, 0, need_size);
+            *pointer = p;
+        }
+        *cur_size = need_size;
+    }
+    return 0;
+}
+

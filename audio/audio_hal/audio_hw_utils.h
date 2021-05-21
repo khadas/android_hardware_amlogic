@@ -48,6 +48,24 @@
     }                                                       \
     return pStr;
 
+#define AM_LOGV(fmt, ...)  ALOGV("[%s:%d] "fmt, __func__,__LINE__, ##__VA_ARGS__)
+#define AM_LOGD(fmt, ...)  ALOGD("[%s:%d] "fmt, __func__,__LINE__, ##__VA_ARGS__)
+#define AM_LOGI(fmt, ...)  ALOGI("[%s:%d] "fmt, __func__,__LINE__, ##__VA_ARGS__)
+#define AM_LOGW(fmt, ...)  ALOGW("[%s:%d] "fmt, __func__,__LINE__, ##__VA_ARGS__)
+#define AM_LOGE(fmt, ...)  ALOGE("[%s:%d] "fmt, __func__,__LINE__, ##__VA_ARGS__)
+
+#define R_CHECK_RET(ret, fmt, ...)                                                              \
+    if (ret != 0) {                                                                             \
+        AM_LOGE("ret:%d "fmt, ret, ##__VA_ARGS__);                                              \
+        return ret;                                                                             \
+    }
+
+#define NO_R_CHECK_RET(ret, fmt, ...)                                                           \
+    if (ret != 0) {                                                                             \
+        AM_LOGE("ret:%d "fmt, ret, ##__VA_ARGS__);                                              \
+    }
+
+
 int64_t aml_gettime(void);
 int get_sysfs_uint(const char *path, uint *value);
 int sysfs_set_sysfs_str(const char *path, const char *val);

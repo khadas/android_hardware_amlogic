@@ -45,5 +45,6 @@ void* aml_audio_debug_realloc(void* pointer, size_t bytes, char * file_name, uin
 void* aml_audio_debug_calloc(size_t nmemb, size_t bytes, char * file_name, uint32_t line);
 void aml_audio_debug_free(void* pointer);
 void aml_audio_debug_malloc_showinfo(uint32_t level);
+int aml_audio_check_and_realloc(void** pointer, size_t* cur_size, size_t need_size);
 
 #endif
