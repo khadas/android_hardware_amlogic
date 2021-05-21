@@ -40,6 +40,7 @@ typedef struct spdifout_handle {
     bool need_spdif_enc;
     bool spdif_enc_init;
     void *spdif_enc_handle;
+    bool b_mute;
 } spdifout_handle_t;
 
 
@@ -375,7 +376,7 @@ int aml_audio_spdifout_processs(void *phandle, void *buffer, size_t byte)
         b_mute = true;
     }
 
-    if (b_mute) {
+    if (b_mute || spdifout_phandle->b_mute) {
         memset(output_buffer, 0, output_buffer_bytes);
     }
 
@@ -434,14 +435,15 @@ int aml_audio_spdifout_close(void *phandle)
     return ret;
 }
 
-int aml_audio_spdifout_mute(void *phandle, bool bmute) {
+int aml_audio_spdifout_mute(void *phandle, bool b_mute) {
     struct spdifout_handle *spdifout_phandle = (struct spdifout_handle *)phandle;
-    if (phandle == NULL || spdifout_phandle->spdif_enc_handle == NULL) {
+    if (phandle == NULL) {
         ALOGE("[%s:%d] invalid param, phandle:%p, spdif_enc_handle:%p", __func__, __LINE__,
             phandle, spdifout_phandle->spdif_enc_handle);
         return -1;
     }
-    aml_spdif_encoder_mute(spdifout_phandle->spdif_enc_handle, bmute);
+
+    spdifout_phandle->b_mute = b_mute;
     return 0;
 }
 
