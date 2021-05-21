@@ -24,6 +24,7 @@
 #include <cutils/properties.h>
 
 #include "audio_eq_drc_compensation.h"
+#include "aml_volume_utils.h"
 
 #undef  LOG_TAG
 #define LOG_TAG  "audio_hw_primary"
@@ -40,14 +41,6 @@ static struct audio_file_config_s dev_cfg[2] = {
         "",
     }
 };
-
-static inline float DbToAmpl(float decibels)
-{
-    if (decibels <= -758) {
-        return 0.0f;
-    }
-    return exp( decibels * 0.115129f); // exp( dB * ln(10) / 20 )
-}
 
 uint32_t swapInt32(uint32_t value)
 {

@@ -107,7 +107,7 @@ bool is_multi_channel_pcm(struct audio_stream_out *stream);
 bool is_high_rate_pcm(struct audio_stream_out *stream);
 bool is_disable_ms12_continuous(struct audio_stream_out *stream);
 int find_offset_in_file_strstr(char *mystr, char *substr);
-
+float aml_audio_get_s_gain_by_src(struct aml_audio_device *adev, enum patch_src_assortion type);
 int android_dev_convert_to_hal_dev(audio_devices_t android_dev, int *hal_dev_port);
 enum patch_src_assortion android_input_dev_convert_to_hal_patch_src(audio_devices_t android_dev);
 enum input_source android_input_dev_convert_to_hal_input_src(audio_devices_t android_dev);
