@@ -38,7 +38,7 @@ int aml_audio_spdifout_processs(void *phandle, void *buffer, size_t byte);
 
 int aml_audio_spdifout_close(void *phandle);
 
-int aml_audio_spdifout_mute(void *phandle, bool bmute);
+int aml_audio_spdifout_mute(void *phandle, bool b_mute);
 
 int aml_audio_spdifout_pause(void *phandle);
 

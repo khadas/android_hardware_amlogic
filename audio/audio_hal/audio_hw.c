@@ -1296,13 +1296,18 @@ static int out_set_volume (struct audio_stream_out *stream, float left, float ri
     if (is_dolby_format && (eDolbyDcvLib == adev->dolby_lib_type || is_bypass_dolbyms12(stream) || adev->hdmi_format == BYPASS)) {
         if (out->volume_l < FLOAT_ZERO && left > FLOAT_ZERO) {
             ALOGI("set offload mute: false");
-            spdifenc_set_mute(false);
             out->offload_mute = false;
         } else if (out->volume_l > FLOAT_ZERO && left < FLOAT_ZERO) {
             ALOGI("set offload mute: true");
-            spdifenc_set_mute(true);
             out->offload_mute = true;
         }
+        if (out->spdifout_handle) {
+            aml_audio_spdifout_mute(out->spdifout_handle, out->offload_mute);
+        }
+        if (out->spdifout2_handle) {
+            aml_audio_spdifout_mute(out->spdifout2_handle, out->offload_mute);
+        }
+
     }
     out->volume_l = left;
     out->volume_r = right;
