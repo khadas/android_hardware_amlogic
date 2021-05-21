@@ -309,7 +309,6 @@ int set_sysfs_int(const char *path, int value)
     return 0;
 }
 
-
 int mystrstr(char *mystr, char *substr)
 {
     int i = 0;
@@ -354,7 +353,6 @@ int find_offset_in_file_strstr(char *mystr, char *substr)
         return -1;
     }
 }
-
 
 void set_codec_type(int type)
 {
@@ -1514,6 +1512,21 @@ bool is_disable_ms12_continuous(struct audio_stream_out *stream) {
     return false;
 }
 
+float aml_audio_get_s_gain_by_src(struct aml_audio_device *adev, enum patch_src_assortion type)
+{
+    switch(type) {
+        case SRC_ATV:
+            return adev->eq_data.s_gain.atv;
+        case SRC_DTV:
+            return adev->eq_data.s_gain.dtv;
+        case SRC_HDMIIN:
+            return adev->eq_data.s_gain.hdmi;
+        case SRC_LINEIN:
+            return adev->eq_data.s_gain.av;
+        default:
+            return adev->eq_data.s_gain.media;
+    }
+}
 
 int android_dev_convert_to_hal_dev(audio_devices_t android_dev, int *hal_dev_port)
 {
