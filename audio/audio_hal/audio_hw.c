@@ -6729,6 +6729,10 @@ hwsync_rewrite:
             ALOGI ("%s hal_channel_mask %#x\n", __FUNCTION__, aml_out->hal_channel_mask);
             if (aml_out->hal_internal_format == AUDIO_FORMAT_DTS ||
                 aml_out->hal_internal_format == AUDIO_FORMAT_DTS_HD) {
+                /*when switch from ms12 to dts, we should clean ms12 first*/
+                if (adev->dolby_lib_type == eDolbyMS12Lib) {
+                    get_dolby_ms12_cleanup(&adev->ms12, false);
+                }
                 adev->dolby_lib_type = eDolbyDcvLib;
                 if (aml_out->hal_internal_format == AUDIO_FORMAT_DTS_HD) {
                     /* For DTS HBR case, needs enlarge buffer and start threshold to anti-xrun */
