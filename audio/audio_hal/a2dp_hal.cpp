@@ -26,7 +26,6 @@
 #include "a2dp_hw.h"
 #include "aml_audio_resampler.h"
 #include "aml_audio_stream.h"
-#include "audio_hw_utils.h"
 extern "C" {
 #include "aml_audio_timer.h"
 }
@@ -52,14 +51,22 @@ struct aml_a2dp_hal {
 
 const char* a2dpStatus2String(BluetoothStreamState type)
 {
-    ENUM_TYPE_TO_STR_START("BluetoothStreamState::");
-    ENUM_TYPE_TO_STR(BluetoothStreamState::DISABLED)
-    ENUM_TYPE_TO_STR(BluetoothStreamState::STANDBY)
-    ENUM_TYPE_TO_STR(BluetoothStreamState::STARTING)
-    ENUM_TYPE_TO_STR(BluetoothStreamState::STARTED)
-    ENUM_TYPE_TO_STR(BluetoothStreamState::SUSPENDING)
-    ENUM_TYPE_TO_STR(BluetoothStreamState::UNKNOWN)
-    ENUM_TYPE_TO_STR_END
+    switch (type) {
+    case BluetoothStreamState::DISABLED:
+        return "DISABLED";
+    case BluetoothStreamState::STANDBY:
+        return "STANDBY";
+    case BluetoothStreamState::STARTING:
+        return "STARTING";
+    case BluetoothStreamState::STARTED:
+        return "STARTED";
+    case BluetoothStreamState::SUSPENDING:
+        return "SUSPENDING";
+    case BluetoothStreamState::UNKNOWN:
+        return "UNKNOWN";
+    default:
+        return "INVALID type";
+    }
 }
 
 std::unordered_map<std::string, std::string> ParseAudioParams(const std::string& params) {

@@ -14,11 +14,11 @@
  * limitations under the License.
  */
 
-
 #ifndef AML_AUDIO_DELAY_H
 #define AML_AUDIO_DELAY_H
 #include <system/audio-base.h>
 #include <aml_ringbuffer.h>
+#include "alsa_manager.h"
 
 
 typedef struct AML_AUDIO_DELAY {
@@ -30,9 +30,10 @@ typedef struct AML_AUDIO_DELAY {
 typedef enum AML_AUDIO_DELAY_TYPE{
     AML_DELAY_OUTPORT_SPEAKER           = 0,
     AML_DELAY_OUTPORT_SPDIF             = 1,
-    AML_DELAY_OUTPORT_ALL               = 2,
+    AML_DELAY_OUTPORT_HEADPHONE         = 2,
+    AML_DELAY_OUTPORT_ALL               = 3,
 
-    AML_DELAY_OUTPORT_BUTT              = 3,
+    AML_DELAY_OUTPORT_BUTT              = 4,
 } aml_audio_delay_type_e;
 
 int aml_audio_delay_init();
@@ -40,8 +41,7 @@ int aml_audio_delay_deinit();
 int aml_audio_delay_set_time(aml_audio_delay_type_e enAudioDelayType, int s32DelayTimeMs);
 int aml_audio_delay_clear(aml_audio_delay_type_e enAudioDelayType);
 int aml_audio_delay_process(aml_audio_delay_type_e enAudioDelayType, void *pData, int s32Size, audio_format_t enFormat);
-
-
+aml_audio_delay_type_e out_dev_convert_to_delay_type(aml_audio_out_dev_type_e type);
 
 #endif
 

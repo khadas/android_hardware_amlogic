@@ -51,37 +51,18 @@
 #define ALSA_OUTPUT_SPDIF_FILE   "/data/vendor/audiohal/alsa_spdif_write"
 
 
+/* 0: alsa auge. 1: alsa non auge. */
+/* speaker, spdif, headphone, other. refer aml_audio_out_dev_type_e.*/
+aml_audio_out_dev_type_e alsa_out_ch_mask[2][AML_AUDIO_OUT_DEV_TYPE_BUTT] = {
+    {AML_AUDIO_OUT_DEV_TYPE_SPDIF, AML_AUDIO_OUT_DEV_TYPE_SPEAKER, AML_AUDIO_OUT_DEV_TYPE_HEADPHONE, AML_AUDIO_OUT_DEV_TYPE_OTHER},
+    {AML_AUDIO_OUT_DEV_TYPE_SPEAKER, AML_AUDIO_OUT_DEV_TYPE_SPDIF, AML_AUDIO_OUT_DEV_TYPE_HEADPHONE, AML_AUDIO_OUT_DEV_TYPE_OTHER},
+};
+
+
 static int aml_audio_get_alsa_debug() {
     int debug_flag = 0;
     debug_flag = get_debug_value(AML_DEBUG_AUDIOHAL_ALSA);
     return debug_flag;
-}
-
-/*
-insert bytes of into audio effect buffer to clear intermediate data when exit
-*/
-static int insert_eff_zero_bytes(struct aml_audio_device *adev, size_t size) {
-    int ret = 0;
-    size_t insert_size = size;
-    size_t once_write_size = 0;
-    size_t bytes_per_frame = audio_bytes_per_sample(AUDIO_FORMAT_PCM_16_BIT)
-                             * audio_channel_count_from_out_mask(AUDIO_CHANNEL_OUT_STEREO);
-    int16_t *effect_tmp_buf = NULL;
-
-    if ((size % bytes_per_frame) != 0) {
-        ALOGE("%s, size= %zu , not bytes_per_frame muliplier\n", __FUNCTION__, size);
-        goto exit;
-    }
-
-    effect_tmp_buf = (int16_t *) adev->effect_buf;
-    while (insert_size > 0) {
-        once_write_size = insert_size > adev->effect_buf_size ? adev->effect_buf_size : insert_size;
-        memset(effect_tmp_buf, 0, once_write_size);
-        insert_size -= once_write_size;
-    }
-
-exit:
-    return 0;
 }
 
 static void alsa_write_rate_control(struct audio_stream_out *stream, size_t bytes  __unused, audio_format_t out_format) {
@@ -274,9 +255,6 @@ void aml_alsa_output_close(struct audio_stream_out *stream) {
     }
     if (pcm && (adev->pcm_refs[device] == 0)) {
         ALOGI("%s(), pcm_close audio device[%d] pcm handle %p", __func__, device, pcm);
-        // insert enough zero byte to clean audio processing buffer when exit
-        // after test 8192*2 bytes should be enough, that is DEFAULT_PLAYBACK_PERIOD_SIZE*32
-        insert_eff_zero_bytes(adev, DEFAULT_PLAYBACK_PERIOD_SIZE * 32);
         pcm_close(pcm);
         adev->pcm_handle[device] = NULL;
     }

@@ -423,15 +423,10 @@ struct aml_audio_device {
     bool bHDMIARCon;
     bool bHDMIConnected;
     bool bHDMIConnected_update;
-
-    /**
-     * buffer pointer whose data output to headphone
-     * buffer size equal to efect_buf_size
-     */
-    void *spk_output_buf;
-    void *spdif_output_buf;
-    void *effect_buf;
-    size_t effect_buf_size;
+    int16_t *out_16_buf;
+    size_t out_16_buf_size;
+    int32_t *out_32_buf;
+    size_t out_32_buf_size;
     size_t spk_tuning_lvl;
     /* ringbuffer for tuning latency total buf size */
     size_t spk_tuning_buf_size;
