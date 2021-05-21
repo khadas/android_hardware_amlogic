@@ -688,7 +688,9 @@ static int dtv_write_mute_frame(struct aml_audio_patch *patch,
         ALOGE("dtv_write_mute_frame exit");
         return -1;
     }
-    if (aml_dev->sink_format != AUDIO_FORMAT_PCM_16_BIT && patch->aformat == AUDIO_FORMAT_E_AC3) {
+    if (aml_dev->sink_format != AUDIO_FORMAT_PCM_16_BIT &&
+        (patch->aformat == AUDIO_FORMAT_E_AC3 ||
+          patch->aformat == AUDIO_FORMAT_AC4)) {
         memcpy(mixbuffer + mix_size, mute_ddp_frame, sizeof(mute_ddp_frame));
         type = 2;
     } else if (aml_dev->sink_format != AUDIO_FORMAT_PCM_16_BIT && patch->aformat == AUDIO_FORMAT_AC3) {
@@ -849,7 +851,7 @@ static void dtv_do_drop_insert_ac3(struct aml_audio_patch *patch,
             t1 =  abs(patch->dtv_apts_lookup) / 90;
         }
         t2 = t1 / 32;
-        ALOGI("dtv_do_insert:++insert lookup %d,diff %d ms\n", patch->dtv_apts_lookup, t1);
+        ALOGI("dtv_do_insert:++insert lookup %d,diff(t1) %d ms\n", patch->dtv_apts_lookup, t1);
         t1 = 0;
         clock_gettime(CLOCK_MONOTONIC, &before_write);
         while (t1 == 0 && t2 > 0) {
@@ -867,7 +869,7 @@ static void dtv_do_drop_insert_ac3(struct aml_audio_patch *patch,
             t2--;
             clock_gettime(CLOCK_MONOTONIC, &after_write);
             write_used_ms = calc_time_interval_us(&before_write, &after_write)/1000;
-            ALOGI("write_used_ms = %d\n", write_used_ms);
+            ALOGI("write_used_ms = %d, t1 = %d, t2 = %d\n", write_used_ms, t1, t2);
             if (write_used_ms > 1000) {
                 ALOGI("Warning write cost over 1s, break\n");
                 break;

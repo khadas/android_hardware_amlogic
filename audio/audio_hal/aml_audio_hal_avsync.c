@@ -1334,7 +1334,8 @@ void dtv_avsync_process(struct aml_audio_patch* patch, struct aml_stream_out* st
         patch->dtv_audio_tune = AUDIO_LOOKUP;
         ALOGI("set audio_output_delay = %d\n", audio_output_delay);
     }
-    if (patch->aformat == AUDIO_FORMAT_E_AC3 || patch->aformat == AUDIO_FORMAT_AC3) {
+    if (patch->aformat == AUDIO_FORMAT_E_AC3 || patch->aformat == AUDIO_FORMAT_AC3 ||
+            patch->aformat == AUDIO_FORMAT_AC4) {
         if (stream_out != NULL) {
         /*+[SE][BUG][SWPL-26557][zhizhong] for the passthrough set prelantency default*/
             if (aml_dev->sink_format == AUDIO_FORMAT_E_AC3 ||
