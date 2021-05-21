@@ -252,7 +252,8 @@ int aml_audio_ms12_render(struct audio_stream_out *stream, const void *buffer, s
                          }
                     }
                     out_frames += dec_pcm_data->data_len /( 2 * dec_pcm_data->data_ch);
-                    patch->dtv_pcm_writed += dec_pcm_data->data_len;
+                    if (patch && (adev->patch_src  == SRC_DTV))
+                        patch->dtv_pcm_writed += dec_pcm_data->data_len;
                     aml_dec->out_frame_pts = aml_dec->in_frame_pts + (90 * out_frames /(dec_pcm_data->data_sr / 1000));
                     //aml_audio_dump_audio_bitstreams("/data/mixing_data.raw", dec_data, dec_pcm_data->data_len);
                     ret = aml_audio_ms12_process_wrapper(stream, dec_data, dec_pcm_data->data_len);
