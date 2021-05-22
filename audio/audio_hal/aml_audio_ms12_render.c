@@ -206,7 +206,8 @@ int aml_audio_ms12_render(struct audio_stream_out *stream, const void *buffer, s
         aml_dec_t *aml_dec = aml_out->aml_dec;
         if (do_sync_flag) {
             if(patch->skip_amadec_flag) {
-                aml_dec->in_frame_pts = patch->cur_package->pts;
+                if (patch->cur_package)
+                    aml_dec->in_frame_pts = patch->cur_package->pts;
                 if (aml_dec->in_frame_pts == 0) {
                      aml_dec->in_frame_pts = decoder_apts_lookup(patch->decoder_offset);
                 }
@@ -261,7 +262,8 @@ int aml_audio_ms12_render(struct audio_stream_out *stream, const void *buffer, s
                         ms12_delayms = aml_audio_get_cur_ms12_latency(stream);
                         if(patch->skip_amadec_flag) {
                             patch->dtvsync->cur_outapts = aml_dec->out_frame_pts - ms12_delayms * 90;//need consider the alsa delay
-                            aml_dtvsync_ms12_get_policy(stream);
+                            if (aml_out->dtvsync_enable)
+                                aml_dtvsync_ms12_get_policy(stream);
                         }
                     }
                 }
