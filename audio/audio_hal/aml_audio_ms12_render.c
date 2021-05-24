@@ -43,21 +43,24 @@ int aml_audio_get_cur_ms12_latency(struct audio_stream_out *stream) {
     struct aml_stream_out *aml_out = (struct aml_stream_out *) stream;
     struct aml_audio_device *adev = aml_out->dev;
     struct dolby_ms12_desc *ms12 = &(adev->ms12);
-     struct aml_audio_patch *patch = adev->audio_patch;
+    struct aml_audio_patch *patch = adev->audio_patch;
     int ms12_latencyms = 0;
 
     int inputnode_consumed = dolby_ms12_get_main_bytes_consumed(stream);
     int frames_generated = dolby_ms12_get_main_pcm_generated(stream);
     if (is_dolby_ms12_support_compression_format(aml_out->hal_internal_format)) {
-        ms12_latencyms = (patch->decoder_offset - inputnode_consumed) / aml_out->ddp_frame_size * 32 + (frames_generated - ms12->master_pcm_frames) / 48;
+        if (adev->dual_decoder_support)
+            ms12_latencyms = (frames_generated - ms12->master_pcm_frames) / 48;
+        else
+            ms12_latencyms = (patch->decoder_offset - inputnode_consumed) / aml_out->ddp_frame_size * 32 + (frames_generated - ms12->master_pcm_frames) / 48;
     } else {
         ms12_latencyms = ((patch->dtv_pcm_writed  - inputnode_consumed ) / 4 + frames_generated - ms12->master_pcm_frames) / 48;
     }
-
+    if (adev->debug_flag)
+        ALOGI("ms12_latencyms %d ",ms12_latencyms);
     return ms12_latencyms;
 
 }
-
 
 int aml_audio_ms12_process_wrapper(struct audio_stream_out *stream, const void *write_buf, size_t write_bytes)
 
@@ -262,6 +265,8 @@ int aml_audio_ms12_render(struct audio_stream_out *stream, const void *buffer, s
                         ms12_delayms = aml_audio_get_cur_ms12_latency(stream);
                         if(patch->skip_amadec_flag) {
                             patch->dtvsync->cur_outapts = aml_dec->out_frame_pts - ms12_delayms * 90;//need consider the alsa delay
+                            if (adev->debug_flag)
+                                ALOGI("patch->dtvsync->cur_outapts %lld", patch->dtvsync->cur_outapts);
                             if (aml_out->dtvsync_enable)
                                 aml_dtvsync_ms12_get_policy(stream);
                         }

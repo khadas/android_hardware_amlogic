@@ -272,14 +272,14 @@ static int mad_decoder_release(aml_dec_t * aml_dec)
 }
 static void dump_mad_data(void *buffer, int size, char *file_name)
 {
-   //if (property_get_bool("vendor.media.amadec.outdump",false)) {
+   if (property_get_bool("vendor.media.mad.dump",false)) {
         FILE *fp1 = fopen(file_name, "a+");
         if (fp1) {
             int flen = fwrite((char *)buffer, 1, size, fp1);
             ALOGI("%s buffer %p size %d flen %d\n", __FUNCTION__, buffer, size,flen);
             fclose(fp1);
         }
-    //}
+    }
 }
 
 
@@ -415,7 +415,7 @@ static int mad_decoder_process(aml_dec_t * aml_dec, unsigned char*buffer, int by
     dec_pcm_data->data_ch  = pAudioInfo.channels;
     dec_pcm_data->data_format  = mad_config->mpeg_format;
     if (dec_pcm_data->data_len != ad_dec_pcm_data->data_len ) {
-        ALOGI("zll dec_pcm_data->data_len %d ad_dec_pcm_data->data_len %d",dec_pcm_data->data_len ,ad_dec_pcm_data->data_len);
+        ALOGV("dec_pcm_data->data_len %d ad_dec_pcm_data->data_len %d",dec_pcm_data->data_len ,ad_dec_pcm_data->data_len);
     }
     ad_dec_pcm_data->data_len  = 0;
     dump_mad_data(dec_pcm_data->buf, dec_pcm_data->data_len, "/data/mad_output.pcm");
