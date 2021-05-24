@@ -2550,7 +2550,7 @@ void *audio_dtv_patch_input_threadloop(void *data)
     struct package *dtv_pacakge = NULL;
     struct mAudioEsDataInfo *mEsData = NULL ,*mAdEsData = NULL;
     int trycount = 0;
-    int max_trycount = 4;
+    int max_trycount = 2;
     int rlen = 0;//read buffer ret size
     aml_demux_audiopara_t *demux_info = (aml_demux_audiopara_t *)patch->demux_info;
     ALOGI("[audiohal_kpi]++%s start input now patch->input_thread_exit %d!!!\n ",
