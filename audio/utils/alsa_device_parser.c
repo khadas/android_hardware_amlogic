@@ -109,6 +109,45 @@ bool alsa_device_is_auge(void)
 
 	return false;
 }
+/** TODO: only for aloop test
+ *    Suppose that aloop card id =0,
+ *    if not, need way to parse.
+ */
+int alsa_device_get_card_index_by_name(void *name)
+{
+	FILE *mCardFile = NULL;
+	int mCardIndex = -1;
+
+	if (!name)
+		return -1;
+
+	mCardFile = fopen(ALSASOUND_CARD_PATH, "r");
+	if (mCardFile) {
+		char tempbuffer[READ_BUFFER_SIZE];
+
+		while (!feof(mCardFile)) {
+			fgets(tempbuffer, READ_BUFFER_SIZE, mCardFile);
+
+			/* this line contain '[' character */
+			if (strchr(tempbuffer, '[')) {
+				char *Rch = strtok(tempbuffer, "[");
+				int id = atoi(Rch);
+				ALOGD("\tcurrent card id = %d, Rch = %s", id, Rch);
+				Rch = strtok(NULL, " ]");
+				ALOGD("\tcurrent sound card name = %s", Rch);
+				if (strcmp(Rch, name) == 0) {
+					ALOGD("\t sound cardIndex found = %d", id);
+					mCardIndex = id;
+					break;
+				}
+			}
+
+			memset((void *)tempbuffer, 0, READ_BUFFER_SIZE);
+		}
+	}
+
+	return mCardIndex;
+}
 
 /*
  * cat /proc/asound/cards
@@ -154,7 +193,7 @@ int alsa_device_get_card_index()
 					isCardIndexFound = true;
 					p_aml_alsa_info->is_auge = 1;
 					break;
-				} else {
+				} else if (strcmp(Rch, CARD_NAME_MESON) == 0) {
 					ALOGD("\t meson sound cardIndex found = %d", mCardIndex);
 					isCardIndexFound = true;
 					p_aml_alsa_info->is_auge = 0;
@@ -357,6 +396,9 @@ int alsa_device_update_pcm_index(int alsaPORT, int stream)
 		break;
 	case PORT_BUILTINMIC:
 		pADD = p_info->builtinmic_descrpt;
+		if (!pADD) {
+			pADD = p_info->i2s_descrpt;
+		}
 		break;
 	case PORT_EARC:
 		pADD = p_info->earc_descrpt;

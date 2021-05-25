@@ -13,7 +13,8 @@ LOCAL_SHARED_LIBRARIES := \
     liblog \
     libutils \
     libamaudioutils \
-    libamlparser
+    libamlparser \
+    libalsautils
 
 LOCAL_C_INCLUDES := \
    external/tinyalsa/include \

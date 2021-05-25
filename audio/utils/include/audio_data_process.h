@@ -18,7 +18,11 @@
 #ifndef _AUDIO_DATA_PROCESS_H_
 #define _AUDIO_DATA_PROCESS_H_
 
+#include <system/audio.h>
+
 struct audioCfg {
+    int card;
+    int device;
     uint32_t sampleRate;
     uint32_t channelCnt;
     audio_format_t format;

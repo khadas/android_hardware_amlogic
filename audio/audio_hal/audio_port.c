@@ -23,6 +23,8 @@
 #include <linux/ioctl.h>
 #include <sound/asound.h>
 #include <tinyalsa/asoundlib.h>
+#include <string.h>
+#include <alsa_device_parser.h>
 
 #include "audio_port.h"
 #include "alsa_device_parser.h"
@@ -30,6 +32,7 @@
 #include "audio_hw_utils.h"
 #include "audio_hwsync.h"
 #include "aml_malloc_debug.h"
+#include "karaoke_manager.h"
 
 #ifdef ENABLE_AEC_APP
 #include "audio_aec.h"
@@ -436,6 +439,95 @@ size_t get_inport_consumed_size(input_port *port)
     return port->consumed_bytes;
 }
 
+static ssize_t output_port_start(output_port *port)
+{
+    struct audioCfg cfg = port->cfg;
+    struct pcm_config pcm_cfg;
+    int card = port->cfg.card;
+    int device = port->cfg.device;
+    struct pcm *pcm = NULL;
+
+    memset(&pcm_cfg, 0, sizeof(struct pcm_config));
+    pcm_cfg.channels = cfg.channelCnt;
+    pcm_cfg.rate = cfg.sampleRate;
+    pcm_cfg.period_size = DEFAULT_PLAYBACK_PERIOD_SIZE;
+    pcm_cfg.period_count = DEFAULT_PLAYBACK_PERIOD_CNT;
+    pcm_cfg.start_threshold = pcm_cfg.period_size * pcm_cfg.period_count / 2;
+    //pcm_cfg.stop_threshold = pcm_cfg.period_size * pcm_cfg.period_count - 128;
+    //pcm_cfg.silence_threshold = pcm_cfg.stop_threshold;
+    //pcm_cfg.silence_size = 1024;
+
+    if (cfg.format == AUDIO_FORMAT_PCM_16_BIT)
+        pcm_cfg.format = PCM_FORMAT_S16_LE;
+    else if (cfg.format == AUDIO_FORMAT_PCM_32_BIT)
+        pcm_cfg.format = PCM_FORMAT_S32_LE;
+    else {
+        ALOGE("%s(), unsupport", __func__);
+        pcm_cfg.format = PCM_FORMAT_S16_LE;
+    }
+    ALOGI("%s(), open ALSA hw:%d,%d", __func__, card, device);
+    pcm = pcm_open(card, device, PCM_OUT | PCM_MONOTONIC, &pcm_cfg);
+    if ((pcm == NULL) || !pcm_is_ready(pcm)) {
+        ALOGE("cannot open pcm_out driver: %s", pcm_get_error(pcm));
+        pcm_close(pcm);
+        return -EINVAL;
+    }
+    port->pcm_handle = pcm;
+    port->port_status = ACTIVE;
+#ifdef USB_KARAOKE
+    struct kara_manager *karaoke = port->kara;
+
+    if (karaoke && karaoke->karaoke_on && karaoke->karaoke_enable) {
+        card = alsa_device_get_card_index_by_name("Loopback");
+        port->loopback_handle = pcm_open(card, 0, PCM_OUT, &pcm_cfg);
+        if (!pcm_is_ready(port->loopback_handle)) {
+            ALOGE("%s: cannot open loopback: %s", __func__,
+                    pcm_get_error(port->loopback_handle));
+            pcm_close (port->loopback_handle);
+            port->loopback_handle = NULL;
+        }
+    }
+#endif
+    return 0;
+}
+
+static int output_port_standby(output_port *port)
+{
+    struct pcm *pcm = port->pcm_handle;
+    if (pcm) {
+        ALOGI("%s()", __func__);
+        pthread_mutex_lock(&port->lock);
+        pcm_close(pcm);
+        pcm = NULL;
+        port->port_status = STOPPED;
+        pthread_mutex_unlock(&port->lock);
+    }
+#ifdef USB_KARAOKE
+    if (port->loopback_handle) {
+        pcm_close(port->loopback_handle);
+        port->loopback_handle = NULL;
+    }
+#endif
+    return 0;
+}
+
+int outport_stop_pcm(output_port *port)
+{
+    if (port == NULL)
+        return -EINVAL;
+
+    if (port->port_status == ACTIVE && port->pcm_handle) {
+        pcm_stop(port->pcm_handle);
+    }
+    return 0;
+}
+
+int outport_set_dummy(output_port *port, bool en)
+{
+    port->dummy = en;
+    return 0;
+}
+
 static ssize_t output_port_write(output_port *port, void *buffer, int bytes)
 {
     int bytes_to_write = bytes;
@@ -455,6 +547,13 @@ static ssize_t output_port_write_alsa(output_port *port, void *buffer, int bytes
 {
     int bytes_to_write = bytes;
     int ret = 0;
+
+    // dummy means we abandon the data.
+    if (port->dummy) {
+        usleep(5000);
+        return bytes;
+    }
+
     {
         struct snd_pcm_status status;
 
@@ -465,6 +564,26 @@ static ssize_t output_port_write_alsa(output_port *port, void *buffer, int bytes
     }
 
     aml_audio_switch_output_mode((int16_t *)buffer, bytes, port->sound_track_mode);
+#ifdef USB_KARAOKE
+    struct kara_manager *karaoke = port->kara;
+    if (karaoke) {
+        if (karaoke->karaoke_on && karaoke->karaoke_enable &&
+            karaoke->in.in_profile && profile_is_valid(karaoke->in.in_profile)) {
+            if (!karaoke->karaoke_start && karaoke->open) {
+                struct audioCfg audio_cfg = port->cfg;
+
+                ret = karaoke->open(karaoke, &audio_cfg);
+                if (ret < 0)
+                    ALOGD("%s(), open micphone failed: %d", __func__, ret);
+            } else if (!ret && karaoke->mix) {
+                karaoke->mix(karaoke, buffer, bytes);
+            }
+        } else if (karaoke->karaoke_start && karaoke->close) {
+                karaoke->close(karaoke);
+        }
+    }
+#endif
+
     if (port->pcm_restart) {
         pcm_stop(port->pcm_handle);
         AM_LOGI("restart pcm device for same src");
@@ -487,7 +606,11 @@ static ssize_t output_port_write_alsa(output_port *port, void *buffer, int bytes
         }
 #endif
         if (ret == 0) {
-           written += bytes;
+            written += bytes;
+#ifdef USB_KARAOKE
+            if (port->loopback_handle)
+                pcm_write(port->loopback_handle, (void *)buffer, bytes);
+#endif
         } else {
            const char *err_str = pcm_get_error(port->pcm_handle);
            AM_LOGE("pcm_write failed ret = %d, pcm_get_error(port->pcm):%s",
@@ -554,7 +677,12 @@ static int output_close_alsa(struct pcm *pcm)
 
 int output_get_default_config(struct audioCfg *cfg)
 {
+    int card = alsa_device_get_card_index();
+    int device = alsa_device_update_pcm_index(PORT_I2S, PLAYBACK);
+
     R_CHECK_POINTER_LEGAL(-1, cfg, "");
+    cfg->card = card;
+    cfg->device = device;
     cfg->channelCnt = 2;
     cfg->sampleRate = 48000;
     cfg->format = AUDIO_FORMAT_PCM_16_BIT;
@@ -604,10 +732,10 @@ output_port *new_output_port(
         alsa_port = PORT_I2S2HDMI;
     }
     memcpy(&port->cfg, config, sizeof(struct audioCfg));
-    port->pcm_handle = output_open_alsa(config, alsa_port);
-    if (port->pcm_handle == NULL) {
-        goto err_rbuf;
-    }
+    //port->pcm_handle = output_open_alsa(config, alsa_port);
+    //if (port->pcm_handle == NULL) {
+    //    goto err_rbuf;
+    //}
     AM_LOGI("port:%s, frame_size:%d, format:%#x, sampleRate:%d, channels:%d", mixerOutputType2Str(port_index),
         config->frame_size, config->format, config->sampleRate, config->channelCnt);
     port->enOutPortType = port_index;
@@ -615,6 +743,8 @@ output_port *new_output_port(
     port->data_buf_len = rbuf_size;
     port->data_buf = data;
     port->write = output_port_write_alsa;
+    port->start = output_port_start;
+    port->standby = output_port_standby;
 
     return port;
 err_rbuf:
@@ -667,3 +797,10 @@ void outport_pcm_restart(output_port *port)
 {
     port->pcm_restart = true;
 }
+
+int outport_set_karaoke(output_port *port, struct kara_manager *kara)
+{
+    port->kara = kara;
+    return 0;
+}
+

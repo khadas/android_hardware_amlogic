@@ -38,6 +38,7 @@ cc_library_shared {
         "aml_malloc_debug.c",
         "aml_android_hidl_utils.cpp",
         "aml_audio_spdifdec.c",
+        "aml_echo_reference.c",
     ],
 
     header_libs: ["libhardware_headers"],

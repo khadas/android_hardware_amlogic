@@ -84,7 +84,9 @@ include $(BUILD_PREBUILT)
         audio_hdmi_util.c  \
         aml_audio_ms12_render.c \
         aml_audio_nonms12_render.c \
-        aml_dtvsync.c
+        aml_dtvsync.c \
+        karaoke_manager.c \
+        audio_usb_hal.c
 
     LOCAL_C_INCLUDES += \
         hardware/amlogic/audio/aml_speed/include \
@@ -95,6 +97,7 @@ include $(BUILD_PREBUILT)
         system/core/libion/include \
         system/core/include \
         system/libfmq/include \
+        system/media/alsa_utils/include \
         hardware/libhardware/include \
         $(LOCAL_PATH)/../utils \
         $(LOCAL_PATH)/../utils/include \
@@ -134,7 +137,8 @@ include $(BUILD_PREBUILT)
         libamlresampler \
         libamlparser \
         libdvbaudioutils \
-        libamlspeed
+        libamlspeed \
+        libalsautils
 
     LOCAL_SHARED_LIBRARIES += \
         android.hardware.bluetooth.audio@2.0 \
@@ -174,6 +178,7 @@ LOCAL_CFLAGS += -DTV_AUDIO_OUTPUT
 else
 $(info "---------ott audio mode, compiler configure 2 channels output by default--------")
 LOCAL_CFLAGS += -DSUBMIXER_V1_1
+#LOCAL_CFLAGS += -DUSB_KARAOKE
 endif
     #LOCAL_CFLAGS += -Wall -Wunknown-pragmas
 
