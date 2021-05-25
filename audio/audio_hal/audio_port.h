@@ -20,9 +20,11 @@
 #include <system/audio.h>
 #include <tinyalsa/asoundlib.h>
 #include <cutils/list.h>
+#include <alsa_device_profile.h>
 
 #include "hw_avsync.h"
 #include "sub_mixing_factory.h"
+#include "karaoke_manager.h"
 
 /* Max number of pcm mixing ports */
 #define NR_INPORTS    (8)
@@ -142,17 +144,25 @@ typedef struct OUTPUT_PORT {
     size_t data_buf_len;
     struct pcm *pcm_handle;
     port_state port_status;
+    struct pcm *loopback_handle;
     pthread_mutex_t lock;
     pthread_cond_t cond;
     ssize_t (*write)(struct OUTPUT_PORT *port, void *buffer, int bytes);
+    int (*start)(struct OUTPUT_PORT *port);
+    int (*standby)(struct OUTPUT_PORT *port);
     struct timespec tval_last;
     int sound_track_mode;
     /* pcm device need to stop/start to enable same source */
     bool pcm_restart;
+    int dummy;
 #ifdef ENABLE_AEC_APP
     struct aec_t *aec;
 #endif
+    struct kara_manager *kara;
 } output_port;
+
+bool is_inport_valid(aml_mixer_input_port_type_e index);
+bool is_outport_valid(MIXER_OUTPUT_PORT index);
 
 aml_mixer_input_port_type_e get_input_port_type(struct audio_config *config,
         audio_output_flags_t flags);
@@ -201,5 +211,10 @@ int outport_get_latency_frames(output_port *port);
 int set_inport_pts_valid(input_port *in_port, bool valid);
 bool is_inport_pts_valid(input_port *in_port);
 void outport_pcm_restart(output_port *port);
+int outport_stop_pcm(output_port *port);
+int outport_set_dummy(output_port *port, bool en);
+
+/* set karaoke to audio port */
+int outport_set_karaoke(output_port *port, struct kara_manager *kara);
 
 #endif /* _AUDIO_PORT_H_ */
