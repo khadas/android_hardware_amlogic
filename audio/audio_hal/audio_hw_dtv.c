@@ -2870,6 +2870,13 @@ void *audio_dtv_patch_output_threadloop_v2(void *data)
             get_sink_format(stream_out);
         }
 
+        if (patch->dtvsync) {
+            if (aml_dev->bHDMIConnected_update || aml_dev->a2dp_updated) {
+                ALOGI("reset_dtvsync (mediasync:%p)", patch->dtvsync->mediasync);
+                aml_dtvsync_reset(patch->dtvsync);
+            }
+        }
+
         ALOGV("AD %d %d %d", aml_dev->dolby_lib_type, aml_dev->dual_decoder_support, demux_info->ad_pid);
 
         if (need_enable_dual_decoder(patch)) {
