@@ -612,7 +612,7 @@ int aml_audio_get_ms12_presentation_position(const struct audio_stream_out *stre
         *frames = frames_written_hw;
 
         if (adev->ms12.is_bypass_ms12) {
-            frame_latency = get_ms12_bypass_latency_offset(false);
+            frame_latency = get_ms12_bypass_latency_offset(false) * 48;
         } else {
             frame_latency = get_ms12_nontunnel_latency_offset(adev->active_outport,
                                                                out->hal_internal_format,
@@ -623,6 +623,12 @@ int aml_audio_get_ms12_presentation_position(const struct audio_stream_out *stre
             }
         }
     }
+
+    ALOGV("[%s]adev->active_outport %d out->hal_internal_format %x adev->ms12.sink_format %x adev->continuous_audio_mode %d \n",
+            __func__,adev->active_outport, out->hal_internal_format, adev->ms12.sink_format, adev->continuous_audio_mode);
+    ALOGV("[%s]adev->ms12.is_bypass_ms12 %d adev->ms12.is_dolby_atmos %d adev->ms12_main1_dolby_dummy %d adev->atmos_lock_flag %d\n",
+            __func__,adev->ms12.is_bypass_ms12, adev->ms12.is_dolby_atmos, adev->ms12_main1_dolby_dummy, adev->atoms_lock_flag);
+    ALOGV("[%s] frame_latency %d\n",__func__,frame_latency);
 
     if (frame_latency < 0) {
         *frames -= frame_latency;
@@ -635,6 +641,7 @@ int aml_audio_get_ms12_presentation_position(const struct audio_stream_out *stre
         (!is_bypass_dolbyms12((struct audio_stream_out *)stream))) {
         *frames = (*frames * out->hal_rate) / MM_FULL_POWER_SAMPLING_RATE;
     }
+
     return 0;
 }
 
