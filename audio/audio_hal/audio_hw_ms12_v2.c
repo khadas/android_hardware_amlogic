@@ -673,6 +673,10 @@ int get_the_dolby_ms12_prepared(
     struct aml_stream_out *out;
     int output_config = MS12_OUTPUT_MASK_STEREO;
     struct aml_audio_patch *patch = adev->audio_patch;
+    aml_demux_audiopara_t *demux_info = NULL;
+    if (patch) {
+        demux_info = (aml_demux_audiopara_t *)patch->demux_info;
+    }
     int ret = 0;
     bool output_5_1_ddp = getprop_bool(MS12_OUTPUT_5_1_DDP);
 
@@ -694,7 +698,10 @@ int get_the_dolby_ms12_prepared(
     set_audio_main_format(input_format);
 
     if (input_format == AUDIO_FORMAT_AC3 || input_format == AUDIO_FORMAT_E_AC3) {
-        ms12->dual_decoder_support = adev->dual_decoder_support;
+        if (patch && demux_info)
+            ms12->dual_decoder_support = demux_info->dual_decoder_support;
+        else
+            ms12->dual_decoder_support = 0;   
     } else {
         ms12->dual_decoder_support = 0;
     }
@@ -702,7 +709,7 @@ int get_the_dolby_ms12_prepared(
         __FUNCTION__, ms12->dual_decoder_support, ms12->optical_format, ms12->sink_format);
 
     /*set the associate audio format*/
-    if (adev->dual_decoder_support == true) {
+    if (ms12->dual_decoder_support == true) {
         set_audio_associate_format(input_format);
         ALOGI("%s set_audio_associate_format %#x", __FUNCTION__, input_format);
     }

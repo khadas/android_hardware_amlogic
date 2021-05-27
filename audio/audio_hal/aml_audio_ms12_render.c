@@ -44,12 +44,13 @@ int aml_audio_get_cur_ms12_latency(struct audio_stream_out *stream) {
     struct aml_audio_device *adev = aml_out->dev;
     struct dolby_ms12_desc *ms12 = &(adev->ms12);
     struct aml_audio_patch *patch = adev->audio_patch;
+    aml_demux_audiopara_t *demux_info = (aml_demux_audiopara_t *)patch->demux_info;
     int ms12_latencyms = 0;
 
     int inputnode_consumed = dolby_ms12_get_main_bytes_consumed(stream);
     int frames_generated = dolby_ms12_get_main_pcm_generated(stream);
     if (is_dolby_ms12_support_compression_format(aml_out->hal_internal_format)) {
-        if (adev->dual_decoder_support)
+        if (demux_info->dual_decoder_support)
             ms12_latencyms = (frames_generated - ms12->master_pcm_frames) / 48;
         else
             ms12_latencyms = (patch->decoder_offset - inputnode_consumed) / aml_out->ddp_frame_size * 32 + (frames_generated - ms12->master_pcm_frames) / 48;
@@ -197,7 +198,7 @@ int aml_audio_ms12_render(struct audio_stream_out *stream, const void *buffer, s
         ret = aml_audio_ms12_process_wrapper(stream, buffer, bytes);
         if (do_sync_flag) {
             ms12_delayms = aml_audio_get_cur_ms12_latency(stream);
-            if(patch->skip_amadec_flag) {
+            if(patch->skip_amadec_flag && aml_out->dtvsync_enable) {
                 patch->dtvsync->cur_outapts = patch->cur_package->pts - ms12_delayms * 90;
                 aml_dtvsync_ms12_get_policy(stream);
             }
