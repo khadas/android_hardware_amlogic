@@ -314,20 +314,8 @@ int dtv_patch_handle_event(struct audio_hw_device *dev,int cmd, int val) {
         case AUDIO_DTV_PATCH_CMD_SET_AD_SUPPORT:
             pthread_mutex_lock(&adev->lock);
             adev->dual_decoder_support = val;
+            demux_info->dual_decoder_support = val;
             ALOGI("dual_decoder_support set to %d\n", adev->dual_decoder_support);
-            if (eDolbyMS12Lib == adev->dolby_lib_type_last) {
-                pthread_mutex_lock(&ms12->lock);
-                set_audio_system_format(AUDIO_FORMAT_PCM_16_BIT);
-                set_audio_app_format(AUDIO_FORMAT_PCM_16_BIT);
-                //only use to set associate flag, dd/dd+ format is same.
-                if (adev->dual_decoder_support == 1) {
-                    set_audio_associate_format(AUDIO_FORMAT_AC3);
-                } else {
-                    set_audio_associate_format(AUDIO_FORMAT_INVALID);
-                }
-                dolby_ms12_config_params_set_associate_flag(adev->dual_decoder_support);
-                pthread_mutex_unlock(&ms12->lock);
-            }
             adev->need_reset_for_dual_decoder = true;
             pthread_mutex_unlock(&adev->lock);
             break;
@@ -393,7 +381,7 @@ int dtv_patch_handle_event(struct audio_hw_device *dev,int cmd, int val) {
                     ALOGI("path_id %d demux_hanle %p ",path_id, demux_handle);
                     dtv_audio_instances->demux_handle[path_id] = demux_handle;
                     Init_Dmx_Main_Audio(demux_handle, demux_info->main_fmt, demux_info->main_pid);
-                    if (adev->dual_decoder_support)
+                    if (demux_info->dual_decoder_support)
                         Init_Dmx_AD_Audio(demux_handle, demux_info->ad_fmt, demux_info->ad_pid);
                     if (dtvsync->mediasync == NULL) {
                         dtvsync->mediasync = aml_dtvsync_create();
@@ -420,7 +408,7 @@ int dtv_patch_handle_event(struct audio_hw_device *dev,int cmd, int val) {
                 if (adev->is_multi_demux) {
                     if (demux_handle) {
                         Destroy_Dmx_Main_Audio(demux_handle);
-                        if (adev->dual_decoder_support)
+                        if (demux_info->dual_decoder_support)
                             Destroy_Dmx_AD_Audio(demux_handle);
                         Close_Dmx_Audio(demux_handle);
                         demux_handle = NULL;
@@ -434,8 +422,7 @@ int dtv_patch_handle_event(struct audio_hw_device *dev,int cmd, int val) {
                 } else {
                      //uio_deinit(&patch->uio_fd);
                 }
-                /* since pvr playback send ad param first and reset audio ,close operation will miss ad info*/
-                //memset(demux_info, 0, sizeof(aml_demux_audiopara_t));
+                memset(demux_info, 0, sizeof(aml_demux_audiopara_t));
             } else {
                 if (patch == NULL) {
                     ALOGI("%s()the audio patch is NULL \n", __func__);
@@ -2512,7 +2499,7 @@ static bool need_enable_dual_decoder(struct aml_audio_patch *patch)
     struct audio_hw_device *dev = patch->dev;
     struct aml_audio_device *aml_dev = (struct aml_audio_device *)dev;
     aml_demux_audiopara_t *demux_info = (aml_demux_audiopara_t *)patch->demux_info;
-    if (aml_dev->dual_decoder_support && VALID_PID(demux_info->ad_pid)) {
+    if (demux_info->dual_decoder_support && VALID_PID(demux_info->ad_pid)) {
         if (aml_dev->dolby_lib_type == eDolbyDcvLib) {
              if (patch->aformat == AUDIO_FORMAT_AC3 || patch->aformat == AUDIO_FORMAT_E_AC3 )  {
                 audio_format_t output_format = get_non_ms12_output_format(patch->aformat, aml_dev);
@@ -2596,7 +2583,7 @@ void *audio_dtv_patch_input_threadloop(void *data)
             dtv_pacakge->size = nInBufferSize;
             dtv_pacakge->data = (char *)inbuf;
 
-           if (aml_dev->dual_decoder_support && VALID_PID(demux_info->ad_pid)) {
+           if (demux_info->dual_decoder_support && VALID_PID(demux_info->ad_pid)) {
                if (ad_buffer != NULL) {
                   aml_audio_free(ad_buffer);
                   ad_buffer = NULL;
@@ -2671,7 +2658,7 @@ void *audio_dtv_patch_input_threadloop(void *data)
                     }
                 }
            
-                if (aml_dev->dual_decoder_support && VALID_PID(demux_info->ad_pid)) {
+                if (demux_info->dual_decoder_support && VALID_PID(demux_info->ad_pid)) {
                     nRet = Get_ADAudio_Es(demux_handle, &mAdEsData);
                     if (nRet != AM_AUDIO_Dmx_SUCCESS) {
                       trycount++;
@@ -2877,7 +2864,7 @@ void *audio_dtv_patch_output_threadloop_v2(void *data)
             }
         }
 
-        ALOGV("AD %d %d %d", aml_dev->dolby_lib_type, aml_dev->dual_decoder_support, demux_info->ad_pid);
+        ALOGV("AD %d %d %d", aml_dev->dolby_lib_type, demux_info->dual_decoder_support, demux_info->ad_pid);
 
         if (need_enable_dual_decoder(patch)) {
             ret = audio_dtv_patch_output_dual_decoder(patch, stream_out);
@@ -3044,7 +3031,7 @@ static void *audio_dtv_patch_process_threadloop_v2(void *data)
 
                 demux_info = (aml_demux_audiopara_t *)patch->demux_info;
                 bool associate_mix = aml_dev->associate_audio_mixing_enable;
-                bool dual_decoder = aml_dev->dual_decoder_support;
+                bool dual_decoder = demux_info->dual_decoder_support;
                 int demux_id  = demux_info->demux_id;
                 ALOGI("patch->demux_handle %p patch->aformat %0x", patch->demux_handle, patch->aformat);
                 patch->dtv_first_apts_flag = 0;

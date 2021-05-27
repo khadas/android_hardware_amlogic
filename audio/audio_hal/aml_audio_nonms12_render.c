@@ -332,11 +332,18 @@ static void ddp_decoder_config_prepare(struct audio_stream_out *stream, aml_dcv_
     struct aml_stream_out *aml_out = (struct aml_stream_out *)stream;
     struct aml_audio_device *adev = aml_out->dev;
     struct aml_arc_hdmi_desc *p_hdmi_descs = &adev->hdmi_descs;
+    struct aml_audio_patch *patch = adev->audio_patch;
+    aml_demux_audiopara_t *demux_info = NULL;
+
+    if (patch ) {
+        demux_info = (aml_demux_audiopara_t *)patch->demux_info;
+    }
+
     adev->dcvlib_bypass_enable = 0;
 
     ddp_config->digital_raw = AML_DEC_CONTROL_CONVERT;
 
-    if (adev->dual_decoder_support) {
+    if (demux_info && demux_info->dual_decoder_support) {
         ddp_config->decoding_mode = DDP_DECODE_MODE_AD_DUAL;
     } else if (aml_out->ad_substream_supported) {
         ddp_config->decoding_mode = DDP_DECODE_MODE_AD_SUBSTREAM;
