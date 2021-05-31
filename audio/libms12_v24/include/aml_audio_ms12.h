@@ -152,6 +152,7 @@ struct dolby_ms12_desc {
     uint64_t master_pcm_frames;
     bool     b_legacy_ddpout;
     void *   iec61937_ddp_buf;
+    float    main_volume;
 };
 
 /*

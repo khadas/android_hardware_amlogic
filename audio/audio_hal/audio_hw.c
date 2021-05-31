@@ -1310,7 +1310,7 @@ static int out_set_volume (struct audio_stream_out *stream, float left, float ri
     /*
      *The Dolby format(dd/ddp/ac4/true-hd/mat) and direct&UI-PCM(stereo or multi PCM)
      *will go through dolby system mixer as main input
-     *use dolby_ms12_set_main_volume to control it.
+     *use set_ms12_main_volume to control it.
      *The volume about mixer-PCM is controled by AudioFlinger
      */
     if ((eDolbyMS12Lib == adev->dolby_lib_type) && (is_dolby_format || is_ms12_pcm_volume_control)) {
@@ -1318,7 +1318,7 @@ static int out_set_volume (struct audio_stream_out *stream, float left, float ri
             ALOGW("%s, left:%f right:%f NOT match", __FUNCTION__, left, right);
         }
         out->ms12_vol_ctrl = true;
-        dolby_ms12_set_main_volume(out->volume_l);
+        set_ms12_main_volume(&adev->ms12, out->volume_l);
     }
     return 0;
 }
@@ -3197,7 +3197,7 @@ static void adev_close_output_stream(struct audio_hw_device *dev,
     if (continous_mode(adev) && (eDolbyMS12Lib == adev->dolby_lib_type)) {
         if (out->volume_l != 1.0) {
             if (!audio_is_linear_pcm(out->hal_internal_format)) {
-                dolby_ms12_set_main_volume(1.0);
+                set_ms12_main_volume(&adev->ms12, 1.0);
             }
         }
     }
@@ -6251,7 +6251,7 @@ void config_output(struct audio_stream_out *stream, bool reset_decoder)
             }
             /*set the volume to current one*/
             if (!audio_is_linear_pcm(aml_out->hal_internal_format)) {
-                dolby_ms12_set_main_volume(aml_out->volume_l);
+                set_ms12_main_volume(&adev->ms12, aml_out->volume_l);
             }
             if (continous_mode(adev) && adev->ms12.dolby_ms12_enable) {
                 dolby_ms12_set_main_dummy(0, main1_dummy);
@@ -8841,6 +8841,7 @@ static int adev_dump(const audio_hw_device_t *device, int fd)
         aml_dev->sink_gain[OUTPORT_A2DP], patchSrc2Str(aml_dev->patch_src));
     dprintf(fd, "[AML_HAL]      SPEAKER gain    : %10f |  HDMI gain         :    %f\n",
         aml_dev->sink_gain[OUTPORT_SPEAKER], aml_dev->sink_gain[OUTPORT_HDMI]);
+    dprintf(fd, "[AML_HAL]      ms12 main volume: %10f\n", aml_dev->ms12.main_volume);
     dprintf(fd, "[AML_HAL]      dolby_lib: %d\n", aml_dev->dolby_lib_type);
     dprintf(fd, "\n[AML_HAL]      usecase_masks: %#x\n", aml_dev->usecase_masks);
     dprintf(fd, "\nAML stream outs:\n");
@@ -9294,10 +9295,9 @@ static int adev_open(const hw_module_t* module, const char* name, hw_device_t** 
     /* end of spker tuning things */
     *device = &adev->hw_device.common;
     adev->dts_post_gain = 1.0;
-    adev->sink_gain[OUTPORT_SPEAKER] = 1.0;
-    adev->sink_gain[OUTPORT_A2DP] = 1.0;
-    /* set default HP gain */
-    adev->sink_gain[OUTPORT_HEADPHONE] = 1.0;
+    for (i = 0; i < OUTPORT_MAX; i++) {
+        adev->sink_gain[i] = 1.0f;
+    }
     adev->ms12_main1_dolby_dummy = true;
     adev->ms12_ott_enable = false;
     adev->continuous_audio_mode_default = 0;
@@ -9379,11 +9379,9 @@ static int adev_open(const hw_module_t* module, const char* name, hw_device_t** 
     /* for stb/ott, fixed 2 channels speaker output for alsa*/
     adev->default_alsa_ch = 2;
     adev->is_STB = property_get_bool("ro.vendor.platform.is.stb", false);
-    adev->sink_gain[OUTPORT_SPEAKER] = 1.0;
-    adev->sink_gain[OUTPORT_HDMI] = 1.0;
     ALOGI("%s(), OTT platform", __func__);
 #endif
-    adev->sink_gain[OUTPORT_A2DP] = 1.0;
+
 
 #ifdef ENABLE_AEC_APP
     pthread_mutex_lock(&adev->lock);

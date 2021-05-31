@@ -171,6 +171,9 @@ void set_ms12_acmod2ch_lock(struct dolby_ms12_desc *ms12, bool is_lock_on);
 void set_dolby_ms12_runtime_system_mixing_enable(struct dolby_ms12_desc *ms12, int sys_mixing_enable);
 
 bool is_ms12_continous_mode(struct aml_audio_device *adev);
+
+void set_ms12_main_volume(struct dolby_ms12_desc *ms12, float volume);
+
 /*
  *@brief get the platform's capability of DDP-ATMOS.
  */

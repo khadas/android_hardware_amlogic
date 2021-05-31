@@ -509,6 +509,7 @@ int get_the_dolby_ms12_prepared(
 
     ms12->sys_audio_base_pos = adev->sys_audio_frame_written;
     ms12->sys_audio_skip     = 0;
+    ms12->main_volume        = 1.0f;
     ALOGI("set ms12 sys pos =%" PRId64 "", ms12->sys_audio_base_pos);
     aml_ac3_parser_open(&ms12->ac3_parser_handle);
     aml_ms12_bypass_open(&ms12->ms12_bypass_handle);
@@ -576,6 +577,11 @@ void set_ms12_acmod2ch_lock(struct dolby_ms12_desc *ms12, bool is_lock_on)
     sprintf(parm, "%s %d", "-acmod2ch_lock", is_lock_on);
     if ((strlen(parm)) > 0 && ms12)
         aml_ms12_update_runtime_params(ms12, parm);
+}
+
+void set_ms12_main_volume(struct dolby_ms12_desc *ms12, float volume) {
+    ms12->main_volume = volume;
+    dolby_ms12_set_main_volume(volume);
 }
 
 void set_dolby_ms12_runtime_system_mixing_enable(struct dolby_ms12_desc *ms12, int system_mixing_enable)

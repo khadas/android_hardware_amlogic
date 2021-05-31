@@ -199,6 +199,7 @@ bool is_ms12_passthrough(struct audio_stream_out *stream);
 void set_ms12_atmos_lock(struct dolby_ms12_desc *ms12, bool is_atmos_lock_on);
 void set_ms12_acmod2ch_lock(struct dolby_ms12_desc *ms12, bool is_lock_on);
 bool is_ms12_continous_mode(struct aml_audio_device *adev);
+void set_ms12_main_volume(struct dolby_ms12_desc *ms12, float volume);
 
 /*
  *@brief get the platform's capability of DDP-ATMOS.
