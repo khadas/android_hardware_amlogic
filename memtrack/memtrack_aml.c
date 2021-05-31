@@ -174,6 +174,7 @@ struct memtrack_record record_templates[] = {
 */
 };
 
+#if BUILD_KERNEL_4_9 == false
 static void memtrack_get_taskname_of_pid(pid_t pid, char ** task_name)
 {
     // get pid-name by pid
@@ -199,6 +200,7 @@ static void memtrack_get_taskname_of_pid(pid_t pid, char ** task_name)
         ALOGD("get task_name %s", *task_name);
     }
 }
+#endif
 
 // just return 0
 int aml_memtrack_init(const struct memtrack_module *module __unused)
@@ -399,8 +401,8 @@ static size_t read_pid_egl_memory(pid_t pid)
         }
         fclose(ion_fp);
         fclose(egl_fp);
-        ion_fp = NULL
-        egl_fp = NULL
+        ion_fp = NULL;
+        egl_fp = NULL;
     }
 
     closedir(p_dir);
