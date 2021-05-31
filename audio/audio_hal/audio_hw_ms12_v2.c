@@ -463,6 +463,12 @@ void set_ms12_acmod2ch_lock(struct dolby_ms12_desc *ms12, bool is_lock_on)
         aml_ms12_update_runtime_params(ms12, parm);
 }
 
+void set_ms12_main_volume(struct dolby_ms12_desc *ms12, float volume) {
+    ms12->main_volume = volume;
+    dolby_ms12_set_main_volume(volume);
+}
+
+
 
 static inline alsa_device_t usecase_device_adapter_with_ms12(alsa_device_t usecase_device, audio_format_t output_format)
 {
@@ -840,6 +846,7 @@ int get_the_dolby_ms12_prepared(
     ms12->stereo_pcm_frames  = 0;
     ms12->master_pcm_frames  = 0;
     ms12->b_legacy_ddpout    = dolby_ms12_get_ddp_5_1_out();
+    ms12->main_volume        = 1.0f;
     ALOGI("set ms12 sys pos =%" PRId64 "", ms12->sys_audio_base_pos);
 
     ms12->iec61937_ddp_buf = aml_audio_calloc(1, MS12_DDP_FRAME_SIZE);
