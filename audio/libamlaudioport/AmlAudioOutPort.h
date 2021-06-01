@@ -143,8 +143,8 @@ class AmlAudioOutPort : public RefBase
 
     status_t setParameters(const String8& keyValuePairs);
     String8  getParameters(const String8& keys);
-	status_t createAudioPatch();
-	status_t releaseAudioPatch();
+    status_t createAudioPatch();
+    status_t releaseAudioPatch();
 
     private:
 

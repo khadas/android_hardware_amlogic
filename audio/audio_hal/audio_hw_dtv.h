@@ -110,5 +110,6 @@ extern void decoder_set_pcrsrc(unsigned int pcrsrc);
 int get_audio_checkin_underrun(void);
 int dtv_patch_handle_event(struct audio_hw_device *dev,int cmd, int val);
 bool is_dtv_patch_alive(struct aml_audio_device *aml_dev);
+int dtv_patch_get_latency(struct aml_audio_device *aml_dev);
 
 #endif

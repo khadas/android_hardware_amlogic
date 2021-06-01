@@ -26,25 +26,27 @@ extern "C"
 {
 #endif
 
-int audio_hal_start_decoder(int fmt, int has_video);
+int dvb_audio_start_decoder(int fmt, int has_video);
 
-int audio_hal_stop_decoder(void);
+int dvb_audio_stop_decoder(void);
 
-int audio_hal_pause_decoder(void);
+int dvb_audio_pause_decoder(void);
 
-int audio_hal_resume_decoder(void);
+int dvb_audio_resume_decoder(void);
 
-int audio_hal_set_ad(int fmt, int pid);
+int dvb_audio_set_ad(int fmt, int pid);
 
-int audio_hal_set_volume(float volume);
+int dvb_audio_set_volume(float volume);
 
-int audio_hal_set_mute(int mute);
+int dvb_audio_set_mute(int mute);
 
-int audio_hal_set_output_mode(int mode);
+int dvb_audio_set_output_mode(int mode);
 
-int audio_hal_set_pre_gain(int gain);
+int dvb_audio_set_pre_gain(int gain);
 
-int audio_hal_set_pre_mute(int mute);
+int dvb_audio_set_pre_mute(int mute);
+
+int dvb_audio_get_latencyms(int demux_id);
 
 int audio_hal_get_status(void *status);//TBD
 

@@ -61,6 +61,7 @@ static void getAudioEsData(AmHwMultiDemuxWrapper* mDemuxWrapper, int fid, const 
         memcpy(mEsData->data, data_es, es_header->len);
         mEsData->size = es_header->len;
         mEsData->pts = es_header->pts;
+        mDemuxWrapper->last_queue_es_apts = es_header->pts;
         mEsData->used_size = 0;
         ALOGV("getAudioEsData %d mEsData->size %d mEsData->pts %lld",len,mEsData->size,mEsData->pts);
         dump_demux_data((void *)data_es, es_header->len, DEMUX_AUDIO_DUMP_PATH);
@@ -118,6 +119,7 @@ AmHwMultiDemuxWrapper::AmHwMultiDemuxWrapper() {
     AmDmxDevice = new AM_DMX_Device(this);
     filering_aud_pid  = 0x1fff;
     filering_aud_ad_pid  = 0x1fff;
+    last_queue_es_apts = -1;
     mDemuxPara.vid_id = 0x1fff;
 
 
