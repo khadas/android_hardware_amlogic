@@ -2546,7 +2546,7 @@ unsigned long long dolby_ms12_get_main_pcm_generated(struct audio_stream_out *st
     unsigned long long main_mixer_write_pcm_frame = 0;
     int latency_frames = 0;
 
-    if (aml_out->hwsync && aml_out->hwsync->aout)
+    if (aml_out->hw_sync_mode && aml_out->hwsync && aml_out->hwsync->aout)
         audio_format = aml_out->hwsync->aout->hal_internal_format;
     else {
         audio_format = aml_out->hal_internal_format;
