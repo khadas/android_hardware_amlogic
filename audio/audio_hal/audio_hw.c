@@ -2630,6 +2630,13 @@ static ssize_t in_read(struct audio_stream_in *stream, void* buffer, size_t byte
         }
     }
 
+    /*noise gate is only used in Linein for 16bit audio data*/
+    if (adev->active_inport == INPORT_LINEIN && adev->aml_ng_enable == 1) {
+        int ng_status = noise_evaluation(adev->aml_ng_handle, buffer, bytes >> 1);
+        /*if (ng_status == NG_MUTE)
+            ALOGI("noise gate is working!");*/
+    }
+
     if (in->device & AUDIO_DEVICE_IN_BUILTIN_MIC) {
         inread_proc_aec(stream, buffer, bytes);
     } else if (!adev->audio_patching) {
