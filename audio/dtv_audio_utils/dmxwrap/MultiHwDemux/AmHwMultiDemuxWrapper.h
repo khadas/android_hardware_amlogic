@@ -52,6 +52,7 @@ public:
    List<mEsDataInfo*> mAudioADEsDataQueue;
    int              filering_aud_pid;
    int              filering_aud_ad_pid;
+   int64_t          last_queue_es_apts;
  private:
    sp<AM_DMX_Device> AmDmxDevice;
    // int mEsDataInfoSize;

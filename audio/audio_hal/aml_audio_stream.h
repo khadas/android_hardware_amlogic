@@ -335,6 +335,7 @@ struct aml_audio_patch {
     int dtv_apts_lookup;
     int dtv_audio_tune;
     int pll_state;
+    unsigned int last_chenkin_apts;
     unsigned int last_apts;
     unsigned int last_pcrpts;
     unsigned int cur_outapts;

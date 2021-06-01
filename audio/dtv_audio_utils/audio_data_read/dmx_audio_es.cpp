@@ -189,3 +189,22 @@ AM_Dmx_Audio_ErrorCode_t Get_ADAudio_Es(void *demux_handle, struct mAudioEsDataI
     return (AM_Dmx_Audio_ErrorCode_t)ret;
 }
 
+AM_Dmx_Audio_ErrorCode_t Get_Audio_LastES_Apts(void *demux_handle , int64_t *last_queue_es_apts) {
+    AmHwMultiDemuxWrapper * demux_wrapper = (AmHwMultiDemuxWrapper *)demux_handle;
+    if (demux_wrapper == NULL) {
+        ALOGI("demux not open !!!");
+        return AM_AUDIO_Dmx_ERROR;
+    }
+
+    AM_DmxErrorCode_t ret = AM_Dmx_SUCCESS;
+    if (!VALID_PID(demux_wrapper->filering_aud_pid)) {
+        return AM_AUDIO_Dmx_ERROR;
+    }
+    TSPMutex::Autolock l(demux_wrapper->mDemuxHandleLock);
+    *last_queue_es_apts = demux_wrapper->last_queue_es_apts;
+    ALOGV("Get_Audio_LastES_Apts  %0llx",*last_queue_es_apts);
+
+    return (AM_Dmx_Audio_ErrorCode_t)ret;
+}
+
+

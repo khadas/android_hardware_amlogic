@@ -121,10 +121,10 @@ int main(int argc, char** argv) {
             filepath = argv[i];
         }
     }
-    audio_hal_start_decoder(0,1);
+    /*audio_hal_start_decoder(0,1);
     usleep(60000000);
     audio_hal_stop_decoder();
-    /*sp<AmlAudioOutPort> aml_audioport = new AmlAudioOutPort();
+    sp<AmlAudioOutPort> aml_audioport = new AmlAudioOutPort();
     aml_audioport->createAudioPatch();
     usleep(60000000);
     aml_audioport->releaseAudioPatch();
@@ -163,5 +163,6 @@ int main(int argc, char** argv) {
         ALOGI("actual_write_size:%d, request size:%d", actual_write_size, read_size);
     } while (read_size >0);
     aml_audioport->stop();*/
+    ALOGI("dvb_audio_get_latencyms %d",dvb_audio_get_latencyms(0));
     return status;
 }
