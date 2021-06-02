@@ -8070,15 +8070,6 @@ static int create_patch_l(struct audio_hw_device *dev,
     int ret = 0;
 
     ALOGD("%s: enter", __func__);
-    if (aml_dev->audio_patch) {
-        ALOGD("%s: patch exists, first release it", __func__);
-        ALOGD("%s: new input %#x, old input %#x",
-            __func__, input, aml_dev->audio_patch->input_src);
-        if (aml_dev->audio_patch->is_dtv_src)
-            release_dtv_patch(aml_dev);
-        else
-            release_patch_l(aml_dev);
-    }
 
     patch = aml_audio_calloc(1, sizeof(*patch));
     if (!patch) {
@@ -8567,6 +8558,17 @@ static int adev_create_audio_patch(struct audio_hw_device *dev,
                     || ((inport == INPORT_TUNER) && (aml_dev->patch_src == SRC_ATV))) {
                 if (input_src != SRC_NA) {
                     set_audio_source(&aml_dev->alsa_mixer, input_src, alsa_device_is_auge());
+                }
+
+
+                if (aml_dev->audio_patch) {
+                    ALOGD("%s: patch exists, first release it", __func__);
+                    ALOGD("%s: new input %#x, old input %#x",
+                        __func__, inport, aml_dev->audio_patch->input_src);
+                    if (aml_dev->audio_patch->is_dtv_src)
+                        release_dtv_patch(aml_dev);
+                    else
+                        release_patch(aml_dev);
                 }
                 ret = create_patch(dev, src_config->ext.device.type, aml_dev->out_device);
                 if (ret) {
