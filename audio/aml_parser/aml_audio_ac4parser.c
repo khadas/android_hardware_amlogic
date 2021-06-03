@@ -259,7 +259,7 @@ static int parse_ac4_frame_header(struct audio_bit_parser * bit_parser, const un
         ac4_info->frame_rate = frame_rate_table_44Khz[frame_rate_index];
     }
     if (ac4_info->frame_rate == 0) {
-        ALOGE("invalid ac4 samplerate =%d frame rate index=%d", ac4_info->sample_rate, frame_rate_index);
+        ALOGE("invalid ac4 frame_rate=%d frame rate index=%d", ac4_info->frame_rate, frame_rate_index);
         return -1;
     }
     ALOGV("ac4 frame size=%d frame rate =%d sample rate=%d wait frame=%d", ac4_info->frame_size, ac4_info->frame_rate, ac4_info->sample_rate, b_wait_frames);
