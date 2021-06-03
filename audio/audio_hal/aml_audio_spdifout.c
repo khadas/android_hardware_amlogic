@@ -214,6 +214,7 @@ static int spdifout_support_format(audio_format_t audio_format)
     case AUDIO_FORMAT_DTS:
     case AUDIO_FORMAT_DTS_HD:
     case AUDIO_FORMAT_MAT:
+    case AUDIO_FORMAT_DOLBY_TRUEHD:
     case AUDIO_FORMAT_IEC61937:
     case AUDIO_FORMAT_PCM_16_BIT:
         return true;
@@ -238,7 +239,7 @@ int aml_audio_spdifout_open(void **pphandle, spdif_config_t *spdif_config)
     }
 
     if (!spdifout_support_format(spdif_config->audio_format)) {
-        ALOGE("%s format not support =0x%x", __FUNCTION__, audio_format);
+        ALOGE("%s format not support =0x%x", __FUNCTION__, spdif_config->audio_format);
         return -1;
     }
 
@@ -416,6 +417,13 @@ int aml_audio_spdifout_processs(void *phandle, void *buffer, size_t byte)
     }
 
     if (output_buffer_bytes) {
+        ALOGV("size %zu audio_format %#x", output_buffer_bytes, spdifout_phandle->audio_format);
+        /* Fixme: The SPDIFEncoder encodes TrueHD to IEC61937 format. */
+#if 0
+        if (spdifout_phandle->audio_format == AUDIO_FORMAT_DOLBY_TRUEHD) {
+            aml_audio_dump_audio_bitstreams("/data/vendor/audiohal/truehd.spf", output_buffer, output_buffer_bytes);
+        }
+#endif
         ret = aml_alsa_output_write_new(alsa_handle, output_buffer, output_buffer_bytes);
     }
 

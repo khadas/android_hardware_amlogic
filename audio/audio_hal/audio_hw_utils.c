@@ -1447,6 +1447,7 @@ int halformat_convert_to_spdif(audio_format_t format, int ch_mask) {
         case AUDIO_FORMAT_DTS_HD:
             aml_spdif_format = AML_DTS_HD;
             break;
+        case AUDIO_FORMAT_DOLBY_TRUEHD:
         case AUDIO_FORMAT_MAT:
             aml_spdif_format = AML_TRUE_HD;
             break;
@@ -1510,7 +1511,8 @@ bool is_disable_ms12_continuous(struct audio_stream_out *stream) {
     struct aml_audio_device *adev = aml_out->dev;
 
     if ((aml_out->hal_internal_format == AUDIO_FORMAT_DTS)
-        || (aml_out->hal_internal_format == AUDIO_FORMAT_DTS_HD)) {
+        || (aml_out->hal_internal_format == AUDIO_FORMAT_DTS_HD)
+        || (aml_out->hal_internal_format == AUDIO_FORMAT_DOLBY_TRUEHD)) {
         /*dts case, we need disable ms12 continuous mode*/
         return true;
     } else if (is_high_rate_pcm(stream) || is_multi_channel_pcm(stream)) {

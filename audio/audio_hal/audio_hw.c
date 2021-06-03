@@ -720,7 +720,10 @@ static size_t out_get_buffer_size (const struct audio_stream *stream)
         if (out->flags & AUDIO_OUTPUT_FLAG_IEC958_NONAUDIO) {
             size = 16 * DEFAULT_PLAYBACK_PERIOD_SIZE * PLAYBACK_PERIOD_COUNT;
         } else {
-            size = PLAYBACK_PERIOD_COUNT * DEFAULT_PLAYBACK_PERIOD_SIZE;
+            /* TrueHD content, in SBR, need 8190bytes to feed the decoder.
+             * so, choose the 8192bytes as an estimated value.
+             */
+            size = 4 * PLAYBACK_PERIOD_COUNT * DEFAULT_PLAYBACK_PERIOD_SIZE;
         }
         if (stream->get_format(stream) == AUDIO_FORMAT_IEC61937) {
             size = 4 * PLAYBACK_PERIOD_COUNT * DEFAULT_PLAYBACK_PERIOD_SIZE;
@@ -3004,6 +3007,7 @@ static int adev_open_output_stream(struct audio_hw_device *dev,
         case AUDIO_FORMAT_AC3:
         case AUDIO_FORMAT_E_AC3:
         case AUDIO_FORMAT_AC4:
+        case AUDIO_FORMAT_DOLBY_TRUEHD:
             break;
         case AUDIO_FORMAT_DTS:
         case AUDIO_FORMAT_DTS_HD:
