@@ -56,6 +56,7 @@ struct dtvsync_audio_policy {
 typedef struct  aml_dtvsync {
     bool use_mediasync;
     void* mediasync;
+    void* mediasync_new;
     int mediasync_id;
     int64_t cur_outapts;
     int cur_speed;
