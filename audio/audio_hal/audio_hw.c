@@ -5387,6 +5387,9 @@ ssize_t audio_hal_data_processing_ms12v2(struct audio_stream_out *stream,
             /* apply volume for spk/hp, SPDIF/HDMI keep the max volume */
             float gain_speaker = adev->sink_gain[OUTPORT_SPEAKER];
             effect_tmp_buf = (int32_t *)adev->effect_buf;
+            if ((eDolbyMS12Lib == adev->dolby_lib_type) && aml_out->ms12_vol_ctrl) {
+                gain_speaker = 1.0;
+            }
             apply_volume_16to32(gain_speaker, (int16_t *)tmp_buffer,effect_tmp_buf, bytes);
             if (enable_dump) {
                 FILE *fp1 = fopen("/data/vendor/audiohal/ms12_out_spk-volume-32bit.pcm", "a+");
@@ -5606,6 +5609,10 @@ ssize_t audio_hal_data_processing(struct audio_stream_out *stream,
                 }
             } else {
                 volume *= gain_speaker * adev->sink_gain[OUTPORT_SPEAKER];
+            }
+
+            if ((eDolbyMS12Lib == adev->dolby_lib_type) && aml_out->ms12_vol_ctrl) {
+                volume = 1.0;
             }
             apply_volume_16to32(volume, effect_tmp_buf, spk_tmp_buf, bytes);
             apply_volume_16to32(source_gain, tmp_buffer, ps32SpdifTempBuffer, bytes);
