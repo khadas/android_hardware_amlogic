@@ -774,7 +774,7 @@ static size_t out_get_buffer_size (const struct audio_stream *stream)
         if (stream->get_format(stream) == AUDIO_FORMAT_IEC61937) {
             size = DTS1_PERIOD_SIZE / 2;
         } else {
-            size = DTS2_PERIOD_SIZE ;
+            size = DTSHD_PERIOD_SIZE * 8;
         }
         ALOGI("%s AUDIO_FORMAT_DTS buffer size = %zuframes", __FUNCTION__, size);
         break;
