@@ -28,7 +28,7 @@
 
 #define MAD_MAX_LENGTH (1024 * 64)
 #define MAD_REMAIN_BUFFER_SIZE (4096 * 10)
-
+#define MAD_AD_NEED_CACHE_FRAME_COUNT  2
 
 
 typedef struct _audio_info {
@@ -75,6 +75,7 @@ struct mad_dec_t {
     int  mixer_level;
     char ad_remain_data[MAD_REMAIN_BUFFER_SIZE];
     int ad_remain_size;
+    int ad_need_cache_frames;
 };
 
 static  int unload_mad_decoder_lib(struct mad_dec_t *mad_dec)
@@ -176,7 +177,7 @@ static int mad_decoder_init(aml_dec_t **ppaml_dec, aml_dec_config_t * dec_config
 
     mad_dec = aml_audio_calloc(1, sizeof(struct mad_dec_t));
     if (mad_dec == NULL) {
-        ALOGE("malloc aac_dec failed\n");
+        ALOGE("malloc mad_dec failed\n");
         return -1;
     }
 
@@ -222,6 +223,7 @@ static int mad_decoder_init(aml_dec_t **ppaml_dec, aml_dec_config_t * dec_config
     mad_dec->ad_mixing_enable = dec_config->ad_mixing_enable;
     mad_dec->mixer_level = dec_config->mixer_level;
     mad_dec->advol_level = dec_config->advol_level;
+    mad_dec->ad_need_cache_frames = MAD_AD_NEED_CACHE_FRAME_COUNT;
 
     ALOGI("mad_dec->ad_decoder_supported %d",mad_dec->ad_decoder_supported);
     mad_dec->remain_size = 0;
@@ -322,31 +324,69 @@ static int mad_decoder_process(aml_dec_t * aml_dec, unsigned char*buffer, int by
               ALOGE("decode len %d  > buf_size %d ", dec_pcm_data->data_len, dec_pcm_data->buf_size);
               break;
           }
-          mad_dec->remain_size = mad_dec->remain_size - used_size;
-          used_size_return = used_size - mark_remain_size;
-          mad_dec->remain_size = 0;
-          break;
+          if (dec_pcm_data->data_len) {
+              if (used_size >= mark_remain_size) {
+                  used_size_return = used_size - mark_remain_size;
+                  mad_dec->remain_size = 0;
+              } else {
+                   used_size_return = 0;
+                   mad_dec->remain_size = mark_remain_size - used_size;
+                   memmove(mad_dec->remain_data, mad_dec->remain_data + used_size, mad_dec->remain_size );
+              }
+              break;
+          }
+
       } else {
           if (mad_dec->remain_size  > used_size) {
             mad_dec->remain_size = mad_dec->remain_size - used_size;
-            memmove(mad_dec->remain_data, mad_dec->remain_data + used_size, mad_dec->remain_size );
+            if (mad_dec->remain_size > MAD_REMAIN_BUFFER_SIZE) {
+                ALOGE("mad_dec->remain_size %d > %d  ,overflow", mad_dec->remain_size , MAD_REMAIN_BUFFER_SIZE );
+                mad_dec->remain_size = 0;
+            } else {
+                memmove(mad_dec->remain_data, mad_dec->remain_data + used_size, mad_dec->remain_size );
+            }
+
           }
           used_size_return = bytes;
-          ALOGV("decode_len %d in %d pcm_len %d used_size %d aac_dec->remain_size %d", decode_len,  bytes, pcm_len, used_size, mad_dec->remain_size);
+          ALOGV("decode_len %d in %d pcm_len %d used_size %d mad_dec->remain_size %d", decode_len,  bytes, pcm_len, used_size, mad_dec->remain_size);
           break;
       }
     }
     mad_op->getinfo(mad_op,&pAudioInfo);
-    if (mad_dec->ad_decoder_supported && dec_pcm_data->data_len) {
+
+    if (pAudioInfo.channels == 1 && dec_pcm_data->data_len) {
+            int16_t *samples_data = (int16_t *)dec_pcm_data->buf;
+            int i = 0, samples_num,samples;
+            samples_num = dec_pcm_data->data_len / sizeof(int16_t);
+            for (; i < samples_num; i++) {
+                samples = samples_data[samples_num - i -1] ;
+                samples_data [ 2 * (samples_num - i -1) ] = samples;
+                samples_data [ 2 * (samples_num - i -1) + 1]= samples;
+            }
+            dec_pcm_data->data_len  = dec_pcm_data->data_len * 2;
+            pAudioInfo.channels = 2;
+    }
+
+    if (mad_dec->ad_decoder_supported ) {
         used_size = 0;
         if (aml_dec->ad_size > 0) {
+            if ((aml_dec->ad_size + mad_dec->ad_remain_size) > MAD_REMAIN_BUFFER_SIZE) {
+                 ALOGE("mad_dec->ad_remain_size %d > %d  ,overflow", mad_dec->ad_remain_size , MAD_REMAIN_BUFFER_SIZE );
+                 mad_dec->ad_remain_size = 0;
+                 memset(mad_dec->ad_remain_data , 0 , MAD_REMAIN_BUFFER_SIZE);
+            }
             memcpy(mad_dec->ad_remain_data + mad_dec->ad_remain_size, aml_dec->ad_data, aml_dec->ad_size);
             mad_dec->ad_remain_size += aml_dec->ad_size;
+            aml_dec->ad_size = 0;
+        }
+
+        if (mad_dec->ad_need_cache_frames && dec_pcm_data->data_len) {
+            mad_dec->ad_need_cache_frames--;
         }
 
         ad_dec_pcm_data->data_len = 0;
-        ALOGV("aac_dec->ad_remain_size %d", mad_dec->ad_remain_size);
-        while (mad_dec->ad_remain_size > used_size) {
+        ALOGV("mad_dec->ad_remain_size %d", mad_dec->ad_remain_size);
+        while (mad_dec->ad_remain_size > used_size && !mad_dec->ad_need_cache_frames && dec_pcm_data->data_len) {
             int pcm_len = MAD_MAX_LENGTH;
             int decode_len = ad_mad_op->decode(ad_mad_op, (char *)(ad_dec_pcm_data->buf + ad_dec_pcm_data->data_len), &pcm_len, (char *)mad_dec->ad_remain_data + used_size, mad_dec->ad_remain_size - used_size);
             ALOGV("ad decode_len %d in %d pcm_len %d used_size %d", decode_len,  mad_dec->ad_remain_size, pcm_len, used_size);
@@ -360,22 +400,28 @@ static int mad_decoder_process(aml_dec_t * aml_dec, unsigned char*buffer, int by
                 mad_dec->ad_remain_size = mad_dec->ad_remain_size - used_size;
                 memmove(mad_dec->ad_remain_data, mad_dec->ad_remain_data + used_size, mad_dec->ad_remain_size );
                 aml_dec->ad_size = 0;
-                break;
+                if(ad_dec_pcm_data->data_len) 
+                    break;
             } else {
                 if (mad_dec->ad_remain_size > used_size) {
                     if (used_size) {
                        mad_dec->ad_remain_size = mad_dec->ad_remain_size - used_size;
-                       memmove(mad_dec->ad_remain_data, mad_dec->ad_remain_data + used_size, mad_dec->ad_remain_size);
-                    }
+                       if (mad_dec->ad_remain_size > MAD_REMAIN_BUFFER_SIZE) {
+                            ALOGE("mad_dec->ad_remain_size %d > %d  ,overflow", mad_dec->ad_remain_size , MAD_REMAIN_BUFFER_SIZE );
+                            mad_dec->ad_remain_size = 0;
+                            mad_dec->ad_need_cache_frames = MAD_AD_NEED_CACHE_FRAME_COUNT;
+                       } else {
+                           memmove(mad_dec->ad_remain_data, mad_dec->ad_remain_data + used_size, mad_dec->ad_remain_size);
+                       }
+                    }       
                 }
-                aml_dec->ad_size = 0;
                 ALOGV("ad mad_dec->ad_remain_size %d ad_dec_pcm_data->data_len %d used_size %d", mad_dec->ad_remain_size, ad_dec_pcm_data->data_len, used_size);
                 break;
             }
         }
         ad_mad_op->getinfo(ad_mad_op,&pADAudioInfo);
-        dump_mad_data(ad_dec_pcm_data->buf, ad_dec_pcm_data->data_len, "/data/mad_ad1.pcm");
-        ALOGI("pADAudioInfo.channels %d pAudioInfo.channels %d",pADAudioInfo.channels, pAudioInfo.channels);
+        dump_mad_data(ad_dec_pcm_data->buf, ad_dec_pcm_data->data_len, "/data/mad_ad.pcm");
+        ALOGV("pADAudioInfo.channels %d pAudioInfo.channels %d",pADAudioInfo.channels, pAudioInfo.channels);
         if (pADAudioInfo.channels == 1 && pAudioInfo.channels == 2) {
             int16_t *samples_data = (int16_t *)ad_dec_pcm_data->buf;
             int i = 0, samples_num,samples;
@@ -397,11 +443,10 @@ static int mad_decoder_process(aml_dec_t * aml_dec, unsigned char*buffer, int by
 
             float mixing_coefficient = 1.0f - (float)(mad_dec->mixer_level  + 32 ) / 64;
             float ad_mixing_coefficient = (mad_dec->advol_level * 1.0f / 100 ) * (float)(mad_dec->mixer_level  + 32 ) / 64;
-            ALOGI("mixing_coefficient %f ad_mixing_coefficient %f",mixing_coefficient, ad_mixing_coefficient);
+            ALOGV("mixing_coefficient %f ad_mixing_coefficient %f",mixing_coefficient, ad_mixing_coefficient);
             apply_volume(mixing_coefficient, dec_pcm_data->buf, sizeof(uint16_t), dec_pcm_data->data_len);
             apply_volume(ad_mixing_coefficient, ad_dec_pcm_data->buf, sizeof(uint16_t), ad_dec_pcm_data->data_len);
-            dump_mad_data(ad_dec_pcm_data->buf, ad_dec_pcm_data->data_len, "/data/mad_ad.pcm");
-            dump_mad_data(dec_pcm_data->buf, dec_pcm_data->data_len, "/data/mad_main.pcm");
+
 
             frames_written = do_mixing_2ch(dec_pcm_data->buf, ad_dec_pcm_data->buf ,
                 dec_pcm_data->data_len / 4 , data_cfg, data_cfg);

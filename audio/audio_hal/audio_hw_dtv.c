@@ -2662,8 +2662,8 @@ void *audio_dtv_patch_input_threadloop(void *data)
                        dtv_pacakge->data = (char *)mEsData->data;
                        dtv_pacakge->pts = mEsData->pts;
                        aml_dtvsync_queue_audio_frame(patch->dtvsync, dtv_pacakge->pts, dtv_pacakge->size, patch->dtvsync->duration, MEDIASYNC_UNIT_PTS);
-                        if (aml_dev->debug_flag > 0)
-                            ALOGV("queue:%llx, size:%d, dur:%d\n",
+                       if (aml_dev->debug_flag > 0)
+                            ALOGI("queue:%llx, size:%d, dur:%d\n",
                                 dtv_pacakge->pts, dtv_pacakge->size, patch->dtvsync->duration);
                     }
                 }
@@ -2689,7 +2689,8 @@ void *audio_dtv_patch_input_threadloop(void *data)
                         ALOGV("ad trycount %d", trycount);
                         dtv_pacakge->ad_size = mAdEsData->size;
                         dtv_pacakge->ad_data = (char *)mAdEsData->data;
-                        ALOGV("ad mAdEsData->size %d",mAdEsData->size);
+                        if (aml_dev->debug_flag)
+                           ALOGI("ad mAdEsData->size %d mAdEsData->pts %0llx",mAdEsData->size, mAdEsData->pts);
                     }
                 }
 
