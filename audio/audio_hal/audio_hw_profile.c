@@ -953,23 +953,62 @@ char*  get_hdmi_sink_cap(const char *keys,audio_format_t format,struct aml_arc_h
         }
         /*check the channel cap */
         else if (strstr(keys, AUDIO_PARAMETER_STREAM_SUP_CHANNELS)) {
-            bool is_pcm = (format == AUDIO_FORMAT_PCM_16_BIT) ||
-                                (format == AUDIO_FORMAT_PCM_32_BIT);
             ALOGD("query hdmi channels..., format %#x\n", format);
-            /* take the 2ch suppported as default */
-            size += sprintf(aud_cap, "sup_channels=%s", "AUDIO_CHANNEL_OUT_STEREO");
-            if ((mystrstr(infobuf, "PCM, 8 ch") && is_pcm) ||
-                (mystrstr(infobuf, "Dobly_Digital+") && format == AUDIO_FORMAT_E_AC3) ||
-                (mystrstr(infobuf, "DTS-HD") && format == AUDIO_FORMAT_DTS_HD) ||
-                (mystrstr(infobuf, "MAT") && format == AUDIO_FORMAT_DOLBY_TRUEHD) ||
-                format == AUDIO_FORMAT_IEC61937) {
-                size += sprintf(aud_cap + size, "|%s", "AUDIO_CHANNEL_OUT_PENTA|AUDIO_CHANNEL_OUT_5POINT1|AUDIO_CHANNEL_OUT_7POINT1");
-            } else if ((mystrstr(infobuf, "PCM, 6 ch")  && is_pcm) ||
-                       (mystrstr(infobuf, "AC-3") && format == AUDIO_FORMAT_AC3) ||
-                       /* backward compatibility for dd, if TV only supports dd+ */
-                       (mystrstr(infobuf, "Dobly_Digital+") && format == AUDIO_FORMAT_AC3)||
-                       (mystrstr(infobuf, "DTS") && format == AUDIO_FORMAT_DTS)) {
-                size += sprintf(aud_cap + size, "|%s", "AUDIO_CHANNEL_OUT_PENTA|AUDIO_CHANNEL_OUT_5POINT1");
+            p_hdmi_descs->pcm_fmt.max_channels = 2;
+            switch (format) {
+            case AUDIO_FORMAT_PCM_16_BIT:
+            case AUDIO_FORMAT_PCM_32_BIT:
+                size += sprintf(aud_cap, "sup_channels=%s", "AUDIO_CHANNEL_OUT_STEREO");
+                if (mystrstr(infobuf, "PCM, 8 ch")) {
+                    size += sprintf(aud_cap + size, "|%s", "AUDIO_CHANNEL_OUT_5POINT1|AUDIO_CHANNEL_OUT_7POINT1");
+                    p_hdmi_descs->pcm_fmt.max_channels = 8;
+                } else if (mystrstr(infobuf, "PCM, 6 ch")) {
+                    size += sprintf(aud_cap + size, "|%s", "AUDIO_CHANNEL_OUT_5POINT1");
+                    p_hdmi_descs->pcm_fmt.max_channels = 6;
+                }
+                break;
+            case AUDIO_FORMAT_AC3:
+                if (mystrstr(infobuf, "AC-3")) {
+                    size += sprintf(aud_cap, "sup_channels=%s", AC3_SUPPORT_CHANNEL);
+                    p_hdmi_descs->dd_fmt.max_channels = 6;
+                }
+                break;
+            case AUDIO_FORMAT_E_AC3:
+                if (mystrstr(infobuf, "Dobly_Digital+")) {
+                    size += sprintf(aud_cap, "sup_channels=%s", EAC3_SUPPORT_CHANNEL);
+                    p_hdmi_descs->ddp_fmt.max_channels = 8;
+                }
+                break;
+            case AUDIO_FORMAT_E_AC3_JOC:
+                if (mystrstr(infobuf, "ATMOS") ||
+                    mystrstr(infobuf, "Dobly_Digital+")) {
+                    size += sprintf(aud_cap, "sup_channels=%s", EAC3_JOC_SUPPORT_CHANNEL);
+                    p_hdmi_descs->ddp_fmt.max_channels = 8;
+                }
+                break;
+            case AUDIO_FORMAT_DOLBY_TRUEHD:
+                if (mystrstr(infobuf, "ATMOS") ||
+                    mystrstr(infobuf, "Dobly_Digital+")) {
+                    size += sprintf(aud_cap, "sup_channels=%s", EAC3_JOC_SUPPORT_CHANNEL);
+                    p_hdmi_descs->ddp_fmt.max_channels = 8;
+                }
+                break;
+            case AUDIO_FORMAT_DTS:
+                if (mystrstr(infobuf, "DTS")) {
+                    size += sprintf(aud_cap, "sup_channels=%s", DTS_SUPPORT_CHANNEL);
+                    p_hdmi_descs->dts_fmt.max_channels = 8;
+                }
+                break;
+            case AUDIO_FORMAT_DTS_HD:
+                if (mystrstr(infobuf, "DTS-HD") || mystrstr(infobuf, "DTS")) {
+                    size += sprintf(aud_cap, "sup_channels=%s", DTSHD_SUPPORT_CHANNEL);
+                    p_hdmi_descs->dtshd_fmt.max_channels = 8;
+                }
+                break;
+            default:
+                /* take the 2ch suppported as default */
+                size += sprintf(aud_cap, "sup_channels=%s", "AUDIO_CHANNEL_OUT_STEREO");
+                break;
             }
         } else if (strstr(keys, AUDIO_PARAMETER_STREAM_SUP_SAMPLING_RATES)) {
             ALOGD("query hdmi sample_rate...\n");
@@ -1119,27 +1158,30 @@ char*  get_hdmi_sink_cap_dolbylib(const char *keys,audio_format_t format,struct 
         }
         /*check the channel cap */
         else if (strstr(keys, AUDIO_PARAMETER_STREAM_SUP_CHANNELS)) {
-            bool is_pcm = (format == AUDIO_FORMAT_PCM_16_BIT) ||
-                                (format == AUDIO_FORMAT_PCM_32_BIT);
             ALOGD("query hdmi channels..., format %#x\n", format);
+            p_hdmi_descs->pcm_fmt.max_channels = 2;
             switch (format) {
             case AUDIO_FORMAT_PCM_16_BIT:
             case AUDIO_FORMAT_PCM_32_BIT:
                 size += sprintf(aud_cap, "sup_channels=%s", "AUDIO_CHANNEL_OUT_STEREO");
                 if (mystrstr(infobuf, "PCM, 8 ch")) {
                     size += sprintf(aud_cap + size, "|%s", "AUDIO_CHANNEL_OUT_5POINT1|AUDIO_CHANNEL_OUT_7POINT1");
+                    p_hdmi_descs->pcm_fmt.max_channels = 8;
                 } else if (mystrstr(infobuf, "PCM, 6 ch")) {
                     size += sprintf(aud_cap + size, "|%s", "AUDIO_CHANNEL_OUT_5POINT1");
+                    p_hdmi_descs->pcm_fmt.max_channels = 6;
                 }
                 break;
             case AUDIO_FORMAT_AC3:
                 if (mystrstr(infobuf, "AC-3")) {
                     size += sprintf(aud_cap, "sup_channels=%s", AC3_SUPPORT_CHANNEL);
+                    p_hdmi_descs->dd_fmt.max_channels = 6;
                 }
                 break;
             case AUDIO_FORMAT_E_AC3:
                 if (mystrstr(infobuf, "Dobly_Digital+") || dolby_decoder_sup) {
                     size += sprintf(aud_cap, "sup_channels=%s", EAC3_SUPPORT_CHANNEL);
+                    p_hdmi_descs->ddp_fmt.max_channels = 8;
                 }
                 break;
             case AUDIO_FORMAT_E_AC3_JOC:
@@ -1147,16 +1189,19 @@ char*  get_hdmi_sink_cap_dolbylib(const char *keys,audio_format_t format,struct 
                     mystrstr(infobuf, "Dobly_Digital+") ||
                     dolby_decoder_sup) {
                     size += sprintf(aud_cap, "sup_channels=%s", EAC3_JOC_SUPPORT_CHANNEL);
+                    p_hdmi_descs->ddp_fmt.max_channels = 8;
                 }
                 break;
             case AUDIO_FORMAT_DTS:
                 if (mystrstr(infobuf, "DTS")) {
-                    size += sprintf(aud_cap, "sup_channels=%s", DTSHD_SUPPORT_CHANNEL);
+                    size += sprintf(aud_cap, "sup_channels=%s", DTS_SUPPORT_CHANNEL);
+                    p_hdmi_descs->dts_fmt.max_channels = 8;
                 }
                 break;
             case AUDIO_FORMAT_DTS_HD:
                 if (mystrstr(infobuf, "DTS-HD") || mystrstr(infobuf, "DTS")) {
                     size += sprintf(aud_cap, "sup_channels=%s", DTSHD_SUPPORT_CHANNEL);
+                    p_hdmi_descs->dtshd_fmt.max_channels = 8;
                 }
                 break;
             default:

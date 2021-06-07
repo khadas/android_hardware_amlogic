@@ -56,49 +56,47 @@ static inline int CLIPINT(int64_t r)
 //should be same channelCnt 2
 int do_mixing_2ch(void *data_mixed,
         void *data_in, size_t frames,
-        struct audioCfg inCfg, struct audioCfg mixerCfg)
+        audio_format_t in_format, audio_format_t out_format)
 {
     int i = 0;
-    int samples = frames * inCfg.channelCnt;
-
-    if (mixerCfg.format == AUDIO_FORMAT_PCM_32_BIT) {
-        if (inCfg.format == AUDIO_FORMAT_PCM_16_BIT) {
+    if (out_format == AUDIO_FORMAT_PCM_32_BIT) {
+        if (in_format == AUDIO_FORMAT_PCM_16_BIT) {
             int16_t *in = data_in;
             int32_t *out = data_mixed;
             int64_t tmp = 0;
-            for (i = 0; i < samples; i++) {
+            for (i = 0; i < frames * 2; i++) {
                 tmp = (int64_t)*out + (int64_t)((*in++) << 16);
                 *out++ = CLIPINT(tmp);
             }
-        } else if (inCfg.format == AUDIO_FORMAT_PCM_32_BIT) {
+        } else if (in_format == AUDIO_FORMAT_PCM_32_BIT) {
             int32_t *in = data_in;
             int32_t *out = data_mixed;
             int64_t tmp = 0;
-            for (i = 0; i < samples; i++) {
+            for (i = 0; i < frames * 2; i++) {
                 tmp = (int64_t)*out + (int64_t)*in++;
                 *out++ = CLIPINT(tmp);
             }
         }
-    } else if (mixerCfg.format == AUDIO_FORMAT_PCM_16_BIT) {
-        if (inCfg.format == AUDIO_FORMAT_PCM_16_BIT) {
+    } else if (out_format == AUDIO_FORMAT_PCM_16_BIT) {
+        if (in_format == AUDIO_FORMAT_PCM_16_BIT) {
             int16_t *in = data_in;
             int16_t *out = data_mixed;
             int32_t tmp = 0;
-            for (i = 0; i < samples; i++) {
+            for (i = 0; i < frames * 2; i++) {
                 tmp = (int32_t)*out + (int32_t)*in++;
                 *out++ = CLIPSHORT(tmp);
             }
-        } else if (inCfg.format == AUDIO_FORMAT_PCM_32_BIT) {
+        } else if (in_format == AUDIO_FORMAT_PCM_32_BIT) {
             int32_t *in = data_in;
             int16_t *out = data_mixed;
             int32_t tmp = 0;
-            for (i = 0; i < samples; i++) {
+            for (i = 0; i < frames * 2; i++) {
                 tmp = (int32_t)*out + ((*in++) >> 16);
                 *out++ = CLIPSHORT(tmp);
             }
         }
     } else {
-        ALOGE("%s(), format %#x inval", __func__, inCfg.format);
+        ALOGE("do_mixing_2ch invalid in_format:%#x out_format:%#x invalid", in_format, out_format);
         return 0;
     }
     return frames;

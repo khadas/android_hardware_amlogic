@@ -38,7 +38,7 @@ static int out_flush_subMixingPCM(struct audio_stream_out *stream);
 
 struct pcm *getSubMixingPCMdev(struct subMixing *sm)
 {
-    return sm->pcmDev;
+    return pcm_mixer_get_pcm_handle(sm->mixerData);
 }
 
 static int startMixingThread(struct subMixing *sm)
@@ -53,55 +53,12 @@ static int exitMixingThread(struct subMixing *sm)
 
 static int initSubMixngOutput(
         struct subMixing *sm,
-        struct audioCfg cfg,
         struct aml_audio_device *adev)
 {
     R_CHECK_POINTER_LEGAL(-EINVAL, sm, "");
-    struct pcm_config pcm_cfg;
-    struct pcm *pcm = NULL;
-    int card = alsa_device_get_card_index();
-    int device = alsa_device_update_pcm_index(PORT_I2S, PLAYBACK);
-    int res = 0;
-    memset(&pcm_cfg, 0, sizeof(struct pcm_config));
-    pcm_cfg.channels = cfg.channelCnt;
-    pcm_cfg.rate = cfg.sampleRate;
-    pcm_cfg.period_size = DEFAULT_PLAYBACK_PERIOD_SIZE;
-    pcm_cfg.period_count = DEFAULT_PLAYBACK_PERIOD_CNT;
-    //pcm_cfg.period_count = PLAYBACK_PERIOD_COUNT;
-    pcm_cfg.start_threshold = pcm_cfg.period_size * pcm_cfg.period_count / 2;
-
-    if (cfg.format == AUDIO_FORMAT_PCM_16_BIT)
-        pcm_cfg.format = PCM_FORMAT_S16_LE;
-    else if (cfg.format == AUDIO_FORMAT_PCM_32_BIT)
-        pcm_cfg.format = PCM_FORMAT_S32_LE;
-    else {
-        AM_LOGE("unsupport");
-        pcm_cfg.format = PCM_FORMAT_S16_LE;
-    }
-    AM_LOGI("open ALSA hw:%d,%d", card, device);
-    sm->pcm_cfg = pcm_cfg;
-    pcm = pcm_open(card, device, PCM_OUT | PCM_MONOTONIC, &pcm_cfg);
-    if ((pcm == NULL) || !pcm_is_ready(pcm)) {
-        AM_LOGE("cannot open pcm_out driver: %s", pcm_get_error(pcm));
-        pcm_close(pcm);
-        //return -EINVAL;
-    }
-
-    sm->pcmDev = pcm;
-
     if (sm->type == MIXER_LPCM) {
-        struct amlAudioMixer *amixer = NULL;
-        amixer = newAmlAudioMixer(pcm, cfg, adev);
-        if (amixer == NULL) {
-            res = -ENOMEM;
-            goto err;
-        }
-#ifdef ENABLE_AEC_APP
-        int aec_ret = init_aec_reference_config(adev->aec, pcm_cfg);
-        if (aec_ret) {
-            AM_LOGE("AEC: Speaker config init failed!");
-        }
-#endif
+        struct amlAudioMixer *amixer = newAmlAudioMixer(adev);
+        R_CHECK_POINTER_LEGAL(-ENOMEM, amixer, "newAmlAudioMixer failed");
         sm->mixerData = amixer;
         startMixingThread(sm);
     } else if (sm->type == MIXER_MS12) {
@@ -109,13 +66,9 @@ static int initSubMixngOutput(
         AM_LOGW("not support yet, in TODO list");
     } else {
         AM_LOGE("not support");
-        res = -EINVAL;
-        goto err;
+        return -EINVAL;
     }
     return 0;
-err:
-    pcm_close(pcm);
-    return res;
 };
 
 static int releaseSubMixingOutput(struct subMixing *sm)
@@ -124,8 +77,7 @@ static int releaseSubMixingOutput(struct subMixing *sm)
     AM_LOGI("++");
     exitMixingThread(sm);
     freeAmlAudioMixer(sm->mixerData);
-    pcm_close(sm->pcmDev);
-    sm->pcmDev = NULL;
+    sm->mixerData = NULL;
 
     return 0;
 }
@@ -753,8 +705,7 @@ static int initSubMixingInputPcm(
 
     hwsync_lpcm = (flags & AUDIO_OUTPUT_FLAG_HW_AV_SYNC && config->sample_rate <= 48000 &&
                audio_is_linear_pcm(config->format) && channel_count <= 2);
-    AM_LOGI("++out %p, flags %#x, hwsync lpcm %d, out format %#x",
-            out, flags, hwsync_lpcm, sm->outputCfg.format);
+    AM_LOGI("++out %p, flags %#x, hwsync lpcm %d", out, flags, hwsync_lpcm);
     out->audioCfg = *config;
     out->stream.write = out_write_subMixingPCM;
     out->stream.pause = out_pause_subMixingPCM;
@@ -787,11 +738,6 @@ static int deleteSubMixingInputPcm(struct aml_stream_out *out)
                audio_is_linear_pcm(config->format) && channel_count <= 2);
 
     AM_LOGI("cnt_stream_using_mixer %d", sm->cnt_stream_using_mixer);
-    if (out->inputPortID != -1) {
-        delete_mixer_input_port(audio_mixer, out->inputPortID);
-        out->inputPortID = -1;
-    }
-
     struct meta_data_list *mdata_list;
     struct listnode *item;
 
@@ -896,7 +842,6 @@ int sysWriteMS12(
 static int newSubMixingFactory(
             struct subMixing **smixer,
             enum MIXER_TYPE type,
-            struct audioCfg cfg,
             void *data)
 {
     (void *)data;
@@ -904,14 +849,6 @@ static int newSubMixingFactory(
     int res = 0;
 
     AM_LOGI("type %d", type);
-    /* check output config */
-    if ((cfg.channelCnt != 2 && cfg.channelCnt != 8) || cfg.sampleRate != 48000
-        || ((cfg.format != AUDIO_FORMAT_PCM_16_BIT) && (cfg.format != AUDIO_FORMAT_PCM_32_BIT))) {
-        AM_LOGE("unsupport config, chCnt %d, rate %d, fmt %#x",
-                cfg.channelCnt, cfg.sampleRate, cfg.format);
-        res = -EINVAL;
-        goto exit;
-    }
     sm = aml_audio_calloc(1, sizeof(struct subMixing));
     R_CHECK_POINTER_LEGAL(-ENOMEM, sm, "No mem!");
 
@@ -919,7 +856,6 @@ static int newSubMixingFactory(
     case MIXER_LPCM:
         sm->type = MIXER_LPCM;
         strncpy(sm->name, "LPCM", 16);
-        sm->outputCfg = cfg;
         //sm->writeMain = mainWritePCM;
         //sm->writeSys = sysWritePCM;
         //sm->mixerData = data;
@@ -927,7 +863,6 @@ static int newSubMixingFactory(
     case MIXER_MS12:
         sm->type = MIXER_MS12;
         strncpy(sm->name, "MS12", 16);
-        sm->outputCfg = cfg;
         //sm->writeMain = mainWriteMS12;
         //sm->writeSys = sysWriteMS12;
         //sm->mixerData = data;
@@ -950,38 +885,18 @@ static void deleteSubMixing(struct subMixing *sm)
     }
 }
 
-static int initAudioConfig(struct audioCfg *cfg, bool isTV)
-{
-    R_CHECK_POINTER_LEGAL(-EINVAL, cfg, "");
-    cfg->sampleRate = 48000;
-    if (isTV) {
-        cfg->format = AUDIO_FORMAT_PCM_32_BIT;
-        cfg->channelCnt = 8;
-    } else {
-        cfg->format = AUDIO_FORMAT_PCM_16_BIT;
-        cfg->channelCnt = 2;
-    }
-    cfg->frame_size = cfg->channelCnt * audio_bytes_per_sample(cfg->format);
-    return 0;
-}
-
 int initHalSubMixing(struct subMixing **smixer,
         enum MIXER_TYPE type,
         struct aml_audio_device *adev,
         bool isTV)
 {
-    struct audioCfg outCfg;
     int ret = 0;
 
-    AM_LOGI("type %d, isTV %d", type, isTV);
+    ALOGI("type %d, isTV %d", type, isTV);
     R_CHECK_POINTER_LEGAL(-EINVAL, smixer, "");
-    initAudioConfig(&outCfg, isTV);
-    ret = newSubMixingFactory(smixer, type, outCfg, NULL);
-    if (ret < 0) {
-        AM_LOGE("fail to new mixer");
-        goto err;
-    }
-    ret = initSubMixngOutput(*smixer, outCfg, adev);
+    ret = newSubMixingFactory(smixer, type, NULL);
+    R_CHECK_RET(ret, "fail to new mixer");
+    ret = initSubMixngOutput(*smixer, adev);
     if (ret < 0) {
         AM_LOGE("fail to init mixer");
         goto err1;
@@ -989,7 +904,6 @@ int initHalSubMixing(struct subMixing **smixer,
     return 0;
 err1:
     deleteSubMixing(*smixer);
-err:
     return ret;
 }
 

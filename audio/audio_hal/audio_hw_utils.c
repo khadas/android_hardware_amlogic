@@ -1799,6 +1799,16 @@ const char* mixerInputType2Str(aml_mixer_input_port_type_e type)
     ENUM_TYPE_TO_STR(AML_MIXER_INPUT_PORT_BUTT)
     ENUM_TYPE_TO_STR_END
 }
+
+const char* mixerOutputType2Str(MIXER_OUTPUT_PORT type)
+{
+    ENUM_TYPE_TO_STR_START("MIXER_OUTPUT_PORT_");
+    ENUM_TYPE_TO_STR(MIXER_OUTPUT_PORT_INVAL)
+    ENUM_TYPE_TO_STR(MIXER_OUTPUT_PORT_STEREO_PCM)
+    ENUM_TYPE_TO_STR(MIXER_OUTPUT_PORT_MULTI_PCM)
+    ENUM_TYPE_TO_STR_END
+}
+
 const char* mediasyncAudiopolicyType2Str(audio_policy type)
 {
     ENUM_TYPE_TO_STR_START("MEDIASYNC_AUDIO_");

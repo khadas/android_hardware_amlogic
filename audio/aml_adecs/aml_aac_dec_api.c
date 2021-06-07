@@ -389,7 +389,7 @@ static int faad_decoder_process(aml_dec_t * aml_dec, unsigned char*buffer, int b
                  aac_dec->ad_remain_size = 0;
                  memset(aac_dec->ad_remain_data , 0 , AAC_REMAIN_BUFFER_SIZE);
             }
-                
+
             memcpy(aac_dec->ad_remain_data + aac_dec->ad_remain_size, aml_dec->ad_data, aml_dec->ad_size);
             aac_dec->ad_remain_size += aml_dec->ad_size;
             aml_dec->ad_size = 0;
@@ -411,7 +411,7 @@ static int faad_decoder_process(aml_dec_t * aml_dec, unsigned char*buffer, int b
                 if (ad_dec_pcm_data->data_len > ad_dec_pcm_data->buf_size) {
                     ALOGV("decode len %d ", ad_dec_pcm_data->data_len);
                 }
-                
+
                 if(ad_dec_pcm_data->data_len) {
                     memmove(aac_dec->ad_remain_data, aac_dec->ad_remain_data + used_size, aac_dec->ad_remain_size );
                     aac_dec->ad_remain_size = aac_dec->ad_remain_size - used_size;
@@ -429,7 +429,7 @@ static int faad_decoder_process(aml_dec_t * aml_dec, unsigned char*buffer, int b
                        } else {
                            memmove(aac_dec->ad_remain_data, aac_dec->ad_remain_data + used_size, aac_dec->ad_remain_size);
                        }
-                    }       
+                    }
                 }
 
                 ALOGV("ad aac_dec->ad_remain_size %d ad_dec_pcm_data->data_len %d used_size %d", aac_dec->ad_remain_size, ad_dec_pcm_data->data_len, used_size);
@@ -451,11 +451,7 @@ static int faad_decoder_process(aml_dec_t * aml_dec, unsigned char*buffer, int b
             ad_dec_pcm_data->data_len  = ad_dec_pcm_data->data_len * 2;
         }
         if (aac_dec->ad_mixing_enable) {
-            struct audioCfg data_cfg;
             int frames_written = 0;
-            data_cfg.channelCnt = pAudioInfo.channels;
-            data_cfg.format = AUDIO_FORMAT_PCM_16_BIT;
-            data_cfg.sampleRate = pAudioInfo.samplerate;
 
             float mixing_coefficient = 1.0f - (float)(aac_dec->mixer_level  + 32 ) / 64;
             float ad_mixing_coefficient = (aac_dec->advol_level * 1.0f / 100 ) * (float)(aac_dec->mixer_level  + 32 ) / 64;
@@ -464,7 +460,7 @@ static int faad_decoder_process(aml_dec_t * aml_dec, unsigned char*buffer, int b
             apply_volume(ad_mixing_coefficient, ad_dec_pcm_data->buf, sizeof(uint16_t), ad_dec_pcm_data->data_len);
 
             frames_written = do_mixing_2ch(dec_pcm_data->buf, ad_dec_pcm_data->buf ,
-                dec_pcm_data->data_len / 4 , data_cfg, data_cfg);
+                dec_pcm_data->data_len / 4 , AUDIO_FORMAT_PCM_16_BIT, AUDIO_FORMAT_PCM_16_BIT);
             ALOGV("frames_written %d dec_pcm_data->data_len %d",frames_written, dec_pcm_data->data_len);
             dec_pcm_data->data_len = frames_written * 4;
         }

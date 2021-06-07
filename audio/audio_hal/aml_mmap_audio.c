@@ -35,15 +35,12 @@
 #include "aml_volume_utils.h"
 
 
-#define MMAP_FRAME_SIZE_BYTE            (4)
 #define MMAP_SAMPLE_RATE_HZ             (48000)
 #define MMAP_BUFFER_BURSTS_NUM          (4)
 
 #define MMAP_WRITE_SIZE_FRAME           (384) // 8ms
 #define MMAP_WRITE_PERIOD_TIME_MS       (MMAP_WRITE_SIZE_FRAME * MSEC_PER_SEC / MMAP_SAMPLE_RATE_HZ)
-#define MMAP_WRITE_SIZE_BYTE            (MMAP_WRITE_SIZE_FRAME * MMAP_FRAME_SIZE_BYTE)
 #define MMAP_WRITE_PERIOD_TIME_NANO     (MMAP_WRITE_SIZE_FRAME * NSEC_PER_SEC / MMAP_SAMPLE_RATE_HZ)
-#define MMAP_BUFFER_SIZE_BYTE           (MMAP_WRITE_SIZE_FRAME * MMAP_FRAME_SIZE_BYTE *  MMAP_BUFFER_BURSTS_NUM)
 
 enum {
     MMAP_INIT,
@@ -63,6 +60,7 @@ static void *outMmapThread(void *pArg) {
     unsigned char               *pu8StartAddr = pstParam->pu8MmapAddr;
     unsigned char               *pu8TempBufferAddr = NULL;
     aml_mmap_thread_param_st    *pstThread = &pstParam->stThreadParam;
+    unsigned int                u32BurstSizeByte = MMAP_WRITE_SIZE_FRAME * pstParam->u32FrameSize;
     struct timespec timestamp;
 
     AM_LOGI("enter threadloop bExitThread:%d, bStopPlay:%d, mmap addr:%p, out:%p",
@@ -72,7 +70,7 @@ static void *outMmapThread(void *pArg) {
     aml_set_thread_priority("outMmapThread", pstThread->threadId);
     aml_audio_set_cpu23_affinity();
 
-    pu8TempBufferAddr = (unsigned char *)aml_audio_malloc(MMAP_WRITE_SIZE_BYTE);
+    pu8TempBufferAddr = (unsigned char *)aml_audio_malloc(u32BurstSizeByte);
     while (false == pstThread->bExitThread) {
         if (false == pstThread->bStopPlay) {
 
@@ -94,19 +92,19 @@ static void *outMmapThread(void *pArg) {
                         MMAP_WRITE_PERIOD_TIME_NANO * MMAP_BUFFER_BURSTS_NUM, MMAP_WRITE_PERIOD_TIME_NANO * MMAP_BUFFER_BURSTS_NUM, 0);
                 audio_virtual_buf_process((void *)pstVirtualBuffer, MMAP_WRITE_PERIOD_TIME_NANO * MMAP_BUFFER_BURSTS_NUM);
             }
-            unsigned int u32RemainSizeByte =  (MMAP_BUFFER_SIZE_BYTE + pu8StartAddr) - pu8CurReadAddr;
-            if (u32RemainSizeByte >= MMAP_WRITE_SIZE_BYTE) {
+            unsigned int u32RemainSizeByte =  (pstParam->u32BufferSize + pu8StartAddr) - pu8CurReadAddr;
+            if (u32RemainSizeByte >= u32BurstSizeByte) {
 
-                memcpy(pu8TempBufferAddr, pu8CurReadAddr, MMAP_WRITE_SIZE_BYTE);
-                memset(pu8CurReadAddr, 0, MMAP_WRITE_SIZE_BYTE);
-                pu8CurReadAddr += MMAP_WRITE_SIZE_BYTE;
+                memcpy(pu8TempBufferAddr, pu8CurReadAddr, u32BurstSizeByte);
+                memset(pu8CurReadAddr, 0, u32BurstSizeByte);
+                pu8CurReadAddr += u32BurstSizeByte;
             } else {
                 memcpy(pu8TempBufferAddr, pu8CurReadAddr, u32RemainSizeByte);
                 memset(pu8CurReadAddr, 0, u32RemainSizeByte);
 
-                memcpy(pu8TempBufferAddr + u32RemainSizeByte, pu8StartAddr, MMAP_WRITE_SIZE_BYTE - u32RemainSizeByte);
-                memset(pu8StartAddr, 0, MMAP_WRITE_SIZE_BYTE - u32RemainSizeByte);
-                pu8CurReadAddr = pu8StartAddr + MMAP_WRITE_SIZE_BYTE - u32RemainSizeByte;
+                memcpy(pu8TempBufferAddr + u32RemainSizeByte, pu8StartAddr, u32BurstSizeByte - u32RemainSizeByte);
+                memset(pu8StartAddr, 0, u32BurstSizeByte - u32RemainSizeByte);
+                pu8CurReadAddr = pu8StartAddr + u32BurstSizeByte - u32RemainSizeByte;
             }
             pstParam->u32FramePosition += MMAP_WRITE_SIZE_FRAME;
             // Absolutet time must be used when get timestamp.
@@ -114,25 +112,25 @@ static void *outMmapThread(void *pArg) {
             pstParam->time_nanoseconds = (long long)timestamp.tv_sec * NSEC_PER_SEC + (long long)timestamp.tv_nsec;
 
             if (get_debug_value(AML_DEBUG_AUDIOHAL_LEVEL_DETECT)) {
-                check_audio_level("aaudio_in", pu8TempBufferAddr, MMAP_WRITE_SIZE_BYTE);
+                check_audio_level("aaudio_in", pu8TempBufferAddr, u32BurstSizeByte);
             }
 
-            apply_volume(out->volume_l, pu8TempBufferAddr, 2, MMAP_WRITE_SIZE_BYTE);
+            apply_volume(out->volume_l, pu8TempBufferAddr, 2, u32BurstSizeByte);
 
             if (out->dev->useSubMix) {
-                out->stream.write(&out->stream, pu8TempBufferAddr, MMAP_WRITE_SIZE_BYTE);
+                out->stream.write(&out->stream, pu8TempBufferAddr, u32BurstSizeByte);
             } else {
-                out_write_new(&out->stream, pu8TempBufferAddr, MMAP_WRITE_SIZE_BYTE);
+                out_write_new(&out->stream, pu8TempBufferAddr, u32BurstSizeByte);
             }
             if (aml_getprop_bool("vendor.media.audiohal.outdump")) {
                 if (fp1) {
-                    fwrite(pu8TempBufferAddr, 1, MMAP_WRITE_SIZE_BYTE, fp1);
+                    fwrite(pu8TempBufferAddr, 1, u32BurstSizeByte, fp1);
                 }
             }
             audio_virtual_buf_process((void *)pstVirtualBuffer, MMAP_WRITE_PERIOD_TIME_NANO);
             if (out->dev->debug_flag >= 100) {
-                AM_LOGI("CurReadAddr:%p, RemainSize:%d, FramePosition:%d offset=%d",
-                    pu8CurReadAddr, u32RemainSizeByte, pstParam->u32FramePosition, pstParam->u32FramePosition%(MMAP_BUFFER_SIZE_BYTE / MMAP_FRAME_SIZE_BYTE));
+                AM_LOGI("CurReadAddr:%p, RemainSize:%d, FramePosition:%d offset=%d", pu8CurReadAddr, u32RemainSizeByte,
+                    pstParam->u32FramePosition, pstParam->u32FramePosition%(MMAP_WRITE_SIZE_FRAME * MMAP_BUFFER_BURSTS_NUM));
             }
         } else {
             struct timespec tv;
@@ -209,7 +207,7 @@ static int outMmapStop(const struct audio_stream_out *stream)
     aml_audio_sleep(8 * 1000);
     pstParam->stThreadParam.bStopPlay = true;
     pstParam->stThreadParam.status = MMAP_STOP_DONE;
-    memset(pstParam->pu8MmapAddr, 0, MMAP_BUFFER_SIZE_BYTE);
+    memset(pstParam->pu8MmapAddr, 0, pstParam->u32BufferSize);
     pstParam->u32FramePosition = 0;
     AM_LOGI("--stream:%p", stream);
     return 0;
@@ -228,7 +226,7 @@ static int outMmapCreateBuffer(const struct audio_stream_out *stream,
 
     info->shared_memory_address = pstParam->pu8MmapAddr;
     info->shared_memory_fd = pstParam->s32IonShareFd;
-    info->buffer_size_frames = MMAP_BUFFER_SIZE_BYTE / MMAP_FRAME_SIZE_BYTE;
+    info->buffer_size_frames = MMAP_WRITE_SIZE_FRAME * MMAP_BUFFER_BURSTS_NUM;
     info->burst_size_frames  = MMAP_WRITE_SIZE_FRAME;
 
     aml_mmap_thread_param_st *pstThread = &pstParam->stThreadParam;
@@ -310,6 +308,9 @@ int outMmapInit(struct aml_stream_out *out)
        return -1;
     }
 
+    pstParam->u32FrameSize = audio_bytes_per_frame(out->config.channels, AUDIO_FORMAT_PCM_16_BIT);
+    pstParam->u32BufferSize = MMAP_BUFFER_BURSTS_NUM * MMAP_WRITE_SIZE_FRAME *pstParam->u32FrameSize;
+
     ret = ion_query_heap_cnt(pstParam->s32IonFd, &num_heaps);
     if (ret < 0) {
         AM_LOGE("ion_query_heap_cnt fail! no ion heaps for alloc!!! ret:%#x", ret);
@@ -344,16 +345,16 @@ int outMmapInit(struct aml_stream_out *out)
         return -ENOMEM;
     }
 
-    ret = ion_alloc_fd(pstParam->s32IonFd, MMAP_BUFFER_SIZE_BYTE, 0, heap_mask, 0, &pstParam->s32IonShareFd);
+    ret = ion_alloc_fd(pstParam->s32IonFd, pstParam->u32BufferSize, 0, heap_mask, 0, &pstParam->s32IonShareFd);
     if (ret < 0) {
-       AM_LOGE("ion_alloc_fd failed, ret:%#x, errno:%d", ret, errno);
+       AM_LOGE("ion_alloc_fd failed, u32BufferSize:%d, ret:%#x, errno:%d", pstParam->u32BufferSize, ret, errno);
        return -ENOMEM;
     }
 
-    pstParam->pu8MmapAddr = mmap(NULL, MMAP_BUFFER_SIZE_BYTE,  PROT_WRITE | PROT_READ,
+    pstParam->pu8MmapAddr = mmap(NULL, pstParam->u32BufferSize,  PROT_WRITE | PROT_READ,
                                    MAP_SHARED, pstParam->s32IonShareFd, 0);
-    AM_LOGI("s32IonFd:%d, s32IonShareFd:%d, pu8MmapAddr:%p",
-        pstParam->s32IonFd, pstParam->s32IonShareFd, pstParam->pu8MmapAddr);
+    AM_LOGI("s32IonFd:%d, s32IonShareFd:%d, b_size:%d, frame size:%d, add:%p",
+        pstParam->s32IonFd, pstParam->s32IonShareFd, pstParam->u32BufferSize, pstParam->u32FrameSize, pstParam->pu8MmapAddr);
     return 0;
 }
 
@@ -371,7 +372,7 @@ int outMmapDeInit(struct aml_stream_out *out)
        pthread_join(pstParam->stThreadParam.threadId, NULL);
     }
 
-    munmap(pstParam->pu8MmapAddr, MMAP_BUFFER_SIZE_BYTE);
+    munmap(pstParam->pu8MmapAddr, pstParam->u32BufferSize);
     close(pstParam->s32IonShareFd);
     ion_close(pstParam->s32IonFd);
     aml_audio_free(pstParam);
