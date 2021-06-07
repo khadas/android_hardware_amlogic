@@ -27,6 +27,11 @@
 #include <system/audio.h>
 #include <aml_volume_utils.h>
 #include <inttypes.h>
+#include <audio_utils/primitives.h>
+
+#ifdef ENABLE_AEC_APP
+#include "audio_aec.h"
+#endif
 
 #include "amlAudioMixer.h"
 #include "audio_hw_utils.h"
@@ -42,9 +47,6 @@
 #include "aml_malloc_debug.h"
 
 
-#define MIXER_WRITE_PERIOD_TIME_NANO        (MIXER_FRAME_COUNT * NSEC_PER_SEC / 48000)
-
-
 enum {
     INPORT_NORMAL,   // inport not underrun
     INPORT_UNDERRUN, //inport doesn't have data, underrun may happen later
@@ -56,11 +58,14 @@ struct amlAudioMixer {
     input_port *in_ports[NR_INPORTS];
     uint32_t inportsMasks; // records of inport IDs
     unsigned int supportedInportsMasks; // 1<< NR_EXTRA_INPORTS - 1
+    MIXER_OUTPUT_PORT cur_output_port_type;
     output_port *out_ports[MIXER_OUTPUT_PORT_NUM];
     pthread_mutex_t inport_lock;
     ssize_t (*write)(struct amlAudioMixer *mixer, void *buffer, int bytes);
-    void *tmp_buffer;       /* mixer temp output buffer. */
+    void *in_tmp_buffer;                    /* mixer temp input buffer. */
+    void *out_tmp_buffer;                   /* mixer temp output buffer. */
     size_t frame_size_tmp;
+    size_t tmp_buffer_size;                 /* mixer temp buffer size. */
     uint32_t hwsync_frame_size;
     pthread_t out_mixer_tid;
     pthread_mutex_t lock;
@@ -72,6 +77,7 @@ struct amlAudioMixer {
     bool continuous_output;
     //int init_ok : 1;
 };
+
 
 int mixer_set_state(struct amlAudioMixer *audio_mixer, aml_mixer_state state)
 {
@@ -180,11 +186,12 @@ int delete_mixer_input_port(struct amlAudioMixer *audio_mixer, uint8_t port_inde
     R_CHECK_PARAM_LEGAL(-EINVAL, port_index, 0, NR_INPORTS, "");
     input_port *in_port = audio_mixer->in_ports[port_index];
     R_CHECK_POINTER_LEGAL(-EINVAL, in_port, "port_index:%d", port_index);
-    AM_LOGI("input port ID:%d, type:%s", port_index, mixerInputType2Str(in_port->enInPortType));
     pthread_mutex_lock(&audio_mixer->inport_lock);
     free_input_port(in_port);
     audio_mixer->in_ports[port_index] = NULL;
     audio_mixer->inportsMasks &= ~(1 << port_index);
+    AM_LOGI("input port ID:%d, type:%s, cur mask:%#x", port_index,
+        mixerInputType2Str(in_port->enInPortType), audio_mixer->inportsMasks);
     pthread_mutex_unlock(&audio_mixer->inport_lock);
     return 0;
 }
@@ -275,9 +282,15 @@ static void mixer_procs_msg_queue(struct amlAudioMixer *audio_mixer __unused)
     return;
 }
 
-static output_port *get_outport(struct amlAudioMixer *audio_mixer, uint8_t port_index)
+
+static output_port *mixer_get_cur_outport(struct amlAudioMixer *audio_mixer)
 {
-    return audio_mixer->out_ports[port_index];
+    output_port *handle = NULL;
+    R_CHECK_PARAM_LEGAL(NULL, audio_mixer->cur_output_port_type, MIXER_OUTPUT_PORT_STEREO_PCM, MIXER_OUTPUT_PORT_NUM-1, "");
+    handle = audio_mixer->out_ports[audio_mixer->cur_output_port_type];
+    R_CHECK_POINTER_LEGAL(NULL, handle, "get pcm handle fail, cur output type:%s[%d]",
+        mixerOutputType2Str(audio_mixer->cur_output_port_type), audio_mixer->cur_output_port_type);
+    return handle;
 }
 
 size_t get_outport_data_avail(output_port *outport)
@@ -296,35 +309,52 @@ int set_outport_data_avail(output_port *outport, size_t avail)
 }
 
 int init_mixer_output_port(struct amlAudioMixer *audio_mixer,
-        struct pcm *pcm_handle,
-        struct audioCfg cfg,
-        size_t buf_frames
-        )
+        MIXER_OUTPUT_PORT output_type,
+        struct audioCfg *config,
+        size_t buf_frames)
 {
-    output_port *out_port = new_output_port(MIXER_OUTPUT_PORT_PCM,
-            pcm_handle, cfg, buf_frames);
+    struct aml_audio_device     *adev = audio_mixer->adev;
+    output_port *out_port = new_output_port(output_type, config, buf_frames);
+    R_CHECK_POINTER_LEGAL(-1, out_port, "new_output_port fail");
     MIXER_OUTPUT_PORT port_index = out_port->enOutPortType;
-#ifdef ENABLE_AEC_APP
-    out_port->aec = audio_mixer->adev->aec;
-#endif
+    audio_mixer->cur_output_port_type = output_type;
+
     //set_port_notify_cbk(port, on_notify_cbk, notify_data);
     //set_port_input_avail_cbk(port, on_input_avail_cbk, input_avail_data);
     audio_mixer->out_ports[port_index] = out_port;
+    if (config->channelCnt > 2) {
+        aml_mixer_ctrl_set_int(&adev->alsa_mixer, AML_MIXER_ID_SPDIF_FORMAT, AML_MULTI_CH_LPCM);
+    } else {
+        aml_mixer_ctrl_set_int(&adev->alsa_mixer, AML_MIXER_ID_SPDIF_FORMAT, AML_STEREO_PCM);
+    }
+
+#ifdef ENABLE_AEC_APP
+    out_port->aec = audio_mixer->adev->aec;
+    struct pcm_config alsa_config;
+    output_get_alsa_config(out_port, &alsa_config);
+    int aec_ret = init_aec_reference_config(out_port->aec, alsa_config);
+    NO_R_CHECK_RET(aec_ret, "AEC: Speaker config init failed!");
+#endif
     return 0;
 }
 
 int delete_mixer_output_port(struct amlAudioMixer *audio_mixer, MIXER_OUTPUT_PORT port_index)
 {
+    struct aml_audio_device     *adev = audio_mixer->adev;
+#ifdef ENABLE_AEC_APP
+    destroy_aec_reference_config(adev->aec);
+#endif
+    audio_mixer->cur_output_port_type = MIXER_OUTPUT_PORT_INVAL;
     free_output_port(audio_mixer->out_ports[port_index]);
     audio_mixer->out_ports[port_index] = NULL;
+    aml_mixer_ctrl_set_int(&adev->alsa_mixer, AML_MIXER_ID_SPDIF_FORMAT, AML_STEREO_PCM);
     return 0;
 }
 
 static int mixer_output_write(struct amlAudioMixer *audio_mixer)
 {
-    MIXER_OUTPUT_PORT out_port_index = MIXER_OUTPUT_PORT_PCM;
     audio_config_base_t in_data_config = {48000, AUDIO_CHANNEL_OUT_STEREO, AUDIO_FORMAT_PCM_16_BIT};
-    output_port *out_port = audio_mixer->out_ports[out_port_index];
+    output_port *out_port = mixer_get_cur_outport(audio_mixer);
     struct aml_audio_device *adev = audio_mixer->adev;
     int count = 3;
 
@@ -332,11 +362,32 @@ static int mixer_output_write(struct amlAudioMixer *audio_mixer)
     while (out_port->bytes_avail > 0) {
         // out_write_callbacks();
         if (adev->active_outport == OUTPORT_A2DP) {
+            if (out_port->cfg.channelCnt == 1) {
+                in_data_config.channel_mask = AUDIO_CHANNEL_OUT_MONO;
+            } else if (out_port->cfg.channelCnt == 2) {
+                in_data_config.channel_mask = AUDIO_CHANNEL_OUT_STEREO;
+            } else {
+                AM_LOGW("not supported channel:%d", out_port->cfg.channelCnt);
+                return out_port->bytes_avail;
+            }
+            in_data_config.sample_rate = out_port->cfg.sampleRate;
+            in_data_config.format = out_port->cfg.format;
+
             int ret = a2dp_out_write(adev, &in_data_config, out_port->data_buf, out_port->bytes_avail);
             if (ret == 0 && count-- > 0) {
                  continue;
             }
         } else if (is_sco_port(adev->active_outport)) {
+            if (out_port->cfg.channelCnt == 1) {
+                in_data_config.channel_mask = AUDIO_CHANNEL_OUT_MONO;
+            } else if (out_port->cfg.channelCnt == 2) {
+                in_data_config.channel_mask = AUDIO_CHANNEL_OUT_STEREO;
+            } else {
+                AM_LOGW("not supported channel:%d", out_port->cfg.channelCnt);
+                return out_port->bytes_avail;
+            }
+            in_data_config.sample_rate = out_port->cfg.sampleRate;
+            in_data_config.format = out_port->cfg.format;
             write_to_sco(adev, &in_data_config, out_port->data_buf, out_port->bytes_avail);
         } else {
             out_port->write(out_port, out_port->data_buf, out_port->bytes_avail);
@@ -346,11 +397,42 @@ static int mixer_output_write(struct amlAudioMixer *audio_mixer)
     return 0;
 }
 
+int init_mixer_temp_buffer(struct amlAudioMixer *audio_mixer)
+{
+    output_port *out_port = mixer_get_cur_outport(audio_mixer);
+    R_CHECK_POINTER_LEGAL(-1, out_port, "not find output port.");
+    audio_mixer->frame_size_tmp = out_port->cfg.channelCnt * audio_bytes_per_sample(out_port->cfg.format);
+    audio_mixer->tmp_buffer_size = MIXER_FRAME_COUNT * audio_mixer->frame_size_tmp;
+    audio_mixer->in_tmp_buffer = aml_audio_realloc(audio_mixer->in_tmp_buffer, audio_mixer->tmp_buffer_size);
+    R_CHECK_POINTER_LEGAL(-1, audio_mixer->in_tmp_buffer, "allocate amlAudioMixer fail.");
+
+    audio_mixer->out_tmp_buffer = aml_audio_realloc(audio_mixer->out_tmp_buffer, audio_mixer->tmp_buffer_size);
+    if (audio_mixer->out_tmp_buffer == NULL) {
+        AM_LOGE("allocate amlAudioMixer out_tmp_buffer no memory");
+        aml_audio_free(audio_mixer->in_tmp_buffer);
+        audio_mixer->in_tmp_buffer = NULL;
+        return -1;
+    }
+    return 0;
+}
+
+void deinit_mixer_temp_buffer(struct amlAudioMixer *audio_mixer)
+{
+    if (audio_mixer->in_tmp_buffer) {
+        free(audio_mixer->in_tmp_buffer);
+        audio_mixer->in_tmp_buffer = NULL;
+    }
+    if (audio_mixer->out_tmp_buffer) {
+        free(audio_mixer->out_tmp_buffer);
+        audio_mixer->out_tmp_buffer = NULL;
+    }
+}
+
 #define DEFAULT_KERNEL_FRAMES (DEFAULT_PLAYBACK_PERIOD_SIZE*DEFAULT_PLAYBACK_PERIOD_CNT)
 
 static int mixer_update_tstamp(struct amlAudioMixer *audio_mixer)
 {
-    output_port *out_port = audio_mixer->out_ports[MIXER_OUTPUT_PORT_PCM];
+    output_port *out_port = mixer_get_cur_outport(audio_mixer);
     input_port *in_port = NULL;
     unsigned int avail;
     uint32_t masks = audio_mixer->inportsMasks;
@@ -647,7 +729,7 @@ static int mixer_do_mixing_32bit(struct amlAudioMixer *audio_mixer)
 {
     input_port *in_port_sys = audio_mixer->in_ports[AML_MIXER_INPUT_PORT_PCM_SYSTEM];
     input_port *in_port_drct = audio_mixer->in_ports[AML_MIXER_INPUT_PORT_PCM_DIRECT];
-    output_port *out_port = audio_mixer->out_ports[MIXER_OUTPUT_PORT_PCM];
+    output_port *out_port = mixer_get_cur_outport(audio_mixer);
     struct aml_audio_device *adev = audio_mixer->adev;
     int16_t *data_sys, *data_drct, *data_mixed;
     int mixing = 0, sys_only = 0, direct_only = 0;
@@ -687,7 +769,7 @@ static int mixer_do_mixing_32bit(struct amlAudioMixer *audio_mixer)
     }
 
     data_mixed = (int16_t *)out_port->data_buf;
-    memset(audio_mixer->tmp_buffer, 0 , MIXER_FRAME_COUNT * MIXER_OUT_FRAME_SIZE);
+    memset(audio_mixer->out_tmp_buffer, 0 , MIXER_FRAME_COUNT * out_port->cfg.frame_size);
     if (mixing) {
         AM_LOGV("mixing");
         data_sys = (int16_t *)in_port_sys->data;
@@ -710,23 +792,23 @@ static int mixer_do_mixing_32bit(struct amlAudioMixer *audio_mixer)
             AM_LOGD("insert mixing data, need %zu, insert length %zu",
                     in_port_drct->bytes_to_insert, mixing_len_bytes);
             //memcpy(data_mixed, data_sys, mixing_len_bytes);
-            //memcpy(audio_mixer->tmp_buffer, data_sys, mixing_len_bytes);
+            //memcpy(audio_mixer->out_tmp_buffer, data_sys, mixing_len_bytes);
             if (DEBUG_DUMP) {
                 aml_audio_dump_audio_bitstreams("/data/audio/systbeforemix.raw",
                         data_sys, in_port_sys->data_len_bytes);
             }
-            frames_written = do_mixing_2ch(audio_mixer->tmp_buffer, data_sys,
-                frames, in_port_sys->cfg, out_port->cfg);
+            frames_written = do_mixing_2ch(audio_mixer->out_tmp_buffer, data_sys,
+                frames, in_port_sys->cfg.format, out_port->cfg.format);
             if (DEBUG_DUMP) {
                 aml_audio_dump_audio_bitstreams("/data/audio/sysAftermix.raw",
-                        audio_mixer->tmp_buffer, frames * FRAMESIZE_32BIT_STEREO);
+                        audio_mixer->out_tmp_buffer, frames * FRAMESIZE_32BIT_STEREO);
             }
             if (adev->is_TV) {
-                apply_volume(gain_speaker, audio_mixer->tmp_buffer,
+                apply_volume(gain_speaker, audio_mixer->out_tmp_buffer,
                     sizeof(uint32_t), frames * FRAMESIZE_32BIT_STEREO);
             }
 
-            extend_channel_2_8(data_mixed, audio_mixer->tmp_buffer,
+            extend_channel_2_8(data_mixed, audio_mixer->out_tmp_buffer,
                     frames, 2, 8);
 
             if (DEBUG_DUMP) {
@@ -738,22 +820,22 @@ static int mixer_do_mixing_32bit(struct amlAudioMixer *audio_mixer)
             set_outport_data_avail(out_port, frames * out_port->cfg.frame_size);
         } else {
             frames = mixing_len_bytes / in_port_drct->cfg.frame_size;
-            frames_written = do_mixing_2ch(audio_mixer->tmp_buffer, data_drct,
-                frames, in_port_drct->cfg, out_port->cfg);
+            frames_written = do_mixing_2ch(audio_mixer->out_tmp_buffer, data_drct,
+                frames, in_port_drct->cfg.format, out_port->cfg.format);
             if (DEBUG_DUMP)
                 aml_audio_dump_audio_bitstreams("/data/audio/tmpMixed0.raw",
-                    audio_mixer->tmp_buffer, frames * audio_mixer->frame_size_tmp);
-            frames_written = do_mixing_2ch(audio_mixer->tmp_buffer, data_sys,
-                frames, in_port_sys->cfg, out_port->cfg);
+                    audio_mixer->out_tmp_buffer, frames * audio_mixer->frame_size_tmp);
+            frames_written = do_mixing_2ch(audio_mixer->out_tmp_buffer, data_sys,
+                frames, in_port_sys->cfg.format, out_port->cfg.format);
             if (DEBUG_DUMP)
                 aml_audio_dump_audio_bitstreams("/data/audio/tmpMixed1.raw",
-                    audio_mixer->tmp_buffer, frames * audio_mixer->frame_size_tmp);
+                    audio_mixer->out_tmp_buffer, frames * audio_mixer->frame_size_tmp);
             if (adev->is_TV) {
-                apply_volume(gain_speaker, audio_mixer->tmp_buffer,
+                apply_volume(gain_speaker, audio_mixer->out_tmp_buffer,
                     sizeof(uint32_t), frames * FRAMESIZE_32BIT_STEREO);
             }
 
-            extend_channel_2_8(data_mixed, audio_mixer->tmp_buffer,
+            extend_channel_2_8(data_mixed, audio_mixer->out_tmp_buffer,
                     frames, 2, 8);
 
             in_port_drct->data_valid = 0;
@@ -777,22 +859,22 @@ static int mixer_do_mixing_32bit(struct amlAudioMixer *audio_mixer)
         }
         // processing data and make convertion according to cfg
         // processing_and_convert(data_mixed, data_sys, frames, in_port_sys->cfg, out_port->cfg);
-        frames_written = do_mixing_2ch(audio_mixer->tmp_buffer, data_sys,
-                frames, in_port_sys->cfg, out_port->cfg);
+        frames_written = do_mixing_2ch(audio_mixer->out_tmp_buffer, data_sys,
+                frames, in_port_sys->cfg.format, out_port->cfg.format);
         if (DEBUG_DUMP) {
             aml_audio_dump_audio_bitstreams("/data/audio/sysTmp.raw",
-                    audio_mixer->tmp_buffer, frames * FRAMESIZE_32BIT_STEREO);
+                    audio_mixer->out_tmp_buffer, frames * FRAMESIZE_32BIT_STEREO);
         }
         if (adev->is_TV) {
-            apply_volume(gain_speaker, audio_mixer->tmp_buffer,
+            apply_volume(gain_speaker, audio_mixer->out_tmp_buffer,
                 sizeof(uint32_t), frames * FRAMESIZE_32BIT_STEREO);
         }
         if (DEBUG_DUMP) {
             aml_audio_dump_audio_bitstreams("/data/audio/sysvol.raw",
-                    audio_mixer->tmp_buffer, frames * FRAMESIZE_32BIT_STEREO);
+                    audio_mixer->out_tmp_buffer, frames * FRAMESIZE_32BIT_STEREO);
         }
 
-        extend_channel_2_8(data_mixed, audio_mixer->tmp_buffer, frames, 2, 8);
+        extend_channel_2_8(data_mixed, audio_mixer->out_tmp_buffer, frames, 2, 8);
 
         if (DEBUG_DUMP) {
             aml_audio_dump_audio_bitstreams("/data/audio/extandsys.raw",
@@ -824,7 +906,7 @@ static int mixer_do_mixing_32bit(struct amlAudioMixer *audio_mixer)
             AM_LOGD("inserting direct_only, need %zu, insert length %zu",
                     in_port_drct->bytes_to_insert, mixing_len_bytes);
             memset(data_mixed, 0, mixing_len_bytes);
-            extend_channel_2_8(data_mixed, audio_mixer->tmp_buffer,
+            extend_channel_2_8(data_mixed, audio_mixer->out_tmp_buffer,
                     frames, 2, 8);
             in_port_drct->bytes_to_insert -= mixing_len_bytes;
             set_outport_data_avail(out_port, frames * out_port->cfg.frame_size);
@@ -835,18 +917,18 @@ static int mixer_do_mixing_32bit(struct amlAudioMixer *audio_mixer)
             //        in_port_drct->data_len_bytes, dirct_vol);
             AM_LOGV("direct_only, frames %zu, bytes %zu", frames, mixing_len_bytes);
 
-            frames_written = do_mixing_2ch(audio_mixer->tmp_buffer, data_drct,
-                frames, in_port_drct->cfg, out_port->cfg);
+            frames_written = do_mixing_2ch(audio_mixer->out_tmp_buffer, data_drct,
+                frames, in_port_drct->cfg.format, out_port->cfg.format);
             if (DEBUG_DUMP) {
                 aml_audio_dump_audio_bitstreams("/data/audio/dirctTmp.raw",
-                        audio_mixer->tmp_buffer, frames * FRAMESIZE_32BIT_STEREO);
+                        audio_mixer->out_tmp_buffer, frames * FRAMESIZE_32BIT_STEREO);
             }
             if (adev->is_TV) {
-                apply_volume(gain_speaker, audio_mixer->tmp_buffer,
+                apply_volume(gain_speaker, audio_mixer->out_tmp_buffer,
                     sizeof(uint32_t), frames * FRAMESIZE_32BIT_STEREO);
             }
 
-            extend_channel_2_8(data_mixed, audio_mixer->tmp_buffer,
+            extend_channel_2_8(data_mixed, audio_mixer->out_tmp_buffer,
                     frames, 2, 8);
 
             if (DEBUG_DUMP) {
@@ -865,39 +947,69 @@ static int mixer_do_mixing_32bit(struct amlAudioMixer *audio_mixer)
     return 0;
 }
 
-static int mixer_add_mixing_data(void *pMixedBuf, input_port *pInputPort, output_port *pOutputPort)
+static int mixer_add_mixing_data(void *pMixedBuf, void *input, input_port *in_port, output_port *out_port)
 {
-    if (pInputPort->data_buf_frame_cnt < MIXER_FRAME_COUNT) {
+    if (in_port->data_buf_frame_cnt < MIXER_FRAME_COUNT) {
         AM_LOGE("input port type:%s buf frames:%zu too small",
-            mixerInputType2Str(pInputPort->enInPortType), pInputPort->data_buf_frame_cnt);
+            mixerInputType2Str(in_port->enInPortType), in_port->data_buf_frame_cnt);
         return -EINVAL;
     }
-    do_mixing_2ch(pMixedBuf, pInputPort->data, MIXER_FRAME_COUNT, pInputPort->cfg, pOutputPort->cfg);
-    pInputPort->data_valid = 0;
+    int mixing_frames = MIXER_FRAME_COUNT * out_port->cfg.channelCnt / 2;
+    do_mixing_2ch(pMixedBuf, input, mixing_frames, in_port->cfg.format, out_port->cfg.format);
+    in_port->data_valid = 0;
+    AM_LOGV("input port ID:%d  channels:%d", in_port->ID, out_port->cfg.channelCnt);
     return 0;
 }
 
 static int mixer_do_mixing_16bit(struct amlAudioMixer *audio_mixer)
 {
-    bool                 is_data_valid = false;
-    input_port           *in_port = NULL;
-    output_port          *out_port = audio_mixer->out_ports[MIXER_OUTPUT_PORT_PCM];
-    struct aml_audio_device     *adev = audio_mixer->adev;
-    unsigned int masks = audio_mixer->inportsMasks;
+    bool                        is_data_valid = false;
+    input_port                  *in_port = NULL;
+    output_port                 *out_port = mixer_get_cur_outport(audio_mixer);
+    struct aml_audio_device		*adev = audio_mixer->adev;
+    char                        acFilePathStr[ENUM_TYPE_STR_MAX_LEN] = {0};
+    uint32_t                    need_output_ch = 2;
+    uint32_t                    cur_output_ch = 2;
+    uint32_t                    masks = 0;
 
     R_CHECK_POINTER_LEGAL(-1, out_port, "");
-    memset(audio_mixer->tmp_buffer, 0, MIXER_FRAME_COUNT * MIXER_OUT_FRAME_SIZE);
+    cur_output_ch = out_port->cfg.channelCnt;
+    masks = audio_mixer->inportsMasks;
     while (masks) {
         in_port = mixer_get_inport_by_mask_right_first(audio_mixer, &masks);
-        if (NULL == in_port) {
-            continue;
+        /* If not connected A2DP, and HDMI RX supports multi-channel, so we have multi-channel output.
+         * Otherwise the default 2 channel output.
+         */
+        if (NULL != in_port && in_port->cfg.channelCnt > need_output_ch &&
+            in_port->cfg.channelCnt <= adev->hdmi_descs.pcm_fmt.max_channels &&
+            !(adev->out_device & AUDIO_DEVICE_OUT_ALL_A2DP)) {
+            need_output_ch = in_port->cfg.channelCnt;
         }
+    }
 
-        if (0 == in_port->data_valid) {
-            if (adev->debug_flag) {
-                AM_LOGI("inport:%s, but no valid data, maybe underrun",
-                    mixerInputType2Str(in_port->enInPortType));
-            }
+    if (need_output_ch != cur_output_ch) {
+        AM_LOGI("output channel change, need_out_ch:%d -> cur_out_ch:%d", need_output_ch, cur_output_ch);
+        struct audioCfg cfg;
+        output_get_default_config(&cfg);
+        cfg.channelCnt = need_output_ch;
+        if (need_output_ch > 2 && cur_output_ch == 2) {
+            delete_mixer_output_port(audio_mixer, MIXER_OUTPUT_PORT_STEREO_PCM);
+            init_mixer_output_port(audio_mixer, MIXER_OUTPUT_PORT_MULTI_PCM, &cfg, MIXER_FRAME_COUNT);
+            init_mixer_temp_buffer(audio_mixer);
+        } else if (need_output_ch == 2 && cur_output_ch > 2) {
+            delete_mixer_output_port(audio_mixer, MIXER_OUTPUT_PORT_MULTI_PCM);
+            init_mixer_output_port(audio_mixer, MIXER_OUTPUT_PORT_STEREO_PCM, &cfg, MIXER_FRAME_COUNT);
+            init_mixer_temp_buffer(audio_mixer);
+        } else {
+            AM_LOGW("Number of unsupported channels:%d", need_output_ch);
+            return -1;
+        }
+    }
+    memset(audio_mixer->out_tmp_buffer, 0, audio_mixer->tmp_buffer_size);
+    masks = audio_mixer->inportsMasks;
+    while (masks) {
+        in_port = mixer_get_inport_by_mask_right_first(audio_mixer, &masks);
+        if (NULL == in_port || 0 == in_port->data_valid) {
             continue;
         }
         is_data_valid = true;
@@ -920,7 +1032,22 @@ static int mixer_do_mixing_16bit(struct amlAudioMixer *audio_mixer)
                 continue;
             }
         }
-        mixer_add_mixing_data(audio_mixer->tmp_buffer, in_port, out_port);
+
+        if (in_port->cfg.channelCnt == need_output_ch) {
+            mixer_add_mixing_data(audio_mixer->out_tmp_buffer, in_port->data, in_port, out_port);
+        } else {
+            int minCh = MIN(in_port->cfg.channelCnt, need_output_ch);
+            /* Upmix/Downmix: -1: fill zeros data in output channel. */
+            /* Upmix: Filled with zeros and put at the end of each audio frame. */
+            /* Downmix: Drop the other channel data. */
+            int8_t idxary[8] = {-1, -1, -1, -1, -1, -1, -1, -1};
+            for (int i=0; i<minCh; i++) {
+                idxary[i] = i;
+            }
+            memcpy_by_index_array(audio_mixer->in_tmp_buffer, need_output_ch, in_port->data,
+                in_port->cfg.channelCnt, idxary, 2, MIXER_FRAME_COUNT);
+            mixer_add_mixing_data(audio_mixer->out_tmp_buffer, audio_mixer->in_tmp_buffer, in_port, out_port);
+        }
     }
     /* only check the valid on a2dp case, normal alsa output we need continuous output,
      * otherwise it will cause noise at the end
@@ -933,18 +1060,18 @@ static int mixer_do_mixing_16bit(struct amlAudioMixer *audio_mixer)
     }
 
     if (adev->is_TV) {
-        apply_volume(adev->sink_gain[OUTPORT_SPEAKER], audio_mixer->tmp_buffer, sizeof(uint16_t),
-            MIXER_FRAME_COUNT * out_port->cfg.frame_size);
+        apply_volume(adev->sink_gain[OUTPORT_SPEAKER], audio_mixer->out_tmp_buffer, sizeof(uint16_t),
+            audio_mixer->tmp_buffer_size);
     }
-    memcpy(out_port->data_buf, audio_mixer->tmp_buffer, MIXER_FRAME_COUNT * out_port->cfg.frame_size);
+    memcpy(out_port->data_buf, audio_mixer->out_tmp_buffer, audio_mixer->tmp_buffer_size);
     if (getprop_bool("vendor.media.audiohal.outdump")) {
-        aml_audio_dump_audio_bitstreams("/data/audio/audio_mixed", out_port->data_buf,
-            MIXER_FRAME_COUNT * out_port->cfg.frame_size);
+        sprintf(acFilePathStr, "/data/audio/audio_mixed_%dch", need_output_ch);
+        aml_audio_dump_audio_bitstreams(acFilePathStr, out_port->data_buf, audio_mixer->tmp_buffer_size);
     }
     if (get_debug_value(AML_DEBUG_AUDIOHAL_LEVEL_DETECT)) {
-        check_audio_level("audio_mixed", out_port->data_buf, MIXER_FRAME_COUNT * out_port->cfg.frame_size);
+        check_audio_level("audio_mixed", out_port->data_buf, audio_mixer->tmp_buffer_size);
     }
-    set_outport_data_avail(out_port, MIXER_FRAME_COUNT * out_port->cfg.frame_size);
+    set_outport_data_avail(out_port, audio_mixer->tmp_buffer_size);
     return 0;
 }
 
@@ -1080,44 +1207,39 @@ uint32_t mixer_get_inport_latency_frames(struct amlAudioMixer *audio_mixer, uint
 
 uint32_t mixer_get_outport_latency_frames(struct amlAudioMixer *audio_mixer)
 {
-    output_port *out_port = get_outport(audio_mixer, MIXER_OUTPUT_PORT_PCM);
+    output_port *out_port = mixer_get_cur_outport(audio_mixer);
     R_CHECK_POINTER_LEGAL(0, out_port, "");
     return outport_get_latency_frames(out_port);
 }
 
 int pcm_mixer_thread_run(struct amlAudioMixer *audio_mixer)
 {
-    output_port *out_pcm_port = NULL;
     int ret = 0;
-
     AM_LOGI("++");
     R_CHECK_POINTER_LEGAL(-EINVAL, audio_mixer, "");
-    out_pcm_port = audio_mixer->out_ports[MIXER_OUTPUT_PORT_PCM];
-    R_CHECK_POINTER_LEGAL(-EINVAL, out_pcm_port, "not initialized");
+    output_port *out_port = mixer_get_cur_outport(audio_mixer);
+    R_CHECK_POINTER_LEGAL(-EINVAL, out_port, "not initialized");
+
     if (audio_mixer->out_mixer_tid > 0) {
         AM_LOGE("out mixer thread already running");
         return -EINVAL;
     }
     audio_mixer->mixing_enable = 1;
-    AM_LOGI("++audio_mixer->mixing_enable %d", audio_mixer->mixing_enable);
-    switch (out_pcm_port->cfg.format) {
+    switch (out_port->cfg.format) {
     case AUDIO_FORMAT_PCM_32_BIT:
-        ret = pthread_create(&audio_mixer->out_mixer_tid,
-                NULL, mixer_32b_threadloop, audio_mixer);
-        if (ret < 0)
-            AM_LOGE("thread run failed.");
+        ret = pthread_create(&audio_mixer->out_mixer_tid, NULL, mixer_32b_threadloop, audio_mixer);
         break;
     case AUDIO_FORMAT_PCM_16_BIT:
-        ret = pthread_create(&audio_mixer->out_mixer_tid,
-                NULL, mixer_16b_threadloop, audio_mixer);
-        if (ret < 0)
-            AM_LOGE("thread run failed.");
+        ret = pthread_create(&audio_mixer->out_mixer_tid, NULL, mixer_16b_threadloop, audio_mixer);
         break;
     default:
         AM_LOGE("format not supported");
         break;
     }
-    AM_LOGI("++audio_mixer->mixing_enable %d, pthread_create ret %d", audio_mixer->mixing_enable, ret);
+    if (ret < 0) {
+        AM_LOGE("thread run failed.");
+    }
+    AM_LOGI("++mixing_enable:%d, format:%#x", audio_mixer->mixing_enable, out_port->cfg.format);
 
     return ret;
 }
@@ -1134,43 +1256,41 @@ int pcm_mixer_thread_exit(struct amlAudioMixer *audio_mixer)
     notify_mixer_exit(audio_mixer);
     return 0;
 }
-struct amlAudioMixer *newAmlAudioMixer(
-        struct pcm *pcm_handle,
-        struct audioCfg cfg,
-        struct aml_audio_device *adev)
+
+struct pcm *pcm_mixer_get_pcm_handle(struct amlAudioMixer *audio_mixer)
+{
+    output_port *pstOutPort = mixer_get_cur_outport(audio_mixer);
+    R_CHECK_POINTER_LEGAL(NULL, pstOutPort, "get pcm handle fail, cur output type:%s",
+        mixerOutputType2Str(audio_mixer->cur_output_port_type));
+    return pstOutPort->pcm_handle;
+}
+
+struct amlAudioMixer *newAmlAudioMixer(struct aml_audio_device *adev)
 {
     struct amlAudioMixer *audio_mixer = NULL;
     int ret = 0;
     AM_LOGD("");
 
-    R_CHECK_POINTER_LEGAL(NULL, pcm_handle, "");
     audio_mixer = aml_audio_calloc(1, sizeof(*audio_mixer));
-    R_CHECK_POINTER_LEGAL(NULL, audio_mixer, "allocate struct amlAudioMixer:%d no memory", sizeof(struct amlAudioMixer));
-
-    // 2 channel  32bit
-    audio_mixer->tmp_buffer = aml_audio_calloc(1, MIXER_FRAME_COUNT * MIXER_OUT_FRAME_SIZE);
-    if (audio_mixer->tmp_buffer == NULL) {
-        AM_LOGE("no memory");
-        goto err_tmp;
-    }
-    // 2 channel X sample bytes;
-    audio_mixer->frame_size_tmp = 2 * audio_bytes_per_sample(cfg.format);
-
-    mixer_set_state(audio_mixer, MIXER_IDLE);
+    R_CHECK_POINTER_LEGAL(NULL, audio_mixer, "allocate amlAudioMixer:%d no memory", sizeof(struct amlAudioMixer));
     audio_mixer->adev = adev;
-    ret = init_mixer_output_port(audio_mixer, pcm_handle, cfg, MIXER_FRAME_COUNT);
+    mixer_set_state(audio_mixer, MIXER_IDLE);
+    struct audioCfg cfg;
+    output_get_default_config(&cfg);
+    ret = init_mixer_output_port(audio_mixer, MIXER_OUTPUT_PORT_STEREO_PCM, &cfg, MIXER_FRAME_COUNT);
     if (ret < 0) {
         AM_LOGE("init mixer out port failed");
         goto err_state;
     }
+    init_mixer_temp_buffer(audio_mixer);
     audio_mixer->inportsMasks = 0;
     audio_mixer->supportedInportsMasks = (1 << NR_INPORTS) - 1;
     pthread_mutex_init(&audio_mixer->lock, NULL);
+    pthread_mutex_init(&audio_mixer->inport_lock, NULL);
     return audio_mixer;
 
 err_state:
-    aml_audio_free(audio_mixer->tmp_buffer);
-    audio_mixer->tmp_buffer = NULL;
+    deinit_mixer_temp_buffer(audio_mixer);
 err_tmp:
     aml_audio_free(audio_mixer);
     return NULL;
@@ -1178,10 +1298,18 @@ err_tmp:
 
 void freeAmlAudioMixer(struct amlAudioMixer *audio_mixer)
 {
-    if (audio_mixer) {
-        pthread_mutex_destroy(&audio_mixer->lock);
-        aml_audio_free(audio_mixer);
+    if (audio_mixer == NULL) {
+        AM_LOGE("audio_mixer NULL pointer");
+        return;
     }
+    pthread_mutex_destroy(&audio_mixer->lock);
+    pthread_mutex_destroy(&audio_mixer->inport_lock);
+    if (audio_mixer->cur_output_port_type == MIXER_OUTPUT_PORT_STEREO_PCM ||
+        audio_mixer->cur_output_port_type == MIXER_OUTPUT_PORT_MULTI_PCM) {
+        delete_mixer_output_port(audio_mixer, audio_mixer->cur_output_port_type);
+    }
+    deinit_mixer_temp_buffer(audio_mixer);
+    free(audio_mixer);
 }
 
 int mixer_get_presentation_position(
@@ -1213,7 +1341,7 @@ int mixer_set_padding_size(
 
 int mixer_outport_pcm_restart(struct amlAudioMixer *audio_mixer)
 {
-    output_port *out_port = get_outport(audio_mixer, MIXER_OUTPUT_PORT_PCM);
+    output_port *out_port = mixer_get_cur_outport(audio_mixer);
     R_CHECK_POINTER_LEGAL(-EINVAL, out_port, "");
     outport_pcm_restart(out_port);
     return 0;
@@ -1272,10 +1400,12 @@ void mixer_dump(int s32Fd, const struct aml_audio_device *pstAmlDev)
         }
     }
     dprintf(s32Fd, "[AML_HAL]---------------------output port description----------------------\n");
-    output_port *pstOutPort = pstAudioMixer->out_ports[MIXER_OUTPUT_PORT_PCM];
+    output_port *pstOutPort = mixer_get_cur_outport(pstAudioMixer);
     if (pstOutPort) {
-        dprintf(s32Fd, "[AML_HAL]      Channel       : %10d     | Format    : %#10x\n", pstOutPort->cfg.channelCnt, pstOutPort->cfg.format);
-        dprintf(s32Fd, "[AML_HAL]      FrameCnt      : %10zu     | data size : %10zu Byte\n", pstOutPort->data_buf_frame_cnt, pstOutPort->data_buf_len);
+        dprintf(s32Fd, "[AML_HAL]  output port type: %s\n", mixerOutputType2Str(pstOutPort->enOutPortType));
+        dprintf(s32Fd, "[AML_HAL]      Channel       : %10d     | Format            : %#10x\n", pstOutPort->cfg.channelCnt, pstOutPort->cfg.format);
+        dprintf(s32Fd, "[AML_HAL]      FrameCnt      : %10d     | data size         : %10d Byte\n",
+            pstOutPort->data_buf_frame_cnt, pstOutPort->data_buf_len);
     } else {
         dprintf(s32Fd, "[AML_HAL] not find output port description!!!\n");
     }

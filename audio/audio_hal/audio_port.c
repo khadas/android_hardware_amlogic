@@ -25,6 +25,7 @@
 #include <tinyalsa/asoundlib.h>
 
 #include "audio_port.h"
+#include "alsa_device_parser.h"
 #include "aml_ringbuffer.h"
 #include "audio_hw_utils.h"
 #include "audio_hwsync.h"
@@ -278,8 +279,8 @@ input_port *new_input_port(
         input_port_rbuf_size = thunk_size * BUFF_CNT;
     }
 
-    AM_LOGD("inport:%s buf:%d, direct:%d, format:%#x, rate:%d", mixerInputType2Str(enPortType),
-            input_port_rbuf_size, direct_on, port->cfg.format, port->cfg.sampleRate);
+    AM_LOGD("inport:%s, buf:%d, direct:%d, format:%#x, rate:%d, ch:%d", mixerInputType2Str(enPortType),
+            input_port_rbuf_size, direct_on, port->cfg.format, port->cfg.sampleRate, port->cfg.channelCnt);
     ret = ring_buffer_init(ringbuf, input_port_rbuf_size);
     if (ret) {
         AM_LOGE("init ring buffer fail, buffer_size = %d", input_port_rbuf_size);
@@ -521,16 +522,74 @@ int outport_get_latency_frames(output_port *port)
     return frames;
 }
 
+static struct pcm *output_open_alsa(struct audioCfg *config, int alsa_port)
+{
+    struct pcm *pcm = NULL;
+    int card = alsa_device_get_card_index();
+    int device = alsa_device_update_pcm_index(alsa_port, PLAYBACK);
+    int res = 0;
+
+    struct pcm_config alsa_config = {};
+    alsa_config.rate = config->sampleRate;
+    alsa_config.channels = config->channelCnt;
+    alsa_config.format = convert_audio_format_2_alsa_format(config->format);
+    alsa_config.period_size = DEFAULT_PLAYBACK_PERIOD_SIZE;
+    alsa_config.period_count = DEFAULT_PLAYBACK_PERIOD_CNT;
+    alsa_config.start_threshold = alsa_config.period_size * alsa_config.period_count / 2;
+    AM_LOGI("open ALSA alsa_port:%d, hw:%d,%d", alsa_port, card, device);
+    pcm = pcm_open(card, device, PCM_OUT | PCM_MONOTONIC, &alsa_config);
+    if (pcm == NULL || !pcm_is_ready(pcm)) {
+        AM_LOGE("cannot open pcm_out driver: %s", pcm_get_error(pcm));
+        pcm_close(pcm);
+        return NULL;
+    }
+    return pcm;
+}
+
+static int output_close_alsa(struct pcm *pcm)
+{
+    pcm_close(pcm);
+    return 0;
+}
+
+int output_get_default_config(struct audioCfg *cfg)
+{
+    R_CHECK_POINTER_LEGAL(-1, cfg, "");
+    cfg->channelCnt = 2;
+    cfg->sampleRate = 48000;
+    cfg->format = AUDIO_FORMAT_PCM_16_BIT;
+    cfg->frame_size = cfg->channelCnt * audio_bytes_per_sample(cfg->format);
+    return 0;
+}
+
+int output_get_alsa_config(output_port *out_port, struct pcm_config *alsa_config)
+{
+    R_CHECK_POINTER_LEGAL(-1, out_port, "");
+    R_CHECK_POINTER_LEGAL(-1, alsa_config, "");
+    alsa_config->rate = out_port->cfg.sampleRate;
+    alsa_config->channels = out_port->cfg.channelCnt;
+    alsa_config->format = convert_audio_format_2_alsa_format(out_port->cfg.format);
+    alsa_config->period_size = DEFAULT_PLAYBACK_PERIOD_SIZE;
+    alsa_config->period_count = DEFAULT_PLAYBACK_PERIOD_CNT;
+    alsa_config->start_threshold = alsa_config->period_size * alsa_config->period_count / 2;
+    return 0;
+}
+
 output_port *new_output_port(
         MIXER_OUTPUT_PORT port_index,
-        struct pcm *pcm_handle,
-        struct audioCfg cfg,
+        struct audioCfg *config,
         size_t buf_frames)
 {
     output_port *port = NULL;
     char *data = NULL;
-    int rbuf_size = buf_frames * cfg.frame_size;
-    int ret = 0;
+    config->frame_size = config->channelCnt * audio_bytes_per_sample(config->format);
+    int rbuf_size = buf_frames * config->frame_size;
+    int alsa_port = PORT_I2S;
+
+    if (port_index != MIXER_OUTPUT_PORT_STEREO_PCM && port_index != MIXER_OUTPUT_PORT_MULTI_PCM) {
+        AM_LOGE("port_index:%d invalid", port_index);
+        return NULL;
+    }
 
     port = aml_audio_calloc(1, sizeof(output_port));
     R_CHECK_POINTER_LEGAL(NULL, port, "no memory, size:%d", sizeof(output_port));
@@ -540,12 +599,18 @@ output_port *new_output_port(
         AM_LOGE("allocate output_port ring_buf:%d no memory", rbuf_size);
         goto err_data;
     }
-    if (ret < 0)
-        AM_LOGE("thread run failed.");
 
+    if (port_index == MIXER_OUTPUT_PORT_MULTI_PCM) {
+        alsa_port = PORT_I2S2HDMI;
+    }
+    memcpy(&port->cfg, config, sizeof(struct audioCfg));
+    port->pcm_handle = output_open_alsa(config, alsa_port);
+    if (port->pcm_handle == NULL) {
+        goto err_rbuf;
+    }
+    AM_LOGI("port:%s, frame_size:%d, format:%#x, sampleRate:%d, channels:%d", mixerOutputType2Str(port_index),
+        config->frame_size, config->format, config->sampleRate, config->channelCnt);
     port->enOutPortType = port_index;
-    port->cfg = cfg;
-    port->pcm_handle = pcm_handle;
     port->data_buf_frame_cnt = buf_frames;
     port->data_buf_len = rbuf_size;
     port->data_buf = data;
@@ -562,6 +627,9 @@ err_data:
 int free_output_port(output_port *port)
 {
     R_CHECK_POINTER_LEGAL(-EINVAL, port, "");
+    AM_LOGI("port:%s", mixerOutputType2Str(port->enOutPortType));
+    output_close_alsa(port->pcm_handle);
+    port->pcm_handle = NULL;
     aml_audio_free(port->data_buf);
     aml_audio_free(port);
     return 0;

@@ -791,27 +791,16 @@ int aml_alsa_output_open_new(void **handle, aml_stream_config_t * stream_config,
 
     config->channels = channels;
     config->rate     = rate;
-
     if (config->rate == 0 || config->channels == 0) {
 
         ALOGE("Invalid sampleate=%d channel=%d\n", config->rate, config->channels);
         goto exit;
     }
 
-    if (format == AUDIO_FORMAT_PCM_16_BIT) {
-        config->format = PCM_FORMAT_S16_LE;
-    } else if (format == AUDIO_FORMAT_PCM_32_BIT) {
-        config->format = PCM_FORMAT_S32_LE;
-    } else {
-        config->format = PCM_FORMAT_S16_LE;
-    }
-
+    config->format = convert_audio_format_2_alsa_format(format);
     config->avail_min = 0;
-
     card = alsa_device_get_card_index();
-
     alsa_port = device_config->device_port;
-
     if (alsa_port < 0) {
         ALOGE("Wrong alsa_device ID\n");
         return -1;
@@ -838,7 +827,6 @@ int aml_alsa_output_open_new(void **handle, aml_stream_config_t * stream_config,
     alsa_handle->format = format;
     alsa_handle->write_cnt = 0;
     alsa_handle->write_frames = 0;
-
 
     *handle = (void*)alsa_handle;
 
@@ -1045,5 +1033,24 @@ void alsa_out_reconfig_params(struct audio_stream_out *stream)
     ALOGD("%s()!", __func__);
     aml_alsa_output_close(stream);
     aml_alsa_output_open(stream);
+}
+
+enum pcm_format convert_audio_format_2_alsa_format(audio_format_t format)
+{
+    switch (format) {
+    case AUDIO_FORMAT_PCM_16_BIT:
+        return PCM_FORMAT_S16_LE;
+    case AUDIO_FORMAT_PCM_32_BIT:
+        return PCM_FORMAT_S32_LE;
+    case AUDIO_FORMAT_PCM_8_BIT:
+        return PCM_FORMAT_S8;
+    case AUDIO_FORMAT_PCM_8_24_BIT:
+        return PCM_FORMAT_S24_LE;
+    case AUDIO_FORMAT_PCM_24_BIT_PACKED:
+        return PCM_FORMAT_S24_3LE;
+    default:
+        AM_LOGE("invalid format:%#x, return 16bit format.", format);
+        return PCM_FORMAT_S16_LE;
+    }
 }
 

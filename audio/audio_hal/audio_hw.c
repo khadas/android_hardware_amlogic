@@ -2914,8 +2914,13 @@ static int adev_open_output_stream(struct audio_hw_device *dev,
             break;
         }
     } else if (flags & AUDIO_OUTPUT_FLAG_DIRECT) {
-        if (config->format == AUDIO_FORMAT_DEFAULT)
-            config->format = AUDIO_FORMAT_AC3;
+        if (config->format == AUDIO_FORMAT_DEFAULT) {
+            if (flags & AUDIO_OUTPUT_FLAG_MMAP_NOIRQ) {
+                config->format = AUDIO_FORMAT_PCM_16_BIT;
+            } else {
+                config->format = AUDIO_FORMAT_AC3;
+            }
+        }
 
         out->stream.common.get_channels = out_get_channels_direct;
         out->stream.common.get_format = out_get_format_direct;
@@ -3618,6 +3623,7 @@ static int adev_set_parameters(struct audio_hw_device *dev, const char *kvpairs)
         if ((val & AUDIO_DEVICE_OUT_HDMI_ARC) || (val & AUDIO_DEVICE_OUT_HDMI)) {
             adev->bHDMIConnected = 0;
             adev->bHDMIConnected_update = 1;
+            adev->hdmi_descs.pcm_fmt.max_channels = 2;
             if (val & AUDIO_DEVICE_OUT_HDMI_ARC) {
                 aml_audio_set_speaker_mute(adev, "false");
                 aml_audio_update_arc_status(adev, false);
@@ -6990,6 +6996,11 @@ ssize_t mixer_app_buffer_write(struct audio_stream_out *stream, const void *buff
         return -1;
     }
 
+    if (aml_out->config.channels > 2) {
+        ALOGW("[%s:%d] channels:%d > 2, not support app write", __func__, __LINE__, aml_out->config.channels);
+        return -1;
+    }
+
     /*for ms12 continuous mode, we need update status here, instead of in hw_write*/
     if (aml_out->status == STREAM_STANDBY && continous_mode(adev)) {
         aml_out->status = STREAM_HW_WRITING;
@@ -7344,16 +7355,18 @@ int adev_open_output_stream_new(struct audio_hw_device *dev,
         // In V1.1, android out lpcm stream and hwsync pcm stream goes to aml mixer,
         // tv source keeps the original way.
         // Next step is to make all compitable.
+        unsigned int channel_num = audio_channel_count_from_out_mask(config->channel_mask);
         if (aml_out->usecase == STREAM_PCM_NORMAL ||
             aml_out->usecase == STREAM_PCM_HWSYNC ||
             aml_out->usecase == STREAM_PCM_MMAP ||
-            (aml_out->usecase == STREAM_PCM_DIRECT)) {
+            (aml_out->usecase == STREAM_PCM_DIRECT &&
+            config->sample_rate == 48000 && channel_num == 2)) {
             /*for 96000, we need bypass submix, this is for DTS certification*/
             /* for DTV case, maybe this function is called by the DTV output thread,
                and the audio patch is enabled, we do not need to wait DTV exit as it is
                enabled by DTV itself */
             if (config->sample_rate == 96000 || config->sample_rate == 88200 ||
-                    audio_channel_count_from_out_mask(config->channel_mask) > 2 || aml_out->tv_src_stream) {
+                    (aml_out->usecase != STREAM_PCM_MMAP && channel_num > 2) || aml_out->tv_src_stream) {
                 aml_out->bypass_submix = true;
                 aml_out->stream.write = out_write_new;
                 aml_out->stream.common.standby = out_standby_new;

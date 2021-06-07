@@ -35,6 +35,8 @@ typedef struct AML_MMAP_AUDIO_PARAM {
     int                         s32IonFd;
     int                         s32IonShareFd;
     unsigned int                u32FramePosition;
+    unsigned int                u32FrameSize;
+    unsigned int                u32BufferSize;
     int64_t                     time_nanoseconds;
     aml_mmap_thread_param_st    stThreadParam;
 } aml_mmap_audio_param_st;

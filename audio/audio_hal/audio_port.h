@@ -83,7 +83,6 @@ typedef struct INPUT_PORT {
     // flags for extra mixing port which duplicates to the basic port type
     unsigned int ID;
     struct audioCfg cfg;
-
     struct ring_buffer *r_buf;              /* input port ring buffer. */
     char *data;                             /* input port temp buffer. */
     size_t data_buf_frame_cnt;              /* input port temp buffer, data frames for one cycle. */
@@ -125,9 +124,10 @@ typedef struct INPUT_PORT {
 
 typedef enum {
     MIXER_OUTPUT_PORT_INVAL         = -1,
-    MIXER_OUTPUT_PORT_PCM           = 0,
+    MIXER_OUTPUT_PORT_STEREO_PCM    = 0,
+    MIXER_OUTPUT_PORT_MULTI_PCM     = 1,
     //MIXER_OUTPUT_PORT_BITSTREAM_RAW = 1,
-    MIXER_OUTPUT_PORT_NUM
+    MIXER_OUTPUT_PORT_NUM           = 2,
 } MIXER_OUTPUT_PORT;
 
 typedef struct OUTPUT_PORT {
@@ -187,11 +187,12 @@ void set_inport_volume(input_port *port, float vol);
 float get_inport_volume(input_port *port);
 size_t get_inport_consumed_size(input_port *port);
 int inport_buffer_level(input_port *port);
+int output_get_default_config(struct audioCfg *cfg);
+int output_get_alsa_config(output_port *out_port, struct pcm_config *alsa_config);
 
 output_port *new_output_port(
         MIXER_OUTPUT_PORT port_index,
-        struct pcm *pcm_handle,
-        struct audioCfg cfg,
+        struct audioCfg *config,
         size_t buf_frames);
 
 int free_output_port(output_port *port);

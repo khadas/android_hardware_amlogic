@@ -155,7 +155,8 @@ static inline stream_usecase_t attr_to_usecase(uint32_t devices __unused,
         audio_format_t format, uint32_t flags)
 {
     // hwsync case
-    if ((flags & AUDIO_OUTPUT_FLAG_HW_AV_SYNC) && (format != AUDIO_FORMAT_IEC61937)) {
+    if ((flags & AUDIO_OUTPUT_FLAG_HW_AV_SYNC) && (format != AUDIO_FORMAT_IEC61937)
+        && !(flags & AUDIO_OUTPUT_FLAG_MMAP_NOIRQ)) {
         if (audio_is_linear_pcm(format)) {
             return STREAM_PCM_HWSYNC;
         } else if (is_digital_raw_format(format)) {
