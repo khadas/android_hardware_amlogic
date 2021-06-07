@@ -812,10 +812,18 @@ WifiChip::requestFirmwareDebugDumpInternal() {
 }
 
 std::pair<WifiStatus, sp<IWifiApIface>> WifiChip::createApIfaceInternal() {
+    std::array<char, PROPERTY_VALUE_MAX> buffer;
+    std::string ifname;
+    property_get("vendor.bcm_wifi", buffer.data(), nullptr);
     if (!canCurrentModeSupportIfaceOfTypeWithCurrentIfaces(IfaceType::AP)) {
         return {createWifiStatus(WifiStatusCode::ERROR_NOT_AVAILABLE), {}};
     }
-    std::string ifname = allocateApIfaceName();
+    if (strcmp(buffer.data(), "aml") == 0 || strcmp(buffer.data(), "rtl") == 0 || strcmp(buffer.data(), "qca") == 0)
+        ifname = "p2p0";//allocateApIfaceName();
+    else if (strcmp(buffer.data(), "mtk") == 0)
+        ifname = "ap0";
+    else
+        ifname = "wlan1";
     legacy_hal::wifi_error legacy_status =
         legacy_hal_.lock()->createVirtualInterface(
             ifname,
@@ -984,7 +992,7 @@ WifiChip::createStaIfaceInternal() {
     if (!canCurrentModeSupportIfaceOfTypeWithCurrentIfaces(IfaceType::STA)) {
         return {createWifiStatus(WifiStatusCode::ERROR_NOT_AVAILABLE), {}};
     }
-    std::string ifname = allocateStaIfaceName();
+    std::string ifname = "wlan0";//allocateStaIfaceName();
     legacy_hal::wifi_error legacy_status =
         legacy_hal_.lock()->createVirtualInterface(
             ifname,
