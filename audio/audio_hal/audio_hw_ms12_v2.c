@@ -852,6 +852,7 @@ int get_the_dolby_ms12_prepared(
     ms12->dap_pcm_frames     = 0;
     ms12->stereo_pcm_frames  = 0;
     ms12->master_pcm_frames  = 0;
+    ms12->ms12_main_input_size = 0;
     ms12->b_legacy_ddpout    = dolby_ms12_get_ddp_5_1_out();
     ms12->main_volume        = 1.0f;
     ALOGI("set ms12 sys pos =%" PRId64 "", ms12->sys_audio_base_pos);
@@ -1235,7 +1236,6 @@ MAIN_INPUT:
 
             /*set the dolby ms12 debug level*/
             dolby_ms12_enable_debug();
-
             if (adev->continuous_audio_mode == 0) {
                 dolby_ms12_scheduler_run(ms12->dolby_ms12_ptr);
             }
@@ -1324,6 +1324,8 @@ exit:
         if (get_ms12_dump_enable(DUMP_MS12_INPUT_MAIN)) {
             dump_ms12_output_data((void*)buffer, *use_size, MS12_INPUT_SYS_MAIN_FILE);
         }
+
+        ms12->ms12_main_input_size += *use_size;
         pthread_mutex_unlock(&ms12->main_lock);
         return 0;
     } else {

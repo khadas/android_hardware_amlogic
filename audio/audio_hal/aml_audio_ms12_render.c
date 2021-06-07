@@ -53,12 +53,13 @@ int aml_audio_get_cur_ms12_latency(struct audio_stream_out *stream) {
         if (demux_info->dual_decoder_support)
             ms12_latencyms = (frames_generated - ms12->master_pcm_frames) / 48;
         else
-            ms12_latencyms = (patch->decoder_offset - inputnode_consumed) / aml_out->ddp_frame_size * 32 + (frames_generated - ms12->master_pcm_frames) / 48;
+            ms12_latencyms = (ms12->ms12_main_input_size - inputnode_consumed) / aml_out->ddp_frame_size * 32 + (frames_generated - ms12->master_pcm_frames) / 48;
     } else {
-        ms12_latencyms = ((patch->dtv_pcm_writed  - inputnode_consumed ) / 4 + frames_generated - ms12->master_pcm_frames) / 48;
+        ms12_latencyms = ((ms12->ms12_main_input_size - inputnode_consumed ) / 4 + frames_generated - ms12->master_pcm_frames) / 48;
     }
     if (adev->debug_flag)
-        ALOGI("ms12_latencyms %d ",ms12_latencyms);
+        ALOGI("ms12_latencyms %d  ms12_main_input_size %lld inputnode_consumed %d frames_generated %d master_pcm_frames %lld",
+        ms12_latencyms, ms12->ms12_main_input_size, inputnode_consumed,frames_generated, ms12->master_pcm_frames);
     return ms12_latencyms;
 
 }
