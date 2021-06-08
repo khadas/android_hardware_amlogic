@@ -242,6 +242,11 @@ int dolby_ms12_set_main_volume(float volume);
 int dolby_ms12_set_mat_stream_profile(int stream_profile);
 
 /*@@
+    @brief enable the atmos drop
+*/
+int dolby_ms12_enable_atmos_drop(int atmos_drop);
+
+/*@@
     @brief get PCM's nframes which outputed by decoder
 */
 unsigned long long dolby_ms12_get_decoder_nframes_pcm_output(void *ms12_pointer, int format, int is_main);
