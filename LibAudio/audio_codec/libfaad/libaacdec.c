@@ -522,7 +522,9 @@ exit:
     if (gFaadCxt->init_flag == 0) {
         gFaadCxt->init_cost += (inlen - dec_bufsize);
     }
+
     //disable HE-AAC decoder
+    hDecoder = (NeAACDecStruct*)(gFaadCxt->hDecoder);
     if (hDecoder && hDecoder->sbr_present_flag == 1 && *outlen > 0 && gFaadCxt->filter_heaac) {
         memset(outbuf,0,*outlen);
     }
