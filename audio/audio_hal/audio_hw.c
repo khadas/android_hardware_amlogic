@@ -3982,6 +3982,8 @@ static int adev_set_parameters (struct audio_hw_device *dev, const char *kvpairs
 
             ALOGI("%s ignore the continuous_audio_mode!\n", __func__ );
             adev->is_netflix = val;
+            /*in netflix case, we enable atmos drop at the beginning*/
+            dolby_ms12_enable_atmos_drop(val);
             goto exit;
             ALOGI("%s continuous_audio_mode set to %d\n", __func__ , val);
             char buf[PROPERTY_VALUE_MAX] = {0};

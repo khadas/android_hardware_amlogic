@@ -778,6 +778,20 @@ int DolbyMS12::DolbyMS12SetMATStreamProfile(int stream_profile)
     return ret;
 }
 
+int DolbyMS12::DolbyMS12SetAtmosDrop(int atmos_drop)
+{
+    int ret = 0;
+    ALOGV("+%s()", __FUNCTION__);
+    if (!FuncDolbyMS12Config) {
+        ALOGE("%s(), pls load lib first.\n", __FUNCTION__);
+        return ret;
+    }
+
+    ret = (*FuncDolbyMS12Config)(MS12_CONFIG_ATMOS_DROP, (ms12_config_t *)&atmos_drop);
+    ALOGV("-%s() ret %d", __FUNCTION__, ret);
+    return ret;
+}
+
 
 int DolbyMS12::DolbyMS12GetInputISDolbyAtmos()
 {
