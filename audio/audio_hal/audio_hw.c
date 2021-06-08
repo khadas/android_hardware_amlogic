@@ -8664,7 +8664,9 @@ static int adev_create_audio_patch(struct audio_hw_device *dev,
             if (AUDIO_DEVICE_IN_TV_TUNER == src_config->ext.device.type) {
                 aml_dev->tuner2mix_patch = true;
             } else if (AUDIO_DEVICE_IN_ECHO_REFERENCE != src_config->ext.device.type) {
-                aml_dev->patch_src = android_input_dev_convert_to_hal_patch_src(src_config->ext.device.type);
+                if (AUDIO_DEVICE_IN_BUILTIN_MIC != src_config->ext.device.type &&
+                    AUDIO_DEVICE_IN_BACK_MIC != src_config->ext.device.type )
+                    aml_dev->patch_src = android_input_dev_convert_to_hal_patch_src(src_config->ext.device.type);
             }
             ALOGI("[%s:%d] device->mix patch: inport:%s -> mix, input_src:%s, in dev:%#x", __func__, __LINE__,
                 inputPort2Str(inport), patchSrc2Str(input_src), src_config->ext.device.type);
