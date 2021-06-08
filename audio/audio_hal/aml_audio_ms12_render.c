@@ -112,6 +112,9 @@ int aml_audio_ms12_process_wrapper(struct audio_stream_out *stream, const void *
 
             float out_gain = 1.0f;
             out_gain = adev->sink_gain[adev->active_outport];
+            if (adev->tv_mute && adev->audio_patch) {
+                out_gain = 0.0f;
+            }
             dolby_ms12_set_main_volume(out_gain);
             aml_out->ms12_vol_ctrl = true;
             /*when it is non continuous mode, we bypass data here*/
