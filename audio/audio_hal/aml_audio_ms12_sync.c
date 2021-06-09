@@ -187,7 +187,7 @@ static int get_ms12_netflix_tunnel_input_latency(audio_format_t input_format) {
     }
     case AUDIO_FORMAT_AC3:
     case AUDIO_FORMAT_E_AC3: {
-        /*for non tunnel dolby ddp5.1 case:netlfix AL1 case*/
+        /*for non tunnel dolby ddp5.1 case:netlfix AV1/HDR10/HEVC case*/
         prop_name = AVSYNC_MS12_NETFLIX_TUNNEL_DDP_LATENCY_PROPERTY;
         latency_ms = AVSYNC_MS12_NETFLIX_TUNNEL_DDP_LATENCY;
         break;
