@@ -357,9 +357,7 @@ bool aml_dtvsync_adjustclock(struct audio_stream_out *stream, struct mediasync_a
     direct = p_policy->param1;
     ALOGI("func:%s, direct =%d\n", __FUNCTION__, direct);
     if (direct >= 0 && direct <= 2) {
-
         dtv_adjust_i2s_output_clock(patch, direct, patch->i2s_step_clk / patch->i2s_div_factor);
-
         if (aml_out->optical_format != AUDIO_FORMAT_PCM_16_BIT) {
             if (aml_dec->format == AUDIO_FORMAT_E_AC3 || aml_dec->format == AUDIO_FORMAT_AC3) {
                 if (adev->dual_spdif_support) {
@@ -391,15 +389,12 @@ bool aml_dtvsync_ms12_adjust_clock(struct audio_stream_out *stream, int direct)
     struct bitstream_out_desc *bitstream_out;
     int i = 0;
 
-    ALOGI("func:%s, direct =%d\n", __FUNCTION__, direct);
+    ALOGI("func:%s, direct = %d\n", __FUNCTION__, direct);
     if (direct >= 0 && direct <= 2) {
-
+        ALOGI("step = %d, patch->i2s_div_factor = %d\n", patch->i2s_step_clk / patch->i2s_div_factor, patch->i2s_div_factor);
         dtv_adjust_i2s_output_clock(patch, direct, patch->i2s_step_clk / patch->i2s_div_factor);
-
         for (i = 0; i < BITSTREAM_OUTPUT_CNT; i++) {
-
             bitstream_out = &ms12->bitstream_out[i];
-
             if (bitstream_out->spdifout_handle != NULL) {
                 if (bitstream_out->audio_format == AUDIO_FORMAT_E_AC3) {
                     dtv_adjust_spdif_output_clock(patch, direct,
