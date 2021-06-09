@@ -802,7 +802,7 @@ uint32_t out_get_outport_latency(const struct audio_stream_out *stream)
     int frames = 0, latency_ms = 0;
 
     if (out->out_device & AUDIO_DEVICE_OUT_ALL_A2DP) {
-        return a2dp_out_get_latency(stream);
+        return a2dp_out_get_latency(adev);
     }
 
     if (is_stream_using_mixer(out)) {
@@ -829,6 +829,7 @@ static bool is_4x_rate_fmt(audio_format_t afmt)
 uint32_t out_get_latency_frames(const struct audio_stream_out *stream)
 {
     const struct aml_stream_out *out = (const struct aml_stream_out *)stream;
+    struct aml_audio_device *adev = out->dev;
     audio_format_t afmt = get_output_format((struct audio_stream_out *)stream);
     snd_pcm_sframes_t frames = 0;
     uint32_t whole_latency_frames;
@@ -839,7 +840,7 @@ uint32_t out_get_latency_frames(const struct audio_stream_out *stream)
         mul = 4;
 
     if (out->out_device & AUDIO_DEVICE_OUT_ALL_A2DP) {
-        return a2dp_out_get_latency(stream)*out->hal_rate/1000;
+        return a2dp_out_get_latency(adev) * out->hal_rate / 1000;
     }
 
     whole_latency_frames = out->config.period_size * out->config.period_count;
@@ -856,6 +857,7 @@ uint32_t out_get_latency_frames(const struct audio_stream_out *stream)
 uint32_t out_get_alsa_latency_frames(const struct audio_stream_out *stream)
 {
     const struct aml_stream_out *out = (const struct aml_stream_out *)stream;
+    struct aml_audio_device *adev = out->dev;
     audio_format_t afmt = get_output_format((struct audio_stream_out *)stream);
     snd_pcm_sframes_t frames = 0;
     uint32_t whole_latency_frames;
@@ -866,7 +868,7 @@ uint32_t out_get_alsa_latency_frames(const struct audio_stream_out *stream)
         mul = 4;
 
     if (out->out_device & AUDIO_DEVICE_OUT_ALL_A2DP) {
-        return a2dp_out_get_latency(stream)*out->hal_rate/1000;
+        return a2dp_out_get_latency(adev) * out->hal_rate / 1000;
     }
 
     whole_latency_frames = out->config.period_size * out->config.period_count / 2;

@@ -49,7 +49,6 @@
 
 
 #include "aml_audio_stream.h"
-#include "aml_data_utils.h"
 #include "audio_hw.h"
 #include "audio_hw_dtv.h"
 #include "audio_hw_profile.h"
@@ -63,6 +62,7 @@
 #include "alsa_device_parser.h"
 #include "aml_audio_hal_avsync.h"
 #include "aml_audio_spdifout.h"
+#include "aml_audio_timer.h"
 #include "aml_volume_utils.h"
 #include "dmx_audio_es.h"
 #include "uio_audio_api.h"

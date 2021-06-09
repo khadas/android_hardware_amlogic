@@ -31,7 +31,7 @@
 
 #define ENUM_TYPE_TO_STR_DEFAULT_STR            "INVALID_ENUM"
 #define ENUM_TYPE_TO_STR_START(prefix)                      \
-    char *pStr = ENUM_TYPE_TO_STR_DEFAULT_STR;              \
+    const char *pStr = ENUM_TYPE_TO_STR_DEFAULT_STR;        \
     int prefixLen = strlen(prefix);                         \
     switch (type) {
 #define ENUM_TYPE_TO_STR(x)                                 \

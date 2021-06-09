@@ -868,7 +868,7 @@ static int do_output_standby (struct aml_stream_out *out)
     struct aml_audio_device *adev = out->dev;
     ALOGD ("%s(%p)", __FUNCTION__, out);
     if ((out->out_device & AUDIO_DEVICE_OUT_ALL_A2DP) && adev->a2dp_hal)
-        a2dp_out_standby(&out->stream.common);
+        a2dp_out_standby(adev);
 
     if (!out->standby) {
         //commit here for hwsync/mix stream hal mixer
@@ -3602,7 +3602,7 @@ static int adev_set_parameters (struct audio_hw_device *dev, const char *kvpairs
         } else if (val & AUDIO_DEVICE_OUT_ALL_A2DP) {
             adev->a2dp_updated = 1;
             adev->out_device &= (~val);
-            a2dp_out_close(dev);
+            a2dp_out_close(adev);
         }
         goto exit;
     }
@@ -3624,7 +3624,7 @@ static int adev_set_parameters (struct audio_hw_device *dev, const char *kvpairs
         } else if (val & AUDIO_DEVICE_OUT_ALL_A2DP) {
             adev->a2dp_updated = 1;
             adev->out_device |= val;
-            a2dp_out_open(dev);
+            a2dp_out_open(adev);
         }
         goto exit;
     }
@@ -5076,7 +5076,7 @@ int do_output_standby_l(struct audio_stream *stream)
             if ((eDolbyMS12Lib == adev->dolby_lib_type) && (ms12->dolby_ms12_enable == true)) {
                 get_dolby_ms12_cleanup(&adev->ms12, false);
             }
-            a2dp_out_standby(stream);
+            a2dp_out_standby(adev);
         }
     }
 
@@ -5761,6 +5761,7 @@ ssize_t hw_write (struct audio_stream_out *stream
     ALOGV ("+%s() buffer %p bytes %zu", __func__, buffer, bytes);
     struct aml_stream_out *aml_out = (struct aml_stream_out *) stream;
     struct aml_audio_device *adev = aml_out->dev;
+    audio_config_base_t in_data_config = {48000, AUDIO_CHANNEL_OUT_STEREO, AUDIO_FORMAT_PCM_16_BIT};
     const uint16_t *tmp_buffer = buffer;
     int16_t *effect_tmp_buf = NULL;
     struct aml_audio_patch *patch = adev->audio_patch;
@@ -5778,9 +5779,11 @@ ssize_t hw_write (struct audio_stream_out *stream
     int  adjust_ms = 0;
     int  alsa_port = -1;
 
-    if (aml_out->is_tv_platform && audio_is_linear_pcm(output_format)) {
+    if (adev->is_TV && audio_is_linear_pcm(output_format)) {
         ch = adev->default_alsa_ch;
         bytes_per_sample = 4;
+        in_data_config.channel_mask = AUDIO_CHANNEL_OUT_7POINT1;
+        in_data_config.format = AUDIO_FORMAT_PCM_32_BIT;
     }
     out_frames = bytes / (ch * bytes_per_sample);
 
@@ -5938,9 +5941,9 @@ ssize_t hw_write (struct audio_stream_out *stream
                     while (adjust_bytes > 0) {
                         write_size = adjust_bytes > 1024 ? 1024 : adjust_bytes;
                         if (adev->active_outport == OUTPORT_A2DP) {
-                            ret = a2dp_out_write(stream, (void*)buf, write_size);
+                            ret = a2dp_out_write(adev, &in_data_config, (void*)buf, write_size);
                         } else if (is_sco_port(adev->active_outport)) {
-                            ret = write_to_sco(stream, buffer, bytes);
+                            ret = write_to_sco(adev, &in_data_config, buffer, bytes);
                         } else {
                             ret = aml_alsa_output_write(stream, (void*)buf, write_size);
                         }
@@ -5963,9 +5966,9 @@ ssize_t hw_write (struct audio_stream_out *stream
             }
         }
         if (adev->active_outport == OUTPORT_A2DP) {
-            ret = a2dp_out_write(stream, buffer, bytes);
+            ret = a2dp_out_write(adev, &in_data_config, buffer, bytes);
         } else if (is_sco_port(adev->active_outport)) {
-            ret = write_to_sco(stream, buffer, bytes);
+            ret = write_to_sco(adev, &in_data_config, buffer, bytes);
         } else {
             ret = aml_alsa_output_write(stream, (void *) buffer, bytes);
         }
@@ -8883,6 +8886,7 @@ static int adev_dump(const audio_hw_device_t *device, int fd)
 
     aml_audio_patches_dump(aml_dev, fd);
     audio_patch_dump(aml_dev, fd);
+    a2dp_hal_dump(aml_dev, fd);
 
     return 0;
 }
