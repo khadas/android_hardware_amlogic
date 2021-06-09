@@ -3359,7 +3359,9 @@ static void adev_close_output_stream(struct audio_hw_device *dev,
     /*all the ms12 related function is done */
     if (out->restore_continuous == true) {
         ALOGI("restore ms12 continuous mode");
+        pthread_mutex_lock(&adev->ms12.lock);
         adev->continuous_audio_mode = 1;
+        pthread_mutex_unlock(&adev->ms12.lock);
     }
 
     /*the dolby lib is changed, so we need restore it*/
@@ -8767,7 +8769,10 @@ static int adev_release_audio_patch(struct audio_hw_device *dev,
         if (eDolbyMS12Lib == aml_dev->dolby_lib_type && (aml_dev->continuous_audio_mode_default == 1) && !is_dtv_patch_alive(aml_dev))
         {
             get_dolby_ms12_cleanup(&aml_dev->ms12, false);
+            /*continuous mode is using in ms12 prepare, we should lock it*/
+            pthread_mutex_lock(&aml_dev->ms12.lock);
             aml_dev->continuous_audio_mode = 1;
+            pthread_mutex_unlock(&aml_dev->ms12.lock);
             ALOGI("%s restore continuous_audio_mode=%d", __func__, aml_dev->continuous_audio_mode);
         }
         aml_dev->audio_patching = 0;
