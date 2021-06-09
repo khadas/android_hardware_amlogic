@@ -793,7 +793,7 @@ int get_the_dolby_ms12_prepared(
     }
     /* for soundbar, we only need speaker output */
     if (adev->is_SBR)
-        output_config = MS12_OUTPUT_MASK_SPEAKER;
+        output_config = MS12_OUTPUT_MASK_SPEAKER|MS12_OUTPUT_MASK_STEREO;
 
     set_dolby_ms12_drc_parameters(input_format, output_config);
 #if 0
