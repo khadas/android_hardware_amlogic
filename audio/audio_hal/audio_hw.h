@@ -358,7 +358,6 @@ struct aml_audio_device {
     /* Save the HDMI ARC actual capability info. */
     struct aml_arc_hdmi_desc hdmi_arc_capability_desc;
     int arc_hdmi_updated;
-    int a2dp_active;
     int a2dp_updated;
     bool need_reset_a2dp;
     void * a2dp_hal;

@@ -327,7 +327,7 @@ exit:
         //TODO
         if (out->out_device & AUDIO_DEVICE_OUT_ALL_A2DP)
             latency_frames = mixer_get_inport_latency_frames(audio_mixer, out->inputPortID)
-                    + a2dp_out_get_latency(stream) * out->hal_rate / 1000;
+                    + a2dp_out_get_latency(adev) * out->hal_rate / 1000;
         else
             latency_frames = mixer_get_inport_latency_frames(audio_mixer, out->inputPortID)
                     + mixer_get_outport_latency_frames(audio_mixer);
@@ -1183,10 +1183,6 @@ ssize_t mixer_aux_buffer_write_sm(struct audio_stream_out *stream, const void *b
             stream, aml_out->out_device, bytes);
     }
 
-    if ((aml_out->out_device & AUDIO_DEVICE_OUT_ALL_A2DP) && (adev->a2dp_active == 1)) {
-        //aml_hw_mixer_write(&adev->hw_mixer, buffer, bytes);
-        goto exit;
-    }
     if (adev->out_device != aml_out->out_device) {
         ALOGD("[%s:%d] stream:%p, switch from device:%#x to device:%#x", __func__, __LINE__,
              stream, adev->out_device, aml_out->out_device);
@@ -1269,7 +1265,7 @@ exit:
 
     if (aml_out->out_device & AUDIO_DEVICE_OUT_ALL_A2DP) {
         uint64_t latency_frames = mixer_get_inport_latency_frames(sm->mixerData, aml_out->inputPortID)
-                + a2dp_out_get_latency(stream) * aml_out->hal_rate / 1000;
+                + a2dp_out_get_latency(adev) * aml_out->hal_rate / 1000;
         if (aml_out->frame_write_sum > latency_frames)
             aml_out->last_frames_postion = aml_out->frame_write_sum - latency_frames;
         else
@@ -1505,7 +1501,7 @@ int out_standby_subMixingPCM(struct audio_stream *stream)
     delete_mixer_input_port(audio_mixer, aml_out->inputPortID);
 
     if ((aml_out->out_device & AUDIO_DEVICE_OUT_ALL_A2DP) && adev->a2dp_hal)
-        a2dp_out_standby(stream);
+        a2dp_out_standby(adev);
 
     if (adev->debug_flag > 1) {
         ALOGI("-%s() ret %zd,%p %"PRIu64"\n", __func__, ret, stream, aml_out->total_write_size);
@@ -1543,7 +1539,7 @@ static int out_pause_subMixingPCM(struct audio_stream_out *stream)
 
     aml_out->pause_status = true;
     if (aml_out->out_device & AUDIO_DEVICE_OUT_ALL_A2DP)
-        a2dp_out_standby(&stream->common);
+        a2dp_out_standby(aml_dev);
     ALOGI("-%s()", __func__);
     return 0;
 }

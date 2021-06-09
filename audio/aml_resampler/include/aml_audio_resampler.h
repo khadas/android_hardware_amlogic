@@ -16,8 +16,12 @@
 
 #ifndef __AUDIO_RESAMPLER_H__
 #define __AUDIO_RESAMPLER_H__
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 #define MAX_RESAMPLE_CHANNEL 8
+
 
 struct resample_para {
     unsigned int FractionStep;
@@ -31,5 +35,9 @@ struct resample_para {
 int resampler_init(struct resample_para *resample);
 int resample_process(struct resample_para *resample, unsigned int in_frame,
     int16_t* input, int16_t* output);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

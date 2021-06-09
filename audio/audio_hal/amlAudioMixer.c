@@ -395,42 +395,24 @@ int delete_mixer_output_port(struct amlAudioMixer *audio_mixer,
 static int mixer_output_write(struct amlAudioMixer *audio_mixer)
 {
     enum MIXER_OUTPUT_PORT port_index = 0;
+    audio_config_base_t in_data_config = {48000, AUDIO_CHANNEL_OUT_STEREO, AUDIO_FORMAT_PCM_16_BIT};
     struct output_port *out_port = audio_mixer->out_ports[port_index];
-    struct aml_stream_out *out = NULL;
-    struct input_port *in_port;
-    unsigned int masks = audio_mixer->inportsMasks;
+    struct aml_audio_device *adev = audio_mixer->adev;
     int count = 3;
-
-    while (masks) {
-        int i = 31 - __builtin_clz(masks);
-        masks &= ~(1 << i);
-        in_port = audio_mixer->in_ports[i];
-        if (NULL == in_port) {
-            continue;
-        }
-        if (in_port->enInPortType == AML_MIXER_INPUT_PORT_PCM_DIRECT && in_port->notify_cbk_data) {
-            out = (struct aml_stream_out *)in_port->notify_cbk_data;
-            break;
-        }
-        if ((in_port->enInPortType == AML_MIXER_INPUT_PORT_PCM_SYSTEM) && in_port->notify_cbk_data) {
-            out = (struct aml_stream_out *)in_port->notify_cbk_data;
-        }
-        if ((in_port->enInPortType == AML_MIXER_INPUT_PORT_PCM_MMAP) && (out == NULL) && in_port->notify_cbk_data) {
-            out = (struct aml_stream_out *)in_port->notify_cbk_data;
-        }
-    }
 
     out_port->sound_track_mode = audio_mixer->adev->sound_track_mode;
     while (is_output_data_avail(audio_mixer, port_index)) {
         // out_write_callbacks();
-        if (out && (out->out_device & AUDIO_DEVICE_OUT_ALL_A2DP)) {
-            int ret = a2dp_out_write(&out->stream, out_port->data_buf, out_port->bytes_avail);
-            if (ret == 0 && count-- > 0)
-                continue;
-        } else if (out && is_sco_port(out->dev->active_outport))
-            write_to_sco(&out->stream, out_port->data_buf, out_port->bytes_avail);
-        else
+        if (adev->active_outport == OUTPORT_A2DP) {
+            int ret = a2dp_out_write(adev, &in_data_config, out_port->data_buf, out_port->bytes_avail);
+            if (ret == 0 && count-- > 0) {
+                 continue;
+            }
+        } else if (is_sco_port(adev->active_outport)) {
+            write_to_sco(adev, &in_data_config, out_port->data_buf, out_port->bytes_avail);
+        } else {
             out_port->write(out_port, out_port->data_buf, out_port->bytes_avail);
+        }
         set_outport_data_avail(out_port, 0);
     };
     return 0;

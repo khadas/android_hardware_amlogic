@@ -24,13 +24,14 @@
 extern "C" {
 #endif
 
-int a2dp_out_open(struct audio_hw_device* stream);
-int a2dp_out_close(struct audio_hw_device* stream);
-int a2dp_out_resume(struct audio_stream_out* stream);
-int a2dp_out_standby(struct audio_stream* stream);
-ssize_t a2dp_out_write(struct audio_stream_out* stream, const void* buffer, size_t bytes);
-uint32_t a2dp_out_get_latency(const struct audio_stream_out* stream);
-int a2dp_out_set_parameters (struct audio_stream *stream, const char *kvpairs);
+int a2dp_out_open(struct aml_audio_device *adev);
+int a2dp_out_close(struct aml_audio_device *adev);
+int a2dp_out_resume(struct aml_audio_device *adev);
+int a2dp_out_standby(struct aml_audio_device *adev);
+ssize_t a2dp_out_write(struct aml_audio_device *adev, audio_config_base_t *config, const void* buffer, size_t bytes);
+uint32_t a2dp_out_get_latency(struct aml_audio_device *adev);
+int a2dp_out_set_parameters (struct aml_audio_device *adev, const char *kvpairs);
+int a2dp_hal_dump(struct aml_audio_device *adev, int fd);
 
 #ifdef __cplusplus
 }

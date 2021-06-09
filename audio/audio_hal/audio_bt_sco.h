@@ -23,7 +23,7 @@
 
 int open_btSCO_device(struct aml_audio_device *adev, size_t frames);
 void close_btSCO_device(struct aml_audio_device *adev);
-ssize_t write_to_sco(struct audio_stream_out *stream,
+ssize_t write_to_sco(struct aml_audio_device *adev, audio_config_base_t *config,
         const void *buffer, size_t bytes);
 bool is_sco_port(enum OUT_PORT outport);
 

@@ -93,10 +93,7 @@ int dtv_get_syncmode(void);
 
 void clean_dtv_patch_pts(struct aml_audio_patch *patch);
 int audio_decoder_status(unsigned int *perror_count);
-extern int64_t calc_time_interval_us(struct timespec *ts0, struct timespec *ts1);
 extern size_t aml_alsa_output_write(struct audio_stream_out *stream, void *buffer, size_t bytes);
-
-
 
 extern int get_tsync_pcr_debug(void);
 extern int get_video_delay(void);
