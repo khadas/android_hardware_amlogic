@@ -978,6 +978,7 @@ int dolby_ms12_main_process(
     int32_t spdif_dec_used_size = 0;
     int dependent_frame = 0;
     int sample_rate = 48000;
+    int ret = 0;
     struct ac4_parser_info ac4_info = { 0 };
     audio_format_t ms12_hal_format = ms12_get_audio_hal_format(aml_out->hal_format);
 
@@ -986,10 +987,11 @@ int dolby_ms12_main_process(
               __FUNCTION__, adev->continuous_audio_mode, dolby_ms12_input_bytes, input_bytes);
     }
 
+    pthread_mutex_lock(&ms12->main_lock);
+
     if (ms12->dolby_ms12_enable) {
         //ms12 input main
         int dual_input_ret = 0;
-        pthread_mutex_lock(&ms12->main_lock);
 
         if (!aml_out->is_ms12_main_decoder) {
             dolby_ms12_main_open(stream);
@@ -1324,13 +1326,13 @@ exit:
         if (get_ms12_dump_enable(DUMP_MS12_INPUT_MAIN)) {
             dump_ms12_output_data((void*)buffer, *use_size, MS12_INPUT_SYS_MAIN_FILE);
         }
-
         ms12->ms12_main_input_size += *use_size;
-        pthread_mutex_unlock(&ms12->main_lock);
-        return 0;
+        ret = 0;
     } else {
-        return -1;
+        ret = -1;
     }
+    pthread_mutex_unlock(&ms12->main_lock);
+    return ret;
 }
 
 
@@ -1473,6 +1475,8 @@ int get_dolby_ms12_cleanup(struct dolby_ms12_desc *ms12, bool set_non_continuous
         return -EINVAL;
     }
     adev = ms12_to_adev(ms12);
+    pthread_mutex_lock(&ms12->lock);
+    pthread_mutex_lock(&ms12->main_lock);
 
     if (!ms12->dolby_ms12_init_flags) {
         ALOGI("ms12 is not init, don't need cleanup");
@@ -1480,12 +1484,9 @@ int get_dolby_ms12_cleanup(struct dolby_ms12_desc *ms12, bool set_non_continuous
             adev->continuous_audio_mode = 0;
             ALOGI("%s set ms12 to non continuous mode", __func__);
         }
-        return 0;
+        goto exit;
     }
 
-
-    pthread_mutex_lock(&ms12->lock);
-    pthread_mutex_lock(&ms12->main_lock);
     adev->doing_cleanup_ms12 = true;
 
     ALOGI("++%s(), locked", __FUNCTION__);
@@ -1550,6 +1551,7 @@ int get_dolby_ms12_cleanup(struct dolby_ms12_desc *ms12, bool set_non_continuous
         ALOGI("%s set ms12 to non continuous mode", __func__);
     }
     adev->doing_cleanup_ms12 = false;
+exit:
     ALOGI("--%s(), locked", __FUNCTION__);
     pthread_mutex_unlock(&ms12->main_lock);
     pthread_mutex_unlock(&ms12->lock);
