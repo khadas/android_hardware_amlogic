@@ -328,6 +328,7 @@ int dtv_patch_handle_event(struct audio_hw_device *dev,int cmd, int val) {
                 adev->associate_audio_mixing_enable = val;
             else
                 adev->associate_audio_mixing_enable = 0;
+            demux_info->associate_audio_mixing_enable = adev->associate_audio_mixing_enable;
             ALOGI("associate_audio_mixing_enable set to %d\n", adev->associate_audio_mixing_enable);
             if (eDolbyMS12Lib == adev->dolby_lib_type_last) {
                 pthread_mutex_lock(&ms12->lock);
@@ -2496,12 +2497,22 @@ int audio_dtv_patch_output_dual_decoder(struct aml_audio_patch *patch,
     } else {
         ret = out_write_new(stream_out, p_package->data, p_package->size);
     }
-    if (p_package->data)
-        aml_audio_free(p_package->data);
-    if (p_package->ad_data)
-        aml_audio_free(p_package->ad_data);
-    aml_audio_free(p_package);
-    p_package = NULL;
+
+    if (p_package) {
+
+        if (p_package->data) {
+            aml_audio_free(p_package->data);
+            p_package->data = NULL;
+        }
+
+        if (p_package->ad_data) {
+            aml_audio_free(p_package->ad_data);
+            p_package->ad_data = NULL;
+        }
+
+        aml_audio_free(p_package);
+        p_package = NULL;
+    }
 
     return ret;
 }
@@ -2890,8 +2901,8 @@ void *audio_dtv_patch_output_threadloop_v2(void *data)
             aml_out->dec_config.mixer_level = aml_dev->mixing_level;
             aml_decoder_set_config(aml_dec, AML_DEC_CONFIG_MIXER_LEVEL, &aml_out->dec_config);
         }
-        if (aml_dev->associate_audio_mixing_enable != aml_out->dec_config.ad_mixing_enable) {
-           aml_out->dec_config.ad_mixing_enable = aml_dev->associate_audio_mixing_enable;
+        if (demux_info->associate_audio_mixing_enable != aml_out->dec_config.ad_mixing_enable) {
+           aml_out->dec_config.ad_mixing_enable = demux_info->associate_audio_mixing_enable;
            aml_decoder_set_config(aml_dec, AML_DEC_CONFIG_MIXING_ENABLE, &aml_out->dec_config);
         }
         if (aml_dev->advol_level != aml_out->dec_config.advol_level) {

@@ -30,6 +30,7 @@ typedef struct aml_demux__audiopara {
     int ad_fmt;
     int ad_pid;
     int dual_decoder_support;
+    int associate_audio_mixing_enable;
     int media_sync_id;
 } aml_demux_audiopara_t;
 
