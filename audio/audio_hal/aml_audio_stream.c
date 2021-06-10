@@ -142,6 +142,39 @@ static audio_format_t get_sink_dts_capability (struct aml_audio_device *adev)
     return sink_capability;
 }
 
+static void get_sink_pcm_capability(struct aml_audio_device *adev)
+{
+    struct aml_arc_hdmi_desc *hdmi_desc = &adev->hdmi_descs;
+    char *cap = NULL;
+    hdmi_desc->pcm_fmt.sample_rate_mask = 0;
+
+    cap = (char *) get_hdmi_sink_cap_new (AUDIO_PARAMETER_STREAM_SUP_SAMPLING_RATES, AUDIO_FORMAT_PCM_16_BIT,&(adev->hdmi_descs));
+    if (cap) {
+        /*
+         * bit:    6     5     4    3    2    1    0
+         * rate: 192  176.4   96  88.2  48  44.1   32
+         */
+        if (strstr(cap, "32000") != NULL)
+            hdmi_desc->pcm_fmt.sample_rate_mask |= (1<<0);
+        if (strstr(cap, "44100") != NULL)
+            hdmi_desc->pcm_fmt.sample_rate_mask |= (1<<1);
+        if (strstr(cap, "48000") != NULL)
+            hdmi_desc->pcm_fmt.sample_rate_mask |= (1<<2);
+        if (strstr(cap, "88200") != NULL)
+            hdmi_desc->pcm_fmt.sample_rate_mask |= (1<<3);
+        if (strstr(cap, "96000") != NULL)
+            hdmi_desc->pcm_fmt.sample_rate_mask |= (1<<4);
+        if (strstr(cap, "176400") != NULL)
+            hdmi_desc->pcm_fmt.sample_rate_mask |= (1<<5);
+        if (strstr(cap, "192000") != NULL)
+            hdmi_desc->pcm_fmt.sample_rate_mask |= (1<<6);
+
+        aml_audio_free(cap);
+        cap = NULL;
+    }
+
+    ALOGI("pcm_fmt support sample_rate_mask:0x%x", hdmi_desc->pcm_fmt.sample_rate_mask);
+}
 
 bool is_sink_support_dolby_passthrough(audio_format_t sink_capability)
 {
@@ -201,6 +234,8 @@ void get_sink_format(struct audio_stream_out *stream)
     audio_format_t sink_capability = get_sink_capability(adev);
     audio_format_t sink_dts_capability = get_sink_dts_capability(adev);
     audio_format_t source_format = aml_out->hal_internal_format;
+
+    get_sink_pcm_capability(adev);
 
     if (adev->out_device & AUDIO_DEVICE_OUT_ALL_A2DP) {
         ALOGD("get_sink_format: a2dp set to pcm");

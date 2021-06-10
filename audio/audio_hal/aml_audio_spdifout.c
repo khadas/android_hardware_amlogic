@@ -41,6 +41,7 @@ typedef struct spdifout_handle {
     bool spdif_enc_init;
     void *spdif_enc_handle;
     bool b_mute;
+    audio_channel_mask_t channel_mask;
 } spdifout_handle_t;
 
 
@@ -69,7 +70,10 @@ static int select_digital_device(struct spdifout_handle *phandle) {
             device_id = DIGITAL_DEVICE;
         }
         if (audio_is_linear_pcm(phandle->audio_format)) {
-            device_id = TDM_DEVICE;
+            if (phandle->channel_mask == AUDIO_CHANNEL_OUT_5POINT1 || phandle->channel_mask == AUDIO_CHANNEL_OUT_7POINT1)
+                device_id = TDM_DEVICE; /* TDM_DEVICE <-> i2stohdmi only support multi-channel */
+            else
+                device_id = DIGITAL_DEVICE;
         }
     } else {
         if (aml_dev->dual_spdif_support) {
@@ -256,6 +260,7 @@ int aml_audio_spdifout_open(void **pphandle, spdif_config_t *spdif_config)
         audio_format = spdif_config->audio_format;
     }
     phandle->audio_format = audio_format;
+    phandle->channel_mask = spdif_config->channel_mask;
 
     if (!phandle->spdif_enc_init && phandle->need_spdif_enc) {
         ret = aml_spdif_encoder_open(&phandle->spdif_enc_handle, phandle->audio_format);
@@ -268,7 +273,6 @@ int aml_audio_spdifout_open(void **pphandle, spdif_config_t *spdif_config)
 
     device_id = select_digital_device(phandle);
 
-
     alsa_handle = aml_dev->alsa_handle[device_id];
 
     if (!alsa_handle) {
@@ -277,7 +281,7 @@ int aml_audio_spdifout_open(void **pphandle, spdif_config_t *spdif_config)
         memset(&stream_config, 0, sizeof(aml_stream_config_t));
         memset(&device_config, 0, sizeof(aml_device_config_t));
         /*config stream info*/
-        stream_config.config.channel_mask = spdif_config->channel_mask;;
+        stream_config.config.channel_mask = spdif_config->channel_mask;
         stream_config.config.sample_rate  = spdif_config->rate;
         stream_config.config.format       = AUDIO_FORMAT_IEC61937;
         stream_config.config.offload_info.format = audio_format;
