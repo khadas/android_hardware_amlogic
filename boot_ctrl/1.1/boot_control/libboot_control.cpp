@@ -49,23 +49,9 @@ using ::android::hardware::boot::V1_1::MergeStatus;
 constexpr unsigned int kDefaultBootAttempts = 7;
 
 #define EMMC_USER_PARTITION        "bootloader"
-#define EMMC_BLK0BOOT0_PARTITION   "mmcblk0boot0"
-#define EMMC_BLK0BOOT1_PARTITION   "mmcblk0boot1"
-#define EMMC_BLK1BOOT0_PARTITION   "mmcblk1boot0"
-#define EMMC_BLK1BOOT1_PARTITION   "mmcblk1boot1"
-
 #define BOOTLOADER_MAX_SIZE    (4*1024*1024)
 /*First 512 bytes in bootloader is signed data*/
 #define BOOTLOADER_OFFSET      512
-
-static const char *sEmmcPartionName_a[] = {
-    EMMC_BLK0BOOT0_PARTITION,
-    EMMC_BLK1BOOT0_PARTITION,
-};
-static const char *sEmmcPartionName_b[] = {
-    EMMC_BLK0BOOT1_PARTITION,
-    EMMC_BLK1BOOT1_PARTITION,
-};
 
 static_assert(kDefaultBootAttempts < 8, "tries_remaining field only has 3 bits");
 
@@ -143,18 +129,16 @@ bool write_bootloader_img(unsigned int slot)
 {
     int iRet = 0;
     char emmcPartitionPath[128];
-    const char **sEmmcPartionName;
     int fd = -1;
     int fd2 = -1;
     bool ret = false;
     char* data = NULL;
-    char data_secure[512] = {0};
 
     memset(emmcPartitionPath, 0, sizeof(emmcPartitionPath));
     if (slot == 0) {
-        sEmmcPartionName = sEmmcPartionName_a;
+        strcpy(emmcPartitionPath, "/dev/block/bootloader0");
     } else {
-        sEmmcPartionName = sEmmcPartionName_b;
+        strcpy(emmcPartitionPath, "/dev/block/bootloader1");
     }
 
     data = (char *)malloc(BOOTLOADER_MAX_SIZE);
@@ -164,76 +148,27 @@ bool write_bootloader_img(unsigned int slot)
     }
     memset(data, 0, BOOTLOADER_MAX_SIZE);
 
-    for (int i = 0; i < 2; i ++) {
-        sprintf(emmcPartitionPath, "/dev/block/%s", sEmmcPartionName[i]);
-        LOG(INFO) << "emmcPartitionPath: " << emmcPartitionPath;
-        /* get the bootloader path we write in update_engine
-         * /dev/block/platform/soc/fe08c000.mmc/by-name/bootloader --> /dev/block/bootloader
-         * /dev/block/platform/soc/fe08c000.mmc/by-name/bootloader_a --> /dev/block/mmcblk0boot0
-         * /dev/block/platform/soc/fe08c000.mmc/by-name/bootloader_b --> /dev/block/mmcblk0boot1
-         * for different board, mmcblk0/fe08c000 maybe different
-         * update_engine will update bootloader_a or bootloader_b according to current slot
-        */
-        if (!access(emmcPartitionPath, F_OK)) {
-            LOG(INFO) << "find " << emmcPartitionPath;
-            break;
-        }
-    }
-
-    /* read bootloader.img just update by update_engine*/
+    LOG(INFO) << "emmcPartitionPath: " << emmcPartitionPath;
+    /* read bootloader.img we write in update_engine
+     * /dev/block/platform/soc/fe08c000.mmc/by-name/bootloader --> /dev/block/bootloader
+     * /dev/block/platform/soc/fe08c000.mmc/by-name/bootloader_a --> /dev/block/bootloader0
+     * /dev/block/platform/soc/fe08c000.mmc/by-name/bootloader_b --> /dev/block/bootloader1
+     * for different board, mmcblk0/fe08c000 maybe different
+     * update_engine will update bootloader_a or bootloader_b according to current slot
+    */
     fd = open(emmcPartitionPath, O_RDWR);
     if (fd < 0) {
         LOG(ERROR) << "failed to open " << emmcPartitionPath;
         goto done;
     }
-    iRet = read(fd, data, BOOTLOADER_MAX_SIZE);
-    if (iRet == BOOTLOADER_MAX_SIZE) {
+    iRet = read(fd, data, BOOTLOADER_MAX_SIZE - BOOTLOADER_OFFSET);
+    LOG(INFO) << "iRet = " << iRet;
+    if (iRet == BOOTLOADER_MAX_SIZE - BOOTLOADER_OFFSET) {
         LOG(INFO) << "read bootloader img successful";
     } else {
         LOG(ERROR) << "read bootloader img failed";
         goto done;
     }
-
-    /* read the firset 512 bytes secure data from bootloader*/
-    fd2 = open("/dev/block/bootloader", O_RDWR);
-    if (fd2 < 0) {
-        LOG(ERROR) << "failed to open /dev/block/bootloader ";
-        goto done;
-    }
-    iRet = read(fd2, data_secure, BOOTLOADER_OFFSET);
-    if (iRet == BOOTLOADER_OFFSET) {
-        LOG(INFO) << "read secure data successful";
-    } else {
-        LOG(ERROR) << "read secure data failed";
-        goto done;
-    }
-
-    /* First 512 bytes in bootloader is signed data
-     * we need write bootloader.img to 512 bytes offset
-     * but update_engine just write bootloader.img to /dev/block
-     * rewrite first 512 secure boot and
-     * rewrite bootloader.img later
-    */
-    iRet = lseek(fd, 0, SEEK_SET);
-    if (iRet == -1) {
-        LOG(ERROR) << "failed to lseek ";
-        goto done;
-    }
-    iRet = write(fd, data_secure, BOOTLOADER_OFFSET);
-    if (iRet == BOOTLOADER_OFFSET) {
-        LOG(INFO) << "write bootloader head successful";
-    } else {
-        LOG(ERROR) << "write bootloader head failed";
-        goto done;
-    }
-    iRet = write(fd, data, BOOTLOADER_MAX_SIZE - BOOTLOADER_OFFSET);
-    if (iRet == (BOOTLOADER_MAX_SIZE - BOOTLOADER_OFFSET)) {
-        LOG(INFO) << "write bootloader img successful";
-    } else {
-        LOG(ERROR) << "write bootloader img failed";
-        goto done;
-    }
-
 
     /* We use robust to rollback bootloader.img in uboot
      * bootloader  ---> 0
@@ -245,10 +180,24 @@ bool write_bootloader_img(unsigned int slot)
      * reboot_status  ---- reboot_next
      * expect_index   ---- 0
      * update_env     ---- 1
+     * First 512 bytes in bootloader is signed data
+     * we need write bootloader.img to 512 bytes offset
+     * but update_engine just write bootloader.img to /dev/block
      * after reboot, if the bootloader index is just expect_index, update env too
      * if the bootloader index isn't expect_index, update error, back to last slot
     */
+    fd2 = open("/dev/block/by-name/bootloader", O_RDWR);
+    if (fd2 < 0) {
+        LOG(ERROR) << "failed to open /dev/block/by-name/bootloader ";
+        goto done;
+    }
+    iRet = lseek(fd2, BOOTLOADER_OFFSET, SEEK_SET);
+    if (iRet == -1) {
+        LOG(ERROR) << "failed to lseek ";
+        goto done;
+    }
     iRet = write(fd2, data, BOOTLOADER_MAX_SIZE - BOOTLOADER_OFFSET);
+    LOG(INFO) << "iRet = " << iRet;
     if (iRet == (BOOTLOADER_MAX_SIZE - BOOTLOADER_OFFSET)) {
         LOG(INFO) << "Write Uboot Image successful";
     } else {

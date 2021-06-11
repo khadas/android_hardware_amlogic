@@ -1,6 +1,6 @@
 on early-init
-    symlink /dev/block/mmcblk0boot0 /dev/block/platform/${ro.boot.boot_devices}/by-name/bootloader_a
-    symlink /dev/block/mmcblk0boot1 /dev/block/platform/${ro.boot.boot_devices}/by-name/bootloader_b
+    symlink /dev/block/bootloader0 /dev/block/platform/${ro.boot.boot_devices}/by-name/bootloader_a
+    symlink /dev/block/bootloader1 /dev/block/platform/${ro.boot.boot_devices}/by-name/bootloader_b
 
 service vendor.boot-hal-1-1 /vendor/bin/hw/android.hardware.boot@1.1-service.droidlogic
     interface android.hardware.boot@1.0::IBootControl default
