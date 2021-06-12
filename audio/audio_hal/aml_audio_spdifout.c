@@ -380,13 +380,16 @@ int aml_audio_spdifout_processs(void *phandle, void *buffer, size_t byte)
         b_mute = true;
     }
 
+    if (aml_dev->debug_flag) {
+        ALOGI("size =%zu format=%x mute =%d %d",
+            output_buffer_bytes, spdifout_phandle->audio_format, b_mute, spdifout_phandle->b_mute);
+    }
 
     if (b_mute || spdifout_phandle->b_mute) {
         memset(output_buffer, 0, output_buffer_bytes);
     }
 
     if (output_buffer_bytes) {
-        ALOGV("size =%zu", output_buffer_bytes);
         ret = aml_alsa_output_write_new(alsa_handle, output_buffer, output_buffer_bytes);
     }
 

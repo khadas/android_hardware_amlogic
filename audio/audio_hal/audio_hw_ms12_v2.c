@@ -1657,17 +1657,31 @@ int dolby_ms12_bypass_process(struct audio_stream_out *stream, void *buffer, siz
     ALOGV("output_format=0x%x hal_format=0x%#x internal=0x%x", output_format, aml_out->hal_format, aml_out->hal_internal_format);
     bool is_dolby = (aml_out->hal_internal_format == AUDIO_FORMAT_E_AC3) || (aml_out->hal_internal_format == AUDIO_FORMAT_AC3);
     spdif_config_t spdif_config = { 0 };
-
     /*for patch mode, the hal_rate is not correct, we should parse it*/
     if (adev->audio_patching && is_dolby) {
         struct ac3_parser_info ac3_info = { 0 };
         void *main_frame_buffer = NULL;
-        int main_frame_size = 0;
+        int32_t main_frame_size = 0;
         int32_t parser_used_size = 0;
-        aml_ac3_parser_process(ms12->ac3_parser_handle, buffer, bytes, &parser_used_size, &main_frame_buffer, &main_frame_size, &ac3_info);
-        if (ac3_info.sample_rate != 0) {
-            aml_out->hal_rate = ac3_info.sample_rate;
-        }
+        int32_t offset = 0;
+        int32_t bytes_left = bytes;
+        do {
+            aml_ac3_parser_process(ms12->ac3_parser_handle, (char *)buffer + offset, bytes_left, &parser_used_size, &main_frame_buffer, &main_frame_size, &ac3_info);
+            offset += parser_used_size;
+            if (bytes_left >= parser_used_size) {
+                bytes_left -= parser_used_size;
+            } else {
+                bytes_left = 0;
+            }
+            if (parser_used_size == 0) {
+                ALOGE("%s error", __func__);
+                break;
+            }
+            if (ac3_info.sample_rate != 0 && main_frame_size) {
+                aml_out->hal_rate = ac3_info.sample_rate;
+            }
+        } while(bytes_left != 0);
+
     }
 
     ms12->is_bypass_ms12 = is_ms12_passthrough(stream);
@@ -1747,7 +1761,6 @@ int ms12_passthrough_output(struct aml_stream_out *aml_out) {
     if ((adev->hdmi_format != BYPASS)) {
         ms12->is_bypass_ms12 = false;
     }
-
     if (ms12->is_bypass_ms12 != bitstream_out->is_bypass_ms12) {
         ALOGI("change to bypass mode from =%d to %d", bitstream_out->is_bypass_ms12, ms12->is_bypass_ms12);
         if (bitstream_out->spdifout_handle) {
