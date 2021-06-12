@@ -1951,6 +1951,13 @@ int bitstream_output(void *buffer, void *priv_data, size_t size)
         return 0;
     }
 
+    if (adev->patch_src ==  SRC_DTV && aml_out->need_drop_size > 0) {
+        if (adev->debug_flag > 1)
+            ALOGI("func:%s, av sync drop data,need_drop_size=%d\n",
+                __FUNCTION__, aml_out->need_drop_size);
+        return ret;
+    }
+
     /*dump ms12 bitstream output*/
     if (get_ms12_dump_enable(DUMP_MS12_OUTPUT_BITSTREAN)) {
         dump_ms12_output_data(buffer, size, MS12_OUTPUT_BITSTREAM_FILE);
@@ -2065,6 +2072,12 @@ int mat_bitstream_output(void *buffer, void *priv_data, size_t size)
         return 0;
     }
 
+    if (adev->patch_src ==  SRC_DTV && aml_out->need_drop_size > 0) {
+        if (adev->debug_flag > 1)
+            ALOGI("func:%s, av sync drop data,need_drop_size=%d\n",
+                __FUNCTION__, aml_out->need_drop_size);
+        return ret;
+    }
 
     /*dump ms12 bitstream output*/
     if (get_ms12_dump_enable(DUMP_MS12_OUTPUT_BITSTREAN_MAT)) {
