@@ -47,8 +47,8 @@ int aml_audio_get_cur_ms12_latency(struct audio_stream_out *stream) {
     aml_demux_audiopara_t *demux_info = (aml_demux_audiopara_t *)patch->demux_info;
     int ms12_latencyms = 0;
 
-    int inputnode_consumed = dolby_ms12_get_main_bytes_consumed(stream);
-    int frames_generated = dolby_ms12_get_main_pcm_generated(stream);
+    uint64_t inputnode_consumed = dolby_ms12_get_main_bytes_consumed(stream);
+    uint64_t frames_generated = dolby_ms12_get_main_pcm_generated(stream);
     if (is_dolby_ms12_support_compression_format(aml_out->hal_internal_format)) {
         if (demux_info->dual_decoder_support)
             ms12_latencyms = (frames_generated - ms12->master_pcm_frames) / 48;
@@ -58,7 +58,7 @@ int aml_audio_get_cur_ms12_latency(struct audio_stream_out *stream) {
         ms12_latencyms = ((ms12->ms12_main_input_size - inputnode_consumed ) / 4 + frames_generated - ms12->master_pcm_frames) / 48;
     }
     if (adev->debug_flag)
-        ALOGI("ms12_latencyms %d  ms12_main_input_size %lld inputnode_consumed %d frames_generated %d master_pcm_frames %lld",
+        ALOGI("ms12_latencyms %d  ms12_main_input_size %lld inputnode_consumed %lld frames_generated %lld master_pcm_frames %lld",
         ms12_latencyms, ms12->ms12_main_input_size, inputnode_consumed,frames_generated, ms12->master_pcm_frames);
     return ms12_latencyms;
 
