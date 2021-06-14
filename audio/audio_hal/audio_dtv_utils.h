@@ -74,8 +74,13 @@
 #define INPUT_PACKAGE_MAXCOUNT 40
 
 
+#define AD_PACK_STATUS_UNNORMAL_THRESHOLD_MS 4000
+
 #define AD_PACK_STATUS_DROP_THRESHOLD_MS 600
+#define AD_PACK_STATUS_DROP_START_THRESHOLD_MS 60
+
 #define AD_PACK_STATUS_HOLD_THRESHOLD_MS 400
+#define AD_PACK_STATUS_HOLD_START_THRESHOLD_MS 40
 
 typedef enum  {
     AD_PACK_STATUS_NORMAL,
@@ -134,7 +139,7 @@ int dtv_patch_add_cmd(struct cmd_node *dtv_cmd_list,int cmd, int path_id);
 int dtv_patch_get_cmd(struct cmd_node *dtv_cmd_list,int *cmd, int *path_id);
 int dtv_patch_cmd_is_empty(struct cmd_node *dtv_cmd_list);
 
-AD_PACK_STATUS_T check_ad_package_status(int64_t main_pts, int64_t ad_pts);
+AD_PACK_STATUS_T check_ad_package_status(int64_t main_pts, int64_t ad_pts, AD_PACK_STATUS_T ad_status);
 
 
 #endif
