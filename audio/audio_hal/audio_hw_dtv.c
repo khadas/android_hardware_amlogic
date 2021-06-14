@@ -281,7 +281,6 @@ int dtv_patch_handle_event(struct audio_hw_device *dev,int cmd, int val) {
         case AUDIO_DTV_PATCH_CMD_SET_MUTE:
             ALOGE ("Amlogic_HAL - %s: TV-Mute:%d.", __FUNCTION__,val);
             adev->tv_mute = val;
-            adev->hw_mixer.mute_main_flag = val;
             break;
         case AUDIO_DTV_PATCH_CMD_SET_HAS_VIDEO:
             demux_info->has_video = val;

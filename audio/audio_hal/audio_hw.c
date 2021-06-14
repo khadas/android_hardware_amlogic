@@ -6372,9 +6372,6 @@ void config_output(struct audio_stream_out *stream, bool reset_decoder)
             pthread_mutex_lock(&adev->lock);
             if (!adev->hw_mixer.start_buf) {
                 aml_hw_mixer_init(&adev->hw_mixer);
-                if (adev->patch_src == SRC_DTV) {
-                    adev->hw_mixer.mute_main_flag = adev->tv_mute;
-                }
             } else {
                 aml_hw_mixer_reset(&adev->hw_mixer);
             }
@@ -6501,9 +6498,6 @@ ssize_t mixer_main_buffer_write(struct audio_stream_out *stream, const void *buf
         /*if mixer has started, no need restart*/
         if (!adev->hw_mixer.start_buf) {
             aml_hw_mixer_init(&adev->hw_mixer);
-            if (adev->patch_src == SRC_DTV) {
-                adev->hw_mixer.mute_main_flag = adev->tv_mute;
-            }
         }
         pthread_mutex_unlock(&adev->lock);
     }
