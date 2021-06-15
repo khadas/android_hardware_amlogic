@@ -39,6 +39,9 @@
 #include <sound/asound.h>
 #include <tinyalsa/asoundlib.h>
 
+#define ATRACE_TAG ATRACE_TAG_AUDIO
+#include <cutils/trace.h>
+
 #include "audio_hw_utils.h"
 
 #include "audio_hwsync.h"
@@ -1864,4 +1867,44 @@ int convert_audio_format_2_period_mul(audio_format_t format)
     }
 
     return period_mul;
+}
+
+/*****************************************************************************
+*   Function Name:  aml_audio_trace_debug_level
+*   Description:    detect audio trace debug level.
+*   Parameters:     void.
+*   Return value:   0: debug is closed, or else debug is valid.
+******************************************************************************/
+int aml_audio_trace_debug_level(void)
+{
+    char buf[PROPERTY_VALUE_MAX] = {'\0'};
+    int ret = -1;
+    int debug_level = 0;
+    ret = property_get("vendor.audio.hal.trace.debug", buf, NULL);
+    if (ret > 0) {
+        debug_level = atoi(buf);
+    }
+
+    //ALOGV("%s:  debug_level:%d", __func__, debug_level);
+    return debug_level;
+}
+
+/*****************************************************************************
+*   Function Name:  aml_audio_trace_int
+*   Description:    trace's feature implement in audio hal.
+*   Parameters:     char *: trace name.
+*                   int: trace value.
+*   Return value:   0: just a return value, no real meaning.
+******************************************************************************/
+int aml_audio_trace_int(char *name, int value)
+{
+    int debug_level = aml_audio_trace_debug_level();
+
+    if (debug_level > 0) {
+        ATRACE_INT(name, value);
+    } else {
+        // do nothing.
+    }
+
+    return 0;
 }
