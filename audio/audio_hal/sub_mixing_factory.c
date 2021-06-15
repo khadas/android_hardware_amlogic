@@ -22,6 +22,7 @@
 #ifdef ENABLE_AEC_APP
 #include "audio_aec.h"
 #endif
+#include "aml_audio_timer.h"
 
 //#define DEBUG_TIME
 
@@ -1436,6 +1437,16 @@ static ssize_t out_write_subMixingPCM(struct audio_stream_out *stream,
     //write_func  write_func_p = NULL;
 
     ALOGV("%s: out_stream(%p) position(%zu)", __func__, stream, bytes);
+    aml_audio_trace_int("out_write_subMixingPCM", bytes);
+
+    if (aml_audio_trace_debug_level() > 0) {
+        if (false == aml_out->pause_status  &&  aml_out->write_count < 2) {
+            aml_out->write_time = aml_audio_get_systime() / 1000; //us --> ms
+            ALOGD("%s: out_stream(%p) bytes(%zu), write_time:%llu, count:%d", __func__,
+                       stream, bytes, aml_out->write_time, aml_out->write_count);
+        }
+        aml_out->write_count++;
+    }
 
     /**
      * deal with the device output changes
@@ -1448,6 +1459,7 @@ static ssize_t out_write_subMixingPCM(struct audio_stream_out *stream,
     if (ret < 0) {
         ALOGE("%s() failed", __func__);
         pthread_mutex_unlock(&adev->lock);
+        aml_audio_trace_int("out_write_subMixingPCM", 0);
         return ret;
     }
     adev->active_outputs[aml_out->usecase] = aml_out;
@@ -1463,6 +1475,7 @@ static ssize_t out_write_subMixingPCM(struct audio_stream_out *stream,
     if (adev->debug_flag > 1) {
         ALOGI("-%s() ret %zd,%p %"PRIu64"\n", __func__, ret, stream, aml_out->total_write_size);
     }
+    aml_audio_trace_int("out_write_subMixingPCM", 0);
     return ret;
 }
 
@@ -1482,6 +1495,7 @@ int out_standby_subMixingPCM(struct audio_stream *stream)
      * pthread_mutex_unlock(&aml_out->lock);
      */
 
+    aml_audio_trace_int("out_standby_subMixingPCM", 1);
     pthread_mutex_lock(&adev->lock);
     if (aml_out->standby) {
         goto exit;
@@ -1508,6 +1522,7 @@ int out_standby_subMixingPCM(struct audio_stream *stream)
     }
 exit:
     pthread_mutex_unlock(&adev->lock);
+    aml_audio_trace_int("out_standby_subMixingPCM", 0);
     return ret;
 }
 
@@ -1524,13 +1539,29 @@ static int out_pause_subMixingPCM(struct audio_stream_out *stream)
             aml_out->standby,
             aml_out->pause_status,
             usecase2Str(aml_out->usecase));
+
+    aml_audio_trace_int("out_pause_subMixingPCM", 1);
+    if (aml_audio_trace_debug_level() > 0)
+    {
+        aml_out->write_count = 0;
+        aml_out->pause_time = aml_audio_get_systime() / 1000; //us --> ms
+        if (aml_out->pause_time > aml_out->write_time && (aml_out->pause_time - aml_out->write_time < 5*1000)) { //continually write time less than 5s, audio gap
+            ALOGD("%s: out_stream(%p) AudioGap pause_time:%llu,  diff_time(pause - write):%llu ms", __func__,
+                   stream, aml_out->pause_time, aml_out->pause_time - aml_out->write_time);
+        } else {
+            ALOGD("%s:  -------- pause ----------", __func__);
+        }
+    }
+
     if (aml_out->standby || aml_out->pause_status) {
         ALOGW("%s(), stream already paused", __func__);
+        aml_audio_trace_int("out_pause_subMixingPCM", 0);
         return INVALID_STATE;
     }
 
     if (sm->type != MIXER_LPCM) {
         ALOGW("%s(), sub mixing type not pcm, type is %d", __func__, sm->type);
+        aml_audio_trace_int("out_pause_subMixingPCM", 0);
         return 0;
     }
 
@@ -1541,6 +1572,7 @@ static int out_pause_subMixingPCM(struct audio_stream_out *stream)
     if (aml_out->out_device & AUDIO_DEVICE_OUT_ALL_A2DP)
         a2dp_out_standby(aml_dev);
     ALOGI("-%s()", __func__);
+    aml_audio_trace_int("out_pause_subMixingPCM", 0);
     return 0;
 }
 
@@ -1558,14 +1590,16 @@ static int out_resume_subMixingPCM(struct audio_stream_out *stream)
             aml_out->standby,
             aml_out->pause_status,
             usecase2Str(aml_out->usecase));
-
+    aml_audio_trace_int("out_resume_subMixingPCM", 1);
     if (!aml_out->pause_status) {
         ALOGW("%s(), steam not in pause status", __func__);
+        aml_audio_trace_int("out_resume_subMixingPCM", 0);
         return INVALID_STATE;
     }
 
     if (sm->type != MIXER_LPCM) {
         ALOGW("%s(), sub mixing type not pcm, type is %d", __func__, sm->type);
+        aml_audio_trace_int("out_resume_subMixingPCM", 0);
         return 0;
     }
 
@@ -1575,6 +1609,7 @@ static int out_resume_subMixingPCM(struct audio_stream_out *stream)
     aml_out->pause_status = false;
     aml_out->need_first_sync = true;
     ALOGI("-%s()", __func__);
+    aml_audio_trace_int("out_resume_subMixingPCM", 0);
     return 0;
 }
 
@@ -1594,8 +1629,10 @@ static int out_flush_subMixingPCM(struct audio_stream_out *stream)
             aml_out->pause_status,
             usecase2Str(aml_out->usecase));
 
+    aml_audio_trace_int("out_flush_subMixingPCM", 1);
     if (sm->type != MIXER_LPCM) {
         ALOGW("%s(), sub mixing type not pcm, type is %d", __func__, sm->type);
+        aml_audio_trace_int("out_flush_subMixingPCM", 0);
         return 0;
     }
     aml_out->frame_write_sum  = 0;
@@ -1634,10 +1671,12 @@ static int out_flush_subMixingPCM(struct audio_stream_out *stream)
         //aml_out->standby = true;
     } else {
         ALOGW("%s(), line %d. Need check this case!", __func__, __LINE__);
+        aml_audio_trace_int("out_flush_subMixingPCM", 0);
         return 0;
     }
 
     ALOGI("-%s()", __func__);
+    aml_audio_trace_int("out_flush_subMixingPCM", 0);
     return 0;
 }
 

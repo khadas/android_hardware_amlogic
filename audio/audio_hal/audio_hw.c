@@ -947,6 +947,7 @@ static int out_flush (struct audio_stream_out *stream)
 
     standy_func = do_output_standby;
 
+    aml_audio_trace_int("out_flush", 1);
     pthread_mutex_lock (&adev->lock);
     pthread_mutex_lock (&out->lock);
     if (out->pause_status == true) {
@@ -985,6 +986,7 @@ static int out_flush (struct audio_stream_out *stream)
 exit:
     pthread_mutex_unlock (&adev->lock);
     pthread_mutex_unlock (&out->lock);
+    aml_audio_trace_int("out_flush", 0);
     return 0;
 }
 
@@ -1336,6 +1338,8 @@ static int out_pause (struct audio_stream_out *stream)
     struct aml_stream_out *out = (struct aml_stream_out *) stream;
     struct aml_audio_device *adev = out->dev;
     int r = 0;
+
+    aml_audio_trace_int("out_pause", 1);
     pthread_mutex_lock (&adev->lock);
     pthread_mutex_lock (&out->lock);
     /* a stream should fail to pause if not previously started */
@@ -1379,6 +1383,7 @@ exit:
     }
     pthread_mutex_unlock (&adev->lock);
     pthread_mutex_unlock (&out->lock);
+    aml_audio_trace_int("out_pause", 0);
     return r;
 }
 
@@ -1391,6 +1396,8 @@ static int out_resume (struct audio_stream_out *stream)
     int channel_count = popcount (out->hal_channel_mask);
     bool hwsync_lpcm = (out->flags & AUDIO_OUTPUT_FLAG_HW_AV_SYNC && out->config.rate  <= 48000 &&
                         audio_is_linear_pcm(out->hal_internal_format) && channel_count <= 2);
+
+    aml_audio_trace_int("out_resume", 1);
     pthread_mutex_lock (&adev->lock);
     pthread_mutex_lock (&out->lock);
     /* a stream should fail to resume if not previously paused */
@@ -1431,6 +1438,7 @@ exit:
     }
     pthread_mutex_unlock (&adev->lock);
     pthread_mutex_unlock (&out->lock);
+    aml_audio_trace_int("out_resume", 0);
     return r;
 }
 
@@ -1446,6 +1454,7 @@ static int out_pause_new (struct audio_stream_out *stream)
     ALOGI("%s(), stream(%p), pause_status = %d,dolby_lib_type = %d, conti = %d,hw_sync_mode = %d,ms12_enable = %d,ms_conti_paused = %d\n",
           __func__, stream, aml_out->pause_status, aml_dev->dolby_lib_type, aml_dev->continuous_audio_mode, aml_out->hw_sync_mode, aml_dev->ms12.dolby_ms12_enable, aml_dev->ms12.is_continuous_paused);
 
+    aml_audio_trace_int("out_pause_new", 1);
     pthread_mutex_lock (&aml_dev->lock);
     pthread_mutex_lock (&aml_out->lock);
 
@@ -1490,6 +1499,7 @@ exit:
 
     pthread_mutex_unlock(&aml_out->lock);
     pthread_mutex_unlock(&aml_dev->lock);
+    aml_audio_trace_int("out_pause_new", 0);
 
     if (is_standby) {
         ALOGD("%s(), stream(%p) already in standy, return INVALID_STATE", __func__, stream);
@@ -1509,6 +1519,7 @@ static int out_resume_new (struct audio_stream_out *stream)
     int ret = 0;
 
     ALOGI("%s(), stream(%p),standby = %d,pause_status = %d\n", __func__, stream, aml_out->standby, aml_out->pause_status);
+    aml_audio_trace_int("out_resume_new", 1);
     pthread_mutex_lock(&aml_dev->lock);
     pthread_mutex_lock(&aml_out->lock);
     /* a stream should fail to resume if not previously paused */
@@ -1552,6 +1563,7 @@ exit:
     pthread_mutex_unlock (&aml_dev->lock);
 
     aml_out->pause_status = false;
+    aml_audio_trace_int("out_resume_new", 0);
     return ret;
 }
 
@@ -1568,10 +1580,12 @@ static int out_flush_new (struct audio_stream_out *stream)
     out->skip_frame = 0;
     out->input_bytes_size = 0;
 
+    aml_audio_trace_int("out_flush_new", 1);
     if (eDolbyMS12Lib == adev->dolby_lib_type) {
         if (out->total_write_size == 0) {
             out->pause_status = false;
             ALOGI("%s not writing, do nothing", __func__);
+            aml_audio_trace_int("out_flush_new", 0);
             return 0;
         }
         if (out->hw_sync_mode) {
@@ -1601,6 +1615,7 @@ static int out_flush_new (struct audio_stream_out *stream)
 
     out->pause_status = false;
     ALOGI("%s(), stream(%p) exit\n", __func__, stream);
+    aml_audio_trace_int("out_flush_new", 0);
     return 0;
 }
 
@@ -5216,8 +5231,10 @@ int out_standby_new(struct audio_stream *stream)
     int status;
 
     ALOGD("%s: enter", __func__);
+    aml_audio_trace_int("out_standby_new", 1);
     if (aml_out->status == STREAM_STANDBY) {
         ALOGI("already standby, do nothing");
+        aml_audio_trace_int("out_standby_new", 0);
         return 0;
     }
 
@@ -5237,6 +5254,7 @@ int out_standby_new(struct audio_stream *stream)
     pthread_mutex_unlock (&aml_out->lock);
     pthread_mutex_unlock (&aml_out->dev->lock);
     ALOGI("%s exit", __func__);
+    aml_audio_trace_int("out_standby_new", 0);
 
     return status;
 }
@@ -7546,6 +7564,7 @@ ssize_t out_write_new(struct audio_stream_out *stream,
     }
 
 
+    aml_audio_trace_int("out_write_new", bytes);
     /**
      * deal with the device output changes
      * pthread_mutex_lock(&aml_out->lock);
@@ -7557,8 +7576,10 @@ ssize_t out_write_new(struct audio_stream_out *stream,
     if (ret < 0) {
         ALOGE("%s() failed", __func__);
         pthread_mutex_unlock(&adev->lock);
+        aml_audio_trace_int("out_write_new", 0);
         return ret;
     }
+
     if (aml_out->write) {
         write_func_p = aml_out->write;
     }
@@ -7568,6 +7589,7 @@ ssize_t out_write_new(struct audio_stream_out *stream,
         /* update audio format to display audio info banner.*/
         update_audio_format(adev, aml_out->hal_internal_format);
     }
+    aml_audio_trace_int("out_write_new", 0);
     if (ret > 0) {
         aml_out->total_write_size += ret;
         if (aml_out->is_normal_pcm) {

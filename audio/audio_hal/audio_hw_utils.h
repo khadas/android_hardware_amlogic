@@ -122,6 +122,9 @@ const char* dtvAudioPatchCmd2Str(AUDIO_DTV_PATCH_CMD_TYPE type);
 const char* hdmiFormat2Str(AML_HDMI_FORMAT_E type);
 bool aml_audio_check_sbr_product();
 
+int aml_audio_trace_int(char *name, int value);
+int aml_audio_trace_debug_level(void);
+
 /** convert the audio input format to in buffer's period multi coefficient.
  * @return period multi coefficient(1/4/16)
  */

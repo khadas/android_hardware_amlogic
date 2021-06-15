@@ -728,6 +728,9 @@ struct aml_stream_out {
     uint16_t easing_time;
     float output_speed;
     int dtvsync_enable;
+    uint64_t write_time;
+    uint64_t pause_time;
+    int write_count;
 };
 
 typedef ssize_t (*write_func)(struct audio_stream_out *stream, const void *buffer, size_t bytes);
