@@ -329,13 +329,6 @@ int dtv_patch_handle_event(struct audio_hw_device *dev,int cmd, int val) {
                 adev->associate_audio_mixing_enable = 0;
             demux_info->associate_audio_mixing_enable = adev->associate_audio_mixing_enable;
             ALOGI("associate_audio_mixing_enable set to %d\n", adev->associate_audio_mixing_enable);
-            if (eDolbyMS12Lib == adev->dolby_lib_type_last) {
-                pthread_mutex_lock(&ms12->lock);
-                dolby_ms12_set_asscociated_audio_mixing(adev->associate_audio_mixing_enable);
-                set_ms12_ad_mixing_enable(ms12, adev->associate_audio_mixing_enable);
-                pthread_mutex_unlock(&ms12->lock);
-            } else if (eDolbyDcvLib == adev->dolby_lib_type_last) {
-            }
             pthread_mutex_unlock(&adev->lock);
             break;
         case AUDIO_DTV_PATCH_CMD_SET_AD_VOL_LEVEL:
@@ -3105,10 +3098,6 @@ static void *audio_dtv_patch_process_threadloop_v2(void *data)
                     patch->decoder_offset = 0;
                 }
 
-                demux_info = (aml_demux_audiopara_t *)patch->demux_info;
-                bool associate_mix = aml_dev->associate_audio_mixing_enable;
-                bool dual_decoder = demux_info->dual_decoder_support;
-                int demux_id  = demux_info->demux_id;
                 ALOGI("patch->demux_handle %p patch->aformat %0x", patch->demux_handle, patch->aformat);
                 patch->dtv_first_apts_flag = 0;
                 patch->outlen_after_last_validpts = 0;

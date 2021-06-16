@@ -677,7 +677,7 @@ int get_the_dolby_ms12_prepared(
     if (patch) {
         demux_info = (aml_demux_audiopara_t *)patch->demux_info;
     }
-    int ret = 0;
+    int ret = 0, associate_audio_mixing_enable = 0;
     bool output_5_1_ddp = getprop_bool(MS12_OUTPUT_5_1_DDP);
 
     ALOGI("\n+%s()", __FUNCTION__);
@@ -698,12 +698,16 @@ int get_the_dolby_ms12_prepared(
     set_audio_main_format(input_format);
 
     if (input_format == AUDIO_FORMAT_AC3 || input_format == AUDIO_FORMAT_E_AC3) {
-        if (patch && demux_info)
+        if (patch && demux_info) {
             ms12->dual_decoder_support = demux_info->dual_decoder_support;
-        else
-            ms12->dual_decoder_support = 0;   
+            associate_audio_mixing_enable = demux_info->associate_audio_mixing_enable;
+       } else {
+            ms12->dual_decoder_support = 0;
+            associate_audio_mixing_enable = 0;
+       }
     } else {
         ms12->dual_decoder_support = 0;
+        associate_audio_mixing_enable = 0;
     }
     ALOGI("+%s() dual_decoder_support %d optical =0x%x sink =0x%x\n",
         __FUNCTION__, ms12->dual_decoder_support, ms12->optical_format, ms12->sink_format);
@@ -713,7 +717,7 @@ int get_the_dolby_ms12_prepared(
         set_audio_associate_format(input_format);
         ALOGI("%s set_audio_associate_format %#x", __FUNCTION__, input_format);
     }
-    dolby_ms12_set_asscociated_audio_mixing(adev->associate_audio_mixing_enable);
+    dolby_ms12_set_asscociated_audio_mixing(associate_audio_mixing_enable);
     dolby_ms12_set_user_control_value_for_mixing_main_and_associated_audio(adev->mixing_level);
 
 
