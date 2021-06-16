@@ -383,7 +383,7 @@ Return<void> DumpstateDevice::dumpstateBoard(const hidl_handle& handle) {
     RunCommandToFd(fd, "hotplug", {"vendor/bin/sh", "-c", "echo rht2 > /sys/class/hdmirx/hdmirx0/debug"}, CommandOptions::WithTimeout(1).Build());
     RunCommandToFd(fd, "hotplug", {"vendor/bin/sh", "-c", "echo edid > /sys/class/hdmirx/hdmirx0/debug"}, CommandOptions::WithTimeout(1).Build());
     DumpFileToFd(fd, "hotplug", "/sys/module/tvin_hdmirx/parameters/auds_rcv_sts");
-
+    DumpFileToFd(fd, "info", "/sys/class/hdmirx/hdmirx0/info");
     //tvafe
     RunCommandToFd(fd, "tvafe", {"vendor/bin/sh", "-c", "echo D > /sys/class/tvafe/tvafe0/reg"}, CommandOptions::WithTimeout(1).Build());
 
