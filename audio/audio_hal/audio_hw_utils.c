@@ -401,6 +401,8 @@ int get_codec_type(int format)
         return TYPE_TRUE_HD;
     case AUDIO_FORMAT_AC4:
         return TYPE_AC4;
+    case AUDIO_FORMAT_MAT:
+        return TYPE_MAT;
     case AUDIO_FORMAT_PCM:
     case AUDIO_FORMAT_PCM_16_BIT:
     case AUDIO_FORMAT_PCM_32_BIT:
