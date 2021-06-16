@@ -460,12 +460,20 @@ int aml_decoder_config_prepare(struct audio_stream_out *stream, audio_format_t f
 {
     struct aml_stream_out *aml_out = (struct aml_stream_out *)stream;
     struct aml_audio_device *adev = aml_out->dev;
+    struct aml_audio_patch *patch = adev->audio_patch;
+    aml_demux_audiopara_t *demux_info = NULL;
+    if (patch ) {
+        demux_info = (aml_demux_audiopara_t *)patch->demux_info;
+    }
 
-    dec_config->ad_decoder_supported = adev->dual_decoder_support;
-    dec_config->ad_mixing_enable = adev->associate_audio_mixing_enable;
-    dec_config->mixer_level = adev->mixing_level;
-    dec_config->advol_level = adev->advol_level;
-    ALOGI("mixer_level %d adev->associate_audio_mixing_enable %d",adev->mixing_level, adev->associate_audio_mixing_enable);
+    if (demux_info) {
+        dec_config->ad_decoder_supported = demux_info->dual_decoder_support;
+        dec_config->ad_mixing_enable = demux_info->associate_audio_mixing_enable;
+        dec_config->mixer_level = adev->mixing_level;
+        dec_config->advol_level = adev->advol_level;
+        ALOGI("mixer_level %d adev->associate_audio_mixing_enable %d",adev->mixing_level, demux_info->associate_audio_mixing_enable);
+    }
+ 
     switch (format) {
     case AUDIO_FORMAT_AC3:
     case AUDIO_FORMAT_E_AC3: {
