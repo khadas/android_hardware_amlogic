@@ -68,6 +68,14 @@ typedef struct aml_audio_ease {
     pthread_mutex_t ease_lock;
 } aml_audio_ease_t;
 
+struct volume_ease {
+    aml_audio_ease_t *ease;
+    float vol_last;
+    float vol_target;
+    bool do_easing;
+    bool config_easing;
+};
+
 int aml_audio_ease_init(aml_audio_ease_t ** ppease_handle);
 
 int aml_audio_ease_close(aml_audio_ease_t * ease_handle);
@@ -75,4 +83,13 @@ int aml_audio_ease_close(aml_audio_ease_t * ease_handle);
 int aml_audio_ease_config(aml_audio_ease_t * ease_handle, ease_setting_t *setting);
 
 int aml_audio_ease_process(aml_audio_ease_t * ease_handle, void * in_data, size_t size);
+
+float aml_audio_ease_get_current_volume(aml_audio_ease_t * ease_handle);
+
+int start_ease_in(aml_audio_ease_t *audio_ease);
+
+int start_ease_out(aml_audio_ease_t *audio_ease, bool is_TV);
+
+int config_volume_easing(aml_audio_ease_t *audio_ease, float vol_start, float vol_end);
+
 #endif

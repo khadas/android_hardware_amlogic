@@ -17,6 +17,8 @@
 #ifndef _AUDIO_HW_DTV_H_
 #define _AUDIO_HW_DTV_H_
 
+#include <cutils/str_parms.h>
+
 enum {
     AUDIO_DTV_PATCH_DECODER_STATE_INIT,
     AUDIO_DTV_PATCH_DECODER_STATE_START,
@@ -108,7 +110,7 @@ extern void dtv_avsync_process(struct aml_audio_patch* patch, struct aml_stream_
 
 extern void decoder_set_pcrsrc(unsigned int pcrsrc);
 int get_audio_checkin_underrun(void);
-int dtv_patch_handle_event(struct audio_hw_device *dev,int cmd, int val);
+int set_dtv_parameters(struct audio_hw_device *dev, struct str_parms *parms);
 bool is_dtv_patch_alive(struct aml_audio_device *aml_dev);
 int dtv_patch_get_latency(struct aml_audio_device *aml_dev);
 

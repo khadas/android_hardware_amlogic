@@ -261,3 +261,73 @@ int aml_audio_ease_process(aml_audio_ease_t * ease_handle, void * in_data, size_
     return 0;
 }
 
+float aml_audio_ease_get_current_volume(aml_audio_ease_t * ease_handle)
+{
+    float vol;
+
+    pthread_mutex_lock(&ease_handle->ease_lock);
+    vol = ease_handle->current_volume;
+    pthread_mutex_unlock(&ease_handle->ease_lock);
+
+    return vol;
+}
+
+int start_ease_in(aml_audio_ease_t *audio_ease) {
+    /*start ease in the audio*/
+    ease_setting_t ease_setting;
+
+    audio_ease->data_format.format = AUDIO_FORMAT_PCM_16_BIT;
+    audio_ease->data_format.ch = 8;
+    audio_ease->data_format.sr = 48000;
+    audio_ease->ease_type = EaseInCubic;
+    ease_setting.duration = 200;
+    ease_setting.start_volume = 0.0;
+    ease_setting.target_volume = 1.0;
+
+    aml_audio_ease_config(audio_ease, &ease_setting);
+
+    return 0;
+}
+
+int start_ease_out(aml_audio_ease_t *audio_ease, bool is_TV) {
+    /*start ease out the audio*/
+    ease_setting_t ease_setting;
+    if (is_TV) {
+        ease_setting.duration = 150;
+        ease_setting.start_volume = 1.0;
+        ease_setting.target_volume = 0.0;
+        audio_ease->ease_type = EaseOutCubic;
+        audio_ease->data_format.format = AUDIO_FORMAT_PCM_16_BIT;
+        audio_ease->data_format.ch = 8;
+        audio_ease->data_format.sr = 48000;
+    } else {
+        ease_setting.duration = 30;
+        ease_setting.start_volume = 1.0;
+        ease_setting.target_volume = 0.0;
+        audio_ease->ease_type = EaseOutCubic;
+        audio_ease->data_format.format = AUDIO_FORMAT_PCM_16_BIT;
+        audio_ease->data_format.ch = 2;
+        audio_ease->data_format.sr = 48000;
+    }
+    aml_audio_ease_config(audio_ease, &ease_setting);
+
+    return 0;
+}
+
+int config_volume_easing(aml_audio_ease_t *audio_ease, float vol_start, float vol_end) {
+    /*start ease in the audio*/
+    ease_setting_t ease_setting;
+    ALOGD("%s, vol_start %f, vol_end %f", __func__, vol_start, vol_end);
+
+    audio_ease->data_format.format = AUDIO_FORMAT_PCM_32_BIT;
+    audio_ease->data_format.ch = 2;
+    audio_ease->data_format.sr = 48000;
+    audio_ease->ease_type = EaseInCubic;
+    ease_setting.duration = 100;
+    ease_setting.start_volume = vol_start;
+    ease_setting.target_volume = vol_end;
+    aml_audio_ease_config(audio_ease, &ease_setting);
+
+    return 0;
+}
+

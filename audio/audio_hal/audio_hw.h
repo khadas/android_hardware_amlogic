@@ -204,6 +204,7 @@ typedef enum {
     TIF_HAL_PLAYBACK_AUDIO_SOURCE_CHANNEL_CONFIGURATION_L_C_R_SL_SR_RL_RR_LFE, /**< Left, center, right, surround left, surround right, rear left, rear right and lfe */
     TIF_HAL_PLAYBACK_AUDIO_SOURCE_CHANNEL_CONFIGURATION_7_1 = TIF_HAL_PLAYBACK_AUDIO_SOURCE_CHANNEL_CONFIGURATION_L_C_R_SL_SR_RL_RR_LFE
 } TIF_HAL_Playback_AudioSourceChannelConfiguration_t;
+
 enum OUT_PORT {
     OUTPORT_SPEAKER             = 0,
     OUTPORT_HDMI_ARC            = 1,
@@ -264,14 +265,6 @@ enum stream_status {
     STREAM_MIXING,
     STREAM_PAUSED
 };
-
-#if defined(IS_ATOM_PROJECT)
-typedef enum atom_stream_type {
-    STREAM_ANDROID = 0,
-    STREAM_HDMI,
-    STREAM_OPTAUX
-} atom_stream_type_t;
-#endif
 
 /* Base on user settings */
 typedef enum picture_mode {
@@ -351,8 +344,6 @@ struct aml_audio_device {
     int disable_pcm_mixing;
     /* mute/unmute for vchip  lock control */
     bool parental_control_av_mute;
-    int routing;
-    struct audio_config output_config;
     /* The HDMI ARC capability info currently set. */
     struct aml_arc_hdmi_desc hdmi_descs;
     /* Save the HDMI ARC actual capability info. */
@@ -467,7 +458,6 @@ struct aml_audio_device {
     void* aml_ng_handle;
     int aml_ng_enable;
     float aml_ng_level;
-    int source_mute;
     int aml_ng_attack_time;
     int aml_ng_release_time;
     int system_app_mixing_status;
@@ -543,6 +533,7 @@ struct aml_audio_device {
     soundbar:depending on the prop defined by device
     */
     int  default_alsa_ch;
+    struct volume_ease volume_ease;
     /* -End- */
 };
 
@@ -951,8 +942,6 @@ int dsp_process_output(struct aml_audio_device *adev, void *in_buffer,
 int release_patch_l(struct aml_audio_device *adev);
 enum hwsync_status check_hwsync_status (uint apts_gap);
 void config_output(struct audio_stream_out *stream, bool reset_decoder);
-int start_ease_in(struct aml_audio_device *adev);
-int start_ease_out(struct aml_audio_device *adev);
 int out_standby_direct (struct audio_stream *stream);
 
 void *adev_get_handle();
