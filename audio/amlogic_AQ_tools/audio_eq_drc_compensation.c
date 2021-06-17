@@ -23,6 +23,7 @@
 #include <tinyalsa/asoundlib.h>
 #include <cutils/properties.h>
 
+#include "audio_hw.h"
 #include "audio_eq_drc_compensation.h"
 #include "aml_volume_utils.h"
 
@@ -235,7 +236,7 @@ static int drc_set(struct eq_drc_data *pdata)
     return 0;
 }
 
-int eq_mode_set(struct eq_drc_data *pdata, int eq_mode)
+static int eq_mode_set(struct eq_drc_data *pdata, int eq_mode)
 {
     struct audio_data_s *table = pdata->aml_attr->eq.eq_table[eq_mode];
     char *name = pdata->aml_attr->eq.eq_table_name;
@@ -438,3 +439,45 @@ int eq_drc_release(struct eq_drc_data *pdata)
 
     return 0;
 }
+
+int set_AQ_parameters(struct audio_hw_device *dev, struct str_parms *parms)
+{
+    struct aml_audio_device *adev = (struct aml_audio_device *)dev;
+    int ret = -1, val = 0;
+    char value[64];
+
+    ret = str_parms_get_str(parms, "SOURCE_GAIN", value, sizeof(value));
+    if (ret >= 0) {
+        float fAtvGainDb = 0, fDtvGainDb = 0, fHdmiGainDb = 0, fAvGainDb = 0, fMediaGainDb = 0;
+        sscanf(value,"%f %f %f %f %f", &fAtvGainDb, &fDtvGainDb, &fHdmiGainDb, &fAvGainDb, &fMediaGainDb);
+        ALOGI("%s() audio source gain: atv:%f, dtv:%f, hdmiin:%f, av:%f, media:%f", __func__,
+        fAtvGainDb, fDtvGainDb, fHdmiGainDb, fAvGainDb, fMediaGainDb);
+        adev->eq_data.s_gain.atv = DbToAmpl(fAtvGainDb);
+        adev->eq_data.s_gain.dtv = DbToAmpl(fDtvGainDb);
+        adev->eq_data.s_gain.hdmi = DbToAmpl(fHdmiGainDb);
+        adev->eq_data.s_gain.av = DbToAmpl(fAvGainDb);
+        adev->eq_data.s_gain.media = DbToAmpl(fMediaGainDb);
+        goto exit;
+    }
+
+    ret = str_parms_get_str(parms, "POST_GAIN", value, sizeof(value));
+    if (ret >= 0) {
+        sscanf(value,"%f %f %f", &adev->eq_data.p_gain.speaker, &adev->eq_data.p_gain.spdif_arc,
+                &adev->eq_data.p_gain.headphone);
+        ALOGI("%s() audio device gain: speaker:%f, spdif_arc:%f, headphone:%f", __func__,
+        adev->eq_data.p_gain.speaker, adev->eq_data.p_gain.spdif_arc,
+        adev->eq_data.p_gain.headphone);
+        goto exit;
+    }
+
+    ret = str_parms_get_int(parms, "EQ_MODE", &val);
+    if (ret >= 0) {
+        if (eq_mode_set(&adev->eq_data, val) < 0)
+            ALOGE("%s: eq_mode_set failed", __FUNCTION__);
+        goto exit;
+    }
+
+exit:
+    return ret;
+}
+

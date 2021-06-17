@@ -17,16 +17,17 @@
 #ifndef _AUDIO_EQ_DRC_COMPENSATION_H_
 #define _AUDIO_EQ_DRC_COMPENSATION_H_
 
+#include <cutils/str_parms.h>
 #include "audio_eq_drc_parser.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-int eq_mode_set(struct eq_drc_data *pdata, int eq_mode);
 int eq_drc_init(struct eq_drc_data *pdata);
 int eq_drc_release(struct eq_drc_data *pdata);
 int ext_eq_mode_set(struct eq_drc_data *pdata, int eq_mode, int amp_num);
+int set_AQ_parameters(struct audio_hw_device *dev, struct str_parms *parms);
 
 #ifdef __cplusplus
 }

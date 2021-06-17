@@ -20,7 +20,6 @@
 #include <cutils/atomic.h>
 #include <cutils/log.h>
 #include <cutils/properties.h>
-#include <cutils/str_parms.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <hardware/hardware.h>
@@ -123,13 +122,14 @@ static void dtv_do_ease_out(struct aml_audio_device *aml_dev)
 {
     if (aml_dev && aml_dev->audio_ease) {
         ALOGI("%s(), do fade out", __func__);
-        start_ease_out(aml_dev);
+        start_ease_out(aml_dev->audio_ease, aml_dev->is_TV);
         if (aml_dev->is_TV)
             usleep(AUDIO_FADEOUT_TV_SLEEP_US);
         else
             usleep(AUDIO_FADEOUT_STB_SLEEP_US);
     }
 }
+
 static void dtv_check_audio_reset()
 {
     ALOGI("reset dtv audio port\n");
@@ -250,7 +250,7 @@ static int get_video_discontinue(void)
     return pcr_vdiscontinue;
 }
 
-int dtv_patch_handle_event(struct audio_hw_device *dev,int cmd, int val) {
+static int dtv_patch_handle_event(struct audio_hw_device *dev, int cmd, int val) {
 
     struct aml_audio_device *adev = (struct aml_audio_device *) dev;
     struct aml_audio_patch *patch = adev->audio_patch;
@@ -3382,7 +3382,6 @@ static int release_dtv_output_stream_thread(struct aml_audio_patch *patch)
     return 0;
 }
 
-
 static int create_dtv_input_stream_thread(struct aml_audio_patch *patch)
 {
     int ret = 0;
@@ -3661,7 +3660,6 @@ bool is_dtv_patch_alive(struct aml_audio_device *aml_dev)
     return ret;
 }
 
-
 int audio_decoder_status(unsigned int *perror_count)
 {
     int ret = 0;
@@ -3674,7 +3672,6 @@ int audio_decoder_status(unsigned int *perror_count)
 
     return ret;
 }
-
 
 #if 0
 void release_dtvin_buffer(struct aml_audio_patch *patch)
@@ -3707,6 +3704,7 @@ void dtv_in_write(struct audio_stream_out *stream, const void* buffer, size_t by
     }
     //ALOGI("[%s] dtvin write ringbuffer successfully,abuf_level=%d", __FUNCTION__,abuf_level);
 }
+
 int dtv_in_read(struct audio_stream_in *stream, void* buffer, size_t bytes)
 {
     int ret = 0;
@@ -3740,4 +3738,120 @@ int dtv_in_read(struct audio_stream_in *stream, void* buffer, size_t bytes)
     return ret;
 }
 
+int set_dtv_parameters(struct audio_hw_device *dev, struct str_parms *parms)
+{
+    struct aml_audio_device *adev = (struct aml_audio_device *)dev;
+    int ret = -1, val = 0;
+
+    /* dvb cmd deal with start */
+    ret = str_parms_get_int(parms, "hal_param_dtv_patch_cmd", &val);
+    if (ret >= 0) {
+        dtv_patch_handle_event(dev, AUDIO_DTV_PATCH_CMD_CONTROL, val);
+        goto exit;
+    }
+
+    ret = str_parms_get_int(parms, "hal_param_dual_dec_support", &val);
+    if (ret >= 0) {
+        dtv_patch_handle_event(dev, AUDIO_DTV_PATCH_CMD_SET_AD_SUPPORT ,val);
+        goto exit;
+    }
+
+    ret = str_parms_get_int(parms, "hal_param_ad_mix_enable", &val);
+    if (ret >= 0) {
+        dtv_patch_handle_event(dev, AUDIO_DTV_PATCH_CMD_SET_AD_ENABLE ,val);
+        goto exit;
+    }
+
+    ret = str_parms_get_int(parms, "hal_param_media_sync_id", &val);
+    if (ret >= 0) {
+        dtv_patch_handle_event(dev, AUDIO_DTV_PATCH_CMD_SET_MEDIA_SYNC_ID ,val);
+        goto exit;
+    }
+
+    ret = str_parms_get_int(parms, "ad_switch_enable", &val);
+    if (ret >= 0) {
+        adev->ad_switch_enable = val;
+        dtv_patch_handle_event(dev, AUDIO_DTV_PATCH_CMD_SET_AD_ENABLE, val);
+        ALOGI("ad_switch_enable set to %d\n", adev->associate_audio_mixing_enable);
+        goto exit;
+    }
+
+    ret = str_parms_get_int(parms, "dual_decoder_advol_level", &val);
+    if (ret >= 0) {
+
+        dtv_patch_handle_event(dev, AUDIO_DTV_PATCH_CMD_SET_AD_VOL_LEVEL, val);
+        goto exit;
+    }
+
+    ret = str_parms_get_int(parms, "hal_param_dual_dec_mix_level", &val);
+    if (ret >= 0) {
+
+        dtv_patch_handle_event(dev, AUDIO_DTV_PATCH_CMD_SET_AD_MIX_LEVEL, val);
+        goto exit;
+    }
+    ret = str_parms_get_int(parms, "hal_param_security_mem_level", &val);
+    if (ret >= 0) {
+        dtv_patch_handle_event(dev, AUDIO_DTV_PATCH_CMD_SET_SECURITY_MEM_LEVEL, val);
+        goto exit;
+    }
+    ret = str_parms_get_int(parms, "hal_param_audio_output_mode", &val);
+    if (ret >= 0) {
+        dtv_patch_handle_event(dev, AUDIO_DTV_PATCH_CMD_SET_OUTPUT_MODE, val);
+        goto exit;
+    }
+    ret = str_parms_get_int(parms, "hal_param_dtv_demux_id", &val);
+    if (ret >= 0) {
+        dtv_patch_handle_event(dev, AUDIO_DTV_PATCH_CMD_SET_DEMUX_INFO, val);
+        goto exit;
+    }
+    ret = str_parms_get_int(parms, "hal_param_dtv_pid", &val);
+    if (ret >= 0) {
+        dtv_patch_handle_event(dev, AUDIO_DTV_PATCH_CMD_SET_PID, val);
+        goto exit;
+    }
+
+    ret = str_parms_get_int(parms, "hal_param_dtv_fmt", &val);
+    if (ret >= 0) {
+        dtv_patch_handle_event(dev, AUDIO_DTV_PATCH_CMD_SET_FMT, val);
+        goto exit;
+    }
+    ret = str_parms_get_int(parms, "hal_param_dtv_audio_fmt", &val);
+    if (ret >= 0) {
+        dtv_patch_handle_event(dev, AUDIO_DTV_PATCH_CMD_SET_FMT, val);
+        goto exit;
+    }
+
+    ret = str_parms_get_int(parms, "hal_param_dtv_audio_id", &val);
+    if (ret >= 0) {
+        dtv_patch_handle_event(dev, AUDIO_DTV_PATCH_CMD_SET_PID, val);
+        goto exit;
+    }
+
+    ret = str_parms_get_int(parms, "hal_param_dtv_sub_audio_fmt", &val);
+    if (ret >= 0) {
+        dtv_patch_handle_event(dev, AUDIO_DTV_PATCH_CMD_SET_AD_FMT, val);
+        goto exit;
+    }
+
+    ret = str_parms_get_int(parms, "hal_param_dtv_sub_audio_pid", &val);
+    if (ret >= 0) {
+        dtv_patch_handle_event(dev, AUDIO_DTV_PATCH_CMD_SET_AD_PID, val);
+        goto exit;
+    }
+
+    ret = str_parms_get_int(parms, "hal_param_has_dtv_video", &val);
+    if (ret >= 0) {
+        dtv_patch_handle_event(dev, AUDIO_DTV_PATCH_CMD_SET_HAS_VIDEO, val);
+        goto exit;
+    }
+
+    ret = str_parms_get_int(parms, "hal_param_tv_mute", &val);
+    if (ret >= 0) {
+        dtv_patch_handle_event(dev, AUDIO_DTV_PATCH_CMD_SET_MUTE, val);
+        goto exit;
+    }
+    /* dvb cmd deal with end */
+exit:
+    return ret;
+}
 
