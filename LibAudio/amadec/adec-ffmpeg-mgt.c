@@ -59,7 +59,7 @@ static void stop_decode_thread(aml_audio_dec_t *audec);
 #define AD_MIXER_BUF_SIZE  128 * 1024
 
 #define AD_PACK_STATUS_DROP_THRESHOLD (600 * 90)
-#define AD_PACK_STATUS_HOLD_THRESHOLD (200 * 90)
+#define AD_PACK_STATUS_HOLD_THRESHOLD (500 * 90)
 
 typedef enum  {
     AD_PACK_STATUS_NORMAL,

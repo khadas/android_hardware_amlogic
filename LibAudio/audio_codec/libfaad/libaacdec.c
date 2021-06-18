@@ -105,6 +105,7 @@ typedef struct FaadContext {
     int64_t endtime;
     bool filter_heaac;
     bool isDetectFormatDisable;//Fixme: default value as false
+    int  success_count;
 } FaadContext;
 
 //typedef int (*findsyncfunc)(unsigned char *buf, int nBytes);
@@ -299,6 +300,7 @@ int audio_dec_init(
     gFaadCxt->header_type = 1; //default adts
     gFaadCxt->filter_heaac = property_get_bool(PROPERTY_FILTER_HEAAC, false);
     gFaadCxt->isDetectFormatDisable = property_get_bool(PROPERTY_FAAD_DETECT_FORMAT_DISABLE, false);
+    gFaadCxt->success_count = 0;
     audio_codec_print("got property %s %s\n", PROPERTY_FAAD_DETECT_FORMAT_DISABLE, gFaadCxt->isDetectFormatDisable ? "true": "false");
     return 0;
 }
@@ -319,9 +321,45 @@ static int audio_decoder_init(
     int nReadLen = 0;
     FaadContext *gFaadCxt  = (FaadContext*)adec_ops->pdecoder;
     int islatm = 0;
+
     if (!in_buf || !inbuf_size || !outbuf) {
         audio_codec_print(" input/output buffer null or input len is 0 \n");
     }
+
+
+    {
+        int latmheader_detected = 0,adtsheader_detected = 0;
+        int nSeekNum = AACFindLATMSyncWord((unsigned char *)in_buf, inbuf_size);
+        if (nSeekNum == (inbuf_size - 1)) {
+              audio_codec_print("%d bytes data not found latm sync header \n", nSeekNum);
+
+        } else {
+            latmheader_detected = 1;
+            audio_codec_print(" latm header detected nSeekNum %d \n", nSeekNum);
+        }
+        nSeekNum = AACFindADTSSyncWord((unsigned char *)in_buf, inbuf_size);
+        if (nSeekNum == (inbuf_size - 1)) {
+              audio_codec_print("%d bytes data not found adts sync header \n", nSeekNum);
+
+        } else {
+             adtsheader_detected = 1;
+             audio_codec_print(" adts head detected  nSeekNum %d", nSeekNum);
+        }
+        if (adec_ops->nAudioDecoderType == ACODEC_FMT_AAC_LATM) {
+            if (latmheader_detected && !adtsheader_detected) {
+                gFaadCxt->isDetectFormatDisable = true;
+            }
+        }
+
+        if (adec_ops->nAudioDecoderType == ACODEC_FMT_AAC) {
+            if (latmheader_detected && !adtsheader_detected) {
+                gFaadCxt->isDetectFormatDisable = true;
+                adec_ops->nAudioDecoderType = ACODEC_FMT_AAC_LATM;
+            }
+        }
+
+    }
+
 retry:
     if (gFaadCxt->isDetectFormatDisable == true) {
         /*
@@ -363,7 +401,6 @@ retry:
             inbuf_size = 0;
         }
         audio_codec_print("init fail,inbuf_size %d \n", inbuf_size);
-
         if (inbuf_size < (int)(get_frame_size(gFaadCxt) + FRAME_SIZE_MARGIN) || skipbytes == 0) {
             audio_codec_print("skipbytes/%d inbuf_size/%d get_frame_size()/%d ,need more data \n",skipbytes, inbuf_size, (get_frame_size(gFaadCxt) + FRAME_SIZE_MARGIN));
             *inbuf_consumed = inlen - inbuf_size;
@@ -371,11 +408,18 @@ retry:
         }
         goto retry;
     }
-    audio_codec_print("init sucess cost %d\n", ret);
+    audio_codec_print("init sucess cost %d gFaadCxt->success_count %d\n", ret, gFaadCxt->success_count);
+    NeAACDecStruct* hDecoder = (NeAACDecStruct*)(gFaadCxt->hDecoder);
+    if (hDecoder->adts_header_present) {
+        gFaadCxt->success_count++;
+        in_buf += skipbytes;
+        inbuf_size -= skipbytes;
+        if (gFaadCxt->success_count < 2)
+            goto retry;
+    }
     in_buf += ret;
     inbuf_size -= ret;
     *inbuf_consumed = inlen -    inbuf_size;
-    NeAACDecStruct* hDecoder = (NeAACDecStruct*)(gFaadCxt->hDecoder);
     gFaadCxt->init_flag = 1;
     gFaadCxt->gChannels = channels;
     gFaadCxt->gSampleRate = samplerate;
