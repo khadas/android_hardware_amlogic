@@ -27,4 +27,5 @@ uint32_t out_get_ms12_latency_frames(struct audio_stream_out *stream);
 
 uint32_t out_get_ms12_bitstream_latency_ms(struct audio_stream_out *stream);
 
+int aml_audio_get_nonms12_tunnel_latency(struct audio_stream_out * stream);
 

@@ -136,6 +136,14 @@
 #define  AVSYNC_MS12_NETFLIX_TUNNEL_ATMOS_LATENCY_PROPERTY       "vendor.media.audio.hal.ms12.netflix.tunnel.atmos"
 
 
+/*below DDP tunning is for NonMS12*/
+#define  AVSYNC_NONMS12_NETFLIX_TUNNEL_PCM_LATENCY          (0)
+#define  AVSYNC_NONMS12_NETFLIX_TUNNEL_DDP_LATENCY          (30)
+
+#define  AVSYNC_NONMS12_NETFLIX_TUNNEL_PCM_LATENCY_PROPERTY         "vendor.media.audio.hal.nonms12.netflix.tunnel.pcm"
+#define  AVSYNC_NONMS12_NETFLIX_TUNNEL_DDP_LATENCY_PROPERTY         "vendor.media.audio.hal.nonms12.netflix.tunnel.ddp"
+
+
 /*below DDP tunning is for roku tv*/
 #define  AVSYNC_DDP_NONTUNNEL_PCM_LATENCY               (0)
 #define  AVSYNC_DDP_NONTUNNEL_RAW_LATENCY               (0)
