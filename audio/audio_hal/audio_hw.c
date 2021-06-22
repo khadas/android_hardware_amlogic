@@ -6623,12 +6623,15 @@ hwsync_rewrite:
                         aml_hwsync_wait_video_drop(aml_out->hwsync, apts32);
                     } else {
                         uint64_t apts;
-                        uint64_t latency = out_get_latency (stream) * 90;
+                        uint32_t latency = out_get_latency(stream);
+                        int tunning_latency = aml_audio_get_nonms12_tunnel_latency(stream) / 48;
+                        int latency_pts = (latency + tunning_latency) * 90; // latency ms-->pts
+                        ALOGD("%s latency:%u, tunning_latency:%d", __func__, latency, tunning_latency);
                         // check PTS discontinue, which may happen when audio track switching
                         // discontinue means PTS calculated based on first_apts and frame_write_sum
                         // does not match the timestamp of next audio samples
-                        if (cur_pts > latency) {
-                            apts = cur_pts - latency;
+                        if (cur_pts > latency_pts) {
+                            apts = cur_pts - latency_pts;
                         } else {
                             apts = 0;
                         }
@@ -6638,7 +6641,15 @@ hwsync_rewrite:
                             apts32 = 1 * 90;
                         }
                     }
+
+                    uint32_t pcr = 0;
+                    int pcr_pts_gap = 0;
+                    ret = aml_hwsync_get_tsync_pts(aml_out->hwsync, &pcr);
                     aml_hwsync_reset_tsync_pcrscr(aml_out->hwsync, apts32);
+                    pcr_pts_gap = ((int)(apts32 - pcr)) / 90;
+                    if (abs(pcr_pts_gap) > 50) {
+                        ALOGI("%s pcr =%u pts =%d,  diff =%d ms", __func__, pcr/90, apts32/90, pcr_pts_gap);
+                    }
                 } else {
 
                     if (hw_sync->first_apts_flag == false) {
