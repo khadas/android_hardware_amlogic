@@ -38,6 +38,7 @@
 
 extern unsigned long decoder_apts_lookup(unsigned int offset);
 
+/*now th latency api is just used for DTV doing avsync by useing mediasync */
 int aml_audio_get_cur_ms12_latency(struct audio_stream_out *stream) {
 
     struct aml_stream_out *aml_out = (struct aml_stream_out *) stream;
@@ -50,10 +51,14 @@ int aml_audio_get_cur_ms12_latency(struct audio_stream_out *stream) {
     uint64_t inputnode_consumed = dolby_ms12_get_main_bytes_consumed(stream);
     uint64_t frames_generated = dolby_ms12_get_main_pcm_generated(stream);
     if (is_dolby_ms12_support_compression_format(aml_out->hal_internal_format)) {
-        if (demux_info->dual_decoder_support)
+        /*for ms12 dual_decoder_support input node latency can not be calculated, AC4 and MAT frame is not 32ms*/
+        if (demux_info->dual_decoder_support ||
+            aml_out->hal_internal_format == AUDIO_FORMAT_AC4 ||
+            aml_out->hal_internal_format == AUDIO_FORMAT_MAT) {
             ms12_latencyms = (frames_generated - ms12->master_pcm_frames) / 48;
-        else
+       } else {
             ms12_latencyms = (ms12->ms12_main_input_size - inputnode_consumed) / aml_out->ddp_frame_size * 32 + (frames_generated - ms12->master_pcm_frames) / 48;
+       }
     } else {
         ms12_latencyms = ((ms12->ms12_main_input_size - inputnode_consumed ) / 4 + frames_generated - ms12->master_pcm_frames) / 48;
     }
