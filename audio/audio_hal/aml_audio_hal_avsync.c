@@ -782,10 +782,8 @@ static int dtv_audio_tune_check(struct aml_audio_patch *patch, int cur_pts_diff,
         return 1;
     }
     if (patch->dtv_audio_tune != AUDIO_RUNNING) {
-        uint demux_apts = 0;
-        get_sysfs_uint(TSYNC_CHECKIN_APTS, &demux_apts);
-        /*if demux apts is less pcrpts, don`t tune avsync*/
-        if (demux_apts && (int)demux_apts != -1 && patch->last_pcrpts > demux_apts) {
+        if (dtv_avsync_audio_freerun(patch)) {
+            patch->dtv_audio_tune = AUDIO_RUNNING;
             return 1;
         }
     }
@@ -1108,6 +1106,28 @@ void process_pts_sync(unsigned int pcm_lancty, struct aml_audio_patch *patch,
     }
 }
 
+bool dtv_avsync_audio_freerun(struct aml_audio_patch* patch)
+{
+    unsigned int demux_apts = 0, cur_pcr = 0;
+
+    get_sysfs_uint(TSYNC_CHECKIN_APTS, &demux_apts);
+    if (patch->last_pcrpts) {
+        cur_pcr = patch->last_pcrpts;
+    } else {
+        get_sysfs_uint(TSYNC_PCRSCR, &cur_pcr);
+    }
+    if (demux_apts && cur_pcr && (int)demux_apts != -1 && (int)cur_pcr != -1) {
+        if (demux_apts < cur_pcr - DTV_PTS_CORRECTION_THRESHOLD * 5 ||
+            demux_apts > cur_pcr + patch->a_discontinue_threshold) {
+            return true;
+        }
+    }
+    if (patch->dtv_audio_mode == 1) {
+        return true;
+    }
+    return false;
+}
+
 /* +[SE] [BUG][SWPL-21070][yinli.xia] startplay strategy choose*/
 void dtv_avsync_get_ptsinfo(struct aml_audio_patch* patch)
 {
@@ -1385,6 +1405,9 @@ void dtv_avsync_process(struct aml_audio_patch* patch, struct aml_stream_out* st
             aml_dev->start_mute_flag = 0;
         } else if (getprop_bool("vendor.media.audio.syncshow")) {
             ALOGI("need sync show, clear start_mute_flag\n");
+            aml_dev->start_mute_flag = 0;
+        } else if (dtv_avsync_audio_freerun(patch)) {
+            ALOGI("audio is freerun, clear start_mute_flag\n");
             aml_dev->start_mute_flag = 0;
         }
     }

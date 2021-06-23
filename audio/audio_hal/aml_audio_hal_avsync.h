@@ -160,6 +160,7 @@ extern unsigned long decoder_apts_lookup(unsigned int offset);
 
 void dtv_adjust_i2s_output_clock(struct aml_audio_patch* patch, int direct, int step);
 void dtv_adjust_spdif_output_clock(struct aml_audio_patch* patch, int direct, int step, bool spdifb);
+bool dtv_avsync_audio_freerun(struct aml_audio_patch* patch);
 
 
 

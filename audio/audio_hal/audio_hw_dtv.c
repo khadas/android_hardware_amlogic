@@ -790,7 +790,7 @@ void dtv_audio_gap_monitor(struct aml_audio_patch *patch)
         cur_pts_diff = patch->last_pcrpts - patch->last_apts;
         if (audio_discontinue == 0 &&
             abs(cur_pts_diff) > DTV_PTS_CORRECTION_THRESHOLD * 5 &&
-            get_video_discontinue() != 1) {
+            get_video_discontinue() != 1 && !dtv_avsync_audio_freerun(patch)) {
             audio_discontinue = 1;
             get_sysfs_uint(TSYNC_CHECKIN_APTS, &demux_apts);
             ALOGI("cur_pts_diff=%d, diff=%d ms, apts=0x%x, pcrpts=0x%x, demux_apts=0x%x\n",
