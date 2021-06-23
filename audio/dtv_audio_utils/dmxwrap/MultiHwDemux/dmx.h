@@ -211,6 +211,10 @@ struct dmx_pes_filter_params
 #define DMX_MEM_SEC_LEVEL1   (1 << 10)
 #define DMX_MEM_SEC_LEVEL2   (1 << 11)
 #define DMX_MEM_SEC_LEVEL3   (1 << 12)
+#define DMX_MEM_SEC_LEVEL4   (4 << 10)
+#define DMX_MEM_SEC_LEVEL5   (5 << 10)
+#define DMX_MEM_SEC_LEVEL6   (6 << 10)
+#define DMX_MEM_SEC_LEVEL7   (7 << 10)
 
 #define DMX_ES_OUTPUT        (1 << 16)
 #define DMX_OUTPUT_RAW_MODE       (1 << 17)
