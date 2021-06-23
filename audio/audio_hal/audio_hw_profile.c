@@ -1549,9 +1549,6 @@ char *out_get_parameters_wrapper_about_sup_sampling_rates__channels__formats(con
             } else {
                 if (out->flags & AUDIO_OUTPUT_FLAG_COMPRESS_OFFLOAD) {
                         cap = (char *) get_offload_cap(AUDIO_PARAMETER_STREAM_SUP_SAMPLING_RATES,format);
-                } else if ((format == AUDIO_FORMAT_PCM_16_BIT || format == AUDIO_FORMAT_PCM_32_BIT) &&
-                    strstr (keys, AUDIO_PARAMETER_STREAM_SUP_CHANNELS) && adev->dolby_lib_type == eDolbyMS12Lib) {
-                    cap = strdup ("sup_channels=AUDIO_CHANNEL_OUT_STEREO");
                 } else {
                     cap = (char *)get_hdmi_sink_cap_new(keys,format,&(adev->hdmi_descs));
 
