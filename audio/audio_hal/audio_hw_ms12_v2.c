@@ -1645,6 +1645,13 @@ static ssize_t aml_ms12_spdif_output_new (struct audio_stream_out *stream,
         ALOGV("drop some bypass frame at the beginning");
         return 0;
     }
+    if (bitstream_desc->is_bypass_ms12) {
+        if (ms12->main_volume < FLOAT_ZERO) {
+            aml_audio_spdifout_mute(bitstream_desc->spdifout_handle, 1);
+        } else {
+            aml_audio_spdifout_mute(bitstream_desc->spdifout_handle, 0);
+        }
+    }
     ret = aml_audio_spdifout_processs(bitstream_desc->spdifout_handle, buffer, byte);
 
 
@@ -1728,6 +1735,11 @@ int dolby_ms12_bypass_process(struct audio_stream_out *stream, void *buffer, siz
         }
 
         bitstream_out->audio_format = output_format;
+        if (ms12->main_volume < FLOAT_ZERO) {
+            aml_audio_spdifout_mute(bitstream_out->spdifout_handle, 1);
+        } else {
+            aml_audio_spdifout_mute(bitstream_out->spdifout_handle, 0);
+        }
         ret = aml_audio_spdifout_processs(bitstream_out->spdifout_handle, buffer, bytes);
     }
 
