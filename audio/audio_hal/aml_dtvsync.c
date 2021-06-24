@@ -583,11 +583,12 @@ int aml_dtvsync_process_resample(struct audio_stream_out *stream,
         if (speed != aml_out->output_speed) {
             ALOGE("aml_audio_set_output_speed set speed :%f --> %f.\n",
                 aml_out->output_speed, speed);
-            aml_out->output_speed = speed;
         }
 
     } else
         *speed_enabled = false;
+
+    aml_out->output_speed = speed;
 
     return 0;
 }
