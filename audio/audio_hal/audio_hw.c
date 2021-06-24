@@ -906,6 +906,8 @@ static int out_flush (struct audio_stream_out *stream)
     bool hwsync_lpcm = (out->flags & AUDIO_OUTPUT_FLAG_HW_AV_SYNC && out->config.rate  <= 48000 &&
                         audio_is_linear_pcm(out->hal_internal_format) && channel_count <= 2);
     do_standby_func standy_func = NULL;
+
+    out->write_count = 0;
     /* VTS: a stream should always succeed to flush
      * hardware/libhardware/include/hardware/audio.h: Stream must already
      * be paused before calling flush(), we check and complain this case
@@ -1397,6 +1399,7 @@ static int out_resume (struct audio_stream_out *stream)
     bool hwsync_lpcm = (out->flags & AUDIO_OUTPUT_FLAG_HW_AV_SYNC && out->config.rate  <= 48000 &&
                         audio_is_linear_pcm(out->hal_internal_format) && channel_count <= 2);
 
+    out->write_count = 0;
     aml_audio_trace_int("out_resume", 1);
     pthread_mutex_lock (&adev->lock);
     pthread_mutex_lock (&out->lock);
@@ -3153,6 +3156,7 @@ static int adev_open_output_stream(struct audio_hw_device *dev,
     out->need_drop_size = 0;
     out->position_update = 0;
     out->inputPortID = -1;
+    out->write_count = 0;
 
     if (flags & AUDIO_OUTPUT_FLAG_MMAP_NOIRQ) {
         if ((eDolbyMS12Lib == adev->dolby_lib_type) &&
@@ -6469,42 +6473,54 @@ hwsync_rewrite:
                 //we take this frame pts as the first apts.
                 //this can fix the seek discontinue,we got a fake frame,which maybe cached before the seek
                 if (hw_sync->use_mediasync) {
-                    if (hw_sync->first_apts_flag == false) {
-                        apts32 = cur_pts & 0xffffffff;
-                         /*if the pts is zero, to avoid video pcr not set issue, we just set it as 1ms*/
-                        if (apts32 == 0) {
-                            apts32 = 1 * 90;
-                        }
-                        aml_audio_hwsync_set_first_pts(aml_out->hwsync, apts32);
-                        aml_hwsync_wait_video_start(aml_out->hwsync);
-                        aml_hwsync_wait_video_drop(aml_out->hwsync, apts32);
+                    uint64_t apts;
+                    uint32_t latency_alsa = out_get_latency(stream);
+                    int tunning_latency = aml_audio_get_nonms12_tunnel_latency(stream) / 48;
+                    int latency_pts = (latency_alsa + tunning_latency) * 90; // latency ms-->pts
+                    ALOGV("%s latency_alsa:%u, tunning_latency:%d, cur_pts:%llu", __func__, latency_alsa, tunning_latency, cur_pts/90);
+                    // check PTS discontinue, which may happen when audio track switching
+                    // discontinue means PTS calculated based on first_apts and frame_write_sum
+                    // does not match the timestamp of next audio samples
+                    if (cur_pts > latency_pts) {
+                        apts = cur_pts - latency_pts;
                     } else {
-                        uint64_t apts;
-                        uint32_t latency = out_get_latency(stream);
-                        int tunning_latency = aml_audio_get_nonms12_tunnel_latency(stream) / 48;
-                        int latency_pts = (latency + tunning_latency) * 90; // latency ms-->pts
-                        // check PTS discontinue, which may happen when audio track switching
-                        // discontinue means PTS calculated based on first_apts and frame_write_sum
-                        // does not match the timestamp of next audio samples
-                        if (cur_pts > latency_pts) {
-                            apts = cur_pts - latency_pts;
-                        } else {
-                            apts = 0;
-                        }
-                        apts32 = apts & 0xffffffff;
-                        /*if the pts is zero, to avoid video pcr not set issue, we just set it as 1ms*/
-                        if (apts32 == 0) {
-                            apts32 = 1 * 90;
-                        }
+                        apts = 0;
+                    }
+                    apts32 = apts & 0xffffffff;
+                    /*if the pts is zero, to avoid video pcr not set issue, we just set it as 1ms*/
+                    if (apts32 == 0) {
+                        apts32 = 1 * 90;
                     }
 
-                    uint32_t pcr = 0;
-                    int pcr_pts_gap = 0;
-                    ret = aml_hwsync_get_tsync_pts(aml_out->hwsync, &pcr);
-                    aml_hwsync_reset_tsync_pcrscr(aml_out->hwsync, apts32);
-                    pcr_pts_gap = ((int)(apts32 - pcr)) / 90;
-                    if (abs(pcr_pts_gap) > 50) {
-                        ALOGI("%s pcr =%u pts =%d,  diff =%d ms", __func__, pcr/90, apts32/90, pcr_pts_gap);
+                    /* video will drop frames from HEAAC to DDP51 in NTS fly audio cases,
+                    ** the reason is that alsa threshold is emplty,
+                    ** so pts update too quickly the first four times.
+                    ** Here drop 3 packages pts for nonDolby DDP51 cases,
+                    ** the other player not drop any pts.
+                    */
+                    int write_drop_threshold;
+                    if (adev->is_netflix) {
+                        write_drop_threshold = 3;
+                    } else {
+                        write_drop_threshold = 0;
+                    }
+                    if (aml_out->write_count > write_drop_threshold) {
+                        if (hw_sync->first_apts_flag == false) {
+                            aml_audio_hwsync_set_first_pts(aml_out->hwsync, apts32);
+                            aml_hwsync_wait_video_start(aml_out->hwsync);
+                            aml_hwsync_wait_video_drop(aml_out->hwsync, apts32);
+                        }
+
+                        uint32_t pcr = 0;
+                        int pcr_pts_gap = 0;
+                        ret = aml_hwsync_get_tsync_pts(aml_out->hwsync, &pcr);
+                        aml_hwsync_reset_tsync_pcrscr(aml_out->hwsync, apts32);
+                        pcr_pts_gap = ((int)(apts32 - pcr)) / 90;
+                        if (abs(pcr_pts_gap) > 50) {
+                            ALOGI("%s pcr =%u pts =%d,  diff =%d ms", __func__, pcr/90, apts32/90, pcr_pts_gap);
+                        }
+                    } else {
+                        ALOGI("%s  write_count:%d, drop this pts", __func__, aml_out->write_count);
                     }
                 } else {
 
