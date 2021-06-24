@@ -601,6 +601,8 @@ static int check_input_parameters(uint32_t sample_rate, audio_format_t format, i
             ALOGD("%s: audio patch input device %x", __FUNCTION__, devices);
             return 0;
         } else {
+            if ((channel_count == 2) && ((sample_rate == 8000) || (sample_rate == 16000) || (sample_rate == 32000) || (sample_rate == 44100)))
+                return -ENOSYS;
             ALOGD("%s: unspported audio patch input device %x", __FUNCTION__, devices);
             return -EINVAL;
         }

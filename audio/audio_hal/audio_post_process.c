@@ -75,7 +75,8 @@ int audio_post_process(struct aml_native_postprocess *native_postprocess, int16_
                 /* do 2 channel processing */
                 in_buf.frameCount = out_buf.frameCount = frames;
                 in_buf.s16 = out_buf.s16 = in_buffer;
-                ret = (*effect)->process(effect, &in_buf, &out_buf);
+                if ((*effect)->process)
+                    ret = (*effect)->process(effect, &in_buf, &out_buf);
             }
         }
     }
