@@ -507,18 +507,27 @@ int dtv_patch_get_latency(struct aml_audio_device *aml_dev)
              ALOGI("last_queue_es_apts %lld",last_queue_es_apts);
              patch->last_chenkin_apts = last_queue_es_apts;
         }
-        if (patch->skip_amadec_flag) {
-            latencyms = (patch->last_chenkin_apts - patch->dtvsync->cur_outapts) / 90;
-        } else {
-            latencyms = (patch->last_chenkin_apts - patch->cur_outapts) / 90;
+        ALOGI("lastcheckinapts %d patch->cur_outapts %d patch->dtvsync->cur_outapts %lld",
+            patch->last_chenkin_apts, patch->cur_outapts, patch->dtvsync->cur_outapts);
+        if (patch->last_chenkin_apts != 0xffffffff) {
+            if (patch->skip_amadec_flag) {
+                if (patch->dtvsync->cur_outapts > 0 && patch->last_chenkin_apts - patch->dtvsync->cur_outapts)
+                    latencyms = (patch->last_chenkin_apts - patch->dtvsync->cur_outapts) / 90;
+            } else {
+                if (patch->cur_outapts > 0 && patch->last_chenkin_apts > patch->cur_outapts)
+                    latencyms = (patch->last_chenkin_apts - patch->cur_outapts) / 90;
+            }
         }
     } else {
         uint lastcheckinapts = 0;
         get_sysfs_uint(TSYNC_LAST_CHECKIN_APTS, &lastcheckinapts);
         ALOGI("lastcheckinapts %d patch->cur_outapts %d", lastcheckinapts, patch->cur_outapts);
         patch->last_chenkin_apts = lastcheckinapts;
-        if (patch->last_chenkin_apts > patch->cur_outapts && patch->cur_outapts > 0)
-            latencyms = (patch->last_chenkin_apts - patch->cur_outapts) / 90;
+        if (patch->last_chenkin_apts != 0xffffffff) {
+            if (patch->last_chenkin_apts > patch->cur_outapts && patch->cur_outapts > 0)
+                latencyms = (patch->last_chenkin_apts - patch->cur_outapts) / 90;
+        }
+
     }
     return latencyms;
 }
@@ -2190,6 +2199,7 @@ static void *audio_dtv_patch_process_threadloop(void *data)
                 patch->dtv_first_apts_flag = 0;
                 patch->outlen_after_last_validpts = 0;
                 patch->last_valid_pts = 0;
+                patch->cur_outapts  = 0;
                 patch->first_apts_lookup_over = 0;
                 patch->ac3_pcm_dropping = 0;
                 patch->last_audio_delay = 0;
