@@ -113,32 +113,35 @@ void* AM_DMX_Device::dmx_data_thread(void *arg)
                         if (ret == AM_SUCCESS) {
                             read_len += sec_len;
                         }
-                    } while (dev->enable_thread && read_len < sizeof(struct dmx_non_sec_es_header));
+                    } while (dev->enable_thread && !filter->to_be_stopped  && read_len < sizeof(struct dmx_non_sec_es_header));
 
                     /* 2 read data */
-                    header_es = (struct dmx_non_sec_es_header *)sec_buf;
-                    sec_len = header_es->len;
-                    if (header_es->len < 0 ||
-                        (header_es->len > (BUF_SIZE - sizeof(struct dmx_non_sec_es_header)))) {
-                        ALOGI("data len invalid %d ", header_es->len );
-                        header_es->len = 0;
-                        ret = AM_DMX_ERR_NO_DATA;
-                        continue;
+                    if (ret != AM_SUCCESS) {
+                        ALOGE("dmx read header data err %0x ", ret );
+                    } else {
+                        header_es = (struct dmx_non_sec_es_header *)sec_buf;
+                        sec_len = header_es->len;
+                        if (header_es->len < 0 ||
+                            (header_es->len > (BUF_SIZE - sizeof(struct dmx_non_sec_es_header)))) {
+                            ALOGI("data len invalid %d ", header_es->len );
+                            header_es->len = 0;
+                            ret = AM_DMX_ERR_NO_DATA;
+                        } else {
+                            read_len = 0;
+                            do {
+                                  ret  = dev->drv->dvb_read(dev, filter, sec_buf + read_len + sizeof(struct dmx_non_sec_es_header), &sec_len);
+                                  if (ret == AM_SUCCESS) {
+                                      read_len += sec_len;
+                                      sec_len = header_es->len - read_len;
+                                  }
+                                  if (read_len < header_es->len) {
+                                    ALOGI("ret %d dvb_read audio len  %d frame len %d",ret, read_len ,header_es->len);
+                                    usleep (20000);
+                                  }
+                            } while (dev->enable_thread && !filter->to_be_stopped && read_len < header_es->len);
+                            sec_len = sizeof(struct dmx_non_sec_es_header) + header_es->len;
+                        }
                     }
-                    read_len = 0;
-                    do {
-                          ret  = dev->drv->dvb_read(dev, filter, sec_buf + read_len + sizeof(struct dmx_non_sec_es_header), &sec_len);
-                          if (ret == AM_SUCCESS) {
-                              read_len += sec_len;
-                              sec_len = header_es->len - read_len;
-                          }
-                          if (read_len < header_es->len) {
-                              ALOGI("ret %d dvb_read audio len  %d frame len %d",ret, read_len ,header_es->len);
-                              usleep (20000);
-                          }
-                    } while (dev->enable_thread && !filter->to_be_stopped && read_len < header_es->len);
-                    sec_len = sizeof(struct dmx_non_sec_es_header) + header_es->len;
-
                 }
 #ifndef DMX_WAIT_CB
                 pthread_mutex_unlock(&dev->lock);
