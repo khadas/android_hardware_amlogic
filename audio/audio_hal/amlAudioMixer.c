@@ -185,6 +185,7 @@ int delete_mixer_input_port(struct amlAudioMixer *audio_mixer, uint8_t port_inde
     R_CHECK_PARAM_LEGAL(-EINVAL, port_index, 0, NR_INPORTS, "");
     input_port *in_port = audio_mixer->in_ports[port_index];
     R_CHECK_POINTER_LEGAL(-EINVAL, in_port, "port_index:%d", port_index);
+    pthread_mutex_lock(&audio_mixer->lock);
     pthread_mutex_lock(&audio_mixer->inport_lock);
     free_input_port(in_port);
     audio_mixer->in_ports[port_index] = NULL;
@@ -192,6 +193,7 @@ int delete_mixer_input_port(struct amlAudioMixer *audio_mixer, uint8_t port_inde
     AM_LOGI("input port ID:%d, type:%s, cur mask:%#x", port_index,
         mixerInputType2Str(in_port->enInPortType), audio_mixer->inportsMasks);
     pthread_mutex_unlock(&audio_mixer->inport_lock);
+    pthread_mutex_unlock(&audio_mixer->lock);
     return 0;
 }
 
@@ -1232,15 +1234,21 @@ static void *mixer_16b_threadloop(void *data)
                     MIXER_WRITE_PERIOD_TIME_NANO * 4, MIXER_WRITE_PERIOD_TIME_NANO * 4, 0);
             audio_virtual_buf_process((void *)pstVirtualBuffer, MIXER_WRITE_PERIOD_TIME_NANO * 4);
         }
+        pthread_mutex_lock(&audio_mixer->lock);
         mixer_inports_read(audio_mixer);
+        pthread_mutex_unlock(&audio_mixer->lock);
 
         audio_virtual_buf_process((void *)pstVirtualBuffer, MIXER_WRITE_PERIOD_TIME_NANO);
+        pthread_mutex_lock(&audio_mixer->lock);
         notify_mixer_input_avail(audio_mixer);
         mixer_do_mixing_16bit(audio_mixer);
+        pthread_mutex_unlock(&audio_mixer->lock);
 
         if (!is_submix_disable(audio_mixer)) {
+            pthread_mutex_lock(&audio_mixer->lock);
             mixer_output_write(audio_mixer);
             mixer_update_tstamp(audio_mixer);
+            pthread_mutex_unlock(&audio_mixer->lock);
         }
     }
     if (pstVirtualBuffer != NULL) {
