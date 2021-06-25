@@ -6628,7 +6628,6 @@ hwsync_rewrite:
                         uint32_t latency = out_get_latency(stream);
                         int tunning_latency = aml_audio_get_nonms12_tunnel_latency(stream) / 48;
                         int latency_pts = (latency + tunning_latency) * 90; // latency ms-->pts
-                        ALOGD("%s latency:%u, tunning_latency:%d", __func__, latency, tunning_latency);
                         // check PTS discontinue, which may happen when audio track switching
                         // discontinue means PTS calculated based on first_apts and frame_write_sum
                         // does not match the timestamp of next audio samples
@@ -9508,6 +9507,9 @@ static int adev_open(const hw_module_t* module, const char* name, hw_device_t** 
             goto Err_MS12_MesgThreadCreate;
         }
     }
+
+    /* get default edid of hdmirx */
+    get_current_edid(adev, adev->default_EDID_array, EDID_ARRAY_MAX_LEN);
 
     ALOGD("%s: exit", __func__);
     return 0;

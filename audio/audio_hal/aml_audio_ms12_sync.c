@@ -704,7 +704,7 @@ int aml_audio_get_nonms12_tunnel_latency(struct audio_stream_out * stream)
 
     latency_frames = alsa_delay + tunning_delay;
 
-    ALOGD("latency frames =%d, alsa delay=%d ms  tunning delay=%d ms",
+    ALOGV("latency frames =%d, alsa delay=%d ms  tunning delay=%d ms",
         latency_frames, alsa_delay / 48, tunning_delay / 48);
 
     return latency_frames;

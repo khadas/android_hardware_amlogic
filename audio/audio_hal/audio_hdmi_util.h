@@ -75,7 +75,7 @@ struct format_desc {
 struct aml_arc_hdmi_desc {
     int EDID_length;
     unsigned int avr_port;
-    char SAD[EDID_ARRAY_MAX_LEN];
+    char target_EDID_array[EDID_ARRAY_MAX_LEN];
     bool default_edid;
     struct format_desc pcm_fmt;
     struct format_desc dts_fmt;

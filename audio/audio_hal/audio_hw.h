@@ -357,6 +357,8 @@ struct aml_audio_device {
     struct aml_arc_hdmi_desc hdmi_descs;
     /* Save the HDMI ARC actual capability info. */
     struct aml_arc_hdmi_desc hdmi_arc_capability_desc;
+    /* HDMIRX default EDID */
+    char default_EDID_array[EDID_ARRAY_MAX_LEN];
     int arc_hdmi_updated;
     int a2dp_updated;
     bool need_reset_a2dp;
