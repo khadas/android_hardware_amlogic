@@ -348,6 +348,8 @@ static int audio_decoder_init(
         if (adec_ops->nAudioDecoderType == ACODEC_FMT_AAC_LATM) {
             if (latmheader_detected && !adtsheader_detected) {
                 gFaadCxt->isDetectFormatDisable = true;
+            } else {
+                gFaadCxt->isDetectFormatDisable = false;
             }
         }
 
@@ -410,7 +412,8 @@ retry:
     }
     audio_codec_print("init sucess cost %d gFaadCxt->success_count %d\n", ret, gFaadCxt->success_count);
     NeAACDecStruct* hDecoder = (NeAACDecStruct*)(gFaadCxt->hDecoder);
-    if (hDecoder->adts_header_present) {
+    if (hDecoder->adts_header_present && 
+        adec_ops->nAudioDecoderType == ACODEC_FMT_AAC_LATM) {
         gFaadCxt->success_count++;
         in_buf += skipbytes;
         inbuf_size -= skipbytes;
