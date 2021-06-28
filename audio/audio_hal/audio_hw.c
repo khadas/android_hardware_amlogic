@@ -1316,7 +1316,6 @@ static int out_set_volume (struct audio_stream_out *stream, float left, float ri
 
     /*
      *The Dolby format(dd/ddp/ac4/true-hd/mat) and direct&UI-PCM(stereo or multi PCM)
-     *will go through dolby system mixer as main input
      *use set_ms12_main_volume to control it.
      *The volume about mixer-PCM is controled by AudioFlinger
      */
@@ -1324,8 +1323,11 @@ static int out_set_volume (struct audio_stream_out *stream, float left, float ri
         if (out->volume_l != out->volume_r) {
             ALOGW("%s, left:%f right:%f NOT match", __FUNCTION__, left, right);
         }
-        out->ms12_vol_ctrl = true;
-        set_ms12_main_volume(&adev->ms12, out->volume_l);
+        //when  in tv platform ,we use the adev_set_port_config
+        //to set the audio gain , but the app will call out_set_volume
+        //to set the main volume to 1.0, so we will use
+        //sink gain for volume adjust.
+        set_ms12_main_volume(&adev->ms12,out->volume_l);
     }
     return 0;
 }
@@ -5677,7 +5679,15 @@ ssize_t audio_hal_data_processing(struct audio_stream_out *stream,
                         volume *= adev->sink_gain[OUTPORT_A2DP];
                 }
             } else {
-                volume *= gain_speaker * adev->sink_gain[OUTPORT_SPEAKER];
+                //when use ms12 volume , we will set the ms12_vol_ctrl to 1,
+                //so we will use pregain*source gain for volume adjust
+                //when not use the ms12 volume , the ms12_vol_ctrl will be 0
+                //so we will use the sinkgain *pregain*source gain for volume
+                //adjust
+                if (!((eDolbyMS12Lib == adev->dolby_lib_type) && aml_out->ms12_vol_ctrl))
+                    volume *= gain_speaker * adev->sink_gain[OUTPORT_SPEAKER];
+                else
+                    volume *= gain_speaker;
             }
 
             if ((eDolbyMS12Lib == adev->dolby_lib_type) && aml_out->ms12_vol_ctrl) {
