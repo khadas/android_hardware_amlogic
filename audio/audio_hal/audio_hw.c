@@ -1328,6 +1328,18 @@ static int out_pause (struct audio_stream_out *stream)
     int r = 0;
 
     aml_audio_trace_int("out_pause", 1);
+    if (aml_audio_trace_debug_level() > 0)
+    {
+        out->pause_time = aml_audio_get_systime() / 1000; //us --> ms
+        if (out->pause_time > out->write_time && (out->pause_time - out->write_time < 5*1000)) { //continually write time less than 5s, audio gap
+            ALOGD("%s: out_stream(%p) AudioGap pause_time:%llu,  diff_time(pause - write):%llu ms", __func__,
+                   stream, out->pause_time, out->pause_time - out->write_time);
+        } else {
+            ALOGD("%s:  -------- pause ----------", __func__);
+        }
+    }
+    out->write_count = 0;
+
     pthread_mutex_lock (&adev->lock);
     pthread_mutex_lock (&out->lock);
     /* a stream should fail to pause if not previously started */
@@ -1443,6 +1455,18 @@ static int out_pause_new (struct audio_stream_out *stream)
           __func__, stream, aml_out->pause_status, aml_dev->dolby_lib_type, aml_dev->continuous_audio_mode, aml_out->hw_sync_mode, aml_dev->ms12.dolby_ms12_enable, aml_dev->ms12.is_continuous_paused);
 
     aml_audio_trace_int("out_pause_new", 1);
+    if (aml_audio_trace_debug_level() > 0)
+    {
+        aml_out->pause_time = aml_audio_get_systime() / 1000; //us --> ms
+        if (aml_out->pause_time > aml_out->write_time && (aml_out->pause_time - aml_out->write_time < 5*1000)) { //continually write time less than 5s, audio gap
+            ALOGD("%s: out_stream(%p) AudioGap pause_time:%llu,  diff_time(pause - write):%llu ms", __func__,
+                   stream, aml_out->pause_time, aml_out->pause_time - aml_out->write_time);
+        } else {
+            ALOGD("%s:  -------- pause ----------", __func__);
+        }
+    }
+    aml_out->write_count = 0;
+
     pthread_mutex_lock (&aml_dev->lock);
     pthread_mutex_lock (&aml_out->lock);
 
@@ -1569,6 +1593,7 @@ static int out_flush_new (struct audio_stream_out *stream)
     out->input_bytes_size = 0;
 
     aml_audio_trace_int("out_flush_new", 1);
+    out->write_count = 0;
     if (eDolbyMS12Lib == adev->dolby_lib_type) {
         if (out->total_write_size == 0) {
             out->pause_status = false;
@@ -7335,8 +7360,16 @@ ssize_t out_write_new(struct audio_stream_out *stream,
         ALOGI("+<IN>%s: out_stream(%p) position(%zu)", __func__, stream, bytes);
     }
 
-    /*when there is data writing in this stream, we can add it to active stream*/
+    if (aml_audio_trace_debug_level() > 0) {
+        if (false == aml_out->pause_status  &&  aml_out->write_count < 1) {
+            aml_out->write_time = aml_audio_get_systime() / 1000; //us --> ms
+            ALOGD("%s: out_stream(%p) bytes(%zu), write_time:%llu, count:%d", __func__,
+                       stream, bytes, aml_out->write_time, aml_out->write_count);
+        }
+    }
+    aml_out->write_count++;
 
+    /*when there is data writing in this stream, we can add it to active stream*/
     pthread_mutex_lock(&adev->lock);
     adev->active_outputs[aml_out->usecase] = aml_out;
     pthread_mutex_unlock(&adev->lock);
