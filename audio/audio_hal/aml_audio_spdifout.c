@@ -261,6 +261,7 @@ int aml_audio_spdifout_open(void **pphandle, spdif_config_t *spdif_config)
     }
     phandle->audio_format = audio_format;
     phandle->channel_mask = spdif_config->channel_mask;
+    phandle->b_mute = spdif_config->mute;
 
     if (!phandle->spdif_enc_init && phandle->need_spdif_enc) {
         ret = aml_spdif_encoder_open(&phandle->spdif_enc_handle, phandle->audio_format);
