@@ -3627,8 +3627,33 @@ static int adev_set_parameters (struct audio_hw_device *dev, const char *kvpairs
     ret = str_parms_get_int(parms, "connect", &val);
     if (ret >= 0) {
         ALOGI("[%s:%d] connect dev:%#x, cur hal out_dev:%#x", __func__, __LINE__, val, adev->out_device);
+
+        /*usb audio hot plug need delay some time wait alsa file create */
+        if ((val & AUDIO_DEVICE_OUT_ALL_USB) || (val & AUDIO_DEVICE_IN_ALL_USB)) {
+                int card = 0, device = 0;
+                int retry;
+                char fn[256];
+                ret = str_parms_get_int(parms, "card", &val);
+                if (ret >= 0)
+                        card = val;
+                ret = str_parms_get_int(parms, "device", &val);
+                if (ret >= 0)
+                        device = val;
+
+                snprintf(fn, sizeof(fn), "/dev/snd/pcmC%uD%u%c", card, device,
+                         val & AUDIO_DEVICE_OUT_ALL_USB ? 'p' : 'c');
+
+                for (retry = 0; access(fn, F_OK) < 0 || retry < 10; retry++) {
+                        usleep (20000);
+                }
+
+                if (access(fn, F_OK) < 0 && retry >= 10)
+                        ALOGE("usb audio create alsa file time out,need check \n");
+        }
+
         if (val & AUDIO_DEVICE_BIT_IN)
             goto exit;
+
         if ((val & AUDIO_DEVICE_OUT_HDMI_ARC) || (val & AUDIO_DEVICE_OUT_HDMI)) {
             adev->bHDMIConnected = 1;
             adev->bHDMIConnected_update = 1;
