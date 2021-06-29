@@ -80,6 +80,7 @@ ssize_t aml_audio_spdif_output(struct audio_stream_out *stream, void **spdifout_
         spdif_config_t spdif_config = { 0 };
         spdif_config.audio_format = data_info->data_format;
         spdif_config.channel_mask = AUDIO_CHANNEL_OUT_STEREO;
+        spdif_config.mute = aml_out->offload_mute;
         if (spdif_config.audio_format == AUDIO_FORMAT_IEC61937) {
             spdif_config.sub_format = data_info->sub_format;
         } else if (audio_is_linear_pcm(spdif_config.audio_format)) {
@@ -486,7 +487,7 @@ int aml_decoder_config_prepare(struct audio_stream_out *stream, audio_format_t f
         dec_config->advol_level = adev->advol_level;
         ALOGI("mixer_level %d adev->associate_audio_mixing_enable %d",adev->mixing_level, demux_info->associate_audio_mixing_enable);
     }
- 
+
     switch (format) {
     case AUDIO_FORMAT_AC3:
     case AUDIO_FORMAT_E_AC3: {
