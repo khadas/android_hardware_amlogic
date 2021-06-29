@@ -290,6 +290,10 @@ int aml_audio_spdifout_open(void **pphandle, spdif_config_t *spdif_config)
         phandle->spdif_port       = device_config.device_port;
 
         aml_spdif_format = halformat_convert_to_spdif(audio_format, stream_config.config.channel_mask);
+        /*for dts cd , we can't set the format as dts, we should set it as pcm*/
+        if (aml_spdif_format == AML_DTS && spdif_config->is_dtscd) {
+            aml_spdif_format = AML_STEREO_PCM;
+        }
         /*set spdif format*/
         if (phandle->spdif_port == PORT_SPDIF || phandle->spdif_port == PORT_I2S2HDMI) {
             aml_mixer_ctrl_set_int(&aml_dev->alsa_mixer, AML_MIXER_ID_SPDIF_FORMAT, aml_spdif_format);

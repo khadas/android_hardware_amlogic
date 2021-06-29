@@ -104,6 +104,7 @@ typedef struct dec_data_info {
     int data_len;
     int data_ch;
     int data_sr;
+    bool is_dtscd;
     //int data_bitwidth;
 } dec_data_info_t;
 
