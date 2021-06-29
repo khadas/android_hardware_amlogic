@@ -6877,10 +6877,9 @@ hwsync_rewrite:
         }
     }
     /*dts cd process need to discuss here */
-#if 0
     else if (aml_out->hal_format == AUDIO_FORMAT_IEC61937 &&
-        (aml_out->hal_internal_format == AUDIO_FORMAT_DTS || aml_out->hal_internal_format == AUDIO_FORMAT_DTS_HD) /*&&
-        !adev->dts_hd.is_dtscd*/) {
+        (aml_out->hal_internal_format == AUDIO_FORMAT_DTS || aml_out->hal_internal_format == AUDIO_FORMAT_DTS_HD) &&
+        !aml_out->dts_check) {
 
         audio_channel_mask_t cur_ch_mask;
         int package_size;
@@ -6889,10 +6888,12 @@ hwsync_rewrite:
         cur_aformat = audio_type_convert_to_android_audio_format_t(cur_audio_type);
         ALOGI("cur_aformat:%0x cur_audio_type:%d", cur_aformat, cur_audio_type);
         if (cur_audio_type == DTSCD) {
-            //adev->dts_hd.is_dtscd = true;
+            aml_out->is_dtscd = true;
         } else {
-            //adev->dts_hd.is_dtscd = false;
+            aml_out->is_dtscd = false;
         }
+        aml_out->dts_check = true;
+        /*
         if (cur_aformat == AUDIO_FORMAT_DTS || cur_aformat == AUDIO_FORMAT_AC3) {
             aml_out->hal_internal_format = cur_aformat;
             if (aml_out->hal_internal_format == AUDIO_FORMAT_DTS) {
@@ -6904,8 +6905,8 @@ hwsync_rewrite:
         } else {
             return return_bytes;
         }
+        */
     }
-#endif
     else if (!is_dts_format(aml_out->hal_format) && (!is_dts_format(aml_out->hal_internal_format))) {
         adev->dolby_lib_type = adev->dolby_lib_type_last;
     }

@@ -90,6 +90,7 @@ ssize_t aml_audio_spdif_output(struct audio_stream_out *stream, void **spdifout_
                 spdif_config.channel_mask = AUDIO_CHANNEL_OUT_7POINT1;
             }
         }
+        spdif_config.is_dtscd = data_info->is_dtscd;
         spdif_config.rate = data_info->data_sr;
         ret = aml_audio_spdifout_open(spdifout_handle, &spdif_config);
         if (ret != 0) {
@@ -292,10 +293,6 @@ int aml_audio_nonms12_render(struct audio_stream_out *stream, const void *buffer
             }
 
             if (!dts_pcm_direct_output && !speed_enabled && aml_out->optical_format != AUDIO_FORMAT_PCM_16_BIT) {
-                if (dec_raw_data->data_sr > 0) {
-                    aml_out->config.rate = dec_raw_data->data_sr;
-                }
-
                 if (aml_dec->format == AUDIO_FORMAT_E_AC3 || aml_dec->format == AUDIO_FORMAT_AC3) {
                     if (adev->dual_spdif_support) {
                         /*output raw ddp to hdmi*/
@@ -432,6 +429,7 @@ static void dts_decoder_config_prepare(struct audio_stream_out *stream, aml_dca_
     } else {
         dts_config->is_iec61937 = false;
     }
+    dts_config->is_dtscd = aml_out->is_dtscd;
 
     dts_config->dev = (void *)adev;
     ALOGI("%s digital_raw:%d, dual_output_flag:%d, is_iec61937:%d, is_dtscd:%d"

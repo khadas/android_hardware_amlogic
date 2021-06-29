@@ -129,7 +129,7 @@ static void endian16_convert(void *buf, int size)
     for (i = 0; i < size / 2; i++, p++) {
       *p = ((*p & 0xff) << 8) | ((*p) >> 8);
     }
- }
+}
 
 static int _dts_syncword_scan(unsigned char *read_pointer, unsigned int *pTemp0)
 {
@@ -390,6 +390,7 @@ static int _dts_raw_output(struct dca_dts_dec *dts_dec)
 {
     aml_dec_t *aml_dec = (aml_dec_t *)dts_dec;
     dec_data_info_t *dec_raw_data = &aml_dec->dec_raw_data;
+    unsigned int syncword = 0;
     if (dts_debug.fp_output_raw) {
         fwrite(dec_raw_data->buf, 1, dts_dec->outlen_raw, dts_debug.fp_output_raw);
     }
@@ -400,6 +401,8 @@ static int _dts_raw_output(struct dca_dts_dec *dts_dec)
     } else {
         dec_raw_data->sub_format = AUDIO_FORMAT_DTS;
     }
+    /*we check whether the data is iec61937 or dts raw*/
+    dec_raw_data->is_dtscd = _dts_syncword_scan(dec_raw_data->buf, &syncword);
     dec_raw_data->data_ch = 2;
     if (dts_dec->pcm_out_info.sample_rate == 44100)
         dec_raw_data->data_sr = 44100;

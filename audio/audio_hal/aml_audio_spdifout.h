@@ -27,6 +27,7 @@ typedef struct {
     uint32_t      rate;
     audio_channel_mask_t channel_mask;
     bool          mute;
+    bool is_dtscd;
 } spdif_config_t;
 
 int aml_audio_get_spdif_port(eMixerSpdif_Format spdif_format);
