@@ -722,6 +722,14 @@ dtvsync_process_res aml_dtvsync_ms12_process_policy(void *priv_data, aml_ms12_de
     return DTVSYNC_AUDIO_OUTPUT;
 }
 
+bool aml_dtvsync_setPause(aml_dtvsync_t *p_dtvsync, bool pause)
+{
+    if (p_dtvsync) {
+        return mediasync_wrap_setPause(p_dtvsync->mediasync, pause);
+    }
+    return false;
+}
+
 bool aml_dtvsync_reset(aml_dtvsync_t *p_dtvsync)
 {
 
