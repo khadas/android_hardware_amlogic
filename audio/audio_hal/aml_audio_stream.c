@@ -882,7 +882,12 @@ void audio_patch_dump(struct aml_audio_device* aml_dev, int fd)
 
 bool is_use_spdifb(struct aml_stream_out *out) {
     struct aml_audio_device *adev = out->dev;
-    if (eDolbyDcvLib == adev->dolby_lib_type && adev->dolby_decode_enable &&
+    /*this patch is for DCV DDP noise.
+    **DCV have two kinds of mode, DCV decoder and passthrough.
+    **the dolby_decode_enable is 0 when DCV passthrough.
+    **so here should remove the dolby_decode_enable judgment.
+    */
+    if (eDolbyDcvLib == adev->dolby_lib_type /*&& adev->dolby_decode_enable*/ &&
         (out->hal_format == AUDIO_FORMAT_E_AC3 || out->hal_internal_format == AUDIO_FORMAT_E_AC3 ||
         (out->need_convert && out->hal_internal_format == AUDIO_FORMAT_AC3))) {
         /*dual spdif we need convert

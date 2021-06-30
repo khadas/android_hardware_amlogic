@@ -393,6 +393,8 @@ int aml_audio_spdifout_processs(void *phandle, void *buffer, size_t byte)
         }
     }
 
+    aml_alsa_output_data_handle(alsa_handle, output_buffer, output_buffer_bytes, 0, b_mute || spdifout_phandle->b_mute);
+
     if (aml_dev->debug_flag) {
         ALOGI("size =%zu format=%x mute =%d %d",
             output_buffer_bytes, spdifout_phandle->audio_format, b_mute, spdifout_phandle->b_mute);
@@ -449,7 +451,7 @@ int aml_audio_spdifout_close(void *phandle)
         aml_mixer_ctrl_set_int(&aml_dev->alsa_mixer, AML_MIXER_ID_SPDIF_FORMAT, AML_STEREO_PCM);
     } else if (spdifout_phandle->spdif_port == PORT_SPDIFB) {
         /*it is spdif b output*/
-        aml_mixer_ctrl_set_int(&aml_dev->alsa_mixer, AML_MIXER_ID_SPDIF_B_FORMAT, AML_STEREO_PCM);
+        //aml_mixer_ctrl_set_int(&aml_dev->alsa_mixer, AML_MIXER_ID_SPDIF_B_FORMAT, AML_STEREO_PCM);
         aml_audio_select_spdif_to_hdmi(AML_SPDIF_A_TO_HDMITX);
     }
 

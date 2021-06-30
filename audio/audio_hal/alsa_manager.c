@@ -742,6 +742,7 @@ typedef struct alsa_handle {
     audio_format_t  format;
     uint32_t write_cnt;
     uint64_t write_frames;
+    int pcm2_mute_cnt;
 } alsa_handle_t;
 
 static void alsa_write_new_rate_control(void *handle) {
@@ -981,6 +982,34 @@ size_t aml_alsa_output_write_new(void *handle, const void *buffer, size_t bytes)
 
     ret = pcm_write(alsa_handle->pcm, buffer, bytes);
     return ret;
+}
+
+int aml_alsa_output_data_handle(void *handle, void *output_buffer, size_t size, int vaule, bool is_mute)
+{
+    alsa_handle_t *alsa_handle = (alsa_handle_t *)handle;
+
+    if (is_mute) {
+        memset(output_buffer, 0, size);
+        return 0;
+    }
+
+    if (size && alsa_handle->format == AUDIO_FORMAT_E_AC3) {
+        struct snd_pcm_status status;
+        pcm_ioctl(alsa_handle->pcm, SNDRV_PCM_IOCTL_STATUS, &status);
+        if (status.state == PCM_STATE_SETUP ||
+            status.state == PCM_STATE_PREPARED ||
+            status.state == PCM_STATE_XRUN) {
+            /*for sony tv, we need mute first 1 frames to avoid "ca" noise*/
+            alsa_handle->pcm2_mute_cnt = 1;
+            ALOGI("spdif b mute the data cnt =%d",alsa_handle->pcm2_mute_cnt);
+        }
+        if (alsa_handle->pcm2_mute_cnt) {
+            alsa_handle->pcm2_mute_cnt--;
+            memset(output_buffer, vaule, size);
+        }
+    }
+
+    return 0;
 }
 
 int aml_alsa_output_getinfo(void *handle, alsa_info_type_t type, alsa_output_info_t * info) {
