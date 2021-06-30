@@ -1347,9 +1347,14 @@ int audio_dtv_patch_output_dolby(struct aml_audio_patch *patch,
             write_len = 512;
         }
         if (eDolbyMS12Lib == aml_dev->dolby_lib_type) {
-            if (aml_out->ddp_frame_size != 0) {
-                write_len = aml_out->ddp_frame_size;
+            if (patch->aformat == AUDIO_FORMAT_AC4) {
+                write_len = 512;
+            } else {
+                if (aml_out->ddp_frame_size != 0) {
+                    write_len = aml_out->ddp_frame_size;
+                }
             }
+
         } else if (eDolbyDcvLib == aml_dev->dolby_lib_type) {
             if(ddp_dec) {
                 if (ddp_dec->curFrmSize != 0) {

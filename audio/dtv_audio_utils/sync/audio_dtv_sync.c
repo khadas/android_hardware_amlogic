@@ -272,11 +272,19 @@ int aml_audio_swcheck_lookup_apts(int audio_path, size_t offset, unsigned long *
                 }
                 break;
             } else if (pts_tab[i].offset < align) {
+                 pts_tab[i].valid = 0;
                 /*find the nearest one*/
                 if (pts_tab0.offset < pts_tab[i].offset) {
-                    pts_tab[i].valid = 0;
                     pts_tab0.offset = pts_tab[i].offset;
                     pts_tab0.pts = pts_tab[i].pts;
+                    pts_tab0.valid = 1;
+                    if ((align - pts_tab0.offset) < min_offset) {
+                        min_offset = align - pts_tab0.offset;
+                        match_index = i;
+                        nearest_pts = pts_tab0.pts;
+                        nearest_offset = pts_tab0.offset;
+                    }
+                } else {
                     pts_tab0.valid = 1;
                     if ((align - pts_tab0.offset) < min_offset) {
                         min_offset = align - pts_tab0.offset;
