@@ -67,6 +67,8 @@ void aml_dtvsync_ms12_get_policy(struct audio_stream_out *stream);
 
 dtvsync_process_res aml_dtvsync_ms12_process_policy(void *priv_data, aml_ms12_dec_info_t *ms12_info);
 
+bool aml_dtvsync_setPause(aml_dtvsync_t *p_dtvsync, bool pause);
+
 bool aml_dtvsync_reset(aml_dtvsync_t *p_dtvsync);
 
 void aml_dtvsync_release(aml_dtvsync_t *p_dtvsync);

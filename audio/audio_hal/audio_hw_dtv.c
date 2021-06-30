@@ -3221,6 +3221,11 @@ static void *audio_dtv_patch_process_threadloop_v2(void *data)
                         Stop_Dmx_Main_Audio(patch->demux_handle);
                         Stop_Dmx_AD_Audio(patch->demux_handle);
                     }
+
+                    aml_dtvsync_t *dtvsync = &dtv_audio_instances->dtvsync[path_id];
+                    if (dtvsync->mediasync) {
+                        aml_dtvsync_setPause(dtvsync, true);
+                    }
                 }  else {
                     dtv_assoc_audio_pause(1);
                 }
@@ -3267,6 +3272,11 @@ static void *audio_dtv_patch_process_threadloop_v2(void *data)
                 if (aml_dev->is_multi_demux) {
                     Start_Dmx_Main_Audio(patch->demux_handle);
                     Start_Dmx_AD_Audio(patch->demux_handle);
+
+                    aml_dtvsync_t *dtvsync = &dtv_audio_instances->dtvsync[path_id];
+                    if (dtvsync->mediasync) {
+                        aml_dtvsync_setPause(dtvsync, false);
+                    }
                 } else {
                     dtv_assoc_audio_resume(1,demux_info->ad_pid);
                 }
