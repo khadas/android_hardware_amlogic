@@ -259,6 +259,7 @@ int dtv_patch_handle_event(struct audio_hw_device *dev,int cmd, int val) {
     int audio_sync_mode = 0;
     aml_dtv_audio_instances_t *dtv_audio_instances =  (aml_dtv_audio_instances_t *)adev->aml_dtv_audio_instances;
     unsigned int path_id = val >> DVB_DEMUX_ID_BASE;
+    struct mediasync_audio_format audio_format;
     ALOGI("%s path_id %d cmd %d",__FUNCTION__,path_id, cmd);
     if (path_id < 0  ||  path_id >= DVB_DEMUX_SUPPORT_MAX_NUM) {
         ALOGI("path_id %d  is invalid ! ",path_id);
@@ -386,7 +387,7 @@ int dtv_patch_handle_event(struct audio_hw_device *dev,int cmd, int val) {
                             mediasync_wrap_setParameter(dtvsync->mediasync_new, MEDIASYNC_KEY_ISOMXTUNNELMODE, &audio_sync_mode);
                             mediasync_wrap_bindInstance(dtvsync->mediasync_new, dtvsync->mediasync_id, MEDIA_AUDIO);
                             ALOGI("normal output version CMD open audio bind syncId:%d\n", dtvsync->mediasync_id);
-                            mediasync_wrap_setParameter(dtvsync, MEDIASYNC_KEY_HASAUDIO, &has_audio);
+                            mediasync_wrap_setParameter(dtvsync->mediasync_new, MEDIASYNC_KEY_HASAUDIO, &has_audio);
                         }
                     }
                     ALOGI("create mediasync:%p\n", dtvsync->mediasync_new);
@@ -443,6 +444,8 @@ int dtv_patch_handle_event(struct audio_hw_device *dev,int cmd, int val) {
                     patch->demux_info = demux_info;
                     patch->dtvsync = dtvsync;
                     if (dtvsync->mediasync_new != NULL) {
+                        audio_format.format = patch->dtv_aformat;
+                        mediasync_wrap_setParameter(dtvsync->mediasync_new, MEDIASYNC_KEY_AUDIOFORMAT, &audio_format);
                         patch->dtvsync->mediasync = dtvsync->mediasync_new;
                         dtvsync->mediasync_new = NULL;
                     }
