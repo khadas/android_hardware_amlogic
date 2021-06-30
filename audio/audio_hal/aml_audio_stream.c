@@ -40,6 +40,18 @@
 #define FMT_UPDATE_THRESHOLD_MAX    (10)
 #define DOLBY_FMT_UPDATE_THRESHOLD  (5)
 #define DTS_FMT_UPDATE_THRESHOLD    (1)
+/*
+ * DAP Speaker Virtualizer
+ * -dap_surround_virtualizer    * <2 int> Virtualizer Parameter
+ *                                         - virtualizer_mode (0,1,2, def: 1)
+ *                                            0:OFF
+ *                                            1:ON
+ *                                            2:AUTO
+ *                                         - surround_boost (0...96, def: 96)
+ */
+#define MS12_DAP_SPEAKER_VIRTUALIZER_OFF  (0)//Disable Speaker Virtualizer(Disable Dolby Atmos Virtualization).
+#define MS12_DAP_SPEAKER_VIRTUALIZER_ON   (1)//Enable Speaker Virtualizer.
+#define MS12_DAP_SPEAKER_VIRTUALIZER_AUTO (2)//Enable Dolby Atmos Virtualization.
 
 
 static audio_format_t ms12_max_support_output_format() {
@@ -912,15 +924,16 @@ static int update_audio_hal_info(struct aml_audio_device *adev, audio_format_t f
         }
     }
 
+    bool is_dolby_atmos_off = (MS12_DAP_SPEAKER_VIRTUALIZER_OFF == dolby_ms12_get_dap_surround_virtuallizer());
     if (atmos_flag == 1) {
         if (format == AUDIO_FORMAT_E_AC3)
-            update_type = TYPE_DDP_ATMOS;
+            update_type = (is_dolby_atmos_off) ? TYPE_DDP_ATMOS_PROMPT_ON_ATMOS : TYPE_DDP_ATMOS;
         else if (format == AUDIO_FORMAT_DOLBY_TRUEHD)
-            update_type = TYPE_TRUE_HD_ATMOS;
+            update_type = (is_dolby_atmos_off) ? TYPE_TRUE_HD_ATMOS_PROMPT_ON_ATMOS : TYPE_TRUE_HD_ATMOS;
         else if (format == AUDIO_FORMAT_MAT)
-            update_type = TYPE_MAT_ATMOS;
+            update_type = (is_dolby_atmos_off) ? TYPE_MAT_ATMOS_PROMPT_ON_ATMOS : TYPE_MAT_ATMOS;
         else if (format == AUDIO_FORMAT_AC4)
-            update_type = TYPE_AC4_ATMOS;
+            update_type = (is_dolby_atmos_off) ? TYPE_AC4_ATMOS_PROMPT_ON_ATMOS : TYPE_AC4_ATMOS;
     }
 
     ALOGV("%s() update_cnt %d format %#x vs hal_internal_format %#x  atmos_flag %d vs is_dolby_atmos %d update_type %d\n",
@@ -937,9 +950,9 @@ static int update_audio_hal_info(struct aml_audio_device *adev, audio_format_t f
             aml_mixer_ctrl_set_int(&adev->alsa_mixer, AML_MIXER_ID_AUDIO_HAL_FORMAT, TYPE_DTS_HP);
         }
         aml_mixer_ctrl_set_int(&adev->alsa_mixer, AML_MIXER_ID_AUDIO_HAL_FORMAT, update_type);
-        ALOGD("%s()audio hal format change to %x, atmos flag = %d, dts_hp_x = %d, update_type = %d\n",
+        ALOGD("%s()audio hal format change to %x, atmos flag = %d, dts_hp_x = %d, update_type = %d is_dolby_atmos_off = %d\n",
             __FUNCTION__, adev->audio_hal_info.format, adev->audio_hal_info.is_dolby_atmos,
-            adev->dts_hd.is_headphone_x, adev->audio_hal_info.update_type);
+            adev->dts_hd.is_headphone_x, adev->audio_hal_info.update_type, is_dolby_atmos_off);
     }
 
     return 0;
