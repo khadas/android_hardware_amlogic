@@ -2620,7 +2620,7 @@ static ssize_t in_read(struct audio_stream_in *stream, void* buffer, size_t byte
             parental_mute = 1;
 
         /*if need mute input source, don't read data from hardware anymore*/
-        if (adev->mic_mute || in_mute || parental_mute || in->spdif_fmt_hw == SPDIFIN_AUDIO_TYPE_PAUSE) {
+        if (adev->mic_mute || in_mute || parental_mute) {
             memset(buffer, 0, bytes);
             usleep(bytes * 1000000 / audio_stream_in_frame_size(stream) /
                 in_get_sample_rate(&stream->common));
@@ -2638,6 +2638,10 @@ static ssize_t in_read(struct audio_stream_in *stream, void* buffer, size_t byte
                 ret = read_frames(in, buffer, in_frames);
             } else {
                 ret = aml_alsa_input_read(stream, buffer, bytes);
+            }
+            /* Audio should be read from DDR to drive HW format changed,  */
+            if (in->spdif_fmt_hw == SPDIFIN_AUDIO_TYPE_PAUSE) {
+                memset(buffer, 0, bytes);
             }
             if (ret < 0)
                 goto exit;
