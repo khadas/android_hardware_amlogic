@@ -3177,6 +3177,12 @@ static void adev_close_output_stream(struct audio_hw_device *dev,
 
     ALOGD("%s: enter: dev(%p) stream(%p)", __func__, dev, stream);
 
+    if (out->restore_hdmitx_selection) {
+        /* switch back to spdifa when the dual stream is done */
+        aml_audio_select_spdif_to_hdmi(AML_SPDIF_A_TO_HDMITX);
+        out->restore_hdmitx_selection = false;
+    }
+
     if (adev->useSubMix) {
         if (out->usecase == STREAM_PCM_NORMAL || out->usecase == STREAM_PCM_HWSYNC)
             out_standby_subMixingPCM(&stream->common);
@@ -3226,11 +3232,6 @@ static void adev_close_output_stream(struct audio_hw_device *dev,
         outMmapDeInit(out);
     }
 
-    if (out->restore_hdmitx_selection) {
-        /* switch back to spdifa when the dual stream is done */
-        aml_audio_select_spdif_to_hdmi(AML_SPDIF_A_TO_HDMITX);
-        out->restore_hdmitx_selection = false;
-    }
     if (out->resample_outbuf) {
         aml_audio_free(out->resample_outbuf);
         out->resample_outbuf = NULL;
