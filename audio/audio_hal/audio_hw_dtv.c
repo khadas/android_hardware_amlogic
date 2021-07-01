@@ -507,8 +507,7 @@ int dtv_patch_get_latency(struct aml_audio_device *aml_dev)
              ALOGI("last_queue_es_apts %lld",last_queue_es_apts);
              patch->last_chenkin_apts = last_queue_es_apts;
         }
-        ALOGI("lastcheckinapts %d patch->cur_outapts %d patch->dtvsync->cur_outapts %lld",
-            patch->last_chenkin_apts, patch->cur_outapts, patch->dtvsync->cur_outapts);
+        ALOGI("lastcheckinapts %d patch->cur_outapts %d ", patch->last_chenkin_apts, patch->cur_outapts);
         if (patch->last_chenkin_apts != 0xffffffff) {
             if (patch->skip_amadec_flag) {
                 if (patch->dtvsync->cur_outapts > 0 && patch->last_chenkin_apts - patch->dtvsync->cur_outapts)
