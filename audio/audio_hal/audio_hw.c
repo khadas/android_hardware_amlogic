@@ -9215,8 +9215,6 @@ static int adev_remove_device_effect(struct audio_hw_device *dev,
 static int adev_open(const hw_module_t* module, const char* name, hw_device_t** device)
 {
     struct aml_audio_device *adev;
-    aml_audio_debug_malloc_open();
-    aml_audio_debug_open();
     size_t bytes_per_frame = audio_bytes_per_sample(AUDIO_FORMAT_PCM_16_BIT)
                              * audio_channel_count_from_out_mask(AUDIO_CHANNEL_OUT_STEREO);
     int buffer_size = PLAYBACK_PERIOD_COUNT * DEFAULT_PLAYBACK_PERIOD_SIZE * bytes_per_frame;
@@ -9243,6 +9241,8 @@ static int adev_open(const hw_module_t* module, const char* name, hw_device_t** 
         ALOGI("*device:%p",*device);
         goto err;
     }
+    aml_audio_debug_malloc_open();
+    aml_audio_debug_open();
 
     adev = aml_audio_calloc(1, sizeof(struct aml_audio_device));
     if (!adev) {
@@ -9250,7 +9250,6 @@ static int adev_open(const hw_module_t* module, const char* name, hw_device_t** 
         goto err;
     }
     g_adev = (void *)adev;
-    pthread_mutex_unlock(&adev_mutex);
 
     initAudio(1);  /*Judging whether it is Google's search engine*/
     adev->hw_device.common.tag = HARDWARE_DEVICE_TAG;
@@ -9471,13 +9470,10 @@ static int adev_open(const hw_module_t* module, const char* name, hw_device_t** 
 
 
 #ifdef ENABLE_AEC_APP
-    pthread_mutex_lock(&adev->lock);
     if (init_aec(CAPTURE_CODEC_SAMPLING_RATE, NUM_AEC_REFERENCE_CHANNELS,
                     CHANNEL_STEREO, &adev->aec)) {
-        pthread_mutex_unlock(&adev->lock);
-        return -EINVAL;
+        goto err_adev;
     }
-    pthread_mutex_unlock(&adev->lock);
 #endif
 
     adev->useSubMix = false;
@@ -9526,6 +9522,7 @@ static int adev_open(const hw_module_t* module, const char* name, hw_device_t** 
             goto Err_MS12_MesgThreadCreate;
         }
     }
+    pthread_mutex_unlock(&adev_mutex);
 
     ALOGD("%s: exit", __func__);
     return 0;
