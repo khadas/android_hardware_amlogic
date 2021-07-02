@@ -122,11 +122,15 @@ static void dtv_do_ease_out(struct aml_audio_device *aml_dev)
 {
     if (aml_dev && aml_dev->audio_ease) {
         ALOGI("%s(), do fade out", __func__);
-        start_ease_out(aml_dev->audio_ease, aml_dev->is_TV);
-        if (aml_dev->is_TV)
-            usleep(AUDIO_FADEOUT_TV_SLEEP_US);
-        else
+        if (aml_dev->is_TV) {
+            int duration_ms;
+            duration_ms = property_get_int32("vendor.media.audio.dtv.fadeout.us", AUDIO_FADEOUT_TV_DURATION_US) / 1000;
+            start_ease_out(aml_dev->audio_ease, aml_dev->is_TV, duration_ms - 10);
+            usleep(duration_ms * 1000);
+        } else {
+            start_ease_out(aml_dev->audio_ease, aml_dev->is_TV, 0);
             usleep(AUDIO_FADEOUT_STB_SLEEP_US);
+        }
     }
 }
 
