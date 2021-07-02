@@ -88,7 +88,7 @@ float aml_audio_ease_get_current_volume(aml_audio_ease_t * ease_handle);
 
 int start_ease_in(aml_audio_ease_t *audio_ease);
 
-int start_ease_out(aml_audio_ease_t *audio_ease, bool is_TV);
+int start_ease_out(aml_audio_ease_t *audio_ease, bool is_TV, int duration_ms);
 
 int config_volume_easing(aml_audio_ease_t *audio_ease, float vol_start, float vol_end);
 
