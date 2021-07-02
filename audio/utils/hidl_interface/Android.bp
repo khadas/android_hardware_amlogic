@@ -20,6 +20,7 @@ cc_library_shared {
         "libhidlbase",
         "liblog",
         "libutils",
+        "libamlaudiohal@5.0",
         "libamlaudiohal@6.0",
     ],
 
