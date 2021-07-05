@@ -63,7 +63,7 @@ typedef mediasync_result (*MediaSync_getRealTimeForNextVsync_func)(void* handle,
 typedef mediasync_result (*MediaSync_getTrackMediaTime_func)(void* handle, int64_t *outMediaUs);
 typedef mediasync_result (*MediaSync_setParameter_func)(void* handle, mediasync_parameter type, void* arg);
 typedef mediasync_result (*MediaSync_getParameter_func)(void* handle, mediasync_parameter type, void* arg);
-typedef mediasync_result (*MediaSync_queueAudioFrame_func)(void* handle, int64_t apts, int size, int duration, mediasync_time_unit tunit);
+typedef mediasync_result (*MediaSync_queueAudioFrame_func)(void* handle, struct mediasync_audio_queue_info* info);
 typedef mediasync_result (*MediaSync_AudioProcess_func)(void* handle, int64_t apts, int64_t cur_apts, mediasync_time_unit tunit, struct mediasync_audio_policy* asyncPolicy);
 
 
@@ -510,9 +510,9 @@ bool mediasync_wrap_getParameter(void* handle, mediasync_parameter type, void* a
      return false;
 }
 
-bool mediasync_wrap_queueAudioFrame(void* handle, int64_t apts, int size, int duration, mediasync_time_unit tunit) {
+bool mediasync_wrap_queueAudioFrame(void* handle, struct mediasync_audio_queue_info* info) {
      if (handle != NULL)  {
-         mediasync_result ret = gMediaSync_queueAudioFrame(handle, apts, size, duration, tunit);
+         mediasync_result ret = gMediaSync_queueAudioFrame(handle, info);
          if (ret == AM_MEDIASYNC_OK) {
             return true;
          } else {

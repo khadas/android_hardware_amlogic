@@ -224,11 +224,11 @@ bool aml_dtvsync_getParameter(aml_dtvsync_t *p_dtvsync, mediasync_parameter type
     return false;
 }
 
-bool aml_dtvsync_queue_audio_frame(aml_dtvsync_t *p_dtvsync, int64_t apts, int size, int duration, mediasync_time_unit tunit)
+bool aml_dtvsync_queue_audio_frame(aml_dtvsync_t *p_dtvsync, struct mediasync_audio_queue_info* info)
 {
 
     if(p_dtvsync) {
-        return mediasync_wrap_queueAudioFrame(p_dtvsync->mediasync, apts, size, duration, tunit);
+        return mediasync_wrap_queueAudioFrame(p_dtvsync->mediasync, info);
     }
     return false;
 }
