@@ -191,7 +191,7 @@ int aml_audio_nonms12_render(struct audio_stream_out *stream, const void *buffer
                 audio_format_t output_format = AUDIO_FORMAT_PCM_16_BIT;
                 void  *dec_data = (void *)dec_pcm_data->buf;
                 int pcm_len = dec_pcm_data->data_len;
-                if (adev->patch_src  == SRC_DTV &&
+                if (patch && adev->patch_src  == SRC_DTV &&
                     (adev->start_mute_flag == 1 || adev->tv_mute)) {
                     memset(dec_pcm_data->buf, 0, dec_pcm_data->data_len);
                 }
