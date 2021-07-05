@@ -39,11 +39,12 @@
 #include "aml_malloc_debug.h"
 #include "audio_dtv_utils.h"
 
-int dtv_package_list_free(package_list *list)
+int dtv_package_list_flush(package_list *list)
 {
     pthread_mutex_lock(&(list->tslock));
-    while (list->pack_num) {
-        struct package * p = list->first;
+    struct package * p = NULL;
+    while (list->pack_num && list->first) {
+        p = list->first;
         list->first = list->first->next;
         aml_audio_free(p->data);
         aml_audio_free(p);

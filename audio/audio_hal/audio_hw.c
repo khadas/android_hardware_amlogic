@@ -8890,6 +8890,8 @@ static int adev_close(hw_device_t *device)
     }
     aml_hwsync_close_tsync(adev->tsync_fd);
     pthread_mutex_destroy(&adev->patch_lock);
+    pthread_mutex_destroy(&adev->dtv_lock);
+
 #ifdef ADD_AUDIO_DELAY_INTERFACE
     if (adev->is_TV) {
         aml_audio_delay_deinit();
@@ -9313,6 +9315,7 @@ static int adev_open(const hw_module_t* module, const char* name, hw_device_t** 
         ret = -ENOMEM;
         goto err_spk_tuning_rbuf;
     }
+    pthread_mutex_init(&adev->dtv_lock, NULL);
 
 #if ENABLE_NANO_NEW_PATH
     nano_init();

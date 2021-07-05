@@ -113,6 +113,7 @@ struct package {
     int  ad_size;//apackage size
     struct package * next;//next ptr
     uint64_t pts;
+    uint64_t ad_pts;
 };
 
 typedef struct {
@@ -122,7 +123,7 @@ typedef struct {
     pthread_mutex_t tslock;
 } package_list;
 
-int dtv_package_list_free(package_list *list);
+int dtv_package_list_flush(package_list *list);
 
 
 int dtv_package_list_init(package_list *list);

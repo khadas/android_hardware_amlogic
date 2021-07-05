@@ -42,7 +42,7 @@ bool aml_dtvsync_setParameter(aml_dtvsync_t *p_dtvsync, mediasync_parameter type
 
 bool aml_dtvsync_getParameter(aml_dtvsync_t *p_dtvsync, mediasync_parameter type, void* arg);
 
-bool aml_dtvsync_queue_audio_frame(aml_dtvsync_t *p_dtvsync, int64_t apts, int size, int duration, mediasync_time_unit tunit);
+bool aml_dtvsync_queue_audio_frame(aml_dtvsync_t *p_dtvsync, struct mediasync_audio_queue_info* info);
 
 bool aml_dtvsync_audioprocess(aml_dtvsync_t *p_dtvsync, int64_t apts, int64_t cur_apts,
                                 mediasync_time_unit tunit,
