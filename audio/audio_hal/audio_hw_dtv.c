@@ -341,6 +341,11 @@ int dtv_patch_handle_event(struct audio_hw_device *dev,int cmd, int val) {
             }
             adev->advol_level = val;
             ALOGI("madvol_level set to %d\n", adev->advol_level);
+            if (eDolbyMS12Lib == adev->dolby_lib_type_last && ms12->dolby_ms12_enable) {
+                pthread_mutex_lock(&ms12->lock);
+                set_ms12_ad_vol(ms12, adev->advol_level);
+                pthread_mutex_unlock(&ms12->lock);
+            }
             pthread_mutex_unlock(&adev->lock);
             break;
         case AUDIO_DTV_PATCH_CMD_SET_AD_MIX_LEVEL:

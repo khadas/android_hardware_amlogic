@@ -423,6 +423,22 @@ void set_ms12_ad_mixing_level(struct dolby_ms12_desc *ms12, int mixing_level)
         aml_ms12_update_runtime_params(ms12, parm);
 }
 
+void set_ms12_ad_vol(struct dolby_ms12_desc *ms12, int ad_vol)
+{
+    char parm[32] = "";
+    /*ad_vol is 0~100*/
+    float gain = (float)ad_vol / 100;
+    int gain_db = (int)(128 * AmplToDb(gain));
+    /*target gain at end of ramp in 1/128 dB (range: -12288..0)*/
+    gain_db = gain_db > 0 ? 0 : gain_db;
+    gain_db = gain_db < -12288 ? -12288 : gain_db;
+    sprintf(parm, "%s %d,%d,%d", "-main2_mixgain", gain_db , 10, 0);
+    ALOGI("%s %s", __func__, parm);
+    if (strlen(parm) > 0)
+        aml_ms12_update_runtime_params(ms12, parm);
+}
+
+
 void set_dolby_ms12_runtime_system_mixing_enable(struct dolby_ms12_desc *ms12, int system_mixing_enable)
 {
     char parm[12] = "";
@@ -719,7 +735,6 @@ int get_the_dolby_ms12_prepared(
     dolby_ms12_set_asscociated_audio_mixing(associate_audio_mixing_enable);
     dolby_ms12_set_user_control_value_for_mixing_main_and_associated_audio(adev->mixing_level);
 
-
     /*set the continous output flag*/
     set_dolby_ms12_continuous_mode((bool)adev->continuous_audio_mode);
     dolby_ms12_set_atmos_lock_flag(adev->atoms_lock_flag);
@@ -837,6 +852,11 @@ int get_the_dolby_ms12_prepared(
             }
             ALOGI("%s() thread is builded, get dolby_ms12_threadID %ld\n", __FUNCTION__, ms12->dolby_ms12_threadID);
         }
+        if (ms12->dual_decoder_support == true) {
+            set_ms12_ad_vol(ms12, adev->advol_level);
+            ALOGI("%s ad vol=%d", __FUNCTION__, adev->advol_level);
+        }
+
         //n bytes of dowmix output pcm frame, 16bits_per_sample / stereo, it value is 4btes.
         ms12->nbytes_of_dmx_output_pcm_frame = nbytes_of_dolby_ms12_downmix_output_pcm_frame();
         ms12->hdmi_format = adev->hdmi_format;
