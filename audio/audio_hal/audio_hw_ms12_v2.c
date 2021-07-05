@@ -519,6 +519,14 @@ void set_ms12_drc_cut_value(struct dolby_ms12_desc *ms12, int cut)
         aml_ms12_update_runtime_params(ms12, parm);
 }
 
+void set_ms12_dap_postgain(struct dolby_ms12_desc *ms12, int postgain)
+{
+    char parm[64] = "";
+    sprintf(parm, "%s %d", "-dap_gains", postgain);
+    if ((strlen(parm)) > 0 && ms12)
+        aml_ms12_update_runtime_params(ms12, parm);
+}
+
 
 void set_ms12_drc_mode_for_multichannel_and_dap_output(struct dolby_ms12_desc *ms12, bool drc_mode)
 {

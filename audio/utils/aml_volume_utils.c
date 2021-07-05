@@ -181,3 +181,37 @@ int volume2Ms12DBGain(float inVol)
     return iMS12DB;
 }
 
+/*
+ * -dap_gains       * <1 int>
+ *                    - postgain (-2080...480, def: 0)
+ * Settings From -130 to +30 dB, in 0.0625 dB steps
+ */
+int volume2Ms12DapPostgain(float inVol)
+{
+    float fTargetDB;
+    // MS12 parameter is INT: -96 is mute
+    int dap_postgain = 0;
+
+    if (inVol > 1.0 || inVol < 0) {
+        ALOGE("%s, invalid volume %f\n", __FUNCTION__, inVol);
+        inVol = 1.0;
+    }
+
+    if (fabsf(inVol) <= 1e-6) {
+        fTargetDB = -130;
+    }
+    else {
+        fTargetDB = 20 * log10(inVol);
+    }
+
+    if (-130 >= fTargetDB) {
+        fTargetDB = -130;
+    }
+    else if (fTargetDB >30) {
+        fTargetDB = 30;
+    }
+
+    dap_postgain = (int)(fTargetDB / 0.0625);
+    return dap_postgain;
+}
+

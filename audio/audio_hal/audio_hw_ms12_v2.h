@@ -274,4 +274,9 @@ int stereo_pcm_output(void *buffer, void *priv_data, size_t size, aml_ms12_dec_i
 
 int mat_bitstream_output(void *buffer, void *priv_data, size_t size);
 
+/*
+ *@brief set ms12 dap postgain
+ */
+void set_ms12_dap_postgain(struct dolby_ms12_desc *ms12, int postgain);
+
 #endif //end of _AUDIO_HW_MS12_H_

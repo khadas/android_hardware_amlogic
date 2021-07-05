@@ -1328,6 +1328,16 @@ static int out_set_volume (struct audio_stream_out *stream, float left, float ri
         //to set the main volume to 1.0, so we will use
         //sink gain for volume adjust.
         set_ms12_main_volume(&adev->ms12,out->volume_l);
+        /*
+         * The postgain value has an impact on the Volume Modeler and the Audio Regulator:
+         * Volume Modeler: Uses the postgain value to select the appropriate frequency response curve
+         * to maintain a consistent perceived timbre at different listening levels.
+         * SP45: Postgain
+         * Sets the amount of gain that is to be applied to the signal after exiting MS12.
+         * Settings From -130 to +30 dB, in 0.0625 dB steps
+         */
+        int dap_postgain = volume2Ms12DapPostgain(out->volume_l);
+        set_ms12_dap_postgain(&adev->ms12, dap_postgain);
     }
     return 0;
 }
@@ -9127,6 +9137,18 @@ static int adev_set_audio_port_config (struct audio_hw_device *dev, const struct
                 ALOGI(" - set sink device[%#x](outport:%s): volume_Mb[%d], gain[%f]",
                         config->ext.device.type, outputPort2Str(outport),
                         config->gain.values[0], aml_dev->sink_gain[outport]);
+            }
+            if ((outport == OUTPORT_SPEAKER) && (eDolbyMS12Lib == aml_dev->dolby_lib_type)) {
+                /*
+                 * The postgain value has an impact on the Volume Modeler and the Audio Regulator:
+                 * Volume Modeler: Uses the postgain value to select the appropriate frequency response curve
+                 * to maintain a consistent perceived timbre at different listening levels.
+                 * SP45: Postgain
+                 * Sets the amount of gain that is to be applied to the signal after exiting MS12.
+                 * Settings From -130 to +30 dB, in 0.0625 dB steps
+                 */
+                int dap_postgain = volume2Ms12DapPostgain(aml_dev->sink_gain[OUTPORT_SPEAKER]);
+                set_ms12_dap_postgain(&aml_dev->ms12, dap_postgain);
             }
             ALOGI(" - now the sink gains are:");
             ALOGI("\t- OUTPORT_SPEAKER->gain[%f]", aml_dev->sink_gain[OUTPORT_SPEAKER]);
