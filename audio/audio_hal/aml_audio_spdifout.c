@@ -32,7 +32,6 @@
 #include "alsa_manager.h"
 #include "dolby_lib_api.h"
 
-
 typedef struct spdifout_handle {
     int device_id; /*used for refer aml_dev->alsa_handle*/
     int spdif_port;
@@ -317,6 +316,7 @@ int aml_audio_spdifout_open(void **pphandle, spdif_config_t *spdif_config)
     phandle->device_id = device_id;
 
     *pphandle = (void *)phandle;
+
     ALOGI("%s success ret=%d format =0x%x", __func__, ret, audio_format);
     return ret;
 
@@ -348,6 +348,7 @@ int aml_audio_spdifout_processs(void *phandle, void *buffer, size_t byte)
     size_t output_buffer_bytes = 0;
     int device_id = -1;
     bool b_mute = false;
+    int return_size = 0;
 
     void *alsa_handle = NULL;
     if (phandle == NULL) {
@@ -375,10 +376,17 @@ int aml_audio_spdifout_processs(void *phandle, void *buffer, size_t byte)
 
     }
 #endif
-    if ((aml_dev->patch_src == SRC_DTV && aml_dev->audio_patch) &&
-        (aml_dev->discontinue_mute_flag || aml_dev->start_mute_flag ||
-         aml_dev->tv_mute)) {
-        b_mute = true;
+    if (aml_dev->audio_patch) {
+        if (aml_dev->sink_gain[aml_dev->active_outport] < FLOAT_ZERO) {
+            b_mute = true;
+        } else {
+            if ((aml_dev->patch_src == SRC_DTV) &&
+                (aml_dev->discontinue_mute_flag ||
+                aml_dev->start_mute_flag ||
+                aml_dev->tv_mute)) {
+                b_mute = true;
+            }
+        }
     }
 
     if (aml_dev->debug_flag) {
@@ -386,8 +394,19 @@ int aml_audio_spdifout_processs(void *phandle, void *buffer, size_t byte)
             output_buffer_bytes, spdifout_phandle->audio_format, b_mute, spdifout_phandle->b_mute);
     }
 
-    if (b_mute || spdifout_phandle->b_mute) {
-        memset(output_buffer, 0, output_buffer_bytes);
+    if (eDolbyDcvLib == aml_dev->dolby_lib_type) {
+        if (spdifout_phandle->b_mute || b_mute) {
+            if (spdifout_phandle->audio_format == AUDIO_FORMAT_AC3) {
+                if (output_buffer_bytes == IEC_DD_FRAME_SIZE * 4) {
+                    output_buffer = aml_audio_get_muteframe(spdifout_phandle->audio_format, &return_size, 0);
+                }
+            } else if(spdifout_phandle->audio_format == AUDIO_FORMAT_E_AC3) {
+                if (output_buffer_bytes == IEC_DDP_FRAME_SIZE * 4) 
+                    output_buffer = aml_audio_get_muteframe(spdifout_phandle->audio_format, &return_size, 0);
+            } else {
+                memset(output_buffer, 0, output_buffer_bytes);
+            }
+        }
     }
 
     if (output_buffer_bytes) {
