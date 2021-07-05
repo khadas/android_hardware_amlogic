@@ -18,6 +18,8 @@
 #define _SPDIF_OUT_API_H_
 
 #include "audio_hw.h"
+#define IEC_DD_FRAME_SIZE 1536
+#define IEC_DDP_FRAME_SIZE 6144
 
 typedef struct {
     audio_format_t audio_format;
