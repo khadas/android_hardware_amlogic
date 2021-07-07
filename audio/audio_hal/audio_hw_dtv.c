@@ -1478,8 +1478,6 @@ int audio_dtv_patch_output_dolby(struct aml_audio_patch *patch,
             patch->dtv_pcm_readed += ret;
         }
 
-        /* +[SE] [BUG][SWPL-22893][yinli.xia]
-              add: reset decode data when replay video*/
         if (aml_dev->debug_flag) {
             if (ddp_dec)
                 ALOGI("after decode: decode_offset: %d, ddp.remain_size=%d\n",
@@ -1558,8 +1556,6 @@ int audio_dtv_patch_output_dts(struct aml_audio_patch *patch, struct audio_strea
 
         }
 
-        /* +[SE] [BUG][SWPL-22893][yinli.xia]
-              add: reset decode data when replay video*/
         if (aml_dev->debug_flag) {
             ALOGI("after decode: dtshd->=%d\n", dtshd->remain_size);
         }
@@ -1959,6 +1955,7 @@ void *audio_dtv_patch_output_threadloop(void *data)
         goto exit_open;
     }
     aml_out = (struct aml_stream_out *)stream_out;
+    aml_out->dtvsync_enable =  property_get_int32("vendor.media.dtvsync.enable", 1);
     ALOGI("++%s live create a output stream success now!!!\n ", __FUNCTION__);
 
     patch->out_buf_size = write_bytes * EAC3_MULTIPLIER;

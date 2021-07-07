@@ -94,13 +94,6 @@ int aml_audio_ms12_process_wrapper(struct audio_stream_out *stream, const void *
             __func__, __LINE__, aml_out->hal_format, output_format, adev->sink_format);
     }
 
-    //sync process here
-    /*if (adev->patch_src  == SRC_DTV ) {
-        if (adev->audio_patch && adev->audio_patch->avsync_callback)
-            adev->audio_patch->avsync_callback(adev->audio_patch,aml_out);
-    }*/
-
-
     remain_size = dolby_ms12_get_main_buffer_avail(NULL);
     dolby_ms12_get_pcm_output_size(&all_pcm_len1, &all_zero_len);
 

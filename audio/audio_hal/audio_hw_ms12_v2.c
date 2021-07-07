@@ -1698,6 +1698,7 @@ int dolby_ms12_bypass_process(struct audio_stream_out *stream, void *buffer, siz
                 ALOGE("%s error", __func__);
                 break;
             }
+
             if (ac3_info.sample_rate != 0 && main_frame_size) {
                 aml_out->hal_rate = ac3_info.sample_rate;
             }
@@ -1711,8 +1712,9 @@ int dolby_ms12_bypass_process(struct audio_stream_out *stream, void *buffer, siz
         && is_dolby
         && !ms12->dual_decoder_support) {
         if (bytes != 0 && buffer != NULL) {
-            if (bitstream_out->spdifout_handle != NULL && bitstream_out->audio_format != output_format) {
-                ALOGI("spdif output format chamged from =0x%x to 0x%x", bitstream_out->audio_format, output_format);
+            if ((bitstream_out->spdifout_handle != NULL )&& 
+                ((bitstream_out->audio_format != output_format) ||
+                (output_format != AUDIO_FORMAT_IEC61937 && bitstream_out->sample_rate !=  aml_out->hal_rate))) {
                 aml_audio_spdifout_close(bitstream_out->spdifout_handle);
                 ALOGI("%s spdif format changed from 0x%x to 0x%x", __FUNCTION__, bitstream_out->audio_format, output_format);
                 bitstream_out->spdifout_handle = NULL;
@@ -1735,6 +1737,7 @@ int dolby_ms12_bypass_process(struct audio_stream_out *stream, void *buffer, siz
                     spdif_config.rate = 32000;
                 }
                 spdif_config.channel_mask = AUDIO_CHANNEL_OUT_STEREO;
+                bitstream_out->sample_rate = spdif_config.rate;
                 ret = aml_audio_spdifout_open(&bitstream_out->spdifout_handle, &spdif_config);
                 if (ret != 0) {
                     ALOGE("%s open spdif out failed\n", __func__);
