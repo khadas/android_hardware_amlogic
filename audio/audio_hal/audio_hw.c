@@ -5877,7 +5877,7 @@ ssize_t hw_write (struct audio_stream_out *stream
     }
     if (patch && !patch->skip_amadec_flag) {
         if (is_dtv && need_hw_mix(adev->usecase_masks)) {
-        if (adev->audio_patch->avsync_callback)
+        if (adev->audio_patch->avsync_callback && aml_out->dtvsync_enable)
             adev->audio_patch->avsync_callback(adev->audio_patch,aml_out);
         }
     }

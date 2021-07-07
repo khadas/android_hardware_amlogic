@@ -398,14 +398,14 @@ int aml_audio_spdifout_processs(void *phandle, void *buffer, size_t byte)
             output_buffer_bytes, spdifout_phandle->audio_format, b_mute, spdifout_phandle->b_mute);
     }
 
-    if (eDolbyDcvLib == aml_dev->dolby_lib_type) {
+    if (eDolbyDcvLib == aml_dev->dolby_lib_type || BYPASS == aml_dev->hdmi_format) {
         if (spdifout_phandle->b_mute || b_mute) {
             if (spdifout_phandle->audio_format == AUDIO_FORMAT_AC3) {
                 if (output_buffer_bytes == IEC_DD_FRAME_SIZE * 4) {
                     output_buffer = aml_audio_get_muteframe(spdifout_phandle->audio_format, &return_size, 0);
                 }
             } else if(spdifout_phandle->audio_format == AUDIO_FORMAT_E_AC3) {
-                if (output_buffer_bytes == IEC_DDP_FRAME_SIZE * 4) 
+                if (output_buffer_bytes == IEC_DDP_FRAME_SIZE * 4)
                     output_buffer = aml_audio_get_muteframe(spdifout_phandle->audio_format, &return_size, 0);
             } else {
                 memset(output_buffer, 0, output_buffer_bytes);
