@@ -26,6 +26,9 @@
 #include "EmulatedCamera3.h"
 #include "fake-pipeline2/Base.h"
 #include "fake-pipeline2/Sensor.h"
+#include "fake-pipeline2/USBSensor.h"
+#include "fake-pipeline2/MIPISensor.h"
+#include "fake-pipeline2/HDMIToCSISensor.h"
 #include "fake-pipeline2/JpegCompressor.h"
 #include <CameraMetadata.h>
 #include <utils/List.h>
@@ -115,6 +118,7 @@ private:
     /**
      * Build the static info metadata buffer for this device
      */
+    status_t createSensor();
     status_t constructStaticInfo();
     int getAvailableChKeys(CameraMetadata *info, uint8_t level);
     void updateCameraMetaData(CameraMetadata *info);
@@ -199,7 +203,7 @@ private:
     static const uint64_t kAvailableJpegMinDurations[];
 
     static const int64_t  kSyncWaitTimeout     = 10000000; // 10 ms
-    static const int32_t  kMaxSyncTimeoutCount = 300; // 1000 kSyncWaitTimeouts
+    static const int32_t  kMaxSyncTimeoutCount = 1000; // 1000 kSyncWaitTimeouts
     static const uint32_t kFenceTimeoutMs      = 2000; // 2 s
 
     /****************************************************************************
@@ -253,7 +257,6 @@ private:
     sp<JpegCompressor> mJpegCompressor;
     friend class       JpegCompressor;
     unsigned int mSupportCap;
-    unsigned int mSupportRotate;
     camera_status_t   mCameraStatus;
     bool mFlushTag;
     /** Processing thread for sending out results */
