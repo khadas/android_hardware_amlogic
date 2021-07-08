@@ -889,7 +889,7 @@ size_t aml_alsa_output_write_new(void *handle, const void *buffer, size_t bytes)
     char file_name[128] = { 0 };
     char audio_type[32] = { 0 };
     int debug_enable = aml_audio_get_alsa_debug();
-    if (alsa_handle->pcm == NULL || alsa_handle == NULL || buffer == NULL || bytes == 0) {
+    if (alsa_handle == NULL || alsa_handle->pcm == NULL || buffer == NULL || bytes == 0) {
         ALOGW("[%s:%d] invalid param, pcm:%p, alsa_handle:%p, buffer:%p, bytes:%zu",
             __func__, __LINE__, alsa_handle->pcm, alsa_handle, buffer, bytes);
         return -1;
