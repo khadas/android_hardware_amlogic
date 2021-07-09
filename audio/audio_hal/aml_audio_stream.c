@@ -19,6 +19,8 @@
 #include <cutils/log.h>
 #include <tinyalsa/asoundlib.h>
 #include <cutils/properties.h>
+#include <audio_utils/channels.h>
+
 
 #include "aml_alsa_mixer.h"
 #include "aml_audio_stream.h"
@@ -1192,5 +1194,37 @@ int update_sink_format_after_hotplug(struct aml_audio_device *adev)
     }
 
     return 0;
+}
+
+
+/* expand channels or contract channels*/
+int input_stream_channels_adjust(struct audio_stream_in *stream, void* buffer, size_t bytes)
+{
+    struct aml_stream_in *in = (struct aml_stream_in *)stream;
+    int ret = -1;
+
+    if (!in || !bytes)
+        return ret;
+
+    int channel_count = audio_channel_count_from_in_mask(in->hal_channel_mask);
+
+    if (!channel_count)
+        return ret;
+
+    size_t read_bytes = in->config.channels * bytes / channel_count;
+    if (!in->input_tmp_buffer || in->input_tmp_buffer_size < read_bytes) {
+        in->input_tmp_buffer = aml_audio_realloc(in->input_tmp_buffer, read_bytes);
+        in->input_tmp_buffer_size = read_bytes;
+    }
+
+    ret = aml_alsa_input_read(stream, in->input_tmp_buffer, read_bytes);
+    if (in->config.format == PCM_FORMAT_S16_LE)
+        adjust_channels(in->input_tmp_buffer, in->config.channels,
+            buffer, channel_count, 2, read_bytes);
+    else if (in->config.format == PCM_FORMAT_S32_LE)
+        adjust_channels(in->input_tmp_buffer, in->config.channels,
+            buffer, channel_count, 4, read_bytes);
+
+   return ret;
 }
 

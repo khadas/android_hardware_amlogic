@@ -2642,6 +2642,8 @@ static ssize_t in_read(struct audio_stream_in *stream, void* buffer, size_t byte
             }
             if (in->resampler) {
                 ret = read_frames(in, buffer, in_frames);
+            } else if (in->audio_packet_type == AUDIO_PACKET_AUDS && in->config.channels != 2) {
+                ret = input_stream_channels_adjust(stream, buffer, bytes);
             } else {
                 ret = aml_alsa_input_read(stream, buffer, bytes);
             }
@@ -7701,6 +7703,8 @@ static void ts_wait_time(struct timespec *ts, uint32_t time)
         ts->tv_nsec -=1000000000;
     }
 }
+
+
 
 // buffer/period ratio, bigger will add more latency
 void *audio_patch_input_threadloop(void *data)
