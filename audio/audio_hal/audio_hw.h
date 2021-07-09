@@ -648,7 +648,6 @@ struct aml_stream_out {
     bool normal_pcm_mixing_config;
     uint32_t latency_frames;
     unsigned int inputPortID;
-    int exiting;
     pthread_mutex_t cond_lock;
     pthread_cond_t cond;
     struct hw_avsync_header_extractor *hwsync_extractor;

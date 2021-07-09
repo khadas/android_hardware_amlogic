@@ -17,14 +17,11 @@ Description:
 #include <stdlib.h>
 #include <cutils/log.h>
 #include <inttypes.h>
-
 #include "hw_avsync.h"
 #include "audio_hwsync.h"
+#include "audio_hw_utils.h"
 #include "aml_malloc_debug.h"
 
-#ifndef min
-#define min(a,b) ((a) < (b) ? (a) : (b))
-#endif
 
 const uint8_t HW_AVSYNC_HEADER_V1[] = {0x55, 0x55, 0x00, 0x01};
 const uint8_t HW_AVSYNC_HEADER_V2[] = {0x55, 0x55, 0x00, 0x02};
@@ -283,7 +280,7 @@ ssize_t header_extractor_write(struct hw_avsync_header_extractor *header_extract
         } else {
             ALOGV("start dealing body read, bytes_remaing %zu, sync_frame_written %zu",
                     bytes_remaining, header_extractor->sync_frame_written);
-            size_t bytes_to_copy = min(bytes_remaining,
+            size_t bytes_to_copy = MIN(bytes_remaining,
                     hwsync_header_get_frame_size(sync_header) - header_extractor->sync_frame_written);
             ALOGV("%s() writing body_bytes= %zu,data_size_bytes= %d",
                   __func__, bytes_to_copy, header_extractor->data_size_bytes);
