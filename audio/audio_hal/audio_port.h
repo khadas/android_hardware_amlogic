@@ -25,9 +25,9 @@
 #include "sub_mixing_factory.h"
 
 /* Max number of pcm mixing ports */
-#define NR_INPORTS    8
+#define NR_INPORTS    (8)
 
-enum port_state {
+typedef enum {
     IDLE,
     ACTIVE,
     STOPPED,
@@ -37,15 +37,15 @@ enum port_state {
     PAUSING,
     PAUSING_1, //pausing and easing
     PAUSED,
-};
+} port_state;
 
-enum PORT_MSG {
+typedef enum {
     MSG_PAUSE,
     MSG_FLUSH,
     MSG_RESUME,
     MSG_CNT
-};
-const char *port_msg_to_str(enum PORT_MSG msg);
+} PORT_MSG;
+const char *port_msg_to_str(PORT_MSG msg);
 
 typedef enum AML_MIXER_INPUT_PORT_TYPE{
     AML_MIXER_INPUT_PORT_INVAL          = -1,
@@ -67,17 +67,18 @@ struct fade_out {
     float stride;
 };
 
-struct port_message {
-    enum PORT_MSG msg_what;
+typedef struct {
+    PORT_MSG msg_what;
     struct listnode list;
-};
+} port_message;
 
 typedef int (*meta_data_cbk_t)(void *cookie,
             uint64_t offset,
             struct hw_avsync_header *header,
             int *diff_ms);
 
-struct input_port {
+
+typedef struct INPUT_PORT {
     aml_mixer_input_port_type_e enInPortType;
     // flags for extra mixing port which duplicates to the basic port type
     unsigned int ID;
@@ -94,11 +95,11 @@ struct input_port {
     size_t bytes_to_skip;                   /* drop data count index. Units: Byte */
     bool is_hwsync;
     size_t consumed_bytes;
-    enum port_state port_status;
-    ssize_t (*write)(struct input_port *port, const void *buffer, int bytes);
-    ssize_t (*read)(struct input_port *port, void *buffer, int bytes);
-    uint32_t (*get_latency_frames)(struct input_port *port);
-    int (*rbuf_avail)(struct input_port *port);
+    port_state port_status;
+    ssize_t (*write)(struct INPUT_PORT *port, const void *buffer, int bytes);
+    ssize_t (*read)(struct INPUT_PORT *port, void *buffer, int bytes);
+    uint32_t (*get_latency_frames)(struct INPUT_PORT *port);
+    int (*rbuf_avail)(struct INPUT_PORT *port);
     void *notify_cbk_data;
     int (*on_notify_cbk)(void *data);
     void *input_avail_cbk_data;
@@ -118,20 +119,19 @@ struct input_port {
     uint64_t presentation_frames;
     int padding_frames;
     bool pts_valid;
-    bool        first_write;
+    bool        first_read;
     int         inport_start_threshold;
-    int64_t     last_write_time_ns;
-};
+} input_port;
 
-enum MIXER_OUTPUT_PORT {
+typedef enum {
     MIXER_OUTPUT_PORT_INVAL         = -1,
     MIXER_OUTPUT_PORT_PCM           = 0,
     //MIXER_OUTPUT_PORT_BITSTREAM_RAW = 1,
     MIXER_OUTPUT_PORT_NUM
-};
+} MIXER_OUTPUT_PORT;
 
-struct output_port {
-    enum MIXER_OUTPUT_PORT enOutPortType;
+typedef struct OUTPUT_PORT {
+    MIXER_OUTPUT_PORT enOutPortType;
     struct audioCfg cfg;
     // data buf to hold tmp out data
     char *data_buf;
@@ -141,10 +141,10 @@ struct output_port {
     size_t data_buf_frame_cnt;
     size_t data_buf_len;
     struct pcm *pcm_handle;
-    enum port_state port_status;
+    port_state port_status;
     pthread_mutex_t lock;
     pthread_cond_t cond;
-    ssize_t (*write)(struct output_port *port, void *buffer, int bytes);
+    ssize_t (*write)(struct OUTPUT_PORT *port, void *buffer, int bytes);
     struct timespec tval_last;
     int sound_track_mode;
     /* pcm device need to stop/start to enable same source */
@@ -152,56 +152,53 @@ struct output_port {
 #ifdef ENABLE_AEC_APP
     struct aec_t *aec;
 #endif
-};
-
-bool is_inport_valid(aml_mixer_input_port_type_e index);
-bool is_outport_valid(enum MIXER_OUTPUT_PORT index);
+} output_port;
 
 aml_mixer_input_port_type_e get_input_port_type(struct audio_config *config,
         audio_output_flags_t flags);
 
-struct input_port *new_input_port(
+input_port *new_input_port(
         size_t buf_size,
         struct audio_config *config,
         audio_output_flags_t flags,
         float volume,
         bool direct_on);
-int set_inport_padding_size(struct input_port *port, size_t bytes);
-int reset_input_port(struct input_port *port);
-int resize_input_port_buffer(struct input_port *port, uint buf_size);
-int free_input_port(struct input_port *port);
-int set_port_notify_cbk(struct input_port *port,
+int set_inport_padding_size(input_port *port, size_t bytes);
+int reset_input_port(input_port *port);
+int resize_input_port_buffer(input_port *port, uint buf_size);
+int free_input_port(input_port *port);
+int set_port_notify_cbk(input_port *port,
         int (*on_notify_cbk)(void *data), void *data);
-int set_port_input_avail_cbk(struct input_port *port,
+int set_port_input_avail_cbk(input_port *port,
         int (*on_input_avail_cbk)(void *data), void *data);
-int set_port_meta_data_cbk(struct input_port *port,
+int set_port_meta_data_cbk(input_port *port,
         meta_data_cbk_t meta_data_cbk,
         void *data);
-int send_inport_message(struct input_port *port, enum PORT_MSG msg);
-struct port_message *get_inport_message(struct input_port *port);
-int remove_inport_message(struct input_port *port, struct port_message *p_msg);
-int remove_all_inport_messages(struct input_port *port);
+int send_inport_message(input_port *port, PORT_MSG msg);
+port_message *get_inport_message(input_port *port);
+int remove_inport_message(input_port *port, port_message *p_msg);
+int remove_all_inport_messages(input_port *port);
 
-int set_inport_state(struct input_port *port, enum port_state status);
-enum port_state get_inport_state(struct input_port *port);
-void set_inport_hwsync(struct input_port *port);
-bool is_inport_hwsync(struct input_port *port);
-void set_inport_volume(struct input_port *port, float vol);
-float get_inport_volume(struct input_port *port);
-size_t get_inport_consumed_size(struct input_port *port);
-int inport_buffer_level(struct input_port *port);
+int set_inport_state(input_port *port, port_state status);
+port_state get_inport_state(input_port *port);
+void set_inport_hwsync(input_port *port);
+bool is_inport_hwsync(input_port *port);
+void set_inport_volume(input_port *port, float vol);
+float get_inport_volume(input_port *port);
+size_t get_inport_consumed_size(input_port *port);
+int inport_buffer_level(input_port *port);
 
-struct output_port *new_output_port(
-        enum MIXER_OUTPUT_PORT port_index,
+output_port *new_output_port(
+        MIXER_OUTPUT_PORT port_index,
         struct pcm *pcm_handle,
         struct audioCfg cfg,
         size_t buf_frames);
 
-int free_output_port(struct output_port *port);
-int resize_output_port_buffer(struct output_port *port, size_t buf_frames);
-int outport_get_latency_frames(struct output_port *port);
-int set_inport_pts_valid(struct input_port *in_port, bool valid);
-bool is_inport_pts_valid(struct input_port *in_port);
-void outport_pcm_restart(struct output_port *port);
+int free_output_port(output_port *port);
+int resize_output_port_buffer(output_port *port, size_t buf_frames);
+int outport_get_latency_frames(output_port *port);
+int set_inport_pts_valid(input_port *in_port, bool valid);
+bool is_inport_pts_valid(input_port *in_port);
+void outport_pcm_restart(output_port *port);
 
 #endif /* _AUDIO_PORT_H_ */

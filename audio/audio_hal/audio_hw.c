@@ -3074,7 +3074,7 @@ static int adev_open_output_stream(struct audio_hw_device *dev,
     out->need_convert = false;
     out->need_drop_size = 0;
     out->position_update = 0;
-    out->inputPortID = AML_MIXER_INPUT_PORT_BUTT;
+    out->inputPortID = -1;
 
     if (flags & AUDIO_OUTPUT_FLAG_MMAP_NOIRQ) {
         if ((eDolbyMS12Lib == adev->dolby_lib_type) &&
@@ -6910,55 +6910,55 @@ ssize_t mixer_aux_buffer_write(struct audio_stream_out *stream, const void *buff
 
 ssize_t mixer_app_buffer_write(struct audio_stream_out *stream, const void *buffer, size_t bytes)
 {
-   struct aml_stream_out *aml_out = (struct aml_stream_out *) stream;
-   struct aml_audio_device *adev = aml_out->dev;
-   struct dolby_ms12_desc *ms12 = &(adev->ms12);
-   int ret = 0;
-   size_t frame_size = audio_stream_out_frame_size(stream);
-   size_t bytes_remaining = bytes;
-   size_t bytes_written = 0;
-   int retry = 20;
+    struct aml_stream_out *aml_out = (struct aml_stream_out *) stream;
+    struct aml_audio_device *adev = aml_out->dev;
+    struct dolby_ms12_desc *ms12 = &(adev->ms12);
+    int ret = 0;
+    size_t frame_size = audio_stream_out_frame_size(stream);
+    size_t bytes_remaining = bytes;
+    size_t bytes_written = 0;
+    int retry = 20;
 
-   if (adev->debug_flag) {
-       ALOGD("[%s:%d] size:%zu, frame_size:%zu", __func__, __LINE__, bytes, frame_size);
-   }
+    if (adev->debug_flag) {
+        ALOGD("[%s:%d] size:%zu, frame_size:%zu", __func__, __LINE__, bytes, frame_size);
+    }
 
-   if (eDolbyMS12Lib != adev->dolby_lib_type) {
+    if (eDolbyMS12Lib != adev->dolby_lib_type) {
         ALOGW("[%s:%d] dolby_lib_type:%d, is not ms12, not support app write", __func__, __LINE__, adev->dolby_lib_type);
         return -1;
-   }
+    }
 
-   if (is_bypass_dolbyms12(stream)) {
-       ALOGW("[%s:%d] is_bypass_dolbyms12, not support app write", __func__, __LINE__);
-       return -1;
-   }
+    if (is_bypass_dolbyms12(stream)) {
+        ALOGW("[%s:%d] is_bypass_dolbyms12, not support app write", __func__, __LINE__);
+        return -1;
+    }
 
-   /*for ms12 continuous mode, we need update status here, instead of in hw_write*/
-   if (aml_out->status == STREAM_STANDBY && continous_mode(adev)) {
-       aml_out->status = STREAM_HW_WRITING;
-   }
+    /*for ms12 continuous mode, we need update status here, instead of in hw_write*/
+    if (aml_out->status == STREAM_STANDBY && continous_mode(adev)) {
+        aml_out->status = STREAM_HW_WRITING;
+    }
 
-   while (bytes_remaining && adev->ms12.dolby_ms12_enable && retry > 0) {
-       size_t used_size = 0;
-       ret = dolby_ms12_app_process(stream, (char *)buffer + bytes_written, bytes_remaining, &used_size);
-       if (!ret) {
-           bytes_remaining -= used_size;
-           bytes_written += used_size;
-       }
-       retry--;
-       if (bytes_remaining) {
-           aml_audio_sleep(1000);
-       }
-   }
-   if (retry <= 10) {
-       ALOGE("[%s:%d] write retry=%d ", __func__, __LINE__, retry);
-   }
-   if (retry == 0 && bytes_remaining != 0) {
-       ALOGE("[%s:%d] write timeout 10 ms ", __func__, __LINE__);
-       bytes -= bytes_remaining;
-   }
+    while (bytes_remaining && adev->ms12.dolby_ms12_enable && retry > 0) {
+        size_t used_size = 0;
+        ret = dolby_ms12_app_process(stream, (char *)buffer + bytes_written, bytes_remaining, &used_size);
+        if (!ret) {
+            bytes_remaining -= used_size;
+            bytes_written += used_size;
+        }
+        retry--;
+        if (bytes_remaining) {
+            aml_audio_sleep(1000);
+        }
+    }
+    if (retry <= 10) {
+        ALOGE("[%s:%d] write retry=%d ", __func__, __LINE__, retry);
+    }
+    if (retry == 0 && bytes_remaining != 0) {
+        ALOGE("[%s:%d] write timeout 10 ms ", __func__, __LINE__);
+        bytes -= bytes_remaining;
+    }
 
-   return bytes;
+    return bytes;
 }
 
 ssize_t process_buffer_write(struct audio_stream_out *stream,

@@ -787,11 +787,6 @@ int aml_audio_get_ddp_frame_size()
     return frame_size;
 }
 
-bool is_stream_using_mixer(struct aml_stream_out *out)
-{
-    return is_inport_valid(out->inputPortID);
-}
-
 uint32_t out_get_outport_latency(const struct audio_stream_out *stream)
 {
     struct aml_stream_out *out = (struct aml_stream_out *)stream;
@@ -804,7 +799,7 @@ uint32_t out_get_outport_latency(const struct audio_stream_out *stream)
         return a2dp_out_get_latency(adev);
     }
 
-    if (is_stream_using_mixer(out)) {
+    if (out->inputPortID >=0 && out->inputPortID < NR_INPORTS) {
         int outport_latency_frames = mixer_get_outport_latency_frames(audio_mixer);
 
         if (outport_latency_frames <= 0)

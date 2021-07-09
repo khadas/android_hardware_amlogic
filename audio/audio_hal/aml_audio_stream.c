@@ -38,7 +38,6 @@
 #ifdef MS12_V24_ENABLE
 #include "audio_hw_ms12_v2.h"
 #endif
-#define min(a,b)            (((a) < (b)) ? (a) : (b))
 #define FMT_UPDATE_THRESHOLD_MAX    (10)
 #define DOLBY_FMT_UPDATE_THRESHOLD  (5)
 #define DTS_FMT_UPDATE_THRESHOLD    (1)
@@ -218,7 +217,7 @@ static audio_format_t get_suitable_output_format(struct aml_stream_out *out,
 {
     audio_format_t output_format;
     if (IS_EXTERNAL_DECODER_SUPPORT_FORMAT(source_format)) {
-        output_format = min(source_format, sink_format);
+        output_format = MIN(source_format, sink_format);
     } else {
         output_format = sink_format;
     }
@@ -301,18 +300,18 @@ void get_sink_format(struct audio_stream_out *stream)
             break;
         case AUTO:
             if (is_dts_format(source_format)) {
-                sink_audio_format = min(source_format, sink_dts_capability);
+                sink_audio_format = MIN(source_format, sink_dts_capability);
             } else {
                 sink_audio_format = get_suitable_output_format(aml_out, source_format, sink_capability);
             }
             if (eDolbyMS12Lib == adev->dolby_lib_type && !is_dts_format(source_format)) {
-                sink_audio_format = min(ms12_max_support_output_format(), sink_capability);
+                sink_audio_format = MIN(ms12_max_support_output_format(), sink_capability);
             }
             optical_audio_format = sink_audio_format;
             break;
         case BYPASS:
             if (is_dts_format(source_format)) {
-                sink_audio_format = min(source_format, sink_dts_capability);
+                sink_audio_format = MIN(source_format, sink_dts_capability);
             } else {
                 sink_audio_format = get_suitable_output_format(aml_out, source_format, sink_capability);
             }
@@ -335,7 +334,7 @@ void get_sink_format(struct audio_stream_out *stream)
         case DD:
             if (adev->continuous_audio_mode == 0) {
                 sink_audio_format = AUDIO_FORMAT_PCM_16_BIT;
-                optical_audio_format = min(source_format, AUDIO_FORMAT_AC3);
+                optical_audio_format = MIN(source_format, AUDIO_FORMAT_AC3);
             } else {
                 sink_audio_format = AUDIO_FORMAT_PCM_16_BIT;
                 optical_audio_format = AUDIO_FORMAT_AC3;
@@ -344,7 +343,7 @@ void get_sink_format(struct audio_stream_out *stream)
         case AUTO:
             sink_audio_format = AUDIO_FORMAT_PCM_16_BIT;
             optical_audio_format = (source_format != AUDIO_FORMAT_DTS && source_format != AUDIO_FORMAT_DTS_HD)
-                                   ? min(source_format, AUDIO_FORMAT_AC3)
+                                   ? MIN(source_format, AUDIO_FORMAT_AC3)
                                    : AUDIO_FORMAT_DTS;
 
             if (eDolbyMS12Lib == adev->dolby_lib_type && !is_dts_format(source_format)) {
@@ -354,9 +353,9 @@ void get_sink_format(struct audio_stream_out *stream)
         case BYPASS:
            sink_audio_format = AUDIO_FORMAT_PCM_16_BIT;
            if (is_dts_format(source_format)) {
-               optical_audio_format = min(source_format, AUDIO_FORMAT_DTS);
+               optical_audio_format = MIN(source_format, AUDIO_FORMAT_DTS);
            } else {
-               optical_audio_format = min(source_format, AUDIO_FORMAT_AC3);
+               optical_audio_format = MIN(source_format, AUDIO_FORMAT_AC3);
            }
            break;
         default:
