@@ -1290,12 +1290,15 @@ static int out_set_volume (struct audio_stream_out *stream, float left, float ri
     bool is_direct_pcm = is_direct_stream_and_pcm_format(out);
     bool is_mmap_pcm = is_mmap_stream_and_pcm_format(out);
     bool is_ms12_pcm_volume_control = (is_direct_pcm && !is_mmap_pcm);
+    bool is_dts = is_dts_format(out->hal_internal_format);
+
 
     ALOGI("%s(), stream(%p), left:%f right:%f, continous_mode(%d), hal_internal_format:%x, is dolby %d is direct pcm %d is_mmap_pcm %d\n",
         __func__, stream, left, right, continous_mode(adev), out->hal_internal_format, is_dolby_format, is_direct_pcm, is_mmap_pcm);
 
     /* for not use ms12 case, we can use spdif enc mute, other wise ms12 can handle it*/
-    if (is_dolby_format && (eDolbyDcvLib == adev->dolby_lib_type || is_bypass_dolbyms12(stream) || adev->hdmi_format == BYPASS)) {
+    if (is_dts || \
+        (is_dolby_format && (eDolbyDcvLib == adev->dolby_lib_type || is_bypass_dolbyms12(stream) || adev->hdmi_format == BYPASS))) {
         if (out->volume_l < FLOAT_ZERO && left > FLOAT_ZERO) {
             ALOGI("set offload mute: false");
             out->offload_mute = false;
