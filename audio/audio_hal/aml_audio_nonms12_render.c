@@ -286,6 +286,7 @@ int aml_audio_nonms12_render(struct audio_stream_out *stream, const void *buffer
             // write raw data
             /*for pcm case, we check whether it has muti channel pcm or 96k/88.2k pcm */
             if (!dts_pcm_direct_output && !speed_enabled && audio_is_linear_pcm(aml_dec->format) && raw_in_data->data_ch > 2) {
+                aml_audio_stream_volume_process(stream, raw_in_data->buf, sizeof(int16_t), raw_in_data->data_ch, raw_in_data->data_len);
                 aml_audio_spdif_output(stream, &aml_out->spdifout_handle, raw_in_data);
             } else if (dts_pcm_direct_output && !speed_enabled) {
                 aml_audio_stream_volume_process(stream, dec_pcm_data->buf, sizeof(int16_t), dec_pcm_data->data_ch, dec_pcm_data->data_len);
