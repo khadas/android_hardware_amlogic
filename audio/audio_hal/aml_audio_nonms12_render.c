@@ -154,7 +154,7 @@ int aml_audio_nonms12_render(struct audio_stream_out *stream, const void *buffer
             decoder_ret = aml_decoder_process(aml_dec, (unsigned char *)buffer + dec_used_size, left_bytes, &used_size);
             if (decoder_ret == AML_DEC_RETURN_TYPE_CACHE_DATA) {
                 ALOGV("[%s:%d] cache the data to decode", __func__, __LINE__);
-                return bytes;
+                break;
             } else if (decoder_ret < 0) {
                 ALOGV("[%s:%d] aml_decoder_process error, ret:%d", __func__, __LINE__, decoder_ret);
 
@@ -324,8 +324,13 @@ int aml_audio_nonms12_render(struct audio_stream_out *stream, const void *buffer
 
         } while ((left_bytes > 0) || aml_dec->fragment_left_size || try_again);
     }
-    if (patch)
-       patch->decoder_offset +=return_bytes;
+
+    if (patch) {
+        aml_demux_audiopara_t *demux_info = (aml_demux_audiopara_t *)patch->demux_info;
+        if (demux_info->dual_decoder_support == 0)
+            patch->decoder_offset +=return_bytes;
+    }
+
     return return_bytes;
 }
 static audio_format_t get_dcvlib_output_format(audio_format_t src_format, struct aml_audio_device *aml_dev)

@@ -1887,6 +1887,7 @@ int audio_dtv_patch_output_dolby_dual_decoder(struct aml_audio_patch *patch,
             patch->dtv_pcm_readed += main_size;
 
         } else {
+            patch->decoder_offset += main_frame_size;
             patch->dtv_pcm_readed += main_size;
         }
         pthread_mutex_unlock(&(patch->dtv_output_mutex));
