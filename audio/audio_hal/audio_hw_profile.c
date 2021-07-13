@@ -149,6 +149,118 @@ AUDIO_CHANNEL_OUT_7POINT1"
 #define AUDIO_PROFILE_MAXCH_STRING           " %d ch"
 #define AUDIO_PROFILE_DEPVALUE_STRING        " DepVaule %x"
 
+/* Vendor Specific Audio Data Block Begin */
+/* Dolby Vendor-Specific Audio Data Block */
+/* defined in DolbyAudioandDolbyAtmosOverHDMI.pdf Version 1.3 */
+
+/*
+Table 11: This table describes the allocation of bytes 1 to 7 of the Dolby VSADB for sink devices.
+|----------------------------------------------------------------------------------------------|
+|Byte |                                   Bits                                                 |
+|     |----------------------------------------------------------------------------------------|
+|  #  |    7     |    6     |    5     |    4     |    3     |    2     |    1     |    0      |
+|----------------------------------------------------------------------------------------------|
+|  1  |         Tag code(0x7)          |           Length of following data block              |
+|     |                                |     (in bytes, in including this byte)(=0x06)         |
+|----------------------------------------------------------------------------------------------|
+|  2  |                               Extended tag code(0x11)                                  |
+|----------------------------------------------------------------------------------------------|
+|  3  |            IEEE organizational unique identifier third two hex digits(0x46)            |
+|----------------------------------------------------------------------------------------------|
+|  4  |            IEEE organizational unique identifier third two hex digits(0xD0)            |
+|----------------------------------------------------------------------------------------------|
+|  5  |            IEEE organizational unique identifier third two hex digits(0x00)            |
+|----------------------------------------------------------------------------------------------|
+|  6  |Headphone|        Output configuration     |  F63=0   |      Dolby VSADB version        |
+|     | playback|                                 |          |                                 |
+|----------------------------------------------------------------------------------------------|
+|  7  |                            Sink device capabilities                                    |
+|----------------------------------------------------------------------------------------------|
+
+Table 12: Meanings of bit7 of Dolby VSADB byte 6(headphone playback)
+|----------------------------------------------------------------------------------------------|
+|    Meaning     |                Bit 7 of Dolby VSADB byte 6                                  |
+|----------------------------------------------------------------------------------------------|
+|   If bite = 0  |      Sink device not configured for headphone playback only                 |
+|----------------------------------------------------------------------------------------------|
+|   If bite = 1  |       Sink device configured for headphone playback only                    |
+|----------------------------------------------------------------------------------------------|
+
+Table 13: Meanings of bits [6:4] of Dolby VSADB byte 6(output configuration)
+|----------------------------------------------------------------------------------------------|
+|                |               Bit [6:4] of Dolby VSADB byte 6                               |
+|    Meaning     | ----------------------------------------------------------------------------|
+|                |         Bit 6          |         Bit 5          |         Bit 4             |
+|----------------------------------------------------------------------------------------------|
+|    If bit = 0  |Height speaker zone not | Surround speaker zone not | Center speaker zone not|
+|                |        present         |           present         |         present        |
+|----------------------------------------------------------------------------------------------|
+|    If bit = 0  |Height speaker zone     | Surround speaker zone     | Center speaker zone    |
+|                |        present         |           present         |         present        |
+|----------------------------------------------------------------------------------------------|
+
+Table 14: Meanings of bits [2:0] of Dolby VSADB byte 6(Dolby VSADB version)
+|---------------------------------------------------------------------|
+|                  Byte 6                   |           Version       |
+|     Bit2    |     Bit 1     |    Bit 0    |                         |
+|---------------------------------------------------------------------|
+|      0      |      0        |      0      |            1.0          |
+|---------------------------------------------------------------------|
+|      0      |      0        |      1      |                         |
+|-------------------------------------------|                         |
+|                   ...                     |          Reserved       |
+|-------------------------------------------|                         |
+|      1      |      1        |      1      |                         |
+|---------------------------------------------------------------------|
+
+Table 15: Meanings of bit [7:0] of Dolby VSADB byte 7(sink device capabilities)
+|----------------------------------------------------------------------------------------------|
+|             |               Bit [7:0] of Dolby VSADB byte 7                                  |
+|    Meaning  | -------------------------------------------------------------------------------|
+|             |Bit 7 |Bit 6 |Bit 5 |Bit 4 |Bit 3 |Bit 2 |Bit 1 |         Bit 0                 |
+|----------------------------------------------------------------------------------------------|
+|  If bit = 0 |                                                |Refer to Dolby MAT Short Audio |
+|             |                                                |          Descriptors          |
+|-------------|                                                |-------------------------------|
+|  If bit = 0 |             F77 to F71 = 0                     |Sink device supports Dolby MAT |
+|             |                                                | PCM decoding at 48 kHz only,  |
+|             |                                                | and does not support Dolby    |
+|             |                                                |     TrueHD decoding           |
+|----------------------------------------------------------------------------------------------|
+
+*/
+
+#define VSADB_LENGTH (7)/* vendor_specific_audio_data_block length is 7bytes*/
+#define VSADB_TOTAL_LINE_NUM_IN_AUD_CAP (7) //VSADB defination in the "/sys/class/amhdmitx/amhdmitx0/aud_cap"
+#define DOLBY_VSADB_SYNC_WORD "e61146d000"
+/*
+ *if the VSADB defined in "/sys/class/amhdmitx/amhdmitx0/aud_cap",
+ *we suppose it in this format:
+ *
+ *Dolby Vendor Specific:
+ *  headphone_playback_only:0,
+ *  center_speaker:1,
+ *  surround_speaker:1,
+ *  height_speaker:1,
+ *  Ver:1.0,
+ *  MAT_PCM_48kHz_only:1,
+ *  e61146d0007001,
+ */
+
+typedef  struct vendor_specific_audio_data_block{
+    bool is_dolby_vsad;
+    bool is_headphone_playback_only;//Sink device configured for headphone playback only
+    bool is_height_speaker_zone_present;
+    bool is_surround_speaker_zone_present;
+    bool is_center_speaker_zone_present;
+    int version;
+    bool is_dolby_mat_pcm_48kHz;
+    char vsadb_array[VSADB_LENGTH];
+}  vsadb_t;
+
+
+/* Vendor Specific Audio Data Block End */
+
 typedef  struct {
     char              name[32];
     audio_format_t    audio_format;
@@ -174,6 +286,7 @@ typedef  struct {
     int32_t  sample_rate;
 } hdmi_audio_rate_t;
 
+
 /* The all support sample rate are:
  * 8/16/22.05/24/32/48/88.2/96/176.4/192 kHz
  */
@@ -183,6 +296,7 @@ typedef struct {
     int32_t        samplerate[AUDIO_PROFILE_SAMPLERATE_NUM];  /*the support sample rate*/
     int32_t        bitwidth_mask;   /*the support bitwidth*/
     int32_t        dep_value;       /*the dep value in edid*/
+    vsadb_t vsadb; //vendor_specific_audio_data_block
 } audio_profile_cap_t;
 
 
@@ -235,6 +349,107 @@ static void edid_audio_depvalue_parse(char * audio_info, audio_profile_cap_t * a
     return;
 }
 
+int string2hex(char *str, unsigned char *out, unsigned int *outlen)
+{
+    char *p = str;
+    char high = 0;
+    char low = 0;
+    int tmplen = strlen(p);
+    int cnt = 0;
+    tmplen = strlen(p);
+    while (cnt < (tmplen / 2))
+    {
+        high = ((*p > '9') && ((*p <= 'F') || (*p <= 'f'))) ? *p - 48 - 7 : *p - 48;
+        low = (*(++p) > '9' && ((*p <= 'F') || (*p <= 'f'))) ? *(p) - 48 - 7 : *(p) - 48;
+        out[cnt] = ((high & 0x0f) << 4 | (low & 0x0f));
+        p++;
+        cnt++;
+    }
+    if (tmplen % 2 != 0)
+        out[cnt] = ((*p > '9') && ((*p <= 'F') || (*p <= 'f'))) ? *p - 48 - 7 : *p - 48;
+
+    if (outlen != NULL)
+        *outlen = tmplen / 2 + tmplen % 2;
+
+    return tmplen / 2 + tmplen % 2;
+}
+
+
+static int32_t parse_vendor_specific_audio_data_block(char * audio_info, audio_profile_cap_t * audio_profile)
+{
+    char *saveptr = NULL;
+    char *string_tok = NULL;
+    bool b_found = false;
+
+    ALOGV("%s line %d audio_info:%s is_dolby_vsad %d\n", __func__, __LINE__, audio_info, audio_profile->vsadb.is_dolby_vsad);
+    if (!audio_profile->vsadb.is_dolby_vsad) {
+        string_tok = strtok_r(audio_info, ":", &saveptr);
+    }
+    else {
+        string_tok = strtok_r(audio_info, ",", &saveptr);
+    }
+    ALOGV("%s line %d string_tok:%s\n", __func__, __LINE__, string_tok);
+    {
+        if (string_tok) {
+            ALOGV("%s line %d string_tok:%s\n", __func__, __LINE__, string_tok);
+            if ( (!audio_profile->vsadb.is_dolby_vsad) && strstr(string_tok, "Dolby Vendor Specific") ) {
+                audio_profile->vsadb.is_dolby_vsad = true;
+                ALOGV("%s line %d is_dolby_vsad:%d\n", __func__, __LINE__, audio_profile->vsadb.is_dolby_vsad);
+                b_found = true;
+            }
+            if (audio_profile->vsadb.is_dolby_vsad) {
+                if (strstr(string_tok, "Ver")) {
+                    if (strstr(string_tok, "1.0"))
+                        audio_profile->vsadb.version = 1;
+                    ALOGV("%s line %d version:%d\n", __func__, __LINE__, audio_profile->vsadb.version);
+                    b_found = true;
+                }
+                else if (strstr(string_tok, "headphone_playback_only")) {
+                    audio_profile->vsadb.is_headphone_playback_only = !!strstr(string_tok, "headphone_playback_only:1");
+                    ALOGV("%s line %d is_headphone_playback_only:%d\n",
+                        __func__, __LINE__, audio_profile->vsadb.is_headphone_playback_only);
+                    b_found = true;
+                }
+                else if (strstr(string_tok, "center_speaker")) {
+                    audio_profile->vsadb.is_height_speaker_zone_present = !!strstr(string_tok,"center_speaker:1");
+                    ALOGV("%s line %d is_height_speaker_zone_present:%d\n",
+                        __func__, __LINE__, audio_profile->vsadb.is_height_speaker_zone_present);
+                    b_found = true;
+                }
+                else if (strstr(string_tok, "surround_speaker")) {
+                    audio_profile->vsadb.is_surround_speaker_zone_present = !!strstr(string_tok, "surround_speaker:1");
+                    ALOGV("%s line %d is_surround_speaker_zone_present:%d\n",
+                        __func__, __LINE__, audio_profile->vsadb.is_surround_speaker_zone_present);
+                    b_found = true;
+                }
+                else if (strstr(string_tok, "height_speaker")) {
+                    audio_profile->vsadb.is_center_speaker_zone_present = !!strstr(string_tok, "height_speaker:1");
+                    ALOGV("%s line %d is_center_speaker_zone_present:%d\n",
+                        __func__, __LINE__, audio_profile->vsadb.is_center_speaker_zone_present);
+                    b_found = true;
+                }
+                else if (strstr(string_tok, "MAT_PCM_48kHz_only")) {
+                    audio_profile->vsadb.is_dolby_mat_pcm_48kHz = !!strstr(string_tok, "MAT_PCM_48kHz_only:1");
+                    ALOGV("%s line %d is_dolby_mat_pcm_48kHz:%d\n",
+                        __func__, __LINE__, audio_profile->vsadb.is_dolby_mat_pcm_48kHz);
+                    b_found = true;
+                }
+                else if (strstr(string_tok, DOLBY_VSADB_SYNC_WORD)) {
+                    char *vsadb_src = strstr(string_tok, DOLBY_VSADB_SYNC_WORD);
+                    char *vsadb_target = (audio_profile->vsadb.vsadb_array);
+                    unsigned int target_len = 0;
+                    string2hex(vsadb_src, (unsigned char *)vsadb_target, &target_len);
+                    ALOGV("%s line %d vsadb_array 0x%2x 0x%2x 0x%2x 0x%2x 0x%2x 0x%2x 0x%2x\n",
+                        __func__, __LINE__, vsadb_target[0], vsadb_target[1], vsadb_target[2],
+                        vsadb_target[3], vsadb_target[4], vsadb_target[5], vsadb_target[6]);
+                    b_found = true;
+                }
+            }
+        }
+    }
+    return b_found ? 0 : -1;
+}
+
 /* the string info format is:
  * CodingType MaxChannels SamplingFreq SampleSize DepValue
  */
@@ -243,9 +458,14 @@ static int32_t edid_audio_info_parse(char * audio_info, audio_profile_cap_t * au
     char *string_tok = strtok_r(audio_info, ",", &saveptr);
     int32_t ret = 0;
     if (string_tok) {
-        ret = edid_audio_format_parse(string_tok, audio_profile);
-        if (ret != 0) {
-            ALOGE("%s doesn't support %s", __func__, audio_info);
+        bool is_dolby_vsadb = strstr(string_tok, "Dolby Vendor");
+        bool is_two_space = strstr(string_tok, "  ");
+        if (!is_dolby_vsadb && !is_two_space)
+            ret = edid_audio_format_parse(string_tok, audio_profile);
+        else
+            ret = parse_vendor_specific_audio_data_block(string_tok, audio_profile);
+        if (ret) {
+            ALOGE("%s doesn't support %s\n", __func__, audio_info);
             return -1;
         }
         string_tok = strtok_r(NULL, ",", &saveptr);
@@ -292,6 +512,9 @@ int  aml_hdmi_audio_profile_parser() {
     int32_t i = 0, j = 0, k = 0;
     int32_t ret = 0;
     audio_profile_cap_t * audio_cap_item = NULL;
+    int32_t vsadb_sub_index = 0;
+    int32_t index_of_audio_cap_for_vsadb = 0;//current suppose to analysis the dolby vsadb.
+
     infobuf = (char *)aml_audio_calloc(1, buf_len * sizeof(char *));
     file = fopen("/sys/class/amhdmitx/amhdmitx0/aud_cap", "r");
     if (!file) {
@@ -302,10 +525,13 @@ int  aml_hdmi_audio_profile_parser() {
     fgets(infobuf, buf_len, file);
     while (NULL != fgets(infobuf, buf_len, file)) {
         bool duplicated = false;
-        ALOGV("%s infobuf:%s", __func__, infobuf);
+        ALOGV("%s***************************************\n", __func__);
+        ALOGV("%s infobuf:%s index %d vsadb_sub_index %d\n", __func__, infobuf, i, vsadb_sub_index);
 
         audio_cap_item = &hdmi_audio_profile.audio_cap_item[i];
         ret = edid_audio_info_parse(infobuf, audio_cap_item);
+        ALOGV("%s edid audio info parse ret %d\n", __func__, ret);
+
         memset(infobuf, 0, buf_len);
         /*can't parse it, continue parse*/
         if (ret != 0) {
@@ -325,7 +551,7 @@ int  aml_hdmi_audio_profile_parser() {
             continue;
         }
 
-        ALOGV("%s format=0x%x max channel=%d depvalue=0x%x", __func__,
+        ALOGV("%s format=0x%x max channel=%d depvalue=0x%x\n", __func__,
             audio_cap_item->audio_format,
             audio_cap_item->max_channels,
             audio_cap_item->dep_value);
@@ -333,17 +559,50 @@ int  aml_hdmi_audio_profile_parser() {
             if (!audio_cap_item->samplerate[j]) {
                 break;
             }
-            ALOGV("sample rate =%d", audio_cap_item->samplerate[j]);
+            ALOGV("sample rate =%d\n", audio_cap_item->samplerate[j]);
         }
 
-        i++;
+        /*if not the "Dolby Vendor Specific", it is the normal SAD*/
+        if (!audio_cap_item->vsadb.is_dolby_vsad)
+           i++;
+        else
+            //vsadb has headphone & three speakers & version & Sink device capabilities & e61146d000xxxx(7bytes)
+            vsadb_sub_index++;
+
+        /* if all the VSADB part is analysised, will to store new EDID infor with new audio_profile_cap_t*/
+        if (vsadb_sub_index > VSADB_TOTAL_LINE_NUM_IN_AUD_CAP) {
+            index_of_audio_cap_for_vsadb = i;
+            i++;
+            vsadb_sub_index = 0;
+        }
+
         if (i >= AUIDO_PROFILE_ITEM_NUM) {
-            ALOGE("the HDMI EDID item is full");
+            ALOGE("the HDMI EDID item is full\n");
             break;
         }
         memset(infobuf, 0, buf_len);
     }
     fclose(file);
+
+    audio_profile_cap_t *audio_cap_vsadb = &(hdmi_audio_profile.audio_cap_item[index_of_audio_cap_for_vsadb]);
+    if (audio_cap_vsadb) {
+        if (audio_cap_vsadb->vsadb.is_dolby_vsad && audio_cap_vsadb->vsadb.is_dolby_mat_pcm_48kHz) {
+            //Byte3 bit0:1 bit1:0
+            //eg: "MAT, 8 ch, 348 kHz, DepVaule 0x1"
+            /* According to Byte7 bit1 = 0, at table15
+             * the sink device only support MAT PCM 48kHz decoding
+             * and does not support Dolby TrueHD decoding
+             * so, Dolby MS12 V2.4(or later), can output Dolby MAT.
+             * TODO:
+             * If Dolby MS12 further version can output DOlby TrueHD,
+             * this part should be modified as Dolby VSADB spec.
+             */
+            audio_cap_vsadb->audio_format = AUDIO_FORMAT_MAT;
+            audio_cap_vsadb->max_channels = 8;
+            audio_cap_vsadb->samplerate[0] = 48000;
+            audio_cap_vsadb->dep_value = 0x1;
+        }
+    }
 
 exit:
     if (infobuf) {
