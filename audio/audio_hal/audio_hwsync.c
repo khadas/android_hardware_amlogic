@@ -164,7 +164,7 @@ void aml_hwsync_wait_video_start(audio_hwsync_t *p_hwsync)
         return;
     }
 
-    waitcount = property_get_int32("vender.media.audio.hal.waitvpts.count", 100);
+    waitcount = property_get_int32("vendor.media.audio.hal.waitvpts.count", 100);
     aml_hwsync_wrap_wait_video_start(p_hwsync, waitcount);
     return;
 }
@@ -178,7 +178,7 @@ void aml_hwsync_wait_video_drop(audio_hwsync_t *p_hwsync, uint32_t cur_pts)
         return;
     }
 
-    waitcount = property_get_int32("vender.media.audio.hal.waitvpts.count", 100);
+    waitcount = property_get_int32("vendor.media.audio.hal.waitvpts.count", 100);
     aml_hwsync_wrap_wait_video_drop(p_hwsync, cur_pts, waitcount);
     return;
 }
