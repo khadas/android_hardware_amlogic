@@ -122,6 +122,7 @@ static int (*ddp_decoder_config)(void *, ddp_config_type_t, ddp_config_t *);
 
 static void *gDDPDecoderLibHandler = NULL;
 static void *handle = NULL;
+static int gDDPDecoderCount = 0;
 
 static DDPerr ddbs_init(DDPshort * buf, DDPshort bitptr, DDP_BSTRM *p_bstrm)
 {
@@ -391,6 +392,7 @@ static int dcv_decoder_init(int decoding_mode, aml_dec_control_type_t digital_ra
     }
 
     (*ddp_decoder_init)(decoding_mode, digital_raw, &handle);
+    gDDPDecoderCount++;
     return 0;
 Error:
     unload_ddp_decoder_lib();
@@ -556,7 +558,10 @@ int dcv_decoder_release_patch(aml_dec_t * aml_dec)
     dec_data_info_t * dec_raw_data = &aml_dec->dec_raw_data;
     dec_data_info_t * raw_in_data  = &aml_dec->raw_in_data;
 
-    if (ddp_decoder_cleanup != NULL && handle != NULL) {
+    // switch movieplayer to hdmiin by HOME key, hdmiin init dcv decoder before movieplayer
+    // release dcv decoder, so handle would be NULL by movieplayer release, and hdmiin cause error
+    gDDPDecoderCount--;
+    if (ddp_decoder_cleanup != NULL && handle != NULL && (gDDPDecoderCount <= 0)) {
         (*ddp_decoder_cleanup)(handle);
         handle = NULL;
     }
