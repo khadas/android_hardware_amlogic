@@ -7445,7 +7445,7 @@ void adev_close_output_stream_new(struct audio_hw_device *dev,
         aml_hwsync_set_tsync_pause(aml_out->hwsync);
         aml_out->tsync_status = TSYNC_STATUS_PAUSED;
 
-        ALOGI("%s set AUDIO_STOP when close stream\n",__func__);
+        ALOGI("%s set AUDIO_STOP when stop stream\n",__func__);
         aml_hwsync_set_tsync_stop(aml_out->hwsync);
         aml_out->tsync_status = TSYNC_STATUS_STOP;
     }

@@ -136,8 +136,8 @@ int on_meta_data_cbk(void *cookie,
             hwsync_header_construct(header);
             latency = (int32_t)out_get_outport_latency((struct audio_stream_out *)out) * 90;
             latency += tunning_latency * 90;
-            ALOGD("%s(), set tsync start pts %d, latency %d, last position %" PRId64 "",
-                __func__, pts32, latency, out->last_frames_postion);
+            ALOGD("%s() out:%p set tsync start pts %d, latency %d, last position %" PRId64 "",
+                __func__, out, pts32, latency, out->last_frames_postion);
             if (latency < 0) {
                 pts32 += abs(latency);
             } else {
@@ -195,7 +195,7 @@ int on_meta_data_cbk(void *cookie,
         aml_hwsync_reset_tsync_pcrscr(out->hwsync, pts32);
         pcr_pts_gap = ((int)(pts32 - pcr)) / 90;
         if (abs(pcr_pts_gap) > 50) {
-            ALOGI("%s pcr =%d pts =%d diff =%d", __func__, pcr/90, pts32/90, pcr_pts_gap);
+            ALOGI("%s out:%p pcr =%d pts =%d diff =%d", __func__, out, pcr/90, pts32/90, pcr_pts_gap);
         }
         return 0;
     }

@@ -374,6 +374,16 @@ static ssize_t out_write_hwsync_lpcm(struct audio_stream_out *stream, const void
     struct timespec ts;
     memset(&ts, 0, sizeof(struct timespec));
 
+    // when connect bt, bt stream maybe open before hdmi stream close,
+    // bt stream mediasync is set to adev->hw_mediasync, and it would be
+    // release in hdmi stream close, so bt stream mediasync is invalid
+    if (out->hwsync->mediasync != NULL && adev->hw_mediasync == NULL) {
+        adev->hw_mediasync = aml_hwsync_mediasync_create();
+        out->hwsync->use_mediasync = true;
+        out->hwsync->mediasync = adev->hw_mediasync;
+        aml_audio_hwsync_set_id(out->hwsync, out->hwsync->hwsync_id);
+        aml_audio_hwsync_init(out->hwsync, out);
+    }
     if (out->standby) {
         ALOGI("%s(), start hwsync lpcm stream: %p", __func__, out);
         set_thread_affinity();
