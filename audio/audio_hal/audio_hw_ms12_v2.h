@@ -282,5 +282,6 @@ int mat_bitstream_output(void *buffer, void *priv_data, size_t size);
  *@brief set ms12 dap postgain
  */
 void set_ms12_dap_postgain(struct dolby_ms12_desc *ms12, int postgain);
+void set_ms12_ac4_presentation_group_index(struct dolby_ms12_desc *ms12, int index);
 
 #endif //end of _AUDIO_HW_MS12_H_

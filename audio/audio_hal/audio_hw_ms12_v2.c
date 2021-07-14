@@ -475,7 +475,13 @@ void set_ms12_main_volume(struct dolby_ms12_desc *ms12, float volume) {
     dolby_ms12_set_main_volume(volume);
 }
 
-
+void set_ms12_ac4_presentation_group_index(struct dolby_ms12_desc *ms12, int index)
+{
+    char parm[64] = "";
+    sprintf(parm, "%s %d", "-ac4_pres_group_idx", index);
+    if ((strlen(parm)) > 0 && ms12)
+        aml_ms12_update_runtime_params(ms12, parm);
+}
 
 static inline alsa_device_t usecase_device_adapter_with_ms12(alsa_device_t usecase_device, audio_format_t output_format)
 {
@@ -692,7 +698,7 @@ int get_the_dolby_ms12_prepared(
     if (patch) {
         demux_info = (aml_demux_audiopara_t *)patch->demux_info;
     }
-    int ret = 0, associate_audio_mixing_enable = 0;
+    int ret = 0, associate_audio_mixing_enable = 0 , media_presentation_id = -1;
     bool output_5_1_ddp = getprop_bool(MS12_OUTPUT_5_1_DDP);
 
     ALOGI("\n+%s()", __FUNCTION__);
@@ -712,10 +718,13 @@ int get_the_dolby_ms12_prepared(
     set_audio_app_format(AUDIO_FORMAT_PCM_16_BIT);
     set_audio_main_format(input_format);
 
-    if (input_format == AUDIO_FORMAT_AC3 || input_format == AUDIO_FORMAT_E_AC3) {
+    if (input_format == AUDIO_FORMAT_AC3 ||
+        input_format == AUDIO_FORMAT_E_AC3 ||
+        input_format == AUDIO_FORMAT_AC4) {
         if (patch && demux_info) {
             ms12->dual_decoder_support = demux_info->dual_decoder_support;
             associate_audio_mixing_enable = demux_info->associate_audio_mixing_enable;
+            media_presentation_id = demux_info->media_presentation_id;
        } else {
             ms12->dual_decoder_support = 0;
             associate_audio_mixing_enable = 0;
@@ -738,6 +747,10 @@ int get_the_dolby_ms12_prepared(
     /*set the continous output flag*/
     set_dolby_ms12_continuous_mode((bool)adev->continuous_audio_mode);
     dolby_ms12_set_atmos_lock_flag(adev->atoms_lock_flag);
+
+    if (input_format == AUDIO_FORMAT_AC4) {
+        set_ms12_ac4_presentation_group_index(ms12, media_presentation_id);
+    }
 
     /*set the dolby ms12 debug level*/
     dolby_ms12_enable_debug();

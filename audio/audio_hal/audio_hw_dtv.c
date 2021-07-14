@@ -370,6 +370,15 @@ static int dtv_patch_handle_event(struct audio_hw_device *dev, int cmd, int val)
             }
 
             break;
+        case AUDIO_DTV_PATCH_CMD_SET_MEDIA_PRESENTATION_ID:
+            demux_info->media_presentation_id = val;
+            ALOGI("media_presentation_id %d",demux_info->media_presentation_id);
+            if (eDolbyMS12Lib == adev->dolby_lib_type_last) {
+                pthread_mutex_lock(&ms12->lock);
+                set_ms12_ac4_presentation_group_index(ms12, demux_info->media_presentation_id);
+                pthread_mutex_unlock(&ms12->lock);
+            }
+            break;
         case AUDIO_DTV_PATCH_CMD_CONTROL:
             if (patch == NULL) {
                 ALOGI("%s()the audio patch is NULL \n", __func__);
@@ -4031,6 +4040,13 @@ int set_dtv_parameters(struct audio_hw_device *dev, struct str_parms *parms)
         dtv_patch_handle_event(dev, AUDIO_DTV_PATCH_CMD_SET_MUTE, val);
         goto exit;
     }
+
+    ret = str_parms_get_int(parms, "hal_param_dtv_media_presentation_id", &val);
+    if (ret >= 0) {
+        dtv_patch_handle_event(dev, AUDIO_DTV_PATCH_CMD_SET_MEDIA_PRESENTATION_ID, val);
+        goto exit;
+    }
+
     /* dvb cmd deal with end */
 exit:
     return ret;
