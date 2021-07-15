@@ -52,7 +52,7 @@ int aml_audio_get_cur_ms12_latency(struct audio_stream_out *stream) {
     uint64_t frames_generated = dolby_ms12_get_main_pcm_generated(stream);
     if (is_dolby_ms12_support_compression_format(aml_out->hal_internal_format)) {
         /*for ms12 dual_decoder_support input node latency can not be calculated, AC4 and MAT frame is not 32ms*/
-        if (demux_info->dual_decoder_support ||
+        if ((demux_info && demux_info->dual_decoder_support) ||
             aml_out->hal_internal_format == AUDIO_FORMAT_AC4 ||
             aml_out->hal_internal_format == AUDIO_FORMAT_MAT) {
             ms12_latencyms = (frames_generated - ms12->master_pcm_frames) / 48;

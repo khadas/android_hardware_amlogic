@@ -325,9 +325,9 @@ int aml_audio_nonms12_render(struct audio_stream_out *stream, const void *buffer
         } while ((left_bytes > 0) || aml_dec->fragment_left_size || try_again);
     }
 
-    if (patch) {
+    if (patch && (adev->patch_src  == SRC_DTV)) {
         aml_demux_audiopara_t *demux_info = (aml_demux_audiopara_t *)patch->demux_info;
-        if (demux_info->dual_decoder_support == 0)
+        if (demux_info && demux_info->dual_decoder_support == 0)
             patch->decoder_offset +=return_bytes;
     }
 
