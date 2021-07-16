@@ -8694,10 +8694,10 @@ static int adev_set_audio_port_config(struct audio_hw_device *dev, const struct 
                     outport = get_output_dev_for_strategy(aml_dev, sink_devs, patch->num_sinks);
                     switch (outport) {
                         case OUTPORT_HDMI_ARC:
+                        case OUTPORT_A2DP:
                             aml_dev->sink_gain[outport] = 1.0;
                             break;
                         case OUTPORT_SPEAKER:
-                        case OUTPORT_A2DP:
                             aml_dev->sink_gain[outport] = DbToAmpl(config->gain.values[0] / 100.0);
                             break;
                         default:
@@ -8705,7 +8705,7 @@ static int adev_set_audio_port_config(struct audio_hw_device *dev, const struct 
                     }
                 } else if (patch->num_sinks == 1) {
                     outport = sink_devs[0];
-                    if (OUTPORT_HDMI_ARC == outport || OUTPORT_SPDIF == outport) {
+                    if (OUTPORT_HDMI_ARC == outport || OUTPORT_SPDIF == outport || OUTPORT_A2DP == outport) {
                         aml_dev->sink_gain[outport] =  1.0;
                     } else {
                         aml_dev->sink_gain[outport] = DbToAmpl(config->gain.values[0] / 100.0);
