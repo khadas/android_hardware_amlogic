@@ -321,7 +321,6 @@ static int dtv_patch_handle_event(struct audio_hw_device *dev, int cmd, int val)
             adev->dual_decoder_support = val;
             demux_info->dual_decoder_support = val;
             ALOGI("dual_decoder_support set to %d\n", adev->dual_decoder_support);
-            adev->need_reset_for_dual_decoder = true;
             break;
         case AUDIO_DTV_PATCH_CMD_SET_AD_ENABLE:
 
