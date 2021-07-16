@@ -1613,6 +1613,31 @@ int android_dev_convert_to_hal_dev(audio_devices_t android_dev, int *hal_dev_por
     return 0;
 }
 
+int android_fmt_convert_to_dmx_fmt(audio_format_t andorid_fmt) {
+
+    if (andorid_fmt <= AUDIO_FORMAT_DEFAULT ||
+        andorid_fmt >= AUDIO_FORMAT_INVALID) {
+        return ACODEC_FMT_NULL;
+    }
+
+    switch (andorid_fmt) {
+        case AUDIO_FORMAT_AAC:
+        case AUDIO_FORMAT_AAC_MAIN:
+        case AUDIO_FORMAT_AAC_LC:
+            return ACODEC_FMT_AAC;
+
+        case AUDIO_FORMAT_AC3:
+            return ACODEC_FMT_AC3;
+
+        case AUDIO_FORMAT_E_AC3:
+            return ACODEC_FMT_EAC3;
+
+        case AUDIO_FORMAT_MP3:
+        default:
+            return ACODEC_FMT_MPEG;
+    }
+}
+
 enum patch_src_assortion android_input_dev_convert_to_hal_patch_src(audio_devices_t android_dev)
 {
     enum patch_src_assortion patch_src = SRC_INVAL;

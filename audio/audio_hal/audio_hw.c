@@ -2855,6 +2855,12 @@ static int adev_open_output_stream(struct audio_hw_device *dev,
         ALOGE("%s malloc error", __func__);
         return -ENOMEM;
     }
+    if (config != NULL)
+    {
+        /*valid audio_config means enter in tuner framework case, then we need to create&start audio dtv patch*/
+        ALOGD("%s: dev:%p, fmt:%d, dmx fmt:%d, content id:%d,sync id %d,adev->patch_src %d, adev->audio_patching %d", __func__, dev, config->offload_info.format, android_fmt_convert_to_dmx_fmt(config->offload_info.format), config->offload_info.content_id, config->offload_info.sync_id, adev->patch_src, adev->audio_patching);
+        ret = enable_dtv_patch_for_tuner_framework(config, dev);
+    }
 
     if (address && !strncmp(address, "AML_", 4)) {
         ALOGI("%s(): aml TV source stream", __func__);
@@ -3169,8 +3175,8 @@ static void adev_close_output_stream(struct audio_hw_device *dev,
 {
     struct aml_stream_out *out = (struct aml_stream_out *)stream;
     struct aml_audio_device *adev = (struct aml_audio_device *)dev;
-
-    ALOGD("%s: enter: dev(%p) stream(%p)", __func__, dev, stream);
+    int ret = 0;
+    ALOGD("%s: enter: dev(%p) stream(%p) flags(%d)", __func__, dev, stream, out->flags);
 
     if (out->restore_hdmitx_selection) {
         /* switch back to spdifa when the dual stream is done */
@@ -3204,6 +3210,17 @@ static void adev_close_output_stream(struct audio_hw_device *dev,
         aml_audio_free(out->audioeffect_tmp_buffer);
         out->audioeffect_tmp_buffer = NULL;
     }
+
+    if ((out->dev->patch_src == SRC_DTV) && out->dev->audio_patching && (out->flags & AUDIO_OUTPUT_FLAG_COMPRESS_OFFLOAD)) {
+        /*enter into tuner framework case, we need to stop&release audio dtv patch*/
+        ALOGD("[audiohal_kpi] %s:patching %d, dev:%p, out->dev:%p, patch:%p", __func__, out->dev->audio_patching, dev, out->dev, ((struct aml_audio_device *)dev)->audio_patch);
+        out->dev->audio_patching = 0;
+        ret = disable_dtv_patch_for_tuner_framework(dev);
+        if (!ret) {
+            ALOGI("%s: finish releasing patch", __func__);
+        }
+    }
+
 
     if (out->tmp_buffer_8ch) {
         aml_audio_free(out->tmp_buffer_8ch);
