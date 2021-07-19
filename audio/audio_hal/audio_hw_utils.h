@@ -48,22 +48,37 @@
     }                                                       \
     return pStr;
 
-#define AM_LOGV(fmt, ...)  ALOGV("[%s:%d] "fmt, __func__,__LINE__, ##__VA_ARGS__)
-#define AM_LOGD(fmt, ...)  ALOGD("[%s:%d] "fmt, __func__,__LINE__, ##__VA_ARGS__)
-#define AM_LOGI(fmt, ...)  ALOGI("[%s:%d] "fmt, __func__,__LINE__, ##__VA_ARGS__)
-#define AM_LOGW(fmt, ...)  ALOGW("[%s:%d] "fmt, __func__,__LINE__, ##__VA_ARGS__)
-#define AM_LOGE(fmt, ...)  ALOGE("[%s:%d] "fmt, __func__,__LINE__, ##__VA_ARGS__)
+#define MIN(a,b) (((a) < (b)) ? (a) : (b))
+
+#define AM_LOGV(fmt, ...)  ALOGV("[%s:%d] " fmt, __func__,__LINE__, ##__VA_ARGS__)
+#define AM_LOGD(fmt, ...)  ALOGD("[%s:%d] " fmt, __func__,__LINE__, ##__VA_ARGS__)
+#define AM_LOGI(fmt, ...)  ALOGI("[%s:%d] " fmt, __func__,__LINE__, ##__VA_ARGS__)
+#define AM_LOGW(fmt, ...)  ALOGW("[%s:%d] " fmt, __func__,__LINE__, ##__VA_ARGS__)
+#define AM_LOGE(fmt, ...)  ALOGE("[%s:%d] " fmt, __func__,__LINE__, ##__VA_ARGS__)
 
 #define R_CHECK_RET(ret, fmt, ...)                                                              \
     if (ret != 0) {                                                                             \
-        AM_LOGE("ret:%d "fmt, ret, ##__VA_ARGS__);                                              \
+        AM_LOGE("ret:%d " fmt, ret, ##__VA_ARGS__);                                             \
         return ret;                                                                             \
     }
 
 #define NO_R_CHECK_RET(ret, fmt, ...)                                                           \
     if (ret != 0) {                                                                             \
-        AM_LOGE("ret:%d "fmt, ret, ##__VA_ARGS__);                                              \
+        AM_LOGE("ret:%d " fmt, ret, ##__VA_ARGS__);                                             \
     }
+
+#define R_CHECK_PARAM_LEGAL(ret, param, min, max, fmt, ...)                                     \
+    if (param < min || param > max) {                                                           \
+        AM_LOGE("%s:%d is illegal, min:%d, max:%d " fmt, #param, param, min, max, ##__VA_ARGS__);\
+        return ret;                                                                             \
+    }
+
+#define R_CHECK_POINTER_LEGAL(ret, pointer, fmt, ...)                                           \
+    if (pointer == NULL) {                                                                      \
+        AM_LOGE("%s is null pointer " fmt, #pointer, ##__VA_ARGS__);                            \
+        return ret;                                                                             \
+    }
+
 
 
 int64_t aml_gettime(void);
