@@ -9054,6 +9054,15 @@ static int adev_open(const hw_module_t* module, const char* name, hw_device_t** 
 #if defined(ENABLE_HBG_PATCH)
     startReceiveAudioData();
 #endif
+
+#ifdef ADD_AUDIO_DELAY_INTERFACE
+    ret = aml_audio_delay_init();
+    if (ret < 0) {
+        AM_LOGE("aml_audio_delay_init fail");
+        goto err_dtv_audio_instances;
+    }
+#endif
+
 /*[SEI-zhaopf-2018-10-29] add for HBG remote audio support } */
 #if defined(TV_AUDIO_OUTPUT)
     adev->is_TV = true;
@@ -9061,13 +9070,6 @@ static int adev_open(const hw_module_t* module, const char* name, hw_device_t** 
     /*Now SoundBar type is depending on TV audio as only tv support multi-channel LPCM output*/
     adev->is_SBR = aml_audio_check_sbr_product();
     ALOGI("%s(), TV platform,soundbar platform %d", __func__,adev->is_SBR);
-#ifdef ADD_AUDIO_DELAY_INTERFACE
-    ret = aml_audio_delay_init();
-    if (ret < 0) {
-        ALOGE("[%s:%d] aml_audio_delay_init fail", __func__, __LINE__);
-        goto err_dtv_audio_instances;
-    }
-#endif
 #else
     /* for stb/ott, fixed 2 channels speaker output for alsa*/
     adev->default_alsa_ch = 2;
