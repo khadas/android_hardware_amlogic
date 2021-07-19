@@ -5348,6 +5348,7 @@ ssize_t audio_hal_data_processing(struct audio_stream_out *stream,
                     } else if (adev->audio_patch == NULL) {
                         aml_audio_switch_output_mode((int16_t *)adev->out_16_buf, bytes, adev->sound_track_mode);
                     }
+
                     if (adev->active_outport != OUTPORT_A2DP) {
                         audio_post_process(&adev->native_postprocess, adev->out_16_buf, out_frames);
                     }
@@ -5404,6 +5405,8 @@ ssize_t audio_hal_data_processing(struct audio_stream_out *stream,
 
             if (adev->patch_src == SRC_DTV && adev->audio_patch != NULL) {
                 aml_audio_switch_output_mode((int16_t *)buffer, bytes, adev->audio_patch->mode);
+            } else if (adev->audio_patch == NULL) {
+                aml_audio_switch_output_mode((int16_t *)buffer, bytes, adev->sound_track_mode);
             }
 
             *output_buffer = (void *) buffer;
