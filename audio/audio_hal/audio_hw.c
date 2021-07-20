@@ -4355,6 +4355,11 @@ static char * adev_get_parameters (const struct audio_hw_device *dev,
         sprintf(temp_buf, "hal_param_dtv_latencyms=%d", latancyms);
         ALOGD("temp_buf %s", temp_buf);
         return strdup(temp_buf);
+    } else if (strstr (keys, "hal_param_audio_output_mode") ) {
+        int audio_output_mode = adev->dtv_sound_mode;
+        sprintf(temp_buf, "hal_param_audio_output_mode=%d", audio_output_mode);
+        ALOGD("temp_buf %s", temp_buf);
+        return strdup(temp_buf);
     }
 
     return strdup("");
@@ -9020,6 +9025,7 @@ static int adev_open(const hw_module_t* module, const char* name, hw_device_t** 
     adev->audio_patch = NULL;
     memset(&adev->dts_hd, 0, sizeof(struct dca_dts_dec));
     adev->sound_track_mode = 0;
+    adev->dtv_sound_mode = 0;
     adev->mixing_level = 0;
     adev->advol_level = 100;
     adev->aml_dtv_audio_instances = aml_audio_calloc(1, sizeof(aml_dtv_audio_instances_t));

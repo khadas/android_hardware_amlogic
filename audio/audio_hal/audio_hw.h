@@ -508,6 +508,7 @@ struct aml_audio_device {
     int ad_start_enable;
     int count;
     int sound_track_mode;
+    int dtv_sound_mode;
     void *alsa_handle[ALSA_DEVICE_CNT];
     int FactoryChannelReverse;
     bool dual_spdif_support; /*1 means supports spdif_a & spdif_b & spdif interface*/

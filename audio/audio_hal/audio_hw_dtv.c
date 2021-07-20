@@ -283,6 +283,10 @@ static int dtv_patch_handle_event(struct audio_hw_device *dev, int cmd, int val)
         case AUDIO_DTV_PATCH_CMD_SET_OUTPUT_MODE:
             ALOGI("DTV sound mode %d ", val);
             demux_info->output_mode = val;
+            if (patch && path_id == dtv_audio_instances->demux_index_working) {
+                patch->mode = demux_info->output_mode;
+            }
+            adev->dtv_sound_mode = demux_info->output_mode;
             break;
         case AUDIO_DTV_PATCH_CMD_SET_MUTE:
             ALOGE ("Amlogic_HAL - %s: TV-Mute:%d.", __FUNCTION__,val);
@@ -3642,6 +3646,7 @@ int create_dtv_patch_l(struct audio_hw_device *dev, audio_devices_t input,
     }
     dtv_assoc_init();
     patch->dtv_aformat = aml_dev->dtv_aformat;
+    patch->mode = aml_dev->dtv_sound_mode;
     patch->dtv_output_clock = 0;
     patch->dtv_default_i2s_clock = aml_dev->dtv_i2s_clock;
     patch->dtv_default_spdif_clock = aml_dev->dtv_spidif_clock;
