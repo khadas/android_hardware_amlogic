@@ -15,7 +15,7 @@
  */
 
 #define LOG_TAG "aml_audio_mad_dec"
-//#define LOG_NDEBUG 0
+#define LOG_NDEBUG 0
 
 #include <dlfcn.h>
 #include <cutils/log.h>
@@ -29,7 +29,8 @@
 #define MAD_MAX_LENGTH (1024 * 64)
 #define MAD_REMAIN_BUFFER_SIZE (4096 * 10)
 #define MAD_AD_NEED_CACHE_FRAME_COUNT  2
-
+#define MAD_DECODER_STEP_BYTE 1
+#define MAD_DECODER_PADDING_BYTE 512
 
 typedef struct _audio_info {
     int bitrate;
@@ -308,8 +309,15 @@ static int mad_decoder_process(aml_dec_t * aml_dec, unsigned char*buffer, int by
     ALOGV("remain_size %d bytes %d ad_decoder_supported %d ad_mixing_enable %d advol_level %d mixer_level %d",
         mad_dec->remain_size ,bytes, mad_dec->ad_decoder_supported, mad_dec->ad_mixing_enable, mad_dec->advol_level,mad_dec->mixer_level );
     if (bytes > 0) {
-        memcpy(mad_dec->remain_data + mad_dec->remain_size, buffer, bytes);
-        mad_dec->remain_size += bytes;
+        if (mad_dec->remain_size  + bytes >=  MAD_REMAIN_BUFFER_SIZE) {
+           ALOGE("mad_dec->remain_size + bytes  %d > %d  ,overflow", mad_dec->remain_size + bytes, MAD_REMAIN_BUFFER_SIZE );
+           mad_dec->remain_size = 0;
+           memset(mad_dec->remain_data, 0 , MAD_REMAIN_BUFFER_SIZE);
+        } else {
+            memcpy(mad_dec->remain_data + mad_dec->remain_size, buffer, bytes);
+            mad_dec->remain_size += bytes;
+        }
+
     }
     dec_pcm_data->data_len = 0;
 
@@ -337,18 +345,12 @@ static int mad_decoder_process(aml_dec_t * aml_dec, unsigned char*buffer, int by
           }
 
       } else {
-          if (mad_dec->remain_size  > used_size) {
-            mad_dec->remain_size = mad_dec->remain_size - used_size;
-            if (mad_dec->remain_size > MAD_REMAIN_BUFFER_SIZE) {
-                ALOGE("mad_dec->remain_size %d > %d  ,overflow", mad_dec->remain_size , MAD_REMAIN_BUFFER_SIZE );
-                mad_dec->remain_size = 0;
-            } else {
-                memmove(mad_dec->remain_data, mad_dec->remain_data + used_size, mad_dec->remain_size );
-            }
-
-          }
-          used_size_return = bytes;
           ALOGV("decode_len %d in %d pcm_len %d used_size %d mad_dec->remain_size %d", decode_len,  bytes, pcm_len, used_size, mad_dec->remain_size);
+          used_size_return = bytes;
+          mad_dec->remain_size = mad_dec->remain_size - used_size;
+          if (mad_dec->remain_size) {
+              memmove(mad_dec->remain_data, mad_dec->remain_data + used_size, mad_dec->remain_size );
+          }
           break;
       }
     }
