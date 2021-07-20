@@ -139,7 +139,7 @@ class AmlAudioOutPort : public RefBase
      */
     ssize_t     write(const void* buffer, size_t size, bool blocking);
 
-    void getHwDevice();
+    status_t getHwDevice();
 
     status_t setParameters(const String8& keyValuePairs);
     String8  getParameters(const String8& keys);

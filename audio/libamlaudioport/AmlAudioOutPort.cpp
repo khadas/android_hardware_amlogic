@@ -28,37 +28,43 @@ namespace android {
                         audio_format_t format,
                         audio_channel_mask_t channelMask,
                         audio_output_flags_t flags) {
-         handle = -1;
-         streamType = AUDIO_STREAM_MUSIC;
-         config.sample_rate = sampleRate;
-         config.format = format;
-         config.channel_mask = channelMask;
-         if (hwDevice == NULL)
-            getHwDevice();
-         audio_output_flags_t customFlags = (config.format == AUDIO_FORMAT_IEC61937)
-                ? (audio_output_flags_t)(flags | AUDIO_OUTPUT_FLAG_IEC958_NONAUDIO)
-                : flags;
-
-        int status = hwDevice->openOutputStream(
-                handle,
-                devices,
-                customFlags,
-                &config,
-                &address,
-                &outStream);
-        ALOGI("AudioStreamOut::open(), HAL returned "
-                " stream %p, sampleRate %d, Format %#x, "
-                "channelMask %#x, status %d",
-                outStream.get(),
-                config.sample_rate,
-                config.format,
-                config.channel_mask,
-                status);
-        if (status == NO_ERROR) {
-            ALOGI("get outStream success");
+        handle = -1;
+        streamType = AUDIO_STREAM_MUSIC;
+        config.sample_rate = sampleRate;
+        config.format = format;
+        config.channel_mask = channelMask;
+        if (hwDevice == NULL) {
+             if (getHwDevice() != NO_ERROR) {
+                ALOGI("getHwDevice() != NO_ERROR");
+             }
         }
-        if (flags == (audio_output_flags_t)(AUDIO_OUTPUT_FLAG_HW_AV_SYNC|AUDIO_OUTPUT_FLAG_DIRECT)) {
-            outStream->setParameters(String8("hw_av_sync=12345678"));
+        audio_output_flags_t customFlags = (config.format == AUDIO_FORMAT_IEC61937)
+                        ? (audio_output_flags_t)(flags | AUDIO_OUTPUT_FLAG_IEC958_NONAUDIO)
+                        : flags;
+
+        if (hwDevice) {
+            int status = hwDevice->openOutputStream(
+                    handle,
+                    devices,
+                    customFlags,
+                    &config,
+                    &address,
+                    &outStream);
+            ALOGI("AudioStreamOut::open(), HAL returned "
+                    " stream %p, sampleRate %d, Format %#x, "
+                    "channelMask %#x, status %d",
+                    outStream.get(),
+                    config.sample_rate,
+                    config.format,
+                    config.channel_mask,
+                    status);
+            if (status == NO_ERROR) {
+                ALOGI("get outStream success");
+            }
+            if (flags == (audio_output_flags_t)(AUDIO_OUTPUT_FLAG_HW_AV_SYNC|AUDIO_OUTPUT_FLAG_DIRECT)) {
+                outStream->setParameters(String8("hw_av_sync=12345678"));
+            }
+
         }
 
     }
@@ -102,8 +108,12 @@ namespace android {
     status_t AmlAudioOutPort::setParameters(const String8& keyValuePairs) {
         status_t err = NO_ERROR;
 
-        if (hwDevice == NULL)
-            getHwDevice();
+        if (hwDevice == NULL) {
+            if (getHwDevice()!= NO_ERROR) {
+                return UNKNOWN_ERROR;
+            }
+        }
+
 
         err = hwDevice->setParameters(keyValuePairs);
         ALOGI("setParameters:%s, err=%d", keyValuePairs.string(), err);
@@ -115,8 +125,12 @@ namespace android {
         status_t err = NO_ERROR;
         String8 mString = String8("");
 
-        if (hwDevice == NULL)
-            getHwDevice();
+        if (hwDevice == NULL) {
+            if (getHwDevice()!= NO_ERROR) {
+                return mString;
+            }
+        }
+
 
         err = hwDevice->getParameters(keys, &mString);
         if (err != NO_ERROR) {
@@ -128,7 +142,7 @@ namespace android {
         return mString;
     }
 
-    void AmlAudioOutPort::getHwDevice() {
+    status_t AmlAudioOutPort::getHwDevice() {
         if (mDevicesFactoryHal == nullptr) {
             mDevicesFactoryHal = DevicesFactoryHalInterface::create();
             if (mDevicesFactoryHal == nullptr)
@@ -140,6 +154,7 @@ namespace android {
                 ALOGI("get hwDevice success ");
             } else {
                 ALOGI("get hwDevice fail");
+                return UNKNOWN_ERROR;
             }
 
             rc = hwDevice->initCheck();
@@ -149,12 +164,16 @@ namespace android {
                 ALOGE("hwDevice init check fail");
             }
          }
-
+         return NO_ERROR;
     }
     status_t AmlAudioOutPort::createAudioPatch() {
         status_t err = NO_ERROR;
-        if (hwDevice == NULL)
-            getHwDevice();
+        if (hwDevice == NULL) {
+            if (getHwDevice()!= NO_ERROR) {
+                return UNKNOWN_ERROR;
+            }
+        }
+
         const struct audio_port_config sources = { .id = 1,
             .role = AUDIO_PORT_ROLE_SOURCE,
             .type = AUDIO_PORT_TYPE_DEVICE,
@@ -182,8 +201,12 @@ namespace android {
 
     status_t AmlAudioOutPort::releaseAudioPatch() {
         status_t err = NO_ERROR;
-         if (hwDevice == NULL)
-            getHwDevice();
+        if (hwDevice == NULL) {
+            if (getHwDevice()!= NO_ERROR) {
+                return UNKNOWN_ERROR;
+            }
+         }
+
          if (patch != 0)
            hwDevice->releaseAudioPatch(patch);
          return err;
