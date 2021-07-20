@@ -176,7 +176,7 @@ AM_Dmx_Audio_ErrorCode_t Get_ADAudio_Es(void *demux_handle, struct mAudioEsDataI
     }
 
     AM_DmxErrorCode_t ret = AM_Dmx_SUCCESS;
-    TSPMutex::Autolock l(demux_wrapper->mAudioEsDataQueueLock);
+    TSPMutex::Autolock l(demux_wrapper->mDemuxHandleLock);
     ret = demux_wrapper->AmDemuxWrapperReadData(demux_wrapper->filering_aud_ad_pid, (mEsDataInfo **)mAudioEsData,1);
     ALOGV("Get_ADAudio_Es ret %d mEsdata  %p",ret,*mAudioEsData);
     if (*mAudioEsData == NULL) {
