@@ -650,6 +650,7 @@ char*  get_hdmi_sink_cap_new(const char *keys,audio_format_t format,struct aml_a
 
         p_hdmi_descs->ddp_fmt.atmos_supported = 0;//default set ddp-joc atmos_supported as false
         p_hdmi_descs->ddp_fmt.is_support = 0;
+        p_hdmi_descs->dd_fmt.max_channels = 0;
         p_hdmi_descs->dd_fmt.is_support = 0;
         p_hdmi_descs->dts_fmt.is_support = 0;
         p_hdmi_descs->dtshd_fmt.is_support = 0;
@@ -673,6 +674,7 @@ char*  get_hdmi_sink_cap_new(const char *keys,audio_format_t format,struct aml_a
         /*check ac3*/
         audio_cap_item = get_edid_support_audio_format(AUDIO_FORMAT_AC3);
         if (audio_cap_item) {
+            p_hdmi_descs->dd_fmt.max_channels = audio_cap_item->max_channels;
             if (audio_cap_item->max_channels <= 2) {
                 p_hdmi_descs->dd_fmt.is_support = 0;
             } else {
@@ -1782,6 +1784,11 @@ char *out_get_parameters_wrapper_about_sup_sampling_rates__channels__formats(con
     struct str_parms *parms;
     audio_format_t format;
     int ret = 0, val_int = 0;
+    bool dd_only_support = false;
+    bool conv_support = false;
+    if ((eDolbyMS12Lib == adev->dolby_lib_type) || adev->dolby_decode_enable) {
+        conv_support = true;
+    }
 
     parms = str_parms_create_str (keys);
     ret = str_parms_get_int(parms, AUDIO_PARAMETER_STREAM_FORMAT, &val_int);
@@ -1813,6 +1820,36 @@ char *out_get_parameters_wrapper_about_sup_sampling_rates__channels__formats(con
                 } else {
                     cap = (char *)get_hdmi_sink_cap_new(keys,format,&(adev->hdmi_descs));
 
+                    /* below patch is for dd only sink device.
+                     * When connect dd only device, if we support ms12 or ddp convert,
+                     * we should also reply we support ddp
+                     */
+                    dd_only_support  = adev->hdmi_descs.dd_fmt.is_support && !adev->hdmi_descs.ddp_fmt.is_support;
+                    if (strstr(keys, AUDIO_PARAMETER_STREAM_SUP_FORMATS)) {
+                        if (dd_only_support && conv_support) {
+                            strcat(cap, "|AUDIO_FORMAT_E_AC3");
+                        }
+                    } else if (strstr(keys, AUDIO_PARAMETER_STREAM_SUP_CHANNELS)) {
+                        if (format == AUDIO_FORMAT_E_AC3) {
+                            if (dd_only_support && conv_support) {
+                                int dd_max_channels = adev->hdmi_descs.dd_fmt.max_channels;
+                                if (dd_max_channels == 8) {
+                                    sprintf(cap, "sup_channels=%s", SUPPORT_MAX_CHANNEL_8CH);
+                                } else if (dd_max_channels == 6){
+                                    sprintf(cap, "sup_channels=%s", SUPPORT_MAX_CHANNEL_6CH);
+                                } else {
+                                    sprintf(cap, "sup_channels=%s", SUPPORT_MAX_CHANNEL_2CH);
+                                }
+                            }
+                        }
+                    } else if (strstr(keys, AUDIO_PARAMETER_STREAM_SUP_SAMPLING_RATES)) {
+                        if (format == AUDIO_FORMAT_E_AC3) {
+                            if (dd_only_support && conv_support) {
+                                sprintf(cap, "sup_sampling_rates=%s", "32000|44100|48000");
+                            }
+                        }
+
+                    }
                 }
             }
         }
