@@ -818,12 +818,17 @@ std::pair<WifiStatus, sp<IWifiApIface>> WifiChip::createApIfaceInternal() {
     if (!canCurrentModeSupportIfaceOfTypeWithCurrentIfaces(IfaceType::AP)) {
         return {createWifiStatus(WifiStatusCode::ERROR_NOT_AVAILABLE), {}};
     }
+#ifdef WIFI_HIDL_FEATURE_DUAL_INTERFACE
+    property_set("vendor.w1_wifi_type", "ap");
     if (strcmp(buffer.data(), "aml") == 0 || strcmp(buffer.data(), "rtl") == 0 || strcmp(buffer.data(), "qca") == 0)
         ifname = "p2p0";//allocateApIfaceName();
     else if (strcmp(buffer.data(), "mtk") == 0)
         ifname = "ap0";
     else
         ifname = "wlan1";
+#else
+    ifname = allocateApIfaceName();
+#endif
     legacy_hal::wifi_error legacy_status =
         legacy_hal_.lock()->createVirtualInterface(
             ifname,
@@ -942,6 +947,9 @@ WifiStatus WifiChip::removeNanIfaceInternal(const std::string& ifname) {
 }
 
 std::pair<WifiStatus, sp<IWifiP2pIface>> WifiChip::createP2pIfaceInternal() {
+#ifdef WIFI_HIDL_FEATURE_DUAL_INTERFACE
+    property_set("vendor.w1_wifi_type", "p2p");
+#endif
     if (!canCurrentModeSupportIfaceOfTypeWithCurrentIfaces(IfaceType::P2P)) {
         return {createWifiStatus(WifiStatusCode::ERROR_NOT_AVAILABLE), {}};
     }
