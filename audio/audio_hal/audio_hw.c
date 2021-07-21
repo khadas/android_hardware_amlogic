@@ -3488,32 +3488,6 @@ static int aml_audio_update_arc_status(struct aml_audio_device *adev, bool enabl
      * while in config_output(), it detects this change, then re-route output config.
      */
     adev->arc_hdmi_updated = 1;
-
-    if (adev->bHDMIARCon && adev->bHDMIConnected && adev->speaker_mute) {
-        is_arc_connected = 1;
-    }
-
-    /*
-    *   when ARC is connecting, and user switch [Sound Output Device] to "ARC"
-    *   we need to set out_port as OUTPORT_HDMI_ARC ,
-    *   the aml_audio_output_routing() will "UNmute" ARC and "mute" speaker.
-    */
-    int out_port = adev->active_outport;
-    if (adev->active_outport == OUTPORT_SPEAKER && is_arc_connected) {
-        out_port = OUTPORT_HDMI_ARC;
-    }
-
-    /*
-    *   when ARC is connecting, and user switch [Sound Output Device] to "speaker"
-    *   we need to set out_port as OUTPORT_SPEAKER ,
-    *   the aml_audio_output_routing() will "mute" ARC and "unmute" speaker.
-    */
-    if (adev->active_outport == OUTPORT_HDMI_ARC && !is_arc_connected) {
-        out_port = OUTPORT_SPEAKER;
-    }
-    ALOGI("[%s:%d] out_port:%s", __func__, __LINE__, outputPort2Str(out_port));
-    aml_audio_output_routing((struct audio_hw_device *)adev, out_port, true);
-
     return 0;
 }
 
@@ -3527,22 +3501,8 @@ static int aml_audio_set_speaker_mute(struct aml_audio_device *adev, char *value
     } else {
         ALOGE("%s() unsupport speaker_mute value: %s", __func__, value);
     }
-    /*
-     * when ARC is connecting, and user switch [Sound Output Device] to "speaker"
-     * we need to set out_port as OUTPORT_SPEAKER ,
-     * the aml_audio_output_routing() will "mute" ARC and "unmute" speaker.
-     */
-    int out_port = adev->active_outport;
-    if (adev->active_outport == OUTPORT_HDMI_ARC && adev->speaker_mute == 0) {
-        out_port = OUTPORT_SPEAKER;
-    }
-    ret = aml_audio_output_routing(&adev->hw_device, out_port, true);
-    if (ret < 0) {
-        ALOGE("%s() output routing failed", __func__);
-    }
     return 0;
 }
-
 
 static int adev_set_parameters(struct audio_hw_device *dev, const char *kvpairs)
 {
