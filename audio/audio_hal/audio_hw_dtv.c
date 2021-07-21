@@ -2776,16 +2776,20 @@ void *audio_dtv_patch_input_threadloop(void *data)
                             if (mEsData == NULL) {
                                 nRet = Get_MainAudio_Es(demux_handle,&mEsData);
                                 if (nRet != AM_AUDIO_Dmx_SUCCESS) {
-                                    trycount++;
-                                    ALOGV("trycount %d", trycount);
-                                    if (trycount > 2 ) {
+                                    if (path_index == dtv_audio_instances->demux_index_working) {
+                                        trycount++;
+                                        ALOGV("trycount %d", trycount);
+                                        if (trycount > 4 ) {
+                                            trycount = 0;
+                                            break;
+                                        } else {
+                                           usleep(5000);
+                                           continue;
+                                        }
+                                    } else {
                                         trycount = 0;
                                         break;
-                                    } else {
-                                       usleep(10000);
-                                       continue;
                                     }
-
                                 } else {
                                    trycount = 0;
                                    if (aml_dev->debug_flag)
