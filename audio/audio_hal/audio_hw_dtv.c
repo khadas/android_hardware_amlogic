@@ -3745,6 +3745,7 @@ int release_dtv_patch(struct aml_audio_device *aml_dev)
     if (dtv_instances->dvb_path_count == 0) {
         ret = release_dtv_patch_l(aml_dev);
     }
+    aml_dev->patch_start = false;
     pthread_mutex_unlock(&aml_dev->patch_lock);
     return ret;
 }
