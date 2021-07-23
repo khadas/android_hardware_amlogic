@@ -56,11 +56,6 @@ struct dolby_ms12_desc {
     int dolby_ms12_init_argc;
     char **dolby_ms12_init_argv;
     void *dolby_ms12_ptr;
-#ifdef REPLACE_OUTPUT_BUFFER_WITH_CALLBACK
-
-#else
-    char *dolby_ms12_out_data;
-#endif
     int dolby_ms12_out_max_size;
     /*
     there are some risk when aux write thread and direct thread
@@ -101,7 +96,6 @@ struct dolby_ms12_desc {
     int bitsteam_cnt;
     void * system_virtual_buf_handle;
     ring_buffer_t spdif_ring_buffer;
-    unsigned char *lpcm_temp_buffer;
 
     /*
      *-ac4_de             * <int> [ac4] Dialogue Enhancement gain that will be applied in the decoder

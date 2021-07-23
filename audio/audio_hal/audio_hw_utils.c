@@ -1234,13 +1234,14 @@ bool aml_audio_data_detect(int16_t *buf, size_t bytes, int detect_value)
     int ret = false;
     uint64_t buf_value = 0;
     uint32_t i = 0;
+    int8_t *temp_buf = (int8_t *)buf;
 
-    while (i <= bytes/2) {
-        buf_value +=  abs(buf[i++]);
+    while (i < bytes) {
+        buf_value +=  abs(temp_buf[i++]);
     };
 
-    ALOGV("%s  i:%u  buf_value:%lld (%#llx),  sizeof(uint64_t):%u sizeof(size_t):%u", __func__,
-                i, buf_value, buf_value,  sizeof(uint64_t), sizeof(size_t));
+    ALOGV("%s bytes:%zu i:%u  buf_value:%llu (%#llx),  sizeof(uint64_t):%u sizeof(size_t):%u", __func__,
+                bytes, i, buf_value, buf_value,  sizeof(uint64_t), sizeof(size_t));
     if (buf_value <= detect_value) {
         ret = true;
     } else {
