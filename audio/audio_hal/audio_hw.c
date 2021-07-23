@@ -192,7 +192,7 @@ static const struct pcm_config pcm_config_out_direct = {
     .channels = 2,
     .rate = MM_FULL_POWER_SAMPLING_RATE,
     .period_size = DEFAULT_PLAYBACK_PERIOD_SIZE,
-    .period_count = PLAYBACK_PERIOD_COUNT,
+    .period_count = DEFAULT_PLAYBACK_PERIOD_CNT,
     .format = PCM_FORMAT_S16_LE,
 };
 
@@ -482,8 +482,8 @@ static int start_output_stream (struct aml_stream_out *out)
     /* default to low power: will be corrected in out_write if necessary before first write to
      * tinyalsa.
      */
-    out->write_threshold = out->config.period_size * PLAYBACK_PERIOD_COUNT;
-    out->config.start_threshold = out->config.period_size * PLAYBACK_PERIOD_COUNT;
+    out->write_threshold = out->config.period_size * out->config.period_count;
+    out->config.start_threshold = out->config.period_size * out->config.period_count;
     out->config.avail_min = 0;//SHORT_PERIOD_SIZE;
     //added by xujian for NTS hwsync/system stream mix smooth playback.
     //we need re-use the tinyalsa pcm handle by all the output stream, including
@@ -1764,9 +1764,6 @@ static int out_add_audio_effect(const struct audio_stream *stream, effect_handle
     ALOGI("%s, add audio effect: %s in audio hal, effect_handle: %p, total num of effects: %d",
         __FUNCTION__, tmpdesc.name, effect, dev->native_postprocess.num_postprocessors);
 
-    ALOGI("%s, add audio effect: %s in audio hal, effect_handle: %p, total num of effects: %d",
-        __FUNCTION__, tmpdesc.name, effect, dev->native_postprocess.num_postprocessors);
-
     if (dev->native_postprocess.num_postprocessors > dev->native_postprocess.total_postprocessors)
         dev->native_postprocess.total_postprocessors = dev->native_postprocess.num_postprocessors;
 
@@ -2624,7 +2621,6 @@ static ssize_t in_read(struct audio_stream_in *stream, void* buffer, size_t byte
             }
             if (ret < 0)
                 goto exit;
-            //DoDumpData(buffer, bytes, CC_DUMP_SRC_TYPE_INPUT);
         }
     }
 
@@ -2961,7 +2957,6 @@ static int adev_open_output_stream(struct audio_hw_device *dev,
             } else if (out->config.channels == 2 && out->config.rate >= 32000 && out->config.rate <= 48000) {
                 if (adev->audio_type == DTS) {
                     out->hal_internal_format = AUDIO_FORMAT_DTS;
-                    //adev->dts_hd.is_dtscd = false;
                     adev->dolby_lib_type = eDolbyDcvLib;
                     out->restore_dolby_lib_type = true;
                 } else {
@@ -2969,9 +2964,8 @@ static int adev_open_output_stream(struct audio_hw_device *dev,
                 }
             } else if (out->config.channels >= 6 && out->config.rate == 192000) {
                 out->hal_internal_format = AUDIO_FORMAT_DTS_HD;
-            } else {
-                // do nothing
             }
+
             ALOGI("convert format IEC61937 to 0x%x\n", out->hal_internal_format);
             break;
         case AUDIO_FORMAT_AC3:
@@ -3035,7 +3029,6 @@ static int adev_open_output_stream(struct audio_hw_device *dev,
     if (out->hal_frame_size == 0) {
         out->hal_frame_size = 1;
     }
-
 
     adev->audio_hal_info.format = AUDIO_FORMAT_PCM;
     adev->audio_hal_info.is_dolby_atmos = 0;
@@ -3137,12 +3130,8 @@ static int adev_open_output_stream(struct audio_hw_device *dev,
         return -ENOMEM;
     }
     out->hwsync->tsync_fd = -1;
-    // for every stream , init hwsync once. ready to use in hwsync mode ..zzz
+    // for every stream, init hwsync once. ready to use in hwsync mode
     aml_audio_hwsync_init(out->hwsync, out);
-
-    if (out->hw_sync_mode) {
-        //aml_audio_hwsync_init(out->hwsync, out);
-    }
 
     /*if tunnel mode pcm is not 48Khz, resample to 48K*/
     if (flags & AUDIO_OUTPUT_FLAG_HW_AV_SYNC) {
@@ -3627,6 +3616,8 @@ static int adev_set_parameters(struct audio_hw_device *dev, const char *kvpairs)
             if (val & AUDIO_DEVICE_OUT_HDMI_ARC) {
                 aml_audio_set_speaker_mute(adev, "true");
                 aml_audio_update_arc_status(adev, true);
+                /* get default edid of hdmirx */
+                get_current_edid(adev, adev->default_EDID_array, EDID_ARRAY_MAX_LEN);
             }
             update_sink_format_after_hotplug(adev);
         } else if (val & AUDIO_DEVICE_OUT_ALL_A2DP) {
@@ -5256,7 +5247,7 @@ ssize_t audio_hal_data_processing(struct audio_stream_out *stream,
         int32_t *tmp_buffer = (int32_t *)buffer;
         out_frames = bytes / FRAMESIZE_32BIT_STEREO;
         if (!aml_out->ms12_vol_ctrl) {
-           float gain_speaker = adev->sink_gain[OUTPORT_SPEAKER];
+            float gain_speaker = adev->sink_gain[OUTPORT_SPEAKER];
             if (aml_out->hw_sync_mode)
                 gain_speaker *= aml_out->volume_l;
             apply_volume(gain_speaker, tmp_buffer, sizeof(uint32_t), bytes);
@@ -5282,8 +5273,6 @@ ssize_t audio_hal_data_processing(struct audio_stream_out *stream,
         *output_buffer = aml_out->tmp_buffer_8ch;
         *output_buffer_bytes = FRAMESIZE_32BIT_8ch * out_frames;
     } else {
-        /*atom project supports 32bit hal only*/
-        /*TODO: Direct PCM case, I think still needs EQ and AEC */
         if (aml_out->is_tv_platform == 1) {
             ret = aml_audio_check_and_realloc((void **)&adev->out_16_buf, &adev->out_16_buf_size, bytes);
             R_CHECK_RET(ret, "alloc out_16_buf size:%d fail", bytes);
