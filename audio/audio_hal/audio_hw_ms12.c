@@ -515,12 +515,6 @@ int get_the_dolby_ms12_prepared(
     aml_ms12_bypass_open(&ms12->ms12_bypass_handle);
     aml_spdif_decoder_open(&ms12->spdif_dec_handle);
     ring_buffer_init(&ms12->spdif_ring_buffer, ms12->dolby_ms12_out_max_size);
-    ms12->lpcm_temp_buffer = (unsigned char*)malloc(ms12->dolby_ms12_out_max_size);
-    if (!ms12->lpcm_temp_buffer) {
-        ALOGE("%s malloc lpcm_temp_buffer failed", __func__);
-        if (continous_mode(adev))
-            goto Err_dolby_ms12_thread;
-    }
     adev->doing_reinit_ms12 = false;
     ALOGI("--%s(), locked", __FUNCTION__);
     pthread_mutex_unlock(&ms12->lock);
@@ -1180,10 +1174,6 @@ int get_dolby_ms12_cleanup(struct dolby_ms12_desc *ms12, bool set_non_continuous
     aml_spdif_decoder_close(ms12->spdif_dec_handle);
     ms12->spdif_dec_handle = NULL;
     ring_buffer_release(&ms12->spdif_ring_buffer);
-    if (ms12->lpcm_temp_buffer) {
-        free(ms12->lpcm_temp_buffer);
-        ms12->lpcm_temp_buffer = NULL;
-    }
     aml_ms12_bypass_close(ms12->ms12_bypass_handle);
     ms12->ms12_bypass_handle = NULL;
     /*because we are still in lock, we can set continuous_audio_mode here safely*/

@@ -889,14 +889,6 @@ int get_the_dolby_ms12_prepared(
     aml_spdif_decoder_open(&ms12->spdif_dec_handle);
     aml_ms12_bypass_open(&ms12->ms12_bypass_handle);
     ring_buffer_init(&ms12->spdif_ring_buffer, ms12->dolby_ms12_out_max_size);
-    ms12->lpcm_temp_buffer = (unsigned char*)malloc(ms12->dolby_ms12_out_max_size);
-    if (!ms12->lpcm_temp_buffer) {
-        ALOGE("%s malloc lpcm_temp_buffer failed", __func__);
-        if (continous_mode(adev))
-            goto Err_dolby_ms12_thread;
-        else
-            goto Err;
-    }
     ms12->dolby_ms12_init_flags = true;
     adev->doing_reinit_ms12     = false;
     ALOGI("--%s(), locked", __FUNCTION__);
@@ -1106,7 +1098,7 @@ int dolby_ms12_main_process(
                 ALOGV("Input size =%d used_size =%d output size=%d rate=%d interl format=0x%x rate=%d",
                     input_bytes, spdif_dec_used_size, main_frame_size, aml_out->hal_rate, aml_out->hal_internal_format, sample_rate);
 
-                if (main_frame_size != 0 && adev->continuous_audio_mode) {
+                if (adev->hdmi_format == BYPASS && main_frame_size != 0 && adev->continuous_audio_mode) {
                     struct bypass_frame_info frame_info = { 0 };
                     aml_out->ddp_frame_size    = main_frame_size;
                     frame_info.audio_format    = ms12_hal_format;
@@ -1151,7 +1143,7 @@ int dolby_ms12_main_process(
 
                     }
                 }
-                if (main_frame_size != 0) {
+                if (adev->hdmi_format == BYPASS && main_frame_size != 0) {
                     struct bypass_frame_info frame_info = { 0 };
                     aml_out->ddp_frame_size    = main_frame_size;
                     frame_info.audio_format    = ms12_hal_format;
@@ -1562,10 +1554,6 @@ int get_dolby_ms12_cleanup(struct dolby_ms12_desc *ms12, bool set_non_continuous
     aml_spdif_decoder_close(ms12->spdif_dec_handle);
     ms12->spdif_dec_handle = NULL;
     ring_buffer_release(&ms12->spdif_ring_buffer);
-    if (ms12->lpcm_temp_buffer) {
-        free(ms12->lpcm_temp_buffer);
-        ms12->lpcm_temp_buffer = NULL;
-    }
     aml_ms12_bypass_close(ms12->ms12_bypass_handle);
     ms12->ms12_bypass_handle = NULL;
     for (i = 0; i < BITSTREAM_OUTPUT_CNT; i++) {
@@ -1802,11 +1790,12 @@ int ms12_passthrough_output(struct aml_stream_out *aml_out) {
     uint64_t ms12_dec_out_nframes = dolby_ms12_get_decoder_nframes_pcm_output(adev->ms12.dolby_ms12_ptr, hal_internal_format, MAIN_INPUT_STREAM);
     struct bitstream_out_desc *bitstream_out = &ms12->bitstream_out[BITSTREAM_OUTPUT_A];
 
-    if (ms12_dec_out_nframes != 0 &&
+    if (adev->hdmi_format == BYPASS && ms12_dec_out_nframes != 0 &&
         (hal_internal_format == AUDIO_FORMAT_E_AC3 || hal_internal_format == AUDIO_FORMAT_AC3)) {
         uint64_t consume_offset = dolby_ms12_get_decoder_n_bytes_consumed(ms12->dolby_ms12_ptr, hal_internal_format, MAIN_INPUT_STREAM);
         aml_ms12_bypass_checkout_data(ms12->ms12_bypass_handle, &output_buf, &out_size, consume_offset, &frame_info);
     }
+
     if ((adev->hdmi_format != BYPASS)) {
         ms12->is_bypass_ms12 = false;
     }
