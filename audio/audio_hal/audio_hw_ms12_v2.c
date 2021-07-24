@@ -2345,6 +2345,11 @@ int dolby_ms12_main_open(struct audio_stream_out *stream) {
             , buf_ns_target
             , MS12_MAIN_BUF_INCREASE_TIME_MS);
     }
+    if (is_iec61937_format(stream)) {
+        if (ms12->spdif_dec_handle) {
+            aml_spdif_decoder_reset(ms12->spdif_dec_handle);
+        }
+    }
     return 0;
 }
 

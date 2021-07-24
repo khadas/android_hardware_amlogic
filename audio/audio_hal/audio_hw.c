@@ -703,12 +703,11 @@ static size_t out_get_buffer_size (const struct audio_stream *stream)
             }
         }
 
-        if (eDolbyDcvLib == adev->dolby_lib_type_last) {
-            if (stream->get_format(stream) == AUDIO_FORMAT_IEC61937) {
-                size = PLAYBACK_PERIOD_COUNT * DEFAULT_PLAYBACK_PERIOD_SIZE;
-                ALOGI("%s eac3 eDolbyDcvLib = size%zu)", __FUNCTION__, size);
-            }
+        if (stream->get_format(stream) == AUDIO_FORMAT_IEC61937) {
+            size = PLAYBACK_PERIOD_COUNT * DEFAULT_PLAYBACK_PERIOD_SIZE;
+            ALOGI("%s eac3 AUDIO_FORMAT_IEC61937 = size%zu)", __FUNCTION__, size);
         }
+
         /*netflix ddp size is 768, if we change to a big value, then
          *every process time is too long, it will cause such case failed SWPL-41439
          */
