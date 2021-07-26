@@ -598,7 +598,7 @@ static int out_get_presentation_position_port(
     struct aml_audio_device *adev = out->dev;
     struct subMixing *sm = adev->sm;
     struct amlAudioMixer *audio_mixer = sm->mixerData;
-    uint64_t frames_written_hw = out->last_frames_postion;
+    uint64_t frames_written_hw = out->frame_write_sum;
     int ret = 0;
     int tuning_latency_frame= 0;
     int frame_latency = 0;
@@ -613,28 +613,31 @@ static int out_get_presentation_position_port(
     }
 
     if (out->out_device & AUDIO_DEVICE_OUT_ALL_A2DP) {
-        struct timespec stCurTimestamp;
-        int64_t  curr_nanoseconds = 0;
-        int64_t  pre_nanoseconds = 0;
-        int64_t  time_diff = 0;
-        int drift_frames = 0;
+        // Timestamp adjustment for AV sync
+        struct timespec adjusted_timestamp;
+        int64_t inport_latency_nanos = (out->standby ? 0 :
+                mixer_get_inport_latency_frames(audio_mixer, out->inputPortID) * NSEC_PER_SEC / out->hal_rate);
+        int64_t bt_latency_nanos = (long long)(a2dp_out_get_latency(adev)) * NSEC_PER_MSEC;
+        int64_t latency_nanos = inport_latency_nanos + bt_latency_nanos;
 
-        pre_nanoseconds = (long long)out->timestamp.tv_sec * 1000000000 + (long long)out->timestamp.tv_nsec;
-        clock_gettime(CLOCK_MONOTONIC, &stCurTimestamp);
-        curr_nanoseconds = (long long)stCurTimestamp.tv_sec * 1000000000 + (long long)stCurTimestamp.tv_nsec;
-        time_diff = curr_nanoseconds - pre_nanoseconds;
-        if (time_diff <= 100*1000000) {
-            drift_frames = (time_diff * out->hal_rate) / 1000000000;
-            if (adev->debug_flag > 0)
-                AM_LOGI("normal time diff=%" PRId64 " drift_frames=%d",time_diff, drift_frames);
-        } else {
-            if (adev->debug_flag > 0)
-                AM_LOGW("big time diff:%" PRId64 "", time_diff);
-            time_diff = 0;
-            drift_frames = 0;
+        // libaudioclient code expects HAL position to lag behind server position.
+        // If the two are the same, it resets timestamp to the current time.
+        // As a temporary work-around, get around this by subtracting one
+        // frame from both position and timestamp.
+        int64_t frame_diff_for_client = 1;
+        int64_t time_diff_for_client = NSEC_PER_SEC / out->hal_rate;
+        int64_t adjusted_nanos = (long long)out->timestamp.tv_sec * NSEC_PER_SEC
+                + (long long)out->timestamp.tv_nsec + latency_nanos - time_diff_for_client;
+        if (adjusted_nanos < 0) {
+               adjusted_nanos = 0;
         }
-        *frames = frames_written_hw + drift_frames;
-        *timestamp = out->timestamp;
+        adjusted_timestamp.tv_sec = adjusted_nanos / NSEC_PER_SEC;
+        adjusted_timestamp.tv_nsec = adjusted_nanos % NSEC_PER_SEC;
+        AM_LOGV("latency adjustment: %lld (%lld ms), adjusted_nanos: %lld, frame drift: %lld, hal_rate: %u",
+            latency_nanos, latency_nanos / NSEC_PER_MSEC, adjusted_nanos, frame_diff_for_client, out->hal_rate);
+
+        *frames = frames_written_hw - frame_diff_for_client;
+        *timestamp = adjusted_timestamp;
     } else if (!adev->audio_patching) {
         ret = mixer_get_presentation_position(audio_mixer,
                 out->inputPortID, frames, timestamp);
@@ -1095,22 +1098,10 @@ ssize_t mixer_aux_buffer_write_sm(struct audio_stream_out *stream, const void *b
 #endif
 exit:
     aml_out->frame_write_sum += in_frames;
+    aml_out->last_frames_postion = aml_out->frame_write_sum;
     clock_gettime(CLOCK_MONOTONIC, &aml_out->timestamp);
     aml_out->lasttimestamp.tv_sec = aml_out->timestamp.tv_sec;
     aml_out->lasttimestamp.tv_nsec = aml_out->timestamp.tv_nsec;
-
-
-    if (aml_out->out_device & AUDIO_DEVICE_OUT_ALL_A2DP) {
-        uint64_t latency_frames = mixer_get_inport_latency_frames(sm->mixerData, aml_out->inputPortID)
-                + a2dp_out_get_latency(adev) * aml_out->hal_rate / 1000;
-        if (aml_out->frame_write_sum > latency_frames)
-            aml_out->last_frames_postion = aml_out->frame_write_sum - latency_frames;
-        else
-            aml_out->last_frames_postion = 0;
-    } else {
-        aml_out->last_frames_postion = aml_out->frame_write_sum;
-    }
-
     AM_LOGV("frame write sum %" PRId64 "", aml_out->frame_write_sum);
     return bytes;
 }
