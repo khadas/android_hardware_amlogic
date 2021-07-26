@@ -2873,6 +2873,8 @@ static int adev_open_output_stream(struct audio_hw_device *dev,
         /*valid audio_config means enter in tuner framework case, then we need to create&start audio dtv patch*/
         ALOGD("%s: dev:%p, fmt:%d, dmx fmt:%d, content id:%d,sync id %d,adev->patch_src %d, adev->audio_patching %d", __func__, dev, config->offload_info.format, android_fmt_convert_to_dmx_fmt(config->offload_info.format), config->offload_info.content_id, config->offload_info.sync_id, adev->patch_src, adev->audio_patching);
         ret = enable_dtv_patch_for_tuner_framework(config, dev);
+        out->audioCfg.offload_info.content_id = config->offload_info.content_id;
+        out->audioCfg.offload_info.sync_id = config->offload_info.sync_id;
     }
 
     if (address && !strncmp(address, "AML_", 4)) {
@@ -3229,7 +3231,11 @@ static void adev_close_output_stream(struct audio_hw_device *dev,
         out->audioeffect_tmp_buffer = NULL;
     }
 
-    if ((out->dev->patch_src == SRC_DTV) && out->dev->audio_patching && (out->flags & AUDIO_OUTPUT_FLAG_COMPRESS_OFFLOAD)) {
+    if ((out->dev->patch_src == SRC_DTV) &&
+         out->dev->audio_patching &&
+        (out->flags & AUDIO_OUTPUT_FLAG_COMPRESS_OFFLOAD) &&
+        (out->audioCfg.offload_info.content_id != 0)&&
+        (out->audioCfg.offload_info.sync_id != 0)) {
         /*enter into tuner framework case, we need to stop&release audio dtv patch*/
         ALOGD("[audiohal_kpi] %s:patching %d, dev:%p, out->dev:%p, patch:%p", __func__, out->dev->audio_patching, dev, out->dev, ((struct aml_audio_device *)dev)->audio_patch);
         out->dev->audio_patching = 0;

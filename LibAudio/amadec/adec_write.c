@@ -16,11 +16,12 @@
  */
 
 #include <adec_write.h>
+#include "aml_malloc_debug.h"
 
 int init_buff(buffer_stream_t *bs, int length)
 {
     //unsigned char *buffer=malloc(DEFAULT_BUFFER_SIZE);
-    unsigned char *buffer = malloc(length);
+    unsigned char *buffer = aml_audio_malloc(length);
     if (!buffer) {
         printf("Err:malloc failed \n");
         bs->data = NULL;
@@ -52,9 +53,9 @@ int reset_buffer(buffer_stream_t *bs)
 int release_buffer(buffer_stream_t *bs)
 {
     if (bs->data) {
-        free(bs->data);
+        aml_audio_free(bs->data);
     }
-    free(bs);
+    aml_audio_free(bs);
     bs = NULL;
     return 1;
 }

@@ -109,7 +109,7 @@ void aml_audio_debug_malloc_close(void)
     gaudio_malloc_handle = NULL;
     return;
 }
-void* aml_audio_debug_malloc(size_t size, char * file_name, uint32_t line)
+void* aml_audio_debug_malloc(size_t size, const char * file_name, uint32_t line)
 {
     void * pointer = NULL;
     struct aml_malloc_node * malloc_node = NULL;
@@ -133,7 +133,7 @@ void* aml_audio_debug_malloc(size_t size, char * file_name, uint32_t line)
     return pointer;
 }
 
-void* aml_audio_debug_realloc(void* pointer, size_t bytes, char * file_name, uint32_t line)
+void* aml_audio_debug_realloc(void* pointer, size_t bytes, const char * file_name, uint32_t line)
 {
     void * new_pointer = NULL;
     struct aml_malloc_node * malloc_node = NULL;
@@ -162,7 +162,7 @@ void* aml_audio_debug_realloc(void* pointer, size_t bytes, char * file_name, uin
 
 }
 
-void* aml_audio_debug_calloc(size_t nmemb, size_t bytes, char * file_name, uint32_t line)
+void* aml_audio_debug_calloc(size_t nmemb, size_t bytes, const char * file_name, uint32_t line)
 {
     void * pointer = NULL;
     struct aml_malloc_node * malloc_node = NULL;

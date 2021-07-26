@@ -12,6 +12,9 @@
 #include <dmx.h>
 #include "List.h"
 #include "RefBase.h"
+extern "C" {
+#include "aml_malloc_debug.h"
+}
 
 static void getVideoEsData(AmHwMultiDemuxWrapper* mDemuxWrapper,int fid,const uint8_t *data, int len, void *user_data) {
 //(void)mDemuxWrapper;
@@ -19,8 +22,8 @@ static void getVideoEsData(AmHwMultiDemuxWrapper* mDemuxWrapper,int fid,const ui
 //(void)data;
 //(void)len;
 (void)user_data;
-    mEsDataInfo* mEsData = new mEsDataInfo;
-    mEsData->data = (uint8_t*)malloc(len);
+    mEsDataInfo *mEsData = (mEsDataInfo *)aml_audio_malloc(sizeof(mEsDataInfo));;
+    mEsData->data = (uint8_t*)aml_audio_malloc(len);
     memcpy(mEsData->data,data,len);
     {
         TSPMutex::Autolock l(mDemuxWrapper->mVideoEsDataQueueLock);
@@ -53,11 +56,11 @@ static void getAudioEsData(AmHwMultiDemuxWrapper* mDemuxWrapper, int fid, const 
 //(void)len;
 (void)user_data;
 
-    mEsDataInfo* mEsData = new mEsDataInfo;
+    mEsDataInfo* mEsData = (mEsDataInfo*)aml_audio_malloc(sizeof(mEsDataInfo));;
     dmx_non_sec_es_header *es_header = (struct dmx_non_sec_es_header *)(data);
     if (len == (es_header->len + sizeof(struct dmx_non_sec_es_header))) {
         const unsigned char *data_es  = data + sizeof(struct dmx_non_sec_es_header);
-        mEsData->data = (uint8_t*)malloc(es_header->len);
+        mEsData->data = (uint8_t*)aml_audio_malloc(es_header->len);
         memcpy(mEsData->data, data_es, es_header->len);
         mEsData->size = es_header->len;
         mEsData->pts = es_header->pts;
@@ -67,7 +70,7 @@ static void getAudioEsData(AmHwMultiDemuxWrapper* mDemuxWrapper, int fid, const 
         dump_demux_data((void *)data_es, es_header->len, DEMUX_AUDIO_DUMP_PATH);
     } else {
         ALOGI("error es data len %d es_header->len %d",len, es_header->len);
-        delete mEsData;
+        aml_audio_free(mEsData);
         mEsData = NULL;
         return;
     }
@@ -75,6 +78,11 @@ static void getAudioEsData(AmHwMultiDemuxWrapper* mDemuxWrapper, int fid, const 
     {
         TSPMutex::Autolock l(mDemuxWrapper->mAudioEsDataQueueLock);
         mDemuxWrapper->queueEsData(mDemuxWrapper->mAudioEsDataQueue,mEsData);
+        int pakage_count = mDemuxWrapper->mAudioEsDataQueue.size();
+        if (pakage_count > 100) {
+            ALOGW("pakage_count %d",pakage_count);
+            mDemuxWrapper->clearPendingEsData(mDemuxWrapper->mAudioEsDataQueue);
+        }
     }
     //sp<TSPMessage> msg = mDemuxWrapper->dupNotify();
     //msg->setInt32("what", kWhatReadAudio);
@@ -89,11 +97,11 @@ static void getAudioADEsData(AmHwMultiDemuxWrapper* mDemuxWrapper, int fid, cons
 //(void)len;
 (void)user_data;
 
-    mEsDataInfo* mEsData = new mEsDataInfo;
+    mEsDataInfo* mEsData = (mEsDataInfo*)aml_audio_malloc(sizeof(mEsDataInfo));;
     dmx_non_sec_es_header *es_header = (struct dmx_non_sec_es_header *)(data);
     if ( len == (es_header->len + sizeof(struct dmx_non_sec_es_header))) {
         const unsigned char *data_es  = data + sizeof(struct dmx_non_sec_es_header);
-        mEsData->data = (uint8_t*)malloc(es_header->len);
+        mEsData->data = (uint8_t*)aml_audio_malloc(es_header->len);
         memcpy(mEsData->data, data_es, es_header->len);
         mEsData->size = es_header->len;
         mEsData->pts = es_header->pts;
@@ -102,7 +110,7 @@ static void getAudioADEsData(AmHwMultiDemuxWrapper* mDemuxWrapper, int fid, cons
         dump_demux_data((void *)data_es, es_header->len, DEMUX_AD_AUDIO_DUMP_PATH);
     } else {
         ALOGI("error es data len %d es_header->len %d",len, es_header->len);
-        delete mEsData;
+        aml_audio_free(mEsData);
         mEsData = NULL;
         return;
     }
@@ -504,8 +512,8 @@ AM_DmxErrorCode_t AmHwMultiDemuxWrapper::clearPendingEsData(List<mEsDataInfo*>& 
     List<mEsDataInfo *>::iterator it = mEsDataQueue.begin();
     while (it != mEsDataQueue.end()) {
         mEsDataInfo *mEsData = *it;
-        free(mEsData->data);
-        delete mEsData;
+        aml_audio_free(mEsData->data);
+        aml_audio_free(mEsData);
         ++it;
     }
     mEsDataQueue.clear();

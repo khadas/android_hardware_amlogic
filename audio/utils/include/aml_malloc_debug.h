@@ -23,7 +23,6 @@ enum {
     MEMINFO_SHOW_PRINT,
     MEMINFO_SHOW_FILE
 };
-
 //#define AML_MALLOC_DEBUG
 
 #ifdef AML_MALLOC_DEBUG
@@ -40,9 +39,9 @@ enum {
 
 void aml_audio_debug_malloc_open(void);
 void aml_audio_debug_malloc_close(void);
-void* aml_audio_debug_malloc(size_t size, char * file_name, uint32_t line);
-void* aml_audio_debug_realloc(void* pointer, size_t bytes, char * file_name, uint32_t line);
-void* aml_audio_debug_calloc(size_t nmemb, size_t bytes, char * file_name, uint32_t line);
+void* aml_audio_debug_malloc(size_t size, const char * file_name, uint32_t line);
+void* aml_audio_debug_realloc(void* pointer, size_t bytes, const char * file_name, uint32_t line);
+void* aml_audio_debug_calloc(size_t nmemb, size_t bytes, const char * file_name, uint32_t line);
 void aml_audio_debug_free(void* pointer);
 void aml_audio_debug_malloc_showinfo(uint32_t level);
 int aml_audio_check_and_realloc(void** pointer, size_t* cur_size, size_t need_size);
