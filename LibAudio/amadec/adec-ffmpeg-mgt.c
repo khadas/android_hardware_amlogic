@@ -43,6 +43,8 @@
 #include <audio-dec.h>
 #include <amthreadpool.h>
 #include <cutils/properties.h>
+#include "aml_malloc_debug.h"
+
 extern int read_buffer(unsigned char *buffer, int size);
 
 void *audio_decode_loop(void *args);
@@ -260,8 +262,8 @@ int package_list_free(aml_audio_dec_t * audec)
     while (audec->pack_list.pack_num) {
         struct package * p = audec->pack_list.first;
         audec->pack_list.first = audec->pack_list.first->next;
-        free(p->data);
-        free(p);
+        aml_audio_free(p->data);
+        aml_audio_free(p);
         audec->pack_list.pack_num--;
     }
     lp_unlock(&(audec->pack_list.tslock));
@@ -290,7 +292,7 @@ int package_add(aml_audio_dec_t * audec, char * data, int size, uint64_t pts)
         lp_unlock(&(audec->pack_list.tslock));
         return -2;
     }
-    struct package *p = malloc(sizeof(struct package));
+    struct package *p = aml_audio_malloc(sizeof(struct package));
     if (!p) { //malloc failed
         lp_unlock(&(audec->pack_list.tslock));
         return -1;
@@ -337,8 +339,8 @@ int ad_package_list_free(aml_audio_dec_t * audec)
     while (audec->ad_pack_list.pack_num) {
         struct package * p = audec->ad_pack_list.first;
         audec->ad_pack_list.first = audec->ad_pack_list.first->next;
-        free(p->data);
-        free(p);
+        aml_audio_free(p->data);
+        aml_audio_free(p);
         audec->ad_pack_list.pack_num--;
     }
     lp_unlock(&(audec->ad_pack_list.tslock));
@@ -361,7 +363,7 @@ int ad_package_add(aml_audio_dec_t * audec, char * data, int size, uint64_t pts)
         lp_unlock(&(audec->ad_pack_list.tslock));
         return -2;
     }
-    struct package *p = malloc(sizeof(struct package));
+    struct package *p = aml_audio_malloc(sizeof(struct package));
     if (!p) { //malloc failed
         lp_unlock(&(audec->ad_pack_list.tslock));
         return -1;
@@ -656,7 +658,7 @@ static int InBufferRelease(aml_audio_dec_t *audec)
 
 static int OutBufferInit(aml_audio_dec_t *audec)
 {
-    audec->g_bst = malloc(sizeof(buffer_stream_t));
+    audec->g_bst = aml_audio_malloc(sizeof(buffer_stream_t));
     if (!audec->g_bst) {
         adec_print("[%s %d]g_bst malloc failed! \n", __FUNCTION__, __LINE__);
         audec->g_bst = NULL;
@@ -697,7 +699,7 @@ static int OutBufferInit(aml_audio_dec_t *audec)
 }
 static int OutBufferInit_raw(aml_audio_dec_t *audec)
 {
-    audec->g_bst_raw = malloc(sizeof(buffer_stream_t));
+    audec->g_bst_raw = aml_audio_malloc(sizeof(buffer_stream_t));
     if (!audec->g_bst_raw) {
         adec_print("[%s %d]g_bst_raw malloc failed!\n", __FUNCTION__, __LINE__);
         audec->g_bst_raw = NULL;
@@ -1428,7 +1430,7 @@ void *audio_getpackage_loop(void *args)
         //exit_decode_loop:
         if (audec->exit_decode_thread) { /*detect quit condition*/
             if (inbuf) {
-                free(inbuf);
+                aml_audio_free(inbuf);
             }
             package_list_free(audec);
             break;
@@ -1448,10 +1450,10 @@ void *audio_getpackage_loop(void *args)
 
         nInBufferSize = nNextFrameSize;/*step 3  read buffer*/
         if (inbuf != NULL) {
-            free(inbuf);
+            aml_audio_free(inbuf);
             inbuf = NULL;
         }
-        inbuf = malloc(nInBufferSize);
+        inbuf = aml_audio_malloc(nInBufferSize);
         int nRet = 0;
         int sleeptime = 0;
         if (audec->use_sw_check_apts == 0) {
@@ -1489,7 +1491,7 @@ void *audio_getpackage_loop(void *args)
                 amthreadpool_thread_usleep(1000);
             }
             if (ret) {
-                free(inbuf);
+                aml_audio_free(inbuf);
             }
             inbuf = NULL;
         } else {
@@ -1520,7 +1522,7 @@ void *audio_getpackage_loop(void *args)
             while ((ret = package_add(audec, (char *)mEsData->data, mEsData->size,mEsData->pts)) && !audec->exit_decode_thread) {
                 amthreadpool_thread_usleep(1000);
             }
-            free(mEsData);
+            aml_audio_free(mEsData);
             mEsData = NULL;
 #endif
         }
@@ -1570,7 +1572,7 @@ void *ad_audio_getpackage_loop(void *args)
         //exit_decode_loop:
         if (audec->exit_decode_thread) { /*detect quit condition*/
             if (inbuf) {
-                free(inbuf);
+                aml_audio_free(inbuf);
             }
             ad_package_list_free(audec);
             break;
@@ -1589,10 +1591,10 @@ void *ad_audio_getpackage_loop(void *args)
 
         nInBufferSize = nNextFrameSize;/*step 3  read buffer*/
         if (inbuf != NULL) {
-            free(inbuf);
+            aml_audio_free(inbuf);
             inbuf = NULL;
         }
-        inbuf = malloc(nInBufferSize);
+        inbuf = aml_audio_malloc(nInBufferSize);
 
         int nNextReadSize = nInBufferSize;
         int nRet = 0;
@@ -1621,7 +1623,7 @@ void *ad_audio_getpackage_loop(void *args)
                     while ((ret = ad_package_add(audec, (char *)mEsData->data, mEsData->size, mEsData->pts)) && !audec->exit_decode_thread) {
                         amthreadpool_thread_usleep(1000);
                     }
-                    free(mEsData);
+                    aml_audio_free(mEsData);
                     mEsData = NULL;
                 }
             }
@@ -1652,7 +1654,7 @@ void *ad_audio_getpackage_loop(void *args)
                 amthreadpool_thread_usleep(1000);
             }
             if (ret) {
-                free(inbuf);
+                aml_audio_free(inbuf);
             }
             inbuf = NULL;
         }
@@ -1716,11 +1718,11 @@ void *ad_audio_decode_loop(void *args)
         //exit_decode_loop:
         if (audec->exit_decode_thread) { //detect quit condition
             if (inbuf) {
-                free(inbuf);
+                aml_audio_free(inbuf);
                 inbuf = NULL;
             }
             if (pRestData) {
-                free(pRestData);
+                aml_audio_free(pRestData);
                 pRestData = NULL;
             }
             audec->exit_decode_thread_success = 1;
@@ -1743,16 +1745,16 @@ void *ad_audio_decode_loop(void *args)
         }
 
         if (inbuf != NULL) {
-            free(inbuf);
+            aml_audio_free(inbuf);
             inbuf = NULL;
         }
         if (inlen && pRestData) {
             rlen = p_Package->size + inlen;
-            inbuf = malloc(rlen);
+            inbuf = aml_audio_malloc(rlen);
             memcpy(inbuf, pRestData, inlen);
             memcpy(inbuf + inlen, p_Package->data, p_Package->size);
-            free(pRestData);
-            free(p_Package->data);
+            aml_audio_free(pRestData);
+            aml_audio_free(p_Package->data);
             pRestData = NULL;
             p_Package->data = NULL;
         } else {
@@ -1760,7 +1762,7 @@ void *ad_audio_decode_loop(void *args)
             inbuf = p_Package->data;
             p_Package->data = NULL;
         }
-        free(p_Package);
+        aml_audio_free(p_Package);
         p_Package = NULL;
 
         nCurrentReadCount = rlen;
@@ -1771,7 +1773,7 @@ void *ad_audio_decode_loop(void *args)
                 outlen = AVCODEC_MAX_AUDIO_FRAME_SIZE;
                 if (nAudioFormat == ACODEC_FMT_COOK || nAudioFormat == ACODEC_FMT_RAAC || nAudioFormat == ACODEC_FMT_AMR) {
                     if (needdata > 0) {
-                        pRestData = malloc(inlen);
+                        pRestData = aml_audio_malloc(inlen);
                         if (pRestData) {
                             memcpy(pRestData, (uint8_t *)(inbuf + declen), inlen);
                         }
@@ -1787,7 +1789,7 @@ void *ad_audio_decode_loop(void *args)
                     if (nAudioFormat == ACODEC_FMT_APE) {
                         inlen = 0;
                     } else if (inlen > 0) {
-                        pRestData = malloc(inlen);
+                        pRestData = aml_audio_malloc(inlen);
                         if (pRestData) {
                             memcpy(pRestData, (uint8_t *)(inbuf + declen), inlen);
                         }
@@ -1807,7 +1809,7 @@ void *ad_audio_decode_loop(void *args)
                 // for aac decoder, if decoder cost es data but no pcm output,may need more data ,which is needed by frame resync
                 else if (nAudioFormat == ACODEC_FMT_AAC_LATM || nAudioFormat == ACODEC_FMT_AAC) {
                     if (outlen == 0 && inlen) {
-                        pRestData = malloc(inlen);
+                        pRestData = aml_audio_malloc(inlen);
                         if (pRestData) {
                             memcpy(pRestData, (uint8_t *)(inbuf + declen), inlen);
                         }
@@ -1932,11 +1934,11 @@ void *audio_decode_loop(void *args)
         //exit_decode_loop:
         if (audec->exit_decode_thread) { //detect quit condition
             if (inbuf) {
-                free(inbuf);
+                aml_audio_free(inbuf);
                 inbuf = NULL;
             }
             if (pRestData) {
-                free(pRestData);
+                aml_audio_free(pRestData);
                 pRestData = NULL;
             }
             audec->exit_decode_thread_success = 1;
@@ -1971,17 +1973,17 @@ void *audio_decode_loop(void *args)
 #endif
         }
         if (inbuf != NULL) {
-            free(inbuf);
+            aml_audio_free(inbuf);
             inbuf = NULL;
         }
         dump_amadec_data(p_Package->data,p_Package->size,"/data/amadec_abuf_read.es");
         if (inlen && pRestData) {
             rlen = p_Package->size + inlen;
-            inbuf = malloc(rlen);
+            inbuf = aml_audio_malloc(rlen);
             memcpy(inbuf, pRestData, inlen);
             memcpy(inbuf + inlen, p_Package->data, p_Package->size);
-            free(pRestData);
-            free(p_Package->data);
+            aml_audio_free(pRestData);
+            aml_audio_free(p_Package->data);
             pRestData = NULL;
             p_Package->data = NULL;
         } else {
@@ -1989,7 +1991,7 @@ void *audio_decode_loop(void *args)
             inbuf = p_Package->data;
             p_Package->data = NULL;
         }
-        free(p_Package);
+        aml_audio_free(p_Package);
         p_Package = NULL;
 
         nCurrentReadCount = rlen;
@@ -2000,7 +2002,7 @@ void *audio_decode_loop(void *args)
                 outlen = AVCODEC_MAX_AUDIO_FRAME_SIZE;
                 if (nAudioFormat == ACODEC_FMT_COOK || nAudioFormat == ACODEC_FMT_RAAC || nAudioFormat == ACODEC_FMT_AMR) {
                     if (needdata > 0) {
-                        pRestData = malloc(inlen);
+                        pRestData = aml_audio_malloc(inlen);
                         if (pRestData) {
                             memcpy(pRestData, (uint8_t *)(inbuf + declen), inlen);
                         }
@@ -2045,7 +2047,7 @@ void *audio_decode_loop(void *args)
                     if (nAudioFormat == ACODEC_FMT_APE) {
                         inlen = 0;
                     } else if (inlen > 0) {
-                        pRestData = malloc(inlen);
+                        pRestData = aml_audio_malloc(inlen);
                         if (pRestData) {
                             memcpy(pRestData, (uint8_t *)(inbuf + declen), inlen);
                         }
@@ -2067,7 +2069,7 @@ void *audio_decode_loop(void *args)
                 // for aac decoder, if decoder cost es data but no pcm output,may need more data ,which is needed by frame resync
                 else if (nAudioFormat == ACODEC_FMT_AAC_LATM || nAudioFormat == ACODEC_FMT_AAC) {
                     if (outlen == 0 && inlen) {
-                        pRestData = malloc(inlen);
+                        pRestData = aml_audio_malloc(inlen);
                         if (pRestData) {
                             memcpy(pRestData, (uint8_t *)(inbuf + declen), inlen);
                         }

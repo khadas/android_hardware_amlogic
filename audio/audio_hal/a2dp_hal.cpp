@@ -27,9 +27,11 @@
 #include "a2dp_hal.h"
 #include "a2dp_hw.h"
 #include "aml_audio_resampler.h"
-#include "aml_audio_stream.h"
-#include "audio_hw_utils.h"
+
+
 extern "C" {
+#include "audio_hw_utils.h"
+#include "aml_audio_stream.h"
 #include "aml_audio_timer.h"
 }
 

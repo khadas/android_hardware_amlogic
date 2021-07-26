@@ -33,6 +33,8 @@
 #include <cutils/properties.h>
 #include <sys/ioctl.h>
 #include "audio_dtv_sync.h"
+#include "aml_malloc_debug.h"
+
 #define MAX_AUDIO_SUPPORTED 2
 
 #define HWSYNC_APTS_NUM     512
@@ -108,7 +110,7 @@ void aml_audio_swcheck_init(int audio_path)
 {
     //int fd = -1;
     audio_swcheck_sync_t *p_swcheck = NULL;
-    p_swcheck = malloc(sizeof (audio_swcheck_sync_t));
+    p_swcheck = (audio_swcheck_sync_t *)aml_audio_malloc(sizeof (audio_swcheck_sync_t));
     if (p_swcheck == NULL ) {
         ALOGI("p_hwsync malloc failed !");
     }
@@ -137,8 +139,8 @@ void aml_audio_swcheck_release(int  audio_path)
     if (!p_swcheck) {
         return;
     }
-	close(p_swcheck->tsync_fd);
-    free(p_swcheck);
+    close(p_swcheck->tsync_fd);
+    aml_audio_free(p_swcheck);
     p_swcheck = NULL;
     p_swcheck_table[audio_path] = NULL;
     ALOGI("%s done", __func__);

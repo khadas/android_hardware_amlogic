@@ -42,12 +42,20 @@
 int dtv_package_list_flush(package_list *list)
 {
     pthread_mutex_lock(&(list->tslock));
-    struct package * p = NULL;
+    struct package * dtv_pacakge = NULL;
     while (list->pack_num && list->first) {
-        p = list->first;
+        dtv_pacakge = list->first;
         list->first = list->first->next;
-        aml_audio_free(p->data);
-        aml_audio_free(p);
+        if (dtv_pacakge->data) {
+            aml_audio_free(dtv_pacakge->data);
+            dtv_pacakge->data = NULL;
+        }
+        if (dtv_pacakge->ad_data) {
+            aml_audio_free(dtv_pacakge->ad_data);
+            dtv_pacakge->ad_data = NULL;
+        }
+        aml_audio_free(dtv_pacakge);
+        dtv_pacakge = NULL;
         list->pack_num--;
     }
     pthread_mutex_unlock(&(list->tslock));
@@ -119,7 +127,7 @@ void deinit_cmd_list(struct cmd_node *dtv_cmd_list)
     pthread_mutex_destroy(&dtv_cmd_list->dtv_cmd_mutex);
     while (cmd_list != NULL) {
         dtv_cmd_list = dtv_cmd_list->next;
-        free(cmd_list);
+        aml_audio_free(cmd_list);
         cmd_list = dtv_cmd_list;
     }
 }
