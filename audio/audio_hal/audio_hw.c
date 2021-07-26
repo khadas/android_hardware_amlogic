@@ -8584,7 +8584,7 @@ static int adev_close(hw_device_t *device)
         aml_audio_free(adev->out_16_buf);
     }
     if (adev->out_32_buf) {
-        aml_audio_free(adev->out_16_buf);
+        aml_audio_free(adev->out_32_buf);
     }
     if (adev->aml_ng_handle) {
         release_noise_gate(adev->aml_ng_handle);

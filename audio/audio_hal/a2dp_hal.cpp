@@ -22,6 +22,8 @@
 #include <android-base/strings.h>
 #include <audio_utils/primitives.h>
 
+#include "BluetoothAudioSession.h"
+
 #include "a2dp_hal.h"
 #include "a2dp_hw.h"
 #include "aml_audio_resampler.h"
@@ -32,9 +34,15 @@ extern "C" {
 }
 
 using ::android::bluetooth::audio::BluetoothAudioPortOut;
+using ::android::bluetooth::audio::BluetoothAudioSession;
+using ::android::bluetooth::audio::BluetoothAudioSessionInstance;
+using ::android::hardware::bluetooth::audio::V2_0::SessionType;
+
 #define DEBUG_LOG_MASK_A2DP                         (0x1000)
 #define A2DP_RING_BUFFER_DELAY_TIME_MS              (64)
 #define A2DP_WAIT_STATE_DELAY_TIME_US               (8000)
+#define DEFAULT_A2DP_LATENCY_NS                     (100 * NSEC_PER_MSEC) // Default delay to use when BT device does not report a delay
+#define A2DP_STATIC_DELAY_MS                        (100) // Additional device-specific delay
 
 struct aml_a2dp_hal {
     BluetoothAudioPortOut a2dphw;
@@ -434,9 +442,15 @@ ssize_t a2dp_out_write(struct aml_audio_device *adev, audio_config_base_t *confi
     return bytes;
 }
 
-uint32_t a2dp_out_get_latency(struct aml_audio_device *adev) {
-    (void *)adev;
-    return property_get_int32("vendor.media.a2dp.latency", 200);
+uint32_t a2dp_out_get_latency(struct aml_audio_device *adev __unused) {
+    uint64_t remote_delay_report_ns;
+    std::shared_ptr<BluetoothAudioSession> session_ptr =
+        BluetoothAudioSessionInstance::GetSessionInstance(SessionType::A2DP_SOFTWARE_ENCODING_DATAPATH);
+    bool success = session_ptr->GetPresentationPosition(&remote_delay_report_ns, nullptr, nullptr);
+    if (!success || remote_delay_report_ns == 0) {
+        remote_delay_report_ns = DEFAULT_A2DP_LATENCY_NS;
+    }
+    return static_cast<uint32_t>(remote_delay_report_ns / NSEC_PER_MSEC + A2DP_STATIC_DELAY_MS);
 }
 
 int a2dp_out_set_parameters(struct aml_audio_device *adev, const char *kvpairs) {
