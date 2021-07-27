@@ -52,4 +52,6 @@ int dtv_patch_clear_audio_loop(void);
 unsigned long dtv_patch_get_checkin_dicontinue_apts(void);
 int dtv_patch_get_decoder_status(unsigned int *perror_count);
 int dtv_audio_decpara_get(int *pfs, int *pch, int *lfepresent);
+int dtv_patch_input_stop_dmx(unsigned int handle);
+
 #endif
