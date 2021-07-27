@@ -420,6 +420,27 @@ int dtv_patch_input_stop(unsigned int handle)
     return 0;
 }
 
+int dtv_patch_input_stop_dmx(unsigned int handle) {
+
+    if (handle == 0) {
+        return -1;
+    }
+
+    dtv_patch_out *paramout = get_patchout();
+    pthread_mutex_lock(&patch_out_mutex);
+    if (out_patch_initd == 0) {
+        pthread_mutex_unlock(&patch_out_mutex);
+        return -1;
+    }
+
+    aml_audio_dec_t *audec = (aml_audio_dec_t *)paramout->audec;
+    if (audec->demux_handle) {
+        audec->demux_handle = NULL;
+    }
+    pthread_mutex_unlock(&patch_out_mutex);
+    return 0;
+}
+
 int dtv_patch_input_pause(unsigned int handle)
 {
     if (handle == 0) {

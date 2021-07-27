@@ -2338,6 +2338,7 @@ static void *audio_dtv_patch_process_threadloop(void *data)
             } else if (cmd == AUDIO_DTV_PATCH_CMD_STOP) {
                 ALOGI("[audiohal_kpi]++%s live now  stop  the audio decoder now \n",
                       __FUNCTION__);
+                dtv_patch_input_stop_dmx(adec_handle);
                 dtv_do_ease_out(aml_dev);
                 release_dtv_output_stream_thread(patch);
                 dtv_adjust_output_clock(patch, DIRECT_NORMAL, DEFAULT_DTV_ADJUST_CLOCK, false);
@@ -2401,6 +2402,7 @@ static void *audio_dtv_patch_process_threadloop(void *data)
 
 exit:
     ALOGI("[audiohal_kpi]++%s now  live  release  the audio decoder", __FUNCTION__);
+    dtv_patch_input_stop_dmx(adec_handle);
     release_dtv_output_stream_thread(patch);
     dtv_patch_input_stop(adec_handle);
     aml_dev->ad_start_enable = 0;

@@ -1497,7 +1497,8 @@ void *audio_getpackage_loop(void *args)
             struct mAudioEsDataInfo *mEsData;
             void *demux_handle = audec->demux_handle;
             if (demux_handle == NULL) {
-                adec_print("demux_handle %p", demux_handle);
+                if (audec->debug_flag)
+                    adec_print("demux_handle %p", demux_handle);
                 continue;
             }
             nRet = Get_MainAudio_Es(demux_handle,&mEsData);
