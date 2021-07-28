@@ -1685,6 +1685,8 @@ int dolby_ms12_bypass_process(struct audio_stream_out *stream, void *buffer, siz
     audio_format_t output_format =  ms12_get_audio_hal_format(aml_out->hal_format);
     ALOGV("output_format=0x%x hal_format=0x%#x internal=0x%x", output_format, aml_out->hal_format, aml_out->hal_internal_format);
     bool is_dolby = (aml_out->hal_internal_format == AUDIO_FORMAT_E_AC3) || (aml_out->hal_internal_format == AUDIO_FORMAT_AC3);
+    struct aml_audio_patch *patch = adev->audio_patch;
+    bool do_sync_flag = adev->patch_src  == SRC_DTV && patch && patch->skip_amadec_flag;
     spdif_config_t spdif_config = { 0 };
     /*for patch mode, the hal_rate is not correct, we should parse it*/
     if (adev->audio_patching && is_dolby) {
@@ -1760,6 +1762,19 @@ int dolby_ms12_bypass_process(struct audio_stream_out *stream, void *buffer, siz
             aml_audio_spdifout_mute(bitstream_out->spdifout_handle, 1);
         } else {
             aml_audio_spdifout_mute(bitstream_out->spdifout_handle, 0);
+        }
+        if (aml_out->need_drop_size > 0) {
+            return 0;
+        }
+        if (do_sync_flag && aml_out->dtvsync_enable) {
+            aml_dtvsync_t *aml_dtvsync = patch->dtvsync;
+            struct dtvsync_audio_policy *async_policy = NULL;
+             if (aml_dtvsync != NULL) {
+                 async_policy = &(aml_dtvsync->apolicy);
+                 if (async_policy->audiopolicy == DTVSYNC_AUDIO_DROP_PCM)
+                    return 0;
+             }
+
         }
         ret = aml_audio_spdifout_processs(bitstream_out->spdifout_handle, buffer, bytes);
     }
