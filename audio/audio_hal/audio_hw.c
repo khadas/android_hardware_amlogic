@@ -1135,53 +1135,57 @@ static int out_set_parameters (struct audio_stream *stream, const char *kvpairs)
     }
     ret = str_parms_get_str (parms, "hw_av_sync", value, sizeof (value) );
     if (ret >= 0) {
-        int hw_sync_id = atoi(value);
-        bool ret_set_id = false;
-        if ((hw_sync_id != 12345678) && (hw_sync_id >= 0)) {
-            ALOGI ("[%s]adev->hw_mediasync:%p\n", __FUNCTION__, adev->hw_mediasync);
-            if (adev->hw_mediasync == NULL) {
-                adev->hw_mediasync = aml_hwsync_mediasync_create();
+        if (out->flags & AUDIO_OUTPUT_FLAG_HW_AV_SYNC) {
+            int hw_sync_id = atoi(value);
+            bool ret_set_id = false;
+            if ((hw_sync_id != 12345678) && (hw_sync_id >= 0)) {
+                ALOGI ("[%s]adev->hw_mediasync:%p\n", __FUNCTION__, adev->hw_mediasync);
+                if (adev->hw_mediasync == NULL) {
+                    adev->hw_mediasync = aml_hwsync_mediasync_create();
+                }
+                if (adev->hw_mediasync != NULL) {
+                    out->hwsync->use_mediasync = true;
+                    out->hwsync->mediasync = adev->hw_mediasync;
+                    out->hwsync->hwsync_id = hw_sync_id;
+                    ret_set_id = aml_audio_hwsync_set_id(out->hwsync, hw_sync_id);
+                }
             }
-            if (adev->hw_mediasync != NULL) {
-                out->hwsync->use_mediasync = true;
-                out->hwsync->mediasync = adev->hw_mediasync;
-                out->hwsync->hwsync_id = hw_sync_id;
-                ret_set_id = aml_audio_hwsync_set_id(out->hwsync, hw_sync_id);
+            unsigned char sync_enable = ((hw_sync_id == 12345678) || ret_set_id) ? 1 : 0;
+            audio_hwsync_t *hw_sync = out->hwsync;
+            ALOGI("(%p)set hw_sync_id %d,%s hw sync mode\n",
+                   out, hw_sync_id, sync_enable ? "enable" : "disable");
+            out->hw_sync_mode = sync_enable;
+
+            if (adev->ms12_out != NULL && adev->ms12_out->hwsync) {
+                adev->ms12_out->hw_sync_mode = out->hw_sync_mode;
+                ALOGI("set ms12_out %p hw_sync_mode %d",adev->ms12_out, adev->ms12_out->hw_sync_mode);
             }
-        }
-        unsigned char sync_enable = ((hw_sync_id == 12345678) || ret_set_id) ? 1 : 0;
-        audio_hwsync_t *hw_sync = out->hwsync;
-        ALOGI("(%p)set hw_sync_id %d,%s hw sync mode\n",
-               out, hw_sync_id, sync_enable ? "enable" : "disable");
-        out->hw_sync_mode = sync_enable;
-
-        if (adev->ms12_out != NULL && adev->ms12_out->hwsync) {
-            adev->ms12_out->hw_sync_mode = out->hw_sync_mode;
-            ALOGI("set ms12_out %p hw_sync_mode %d",adev->ms12_out, adev->ms12_out->hw_sync_mode);
-        }
 
 
-        hw_sync->first_apts_flag = false;
-        pthread_mutex_lock (&adev->lock);
-        pthread_mutex_lock (&out->lock);
-        out->frame_write_sum = 0;
-        out->last_frames_postion = 0;
-        /* clear up previous playback output status */
-        if (!out->standby) {
-            standy_func (out);
-        }
-        //adev->hwsync_output = sync_enable?out:NULL;
-        if (sync_enable) {
-            ALOGI ("init hal mixer when hwsync\n");
-            aml_hal_mixer_init (&adev->hal_mixer);
-        }
-        if (continous_mode(adev) && out->hw_sync_mode) {
-            dolby_ms12_hwsync_init();
+            hw_sync->first_apts_flag = false;
+            pthread_mutex_lock (&adev->lock);
+            pthread_mutex_lock (&out->lock);
+            out->frame_write_sum = 0;
+            out->last_frames_postion = 0;
+            /* clear up previous playback output status */
+            if (!out->standby) {
+                standy_func (out);
+            }
+            //adev->hwsync_output = sync_enable?out:NULL;
+            if (sync_enable) {
+                ALOGI ("init hal mixer when hwsync\n");
+                aml_hal_mixer_init (&adev->hal_mixer);
+            }
+            if (continous_mode(adev) && out->hw_sync_mode) {
+                dolby_ms12_hwsync_init();
 
-        }
+            }
 
-        pthread_mutex_unlock (&out->lock);
-        pthread_mutex_unlock (&adev->lock);
+            pthread_mutex_unlock (&out->lock);
+            pthread_mutex_unlock (&adev->lock);
+        } else {
+            ALOGE("Wrong hw_av_sync setting, AUDIO_OUTPUT_FLAG_HW_AV_SYNC is not set for this stream");
+        }
         ret = 0;
         goto exit;
     }
