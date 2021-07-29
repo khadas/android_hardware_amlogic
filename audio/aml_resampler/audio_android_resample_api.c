@@ -139,7 +139,8 @@ int android_resample_process(void *handle, void * in_buffer, size_t bytes, void 
     /*do resample for one period.*/
     resampled_size  = android_resample_read(resample, (char *)out_buffer, output_size);
 
-    min_insize = MINUM_RESAMPLE_OUTPUT_SIZE;
+    /*The resample_buffer_size is calculated based on input_size and needs to be checked to prevent overflow and noise*/
+    min_insize = min_insize > input_size ? input_size : MINUM_RESAMPLE_OUTPUT_SIZE;
     min_outsize = ((int64_t) min_insize * output_sr) / input_sr;
     min_insize *= framesize;
     min_outsize *= framesize;
