@@ -25,8 +25,10 @@
 #include "audio_android_resample_api.h"
 #include "alsa_config_parameters.h"
 
-#define RESAMPLE_LENGTH (1024);
-#define ALIGN_FRAME_SIZE (256);
+#define RESAMPLE_FRAME_NUM (1024)  // One period, Unit: frame
+
+/* VirtualX requires an aligned block(256) as a processing unit. */
+#define ALIGN_FRAME_NUM (256) // Unit: frame
 
 static audio_resample_func_t * get_resample_function(resample_type_t resample_type)
 {
@@ -92,13 +94,17 @@ int aml_audio_resample_init(aml_audio_resample_t ** ppaml_audio_resample, resamp
 
     aml_audio_resample->frame_bytes = audio_bytes_per_sample(resample_config->aformat) * resample_config->channels;
 
-    aml_audio_resample->align_size = sizeof(int16_t) * resample_config->channels * ALIGN_FRAME_SIZE;
+    aml_audio_resample->align_size = aml_audio_resample->frame_bytes * ALIGN_FRAME_NUM;
 
-    /* alloc more buffer size to align output data */
-    aml_audio_resample->resample_buffer_size =  2 * aml_audio_resample->frame_bytes * RESAMPLE_LENGTH + aml_audio_resample->align_size;
+    /* Resampler will use 32bit as processing and buffering unit, alloc 2 period buffer size to align output data */
+    aml_audio_resample->resample_buffer_size = 2 * resample_config->channels * audio_bytes_per_sample(AUDIO_FORMAT_PCM_32_BIT) * RESAMPLE_FRAME_NUM;
+
+    if (aml_audio_resample->resample_buffer_size < aml_audio_resample->align_size)
+        aml_audio_resample->resample_buffer_size += aml_audio_resample->align_size;
+
+    ALOGI("init resample_buffer_size:%d\n", aml_audio_resample->resample_buffer_size);
 
     aml_audio_resample->resample_buffer = aml_audio_calloc(1, aml_audio_resample->resample_buffer_size);
-
     if (aml_audio_resample->resample_buffer == NULL) {
         ALOGE("resample_buffer is NULL\n");
         goto exit;
@@ -163,7 +169,7 @@ int aml_audio_resample_process(aml_audio_resample_t * aml_audio_resample, void *
 {
     size_t out_size = 0;
     int ret = -1;
-    unsigned int frame_bytes = 0;
+    unsigned int output_frames = 0;
     audio_resample_func_t * resample_func = NULL;
 
     if (aml_audio_resample == NULL) {
@@ -171,19 +177,18 @@ int aml_audio_resample_process(aml_audio_resample_t * aml_audio_resample, void *
         return -1;
     }
 
-    frame_bytes = aml_audio_resample->frame_bytes;
-
-    out_size = size * aml_audio_resample->resample_rate * 2 ; /*we make it for slightly larger*/
-
+    output_frames = size / aml_audio_resample->frame_bytes * aml_audio_resample->resample_rate;
+    /* Resampler will use 32bit as processing and buffering unit, need alloc 2 period buffer size to align output data */
+    out_size = 2 * aml_audio_resample->resample_config.channels * audio_bytes_per_sample(AUDIO_FORMAT_PCM_32_BIT) * output_frames;
     if (out_size > aml_audio_resample->resample_buffer_size) {
-        int new_buf_size = out_size + aml_audio_resample->align_size;
-        aml_audio_resample->resample_buffer = aml_audio_realloc(aml_audio_resample->resample_buffer, new_buf_size);
+
+        aml_audio_resample->resample_buffer = aml_audio_realloc(aml_audio_resample->resample_buffer, out_size);
         if (aml_audio_resample->resample_buffer == NULL) {
             ALOGE("realloc resample_buffer is failed\n");
             return -1;
         }
-        ALOGD("realloc resample_buffer size from %zu to %d\n", aml_audio_resample->resample_buffer_size, new_buf_size);
-        aml_audio_resample->resample_buffer_size = new_buf_size;
+        ALOGD("realloc resample_buffer size from %zu to %d\n", aml_audio_resample->resample_buffer_size, out_size);
+        aml_audio_resample->resample_buffer_size = out_size;
     }
 
     resample_func = get_resample_function(aml_audio_resample->resample_type);
