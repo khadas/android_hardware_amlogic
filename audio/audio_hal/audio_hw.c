@@ -2980,7 +2980,7 @@ static int adev_open_output_stream(struct audio_hw_device *dev,
             out->raw_61937_frame_size = 4;
             break;
         case TYPE_DTS_HD:
-            out->config.period_count *= 4;
+            out->config.period_count *= 2;
             out->raw_61937_frame_size = 16;
             break;
         case TYPE_PCM:
