@@ -1635,19 +1635,23 @@ char *get_hdmi_arc_cap(struct audio_hw_device *dev, const char *keys, audio_form
     return aud_cap;
 }
 
-char *strdup_a2dp_cap_default(const char *keys, audio_format_t format)
+char *strdup_a2dp_cap_default(struct aml_audio_device *adev, const char *keys, audio_format_t format)
 {
-    char fmt[] = "sup_formats=AUDIO_FORMAT_PCM_16_BIT|AUDIO_FORMAT_AC3|AUDIO_FORMAT_E_AC3";
+    char fmt[512] = "sup_formats=AUDIO_FORMAT_PCM_16_BIT";
     char ch_mask[128] = "sup_channels=AUDIO_CHANNEL_OUT_STEREO";
     char sr[64] = "sup_sampling_rates=48000|44100";
     char *cap = NULL;
 
     /* check the format cap */
     if (strstr(keys, AUDIO_PARAMETER_STREAM_SUP_FORMATS)) {
+        if (eDolbyMS12Lib == adev->dolby_lib_type) {
+            strcat(fmt, "|AUDIO_FORMAT_AC4");
+        }
         cap = strdup(fmt);
     } else if (strstr(keys, AUDIO_PARAMETER_STREAM_SUP_CHANNELS)) {
         /* take the 2ch suppported as default */
         switch (format) {
+        case AUDIO_FORMAT_AC4:
         case AUDIO_FORMAT_E_AC3:
             strcat(ch_mask, "|AUDIO_CHANNEL_OUT_7POINT1");
         case AUDIO_FORMAT_AC3:
@@ -1664,6 +1668,7 @@ char *strdup_a2dp_cap_default(const char *keys, audio_format_t format)
     } else if (strstr(keys, AUDIO_PARAMETER_STREAM_SUP_SAMPLING_RATES)) {
         /* take the 48 khz suppported as default */
         switch (format) {
+        case AUDIO_FORMAT_AC4:
         case AUDIO_FORMAT_E_AC3:
             cap = strdup(sr);
             break;
@@ -1854,8 +1859,8 @@ char *out_get_parameters_wrapper_about_sup_sampling_rates__channels__formats(con
     } else {
         if (out->out_device & AUDIO_DEVICE_OUT_HDMI_ARC) {
             cap = (char *) get_hdmi_arc_cap(&adev->hw_device, keys, format);
-        } else if (adev->bHDMIConnected && adev->bHDMIARCon && (out->out_device & AUDIO_DEVICE_OUT_ALL_A2DP)) {
-            cap = (char *) strdup_a2dp_cap_default(keys, format);
+        } else if (out->out_device & AUDIO_DEVICE_OUT_ALL_A2DP) {
+            cap = (char *) strdup_a2dp_cap_default(adev, keys, format);
         } else {
             if (out->is_tv_platform == 1) {
                 cap = (char *)strdup_tv_platform_cap_default(keys, format);
