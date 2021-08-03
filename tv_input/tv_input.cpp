@@ -279,12 +279,16 @@ static int getUnavailableStreamConfigs(int dev_id __unused, int *num_configurati
     return 0;
 }
 
-static int getTvStream(tv_stream_t *stream)
+static int getTvStream(tv_stream_t *stream, int input_id)
 {
     ALOGD("getTvStream stream_id = %d", stream->stream_id);
     if (stream->stream_id == STREAM_ID_NORMAL) {
         if (pTvStream == nullptr) {
-            pTvStream = am_gralloc_create_sideband_handle(AM_TV_SIDEBAND, 1);
+            if (SOURCE_DTVKIT == input_id) {
+                pTvStream = am_gralloc_create_sideband_handle(AM_FIXED_TUNNEL, 1);
+            } else {
+                pTvStream = am_gralloc_create_sideband_handle(AM_TV_SIDEBAND, 1);
+            }
             if (pTvStream == nullptr) {
                 ALOGE("tvstream can not be initialized");
                 return -EINVAL;
@@ -418,7 +422,7 @@ static int tv_input_open_stream(struct tv_input_device *dev, int device_id,
     }
 
     if (priv) {
-        if (getTvStream(stream) != 0) {
+        if (getTvStream(stream, device_id) != 0) {
             return -EINVAL;
         }
         if (stream->stream_id == STREAM_ID_NORMAL || stream->stream_id == STREAM_ID_MAIN || stream->stream_id == STREAM_ID_PIP) {
