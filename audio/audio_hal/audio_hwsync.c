@@ -512,9 +512,9 @@ int aml_audio_hwsync_audio_process(audio_hwsync_t *p_hwsync, size_t offset, int 
     int debug_enable = 0;
     char tempbuf[32] = {0};
     struct aml_audio_device *adev = NULL;
-    int32_t latency_frames = 0;
+    int latency_frames = 0;
     struct audio_stream_out *stream = NULL;
-    uint32_t latency_pts = 0;
+    int latency_pts = 0;
     struct aml_stream_out  *out = p_hwsync->aout;
     struct timespec ts;
     int pcr_pts_gap = 0;
@@ -555,9 +555,6 @@ int aml_audio_hwsync_audio_process(audio_hwsync_t *p_hwsync, size_t offset, int 
         } else {
             latency_frames = (int32_t)out_get_latency_frames(stream);
         }
-        if (latency_frames < 0) {
-            latency_frames = 0;
-        }
         latency_pts = latency_frames / 48 * 90;
     }
 
@@ -582,9 +579,9 @@ int aml_audio_hwsync_audio_process(audio_hwsync_t *p_hwsync, size_t offset, int 
             //aml_hwsync_wait_video_drop(out->hwsync, apts32);
             aml_hwsync_reset_tsync_pcrscr(out->hwsync, apts32);
         } else  if (p_hwsync->first_apts_flag) {
-            if (apts >= latency_pts) {
-                apts -= latency_pts;
-                apts32 = apts;
+            if (apts >= abs(latency_pts)) {
+                //apts -= latency_pts;
+                apts32 = apts - latency_pts;
             } else {
                 ALOGE("wrong PTS =0x%x delay pts=0x%x",apts, latency_pts);
                 return 0;
@@ -634,14 +631,14 @@ int aml_audio_hwsync_audio_process(audio_hwsync_t *p_hwsync, size_t offset, int 
                 int time_gap = (int)calc_time_interval_us(&out->hwsync->last_timestamp, &ts) / 1000;
 
                 if (debug_enable || abs(pcr_pts_gap) > 20) {
-                    ALOGI("%s offset =%d apts =%#x", __func__, offset, apts);
+                    ALOGI("%s offset =%d apts =%#x %ums", __func__, offset, apts, apts/90);
                     ALOGI("%s alsa pcm delay =%d bitstream delay =%d pipeline =%d frame=%d total =%d", __func__,
                         alsa_pcm_delay_frames,
                         alsa_bitstream_delay_frames,
                         ms12_pipeline_delay_frames,
                         frame_len,
                         latency_frames);
-                    ALOGI("pcr =%d ms pts =0x%x gap =%d ms", pcr / 90, apts32, pcr_pts_gap);
+                    ALOGI("pcr =%d ms pts =0x%x %ums gap =%d ms", pcr / 90, apts32, apts32/90, pcr_pts_gap);
                     ALOGI("frame len =%d ms =%d latency_frames =%d ms=%d", frame_len, frame_len / 48, latency_frames, latency_frames / 48);
                     ALOGI("pts last =0x%x now =0x%x diff =%d ms time diff =%d ms jitter =%d ms",
                         out->hwsync->last_output_pts, apts32, pts_gap, time_gap, pts_gap - time_gap);
