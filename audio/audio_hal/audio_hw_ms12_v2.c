@@ -56,7 +56,8 @@
 #define DOLBY_DRC_RF_MODE   1
 #define DDP_MAX_BUFFER_SIZE 2560//dolby ms12 input buffer threshold
 #define CONVERT_ONEDB_TO_GAIN  1.122018f
-#define MS12_MAIN_INPUT_BUF_PCM_NS         (96000000LL)
+#define MS12_MAIN_INPUT_BUF_PCM_NS         (64000000LL)
+#define MS12_MAIN_INPUT_BUF_PCM_NS_TARGET         (128000000LL)
 #define MS12_MAIN_INPUT_BUF_NONEPCM_NS     (160000000LL)
 #define MS12_MAIN_INPUT_BUF_NS_UPTHRESHOLD (160000000LL)
 #define MS12_MAIN_INPUT_BUF_NS_UPTHRESHOLD_AC4 (256000000LL)
@@ -72,7 +73,7 @@
 
 #define CONVERT_NS_TO_48K_FRAME_NUM(ns)    (ns * 48 / NANO_SECOND_PER_MILLISECOND)
 
-#define MS12_MAIN_BUF_INCREASE_TIME_MS (0)
+#define MS12_MAIN_BUF_INCREASE_TIME_MS (1000)
 #define MS12_SYS_BUF_INCREASE_TIME_MS (1000)
 #define DDPI_UDC_COMP_LINE 2
 
@@ -2610,7 +2611,7 @@ int dolby_ms12_main_open(struct audio_stream_out *stream) {
         uint64_t buf_ns_target = MS12_MAIN_INPUT_BUF_NONEPCM_NS;
         if (audio_is_linear_pcm(aml_out->hal_internal_format)) {
             buf_ns_begin  = MS12_MAIN_INPUT_BUF_PCM_NS;
-            buf_ns_target = MS12_MAIN_INPUT_BUF_PCM_NS;
+            buf_ns_target = MS12_MAIN_INPUT_BUF_PCM_NS_TARGET;
         }
         audio_virtual_buf_open(&aml_out->virtual_buf_handle
             , "ms12 main input"
