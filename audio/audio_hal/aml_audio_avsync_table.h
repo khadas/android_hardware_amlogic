@@ -58,6 +58,9 @@
 #define  AVSYNC_MS12_TUNNEL_BYPASS_LATENCY               (-220)
 
 
+#define  AVSYNC_MS12_NETFLIX_NONTUNNEL_BYPASS_LATENCY            (-130)
+#define  AVSYNC_MS12_NETFLIX_TUNNEL_BYPASS_LATENCY               (-185)
+
 #define  AVSYNC_MS12_PCM_OUT_LATENCY                     (0)
 #define  AVSYNC_MS12_DD_OUT_LATENCY                      (50)
 #define  AVSYNC_MS12_DDP_OUT_LATENCY                     (75)
@@ -74,13 +77,14 @@
 #define  AVSYNC_MS12_NONTUNNEL_ATMOS_LATENCY_PROPERTY    "vendor.media.audio.hal.ms12.nontunnel.atmos"
 #define  AVSYNC_MS12_NONTUNNEL_AC4_LATENCY_PROPERTY      "vendor.media.audio.hal.ms12.nontunnel.ac4"
 #define  AVSYNC_MS12_NONTUNNEL_BYPASS_LATENCY_PROPERTY   "vendor.media.audio.hal.ms12.nontunnel.bypass"
-
+#define  AVSYNC_MS12_NETFLIX_NONTUNNEL_BYPASS_LATENCY_PROPERTY   "vendor.media.audio.hal.ms12.netflix.nontunnel.bypass"
 
 #define  AVSYNC_MS12_TUNNEL_PCM_LATENCY_PROPERTY         "vendor.media.audio.hal.ms12.tunnel.pcm"
 #define  AVSYNC_MS12_TUNNEL_DDP_LATENCY_PROPERTY         "vendor.media.audio.hal.ms12.tunnel.ddp"
 #define  AVSYNC_MS12_TUNNEL_ATMOS_LATENCY_PROPERTY       "vendor.media.audio.hal.ms12.tunnel.atmos"
 #define  AVSYNC_MS12_TUNNEL_AC4_LATENCY_PROPERTY         "vendor.media.audio.hal.ms12.tunnel.ac4"
 #define  AVSYNC_MS12_TUNNEL_BYPASS_LATENCY_PROPERTY      "vendor.media.audio.hal.ms12.tunnel.bypass"
+#define  AVSYNC_MS12_NETFLIX_TUNNEL_BYPASS_LATENCY_PROPERTY      "vendor.media.audio.hal.ms12.netflix.tunnel.bypass"
 
 #define  AVSYNC_MS12_TUNNEL_VIDEO_DELAY_PROPERTY         "vendor.media.audio.hal.ms12.tunnel.video.delay"
 

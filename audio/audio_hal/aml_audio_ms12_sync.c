@@ -456,20 +456,33 @@ int get_ms12_atmos_latency_offset(bool tunnel, bool is_netflix)
 }
 
 
-int get_ms12_bypass_latency_offset(bool tunnel)
+int get_ms12_bypass_latency_offset(bool tunnel, bool is_netflix)
 {
     char buf[PROPERTY_VALUE_MAX];
     int ret = -1;
     int latency_ms = 0;
     char *prop_name = NULL;
-    if (tunnel) {
-        /*tunnel atmos case*/
-        prop_name = AVSYNC_MS12_TUNNEL_BYPASS_LATENCY_PROPERTY;
-        latency_ms = AVSYNC_MS12_TUNNEL_BYPASS_LATENCY;
+
+    if (is_netflix) {
+        if (tunnel) {
+            /*tunnel case*/
+            prop_name = AVSYNC_MS12_NETFLIX_TUNNEL_BYPASS_LATENCY_PROPERTY;
+            latency_ms = AVSYNC_MS12_NETFLIX_TUNNEL_BYPASS_LATENCY;
+        } else {
+            /*non tunnel case*/
+            prop_name = AVSYNC_MS12_NETFLIX_NONTUNNEL_BYPASS_LATENCY_PROPERTY;
+            latency_ms = AVSYNC_MS12_NETFLIX_NONTUNNEL_BYPASS_LATENCY;
+        }
     } else {
-        /*non tunnel atmos case*/
-        prop_name = AVSYNC_MS12_NONTUNNEL_BYPASS_LATENCY_PROPERTY;
-        latency_ms = AVSYNC_MS12_NONTUNNEL_BYPASS_LATENCY;
+        if (tunnel) {
+            /*tunnel atmos case*/
+            prop_name = AVSYNC_MS12_TUNNEL_BYPASS_LATENCY_PROPERTY;
+            latency_ms = AVSYNC_MS12_TUNNEL_BYPASS_LATENCY;
+        } else {
+            /*non tunnel atmos case*/
+            prop_name = AVSYNC_MS12_NONTUNNEL_BYPASS_LATENCY_PROPERTY;
+            latency_ms = AVSYNC_MS12_NONTUNNEL_BYPASS_LATENCY;
+        }
     }
     ret = property_get(prop_name, buf, NULL);
     if (ret > 0) {
@@ -611,7 +624,7 @@ int aml_audio_get_ms12_tunnel_latency(struct audio_stream_out *stream)
     ms12_pipeline_delay = dolby_ms12_main_pipeline_latency_frames(stream);
 
     if (adev->ms12.is_bypass_ms12) {
-        bypass_delay = get_ms12_bypass_latency_offset(true) * 48;
+        bypass_delay = get_ms12_bypass_latency_offset(true, adev->is_netflix) * 48;
     }
 
     if (adev->is_TV) {
@@ -740,7 +753,7 @@ int aml_audio_get_ms12_presentation_position(const struct audio_stream_out *stre
         *frames = frames_written_hw;
 
         if (adev->ms12.is_bypass_ms12) {
-            frame_latency = get_ms12_bypass_latency_offset(false) * 48;
+            frame_latency = get_ms12_bypass_latency_offset(false, adev->is_netflix) * 48;
         } else {
             frame_latency = get_ms12_nontunnel_latency_offset(adev->active_outport,
                                                                out->hal_internal_format,
