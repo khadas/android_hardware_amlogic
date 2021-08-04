@@ -53,6 +53,8 @@ public:
    int              filering_aud_pid;
    int              filering_aud_ad_pid;
    int64_t          last_queue_es_apts;
+   int              mDemuxEsDataCacheSize;
+   int              mDemuxEsDataCacheMaxThreshold;
  private:
    sp<AM_DMX_Device> AmDmxDevice;
    // int mEsDataInfoSize;

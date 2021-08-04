@@ -66,7 +66,8 @@ static void getAudioEsData(AmHwMultiDemuxWrapper* mDemuxWrapper, int fid, const 
         mEsData->pts = es_header->pts;
         mDemuxWrapper->last_queue_es_apts = es_header->pts;
         mEsData->used_size = 0;
-        ALOGV("getAudioEsData %d mEsData->size %d mEsData->pts %lld",len,mEsData->size,mEsData->pts);
+        mDemuxWrapper->mDemuxEsDataCacheSize += len;
+        ALOGV("getAudioEsData %d mEsData->size %d mEsData->pts %lld, cached size:%d",len,mEsData->size,mEsData->pts, mDemuxWrapper->mDemuxEsDataCacheSize);
         dump_demux_data((void *)data_es, es_header->len, DEMUX_AUDIO_DUMP_PATH);
     } else {
         ALOGI("error es data len %d es_header->len %d",len, es_header->len);
@@ -78,10 +79,12 @@ static void getAudioEsData(AmHwMultiDemuxWrapper* mDemuxWrapper, int fid, const 
     {
         TSPMutex::Autolock l(mDemuxWrapper->mAudioEsDataQueueLock);
         mDemuxWrapper->queueEsData(mDemuxWrapper->mAudioEsDataQueue,mEsData);
-        int pakage_count = mDemuxWrapper->mAudioEsDataQueue.size();
-        if (pakage_count > 100) {
-            ALOGW("pakage_count %d",pakage_count);
+        // int pakage_count = mDemuxWrapper->mAudioEsDataQueue.size();
+        if (mDemuxWrapper->mDemuxEsDataCacheSize >= mDemuxWrapper->mDemuxEsDataCacheMaxThreshold) {
+            // ALOGW("pakage_count %d",pakage_count);
+            ALOGW("mDemuxEsDataCacheSize : %d > mDemuxEsDataCacheMaxThreshold %d, too much data, clear it.", mDemuxWrapper->mDemuxEsDataCacheSize, mDemuxWrapper->mDemuxEsDataCacheMaxThreshold);
             mDemuxWrapper->clearPendingEsData(mDemuxWrapper->mAudioEsDataQueue);
+            mDemuxWrapper->mDemuxEsDataCacheSize = 0;
         }
     }
     //sp<TSPMessage> msg = mDemuxWrapper->dupNotify();
@@ -128,6 +131,10 @@ AmHwMultiDemuxWrapper::AmHwMultiDemuxWrapper() {
     filering_aud_pid  = 0x1fff;
     filering_aud_ad_pid  = 0x1fff;
     last_queue_es_apts = -1;
+    mDemuxEsDataCacheSize = 0;
+    mDemuxEsDataCacheMaxThreshold = property_get_int32("vendor.dvb.audio_es.cache_size", 10) * 1024 * 1024;
+    ALOGI("mDemuxEsDataCacheMaxThreshold: %d", mDemuxEsDataCacheMaxThreshold);
+
     mDemuxPara.vid_id = 0x1fff;
 
 
@@ -206,6 +213,10 @@ AM_DmxErrorCode_t AmHwMultiDemuxWrapper::AmDemuxWrapperReadData(int pid, mEsData
     } else if (pid == mDemuxPara.aud_id){
         TSPMutex::Autolock l(mAudioEsDataQueueLock);
         *mEsData = dequeueEsData(mAudioEsDataQueue);
+        if (*mEsData) {
+            mDemuxEsDataCacheSize -= (*mEsData)->size;
+            // ALOGI("AmDemuxWrapperReadData: mDemuxEsDataCacheSize: %d, mEsData->size: %d", mDemuxEsDataCacheSize, (*mEsData)->size);
+        }
     } else if (pid == mDemuxPara.aud_ad_id) {
         TSPMutex::Autolock l(mAudioADEsDataQueueLock);
         *mEsData = dequeueEsData(mAudioADEsDataQueue);
