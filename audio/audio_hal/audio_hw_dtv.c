@@ -3626,8 +3626,8 @@ int create_dtv_patch_l(struct audio_hw_device *dev, audio_devices_t input,
         switchNormalStream(aml_dev->active_outputs[STREAM_PCM_NORMAL], 0);
     }
 
-    /* now  only sc2  can use new dtv path */
-    if (property_get_bool("vendor.dtv.audio.skipamadec",false) && aml_dev->is_multi_demux) {
+    /* now  only sc2 can use new dtv path */
+    if (property_get_bool("vendor.dtv.audio.skipamadec",true) && aml_dev->is_multi_demux) {
         patch->skip_amadec_flag = true;
     } else {
         patch->skip_amadec_flag = false;
