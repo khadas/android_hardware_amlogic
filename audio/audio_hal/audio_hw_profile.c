@@ -44,6 +44,32 @@
 "AUDIO_CHANNEL_OUT_MONO|\
 AUDIO_CHANNEL_OUT_STEREO"
 
+#define SUPPORT_MAX_CHANNEL_3CH     \
+"AUDIO_CHANNEL_OUT_MONO|\
+AUDIO_CHANNEL_OUT_STEREO|\
+AUDIO_CHANNEL_OUT_TRI|\
+AUDIO_CHANNEL_OUT_TRI_BACK"
+
+#define SUPPORT_MAX_CHANNEL_4CH     \
+"AUDIO_CHANNEL_OUT_MONO|\
+AUDIO_CHANNEL_OUT_STEREO|\
+AUDIO_CHANNEL_OUT_TRI|\
+AUDIO_CHANNEL_OUT_TRI_BACK|\
+AUDIO_CHANNEL_OUT_3POINT1|\
+AUDIO_CHANNEL_OUT_QUAD|\
+AUDIO_CHANNEL_OUT_SURROUND"
+
+#define SUPPORT_MAX_CHANNEL_5CH     \
+"AUDIO_CHANNEL_OUT_MONO|\
+AUDIO_CHANNEL_OUT_STEREO|\
+AUDIO_CHANNEL_OUT_TRI|\
+AUDIO_CHANNEL_OUT_TRI_BACK|\
+AUDIO_CHANNEL_OUT_3POINT1|\
+AUDIO_CHANNEL_OUT_QUAD|\
+AUDIO_CHANNEL_OUT_SURROUND|\
+AUDIO_CHANNEL_OUT_PENTA"
+
+
 #define SUPPORT_MAX_CHANNEL_6CH     \
 "AUDIO_CHANNEL_OUT_MONO|\
 AUDIO_CHANNEL_OUT_STEREO|\
@@ -54,6 +80,19 @@ AUDIO_CHANNEL_OUT_QUAD|\
 AUDIO_CHANNEL_OUT_SURROUND|\
 AUDIO_CHANNEL_OUT_PENTA|\
 AUDIO_CHANNEL_OUT_5POINT1"
+
+#define SUPPORT_MAX_CHANNEL_7CH \
+"AUDIO_CHANNEL_OUT_MONO|\
+AUDIO_CHANNEL_OUT_STEREO|\
+AUDIO_CHANNEL_OUT_TRI|\
+AUDIO_CHANNEL_OUT_TRI_BACK|\
+AUDIO_CHANNEL_OUT_3POINT1|\
+AUDIO_CHANNEL_OUT_QUAD|\
+AUDIO_CHANNEL_OUT_SURROUND|\
+AUDIO_CHANNEL_OUT_PENTA|\
+AUDIO_CHANNEL_OUT_5POINT1|\
+AUDIO_CHANNEL_OUT_6POINT1"
+
 
 #define SUPPORT_MAX_CHANNEL_8CH \
 "AUDIO_CHANNEL_OUT_MONO|\
@@ -544,6 +583,10 @@ int  aml_hdmi_audio_profile_parser() {
         /*check whether it is duplicated one*/
         for (k = 0; k < i; k++) {
             if (hdmi_audio_profile.audio_cap_item[k].audio_format == audio_cap_item->audio_format) {
+                /*we use the big one*/
+                if (audio_cap_item->max_channels > hdmi_audio_profile.audio_cap_item[k].max_channels) {
+                    memcpy(&hdmi_audio_profile.audio_cap_item[k], audio_cap_item, sizeof(audio_profile_cap_t));
+                }
                 memset(audio_cap_item, 0, sizeof(audio_profile_cap_t));
                 duplicated = true;
                 break;
@@ -752,13 +795,30 @@ char*  get_hdmi_sink_cap_new(const char *keys,audio_format_t format,struct aml_a
         case AUDIO_FORMAT_MAT:
             audio_cap_item = get_edid_support_audio_format(format);
             if (audio_cap_item) {
-                if (audio_cap_item->max_channels == 8) {
+                switch (audio_cap_item->max_channels) {
+                case 8:
                     size += sprintf(aud_cap, "sup_channels=%s", SUPPORT_MAX_CHANNEL_8CH);
-                } else if (audio_cap_item->max_channels == 6){
+                    break;
+                case 7:
+                    size += sprintf(aud_cap, "sup_channels=%s", SUPPORT_MAX_CHANNEL_7CH);
+                    break;
+                case 6:
                     size += sprintf(aud_cap, "sup_channels=%s", SUPPORT_MAX_CHANNEL_6CH);
-                } else {
+                    break;
+                case 5:
+                    size += sprintf(aud_cap, "sup_channels=%s", SUPPORT_MAX_CHANNEL_5CH);
+                    break;
+                case 4:
+                    size += sprintf(aud_cap, "sup_channels=%s", SUPPORT_MAX_CHANNEL_4CH);
+                    break;
+                case 3:
+                    size += sprintf(aud_cap, "sup_channels=%s", SUPPORT_MAX_CHANNEL_3CH);
+                    break;
+                default:
                     size += sprintf(aud_cap, "sup_channels=%s", SUPPORT_MAX_CHANNEL_2CH);
+                    break;
                 }
+
             } else {
                 ALOGE("%s not found support channel for 0x%x", __func__, format);
                 size += sprintf(aud_cap, "sup_channels=%s", "AUDIO_CHANNEL_OUT_STEREO");
