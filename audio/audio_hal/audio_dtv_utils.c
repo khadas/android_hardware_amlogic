@@ -199,16 +199,19 @@ AD_PACK_STATUS_T check_ad_package_status(int64_t main_pts, int64_t ad_pts, AD_PA
     int timems_diff = llabs(main_pts - ad_pts) / 90;
 
     if (timems_diff > AD_PACK_STATUS_UNNORMAL_THRESHOLD_MS) {
-        ALOGI("timems_diff %d it is impossible so drop ad data ", timems_diff);  
+        ALOGI("timems_diff %d it is impossible so drop ad data ", timems_diff);
         return AD_PACK_STATUS_DROP;
     }
     switch(ad_status) {
         case AD_PACK_STATUS_NORMAL:
-            if (main_pts > ad_pts) {
+            if (main_pts >= ad_pts) {
                 timems_diff = (main_pts - ad_pts) / 90;
                 if ( timems_diff > AD_PACK_STATUS_DROP_THRESHOLD_MS) {
                     ALOGI("main and ad timems_diff %d ms  need drop ", timems_diff);
                     ad_status = AD_PACK_STATUS_DROP;
+                } else if (timems_diff < AD_PACK_STATUS_HOLD_START_THRESHOLD_MS) {
+                     ALOGI("main and ad timems_diff %d ms  need hold ", timems_diff);
+                     ad_status = AD_PACK_STATUS_HOLD;
                 }
 
             } else {
@@ -220,7 +223,7 @@ AD_PACK_STATUS_T check_ad_package_status(int64_t main_pts, int64_t ad_pts, AD_PA
             }
             ALOGV("timems_diff %d", timems_diff);
             break;
-        case AD_PACK_STATUS_DROP: 
+        case AD_PACK_STATUS_DROP:
             if (main_pts > ad_pts) {
                 timems_diff = (main_pts - ad_pts) / 90;
                 if ( timems_diff > AD_PACK_STATUS_DROP_START_THRESHOLD_MS) {
@@ -265,7 +268,7 @@ AD_PACK_STATUS_T check_ad_package_status(int64_t main_pts, int64_t ad_pts, AD_PA
             ALOGI("invalid status %d ", ad_status);
 
     }
-    ALOGV("main_pts %lld ad_pts %lld", main_pts, ad_pts);
+    ALOGV("main_pts %lld ad_pts %lld ad_status %d", main_pts, ad_pts, ad_status);
 
     return ad_status;
 }
