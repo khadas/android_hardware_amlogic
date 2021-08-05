@@ -2816,16 +2816,17 @@ void *audio_dtv_patch_input_threadloop(void *data)
                                 if (demux_info->dual_decoder_support && VALID_PID(demux_info->ad_pid)) {
                                     nRet = Get_ADAudio_Es(demux_handle, &mAdEsData);
                                     if (nRet != AM_AUDIO_Dmx_SUCCESS) {
-                                        trycount++;
+                                        /*trycount++;
                                         ALOGV("ad trycount %d", trycount);
                                         if (trycount < max_trycount) {
                                             usleep(10000);
                                             continue;
-                                        }
+                                        }*/
                                     }
 
                                     if (mAdEsData == NULL) {
                                         ALOGI("do not get ad es data trycount %d", trycount);
+                                        demux_info->ad_package_status = AD_PACK_STATUS_HOLD;
                                         break;
                                     } else {
                                         ALOGV("ad trycount %d", trycount);
@@ -2842,8 +2843,10 @@ void *audio_dtv_patch_input_threadloop(void *data)
                                             aml_audio_free(mAdEsData);
                                             mAdEsData = NULL;
                                             trycount = 0;
+                                            demux_info->mADEsData = NULL;
                                             continue;
                                         } else if (demux_info->ad_package_status == AD_PACK_STATUS_HOLD) {
+                                            demux_info->mADEsData = mAdEsData;
                                             ALOGI("hold ad data to wait main data ");
                                         }
                                         break;
