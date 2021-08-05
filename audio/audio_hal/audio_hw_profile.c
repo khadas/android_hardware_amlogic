@@ -676,6 +676,7 @@ char*  get_hdmi_sink_cap_new(const char *keys, audio_format_t format, struct aml
     int size = 0;
     char *aud_cap = NULL;
     audio_profile_cap_t * audio_cap_item = NULL;
+    struct aml_audio_device *adev = adev_get_handle();
 
     ALOGD("%s is running...\n", __func__);
     aud_cap = (char*)aml_audio_malloc(1024);
@@ -742,7 +743,12 @@ char*  get_hdmi_sink_cap_new(const char *keys, audio_format_t format, struct aml
         /*check dts-hd/dts*/
         audio_cap_item = get_edid_support_audio_format(AUDIO_FORMAT_DTS_HD);
         if (audio_cap_item) {
-            size += sprintf(aud_cap + size, "|%s", "AUDIO_FORMAT_DTS|AUDIO_FORMAT_DTS_HD");
+            p_hdmi_descs->dts_fmt.is_support = 1;
+            size += sprintf(aud_cap + size, "|%s", "AUDIO_FORMAT_DTS");
+            /*as we don't support dts decoder, then we cant' support dts hd passthrough*/
+            if (adev->dts_decode_enable) {
+                size += sprintf(aud_cap + size, "|%s", "AUDIO_FORMAT_DTS_HD");
+            }
             p_hdmi_descs->dtshd_fmt.is_support = 1;
         } else if ((audio_cap_item = get_edid_support_audio_format(AUDIO_FORMAT_DTS)) != NULL) {
             size += sprintf(aud_cap + size, "|%s", "AUDIO_FORMAT_DTS");
@@ -758,7 +764,7 @@ char*  get_hdmi_sink_cap_new(const char *keys, audio_format_t format, struct aml
 
         /*check dolby truehd*/
         audio_cap_item = get_edid_support_audio_format(AUDIO_FORMAT_MAT);
-        if (audio_cap_item) {
+        if (audio_cap_item && (eDolbyMS12Lib == adev->dolby_lib_type)) {
             /*
              * when cat /sys/class/amhdmitx/amhdmitx0/aud_cap,
              * "MAT, 8 ch, 44.1/48/88.2/96/176.4/192 kHz, DepVaule 0x1"

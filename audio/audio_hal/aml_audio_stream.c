@@ -163,9 +163,9 @@ static audio_format_t get_sink_dts_capability (struct aml_audio_device *adev)
         char *cap = NULL;
         cap = (char *) get_hdmi_sink_cap_new (AUDIO_PARAMETER_STREAM_SUP_FORMATS,0,&(adev->hdmi_descs));
         if (cap) {
-            if (strstr(cap, "AUDIO_FORMAT_DTS") != NULL) {
+            if (adev->hdmi_descs.dts_fmt.is_support) {
                 sink_capability = AUDIO_FORMAT_DTS;
-            } else if (strstr(cap, "AUDIO_FORMAT_DTS_HD") != NULL) {
+            } else if (adev->hdmi_descs.dtshd_fmt.is_support) {
                 sink_capability = AUDIO_FORMAT_DTS_HD;
             }
             ALOGI("%s mbox+dvb case sink_capability %#x\n", __FUNCTION__, sink_capability);
