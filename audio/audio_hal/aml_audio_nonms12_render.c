@@ -333,19 +333,6 @@ int aml_audio_nonms12_render(struct audio_stream_out *stream, const void *buffer
 
     return return_bytes;
 }
-static audio_format_t get_dcvlib_output_format(audio_format_t src_format, struct aml_audio_device *aml_dev)
-{
-    audio_format_t output_format = AUDIO_FORMAT_PCM_16_BIT;
-    if (aml_dev->hdmi_format == AUTO) {
-        if (src_format == AUDIO_FORMAT_E_AC3 && aml_dev->sink_capability == AUDIO_FORMAT_E_AC3) {
-            output_format = AUDIO_FORMAT_E_AC3;
-        } else if (src_format == AUDIO_FORMAT_AC3 &&
-                (aml_dev->sink_capability == AUDIO_FORMAT_E_AC3 || aml_dev->sink_capability == AUDIO_FORMAT_AC3)) {
-            output_format = AUDIO_FORMAT_AC3;
-        }
-    }
-    return output_format;
-}
 
 bool aml_decoder_output_compatible(struct audio_stream_out *stream, audio_format_t sink_format __unused, audio_format_t optical_format) {
     struct aml_stream_out *aml_out = (struct aml_stream_out *)stream;
@@ -400,9 +387,9 @@ static void ddp_decoder_config_prepare(struct audio_stream_out *stream, aml_dcv_
         ddp_config->decoding_mode = DDP_DECODE_MODE_SINGLE;
     }
 
-    audio_format_t output_format = get_dcvlib_output_format(aml_out->hal_internal_format, adev);
-    if (output_format != AUDIO_FORMAT_PCM_16_BIT && output_format != AUDIO_FORMAT_PCM_32_BIT) {
-            ddp_config->decoding_mode = DDP_DECODE_MODE_SINGLE;
+    /*passthrough  raw output  priority level higher than ad output*/
+    if (adev->sink_format != AUDIO_FORMAT_PCM_16_BIT &&  adev->sink_format != AUDIO_FORMAT_PCM_32_BIT) {
+        ddp_config->decoding_mode = DDP_DECODE_MODE_SINGLE;
     }
 
     if (aml_out->hal_internal_format == AUDIO_FORMAT_E_AC3) {
@@ -417,8 +404,8 @@ static void ddp_decoder_config_prepare(struct audio_stream_out *stream, aml_dcv_
         ddp_config->is_iec61937 = false;
     }
 
-    ALOGI("%s digital_raw:%d, dual_output_flag:%d, is_61937:%d, IsEc3:%d"
-        , __func__, ddp_config->digital_raw, aml_out->dual_output_flag, ddp_config->is_iec61937, ddp_config->nIsEc3);
+    ALOGI("%s digital_raw:%d, dual_output_flag:%d, is_61937:%d, IsEc3:%d decoding_mode %d"
+        , __func__, ddp_config->digital_raw, aml_out->dual_output_flag, ddp_config->is_iec61937, ddp_config->nIsEc3,ddp_config->decoding_mode);
     return;
 }
 
