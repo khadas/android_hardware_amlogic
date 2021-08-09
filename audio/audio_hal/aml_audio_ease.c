@@ -146,6 +146,7 @@ int aml_audio_ease_init(aml_audio_ease_t ** ppease_handle) {
     ease_handle->data_format.sr = 48000;
     ease_handle->data_format.ch = 2;
     ease_handle->data_format.format = AUDIO_FORMAT_PCM_32_BIT;
+    ease_handle->ease_status    = Invalid;
 
     * ppease_handle = ease_handle;
     return 0;
@@ -178,6 +179,11 @@ int aml_audio_ease_config(aml_audio_ease_t * ease_handle, ease_setting_t *settin
     } else {
         ease_handle->ease_status = Invalid;
     }
+
+    if (ease_handle->ease_status == EaseOut && ease_handle->start_volume > ease_handle->current_volume) {
+        ease_handle->start_volume = ease_handle->current_volume;
+    }
+
     ease_handle->ease_time = setting->duration;
     if (ease_handle->ease_time == 0) {
         ease_handle->current_volume = setting->target_volume;
@@ -305,6 +311,9 @@ int start_ease_out(aml_audio_ease_t *audio_ease, bool is_TV, int duration_ms) {
         audio_ease->data_format.sr = 48000;
     } else {
         ease_setting.duration = 30;
+        if (duration_ms > 0) {
+            ease_setting.duration = duration_ms;
+        }
         ease_setting.start_volume = 1.0;
         ease_setting.target_volume = 0.0;
         audio_ease->ease_type = EaseOutCubic;
