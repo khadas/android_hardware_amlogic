@@ -643,10 +643,15 @@ dtvsync_process_res  aml_dtvsync_nonms12_process(struct audio_stream_out *stream
     } else if (m_audiopolicy.audiopolicy == MEDIASYNC_AUDIO_ADJUST_CLOCK) {
 
         aml_dtvsync_adjustclock(stream, &m_audiopolicy);
+        adev->underrun_mute_flag = false;
 
     } else if (m_audiopolicy.audiopolicy == MEDIASYNC_AUDIO_RESAMPLE) {
 
         aml_dtvsync_process_resample(stream, &m_audiopolicy, speed_enabled);
+    } else if (m_audiopolicy.audiopolicy == MEDIASYNC_AUDIO_MUTE) {
+        adev->underrun_mute_flag = true;
+    } else if (m_audiopolicy.audiopolicy == MEDIASYNC_AUDIO_NORMAL_OUTPUT) {
+        adev->underrun_mute_flag = false;
     }
 
     return DTVSYNC_AUDIO_OUTPUT;
@@ -711,11 +716,18 @@ dtvsync_process_res aml_dtvsync_ms12_process_policy(void *priv_data, aml_ms12_de
         } else if (async_policy->audiopolicy == MEDIASYNC_AUDIO_ADJUST_CLOCK) {
 
             aml_dtvsync_ms12_adjust_clock(stream_out, async_policy->param1);
+            adev->underrun_mute_flag = false;
 
         } else if (async_policy->audiopolicy == MEDIASYNC_AUDIO_RESAMPLE) {
 
             //aml_dtvsync_ms12_process_resample(stream, async_policy);
 
+        } else if (async_policy->audiopolicy == MEDIASYNC_AUDIO_MUTE) {
+
+            adev->underrun_mute_flag = true;
+
+        } else if (async_policy->audiopolicy == MEDIASYNC_AUDIO_NORMAL_OUTPUT) {
+            adev->underrun_mute_flag = false;
         }
     }
 
