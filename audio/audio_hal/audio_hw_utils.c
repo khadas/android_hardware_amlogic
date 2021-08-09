@@ -1864,6 +1864,16 @@ const char* hdmiFormat2Str(AML_HDMI_FORMAT_E type)
     ENUM_TYPE_TO_STR_END
 }
 
+const char* audioPortType2Str(audio_port_type_t type)
+{
+    ENUM_TYPE_TO_STR_START("AUDIO_PORT_TYPE_");
+    ENUM_TYPE_TO_STR(AUDIO_PORT_TYPE_NONE)
+    ENUM_TYPE_TO_STR(AUDIO_PORT_TYPE_DEVICE)
+    ENUM_TYPE_TO_STR(AUDIO_PORT_TYPE_MIX)
+    ENUM_TYPE_TO_STR(AUDIO_PORT_TYPE_SESSION)
+    ENUM_TYPE_TO_STR_END
+}
+
 int convert_audio_format_2_period_mul(audio_format_t format)
 {
     int period_mul = 1;

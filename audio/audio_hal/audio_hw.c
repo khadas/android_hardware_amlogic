@@ -172,6 +172,7 @@
 #define MAX_INPUT_STREAM_CNT                            (3)
 
 #define NETFLIX_DDP_BUFSIZE                             (768)
+#define OUTPUT_PORT_MAX_COEXIST_NUM                     (3)
 
 /*Tunnel sync HEADER is 20 bytes*/
 #define TUNNEL_SYNC_HEADER_SIZE    (20)
@@ -8034,16 +8035,13 @@ static enum OUT_PORT get_output_dev_for_strategy(struct aml_audio_device *adev, 
 static int unregister_audio_patch(struct audio_hw_device *dev __unused,
                                 struct audio_patch_set *patch_set)
 {
-    ALOGD("%s: enter", __func__);
-    if (!patch_set)
-        return -EINVAL;
+    R_CHECK_POINTER_LEGAL(-EINVAL, patch_set, "");
 #ifdef DEBUG_PATCH_SET
     dump_audio_patch_set(patch_set);
 #endif
+    AM_LOGI("delete the patch id:%d", patch_set->audio_patch.id);
     list_remove(&patch_set->list);
     aml_audio_free(patch_set);
-    ALOGD("%s: exit", __func__);
-
     return 0;
 }
 
@@ -8062,20 +8060,15 @@ static struct audio_patch_set *register_audio_patch(struct audio_hw_device *dev,
     struct audio_patch_set *patch_set_tmp = NULL;
     struct audio_patch *patch_tmp = NULL;
     struct listnode *node = NULL;
-    audio_patch_handle_t patch_handle;
 
-    patch_set_new = aml_audio_calloc(1, sizeof (*patch_set_new) );
-    if (!patch_set_new) {
-        ALOGE("%s(): no memory", __func__);
-        return NULL;
-    }
+    patch_set_new = aml_audio_calloc(1, sizeof(struct audio_patch_set));
+    R_CHECK_POINTER_LEGAL(NULL, patch_set_new, "no memory");
 
     patch_new = &patch_set_new->audio_patch;
-    patch_handle = (audio_patch_handle_t) android_atomic_inc(&aml_dev->next_unique_ID);
-    *handle = patch_handle;
+    *handle = (audio_patch_handle_t) android_atomic_inc(&aml_dev->next_unique_ID);
 
     /* init audio patch new */
-    patch_new->id = patch_handle;
+    patch_new->id = *handle;
     patch_new->num_sources = num_sources;
     memcpy(patch_new->sources, sources, num_sources * sizeof(struct audio_port_config));
     patch_new->num_sinks = num_sinks;
@@ -8085,51 +8078,47 @@ static struct audio_patch_set *register_audio_patch(struct audio_hw_device *dev,
     dump_audio_patch_set(patch_set_new);
 #endif
 
-    /* find if mix->dev exists and remove from list */
+    /* find if mix->dev / dev->mix exists and remove from list */
     list_for_each(node, &aml_dev->patch_list) {
         patch_set_tmp = node_to_item(node, struct audio_patch_set, list);
         patch_tmp = &patch_set_tmp->audio_patch;
         if (patch_tmp->sources[0].type == AUDIO_PORT_TYPE_MIX &&
             patch_tmp->sinks[0].type == AUDIO_PORT_TYPE_DEVICE &&
             sources[0].ext.mix.handle == patch_tmp->sources[0].ext.mix.handle) {
-            ALOGI("patch found mix->dev id %d, patchset %p", patch_tmp->id, patch_set_tmp);
-                break;
-        } else {
-            patch_set_tmp = NULL;
-            patch_tmp = NULL;
-        }
-    }
-    /* found mix->dev patch, so release and remove it */
-    if (patch_set_tmp) {
-        ALOGD("%s, found the former mix->dev patch set, remove it first", __func__);
-        unregister_audio_patch(dev, patch_set_tmp);
-        patch_set_tmp = NULL;
-        patch_tmp = NULL;
-    }
-    /* find if dev->mix exists and remove from list */
-    list_for_each (node, &aml_dev->patch_list) {
-        patch_set_tmp = node_to_item(node, struct audio_patch_set, list);
-        patch_tmp = &patch_set_tmp->audio_patch;
-        if (patch_tmp->sources[0].type == AUDIO_PORT_TYPE_DEVICE &&
+            AM_LOGI("patch found id:%d mix(%d)->dev_0(%#x) remove it.", patch_tmp->id, patch_tmp->sources[0].ext.mix.handle,
+                patch_tmp->sinks[0].ext.device.type);
+            unregister_audio_patch(dev, patch_set_tmp);
+            break;
+        } else if (patch_tmp->sources[0].type == AUDIO_PORT_TYPE_DEVICE &&
             patch_tmp->sinks[0].type == AUDIO_PORT_TYPE_MIX &&
             sinks[0].ext.mix.handle == patch_tmp->sinks[0].ext.mix.handle) {
-            ALOGI("patch found dev->mix id %d, patchset %p", patch_tmp->id, patch_set_tmp);
-                break;
-        } else {
-            patch_set_tmp = NULL;
-            patch_tmp = NULL;
+            AM_LOGI("patch found id:%d dev(%#x)->mix(%d) remove it.", patch_tmp->id, patch_tmp->sources[0].ext.device.type,
+                patch_tmp->sinks[0].ext.mix.handle);
+            unregister_audio_patch(dev, patch_set_tmp);
+            break;
         }
-    }
-    /* found dev->mix patch, so release and remove it */
-    if (patch_set_tmp) {
-        ALOGD("%s, found the former dev->mix patch set, remove it first", __func__);
-        unregister_audio_patch(dev, patch_set_tmp);
     }
     /* add new patch set to dev patch list */
     list_add_head(&aml_dev->patch_list, &patch_set_new->list);
-    ALOGI("--%s: after registering new patch, patch sets will be:", __func__);
     //dump_aml_audio_patch_sets(dev);
     return patch_set_new;
+}
+
+static bool is_contain_d2d_patch(struct aml_audio_device *adev)
+{
+    struct listnode *node = NULL;
+    struct audio_patch_set *patch_set_tmp = NULL;
+    struct audio_patch *patch_tmp = NULL;
+    /* find if mix->dev / dev->mix exists and remove from list */
+    list_for_each(node, &adev->patch_list) {
+        patch_set_tmp = node_to_item(node, struct audio_patch_set, list);
+        patch_tmp = &patch_set_tmp->audio_patch;
+        if (patch_tmp->sources[0].type == AUDIO_PORT_TYPE_DEVICE &&
+            patch_tmp->sinks[0].type == AUDIO_PORT_TYPE_DEVICE) {
+            return true;
+        }
+    }
+    return false;
 }
 
 static int adev_create_audio_patch(struct audio_hw_device *dev,
@@ -8157,36 +8146,23 @@ static int adev_create_audio_patch(struct audio_hw_device *dev,
         //we can't return error to application because it maybe process the error .
         return 0;
     }
-    if (!sources || !sinks || !handle) {
-        ALOGE("[%s:%d] null pointer! sources:%p, sinks:%p, handle:%p", __func__, __LINE__, sources, sinks, handle);
-        return -EINVAL;
-    }
-    if ((num_sources != 1) || (num_sinks > AUDIO_PATCH_PORTS_MAX)) {
-        ALOGE("[%s:%d] unsupport num sources:%d or sinks:%d", __func__, __LINE__, num_sources, num_sinks);
-        return -EINVAL;
-    }
+    R_CHECK_POINTER_LEGAL(-EINVAL, sources, "");
+    R_CHECK_POINTER_LEGAL(-EINVAL, sinks, "");
+    R_CHECK_POINTER_LEGAL(-EINVAL, handle, "");
+    R_CHECK_PARAM_LEGAL(-EINVAL, num_sources, 0, 1, "");
+    R_CHECK_PARAM_LEGAL(-EINVAL, num_sinks, 0, AUDIO_PATCH_PORTS_MAX, "");
 
-    ALOGI("[%s:%d] num_sources:%d, num_sinks:%d, %s(%d)->%s(%d), aml_dev->patch_src:%s, AF:%p"
-            , __func__, __LINE__, num_sources, num_sinks
-            , (src_config->type == AUDIO_PORT_TYPE_MIX) ? "mix" : "device"
-            , (src_config->type == AUDIO_PORT_TYPE_MIX) ? src_config->ext.mix.handle : src_config->ext.device.type
-            , (sink_config->type == AUDIO_PORT_TYPE_MIX) ? "mix" : "device"
-            , (sink_config->type == AUDIO_PORT_TYPE_MIX) ? sink_config->ext.mix.handle : sink_config->ext.device.type
-            , patchSrc2Str(aml_dev->patch_src), handle);
     patch_set = register_audio_patch(dev, num_sources, sources, num_sinks, sinks, handle);
-    if (!patch_set) {
-        ALOGW("[%s:%d] patch_set is null, create fail.", __func__, __LINE__);
-        return -ENOMEM;
-    }
+    R_CHECK_POINTER_LEGAL(-ENOMEM, patch_set, "create patch fail");
+    AM_LOGI("sources:%d sinks:%d %s->%s new id:%d patch_src:%s", num_sources, num_sinks, audioPortType2Str(src_config->type),
+        audioPortType2Str(sink_config->type), *handle, patchSrc2Str(aml_dev->patch_src));
 
     if (sink_config->type == AUDIO_PORT_TYPE_DEVICE) {
         android_dev_convert_to_hal_dev(sink_config->ext.device.type, (int *)&outport);
         /* Only 3 sink devices are allowed to coexist */
-        if (num_sinks > 3) {
-            ALOGW("[%s:%d] not support num_sinks:%d", __func__, __LINE__, num_sinks);
-            return -EINVAL;;
-        } else if (num_sinks > 1) {
-            enum OUT_PORT sink_devs[3] = {OUTPORT_SPEAKER, OUTPORT_SPEAKER, OUTPORT_SPEAKER};
+        R_CHECK_PARAM_LEGAL(-EINVAL, num_sinks, 0, OUTPUT_PORT_MAX_COEXIST_NUM, "not support num_sinks");
+        if (num_sinks > 1) {
+            enum OUT_PORT sink_devs[OUTPUT_PORT_MAX_COEXIST_NUM] = {OUTPORT_SPEAKER, OUTPORT_SPEAKER, OUTPORT_SPEAKER};
             for (int i=0; i<num_sinks; i++) {
                 android_dev_convert_to_hal_dev(sink_config[i].ext.device.type, (int *)&sink_devs[i]);
                 if (aml_dev->debug_flag) {
@@ -8197,7 +8173,15 @@ static int adev_create_audio_patch(struct audio_hw_device *dev,
         } else {
             ALOGI("[%s:%d] one sink, sink:%s", __func__, __LINE__, outputPort2Str(outport));
         }
-        if (outport != OUTPORT_SPDIF) {
+
+
+        /*  For switch from ARC to Speaker case(open system sound):
+         *  The key tone will trigger first, and create mix->dev[SPK] patch, that is routing to SPK(unmute SPK. However,
+         *  at this time dev->dev[ARC] patch not be released), then recreate dev->dev(SPK) patch, recreate audio_patch_thread,
+         *  generate SPK gap.
+         *  Solution: Do not update routing when there include a dev->dev path, do it when dev->dev released
+         */
+        if (outport != OUTPORT_SPDIF && !(src_config->type == AUDIO_PORT_TYPE_MIX && is_contain_d2d_patch(aml_dev))) {
             ret = aml_audio_output_routing(dev, outport, false);
         }
         aml_dev->out_device = 0;
@@ -8227,10 +8211,8 @@ static int adev_create_audio_patch(struct audio_hw_device *dev,
             aml_dev->active_inport = inport;
             aml_dev->src_gain[inport] = 1.0;
             //aml_dev->sink_gain[outport] = 1.0;
-            ALOGI("[%s:%d] dev->dev patch: inport:%s -> outport:%s, input_src:%s", __func__, __LINE__,
-                inputPort2Str(inport), outputPort2Str(outport), patchSrc2Str(input_src));
-            ALOGI("[%s:%d] input dev:%#x, all output dev:%#x", __func__, __LINE__,
-                src_config->ext.device.type, aml_dev->out_device);
+            AM_LOGI("dev(%s) -> dev(%s) patch, input_src:%s", inputPort2Str(inport), outputPort2Str(outport), patchSrc2Str(input_src));
+            AM_LOGI("input dev:%#x, all output dev:%#x", src_config->ext.device.type, aml_dev->out_device);
             if (inport == INPORT_TUNER) {
                 if (aml_dev->is_TV) {
                     if (aml_dev->patch_src != SRC_DTV)
@@ -8247,7 +8229,6 @@ static int adev_create_audio_patch(struct audio_hw_device *dev,
                 if (input_src != SRC_NA) {
                     set_audio_source(&aml_dev->alsa_mixer, input_src, alsa_device_is_auge());
                 }
-
 
                 if (aml_dev->audio_patch) {
                     ALOGD("%s: patch exists, first release it", __func__);
@@ -8322,10 +8303,10 @@ static int adev_create_audio_patch(struct audio_hw_device *dev,
                       aml_dev->aml_ng_attack_time, aml_dev->aml_ng_release_time);
             }
         } else if (src_config->type == AUDIO_PORT_TYPE_MIX) {  /* 2. mix to device audio patch */
-            ALOGI("[%s:%d] mix->device patch: mix - >outport:%s", __func__, __LINE__, outputPort2Str(outport));
+            AM_LOGI("mix(%d) -> dev(%s) patch", src_config->ext.mix.handle, outputPort2Str(outport));
             ret = 0;
         } else {
-            ALOGE("[%s:%d] invalid patch, source error, source:%d to sink DEVICE", __func__, __LINE__, src_config->type);
+            AM_LOGE("invalid patch, source error, source:%d(%s)->DEVICE", src_config->type, audioPortType2Str(src_config->type));
             ret = -EINVAL;
             unregister_audio_patch(dev, patch_set);
         }
@@ -8345,8 +8326,8 @@ static int adev_create_audio_patch(struct audio_hw_device *dev,
                     AUDIO_DEVICE_IN_BACK_MIC != src_config->ext.device.type )
                     aml_dev->patch_src = android_input_dev_convert_to_hal_patch_src(src_config->ext.device.type);
             }
-            ALOGI("[%s:%d] device->mix patch: inport:%s -> mix, input_src:%s, in dev:%#x", __func__, __LINE__,
-                inputPort2Str(inport), patchSrc2Str(input_src), src_config->ext.device.type);
+            AM_LOGI("dev(%s) -> mix(%d) patch, input_src:%s, in dev:%#x",
+                inputPort2Str(inport), sink_config->ext.mix.handle, patchSrc2Str(input_src), src_config->ext.device.type);
             if (input_src != SRC_NA) {
                 set_audio_source(&aml_dev->alsa_mixer, input_src, alsa_device_is_auge());
             }
@@ -8372,12 +8353,12 @@ static int adev_create_audio_patch(struct audio_hw_device *dev,
             }
             ret = 0;
         } else {
-            ALOGE("[%s:%d] invalid patch, source error, source:%d to sink MIX", __func__, __LINE__, src_config->type);
+            AM_LOGE("invalid patch, source error, source:%d(%s)->MIX", src_config->type, audioPortType2Str(src_config->type));
             ret = -EINVAL;
             unregister_audio_patch(dev, patch_set);
         }
     } else {
-        ALOGE("[%s:%d] invalid patch, sink:%d error", __func__, __LINE__, sink_config->type);
+        AM_LOGE("invalid patch, sink:%d(%s) error", sink_config->type, audioPortType2Str(sink_config->type));
         ret = -EINVAL;
         unregister_audio_patch(dev, patch_set);
     }
@@ -8394,9 +8375,8 @@ static int adev_release_audio_patch(struct audio_hw_device *dev,
     struct listnode *node = NULL;
     int ret = 0;
 
-    ALOGI("++%s: handle(%d)", __func__, handle);
     if (list_empty(&aml_dev->patch_list)) {
-        ALOGE("No patch in list to release");
+        AM_LOGE("No patch in list to release");
         ret = -EINVAL;
         goto exit;
     }
@@ -8406,20 +8386,17 @@ static int adev_release_audio_patch(struct audio_hw_device *dev,
         patch_set = node_to_item(node, struct audio_patch_set, list);
         patch = &patch_set->audio_patch;
         if (patch->id == handle) {
-            ALOGI("patch set found id %d, patchset %p", patch->id, patch_set);
             break;
         } else {
             patch_set = NULL;
             patch = NULL;
         }
     }
+    R_CHECK_POINTER_LEGAL(-EINVAL, patch_set, "Can't get patch in list");
+    R_CHECK_POINTER_LEGAL(-EINVAL, patch, "Can't get patch in list");
 
-    if (!patch_set || !patch) {
-        ALOGE("Can't get patch in list");
-        ret = -EINVAL;
-        goto exit;
-    }
-    ALOGI("source 0 type=%d sink type =%d amk patch src=%s", patch->sources[0].type, patch->sinks[0].type, patchSrc2Str(aml_dev->patch_src));
+    AM_LOGI("id:%d %s->%s patch_src:%s", handle, audioPortType2Str(patch->sources[0].type),
+        audioPortType2Str(patch->sinks[0].type), patchSrc2Str(aml_dev->patch_src));
     if (patch->sources[0].type == AUDIO_PORT_TYPE_DEVICE
         && patch->sinks[0].type == AUDIO_PORT_TYPE_DEVICE) {
 #ifdef ENABLE_DTV_PATCH
@@ -8458,6 +8435,24 @@ static int adev_release_audio_patch(struct audio_hw_device *dev,
         if (aml_dev->is_TV) {
             aml_dev->parental_control_av_mute = false;
         }
+
+        /* The route output device is updated again. According to the current available devices to do a policy,
+         * determine the current output device.
+         */
+        enum OUT_PORT sink_devs[OUTPUT_PORT_MAX_COEXIST_NUM] = {OUTPORT_SPEAKER, OUTPORT_SPEAKER, OUTPORT_SPEAKER};
+        size_t num_sinks = 0;
+        for (int pos = 1; pos < sizeof(aml_dev->out_device) * 8; pos = pos << 1) {
+            audio_devices_t sink_dev = aml_dev->out_device & pos;
+            if (sink_dev) {
+                android_dev_convert_to_hal_dev(sink_dev, (int *)&sink_devs[num_sinks]);
+                num_sinks++;
+                if (num_sinks >= OUTPUT_PORT_MAX_COEXIST_NUM) {
+                    break;
+                }
+            }
+        }
+        enum OUT_PORT outport = get_output_dev_for_strategy(aml_dev, sink_devs, num_sinks);
+        ret = aml_audio_output_routing(dev, outport, false);
     }
 
     if (patch->sources[0].type == AUDIO_PORT_TYPE_DEVICE
@@ -8483,9 +8478,7 @@ static int adev_release_audio_patch(struct audio_hw_device *dev,
         }
         aml_dev->tuner2mix_patch = false;
     }
-
     unregister_audio_patch(dev, patch_set);
-    ALOGI("--%s: after releasing patch, patch sets will be:", __func__);
     //dump_aml_audio_patch_sets(dev);
 #ifdef ADD_AUDIO_DELAY_INTERFACE
     aml_audio_delay_clear(AML_DELAY_OUTPORT_SPEAKER);
@@ -8694,9 +8687,9 @@ static int adev_set_audio_port_config(struct audio_hw_device *dev, const struct 
     }
 
     /* Only 3 sink devices are allowed to coexist */
-    enum OUT_PORT sink_devs[3] = {OUTPORT_SPEAKER, OUTPORT_SPEAKER, OUTPORT_SPEAKER};
+    enum OUT_PORT sink_devs[OUTPUT_PORT_MAX_COEXIST_NUM] = {OUTPORT_SPEAKER, OUTPORT_SPEAKER, OUTPORT_SPEAKER};
     for (int i=0; i<patch->num_sinks; i++) {
-        if (i >= 3) {
+        if (i >= OUTPUT_PORT_MAX_COEXIST_NUM) {
             ALOGW("[%s:%d] invalid num_sinks:%d", __func__, __LINE__, patch->num_sinks);
             break;
         } else {
