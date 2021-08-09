@@ -2868,6 +2868,11 @@ static int adev_open_output_stream(struct audio_hw_device *dev,
         ALOGE("%s malloc error", __func__);
         return -ENOMEM;
     }
+
+    if (pthread_mutex_init(&out->lock, NULL)) {
+        ALOGE("%s pthread_mutex_init failed", __func__);
+    }
+
     if (config != NULL)
     {
         /*valid audio_config means enter in tuner framework case, then we need to create&start audio dtv patch*/
@@ -3128,21 +3133,18 @@ static int adev_open_output_stream(struct audio_hw_device *dev,
         memset(out->audioeffect_tmp_buffer, 0, out->config.period_size * 6);
     }
 
+    pthread_mutex_lock(&out->lock);
     out->hwsync =  aml_audio_calloc(1, sizeof(audio_hwsync_t));
     if (!out->hwsync) {
+        pthread_mutex_unlock(&out->lock);
         ALOGE("%s,malloc hwsync failed", __func__);
-        if (out->tmp_buffer_8ch) {
-            aml_audio_free(out->tmp_buffer_8ch);
-        }
-        if (out->audioeffect_tmp_buffer) {
-            aml_audio_free(out->audioeffect_tmp_buffer);
-        }
-        aml_audio_free(out);
-        return -ENOMEM;
+        ret = -ENOMEM;
+        goto err;
     }
     out->hwsync->tsync_fd = -1;
     // for every stream, init hwsync once. ready to use in hwsync mode
     aml_audio_hwsync_init(out->hwsync, out);
+    pthread_mutex_unlock(&out->lock);
 
     /*if tunnel mode pcm is not 48Khz, resample to 48K*/
     if (flags & AUDIO_OUTPUT_FLAG_HW_AV_SYNC) {
@@ -3180,10 +3182,20 @@ static int adev_open_output_stream(struct audio_hw_device *dev,
 
     return 0;
 err:
+    pthread_mutex_lock(&out->lock);
+    if (out->hwsync) {
+        aml_audio_free(out->hwsync);
+        out->hwsync = NULL;
+    }
+
     if (out->audioeffect_tmp_buffer)
         aml_audio_free(out->audioeffect_tmp_buffer);
     if (out->tmp_buffer_8ch)
         aml_audio_free(out->tmp_buffer_8ch);
+
+    pthread_mutex_unlock(&out->lock);
+    pthread_mutex_destroy(&out->lock);
+
     aml_audio_free(out);
     ALOGE("%s exit failed =%d", __func__, ret);
     return ret;
@@ -3399,6 +3411,8 @@ static void adev_close_output_stream(struct audio_hw_device *dev,
     }
 
     pthread_mutex_unlock(&out->lock);
+
+    pthread_mutex_destroy(&out->lock);
 
     aml_audio_free(stream);
     ALOGD("%s: exit", __func__);

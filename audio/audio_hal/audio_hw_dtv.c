@@ -2957,7 +2957,9 @@ void *audio_dtv_patch_input_threadloop(void *data)
                             } else {
                                 ALOGI("list->pack_num %d full !!!", list->pack_num);
                                 pthread_mutex_unlock(&patch->mutex);
+                                pthread_mutex_unlock(&aml_dev->dtv_lock);
                                 usleep(150000);
+                                pthread_mutex_lock(&aml_dev->dtv_lock);
                                 continue;
                             }
                         }
@@ -3272,7 +3274,12 @@ static void *audio_dtv_patch_process_threadloop_v2(void *data)
             }
 
             if (patch_thread_get_cmd(patch, &cmd, &path_id) != 0) {
-                pthread_cond_wait(&patch->dtv_cmd_process_cond, &patch->dtv_cmd_process_mutex);
+                // 3s timeout after not get new signal to
+                // avoid some rare case which blocked in release_dtv_patch_l() pthread_join
+                struct timespec tv;
+                clock_gettime(CLOCK_MONOTONIC, &tv);
+                tv.tv_sec += 3;
+                pthread_cond_timedwait(&patch->dtv_cmd_process_cond, &patch->dtv_cmd_process_mutex, &tv);
                 pthread_mutex_unlock(&patch->dtv_cmd_process_mutex);
                 continue;
             }
@@ -3366,7 +3373,12 @@ static void *audio_dtv_patch_process_threadloop_v2(void *data)
             }
 
             if (patch_thread_get_cmd(patch, &cmd, &path_id) != 0) {
-                pthread_cond_wait(&patch->dtv_cmd_process_cond, &patch->dtv_cmd_process_mutex);
+                // 3s timeout after not get new signal to
+                // avoid some rare case which blocked in release_dtv_patch_l() pthread_join
+                struct timespec tv;
+                clock_gettime(CLOCK_MONOTONIC, &tv);
+                tv.tv_sec += 3;
+                pthread_cond_timedwait(&patch->dtv_cmd_process_cond, &patch->dtv_cmd_process_mutex, &tv);
                 pthread_mutex_unlock(&patch->dtv_cmd_process_mutex);
                 continue;
             }
@@ -3409,7 +3421,12 @@ static void *audio_dtv_patch_process_threadloop_v2(void *data)
         case AUDIO_DTV_PATCH_DECODER_STATE_PAUSE:
 
             if (patch_thread_get_cmd(patch, &cmd, &path_id) != 0) {
-                pthread_cond_wait(&patch->dtv_cmd_process_cond, &patch->dtv_cmd_process_mutex);
+                // 3s timeout after not get new signal to
+                // avoid some rare case which blocked in release_dtv_patch_l() pthread_join
+                struct timespec tv;
+                clock_gettime(CLOCK_MONOTONIC, &tv);
+                tv.tv_sec += 3;
+                pthread_cond_timedwait(&patch->dtv_cmd_process_cond, &patch->dtv_cmd_process_mutex, &tv);
                 pthread_mutex_unlock(&patch->dtv_cmd_process_mutex);
                 continue;
             }
@@ -3598,7 +3615,12 @@ int create_dtv_patch_l(struct audio_hw_device *dev, audio_devices_t input,
     aml_dev->audio_patch = patch;
     pthread_mutex_init(&patch->mutex, NULL);
     pthread_cond_init(&patch->cond, NULL);
-    pthread_cond_init(&patch->dtv_cmd_process_cond, NULL);
+
+    pthread_condattr_t cattr;
+    pthread_condattr_init(&cattr);
+    pthread_condattr_setclock(&cattr, CLOCK_MONOTONIC);
+    pthread_cond_init(&patch->dtv_cmd_process_cond, &cattr);
+
     pthread_mutex_init(&patch->dtv_cmd_process_mutex, NULL);
     pthread_mutex_init(&patch->apts_cal_mutex, NULL);
 
