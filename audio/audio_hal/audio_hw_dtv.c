@@ -465,7 +465,7 @@ static int dtv_patch_handle_event(struct audio_hw_device *dev, int cmd, int val)
                 pthread_mutex_lock(&patch->dtv_cmd_process_mutex);
                 if (val == AUDIO_DTV_PATCH_CMD_START) {
                     dtv_audio_instances->demux_index_working = path_id;
-                    patch->mode = demux_info->output_mode;
+                    patch->mode = adev->dtv_sound_mode;
                     patch->dtv_aformat = demux_info->main_fmt;
                     patch->media_sync_id = demux_info->media_sync_id;
                     patch->pid = demux_info->main_pid;
