@@ -155,6 +155,7 @@ const char* mixerOutputType2Str(MIXER_OUTPUT_PORT type);
 const char* mediasyncAudiopolicyType2Str(audio_policy type);
 const char* dtvAudioPatchCmd2Str(AUDIO_DTV_PATCH_CMD_TYPE type);
 const char* hdmiFormat2Str(AML_HDMI_FORMAT_E type);
+const char* audioPortType2Str(audio_port_type_t type);
 bool aml_audio_check_sbr_product();
 void check_audio_level(const char *name, const void *buffer, size_t bytes);
 
