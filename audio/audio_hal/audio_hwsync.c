@@ -40,7 +40,7 @@
 #include "aml_audio_ms12_sync.h"
 #include "aml_audio_timer.h"
 #include "audio_hw_ms12.h"
-
+#include "audio_mediasync_wrap.h"
 
 static int aml_audio_get_hwsync_flag()
 {
@@ -489,6 +489,21 @@ int aml_audio_hwsync_set_first_pts(audio_hwsync_t *p_hwsync, uint64_t pts)
     p_hwsync->aout->tsync_status = TSYNC_STATUS_RUNNING;
     return 0;
 }
+bool aml_audio_hwsync_set_time_gap_threshold(audio_hwsync_t *p_hwsync, int64_t threshold_value /*__unused*/)
+{
+    int64_t value = 0;
+    bool ret = false;
+
+    ret = mediasync_wrap_getUpdateTimeThreshold(p_hwsync->mediasync, &value);
+    if (ret && value != threshold_value) {
+        ret = mediasync_wrap_setUpdateTimeThreshold(p_hwsync->mediasync, threshold_value);
+        ALOGD("%s, ret:%d threshold value is changed from %lld to %lld", __func__,ret, value, threshold_value);
+    } else {
+        ALOGV("%s, ret:%d, threshold value is same %lld, not to set again.", __func__, ret, value);
+    }
+
+    return ret;
+}
 /*
 @offset :ms12 real costed offset
 @p_adjust_ms: a/v adjust ms.if return a minus,means
@@ -514,6 +529,7 @@ int aml_audio_hwsync_audio_process(audio_hwsync_t *p_hwsync, size_t offset, int 
     int alsa_pcm_delay_frames = 0;
     int alsa_bitstream_delay_frames = 0;
     int ms12_pipeline_delay_frames = 0;
+    int64_t avsync_time_threshold_value = 0;
     ALOGV("%s,================", __func__);
 
 
@@ -533,6 +549,20 @@ int aml_audio_hwsync_audio_process(audio_hwsync_t *p_hwsync, size_t offset, int 
             debug_enable = aml_audio_get_hwsync_flag();
         }
     }
+
+    /* the threshold default value is 50ms,
+     * it will be changed to 100ms for drop when pass through mode.
+     * this modification is for MiBox plist passthrough of NTS cases
+     */
+    if (adev && BYPASS == adev->hdmi_format) {
+        avsync_time_threshold_value = 100*1000;
+        aml_audio_hwsync_set_time_gap_threshold(p_hwsync, avsync_time_threshold_value);
+    } else {
+        avsync_time_threshold_value = 50*1000;
+        aml_audio_hwsync_set_time_gap_threshold(p_hwsync, avsync_time_threshold_value);
+    }
+    ALOGV("%s, avsync_time_threshold_value:%lld, udpate threshold finished.",
+            __func__, avsync_time_threshold_value);
 
     ret = aml_audio_hwsync_lookup_apts(p_hwsync, offset, &apts);
 
@@ -557,7 +587,7 @@ int aml_audio_hwsync_audio_process(audio_hwsync_t *p_hwsync, size_t offset, int 
     }
     if (p_hwsync->use_mediasync) {
         uint64_t apts64 = 0;
-        if (p_hwsync->first_apts_flag == false && offset > 0 && (apts >= latency_pts)) {
+        if (p_hwsync->first_apts_flag == false && offset > 0 && (apts >= abs(latency_pts))) {
             ALOGI("%s offset =%d apts =%#llx", __func__, offset, apts);
             ALOGI("%s alsa pcm delay =%d bitstream delay =%d pipeline =%d", __func__, alsa_pcm_delay_frames, alsa_bitstream_delay_frames, ms12_pipeline_delay_frames);
             ALOGI("%s apts = 0x%llx (%llu ms) latency=0x%x (%d ms)", __func__, apts, apts / 90, latency_pts, latency_pts/90);
