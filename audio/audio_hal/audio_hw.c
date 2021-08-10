@@ -3623,9 +3623,10 @@ static int adev_set_parameters(struct audio_hw_device *dev, const char *kvpairs)
 
         /*usb audio hot plug need delay some time wait alsa file create */
         if ((val & AUDIO_DEVICE_OUT_ALL_USB) || (val & AUDIO_DEVICE_IN_ALL_USB)) {
-                int card = 0, device = 0;
+                int card = 0, device = 0, status = 0;
                 int retry;
                 char fn[256];
+                status = val;
                 ret = str_parms_get_int(parms, "card", &val);
                 if (ret >= 0)
                         card = val;
@@ -3634,9 +3635,9 @@ static int adev_set_parameters(struct audio_hw_device *dev, const char *kvpairs)
                         device = val;
 
                 snprintf(fn, sizeof(fn), "/dev/snd/pcmC%uD%u%c", card, device,
-                         val & AUDIO_DEVICE_OUT_ALL_USB ? 'p' : 'c');
+                         status & AUDIO_DEVICE_OUT_ALL_USB ? 'p' : 'c');
 
-                for (retry = 0; access(fn, F_OK) < 0 || retry < 10; retry++) {
+                for (retry = 0; access(fn, F_OK) < 0 && retry < 10; retry++) {
                         usleep (20000);
                 }
 
