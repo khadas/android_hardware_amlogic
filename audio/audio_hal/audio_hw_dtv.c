@@ -2778,7 +2778,7 @@ void *audio_dtv_patch_input_threadloop(void *data)
                     continue;
                 } else {
                     if (dtv_pacakge == NULL) {
-                        dtv_pacakge = aml_audio_malloc(sizeof(struct package));
+                        dtv_pacakge = aml_audio_calloc(1, sizeof(struct package));
                         if (!dtv_pacakge) {
                             ALOGI("dtv_pacakge malloc failed ");
                             goto exit;
@@ -2869,11 +2869,14 @@ void *audio_dtv_patch_input_threadloop(void *data)
                                 aml_audio_free(mEsData);
                                 mEsData = NULL;
                                 demux_info->mEsData = NULL;
+                                demux_info->dtv_pacakge = dtv_pacakge;
                             } else {
                                 if (aml_dev->debug_flag > 0)
                                     ALOGI(" do not get mEsData");
                                 aml_audio_free(dtv_pacakge);
                                 dtv_pacakge = NULL;
+                                demux_info->dtv_pacakge = NULL;
+                                demux_info->mEsData = NULL;
                                 pthread_mutex_unlock(&aml_dev->dtv_lock);
                                 usleep(10000);
                                 continue;
@@ -2894,6 +2897,7 @@ void *audio_dtv_patch_input_threadloop(void *data)
                             } else {
                                 dtv_pacakge->ad_size = 0;
                                 dtv_pacakge->ad_data = NULL;
+                                demux_info->mADEsData = NULL;
                             }
                         }
 
@@ -3010,6 +3014,7 @@ exit:
                aml_audio_free(dtv_pacakge);
                dtv_pacakge = NULL;
             }
+            demux_info->dtv_pacakge = NULL;
             pthread_mutex_unlock(&aml_dev->dtv_lock);
         }
     }
