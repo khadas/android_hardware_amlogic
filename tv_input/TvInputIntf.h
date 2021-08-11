@@ -25,6 +25,7 @@
 #include <pthread.h>
 #include <semaphore.h>
 #include <queue>
+#include <unistd.h>
 
 #include "TvServerHidlClient.h"
 #ifdef SUPPORT_DTVKIT
@@ -98,6 +99,7 @@ public:
     int setTvObserver (TvPlayObserver *ob);
     int getSupportInputDevices(int *devices, int *count);
     int getHdmiPort(tv_source_input_t source_input);
+    bool isMultiDemux();
     virtual void notify(const tv_parcel_t &parcel);
 
 private:

@@ -353,3 +353,11 @@ int TvInputIntf::getHdmiPort(tv_source_input_t source_input) {
     return mTvSession->getHdmiPorts(source_input);
 }
 
+bool TvInputIntf::isMultiDemux() {
+    if (access("/sys/module/dvb_demux/", F_OK) == 0) {
+        return true;
+    } else {
+        return false;
+    }
+}
+
