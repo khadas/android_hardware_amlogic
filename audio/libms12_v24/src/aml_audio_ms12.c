@@ -154,7 +154,7 @@ int aml_ms12_cleanup(struct dolby_ms12_desc *ms12_desc)
 
 int aml_ms12_update_runtime_params(struct dolby_ms12_desc *ms12_desc, char *cmd)
 {
-    ALOGI("+%s()\n", __FUNCTION__);
+    ALOGV("+%s()\n", __FUNCTION__);
     int ret = -1;
     int mutex_result = 0;
 
@@ -187,7 +187,7 @@ int aml_ms12_update_runtime_params(struct dolby_ms12_desc *ms12_desc, char *cmd)
             pthread_mutex_unlock(&ms12_desc->lock);
         }
     }
-    ALOGI("-%s() ret %d\n", __FUNCTION__, ret);
+    ALOGV("-%s() ret %d\n", __FUNCTION__, ret);
     return ret;
 }
 

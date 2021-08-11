@@ -1438,8 +1438,8 @@ int DolbyMS12ConfigParams::ms_get_int_from_str(char **p_csv_string, int *p_vals)
 
 char **DolbyMS12ConfigParams::UpdateDolbyMS12RuntimeConfigParams(int *argc, char *cmd)
 {
-    ALOGD("+%s()", __FUNCTION__);
-    ALOGD("ms12 runtime cmd: %s", cmd);
+    ALOGV("+%s()", __FUNCTION__);
+    ALOGV("ms12 runtime cmd: %s", cmd);
 
     strcpy(mConfigParams[0], "ms12_runtime");
 
@@ -1454,7 +1454,7 @@ char **DolbyMS12ConfigParams::UpdateDolbyMS12RuntimeConfigParams(int *argc, char
     while (cmd_string >> token) {
         strncpy(mConfigParams[mParamNum], token.c_str(), MAX_ARGV_STRING_LEN);
         mConfigParams[mParamNum][MAX_ARGV_STRING_LEN - 1] = '\0';
-        ALOGI("argv[%d] = %s", mParamNum, mConfigParams[mParamNum]);
+        ALOGV("argv[%d] = %s", mParamNum, mConfigParams[mParamNum]);
         mParamNum++;
         (*argc)++;
     }
@@ -1745,7 +1745,7 @@ eq_error:
         opt = NULL;
     }
 
-    ALOGD("-%s()", __FUNCTION__);
+    ALOGV("-%s()", __FUNCTION__);
     return mConfigParams;
 }
 
@@ -1860,7 +1860,7 @@ void DolbyMS12ConfigParams::CleanupConfigParams(char **ConfigParams, int max_raw
 
 void DolbyMS12ConfigParams::ResetConfigParams(void)
 {
-    ALOGD("+%s() line %d\n", __FUNCTION__, __LINE__);
+    ALOGV("+%s() line %d\n", __FUNCTION__, __LINE__);
     int i = 0;
     if (mConfigParams) {
         for (i = 0; i < MAX_ARGC; i++) {
@@ -1873,8 +1873,8 @@ void DolbyMS12ConfigParams::ResetConfigParams(void)
     mHasAssociateInput = false;
     mHasSystemInput = false;
     mMainFlags = 1;
-    ALOGD("%s() mHasAssociateInput %d mHasSystemInput %d\n", __FUNCTION__, mHasAssociateInput, mHasSystemInput);
-    ALOGD("-%s() line %d\n", __FUNCTION__, __LINE__);
+    ALOGV("%s() mHasAssociateInput %d mHasSystemInput %d\n", __FUNCTION__, mHasAssociateInput, mHasSystemInput);
+    ALOGV("-%s() line %d\n", __FUNCTION__, __LINE__);
     return ;
 }
 
