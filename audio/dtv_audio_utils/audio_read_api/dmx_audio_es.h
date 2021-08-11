@@ -65,6 +65,8 @@ typedef struct  aml_dtvsync {
     void* mediasync_new;
     int mediasync_id;
     int64_t cur_outapts;
+    uint64_t out_start_apts;
+    uint64_t out_end_apts;
     int cur_speed;
     struct dtvsync_audio_policy apolicy;
     int pcm_dropping;

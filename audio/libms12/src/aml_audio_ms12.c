@@ -12,6 +12,7 @@
 #define LOG_TAG "libms12"
 // #define LOG_NDEBUG 0
 
+
 // fpr android O build, use cutils/log.h
 //#include <cutils/log.h>
 // for android P build, use log/log.h
@@ -151,7 +152,7 @@ int aml_ms12_cleanup(struct dolby_ms12_desc *ms12_desc)
 
 int aml_ms12_update_runtime_params(struct dolby_ms12_desc *ms12_desc, char *cmd)
 {
-    ALOGI("+%s()\n", __FUNCTION__);
+    ALOGV("+%s()\n", __FUNCTION__);
     int ret = -1;
     if (ms12_desc->dolby_ms12_init_argv) {
         dolby_ms12_config_params_reset_config_params();
@@ -169,7 +170,7 @@ int aml_ms12_update_runtime_params(struct dolby_ms12_desc *ms12_desc, char *cmd)
             ret = dolby_ms12_update_runtime_params(ms12_desc->dolby_ms12_ptr, ms12_desc->dolby_ms12_init_argc, ms12_desc->dolby_ms12_init_argv);
         }
     }
-    ALOGI("-%s() ret %d\n", __FUNCTION__, ret);
+    ALOGV("-%s() ret %d\n", __FUNCTION__, ret);
     return ret;
 }
 

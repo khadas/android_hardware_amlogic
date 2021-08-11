@@ -128,37 +128,37 @@ public:
     //associate flags
     virtual void setAssociateFlag(bool flag)
     {
-        ALOGI("%s() Associate flag %d\n", __FUNCTION__, flag);
+        ALOGV("%s() Associate flag %d\n", __FUNCTION__, flag);
         mHasAssociateInput = flag;
     }
     virtual int getAssociateFlag(void)
     {
-        ALOGI("%s() mHasAssociateInput %d\n", __FUNCTION__, mHasAssociateInput);
+        ALOGV("%s() mHasAssociateInput %d\n", __FUNCTION__, mHasAssociateInput);
         return mHasAssociateInput;
     }
     //system flags
     virtual void setSystemFlag(bool flag)
     {
-        ALOGI("%s() System flag %d\n", __FUNCTION__, flag);
+        ALOGV("%s() System flag %d\n", __FUNCTION__, flag);
         mHasSystemInput = flag;
         mSystemSoundFlags = flag;
     }
     virtual int getSystemFlag(void)
     {
-        ALOGI("%s() mHasSystemInput %d\n", __FUNCTION__, mHasSystemInput);
+        ALOGV("%s() mHasSystemInput %d\n", __FUNCTION__, mHasSystemInput);
         return mHasSystemInput;
     }
 
     //app flags
     virtual void setAppFlag(bool flag)
     {
-        ALOGI("%s() App flag %d\n", __FUNCTION__, flag);
+        ALOGV("%s() App flag %d\n", __FUNCTION__, flag);
         mHasAppInput = flag;
         mAppSoundFlags = flag;
     }
     virtual int getAppFlag(void)
     {
-        ALOGI("%s() mHasAppInput %d\n", __FUNCTION__, mHasAppInput);
+        ALOGV("%s() mHasAppInput %d\n", __FUNCTION__, mHasAppInput);
         return mHasAppInput;
     }
 
