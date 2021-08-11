@@ -137,7 +137,7 @@ int dtv_patch_add_cmd(struct cmd_node *dtv_cmd_list,int cmd, int path_id)
     struct cmd_node *list = NULL;
     struct cmd_node *new_cmd_node = NULL;
     int index = 0;
-    if (dtv_cmd_list->initd == 0) {
+    if (!dtv_cmd_list || dtv_cmd_list->initd == 0) {
         return 0;
     }
     pthread_mutex_lock(&dtv_cmd_list->dtv_cmd_mutex);
