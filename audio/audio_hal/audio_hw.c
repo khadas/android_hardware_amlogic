@@ -5357,7 +5357,9 @@ ssize_t audio_hal_data_processing(struct audio_stream_out *stream,
                     aml_audio_ease_process(adev->volume_ease.ease, adev->out_32_buf, bytes * 2);
                     float vol_now = aml_audio_ease_get_current_volume(adev->volume_ease.ease);
                     ALOGV("volume update %f, %f, %f", adev->volume_ease.vol_last, volume, vol_now);
-                    if (vol_now == volume) {
+                    /*do ease process when adjust vol,vol apply is handled by ease process,when ease process finished,
+                    vol apply need handled by apply volume function,vol is float type,use fadbs to compare*/
+                    if (fabs(vol_now - volume) < 0.000001) {
                         adev->volume_ease.do_easing = false;
                         ALOGD("easing finished, volume now %f", volume);
                         adev->volume_ease.vol_last = adev->volume_ease.vol_target;
