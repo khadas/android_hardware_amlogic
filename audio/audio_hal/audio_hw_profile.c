@@ -1475,6 +1475,8 @@ char*  get_offload_cap(const char *keys,audio_format_t format)
         /*todo if dts decoder is supported*/
         //if (adev->dts_decode_enable)
         size += sprintf(aud_cap + size, "|%s", "AUDIO_FORMAT_DTS|AUDIO_FORMAT_DTS_HD");
+        size += sprintf(aud_cap + size, "|%s", "AUDIO_FORMAT_AAC_LC");
+        size += sprintf(aud_cap + size, "|%s", "AUDIO_FORMAT_MP3");
 
     }
     /*check the channel cap */
@@ -1503,7 +1505,7 @@ char*  get_offload_cap(const char *keys,audio_format_t format)
                 size += sprintf(aud_cap, "sup_channels=%s", IEC61937_SUPPORT_CHANNEL);
                 break;
             default:
-                size += sprintf(aud_cap, "sup_channels=%s", "AUDIO_CHANNEL_OUT_STEREO");
+                size += sprintf(aud_cap, "sup_channels=%s", "AUDIO_CHANNEL_OUT_MONO|AUDIO_CHANNEL_OUT_STEREO");
         }
     } else if (strstr(keys, AUDIO_PARAMETER_STREAM_SUP_SAMPLING_RATES)) {
         ALOGD("query hdmi sample_rate...format %#x\n", format);
@@ -1866,7 +1868,7 @@ char *out_get_parameters_wrapper_about_sup_sampling_rates__channels__formats(con
                 cap = (char *)strdup_tv_platform_cap_default(keys, format);
             } else {
                 if (out->flags & AUDIO_OUTPUT_FLAG_COMPRESS_OFFLOAD) {
-                        cap = (char *) get_offload_cap(AUDIO_PARAMETER_STREAM_SUP_SAMPLING_RATES,format);
+                        cap = (char *) get_offload_cap(keys,format);
                 } else {
                     cap = (char *)get_hdmi_sink_cap_new(keys,format,&(adev->hdmi_descs));
 
