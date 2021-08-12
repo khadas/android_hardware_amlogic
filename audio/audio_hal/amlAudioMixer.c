@@ -110,11 +110,8 @@ aml_mixer_state mixer_get_state(struct amlAudioMixer *audio_mixer)
 static inline input_port *mixer_get_inport_by_mask_right_first(
         struct amlAudioMixer *audio_mixer, uint32_t *pMasks)
 {
-    input_port      *pstInputPort = NULL;
-    int             right_zeros = __builtin_ctz(*pMasks);
-    pstInputPort = audio_mixer->in_ports[right_zeros];
-    *pMasks &= ~(1 << right_zeros);
-    return pstInputPort;
+    uint8_t bit_position = get_bit_position_in_mask(NR_INPORTS - 1, pMasks);
+    return audio_mixer->in_ports[bit_position];
 }
 
 /**

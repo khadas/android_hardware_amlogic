@@ -1884,6 +1884,17 @@ const char* audioPortType2Str(audio_port_type_t type)
     ENUM_TYPE_TO_STR_END
 }
 
+/* Returns the position of each bit, counting from right to left.
+ * Can be called repeatedly to iterate over.
+ */
+uint8_t get_bit_position_in_mask(uint8_t max_position, uint32_t *p_mask)
+{
+    uint32_t right_zeros = __builtin_ctz(*p_mask);
+    R_CHECK_PARAM_LEGAL(0, right_zeros, 0, max_position, "max_position:%d, mask:%#x", max_position, *p_mask);
+    *p_mask &= ~(1 << right_zeros);
+    return right_zeros;
+}
+
 int convert_audio_format_2_period_mul(audio_format_t format)
 {
     int period_mul = 1;
