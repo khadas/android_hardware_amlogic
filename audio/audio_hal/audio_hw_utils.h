@@ -152,6 +152,7 @@ const char* outputPort2Str(enum OUT_PORT type);
 const char* inputPort2Str(enum IN_PORT type);
 const char* mixerInputType2Str(aml_mixer_input_port_type_e type);
 const char* mixerOutputType2Str(MIXER_OUTPUT_PORT type);
+uint8_t get_bit_position_in_mask(uint8_t max_position, uint32_t *p_mask);
 const char* mediasyncAudiopolicyType2Str(audio_policy type);
 const char* dtvAudioPatchCmd2Str(AUDIO_DTV_PATCH_CMD_TYPE type);
 const char* hdmiFormat2Str(AML_HDMI_FORMAT_E type);

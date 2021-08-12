@@ -8444,12 +8444,16 @@ static int adev_release_audio_patch(struct audio_hw_device *dev,
          */
         enum OUT_PORT sink_devs[OUTPUT_PORT_MAX_COEXIST_NUM] = {OUTPORT_SPEAKER, OUTPORT_SPEAKER, OUTPORT_SPEAKER};
         size_t num_sinks = 0;
-        for (int pos = 1; pos < sizeof(aml_dev->out_device) * 8; pos = pos << 1) {
-            audio_devices_t sink_dev = aml_dev->out_device & pos;
+        audio_devices_t out_dev = aml_dev->out_device;
+        while (out_dev) {
+            uint8_t right_zeros = get_bit_position_in_mask(sizeof(audio_devices_t) * 8 - 1, &out_dev);
+            out_dev &= ~(1 << right_zeros);
+            audio_devices_t sink_dev = 1 << right_zeros;
             if (sink_dev) {
                 android_dev_convert_to_hal_dev(sink_dev, (int *)&sink_devs[num_sinks]);
                 num_sinks++;
                 if (num_sinks >= OUTPUT_PORT_MAX_COEXIST_NUM) {
+                    AM_LOGW("invalid num_sinks:%d >= %d", num_sinks, OUTPUT_PORT_MAX_COEXIST_NUM);
                     break;
                 }
             }
