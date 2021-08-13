@@ -17,6 +17,9 @@
 #ifndef _AUDIO_DTV_UTILS_H_
 #define _AUDIO_DTV_UTILS_H_
 
+#include "dmx_audio_es.h"
+#include "aml_dec_api.h"
+
 #define TSYNC_PCRSCR "/sys/class/tsync/pts_pcrscr"
 #define TSYNC_EVENT "/sys/class/tsync/event"
 #define TSYNC_APTS "/sys/class/tsync/pts_audio"
@@ -82,6 +85,13 @@
 #define AD_PACK_STATUS_HOLD_THRESHOLD_MS 400
 #define AD_PACK_STATUS_HOLD_START_THRESHOLD_MS 100
 
+
+#define NON_DOLBY_AD_PACK_STATUS_DROP_THRESHOLD_MS 800
+#define NON_DOLBY_AD_PACK_STATUS_DROP_START_THRESHOLD_MS 600
+
+#define NON_DOLBY_AD_PACK_STATUS_HOLD_THRESHOLD_MS 600
+#define NON_DOLBY_AD_PACK_STATUS_HOLD_START_THRESHOLD_MS 200
+
 typedef enum  {
     AD_PACK_STATUS_NORMAL,
     AD_PACK_STATUS_DROP,
@@ -140,7 +150,7 @@ int dtv_patch_add_cmd(struct cmd_node *dtv_cmd_list,int cmd, int path_id);
 int dtv_patch_get_cmd(struct cmd_node *dtv_cmd_list,int *cmd, int *path_id);
 int dtv_patch_cmd_is_empty(struct cmd_node *dtv_cmd_list);
 
-AD_PACK_STATUS_T check_ad_package_status(int64_t main_pts, int64_t ad_pts, AD_PACK_STATUS_T ad_status);
+AD_PACK_STATUS_T check_ad_package_status(int64_t main_pts, int64_t ad_pts,  aml_demux_audiopara_t *demux_info);
 
 
 #endif

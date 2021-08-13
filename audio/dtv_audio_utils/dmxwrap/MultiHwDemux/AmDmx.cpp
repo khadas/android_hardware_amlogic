@@ -135,8 +135,8 @@ void* AM_DMX_Device::dmx_data_thread(void *arg)
                                       sec_len = header_es->len - read_len;
                                   }
                                   if (read_len < header_es->len) {
-                                    ALOGI("ret %d dvb_read audio len  %d frame len %d",ret, read_len ,header_es->len);
-                                    usleep (20000);
+                                    ALOGV("ret %d dvb_read audio len  %d frame len %d",ret, read_len ,header_es->len);
+                                    usleep (5000);
                                   }
                             } while (dev->enable_thread && !filter->to_be_stopped && read_len < header_es->len);
                             sec_len = sizeof(struct dmx_non_sec_es_header) + header_es->len;

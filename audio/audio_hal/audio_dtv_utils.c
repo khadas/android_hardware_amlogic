@@ -194,7 +194,7 @@ int dtv_patch_cmd_is_empty(struct cmd_node *dtv_cmd_list)
     return 0;
 }
 
-AD_PACK_STATUS_T check_ad_package_status(int64_t main_pts, int64_t ad_pts, AD_PACK_STATUS_T ad_status)
+AD_PACK_STATUS_T check_ad_package_status(int64_t main_pts, int64_t ad_pts, aml_demux_audiopara_t *demux_info)
 {
     int timems_diff = llabs(main_pts - ad_pts) / 90;
 
@@ -202,21 +202,38 @@ AD_PACK_STATUS_T check_ad_package_status(int64_t main_pts, int64_t ad_pts, AD_PA
         ALOGI("timems_diff %d it is impossible so drop ad data ", timems_diff);
         return AD_PACK_STATUS_DROP;
     }
+    AD_PACK_STATUS_T ad_status = demux_info->ad_package_status;
+    int drop_threshold_ms,drop_start_threshold_ms,hold_start_threshold_ms,hold_threshold_ms;
+
+    if (demux_info->main_fmt == ACODEC_FMT_AC3 ||
+        demux_info->main_fmt == ACODEC_FMT_EAC3||
+        demux_info->main_fmt == ACODEC_FMT_AC4 ) {
+       drop_threshold_ms = AD_PACK_STATUS_DROP_THRESHOLD_MS;
+       drop_start_threshold_ms = AD_PACK_STATUS_DROP_START_THRESHOLD_MS;
+       hold_threshold_ms = AD_PACK_STATUS_HOLD_THRESHOLD_MS;
+       hold_start_threshold_ms = AD_PACK_STATUS_HOLD_START_THRESHOLD_MS;
+    } else {
+       drop_threshold_ms = NON_DOLBY_AD_PACK_STATUS_DROP_THRESHOLD_MS;
+       drop_start_threshold_ms = NON_DOLBY_AD_PACK_STATUS_DROP_START_THRESHOLD_MS;
+       hold_threshold_ms = NON_DOLBY_AD_PACK_STATUS_HOLD_THRESHOLD_MS;
+       hold_start_threshold_ms = NON_DOLBY_AD_PACK_STATUS_HOLD_START_THRESHOLD_MS;
+
+    }
     switch(ad_status) {
         case AD_PACK_STATUS_NORMAL:
             if (main_pts >= ad_pts) {
                 timems_diff = (main_pts - ad_pts) / 90;
-                if ( timems_diff > AD_PACK_STATUS_DROP_THRESHOLD_MS) {
+                if ( timems_diff > drop_threshold_ms) {
                     ALOGI("main and ad timems_diff %d ms  need drop ", timems_diff);
                     ad_status = AD_PACK_STATUS_DROP;
-                } else if (timems_diff < AD_PACK_STATUS_HOLD_START_THRESHOLD_MS) {
+                } else if (timems_diff < hold_start_threshold_ms) {
                      ALOGI("main and ad timems_diff %d ms  need hold ", timems_diff);
                      ad_status = AD_PACK_STATUS_HOLD;
                 }
 
             } else {
                 timems_diff = (ad_pts - main_pts) / 90;
-                if (timems_diff > AD_PACK_STATUS_HOLD_THRESHOLD_MS) {
+                if (timems_diff > hold_threshold_ms) {
                     ALOGI("ad ahead of main timems_diff %d ", timems_diff);
                     ad_status = AD_PACK_STATUS_HOLD;
                 }
@@ -226,7 +243,7 @@ AD_PACK_STATUS_T check_ad_package_status(int64_t main_pts, int64_t ad_pts, AD_PA
         case AD_PACK_STATUS_DROP:
             if (main_pts > ad_pts) {
                 timems_diff = (main_pts - ad_pts) / 90;
-                if ( timems_diff > AD_PACK_STATUS_DROP_START_THRESHOLD_MS) {
+                if (timems_diff > drop_start_threshold_ms) {
                     ALOGI("main and ad timems_diff %d ms  need drop ", timems_diff);
                     ad_status = AD_PACK_STATUS_DROP;
                 } else {
@@ -235,7 +252,7 @@ AD_PACK_STATUS_T check_ad_package_status(int64_t main_pts, int64_t ad_pts, AD_PA
 
             } else {
                 timems_diff = (ad_pts - main_pts) / 90;
-                if (timems_diff > AD_PACK_STATUS_HOLD_THRESHOLD_MS) {
+                if (timems_diff > hold_threshold_ms) {
                     ad_status = AD_PACK_STATUS_HOLD;
                 } else {
                     ad_status = AD_PACK_STATUS_NORMAL;
@@ -254,10 +271,10 @@ AD_PACK_STATUS_T check_ad_package_status(int64_t main_pts, int64_t ad_pts, AD_PA
                 ad_status = AD_PACK_STATUS_HOLD;
             } else {
                 timems_diff = (main_pts - ad_pts) / 90;
-                if (timems_diff > AD_PACK_STATUS_HOLD_START_THRESHOLD_MS
-                    && timems_diff < AD_PACK_STATUS_HOLD_THRESHOLD_MS) {
+                if (timems_diff > hold_start_threshold_ms
+                    && timems_diff < hold_threshold_ms) {
                     ad_status = AD_PACK_STATUS_NORMAL;
-                } else if (timems_diff >= AD_PACK_STATUS_HOLD_THRESHOLD_MS) {
+                } else if (timems_diff >= hold_threshold_ms) {
                     ad_status = AD_PACK_STATUS_DROP;
                 } else {
                     ad_status = AD_PACK_STATUS_HOLD;
