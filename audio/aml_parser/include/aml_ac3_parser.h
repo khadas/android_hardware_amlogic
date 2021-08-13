@@ -22,8 +22,14 @@
 #define BS_AXE           16
 #define ISDDP(bsid)      ((bsid) <= BS_AXE && (bsid) > 10)
 
+#ifndef AC3_PERIOD_SIZE
 #define AC3_PERIOD_SIZE  0x1800
+#endif
+
+#ifndef AC3_PERIOD_SIZE
 #define EAC3_PERIOD_SIZE 0x6000
+#endif
+
 #define MAT_PERIOD_SIZE  (61440)
 
 

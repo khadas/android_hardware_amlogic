@@ -16,9 +16,11 @@
 #define LOG_TAG "audio_spdif_decoder"
 //#define LOG_NDEBUG 0
 
+#include <stdlib.h>
 #include <cutils/log.h>
-#include "audio_hw.h"
-#include "audio_format_parse.h"
+#include <system/audio.h>
+#include <aml_malloc_debug.h>
+#include <system/audio-base.h>
 #include "aml_audio_spdifdec.h"
 
 #define IEC61937_HEADER_PA_LITTLE  0xF872
@@ -122,7 +124,15 @@ int aml_spdif_decoder_reset(void *phandle)
 }
 
 /*
- *Find the position of 61937 sync word in the buffer, need PA/PB/PC/PD, 4*sizeof(short)
+*Find the position of 61937 sync word in the buffer, need PA/PB/PC/PD, 4*sizeof(short)
+*This table shows storage format of IEC61937 byte sequence
+*|--------------------------------------------------|
+*|  storage format    |     PA      |      PB       |
+*|--------------------------------------------------|
+*|    BIg-Endian      |   0x72F8    |     0x1F4E    |
+*|--------------------------------------------------|
+*|   LITTLE-Endian    |   0xF872    |     0x4E1F    |
+*|--------------------------------------------------|
  */
 static int seek_61937_sync_word(char *buffer, int size)
 {
@@ -132,10 +142,10 @@ static int seek_61937_sync_word(char *buffer, int size)
     }
 
     for (i = 0; i < (size - 3); i++) {
-        if (buffer[i + 0] == 0x72 && buffer[i + 1] == 0xf8 && buffer[i + 2] == 0x1f && buffer[i + 3] == 0x4e) {
+        if (buffer[i + 0] == 0x72 && buffer[i + 1] == 0xF8 && buffer[i + 2] == 0x1F && buffer[i + 3] == 0x4E) {
             return i;
         }
-        if (buffer[i + 0] == 0x4e && buffer[i + 1] == 0x1f && buffer[i + 2] == 0xf8 && buffer[i + 3] == 0x72) {
+        if (buffer[i + 0] == 0xF8 && buffer[i + 1] == 0x72 && buffer[i + 2] == 0x4E && buffer[i + 3] == 0x1F) {
             return i;
         }
     }

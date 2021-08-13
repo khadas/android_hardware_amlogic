@@ -1,5 +1,3 @@
-
-
 cc_library_shared {
     name: "libamaudioutils",
     vendor: true,
@@ -39,6 +37,7 @@ cc_library_shared {
         "audio_data_process.c",
         "aml_malloc_debug.c",
         "aml_android_hidl_utils.cpp",
+        "aml_audio_spdifdec.c",
     ],
 
     header_libs: ["libhardware_headers"],
@@ -68,3 +67,34 @@ cc_library_shared {
 
 
 }
+
+
+//###################################
+//Conversion of IEC61937 to raw audio
+//###################################
+cc_binary {
+
+    name: "spdif_decoder",
+
+    vendor: true,
+
+    srcs: [
+        "spdifdec_test.c",
+        "aml_audio_spdifdec.c",
+    ],
+
+    shared_libs: [
+        "libcutils",
+        "liblog",
+        "libamaudioutils",
+    ],
+
+    include_dirs: [
+        "system/media/audio/include",
+    ],
+
+    local_include_dirs: [
+        "include",
+    ],
+}
+
