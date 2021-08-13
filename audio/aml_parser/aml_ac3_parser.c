@@ -26,6 +26,7 @@
 #include <sys/prctl.h>
 #include <cutils/log.h>
 #include <string.h>
+#include <aml_audio_spdifdec.h>
 
 #include "ac3_parser_utils.h"
 #include "aml_ac3_parser.h"

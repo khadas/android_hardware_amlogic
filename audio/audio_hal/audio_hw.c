@@ -48,6 +48,7 @@
 #include <spdifenc_wrap.h>
 #include <aml_android_utils.h>
 #include <aml_alsa_mixer.h>
+#include <aml_audio_spdifdec.h>
 
 #include "audio_format_parse.h"
 #include "SPDIFEncoderAD.h"

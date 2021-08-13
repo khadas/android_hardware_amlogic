@@ -72,7 +72,6 @@ include $(BUILD_PREBUILT)
         aml_mmap_audio.c \
         aml_audio_ms12_bypass.c \
         aml_audio_delay.c \
-        aml_audio_spdifdec.c \
         aml_audio_spdifout.c \
         aml_audio_hal_avsync.c \
         aml_audio_ms12_sync.c \

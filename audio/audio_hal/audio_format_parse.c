@@ -23,6 +23,7 @@
 #include <sys/prctl.h>
 #include <cutils/log.h>
 
+#include "aml_audio_spdifdec.h"
 #include "aml_audio_stream.h"
 #include "audio_format_parse.h"
 #include "aml_dump_debug.h"

@@ -19,19 +19,6 @@
 #include <aml_alsa_mixer.h>
 #include "aml_ac3_parser.h"
 
-/*IEC61937 package presamble Pc value 0-4bit */
-enum IEC61937_PC_Value {
-    IEC61937_NULL               = 0x00,          ///< NULL data
-    IEC61937_AC3                = 0x01,          ///< AC-3 data
-    IEC61937_DTS1               = 0x0B,          ///< DTS type I   (512 samples)
-    IEC61937_DTS2               = 0x0C,          ///< DTS type II  (1024 samples)
-    IEC61937_DTS3               = 0x0D,          ///< DTS type III (2048 samples)
-    IEC61937_DTSHD              = 0x11,          ///< DTS HD data
-    IEC61937_EAC3               = 0x15,          ///< E-AC-3 data
-    IEC61937_MAT                = 0x16,          ///< MAT data
-    IEC61937_PAUSE              = 0x03,          ///< Pause
-};
-
 enum audio_type {
     LPCM = 0,
     AC3,
