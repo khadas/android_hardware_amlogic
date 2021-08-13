@@ -236,6 +236,7 @@ static bool getAvailableStreamConfigs(int dev_id __unused, int *num_configuratio
 {
     static tv_stream_config_t mconfig[2];
     switch (tv_source_input_t(dev_id)) {
+        case SOURCE_ADTV:
         case SOURCE_DTVKIT:
             mconfig[0].stream_id = STREAM_ID_NORMAL;
             mconfig[0].type = TV_STREAM_TYPE_INDEPENDENT_VIDEO_SOURCE ;
