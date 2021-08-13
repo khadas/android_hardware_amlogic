@@ -15,7 +15,7 @@
  */
 
 #define LOG_TAG "aml_audio_mad_dec"
-#define LOG_NDEBUG 0
+//#define LOG_NDEBUG 0
 
 #include <dlfcn.h>
 #include <cutils/log.h>
@@ -436,7 +436,7 @@ static int mad_decoder_process(aml_dec_t * aml_dec, unsigned char*buffer, int by
             ad_dec_pcm_data->data_len  = ad_dec_pcm_data->data_len * 2;
         }
 
-        if (mad_dec->ad_mixing_enable) {
+        if (mad_dec->ad_mixing_enable && ad_dec_pcm_data->data_len) {
             int frames_written = 0;
 
             float mixing_coefficient = 1.0f - (float)(mad_dec->mixer_level  + 32 ) / 64;

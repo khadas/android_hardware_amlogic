@@ -1743,7 +1743,7 @@ int audio_dtv_patch_output_dolby_dual_decoder(struct aml_audio_patch *patch,
                 }
                 if (mEsData){
                     if (patch->cur_outapts > 0) {
-                        demux_info->ad_package_status = check_ad_package_status(patch->cur_outapts, mEsData->pts, demux_info->ad_package_status);
+                        demux_info->ad_package_status = check_ad_package_status(patch->cur_outapts, mEsData->pts, demux_info);
                         if (demux_info->ad_package_status == AD_PACK_STATUS_DROP) {
                             if (mEsData->data) {
                                 aml_audio_free(mEsData->data);
@@ -2825,7 +2825,7 @@ void *audio_dtv_patch_input_threadloop(void *data)
                                 if (demux_info->dual_decoder_support && VALID_PID(demux_info->ad_pid)) {
                                     nRet = Get_ADAudio_Es(demux_handle, &mAdEsData);
                                     if (nRet != AM_AUDIO_Dmx_SUCCESS) {
-                                        /*trycount++;
+                                         /*trycount++;
                                         ALOGV("ad trycount %d", trycount);
                                         if (trycount < max_trycount) {
                                             usleep(10000);
@@ -2843,7 +2843,7 @@ void *audio_dtv_patch_input_threadloop(void *data)
                                         if (aml_dev->debug_flag)
                                            ALOGI("ad mAdEsData->size %d mAdEsData->pts %0llx",mAdEsData->size, mAdEsData->pts);
                                         /* align ad and main data by pts compare */
-                                        demux_info->ad_package_status = check_ad_package_status(mEsData->pts, mAdEsData->pts, demux_info->ad_package_status);
+                                        demux_info->ad_package_status = check_ad_package_status(mEsData->pts, mAdEsData->pts, demux_info);
                                         if (demux_info->ad_package_status == AD_PACK_STATUS_DROP) {
                                             if (mAdEsData->data) {
                                                 aml_audio_free(mAdEsData->data);
@@ -2892,7 +2892,7 @@ void *audio_dtv_patch_input_threadloop(void *data)
                             }
 
                             if (mAdEsData) {
-                                demux_info->ad_package_status = check_ad_package_status(dtv_pacakge->pts, mAdEsData->pts, demux_info->ad_package_status);
+                                demux_info->ad_package_status = check_ad_package_status(dtv_pacakge->pts, mAdEsData->pts, demux_info);
                                 if (demux_info->ad_package_status == AD_PACK_STATUS_HOLD) {
                                     dtv_pacakge->ad_size = 0;
                                     dtv_pacakge->ad_data = NULL;

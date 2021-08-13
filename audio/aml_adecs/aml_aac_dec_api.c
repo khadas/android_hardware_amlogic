@@ -450,7 +450,8 @@ static int faad_decoder_process(aml_dec_t * aml_dec, unsigned char*buffer, int b
             }
             ad_dec_pcm_data->data_len  = ad_dec_pcm_data->data_len * 2;
         }
-        if (aac_dec->ad_mixing_enable) {
+
+        if (aac_dec->ad_mixing_enable && ad_dec_pcm_data->data_len) {
             int frames_written = 0;
 
             float mixing_coefficient = 1.0f - (float)(aac_dec->mixer_level  + 32 ) / 64;
