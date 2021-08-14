@@ -22,7 +22,7 @@
 #define LOG_NDEBUG 0
 #define LOG_TAG "EmulatedCamera_CallbackNotifier"
 #include <android/log.h>
-#include <MetadataBufferType.h>
+#include <media/hardware/MetadataBufferType.h>
 #include "EmulatedCameraDevice.h"
 #include "CallbackNotifier.h"
 #include "JpegCompressor.h"

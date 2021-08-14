@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-//#define LOG_NDEBUG 0
+#define LOG_NDEBUG 0
 //#define LOG_NNDEBUG 0
 #define LOG_TAG "EmulatedCamera3_Sensor"
 
@@ -23,9 +23,8 @@
 #else
 #define ALOGVV(...) ((void)0)
 #endif
-#define ATRACE_TAG (ATRACE_TAG_CAMERA | ATRACE_TAG_HAL | ATRACE_TAG_ALWAYS)
+
 #include <utils/Log.h>
-#include <utils/Trace.h>
 #include <cutils/properties.h>
 
 #include "../EmulatedFakeCamera2.h"
@@ -37,10 +36,10 @@
 #include "libyuv.h"
 #include "NV12_resize.h"
 #include "libyuv/scale.h"
+#include "ge2d_stream.h"
 #include "util.h"
 #include <sys/time.h>
 #include <inttypes.h>
-#include <gralloc1.h>
 
 
 #define ARRAY_SIZE(x) (sizeof((x))/sizeof(((x)[0])))
@@ -115,12 +114,9 @@ const usb_frmsize_discrete_t kUsbAvailablePictureSize[] = {
         {352, 288},
         {320, 240},
 };
-#define MAX_WIDTH  (1920)
-#define MAX_HEIGHT (1080)
 
-uint8_t uBuffer[MAX_WIDTH * MAX_HEIGHT /4];
-uint8_t vBuffer[MAX_WIDTH * MAX_HEIGHT /4];
-
+uint8_t  vBuffer [1920*1080/4];
+uint8_t  uBuffer [1920*1080/4];
 /** A few utility functions for math, normal distributions */
 
 // Take advantage of IEEE floating-point format to calculate an approximate
@@ -205,6 +201,7 @@ Sensor::Sensor():
         mTemp_buffer(NULL),
         mExitSensorThread(false),
         mIoctlSupport(0),
+        msupportrotate(0),
         mTimeOutCount(0),
         mWait(false),
         mPre_width(0),
@@ -221,7 +218,6 @@ Sensor::~Sensor() {
 }
 
 status_t Sensor::startUp(int idx) {
-    ATRACE_CALL();
     ALOGV("%s: E", __FUNCTION__);
     DBG_LOGA("ddd");
 
@@ -242,17 +238,22 @@ status_t Sensor::startUp(int idx) {
             ALOGE("Unable to open sensor %d, errno=%d\n", vinfo->idx, res);
     }
 
-    mSensorType = SENSOR_USB;
+    mSensorType = SENSOR_MMAP;
     if (strstr((const char *)vinfo->cap.driver, "uvcvideo")) {
         mSensorType = SENSOR_USB;
     }
 
-    if (strstr((const char *)vinfo->cap.driver,"ARM-camera-isp")) {
-        mSensorType = SENSOR_MIPI;
-    }
     if (strstr((const char *)vinfo->cap.card, "share_fd")) {
         mSensorType = SENSOR_SHARE_FD;
     }
+
+    if (strstr((const char *)vinfo->cap.card, "front"))
+        mSensorFace = SENSOR_FACE_FRONT;
+    else if (strstr((const char *)vinfo->cap.card, "back"))
+        mSensorFace = SENSOR_FACE_BACK;
+    else
+        mSensorFace = SENSOR_FACE_NONE;
+
     return res;
 }
 
@@ -260,6 +261,26 @@ sensor_type_e Sensor::getSensorType(void)
 {
     return mSensorType;
 }
+status_t Sensor::IoctlStateProbe(void) {
+    struct v4l2_queryctrl qc;
+    int ret = 0;
+    mIoctlSupport = 0;
+    memset(&qc, 0, sizeof(struct v4l2_queryctrl));
+    qc.id = V4L2_ROTATE_ID;
+    ret = ioctl (vinfo->fd, VIDIOC_QUERYCTRL, &qc);
+    if((qc.flags == V4L2_CTRL_FLAG_DISABLED) ||( ret < 0)|| (qc.type != V4L2_CTRL_TYPE_INTEGER)){
+        mIoctlSupport &= ~IOCTL_MASK_ROTATE;
+    }else{
+        mIoctlSupport |= IOCTL_MASK_ROTATE;
+    }
+
+    if(mIoctlSupport & IOCTL_MASK_ROTATE){
+        msupportrotate = true;
+        DBG_LOGA("camera support capture rotate");
+    }
+    return mIoctlSupport;
+}
+
 uint32_t Sensor::getStreamUsage(int stream_type)
 {
     uint32_t usage = GRALLOC_USAGE_HW_CAMERA_WRITE;
@@ -276,22 +297,22 @@ uint32_t Sensor::getStreamUsage(int stream_type)
                 GRALLOC_USAGE_HW_CAMERA_WRITE;
             break;
     }
-    /*if ((mSensorType == SENSOR_MMAP)
+    if ((mSensorType == SENSOR_MMAP)
          || (mSensorType == SENSOR_USB)) {
         usage = (GRALLOC_USAGE_HW_TEXTURE
                 | GRALLOC_USAGE_HW_RENDER
                 | GRALLOC_USAGE_SW_READ_MASK
                 | GRALLOC_USAGE_SW_WRITE_MASK
                 );
-    }*/
-    usage = GRALLOC1_PRODUCER_USAGE_CAMERA;
+    }
+
     return usage;
 }
 
 status_t Sensor::setOutputFormat(int width, int height, int pixelformat, bool isjpeg)
 {
     int res;
-    ATRACE_CALL();
+
     mFramecount = 0;
     mCurFps = 0;
     gettimeofday(&mTimeStart, NULL);
@@ -344,7 +365,7 @@ status_t Sensor::setOutputFormat(int width, int height, int pixelformat, bool is
 }
 
 status_t Sensor::streamOn() {
-    ATRACE_CALL();
+
     return start_capturing(vinfo);
 }
 
@@ -412,7 +433,6 @@ int Sensor::getOutputFormat()
  */
 int Sensor::halFormatToSensorFormat(uint32_t pixelfmt)
 {
-    ATRACE_CALL();
     struct v4l2_fmtdesc fmt;
     int ret;
     memset(&fmt,0,sizeof(fmt));
@@ -601,7 +621,6 @@ status_t Sensor::setEffect(uint8_t effect)
 
 int Sensor::getExposure(int *maxExp, int *minExp, int *def, camera_metadata_rational *step)
 {
-    ATRACE_CALL();
     struct v4l2_queryctrl qc;
     int ret=0;
     int level = 0;
@@ -649,7 +668,6 @@ int Sensor::getExposure(int *maxExp, int *minExp, int *def, camera_metadata_rati
 
 status_t Sensor::setExposure(int expCmp)
 {
-    ATRACE_CALL();
     int ret = 0;
     struct v4l2_control ctl;
     struct v4l2_queryctrl qc;
@@ -682,7 +700,6 @@ status_t Sensor::setExposure(int expCmp)
 
 int Sensor::getAntiBanding(uint8_t *antiBanding, uint8_t maxCont)
 {
-    ATRACE_CALL();
     struct v4l2_queryctrl qc;
     struct v4l2_querymenu qm;
     int ret;
@@ -732,7 +749,6 @@ int Sensor::getAntiBanding(uint8_t *antiBanding, uint8_t maxCont)
 
 status_t Sensor::setAntiBanding(uint8_t antiBanding)
 {
-    ATRACE_CALL();
     int ret = 0;
     struct v4l2_control ctl;
     ctl.id = V4L2_CID_POWER_LINE_FREQUENCY;
@@ -767,7 +783,6 @@ status_t Sensor::setAntiBanding(uint8_t antiBanding)
 
 status_t Sensor::setFocuasArea(int32_t x0, int32_t y0, int32_t x1, int32_t y1)
 {
-    ATRACE_CALL();
     int ret = 0;
     struct v4l2_control ctl;
     ctl.id = V4L2_CID_FOCUS_ABSOLUTE;
@@ -781,7 +796,6 @@ status_t Sensor::setFocuasArea(int32_t x0, int32_t y0, int32_t x1, int32_t y1)
 
 int Sensor::getAutoFocus(uint8_t *afMode, uint8_t maxCount)
 {
-    ATRACE_CALL();
     struct v4l2_queryctrl qc;
     struct v4l2_querymenu qm;
     int ret;
@@ -831,7 +845,6 @@ int Sensor::getAutoFocus(uint8_t *afMode, uint8_t maxCount)
 
 status_t Sensor::setAutoFocuas(uint8_t afMode)
 {
-    ATRACE_CALL();
     struct v4l2_control ctl;
     ctl.id = V4L2_CID_FOCUS_AUTO;
 
@@ -864,7 +877,6 @@ status_t Sensor::setAutoFocuas(uint8_t afMode)
 
 int Sensor::getAWB(uint8_t *awbMode, uint8_t maxCount)
 {
-    ATRACE_CALL();
     struct v4l2_queryctrl qc;
     struct v4l2_querymenu qm;
     int ret;
@@ -929,7 +941,6 @@ int Sensor::getAWB(uint8_t *awbMode, uint8_t maxCount)
 
 status_t Sensor::setAWB(uint8_t awbMode)
 {
-    ATRACE_CALL();
     int ret = 0;
     struct v4l2_control ctl;
     ctl.id = V4L2_CID_DO_WHITE_BALANCE;
@@ -960,37 +971,31 @@ status_t Sensor::setAWB(uint8_t awbMode)
 }
 
 void Sensor::setExposureTime(uint64_t ns) {
-    ATRACE_CALL();
     Mutex::Autolock lock(mControlMutex);
     ALOGVV("Exposure set to %f", ns/1000000.f);
     mExposureTime = ns;
 }
 
 void Sensor::setFrameDuration(uint64_t ns) {
-    ATRACE_CALL();
     Mutex::Autolock lock(mControlMutex);
     ALOGVV("Frame duration set to %f", ns/1000000.f);
     mFrameDuration = ns;
 }
 
 void Sensor::setSensitivity(uint32_t gain) {
-    ATRACE_CALL();
     Mutex::Autolock lock(mControlMutex);
     ALOGVV("Gain set to %d", gain);
     mGainFactor = gain;
 }
 
 void Sensor::setDestinationBuffers(Buffers *buffers) {
-    ATRACE_CALL();
     Mutex::Autolock lock(mControlMutex);
     mNextBuffers = buffers;
 }
 
 void Sensor::setFrameNumber(uint32_t frameNumber) {
-    ATRACE_CALL();
     Mutex::Autolock lock(mControlMutex);
     mFrameNumber = frameNumber;
-    ATRACE_INT("framenumber:",mFrameNumber);
 }
 
 void Sensor::setFlushFlag(bool flushFlag) {
@@ -998,7 +1003,6 @@ void Sensor::setFlushFlag(bool flushFlag) {
 }
 
 status_t Sensor::waitForVSync(nsecs_t reltime) {
-    ATRACE_CALL();
     int res;
     Mutex::Autolock lock(mControlMutex);
     CAMHAL_LOGVB("%s , E  mControlMutex" , __FUNCTION__);
@@ -1018,7 +1022,6 @@ status_t Sensor::waitForVSync(nsecs_t reltime) {
 
 status_t Sensor::waitForNewFrame(nsecs_t reltime,
         nsecs_t *captureTime) {
-    ATRACE_CALL();
     Mutex::Autolock lock(mReadoutMutex);
     if (mExitSensorThread) {
         return -1;
@@ -1072,7 +1075,6 @@ void Sensor::setSensorListener(SensorListener *listener) {
 
 status_t Sensor::readyToRun() {
     //int res;
-    ATRACE_CALL();
     ALOGV("Starting up sensor thread");
     mStartupTime = systemTime();
     mNextCaptureTime = 0;
@@ -1084,8 +1086,6 @@ status_t Sensor::readyToRun() {
 }
 
 bool Sensor::threadLoop() {
-    ATRACE_CALL();
-
     /**
      * Sensor capture operation main loop.
      *
@@ -1191,28 +1191,12 @@ bool Sensor::threadLoop() {
         mScene.setExposureDuration((float)exposureDuration/1e9);
         mScene.calculateScene(mNextCaptureTime);
 
-        //if ( mSensorType == SENSOR_SHARE_FD) {
-            //captureNewImageWithGe2d();
-        //} else {
+        if ( mSensorType == SENSOR_SHARE_FD) {
+            captureNewImageWithGe2d();
+        } else {
             captureNewImage();
-        //}
+        }
         mFramecount ++;
-        ALOGVV("Sensor vertical blanking interval");
-        nsecs_t workDoneRealTime = systemTime();
-        const nsecs_t timeAccuracy = 2e6; // 2 ms of imprecision is ok
-        if (workDoneRealTime < frameEndRealTime - timeAccuracy) {
-            timespec t;
-            t.tv_sec = (frameEndRealTime - workDoneRealTime)  / 1000000000L;
-            t.tv_nsec = (frameEndRealTime - workDoneRealTime) % 1000000000L;
-
-            int ret;
-        do {
-            ret = nanosleep(&t, &t);
-        } while (ret != 0);
-    }
-
-    } else {
-        usleep(12000);
     }
 
     if (mExitSensorThread) {
@@ -1227,11 +1211,28 @@ bool Sensor::threadLoop() {
         mFramecount = 0;
         CAMHAL_LOGIB("interval(%" PRId64"), interval=%f, fps=%f\n", interval, interval/1000000.0f, mCurFps);
     }
+    ALOGVV("Sensor vertical blanking interval");
+    nsecs_t workDoneRealTime = systemTime();
+    const nsecs_t timeAccuracy = 2e6; // 2 ms of imprecision is ok
+    if (workDoneRealTime < frameEndRealTime - timeAccuracy) {
+        timespec t;
+        t.tv_sec = (frameEndRealTime - workDoneRealTime)  / 1000000000L;
+        t.tv_nsec = (frameEndRealTime - workDoneRealTime) % 1000000000L;
 
+        int ret;
+        do {
+            ret = nanosleep(&t, &t);
+        } while (ret != 0);
+    }
+    nsecs_t endRealTime = systemTime();
+    CAMHAL_LOGVB("Frame cycle took %d ms, target %d ms",
+            (int)((endRealTime - startRealTime)/1000000),
+            (int)(frameDuration / 1000000));
+    CAMHAL_LOGVB("%s , X" , __FUNCTION__);
     return true;
 };
 
-/*int Sensor::captureNewImageWithGe2d() {
+int Sensor::captureNewImageWithGe2d() {
 
     //uint32_t gain = mGainFactor;
     mKernelPhysAddr = 0;
@@ -1251,14 +1252,13 @@ bool Sensor::threadLoop() {
 
     return 0;
 
-}*/
+}
 
 int Sensor::captureNewImage() {
-    ATRACE_CALL();
     bool isjpeg = false;
     uint32_t gain = mGainFactor;
     mKernelBuffer = NULL;
-    mTempFD = -1;
+
     // Might be adding more buffers, so size isn't constant
     ALOGVV("size=%d\n", mNextCapturedBuffers->size());
     for (size_t i = 0; i < mNextCapturedBuffers->size(); i++) {
@@ -1306,12 +1306,30 @@ int Sensor::captureNewImage() {
                     pixelfmt = HAL_PIXEL_FORMAT_RGB_888;
                 }
 
-                bAux.streamId = 0;
-                bAux.width = b.width;
-                bAux.height = b.height;
-                bAux.format = pixelfmt;
-                bAux.stride = b.width;
-                bAux.buffer = NULL;
+                if (!msupportrotate) {
+                    bAux.streamId = 0;
+                    bAux.width = b.width;
+                    bAux.height = b.height;
+                    bAux.format = pixelfmt;
+                    bAux.stride = b.width;
+                    bAux.buffer = NULL;
+                } else {
+                    if ((orientation == 90) || (orientation == 270)) {
+                        bAux.streamId = 0;
+                        bAux.width = b.height;
+                        bAux.height = b.width;
+                        bAux.format = pixelfmt;
+                        bAux.stride = b.height;
+                        bAux.buffer = NULL;
+                    } else {
+                        bAux.streamId = 0;
+                        bAux.width = b.width;
+                        bAux.height = b.height;
+                        bAux.format = pixelfmt;
+                        bAux.stride = b.width;
+                        bAux.buffer = NULL;
+                    }
+                }
                 // TODO: Reuse these
                 bAux.img = new uint8_t[b.width * b.height * 3];
                 mNextCapturedBuffers->push_back(bAux);
@@ -1680,13 +1698,8 @@ int Sensor::getStreamConfigurationDurations(uint32_t picSizes[], int64_t duratio
                             if ((!flag) && ((duration[count+0] == HAL_PIXEL_FORMAT_YCbCr_420_888)
                                 || (duration[count+0] == HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED)))
                                 duration[count+3] = 0;
-                            else {
-                                if ((mSensorType == SENSOR_USB)
-                                    && (fival.width *fival.height >= 1920*1080))
-                                    duration[count+3] = (int64_t)66666666L;
-                                else
-                                    duration[count+3] = (int64_t)33333333L;
-                            }
+                            else
+                                duration[count+3] = (int64_t)33333333L;
                         } else if (framerate == 60) {
                             if ((!flag) && ((duration[count+0] == HAL_PIXEL_FORMAT_YCbCr_420_888)
                                 || (duration[count+0] == HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED)))
@@ -2030,6 +2043,7 @@ void Sensor::captureRGB(uint8_t *img, uint32_t gain, uint32_t stride) {
                     return;
                 }
 #if ANDROID_PLATFORM_SDK_VERSION > 23
+
         if (ConvertToI420(src, vinfo->picture.buf.bytesused, tmp_buffer, width, uBuffer, (width + 1) / 2,
                               vBuffer, (width + 1) / 2, 0, 0, width, height,
                               width, height, libyuv::kRotate0, libyuv::FOURCC_MJPG) != 0) {
@@ -2043,24 +2057,25 @@ void Sensor::captureRGB(uint8_t *img, uint32_t gain, uint32_t stride) {
                 *pUVBuffer++ = *(vBuffer + i);
                 *pUVBuffer++ = *(uBuffer + i);
             }
+
             nv21_to_rgb24(tmp_buffer,img,width,height);
             if (tmp_buffer != NULL)
                 delete [] tmp_buffer;
-                break;
-            }
+            break;
+        }
 #else
-                if (ConvertMjpegToNV21(src, vinfo->picture.buf.bytesused, tmp_buffer,
+        if (ConvertMjpegToNV21(src, vinfo->picture.buf.bytesused, tmp_buffer,
                     width, tmp_buffer + width * height, (width + 1) / 2, width,
                     height, width, height, libyuv::FOURCC_MJPG) != 0) {
-                    DBG_LOGA("Decode MJPEG frame failed\n");
-                    putback_picture_frame(vinfo);
-                    usleep(5000);
-                } else {
-                    nv21_to_rgb24(tmp_buffer,img,width,height);
-                    if (tmp_buffer != NULL)
-                        delete [] tmp_buffer;
-                    break;
-                }
+            DBG_LOGA("Decode MJPEG frame failed\n");
+            putback_picture_frame(vinfo);
+            usleep(5000);
+        } else {
+            nv21_to_rgb24(tmp_buffer,img,width,height);
+            if (tmp_buffer != NULL)
+                delete [] tmp_buffer;
+            break;
+        }
 #endif
             } else if (vinfo->picture.format.fmt.pix.pixelformat == V4L2_PIX_FMT_YUYV) {
                 if (vinfo->picture.buf.length == vinfo->picture.buf.bytesused) {
@@ -2131,7 +2146,7 @@ void Sensor::YUYVToYV12(uint8_t *src, uint8_t *dst, int width, int height)
     cr_offset = y_size;
     cb_offset = y_size+c_size;
 
-    for (i=0;i< y_size;i++) {
+    for(i=0;i< y_size;i++){
         *dst++ = *src;
         src += 2;
     }
@@ -2139,8 +2154,8 @@ void Sensor::YUYVToYV12(uint8_t *src, uint8_t *dst, int width, int height)
     dst = dst_copy;
     src = src_copy;
 
-    for (i=0;i<height;i+=2) {
-        for (j=1;j<width*2;j+=4) {//one line has 2*width bytes for yuyv.
+    for(i=0;i<height;i+=2){
+        for(j=1;j<width*2;j+=4){//one line has 2*width bytes for yuyv.
             //ceil(u1+u2)/2
             *(dst+cr_offset+j/4)= (*(src+j+2) + *(src+j+2+width*2) + 1)/2;
             *(dst+cb_offset+j/4)= (*(src+j) + *(src+j+width*2) + 1)/2;
@@ -2160,6 +2175,7 @@ status_t Sensor::force_reset_sensor() {
     DBG_LOGB("%s , ret = %d", __FUNCTION__, ret);
     return ret;
 }
+
 
 void Sensor::captureNV21(StreamBuffer b, uint32_t gain) {
 #if 0
@@ -2215,7 +2231,6 @@ void Sensor::captureNV21(StreamBuffer b, uint32_t gain) {
         }
     }
 #else
-    ATRACE_CALL();
     uint8_t *src;
 
     if (mKernelBuffer) {
@@ -2295,7 +2310,7 @@ void Sensor::captureNV21(StreamBuffer b, uint32_t gain) {
             uint32_t height = vinfo->preview.format.fmt.pix.height;
             memset(mTemp_buffer, 0 , width * height * 3/2);
             YUYVToNV21(src, mTemp_buffer, width, height);
-            if ((width == b.stride) && (height == b.height)) {
+            if ((width == b.width) && (height == b.height)) {
                 memcpy(b.img, mTemp_buffer, b.width * b.height * 3/2);
                 mKernelBuffer = b.img;
             } else {

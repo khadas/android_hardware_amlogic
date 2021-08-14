@@ -36,24 +36,23 @@ long_options[] = {
 int main(int argc, char **argv)
 {
         int frame_count = 0;
-        const char *dev_name = "/dev/video0";
+        char *dev_name = "/dev/video0";
         struct VideoInfo *vinfo;
         int ret = 0;
         FILE* fp;
 
         uint8_t *src = NULL;
-        //uint8_t *dst = NULL;
+        uint8_t *dst = NULL;
 
         fp = fopen("/sdcard/raw.data", "ab+");
 
         vinfo = (struct VideoInfo *) calloc(1, sizeof(*vinfo));
 
         if (NULL == vinfo){
-                ALOGE("calloc failed\n");
+                CAMHAL_LOGDA("calloc failed\n");
                 return -1;
         }
 
-        memset(vinfo->name,0,sizeof(vinfo->name));
         for (;;) {
                 int idx;
                 int c;
@@ -99,14 +98,13 @@ int main(int argc, char **argv)
                 }
         }
 
-        memcpy(vinfo->name,dev_name,sizeof(vinfo->name));
         vinfo->idx = 0;
         vinfo->preview.format.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
         vinfo->preview.format.fmt.pix.width = 640;
         vinfo->preview.format.fmt.pix.height = 480;
-        vinfo->preview.format.fmt.pix.pixelformat = V4L2_PIX_FMT_MJPEG;
+        vinfo->preview.format.fmt.pix.pixelformat = V4L2_PIX_FMT_NV21;
 
-        vinfo->picture.format.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+		vinfo->picture.format.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
         vinfo->picture.format.fmt.pix.width = 480;
         vinfo->picture.format.fmt.pix.height = 640;
         vinfo->picture.format.fmt.pix.pixelformat = V4L2_PIX_FMT_RGB24;//V4L2_PIX_FMT_NV21;
@@ -126,29 +124,17 @@ int main(int argc, char **argv)
         }
 
         while (frame_count > 0) {
-            fd_set fds;
-            struct timeval tv;
-            int r;
-            FD_ZERO(&fds);
-            FD_SET(vinfo->fd, &fds);
-            /*2s Timeout*/
-            tv.tv_sec = 2;
-            tv.tv_usec = 0;
-            r = select(vinfo->fd + 1, &fds, NULL, NULL, &tv);
-            if (-1 == r) {
-                if (EINTR == errno)
-                    continue;
-                ALOGD("select error:%s",strerror(errno));
-            }
-            if (0 == r)
-            ALOGD("select timeout:%s",strerror(errno));
-            src = (uint8_t *)get_frame(vinfo);
-            if (!src) {
-                continue;
-            }
-            fwrite( src, vinfo->preview.buf.length, 1, fp);
-            putback_frame(vinfo);
-            frame_count --;
+
+                src = (uint8_t *)get_frame(vinfo);
+                if (!src) {
+                        usleep(30000);
+                        continue;
+                }
+
+                fwrite( src, vinfo->preview.buf.length, 1, fp);
+
+                putback_frame(vinfo);
+                frame_count --;
         }
 
         stop_capturing(vinfo);

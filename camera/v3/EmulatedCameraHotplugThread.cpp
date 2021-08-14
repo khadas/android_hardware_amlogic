@@ -198,8 +198,7 @@ bool EmulatedCameraHotplugThread::threadLoop() {
             CAMHAL_LOGDA("invalid message");
             break;
         }
-        if (len < 4096)
-            buf[len] = '\0';
+        buf[len] = '\0';
 
         CAMHAL_LOGDB("buf=%s\n", buf);
         video4linux_string = strstr(buf, "video4linux");
@@ -221,6 +220,12 @@ bool EmulatedCameraHotplugThread::threadLoop() {
         } else {
             CAMHAL_LOGDA("no find add or remove\n");
             break;
+        }
+
+        cameraId = gEmulatedCameraFactory.checkIsCamera(video4linux_string);
+        if (cameraId < 0) {
+            ALOGE("isn't valid camera %s", video4linux_string);
+            continue;
         }
 
         //string like that: add@/devices/lm1/usb1/1-1/1-1.3/1-1.3:1.0/video4linux/video0

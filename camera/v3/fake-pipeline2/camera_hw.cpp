@@ -15,23 +15,21 @@
  *
  * Description:
  */
-/*this file is used by CTS and VTS*/
+
 #ifndef __CAMERA_HW__
 #define __CAMERA_HW__
 
-#define LOG_NDEBUG 0
+//#define LOG_NDEBUG 0
 #define LOG_TAG "Camera_hw"
-#define ATRACE_TAG (ATRACE_TAG_CAMERA | ATRACE_TAG_HAL | ATRACE_TAG_ALWAYS)
-#include <utils/Trace.h>
+
 #include <errno.h>
 #include <cutils/properties.h>
 #include "camera_hw.h"
 #include "ispaaalib.h"
-#include "CameraDevice.h"
+
 #ifdef __cplusplus
 //extern "C" {
 #endif
-static CameraVirtualDevice* DeviceInstance;
 static int set_rotate_value(int camera_fd, int value)
 {
     int ret = 0;
@@ -65,22 +63,43 @@ int get_device_status(struct VideoInfo *vinfo)
 
 int camera_open(struct VideoInfo *cam_dev)
 {
+        char dev_name[128];
         int ret;
-        DeviceInstance = CameraVirtualDevice::getInstance();
-        cam_dev->fd = DeviceInstance->openVirtualDevice(cam_dev->idx);
+        char property[PROPERTY_VALUE_MAX];
+
+        property_get("ro.vendor.platform.board_camera", property, "false");
+        if (strstr(property, "true")) {
+                cam_dev->fd = open("/dev/video50", O_RDWR | O_NONBLOCK);
+        } else {
+                sprintf(dev_name, "%s%d", "/dev/video", cam_dev->idx);
+                cam_dev->fd = open(dev_name, O_RDWR | O_NONBLOCK);
+        }
+
+        //cam_dev->fd = open("/dev/video0", O_RDWR | O_NONBLOCK);
+        if (cam_dev->fd < 0){
+                DBG_LOGB("open %s failed, errno=%d\n", dev_name, errno);
+                return -ENOTTY;
+        }
+
         ret = ioctl(cam_dev->fd, VIDIOC_QUERYCAP, &cam_dev->cap);
         if (ret < 0) {
-                DBG_LOGB("VIDIOC_QUERYCAP, %s", strerror(errno));
+                DBG_LOGB("VIDIOC_QUERYCAP, errno=%d", errno);
         }
 
         if (!(cam_dev->cap.capabilities & V4L2_CAP_VIDEO_CAPTURE)) {
-                ALOGE( "device is not video capture device\n");
+                DBG_LOGB( "%s is not video capture device\n",
+                                dev_name);
         }
 
         if (!(cam_dev->cap.capabilities & V4L2_CAP_STREAMING)) {
                 DBG_LOGB( "video%d does not support streaming i/o\n",
                                 cam_dev->idx);
         }
+
+        if (strstr((const char *)cam_dev->cap.driver, "ARM-camera-isp")) {
+                isp_lib_enable();
+        }
+
         return ret;
 }
 
@@ -106,7 +125,6 @@ int setBuffersFormat(struct VideoInfo *cam_dev)
 
 int start_capturing(struct VideoInfo *vinfo)
 {
-        ATRACE_CALL();
         int ret = 0;
         int i;
         enum v4l2_buf_type type;
@@ -296,7 +314,6 @@ uintptr_t get_frame_phys(struct VideoInfo *vinfo)
 
 void *get_frame(struct VideoInfo *vinfo)
 {
-        ATRACE_CALL();
         CLEAR(vinfo->preview.buf);
 
         vinfo->preview.buf.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
@@ -325,7 +342,6 @@ void *get_frame(struct VideoInfo *vinfo)
 
 int putback_frame(struct VideoInfo *vinfo)
 {
-        ATRACE_CALL();
         if (vinfo->dev_status == -1)
             return 0;
 
@@ -354,8 +370,6 @@ int putback_picture_frame(struct VideoInfo *vinfo)
 
 int start_picture(struct VideoInfo *vinfo, int rotate)
 {
-        ATRACE_CALL();
-
         int ret = 0;
         int i;
         enum v4l2_buf_type type;
@@ -446,8 +460,6 @@ int start_picture(struct VideoInfo *vinfo, int rotate)
 
 void *get_picture(struct VideoInfo *vinfo)
 {
-        ATRACE_CALL();
-
         CLEAR(vinfo->picture.buf);
 
         vinfo->picture.buf.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
@@ -568,9 +580,15 @@ void camera_close(struct VideoInfo *vinfo)
         DBG_LOGA("vinfo is null\n");
         return ;
     }
-    DeviceInstance = CameraVirtualDevice::getInstance();
-    DeviceInstance->releaseVirtualDevice(vinfo->idx,vinfo->fd);
+
+    if (close(vinfo->fd) != 0)
+        DBG_LOGB("close failed, errno=%d\n", errno);
+
     vinfo->fd = -1;
+
+    if (strstr((const char *)vinfo->cap.driver, "ARM-camera-isp")) {
+        isp_lib_disable();
+    }
 }
 #ifdef __cplusplus
 //}

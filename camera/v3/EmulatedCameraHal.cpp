@@ -31,7 +31,7 @@
 camera_module_t HAL_MODULE_INFO_SYM = {
     .common = {
          .tag = HARDWARE_MODULE_TAG,
-         .module_api_version = CAMERA_MODULE_API_VERSION_2_2,
+         .module_api_version = CAMERA_MODULE_API_VERSION_2_4,
          .hal_api_version = HARDWARE_HAL_API_VERSION,
          .id = CAMERA_HARDWARE_MODULE_ID,
          .name = "Camera Module",
@@ -44,4 +44,5 @@ camera_module_t HAL_MODULE_INFO_SYM = {
     .get_camera_info = android::EmulatedCameraFactory::get_camera_info,
     .set_callbacks = android::EmulatedCameraFactory::set_callbacks,
     .get_vendor_tag_ops = android::EmulatedCameraFactory::get_vendor_tag_ops,
+    .set_torch_mode = android::EmulatedCameraFactory::set_torch_mode,
 };

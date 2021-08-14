@@ -66,6 +66,9 @@ status_t EmulatedBaseCamera::getCameraInfo(struct camera_info* info)
     ALOGV("%s", __FUNCTION__);
 
     info->device_version = mCameraDeviceVersion;
+    info->resource_cost = 33;  //sum of cost should less than 100,now support 3 devices.
+    info->conflicting_devices_length = 0;
+    info->conflicting_devices = NULL;
     if (mCameraDeviceVersion >= HARDWARE_DEVICE_API_VERSION(2, 0)) {
         info->static_camera_characteristics = mCameraInfo;
     } else {
