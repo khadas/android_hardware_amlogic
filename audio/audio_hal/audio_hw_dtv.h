@@ -116,5 +116,6 @@ int get_audio_checkin_underrun(void);
 int set_dtv_parameters(struct audio_hw_device *dev, struct str_parms *parms);
 bool is_dtv_patch_alive(struct aml_audio_device *aml_dev);
 int dtv_patch_get_latency(struct aml_audio_device *aml_dev);
+void release_dtvin_buffer(struct aml_audio_patch *patch);
 
 #endif

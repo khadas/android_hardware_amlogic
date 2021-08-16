@@ -3685,7 +3685,7 @@ int create_dtv_patch_l(struct audio_hw_device *dev, audio_devices_t input,
     }
 
     if (aml_dev->tuner2mix_patch) {
-        ret = ring_buffer_init(&patch->dtvin_ringbuffer, 4 * 8192 * 2 * 16);
+        ret = ring_buffer_init(&patch->dtvin_ringbuffer, 512 * 1024);
         ALOGI("[%s] aring_buffer_init ret=%d\n", __FUNCTION__, ret);
         if (ret == 0) {
             patch->dtvin_buffer_inited = 1;
@@ -3747,7 +3747,7 @@ int release_dtv_patch_l(struct aml_audio_device *aml_dev)
         patch->resample_outbuf = NULL;
     }
     patch->pid = -1;
-    //release_dtvin_buffer(patch);
+    release_dtvin_buffer(patch);
     if (patch->dtv_package_list)
         aml_audio_free(patch->dtv_package_list);
     deinit_cmd_list(patch->dtv_cmd_list);
@@ -3762,6 +3762,7 @@ int release_dtv_patch_l(struct aml_audio_device *aml_dev)
     aml_dev->underrun_mute_flag = 0;
     aml_dev->audio_patch = NULL;
     ALOGI("[audiohal_kpi]--%s Exit", __FUNCTION__);
+
     if (aml_dev->useSubMix) {
         switchNormalStream(aml_dev->active_outputs[STREAM_PCM_NORMAL], 1);
     }
@@ -3791,12 +3792,15 @@ int release_dtv_patch(struct aml_audio_device *aml_dev)
     dtv_do_ease_out(aml_dev);
 
     pthread_mutex_lock(&aml_dev->patch_lock);
-    if (aml_dev->patch_src == SRC_DTV)
-        dtv_instances->dvb_path_count--;
-    ALOGI("dtv_instances->dvb_path_count %d",dtv_instances->dvb_path_count);
-    if (dtv_instances->dvb_path_count == 0) {
-        ret = release_dtv_patch_l(aml_dev);
+    if (dtv_instances->dvb_path_count) {
+        if (aml_dev->patch_src == SRC_DTV )
+            dtv_instances->dvb_path_count--;
+        ALOGI("dtv_instances->dvb_path_count %d",dtv_instances->dvb_path_count);
+        if (dtv_instances->dvb_path_count == 0) {
+            ret = release_dtv_patch_l(aml_dev);
+        }
     }
+
     aml_dev->patch_start = false;
     pthread_mutex_unlock(&aml_dev->patch_lock);
     return ret;
@@ -3901,7 +3905,7 @@ int audio_decoder_status(unsigned int *perror_count)
     return ret;
 }
 
-#if 0
+
 void release_dtvin_buffer(struct aml_audio_patch *patch)
 {
     if (patch->dtvin_buffer_inited == 1) {
@@ -3909,7 +3913,7 @@ void release_dtvin_buffer(struct aml_audio_patch *patch)
         ring_buffer_release(&(patch->dtvin_ringbuffer));
     }
 }
-#endif
+
 
 void dtv_in_write(struct audio_stream_out *stream, const void* buffer, size_t bytes)
 {
@@ -3925,12 +3929,14 @@ void dtv_in_write(struct audio_stream_out *stream, const void* buffer, size_t by
     if ((adev->patch_src == SRC_DTV) && (patch->dtvin_buffer_inited == 1)) {
         abuf_level = get_buffer_write_space(&patch->dtvin_ringbuffer);
         if (abuf_level <= (int)bytes) {
-            ALOGI("[%s] dtvin ringbuffer is full", __FUNCTION__);
+            ALOGI("[%s] dtvin ringbuffer is full,reset  ringbuffer", __FUNCTION__);
+            ring_buffer_reset(&patch->dtvin_ringbuffer);
             return;
         }
+
         ring_buffer_write(&patch->dtvin_ringbuffer, (unsigned char *)buffer, bytes, UNCOVER_WRITE);
     }
-    //ALOGI("[%s] dtvin write ringbuffer successfully,abuf_level=%d", __FUNCTION__,abuf_level);
+    ALOGV("[%s] dtvin write ringbuffer successfully,abuf_level=%d", __FUNCTION__,abuf_level);
 }
 
 int dtv_in_read(struct audio_stream_in *stream, void* buffer, size_t bytes)
@@ -3946,7 +3952,7 @@ int dtv_in_read(struct audio_stream_in *stream, void* buffer, size_t bytes)
     }
 
     struct aml_audio_patch *patch = adev->audio_patch;
-    //ALOGI("[%s] patch->aformat=0x%x patch->dtv_decoder_ready=%d bytes:%d\n", __FUNCTION__,patch->aformat,patch->dtv_decoder_ready,bytes);
+    ALOGV("[%s] patch->aformat=0x%x patch->dtv_decoder_ready=%d bytes:%d\n", __FUNCTION__,patch->aformat,patch->dtv_decoder_ready,bytes);
 
     if (patch->dtvin_buffer_inited == 1) {
         int abuf_level = get_buffer_read_space(&patch->dtvin_ringbuffer);
@@ -3955,7 +3961,7 @@ int dtv_in_read(struct audio_stream_in *stream, void* buffer, size_t bytes)
             ret = bytes;
         } else {
             ret = ring_buffer_read(&patch->dtvin_ringbuffer, (unsigned char *)buffer, bytes);
-            //ALOGI("[%s] abuf_level =%d ret=%d\n", __FUNCTION__,abuf_level,ret);
+            ALOGV("[%s] abuf_level =%d ret=%d\n", __FUNCTION__,abuf_level,ret);
         }
         return bytes;
     } else {
