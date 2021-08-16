@@ -219,7 +219,8 @@ enum OUT_PORT {
     OUTPORT_A2DP                = 7,
     OUTPORT_BT_SCO              = 8,
     OUTPORT_BT_SCO_HEADSET      = 9,
-    OUTPORT_MAX                 = 10,
+    OUTPORT_USB_HEADSET         = 10,
+    OUTPORT_MAX                 = 11,
 };
 
 enum IN_PORT {

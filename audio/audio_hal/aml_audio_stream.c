@@ -250,8 +250,8 @@ void get_sink_format(struct audio_stream_out *stream)
 
     get_sink_pcm_capability(adev);
 
-    if (adev->out_device & AUDIO_DEVICE_OUT_ALL_A2DP) {
-        ALOGD("get_sink_format: a2dp set to pcm");
+    if (adev->out_device & AUDIO_DEVICE_OUT_ALL_A2DP || adev->out_device & AUDIO_DEVICE_OUT_ALL_USB) {
+        ALOGD("get_sink_format: a2dp and usb set to pcm");
         adev->sink_format = AUDIO_FORMAT_PCM_16_BIT;
         adev->sink_capability = AUDIO_FORMAT_PCM_16_BIT;
         adev->optical_format = AUDIO_FORMAT_PCM_16_BIT;
