@@ -2270,22 +2270,24 @@ int ms12_output(void *buffer, void *priv_data, size_t size, aml_ms12_dec_info_t 
             int ch_num = ms12_info->output_ch ? ms12_info->output_ch : 2;
             int sample_rate = ms12_info->output_sr ? ms12_info->output_sr : 48000;
             size_t cur_pcm_pts = size * 90000 / (2 * ch_num) / sample_rate;
+            int alsa_latency = aml_alsa_output_get_latency((struct audio_stream_out *)priv_data) * 90;
+
             if (ms12_main_apts) {
-                aml_dtvsync->out_start_apts = ms12_main_apts;
+                aml_dtvsync->out_start_apts = (int64_t)ms12_main_apts;
             }
             else {
                 aml_dtvsync->out_start_apts = aml_dtvsync->out_end_apts;
             }
-            aml_dtvsync->out_end_apts = aml_dtvsync->out_start_apts + (uint64_t)cur_pcm_pts;
-            aml_dtvsync->cur_outapts = aml_dtvsync->out_start_apts;
+            aml_dtvsync->out_end_apts = aml_dtvsync->out_start_apts + cur_pcm_pts;
+            aml_dtvsync->cur_outapts = aml_dtvsync->out_start_apts - alsa_latency;
             if (patch->cur_package && adev->debug_flag) {
-                ALOGI("%s package pts(ms) %llu ms12_main_apts(ms) %llu pcm-duration(ms)%u cur_outapts %llx in ms %llu\n",
-                    __func__, patch->cur_package->pts/90, ms12_main_apts/90, cur_pcm_pts /  90 , aml_dtvsync->cur_outapts, aml_dtvsync->cur_outapts/90);
+                ALOGI("%s package pts(ms) %llu ms12_main_apts(ms) %llu pcm-duration(ms)%u cur_outapts %llx in ms %llu, alsa_latency(ms) %d\n",
+                    __func__, patch->cur_package->pts/90, ms12_main_apts/90, cur_pcm_pts /  90 , aml_dtvsync->cur_outapts, aml_dtvsync->cur_outapts/90, alsa_latency / 90);
             }
         }
     }
 
-    if (do_sync_flag && aml_out->dtvsync_enable) {
+    if (do_sync_flag && aml_out->dtvsync_enable && aml_out->alsa_running_status) {
         process_result = aml_dtvsync_ms12_process_policy(priv_data, ms12_info);
         if (process_result == DTVSYNC_AUDIO_DROP)
             return ret;
