@@ -404,8 +404,13 @@ static int dtv_patch_handle_event(struct audio_hw_device *dev, int cmd, int val)
                         if (dtvsync->mediasync_new == NULL)
                             ALOGI("mediasync create failed\n");
                         else {
+                            //Need to initialize pts when start play.
+                            //For MS12 will out negative apts at begin, so initialize with big small number
+                            dtvsync->cur_outapts = DTVSYNC_INIT_PTS;
+                            dtvsync->out_start_apts = DTVSYNC_INIT_PTS;
+                            dtvsync->out_end_apts = DTVSYNC_INIT_PTS;
                             dtvsync->mediasync_id = demux_info->media_sync_id;
-                            ALOGI("path_id:%d,dtvsync media_sync_id=%d\n", path_id, dtvsync->mediasync_id);
+                            ALOGI("path_id:%d,dtvsync media_sync_id=%d, init cur_outapts: %lld\n", path_id, dtvsync->mediasync_id, dtvsync->cur_outapts);
                             mediasync_wrap_setParameter(dtvsync->mediasync_new, MEDIASYNC_KEY_ISOMXTUNNELMODE, &audio_sync_mode);
                             mediasync_wrap_bindInstance(dtvsync->mediasync_new, dtvsync->mediasync_id, MEDIA_AUDIO);
                             ALOGI("normal output version CMD open audio bind syncId:%d\n", dtvsync->mediasync_id);

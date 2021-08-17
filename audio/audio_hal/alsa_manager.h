@@ -79,7 +79,7 @@ int aml_alsa_output_resume(struct audio_stream_out *stream);
 /**
  * get the stream latency.
  */
-int aml_alsa_output_get_letancy(struct audio_stream_out *stream);
+int aml_alsa_output_get_latency(struct audio_stream_out *stream);
 
 /*
  *@brief close continuous audio device

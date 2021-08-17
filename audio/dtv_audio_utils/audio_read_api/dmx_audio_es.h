@@ -58,6 +58,8 @@ struct dtvsync_audio_policy {
     int32_t  param2;
 };
 
+#define DTVSYNC_INIT_PTS     (-10000)
+#define DTVSYNC_APTS_THRESHOLD  (-5000)
 
 typedef struct  aml_dtvsync {
     bool use_mediasync;
@@ -65,8 +67,8 @@ typedef struct  aml_dtvsync {
     void* mediasync_new;
     int mediasync_id;
     int64_t cur_outapts;
-    uint64_t out_start_apts;
-    uint64_t out_end_apts;
+    int64_t out_start_apts;
+    int64_t out_end_apts;
     int cur_speed;
     struct dtvsync_audio_policy apolicy;
     int pcm_dropping;

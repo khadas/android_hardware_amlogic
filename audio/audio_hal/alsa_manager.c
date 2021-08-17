@@ -491,7 +491,13 @@ write:
 
     {
         struct snd_pcm_status status;
+        bool alsa_status;
         pcm_ioctl(aml_out->pcm, SNDRV_PCM_IOCTL_STATUS, &status);
+        alsa_status = (status.state == PCM_STATE_RUNNING);
+        if (alsa_status != aml_out->alsa_running_status) {
+            aml_out->alsa_running_status = alsa_status;
+            aml_out->alsa_status_changed = true;
+        }
         if (status.state == PCM_STATE_XRUN) {
             ALOGW("[%s:%d] alsa underrun", __func__, __LINE__);
             if (adev->audio_discontinue) {
@@ -605,17 +611,29 @@ int aml_alsa_output_resume(struct audio_stream_out *stream) {
     return 0;
 }
 
-int aml_alsa_output_get_letancy(struct audio_stream_out *stream) {
+int aml_alsa_output_get_latency(struct audio_stream_out *stream) {
     const struct aml_stream_out *aml_out = (const struct aml_stream_out *)stream;
     struct aml_audio_device *adev = aml_out->dev;
-    int codec_type = get_codec_type(aml_out->hal_internal_format);
+    struct dolby_ms12_desc *ms12 = &(adev->ms12);
+
     snd_pcm_sframes_t frames = 0;
+    int start_threshold = aml_out->config.start_threshold;
     if (aml_out->pcm && pcm_is_ready(aml_out->pcm)) {
-        if (pcm_ioctl(aml_out->pcm, SNDRV_PCM_IOCTL_DELAY, &frames) >= 0) {
-            if (adev->sink_format == AUDIO_FORMAT_E_AC3 || adev->sink_format == AUDIO_FORMAT_DTS_HD) {
-                frames  = frames / 4;
-            }
+        pcm_ioctl(aml_out->pcm, SNDRV_PCM_IOCTL_DELAY, &frames);
+        ALOGV("aml_alsa_output_get_latency frames %ld start_threshold %d",frames, start_threshold);
+        if ( frames > 0) {
             return (frames * 1000) / aml_out->config.rate;
+        } else {
+             if (eDolbyMS12Lib == adev->dolby_lib_type) {
+                 if (start_threshold == 0) {
+                      start_threshold =  2 * DEFAULT_PLAYBACK_PERIOD_SIZE * PLAYBACK_PERIOD_COUNT;
+                 }
+                 if (ms12->master_pcm_frames < start_threshold ) {
+                     frames = start_threshold;
+                     ALOGI("aml_alsa_output_get_latency frames %ld",frames);
+                     return (frames * 1000) / aml_out->config.rate;
+                 }
+             }
         }
     }
 
