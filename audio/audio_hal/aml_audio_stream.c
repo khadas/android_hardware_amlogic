@@ -1101,6 +1101,9 @@ int reconfig_read_param_through_hdmiin(struct aml_audio_device *aml_dev,
             // increase the buffer size
             buf_size = ring_buffer_size * 8;
             channel = 8;
+            if (check_chip_name("t3", 2, &aml_dev->alsa_mixer)) {
+                channel = 2;    // T3's HDMIRX IP does not support 8CH in design.
+            }
         } else if (cur_audio_packet == AUDIO_PACKET_AUDS) {
             bSpdifin_PAO = false;
             period_size = DEFAULT_CAPTURE_PERIOD_SIZE;
