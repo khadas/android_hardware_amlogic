@@ -371,6 +371,7 @@ static int mad_decoder_process(aml_dec_t * aml_dec, unsigned char*buffer, int by
 
     if (mad_dec->ad_decoder_supported ) {
         used_size = 0;
+        int ad_in_size = aml_dec->ad_size;
         if (aml_dec->ad_size > 0) {
             if ((aml_dec->ad_size + mad_dec->ad_remain_size) > MAD_REMAIN_BUFFER_SIZE) {
                  ALOGE("mad_dec->ad_remain_size %d > %d  ,overflow", mad_dec->ad_remain_size , MAD_REMAIN_BUFFER_SIZE );
@@ -382,7 +383,7 @@ static int mad_decoder_process(aml_dec_t * aml_dec, unsigned char*buffer, int by
             aml_dec->ad_size = 0;
         }
 
-        if (mad_dec->ad_need_cache_frames && dec_pcm_data->data_len) {
+        if (ad_in_size && mad_dec->ad_need_cache_frames && dec_pcm_data->data_len) {
             mad_dec->ad_need_cache_frames--;
         }
 
@@ -422,7 +423,13 @@ static int mad_decoder_process(aml_dec_t * aml_dec, unsigned char*buffer, int by
             }
         }
         ad_mad_op->getinfo(ad_mad_op,&pADAudioInfo);
-        dump_mad_data(ad_dec_pcm_data->buf, ad_dec_pcm_data->data_len, "/data/mad_ad.pcm");
+        if (ad_dec_pcm_data->data_len) {
+            dump_mad_data(ad_dec_pcm_data->buf, ad_dec_pcm_data->data_len, "/data/mad_ad.pcm");
+        } else {
+            if (ad_in_size == 0 && dec_pcm_data->data_len && mad_dec->ad_need_cache_frames == 0) {
+                mad_dec->ad_need_cache_frames = MAD_AD_NEED_CACHE_FRAME_COUNT;
+            }
+        }
         ALOGV("pADAudioInfo.channels %d pAudioInfo.channels %d",pADAudioInfo.channels, pAudioInfo.channels);
         if (pADAudioInfo.channels == 1 && pAudioInfo.channels == 2) {
             int16_t *samples_data = (int16_t *)ad_dec_pcm_data->buf;
