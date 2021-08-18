@@ -39,6 +39,7 @@
 #define PORT_LOOPBACK      10
 #define PORT_BUILTINMIC    11
 #define PORT_EARC          12
+#define PORT_ECHO_REFERENCE 13
 
 #define PLAYBACK           0
 #define CAPTURE            1
