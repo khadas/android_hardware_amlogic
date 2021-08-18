@@ -1944,6 +1944,8 @@ static unsigned int select_port_by_device(audio_devices_t in_device)
     } else if ((in_device & AUDIO_DEVICE_IN_BACK_MIC) ||
             (in_device & AUDIO_DEVICE_IN_BUILTIN_MIC)) {
         inport = PORT_BUILTINMIC;
+    } else if (in_device & AUDIO_DEVICE_IN_ECHO_REFERENCE) {
+        inport = PORT_ECHO_REFERENCE;
     } else {
         /* fix auge tv input, hdmirx, tunner */
         if (alsa_device_is_auge()
@@ -2009,7 +2011,7 @@ int start_input_stream(struct aml_stream_in *in)
     /* check to update alsa device by port */
     alsa_device = alsa_device_update_pcm_index(port, CAPTURE);
     ALOGD("*%s, open alsa_card(%d %d) alsa_device(%d), in_device:0x%x\n",
-        __func__, card, port, alsa_device, adev->in_device);
+          __func__, card, port, alsa_device, adev->in_device);
 
     in->pcm = pcm_open(card, alsa_device, PCM_IN | PCM_MONOTONIC | PCM_NONEBLOCK, &in->config);
     if (!pcm_is_ready(in->pcm)) {
@@ -2489,6 +2491,27 @@ static ssize_t in_read(struct audio_stream_in *stream, void* buffer, size_t byte
     /* Special handling for Echo Reference: simply get the reference from FIFO.
      * The format and sample rate should be specified by arguments to adev_open_input_stream. */
     if (in->source == AUDIO_SOURCE_ECHO_REFERENCE) {
+        if (in->standby) {
+            ret = start_input_stream(in);
+            if (ret < 0) {
+                ALOGE("aec: fail to open stream\n");
+                return 0;
+            }
+            in->standby = 0;
+        }
+        ret = aml_alsa_input_read(stream, buffer, bytes);
+        if (ret != 0) {
+            ALOGE("aec: fail to read bytes=%zu ret=%d\n", bytes, ret);
+            return 0;
+        }
+        in->frames_read += in_frames;
+        struct aec_info info;
+        ret = get_pcm_timestamp(in->pcm, in_get_sample_rate(&stream->common),
+                                &info, false /*input */);
+        in->timestamp_nsec = audio_utils_ns_from_timespec(&info.timestamp);
+        return bytes;
+
+#if 0
         struct aec_info info;
         info.bytes = bytes;
         const uint64_t time_increment_nsec = (uint64_t)bytes * NANOS_PER_SECOND /
@@ -2534,6 +2557,7 @@ static ssize_t in_read(struct audio_stream_in *stream, void* buffer, size_t byte
         }
 #endif
         return info.bytes;
+#endif
     }
 #endif
 
@@ -4714,7 +4738,9 @@ static int adev_open_input_stream(struct audio_hw_device *dev,
     in->config.channels = channel_count;
     in->source = source;
     if (source == AUDIO_SOURCE_ECHO_REFERENCE) {
-        in->config.rate = PLAYBACK_CODEC_SAMPLING_RATE;
+        in->config.format = PCM_FORMAT_S32_LE;
+        ALOGD("aec: force config rate=%d ch=%d format=%d\n",
+              in->config.rate, in->config.channels, in->config.format);
     }
     /* TODO: modify alsa config by params */
     update_alsa_config(in);

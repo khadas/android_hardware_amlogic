@@ -352,6 +352,7 @@ int alsa_device_update_pcm_index(int alsaPORT, int stream)
 		pADD = p_info->i2s2_descrpt;
 		break;
 	case PORT_LOOPBACK:
+	case PORT_ECHO_REFERENCE:
 		pADD = p_info->lpbk_descrpt;
 		break;
 	case PORT_BUILTINMIC:
