@@ -678,6 +678,20 @@ static void set_dolby_ms12_downmix_mode(struct aml_audio_device *adev)
 
     dolby_ms12_set_downmix_modes(downmix_mode);
 }
+/*
+ * if dual_decoder_support is true;
+ * when passthrough mode(BYPASS), audio_hw_dtv do not send the ad data;
+ * when AUTO/PCM mode(PCM/AUTO), audio_hw_dtv send the main&ad data;
+ */
+bool is_ad_data_available(int hdmi_format)
+{
+    if (hdmi_format != BYPASS) {
+        return true;
+    }
+    else {
+        return false;
+    }
+}
 
 /*
  *@brief get dolby ms12 prepared
@@ -1063,7 +1077,8 @@ int dolby_ms12_main_process(
             }
         }
 
-        if (ms12->dual_decoder_support == true) {
+        /* Passthrough Mode, only get the MAIN data */
+        if ((ms12->dual_decoder_support == true) && is_ad_data_available(adev->hdmi_format)) {
             dual_input_ret = scan_dolby_main_associate_frame(input_buffer
                              , input_bytes
                              , &dual_decoder_used_bytes
@@ -1178,7 +1193,8 @@ int dolby_ms12_main_process(
             }
         }
 
-        if (ms12->dual_decoder_support == true) {
+        /* Passthrough Mode, only get the MAIN data as the single input */
+        if ((ms12->dual_decoder_support == true) && is_ad_data_available(adev->hdmi_format)) {
             /*if there is associate frame, send it to dolby ms12.*/
             char tmp_array[4096] = {0};
             if (!associate_frame_buffer || (associate_frame_size == 0)) {
@@ -1275,7 +1291,8 @@ MAIN_INPUT:
             }
 
             if (dolby_ms12_input_bytes > 0) {
-                if (ms12->dual_decoder_support == true) {
+                /* Passthrough Mode, only get the MAIN data as the single input */
+                if ((ms12->dual_decoder_support == true) && is_ad_data_available(adev->hdmi_format)) {
                     *use_size = dual_decoder_used_bytes;
                 } else {
                     if (adev->debug_flag >= 2) {
@@ -1347,7 +1364,8 @@ MAIN_INPUT:
                 }
             }
         } else {
-            if (ms12->dual_decoder_support == true) {
+            /* Passthrough Mode, only get the MAIN data as the single input */
+            if ((ms12->dual_decoder_support == true) && is_ad_data_available(adev->hdmi_format)) {
                 *use_size = dual_decoder_used_bytes;
             } else {
                 *use_size = input_bytes;
@@ -1732,8 +1750,7 @@ int dolby_ms12_bypass_process(struct audio_stream_out *stream, void *buffer, siz
     ms12->is_bypass_ms12 = is_ms12_passthrough(stream);
     if (ms12->is_bypass_ms12
         && (adev->continuous_audio_mode == 0)
-        && is_dolby
-        && !ms12->dual_decoder_support) {
+        && is_dolby) {
         if (bytes != 0 && buffer != NULL) {
             if ((bitstream_out->spdifout_handle != NULL )&& 
                 ((bitstream_out->audio_format != output_format) ||
@@ -1784,8 +1801,9 @@ int dolby_ms12_bypass_process(struct audio_stream_out *stream, void *buffer, siz
             struct dtvsync_audio_policy *async_policy = NULL;
              if (aml_dtvsync != NULL) {
                  async_policy = &(aml_dtvsync->apolicy);
-                 if (async_policy->audiopolicy == DTVSYNC_AUDIO_DROP_PCM)
+                 if (async_policy->audiopolicy == DTVSYNC_AUDIO_DROP_PCM) {
                     return 0;
+                 }
              }
 
         }
