@@ -82,19 +82,21 @@ int dvb_audio_set_pre_mute(int mute) {
 
 int dvb_audio_get_latencyms(int demux_id) {
     ALOGI("demux_id %d",demux_id);
-    String8 mString = String8("");
     struct str_parms *parms;
     int latencyms;
     char temp_buf[64] = {0};
     sprintf (temp_buf, "hal_param_dtv_latencyms_id=%d", demux_id);
     aml_audioport->setParameters(String8(temp_buf));
-    mString = aml_audioport->getParameters(String8("hal_param_dtv_latencyms"));
+    String8 mString = aml_audioport->getParameters(String8("hal_param_dtv_latencyms"));
     if (!mString.isEmpty()) {
-        parms = str_parms_create_str(mString);
+        parms = str_parms_create_str(mString.c_str());
         str_parms_get_int(parms, "hal_param_dtv_latencyms", &latencyms);
+        str_parms_destroy (parms);
+        mString.clear();
         ALOGI("dvb_latencyms:%d ", latencyms);
         return latencyms;
     } else {
+         mString.clear();
          return -1;
     }
 }
