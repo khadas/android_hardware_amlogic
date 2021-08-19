@@ -2948,6 +2948,10 @@ void *audio_dtv_patch_input_threadloop(void *data)
 
                             demux_info->dtv_pacakge = dtv_pacakge;
                             pthread_mutex_unlock(&aml_dev->dtv_lock);
+                            if (!audio_queue_info.isneedupdate &&
+                                dtv_audio_instances->demux_index_working == -1) {
+                                usleep(5000);
+                            }
                             continue;
                         }
                     }
@@ -2978,6 +2982,7 @@ void *audio_dtv_patch_input_threadloop(void *data)
                     }
                 }
                 pthread_mutex_unlock(&aml_dev->dtv_lock);
+                usleep(5000);
             }
         }
     }
