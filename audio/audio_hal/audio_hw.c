@@ -6068,7 +6068,7 @@ ssize_t mixer_main_buffer_write(struct audio_stream_out *stream, const void *buf
     int ms12_write_failed = 0;
     effect_descriptor_t tmpdesc;
     int return_bytes = bytes;
-    uint32_t apts32 = 0;
+    uint64_t apts64 = 0;
 
     audio_hwsync_t *hw_sync = aml_out->hwsync;
     bool digital_input_src = (patch && \
@@ -6218,13 +6218,13 @@ ssize_t mixer_main_buffer_write(struct audio_stream_out *stream, const void *buf
 hwsync_rewrite:
     /* handle HWSYNC audio data*/
     if (aml_out->hw_sync_mode) {
-        uint64_t  cur_pts = 0xffffffff;
+        uint64_t  cur_pts = 0xffffffffffffffff;
         int outsize = 0;
 
         ALOGV ("before aml_audio_hwsync_find_frame bytes %zu\n", total_bytes - bytes_cost);
         hwsync_cost_bytes = aml_audio_hwsync_find_frame(aml_out->hwsync, (char *)buffer + bytes_cost, total_bytes - bytes_cost, &cur_pts, &outsize);
-        if (cur_pts > 0xffffffff) {
-            ALOGE("APTS exeed the max 32bit value");
+        if (cur_pts > 0xffffffffffffffff) {
+            ALOGE("APTS exeed the max 64bit value");
         }
         ALOGV ("after aml_audio_hwsync_find_frame bytes remain %zu,cost %zu,outsize %d,pts %"PRIx64"\n",
                total_bytes - bytes_cost - hwsync_cost_bytes, hwsync_cost_bytes, outsize, cur_pts);
@@ -6238,9 +6238,9 @@ hwsync_rewrite:
         if (cur_pts != 0xffffffff && outsize > 0) {
             if (eDolbyMS12Lib == adev->dolby_lib_type && !is_bypass_dolbyms12(stream)) {
                 if (hw_sync->wait_video_done == false && hw_sync->use_mediasync) {
-                    apts32 = cur_pts & 0xffffffff;
+                    apts64 = cur_pts & 0xffffffffffffffff;
                     aml_hwsync_wait_video_start(hw_sync);
-                    aml_hwsync_wait_video_drop(hw_sync, apts32);
+                    aml_hwsync_wait_video_drop(hw_sync, apts64);
                     hw_sync->wait_video_done = true;
                 }
 
@@ -6268,10 +6268,10 @@ hwsync_rewrite:
                     } else {
                         apts = 0;
                     }
-                    apts32 = apts & 0xffffffff;
+                    apts64 = apts & 0xffffffffffffffff;
                     /*if the pts is zero, to avoid video pcr not set issue, we just set it as 1ms*/
-                    if (apts32 == 0) {
-                        apts32 = 1 * 90;
+                    if (apts64 == 0) {
+                        apts64 = 1 * 90;
                     }
 
                     /* video will drop frames from HEAAC to DDP51 in NTS fly audio cases,
@@ -6288,18 +6288,18 @@ hwsync_rewrite:
                     }
                     if (aml_out->write_count > write_drop_threshold) {
                         if (hw_sync->first_apts_flag == false) {
-                            aml_audio_hwsync_set_first_pts(aml_out->hwsync, apts32);
+                            aml_audio_hwsync_set_first_pts(aml_out->hwsync, apts64);
                             aml_hwsync_wait_video_start(aml_out->hwsync);
-                            aml_hwsync_wait_video_drop(aml_out->hwsync, apts32);
+                            aml_hwsync_wait_video_drop(aml_out->hwsync, apts64);
                         }
 
-                        uint32_t pcr = 0;
+                        uint64_t pcr = 0;
                         int pcr_pts_gap = 0;
                         ret = aml_hwsync_get_tsync_pts(aml_out->hwsync, &pcr);
-                        aml_hwsync_reset_tsync_pcrscr(aml_out->hwsync, apts32);
-                        pcr_pts_gap = ((int)(apts32 - pcr)) / 90;
+                        aml_hwsync_reset_tsync_pcrscr(aml_out->hwsync, apts64);
+                        pcr_pts_gap = ((int)(apts64 - pcr)) / 90;
                         if (abs(pcr_pts_gap) > 50) {
-                            ALOGI("%s pcr =%u pts =%d,  diff =%d ms", __func__, pcr/90, apts32/90, pcr_pts_gap);
+                            ALOGI("%s pcr =%llu pts =%llu,  diff =%d ms", __func__, pcr/90, apts64/90, pcr_pts_gap);
                         }
                     } else {
                         ALOGI("%s  write_count:%d, drop this pts", __func__, aml_out->write_count);
@@ -6310,8 +6310,8 @@ hwsync_rewrite:
                         aml_audio_hwsync_set_first_pts(aml_out->hwsync, cur_pts);
                     } else {
                         uint64_t apts;
-                        uint32_t apts32;
-                        uint pcr = 0;
+                        uint64_t apts64;
+                        uint64_t pcr = 0;
                         uint apts_gap = 0;
                         uint64_t latency = out_get_latency (stream) * 90;
                         // check PTS discontinue, which may happen when audio track switching
@@ -6322,17 +6322,17 @@ hwsync_rewrite:
                         } else {
                             apts = 0;
                         }
-                        apts32 = apts & 0xffffffff;
+                        apts64 = apts & 0xffffffffffffffff;
                         if (aml_hwsync_get_tsync_pts(aml_out->hwsync, &pcr) == 0) {
                             enum hwsync_status sync_status = CONTINUATION;
-                            apts_gap = get_pts_gap (pcr, apts32);
+                            apts_gap = get_pts_gap (pcr, apts64);
                             sync_status = check_hwsync_status (apts_gap);
 
                             // limit the gap handle to 0.5~5 s.
                             if (sync_status == ADJUSTMENT) {
                                 // two cases: apts leading or pcr leading
                                 // apts leading needs inserting frame and pcr leading neads discarding frame
-                                if (apts32 > pcr) {
+                                if (apts64 > pcr) {
                                     int insert_size = 0;
                                     if (aml_out->codec_type == TYPE_EAC3) {
                                         insert_size = apts_gap / 90 * 48 * 4 * 4;
@@ -6346,18 +6346,18 @@ hwsync_rewrite:
                                     //audio pts smaller than pcr,need skip frame.
                                     //we assume one frame duration is 32 ms for DD+(6 blocks X 1536 frames,48K sample rate)
                                     if (aml_out->codec_type == TYPE_EAC3 && outsize > 0) {
-                                        ALOGI ("audio slow 0x%x,skip frame @pts 0x%"PRIx64",pcr 0x%x,cur apts 0x%x\n",
-                                        apts_gap, cur_pts, pcr, apts32);
+                                        ALOGI ("audio slow 0x%x,skip frame @pts 0x%"PRIx64",pcr 0x%llx,cur apts 0x%llx\n",
+                                        apts_gap, cur_pts, pcr, apts64);
                                         aml_out->frame_skip_sum  +=   1536;
                                         return_bytes = hwsync_cost_bytes;
                                         goto exit;
                                     }
                                 }
                             } else if (sync_status == RESYNC) {
-                                ALOGI ("tsync -> reset pcrscr 0x%x -> 0x%x, %s big,diff %"PRIx64" ms",
-                                    pcr, apts32, apts32 > pcr ? "apts" : "pcr", get_pts_gap (apts, pcr) / 90);
+                                ALOGI ("tsync -> reset pcrscr 0x%llx -> ox%llx, %s big,diff %"PRIx64" ms",
+                                    pcr, apts64, apts64 > pcr ? "apts" : "pcr", get_pts_gap (apts, pcr) / 90);
 
-                                int ret_val = aml_hwsync_reset_tsync_pcrscr(aml_out->hwsync, apts32);
+                                int ret_val = aml_hwsync_reset_tsync_pcrscr(aml_out->hwsync, apts64);
                                 if (ret_val == -1) {
                                     ALOGE ("aml_hwsync_reset_tsync_pcrscr,err: %s", strerror (errno) );
                                 }
