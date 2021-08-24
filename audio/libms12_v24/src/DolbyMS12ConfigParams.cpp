@@ -549,6 +549,9 @@ int DolbyMS12ConfigParams::ChannelMask2ChannelConfig(audio_channel_mask_t channe
     case (AUDIO_CHANNEL_OUT_FRONT_LEFT | AUDIO_CHANNEL_OUT_FRONT_RIGHT | AUDIO_CHANNEL_OUT_FRONT_CENTER | AUDIO_CHANNEL_OUT_BACK_LEFT | AUDIO_CHANNEL_OUT_BACK_RIGHT):// L, R, C, LS, RS
         ChannelConfiguration = 7;
         break;
+    case (AUDIO_CHANNEL_OUT_7POINT1 & ~AUDIO_CHANNEL_OUT_LOW_FREQUENCY):
+        ChannelConfiguration = 21;
+        break;
     default:
         ChannelConfiguration = DEFAULT_SOUNDS_CHANNEL_CONFIGURATION;
         break;

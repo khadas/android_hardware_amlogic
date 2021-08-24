@@ -3332,18 +3332,18 @@ static void adev_close_output_stream(struct audio_hw_device *dev,
             if (adev->ms12_main1_dolby_dummy == false
             && !audio_is_linear_pcm(out->hal_internal_format)) {
                 dolby_ms12_set_main_dummy(0, true);
-                if (!adev->is_netflix) {
-                    set_ms12_acmod2ch_lock(&adev->ms12, true);
-                }
                 adev->ms12_main1_dolby_dummy = true;
                 ALOGI("%s set main dd+ dummy", __func__);
             } else if (adev->ms12_ott_enable == true
                && audio_is_linear_pcm(out->hal_internal_format)
-               && (out->flags & AUDIO_OUTPUT_FLAG_HW_AV_SYNC)) {
+               && (out->flags & AUDIO_OUTPUT_FLAG_HW_AV_SYNC || out->flags & AUDIO_OUTPUT_FLAG_DIRECT)) {
 
                 dolby_ms12_set_main_dummy(1, true);
                 adev->ms12_ott_enable = false;
                 ALOGI("%s set ott dummy", __func__);
+            }
+            if (out->ms12_acmod2ch_lock_disable) {
+                set_ms12_acmod2ch_lock(&adev->ms12, true);
             }
             adev->ms12.need_resume = 0;
             adev->ms12.need_resync = 0;
@@ -6586,7 +6586,7 @@ hwsync_rewrite:
         }
         */
     }
-    else if (!is_dts_format(aml_out->hal_format) && (!is_dts_format(aml_out->hal_internal_format))) {
+    else if (!is_bypass_dolbyms12(stream)) {
         adev->dolby_lib_type = adev->dolby_lib_type_last;
     }
 
@@ -6625,6 +6625,7 @@ hwsync_rewrite:
             adev->ms12_main1_dolby_dummy = false;
             if (!adev->is_netflix) {
                 set_ms12_acmod2ch_lock(&adev->ms12, false);
+                aml_out->ms12_acmod2ch_lock_disable = true;
             }
             pthread_mutex_unlock(&adev->lock);
             pthread_mutex_lock(&adev->trans_lock);
@@ -6640,6 +6641,11 @@ hwsync_rewrite:
             pthread_mutex_lock(&adev->lock);
             dolby_ms12_set_main_dummy(1, false);
             adev->ms12_ott_enable = true;
+            if (!adev->is_netflix && is_multi_channel_pcm(stream)) {
+                set_ms12_acmod2ch_lock(&adev->ms12, false);
+                aml_out->ms12_acmod2ch_lock_disable = true;
+                ALOGI("ms12 multi pcm in, disable acmod 2ch lock");
+            }
             pthread_mutex_unlock(&adev->lock);
             pthread_mutex_lock(&adev->trans_lock);
             ms12_out->hal_internal_format = aml_out->hal_internal_format;

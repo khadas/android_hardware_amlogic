@@ -329,6 +329,7 @@ int aml_audio_hwsync_find_frame(audio_hwsync_t *p_hwsync,
     uint64_t time_diff = 0;
     int pts_found = 0;
     struct aml_audio_device *adev = p_hwsync->aout->dev;
+    size_t  v2_hwsync_header = HW_AVSYNC_HEADER_SIZE_V2;
     int debug_enable = aml_audio_get_hwsync_flag();
     if (p_hwsync == NULL || in_buffer == NULL) {
         return 0;
@@ -357,8 +358,21 @@ int aml_audio_hwsync_find_frame(audio_hwsync_t *p_hwsync,
                 }
             }
             if ((p_hwsync->version_num  == 1 && p_hwsync->hw_sync_header_cnt == HW_AVSYNC_HEADER_SIZE_V1 ) ||
-                (p_hwsync->version_num  == 2 && p_hwsync->hw_sync_header_cnt == HW_AVSYNC_HEADER_SIZE_V2 )) {
-                uint64_t pts;
+                (p_hwsync->version_num  == 2 && p_hwsync->hw_sync_header_cnt == v2_hwsync_header )) {
+                uint64_t pts = 0;
+
+                if (p_hwsync->version_num  == 2 && p_hwsync->hw_sync_header_cnt == HW_AVSYNC_HEADER_SIZE_V2 ) {
+                    v2_hwsync_header = hwsync_header_get_offset(&p_hwsync->hw_sync_header[0]);
+                    if (v2_hwsync_header > HW_AVSYNC_MAX_HEADER_SIZE) {
+                        ALOGE("buffer overwrite, check the header size %zu \n",v2_hwsync_header);
+                        break;
+                    }
+                    if (v2_hwsync_header > p_hwsync->hw_sync_header_cnt) {
+                        ALOGV("need skip more sync header, %zu\n",v2_hwsync_header);
+                        continue;
+                    }
+                }
+
                 if ((in_bytes - remain) > p_hwsync->hw_sync_header_cnt) {
                     ALOGI("got the frame sync header cost %zu", in_bytes - remain);
                 }
@@ -385,6 +399,13 @@ int aml_audio_hwsync_find_frame(audio_hwsync_t *p_hwsync,
                     ALOGI("pts 0x%"PRIx64",frame len %u\n", pts, p_hwsync->hw_sync_body_cnt);
                     ALOGI("last pts 0x%"PRIx64",diff %lld ms\n", p_hwsync->last_apts_from_header, time_diff);
                 }
+                if (p_hwsync->hw_sync_frame_size > HWSYNC_MAX_BODY_SIZE) {
+                    ALOGE("hwsync frame body %d bigger than pre-defined size %d, need check !!!!!\n",
+                                p_hwsync->hw_sync_frame_size,HWSYNC_MAX_BODY_SIZE);
+                    p_hwsync->hw_sync_state = HW_SYNC_STATE_HEADER;
+                    return 0;
+                }
+
                 if (time_diff > 32) {
                     ALOGV("pts  time gap %"PRIx64" ms,last %"PRIx64",cur %"PRIx64"\n", time_diff,
                           p_hwsync->last_apts_from_header, pts);

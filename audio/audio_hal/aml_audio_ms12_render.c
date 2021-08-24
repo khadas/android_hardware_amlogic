@@ -191,7 +191,8 @@ int aml_audio_ms12_render(struct audio_stream_out *stream, const void *buffer, s
     bool do_sync_flag = adev->patch_src  == SRC_DTV && patch && patch->skip_amadec_flag;
     struct dolby_ms12_desc *ms12 = &(adev->ms12);
 
-    if (is_dolby_ms12_support_compression_format(aml_out->hal_internal_format)) {
+    if (is_dolby_ms12_support_compression_format(aml_out->hal_internal_format)
+        || is_multi_channel_pcm(stream)) {
         bypass_aml_dec = true;
     }
 
