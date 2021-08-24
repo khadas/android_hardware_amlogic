@@ -329,6 +329,7 @@ static ssize_t a2dp_in_data_process(aml_a2dp_hal *hal, audio_config_base_t *conf
 static ssize_t a2dp_data_resample_process(aml_a2dp_hal *hal, audio_config_base_t *input_cfg,
     const void *buffer, size_t in_frames, const void **output_buffer) {
     int out_frames = in_frames;
+    *output_buffer = buffer;
     if (input_cfg->sample_rate != hal->config.sample_rate) {
         size_t in_frame_size = audio_channel_count_from_out_mask(input_cfg->channel_mask) * audio_bytes_per_sample(input_cfg->format);
         /* The resampled frames may be large than the theoretical value.
