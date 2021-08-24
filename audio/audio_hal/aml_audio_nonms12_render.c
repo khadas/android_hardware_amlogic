@@ -265,7 +265,7 @@ int aml_audio_nonms12_render(struct audio_stream_out *stream, const void *buffer
                     if (dec_pcm_data->data_sr > 0)
                         aml_out->config.rate = dec_pcm_data->data_sr;
                 }
-
+                aml_out->config.channels = dec_pcm_data->data_ch;
                 /*process the stream volume before mix*/
                 aml_audio_stream_volume_process(stream, dec_data, sizeof(int16_t), dec_pcm_data->data_ch, pcm_len);
 

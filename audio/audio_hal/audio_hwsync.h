@@ -30,6 +30,10 @@
 
 #define HW_AVSYNC_HEADER_SIZE_V1 16
 #define HW_AVSYNC_HEADER_SIZE_V2 20
+/*head size is calculated with mOffset = ((int) Math.ceil(HEADER_V2_SIZE_BYTES / frameSizeInBytes)) * frameSizeInBytes;
+ *current we only support to 8ch, the headsize is 32
+ */
+#define HW_AVSYNC_MAX_HEADER_SIZE  32  /*max 8ch */
 
 
 //TODO: After precisely calc the pts, change it back to 1s
@@ -62,7 +66,7 @@ typedef struct apts_tab {
 } apts_tab_t;
 
 typedef struct  audio_hwsync {
-    uint8_t hw_sync_header[HW_AVSYNC_HEADER_SIZE_V2];
+    uint8_t hw_sync_header[HW_AVSYNC_MAX_HEADER_SIZE];
     size_t hw_sync_header_cnt;
     int hw_sync_state;
     uint32_t hw_sync_body_cnt;
@@ -114,6 +118,14 @@ static inline uint32_t hwsync_header_get_size(uint8_t *header)
            (((uint32_t)header[5]) << 16) |
            (((uint32_t)header[6]) << 8) |
            ((uint32_t)header[7]);
+}
+
+static inline uint32_t hwsync_header_get_offset(uint8_t *header)
+{
+    return (((uint32_t)header[16]) << 24) |
+           (((uint32_t)header[17]) << 16) |
+           (((uint32_t)header[18]) << 8) |
+           ((uint32_t)header[19]);
 }
 
 static inline uint64_t get_pts_gap(uint64_t a, uint64_t b)
