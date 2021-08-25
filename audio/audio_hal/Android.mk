@@ -150,7 +150,7 @@ LOCAL_SRC_FILES += \
 LOCAL_C_INCLUDES += \
         vendor/amlogic/common/mediahal_sdk/include
 
-
+LOCAL_CFLAGS += -DANDROID_PLATFORM_SDK_VERSION=$(PLATFORM_SDK_VERSION)
 #/*[SEI-zhaopf-2018-12-18] add for HBG remote audio support { */
 ifeq ($(BOARD_ENABLE_HBG), true)
     LOCAL_SHARED_LIBRARIES += libhbg

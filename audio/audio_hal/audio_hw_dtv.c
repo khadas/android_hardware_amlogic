@@ -3806,6 +3806,7 @@ int release_dtv_patch(struct aml_audio_device *aml_dev)
     return ret;
 }
 
+#if ANDROID_PLATFORM_SDK_VERSION > 29
 int enable_dtv_patch_for_tuner_framework(struct audio_config *config, struct audio_hw_device *dev)
 {
     struct aml_audio_device *adev = (struct aml_audio_device *)dev;
@@ -3869,6 +3870,7 @@ int disable_dtv_patch_for_tuner_framework(struct audio_hw_device *dev)
     ALOGD("%s[%d]:the audio_patching is %d, ret:%d", __func__, __LINE__,adev->audio_patching, ret);
     return ret;
 }
+#endif
 
 bool is_dtv_patch_alive(struct aml_audio_device *aml_dev)
 {

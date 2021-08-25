@@ -2881,6 +2881,7 @@ static int adev_open_output_stream(struct audio_hw_device *dev,
         ALOGE("%s pthread_mutex_init failed", __func__);
     }
 
+#if ANDROID_PLATFORM_SDK_VERSION > 29
     if (config != NULL)
     {
         /*valid audio_config means enter in tuner framework case, then we need to create&start audio dtv patch*/
@@ -2889,6 +2890,7 @@ static int adev_open_output_stream(struct audio_hw_device *dev,
         out->audioCfg.offload_info.content_id = config->offload_info.content_id;
         out->audioCfg.offload_info.sync_id = config->offload_info.sync_id;
     }
+#endif
 
     if (address && !strncmp(address, "AML_", 4)) {
         ALOGI("%s(): aml TV source stream", __func__);
@@ -3251,6 +3253,7 @@ static void adev_close_output_stream(struct audio_hw_device *dev,
         out->audioeffect_tmp_buffer = NULL;
     }
 
+#if ANDROID_PLATFORM_SDK_VERSION > 29
     if ((out->dev->patch_src == SRC_DTV) &&
          out->dev->audio_patching &&
         (out->flags & AUDIO_OUTPUT_FLAG_COMPRESS_OFFLOAD) &&
@@ -3264,7 +3267,7 @@ static void adev_close_output_stream(struct audio_hw_device *dev,
             ALOGI("%s: finish releasing patch", __func__);
         }
     }
-
+#endif
 
     if (out->tmp_buffer_8ch) {
         aml_audio_free(out->tmp_buffer_8ch);
