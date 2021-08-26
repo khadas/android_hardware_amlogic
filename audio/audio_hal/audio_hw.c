@@ -8392,6 +8392,7 @@ static int adev_create_audio_patch(struct audio_hw_device *dev,
         ret = -EINVAL;
         unregister_audio_patch(dev, patch_set);
     }
+    aml_mixer_ctrl_set_int(&aml_dev->alsa_mixer, AML_MIXER_ID_AUDIO_HAL_FORMAT, TYPE_PCM);
     return ret;
 }
 
@@ -8513,6 +8514,7 @@ static int adev_release_audio_patch(struct audio_hw_device *dev,
         aml_dev->tuner2mix_patch = false;
     }
     unregister_audio_patch(dev, patch_set);
+    aml_mixer_ctrl_set_int(&aml_dev->alsa_mixer, AML_MIXER_ID_AUDIO_HAL_FORMAT, TYPE_PCM);
     //dump_aml_audio_patch_sets(dev);
 #ifdef ADD_AUDIO_DELAY_INTERFACE
     aml_audio_delay_clear(AML_DELAY_OUTPORT_SPEAKER);
