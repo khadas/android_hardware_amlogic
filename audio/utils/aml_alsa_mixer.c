@@ -82,6 +82,7 @@ static struct aml_mixer_list gAmlMixerList[] = {
     {AML_MIXER_ID_HW_RESAMPLE_SOURCE,   "Hw resample module"},
     {AML_MIXER_ID_AUDIO_HAL_FORMAT,     "Audio HAL Format"},
     {AML_MIXER_ID_HDMIIN_AUDIO_EDID,    "HDMIIN AUDIO EDID"},
+    {AML_MIXER_ID_AML_CHIP_ID,           "AML chip id"},
 };
 
 static char *get_mixer_name_by_id(int mixer_id)

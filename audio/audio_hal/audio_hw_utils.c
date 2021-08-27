@@ -68,6 +68,19 @@ static const char *str_compmode[] = {"custom mode, analog dialnorm","custom mode
 
 #define DD_MUTE_FRAME_SIZE 1536
 #define DDP_MUTE_FRAME_SIZE 6144
+
+//add array of chip name,index is chip id
+static const char* aml_chip_name[]= {
+    NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
+    NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
+    NULL, NULL, NULL, NULL, NULL, "m3", "m6,", "m6tv",
+    "m6tvlite", "m8", "m6tvd", "m8baby", "g9tv", NULL, "g9bb", "gxbb",
+    "gxtvbb", "gxl", "gxm", "txl", "txlx", "axg", "gxlx", "txhd",
+    "g12a", "g12b", "gxlx2", "sm1", "a1", NULL, "tl1", "tm2",
+    "c1", NULL, "sc2", "c2", "t5", "t5d", "t7", "s4",
+    "t3", "p1", "s4d"
+};
+
 // add array of dd/ddp mute frame for mute function
 static const unsigned int muted_frame_dd[DD_MUTE_FRAME_SIZE] = {
     0x4e1ff872, 0x50000001, 0xcdc80b77, 0xe1ff2430, 0x9200fcf4, 0x5578fc02, 0x187f6186, 0x9f3eceaf, 0xf3e77cf9, 0x3e7ccf9f, 0xe7cff9f3, 0x7cf99f3e, 0xcf9ff3e7, 0xf9f33e7c, 0x9f3ee7cf, 0xf3e77cf9,
@@ -423,19 +436,30 @@ int getprop_bool(const char *path)
     return 0;
 }
 
-int check_chip_name(char *name, unsigned int length)
+int check_chip_name(char *chip_name, unsigned int length,
+                    struct aml_mixer_handle *mixer_handle)
 {
-    char buf[PROPERTY_VALUE_MAX];
-    char *chip_name = name;
-    int ret = -1;
-
-    ret = property_get("ro.board.platform", buf, NULL);
-    if (ret > 0) {
-        if (strncasecmp(buf, chip_name, length) == 0) {
-            return true;
+    if (alsa_device_is_auge()) {
+        unsigned int chip_id = 0;
+        chip_id = aml_mixer_ctrl_get_int(mixer_handle, AML_MIXER_ID_AML_CHIP_ID);
+        if (chip_id > sizeof(aml_chip_name) / sizeof(aml_chip_name[0])) {
+            ALOGE("chip_id:%u out of array range\n", chip_id);
+            return false;
         }
+        if (strncasecmp(aml_chip_name[chip_id], chip_name, length) == 0)
+            return true;
+        else
+            return false;
+    } else {
+        char buf[PROPERTY_VALUE_MAX];
+        int ret =-1;
+        ret = property_get("ro.board.platform", buf, NULL);
+        if (ret > 0) {
+            if (strncasecmp(buf, chip_name, length) == 0)
+                return true;
+        }
+        return false;
     }
-    return false;
 }
 
 int is_multi_demux()
