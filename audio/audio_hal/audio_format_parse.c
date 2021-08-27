@@ -523,8 +523,8 @@ void* audio_type_parse_threadloop(void *data)
     int cur_samplerate = HW_RESAMPLE_48K;
     int last_cur_samplerate = HW_RESAMPLE_48K;
     int read_bytes = 0;
-    int txlx_chip = check_chip_name("txlx", 4);
-    int txl_chip = check_chip_name("txl", 3);
+    int txlx_chip = check_chip_name("txlx", 4, audio_type_status->mixer_handle);
+    int txl_chip = check_chip_name("txl", 3, audio_type_status->mixer_handle);
     int auge_chip = alsa_device_is_auge();
 
     ret = audio_type_parse_init(audio_type_status);
