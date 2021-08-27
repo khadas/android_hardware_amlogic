@@ -34,13 +34,13 @@
 #include "aml_mmap_audio.h"
 #include "aml_volume_utils.h"
 
-
 #define MMAP_SAMPLE_RATE_HZ             (48000)
 #define MMAP_BUFFER_BURSTS_NUM          (4)
 
 #define MMAP_WRITE_SIZE_FRAME           (384) // 8ms
 #define MMAP_WRITE_PERIOD_TIME_MS       (MMAP_WRITE_SIZE_FRAME * MSEC_PER_SEC / MMAP_SAMPLE_RATE_HZ)
 #define MMAP_WRITE_PERIOD_TIME_NANO     (MMAP_WRITE_SIZE_FRAME * NSEC_PER_SEC / MMAP_SAMPLE_RATE_HZ)
+
 
 enum {
     MMAP_INIT,
@@ -280,36 +280,12 @@ static int outMmapGetPosition(const struct audio_stream_out *stream,
     return 0;
 }
 
-int outMmapInit(struct aml_stream_out *out)
-{
-    AM_LOGI("stream:%p", out);
-    int                         ret = 0;
-    int                         num_heaps = 0;
-    unsigned int                heap_mask = 0;
-    aml_mmap_audio_param_st     *pstParam = NULL;
+static int ion_buffer_allocate_new (aml_mmap_audio_param_st     *pstParam) {
+    int ret  = 0;
+    int num_heaps = 0;
+    unsigned int heap_mask = 0;
 
-    out->stream.start = outMmapStart;
-    out->stream.stop = outMmapStop;
-    out->stream.create_mmap_buffer = outMmapCreateBuffer;
-    out->stream.get_mmap_position = outMmapGetPosition;
-
-    if (out->pstMmapAudioParam) {
-       AM_LOGW("already init, can't again init");
-       return 0;
-    }
-    out->pstMmapAudioParam = (aml_mmap_audio_param_st *)aml_audio_malloc(sizeof(aml_mmap_audio_param_st));
-    pstParam = out->pstMmapAudioParam;
-    R_CHECK_POINTER_LEGAL(-1, pstParam, "mmap memory malloc fail");
-    memset(pstParam, 0, sizeof(aml_mmap_audio_param_st));
-
-    pstParam->s32IonFd = ion_open();
-    if (pstParam->s32IonFd < 0) {
-       AM_LOGE("ion_open fail! s32IonFd:%d", pstParam->s32IonFd);
-       return -1;
-    }
-
-    pstParam->u32FrameSize = audio_bytes_per_frame(out->config.channels, AUDIO_FORMAT_PCM_16_BIT);
-    pstParam->u32BufferSize = MMAP_BUFFER_BURSTS_NUM * MMAP_WRITE_SIZE_FRAME *pstParam->u32FrameSize;
+    AM_LOGI("enter");
 
     ret = ion_query_heap_cnt(pstParam->s32IonFd, &num_heaps);
     if (ret < 0) {
@@ -327,15 +303,8 @@ int outMmapInit(struct aml_stream_out *out)
         return -ENOMEM;
     }
     for (int i = 0; i != num_heaps; ++i) {
-        if (out->dev->debug_flag >= 100)  {
-            AM_LOGD("heaps[%d].type:%d, heap_id:%d", i, heaps[i].type, heaps[i].heap_id);
-        }
         if ((1 << heaps[i].type) == ION_HEAP_SYSTEM_MASK) {
             heap_mask = 1 << heaps[i].heap_id;
-            if (out->dev->debug_flag >= 100)  {
-                AM_LOGD("Got it name:%s, type:%#x, 1<<type:%#x, heap_id:%d, heap_mask:%#x",
-                    heaps[i].name, heaps[i].type, 1<<heaps[i].type, heaps[i].heap_id, heap_mask);
-            }
             break;
         }
     }
@@ -355,7 +324,67 @@ int outMmapInit(struct aml_stream_out *out)
                                    MAP_SHARED, pstParam->s32IonShareFd, 0);
     AM_LOGI("s32IonFd:%d, s32IonShareFd:%d, b_size:%d, frame size:%d, add:%p",
         pstParam->s32IonFd, pstParam->s32IonShareFd, pstParam->u32BufferSize, pstParam->u32FrameSize, pstParam->pu8MmapAddr);
+
     return 0;
+}
+
+static int ion_buffer_allocate_legacy (aml_mmap_audio_param_st     *pstParam) {
+    int ret = 0;
+    AM_LOGI("enter");
+
+    ret = ion_alloc(pstParam->s32IonFd, pstParam->u32BufferSize, 32, ION_HEAP_SYSTEM_MASK, 0,
+                        &pstParam->hIonHanndle);
+    if (ret < 0) {
+        ALOGE("[%s:%d] ion_alloc fail ret:%#x", __func__, __LINE__, ret);
+        return -1;
+    }
+    ret = ion_share(pstParam->s32IonFd, pstParam->hIonHanndle, &pstParam->s32IonShareFd);
+    if (ret < 0) {
+        ALOGE("[%s:%d] ion_share fail ret:%#x", __func__, __LINE__, ret);
+        return -1;
+    }
+
+    pstParam->pu8MmapAddr = mmap(NULL, pstParam->u32BufferSize,  PROT_WRITE | PROT_READ,
+                                   MAP_SHARED, pstParam->s32IonShareFd, 0);
+    ALOGI("[%s:%d] s32IonFd:%d, s32IonShareFd:%d, pu8MmapAddr:%p", __func__, __LINE__,
+        pstParam->s32IonFd, pstParam->s32IonShareFd, pstParam->pu8MmapAddr);
+    return 0;
+}
+
+int outMmapInit(struct aml_stream_out *out)
+{
+    AM_LOGI("stream:%p", out);
+    int                         ret = 0;
+    aml_mmap_audio_param_st     *pstParam = NULL;
+
+    out->stream.start = outMmapStart;
+    out->stream.stop = outMmapStop;
+    out->stream.create_mmap_buffer = outMmapCreateBuffer;
+    out->stream.get_mmap_position = outMmapGetPosition;
+
+    if (out->pstMmapAudioParam) {
+       AM_LOGW("already init, can't again init");
+       return 0;
+    }
+    out->pstMmapAudioParam = (aml_mmap_audio_param_st *)aml_audio_malloc(sizeof(aml_mmap_audio_param_st));
+    pstParam = out->pstMmapAudioParam;
+    R_CHECK_POINTER_LEGAL(-1, pstParam, "mmap memory malloc fail");
+    memset(pstParam, 0, sizeof(aml_mmap_audio_param_st));
+    pstParam->u32FrameSize = audio_bytes_per_frame(out->config.channels, AUDIO_FORMAT_PCM_16_BIT);
+    pstParam->u32BufferSize = MMAP_BUFFER_BURSTS_NUM * MMAP_WRITE_SIZE_FRAME *pstParam->u32FrameSize;
+
+    pstParam->s32IonFd = ion_open();
+    if (pstParam->s32IonFd < 0) {
+       AM_LOGE("ion_open fail! s32IonFd:%d", pstParam->s32IonFd);
+       return -1;
+    }
+
+    if (ion_is_legacy(pstParam->s32IonFd)) {
+        ret = ion_buffer_allocate_legacy(pstParam);
+    } else {
+        ret = ion_buffer_allocate_new(pstParam);
+    }
+    return ret;
 }
 
 int outMmapDeInit(struct aml_stream_out *out)
@@ -374,6 +403,8 @@ int outMmapDeInit(struct aml_stream_out *out)
 
     munmap(pstParam->pu8MmapAddr, pstParam->u32BufferSize);
     close(pstParam->s32IonShareFd);
+    if (ion_is_legacy(pstParam->s32IonFd))
+        ion_free(pstParam->s32IonFd, pstParam->hIonHanndle);
     ion_close(pstParam->s32IonFd);
     aml_audio_free(pstParam);
     out->pstMmapAudioParam = NULL;
