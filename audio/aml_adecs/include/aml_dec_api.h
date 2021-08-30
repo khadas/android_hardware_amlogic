@@ -56,6 +56,8 @@
 #define ACODEC_FMT_AC4    29
 
 
+#define DDP_DECODER_CACHE 32 * 90 /* ddp decoder cashe es data one frame 32ms */
+
 typedef enum {
     AML_DEC_CONFIG_MIXING_ENABLE,
     AML_DEC_CONFIG_AD_VOL,
@@ -116,12 +118,18 @@ typedef struct aml_dec {
     dec_data_info_t raw_in_data;
     char *ad_data;
     int ad_size;
+
     int64_t in_frame_pts;
     int64_t out_frame_pts;
     int status;
     int frame_cnt;
     int fragment_left_size;
     void *dev;
+
+    int64_t first_in_frame_pts;
+    int64_t last_synced_frame_pts;
+    int out_synced_frame_count;
+    bool debug_synced_frame_pts_flag;
 } aml_dec_t;
 
 typedef struct aml_dcv_config {
