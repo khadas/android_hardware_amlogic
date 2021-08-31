@@ -2284,6 +2284,22 @@ int ms12_output(void *buffer, void *priv_data, size_t size, aml_ms12_dec_info_t 
                 ALOGI("%s package pts(ms) %llu ms12_main_apts(ms) %llu pcm-duration(ms)%u cur_outapts %llx in ms %llu, alsa_latency(ms) %d\n",
                     __func__, patch->cur_package->pts/90, ms12_main_apts/90, cur_pcm_pts /  90 , aml_dtvsync->cur_outapts, aml_dtvsync->cur_outapts/90, alsa_latency / 90);
             }
+
+            if (do_sync_flag) {
+                if (patch->skip_amadec_flag && aml_out->dtvsync_enable) {
+                    if (aml_out->alsa_status_changed) {
+                        aml_dtvsync_setParameter(aml_dtvsync, MEDIASYNC_KEY_ALSAREADY, &aml_out->alsa_running_status);
+                        aml_out->alsa_status_changed = false;
+                    }
+
+                    if (aml_dtvsync->cur_outapts > DTVSYNC_APTS_THRESHOLD) {
+                        aml_dtvsync_ms12_get_policy(stream_out);
+                    } else {
+                        ALOGI("Invalid cur_outapts: %lld", aml_dtvsync->cur_outapts);
+                        aml_dtvsync->apolicy.audiopolicy= DTVSYNC_AUDIO_NORMAL_OUTPUT;
+                    }
+               }
+            }
         }
     }
 
