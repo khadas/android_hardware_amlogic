@@ -211,23 +211,6 @@ int aml_audio_ms12_render(struct audio_stream_out *stream, const void *buffer, s
         }
         /* audio data/apts, then we send the audio data*/
         ret = aml_audio_ms12_process_wrapper(stream, buffer, bytes);
-        if (do_sync_flag) {
-            ms12_delayms = aml_audio_get_cur_ms12_latency(stream);
-            if(patch->skip_amadec_flag && aml_out->dtvsync_enable) {
-                //patch->dtvsync->cur_outapts = patch->cur_package->pts - ms12_delayms * 90;
-                if (aml_out->alsa_status_changed) {
-                    aml_dtvsync_setParameter(patch->dtvsync, MEDIASYNC_KEY_ALSAREADY, &aml_out->alsa_running_status);
-                    aml_out->alsa_status_changed = false;
-                }
-                //Need to check whether ms12 update apts before use it
-                if (patch->dtvsync->cur_outapts > DTVSYNC_APTS_THRESHOLD) {
-                    aml_dtvsync_ms12_get_policy(stream);
-                } else {
-                    ALOGI("Invalid cur_outapts: %lld", patch->dtvsync->cur_outapts);
-                    patch->dtvsync->apolicy.audiopolicy= DTVSYNC_AUDIO_NORMAL_OUTPUT;
-                }
-            }
-        }
     } else {
         if (aml_out->aml_dec == NULL) {
             config_output(stream, true);
