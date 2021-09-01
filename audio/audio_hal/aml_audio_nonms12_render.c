@@ -32,6 +32,7 @@
 #include "aml_audio_spdifout.h"
 #include "alsa_config_parameters.h"
 #include "aml_data_utils.h"
+#include "aml_audio_ms12_sync.h"
 
 extern unsigned long decoder_apts_lookup(unsigned int offset);
 static void aml_audio_stream_volume_process(struct audio_stream_out *stream, void *buf, int sample_size, int channels, int bytes) {
@@ -293,8 +294,10 @@ int aml_audio_nonms12_render(struct audio_stream_out *stream, const void *buffer
                         duration =  (pcm_len * 1000) / (2 * dec_pcm_data->data_ch * aml_out->config.rate);
 
                     if (patch->skip_amadec_flag) {
-                        alsa_latency = 90 *(out_get_alsa_latency_frames(stream)  * 1000) / aml_out->config.rate;;
-                        patch->dtvsync->cur_outapts = aml_dec->out_frame_pts - decoder_latency - alsa_latency;
+                        alsa_latency = 90 *(out_get_alsa_latency_frames(stream)  * 1000) / aml_out->config.rate;
+                        /* in aml_audio_dtv_get_nonms12_latency, it use 50(supposed tuning 50 ms)*48Khz as default, will return 50*48 */
+                        int ddp_tuning_latency = 90 * aml_audio_dtv_get_nonms12_latency(stream) / 48;
+                        patch->dtvsync->cur_outapts = aml_dec->out_frame_pts - decoder_latency - alsa_latency + ddp_tuning_latency;
 
                     }
                     //sync process here

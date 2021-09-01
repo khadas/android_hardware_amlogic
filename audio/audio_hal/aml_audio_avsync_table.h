@@ -165,6 +165,129 @@
 #define  AVSYNC_DDP_TUNNEL_PCM_LATENCY_PROPERTY         "vendor.media.audio.hal.ddp.tunnel.pcm"
 #define  AVSYNC_DDP_TUNNEL_RAW_LATENCY_PROPERTY         "vendor.media.audio.hal.ddp.tunnel.raw"
 
+/* following property, used for DTV avsync with MS12 processing */
+/*
+ * MS12 SDK v2.6.1, AV-Sync test for CVBS&HDMI output.
+ * Here give an simple guide to tune the property to meet the target.
+ * first step: test the CVBS output, to confirm the <different input format> property
+ *          target [-45, 125]
+ *          MACRO:AVSYNC_MS12_DTV_PCM_LATENCY_PROPERTY <PCM/DD/DDP/AC4>
+ *          Property:"vendor.media.audio.hal.ms12.dtv.pcm" <pcm/dd/ddp/ac4>
+ *          Value:AVSYNC_MS12_DTV_PCM_LATENCY <PCM/DD/DDP/AC4>
+ *          current values are 0.
+ *
+ * second step: test the HDMI output, to confirm the PCM/DDP/MAT OUTPUT
+ *          PCM target [-45, 0]
+ *          DDP target [-100, 0]
+ *          MAT target [-80, 0]
+ *          MACRO:AVSYNC_MS12_DTV_PCM_OUT_LATENCY_PROPERTY <PCM/DD/DDP/MAT>
+ *          Property:"vendor.media.audio.hal.ms12.dtv.pcmout" <pcm/dd/ddp/mat>
+ *          Value:AVSYNC_MS12_DTV_PCM_OUT_LATENCY <PCM/DD/DDP/MAT>
+ *          current values are DDP(-64=<26 (DDP Encoder Node) + 38 tuning>)/MAT(0).
+ *
+ * third step: test the Passthrough output, to confirm the DDP Passthrough
+ *          Target DDP [-100, 0]
+ *          MACRO:AVSYNC_MS12_DTV_BYPASS_LATENCY_PROPERTY
+ *          Property:"vendor.media.audio.hal.ms12.dtv.bypass"
+ *          Value:AVSYNC_MS12_DTV_BYPASS_LATENCY
+ *          current values are 100(passthrough should consider ddp out,
+ *          its value is AVSYNC_MS12_DTV_DDP_OUT_LATENCY)
+ */
+/* for different port and different format */
+#define  AVSYNC_MS12_DTV_HDMI_ARC_OUT_PCM_LATENCY            (0)
+#define  AVSYNC_MS12_DTV_HDMI_ARC_OUT_DD_LATENCY             (0)
+#define  AVSYNC_MS12_DTV_HDMI_ARC_OUT_DDP_LATENCY            (0)
+#define  AVSYNC_MS12_DTV_HDMI_OUT_PCM_LATENCY                (-30) /* if 0,  result locats at [-10, 10] */
+#define  AVSYNC_MS12_DTV_HDMI_OUT_DD_LATENCY                 (0)
+#define  AVSYNC_MS12_DTV_HDMI_OUT_DDP_LATENCY                (0)
+#define  AVSYNC_MS12_DTV_HDMI_OUT_MAT_LATENCY                (0)
+#define  AVSYNC_MS12_DTV_SPEAKER_LATENCY                     (0)
+
+#define  AVSYNC_MS12_DTV_HDMI_ARC_OUT_PCM_LATENCY_PROPERTY            "vendor.media.audio.hal.ms12.dtv.arc.pcm"
+#define  AVSYNC_MS12_DTV_HDMI_ARC_OUT_DD_LATENCY_PROPERTY             "vendor.media.audio.hal.ms12.dtv.arc.dd"
+#define  AVSYNC_MS12_DTV_HDMI_ARC_OUT_DDP_LATENCY_PROPERTY            "vendor.media.audio.hal.ms12.dtv.arc.ddp"
+#define  AVSYNC_MS12_DTV_HDMI_OUT_PCM_LATENCY_PROPERTY                "vendor.media.audio.hal.ms12.dtv.hdmi.pcm"
+#define  AVSYNC_MS12_DTV_HDMI_OUT_DD_LATENCY_PROPERTY                 "vendor.media.audio.hal.ms12.dtv.hdmi.dd"
+#define  AVSYNC_MS12_DTV_HDMI_OUT_DDP_LATENCY_PROPERTY                "vendor.media.audio.hal.ms12.dtv.hdmi.ddp"
+#define  AVSYNC_MS12_DTV_HDMI_OUT_MAT_LATENCY_PROPERTY                "vendor.media.audio.hal.ms12.dtv.hdmi.mat"
+#define  AVSYNC_MS12_DTV_SPEAKER_LATENCY_PROPERTY                     "vendor.media.audio.hal.ms12.dtv.speaker"
+
+
+/* for different output format */
+#define  AVSYNC_MS12_DTV_PCM_OUT_LATENCY                     (0)
+#define  AVSYNC_MS12_DTV_DD_OUT_LATENCY                      (0)
+#define  AVSYNC_MS12_DTV_DDP_OUT_LATENCY                     (-100) /* at least more than 1280/48(26) ms */
+/* Node                             | Delay
+ *|MS12 Dolby Digital Plus encoder  |0 (legacy devices supporting ARC/ eARC without phase-90 filter)
+ *                                  |1,280 (legacy devices supporting full HDMI including phase-90 filter)
+ *                                  |32 (devises that are capable of Dolby Atmos and support ARC)
+ *                                  |32 (devices supporting 7.1 and 5.1.2 encoding)
+ *                                  |Not applicable for devices that are capable of Dolby Atmos and support
+ *                                  |eARC/ full HDMI
+ */
+#define  AVSYNC_MS12_DTV_MAT_OUT_LATENCY                     (-55)
+
+#define  AVSYNC_MS12_DTV_PCM_OUT_LATENCY_PROPERTY            "vendor.media.audio.hal.ms12.dtv.pcmout"
+#define  AVSYNC_MS12_DTV_DDP_OUT_LATENCY_PROPERTY            "vendor.media.audio.hal.ms12.dtv.ddpout"
+#define  AVSYNC_MS12_DTV_DD_OUT_LATENCY_PROPERTY             "vendor.media.audio.hal.ms12.dtv.ddout"
+#define  AVSYNC_MS12_DTV_MAT_OUT_LATENCY_PROPERTY            "vendor.media.audio.hal.ms12.dtv.matout"
+
+/* for different input format */
+#define  AVSYNC_MS12_DTV_PCM_LATENCY                    (0)
+#define  AVSYNC_MS12_DTV_DD_LATENCY                     (0)
+#define  AVSYNC_MS12_DTV_DDP_LATENCY                    (0)
+#define  AVSYNC_MS12_DTV_AC4_LATENCY                    (0)
+
+#define  AVSYNC_MS12_DTV_PCM_LATENCY_PROPERTY         "vendor.media.audio.hal.ms12.dtv.pcm"
+#define  AVSYNC_MS12_DTV_DD_LATENCY_PROPERTY          "vendor.media.audio.hal.ms12.dtv.dd"
+#define  AVSYNC_MS12_DTV_DDP_LATENCY_PROPERTY         "vendor.media.audio.hal.ms12.dtv.ddp"
+#define  AVSYNC_MS12_DTV_AC4_LATENCY_PROPERTY         "vendor.media.audio.hal.ms12.dtv.ac4"
+
+/* for passthrough(bypass) mode */
+#define  AVSYNC_MS12_DTV_BYPASS_LATENCY                 (-90) /* if set 0, range is [48 ~ 82] */
+
+#define  AVSYNC_MS12_DTV_BYPASS_LATENCY_PROPERTY      "vendor.media.audio.hal.ms12.dtv.bypass"
+
+/* following property, used for DTV avsync with DDP(nonms12) processing */
+/* for different port and different format */
+#define  AVSYNC_NONMS12_DTV_HDMI_ARC_OUT_PCM_LATENCY            (0)
+#define  AVSYNC_NONMS12_DTV_HDMI_ARC_OUT_DD_LATENCY             (0)
+#define  AVSYNC_NONMS12_DTV_HDMI_ARC_OUT_DDP_LATENCY            (0)
+#define  AVSYNC_NONMS12_DTV_HDMI_OUT_PCM_LATENCY                (-30)
+#define  AVSYNC_NONMS12_DTV_HDMI_OUT_DD_LATENCY                 (0)
+#define  AVSYNC_NONMS12_DTV_HDMI_OUT_DDP_LATENCY                (0)
+#define  AVSYNC_NONMS12_DTV_SPEAKER_LATENCY                     (0)
+
+#define  AVSYNC_NONMS12_DTV_HDMI_ARC_OUT_PCM_LATENCY_PROPERTY            "vendor.media.audio.hal.nonms12.dtv.arc.pcm"
+#define  AVSYNC_NONMS12_DTV_HDMI_ARC_OUT_DD_LATENCY_PROPERTY             "vendor.media.audio.hal.nonms12.dtv.arc.dd"
+#define  AVSYNC_NONMS12_DTV_HDMI_ARC_OUT_DDP_LATENCY_PROPERTY            "vendor.media.audio.hal.nonms12.dtv.arc.ddp"
+#define  AVSYNC_NONMS12_DTV_HDMI_OUT_PCM_LATENCY_PROPERTY                "vendor.media.audio.hal.nonms12.dtv.hdmi.pcm"
+#define  AVSYNC_NONMS12_DTV_HDMI_OUT_DD_LATENCY_PROPERTY                 "vendor.media.audio.hal.nonms12.dtv.hdmi.dd"
+#define  AVSYNC_NONMS12_DTV_HDMI_OUT_DDP_LATENCY_PROPERTY                "vendor.media.audio.hal.nonms12.dtv.hdmi.ddp"
+#define  AVSYNC_NONMS12_DTV_SPEAKER_LATENCY_PROPERTY                     "vendor.media.audio.hal.nonms12.dtv.speaker"
+
+
+/* for different output format */
+#define  AVSYNC_NONMS12_DTV_PCM_OUT_LATENCY                     (0)
+#define  AVSYNC_NONMS12_DTV_DD_OUT_LATENCY                      (0)
+#define  AVSYNC_NONMS12_DTV_DDP_OUT_LATENCY                     (-64)
+#define  AVSYNC_NONMS12_DTV_MAT_OUT_LATENCY                     (0)
+
+#define  AVSYNC_NONMS12_DTV_PCM_OUT_LATENCY_PROPERTY            "vendor.media.audio.hal.nonms12.dtv.pcmout"
+#define  AVSYNC_NONMS12_DTV_DDP_OUT_LATENCY_PROPERTY            "vendor.media.audio.hal.nonms12.dtv.ddpout"
+#define  AVSYNC_NONMS12_DTV_DD_OUT_LATENCY_PROPERTY             "vendor.media.audio.hal.nonms12.dtv.ddout"
+#define  AVSYNC_NONMS12_DTV_MAT_OUT_LATENCY_PROPERTY            "vendor.media.audio.hal.nonms12.dtv.matout"
+
+/* for different input format */
+#define  AVSYNC_NONMS12_DTV_PCM_LATENCY                    (0)
+#define  AVSYNC_NONMS12_DTV_DD_LATENCY                     (0)
+#define  AVSYNC_NONMS12_DTV_DDP_LATENCY                    (0)
+#define  AVSYNC_NONMS12_DTV_AC4_LATENCY                    (0)
+
+#define  AVSYNC_NONMS12_DTV_PCM_LATENCY_PROPERTY         "vendor.media.audio.hal.nonms12.dtv.pcm"
+#define  AVSYNC_NONMS12_DTV_DD_LATENCY_PROPERTY          "vendor.media.audio.hal.nonms12.dtv.dd"
+#define  AVSYNC_NONMS12_DTV_DDP_LATENCY_PROPERTY         "vendor.media.audio.hal.nonms12.dtv.ddp"
+#define  AVSYNC_NONMS12_DTV_AC4_LATENCY_PROPERTY         "vendor.media.audio.hal.nonms12.dtv.ac4"
 
 
 #endif

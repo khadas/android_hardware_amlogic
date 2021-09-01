@@ -785,3 +785,383 @@ int aml_audio_ms12_update_presentation_position(struct audio_stream_out *stream)
 
     return 0;
 }
+
+static int dtv_get_ms12_input_latency(audio_format_t input_format) {
+    char buf[PROPERTY_VALUE_MAX];
+    int ret = -1;
+    int latency_ms = 0;
+    char *prop_name = NULL;
+    switch (input_format) {
+    case AUDIO_FORMAT_PCM_16_BIT: {
+        prop_name = AVSYNC_MS12_DTV_PCM_LATENCY_PROPERTY;
+        latency_ms = AVSYNC_MS12_DTV_PCM_LATENCY;
+        break;
+    }
+    case AUDIO_FORMAT_AC3: {
+        prop_name = AVSYNC_MS12_DTV_DD_LATENCY_PROPERTY;
+        latency_ms = AVSYNC_MS12_DTV_DD_LATENCY;
+        break;
+    }
+
+    case AUDIO_FORMAT_E_AC3: {
+        prop_name = AVSYNC_MS12_DTV_DDP_LATENCY_PROPERTY;
+        latency_ms = AVSYNC_MS12_DTV_DDP_LATENCY;
+        break;
+    }
+    case AUDIO_FORMAT_AC4: {
+        prop_name = AVSYNC_MS12_DTV_AC4_LATENCY_PROPERTY;
+        latency_ms = AVSYNC_MS12_DTV_AC4_LATENCY;
+        break;
+    }
+    default:
+        break;
+    }
+
+    if (prop_name) {
+        ret = property_get(prop_name, buf, NULL);
+        if (ret > 0) {
+            latency_ms = atoi(buf);
+        }
+    }
+
+    return latency_ms;
+}
+
+
+static int dtv_get_ms12_output_latency(audio_format_t output_format) {
+    char buf[PROPERTY_VALUE_MAX];
+    int ret = -1;
+    int latency_ms = 0;
+    char *prop_name = NULL;
+    switch (output_format) {
+    case AUDIO_FORMAT_PCM_16_BIT: {
+        latency_ms = AVSYNC_MS12_DTV_PCM_OUT_LATENCY;
+        prop_name = AVSYNC_MS12_DTV_PCM_OUT_LATENCY_PROPERTY;
+        break;
+    }
+    case AUDIO_FORMAT_AC3: {
+        latency_ms = AVSYNC_MS12_DTV_DD_OUT_LATENCY;
+        prop_name = AVSYNC_MS12_DTV_DD_OUT_LATENCY_PROPERTY;
+        break;
+    }
+    case AUDIO_FORMAT_E_AC3: {
+        latency_ms = AVSYNC_MS12_DTV_DDP_OUT_LATENCY;
+        prop_name = AVSYNC_MS12_DTV_DDP_OUT_LATENCY_PROPERTY;
+        break;
+    }
+    case AUDIO_FORMAT_MAT: {
+        latency_ms = AVSYNC_MS12_DTV_MAT_OUT_LATENCY;
+        prop_name = AVSYNC_MS12_DTV_MAT_OUT_LATENCY_PROPERTY;
+        break;
+    }
+    default:
+        break;
+    }
+
+    if (prop_name) {
+        ret = property_get(prop_name, buf, NULL);
+        if (ret > 0) {
+            latency_ms = atoi(buf);
+        }
+    }
+    ALOGV("%s output format =0x%x latency ms =%d", __func__, output_format, latency_ms);
+    return latency_ms;
+}
+
+int dtv_get_ms12_port_latency(enum OUT_PORT port, audio_format_t output_format)
+{
+    char buf[PROPERTY_VALUE_MAX];
+    int ret = -1;
+    int latency_ms = 0;
+    char *prop_name = NULL;
+    switch (port)  {
+        case OUTPORT_HDMI_ARC:
+        {
+            if (output_format == AUDIO_FORMAT_AC3) {
+                latency_ms = AVSYNC_MS12_DTV_HDMI_ARC_OUT_DD_LATENCY;
+                prop_name = AVSYNC_MS12_DTV_HDMI_ARC_OUT_DD_LATENCY_PROPERTY;
+            }
+            else if (output_format == AUDIO_FORMAT_E_AC3) {
+                latency_ms = AVSYNC_MS12_DTV_HDMI_ARC_OUT_DDP_LATENCY;
+                prop_name = AVSYNC_MS12_DTV_HDMI_ARC_OUT_DDP_LATENCY_PROPERTY;
+            }
+            else {
+                latency_ms = AVSYNC_MS12_DTV_HDMI_ARC_OUT_PCM_LATENCY;
+                prop_name = AVSYNC_MS12_DTV_HDMI_ARC_OUT_PCM_LATENCY_PROPERTY;
+            }
+            break;
+        }
+        case OUTPORT_HDMI:
+        {
+            if (output_format == AUDIO_FORMAT_AC3) {
+                latency_ms = AVSYNC_MS12_DTV_HDMI_OUT_DD_LATENCY;
+                prop_name = AVSYNC_MS12_DTV_HDMI_OUT_DD_LATENCY_PROPERTY;
+            }
+            else if (output_format == AUDIO_FORMAT_E_AC3) {
+                latency_ms = AVSYNC_MS12_DTV_HDMI_OUT_DDP_LATENCY;
+                prop_name = AVSYNC_MS12_DTV_HDMI_OUT_DDP_LATENCY_PROPERTY;
+            }
+            else if (output_format == AUDIO_FORMAT_MAT) {
+                latency_ms = AVSYNC_MS12_DTV_HDMI_OUT_MAT_LATENCY;
+                prop_name = AVSYNC_MS12_DTV_HDMI_OUT_MAT_LATENCY_PROPERTY;
+            }
+            else {
+                latency_ms = AVSYNC_MS12_DTV_HDMI_OUT_PCM_LATENCY;
+                prop_name = AVSYNC_MS12_DTV_HDMI_OUT_PCM_LATENCY_PROPERTY;
+            }
+            break;
+        }
+        case OUTPORT_SPEAKER:
+        case OUTPORT_AUX_LINE:
+        {
+            latency_ms = AVSYNC_MS12_DTV_SPEAKER_LATENCY;
+            prop_name = AVSYNC_MS12_DTV_SPEAKER_LATENCY_PROPERTY;
+            break;
+        }
+        default :
+            break;
+    }
+
+    if (prop_name) {
+        ret = property_get(prop_name, buf, NULL);
+        if (ret > 0) {
+            latency_ms = atoi(buf);
+        }
+    }
+
+    return latency_ms;
+}
+
+static int dtv_get_ms12_latency_offset(
+    enum OUT_PORT port
+    , audio_format_t input_format
+    , audio_format_t output_format
+    )
+{
+    int latency_ms = 0;
+    int input_latency_ms = 0;
+    int output_latency_ms = 0;
+    int port_latency_ms = 0;
+    int is_dv = getprop_bool(MS12_OUTPUT_5_1_DDP); /* suppose that Dolby Vision is under test */
+
+    //ALOGD("%s  prot:%d, is_netflix:%d, input_format:0x%x, output_format:0x%x", __func__,
+    //            port, is_netflix, input_format, output_format);
+    input_latency_ms  = dtv_get_ms12_input_latency(input_format);
+    output_latency_ms = dtv_get_ms12_output_latency(output_format);
+    port_latency_ms   = dtv_get_ms12_port_latency(port, output_format);
+
+    latency_ms = input_latency_ms + output_latency_ms + port_latency_ms;
+    ALOGV("%s total latency %d(ms) input %d(ms) out %d(ms) port %d(ms)",
+        __func__, latency_ms, input_latency_ms, output_latency_ms, port_latency_ms);
+    return latency_ms;
+}
+
+int dtv_get_ms12_bypass_latency_offset(void)
+{
+    char buf[PROPERTY_VALUE_MAX];
+    int ret = -1;
+    int latency_ms = 0;
+    char *prop_name = NULL;
+
+    prop_name = AVSYNC_MS12_DTV_BYPASS_LATENCY_PROPERTY;
+    latency_ms = AVSYNC_MS12_DTV_BYPASS_LATENCY;
+
+    ret = property_get(prop_name, buf, NULL);
+    if (ret > 0) {
+        latency_ms = atoi(buf);
+    }
+    return latency_ms;
+}
+
+
+int aml_audio_dtv_get_ms12_latency(struct audio_stream_out *stream)
+{
+    struct aml_stream_out *out = (struct aml_stream_out *) stream;
+    struct aml_audio_device *adev = out->dev;
+    int32_t latency_frames = 0;
+    int32_t alsa_delay = 0;
+    int32_t tunning_frame_delay = 0;
+
+    tunning_frame_delay = 48 * dtv_get_ms12_latency_offset(
+        adev->active_outport, out->hal_internal_format, adev->ms12.optical_format);
+
+    latency_frames = tunning_frame_delay;
+
+    ALOGV("latency frames =%d tunning delay=%d ms", latency_frames, tunning_frame_delay / 48);
+    return latency_frames;
+}
+
+static int dtv_get_nonms12_input_latency(audio_format_t input_format) {
+    char buf[PROPERTY_VALUE_MAX];
+    int ret = -1;
+    int latency_ms = 0;
+    char *prop_name = NULL;
+    switch (input_format) {
+    case AUDIO_FORMAT_PCM_16_BIT: {
+        prop_name = AVSYNC_NONMS12_DTV_PCM_LATENCY_PROPERTY;
+        latency_ms = AVSYNC_NONMS12_DTV_PCM_LATENCY;
+        break;
+    }
+    case AUDIO_FORMAT_AC3: {
+        prop_name = AVSYNC_NONMS12_DTV_DD_LATENCY_PROPERTY;
+        latency_ms = AVSYNC_NONMS12_DTV_DD_LATENCY;
+        break;
+    }
+
+    case AUDIO_FORMAT_E_AC3: {
+        prop_name = AVSYNC_NONMS12_DTV_DDP_LATENCY_PROPERTY;
+        latency_ms = AVSYNC_NONMS12_DTV_DDP_LATENCY;
+        break;
+    }
+    default:
+        break;
+    }
+
+    if (prop_name) {
+        ret = property_get(prop_name, buf, NULL);
+        if (ret > 0) {
+            latency_ms = atoi(buf);
+        }
+    }
+
+    return latency_ms;
+}
+
+
+static int dtv_get_nonms12_output_latency(audio_format_t output_format) {
+    char buf[PROPERTY_VALUE_MAX];
+    int ret = -1;
+    int latency_ms = 0;
+    char *prop_name = NULL;
+    switch (output_format) {
+    case AUDIO_FORMAT_PCM_16_BIT: {
+        latency_ms = AVSYNC_NONMS12_DTV_PCM_OUT_LATENCY;
+        prop_name = AVSYNC_NONMS12_DTV_PCM_OUT_LATENCY_PROPERTY;
+        break;
+    }
+    case AUDIO_FORMAT_AC3: {
+        latency_ms = AVSYNC_NONMS12_DTV_DD_OUT_LATENCY;
+        prop_name = AVSYNC_NONMS12_DTV_DD_OUT_LATENCY_PROPERTY;
+        break;
+    }
+    case AUDIO_FORMAT_E_AC3: {
+        latency_ms = AVSYNC_NONMS12_DTV_DDP_OUT_LATENCY;
+        prop_name = AVSYNC_NONMS12_DTV_DDP_OUT_LATENCY_PROPERTY;
+        break;
+    }
+    default:
+        break;
+    }
+
+    if (prop_name) {
+        ret = property_get(prop_name, buf, NULL);
+        if (ret > 0) {
+            latency_ms = atoi(buf);
+        }
+    }
+    ALOGV("%s output format =0x%x latency ms =%d", __func__, output_format, latency_ms);
+    return latency_ms;
+}
+
+int dtv_get_nonms12_port_latency(enum OUT_PORT port, audio_format_t output_format)
+{
+    char buf[PROPERTY_VALUE_MAX];
+    int ret = -1;
+    int latency_ms = 0;
+    char *prop_name = NULL;
+    switch (port) {
+        case OUTPORT_HDMI_ARC:
+        {
+            if (output_format == AUDIO_FORMAT_AC3) {
+                latency_ms = AVSYNC_NONMS12_DTV_HDMI_ARC_OUT_DD_LATENCY;
+                prop_name = AVSYNC_NONMS12_DTV_HDMI_ARC_OUT_DD_LATENCY_PROPERTY;
+            }
+            else if (output_format == AUDIO_FORMAT_E_AC3) {
+                latency_ms = AVSYNC_NONMS12_DTV_HDMI_ARC_OUT_DDP_LATENCY;
+                prop_name = AVSYNC_NONMS12_DTV_HDMI_ARC_OUT_DDP_LATENCY_PROPERTY;
+            }
+            else {
+                latency_ms = AVSYNC_NONMS12_DTV_HDMI_ARC_OUT_PCM_LATENCY;
+                prop_name = AVSYNC_NONMS12_DTV_HDMI_ARC_OUT_PCM_LATENCY_PROPERTY;
+            }
+            break;
+        }
+        case OUTPORT_HDMI:
+        {
+            if (output_format == AUDIO_FORMAT_AC3) {
+                latency_ms = AVSYNC_NONMS12_DTV_HDMI_OUT_DD_LATENCY;
+                prop_name = AVSYNC_NONMS12_DTV_HDMI_OUT_DD_LATENCY_PROPERTY;
+            }
+            else if (output_format == AUDIO_FORMAT_E_AC3) {
+                latency_ms = AVSYNC_NONMS12_DTV_HDMI_OUT_DDP_LATENCY;
+                prop_name = AVSYNC_NONMS12_DTV_HDMI_OUT_DDP_LATENCY_PROPERTY;
+            }
+            else {
+                latency_ms = AVSYNC_NONMS12_DTV_HDMI_OUT_PCM_LATENCY;
+                prop_name = AVSYNC_NONMS12_DTV_HDMI_OUT_PCM_LATENCY_PROPERTY;
+            }
+            break;
+        }
+        case OUTPORT_SPEAKER:
+        case OUTPORT_AUX_LINE:
+        {
+            latency_ms = AVSYNC_NONMS12_DTV_SPEAKER_LATENCY;
+            prop_name = AVSYNC_NONMS12_DTV_SPEAKER_LATENCY_PROPERTY;
+            break;
+        }
+        default :
+            break;
+    }
+
+    if (prop_name) {
+        ret = property_get(prop_name, buf, NULL);
+        if (ret > 0) {
+            latency_ms = atoi(buf);
+        }
+    }
+
+    return latency_ms;
+}
+
+
+static int dtv_get_nonms12_latency_offset(
+    enum OUT_PORT port
+    , audio_format_t input_format
+    , audio_format_t output_format
+    )
+{
+    int latency_ms = 0;
+    int input_latency_ms = 0;
+    int output_latency_ms = 0;
+    int port_latency_ms = 0;
+    int is_dv = getprop_bool(MS12_OUTPUT_5_1_DDP); /* suppose that Dolby Vision is under test */
+
+    //ALOGD("%s  prot:%d, is_netflix:%d, input_format:0x%x, output_format:0x%x", __func__,
+    //            port, is_netflix, input_format, output_format);
+    input_latency_ms  = dtv_get_nonms12_input_latency(input_format);
+    output_latency_ms = dtv_get_nonms12_output_latency(output_format);
+    port_latency_ms   = dtv_get_nonms12_port_latency(port, output_format);
+
+    latency_ms = input_latency_ms + output_latency_ms + port_latency_ms;
+    ALOGV("%s total latency %d ms input %d ms output %d ms port %d ms",
+        __func__, latency_ms, input_latency_ms, output_latency_ms, port_latency_ms);
+    return latency_ms;
+}
+
+int aml_audio_dtv_get_nonms12_latency(struct audio_stream_out * stream)
+{
+    struct aml_stream_out *out = (struct aml_stream_out *) stream;
+    struct aml_audio_device *adev = out->dev;
+    int32_t tunning_delay = 0;
+    int latency_frames = 0;
+
+    tunning_delay = 48 * dtv_get_nonms12_latency_offset(
+        adev->active_outport, out->hal_internal_format, adev->sink_format);
+
+    latency_frames = tunning_delay;
+
+    ALOGV("latency frames =%d tunning delay=%d ms", latency_frames, tunning_delay / 48);
+
+    return latency_frames;
+}
+

@@ -901,6 +901,107 @@ int DolbyMS12::DolbyMS12HWSyncChecinPTS(int offset, int apts)
     return ret;
 }
 
+int DolbyMS12::DolbyMS12GetLatencyForStereoOut(int *latency)
+{
+    int ret = 0;
+    ALOGV("+%s()", __FUNCTION__);
+    if (!FuncDolbyMS12Config) {
+        ALOGE("%s(), pls load lib first.\n", __FUNCTION__);
+        return ret;
+    }
+
+    ret = (*FuncDolbyMS12Config)(MS12_CONFIG_STEREO_OUT_LATENCY, (ms12_config_t *)latency);
+    ALOGV("-%s() ret %d", __FUNCTION__, ret);
+    return ret;
+}
+
+
+int DolbyMS12::DolbyMS12GetLatencyForMultiChannelOut(int *latency)
+{
+    int ret = 0;
+    ALOGV("+%s()", __FUNCTION__);
+    if (!FuncDolbyMS12Config) {
+        ALOGE("%s(), pls load lib first.\n", __FUNCTION__);
+        return ret;
+    }
+
+    ret = (*FuncDolbyMS12Config)(MS12_CONFIG_MULTICHANNEL_OUT_LATENCY, (ms12_config_t *)latency);
+    ALOGV("-%s() ret %d", __FUNCTION__, ret);
+    return ret;
+}
+
+int DolbyMS12::DolbyMS12GetLatencyForDAPSpeakerOut(int *latency)
+{
+    int ret = 0;
+    ALOGV("+%s()", __FUNCTION__);
+    if (!FuncDolbyMS12Config) {
+        ALOGE("%s(), pls load lib first.\n", __FUNCTION__);
+        return ret;
+    }
+
+    ret = (*FuncDolbyMS12Config)(MS12_CONFIG_DAP_SPEAKER_OUT_LATENCY, (ms12_config_t *)latency);
+    ALOGV("-%s() ret %d", __FUNCTION__, ret);
+    return ret;
+}
+
+int DolbyMS12::DolbyMS12GetLatencyForDAPHeadphoneOut(int *latency)
+{
+    int ret = 0;
+    ALOGV("+%s()", __FUNCTION__);
+    if (!FuncDolbyMS12Config) {
+        ALOGE("%s(), pls load lib first.\n", __FUNCTION__);
+        return ret;
+    }
+
+    ret = (*FuncDolbyMS12Config)(MS12_CONFIG_DAP_HEADPHONE_OUT_LATENCY, (ms12_config_t *)latency);
+    ALOGV("-%s() ret %d", __FUNCTION__, ret);
+    return ret;
+}
+
+int DolbyMS12::DolbyMS12GetLatencyForDDPOut(int *latency)
+{
+    int ret = 0;
+    ALOGV("+%s()", __FUNCTION__);
+    if (!FuncDolbyMS12Config) {
+        ALOGE("%s(), pls load lib first.\n", __FUNCTION__);
+        return ret;
+    }
+
+    ret = (*FuncDolbyMS12Config)(MS12_CONFIG_DDP_OUT_LATENCY, (ms12_config_t *)latency);
+    ALOGV("-%s() ret %d", __FUNCTION__, ret);
+    return ret;
+}
+
+int DolbyMS12::DolbyMS12GetLatencyForDDOut(int *latency)
+{
+    int ret = 0;
+    ALOGV("+%s()", __FUNCTION__);
+    if (!FuncDolbyMS12Config) {
+        ALOGE("%s(), pls load lib first.\n", __FUNCTION__);
+        return ret;
+    }
+
+    ret = (*FuncDolbyMS12Config)(MS12_CONFIG_DD_OUT_LATENCY, (ms12_config_t *)latency);
+    ALOGV("-%s() ret %d", __FUNCTION__, ret);
+    return ret;
+}
+
+int DolbyMS12::DolbyMS12GetLatencyForMATOut(int *latency)
+{
+    int ret = 0;
+    ALOGV("+%s()", __FUNCTION__);
+    if (!FuncDolbyMS12Config) {
+        ALOGE("%s(), pls load lib first.\n", __FUNCTION__);
+        return ret;
+    }
+
+    ret = (*FuncDolbyMS12Config)(MS12_CONFIG_MAT_OUT_LATENCY, (ms12_config_t *)latency);
+    ALOGV("-%s() ret %d", __FUNCTION__, ret);
+    return ret;
+}
+
+
+
 
 
 /*--------------------------------------------------------------------------*/
