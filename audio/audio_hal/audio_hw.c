@@ -8838,6 +8838,8 @@ static int adev_get_audio_port(struct audio_hw_device *dev __unused, struct audi
     return -ENOSYS;
 }
 
+#if ANDROID_PLATFORM_SDK_VERSION > 29
+
 static int adev_add_device_effect(struct audio_hw_device *dev,
                                   audio_port_handle_t device, effect_handle_t effect)
 {
@@ -8855,6 +8857,7 @@ static int adev_remove_device_effect(struct audio_hw_device *dev,
     ALOGD("func:%s device:%d effect_handle_t:%p, active_outport:%d", __func__, device, effect, aml_dev->active_outport);
     return 0;
 }
+#endif
 
 #define MAX_SPK_EXTRA_LATENCY_MS (100)
 #define DEFAULT_SPK_EXTRA_LATENCY_MS (15)
@@ -8923,8 +8926,10 @@ static int adev_open(const hw_module_t* module, const char* name, hw_device_t** 
     adev->hw_device.create_audio_patch = adev_create_audio_patch;
     adev->hw_device.release_audio_patch = adev_release_audio_patch;
     adev->hw_device.set_audio_port_config = adev_set_audio_port_config;
+#if ANDROID_PLATFORM_SDK_VERSION > 29
     adev->hw_device.add_device_effect = adev_add_device_effect;
     adev->hw_device.remove_device_effect = adev_remove_device_effect;
+#endif
     adev->hw_device.get_microphones = adev_get_microphones;
     adev->hw_device.get_audio_port = adev_get_audio_port;
     adev->hw_device.dump = adev_dump;
