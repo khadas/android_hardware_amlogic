@@ -387,7 +387,9 @@ static int mixer_output_write(struct amlAudioMixer *audio_mixer)
             in_data_config.format = out_port->cfg.format;
             write_to_sco(adev, &in_data_config, out_port->data_buf, out_port->bytes_avail);
         } else {
+            pthread_mutex_lock(&audio_mixer->adev->alsa_pcm_lock);
             out_port->write(out_port, out_port->data_buf, out_port->bytes_avail);
+            pthread_mutex_unlock(&audio_mixer->adev->alsa_pcm_lock);
         }
         set_outport_data_avail(out_port, 0);
     };
