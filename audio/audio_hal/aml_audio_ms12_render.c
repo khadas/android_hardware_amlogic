@@ -177,6 +177,16 @@ re_write:
     return return_bytes;
 
 }
+
+static void aml_audio_ms12_init_pts_param(struct dolby_ms12_desc *ms12, uint64_t first_pts)
+{
+    if (ms12) {
+        ms12->first_in_frame_pts = first_pts;
+        ms12->last_synced_frame_pts = -1;
+        ms12->out_synced_frame_count = 0;
+    }
+    ALOGI("first_in_frame_pts  %llu ms" , ms12->first_in_frame_pts / 90);
+}
 int aml_audio_ms12_render(struct audio_stream_out *stream, const void *buffer, size_t bytes)
 {
     int ret = -1;
@@ -216,7 +226,12 @@ int aml_audio_ms12_render(struct audio_stream_out *stream, const void *buffer, s
         if (ms12 && patch && patch->cur_package) {
             ALOGV("%s dolby pts %llu decoder_offset %u", __func__, patch->cur_package->pts, patch->decoder_offset);
             set_ms12_main_audio_pts(ms12, patch->cur_package->pts, patch->decoder_offset);
+            /* to init the pts information */
+            if (patch->decoder_offset == 0) {
+                aml_audio_ms12_init_pts_param(ms12, patch->cur_package->pts);
+            }
         }
+
         /* audio data/apts, then we send the audio data*/
         ret = aml_audio_ms12_process_wrapper(stream, buffer, bytes);
     } else {

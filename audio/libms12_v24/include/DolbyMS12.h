@@ -28,6 +28,14 @@ typedef enum  {
     MS12_CONFIG_MAT_STREAM_PROFILE,
     MS12_CONFIG_GAME_MODE,
     MS12_CONFIG_ATMOS_DROP,    /*drop the frist 2 frames for atmos case*/
+    MS12_CONFIG_MIXER_MAX_SIZE_ENABLED, /*enable the mixer max size to 1536, this can save cpu bandwidth*/
+    MS12_CONFIG_STEREO_OUT_LATENCY,
+    MS12_CONFIG_MULTICHANNEL_OUT_LATENCY,
+    MS12_CONFIG_DAP_SPEAKER_OUT_LATENCY,
+    MS12_CONFIG_DAP_HEADPHONE_OUT_LATENCY,
+    MS12_CONFIG_DDP_OUT_LATENCY,
+    MS12_CONFIG_DD_OUT_LATENCY,
+    MS12_CONFIG_MAT_OUT_LATENCY,
 }ms12_config_type_t;
 
 typedef union ms12_config {
@@ -157,6 +165,13 @@ public:
     virtual int     DolbyMS12HWSyncInit(void);
     virtual int     DolbyMS12HWSyncRelease(void);
     virtual int     DolbyMS12HWSyncChecinPTS(int offset, int apts);
+    virtual int     DolbyMS12GetLatencyForStereoOut(int *latency);
+    virtual int     DolbyMS12GetLatencyForMultiChannelOut(int *latency);
+    virtual int     DolbyMS12GetLatencyForDAPSpeakerOut(int *latency);
+    virtual int     DolbyMS12GetLatencyForDAPHeadphoneOut(int *latency);
+    virtual int     DolbyMS12GetLatencyForDDPOut(int *latency);
+    virtual int     DolbyMS12GetLatencyForDDOut(int *latency);
+    virtual int     DolbyMS12GetLatencyForMATOut(int *latency);
     // protected:
 
 

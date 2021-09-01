@@ -29,3 +29,21 @@ uint32_t out_get_ms12_bitstream_latency_ms(struct audio_stream_out *stream);
 
 int aml_audio_get_nonms12_tunnel_latency(struct audio_stream_out * stream);
 
+/*
+ *@brief for audio dtv, get the ms12-lib latency.
+ * The return value unit is the number of samples.
+ */
+int aml_audio_dtv_get_ms12_latency(struct audio_stream_out *stream);
+
+/*
+ *@brief for audio dtv, get the bypass ms12 tuning latency(ms).
+ * The return value unit is millisecond(ms).
+ */
+ int dtv_get_ms12_bypass_latency_offset(void);
+
+/*
+ *@brief for audio dtv, get the ddp-lib(nonms12) latency.
+ * The return value unit is the number of samples.
+ */
+int aml_audio_dtv_get_nonms12_latency(struct audio_stream_out * stream);
+
