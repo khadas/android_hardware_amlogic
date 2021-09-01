@@ -273,10 +273,6 @@ int ring_buffer_seek(struct ring_buffer *rbuffer, int bytes)
     return seek_bytes;
 }
 
-
-
-
-
 /*************************************************
 Function: ring_buffer_init
 Description: initialize ring buffer

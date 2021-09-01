@@ -27,7 +27,7 @@
 #define AVSYNC_ALSA_OUT_MAX_LATENCY (60)
 #define AVSYNC_ALSA_OUT_MAX_LATENCY_ARC (50)
 #define AVSYNC_RINGBUFFER_MIN_LATENCY (20)
-#define AVSYNC_SKIP_CNT (0)
+#define AVSYNC_TIMEOUT_CNT (300) /* 300*10ms */
 
 #define MAT_MULTIPLIER 16
 #define MS12_DECODER_LATENCY 32
@@ -44,8 +44,6 @@ struct aml_audio_device;
 
 int calc_frame_to_latency(int frames, audio_format_t format);
 int aml_dev_try_avsync(struct aml_audio_patch *patch);
-int tuning_spker_latency(struct aml_audio_device *adev,
-                         int16_t *sink_buffer, int16_t *src_buffer, size_t bytes);
 int aml_dev_sample_audio_path_latency(struct aml_audio_device *aml_dev, char *latency_details);
 int aml_dev_sample_video_path_latency(struct aml_audio_patch *patch);
 int aml_dev_avsync_diff_in_path(struct aml_audio_patch *patch, int *av_diff,

@@ -296,11 +296,12 @@ struct aml_audio_patch {
     int average_altcy;
     int avsync_sample_accumed;
     int max_video_latency;
+    int min_video_latency;
     bool need_do_avsync;
     bool input_signal_stable;
     bool is_avsync_start;
     bool skip_frames;
-    int skip_avsync_cnt;
+    int timeout_avsync_cnt;
     bool game_mode;
     struct audio_patch_latency_detail audio_latency;
     /* end of AVSYNC tuning */

@@ -29,101 +29,33 @@
 #include "aml_avsync_tuning.h"
 #include "alsa_manager.h"
 #include "dolby_lib_api.h"
+#include "aml_alsa_mixer.h"
 
-
-/**
- * store src_buffer data to spker_tuning_rbuf,
- * retrieve former saved data after latency requirement is met.
- */
-int tuning_spker_latency(struct aml_audio_device *adev,
-                         int16_t *sink_buffer, int16_t *src_buffer, size_t bytes)
+static int get_tvin_delay(struct aml_mixer_handle *mixer_handle)
 {
-    ring_buffer_t *rbuf = &(adev->spk_tuning_rbuf);
-    uint latency_bytes = adev->spk_tuning_lvl;
-    uint ringbuf_lvl = 0;
-    uint ret = 0;
+    int delay = 0;
 
-    if (!sink_buffer || !src_buffer) {
-        ALOGE("%s(), NULL pointer!", __func__);
-        return 0;
-    }
+    delay = aml_mixer_ctrl_get_int(mixer_handle, AML_MIXER_ID_TVIN_VIDEO_DELAY);
 
-    /* clear last sink buffers */
-    memset((void*)sink_buffer, 0, bytes);
-    /* get buffered data from ringbuf head */
-    ringbuf_lvl = get_buffer_read_space(rbuf);
-    if (ringbuf_lvl == latency_bytes) {
-        if (ringbuf_lvl >= bytes) {
-            ret = ring_buffer_read(rbuf, (unsigned char*)sink_buffer, bytes);
-            if (ret != (uint)bytes) {
-                ALOGE("%s(), ringbuf read fail.", __func__);
-                goto err;
-            }
-            ret = ring_buffer_write(rbuf, (unsigned char*)src_buffer, bytes, UNCOVER_WRITE);
-            if (ret != (uint)bytes) {
-                ALOGE("%s(), ringbuf write fail.", __func__);
-                goto err;
-            }
-        } else {
-            ret = ring_buffer_write(rbuf, (unsigned char*)src_buffer, bytes, UNCOVER_WRITE);
-            if (ret != (uint)bytes) {
-                ALOGE("%s(), ringbuf write fail..", __func__);
-                goto err;
-            }
-            ret = ring_buffer_read(rbuf, (unsigned char*)sink_buffer, bytes);
-            if (ret != (uint)bytes) {
-                ALOGE("%s(), ringbuf read fail..", __func__);
-                goto err;
-            }
-        }
-    } else if (ringbuf_lvl < latency_bytes) {
-        if (ringbuf_lvl + bytes < latency_bytes) {
-            /* all data need to store in tmp buf */
-            ret = ring_buffer_write(rbuf, (unsigned char*)src_buffer, bytes, UNCOVER_WRITE);
-            if (ret != (uint)bytes) {
-                ALOGE("%s(), ringbuf write fail...", __func__);
-                goto err;
-            }
-        } else {
-            /* output former data, and store new */
-            uint out_bytes = ringbuf_lvl + bytes - latency_bytes;
-            uint offset = bytes - out_bytes;
+    return delay;
+}
 
-            if (ringbuf_lvl >= out_bytes) {
-                /* first fetch data and then store the new */
-                ret = ring_buffer_read(rbuf, (unsigned char*)sink_buffer + offset, out_bytes);
-                if (ret != (uint)out_bytes) {
-                    ALOGE("%s(), ringbuf read fail...", __func__);
-                    goto err;
-                }
-                ret = ring_buffer_write(rbuf, (unsigned char*)src_buffer, bytes, UNCOVER_WRITE);
-                if (ret != (uint)bytes) {
-                    ALOGE("%s(), ringbuf write fail...", __func__);
-                    goto err;
-                }
-            } else {
-                /* first store the data then fetch */
-                ret = ring_buffer_write(rbuf, (unsigned char*)src_buffer, bytes, UNCOVER_WRITE);
-                if (ret != (uint)bytes) {
-                    ALOGE("%s(), ringbuf write fail", __func__);
-                    goto err;
-                }
-                ret = ring_buffer_read(rbuf, (unsigned char*)sink_buffer + offset, out_bytes);
-                if (ret != (uint)out_bytes) {
-                    ALOGE("%s(), ringbuf read fail....", __func__);
-                    goto err;
-                }
-            }
-        }
-    } else {
-        ALOGE("%s(), abnormal case, CHECK data flow please!", __func__);
-        goto err;
-    }
-    return 0;
+static int get_tvin_max_delay(struct aml_mixer_handle *mixer_handle)
+{
+    int delay = 0;
 
-err:
-    memcpy(sink_buffer, src_buffer, bytes);
-    return ret;
+    delay = aml_mixer_ctrl_get_int(mixer_handle, AML_MIXER_ID_TVIN_VIDEO_MAX_DELAY);
+
+    return delay;
+}
+
+static int get_tvin_min_delay(struct aml_mixer_handle *mixer_handle)
+{
+    int delay = 0;
+
+    delay = aml_mixer_ctrl_get_int(mixer_handle, AML_MIXER_ID_TVIN_VIDEO_MIN_DELAY);
+
+    return delay;
 }
 
 static void check_skip_frames(struct aml_audio_device *aml_dev)
@@ -202,12 +134,6 @@ static int ringbuffer_seek(struct aml_audio_patch *patch, int tune_val)
 
     frame_size = CHANNEL_CNT * audio_bytes_per_sample(AUDIO_FORMAT_PCM_16_BIT);
     space = calc_latency_to_frame(tune_val, patch->aformat) * frame_size;
-
-    /* only reduce audio latency now */
-    if (space < 0) {
-        ALOGV("%s tune_val %d space %d\n", __func__, tune_val, space);
-        space = 0;
-    }
 
     seek_space = ring_buffer_seek(&patch->aml_ringbuffer, space);
 
@@ -356,18 +282,22 @@ int aml_dev_sample_audio_path_latency(struct aml_audio_device *aml_dev, char *la
 
 int aml_dev_sample_video_path_latency(struct aml_audio_patch *patch)
 {
+    struct aml_audio_device *aml_dev;
     int vltcy = 0;
-    int max_vltcy = patch->max_video_latency;
+    aml_dev = (struct aml_audio_device *)patch->dev;
 
-    if (!max_vltcy) {
-        max_vltcy = aml_sysfs_get_int("/sys/class/video/hdmin_delay_max_ms");
-        patch->max_video_latency = max_vltcy;
+
+    patch->max_video_latency = get_tvin_max_delay(&aml_dev->alsa_mixer);
+    if (patch->max_video_latency <= 0) {
+        return -1;
     }
 
-    vltcy = aml_sysfs_get_int("/sys/class/video/vframe_walk_delay");
-    /*if (vltcy > max_vltcy || vltcy <= 0) {
-        return -EINVAL;
-    }*/
+    patch->min_video_latency = get_tvin_min_delay(&aml_dev->alsa_mixer);
+    if (patch->min_video_latency <= 0) {
+        return -1;
+    }
+
+    vltcy = get_tvin_delay(&aml_dev->alsa_mixer);
 
     return vltcy;
 }
@@ -418,6 +348,7 @@ int aml_dev_avsync_diff_in_path(struct aml_audio_patch *patch, int *Vltcy, int *
     if (patch->input_src == AUDIO_DEVICE_IN_LINE) {
         src_diff_err = -30;
     }
+
     altcy = aml_dev_sample_audio_path_latency(aml_dev, latency_details);
     *Altcy = altcy + src_diff_err;
 
@@ -444,28 +375,12 @@ static inline void aml_dev_accumulate_avsync_diff(struct aml_audio_patch *patch,
             patch->avsync_sample_accumed, patch->average_vltcy, patch->average_altcy);
 }
 
-static int aml_dev_tune_video_path_latency(unsigned int video_val)
+static int aml_dev_tune_video_path_latency(struct aml_mixer_handle *mixer_handle, unsigned int video_val)
 {
-    char tmp[32];
     int ret = 0;
 
-    memset(tmp, 0, 32);
-    snprintf(tmp, 32, "%d", video_val);
-    ret = aml_sysfs_set_str("/sys/class/video/hdmin_delay_duration", tmp);
-    if (ret < 0) {
-        ALOGE("Error: %s() set [/sys/class/video/hdmin_delay_duration] fail,  err: %s",
-            __func__, strerror(errno));
-        goto err;
-    }
-    ret = aml_sysfs_set_str("/sys/class/video/hdmin_delay_start", "1");
-    if (ret < 0) {
-        ALOGE("Error: %s() set [/sys/class/video/hdmin_delay_start] fail,  err: %s",
-            __func__, strerror(errno));
-        goto err;
-    }
+    ret = aml_mixer_ctrl_set_int(mixer_handle, AML_MIXER_ID_TVIN_VIDEO_DELAY, video_val);
 
-    return 0;
-err:
     return ret;
 }
 
@@ -476,9 +391,11 @@ static inline void aml_dev_avsync_reset(struct aml_audio_patch *patch)
     patch->average_vltcy = 0;
     patch->need_do_avsync = false;
     patch->is_avsync_start = false;
-    patch->skip_avsync_cnt = 0;
+    patch->timeout_avsync_cnt = 0;
     patch->altcy = 0;
     patch->average_altcy = 0;
+    patch->max_video_latency = 0;
+    patch->min_video_latency = 0;
 }
 
 static void aml_check_pic_mode(struct aml_audio_patch *patch)
@@ -515,12 +432,12 @@ int aml_dev_try_avsync(struct aml_audio_patch *patch)
     char latency_details[256] = {0};
     ret = aml_dev_avsync_diff_in_path(patch, &vltcy, &altcy, latency_details);
     if (ret < 0) {
-        return 0;
-    }
-
-    /* skip some frames to wait video stability*/
-    if (patch->skip_avsync_cnt < AVSYNC_SKIP_CNT) {
-        patch->skip_avsync_cnt++;
+        patch->timeout_avsync_cnt++;
+        /* timeout to wait video stability, don't do avsync */
+        if (patch->timeout_avsync_cnt > AVSYNC_TIMEOUT_CNT) {
+            aml_dev_avsync_reset(patch);
+            ALOGI(" timeout to tune avsync! ");
+        }
         return 0;
     }
 
@@ -534,31 +451,37 @@ int aml_dev_try_avsync(struct aml_audio_patch *patch)
     aml_dev_accumulate_avsync_diff(patch, vltcy, altcy);
 
     int tune_val = patch->average_altcy;
-    int avDiff = calc_diff(patch->average_altcy, patch->average_vltcy);
     int user_tune_val = aml_audio_get_src_tune_latency(aml_dev->patch_src);
-    tune_val += user_tune_val;
-    int seek_space_ret = 0;
-    int seek_space = tune_val;
-    int delay_video = 0;
+    int seek_duration_ret = 0;
+    int seek_duration = tune_val;
+    int avDiff = 0;
 
     if (patch->avsync_sample_accumed >= AVSYNC_SAMPLE_MAX_CNT) {
-        ALOGD("  --start avsync, user tuning latency = [%dms], total tuning latency = [%dms]",
-                user_tune_val, tune_val);
+        tune_val += user_tune_val;
 
-        /* if it need reduce audio latency, first do ringbuffer seek*/
-        if (patch->audio_latency.ringbuffer_latency > AVSYNC_RINGBUFFER_MIN_LATENCY) {
-            seek_space = patch->audio_latency.ringbuffer_latency - AVSYNC_RINGBUFFER_MIN_LATENCY;
+        avDiff = calc_diff(tune_val, patch->min_video_latency);
 
-            seek_space_ret = ringbuffer_seek(patch, seek_space);
-            tune_val -= seek_space_ret;
+        ALOGD("  --vmax latency = [%dms], vmin latency = [%dms], vltcy = [%dms], altcy = [%dms], altcy - vmax = [%dms]",
+                patch->max_video_latency, patch->min_video_latency, patch->average_vltcy, tune_val, avDiff);
+
+        /* if min video latency is larger than audio latency, seek audio buffer to enlarge the audio delay */
+        if (avDiff < 0) {
+            seek_duration_ret = ringbuffer_seek(patch, avDiff);
+        } else if (patch->audio_latency.ringbuffer_latency > AVSYNC_RINGBUFFER_MIN_LATENCY) {
+            /* if it need reduce audio latency, first do ringbuffer seek */
+            seek_duration = patch->audio_latency.ringbuffer_latency - AVSYNC_RINGBUFFER_MIN_LATENCY;
+            seek_duration_ret = ringbuffer_seek(patch, seek_duration);
         }
-        delay_video = tune_val;
 
-        ret = aml_dev_tune_video_path_latency(tune_val);
-        ALOGD("  --start avsync, tuning video total latency: value [%dms]", tune_val);
+        tune_val -= seek_duration_ret;
 
-        //ALOGI("Adjust AV latency, avdiff:%d(%s) tuned offset:(%dms), do delay audio:%d(%d) delay video:(%d)",
-        //        avDiff, latency_details, user_tune_val, -1 * seek_space_ret, -1 * seek_space, delay_video);
+        ret = aml_dev_tune_video_path_latency(&aml_dev->alsa_mixer, tune_val);
+        vltcy = aml_dev_sample_video_path_latency(patch);
+        altcy = aml_dev_sample_audio_path_latency(aml_dev, latency_details);
+
+        ALOGD("  --start avsync, tuning video total latency: value [%dms], real vltcy [%dms], real altcy [%dms]",
+                tune_val, vltcy, altcy);
+
         aml_dev_avsync_reset(patch);
     }
     return 0;
