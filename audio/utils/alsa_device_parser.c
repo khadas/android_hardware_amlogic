@@ -42,6 +42,7 @@
 #define CARD_NAME_MESON      "AMLMESONAUDIO"
 #define CARD_NAME_M8         "AMLM8AUDIO"
 #define CARD_NAME_TV         "AMLTVAUDIO"
+#define CARD_AML_KEYWORD     "AML"
 
 /* for parse device port
  * for i2s, i2s_playback, i2s_capture,  when select device, firstly to check i2s_playback,
@@ -143,7 +144,7 @@ int alsa_device_get_card_index()
 			fgets(tempbuffer, READ_BUFFER_SIZE, mCardFile);
 
 			/* this line contain '[' character */
-			if (strchr(tempbuffer, '[')) {
+			if (strchr(tempbuffer, '[') && strstr(tempbuffer, CARD_AML_KEYWORD)) {
 				char *Rch = strtok(tempbuffer, "[");
 				mCardIndex = atoi(Rch);
 				ALOGD("\tcurrent mCardIndex = %d, Rch = %s", mCardIndex, Rch);
