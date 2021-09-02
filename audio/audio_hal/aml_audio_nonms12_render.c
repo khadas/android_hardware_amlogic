@@ -31,6 +31,7 @@
 #include "aml_ddp_dec_api.h"
 #include "aml_audio_spdifout.h"
 #include "alsa_config_parameters.h"
+#include "aml_data_utils.h"
 
 extern unsigned long decoder_apts_lookup(unsigned int offset);
 static void aml_audio_stream_volume_process(struct audio_stream_out *stream, void *buf, int sample_size, int channels, int bytes) {
@@ -113,6 +114,7 @@ int aml_audio_nonms12_render(struct audio_stream_out *stream, const void *buffer
     bool  try_again = false;
     int alsa_latency = 0;
     int decoder_latency = 0;
+    int decoder_remain_cache = 0;
 
     struct aml_stream_out *aml_out = (struct aml_stream_out *) stream;
     struct aml_audio_device *adev = aml_out->dev;
@@ -127,12 +129,27 @@ int aml_audio_nonms12_render(struct audio_stream_out *stream, const void *buffer
     int duration = 0;
     bool speed_enabled = false;
     bool dts_pcm_direct_output = false;
+    int decoder_remain_size = 0;
     dtvsync_process_res process_result = DTVSYNC_AUDIO_OUTPUT;
 
     if (aml_out->aml_dec == NULL) {
         config_output(stream, true);
+
     }
+
     aml_dec_t *aml_dec = aml_out->aml_dec;
+
+    if (patch && patch->decoder_offset == 0) {
+        aml_dec->first_in_frame_pts = patch->cur_package->pts;
+        aml_dec->last_synced_frame_pts = -1;
+        aml_dec->out_synced_frame_count = 0;
+        ALOGI("first_in_frame_pts  %lld ms" , aml_dec->first_in_frame_pts / 90);
+    }
+    if (is_dolby_ddp_support_compression_format(aml_out->hal_internal_format)) {
+        struct dolby_ddp_dec *ddp_dec = (struct dolby_ddp_dec *)aml_dec;
+        decoder_remain_size = ddp_dec->remain_size;
+    }
+
     if (aml_dec) {
         dec_data_info_t * dec_pcm_data = &aml_dec->dec_pcm_data;
         dec_data_info_t * dec_raw_data = &aml_dec->dec_raw_data;
@@ -186,8 +203,29 @@ int aml_audio_nonms12_render(struct audio_stream_out *stream, const void *buffer
             // write pcm data
             if (dec_pcm_data->data_len > 0) {
                 // aml_audio_dump_audio_bitstreams("/data/dec_data.raw", dec_pcm_data->buf, dec_pcm_data->data_len);
-                out_frames += dec_pcm_data->data_len /( 2 * dec_pcm_data->data_ch);
                 aml_dec->out_frame_pts = aml_dec->in_frame_pts + (90 * out_frames /(dec_pcm_data->data_sr / 1000));
+                out_frames += dec_pcm_data->data_len /( 2 * dec_pcm_data->data_ch);
+                if (is_dolby_ddp_support_compression_format(aml_out->hal_internal_format)) {
+                    decoder_remain_cache = (decoder_remain_size > raw_in_data->data_len / 2) ? DDP_DECODER_CACHE : 0;
+                    decoder_latency = DDP_DECODER_CACHE + decoder_remain_cache;
+                }
+
+                if (aml_dec->debug_synced_frame_pts_flag) {
+                    int pre_zero_samples = 0;
+                    bool is_beep_frame = check_beep_frame(dec_pcm_data->buf, dec_pcm_data->data_len, &pre_zero_samples);
+                    if (is_beep_frame)  {
+                        int timems = (aml_dec->out_frame_pts - aml_out->aml_dec->first_in_frame_pts - decoder_latency) / 90;
+                        if ( aml_dec->last_synced_frame_pts != -1 && aml_dec->out_frame_pts - aml_dec->last_synced_frame_pts <= 90 * 80) {
+                            ALOGV("same beep frame ");
+                        } else {
+                           aml_dec->out_synced_frame_count++;
+                           int actual_synced_frame_ms = timems + pre_zero_samples / (2 * (dec_pcm_data->data_sr / 1000));
+                           ALOGI("count %d out_frame_pts %lld ms decoder out syned frame at %d ms pre_zero_samples %d actual_synced_frame %d ms",
+                               aml_dec->out_synced_frame_count, aml_dec->out_frame_pts / 90, timems, pre_zero_samples, actual_synced_frame_ms);
+                           aml_dec->last_synced_frame_pts = aml_dec->out_frame_pts;
+                        }
+                    }
+                }
 
                 audio_format_t output_format = AUDIO_FORMAT_PCM_16_BIT;
                 void  *dec_data = (void *)dec_pcm_data->buf;

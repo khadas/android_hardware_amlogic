@@ -23,6 +23,7 @@
 
 #include <stdlib.h>
 #include <stdint.h>
+
 #include <unistd.h>
 #include <string.h>
 #include <errno.h>
@@ -1166,6 +1167,34 @@ int audio_effect_real_lfe_gain(short* buffer, int frame_size, int LPF_Gain)
         buffer[i * 2 + 1] = _clamp16(tmp_sample);
     }
 
-	return 0;
+    return 0;
+}
+
+#define beep_threshold 500
+bool check_beep_frame(const void *buffer, size_t bytes, int *pre_zero_samples) {
+
+    int samples = bytes / 2;
+    int16_t *sample_data = (int16_t *)buffer;
+
+    int i = 0;
+    bool is_beep_frame = false;
+    int synced_count = 0;
+    int zero_samples = 0;
+    for (i = 0 ; i < samples; i++ ) {
+         if (abs(sample_data[i]) > beep_threshold) {
+             synced_count++;
+         } else {
+             if (synced_count == 0) {
+                 zero_samples++;
+             }
+         }
+
+    }
+    *pre_zero_samples = zero_samples;
+    if (synced_count) {
+        is_beep_frame = true;
+    }
+    //ALOGI("is_synced_frame %d synced_count %d", is_beep_frame, synced_count);
+    return is_beep_frame;
 }
 
