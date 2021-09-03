@@ -273,8 +273,8 @@ int aml_audio_ms12_render(struct audio_stream_out *stream, const void *buffer, s
                     /* audio data/apts, we send the APTS at first*/
                     if (ms12 && aml_dec) {
                         /*Fixme, how to get the right apts(long long unsigned int) and bytes_offset*/
-                        ALOGV("%s non-dolby pts %llu decoder_offset %llu", __func__, ms12->ms12_main_input_size/4/48, ms12->ms12_main_input_size);
-                        set_ms12_main_audio_pts(ms12, ms12->ms12_main_input_size * 90000 / 192 /* bytes_per_sample(4) plus sr(48 kHz)*/, ms12->ms12_main_input_size);
+                        //ALOGV("%s non-dolby pts %llu decoder_offset %llu", __func__, ms12->ms12_main_input_size/4/48, ms12->ms12_main_input_size);
+                        //set_ms12_main_audio_pts(ms12, ms12->ms12_main_input_size * 90000 / 192 /* bytes_per_sample(4) plus sr(48 kHz)*/, ms12->ms12_main_input_size);
                     }
                     /* audio data/apts, then we send the audio data*/
                     ret = aml_audio_ms12_process_wrapper(stream, dec_data, dec_pcm_data->data_len);

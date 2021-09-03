@@ -2225,6 +2225,7 @@ int ms12_output(void *buffer, void *priv_data, size_t size, aml_ms12_dec_info_t 
     struct dolby_ms12_desc *ms12 = &(adev->ms12);
     struct aml_audio_patch *patch = adev->audio_patch;
     aml_dtvsync_t *aml_dtvsync = NULL;
+    audio_format_t hal_internal_format = ms12_get_audio_hal_format(aml_out->hal_internal_format);
     bool do_sync_flag = adev->patch_src  == SRC_DTV && patch && patch->skip_amadec_flag;
     dtvsync_process_res process_result = DTVSYNC_AUDIO_OUTPUT;
     audio_format_t output_format = (ms12_info) ? ms12_info->data_type : AUDIO_FORMAT_PCM_16_BIT;
@@ -2264,7 +2265,7 @@ int ms12_output(void *buffer, void *priv_data, size_t size, aml_ms12_dec_info_t 
                 ms12->master_pcm_frames += size / (2 * ms12_info->output_ch);
             }
         }
-        if (patch && patch->dtvsync) {
+        if (patch && patch->dtvsync && !audio_is_linear_pcm(hal_internal_format)) {
             aml_dtvsync = patch->dtvsync;
             uint64_t ms12_main_apts = (((uint64_t)main_apts_high32b << 32) + (uint64_t)main_apts_low32b);
             int ch_num = ms12_info->output_ch ? ms12_info->output_ch : 2;
