@@ -139,12 +139,17 @@ int aml_audio_nonms12_render(struct audio_stream_out *stream, const void *buffer
 
     aml_dec_t *aml_dec = aml_out->aml_dec;
 
-    if (patch && patch->decoder_offset == 0) {
-        aml_dec->first_in_frame_pts = patch->cur_package->pts;
+    if (patch && adev->patch_src ==  SRC_DTV && patch->decoder_offset == 0) {
+        if (patch->cur_package) {
+            aml_dec->first_in_frame_pts = patch->cur_package->pts;
+        } else {
+            ALOGI("patch->cur_package NULL ");
+        }
         aml_dec->last_synced_frame_pts = -1;
         aml_dec->out_synced_frame_count = 0;
         ALOGI("first_in_frame_pts  %lld ms" , aml_dec->first_in_frame_pts / 90);
     }
+
     if (is_dolby_ddp_support_compression_format(aml_out->hal_internal_format)) {
         struct dolby_ddp_dec *ddp_dec = (struct dolby_ddp_dec *)aml_dec;
         decoder_remain_size = ddp_dec->remain_size;
@@ -265,7 +270,10 @@ int aml_audio_nonms12_render(struct audio_stream_out *stream, const void *buffer
                     if (dec_pcm_data->data_sr > 0)
                         aml_out->config.rate = dec_pcm_data->data_sr;
                 }
-                aml_out->config.channels = dec_pcm_data->data_ch;
+                if (!adev->is_TV) {
+                    aml_out->config.channels = dec_pcm_data->data_ch;
+                }
+
                 /*process the stream volume before mix*/
                 aml_audio_stream_volume_process(stream, dec_data, sizeof(int16_t), dec_pcm_data->data_ch, pcm_len);
 
