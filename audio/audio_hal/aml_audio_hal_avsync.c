@@ -760,7 +760,7 @@ static int dtv_audio_tune_check(struct aml_audio_patch *patch, int cur_pts_diff,
     int origin_pts_diff = 0;
     struct audio_hw_device *adev = patch->dev;
     struct aml_audio_device *aml_dev = (struct aml_audio_device *) adev;
-    if (!patch || !patch->dev || aml_dev->tuner2mix_patch == 1) {
+    if (!patch || !patch->dev || aml_dev->dev2mix_patch == 1) {
         patch->dtv_audio_tune = AUDIO_RUNNING;
         return 1;
     }

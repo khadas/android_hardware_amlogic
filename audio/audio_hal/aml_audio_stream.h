@@ -236,7 +236,7 @@ struct audio_patch_latency_detail {
 struct aml_audio_patch {
     struct audio_hw_device *dev;
     ring_buffer_t aml_ringbuffer;
-    ring_buffer_t dtvin_ringbuffer;
+    ring_buffer_t tvin_ringbuffer;
     ring_buffer_t assoc_ringbuffer;
     pthread_t audio_input_threadID;
     pthread_t audio_cmd_process_threadID;
@@ -252,7 +252,7 @@ struct aml_audio_patch {
     size_t out_buf_size;
     void *out_tmpbuf;
     size_t out_tmpbuf_size;
-    int dtvin_buffer_inited;
+    int tvin_buffer_inited;
     int assoc_buffer_inited;
     int cmd_process_thread_exit;
     int input_thread_exit;
@@ -464,4 +464,15 @@ int update_sink_format_after_hotplug(struct aml_audio_device *adev);
 
 int stream_check_reconfig_param(struct audio_stream_out *stream);
 
+
+void create_tvin_buffer(struct aml_audio_patch *patch);
+void release_tvin_buffer(struct aml_audio_patch *patch);
+void tv_in_write(struct audio_stream_out *stream, const void* buffer, size_t bytes);
+int tv_in_read(struct audio_stream_in *stream, void* buffer, size_t bytes);
+
+/*
+*@breif check tv signal need to mute or not
+* return false if signal need to mute
+*/
+bool check_tv_stream_signal (struct audio_stream_in *stream);
 #endif /* _AML_AUDIO_STREAM_H_ */

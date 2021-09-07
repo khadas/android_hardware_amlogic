@@ -104,7 +104,6 @@
 /*Google Voice Assistant channel_mask */
 #define BUILT_IN_MIC 12
 
-#define ENABLE_DTV_PATCH
 //#define SUBMIXER_V1_1
 #define HDMI_LATENCY_MS 60
 
@@ -1992,10 +1991,6 @@ int start_input_stream(struct aml_stream_in *in)
     unsigned int alsa_device = 0;
     int ret = 0;
 
-    if ((in->device | AUDIO_DEVICE_BIT_IN ) == AUDIO_DEVICE_IN_TV_TUNER && adev->patch_src == SRC_DTV)  {
-        return 0;
-    }
-
     ret = choose_stream_pcm_config(in);
     if (ret < 0)
         return -EINVAL;
@@ -2105,9 +2100,7 @@ int do_input_standby(struct aml_stream_in *in)
     struct aml_audio_device *adev = in->dev;
 
     ALOGD ("%s(%p) in->standby = %d", __FUNCTION__, in, in->standby);
-    if ((in->device | AUDIO_DEVICE_BIT_IN ) == AUDIO_DEVICE_IN_TV_TUNER &&  adev->patch_src == SRC_DTV)  {
-        return 0;
-    }
+
     if (!in->standby) {
         pcm_close (in->pcm);
         in->pcm = NULL;
@@ -2566,17 +2559,23 @@ static ssize_t in_read(struct audio_stream_in *stream, void* buffer, size_t byte
      * mutex
      */
     pthread_mutex_lock(&in->lock);
-
-    if (in->standby) {
-        ret = start_input_stream(in);
-        if (ret < 0)
-            goto exit;
-        in->standby = 0;
+    if (adev->dev2mix_patch) {
+        ALOGV("dev2mix patch case ");
+    } else {
+        if (in->standby) {
+            ret = start_input_stream(in);
+            if (ret < 0)
+                goto exit;
+            in->standby = 0;
+        }
     }
 
+#if 0
     if (adev->dev_to_mix_parser != NULL) {
         bytes = aml_dev2mix_parser_process(in, buffer, bytes);
     }
+#endif
+
 #ifdef ENABLE_AEC_HAL
     if (in->device & AUDIO_DEVICE_IN_BUILTIN_MIC) {
         size_t read_size = 0;
@@ -2591,90 +2590,41 @@ static ssize_t in_read(struct audio_stream_in *stream, void* buffer, size_t byte
         ret = aml_alsa_input_read(stream, in->tmp_buffer_8ch, read_size);
     }
 #endif
-    else if (adev->patch_src == SRC_DTV && adev->tuner2mix_patch) {
-        ret = dtv_in_read(stream, buffer, bytes);
-        apply_volume(adev->src_gain[adev->active_inport], buffer, sizeof(uint16_t), bytes);
+    if (adev->dev2mix_patch) {
+        float source_gain = aml_audio_get_s_gain_by_src(adev, adev->patch_src);
+        ret = tv_in_read(stream, buffer, bytes);
+        if (getprop_bool("vendor.media.audiohal.indump")) {
+            aml_audio_dump_audio_bitstreams("/data/audio/tv_in_read.raw",
+                buffer, bytes);
+        }
+        apply_volume(source_gain * adev->src_gain[adev->active_inport], buffer, sizeof(uint16_t), bytes);
         goto exit;
     } else {
 
-        /* when audio is unstable, need to mute the audio data for a while
-         * the mute time is related to hdmi audio buffer size
-         */
-        bool stable = signal_status_check(adev->in_device, &in->mute_mdelay, stream);
-
-        if (!stable) {
-            if (in->mute_log_cntr == 0)
-                ALOGI("%s: audio is unstable, mute channel", __func__);
-            if (in->mute_log_cntr++ >= 100)
-                in->mute_log_cntr = 0;
-            clock_gettime(CLOCK_MONOTONIC, &in->mute_start_ts);
-            in->mute_flag = true;
-        }
-        if (in->mute_flag) {
-            in_mute = Stop_watch(in->mute_start_ts, in->mute_mdelay);
-            if (!in_mute) {
-                ALOGI("%s: unmute audio since audio signal is stable", __func__);
-                /* The data of ALSA has not been read for a long time in the muted state,
-                 * resulting in the accumulation of data. So, cache of capture needs to be cleared.
-                 */
-                pcm_stop(in->pcm);
-                in->mute_log_cntr = 0;
-                in->mute_flag = false;
-                /* fade in start */
-                ALOGI("start fade in");
-                start_ease_in(adev->audio_ease);
-            }
-        }
-
-        if (adev->parental_control_av_mute && (adev->active_inport == INPORT_TUNER || adev->active_inport == INPORT_LINEIN))
-            parental_mute = 1;
-
         /*if need mute input source, don't read data from hardware anymore*/
-        if (adev->mic_mute || in_mute || parental_mute) {
+        if (adev->mic_mute) {
             memset(buffer, 0, bytes);
             usleep(bytes * 1000000 / audio_stream_in_frame_size(stream) /
                 in_get_sample_rate(&stream->common));
             ret = 0;
-            /* when audio is unstable, start avaync*/
-            if (patch && in_mute) {
-                patch->need_do_avsync = true;
-                patch->input_signal_stable = false;
-            }
+
         } else {
-            if (patch) {
-                patch->input_signal_stable = true;
-            }
+
             if (in->resampler) {
                 ret = read_frames(in, buffer, in_frames);
-            } else if (in->audio_packet_type == AUDIO_PACKET_AUDS && in->config.channels != 2) {
-                ret = input_stream_channels_adjust(stream, buffer, bytes);
             } else {
                 ret = aml_alsa_input_read(stream, buffer, bytes);
             }
-            /* Audio should be read from DDR to drive HW format changed,  */
-            if (in->spdif_fmt_hw == SPDIFIN_AUDIO_TYPE_PAUSE) {
-                memset(buffer, 0, bytes);
-            }
+
             if (ret < 0)
                 goto exit;
+            //DoDumpData(buffer, bytes, CC_DUMP_SRC_TYPE_INPUT);
         }
-    }
-
-    /*noise gate is only used in Linein for 16bit audio data*/
-    if (adev->active_inport == INPORT_LINEIN && adev->aml_ng_enable == 1) {
-        int ng_status = noise_evaluation(adev->aml_ng_handle, buffer, bytes >> 1);
-        /*if (ng_status == NG_MUTE)
-            ALOGI("noise gate is working!");*/
     }
 
     if (in->device & AUDIO_DEVICE_IN_BUILTIN_MIC) {
         inread_proc_aec(stream, buffer, bytes);
-    } else if (!adev->audio_patching) {
-        /* case dev->mix, set audio gain to src */
-        float source_gain = aml_audio_get_s_gain_by_src(adev, adev->patch_src);
-        apply_volume(source_gain * adev->src_gain[adev->active_inport], buffer, sizeof(uint16_t), bytes);
     }
-
 #if defined(ENABLE_AEC_APP)
     struct aec_info info;
     get_pcm_timestamp(in->pcm, in->config.rate, &info, false /*isOutput*/);
@@ -3795,25 +3745,6 @@ static int adev_set_parameters(struct audio_hw_device *dev, const char *kvpairs)
     ret = str_parms_get_str (parms, "hal_param_tuner_in", value, sizeof (value) );
     // tuner_in=atv: tuner_in=dtv
     if (ret >= 0 && adev->is_TV) {
-        if (adev->tuner2mix_patch) {
-            if (strncmp(value, "dtv", 3) == 0) {
-                adev->patch_src = SRC_DTV;
-                if (adev->audio_patching == 0) {
-                    ALOGI("[audiohal_kpi][%s] create dtv patch start.\n", __func__);
-                    ret = create_dtv_patch(dev, AUDIO_DEVICE_IN_TV_TUNER,AUDIO_DEVICE_OUT_SPEAKER);
-                    if (ret == 0) {
-                        adev->audio_patching = 1;
-                    }
-                    ALOGI("[audiohal_kpi][%s] create dtv patch end.\n", __func__);
-                }
-            } else if (strncmp(value, "atv", 3) == 0) {
-                adev->patch_src = SRC_ATV;
-                set_audio_source(&adev->alsa_mixer,
-                        ATV, alsa_device_is_auge());
-            }
-            ALOGI("%s, tuner to mixer case, no need to create patch", __func__);
-            goto exit;
-        }
         if (strncmp(value, "dtv", 3) == 0) {
             // no audio patching in dtv
             if (adev->audio_patching && (adev->patch_src == SRC_ATV)) {
@@ -3826,7 +3757,7 @@ static int adev_set_parameters(struct audio_hw_device *dev, const char *kvpairs)
             }
             ALOGI("%s, now the audio patch src is %s, the audio_patching is %d ", __func__,
                 patchSrc2Str(adev->patch_src), adev->audio_patching);
-#ifdef ENABLE_DTV_PATCH
+
            if ((adev->patch_src == SRC_DTV) && adev->audio_patching) {
                 ALOGI("[audiohal_kpi] %s, now release the dtv patch now\n ", __func__);
                 ret = release_dtv_patch(adev);
@@ -3852,11 +3783,10 @@ static int adev_set_parameters(struct audio_hw_device *dev, const char *kvpairs)
             if (ret == 0) {
                 adev->audio_patching = 1;
             }
-#endif
             ALOGI("[audiohal_kpi] %s, now end create dtv patch the audio_patching is %d ", __func__, adev->audio_patching);
 
         } else if (strncmp(value, "atv", 3) == 0) {
-#ifdef ENABLE_DTV_PATCH
+
             // need create patching
             if ((adev->patch_src == SRC_DTV) && adev->audio_patching) {
                 ALOGI ("[audiohal_kpi] %s, release dtv patching", __func__);
@@ -3865,7 +3795,6 @@ static int adev_set_parameters(struct audio_hw_device *dev, const char *kvpairs)
                     adev->audio_patching = 0;
                 }
             }
-#endif
             if (eDolbyMS12Lib == adev->dolby_lib_type && adev->continuous_audio_mode) {
                 ALOGI("In ATV exit MS12 continuous mode");
                 bool set_ms12_non_continuous = true;
@@ -3934,15 +3863,18 @@ static int adev_set_parameters(struct audio_hw_device *dev, const char *kvpairs)
             if (pAudPatchTmp->sources[0].type == AUDIO_PORT_TYPE_DEVICE
                 && pAudPatchTmp->sinks[0].type == AUDIO_PORT_TYPE_MIX) {
                 ALOGI("%s, !!create hdmi-dvi patching dev->mix", __func__);
+#if 0
                 if (adev->patch_src == SRC_HDMIIN) {
                     aml_dev2mix_parser_release(adev);
                 }
+#endif
                 adev->active_inport = INPORT_LINEIN;
                 adev->patch_src = SRC_LINEIN;
                 pAudPatchTmp->sources[0].ext.device.type = AUDIO_DEVICE_IN_LINE;
                 set_audio_source(&adev->alsa_mixer,
                         LINEIN, alsa_device_is_auge());
             }
+
         } else if (strncmp(value, "hdmi", 4) == 0 && adev->audio_patch) {
             //timing switch, audio is stable, do avsync once more
             adev->audio_patch->need_do_avsync = true;
@@ -5494,7 +5426,13 @@ ssize_t audio_hal_data_processing(struct audio_stream_out *stream,
         sysfs_set_sysfs_str(REPORT_DECODED_INFO, sysfs_buf);
     }
 #endif
-    if (adev->patch_src == SRC_HDMIIN || adev->patch_src == SRC_SPDIFIN) {
+    if (adev->dev2mix_patch) {
+        tv_in_write(stream, buffer, bytes);
+        memset((char *)buffer, 0, bytes);
+        if (aml_out->is_tv_platform == 1) {
+            memset(aml_out->tmp_buffer_8ch, 0, (*output_buffer_bytes));
+        }
+    } else if (adev->patch_src == SRC_HDMIIN || adev->patch_src == SRC_SPDIFIN) {
         if (adev->active_input != NULL &&
                 adev->spdif_fmt_hw != adev->active_input->spdif_fmt_hw) {
             clock_gettime(CLOCK_MONOTONIC, &adev->mute_start_ts);
@@ -5504,9 +5442,6 @@ ssize_t audio_hal_data_processing(struct audio_stream_out *stream,
         if (aml_out->tmp_buffer_8ch != NULL && Stop_watch(adev->mute_start_ts, 500)) {
             memset(aml_out->tmp_buffer_8ch, 0, (*output_buffer_bytes));
         }
-    } else if (adev->patch_src == SRC_DTV && adev->tuner2mix_patch) {
-        dtv_in_write(stream, buffer, bytes);
-        memset((char *)buffer, 0, bytes);
     }
     if (adev->audio_patching) {
         output_mute(stream,output_buffer,output_buffer_bytes);
@@ -7574,6 +7509,7 @@ void *audio_patch_input_threadloop(void *data)
         ring_buffer_size = ringbuffer->size;
     }
 
+
     while (!patch->input_thread_exit) {
         int bytes_avail = 0;
         /* Todo: read bytes should reconfig with period size */
@@ -7592,9 +7528,30 @@ void *audio_patch_input_threadloop(void *data)
             patch->in_buf_size = read_bytes;
             memset(patch->in_buf, 0, patch->in_buf_size);
         }
-        bytes_avail = in_read(stream_in, patch->in_buf, read_bytes);
-        if (aml_dev->tv_mute) {
+
+        if (in->standby) {
+            ret = start_input_stream(in);
+            if (ret < 0) {
+                ALOGE("start_input_stream failed !");
+            }
+            in->standby = 0;
+        }
+        //bytes_avail = in_read(stream_in, patch->in_buf, read_bytes);
+        if (aml_dev->patch_src == SRC_HDMIIN && in->audio_packet_type == AUDIO_PACKET_AUDS && in->config.channels != 2) {
+            ret = input_stream_channels_adjust(&in->stream, patch->in_buf, read_bytes);
+        } else {
+            aml_alsa_input_read(&in->stream, patch->in_buf, read_bytes);
+        }
+
+        bytes_avail = read_bytes;
+        if (aml_dev->tv_mute || !check_tv_stream_signal(&in->stream)) {
             memset(patch->in_buf, 0, bytes_avail);
+        }
+         /*noise gate is only used in Linein for 16bit audio data*/
+        if (aml_dev->active_inport == INPORT_LINEIN && aml_dev->aml_ng_enable == 1) {
+            int ng_status = noise_evaluation(aml_dev->aml_ng_handle, patch->in_buf, bytes_avail >> 1);
+            /*if (ng_status == NG_MUTE)
+                ALOGI("noise gate is working!");*/
         }
         ALOGV("++%s in read over read_bytes = %d, in_read returns = %d, threshold %d",
               __FUNCTION__, read_bytes, bytes_avail, read_threshold);
@@ -7855,6 +7812,10 @@ static int create_patch_l(struct audio_hw_device *dev,
         ret = ring_buffer_init(&patch->aml_ringbuffer, 4 * 4 * play_buffer_size * PATCH_PERIOD_COUNT);
     }
 
+    if (aml_dev->dev2mix_patch) {
+        create_tvin_buffer(patch);
+    }
+
     if (ret < 0) {
         ALOGE("%s: init audio ringbuffer failed", __func__);
         goto err_ring_buf;
@@ -7940,6 +7901,7 @@ int release_patch_l(struct aml_audio_device *aml_dev)
     patch->output_thread_exit = 1;
     pthread_join(patch->audio_output_threadID, NULL);
     ring_buffer_release(&patch->aml_ringbuffer);
+    release_tvin_buffer(patch);
     aml_audio_free(patch);
     aml_dev->audio_patch = NULL;
     ALOGD("%s: exit", __func__);
@@ -8314,7 +8276,6 @@ static int adev_create_audio_patch(struct audio_hw_device *dev,
                     }
                 }
             } else if ((inport == INPORT_TUNER) && (aml_dev->patch_src == SRC_DTV)) {
-#ifdef ENABLE_DTV_PATCH
                  if (/*aml_dev->is_TV*/1) {
 
                      if (aml_dev->is_TV) {
@@ -8346,7 +8307,7 @@ static int adev_create_audio_patch(struct audio_hw_device *dev,
                      ALOGI("%s, now end create dtv patch the audio_patching is %d ", __func__, aml_dev->audio_patching);
 
                  }
-#endif
+
             }
             if (input_src == LINEIN && aml_dev->aml_ng_enable) {
                 aml_dev->aml_ng_handle = init_noise_gate(aml_dev->aml_ng_level,
@@ -8374,9 +8335,11 @@ static int adev_create_audio_patch(struct audio_hw_device *dev,
             }
             input_src = android_input_dev_convert_to_hal_input_src(src_config->ext.device.type);
             if (AUDIO_DEVICE_IN_TV_TUNER == src_config->ext.device.type) {
-                aml_dev->tuner2mix_patch = true;
+                aml_dev->dev2mix_patch = true;
                 if (aml_dev->is_TV) {
-                // to do
+                   if (input_src == ATV) {
+                       aml_dev->patch_src = SRC_ATV;
+                   }
                 } else {
                    /*for stb ,AUDIO_DEVICE_IN_TV_TUNER is always DTV */
                    if (input_src == ATV) {
@@ -8395,8 +8358,47 @@ static int adev_create_audio_patch(struct audio_hw_device *dev,
             }
             aml_dev->active_inport = inport;
             aml_dev->src_gain[inport] = 1.0;
-            if (inport == INPORT_HDMIIN || inport == INPORT_ARCIN || inport == INPORT_SPDIF) {
+            if (inport == INPORT_HDMIIN || inport == INPORT_ARCIN || inport == INPORT_SPDIF
+                || inport == INPORT_LINEIN || ((inport == INPORT_TUNER) && (aml_dev->patch_src == SRC_ATV))) {
+                 aml_dev->dev2mix_patch = true;
+#if 0
                 aml_dev2mix_parser_create(dev, src_config->ext.device.type);
+#endif
+                if (input_src != SRC_NA) {
+                    set_audio_source(&aml_dev->alsa_mixer, input_src, alsa_device_is_auge());
+                }
+
+
+                if (aml_dev->audio_patch) {
+                    ALOGD("%s: patch exists, first release it", __func__);
+                    ALOGD("%s: new input %#x, old input %#x",
+                        __func__, inport, aml_dev->audio_patch->input_src);
+                    if (aml_dev->audio_patch->is_dtv_src)
+                        release_dtv_patch(aml_dev);
+                    else
+                        release_patch(aml_dev);
+                }
+                ret = create_patch(dev, src_config->ext.device.type, aml_dev->out_device);
+                if (ret) {
+                    ALOGE("[%s:%d] create patch failed, all out dev:%#x.", __func__, __LINE__, aml_dev->out_device);
+                    ret = -EINVAL;
+                    unregister_audio_patch(dev, patch_set);
+                }
+                aml_dev->audio_patching = 1;
+                if (inport == INPORT_HDMIIN ||
+                    inport == INPORT_LINEIN ||
+                    inport == INPORT_SPDIF  ||
+                    inport == INPORT_TUNER) {
+                    if (eDolbyMS12Lib == aml_dev->dolby_lib_type && aml_dev->continuous_audio_mode)
+                    {
+                        bool set_ms12_non_continuous = true;
+                        get_dolby_ms12_cleanup(&aml_dev->ms12, set_ms12_non_continuous);
+                        aml_dev->exiting_ms12 = 1;
+                        clock_gettime(CLOCK_MONOTONIC, &aml_dev->ms12_exiting_start);
+                        usecase_change_validate_l(aml_dev->active_outputs[STREAM_PCM_NORMAL], true);
+                        ALOGI("enter patching mode, exit MS12 continuous mode");
+                    }
+                }
             } else if ((inport == INPORT_TUNER) && (aml_dev->patch_src == SRC_DTV)){///zzz
                 if (/*aml_dev->is_TV*/1) {
                     if (aml_dev->audio_patching) {
@@ -8462,22 +8464,21 @@ static int adev_release_audio_patch(struct audio_hw_device *dev,
         audioPortType2Str(patch->sinks[0].type), patchSrc2Str(aml_dev->patch_src));
     if (patch->sources[0].type == AUDIO_PORT_TYPE_DEVICE
         && patch->sinks[0].type == AUDIO_PORT_TYPE_DEVICE) {
-#ifdef ENABLE_DTV_PATCH
+
         if (aml_dev->patch_src == SRC_DTV) {
             ALOGI("patch src == DTV now line %d \n", __LINE__);
             release_dtv_patch(aml_dev);
             aml_dev->audio_patching = 0;
         }
-#endif
+
         if (aml_dev->patch_src != SRC_DTV
                 && aml_dev->patch_src != SRC_INVAL
                 && aml_dev->audio_patching == 1) {
             release_patch(aml_dev);
             if (aml_dev->patch_src == SRC_LINEIN && aml_dev->aml_ng_handle) {
-#ifdef ENABLE_DTV_PATCH
+
                 release_noise_gate(aml_dev->aml_ng_handle);
                 aml_dev->aml_ng_handle = NULL;
-#endif
             }
         }
         /* for no patch case, we need to restore it, especially note the multi-instance audio-patch */
@@ -8524,26 +8525,31 @@ static int adev_release_audio_patch(struct audio_hw_device *dev,
 
     if (patch->sources[0].type == AUDIO_PORT_TYPE_DEVICE
         && patch->sinks[0].type == AUDIO_PORT_TYPE_MIX) {
+#if 0
         if (aml_dev->patch_src == SRC_HDMIIN) {
             aml_dev2mix_parser_release(aml_dev);
         }
-#ifdef ENABLE_DTV_PATCH
+#endif
+
+
         if (aml_dev->patch_src == SRC_DTV &&
                 patch->sources[0].ext.device.type == AUDIO_DEVICE_IN_TV_TUNER) {
             ALOGI("patch src == DTV now line %d \n", __LINE__);
             release_dtv_patch(aml_dev);
             aml_dev->audio_patching = 0;
+        } else {
+            release_patch(aml_dev);
         }
-#endif
+
         if (aml_dev->patch_src != SRC_ATV && aml_dev->patch_src != SRC_DTV) {
             aml_dev->patch_src = SRC_INVAL;
         }
         if (aml_dev->audio_patching) {
             ALOGI("patch src reset to  DTV now line= %d \n", __LINE__);
-            aml_dev->patch_src = SRC_DTV;
+            //aml_dev->patch_src = SRC_DTV;
             aml_dev->active_inport = INPORT_TUNER;
         }
-        aml_dev->tuner2mix_patch = false;
+        aml_dev->dev2mix_patch = false;
     }
     unregister_audio_patch(dev, patch_set);
     aml_mixer_ctrl_set_int(&aml_dev->alsa_mixer, AML_MIXER_ID_AUDIO_HAL_FORMAT, TYPE_PCM);

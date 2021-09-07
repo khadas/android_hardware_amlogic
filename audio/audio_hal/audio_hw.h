@@ -376,7 +376,7 @@ struct aml_audio_device {
     pthread_mutex_t patch_lock;
     struct aml_audio_patch *audio_patch;
     /* indicates atv to mixer patch, no need HAL patching  */
-    bool tuner2mix_patch;
+    bool dev2mix_patch;
     /* Now only two pcm handle supported: I2S, SPDIF */
     pthread_mutex_t alsa_pcm_lock;
     struct pcm *pcm_handle[ALSA_DEVICE_CNT];

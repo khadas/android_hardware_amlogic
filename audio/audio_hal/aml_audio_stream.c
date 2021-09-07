@@ -641,6 +641,68 @@ bool signal_status_check(audio_devices_t in_device, int *mute_time,
     return true;
 }
 
+bool check_tv_stream_signal (struct audio_stream_in *stream)  {
+
+    struct aml_stream_in *in = (struct aml_stream_in *)stream;
+    struct aml_audio_device *adev = in->dev;
+    struct aml_audio_patch* patch = adev->audio_patch;
+    int in_mute = 0, parental_mute = 0;
+    bool stable = true;
+
+    /* when audio is unstable, need to mute the audio data for a while
+     * the mute time is related to hdmi audio buffer size
+     */
+    stable = signal_status_check(adev->in_device, &in->mute_mdelay, stream);
+
+    if (!stable) {
+        if (in->mute_log_cntr == 0)
+            ALOGI("%s: audio is unstable, mute channel", __func__);
+        if (in->mute_log_cntr++ >= 100)
+            in->mute_log_cntr = 0;
+        clock_gettime(CLOCK_MONOTONIC, &in->mute_start_ts);
+        in->mute_flag = true;
+    }
+    if (in->mute_flag) {
+        in_mute = Stop_watch(in->mute_start_ts, in->mute_mdelay);
+        if (!in_mute) {
+            ALOGI("%s: unmute audio since audio signal is stable", __func__);
+            /* The data of ALSA has not been read for a long time in the muted state,
+             * resulting in the accumulation of data. So, cache of capture needs to be cleared.
+             */
+            pcm_stop(in->pcm);
+            in->mute_log_cntr = 0;
+            in->mute_flag = false;
+            /* fade in start */
+            ALOGI("start fade in");
+            start_ease_in(adev->audio_ease);
+        }
+    }
+
+    if (adev->parental_control_av_mute && (adev->active_inport == INPORT_TUNER || adev->active_inport == INPORT_LINEIN))
+        parental_mute = 1;
+
+    /*if need mute input source, don't read data from hardware anymore*/
+    if (in_mute || parental_mute) {
+
+        /* when audio is unstable, start avaync*/
+        if (patch && in_mute) {
+            patch->need_do_avsync = true;
+            patch->input_signal_stable = false;
+        }
+        return false;
+    } else {
+        if (patch) {
+            patch->input_signal_stable = true;
+        }
+
+        /* Audio should be read from DDR to drive HW format changed,  */
+        if (in->spdif_fmt_hw == SPDIFIN_AUDIO_TYPE_PAUSE) {
+            return false;
+        }
+    }
+    return true;
+}
+
 const char *audio_port_role[] = {
     "AUDIO_PORT_ROLE_NONE",
     "AUDIO_PORT_ROLE_SOURCE",
@@ -1236,4 +1298,82 @@ int input_stream_channels_adjust(struct audio_stream_in *stream, void* buffer, s
 
    return ret;
 }
+
+
+void create_tvin_buffer(struct aml_audio_patch *patch)
+{
+    int ret = ring_buffer_init(&patch->tvin_ringbuffer, 512 * 1024);
+    ALOGI("[%s] aring_buffer_init ret=%d\n", __FUNCTION__, ret);
+    if (ret == 0) {
+        patch->tvin_buffer_inited = 1;
+    }
+
+}
+
+
+void release_tvin_buffer(struct aml_audio_patch *patch)
+{
+    if (patch->tvin_buffer_inited == 1) {
+        patch->tvin_buffer_inited = 0;
+        ring_buffer_release(&(patch->tvin_ringbuffer));
+    }
+}
+
+void tv_in_write(struct audio_stream_out *stream, const void* buffer, size_t bytes)
+{
+    struct aml_stream_out *out = (struct aml_stream_out *) stream;
+    struct aml_audio_device *adev = out->dev;
+    struct aml_audio_patch *patch = adev->audio_patch;
+    int abuf_level = 0;
+
+    if (stream == NULL || buffer == NULL || bytes == 0 || patch == NULL) {
+        ALOGW("[%s:%d] stream:%p or buffer:%p is null, or bytes:%d = 0 patch:%p.", __func__, __LINE__, stream, buffer, bytes, patch);
+        return;
+    }
+    if (patch->tvin_buffer_inited == 1) {
+        abuf_level = get_buffer_write_space(&patch->tvin_ringbuffer);
+        if (abuf_level <= (int)bytes) {
+            ALOGI("[%s] dtvin ringbuffer is full,reset  ringbuffer", __FUNCTION__);
+            ring_buffer_reset(&patch->tvin_ringbuffer);
+            return;
+        }
+
+        ring_buffer_write(&patch->tvin_ringbuffer, (unsigned char *)buffer, bytes, UNCOVER_WRITE);
+    }
+    ALOGV("[%s] dtvin write ringbuffer successfully,abuf_level=%d", __FUNCTION__,abuf_level);
+}
+
+int tv_in_read(struct audio_stream_in *stream, void* buffer, size_t bytes)
+{
+    int ret = 0;
+    unsigned int es_length = 0;
+    struct aml_stream_in *in = (struct aml_stream_in *)stream;
+    struct aml_audio_device *adev = in->dev;
+
+    if (stream == NULL || buffer == NULL || bytes == 0 || adev->audio_patch == NULL) {
+        ALOGW("[%s:%d] stream:%p or buffer:%p is null, or bytes:%d = 0. adev->audio_patch %p", __func__, __LINE__, stream, buffer, bytes, adev->audio_patch );
+        return bytes;
+    }
+
+    struct aml_audio_patch *patch = adev->audio_patch;
+    ALOGV("[%s] patch->aformat=0x%x patch->dtv_decoder_ready=%d bytes:%d\n", __FUNCTION__,patch->aformat,patch->dtv_decoder_ready,bytes);
+
+    if (patch->tvin_buffer_inited == 1) {
+        int abuf_level = get_buffer_read_space(&patch->tvin_ringbuffer);
+        if (abuf_level <= (int)bytes) {
+            memset(buffer, 0, sizeof(unsigned char)* bytes);
+            ret = bytes;
+        } else {
+            ret = ring_buffer_read(&patch->tvin_ringbuffer, (unsigned char *)buffer, bytes);
+            ALOGV("[%s] abuf_level =%d ret=%d\n", __FUNCTION__,abuf_level,ret);
+        }
+        return bytes;
+    } else {
+        memset(buffer, 0, sizeof(unsigned char)* bytes);
+        ret = bytes;
+        return ret;
+    }
+    return ret;
+}
+
 
