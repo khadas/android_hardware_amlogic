@@ -1344,6 +1344,11 @@ int out_standby_subMixingPCM(struct audio_stream *stream)
         a2dp_out_standby(adev);
     }
 
+    if (aml_out->hwsync_extractor) {
+        delete_hw_avsync_header_extractor(aml_out->hwsync_extractor);
+        aml_out->hwsync_extractor = NULL;
+    }
+
     if (adev->debug_flag > 1) {
         AM_LOGI("-ret %zd,%p %"PRIu64"\n", ret, stream, aml_out->total_write_size);
     }
