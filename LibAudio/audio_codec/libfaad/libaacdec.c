@@ -106,6 +106,7 @@ typedef struct FaadContext {
     bool filter_heaac;
     bool isDetectFormatDisable;//Fixme: default value as false
     int  success_count;
+    int  fail_count;
 } FaadContext;
 
 //typedef int (*findsyncfunc)(unsigned char *buf, int nBytes);
@@ -301,6 +302,7 @@ int audio_dec_init(
     gFaadCxt->filter_heaac = property_get_bool(PROPERTY_FILTER_HEAAC, false);
     gFaadCxt->isDetectFormatDisable = property_get_bool(PROPERTY_FAAD_DETECT_FORMAT_DISABLE, false);
     gFaadCxt->success_count = 0;
+    gFaadCxt->fail_count = 0;
     audio_codec_print("got property %s %s\n", PROPERTY_FAAD_DETECT_FORMAT_DISABLE, gFaadCxt->isDetectFormatDisable ? "true": "false");
     return 0;
 }
@@ -320,7 +322,8 @@ static int audio_decoder_init(
     inbuf_size = inlen;
     int nReadLen = 0;
     FaadContext *gFaadCxt  = (FaadContext*)adec_ops->pdecoder;
-    int islatm = 0;
+    int islatm = 1;
+    int isadts = 0;
 
     if (!in_buf || !inbuf_size || !outbuf) {
         audio_codec_print(" input/output buffer null or input len is 0 \n");
@@ -342,8 +345,10 @@ static int audio_decoder_init(
               audio_codec_print("%d bytes data not found adts sync header \n", nSeekNum);
 
         } else {
+             bool valid = (check_adts_frame_valid((unsigned char *)(in_buf + nSeekNum), inbuf_size - nSeekNum) == 0);
              adtsheader_detected = 1;
-             audio_codec_print(" adts head detected  nSeekNum %d", nSeekNum);
+             isadts = valid;
+             audio_codec_print(" adts head detected  nSeekNum %d isadts %d", nSeekNum, isadts);
         }
         if (adec_ops->nAudioDecoderType == ACODEC_FMT_AAC_LATM) {
             if (latmheader_detected && !adtsheader_detected) {
@@ -393,11 +398,15 @@ retry:
     config->useOldADTSFormat = 0;
     //config->dontUpSampleImplicitSBR = 1;
     NeAACDecSetConfiguration(gFaadCxt->hDecoder, config);
+    if (gFaadCxt->fail_count && isadts) {
+        islatm = 0;
+    }
     int skipbytes=RSYNC_SKIP_BYTES;
     if ((ret = NeAACDecInit(gFaadCxt->hDecoder, (unsigned char *)in_buf, inbuf_size, &samplerate, &channels, islatm,&skipbytes)) < 0) {
         in_buf += skipbytes;
         inbuf_size -= skipbytes;
         NeAACDecClose(gFaadCxt->hDecoder);
+        gFaadCxt->fail_count++;
         gFaadCxt->hDecoder = NULL;
         if (inbuf_size < 0) {
             inbuf_size = 0;
