@@ -192,7 +192,8 @@ int aml_audio_ms12_render(struct audio_stream_out *stream, const void *buffer, s
     int out_frames = 0;
     int ms12_delayms = 0;
     bool bypass_aml_dec = false;
-    bool do_sync_flag = adev->patch_src  == SRC_DTV && patch && patch->skip_amadec_flag;
+    bool do_sync_flag = adev->patch_src  == SRC_DTV && patch && patch->skip_amadec_flag && aml_out->tv_src_stream;
+    bool dtv_stream_flag = patch && (adev->patch_src  == SRC_DTV) && aml_out->tv_src_stream;
     struct dolby_ms12_desc *ms12 = &(adev->ms12);
 
     if (is_dolby_ms12_support_compression_format(aml_out->hal_internal_format)
@@ -202,9 +203,11 @@ int aml_audio_ms12_render(struct audio_stream_out *stream, const void *buffer, s
 
     if (bypass_aml_dec) {
         if (do_sync_flag) {
-            if(patch->skip_amadec_flag) {
-                if (patch->cur_package->pts == 0) {
-                    patch->cur_package->pts = decoder_apts_lookup(patch->decoder_offset);
+            if (patch->skip_amadec_flag) {
+                if (patch->cur_package) {
+                    if (patch->cur_package->pts == 0) {
+                        patch->cur_package->pts = decoder_apts_lookup(patch->decoder_offset);
+                    }
                 }
             }
         }
@@ -251,7 +254,7 @@ int aml_audio_ms12_render(struct audio_stream_out *stream, const void *buffer, s
                 // write pcm data
                 if (dec_pcm_data->data_len > 0) {
                     void  *dec_data = (void *)dec_pcm_data->buf;
-                    if (adev->patch_src  == SRC_DTV && adev->start_mute_flag == 1) {
+                    if (dtv_stream_flag && adev->start_mute_flag == 1) {
                         memset(dec_pcm_data->buf, 0, dec_pcm_data->data_len);
                     }
                     if (dec_pcm_data->data_sr > 0) {
@@ -270,7 +273,7 @@ int aml_audio_ms12_render(struct audio_stream_out *stream, const void *buffer, s
                          }
                     }
                     out_frames += dec_pcm_data->data_len /( 2 * dec_pcm_data->data_ch);
-                    if (patch && (adev->patch_src  == SRC_DTV))
+                    if (dtv_stream_flag)
                         patch->dtv_pcm_writed += dec_pcm_data->data_len;
                     aml_dec->out_frame_pts = aml_dec->in_frame_pts + (90 * out_frames /(dec_pcm_data->data_sr / 1000));
                     //aml_audio_dump_audio_bitstreams("/data/mixing_data.raw", dec_data, dec_pcm_data->data_len);
