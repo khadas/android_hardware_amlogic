@@ -56,7 +56,7 @@ extern "C" {
 #define faacDecDecode                  NeAACDecDecode
 #define AudioSpecificConfig            NeAACDecAudioSpecificConfig
 #endif
-
+int check_adts_frame_valid(unsigned char *buffer, unsigned long buffer_size);
 
 #ifdef _WIN32
 #pragma pack(push, 8)
