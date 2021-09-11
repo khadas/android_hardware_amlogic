@@ -2310,6 +2310,110 @@ void ms12_do_dtv_sync(struct audio_stream_out *stream)
 
 }
 
+int dolby_ms12_get_latency(audio_format_t output_format, int pcm_type)
+{
+    int ms12_total_delay_frames = 0;
+    if (output_format == AUDIO_FORMAT_PCM_16_BIT) {
+        if (pcm_type == NORMAL_LPCM)
+            dolby_ms12_get_latency_for_stereo_out(&ms12_total_delay_frames);
+        else if (pcm_type == DAP_LPCM)
+            dolby_ms12_get_latency_for_dap_speaker_out(&ms12_total_delay_frames);
+    }
+    else if (output_format == AUDIO_FORMAT_AC3) {
+        dolby_ms12_get_latency_for_dd_out(&ms12_total_delay_frames);
+    }
+    else if (output_format == AUDIO_FORMAT_E_AC3) {
+        dolby_ms12_get_latency_for_ddp_out(&ms12_total_delay_frames);
+    }
+    else if (output_format == AUDIO_FORMAT_MAT) {
+        dolby_ms12_get_latency_for_mat_out(&ms12_total_delay_frames);
+    }
+    else {
+        dolby_ms12_get_latency_for_stereo_out(&ms12_total_delay_frames);
+    }
+
+    return ms12_total_delay_frames;
+}
+
+void ms12_output_update_audio_pts(struct audio_stream_out *stream, aml_ms12_dec_info_t *ms12_info, void *buffer, size_t size)
+{
+    struct aml_stream_out *aml_out = (struct aml_stream_out *)stream;
+    struct aml_audio_device *adev = aml_out->dev;
+    struct aml_audio_patch *patch = adev->audio_patch;
+    struct dolby_ms12_desc *ms12 = &(adev->ms12);
+    aml_dtvsync_t *aml_dtvsync = NULL;
+    audio_format_t output_format = (ms12_info) ? ms12_info->data_type : AUDIO_FORMAT_PCM_16_BIT;
+    unsigned int main_apts_high32b = (ms12_info) ? ms12_info->main_apts_high32b : 0;
+    unsigned int main_apts_low32b = (ms12_info) ? ms12_info->main_apts_low32b : 0;
+    unsigned int main1_apts_high32b = (ms12_info) ? ms12_info->main1_apts_high32b : 0;
+    unsigned int main1_apts_low32b = (ms12_info) ? ms12_info->main1_apts_low32b : 0;
+
+    if (ms12_info && adev->debug_flag) {
+        if (main_apts_high32b || main_apts_low32b) {
+            ALOGI("+%s() main apts high32bits %x low32bits %x convert to time %llu ms\n",
+                __FUNCTION__, main_apts_high32b, main_apts_low32b, (((uint64_t)main_apts_high32b << 32) + (uint64_t)main_apts_low32b)/90);
+        }
+        if (main1_apts_high32b || main1_apts_low32b) {
+            ALOGI("+%s() main1 apts high 32bits %x low32bits %x  convert to time %llu ms\n",
+                __FUNCTION__, main1_apts_high32b, main1_apts_low32b, (((uint64_t)main1_apts_high32b << 32) + (uint64_t)main1_apts_low32b)/90);
+        }
+    }
+
+    if (patch && patch->dtvsync && (adev->sink_format == output_format) && !ms12->is_bypass_ms12) {
+        aml_dtvsync = patch->dtvsync;
+        /* main apts from dolby ms12 lib */
+        uint64_t ms12_main_apts = (((uint64_t)main_apts_high32b << 32) + (uint64_t)main_apts_low32b);
+        int ch_num = ms12_info->output_ch ? ms12_info->output_ch : 2;
+        int sample_rate = ms12_info->output_sr ? ms12_info->output_sr : 48000;
+        size_t cur_pcm_pts = size * 90000 / (2 * ch_num) / sample_rate;
+        if (output_format == AUDIO_FORMAT_MAT)
+            cur_pcm_pts = MILLISECOND_2_PTS * 20;/*ms12 output every mat frame duration is 20ms*/
+        else if ((output_format == AUDIO_FORMAT_AC3) || (output_format == AUDIO_FORMAT_E_AC3))
+            cur_pcm_pts = MILLISECOND_2_PTS * 32;/*ms12 output every ac3/eac3 frame duration is 32ms*/
+
+        /* ms12 latency from source to endpoint */
+        uint64_t ms12_total_delay_pts = (uint64_t)dolby_ms12_get_latency(output_format, ms12_info->pcm_type) * 1000 * MILLISECOND_2_PTS / sample_rate;
+
+        /* ms12 tuning latency which is determined by different input-format/output-format/end-port */
+        int ms12_tuing_delay_pts = aml_audio_dtv_get_ms12_latency(stream) * 1000 * MILLISECOND_2_PTS / sample_rate;
+
+        /* alsa latency for pcm/spdif device */
+        int alsa_latency = 0;
+        int alsa_pcm_latency = aml_alsa_output_get_latency(stream) * 90;
+        int alsa_spdif_latency = out_get_ms12_bitstream_latency_ms(stream) * MILLISECOND_2_PTS;
+
+        alsa_latency = (adev->sink_format == AUDIO_FORMAT_PCM_16_BIT) ? alsa_pcm_latency : alsa_spdif_latency;
+        alsa_latency = (alsa_latency >= 0) ? alsa_latency : 0;
+
+        if (ms12_main_apts) {
+            if (ms12_main_apts >= ms12_total_delay_pts)
+                aml_dtvsync->out_start_apts = (int64_t)ms12_main_apts - (int64_t)ms12_total_delay_pts;
+            else
+                aml_dtvsync->out_start_apts = (int64_t)ms12_main_apts;
+        }
+        else {
+            aml_dtvsync->out_start_apts = aml_dtvsync->out_end_apts;
+        }
+        aml_dtvsync->out_end_apts = aml_dtvsync->out_start_apts + cur_pcm_pts;
+
+        aml_dtvsync->cur_outapts = aml_dtvsync->out_start_apts - alsa_latency + ms12_tuing_delay_pts;
+        if (patch->cur_package && adev->debug_flag) {
+            ALOGI("%s package pts(ms) %llu ms12_main_apts(ms) %llu pcm-duration(ms)%u cur_outapts(ms) %llu, alsa_latency(ms) %d ms12_tuing_delay_pts(ms) %d\n",
+                __func__, patch->cur_package->pts / 90, ms12_main_apts / 90, cur_pcm_pts / 90 , aml_dtvsync->cur_outapts / 90, alsa_latency / 90, ms12_tuing_delay_pts / 90);
+            ALOGI("%s package pts %llx ms12_main_apts %llx pcm-duration %x cur_outapts %llx, alsa_latency %x ms12_tuing_delay_pts %x start-pts %llx end-pts %llx\n",
+                __func__, patch->cur_package->pts, ms12_main_apts, cur_pcm_pts, aml_dtvsync->cur_outapts, alsa_latency, ms12_tuing_delay_pts, aml_dtvsync->out_start_apts, aml_dtvsync->out_end_apts);
+
+        }
+
+        if (ms12->debug_synced_frame_pts_flag && (output_format == AUDIO_FORMAT_PCM_16_BIT)) {
+            int decoder_latency = 0;
+            ms12_debug_out_stereo_pcm_synced_frame_pts(ms12, buffer, size, decoder_latency, (int64_t)aml_dtvsync->out_start_apts, ms12_info);
+        }
+
+        ms12_do_dtv_sync(stream);
+    }
+}
+
 int ms12_output(void *buffer, void *priv_data, size_t size, aml_ms12_dec_info_t *ms12_info)
 {
     struct aml_stream_out *aml_out = (struct aml_stream_out *)priv_data;
@@ -2334,74 +2438,8 @@ int ms12_output(void *buffer, void *priv_data, size_t size, aml_ms12_dec_info_t 
             ms12->bitsteam_cnt, ms12->input_total_ms);
     }
 
-    if (ms12_info && adev->debug_flag) {
-        if (main_apts_high32b || main_apts_low32b) {
-            ALOGI("+%s() main apts high32bits %x low32bits %x convert to time %llu ms\n",
-                __FUNCTION__, main_apts_high32b, main_apts_low32b, (((uint64_t)main_apts_high32b << 32) + (uint64_t)main_apts_low32b)/90);
-        }
-        if (main1_apts_high32b || main1_apts_low32b) {
-            ALOGI("+%s() main1 apts high 32bits %x low32bits %x  convert to time %llu ms\n",
-                __FUNCTION__, main1_apts_high32b, main1_apts_low32b, (((uint64_t)main1_apts_high32b << 32) + (uint64_t)main1_apts_low32b)/90);
-        }
-
-    }
-
-
-    /*
-     * update the master pcm frame, which is used for av sync.
-     * get the current audio pts in the Never/Auto Mode.
-     */
+    /*update the master pcm frame, which is used for av sync*/
     if (audio_is_linear_pcm(output_format)) {
-        if (patch && patch->dtvsync && !audio_is_linear_pcm(hal_internal_format) && !ms12->is_bypass_ms12) {
-            aml_dtvsync = patch->dtvsync;
-            uint64_t ms12_main_apts = (((uint64_t)main_apts_high32b << 32) + (uint64_t)main_apts_low32b);
-            int ch_num = ms12_info->output_ch ? ms12_info->output_ch : 2;
-            int sample_rate = ms12_info->output_sr ? ms12_info->output_sr : 48000;
-            size_t cur_pcm_pts = size * 90000 / (2 * ch_num) / sample_rate;
-            int alsa_latency = 0;
-            int alsa_pcm_latency = aml_alsa_output_get_latency((struct audio_stream_out *)priv_data) * 90;
-            int ms12_total_delay_frames = 0;
-            dolby_ms12_get_latency_for_stereo_out(&ms12_total_delay_frames);
-            uint64_t ms12_total_delay_pts = (uint64_t)ms12_total_delay_frames * 1000 * MILLISECOND_2_PTS / sample_rate;
-            int ms12_tuing_delay_pts = aml_audio_dtv_get_ms12_latency(stream_out) * 1000 * MILLISECOND_2_PTS / sample_rate;
-
-            int alsa_bitstream_delay_frames = out_get_ms12_bitstream_latency_ms(stream_out);
-            int alsa_spdif_latency = alsa_bitstream_delay_frames * MILLISECOND_2_PTS;
-
-            if (!adev->is_TV) {
-                alsa_latency = (adev->sink_format == AUDIO_FORMAT_PCM_16_BIT) ? alsa_pcm_latency : alsa_spdif_latency;
-            }
-            else {
-                //Fixme: DUT is TV, how to consider the ALSA Latency between PCM and Raw format?
-                alsa_latency = alsa_pcm_latency;
-            }
-            alsa_latency = (alsa_latency >= 0) ? alsa_latency : 0;
-
-            if (ms12_main_apts) {
-                if (ms12_main_apts >= ms12_total_delay_pts)
-                    aml_dtvsync->out_start_apts = (int64_t)ms12_main_apts - (int64_t)ms12_total_delay_pts;
-                else
-                    aml_dtvsync->out_start_apts = (int64_t)ms12_main_apts;
-            }
-            else {
-                aml_dtvsync->out_start_apts = aml_dtvsync->out_end_apts;
-            }
-            aml_dtvsync->out_end_apts = aml_dtvsync->out_start_apts + cur_pcm_pts;
-            aml_dtvsync->cur_outapts = aml_dtvsync->out_start_apts - alsa_latency + ms12_tuing_delay_pts;
-            if (patch->cur_package && adev->debug_flag) {
-                ALOGI("%s package pts(ms) %llu ms12_main_apts(ms) %llu pcm-duration(ms)%u cur_outapts(ms) %llu, alsa_latency(ms) %d ms12_tuing_delay_pts(ms) %d\n",
-                    __func__, patch->cur_package->pts / 90, ms12_main_apts / 90, cur_pcm_pts / 90 , aml_dtvsync->cur_outapts / 90, alsa_latency / 90, ms12_tuing_delay_pts / 90);
-                ALOGI("%s package pts %llx ms12_main_apts %llx pcm-duration %x cur_outapts %llx, alsa_latency %x ms12_tuing_delay_pts %x start-pts %llx end-pts %llx\n",
-                    __func__, patch->cur_package->pts, ms12_main_apts, cur_pcm_pts, aml_dtvsync->cur_outapts, alsa_latency, ms12_tuing_delay_pts, aml_dtvsync->out_start_apts, aml_dtvsync->out_end_apts);
-
-            }
-
-            if (ms12->debug_synced_frame_pts_flag) {
-                int decoder_latency = 0;
-                ms12_debug_out_stereo_pcm_synced_frame_pts(ms12, buffer, size, decoder_latency, (int64_t)aml_dtvsync->out_start_apts, ms12_info);
-            }
-            ms12_do_dtv_sync(stream_out);
-        }
         if (ms12_info->pcm_type == DAP_LPCM) {
             if (is_dolbyms12_dap_enable(aml_out)) {
                 ms12->master_pcm_frames += size / (2 * ms12_info->output_ch);
@@ -2412,6 +2450,7 @@ int ms12_output(void *buffer, void *priv_data, size_t size, aml_ms12_dec_info_t 
             }
         }
     }
+    ms12_output_update_audio_pts(stream_out, ms12_info, buffer, size);
 
     if (do_sync_flag && aml_out->dtvsync_enable && aml_out->alsa_running_status) {
         process_result = aml_dtvsync_ms12_process_policy(priv_data, ms12_info);
