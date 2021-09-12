@@ -962,6 +962,11 @@ int start_input_stream(struct aml_stream_in *in);
 
 int do_input_standby (struct aml_stream_in *in);
 
+int usecase_change_validate_l(struct aml_stream_out *aml_out, bool is_standby);
+int get_audio_patch_by_src_dev(struct audio_hw_device *dev, audio_devices_t dev_type, struct audio_patch **p_audio_patch);
+int create_patch(struct audio_hw_device *dev, audio_devices_t input, audio_devices_t output);
+int release_patch(struct aml_audio_device *aml_dev);
+
 /* 'bytes' are the number of bytes written to audio FIFO, for which 'timestamp' is valid.
  * 'available' is the number of frames available to read (for input) or yet to be played
  * (for output) frames in the PCM buffer.
