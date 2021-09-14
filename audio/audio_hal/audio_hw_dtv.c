@@ -263,7 +263,6 @@ static int dtv_patch_handle_event(struct audio_hw_device *dev, int cmd, int val)
     pthread_mutex_lock(&adev->dtv_lock);
     aml_dtv_audio_instances_t *dtv_audio_instances =  (aml_dtv_audio_instances_t *)adev->aml_dtv_audio_instances;
     unsigned int path_id = val >> DVB_DEMUX_ID_BASE;
-    struct mediasync_audio_format audio_format;
     ALOGI("%s path_id %d cmd %d",__FUNCTION__,path_id, cmd);
     if (path_id < 0  ||  path_id >= DVB_DEMUX_SUPPORT_MAX_NUM) {
         ALOGI("path_id %d  is invalid ! ",path_id);
@@ -474,13 +473,6 @@ static int dtv_patch_handle_event(struct audio_hw_device *dev, int cmd, int val)
                     patch->media_sync_id = demux_info->media_sync_id;
                     patch->pid = demux_info->main_pid;
                     patch->demux_info = demux_info;
-                    patch->dtvsync = dtvsync;
-                    if (dtvsync->mediasync_new != NULL) {
-                        audio_format.format = patch->dtv_aformat;
-                        mediasync_wrap_setParameter(dtvsync->mediasync_new, MEDIASYNC_KEY_AUDIOFORMAT, &audio_format);
-                        patch->dtvsync->mediasync = dtvsync->mediasync_new;
-                        dtvsync->mediasync_new = NULL;
-                    }
                     patch->dtv_has_video = demux_info->has_video;
                     patch->demux_handle = dtv_audio_instances->demux_handle[path_id];
                     ALOGI("dtv_has_video %d",patch->dtv_has_video);
@@ -3241,6 +3233,8 @@ static void *audio_dtv_patch_process_threadloop_v2(void *data)
     audio_format_t cur_aformat;
     int cmd = AUDIO_DTV_PATCH_CMD_NUM;
     int path_id  = 0;
+    aml_dtvsync_t *dtvsync;
+    struct mediasync_audio_format audio_format;
     patch->sample_rate = stream_config.sample_rate = 48000;
     patch->chanmask = stream_config.channel_mask = AUDIO_CHANNEL_IN_STEREO;
     patch->aformat = stream_config.format = AUDIO_FORMAT_PCM_16_BIT;
@@ -3352,6 +3346,14 @@ static void *audio_dtv_patch_process_threadloop_v2(void *data)
                 }
 
                 ALOGI("patch->demux_handle %p patch->aformat %0x", patch->demux_handle, patch->aformat);
+                dtvsync = &dtv_audio_instances->dtvsync[path_id];
+                patch->dtvsync = dtvsync;
+                if (dtvsync->mediasync_new != NULL) {
+                    audio_format.format = patch->dtv_aformat;
+                    mediasync_wrap_setParameter(dtvsync->mediasync_new, MEDIASYNC_KEY_AUDIOFORMAT, &audio_format);
+                    patch->dtvsync->mediasync = dtvsync->mediasync_new;
+                    dtvsync->mediasync_new = NULL;
+                }
                 patch->dtv_first_apts_flag = 0;
                 patch->outlen_after_last_validpts = 0;
                 patch->last_valid_pts = 0;
