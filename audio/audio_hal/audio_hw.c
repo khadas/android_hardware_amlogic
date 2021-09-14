@@ -5315,7 +5315,7 @@ ssize_t audio_hal_data_processing(struct audio_stream_out *stream,
                     } else if (adev->volume_ease.config_easing) { /* start audio volume easing */
                         float vol_now = aml_audio_ease_get_current_volume(adev->volume_ease.ease);
                         config_volume_easing(adev->volume_ease.ease, vol_now, volume);
-                        adev->volume_ease.do_easing = true;
+                        adev->volume_ease.ease->do_easing = true;
                         adev->volume_ease.config_easing = false;
                     }
 
@@ -5337,20 +5337,13 @@ ssize_t audio_hal_data_processing(struct audio_stream_out *stream,
                     aml_audio_delay_process(out_dev_convert_to_delay_type(dev), adev->out_16_buf, bytes, AUDIO_FORMAT_PCM_16_BIT);
                 }
 #endif
-                if (!adev->volume_ease.do_easing || dev != AML_AUDIO_OUT_DEV_TYPE_SPEAKER) {
+                if (!adev->volume_ease.ease->do_easing || dev != AML_AUDIO_OUT_DEV_TYPE_SPEAKER) {
                     apply_volume_16to32(volume, adev->out_16_buf, adev->out_32_buf, bytes);
                 } else {
-                    apply_volume_16to32(1.0, adev->out_16_buf, adev->out_32_buf, bytes);
-                    aml_audio_ease_process(adev->volume_ease.ease, adev->out_32_buf, bytes * 2);
-                    float vol_now = aml_audio_ease_get_current_volume(adev->volume_ease.ease);
-                    ALOGV("volume update %f, %f, %f", adev->volume_ease.vol_last, volume, vol_now);
                     /*do ease process when adjust vol,vol apply is handled by ease process,when ease process finished,
                     vol apply need handled by apply volume function,vol is float type,use fadbs to compare*/
-                    if (fabs(vol_now - volume) < 0.000001) {
-                        adev->volume_ease.do_easing = false;
-                        ALOGD("easing finished, volume now %f", volume);
-                        adev->volume_ease.vol_last = adev->volume_ease.vol_target;
-                    }
+                    apply_volume_16to32(1.0, adev->out_16_buf, adev->out_32_buf, bytes);
+                    aml_audio_ease_process(adev->volume_ease.ease, adev->out_32_buf, bytes * 2);
                 }
 
                 for (j = 0; j < out_frames; j++) {
@@ -8863,10 +8856,11 @@ static int adev_set_audio_port_config(struct audio_hw_device *dev, const struct 
         }
 
         /* for both dev->dev and mixer->dev, start volume ease */
-        if (outport == OUTPORT_SPEAKER && aml_dev->volume_ease.vol_last != aml_dev->sink_gain[OUTPORT_SPEAKER]) {
-            ALOGD("start easing: vol last %f, vol new %f", aml_dev->volume_ease.vol_last, aml_dev->sink_gain[OUTPORT_SPEAKER]);
+        if (outport == OUTPORT_SPEAKER && aml_dev->last_sink_gain != aml_dev->sink_gain[OUTPORT_SPEAKER]) {
+            ALOGD("start easing: vol last %f, vol new %f", aml_dev->last_sink_gain, aml_dev->sink_gain[OUTPORT_SPEAKER]);
             aml_dev->volume_ease.vol_target = aml_dev->sink_gain[OUTPORT_SPEAKER];
             aml_dev->volume_ease.config_easing = true;
+            aml_dev->last_sink_gain = aml_dev->sink_gain[OUTPORT_SPEAKER];
         }
     }
 

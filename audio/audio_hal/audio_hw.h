@@ -541,6 +541,7 @@ struct aml_audio_device {
     */
     int  default_alsa_ch;
     struct volume_ease volume_ease;
+    float last_sink_gain;
     /* -End- */
 };
 
