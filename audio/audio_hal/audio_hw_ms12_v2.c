@@ -2459,7 +2459,7 @@ int ms12_output(void *buffer, void *priv_data, size_t size, aml_ms12_dec_info_t 
         ms12_output_update_audio_pts(stream_out, ms12_info, buffer, size);
     }
 
-    if (do_sync_flag && aml_out->dtvsync_enable && aml_out->alsa_running_status) {
+    if (do_sync_flag && aml_out->dtvsync_enable) {
         process_result = aml_dtvsync_ms12_process_policy(priv_data, ms12_info);
         if (process_result == DTVSYNC_AUDIO_DROP)
             return ret;
