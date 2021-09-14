@@ -89,6 +89,8 @@ int aml_audio_ms12_process_wrapper(struct audio_stream_out *stream, const void *
     unsigned long long all_pcm_len2 = 0;
     unsigned long long all_zero_len = 0;
     audio_format_t output_format = get_output_format (stream);
+    bool dtv_stream_flag = patch && (adev->patch_src  == SRC_DTV) && aml_out->tv_src_stream;
+
     if (adev->debug_flag) {
         ALOGD("%s:%d hal_format:%#x, output_format:0x%x, sink_format:0x%x",
             __func__, __LINE__, aml_out->hal_format, output_format, adev->sink_format);
@@ -131,6 +133,9 @@ re_write:
             ALOGI("%s dolby_ms12_main_process before write_bytes %zu!\n", __func__, write_bytes);
         }
 
+        if (dtv_stream_flag && patch->output_thread_exit) {
+            return return_bytes;
+        }
         used_size = 0;
         ret = dolby_ms12_main_process(stream, (char*)write_buf + total_write, write_bytes, &used_size);
         if (ret == 0) {
@@ -203,7 +208,7 @@ int aml_audio_ms12_render(struct audio_stream_out *stream, const void *buffer, s
     int ms12_delayms = 0;
     bool bypass_aml_dec = false;
     bool do_sync_flag = adev->patch_src  == SRC_DTV && patch && patch->skip_amadec_flag && aml_out->tv_src_stream;
-    bool dtv_stream_flag = patch && (adev->patch_src  == SRC_DTV) && aml_out->tv_src_stream;
+    bool dtv_stream_flag = patch && (adev->patch_src == SRC_DTV) && aml_out->tv_src_stream;
     struct dolby_ms12_desc *ms12 = &(adev->ms12);
 
     if (is_dolby_ms12_support_compression_format(aml_out->hal_internal_format)
@@ -301,6 +306,9 @@ int aml_audio_ms12_render(struct audio_stream_out *stream, const void *buffer, s
                     /* audio data/apts, then we send the audio data*/
                     ret = aml_audio_ms12_process_wrapper(stream, dec_data, dec_pcm_data->data_len);
                     if (do_sync_flag) {
+                        if (patch->output_thread_exit) {
+                            break;
+                        }
                         ms12_delayms = aml_audio_get_cur_ms12_latency(stream);
                         if(patch->skip_amadec_flag) {
                             patch->dtvsync->cur_outapts = aml_dec->out_frame_pts - ms12_delayms * 90;//need consider the alsa delay

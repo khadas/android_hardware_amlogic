@@ -2423,13 +2423,14 @@ int ms12_output(void *buffer, void *priv_data, size_t size, aml_ms12_dec_info_t 
     struct aml_audio_patch *patch = adev->audio_patch;
     aml_dtvsync_t *aml_dtvsync = NULL;
     audio_format_t hal_internal_format = ms12_get_audio_hal_format(aml_out->hal_internal_format);
-    bool do_sync_flag = adev->patch_src  == SRC_DTV && patch && patch->skip_amadec_flag;
+    bool do_sync_flag = adev->patch_src  == SRC_DTV && patch && patch->skip_amadec_flag && aml_out->tv_src_stream;
     dtvsync_process_res process_result = DTVSYNC_AUDIO_OUTPUT;
     audio_format_t output_format = (ms12_info) ? ms12_info->data_type : AUDIO_FORMAT_PCM_16_BIT;
     unsigned int main_apts_high32b = (ms12_info) ? ms12_info->main_apts_high32b : 0;
     unsigned int main_apts_low32b = (ms12_info) ? ms12_info->main_apts_low32b : 0;
     unsigned int main1_apts_high32b = (ms12_info) ? ms12_info->main1_apts_high32b : 0;
     unsigned int main1_apts_low32b = (ms12_info) ? ms12_info->main1_apts_low32b : 0;
+    bool dtv_stream_flag = patch && (adev->patch_src  == SRC_DTV) && aml_out->tv_src_stream;
     int ret = 0;
 
     if (adev->debug_flag > 1) {
@@ -2450,7 +2451,13 @@ int ms12_output(void *buffer, void *priv_data, size_t size, aml_ms12_dec_info_t 
             }
         }
     }
-    ms12_output_update_audio_pts(stream_out, ms12_info, buffer, size);
+
+    if (dtv_stream_flag)  {
+        if (patch->output_thread_exit) {
+            return ret;
+        }
+        ms12_output_update_audio_pts(stream_out, ms12_info, buffer, size);
+    }
 
     if (do_sync_flag && aml_out->dtvsync_enable && aml_out->alsa_running_status) {
         process_result = aml_dtvsync_ms12_process_policy(priv_data, ms12_info);

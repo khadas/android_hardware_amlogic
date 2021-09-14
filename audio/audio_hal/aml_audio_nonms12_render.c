@@ -306,8 +306,10 @@ int aml_audio_nonms12_render(struct audio_stream_out *stream, const void *buffer
 
                     }
                     //sync process here
-                    if (do_sync_flag && aml_out->dtvsync_enable) {
-
+                    if (aml_out->dtvsync_enable) {
+                        if (patch->output_thread_exit) {
+                            break;
+                        }
                         process_result = aml_dtvsync_nonms12_process(stream, duration, &speed_enabled);
                         if (process_result == DTVSYNC_AUDIO_DROP)
                             continue;
