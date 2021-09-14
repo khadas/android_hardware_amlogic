@@ -1317,15 +1317,23 @@ int mixer_get_presentation_position(
         uint64_t *frames,
         struct timespec *timestamp)
 {
+    int ret = 0;
+    R_CHECK_PARAM_LEGAL(-1, port_index, 0, NR_INPORTS, "");
+    pthread_mutex_lock(&audio_mixer->inport_lock);
     input_port *in_port = audio_mixer->in_ports[port_index];
-    R_CHECK_POINTER_LEGAL(-EINVAL, in_port, "port_index:%d", port_index);
+    if (in_port == NULL) {
+        AM_LOGE("in_port is null pointer, port_index:%d", port_index);
+        pthread_mutex_unlock(&audio_mixer->inport_lock);
+        return -EINVAL;
+    }
     *frames = in_port->presentation_frames;
     *timestamp = in_port->timestamp;
     if (!is_inport_pts_valid(in_port)) {
         AM_LOGW("not valid now");
-        return -EINVAL;
+        ret = -EINVAL;
     }
-    return 0;
+    pthread_mutex_unlock(&audio_mixer->inport_lock);
+    return ret;
 }
 
 int mixer_set_padding_size(
