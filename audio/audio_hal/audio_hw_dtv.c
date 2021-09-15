@@ -3428,10 +3428,10 @@ static void *audio_dtv_patch_process_threadloop_v2(void *data)
             } else if (cmd == AUDIO_DTV_PATCH_CMD_STOP) {
                 ALOGI("[audiohal_kpi]++%s live now  stop  the audio decoder now \n",
                       __FUNCTION__);
-                dtv_audio_instances->demux_index_working = -1;
                 dtv_do_ease_out(aml_dev);
-                dtv_package_list_flush(patch->dtv_package_list);
                 release_dtv_output_stream_thread(patch);
+                dtv_package_list_flush(patch->dtv_package_list);
+                dtv_audio_instances->demux_index_working = -1;
                 dtv_adjust_output_clock(patch, DIRECT_NORMAL, DEFAULT_DTV_ADJUST_CLOCK, false);
                 dtv_assoc_audio_stop(1);
                 aml_dev->ad_start_enable = 0;
