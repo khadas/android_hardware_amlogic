@@ -15,7 +15,7 @@
  */
 
 #define LOG_TAG "audio_hw_dtv"
-#define LOG_NDEBUG 0
+//#define LOG_NDEBUG 0
 
 #include <cutils/atomic.h>
 #include <cutils/log.h>
