@@ -2553,6 +2553,7 @@ int audio_dtv_patch_output_dual_decoder(struct aml_audio_patch *patch,
             p16_mixbuff[2] = ((dd_bsmod & 7) << 8) | 1;
             if (ad_size == 0) {
                 p16_mixbuff[3] = (main_size + sizeof(mute_dd_frame)) * 8;
+                memcpy(mixbuffer + mix_size + main_size,mute_dd_frame, sizeof(mute_dd_frame));
             } else {
                 p16_mixbuff[3] = (main_size + ad_size) * 8;
             }
@@ -2561,6 +2562,7 @@ int audio_dtv_patch_output_dual_decoder(struct aml_audio_patch *patch,
             p16_mixbuff[2] = ((dd_bsmod & 7) << 8) | 21;
             if (ad_size == 0) {
                 p16_mixbuff[3] = main_size + sizeof(mute_ddp_frame);
+                memcpy(mixbuffer + mix_size + main_size,mute_ddp_frame, sizeof(mute_ddp_frame));
             } else {
                 p16_mixbuff[3] = main_size + ad_size;
             }
