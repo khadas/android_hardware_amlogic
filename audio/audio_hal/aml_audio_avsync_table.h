@@ -216,16 +216,18 @@
 /* for different output format */
 #define  AVSYNC_MS12_DTV_PCM_OUT_LATENCY                     (0)
 #define  AVSYNC_MS12_DTV_DD_OUT_LATENCY                      (0)
-#define  AVSYNC_MS12_DTV_DDP_OUT_LATENCY                     (-100) /* at least more than 1280/48(26) ms */
-/* Node                             | Delay
- *|MS12 Dolby Digital Plus encoder  |0 (legacy devices supporting ARC/ eARC without phase-90 filter)
- *                                  |1,280 (legacy devices supporting full HDMI including phase-90 filter)
- *                                  |32 (devises that are capable of Dolby Atmos and support ARC)
- *                                  |32 (devices supporting 7.1 and 5.1.2 encoding)
- *                                  |Not applicable for devices that are capable of Dolby Atmos and support
- *                                  |eARC/ full HDMI
+/*
+ * if set "vendor.media.audio.hal.ms12.dtv.ddpout" -100,
+ * AUTO( DDP ) results located at [-93, -67]
+ * after set property with (-50), results located at [-51, -22]
  */
-#define  AVSYNC_MS12_DTV_MAT_OUT_LATENCY                     (-55)
+#define  AVSYNC_MS12_DTV_DDP_OUT_LATENCY                     (-50)
+/*
+ * if set "vendor.media.audio.hal.ms12.dtv.matout" -55,
+ * AUTO( MAT ) result located at [-90, -50]
+ * after set property with (-30), results located at [-43, -19]
+ */
+#define  AVSYNC_MS12_DTV_MAT_OUT_LATENCY                     (-30)
 
 #define  AVSYNC_MS12_DTV_PCM_OUT_LATENCY_PROPERTY            "vendor.media.audio.hal.ms12.dtv.pcmout"
 #define  AVSYNC_MS12_DTV_DDP_OUT_LATENCY_PROPERTY            "vendor.media.audio.hal.ms12.dtv.ddpout"
