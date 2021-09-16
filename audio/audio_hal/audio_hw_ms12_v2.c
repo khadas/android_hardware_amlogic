@@ -2350,12 +2350,12 @@ void ms12_output_update_audio_pts(struct audio_stream_out *stream, aml_ms12_dec_
 
     if (ms12_info && adev->debug_flag) {
         if (main_apts_high32b || main_apts_low32b) {
-            ALOGI("+%s() main apts high32bits %x low32bits %x convert to time %llu ms\n",
-                __FUNCTION__, main_apts_high32b, main_apts_low32b, (((uint64_t)main_apts_high32b << 32) + (uint64_t)main_apts_low32b)/90);
+            ALOGI("+%s() format =0x%x main apts high32bits %x low32bits %x convert to time %llu ms\n",
+                __FUNCTION__, ms12_info->data_type, main_apts_high32b, main_apts_low32b, (((uint64_t)main_apts_high32b << 32) + (uint64_t)main_apts_low32b)/90);
         }
         if (main1_apts_high32b || main1_apts_low32b) {
-            ALOGI("+%s() main1 apts high 32bits %x low32bits %x  convert to time %llu ms\n",
-                __FUNCTION__, main1_apts_high32b, main1_apts_low32b, (((uint64_t)main1_apts_high32b << 32) + (uint64_t)main1_apts_low32b)/90);
+            ALOGI("+%s() format =0x%x main1 apts high 32bits %x low32bits %x  convert to time %llu ms\n",
+                __FUNCTION__, ms12_info->data_type, main1_apts_high32b, main1_apts_low32b, (((uint64_t)main1_apts_high32b << 32) + (uint64_t)main1_apts_low32b)/90);
         }
     }
 
@@ -2394,9 +2394,13 @@ void ms12_output_update_audio_pts(struct audio_stream_out *stream, aml_ms12_dec_
         else {
             aml_dtvsync->out_start_apts = aml_dtvsync->out_end_apts;
         }
-        aml_dtvsync->out_end_apts = aml_dtvsync->out_start_apts + cur_pcm_pts;
-
-        aml_dtvsync->cur_outapts = aml_dtvsync->out_start_apts - alsa_latency + ms12_tuing_delay_pts;
+        if (aml_dtvsync->out_start_apts == DTVSYNC_INIT_PTS) {
+            /*invalid pts */
+            aml_dtvsync->cur_outapts = DTVSYNC_INIT_PTS;
+        } else {
+            aml_dtvsync->out_end_apts = aml_dtvsync->out_start_apts + cur_pcm_pts;
+            aml_dtvsync->cur_outapts = aml_dtvsync->out_start_apts - alsa_latency + ms12_tuing_delay_pts;
+        }
         if (patch->cur_package && adev->debug_flag) {
             ALOGI("%s package pts(ms) %llu ms12_main_apts(ms) %llu pcm-duration(ms)%u cur_outapts(ms) %llu, alsa_latency(ms) %d ms12_tuing_delay_pts(ms) %d\n",
                 __func__, patch->cur_package->pts / 90, ms12_main_apts / 90, cur_pcm_pts / 90 , aml_dtvsync->cur_outapts / 90, alsa_latency / 90, ms12_tuing_delay_pts / 90);
@@ -2451,12 +2455,12 @@ int ms12_output(void *buffer, void *priv_data, size_t size, aml_ms12_dec_info_t 
             }
         }
     }
-
     if (dtv_stream_flag)  {
         if (patch->output_thread_exit) {
             return ret;
         }
-        ms12_output_update_audio_pts(stream_out, ms12_info, buffer, size);
+        if (!audio_is_linear_pcm(hal_internal_format))
+            ms12_output_update_audio_pts(stream_out, ms12_info, buffer, size);
     }
 
     if (do_sync_flag && aml_out->dtvsync_enable) {
@@ -2464,6 +2468,7 @@ int ms12_output(void *buffer, void *priv_data, size_t size, aml_ms12_dec_info_t 
         if (process_result == DTVSYNC_AUDIO_DROP)
             return ret;
     }
+
     if (audio_is_linear_pcm(output_format)) {
         if (ms12_info->pcm_type == DAP_LPCM) {
             if (get_debug_value(AML_DEBUG_AUDIOHAL_LEVEL_DETECT)) {
