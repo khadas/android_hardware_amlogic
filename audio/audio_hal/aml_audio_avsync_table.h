@@ -107,15 +107,15 @@
 
 /*netflix tunning part*/
 // right offset. 10-->30
-#define  AVSYNC_MS12_NETFLIX_NONTUNNEL_PCM_LATENCY       (30)
+#define  AVSYNC_MS12_NETFLIX_NONTUNNEL_PCM_LATENCY       (20)
 // right offset. 20-->40
 #define  AVSYNC_MS12_NETFLIX_NONTUNNEL_DDP_LATENCY       (40)
 #define  AVSYNC_MS12_NETFLIX_NONTUNNEL_ATMOS_LATENCY     (-18) /*for atmos we remove 32ms at the beginning*/
 // right offset. -10-->20
-#define  AVSYNC_MS12_NETFLIX_TUNNEL_PCM_LATENCY          (20)
+#define  AVSYNC_MS12_NETFLIX_TUNNEL_PCM_LATENCY          (10)
 // right offset. 65-->95-->75
 #define  AVSYNC_MS12_NETFLIX_TUNNEL_DDP_LATENCY          (75)
-#define  AVSYNC_MS12_NETFLIX_TUNNEL_ATMOS_LATENCY        (5)
+#define  AVSYNC_MS12_NETFLIX_TUNNEL_ATMOS_LATENCY        (-5)
 
 #define  AVSYNC_MS12_NETFLIX_PCM_OUT_LATENCY             (0)
 #define  AVSYNC_MS12_NETFLIX_DD_OUT_LATENCY              (0)
