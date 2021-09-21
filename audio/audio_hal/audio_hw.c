@@ -8829,6 +8829,11 @@ static int adev_close(hw_device_t *device)
     eq_drc_release(&adev->eq_data);
     close_mixer_handle(&adev->alsa_mixer);
     if (adev->aml_dtv_audio_instances) {
+        aml_dtv_audio_instances_t *dtv_audio_instances = (aml_dtv_audio_instances_t *)adev->aml_dtv_audio_instances;
+        for (int index = 0; index < DVB_DEMUX_SUPPORT_MAX_NUM; index ++) {
+            aml_dtvsync_t *dtvsync =  &dtv_audio_instances->dtvsync[index];
+            pthread_mutex_destroy(&dtvsync->ms_lock);
+        }
         aml_audio_free(adev->aml_dtv_audio_instances);
     }
     if (adev->sm) {
@@ -9262,6 +9267,12 @@ static int adev_open(const hw_module_t* module, const char* name, hw_device_t** 
         ALOGE("malloc aml_dtv_audio_instances failed");
         ret = -ENOMEM;
         goto err_spk_tuning_rbuf;
+    } else {
+        aml_dtv_audio_instances_t *dtv_audio_instances = (aml_dtv_audio_instances_t *)adev->aml_dtv_audio_instances;
+        for (int index = 0; index < DVB_DEMUX_SUPPORT_MAX_NUM; index ++) {
+            aml_dtvsync_t *dtvsync =  &dtv_audio_instances->dtvsync[index];
+            pthread_mutex_init(&dtvsync->ms_lock, NULL);
+        }
     }
     pthread_mutex_init(&adev->dtv_lock, NULL);
 

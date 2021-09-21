@@ -73,6 +73,7 @@ typedef struct  aml_dtvsync {
     struct dtvsync_audio_policy apolicy;
     int pcm_dropping;
     int duration;
+    pthread_mutex_t ms_lock;
 } aml_dtvsync_t;
 
 
