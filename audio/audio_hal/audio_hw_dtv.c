@@ -2541,6 +2541,10 @@ int audio_dtv_patch_output_dual_decoder(struct aml_audio_patch *patch,
         mix_size += 8;
         main_size = p_package->size;
         ALOGV("main mEsData->size %d",p_package->size);
+        if (p_package->size + p_package->ad_size + mix_size > EAC3_IEC61937_FRAME_SIZE) {
+            ALOGE("pakage size too large, main_size %d ad_size %d", main_size, p_package->ad_size);
+            return ret;
+        }
         if (p_package->data)
             memcpy(mixbuffer + mix_size, p_package->data, p_package->size);
         ad_size = p_package->ad_size;
