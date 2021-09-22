@@ -3599,6 +3599,18 @@ static int adev_set_parameters(struct audio_hw_device *dev, const char *kvpairs)
         goto exit;
     }
 
+    ret = str_parms_get_int(parms, "hal_param_dtv_spdif_protection_mode", &val);
+    if (ret >= 0) {
+        if (val == SPIDF_PROTECTION__MODE_NONE || val == SPIDF_PROTECTION__MODE_NEVER) {
+            aml_mixer_ctrl_set_int(&adev->alsa_mixer, AML_MIXER_ID_SPDIF_B_OUT_CHANNEL_STATUS, SPID_PROTECTION_ENABLE);
+        } else if (val == SPIDF_PROTECTION__MODE_ONCE){
+            aml_mixer_ctrl_set_int(&adev->alsa_mixer, AML_MIXER_ID_SPDIF_B_OUT_CHANNEL_STATUS, SPID_PROTECION_DISABLE);
+        }
+
+        ALOGI("AUDIO SET SPIDF_PROTECTION__STATUS: %d\n", val);
+        goto exit;
+    }
+
     ret = str_parms_get_int(parms, "Audio spdif mute", &val);
     if (ret >= 0) {
         audio_route_set_spdif_mute(&adev->alsa_mixer, val);
