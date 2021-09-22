@@ -153,6 +153,13 @@ void* AM_DMX_Device::dmx_data_thread(void *arg)
                 }
                 else if (ret!=AM_SUCCESS)
                 {
+                    if (filter->to_be_stopped) {
+                        break;
+                    } else {
+                        if (ret == AM_DMX_ERR_NO_DATA) {
+                           usleep(5000);
+                        }
+                    }
                     continue;
                 }
                 else
