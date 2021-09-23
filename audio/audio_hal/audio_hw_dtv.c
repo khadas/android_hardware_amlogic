@@ -457,8 +457,8 @@ static int dtv_patch_handle_event(struct audio_hw_device *dev, int cmd, int val)
                 }
                 memset(demux_info, 0, sizeof(aml_demux_audiopara_t));
             } else {
-                if (patch == NULL) {
-                    ALOGI("%s()the audio patch is NULL \n", __func__);
+                if (patch == NULL || patch->dtv_cmd_list == NULL) {
+                    ALOGI("%s()the audio patch is NULL or dtv_cmd_list is NULL \n", __func__);
                     break;
                 }
                 if (val <= AUDIO_DTV_PATCH_CMD_NULL || val > AUDIO_DTV_PATCH_CMD_STOP) {
