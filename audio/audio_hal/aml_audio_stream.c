@@ -1361,8 +1361,8 @@ int tv_in_read(struct audio_stream_in *stream, void* buffer, size_t bytes)
     if (patch->tvin_buffer_inited == 1) {
         int abuf_level = get_buffer_read_space(&patch->tvin_ringbuffer);
         if (abuf_level <= (int)bytes) {
-            memset(buffer, 0, sizeof(unsigned char)* bytes);
-            ret = bytes;
+            bytes = ret = 0;
+            ALOGI("[%s] abuf_level =%d <  bytes =%d\n", __FUNCTION__,abuf_level,bytes);
         } else {
             ret = ring_buffer_read(&patch->tvin_ringbuffer, (unsigned char *)buffer, bytes);
             ALOGV("[%s] abuf_level =%d ret=%d\n", __FUNCTION__,abuf_level,ret);

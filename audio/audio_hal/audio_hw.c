@@ -2625,6 +2625,7 @@ static ssize_t in_read(struct audio_stream_in *stream, void* buffer, size_t byte
     if (adev->dev2mix_patch) {
         float source_gain = aml_audio_get_s_gain_by_src(adev, adev->patch_src);
         ret = tv_in_read(stream, buffer, bytes);
+        bytes = ret;
         if (getprop_bool("vendor.media.audiohal.indump")) {
             aml_audio_dump_audio_bitstreams("/data/audio/tv_in_read.raw",
                 buffer, bytes);
