@@ -26,7 +26,9 @@
 #include <getopt.h>
 #include <sys/wait.h>
 #include <dlfcn.h>
-
+#ifdef GE2D_ENABLE
+#include "ge2d_stream.h"
+#endif
 #include <nativebase/nativebase.h>
 //#include <android/native_window.h>
 //#include <gui/Surface.h>
@@ -166,6 +168,9 @@ private:
 	OMX_TICKS timeStamp = 0;
 	Mutex mOMXControlMutex;
     Condition mOMXVSync;
+#ifdef GE2D_ENABLE
+	ge2dTransform* mGE2D;
+#endif
 private:
     void QueueBuffer(uint8_t* src, size_t size);
     int DequeueBuffer(int dst_fd ,uint8_t* dst_buf,

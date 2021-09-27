@@ -41,12 +41,19 @@ OMXDecoder::OMXDecoder(bool useDMABuffer, bool keepOriginalSize) {
     mDeinit = NULL;
     mVDecoderHandle = NULL;
     mDequeueFailNum = 0;
+#ifdef GE2D_ENABLE
+    mGE2D = new ge2dTransform();
+#endif
 }
 
 OMXDecoder::~OMXDecoder() {
-
     ALOGD("%s\n", __FUNCTION__);
-
+#ifdef GE2D_ENABLE
+    if (mGE2D) {
+        delete mGE2D;
+        mGE2D = nullptr;
+    }
+#endif
 }
 
 //Please don't use saveNativeBufferHdr() again if you want to use setParameters().
@@ -879,7 +886,10 @@ int OMXDecoder::DequeueBuffer(int dst_fd ,uint8_t* dst_buf,
            if (dst_fd != -1) {
                 //copy data using ge2d
                 int omx_share_fd = (int)pOutPutBufferHdr->pPlatformPrivate;
-                ge2dDevice::ge2d_copy(dst_fd,omx_share_fd,dst_w,dst_h,ge2dDevice::NV12);
+                if (mGE2D) {
+                    mGE2D->ge2d_copy(dst_fd,omx_share_fd,dst_w,dst_h,ge2dTransform::NV12);
+                }else
+                    ALOGE("%s:ge2d object is null",__FUNCTION__);
             }
             else
                 memcpy(dst_buf, pOutPutBufferHdr->pBuffer, pOutPutBufferHdr->nFilledLen);

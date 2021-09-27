@@ -4,11 +4,19 @@
 #include "ICapture.h"
 #include "MIPICameraIO.h"
 #include "CameraUtil.h"
+#ifdef GE2D_ENABLE
+#include "ge2d_stream.h"
+#endif
 namespace android {
     class CaptureUseGe2d:public ICapture {
         protected:
             MIPIVideoInfo* mInfo;
             CameraUtil* mCameraUtil;
+#ifdef GE2D_ENABLE
+            ge2dTransform* mGE2D;
+#endif
+
+
         public:
             CaptureUseGe2d(MIPIVideoInfo* info);
             virtual ~CaptureUseGe2d();

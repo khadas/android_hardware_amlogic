@@ -6,7 +6,7 @@
 #include "CameraUtil.h"
 #include "Isp3a.h"
 #include "ICapture.h"
-#include "ion_if.h"
+#include "IonIf.h"
 #ifdef GDC_ENABLE
 #include "gdcUseMemcpy.h"
 #include "gdcUseFd.h"
@@ -66,6 +66,7 @@ namespace android {
             ICapture* mCapture;
 #ifdef GE2D_ENABLE
             IONInterface* mION;
+			ge2dTransform* mGE2D;
 #endif
 #ifdef GDC_ENABLE
             IGdc* mIGdc;

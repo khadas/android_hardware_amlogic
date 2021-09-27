@@ -69,6 +69,7 @@ USBSensor::USBSensor(int type)
     mImage_buffer = NULL;
 #ifdef GE2D_ENABLE
     mION = IONInterface::get_instance();
+    mGE2D = new ge2dTransform();
 #endif
     mDecoder = NULL;
     mHalMediaCodec = NULL;
@@ -95,6 +96,10 @@ USBSensor::~USBSensor() {
 #ifdef GE2D_ENABLE
     if (mION) {
         mION->put_instance();
+    }
+    if (mGE2D) {
+        delete mGE2D;
+        mGE2D = nullptr;
     }
 #endif
     ALOGD("delete usbsensor");
@@ -501,7 +506,7 @@ void USBSensor::takePicture(StreamBuffer b, uint32_t stride) {
                 }else {
 #ifdef GE2D_ENABLE
                     ALOGD("%s:do rotation and mirror",__FUNCTION__);
-                    ge2dDevice::doRotationAndMirror(b);
+                    mGE2D->doRotationAndMirror(b);
 #endif
                     break;
                 }
@@ -521,7 +526,7 @@ void USBSensor::takePicture(StreamBuffer b, uint32_t stride) {
                 }
 #ifdef GE2D_ENABLE
                 ALOGD("%s:do rotation and mirror",__FUNCTION__);
-                ge2dDevice::doRotationAndMirror(b);
+                mGE2D->doRotationAndMirror(b);
 #endif
                 break;
             } else if (mVinfo->picture.format.fmt.pix.pixelformat == V4L2_PIX_FMT_NV21) {
@@ -552,7 +557,7 @@ void USBSensor::captureNV21(StreamBuffer b, uint32_t gain) {
                //copy the first buffer to new buffer to do recording
 #ifdef GE2D_ENABLE
                 if (mTempFD != -1)
-                    ge2dDevice::ge2d_copy(b.share_fd,mTempFD,b.stride,b.height,ge2dDevice::NV12);
+                    mGE2D->ge2d_copy(b.share_fd,mTempFD,b.stride,b.height,ge2dTransform::NV12);
                 else
                     memcpy(b.img, src, b.stride * b.height * 3/2);
 #else
@@ -609,7 +614,7 @@ void USBSensor::captureNV21(StreamBuffer b, uint32_t gain) {
                     mCameraUtil->nv21_memcpy_align32 (b.img, src, b.width, b.height);
                 }
 #ifdef GE2D_ENABLE
-                ge2dDevice::doRotationAndMirror(b);
+                mGE2D->doRotationAndMirror(b);
 #endif
                 mDecodedBuffer = b.img;
                 mKernelBuffer = src;
@@ -632,7 +637,7 @@ void USBSensor::captureNV21(StreamBuffer b, uint32_t gain) {
                         mCameraUtil->ReSizeNV21(mImage_buffer, b.img, b.width, b.height, b.stride,width,height);
                     }
 #ifdef GE2D_ENABLE
-                    ge2dDevice::doRotationAndMirror(b);
+                    mGE2D->doRotationAndMirror(b);
 #endif
                     mDecodedBuffer = mImage_buffer;
                     mKernelBuffer = src;
@@ -645,7 +650,7 @@ void USBSensor::captureNV21(StreamBuffer b, uint32_t gain) {
                     if (ret == 1)
                         continue;
 #ifdef GE2D_ENABLE
-                    ge2dDevice::doRotationAndMirror(b);
+                    mGE2D->doRotationAndMirror(b);
 #endif
                 }
                 break;
@@ -657,7 +662,7 @@ void USBSensor::captureNV21(StreamBuffer b, uint32_t gain) {
                         continue;
                     }else {
 #ifdef GE2D_ENABLE
-                        ge2dDevice::doRotationAndMirror(b);
+                        mGE2D->doRotationAndMirror(b);
 #endif
                         mDecodedBuffer = b.img;
                         mKernelBuffer = src;

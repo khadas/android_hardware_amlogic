@@ -23,30 +23,38 @@
 #include <aml_ge2d.h>
 #include <ge2d_port.h>
 #include <cutils/properties.h>
+#include "IonIf.h"
 
 namespace android {
-class ge2dDevice {
+
+class ge2dTransform {
 public:
     enum {
-        NV12,
-        RGB
-    };
-	static int doRotationAndMirror(android::StreamBuffer &b);
-    static int fillStream(VideoInfo *src, uintptr_t physAddr, const android::StreamBuffer &dst);
-    static int ge2d_copy(int dst_fd, int src_fd, size_t width, size_t height, int fmt);
-    static int imageScaler();
-    static int ge2d_rotation(int dst_fd,size_t src_w, size_t src_h, int fmt,
-                                                            int degree,aml_ge2d_t& amlge2d);
-    static char* ge2d_alloc(size_t width, size_t height,int* share_fd,int fmt,aml_ge2d_t& amlge2d);
-    static int ge2d_free(aml_ge2d_t& amlge2d);
-    static int ge2d_copy_dma(int dst_fd, int src_fd, size_t width, size_t height,int fmt);
-    static int ge2d_mirror(int dst_fd,size_t src_w,
-                                            size_t src_h,int fmt,aml_ge2d_t& amlge2d);
-    static int ge2d_flip(int dst_fd,size_t src_w,
-                                            size_t src_h,int fmt,aml_ge2d_t& amlge2d);
+            NV12,
+            RGB
+        };
 private:
-    static int ge2d_copy_internal(int dst_fd, int dst_alloc_type,int src_fd,
+        aml_ge2d_t m_amlge2d;
+        int m_share_fd;
+        bool mFirst;
+        size_t degree;
+        bool flip = false, mirror = false;
+        IONInterface* mION;
+public:
+        ge2dTransform();
+        ~ge2dTransform();
+        int ge2d_rotation(int dst_fd,size_t src_w, size_t src_h, int fmt,
+                                                        int degree);
+        int ge2d_mirror(int dst_fd,size_t src_w,size_t src_h,int fmt);
+        int ge2d_flip(int dst_fd,size_t src_w,size_t src_h,int fmt);
+        int doRotationAndMirror(android::StreamBuffer &b);
+        int ge2d_copy(int dst_fd, int src_fd, size_t width, size_t height, int fmt);
+        int ge2d_copy_dma(int dst_fd, int src_fd, size_t width, size_t height,int fmt);
+
+private:
+        int ge2d_copy_internal(int dst_fd, int dst_alloc_type,int src_fd,
                                            int src_alloc_type, size_t width, size_t height,int fmt);
 };
+
 }
 #endif

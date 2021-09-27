@@ -11,7 +11,7 @@
 #ifdef GE2D_ENABLE
 #include "ge2d_stream.h"
 #endif
-#include "ion_if.h"
+#include "IonIf.h"
 namespace android {
 
     class USBSensor:public Sensor {
@@ -84,6 +84,7 @@ namespace android {
             bool mIsRequestFinished;
 #ifdef GE2D_ENABLE
             IONInterface* mION;
+            ge2dTransform* mGE2D;
 #endif
         private:
             USBSensor();

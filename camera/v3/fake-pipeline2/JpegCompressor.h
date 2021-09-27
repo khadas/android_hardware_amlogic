@@ -37,7 +37,7 @@
 #include <libexif/exif-ifd.h>
 #include <libexif/exif-loader.h>
 #include <libexif/exif-mem.h>
-#include "ion_if.h"
+#include "IonIf.h"
 
 extern "C" {
 #include <jpeglib.h>
@@ -57,7 +57,7 @@ typedef struct _exif_buffer {
     unsigned int size;
 } exif_buffer;
 
-class JpegCompressor: private Thread, public virtual RefBase {
+class JpegCompressor: public Thread, public virtual RefBase {
   public:
 
     JpegCompressor();

@@ -9,12 +9,17 @@ namespace android {
     CaptureUseGe2d::CaptureUseGe2d(MIPIVideoInfo* info) {
         mInfo = info;
         mCameraUtil = new CameraUtil();
+        mGE2D = new ge2dTransform();
     }
 
     CaptureUseGe2d::~CaptureUseGe2d() {
         if (mCameraUtil) {
             delete mCameraUtil;
             mCameraUtil = nullptr;
+        }
+        if (mGE2D) {
+            delete mGE2D;
+            mGE2D = nullptr;
         }
     }
 
@@ -81,7 +86,7 @@ namespace android {
     }
 
     int CaptureUseGe2d::captureNV21frame(StreamBuffer b, struct data_in* in) {
-			ATRACE_CALL();
+            ATRACE_CALL();
             //uint32_t width = mInfo->preview.format.fmt.pix.width;
             //uint32_t height = mInfo->preview.format.fmt.pix.height;
             uint32_t format = mInfo->preview.format.fmt.pix.pixelformat;
@@ -113,7 +118,7 @@ namespace android {
                 case V4L2_PIX_FMT_NV21:
                     if (mInfo->preview.buf.length == b.width * b.height * 3/2) {
                         ALOGV("%s:dma buffer fd = %d \n",__FUNCTION__,dmabuf_fd);
-                        ge2dDevice::ge2d_copy(b.share_fd,dmabuf_fd,b.stride,b.height,ge2dDevice::NV12);
+                        mGE2D->ge2d_copy(b.share_fd,dmabuf_fd,b.stride,b.height,ge2dTransform::NV12);
                     }
                     break;
                 default:
@@ -124,7 +129,7 @@ namespace android {
     }
 
     int CaptureUseGe2d::captureYV12frame(StreamBuffer b, struct data_in* in) {
-			ATRACE_CALL();
+            ATRACE_CALL();
             int dmabuf_fd = -1;
             uint32_t format = mInfo->preview.format.fmt.pix.pixelformat;
 
@@ -139,7 +144,7 @@ namespace android {
             switch (format) {
                 case V4L2_PIX_FMT_YVU420:
                     if (mInfo->preview.buf.length == b.width * b.height * 3/2) {
-                        ge2dDevice::ge2d_copy(b.share_fd,dmabuf_fd,b.stride,b.height,ge2dDevice::NV12);
+                        mGE2D->ge2d_copy(b.share_fd,dmabuf_fd,b.stride,b.height,ge2dTransform::NV12);
                     }
                     break;
                 default:

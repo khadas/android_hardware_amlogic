@@ -183,7 +183,7 @@ LOCAL_SRC_FILES := \
 
 ifeq ($(GE2D_ENABLE),true)
 LOCAL_SRC_FILES += fake-pipeline2/ge2d_stream.cpp \
-                   fake-pipeline2/ion_if.cpp \
+                   fake-pipeline2/IonIf.cpp \
                    fake-pipeline2/CaptureUseGe2d.cpp
 endif
 

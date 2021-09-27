@@ -76,7 +76,7 @@ struct VirtualDevice* CameraVirtualDevice::findVideoDevice(int id) {
                     if (video_device_count != id)
                         video_device_count++;
                     else {
-                        ALOGD("%s: device %s index %d", __FUNCTION__,pDev->name,stream_idx);
+                        ALOGD("%s: device %s stream index %d map to camera id %d", __FUNCTION__,pDev->name,stream_idx,id);
                         pDev->cameraId[stream_idx] = id;
                         return pDev;
                     }
@@ -162,13 +162,13 @@ int CameraVirtualDevice::openVirtualDevice(int id) {
     ALOGD("%s: device name is %s", __FUNCTION__,pDevice->name);
     int DeviceStatus = checkDeviceStatus(pDevice);
     if (!DeviceStatus) {
-        ALOGD("%s: device %s is free", __FUNCTION__,pDevice->name);
+        ALOGD("%s: device %s is free,open it", __FUNCTION__,pDevice->name);
         OpenVideoDevice(pDevice);
     }
     for (int i = 0; i < pDevice->streamNum; i++) {
         if (pDevice->cameraId[i] == id) {
-            ALOGD("%s: find index = %d, fd = %d, status = %d",
-                __FUNCTION__,i,pDevice->fileDesc[i],pDevice->status[i]);
+            ALOGD("%s: camera id:%d  fd = %d",
+                __FUNCTION__,id,pDevice->fileDesc[i]);
             pDevice->status[i] = USED_VIDEO_DEVICE;
             return pDevice->fileDesc[i];
         }

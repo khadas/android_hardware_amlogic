@@ -277,7 +277,7 @@ status_t EmulatedFakeCamera3::connectCamera(hw_device_t** device) {
     if (res != NO_ERROR) return res;
 
     mReadoutThread = new ReadoutThread(this);
-    mJpegCompressor = new JpegCompressor();
+    if (mJpegCompressor == nullptr ) mJpegCompressor = new JpegCompressor();
 
     res = mReadoutThread->setJpegCompressorListener(this);
     if (res != NO_ERROR) {
@@ -398,6 +398,10 @@ status_t EmulatedFakeCamera3::closeCamera() {
         }
         mStreams.clear();
         mReadoutThread.clear();
+        mReadoutThread = nullptr;
+
+        mJpegCompressor->join();
+        mJpegCompressor = nullptr;
     }
     CAMHAL_LOGDB("%s, %d\n", __FUNCTION__, __LINE__);
     return EmulatedCamera3::closeCamera();

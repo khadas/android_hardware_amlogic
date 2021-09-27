@@ -276,15 +276,15 @@ uint32_t Sensor::getStreamUsage(int stream_type)
                 GRALLOC_USAGE_HW_CAMERA_WRITE;
             break;
     }
-    /*if ((mSensorType == SENSOR_MMAP)
+    if ((mSensorType == SENSOR_MMAP)
          || (mSensorType == SENSOR_USB)) {
         usage = (GRALLOC_USAGE_HW_TEXTURE
                 | GRALLOC_USAGE_HW_RENDER
                 | GRALLOC_USAGE_SW_READ_MASK
                 | GRALLOC_USAGE_SW_WRITE_MASK
                 );
-    }*/
-    usage = GRALLOC1_PRODUCER_USAGE_CAMERA;
+    }
+    /*usage = GRALLOC1_PRODUCER_USAGE_CAMERA;*/
     return usage;
 }
 

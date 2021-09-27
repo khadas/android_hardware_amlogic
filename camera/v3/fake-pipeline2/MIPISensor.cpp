@@ -70,6 +70,7 @@ MIPISensor::MIPISensor() {
 
 #ifdef GE2D_ENABLE
     mION = IONInterface::get_instance();
+    mGE2D = new ge2dTransform();
 #endif
 
 #ifdef GDC_ENABLE
@@ -102,6 +103,10 @@ MIPISensor::~MIPISensor() {
 #ifdef GE2D_ENABLE
     if (mION) {
         mION->put_instance();
+    }
+    if (mGE2D) {
+        delete mGE2D;
+        mGE2D = nullptr;
     }
 #endif
 
@@ -298,7 +303,7 @@ void MIPISensor::captureNV21(StreamBuffer b, uint32_t gain){
             continue;
 #ifdef GE2D_ENABLE
         //----do rotation
-        ge2dDevice::doRotationAndMirror(b);
+        mGE2D->doRotationAndMirror(b);
 #endif
 
 #ifdef GDC_ENABLE
@@ -501,7 +506,7 @@ bool MIPISensor::isNeedRestart(uint32_t width, uint32_t height, uint32_t pixelfo
 }
 
 int MIPISensor::getStreamConfigurations(uint32_t picSizes[], const int32_t kAvailableFormats[], int size) {
-      int res;
+    int res;
     int i, j, k, START;
     int count = 0;
     //int pixelfmt;
