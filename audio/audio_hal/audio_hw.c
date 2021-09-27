@@ -4387,11 +4387,12 @@ static int choose_stream_pcm_config(struct aml_stream_in *in)
         memcpy(&in->config, &pcm_config_bt, sizeof(pcm_config_bt));
         if (adev->bt_wbs)
             in->config.rate = VX_WB_SAMPLING_RATE;
+    } else if (in->device & AUDIO_DEVICE_IN_HDMI || in->device & AUDIO_DEVICE_IN_HDMI_ARC) {
+        // do nothing.
+    } else if (in->device & AUDIO_DEVICE_IN_BLUETOOTH_BLE) {
+        return -EINVAL;
     } else {
-        if (!((in->device & AUDIO_DEVICE_IN_HDMI) ||
-                (in->device & AUDIO_DEVICE_IN_HDMI_ARC))) {
-            memcpy(&in->config, &pcm_config_in, sizeof(pcm_config_in));
-        }
+        memcpy(&in->config, &pcm_config_in, sizeof(pcm_config_in));
     }
 
     if (in->config.channels != 8)
@@ -4660,10 +4661,15 @@ static int adev_open_input_stream(struct audio_hw_device *dev,
     *stream_in = &in->stream;
 
 #if ENABLE_NANO_NEW_PATH
-    if (nano_is_connected() && (in->device & AUDIO_DEVICE_IN_BLUETOOTH_BLE)) {
-        ret = nano_input_open(*stream_in, config);
-        if (ret < 0) {
-            ALOGD("%s: nano_input_open : %d",__func__,ret);
+    if (in->device & AUDIO_DEVICE_IN_BLUETOOTH_BLE) {
+        if (nano_is_connected()) {
+            ret = nano_input_open(*stream_in, config);
+            if (ret < 0) {
+                ALOGD("%s: nano_input_open : %d",__func__,ret);
+            }
+        } else {
+            AM_LOGW("nano is disconnect!!!");
+            return -EINVAL;
         }
     }
 #endif
