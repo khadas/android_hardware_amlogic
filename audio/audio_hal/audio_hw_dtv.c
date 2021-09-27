@@ -2059,6 +2059,7 @@ void *audio_dtv_patch_output_threadloop(void *data)
     aml_audio_free(patch->out_buf);
     patch->out_buf = NULL;
 exit_outbuf:
+    do_output_standby_l((struct audio_stream *)aml_out);
     adev_close_output_stream_new(dev, stream_out);
 exit_open:
     if (aml_dev->audio_ease) {
@@ -3205,6 +3206,7 @@ void *audio_dtv_patch_output_threadloop_v2(void *data)
     aml_audio_free(patch->out_buf);
 exit_outbuf:
     ALOGI("patch->output_thread_exit %d", patch->output_thread_exit);
+    do_output_standby_l((struct audio_stream *)aml_out);
     adev_close_output_stream_new(dev, stream_out);
 exit_open:
     if (aml_dev->audio_ease) {

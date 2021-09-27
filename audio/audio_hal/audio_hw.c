@@ -5972,7 +5972,9 @@ void config_output(struct audio_stream_out *stream, bool reset_decoder)
 
             /*netflix always ddp 5.1 output, other case we need output ddp 2ch*/
             if (continous_mode(adev) && main1_dummy && !adev->is_netflix) {
+                pthread_mutex_lock(&ms12->lock);
                 set_ms12_acmod2ch_lock(&adev->ms12, true);
+                pthread_mutex_unlock(&ms12->lock);
             }
             if (adev->ms12_out != NULL && adev->ms12_out->hwsync) {
                 //aml_audio_hwsync_init(adev->ms12_out->hwsync, adev->ms12_out);
@@ -7764,7 +7766,7 @@ void *audio_patch_output_threadloop(void *data)
                 stream_config.sample_rate);
         }
     }
-
+    do_output_standby_l((struct audio_stream *)out);
     adev_close_output_stream_new(patch->dev, &out->stream);
     if (patch->out_buf) {
         aml_audio_free(patch->out_buf);
@@ -8289,7 +8291,7 @@ static int adev_create_audio_patch(struct audio_hw_device *dev,
                      }
 
                      aml_dev->patch_src = SRC_DTV;
-                     if (eDolbyMS12Lib == aml_dev->dolby_lib_type && aml_dev->continuous_audio_mode) {
+                     if (eDolbyMS12Lib == aml_dev->dolby_lib_type /*&& aml_dev->continuous_audio_mode*/) {
                         get_dolby_ms12_cleanup(&aml_dev->ms12, true);
                         aml_dev->exiting_ms12 = 1;
                         aml_dev->continuous_audio_mode = 0;
