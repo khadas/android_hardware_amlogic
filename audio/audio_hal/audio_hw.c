@@ -5531,7 +5531,15 @@ ssize_t hw_write (struct audio_stream_out *stream
                          * output 1536 frame every time
                          */
                         uint64_t consume_payload = dolby_ms12_get_main_bytes_consumed(stream);
-                        uint32_t ms12_frame_bytes = 1536 * aml_out->hal_frame_size;
+                        /* for non 48khz hwsync pcm, the pts check in is used original 44.1khz offset,
+                         * but we resample it before send to ms12, so we consumed offset is 48khz,
+                         * so we need convert it
+                         */
+                        if (audio_is_linear_pcm(aml_out->hwsync->aout->hal_internal_format) &&
+                            (aml_out->hwsync->aout->hal_rate != 48000)) {
+                            consume_payload = consume_payload * aml_out->hwsync->aout->hal_rate / 48000;
+                        }
+
                         aml_audio_hwsync_audio_process(aml_out->hwsync, consume_payload, out_frames, &adjust_ms);
                     }
                 }
