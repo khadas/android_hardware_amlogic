@@ -5825,6 +5825,13 @@ void config_output(struct audio_stream_out *stream, bool reset_decoder)
     get_sink_format (stream);
     if (eDolbyMS12Lib == adev->dolby_lib_type) {
         bool is_compatible = false;
+        bool is_direct_pcm = is_direct_stream_and_pcm_format(aml_out);
+        bool is_mmap_pcm = is_mmap_stream_and_pcm_format(aml_out);
+        bool is_ms12_pcm_volume_control = (is_direct_pcm && !is_mmap_pcm);
+        bool is_a2dp_device = (aml_out->out_device & AUDIO_DEVICE_OUT_ALL_A2DP);
+
+        //ALOGI("%s is_ms12_pcm_volume_control:%d, is_a2dp_device:%d, out_device:0x%x, volume_l:%f",
+        //        __func__, is_ms12_pcm_volume_control, is_a2dp_device, aml_out->out_device, aml_out->volume_l);
 
         if (!is_dolby_ms12_support_compression_format(aml_out->hal_internal_format)) {
 
@@ -5919,8 +5926,17 @@ void config_output(struct audio_stream_out *stream, bool reset_decoder)
                 adev->ms12.main_input_start_offset_ns = aml_out->main_input_ns;
                 ALOGI("main start offset ns =%lld", adev->ms12.main_input_start_offset_ns);
             }
+
             /*set the volume to current one*/
-            if (!audio_is_linear_pcm(aml_out->hal_internal_format)) {
+            if (!audio_is_linear_pcm(aml_out->hal_internal_format)
+                || (is_ms12_pcm_volume_control && !is_a2dp_device)
+                /*The volume step is sent to BT module and BT moudle will
+                **handle the volume.
+                **So AudioHal should pass the audio data with volume fullscale.
+                **AudioPolicy send vol 0.0/1.0 to AudioHal when BT connect,
+                **In fact, just vol 1.0 is useful,so add this vol filter.
+                */
+                || (is_a2dp_device && (aml_out->volume_l == 1.0))) {
                 set_ms12_main_volume(&adev->ms12, aml_out->volume_l);
             }
             if (continous_mode(adev) && adev->ms12.dolby_ms12_enable) {
