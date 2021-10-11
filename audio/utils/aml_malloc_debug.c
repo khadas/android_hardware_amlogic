@@ -20,6 +20,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 #include <cutils/list.h>
 #include <cutils/log.h>
 #include "aml_malloc_debug.h"
@@ -32,6 +33,7 @@ struct aml_malloc_node {
     uint32_t line;
     void * pointer;
     size_t size;
+    char time[64];
 };
 
 struct aml_malloc_debug {
@@ -48,6 +50,11 @@ static void add_malloc_node(struct aml_malloc_node * malloc_node)
     pmalloc_handle = gaudio_malloc_handle;
 
     pthread_mutex_lock(&pmalloc_handle->malloc_lock);
+    struct timeval time_us;
+    struct tm t;
+    gettimeofday(&time_us, NULL);
+    strftime(malloc_node->time, sizeof(malloc_node->time), "%m-%d %H:%M:%S", localtime_r(&time_us.tv_sec, &t));
+    sprintf(malloc_node->time, "%s.%ld", malloc_node->time,time_us.tv_usec / 1000);
     list_add_tail(&pmalloc_handle->malloc_list, &malloc_node->list);
     pthread_mutex_unlock(&pmalloc_handle->malloc_lock);
     return;
@@ -128,7 +135,6 @@ void* aml_audio_debug_malloc(size_t size, const char * file_name, uint32_t line)
     malloc_node->line    = line;
     malloc_node->pointer = pointer;
     malloc_node->size    = size;
-
     add_malloc_node(malloc_node);
     return pointer;
 }
@@ -217,7 +223,7 @@ void aml_audio_debug_malloc_showinfo(uint32_t level)
         if (malloc_node) {
             total_mem += malloc_node->size;
             if (level == MEMINFO_SHOW_PRINT) {
-                ALOGI("mem info:%s line=%d pointer =%p size=0x%zx", malloc_node->file_name, malloc_node->line, malloc_node->pointer, malloc_node->size);
+                ALOGI("mem info:%s line=%d pointer =%p size=0x%zx time=%s", malloc_node->file_name, malloc_node->line, malloc_node->pointer, malloc_node->size,malloc_node->time);
             } else if (level == MEMINFO_SHOW_FILE) {
                 if (fp1) {
                     memset(aml_malloc_temp_buf, 0, sizeof(aml_malloc_temp_buf));
