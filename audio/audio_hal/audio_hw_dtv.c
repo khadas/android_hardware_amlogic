@@ -253,6 +253,21 @@ static int get_video_discontinue(void)
     return pcr_vdiscontinue;
 }
 
+void  clean_dtv_demux_info(aml_demux_audiopara_t *demux_info) {
+    demux_info->demux_id = -1;
+    demux_info->security_mem_level  = -1;
+    demux_info->output_mode  = -1;
+    demux_info->has_video  = 0;
+    demux_info->main_fmt  = -1;
+    demux_info->main_pid  = -1;
+    demux_info->ad_fmt  = -1;
+    demux_info->ad_pid  = -1;
+    demux_info->dual_decoder_support = 0;
+    demux_info->associate_audio_mixing_enable  = 0;
+    demux_info->media_sync_id  = -1;
+    demux_info->media_presentation_id  = -1;
+    demux_info->ad_package_status  = -1;
+}
 static int dtv_patch_handle_event(struct audio_hw_device *dev, int cmd, int val) {
 
     struct aml_audio_device *adev = (struct aml_audio_device *) dev;
@@ -436,7 +451,6 @@ static int dtv_patch_handle_event(struct audio_hw_device *dev, int cmd, int val)
                         Close_Dmx_Audio(demux_handle);
                         demux_handle = NULL;
                         dtv_audio_instances->demux_handle[path_id] = NULL;
-
                         if (dtvsync->mediasync_new != NULL) {
                             ALOGI("close mediasync_new:%p, mediasync:%p", dtvsync->mediasync_new, dtvsync->mediasync);
                             if (dtvsync->mediasync_new == dtvsync->mediasync) {
@@ -455,7 +469,7 @@ static int dtv_patch_handle_event(struct audio_hw_device *dev, int cmd, int val)
                 } else {
                      //uio_deinit(&patch->uio_fd);
                 }
-                memset(demux_info, 0, sizeof(aml_demux_audiopara_t));
+                clean_dtv_demux_info(demux_info);
             } else {
                 if (patch == NULL || patch->dtv_cmd_list == NULL) {
                     ALOGI("%s()the audio patch is NULL or dtv_cmd_list is NULL \n", __func__);
@@ -2762,7 +2776,6 @@ void *audio_dtv_patch_input_threadloop(void *data)
                 Dtvsync = &dtv_audio_instances->dtvsync[path_index];
                 if (Dtvsync->mediasync_new != NULL && Dtvsync->mediasync != Dtvsync->mediasync_new) {
                     Dtvsync->mediasync = Dtvsync->mediasync_new;
-                    //Dtvsync->mediasync_new = NULL;
                 }
 
                 dtv_pacakge = demux_info->dtv_pacakge;
@@ -2783,9 +2796,16 @@ void *audio_dtv_patch_input_threadloop(void *data)
                        dtv_pacakge = NULL;
                        demux_info->dtv_pacakge = NULL;
                     }
+                    if (demux_info->mEsData) {
+                       aml_audio_free(demux_info->mEsData);
+                       demux_info->mEsData =  NULL;
+                    }
 
-                    demux_info->mEsData =  NULL;
-                    demux_info->mADEsData = NULL;
+                    if (demux_info->mADEsData) {
+                       aml_audio_free(demux_info->mADEsData);
+                       demux_info->mADEsData =  NULL;
+                    }
+
                     pthread_mutex_unlock(&aml_dev->dtv_lock);
                     continue;
                 } else {

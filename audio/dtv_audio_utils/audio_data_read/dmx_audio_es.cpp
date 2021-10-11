@@ -24,6 +24,7 @@ AM_Dmx_Audio_ErrorCode_t Open_Dmx_Audio (void **demux_handle ,int demux_id, int 
     demux_wrapper->AmDemuxWrapperOpen(pavpara);
     demux_wrapper->AmDemuxWrapperSetTSSource (pavpara,AM_AV_TSSource_t(demux_id));
     *demux_handle = (void *)demux_wrapper;
+    ALOGI("%s %d %p",__FUNCTION__, __LINE__,demux_wrapper);
     return AM_AUDIO_Dmx_SUCCESS;
 }
 
@@ -129,10 +130,12 @@ AM_Dmx_Audio_ErrorCode_t Close_Dmx_Audio(void *demux_handle) {
         ALOGI("demux not open !!!");
         return AM_AUDIO_Dmx_ERROR;
     }
-    ALOGI("%s %d",__FUNCTION__, __LINE__);
-    TSPMutex::Autolock l(demux_wrapper->mDemuxHandleLock);
-    demux_wrapper->AmDemuxWrapperStop();
-    demux_wrapper->AmDemuxWrapperClose();
+    ALOGI("%s %d %p",__FUNCTION__, __LINE__,demux_handle);
+    {// Scope for the lock
+        TSPMutex::Autolock l(demux_wrapper->mDemuxHandleLock);
+        demux_wrapper->AmDemuxWrapperStop();
+        demux_wrapper->AmDemuxWrapperClose();
+    }
     if (demux_wrapper)
         delete demux_wrapper;
     demux_wrapper = NULL;
