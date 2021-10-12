@@ -4702,18 +4702,6 @@ static int adev_open_input_stream(struct audio_hw_device *dev,
 
     ALOGD("%s: enter: devices(%#x) channel_mask(%#x) rate(%d) format(%#x) source(%d)", __func__,
         devices, config->channel_mask, config->sample_rate, config->format, source);
-    devices &= ~AUDIO_DEVICE_BIT_IN;
-
-    if (devices & AUDIO_DEVICE_IN_ALL_USB) {
-        usb_adev->adev_primary = (void*)adev;
-        adev->in_device |= devices;
-        ALOGD("%s: adev->in_device = %x", __func__, adev->in_device);
-        ret = adev_open_usb_input_stream(usb_adev, devices, config, stream_in, address);
-        if (ret < 0) {
-            *stream_in = NULL;
-        }
-        return ret;
-    }
 
     if ((ret = check_input_parameters(config->sample_rate, config->format, channel_count, devices)) != 0) {
         if (-ENOSYS == ret) {
@@ -4726,6 +4714,19 @@ static int adev_open_input_stream(struct audio_hw_device *dev,
         }
     } else {
         //check successfully, continue excute.
+    }
+
+    devices &= ~AUDIO_DEVICE_BIT_IN;
+
+    if (devices & AUDIO_DEVICE_IN_ALL_USB) {
+        usb_adev->adev_primary = (void*)adev;
+        adev->in_device |= devices;
+        ALOGD("%s: adev->in_device = %x", __func__, adev->in_device);
+        ret = adev_open_usb_input_stream(usb_adev, devices, config, stream_in, address);
+        if (ret < 0) {
+            *stream_in = NULL;
+        }
+        return ret;
     }
 
     if (channel_count == 1)
