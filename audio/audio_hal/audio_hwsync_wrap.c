@@ -114,12 +114,13 @@ static int aml_hwsync_wrap_single_get_tsync_firstvpts(uint32_t *pts)
     return get_sysfs_uint(TSYNC_FIRSTVPTS, pts);
 }
 
-static int aml_hwsync_wrap_single_reset_tsync_pcrscr(uint32_t pts)
+static int aml_hwsync_wrap_single_reset_tsync_pcrscr(uint64_t pts)
 {
     char buf[64] = {0};
 
-    snprintf(buf, 64, "0x%x", pts);
-    ALOGI("tsync -> reset pcrscr 0x%x", pts);
+    uint32_t pts32 = (uint32_t)pts;
+    snprintf(buf, 64, "0x%x", pts32);
+    ALOGI("tsync -> reset pcrscr 0x%x", pts32);
     return sysfs_set_sysfs_str(TSYNC_APTS, buf);
 }
 
@@ -192,15 +193,19 @@ int aml_hwsync_wrap_set_tsync_start_pts64(audio_hwsync_t *p_hwsync, uint64_t pts
 }
 
 
-int aml_hwsync_wrap_get_tsync_pts(audio_hwsync_t *p_hwsync, uint32_t *pts)
+int aml_hwsync_wrap_get_tsync_pts(audio_hwsync_t *p_hwsync, uint64_t *pts)
 {
     int64_t timeus = 0;
     ALOGV("%s(), get tsync pts", __func__);
     if (!p_hwsync->use_mediasync) {
-        return aml_hwsync_wrap_single_get_tsync_pts(pts);
+        uint32_t pts32 = 0;
+        int ret = 0;
+        ret = aml_hwsync_wrap_single_get_tsync_pts(&pts32);
+        *pts = pts32;
+        return ret;
     }
     mediasync_wrap_getMediaTime(p_hwsync->mediasync, systemTime(SYSTEM_TIME_MONOTONIC) / 1000LL, &timeus, 0);
-    *pts = timeus / 1000 * 90;
+    *pts = (uint64_t)(timeus / 1000 * 90);
     return 0;
 }
 
@@ -228,9 +233,9 @@ int aml_hwsync_wrap_get_tsync_firstvpts(audio_hwsync_t *p_hwsync, uint32_t *pts)
     return 0;
 }
 
-int aml_hwsync_wrap_reset_tsync_pcrscr(audio_hwsync_t *p_hwsync, uint32_t pts)
+int aml_hwsync_wrap_reset_tsync_pcrscr(audio_hwsync_t *p_hwsync, uint64_t pts)
 {
-    ALOGV("%s(), reset tsync pcr: %d", __func__, pts);
+    ALOGV("%s(), reset tsync pcr: %llu", __func__, pts);
     if (!p_hwsync->use_mediasync) {
         return aml_hwsync_wrap_single_reset_tsync_pcrscr(pts);
     }
@@ -308,7 +313,7 @@ void aml_hwsync_wrap_wait_video_start(audio_hwsync_t *p_hwsync, uint32_t wait_co
     return;
 }
 
-void aml_hwsync_wrap_wait_video_drop(audio_hwsync_t *p_hwsync, uint32_t cur_pts, uint32_t wait_count)
+void aml_hwsync_wrap_wait_video_drop(audio_hwsync_t *p_hwsync, uint64_t cur_pts, uint32_t wait_count)
 {
     bool ret = false;
     int count = 0;
@@ -411,14 +416,18 @@ int aml_hwsync_wrap_set_tsync_start_pts64(uint64_t pts)
 }
 
 
-int aml_hwsync_wrap_get_tsync_pts(uint32_t *pts)
+int aml_hwsync_wrap_get_tsync_pts(uint64_t *pts)
 {
+    uint32_t pts32;
+    int ret = 0;
     if (!pts) {
         ALOGE("%s(), NULL pointer", __func__);
         return -EINVAL;
     }
 
-    return get_sysfs_uint(TSYNC_PCRSCR, pts);
+    ret = get_sysfs_uint(TSYNC_PCRSCR, &pts32);
+    *pts = (uint64_t)pts32;
+    return ret;
 }
 
 int aml_hwsync_wrap_get_tsync_vpts(uint32_t *pts)
@@ -441,12 +450,13 @@ int aml_hwsync_wrap_get_tsync_firstvpts(uint32_t *pts)
     return get_sysfs_uint(TSYNC_FIRSTVPTS, pts);
 }
 
-int aml_hwsync_wrap_reset_tsync_pcrscr(uint32_t pts)
+int aml_hwsync_wrap_reset_tsync_pcrscr(uint64_t pts)
 {
     char buf[64] = {0};
 
-    snprintf(buf, 64, "0x%x", pts);
-    ALOGV("tsync -> reset pcrscr 0x%x", pts);
+    uint32_t pts32 = (uint32_t)pts;
+    snprintf(buf, 64, "0x%x", pts32);
+    ALOGV("tsync -> reset pcrscr 0x%x", pts32);
     return sysfs_set_sysfs_str(TSYNC_APTS, buf);
 }
 #endif

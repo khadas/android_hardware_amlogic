@@ -66,13 +66,13 @@ typedef struct aml_audio_ease {
     aml_data_format_t data_format;
     ease_status_t ease_status;
     pthread_mutex_t ease_lock;
+    bool do_easing;
 } aml_audio_ease_t;
 
 struct volume_ease {
     aml_audio_ease_t *ease;
     float vol_last;
     float vol_target;
-    bool do_easing;
     bool config_easing;
 };
 

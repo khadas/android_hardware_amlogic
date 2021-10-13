@@ -21,6 +21,7 @@
 #include <tinyalsa/asoundlib.h>
 #include "aml_ringbuffer.h"
 #include "audio_port.h"
+#include "karaoke_manager.h"
 
 #define MIXER_OUT_FRAME_SIZE                (8)
 #define MIXER_FRAME_COUNT                   (384)
@@ -97,6 +98,8 @@ int mixer_set_continuous_output(struct amlAudioMixer *audio_mixer, bool continuo
 int mixer_outport_pcm_restart(struct amlAudioMixer *audio_mixer);
 void mixer_dump(int s32Fd, const struct aml_audio_device *pstAmlDev);
 bool has_hwsync_stream_running(struct audio_stream_out *stream);
+/* usb karaoke for hal mixer */
+int mixer_set_karaoke(struct amlAudioMixer *audio_mixer, struct kara_manager *kara);
 
 __END_DECLS
 

@@ -882,7 +882,12 @@ void audio_patch_dump(struct aml_audio_device* aml_dev, int fd)
 
 bool is_use_spdifb(struct aml_stream_out *out) {
     struct aml_audio_device *adev = out->dev;
-    if (eDolbyDcvLib == adev->dolby_lib_type && adev->dolby_decode_enable &&
+    /*this patch is for DCV DDP noise.
+    **DCV have two kinds of mode, DCV decoder and passthrough.
+    **the dolby_decode_enable is 0 when DCV passthrough.
+    **so here should remove the dolby_decode_enable judgment.
+    */
+    if (eDolbyDcvLib == adev->dolby_lib_type /*&& adev->dolby_decode_enable*/ &&
         (out->hal_format == AUDIO_FORMAT_E_AC3 || out->hal_internal_format == AUDIO_FORMAT_E_AC3 ||
         (out->need_convert && out->hal_internal_format == AUDIO_FORMAT_AC3))) {
         /*dual spdif we need convert
@@ -1361,8 +1366,8 @@ int tv_in_read(struct audio_stream_in *stream, void* buffer, size_t bytes)
     if (patch->tvin_buffer_inited == 1) {
         int abuf_level = get_buffer_read_space(&patch->tvin_ringbuffer);
         if (abuf_level <= (int)bytes) {
-            memset(buffer, 0, sizeof(unsigned char)* bytes);
-            ret = bytes;
+            bytes = ret = 0;
+            ALOGI("[%s] abuf_level =%d <  bytes =%d\n", __FUNCTION__,abuf_level,bytes);
         } else {
             ret = ring_buffer_read(&patch->tvin_ringbuffer, (unsigned char *)buffer, bytes);
             ALOGV("[%s] abuf_level =%d ret=%d\n", __FUNCTION__,abuf_level,ret);
@@ -1373,6 +1378,166 @@ int tv_in_read(struct audio_stream_in *stream, void* buffer, size_t bytes)
         ret = bytes;
         return ret;
     }
+    return ret;
+}
+
+int set_tv_source_switch_parameters(struct audio_hw_device *dev, struct str_parms *parms)
+{
+    struct aml_audio_device *adev = (struct aml_audio_device *)dev;
+    int ret = -1;
+    char value[64];
+
+    /*----ATV <-> DTV switch----*/
+    ret = str_parms_get_str(parms, "hal_param_tuner_in", value, sizeof(value));
+    // tuner_in=atv: tuner_in=dtv
+    if (ret >= 0 && adev->is_TV) {
+        if (strncmp(value, "dtv", 3) == 0) {
+            // no audio patching in dtv
+            if (adev->audio_patching && (adev->patch_src == SRC_ATV)) {
+                // this is to handle atv->dtv case
+                ALOGI("%s, atv->dtv", __func__);
+                ret = release_patch(adev);
+                if (!ret) {
+                    adev->audio_patching = 0;
+                }
+            }
+            ALOGI("%s, now the audio patch src is %s, the audio_patching is %d ", __func__,
+                patchSrc2Str(adev->patch_src), adev->audio_patching);
+
+            if ((adev->patch_src == SRC_DTV) && adev->audio_patching) {
+                ALOGI("[audiohal_kpi] %s, now release the dtv patch now\n ", __func__);
+                ret = release_dtv_patch(adev);
+                if (!ret) {
+                    adev->audio_patching = 0;
+                }
+            }
+            ALOGI("[audiohal_kpi] %s, now end release dtv patch the audio_patching is %d ", __func__, adev->audio_patching);
+            ALOGI("[audiohal_kpi] %s, now create the dtv patch now\n ", __func__);
+            adev->patch_src = SRC_DTV;
+            if (eDolbyMS12Lib == adev->dolby_lib_type && adev->continuous_audio_mode)
+            {
+                bool set_ms12_non_continuous = true;
+                get_dolby_ms12_cleanup(&adev->ms12, set_ms12_non_continuous);
+                adev->exiting_ms12 = 1;
+                clock_gettime(CLOCK_MONOTONIC, &adev->ms12_exiting_start);
+                if (adev->active_outputs[STREAM_PCM_NORMAL] != NULL)
+                    usecase_change_validate_l(adev->active_outputs[STREAM_PCM_NORMAL], true);
+            }
+
+            ret = create_dtv_patch(dev, AUDIO_DEVICE_IN_TV_TUNER, AUDIO_DEVICE_OUT_SPEAKER);
+            if (ret == 0) {
+                adev->audio_patching = 1;
+            }
+            ALOGI("[audiohal_kpi] %s, now end create dtv patch the audio_patching is %d ", __func__, adev->audio_patching);
+
+        } else if (strncmp(value, "atv", 3) == 0) {
+
+            // need create patching
+            if ((adev->patch_src == SRC_DTV) && adev->audio_patching) {
+                ALOGI("[audiohal_kpi] %s, release dtv patching", __func__);
+                ret = release_dtv_patch(adev);
+                if (!ret) {
+                    adev->audio_patching = 0;
+                }
+            }
+            if (eDolbyMS12Lib == adev->dolby_lib_type && adev->continuous_audio_mode) {
+                ALOGI("In ATV exit MS12 continuous mode");
+                bool set_ms12_non_continuous = true;
+                get_dolby_ms12_cleanup(&adev->ms12, set_ms12_non_continuous);
+                adev->exiting_ms12 = 1;
+                clock_gettime(CLOCK_MONOTONIC, &adev->ms12_exiting_start);
+                if (adev->active_outputs[STREAM_PCM_NORMAL] != NULL)
+                    usecase_change_validate_l(adev->active_outputs[STREAM_PCM_NORMAL], true);
+            }
+
+            if (!adev->audio_patching) {
+                ALOGI("[audiohal_kpi] %s, create atv patching", __func__);
+                set_audio_source(&adev->alsa_mixer,
+                        ATV, alsa_device_is_auge());
+                ret = create_patch (dev, AUDIO_DEVICE_IN_TV_TUNER, AUDIO_DEVICE_OUT_SPEAKER);
+                // audio_patching ok, mark the patching status
+                if (ret == 0) {
+                    adev->audio_patching = 1;
+                }
+            }
+            adev->patch_src = SRC_ATV;
+        }
+        goto exit;
+    }
+
+    /*----HDMIIN <-> LINEIN switch----*/
+    ret = str_parms_get_str(parms, "audio", value, sizeof(value));
+    if (ret >= 0) {
+        /*
+         * This is a work around when plug in HDMI-DVI connector
+         * first time application only recognize it as HDMI input device
+         * then it can know it's DVI in, and then send "audio=linein" message to audio hal
+         */
+        struct audio_patch *pAudPatchTmp = NULL;
+        if (strncmp(value, "linein", 6) == 0) {
+
+            get_audio_patch_by_src_dev(dev, AUDIO_DEVICE_IN_HDMI, &pAudPatchTmp);
+            if (pAudPatchTmp == NULL) {
+                ALOGE("%s,There is no autio patch using HDMI as input", __func__);
+                goto exit;
+            }
+            if (pAudPatchTmp->sources[0].ext.device.type != AUDIO_DEVICE_IN_HDMI) {
+                ALOGE("%s, pAudPatchTmp->sources[0].ext.device.type != AUDIO_DEVICE_IN_HDMI", __func__);
+                goto exit;
+            }
+
+            // dev->dev (example: HDMI in-> speaker out)
+            if (pAudPatchTmp->sources[0].type == AUDIO_PORT_TYPE_DEVICE
+                && pAudPatchTmp->sinks[0].type == AUDIO_PORT_TYPE_DEVICE) {
+                // This "adev->audio_patch" will be created in create_patch() function
+                if (adev->audio_patch && (adev->patch_src == SRC_HDMIIN)) {
+                    ALOGI("%s, create hdmi-dvi patching dev->dev", __func__);
+                    release_patch(adev);
+                    create_patch(dev, AUDIO_DEVICE_IN_LINE, pAudPatchTmp->sinks[0].ext.device.type);
+                }
+            }
+
+            adev->patch_src = SRC_LINEIN;
+            adev->active_inport = INPORT_LINEIN;
+            pAudPatchTmp->sources[0].ext.device.type = AUDIO_DEVICE_IN_LINE;
+            set_audio_source(&adev->alsa_mixer, LINEIN, alsa_device_is_auge());
+
+        } else if (strncmp(value, "hdmi", 4) == 0 && adev->audio_patch) {
+
+            get_audio_patch_by_src_dev(dev, AUDIO_DEVICE_IN_LINE, &pAudPatchTmp);
+            if (pAudPatchTmp == NULL) {
+                ALOGE("%s,There is no autio patch using LINEIN as input", __func__);
+                goto exit;
+            }
+            if (pAudPatchTmp->sources[0].ext.device.type != AUDIO_DEVICE_IN_LINE) {
+                ALOGE("%s, pAudPatchTmp->sources[0].ext.device.type != AUDIO_DEVICE_IN_HDMI", __func__);
+                goto exit;
+            }
+
+            // dev->dev (example: LINE in -> speaker out)
+            if (pAudPatchTmp->sources[0].type == AUDIO_PORT_TYPE_DEVICE
+                && pAudPatchTmp->sinks[0].type == AUDIO_PORT_TYPE_DEVICE) {
+                // This "adev->audio_patch" will be created in create_patch() function
+                if (adev->audio_patch && (adev->patch_src == SRC_LINEIN)) {
+                    ALOGI("%s, create dvi-hdmi patching dev->dev", __func__);
+                    release_patch(adev);
+                    create_patch(dev, AUDIO_DEVICE_IN_HDMI, pAudPatchTmp->sinks[0].ext.device.type);
+                }
+            }
+
+            adev->patch_src = SRC_HDMIIN;
+            adev->active_inport = INPORT_HDMIIN;
+            pAudPatchTmp->sources[0].ext.device.type = AUDIO_DEVICE_IN_HDMI;
+            set_audio_source(&adev->alsa_mixer, HDMIIN, alsa_device_is_auge());
+
+            //timing switch, audio is stable, do avsync once more
+            adev->audio_patch->need_do_avsync = true;
+
+        }
+        goto exit;
+    }
+
+exit:
     return ret;
 }
 

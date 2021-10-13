@@ -331,7 +331,7 @@ AM_DmxErrorCode_t AmHwMultiDemuxWrapper::AmDemuxWrapperStopAD() {
        ALOGE("AmDmxDevice is NULL");
        return AM_Dmx_ERROR;
     }
-    AmDmxDevice->AM_DMX_StopFilter(mDemuxPara.aud_fd);
+    AmDmxDevice->AM_DMX_StopFilter(mDemuxPara.aud_ad_fd);
     return AM_Dmx_SUCCESS;
 }
 
@@ -340,7 +340,7 @@ AM_DmxErrorCode_t AmHwMultiDemuxWrapper::AmDemuxWrapperCloseAD() {
        ALOGE("AmDmxDevice is NULL");
        return AM_Dmx_ERROR;
     }
-    AmDmxDevice->AM_DMX_FreeFilter(mDemuxPara.aud_fd);
+    AmDmxDevice->AM_DMX_FreeFilter(mDemuxPara.aud_ad_fd);
     return AM_Dmx_SUCCESS;
 }
 

@@ -65,10 +65,13 @@ typedef mediasync_result (*MediaSync_setParameter_func)(void* handle, mediasync_
 typedef mediasync_result (*MediaSync_getParameter_func)(void* handle, mediasync_parameter type, void* arg);
 typedef mediasync_result (*MediaSync_queueAudioFrame_func)(void* handle, struct mediasync_audio_queue_info* info);
 typedef mediasync_result (*MediaSync_AudioProcess_func)(void* handle, int64_t apts, int64_t cur_apts, mediasync_time_unit tunit, struct mediasync_audio_policy* asyncPolicy);
-
+typedef mediasync_result (*MediaSync_setUpdateTimeThreshold_func)(void* handle, int64_t threshold);
+typedef mediasync_result (*MediaSync_getUpdateTimeThreshold_func)(void* handle, int64_t *threshold);
 
 typedef mediasync_result (*MediaSync_reset_func)(void* handle);
 typedef void (*MediaSync_destroy_func)(void* handle);
+static MediaSync_setUpdateTimeThreshold_func gMediaSync_setUpdateTimeThreshold = NULL;
+static MediaSync_getUpdateTimeThreshold_func gMediaSync_getUpdateTimeThreshold = NULL;
 
 static MediaSync_create_func gMediaSync_create = NULL;
 static MediaSync_allocInstance_func gMediaSync_allocInstance = NULL;
@@ -262,6 +265,19 @@ static bool mediasync_wrap_create_init()
         return err;
     }
 
+    gMediaSync_setUpdateTimeThreshold =
+    (MediaSync_setUpdateTimeThreshold_func)dlsym(glibHandle, "MediaSync_setUpdateTimeThreshold");
+    if (gMediaSync_setUpdateTimeThreshold == NULL) {
+        ALOGE(" dlsym MediaSync_AudioProcess failed, err=%s\n", dlerror());
+        return err;
+    }
+
+    gMediaSync_getUpdateTimeThreshold =
+    (MediaSync_getUpdateTimeThreshold_func)dlsym(glibHandle, "MediaSync_getUpdateTimeThreshold");
+    if (gMediaSync_getUpdateTimeThreshold == NULL) {
+        ALOGE(" dlsym MediaSync_AudioProcess failed, err=%s\n", dlerror());
+        return err;
+    }
     return true;
 }
 
@@ -504,6 +520,19 @@ bool mediasync_wrap_getParameter(void* handle, mediasync_parameter type, void* a
          } else {
             ALOGE("[%s] no ok\n", __func__);
          }
+     }
+     return false;
+}
+
+bool mediasync_wrap_setUpdateTimeThreshold(void* handle, int64_t value) {
+    if (handle != NULL) {
+        mediasync_result ret = gMediaSync_setUpdateTimeThreshold(handle, value);
+        if (ret == AM_MEDIASYNC_OK) {
+            ALOGD("[%s] set threshold ok\n", __func__);
+            return true;
+        } else {
+            ALOGE("[%s] no ok, errno:%s\n", __func__, strerror(errno));
+        }
      } else {
         ALOGE("[%s] no handle\n", __func__);
      }
@@ -532,7 +561,20 @@ bool mediasync_wrap_AudioProcess(void* handle, int64_t apts, int64_t cur_apts, m
             return true;
         } else {
             ALOGE("[%s] no ok\n", __func__);
-         }
+        }
+    }
+    return false;
+}
+
+bool mediasync_wrap_getUpdateTimeThreshold(void* handle, int64_t *value) {
+    if (handle != NULL) {
+        mediasync_result ret = gMediaSync_getUpdateTimeThreshold(handle, value);
+        if (ret == AM_MEDIASYNC_OK) {
+            ALOGV("[%s] get threshold ok, value:%lld\n", __func__, *value);
+            return true;
+        } else {
+            ALOGE("[%s] no ok, errno:%s\n", __func__, strerror(errno));
+        }
      } else {
         ALOGE("[%s] no handle\n", __func__);
      }

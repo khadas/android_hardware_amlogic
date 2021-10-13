@@ -23,6 +23,7 @@
 #include "audio_aec.h"
 #endif
 #include "aml_audio_timer.h"
+#include "karaoke_manager.h"
 
 //#define DEBUG_TIME
 
@@ -1540,3 +1541,12 @@ void subMixingDump(int s32Fd, const struct aml_audio_device *pstAmlDev)
     dprintf(s32Fd, "[AML_HAL]\n");
     mixer_dump(s32Fd, pstAmlDev);
 }
+
+int subMixingSetKaraoke(struct aml_audio_device *adev, struct kara_manager *kara)
+{
+    struct subMixing *sm = adev->sm;
+    struct amlAudioMixer *audio_mixer = sm->mixerData;
+
+    return mixer_set_karaoke(audio_mixer, kara);
+}
+

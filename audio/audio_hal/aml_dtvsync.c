@@ -226,9 +226,12 @@ bool aml_dtvsync_getParameter(aml_dtvsync_t *p_dtvsync, mediasync_parameter type
 
 bool aml_dtvsync_queue_audio_frame(aml_dtvsync_t *p_dtvsync, struct mediasync_audio_queue_info* info)
 {
-
+    bool ret = true;
     if(p_dtvsync) {
-        return mediasync_wrap_queueAudioFrame(p_dtvsync->mediasync, info);
+        pthread_mutex_lock(&p_dtvsync->ms_lock);
+        ret = mediasync_wrap_queueAudioFrame(p_dtvsync->mediasync, info);
+        pthread_mutex_unlock(&p_dtvsync->ms_lock);
+        return ret;
     }
     return false;
 }
@@ -237,8 +240,12 @@ bool aml_dtvsync_audioprocess(aml_dtvsync_t *p_dtvsync, int64_t apts, int64_t cu
                                                 mediasync_time_unit tunit,
                                                 struct mediasync_audio_policy* asyncPolicy)
 {
+    bool ret = true;
     if (p_dtvsync) {
-        return mediasync_wrap_AudioProcess(p_dtvsync->mediasync, apts, cur_apts, tunit, asyncPolicy);
+        pthread_mutex_lock(&p_dtvsync->ms_lock);
+        ret = mediasync_wrap_AudioProcess(p_dtvsync->mediasync, apts, cur_apts, tunit, asyncPolicy);
+        pthread_mutex_unlock(&p_dtvsync->ms_lock);
+        return ret;
     }
     return false;
 }
@@ -756,6 +763,8 @@ void aml_dtvsync_release(aml_dtvsync_t *p_dtvsync)
 {
 
     if (p_dtvsync) {
+        pthread_mutex_lock(&p_dtvsync->ms_lock);
         mediasync_wrap_destroy(p_dtvsync->mediasync);
+        pthread_mutex_unlock(&p_dtvsync->ms_lock);
     }
 }

@@ -56,7 +56,8 @@
 #define DOLBY_DRC_RF_MODE   1
 #define DDP_MAX_BUFFER_SIZE 2560//dolby ms12 input buffer threshold
 #define CONVERT_ONEDB_TO_GAIN  1.122018f
-#define MS12_MAIN_INPUT_BUF_PCM_NS         (96000000LL)
+#define MS12_MAIN_INPUT_BUF_PCM_NS         (64000000LL)
+#define MS12_MAIN_INPUT_BUF_PCM_NS_TARGET         (128000000LL)
 #define MS12_MAIN_INPUT_BUF_NONEPCM_NS     (160000000LL)
 #define MS12_MAIN_INPUT_BUF_NS_UPTHRESHOLD (160000000LL)
 #define MS12_MAIN_INPUT_BUF_NS_UPTHRESHOLD_AC4 (256000000LL)
@@ -72,7 +73,7 @@
 
 #define CONVERT_NS_TO_48K_FRAME_NUM(ns)    (ns * 48 / NANO_SECOND_PER_MILLISECOND)
 
-#define MS12_MAIN_BUF_INCREASE_TIME_MS (0)
+#define MS12_MAIN_BUF_INCREASE_TIME_MS (1000)
 #define MS12_SYS_BUF_INCREASE_TIME_MS (1000)
 #define DDPI_UDC_COMP_LINE 2
 
@@ -2350,12 +2351,12 @@ void ms12_output_update_audio_pts(struct audio_stream_out *stream, aml_ms12_dec_
 
     if (ms12_info && adev->debug_flag) {
         if (main_apts_high32b || main_apts_low32b) {
-            ALOGI("+%s() main apts high32bits %x low32bits %x convert to time %llu ms\n",
-                __FUNCTION__, main_apts_high32b, main_apts_low32b, (((uint64_t)main_apts_high32b << 32) + (uint64_t)main_apts_low32b)/90);
+            ALOGI("+%s() format =0x%x main apts high32bits %x low32bits %x convert to time %llu ms\n",
+                __FUNCTION__, ms12_info->data_type, main_apts_high32b, main_apts_low32b, (((uint64_t)main_apts_high32b << 32) + (uint64_t)main_apts_low32b)/90);
         }
         if (main1_apts_high32b || main1_apts_low32b) {
-            ALOGI("+%s() main1 apts high 32bits %x low32bits %x  convert to time %llu ms\n",
-                __FUNCTION__, main1_apts_high32b, main1_apts_low32b, (((uint64_t)main1_apts_high32b << 32) + (uint64_t)main1_apts_low32b)/90);
+            ALOGI("+%s() format =0x%x main1 apts high 32bits %x low32bits %x  convert to time %llu ms\n",
+                __FUNCTION__, ms12_info->data_type, main1_apts_high32b, main1_apts_low32b, (((uint64_t)main1_apts_high32b << 32) + (uint64_t)main1_apts_low32b)/90);
         }
     }
 
@@ -2394,9 +2395,13 @@ void ms12_output_update_audio_pts(struct audio_stream_out *stream, aml_ms12_dec_
         else {
             aml_dtvsync->out_start_apts = aml_dtvsync->out_end_apts;
         }
-        aml_dtvsync->out_end_apts = aml_dtvsync->out_start_apts + cur_pcm_pts;
-
-        aml_dtvsync->cur_outapts = aml_dtvsync->out_start_apts - alsa_latency + ms12_tuing_delay_pts;
+        if (aml_dtvsync->out_start_apts == DTVSYNC_INIT_PTS) {
+            /*invalid pts */
+            aml_dtvsync->cur_outapts = DTVSYNC_INIT_PTS;
+        } else {
+            aml_dtvsync->out_end_apts = aml_dtvsync->out_start_apts + cur_pcm_pts;
+            aml_dtvsync->cur_outapts = aml_dtvsync->out_start_apts - alsa_latency + ms12_tuing_delay_pts;
+        }
         if (patch->cur_package && adev->debug_flag) {
             ALOGI("%s package pts(ms) %llu ms12_main_apts(ms) %llu pcm-duration(ms)%u cur_outapts(ms) %llu, alsa_latency(ms) %d ms12_tuing_delay_pts(ms) %d\n",
                 __func__, patch->cur_package->pts / 90, ms12_main_apts / 90, cur_pcm_pts / 90 , aml_dtvsync->cur_outapts / 90, alsa_latency / 90, ms12_tuing_delay_pts / 90);
@@ -2423,13 +2428,14 @@ int ms12_output(void *buffer, void *priv_data, size_t size, aml_ms12_dec_info_t 
     struct aml_audio_patch *patch = adev->audio_patch;
     aml_dtvsync_t *aml_dtvsync = NULL;
     audio_format_t hal_internal_format = ms12_get_audio_hal_format(aml_out->hal_internal_format);
-    bool do_sync_flag = adev->patch_src  == SRC_DTV && patch && patch->skip_amadec_flag;
+    bool do_sync_flag = adev->patch_src  == SRC_DTV && patch && patch->skip_amadec_flag && aml_out->tv_src_stream;
     dtvsync_process_res process_result = DTVSYNC_AUDIO_OUTPUT;
     audio_format_t output_format = (ms12_info) ? ms12_info->data_type : AUDIO_FORMAT_PCM_16_BIT;
     unsigned int main_apts_high32b = (ms12_info) ? ms12_info->main_apts_high32b : 0;
     unsigned int main_apts_low32b = (ms12_info) ? ms12_info->main_apts_low32b : 0;
     unsigned int main1_apts_high32b = (ms12_info) ? ms12_info->main1_apts_high32b : 0;
     unsigned int main1_apts_low32b = (ms12_info) ? ms12_info->main1_apts_low32b : 0;
+    bool dtv_stream_flag = patch && (adev->patch_src  == SRC_DTV) && aml_out->tv_src_stream;
     int ret = 0;
 
     if (adev->debug_flag > 1) {
@@ -2450,13 +2456,20 @@ int ms12_output(void *buffer, void *priv_data, size_t size, aml_ms12_dec_info_t 
             }
         }
     }
-    ms12_output_update_audio_pts(stream_out, ms12_info, buffer, size);
+    if (dtv_stream_flag)  {
+        if (patch->output_thread_exit) {
+            return ret;
+        }
+        if (!audio_is_linear_pcm(hal_internal_format))
+            ms12_output_update_audio_pts(stream_out, ms12_info, buffer, size);
+    }
 
-    if (do_sync_flag && aml_out->dtvsync_enable && aml_out->alsa_running_status) {
+    if (do_sync_flag && aml_out->dtvsync_enable) {
         process_result = aml_dtvsync_ms12_process_policy(priv_data, ms12_info);
         if (process_result == DTVSYNC_AUDIO_DROP)
             return ret;
     }
+
     if (audio_is_linear_pcm(output_format)) {
         if (ms12_info->pcm_type == DAP_LPCM) {
             if (get_debug_value(AML_DEBUG_AUDIOHAL_LEVEL_DETECT)) {
@@ -2598,7 +2611,7 @@ int dolby_ms12_main_open(struct audio_stream_out *stream) {
         uint64_t buf_ns_target = MS12_MAIN_INPUT_BUF_NONEPCM_NS;
         if (audio_is_linear_pcm(aml_out->hal_internal_format)) {
             buf_ns_begin  = MS12_MAIN_INPUT_BUF_PCM_NS;
-            buf_ns_target = MS12_MAIN_INPUT_BUF_PCM_NS;
+            buf_ns_target = MS12_MAIN_INPUT_BUF_PCM_NS_TARGET;
         }
         audio_virtual_buf_open(&aml_out->virtual_buf_handle
             , "ms12 main input"

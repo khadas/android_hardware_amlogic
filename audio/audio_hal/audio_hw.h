@@ -59,6 +59,7 @@
 #include "aml_dec_api.h"
 #include "aml_dts_dec_api.h"
 #include "audio_format_parse.h"
+#include "audio_usb_hal.h"
 
 /* number of frames per period */
 /*
@@ -112,6 +113,11 @@ static unsigned int DEFAULT_OUT_SAMPLING_RATE = 48000;
 #define FLOAT_ZERO              (0.00002)   /* the APM mute volume is 0.00001, less than 0.00002 we think is mute. */
 #define TV_SPEAKER_OUTPUT_CH_NUM    10
 
+#ifdef USB_KARAOKE
+#ifndef AUDIO_SOURCE_KARAOKE_SPEAKER
+#define AUDIO_SOURCE_KARAOKE_SPEAKER 1001
+#endif
+#endif
 
 /*the same as "AUDIO HAL FORMAT" in kernel*/
 enum audio_hal_format {
@@ -185,10 +191,13 @@ enum patch_src_assortion {
     SRC_REMOTE_SUBMIXIN         = 5,
     SRC_WIRED_HEADSETIN         = 6,
     SRC_BUILTIN_MIC             = 7,
-    SRC_ECHO_REFERENCE          = 8,
-    SRC_ARCIN                   = 9,
-    SRC_OTHER                   = 10,
-    SRC_INVAL                   = 11,
+    SRC_BT_SCO_HEADSET_MIC      = 8,
+    SRC_ECHO_REFERENCE          = 9,
+    SRC_ARCIN                   = 10,
+    SRC_USB                     = 11,
+    SRC_LOOPBACK                = 12,
+    SRC_OTHER                   = 13,
+    SRC_INVAL                   = 14
 };
 
 typedef enum {
@@ -231,9 +240,12 @@ enum IN_PORT {
     INPORT_REMOTE_SUBMIXIN      = 4,
     INPORT_WIRED_HEADSETIN      = 5,
     INPORT_BUILTIN_MIC          = 6,
-    INPORT_ECHO_REFERENCE       = 7,
-    INPORT_ARCIN                = 8,
-    INPORT_MAX                  = 9,
+    INPORT_BT_SCO_HEADSET_MIC   = 7,
+    INPORT_ECHO_REFERENCE       = 8,
+    INPORT_ARCIN                = 9,
+    INPORT_USB                  = 10,
+    INPORT_LOOPBACK             = 11,
+    INPORT_MAX                  = 12
 };
 
 struct audio_patch_set {
@@ -541,6 +553,8 @@ struct aml_audio_device {
     */
     int  default_alsa_ch;
     struct volume_ease volume_ease;
+    float last_sink_gain;
+    struct usb_audio_device usb_audio;
     /* -End- */
 };
 
@@ -753,7 +767,7 @@ struct aml_stream_in {
     unsigned int requested_rate;
     uint32_t main_channels;
     bool standby;
-    int source;
+    audio_source_t source;
     struct echo_reference_itfe *echo_reference;
     bool need_echo_reference;
     effect_handle_t preprocessors[MAX_PREPROCESSORS];
@@ -960,6 +974,11 @@ audio_format_t get_non_ms12_output_format(audio_format_t src_format, struct aml_
 int start_input_stream(struct aml_stream_in *in);
 
 int do_input_standby (struct aml_stream_in *in);
+
+int usecase_change_validate_l(struct aml_stream_out *aml_out, bool is_standby);
+int get_audio_patch_by_src_dev(struct audio_hw_device *dev, audio_devices_t dev_type, struct audio_patch **p_audio_patch);
+int create_patch(struct audio_hw_device *dev, audio_devices_t input, audio_devices_t output);
+int release_patch(struct aml_audio_device *aml_dev);
 
 /* 'bytes' are the number of bytes written to audio FIFO, for which 'timestamp' is valid.
  * 'available' is the number of frames available to read (for input) or yet to be played

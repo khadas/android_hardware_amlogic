@@ -901,6 +901,24 @@ static int latmCheck(latm_header *latm, bitfile *ld)
     return (good > 0);
 }
 #endif
+int check_adts_frame_valid(unsigned char *buffer,
+                              unsigned long buffer_size) {
+    bitfile ld;
+    adts_header adts;
+    faad_initbits(&ld, buffer, buffer_size);
+    if (adts_frame(&adts, &ld) > 0) {
+           return -1;
+    }
+    if (adts.aac_frame_length + 2 > buffer_size) {
+        return -1;
+    }
+    faad_log_info("adts.aac_frame_length  %d buffer_size %lu", adts.aac_frame_length, buffer_size);
+    if (((buffer[adts.aac_frame_length + 0] & 0xff) == 0xff) && ((buffer[adts.aac_frame_length + 1] & 0xf6) == 0xf0)) {
+        return 0;
+    }
+    return -1;
+}
+
 #define SKIP_LATM_BYTE  16*4*2
 #if 0
 static int latm_check_internal(unsigned char *buffer, unsigned buffer_size, unsigned *byte_cost)
@@ -980,6 +998,9 @@ long NEAACDECAPI NeAACDecInit(NeAACDecHandle hpDecoder,
     if (buffer != NULL) {
         latm_header *l = &hDecoder->latm_config;
         faad_initbits(&ld, buffer, buffer_size);
+        if (is_latm_external == 0) {
+            goto nonlatm_check;
+        }
 #ifdef NEW_CODE_CHECK_LATM
         memset(&hDecoder->dec_sys, 0, sizeof(decoder_sys_t));
 NEXT_CHECK:
@@ -1084,6 +1105,8 @@ exit_check:
             return x;
         } else
 #endif
+nonlatm_check:
+
             /* Check if an ADIF header is present */
             if ((buffer[0] == 'A') && (buffer[1] == 'D') &&
                 (buffer[2] == 'I') && (buffer[3] == 'F')) {

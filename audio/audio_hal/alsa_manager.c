@@ -323,7 +323,8 @@ size_t aml_alsa_output_write(struct audio_stream_out *stream,
     unsigned int first_vpts = 0;
     unsigned int cur_apts = 0;
     unsigned int cur_vpts = 0;
-    unsigned int cur_pcr = 0;
+    uint64_t cur_pcr = 0;
+    uint64_t cur_pcr2 = 0;
     int av_diff = 0;
     int need_drop_inject = 0;
     int64_t pretime = 0;
@@ -371,7 +372,7 @@ size_t aml_alsa_output_write(struct audio_stream_out *stream,
 
     cur_apts = (unsigned int)((int64_t)first_apts + (int64_t)(((int64_t)aml_out->dropped_size * 90) / (48 * frame_size)));
     av_diff = (int)((int64_t)cur_apts - (int64_t)cur_vpts);
-    ALOGI("[audio-startup] av both comming.fa:0x%x fv:0x%x ca:0x%x cv:0x%x cp:0x%x d:%d fs:%zu diff:%d ms\n",
+    ALOGI("[audio-startup] av both comming.fa:0x%x fv:0x%x ca:0x%x cv:0x%x cp:0x%llx d:%d fs:%zu diff:%d ms\n",
           first_apts, first_vpts, cur_apts, cur_vpts, cur_pcr, aml_out->dropped_size, frame_size, av_diff / 90);
 
     // Exception
@@ -431,8 +432,8 @@ size_t aml_alsa_output_write(struct audio_stream_out *stream,
     pretime = aml_gettime();
     while (1) {
         usleep(MIN_WRITE_SLEEP_US);
-        aml_hwsync_get_tsync_pts(aml_out->hwsync, &cur_vpts);
-        if (cur_vpts > cur_apts - 10 * 90) {
+        aml_hwsync_get_tsync_pts(aml_out->hwsync, &cur_pcr2);
+        if (cur_pcr2 > cur_apts - 10 * 90) {
             break;
         }
         if (aml_gettime() - pretime >= MAX_AVSYNC_WAIT_TIME) {
@@ -741,6 +742,7 @@ typedef struct alsa_handle {
     audio_format_t  format;
     uint32_t write_cnt;
     uint64_t write_frames;
+    int pcm2_mute_cnt;
 } alsa_handle_t;
 
 static void alsa_write_new_rate_control(void *handle) {
@@ -980,6 +982,34 @@ size_t aml_alsa_output_write_new(void *handle, const void *buffer, size_t bytes)
 
     ret = pcm_write(alsa_handle->pcm, buffer, bytes);
     return ret;
+}
+
+int aml_alsa_output_data_handle(void *handle, void *output_buffer, size_t size, int vaule, bool is_mute)
+{
+    alsa_handle_t *alsa_handle = (alsa_handle_t *)handle;
+
+    if (is_mute) {
+        memset(output_buffer, 0, size);
+        return 0;
+    }
+
+    if (size && alsa_handle->format == AUDIO_FORMAT_E_AC3) {
+        struct snd_pcm_status status;
+        pcm_ioctl(alsa_handle->pcm, SNDRV_PCM_IOCTL_STATUS, &status);
+        if (status.state == PCM_STATE_SETUP ||
+            status.state == PCM_STATE_PREPARED ||
+            status.state == PCM_STATE_XRUN) {
+            /*for sony tv, we need mute first 1 frames to avoid "ca" noise*/
+            alsa_handle->pcm2_mute_cnt = 1;
+            ALOGI("spdif b mute the data cnt =%d",alsa_handle->pcm2_mute_cnt);
+        }
+        if (alsa_handle->pcm2_mute_cnt) {
+            alsa_handle->pcm2_mute_cnt--;
+            memset(output_buffer, vaule, size);
+        }
+    }
+
+    return 0;
 }
 
 int aml_alsa_output_getinfo(void *handle, alsa_info_type_t type, alsa_output_info_t * info) {

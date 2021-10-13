@@ -22,6 +22,18 @@ extern "C" {
 #endif
 
 /*
+ *  Value of the Spdif Protection Mode
+ **/
+typedef enum SPIDF_PROTECTION__MODE {
+    SPIDF_PROTECTION__MODE_NONE  = 0,
+    SPIDF_PROTECTION__MODE_NEVER = 1,
+    SPIDF_PROTECTION__MODE_ONCE  = 2,
+} eSpdifProtectionMode;
+
+#define SPID_PROTECTION_ENABLE 65537
+#define SPID_PROTECION_DISABLE 1
+
+/*
  *  Value of the Alsa Mixer Control Point
  **/
 /* Audio i2s mute */
@@ -148,6 +160,7 @@ typedef enum AML_MIXER_CTRL_ID {
     AML_MIXER_ID_TVIN_VIDEO_DELAY,
     AML_MIXER_ID_TVIN_VIDEO_MIN_DELAY,
     AML_MIXER_ID_TVIN_VIDEO_MAX_DELAY,
+    AML_MIXER_ID_SPDIF_B_OUT_CHANNEL_STATUS,
     AML_MIXER_ID_MAX,
 } eMixerCtrlID;
 
