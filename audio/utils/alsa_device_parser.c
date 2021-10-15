@@ -251,39 +251,54 @@ void alsa_device_parser_pcm_string(struct alsa_info *p_info, char *InputBuffer)
 			if (PortName) {
 				memcpy(mAudioDeviceDescriptor->name, PortName, strlen(PortName));
 
-				if (!strncmp(PortName, ALSAPORT_PCM, strlen(ALSAPORT_PCM)))
+				if (!strncmp(PortName, ALSAPORT_PCM, strlen(ALSAPORT_PCM)) &&
+					p_info->pcm_descrpt == NULL) {
 					p_info->pcm_descrpt = mAudioDeviceDescriptor;
-				else if (!strncmp(PortName, ALSAPORT_I2S2HDMI, strlen(ALSAPORT_I2S2HDMI)))
+				} else if (!strncmp(PortName, ALSAPORT_I2S2HDMI, strlen(ALSAPORT_I2S2HDMI)) &&
+					p_info->i2s2hdmi_descrpt == NULL) {
 					p_info->i2s2hdmi_descrpt = mAudioDeviceDescriptor;
-				else if (!strncmp(PortName, ALSAPORT_I2SPLAYPLAYBACK, strlen(ALSAPORT_I2SPLAYPLAYBACK)))
+				} else if (!strncmp(PortName, ALSAPORT_I2SPLAYPLAYBACK, strlen(ALSAPORT_I2SPLAYPLAYBACK)) &&
+					p_info->i2s1_descrpt == NULL) {
 					p_info->i2s1_descrpt = mAudioDeviceDescriptor;
-				else if (!strncmp(PortName, ALSAPORT_I2SCAPTURE, strlen(ALSAPORT_I2SCAPTURE)))
+				} else if (!strncmp(PortName, ALSAPORT_I2SCAPTURE, strlen(ALSAPORT_I2SCAPTURE)) &&
+					p_info->i2s2_descrpt == NULL) {
 					p_info->i2s2_descrpt = mAudioDeviceDescriptor;
-				else if (!strncmp(PortName, ALSAPORT_I2S, strlen(ALSAPORT_I2S)))
+				} else if (!strncmp(PortName, ALSAPORT_I2S, strlen(ALSAPORT_I2S)) &&
+					p_info->i2s_descrpt == NULL) {
 					p_info->i2s_descrpt = mAudioDeviceDescriptor;
-				else if (!strncmp(PortName, ALSAPORT_TDM, strlen(ALSAPORT_TDM)))
+				} else if (!strncmp(PortName, ALSAPORT_TDM, strlen(ALSAPORT_TDM)) &&
+					p_info->tdm_descrpt == NULL) {
 					p_info->tdm_descrpt = mAudioDeviceDescriptor;
-				else if (!strncmp(PortName, ALSAPORT_PDM, strlen(ALSAPORT_PDM)))
+				} else if (!strncmp(PortName, ALSAPORT_PDM, strlen(ALSAPORT_PDM)) &&
+					p_info->pdm_descrpt == NULL) {
 					p_info->pdm_descrpt = mAudioDeviceDescriptor;
-				else if (!strncmp(PortName, ALSAPORT_SPDIFB, strlen(ALSAPORT_SPDIFB)))
+				} else if (!strncmp(PortName, ALSAPORT_SPDIFB, strlen(ALSAPORT_SPDIFB)) &&
+					p_info->spdifb_descrpt == NULL) {
 					p_info->spdifb_descrpt = mAudioDeviceDescriptor;
-				else if (!strncmp(PortName, ALSAPORT_SPDIF, strlen(ALSAPORT_SPDIF)))
+				} else if (!strncmp(PortName, ALSAPORT_SPDIF, strlen(ALSAPORT_SPDIF)) &&
+					p_info->spdif_descrpt == NULL) {
 					p_info->spdif_descrpt = mAudioDeviceDescriptor;
-				else if (!strncmp(PortName, ALSAPORT_TV, strlen(ALSAPORT_TV)))
+				} else if (!strncmp(PortName, ALSAPORT_TV, strlen(ALSAPORT_TV)) &&
+					p_info->tvin_descrpt == NULL) {
 					p_info->tvin_descrpt = mAudioDeviceDescriptor;
-				else if (!strncmp(PortName, ALSAPORT_LPBK, strlen(ALSAPORT_LPBK)))
+				} else if (!strncmp(PortName, ALSAPORT_LPBK, strlen(ALSAPORT_LPBK)) &&
+					p_info->lpbk_descrpt == NULL) {
 					p_info->lpbk_descrpt = mAudioDeviceDescriptor;
-				else if (!strncmp(PortName, ALSAPORT_EARC, strlen(ALSAPORT_EARC)))
+				} else if (!strncmp(PortName, ALSAPORT_EARC, strlen(ALSAPORT_EARC)) &&
+					p_info->earc_descrpt == NULL) {
 					p_info->earc_descrpt = mAudioDeviceDescriptor;
-				else
+				} else {
+					ALOGD("%s(), port:%s, not used for any desc", __func__, PortName);
 					free(mAudioDeviceDescriptor);
+				}
 
 				if (strstr(PortName, ALSAPORT_BUILTINMIC) != NULL)
 					p_info->builtinmic_descrpt = mAudioDeviceDescriptor;
 			} else
 				ALOGD("\tstream no alsaPORT prefix name, StreamName:%s\n", mStreamName);
 		}
-		ALOGD("%s mCardindex:%d, mPcmindex:%d, PortName:%s\n", __FUNCTION__, mAudioDeviceDescriptor->mCardindex, mAudioDeviceDescriptor->mPcmIndex, PortName);
+		ALOGD("%s Desc:%p mCardindex:%d, mPcmindex:%d, PortName:%s\n", __FUNCTION__, mAudioDeviceDescriptor,
+		        mAudioDeviceDescriptor->mCardindex, mAudioDeviceDescriptor->mPcmIndex, PortName);
 		Rch = strtok(NULL, ": ");
 	}
 }
@@ -414,6 +429,7 @@ int alsa_device_update_pcm_index(int alsaPORT, int stream)
 		new_port = pADD->mPcmIndex;
 
 	ALOGD("auge sound card, pAdd=%p fix alsaPORT:%d to :%d\n",pADD, alsaPORT, new_port);
+	/* dump_alsa_device_desc(p_info); */
 
 	return new_port;
 }

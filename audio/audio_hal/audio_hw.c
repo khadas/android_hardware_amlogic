@@ -3511,11 +3511,33 @@ static int aml_audio_output_routing(struct audio_hw_device *dev,
     return 0;
 }
 
-static int aml_audio_input_routing(struct audio_hw_device *dev __unused,
-                                    enum IN_PORT inport __unused)
+static int aml_audio_input_routing(struct audio_hw_device *dev,
+                                    enum IN_PORT inport)
 {
+    struct aml_audio_device *aml_dev = (struct aml_audio_device *)dev;
+
+    if (aml_dev->active_inport != inport) {
+        ALOGI("%s: switch from %s to %s", __func__,
+            inputPort2Str(aml_dev->active_inport), inputPort2Str(inport));
+        switch (inport) {
+        case INPORT_HDMIIN:
+            audio_route_apply_path(aml_dev->ar, "hdmirx_in");
+            break;
+        case INPORT_LINEIN:
+            audio_route_apply_path(aml_dev->ar, "line_in");
+            break;
+        default:
+            ALOGW("%s: cur inport:%d unsupport", __func__, inport);
+            break;
+        }
+
+        audio_route_update_mixer(aml_dev->ar);
+        aml_dev->active_inport = inport;
+    }
+
     return 0;
 }
+
 
 static int aml_audio_update_arc_status(struct aml_audio_device *adev, bool enable)
 {
@@ -8225,6 +8247,7 @@ static int adev_create_audio_patch(struct audio_hw_device *dev,
                 AUDIO_DEVICE_IN_TV_TUNER != src_config->ext.device.type) {
                 aml_dev->patch_src = android_input_dev_convert_to_hal_patch_src(src_config->ext.device.type);
             }
+            aml_audio_input_routing(dev, inport);
             input_src = android_input_dev_convert_to_hal_input_src(src_config->ext.device.type);
             aml_dev->active_inport = inport;
             aml_dev->src_gain[inport] = 1.0;
@@ -8336,6 +8359,7 @@ static int adev_create_audio_patch(struct audio_hw_device *dev,
                 ret = -EINVAL;
                 unregister_audio_patch(dev, patch_set);
             }
+            aml_audio_input_routing(dev, inport);
             input_src = android_input_dev_convert_to_hal_input_src(src_config->ext.device.type);
             if (AUDIO_DEVICE_IN_TV_TUNER == src_config->ext.device.type) {
                 aml_dev->dev2mix_patch = true;
@@ -8418,6 +8442,7 @@ static int adev_create_audio_patch(struct audio_hw_device *dev,
                     }
                 }
             }
+            aml_audio_input_routing(dev, inport);
             ret = 0;
         } else {
             AM_LOGE("invalid patch, source error, source:%d(%s)->MIX", src_config->type, audioPortType2Str(src_config->type));
