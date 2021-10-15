@@ -1972,6 +1972,7 @@ char *out_get_parameters_wrapper_about_sup_sampling_rates__channels__formats(con
     } else {
         para = strdup ("");
     }
+    str_parms_destroy(parms);
     ALOGI ("%s\n", para);
     return para;
 }
