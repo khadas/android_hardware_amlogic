@@ -124,6 +124,9 @@ enum eDolbyLibType detect_dolby_lib_type(void) {
                 return eDolbyMS12Lib;
             }
         }
+        else {
+            ALOGE("%s, failed to FIND libdolbyms12.so, %s\n", __FUNCTION__, dlerror());
+        }
     }
 
     // dcv is second priority

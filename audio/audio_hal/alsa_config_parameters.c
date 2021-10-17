@@ -199,13 +199,17 @@ int get_hardware_config_parameters(
     else if (output_format == AUDIO_FORMAT_AC3) {
         get_dd_hardware_config_parameters(final_config, 2, rate, continuous_mode);
     }
-    //MAT
-    else if (output_format == AUDIO_FORMAT_MAT) {
+    /*
+     * MAT1.0-TrueHD inside
+     * MAT2.0-PCM inside
+     * MAT2.1-PCM_ATMOS inside
+     */
+    else if ((output_format == AUDIO_FORMAT_MAT) || (output_format == AUDIO_FORMAT_DOLBY_TRUEHD)) {
         get_mat_hardware_config_parameters(final_config, 2, rate);
 
     }
-    //DTS-HD/TRUE-HD
-    else if ((output_format == AUDIO_FORMAT_DTS_HD) || (output_format == AUDIO_FORMAT_DOLBY_TRUEHD)) {
+    //DTS-HD
+    else if (output_format == AUDIO_FORMAT_DTS_HD) {
         get_dd_hardware_config_parameters(final_config, 2, rate, continuous_mode);
     }
     //PCM

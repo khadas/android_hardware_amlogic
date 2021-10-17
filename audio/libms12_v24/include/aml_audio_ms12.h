@@ -153,6 +153,14 @@ struct dolby_ms12_desc {
     uint64_t last_synced_frame_pts;
     uint64_t out_synced_frame_count;
     bool debug_synced_frame_pts_flag;
+    /* MAT Encoder inside ms12, begin */
+    unsigned int matenc_maxoutbufsize;
+    int b_iec_header;
+    int mat_enc_debug_enable;
+    void *mat_enc_handle;
+    char *mat_enc_out_buffer;
+    int mat_enc_out_bytes;
+    /* MAT Encoder inside ms12, end */
 };
 
 /*

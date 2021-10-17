@@ -42,6 +42,19 @@ typedef union ms12_config {
     float main_volume;
     int mat_stream_profile;
 }ms12_config_t;
+
+typedef enum  {
+    MAT_ENC_CONFIG_MIXER_LEVEL, //runtime param
+    MAT_ENC_CONFIG_OUT_BITDEPTH, //static param
+    MAT_ENC_CONFIG_OUT_CH, //static param
+} mat_enc_config_type_t;
+
+typedef union mat_config {
+    int mixer_level;
+    int out_bitdepth;
+    int out_ch;
+} mat_enc_config_t;
+
 struct aml_audio_info{
     int is_dolby_atmos;
     int reserved_a;
@@ -172,6 +185,33 @@ public:
     virtual int     DolbyMS12GetLatencyForDDPOut(int *latency);
     virtual int     DolbyMS12GetLatencyForDDOut(int *latency);
     virtual int     DolbyMS12GetLatencyForMATOut(int *latency);
+    virtual int     DolbyMS12MATEncoderInit
+        (int b_lfract_precision
+        , int b_chmod_locking
+        , unsigned int *p_matenc_maxoutbufsize
+        , int b_iec_header
+        , int dbg_enable
+        , void **mat_enc_handle
+        );
+
+    virtual void     DolbyMS12MatEncoderCleanup(void *mat_enc_handle);
+
+    virtual int      DolbyMS12MATEncoderProcess
+        (void *mat_enc_handle
+        , const unsigned char *in_buf
+        , int n_bytes_in_buf
+        , const unsigned char *out_buf
+        , int *n_bytes_out_buf
+        , int out_buf_max_size
+        , int *nbytes_consumed
+        );
+
+
+    virtual int      DolbyMS12MATEncoderConfig
+        (void *mat_enc_handle
+        , mat_enc_config_type_t config_type
+        , mat_enc_config_t *config
+        );
     // protected:
 
 
