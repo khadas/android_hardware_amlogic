@@ -25,6 +25,7 @@
 #include "audio_hw.h"
 
 #define DDP_OUTPUT_SAMPLE_RATE (48000)
+#define TRUEHD_OUTPUT_SAMPLE_RATE (48000)
 #define SAMPLE_NUMS_IN_ONE_BLOCK (256)
 #define DDP_FRAME_DURATION(sample_nums, sample_rate) ((sample_nums) / (sample_rate))
 

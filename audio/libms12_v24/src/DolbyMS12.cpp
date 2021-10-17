@@ -75,6 +75,13 @@ int (*FuncDolbyMS12HWSyncInit)(void);
 int (*FuncDolbyMS12HWSyncRelease)(void);
 int (*FuncDolbyMS12HWSyncCheckinPTS)(int offset, int apts);
 
+/* MAT Encoder API Begain */
+int (*FuncDolbyMS12MATEncoderInit)(int, int, unsigned int *, int, int, void **);
+int (*FuncDolbyMS12MATEncoderCleanup)(void *);
+int (*FuncDolbyMS12MATEncoderProcess)(void *, const unsigned char *, int, const unsigned char *, int *, int, int *);
+int (*FuncDolbyMS12MATEncoderConfig)(void *, mat_enc_config_type_t, mat_enc_config_t *);
+/* MAT Encoder API End */
+
 DolbyMS12::DolbyMS12() :
     mDolbyMS12LibHanle(NULL)
 {
@@ -270,33 +277,52 @@ int DolbyMS12::GetLibHandle(char *dolby_ms12_path)
         ALOGE("%s, dlsym get_system_buffer_avail fail\n", __FUNCTION__);
     }
 
-    FuncDolbyMS12GetNBytesConsumedSysSound= (unsigned long long (*)(void))  dlsym(mDolbyMS12LibHanle, "get_n_bytes_consumed_of_sys_sound");
+    FuncDolbyMS12GetNBytesConsumedSysSound = (unsigned long long (*)(void))  dlsym(mDolbyMS12LibHanle, "get_n_bytes_consumed_of_sys_sound");
     if (!FuncDolbyMS12GetNBytesConsumedSysSound) {
         ALOGW("%s, dlsym FuncDolbyMS12GetNBytesConsumedSysSound fail,ingore it as version difference\n", __FUNCTION__);
     }
 
-    FuncDolbyMS12GetTotalNFramesDelay= (int (*)(void *))  dlsym(mDolbyMS12LibHanle, "get_ms12_total_nframes_delay");
+    FuncDolbyMS12GetTotalNFramesDelay  = (int (*)(void *))  dlsym(mDolbyMS12LibHanle, "get_ms12_total_nframes_delay");
     if (!FuncDolbyMS12GetTotalNFramesDelay) {
         ALOGW("%s, dlsym get_ms12_total_delay fail, ingore it as version difference\n", __FUNCTION__);
     }
 
-    FuncDolbyMS12HWSyncInit= (int (*)(void))  dlsym(mDolbyMS12LibHanle, "ms12_hwsync_init");
+    FuncDolbyMS12HWSyncInit = (int (*)(void))  dlsym(mDolbyMS12LibHanle, "ms12_hwsync_init");
     if (!FuncDolbyMS12HWSyncInit) {
         ALOGW("%s, dlsym FuncDolbyMS12HWSyncInit fail,ingore it as version difference\n", __FUNCTION__);
-        //goto ERROR;
     }
 
-    FuncDolbyMS12HWSyncRelease= (int (*)(void))  dlsym(mDolbyMS12LibHanle, "ms12_hwsync_release");
+    FuncDolbyMS12HWSyncRelease = (int (*)(void))  dlsym(mDolbyMS12LibHanle, "ms12_hwsync_release");
     if (!FuncDolbyMS12HWSyncRelease) {
         ALOGW("%s, dlsym FuncDolbyMS12HWSyncRelease fail,ingore it as version difference\n", __FUNCTION__);
-        //goto ERROR;
     }
 
-    FuncDolbyMS12HWSyncCheckinPTS= (int (*)(int,  int))  dlsym(mDolbyMS12LibHanle, "ms12_hwsync_checkin_pts");
+    FuncDolbyMS12HWSyncCheckinPTS = (int (*)(int,  int))  dlsym(mDolbyMS12LibHanle, "ms12_hwsync_checkin_pts");
     if (!FuncDolbyMS12HWSyncCheckinPTS) {
         ALOGW("%s, dlsym FuncDolbyMS12HWSyncCheckinPTS fail,ingore it as version difference\n", __FUNCTION__);
-        //goto ERROR;
     }
+
+    /* MAT Encoder API Begin */
+    FuncDolbyMS12MATEncoderInit = (int (*)(int, int, unsigned int *, int, int, void **))  dlsym(mDolbyMS12LibHanle, "mat_encoder_init");
+    if (!FuncDolbyMS12MATEncoderInit) {
+        ALOGW("%s, dlsym FuncDolbyMS12MATEncoderInit fail,ingore it as version difference\n", __FUNCTION__);
+    }
+
+    FuncDolbyMS12MATEncoderCleanup = (int (*)(void *))  dlsym(mDolbyMS12LibHanle, "mat_encoder_cleanup");
+    if (!FuncDolbyMS12MATEncoderCleanup) {
+        ALOGW("%s, dlsym FuncDolbyMS12MATEncoderCleanup fail,ingore it as version difference\n", __FUNCTION__);
+    }
+
+    FuncDolbyMS12MATEncoderProcess = (int (*)(void *, const unsigned char *, int, const unsigned char *, int *, int, int *))  dlsym(mDolbyMS12LibHanle, "mat_encoder_process");
+    if (!FuncDolbyMS12MATEncoderProcess) {
+        ALOGW("%s, dlsym FuncDolbyMS12MATEncoderProcess fail,ingore it as version difference\n", __FUNCTION__);
+    }
+
+    FuncDolbyMS12MATEncoderConfig = (int (*)(void *, mat_enc_config_type_t, mat_enc_config_t *))  dlsym(mDolbyMS12LibHanle, "mat_encoder_config");
+    if (!FuncDolbyMS12MATEncoderConfig) {
+        ALOGW("%s, dlsym FuncDolbyMS12MATEncoderConfig fail,ingore it as version difference\n", __FUNCTION__);
+    }
+    /* MAT Encoder API End */
 
     ALOGD("-%s() line %d get libdolbyms12 success!", __FUNCTION__, __LINE__);
     return 0;
@@ -339,6 +365,13 @@ void DolbyMS12::ReleaseLibHandle(void)
     FuncDolbyMS12SetDebugLevel = NULL;
     FuncDolbyMS12GetNBytesConsumedSysSound = NULL;
     FuncDolbyMS12GetTotalNFramesDelay = NULL;
+
+    /* MAT Encoder API Begin */
+    FuncDolbyMS12MATEncoderInit = NULL;
+    FuncDolbyMS12MATEncoderCleanup = NULL;
+    FuncDolbyMS12MATEncoderProcess = NULL;
+    FuncDolbyMS12MATEncoderConfig = NULL;
+    /* MAT Encoder API End */
 
     if (mDolbyMS12LibHanle != NULL) {
         dlclose(mDolbyMS12LibHanle);
@@ -1001,6 +1034,75 @@ int DolbyMS12::DolbyMS12GetLatencyForMATOut(int *latency)
 }
 
 
+/* MAT Encoder API Begin */
+int DolbyMS12::DolbyMS12MATEncoderInit(int b_lfract_precision
+    , int b_chmod_locking
+    , unsigned int *p_matenc_maxoutbufsize
+    , int b_iec_header
+    , int dbg_enable
+    , void **mat_enc_handle)
+{
+    int ret = 0;
+    ALOGV("+%s()", __FUNCTION__);
+    if (!FuncDolbyMS12MATEncoderInit) {
+        ALOGE("%s(), pls load lib first.\n", __FUNCTION__);
+        return ret;
+    }
+
+    ret = (*FuncDolbyMS12MATEncoderInit)(b_lfract_precision, b_chmod_locking, p_matenc_maxoutbufsize, b_iec_header, dbg_enable, mat_enc_handle);
+    ALOGV("-%s() ret %d", __FUNCTION__, ret);
+    return ret;
+}
+
+void DolbyMS12::DolbyMS12MatEncoderCleanup(void *mat_enc_handle)
+{
+    ALOGV("+%s()", __FUNCTION__);
+    if (!FuncDolbyMS12MATEncoderCleanup) {
+        ALOGE("%s(), pls load lib first.\n", __FUNCTION__);
+    }
+    else {
+        (*FuncDolbyMS12MATEncoderCleanup)(mat_enc_handle);
+    }
+}
+
+int DolbyMS12::DolbyMS12MATEncoderProcess(void *mat_enc_handle
+    , const unsigned char *in_buf
+    , int n_bytes_in_buf
+    , const unsigned char *out_buf
+    , int *n_bytes_out_buf
+    , int out_buf_max_size
+    , int *nbytes_consumed
+    )
+{
+    int ret = 0;
+    ALOGV("+%s()", __FUNCTION__);
+    if (!FuncDolbyMS12MATEncoderProcess) {
+        ALOGE("%s(), pls load lib first.\n", __FUNCTION__);
+        return ret;
+    }
+
+    ret = (*FuncDolbyMS12MATEncoderProcess)(mat_enc_handle, in_buf, n_bytes_in_buf, out_buf, n_bytes_out_buf, out_buf_max_size, nbytes_consumed);
+    ALOGV("-%s() ret %d", __FUNCTION__, ret);
+    return ret;
+}
+
+int DolbyMS12::DolbyMS12MATEncoderConfig(void *mat_enc_handle
+    , mat_enc_config_type_t config_type
+    , mat_enc_config_t *config)
+{
+    int ret = 0;
+    ALOGV("+%s()", __FUNCTION__);
+    if (!FuncDolbyMS12MATEncoderConfig) {
+        ALOGE("%s(), pls load lib first.\n", __FUNCTION__);
+        return ret;
+    }
+
+    ret = (*FuncDolbyMS12MATEncoderConfig)(mat_enc_handle, config_type, config);
+    ALOGV("-%s() ret %d", __FUNCTION__, ret);
+    return ret;
+}
+
+/* MAT Encoder API End */
 
 
 

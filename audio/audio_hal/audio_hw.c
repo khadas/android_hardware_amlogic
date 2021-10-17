@@ -6204,12 +6204,12 @@ ssize_t mixer_main_buffer_write(struct audio_stream_out *stream, const void *buf
 hwsync_rewrite:
     /* handle HWSYNC audio data*/
     if (aml_out->hw_sync_mode) {
-        uint64_t  cur_pts = 0xffffffffffffffff;
+        uint64_t  cur_pts = ULLONG_MAX;//defined in limits.h
         int outsize = 0;
 
         ALOGV ("before aml_audio_hwsync_find_frame bytes %zu\n", total_bytes - bytes_cost);
         hwsync_cost_bytes = aml_audio_hwsync_find_frame(aml_out->hwsync, (char *)buffer + bytes_cost, total_bytes - bytes_cost, &cur_pts, &outsize);
-        if (cur_pts > 0xffffffffffffffff) {
+        if (cur_pts > ULLONG_MAX) {
             ALOGE("APTS exeed the max 64bit value");
         }
         ALOGV ("after aml_audio_hwsync_find_frame bytes remain %zu,cost %zu,outsize %d,pts %"PRIx64"\n",
@@ -6221,10 +6221,10 @@ hwsync_rewrite:
             ALOGI ("skip pts@%"PRIx64",cur frame size %d,cost size %zu\n", cur_pts, outsize, hwsync_cost_bytes);
             return hwsync_cost_bytes;
         }
-        if (cur_pts != 0xffffffff && outsize > 0) {
+        if (cur_pts != ULLONG_MAX && outsize > 0) {
             if (eDolbyMS12Lib == adev->dolby_lib_type && !is_bypass_dolbyms12(stream)) {
                 if (hw_sync->wait_video_done == false && hw_sync->use_mediasync) {
-                    apts64 = cur_pts & 0xffffffffffffffff;
+                    apts64 = cur_pts & ULLONG_MAX;
                     aml_hwsync_wait_video_start(hw_sync);
                     aml_hwsync_wait_video_drop(hw_sync, apts64);
                     hw_sync->wait_video_done = true;
@@ -6259,7 +6259,7 @@ hwsync_rewrite:
                     } else {
                         apts = 0;
                     }
-                    apts64 = apts & 0xffffffffffffffff;
+                    apts64 = apts & ULLONG_MAX;
                     /*if the pts is zero, to avoid video pcr not set issue, we just set it as 1ms*/
                     if (apts64 == 0) {
                         apts64 = 1 * 90;
@@ -6313,7 +6313,7 @@ hwsync_rewrite:
                         } else {
                             apts = 0;
                         }
-                        apts64 = apts & 0xffffffffffffffff;
+                        apts64 = apts & ULLONG_MAX;
                         if (aml_hwsync_get_tsync_pts(aml_out->hwsync, &pcr) == 0) {
                             enum hwsync_status sync_status = CONTINUATION;
                             apts_gap = get_pts_gap (pcr, apts64);
@@ -6645,9 +6645,22 @@ hwsync_rewrite:
         if (!adev->continuous_audio_mode && !patch) {
             size_t left_bytes = write_bytes;
             size_t used_bytes = 0;
-            int    process_size = 0;
+            int process_size = 0;
+            /*
+             * Reason:
+             * After enable the amlogic_truehd encoded by the dolby mat encoder, passthrough the Dolby MS12 pipeline.
+             * Found the process_bytes(MS12_TRUNK_SIZE 1024Bytes) can lead the alsa underrun.
+             *
+             * Solution:
+             * After send all the truehd to ms12, sound is smooth. If dolby truehd occur underrun in passthrough mode,
+             * please take care of the value of process_size(aml_audio_ms12_render: bytes).
+             *
+             * Issue:
+             * SWPL-60957: passthrough TrueHD format in Movieplayer.
+             */
+            int process_bytes = (aml_out->hal_format == AUDIO_FORMAT_DOLBY_TRUEHD) ? (write_bytes) : MS12_TRUNK_SIZE;
             while (1) {
-                process_size = left_bytes > MS12_TRUNK_SIZE ? MS12_TRUNK_SIZE : left_bytes;
+                process_size = left_bytes > process_bytes ? process_bytes : left_bytes;
                 ret = aml_audio_ms12_render(stream, (char *)write_buf + used_bytes, process_size);
                 if (ret <= 0) {
                     break;

@@ -83,11 +83,33 @@ static audio_format_t get_sink_capability (struct aml_audio_device *adev)
         char *cap = NULL;
         cap = (char *) get_hdmi_sink_cap_new (AUDIO_PARAMETER_STREAM_SUP_FORMATS,0,&(adev->hdmi_descs));
         if (cap) {
+            /*
+             * Dolby MAT 2.0/2.1 has low latency vs Dolby MAT 1.0(TRUEHD inside)
+             * Dolby MS12 prefers to output MAT2.0/2.1.
+             */
             if ((strstr(cap, "AUDIO_FORMAT_MAT_2_0") != NULL) || (strstr(cap, "AUDIO_FORMAT_MAT_2_1") != NULL)) {
                 sink_capability = AUDIO_FORMAT_MAT;
-            } else if (strstr(cap, "AUDIO_FORMAT_E_AC3") != NULL) {
+            }
+            /*
+             * Dolby MAT 1.0(TRUEHD inside) vs DDP+DD
+             * Dolby MS12 prefers to output DDP.
+             * But set sink as TrueHD, then TrueHD can encoded with MAT encoder in Passthrough mode.
+             */
+            else if (strstr(cap, "AUDIO_FORMAT_MAT_1_0") != NULL) {
+                sink_capability = AUDIO_FORMAT_DOLBY_TRUEHD;
+            }
+            /*
+             * DDP vs DDP
+             * Dolby MS12 prefers to output DDP.
+             */
+            else if (strstr(cap, "AUDIO_FORMAT_E_AC3") != NULL) {
                 sink_capability = AUDIO_FORMAT_E_AC3;
-            } else if (strstr(cap, "AUDIO_FORMAT_AC3") != NULL) {
+            }
+            /*
+             * DD vs PCM
+             * Dolby MS12 prefers to output DD.
+             */
+            else if (strstr(cap, "AUDIO_FORMAT_AC3") != NULL) {
                 sink_capability = AUDIO_FORMAT_AC3;
             }
             ALOGI ("%s mbox+dvb case sink_capability =  %#x\n", __FUNCTION__, sink_capability);
@@ -146,7 +168,7 @@ static audio_format_t get_sink_dts_capability (struct aml_audio_device *adev)
             } else if (strstr(cap, "AUDIO_FORMAT_DTS_HD") != NULL) {
                 sink_capability = AUDIO_FORMAT_DTS_HD;
             }
-            ALOGI ("%s mbox+dvb case sink_capability =  %d\n", __FUNCTION__, sink_capability);
+            ALOGI("%s mbox+dvb case sink_capability %#x\n", __FUNCTION__, sink_capability);
             aml_audio_free(cap);
             cap = NULL;
         }
@@ -235,6 +257,11 @@ static audio_format_t get_suitable_output_format(struct aml_stream_out *out,
     audio_format_t output_format;
     if (IS_EXTERNAL_DECODER_SUPPORT_FORMAT(source_format)) {
         output_format = MIN(source_format, sink_format);
+        /*
+         * if source: AUDIO_FORMAT_DOLBY_TRUEHD and sink: AUDIO_FORMAT_MAT
+         * use the AUDIO_FORMAT_MAT as output format(from IEC 61937-1).
+         */
+        output_format = (output_format != AUDIO_FORMAT_DOLBY_TRUEHD) ? output_format: AUDIO_FORMAT_MAT;
     } else {
         output_format = sink_format;
     }

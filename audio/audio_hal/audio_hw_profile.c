@@ -31,6 +31,7 @@
 #include <hardware/hardware.h>
 #include <system/audio.h>
 #include <hardware/audio.h>
+#include <aml_android_utils.h>
 
 #include "audio_hw_utils.h"
 #include "alsa_device_parser.h"
@@ -668,7 +669,7 @@ exit:
     return 0;
 }
 
-char*  get_hdmi_sink_cap_new(const char *keys,audio_format_t format,struct aml_arc_hdmi_desc *p_hdmi_descs)
+char*  get_hdmi_sink_cap_new(const char *keys, audio_format_t format, struct aml_arc_hdmi_desc *p_hdmi_descs)
 {
     int i = 0;
     int fd = -1;
@@ -758,6 +759,21 @@ char*  get_hdmi_sink_cap_new(const char *keys,audio_format_t format,struct aml_a
         /*check dolby truehd*/
         audio_cap_item = get_edid_support_audio_format(AUDIO_FORMAT_MAT);
         if (audio_cap_item) {
+            /*
+             * when cat /sys/class/amhdmitx/amhdmitx0/aud_cap,
+             * "MAT, 8 ch, 44.1/48/88.2/96/176.4/192 kHz, DepVaule 0x1"
+             * would output MAT_1_0/MAT_2_0/MAT_2_1
+             * here, call the AVR-TrueHD if AVR only supports MAT_1_0(DOLBY TRUEHD) not MAT_2_0/MAT_2_1,
+             * If the AVR-TrueHD is broken or sick, we replace the AVR(Dolby ATMOS) with the property:
+             * "vendor.media.audiohal.mat_1_0" with value 1.
+             */
+            if (audio_cap_item->dep_value == 0x1) {
+                int force_truehd = aml_getprop_bool("vendor.media.audiohal.avr.mat_1_0");
+                if (force_truehd) {
+                    audio_cap_item->dep_value = 0x0;
+                    ALOGD("JUST For DEBUG!!! Convert the MAT's dep_value from 1 to 0 for TrueHD!\n");
+                }
+            }
             //DLB MAT and DLB TrueHD SAD
             if (audio_cap_item->dep_value == 0x1) {
                 //Byte3 bit0:1 bit1:0

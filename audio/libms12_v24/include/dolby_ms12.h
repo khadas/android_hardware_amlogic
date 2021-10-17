@@ -308,6 +308,50 @@ int dolby_ms12_get_latency_for_dd_out(int *latency);
 */
 int dolby_ms12_get_latency_for_mat_out(int *latency);
 
+/**
+ * @brief MAT Encoder init
+ */
+int dolby_ms12_mat_encoder_init
+    (int b_lfract_precision                     /**< [in] 0: disable lfract precision. 1: enable lfract precision */
+    , int b_chmod_locking                       /**< [in] 0: disable chmod locking. 1: enable  chmod locking */
+    , unsigned int *p_matenc_maxoutbufsize      /**< [out] Pointer of MAT encoder mat outbuf size */
+    , int b_iec_header                          /**< [in] 0: output raw mat format. 1: outptu IEC61937 format */
+    , int dbg_enable                            /**< [in] 0: disable debug. 1: enable debug */
+    , void **mat_enc_handle                     /**< [out] Pointer of MAT encoder handle */
+    );
+
+
+
+/**
+ * @brief MAT Encoder cleanup
+ */
+void dolby_ms12_mat_encoder_cleanup
+    (void *mat_enc_handle                       /**< [in] Pointer of MAT encoder handle */
+    );
+
+/**
+ * @brief MAT Encoder decode process
+ */
+int dolby_ms12_mat_encoder_process
+    (void *mat_enc_handle               /**< [in] Pointer of MAT encoder handle */
+    , const unsigned char *in_buf       /**< [in] Pointer of mlp data buffer */
+    , int n_bytes_in_buf                /**< [in] Size in bytes of in_buf */
+    , const unsigned char *out_buf      /**< [out] Pointer of mat data buffer output by MAT encoder */
+    , int *n_bytes_out_buf              /**< [out] Size in bytes of mat data buffer output by MAT encoder */
+    , int out_buf_max_size              /**< [in] Max size in bytes of in_buf buffer */
+    , int *nbytes_consumed              /**< [out] Size in bytes of consumed in_buf data */
+    );
+
+
+
+/**
+ * @brief This function set parameter for MAT Encoder.
+ */
+int dolby_ms12_mat_encoder_config
+    (void *mat_enc_handle   /**< [in] Pointer of MAT encoder handle */
+    , int config_type       /**< [in] mat encoder config type */
+    , int *config           /**< [in] mat encoder config value */
+    );
 
 #ifdef __cplusplus
 }

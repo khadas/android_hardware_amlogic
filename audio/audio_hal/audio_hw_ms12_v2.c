@@ -86,6 +86,8 @@
 #define DUMP_MS12_OUTPUT_BITSTREAN       0x4
 #define DUMP_MS12_OUTPUT_BITSTREAN2      0x8
 #define DUMP_MS12_OUTPUT_BITSTREAN_MAT   0x10
+#define DUMP_MS12_OUTPUT_BITSTREAN_MAT_WI_MLP   0x20
+
 #define DUMP_MS12_INPUT_MAIN             0x100
 #define DUMP_MS12_INPUT_SYS              0x200
 #define DUMP_MS12_INPUT_APP              0x400
@@ -97,6 +99,8 @@
 #define MS12_OUTPUT_BITSTREAM_FILE       "/data/vendor/audiohal/ms12_bitstream.raw"
 #define MS12_OUTPUT_BITSTREAM2_FILE      "/data/vendor/audiohal/ms12_bitstream2.raw"
 #define MS12_OUTPUT_BITSTREAM_MAT_FILE   "/data/vendor/audiohal/ms12_bitstream.mat"
+#define MS12_OUTPUT_BITSTREAM_MAT_WI_MLP_FILE   "/data/vendor/audiohal/ms12_bitstream_wi_mlp.mat"
+
 #define MS12_INPUT_SYS_PCM_FILE          "/data/vendor/audiohal/ms12_input_sys.pcm"
 #define MS12_INPUT_SYS_MAIN_FILE         "/data/vendor/audiohal/ms12_input_main.raw"
 #define MS12_INPUT_SYS_ASSOCIATE_FILE    "/data/vendor/audiohal/ms12_input_associate.raw"
@@ -301,7 +305,7 @@ static int get_ms12_output_config(audio_format_t format)
 static void set_ms12_out_ddp_5_1(audio_format_t input_format, bool is_sink_supported_ddp_atmos)
 {
     /*In case of AC-4 or Dolby Digital Plus input, set legacy ddp out ON/OFF*/
-    ALOGD("%s input_format 0x%#x is_sink_supported_ddp_atmos %d", __func__, input_format, is_sink_supported_ddp_atmos);
+    ALOGD("%s input_format %#x is_sink_supported_ddp_atmos %d", __func__, input_format, is_sink_supported_ddp_atmos);
     bool is_ddp = (input_format == AUDIO_FORMAT_AC3) || (input_format == AUDIO_FORMAT_E_AC3);
     bool is_ac4 = (input_format == AUDIO_FORMAT_AC4);
     if (is_ddp || is_ac4) {
@@ -986,6 +990,15 @@ int get_the_dolby_ms12_prepared(
     ms12->dolby_ms12_init_flags = true;
     adev->doing_reinit_ms12 = false;
     ms12->debug_synced_frame_pts_flag = get_debug_value(AML_DEBUG_AUDIOHAL_SYNCPTS);
+    /*
+     * usage to set the MAT Encoder debug level:
+     *          setprop "vendor.media.audiohal.matenc.debug" 1
+     *          1: for mat encoder debug config
+     *          2: for mat encoder debug init
+     *          4: for mat encoder debug input
+     *          8: for mat encoder debug output
+     */
+    ms12->mat_enc_debug_enable = get_debug_value(AML_DEBUG_AUDIOHAL_MATENC);
     ALOGI("--%s(), locked", __FUNCTION__);
     pthread_mutex_unlock(&ms12->lock);
     ALOGI("-%s()\n\n", __FUNCTION__);
@@ -1027,6 +1040,21 @@ bool is_ms12_passthrough(struct audio_stream_out *stream) {
     struct aml_audio_device *adev = aml_out->dev;
     struct dolby_ms12_desc *ms12 = &(adev->ms12);
 
+    /* TrueHD-content can not passthrough, should be decoded with DLB-MS12 pipeline */
+    bool is_bypass_truehd = false;
+    bool is_truehd = false;
+    bool is_truehd_supported = false;
+
+    /* Fixme: The TrueHD passthrough function is in the TODO List. */
+
+    is_truehd = (aml_out->hal_internal_format == AUDIO_FORMAT_DOLBY_TRUEHD);
+    is_truehd_supported = ((ms12->optical_format == AUDIO_FORMAT_MAT) || (ms12->optical_format == AUDIO_FORMAT_DOLBY_TRUEHD));
+    is_bypass_truehd = is_truehd && is_truehd_supported;
+    if (adev->debug_flag & AUDIO_HAL_DEBUG_PASSTHROUGH) {
+        ALOGD("%s line %d is_bypass_truehd %d is_truehd %d is_truehd_supported %d",
+            __FUNCTION__, __LINE__, is_bypass_truehd, is_truehd, is_truehd_supported);
+    }
+
     if ((adev->hdmi_format == BYPASS)
         /* when arc output, the optical_format == sink format
          * when speaker output, the optical format != format
@@ -1045,9 +1073,14 @@ bool is_ms12_passthrough(struct audio_stream_out *stream) {
                 bypass_ms12 = true;
             }
         }
+        else if (is_bypass_truehd) {
+            bypass_ms12 = true;
+        }
     }
-    ALOGV("bypass_ms12 =%d hdmi format =%d optical format =0x%x 0x%x",
-        bypass_ms12, adev->hdmi_format, ms12->optical_format, aml_out->hal_internal_format);
+    if (adev->debug_flag & AUDIO_HAL_DEBUG_PASSTHROUGH) {
+        ALOGD("%s line %d bypass_ms12 =%d hdmi format =%d optical format =0x%x intenal format 0x%x",
+            __FUNCTION__, __LINE__, bypass_ms12, adev->hdmi_format, ms12->optical_format, aml_out->hal_internal_format);
+    }
     return bypass_ms12;
 }
 
@@ -1655,6 +1688,14 @@ int get_dolby_ms12_cleanup(struct dolby_ms12_desc *ms12, bool set_non_continuous
     ms12->spdif_dec_handle = NULL;
     ring_buffer_release(&ms12->spdif_ring_buffer);
     aml_ms12_bypass_close(ms12->ms12_bypass_handle);
+    if (ms12->mat_enc_out_buffer) {
+        free(ms12->mat_enc_out_buffer);
+        ms12->mat_enc_out_buffer = NULL;
+    }
+    if (ms12->mat_enc_handle) {
+        dolby_ms12_mat_encoder_cleanup(ms12->mat_enc_handle);
+        ms12->mat_enc_handle = NULL;
+    }
     ms12->ms12_bypass_handle = NULL;
     for (i = 0; i < BITSTREAM_OUTPUT_CNT; i++) {
         struct bitstream_out_desc * bitstream_out = &ms12->bitstream_out[i];
@@ -1776,7 +1817,7 @@ static ssize_t aml_ms12_spdif_output_new (struct audio_stream_out *stream,
     return ret;
 }
 
-int dolby_ms12_bypass_process(struct audio_stream_out *stream, void *buffer, size_t bytes) {
+int ac3_and_eac3_bypass_process(struct audio_stream_out *stream, void *buffer, size_t bytes) {
     int ret = 0;
     struct aml_stream_out *aml_out = (struct aml_stream_out *)stream;
     struct aml_audio_device *adev = aml_out->dev;
@@ -1904,6 +1945,187 @@ int dolby_ms12_bypass_process(struct audio_stream_out *stream, void *buffer, siz
 
     return 0;
 }
+
+int dolby_truehd_bypass_process(struct audio_stream_out *stream, void *buffer, size_t bytes) {
+    int ret = 0;
+    struct aml_stream_out *aml_out = (struct aml_stream_out *)stream;
+    struct aml_audio_device *adev = aml_out->dev;
+    struct dolby_ms12_desc *ms12 = &(adev->ms12);
+    struct bitstream_out_desc *bitstream_out = &ms12->bitstream_out[BITSTREAM_OUTPUT_A];
+    /*
+     *only Dolby TrueHD should use Dolby MAT Encoder w/i MS12.
+     */
+    bool is_dolby_truehd = (aml_out->hal_internal_format == AUDIO_FORMAT_DOLBY_TRUEHD);
+    audio_format_t output_format = AUDIO_FORMAT_IEC61937; //suppose MAT encoder always output IEC61937 format.
+    ALOGV("output_format=0x%x hal_format=0x%#x internal=0x%x", output_format, aml_out->hal_format, aml_out->hal_internal_format);
+    spdif_config_t spdif_config = { 0 };
+    audio_format_t hal_internal_format = ms12_get_audio_hal_format(aml_out->hal_internal_format);
+
+
+    ms12->is_bypass_ms12 = is_ms12_passthrough(stream);
+    if (ms12->is_bypass_ms12
+        && (adev->continuous_audio_mode == 0)
+        && is_dolby_truehd) {
+        /*
+         * First of all, initialize the MAT Encoder with the b_lfract_precision(1)/b_chmod_locking(0)/b_iec_header(1).
+         * If MAT encoder is successfully built, we got the mat_encoder_handle and matenc_maxoutbufsize.
+         * then malloc the mat_enc_out_buffer by the matenc_maxoutbufsize.
+         */
+        if (!ms12->mat_enc_handle) {
+            int b_lfract_precision = 1;
+            int b_chmod_locking = 0;
+            ms12->b_iec_header = 1; //mat encoder output the IEC61937 format.
+            ret = dolby_ms12_mat_encoder_init
+                    ( b_lfract_precision
+                    , b_chmod_locking
+                    , &(ms12->matenc_maxoutbufsize) //get the matenc_maxoutbufsize for the mat_enc_out_buffer.
+                    , ms12->b_iec_header
+                    , ms12->mat_enc_debug_enable
+                    , (void **)&ms12->mat_enc_handle
+                    );
+            if (ret) {
+                ALOGE("%s mat_encoder_init failed (%d)\n", __func__, ret);
+                return ret;
+            }
+            else {
+                ms12->matenc_maxoutbufsize *= 4;
+                ALOGD("%s matenc_maxoutbufsize %d\n", __func__, ms12->matenc_maxoutbufsize);
+                ms12->mat_enc_out_buffer = (char *)malloc(ms12->matenc_maxoutbufsize);
+                if (!ms12->mat_enc_out_buffer) {
+                    ALOGE("%s ms12->mat_enc_out_buffer malloc failed\n", __func__);
+                    return ret;
+                }
+            }
+        }
+
+        if (bytes != 0 && buffer != NULL) {
+            /*
+             * if the format/sample-rate are changed, restart the alsa-card.
+             */
+            if ((bitstream_out->spdifout_handle != NULL )&&
+                ((bitstream_out->audio_format != output_format) ||
+                (output_format != AUDIO_FORMAT_IEC61937 && bitstream_out->sample_rate !=  aml_out->hal_rate))) {
+                aml_audio_spdifout_close(bitstream_out->spdifout_handle);
+                ALOGI("%s spdif format changed from 0x%x to 0x%x", __FUNCTION__, bitstream_out->audio_format, output_format);
+                bitstream_out->spdifout_handle = NULL;
+            }
+
+            /*
+             * if the alsa(use the spdif sound card) out handle is invalid, initialize it immidiately.
+             */
+            if (bitstream_out->spdifout_handle == NULL) {
+                spdif_config.audio_format = AUDIO_FORMAT_IEC61937;
+                spdif_config.sub_format = aml_out->hal_internal_format;
+                /*
+                 * FIXME:
+                 *      configure the MAT encoder's sample rate as 48kHZ.
+                 *      so, here use the 4*48000(192k)Hz as the spdif config rate.
+                 *      if input is 44.1kHz truehd, after MAT encoder, the sample rate should be always 48kHz.
+                 *      If it is not suitable, please report it.
+                 */
+                spdif_config.rate = (4 * TRUEHD_OUTPUT_SAMPLE_RATE);
+                spdif_config.channel_mask = AUDIO_CHANNEL_OUT_STEREO;
+                bitstream_out->sample_rate = spdif_config.rate;
+                ret = aml_audio_spdifout_open(&bitstream_out->spdifout_handle, &spdif_config);
+                if (ret != 0) {
+                    ALOGE("%s open spdif out failed\n", __func__);
+                    return ret;
+                }
+                bitstream_out->is_bypass_ms12 = ms12->is_bypass_ms12;
+            }
+        }
+
+        bitstream_out->audio_format = output_format;
+        /*
+         * control the mute flag to mute/unmute the spdif out.
+         */
+        if (ms12->main_volume < FLOAT_ZERO) {
+            aml_audio_spdifout_mute(bitstream_out->spdifout_handle, 1);
+        } else {
+            aml_audio_spdifout_mute(bitstream_out->spdifout_handle, 0);
+        }
+        if (aml_out->need_drop_size > 0) {
+            return 0;
+        }
+
+        /*
+         * get the IEC61937 format audio data by the mat encoder, and write it to hardware.
+         */
+        if (ms12->mat_enc_handle && buffer && bytes) {
+            int offset = 0;
+            int nbytes_consumed = 0;
+            unsigned char *pbuf = (unsigned char *)buffer;
+            memset(ms12->mat_enc_out_buffer, 0, ms12->matenc_maxoutbufsize);
+            while (offset < bytes) {
+                ret = dolby_ms12_mat_encoder_process
+                    (ms12->mat_enc_handle
+                    , (const unsigned char *)(pbuf + offset)
+                    , (bytes - offset)
+                    , (const unsigned char *)ms12->mat_enc_out_buffer
+                    , &ms12->mat_enc_out_bytes
+                    , ms12->matenc_maxoutbufsize
+                    , &nbytes_consumed
+                    );
+                if (ms12->mat_enc_debug_enable) {
+                    ALOGI("mat_encoder_process error %d bytes %d offset %d nbytes_consumed %d mat_enc_out_bytes %d\n",
+                        ret, bytes, offset, nbytes_consumed, ms12->mat_enc_out_bytes);
+                }
+                /* update the offset with the nbytes_consumed */
+                offset += nbytes_consumed;
+
+                /* when (mat encoder output data(mat_enc_out_bytes) not 0), send them to alsa */
+                if (ms12->mat_enc_out_bytes) {
+                    endian16_convert(ms12->mat_enc_out_buffer, ms12->mat_enc_out_bytes);
+                    ret = aml_audio_spdifout_processs
+                                (bitstream_out->spdifout_handle
+                                , ms12->mat_enc_out_buffer
+                                , ms12->mat_enc_out_bytes);
+                    /*
+                     * usage to dump the IEC61937 within MAT(TrueHD inside):
+                     *        setenforce 0
+                     *        mkdir -p /data/vendor/audiohal/
+                     *        rm /data/vendor/audiohal/
+                     *        chmod 777 /data/vendor/audiohal/
+                     *        setprop vendor.media.audiohal.ms12dump 0x20
+                     */
+                    if (get_ms12_dump_enable(DUMP_MS12_OUTPUT_BITSTREAN_MAT_WI_MLP)) {
+                        dump_ms12_output_data(ms12->mat_enc_out_buffer, ms12->mat_enc_out_bytes, MS12_OUTPUT_BITSTREAM_MAT_WI_MLP_FILE);
+                    }
+                    /* after write the IEC61937 data to hardware, reset it to zero position. */
+                    ms12->mat_enc_out_bytes = 0;
+                }
+
+            }
+        }
+    }
+
+    return 0;
+}
+
+
+int dolby_ms12_bypass_process(struct audio_stream_out *stream, void *buffer, size_t bytes) {
+    int ret = 0;
+    struct aml_stream_out *aml_out = (struct aml_stream_out *)stream;
+    struct aml_audio_device *adev = aml_out->dev;
+    struct dolby_ms12_desc *ms12 = &(adev->ms12);
+    struct bitstream_out_desc *bitstream_out = &ms12->bitstream_out[BITSTREAM_OUTPUT_A];
+    audio_format_t output_format =  ms12_get_audio_hal_format(aml_out->hal_format);
+    ALOGV("output_format=0x%x hal_format=0x%#x internal=0x%x", output_format, aml_out->hal_format, aml_out->hal_internal_format);
+    bool is_ac3_eac3 = (aml_out->hal_internal_format == AUDIO_FORMAT_E_AC3) || (aml_out->hal_internal_format == AUDIO_FORMAT_AC3);
+    bool is_dolby_truehd = (aml_out->hal_internal_format == AUDIO_FORMAT_DOLBY_TRUEHD);
+
+    if (is_ac3_eac3) {
+        return ac3_and_eac3_bypass_process(stream, buffer, bytes);
+    }
+    else if (is_dolby_truehd) {
+        return dolby_truehd_bypass_process(stream, buffer, bytes);
+    }
+    else {
+        ALOGV("%s unsupport format %#x!\n", __func__, aml_out->hal_format);
+        return -1;
+    }
+}
+
 
 int master_pcm_type(struct aml_stream_out *aml_out) {
     bool dap_enable = is_dolbyms12_dap_enable(aml_out);
@@ -2113,6 +2335,9 @@ int bitstream_output(void *buffer, void *priv_data, size_t size)
             __FUNCTION__, size, aml_out->dual_output_flag, adev->optical_format, adev->sink_format, ms12->bitsteam_cnt, ms12->input_total_ms);
     }
 
+    /*
+     * when eac3 should bypass ms12 and output the eac3, ignore the MS12 eac3 output.
+     */
     if (ms12->is_bypass_ms12) {
         return 0;
     }
@@ -2123,7 +2348,24 @@ int bitstream_output(void *buffer, void *priv_data, size_t size)
         return 0;
     }
 
-    if (ms12->optical_format != AUDIO_FORMAT_E_AC3) {
+    /*
+     * Old version:(ms12->optical_format != AUDIO_FORMAT_E_AC3)
+     *
+     * reason:
+     *      1. AVR(only MAT1.0 - TrueHD, not MAT2.0/MAT2.1)
+     *      2. TrueHD can passthrough the MS12 with MAT encoder.
+     *      3. MS12 pipeline add the DDP Encoder, so will output DDP.
+     *
+     * effect:
+     *      AVR(up to MAT1.0) + MS12
+     *      A. AUTO Mode:
+     *         all dolby input format should output DDP
+     *      B. NONE Mode:
+     *         all dolby input format should output PCM
+     *      C. Passthrough:
+     *         AC3/EAC3/MLP can passthrough, others should under ms12 processing.
+     */
+    if (ms12->optical_format < AUDIO_FORMAT_E_AC3) {
         return 0;
     }
 
@@ -2173,6 +2415,9 @@ int spdif_bitstream_output(void *buffer, void *priv_data, size_t size)
             __FUNCTION__, size, aml_out->dual_output_flag, adev->optical_format, adev->sink_format, ms12->bitsteam_cnt, ms12->input_total_ms);
     }
 
+    /*
+     * when ac3 should bypass ms12 and output the AC3, ignore the MS12 ac3 output.
+     */
     if (ms12->is_bypass_ms12) {
         /*non dual bitstream case, we only have one spdif*/
         if (!ms12->dual_bitstream_support) {
@@ -2238,6 +2483,9 @@ int mat_bitstream_output(void *buffer, void *priv_data, size_t size)
             __FUNCTION__, size, aml_out->dual_output_flag, adev->optical_format, adev->sink_format, ms12->bitsteam_cnt, ms12->input_total_ms);
     }
 
+    /*
+     * when truehd should bypass ms12 and output the MAT, ignore the MS12 MAT output.
+     */
     if (ms12->is_bypass_ms12) {
         return 0;
     }
