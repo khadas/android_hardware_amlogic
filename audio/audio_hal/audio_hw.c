@@ -5977,7 +5977,7 @@ void config_output(struct audio_stream_out *stream, bool reset_decoder)
                 aml_out->hal_channel_mask,
                 aml_out->hal_rate);
 
-            if (is_dolby_ms12_main_stream(stream)) {
+            if (is_dolby_ms12_main_stream(stream) && continous_mode(adev)) {
                 adev->ms12.main_input_start_offset_ns = aml_out->main_input_ns;
                 ALOGI("main start offset ns =%lld", adev->ms12.main_input_start_offset_ns);
             }
