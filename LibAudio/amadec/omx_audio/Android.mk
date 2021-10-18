@@ -8,12 +8,7 @@ LOCAL_CFLAGS := \
 LOCAL_C_INCLUDES:= \
     $(LOCAL_PATH)/include \
     $(LOCAL_PATH)/../     \
-    $(LOCAL_PATH)/../include \
-    frameworks/av/include \
-    frameworks/native/include/media/openmax \
-    frameworks/native/libs/nativewindow/include/system \
-    frameworks/av/include/media/stagefright \
-    frameworks/native/include/utils
+    $(LOCAL_PATH)/../include
 
 LOCAL_SRC_FILES := \
     adec_omx.cpp audio_mediasource.cpp

@@ -15,17 +15,12 @@ ifdef DOLBY_DS1_UDC
   LOCAL_CFLAGS += -DDOLBY_DS1_UDC
 endif
 
-LOCAL_HEADER_LIBRARIES := libmedia_headers
+LOCAL_HEADER_LIBRARIES := libmedia_headers libaudio_system_headers
 
 
 LOCAL_C_INCLUDES:= \
     $(LOCAL_PATH)/include \
-	$(AMAVUTILS_INCLUDE) \
-    system/libbase/include \
-    frameworks/av/include \
-    frameworks/av/media/libmedia/include \
-	frameworks/av/media/libmediametrics/include \
-    system/media/audio/include \
+    $(AMAVUTILS_INCLUDE) \
     hardware/amlogic/audio/audio_hal \
     hardware/amlogic//audio/utils/include/ \
     hardware/amlogic/audio/dtv_audio_utils/audio_read_api \
@@ -73,16 +68,11 @@ LOCAL_CFLAGS := \
     LOCAL_CFLAGS+=-DDOLBY_USE_ARMDEC
 #endif
 
-LOCAL_HEADER_LIBRARIES := libmedia_headers
+LOCAL_HEADER_LIBRARIES := libmedia_headers libaudio_system_headers
 
 LOCAL_C_INCLUDES:= \
     $(LOCAL_PATH)/include \
     $(AMAVUTILS_INCLUDE) \
-    frameworks/av/include \
-    frameworks/av/media/libmedia/include \
-	frameworks/av/media/libmediametrics/include \
-    system/media/audio/include \
-    system/libhidl/transport/token/1.0/utils/include \
     hardware/amlogic/audio/audio_hal \
     hardware/amlogic/audio/utils/include \
     hardware/amlogic/audio/dtv_audio_utils/audio_read_api \

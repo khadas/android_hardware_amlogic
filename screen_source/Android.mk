@@ -13,14 +13,6 @@ LOCAL_SRC_FILES := aml_screen.cpp v4l2_vdin.cpp
 MESON_GRALLOC_DIR ?= hardware/amlogic/gralloc
 
 LOCAL_C_INCLUDES += \
-    frameworks/native/include/utils \
-    frameworks/native/include \
-    frameworks/native/include/android \
-    frameworks/native/libs/nativewindow/include \
-    frameworks/av/include/media \
-    system/core/include/utils \
-    system/memory/libion/include \
-    system/memory/libion/kernel-headers \
     $(MESON_GRALLOC_DIR)
 
 LOCAL_SHARED_LIBRARIES:= libutils liblog libui libcutils
