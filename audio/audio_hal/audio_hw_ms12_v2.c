@@ -2946,10 +2946,10 @@ unsigned long long dolby_ms12_get_main_pcm_generated(struct audio_stream_out *st
                 pcm_frame_generated = 0;
             }
         }
+        main_input_offset_frame = CONVERT_NS_TO_48K_FRAME_NUM(ms12->main_input_start_offset_ns);
     } else {
         pcm_frame_generated = dolby_ms12_get_decoder_nframes_pcm_output(ms12->dolby_ms12_ptr, audio_format, MAIN_INPUT_STREAM);
     }
-    main_input_offset_frame = CONVERT_NS_TO_48K_FRAME_NUM(ms12->main_input_start_offset_ns);
     ALOGV("pcm_frame_generated =%lld", pcm_frame_generated);
     if (adev->debug_flag) {
         ALOGI("%s main offset =%lld pcm_frame_generated=%lld total =%lld", __func__, main_input_offset_frame, pcm_frame_generated, (main_input_offset_frame + pcm_frame_generated));
