@@ -156,11 +156,15 @@ typedef enum AML_MIXER_CTRL_ID {
     AML_MIXER_ID_HW_RESAMPLE_SOURCE,
     AML_MIXER_ID_AUDIO_HAL_FORMAT,
     AML_MIXER_ID_HDMIIN_AUDIO_EDID,
+    AML_MIXER_ID_EARC_TX_ATTENDED_TYPE,
+    AML_MIXER_ID_EARC_TX_AUDIO_TYPE,
     AML_MIXER_ID_AML_CHIP_ID,
     AML_MIXER_ID_TVIN_VIDEO_DELAY,
     AML_MIXER_ID_TVIN_VIDEO_MIN_DELAY,
     AML_MIXER_ID_TVIN_VIDEO_MAX_DELAY,
     AML_MIXER_ID_SPDIF_B_OUT_CHANNEL_STATUS,
+    AML_MIXER_ID_MEDIA_VIDEO_DELAY,
+    AML_MIXER_ID_HDMIIN_AUDIO_MODE,
     AML_MIXER_ID_MAX,
 } eMixerCtrlID;
 
@@ -179,6 +183,48 @@ typedef enum AML_SPDIF_FORMAT {
     AML_DTS_HD_MA = 8,
     AML_HIGH_SR_STEREO_LPCM = 9,
 } eMixerSpdif_Format;
+
+/*
+ *tinymix "arc/earc format" list
+ *use new enum for eARC, it is same
+ *with sound/soc/amlogic/common/iec_info.h
+ */
+typedef enum aml_arc_coding_types {
+    AML_AUDIO_CODING_TYPE_UNDEFINED          = 0,
+
+    /* LINEAR PCM */
+    AML_AUDIO_CODING_TYPE_STEREO_LPCM        = 1,
+    AML_AUDIO_CODING_TYPE_MULTICH_2CH_LPCM   = 2,
+    AML_AUDIO_CODING_TYPE_MULTICH_8CH_LPCM   = 3,
+    AML_AUDIO_CODING_TYPE_MULTICH_16CH_LPCM  = 4,
+    AML_AUDIO_CODING_TYPE_MULTICH_32CH_LPCM  = 5,
+    /* High bit rate */
+    AML_AUDIO_CODING_TYPE_HBR_LPCM           = 6,
+
+    /*
+     * NON-LINEAR PCM
+     * IEC61937-2, Burst-info, Data type
+     */
+    /* Dolby */
+    /* AC3 Layout A */
+    AML_AUDIO_CODING_TYPE_AC3                = 7,
+    /* AC3 Layout B */
+    AML_AUDIO_CODING_TYPE_AC3_LAYOUT_B       = 8,
+    AML_AUDIO_CODING_TYPE_EAC3               = 9,
+    AML_AUDIO_CODING_TYPE_MLP                = 10,
+    /* DTS */
+    AML_AUDIO_CODING_TYPE_DTS                = 11,
+    AML_AUDIO_CODING_TYPE_DTS_HD             = 12,
+    AML_AUDIO_CODING_TYPE_DTS_HD_MA          = 13,
+
+    /* Super Audio CD, DSD (One Bit Audio) */
+    AML_AUDIO_CODING_TYPE_SACD_6CH           = 14,
+    AML_AUDIO_CODING_TYPE_SACD_12CH          = 15,
+
+    /* Pause */
+    AML_AUDIO_CODING_TYPE_PAUSE              = 16,
+}eMixerARC_Format;
+
 
 /*
  *tinymix "Spdif to HDMITX Select" list

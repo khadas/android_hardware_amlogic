@@ -64,12 +64,10 @@ static bool check_support_mediasync()
     int ret = -1;
 
     ret = property_get("vendor.media.omx.use.omx2", buf, NULL);
-    if (ret > 0) {
-        if (strcasecmp(buf, "true") == 0 || strcmp(buf, "1") == 0) {
-            return true;
-        } else if (strcasecmp(buf, "false") == 0 || strcmp(buf, "0") == 0){
-            return false;
-        }
+    if ((ret > 0) && (strcasecmp(buf, "true") == 0 || strcmp(buf, "1") == 0)) {
+        return true;
+    } else {
+        return false;
     }
 
     if (uname(&info) || sscanf(info.release, "%d.%d", &kernel_version_major, &kernel_version_minor) <= 0) {

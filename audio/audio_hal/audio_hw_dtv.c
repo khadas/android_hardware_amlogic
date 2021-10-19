@@ -3346,6 +3346,9 @@ static void *audio_dtv_patch_process_threadloop_v2(void *data)
                 } else if (patch->dtv_aformat == ACODEC_FMT_AC4) {
                    patch->aformat = AUDIO_FORMAT_AC4;
                    patch->decoder_offset = 0;
+                } else if (patch->dtv_aformat == ACODEC_FMT_DRA) {
+                   patch->aformat = AUDIO_FORMAT_DRA;
+                   patch->decoder_offset = 0;
                 } else {
                     patch->aformat = AUDIO_FORMAT_PCM_16_BIT;
                     patch->decoder_offset = 0;

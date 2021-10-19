@@ -133,6 +133,7 @@ int aml_audio_compensate_video_delay( int enable);
 int aml_audio_get_ms12_timestamp_offset(void);
 int aml_audio_delay_timestamp(struct timespec *timestamp, int delay_time_ms);
 int halformat_convert_to_spdif(audio_format_t format, int ch_mask);
+int halformat_convert_to_arcformat(audio_format_t format, int ch_mask);
 int alsa_device_get_port_index(alsa_device_t alsa_device);
 int aml_set_thread_priority(char *pName, pthread_t threadId);
 uint32_t out_get_alsa_latency_frames(const struct audio_stream_out *stream);
@@ -178,5 +179,6 @@ static inline void endian16_convert(void *buf, int size)
         *p = ((*p & 0xff) << 8) | ((*p) >> 8);
     }
 }
+int get_media_video_delay(struct aml_mixer_handle *mixer_handle);
 
 #endif

@@ -357,6 +357,24 @@ int ring_buffer_reset(struct ring_buffer *rbuffer)
 }
 
 /*************************************************
+Function: ring_buffer_clear
+Description: ring clear
+Input: rbuffer: the ring buffer to be clear
+Output:
+Return: 0 for success, otherwise fail
+*************************************************/
+int ring_buffer_clear(struct ring_buffer *rbuffer)
+{
+    struct ring_buffer *buf = rbuffer;
+
+    pthread_mutex_lock(&buf->lock);
+    memset(buf->start_addr, 0, buf->size);
+    pthread_mutex_unlock(&buf->lock);
+
+    return 0;
+}
+
+/*************************************************
 Function: ring_buffer_reset_size
 Description: reset ring buffer and change the size
 Input: rbuffer: the ring buffer to be reset

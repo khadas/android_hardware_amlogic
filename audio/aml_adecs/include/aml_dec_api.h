@@ -55,6 +55,8 @@
 #define ACODEC_FMT_WMAVOI 28
 #define ACODEC_FMT_AC4    29
 
+/*private audio format extension for "hal format" defined in "audio_format_t" enum*/
+#define AUDIO_FORMAT_DRA 0xE0000000u
 
 #define DDP_DECODER_CACHE 32 * 90 /* ddp decoder cashe es data one frame 32ms */
 
@@ -163,6 +165,12 @@ typedef struct aml_faad_config {
     int channel;
 } aml_faad_config_t;
 
+typedef struct aml_dra_config {
+    audio_format_t dra_format;
+    int samplerate;
+    int channel;
+} aml_dra_config_t;
+
 typedef struct aml_mad_config {
     audio_format_t mpeg_format;
     int samplerate;
@@ -175,6 +183,7 @@ typedef struct aml_dec_config {
     aml_dca_config_t dca_config;
     aml_mad_config_t mad_config;
     aml_faad_config_t faad_config;
+    aml_dra_config_t dra_config;
     aml_pcm_config_t pcm_config;
 
     /*config for runtime*/

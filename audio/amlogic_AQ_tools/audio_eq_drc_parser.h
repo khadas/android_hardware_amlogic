@@ -139,6 +139,8 @@ struct eq_drc_data {
     struct  audio_eq_drc_info_s *aml_attr;
     int     ext_amp_num;
     struct  audio_eq_drc_info_s *ext_attr[MAX_EXT_AMP_NUM];
+
+    bool aml_dap_v1_enable;
 };
 
 #ifdef __cplusplus

@@ -389,7 +389,8 @@ static audio_format_t ms12_get_audio_hal_format(audio_format_t hal_format)
     } else if (hal_format == AUDIO_FORMAT_MP2 ||
                hal_format == AUDIO_FORMAT_MP3 ||
                hal_format == AUDIO_FORMAT_AAC ||
-               hal_format == AUDIO_FORMAT_AAC_LATM ) {
+               hal_format == AUDIO_FORMAT_AAC_LATM ||
+               hal_format == AUDIO_FORMAT_DRA) {
         return AUDIO_FORMAT_PCM_16_BIT;
     } else {
         return hal_format;
@@ -1619,7 +1620,7 @@ int get_dolby_ms12_cleanup(struct dolby_ms12_desc *ms12, bool set_non_continuous
     ms12->is_dolby_atmos = false;
     ms12->input_total_ms = 0;
     ms12->bitsteam_cnt = 0;
-    ms12->nbytes_of_dmx_output_pcm_frame = 0;
+    ms12->nbytes_of_dmx_output_pcm_frame = 4; //2ch * 16bit, set a default one
     ms12->is_bypass_ms12 = false;
     ms12->last_frames_postion = 0;
     ms12->main_input_ns = 0;

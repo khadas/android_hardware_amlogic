@@ -37,6 +37,7 @@
 #include "aml_pcm_dec_api.h"
 #include "aml_mpeg_dec_api.h"
 #include "aml_aac_dec_api.h"
+#include "aml_dra_dec_api.h"
 #include "aml_dump_debug.h"
 
 #define AML_DEC_FRAGMENT_FRAMES     (512)
@@ -71,6 +72,9 @@ static aml_dec_func_t * get_decoder_function(audio_format_t format)
        return  &aml_faad_func;
     }
     default:
+        if (format == AUDIO_FORMAT_DRA) {
+            return  &aml_dra_func;
+        }
         ALOGE("[%s:%d] doesn't support decoder format:%#x", __func__, __LINE__, format);
         return NULL;
     }

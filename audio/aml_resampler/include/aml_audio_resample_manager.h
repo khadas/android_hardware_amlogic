@@ -43,7 +43,7 @@ typedef struct aml_audio_resample {
     void *resample_handle;
     size_t total_in;
     size_t total_out;
-    int align_size;
+    size_t align_size;
     int last_left_size;
     int last_copy_size;
 } aml_audio_resample_t;

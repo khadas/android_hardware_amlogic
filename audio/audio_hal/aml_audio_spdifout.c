@@ -76,21 +76,42 @@ static int select_digital_device(struct spdifout_handle *phandle) {
         }
     } else {
         if (aml_dev->dual_spdif_support) {
-            /*TV spdif_a support arc/spdif, spdif_b only support spdif
-             *ddp always used spdif_a
-             */
-            if (phandle->audio_format == AUDIO_FORMAT_E_AC3) {
-                device_id = DIGITAL_DEVICE;
-            } else if (phandle->audio_format == AUDIO_FORMAT_AC3) {
-                if (aml_dev->optical_format == AUDIO_FORMAT_E_AC3) {
-                    /*it has dual output, then dd use spdif_b for spdif only*/
-                    device_id = DIGITAL_DEVICE2;
+            int device_index = alsa_device_update_pcm_index(PORT_EARC, PLAYBACK);
+            /*we have arc/earc port*/
+            if (device_index != -1) {
+                /*TV spdif_a support arc/spdif, spdif_b only support spdif
+                 *ddp always used spdif_a
+                 */
+                if (phandle->audio_format == AUDIO_FORMAT_E_AC3) {
+                    device_id = EARC_DEVICE;
+                } else if (phandle->audio_format == AUDIO_FORMAT_AC3) {
+                    if (aml_dev->optical_format == AUDIO_FORMAT_E_AC3) {
+                        /*it has dual output, then dd use spdif_b for spdif only*/
+                        device_id = DIGITAL_DEVICE;
+                    } else {
+                        /*it doesn't have dual output, then dd use spdif_a for arc/spdif*/
+                        device_id = DIGITAL_DEVICE;
+                    }
                 } else {
-                    /*it doesn't have dual output, then dd use spdif_a for arc/spdif*/
                     device_id = DIGITAL_DEVICE;
                 }
             } else {
-                device_id = DIGITAL_DEVICE;
+                /*TV spdif_a support arc/spdif, spdif_b only support spdif
+                 *ddp always used spdif_a
+                 */
+                if (phandle->audio_format == AUDIO_FORMAT_E_AC3) {
+                    device_id = DIGITAL_DEVICE;
+                } else if (phandle->audio_format == AUDIO_FORMAT_AC3) {
+                    if (aml_dev->optical_format == AUDIO_FORMAT_E_AC3) {
+                        /*it has dual output, then dd use spdif_b for spdif only*/
+                        device_id = DIGITAL_DEVICE2;
+                    } else {
+                        /*it doesn't have dual output, then dd use spdif_a for arc/spdif*/
+                        device_id = DIGITAL_DEVICE;
+                    }
+                } else {
+                    device_id = DIGITAL_DEVICE;
+                }
             }
 
         } else {
@@ -302,6 +323,13 @@ int aml_audio_spdifout_open(void **pphandle, spdif_config_t *spdif_config)
             aml_mixer_ctrl_set_int(&aml_dev->alsa_mixer, AML_MIXER_ID_SPDIF_B_FORMAT, aml_spdif_format);
             aml_audio_select_spdif_to_hdmi(AML_SPDIF_B_TO_HDMITX);
             ALOGI("%s set spdif_b format 0x%x", __func__, aml_spdif_format);
+        } else if (phandle->spdif_port == PORT_EARC) {
+            int aml_arc_format = halformat_convert_to_arcformat(audio_format, stream_config.config.channel_mask);
+            if (aml_arc_format == AML_AUDIO_CODING_TYPE_DTS && spdif_config->is_dtscd) {
+                aml_spdif_format = AML_AUDIO_CODING_TYPE_STEREO_LPCM;
+            }
+            aml_mixer_ctrl_set_int(&aml_dev->alsa_mixer, AML_MIXER_ID_EARC_TX_AUDIO_TYPE, aml_arc_format);
+            ALOGI("%s set EARC/ARC format 0x%x", __func__, aml_arc_format);
         } else {
             ALOGI("%s not set spdif format", __func__);
         }

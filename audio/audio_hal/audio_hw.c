@@ -170,6 +170,8 @@
 #define NETFLIX_DDP_BUFSIZE                             (768)
 #define OUTPUT_PORT_MAX_COEXIST_NUM                     (3)
 
+#define MS12_TRUNK_SIZE                                 (1024)
+
 /*Tunnel sync HEADER is 20 bytes*/
 #define TUNNEL_SYNC_HEADER_SIZE    (20)
 
@@ -1833,6 +1835,7 @@ static int out_get_presentation_position (const struct audio_stream_out *stream,
     bool b_raw_in = false;
     bool b_raw_out = false;
     int ret = 0;
+    int video_delay_frames = 0;
     if (!frames || !timestamp) {
         ALOGI("%s, !frames || !timestamp\n", __FUNCTION__);
         return -EINVAL;
@@ -1881,9 +1884,13 @@ static int out_get_presentation_position (const struct audio_stream_out *stream,
         *timestamp = out->lasttimestamp;
     }
 
+    /*here we need add video delay*/
+    video_delay_frames = get_media_video_delay(&adev->alsa_mixer) * out->hal_rate / 1000;
+    *frames += video_delay_frames;
+
     if (adev->debug_flag) {
-        ALOGI("out_get_presentation_position out %p %"PRIu64", sec = %ld, nanosec = %ld tunned_latency_ms %d frame_latency %d\n",
-            out, *frames, timestamp->tv_sec, timestamp->tv_nsec, timems_latency, frame_latency);
+        ALOGI("out_get_presentation_position out %p %"PRIu64", sec = %ld, nanosec = %ld tunned_latency_ms %d frame_latency %d video delay=%d\n",
+            out, *frames, timestamp->tv_sec, timestamp->tv_nsec, timems_latency, frame_latency, video_delay_frames);
         int64_t  frame_diff_ms =  (*frames - out->last_frame_reported) * 1000 / out->hal_rate;
         int64_t  system_time_ms = 0;
         if (timestamp->tv_nsec < out->last_timestamp_reported.tv_nsec) {
@@ -4488,7 +4495,11 @@ static int adev_open_input_stream(struct audio_hw_device *dev,
             config->format = AUDIO_FORMAT_PCM_16_BIT;
             config->channel_mask = AUDIO_CHANNEL_IN_STEREO;
         } else {
-           return -EINVAL;
+            ALOGV("  check_input_parameters input config Not Supported, and set to Default config(48000,2,PCM_16_BIT)");
+            config->sample_rate = DEFAULT_OUT_SAMPLING_RATE;
+            config->format = AUDIO_FORMAT_PCM_16_BIT;
+            config->channel_mask = AUDIO_CHANNEL_IN_STEREO;
+            return -EINVAL;
         }
     } else {
         //check successfully, continue excute.
@@ -5412,7 +5423,10 @@ ssize_t audio_hal_data_processing(struct audio_stream_out *stream,
         if (aml_out->is_tv_platform == 1) {
             memset(aml_out->tmp_buffer_8ch, 0, (*output_buffer_bytes));
         }
-    } else if (adev->patch_src == SRC_HDMIIN || adev->patch_src == SRC_SPDIFIN) {
+    } else if (adev->patch_src == SRC_HDMIIN ||
+               adev->patch_src == SRC_SPDIFIN ||
+               adev->patch_src == SRC_LINEIN ||
+               adev->patch_src == SRC_ATV) {
         if (adev->active_input != NULL &&
                 adev->spdif_fmt_hw != adev->active_input->spdif_fmt_hw) {
             clock_gettime(CLOCK_MONOTONIC, &adev->mute_start_ts);
@@ -6085,6 +6099,7 @@ ssize_t mixer_main_buffer_write(struct audio_stream_out *stream, const void *buf
     size_t output_buffer_bytes = 0;
     bool need_reconfig_output = false;
     bool need_reset_decoder = true;
+    bool need_reconfig_samplerate = false;
     void   *write_buf = NULL;
     size_t  write_bytes = 0;
     size_t  hwsync_cost_bytes = 0;
@@ -6284,10 +6299,15 @@ hwsync_rewrite:
                 //this can fix the seek discontinue,we got a fake frame,which maybe cached before the seek
                 if (hw_sync->use_mediasync) {
                     uint64_t apts;
-                    uint32_t latency_alsa = out_get_latency(stream);
+                    uint32_t latency = out_get_latency(stream);
                     int tunning_latency = aml_audio_get_nonms12_tunnel_latency(stream) / 48;
-                    int latency_pts = (latency_alsa + tunning_latency) * 90; // latency ms-->pts
-                    ALOGV("%s latency_alsa:%u, tunning_latency:%d, cur_pts:%llu", __func__, latency_alsa, tunning_latency, cur_pts/90);
+                    int latency_pts = 0;
+                    int video_delay_ms = 0;
+                    /*here we need add video delay*/
+                    video_delay_ms = get_media_video_delay(&adev->alsa_mixer);
+                    if ((latency + tunning_latency) > video_delay_ms) {
+                        latency_pts = (latency + tunning_latency - video_delay_ms) * 90;
+                    }
                     // check PTS discontinue, which may happen when audio track switching
                     // discontinue means PTS calculated based on first_apts and frame_write_sum
                     // does not match the timestamp of next audio samples
@@ -6506,6 +6526,9 @@ hwsync_rewrite:
             }
 
             adev->spdif_encoder_init_flag = false;
+            need_reconfig_samplerate = true;
+        } else {
+            need_reconfig_samplerate = false;
         }
     }
     /*dts cd process need to discuss here */
@@ -6628,8 +6651,9 @@ hwsync_rewrite:
     aml_out->input_bytes_size += write_bytes;
     if (patch && (adev->dtslib_bypass_enable || adev->dcvlib_bypass_enable)) {
         int cur_samplerate = audio_parse_get_audio_samplerate(patch->audio_parse_para);
-        if (cur_samplerate != patch->input_sample_rate) {
-            ALOGI ("HDMI/SPDIF input samplerate from %d to %d\n", patch->input_sample_rate, cur_samplerate);
+        if (cur_samplerate != patch->input_sample_rate || need_reconfig_samplerate) {
+            ALOGI ("HDMI/SPDIF input samplerate from %d to %d, or need_reconfig_samplerate\n",
+                    patch->input_sample_rate, cur_samplerate);
             patch->input_sample_rate = cur_samplerate;
             if (patch->aformat == AUDIO_FORMAT_DTS ||  patch->aformat == AUDIO_FORMAT_DTS_HD) {
                 if (aml_out->hal_format == AUDIO_FORMAT_IEC61937) {
@@ -6669,7 +6693,31 @@ hwsync_rewrite:
             __func__, __LINE__, aml_out->hal_format, output_format, adev->sink_format);
     }
     if (eDolbyMS12Lib == adev->dolby_lib_type) {
-        ret = aml_audio_ms12_render(stream, write_buf, write_bytes);
+
+        /*for local ddp 44.1khz, now the input size is too big,
+         *the passthrough output will be blocked by the decoded pcm output,
+         *so we need feed it with small trunk to fix this issue
+         *todo, we need fix the big trunk issue for all the stream later
+         */
+        if (!adev->continuous_audio_mode && !patch) {
+            size_t left_bytes = write_bytes;
+            size_t used_bytes = 0;
+            int    process_size = 0;
+            while (1) {
+                process_size = left_bytes > MS12_TRUNK_SIZE ? MS12_TRUNK_SIZE : left_bytes;
+                ret = aml_audio_ms12_render(stream, (char *)write_buf + used_bytes, process_size);
+                if (ret <= 0) {
+                    break;
+                }
+                used_bytes += process_size;
+                left_bytes -= process_size;
+                if (left_bytes <= 0) {
+                    break;
+                }
+            }
+        } else {
+            ret = aml_audio_ms12_render(stream, write_buf, write_bytes);
+        }
     } else if (eDolbyDcvLib == adev->dolby_lib_type) {
         ret = aml_audio_nonms12_render(stream, write_buf, write_bytes);
     }
@@ -9023,6 +9071,7 @@ static int adev_open(const hw_module_t* module, const char* name, hw_device_t** 
            adev->eq_data.p_gain.speaker, adev->eq_data.p_gain.spdif_arc,
               adev->eq_data.p_gain.headphone);
         adev->aml_ng_enable = adev->eq_data.noise_gate.aml_ng_enable;
+        adev->aml_dap_v1_enable = adev->eq_data.aml_dap_v1_enable;
         adev->aml_ng_level = adev->eq_data.noise_gate.aml_ng_level;
         adev->aml_ng_attack_time = adev->eq_data.noise_gate.aml_ng_attack_time;
         adev->aml_ng_release_time = adev->eq_data.noise_gate.aml_ng_release_time;

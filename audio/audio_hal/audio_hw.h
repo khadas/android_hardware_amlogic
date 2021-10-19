@@ -445,6 +445,7 @@ struct aml_audio_device {
     ring_buffer_t spk_tuning_rbuf;
     bool mix_init_flag;
     struct eq_drc_data eq_data;
+    int aml_dap_v1_enable;
     /*used for high pricision A/V from amlogic amadec decoder*/
     unsigned first_apts;
     /*

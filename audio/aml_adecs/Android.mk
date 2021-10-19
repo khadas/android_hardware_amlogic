@@ -6,7 +6,8 @@ LOCAL_SRC_FILES := \
     aml_dec_api.c        \
     aml_aac_dec_api.c   \
     aml_mpeg_dec_api.c    \
-    aml_pcm_dec_api.c
+    aml_pcm_dec_api.c \
+    aml_dra_dec_api.c
 
 LOCAL_SHARED_LIBRARIES := \
     libcutils \

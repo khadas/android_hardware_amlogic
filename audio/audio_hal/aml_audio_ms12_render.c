@@ -114,14 +114,17 @@ int aml_audio_ms12_process_wrapper(struct audio_stream_out *stream, const void *
             if (adev->tv_mute && adev->audio_patch) {
                 out_gain = 0.0f;
             }
-            /*
-             * Because 32k/44.1kHz DDP local playback use the ms12 discontinuous mode. If call dolby_ms12_set_main_volume
-             * w/o any restrictions, will set the MS12 volume always 1.0 with HDMI gain(1.000000). So limit the AudioPatch
-             * source name to SRC_DTV/SRC_ATV/SRC_LINEIN.
-             */
-            if (adev->audio_patch && (adev->patch_src == SRC_DTV || adev->patch_src == SRC_ATV || adev->patch_src == SRC_LINEIN)) {
-                dolby_ms12_set_main_volume(out_gain);
-                aml_out->ms12_vol_ctrl = true;
+            /*for tv case, we should always control it in hal process*/
+            if (!adev->is_TV) {
+                /*
+                 * Because 32k/44.1kHz DDP local playback use the ms12 discontinuous mode. If call dolby_ms12_set_main_volume
+                 * w/o any restrictions, will set the MS12 volume always 1.0 with HDMI gain(1.000000). So limit the AudioPatch
+                 * source name to SRC_DTV/SRC_ATV/SRC_LINEIN.
+                 */
+                if (adev->audio_patch && (adev->patch_src == SRC_DTV || adev->patch_src == SRC_ATV || adev->patch_src == SRC_LINEIN)) {
+                    dolby_ms12_set_main_volume(out_gain);
+                    aml_out->ms12_vol_ctrl = true;
+                }
             }
             /*when it is non continuous mode, we bypass data here*/
             dolby_ms12_bypass_process(stream, write_buf, write_bytes);

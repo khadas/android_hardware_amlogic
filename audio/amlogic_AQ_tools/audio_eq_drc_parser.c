@@ -115,6 +115,19 @@ static int parse_audio_ng_data(dictionary *pIniParser, struct eq_drc_data *p_att
     return 0;
 }
 
+static int parse_dap_v1_support(dictionary *pIniParser, struct eq_drc_data *p_attr)
+{
+    p_attr->aml_dap_v1_enable = iniparser_getboolean(pIniParser, "DAP:support_dap_v1", 0);
+    ITEM_LOGD("%s, aml_dap_v1_enable is (%d)\n", __FUNCTION__, p_attr->aml_dap_v1_enable);
+
+    if (!p_attr->aml_dap_v1_enable) {
+        ITEM_LOGD("%s, noise gate is disable!\n", __FUNCTION__);
+        return 0;
+    }
+
+    return 0;
+}
+
 static int parse_audio_volume_status(dictionary *pIniParser, struct audio_eq_drc_info_s *p_attr)
 {
     const char  *str;
@@ -558,7 +571,7 @@ int parse_audio_gain(char *file_name, struct eq_drc_data *p_attr)
     parse_audio_source_gain_data(ini, p_attr);
     parse_audio_post_gain_data(ini, p_attr);
     parse_audio_ng_data(ini, p_attr);
-
+    parse_dap_v1_support(ini, p_attr);
 exit:
     iniparser_freedict(ini);
 

@@ -104,6 +104,13 @@ typedef enum {
     AM_AOUT_OUTPUT_SWAP,        /**< Swap left and right channel*/
     AM_AOUT_OUTPUT_LRMIX       /**< mix left and right channel*/
 } AM_AOUT_OutputMode_t;
+
+enum {
+    ATTEND_TYPE_NONE = 0,
+    ATTEND_TYPE_ARC,
+    ATTEND_TYPE_EARC
+};
+
 static inline bool is_main_write_usecase(stream_usecase_t usecase)
 {
     return usecase > 0;
