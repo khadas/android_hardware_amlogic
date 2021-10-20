@@ -19,6 +19,8 @@
 #include <cutils/log.h>
 #include <tinyalsa/asoundlib.h>
 #include <audio_utils/channels.h>
+#include <aml_android_utils.h>
+
 #include "audio_bt_sco.h"
 #include "alsa_config_parameters.h"
 #include "alsa_device_parser.h"
@@ -33,6 +35,15 @@ static const struct pcm_config config_bt = {
     .format = PCM_FORMAT_S16_LE,
 };
 
+static void dump_output_data(struct aml_bt_output *bt, const void *buffer, uint32_t size)
+{
+    if (getprop_bool("vendor.media.audiohal.outdump")) {
+        char acFilePathStr[ENUM_TYPE_STR_MAX_LEN];
+        sprintf(acFilePathStr, "/data/audio/bt_sco_%0.1fK_%dC_2B.pcm", bt->cfg.rate/1000.0, bt->cfg.channels);
+        aml_audio_dump_audio_bitstreams(acFilePathStr, buffer, size);
+    }
+}
+
 int open_btSCO_device(struct aml_audio_device *adev, size_t frames)
 {
     struct aml_bt_output *bt = &adev->bt_output;
@@ -44,11 +55,22 @@ int open_btSCO_device(struct aml_audio_device *adev, size_t frames)
     size_t output_frames = 0;
     int ret = 0;
 
+    if (bt->active) {
+        AM_LOGW("Alread has been opened.");
+        return 0;
+    }
+
     /* check to update port */
     port = alsa_device_update_pcm_index(port, PLAYBACK);
     ALOGD("%s(), open card(%d) port(%d)", __func__, card, port);
-    cfg = config_bt;
-    pcm = pcm_open(card, port, PCM_OUT, &cfg);
+    bt->cfg = config_bt;
+    /* correct the BT sampling rate when WB is set */
+    if (adev->bt_wbs || aml_getprop_bool("sys.vendor.audio.btwbs"))
+        bt->cfg.rate = VX_WB_SAMPLING_RATE;
+    ALOGD("%s(), BT SCO sampling rate(%d)", __func__, bt->cfg.rate);
+
+    pthread_mutex_lock(&bt->lock);
+    pcm = pcm_open(card, port, PCM_OUT, &bt->cfg);
     if (!pcm_is_ready(pcm)) {
         ALOGE("%s() cannot open pcm_out: %s, card %d, device %d",
                 __func__, pcm_get_error(pcm), card, port);
@@ -59,8 +81,8 @@ int open_btSCO_device(struct aml_audio_device *adev, size_t frames)
 
     bt->pcm_bt = pcm;
     ret = create_resampler(MM_FULL_POWER_SAMPLING_RATE,
-                            VX_NB_SAMPLING_RATE,
-                            config_bt.channels,
+                            bt->cfg.rate,
+                            bt->cfg.channels,
                             RESAMPLER_QUALITY_DEFAULT,
                             NULL,
                             &bt->resampler);
@@ -69,7 +91,7 @@ int open_btSCO_device(struct aml_audio_device *adev, size_t frames)
         goto err_res;
     }
 
-    output_frames = frames * VX_NB_SAMPLING_RATE / MM_FULL_POWER_SAMPLING_RATE + 1;
+    output_frames = frames * bt->cfg.rate / MM_FULL_POWER_SAMPLING_RATE + 1;
     bt->bt_out_buffer = aml_audio_calloc(1, output_frames * 2);
     if (bt->bt_out_buffer == NULL) {
         ALOGE ("cannot malloc memory for bt_out_buffer");
@@ -87,6 +109,7 @@ int open_btSCO_device(struct aml_audio_device *adev, size_t frames)
     bt->resampler_in_frames = 0;
     bt->resampler_buffer_size_in_frames = frames;
     bt->active = true;
+    pthread_mutex_unlock(&bt->lock);
 
     return 0;
 
@@ -99,6 +122,7 @@ err_res:
     pcm_close(bt->pcm_bt);
     bt->pcm_bt = NULL;
 err:
+    pthread_mutex_unlock(&bt->lock);
     return ret;
 }
 
@@ -107,10 +131,15 @@ void close_btSCO_device(struct aml_audio_device *adev)
     struct aml_bt_output *bt = &adev->bt_output;
     struct pcm *pcm = bt->pcm_bt;
 
-    ALOGD("%s() ", __func__);
+    AM_LOGI("+++");
+    pthread_mutex_lock(&bt->lock);
+    if (!bt->active) {
+        AM_LOGW("Alread has been closed.");
+        goto exit;
+    }
     if (pcm) {
         pcm_close(pcm);
-        pcm = NULL;
+        bt->pcm_bt = NULL;
     }
     if (bt->resampler) {
         release_resampler(bt->resampler);
@@ -121,6 +150,9 @@ void close_btSCO_device(struct aml_audio_device *adev)
     if (bt->resampler_buffer)
         aml_audio_free(bt->resampler_buffer);
     bt->active = false;
+
+exit:
+    pthread_mutex_unlock(&bt->lock);
 }
 
 ssize_t write_to_sco(struct aml_audio_device *adev, audio_config_base_t *config,
@@ -129,7 +161,7 @@ ssize_t write_to_sco(struct aml_audio_device *adev, audio_config_base_t *config,
     struct aml_bt_output *bt = &adev->bt_output;
     size_t frame_size = audio_channel_count_from_out_mask(config->channel_mask) * audio_bytes_per_sample(config->format);
     size_t in_frames = bytes / frame_size;
-    size_t out_frames = in_frames * VX_NB_SAMPLING_RATE / MM_FULL_POWER_SAMPLING_RATE + 1;;
+    size_t out_frames = in_frames * bt->cfg.rate / MM_FULL_POWER_SAMPLING_RATE + 1;;
     int16_t *in_buffer = (int16_t *)buffer;
     int16_t *out_buffer = (int16_t *)bt->bt_out_buffer;
     unsigned int i;
@@ -182,8 +214,7 @@ ssize_t write_to_sco(struct aml_audio_device *adev, audio_config_base_t *config,
 
     if (bt->pcm_bt) {
         pcm_write(bt->pcm_bt, bt->bt_out_buffer, out_frames * frame_size);
-        if (getprop_bool("vendor.media.audiohal.btpcm"))
-            aml_audio_dump_audio_bitstreams("/data/audio/sco_8.raw", bt->bt_out_buffer, out_frames * frame_size);
+        dump_output_data(bt, bt->bt_out_buffer, out_frames * frame_size);
     }
     return bytes;
 }

@@ -159,10 +159,6 @@
 #define MM_LOW_POWER_SAMPLING_RATE 44100
 /* sampling rate when using MM full power port */
 #define MM_FULL_POWER_SAMPLING_RATE 48000
-/* sampling rate when using VX port for narrow band */
-#define VX_NB_SAMPLING_RATE 8000
-#define VX_WB_SAMPLING_RATE 16000
-
 #define MIXER_XML_PATH "/vendor/etc/mixer_paths.xml"
 #define DOLBY_MS12_INPUT_FORMAT_TEST
 
@@ -598,29 +594,6 @@ static int check_input_parameters(uint32_t sample_rate, audio_format_t format, i
     }
 
     return 0;
-}
-
-static size_t get_input_buffer_size(unsigned int period_size, uint32_t sample_rate, audio_format_t format, int channel_count)
-{
-    size_t size;
-
-    ALOGD("%s(sample_rate=%d, format=%d, channel_count=%d)", __FUNCTION__, sample_rate, format, channel_count);
-    /*
-    if (check_input_parameters(sample_rate, format, channel_count, AUDIO_DEVICE_NONE) != 0) {
-        return 0;
-    }
-    */
-    /* take resampling into account and return the closest majoring
-    multiple of 16 frames, as audioflinger expects audio buffers to
-    be a multiple of 16 frames */
-    if (period_size == 0)
-        period_size = (pcm_config_in.period_size * sample_rate) / pcm_config_in.rate;
-    size = (period_size + 15) / 16 * 16;
-
-    if (format == AUDIO_FORMAT_PCM_32_BIT)
-        return size * channel_count * sizeof(int32_t);
-    else
-        return size * channel_count * sizeof(int16_t);
 }
 
 static uint32_t out_get_sample_rate(const struct audio_stream *stream)
@@ -2090,19 +2063,23 @@ static size_t in_get_buffer_size(const struct audio_stream *stream)
 
     ALOGD("%s: enter: channel_mask(%#x) rate(%d) format(%#x)", __func__,
         in->hal_channel_mask, in->requested_rate, in->hal_format);
-    size = get_input_buffer_size(in->config.period_size, in->requested_rate,
-                                  in->hal_format,
-                                  audio_channel_count_from_in_mask(in->hal_channel_mask));
+
+    uint32_t req_channel = audio_channel_count_from_in_mask(in->hal_channel_mask);
+    uint32_t req_format = audio_bytes_per_sample(in->hal_format);
+    uint32_t period = in->config.period_size;
     if (in->source == AUDIO_SOURCE_ECHO_REFERENCE) {
-        size_t frames = CAPTURE_PERIOD_SIZE;
-        frames = CAPTURE_PERIOD_SIZE * PLAYBACK_CODEC_SAMPLING_RATE / CAPTURE_CODEC_SAMPLING_RATE;
-        size = get_input_buffer_size(frames, in->requested_rate,
-                                  in->hal_format,
-                                  audio_channel_count_from_in_mask(in->hal_channel_mask));
+        period = CAPTURE_PERIOD_SIZE * PLAYBACK_CODEC_SAMPLING_RATE / CAPTURE_CODEC_SAMPLING_RATE;
     }
+    if (period == 0) {
+        period = pcm_config_in.period_size;
+    }
+    /* take resampling into account and return the closest majoring
+    multiple of 16 frames, as audioflinger expects audio buffers to
+    be a multiple of 16 frames */
+    period = (period + 15) / 16 * 16;
+    size = period * req_channel * req_format * in->requested_rate / in->config.rate;
 
     ALOGD("%s: exit: buffer_size = %zu", __func__, size);
-
     return size;
 }
 
@@ -4395,7 +4372,6 @@ static size_t adev_get_input_buffer_size(const struct audio_hw_device *dev __unu
                                         const struct audio_config *config)
 {
     int channel_count = audio_channel_count_from_in_mask(config->channel_mask);
-    size_t size;
 
     ALOGD("%s: enter: channel_mask(%#x) rate(%d) format(%#x)", __func__,
         config->channel_mask, config->sample_rate, config->format);
@@ -4404,8 +4380,13 @@ static size_t adev_get_input_buffer_size(const struct audio_hw_device *dev __unu
         return -EINVAL;
     }
 
-    size = get_input_buffer_size(0, config->sample_rate, config->format, channel_count);
-
+    /* take resampling into account and return the closest majoring
+    multiple of 16 frames, as audioflinger expects audio buffers to
+    be a multiple of 16 frames */
+    size_t period = pcm_config_in.period_size;
+    period = (period + 15) / 16 * 16;
+    uint32_t req_format = audio_bytes_per_sample(config->format);
+    size_t size = period * channel_count * req_format * config->sample_rate / pcm_config_in.rate;
     ALOGD("%s: exit: buffer_size = %zu", __func__, size);
 
     return size;
@@ -8252,7 +8233,7 @@ static int adev_create_audio_patch(struct audio_hw_device *dev,
             aml_dev->active_inport = inport;
             aml_dev->src_gain[inport] = 1.0;
             //aml_dev->sink_gain[outport] = 1.0;
-            AM_LOGI("dev(%s) -> dev(%s) patch, input_src:%s", inputPort2Str(inport), outputPort2Str(outport), patchSrc2Str(input_src));
+            AM_LOGI("dev(%s) -> dev(%s) patch, patch_src:%s", inputPort2Str(inport), outputPort2Str(outport), patchSrc2Str(aml_dev->patch_src));
             AM_LOGI("input dev:%#x, all output dev:%#x", src_config->ext.device.type, aml_dev->out_device);
             if (inport == INPORT_TUNER) {
                 if (aml_dev->is_TV) {
@@ -8378,8 +8359,8 @@ static int adev_create_audio_patch(struct audio_hw_device *dev,
                     AUDIO_DEVICE_IN_BACK_MIC != src_config->ext.device.type )
                     aml_dev->patch_src = android_input_dev_convert_to_hal_patch_src(src_config->ext.device.type);
             }
-            AM_LOGI("dev(%s) -> mix(%d) patch, input_src:%s, in dev:%#x",
-                inputPort2Str(inport), sink_config->ext.mix.handle, patchSrc2Str(input_src), src_config->ext.device.type);
+            AM_LOGI("dev(%s) -> mix(%d) patch, patch_src:%s, in dev:%#x",
+                inputPort2Str(inport), sink_config->ext.mix.handle, patchSrc2Str(aml_dev->patch_src), src_config->ext.device.type);
             if (input_src != SRC_NA) {
                 set_audio_source(&aml_dev->alsa_mixer, input_src, alsa_device_is_auge());
             }
