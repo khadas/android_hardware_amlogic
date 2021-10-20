@@ -143,6 +143,18 @@ AUDIO_CHANNEL_OUT_PENTA|\
 AUDIO_CHANNEL_OUT_5POINT1|\
 AUDIO_CHANNEL_OUT_7POINT1"
 
+#define DOLBY_TRUEHD_SUPPORT_CHANNEL \
+"AUDIO_CHANNEL_OUT_MONO|\
+AUDIO_CHANNEL_OUT_STEREO|\
+AUDIO_CHANNEL_OUT_TRI|\
+AUDIO_CHANNEL_OUT_TRI_BACK|\
+AUDIO_CHANNEL_OUT_3POINT1|\
+AUDIO_CHANNEL_OUT_QUAD|\
+AUDIO_CHANNEL_OUT_SURROUND|\
+AUDIO_CHANNEL_OUT_PENTA|\
+AUDIO_CHANNEL_OUT_5POINT1|\
+AUDIO_CHANNEL_OUT_7POINT1"
+
 
 #define AC4_SUPPORT_CHANNEL     \
 "AUDIO_CHANNEL_OUT_MONO|\
@@ -1526,6 +1538,7 @@ char*  get_offload_cap(const char *keys,audio_format_t format)
             size += sprintf(aud_cap + size, "|%s", "AUDIO_FORMAT_E_AC3");
             size += sprintf(aud_cap + size, "|%s", "AUDIO_FORMAT_E_AC3_JOC");
             size += sprintf(aud_cap + size, "|%s", "AUDIO_FORMAT_AC4");
+            size += sprintf(aud_cap + size, "|%s", "AUDIO_FORMAT_DOLBY_TRUEHD");
         } else {
             /*todo if dcv decoder is supprted*/
             //if (adev->dolby_decode_enable)
@@ -1555,6 +1568,9 @@ char*  get_offload_cap(const char *keys,audio_format_t format)
             case AUDIO_FORMAT_AC4:
                 size += sprintf(aud_cap, "sup_channels=%s", AC4_SUPPORT_CHANNEL);
                 break;
+            case AUDIO_FORMAT_DOLBY_TRUEHD:
+                size += sprintf(aud_cap, "sup_channels=%s", DOLBY_TRUEHD_SUPPORT_CHANNEL);
+                break;
             case AUDIO_FORMAT_DTS:
                 size += sprintf(aud_cap, "sup_channels=%s", DTS_SUPPORT_CHANNEL);
                 break;
@@ -1581,6 +1597,9 @@ char*  get_offload_cap(const char *keys,audio_format_t format)
                 break;
             case AUDIO_FORMAT_AC4:
                 size += sprintf(aud_cap, "sup_sampling_rates=%s", "44100|48000");
+                break;
+            case AUDIO_FORMAT_DOLBY_TRUEHD:
+                size += sprintf(aud_cap, "sup_sampling_rates=%s", "44100|48000|88200|96000|192000");
                 break;
             case AUDIO_FORMAT_DTS:
                 size += sprintf(aud_cap, "sup_sampling_rates=%s", "22050|24000|32000|44100|48000|88200|96000|192000");
