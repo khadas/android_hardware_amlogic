@@ -76,6 +76,8 @@ typedef struct audio_type_parse {
     unsigned int card;
     unsigned int device;
     unsigned int flags;
+    int soft_parser;
+    hdmiin_audio_packet_t hdmi_packet;
 
     int period_bytes;
     char *parse_buffer;

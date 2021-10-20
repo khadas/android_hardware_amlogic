@@ -389,6 +389,23 @@ int audio_type_parse(void *buffer, size_t bytes, int *package_size, audio_channe
     return AudioType;
 }
 
+static int get_config_by_params(struct pcm_config *config_in, bool normal_pcm)
+{
+    if (normal_pcm) {
+        config_in->channels = 2;
+    } else {
+        /* HBR I2S 8 channel */
+        config_in->channels = 8;
+    }
+
+    config_in->rate = 48000;
+    config_in->format = PCM_FORMAT_S16_LE;
+    config_in->period_size = PARSER_DEFAULT_PERIOD_SIZE;
+    config_in->period_count = 4;
+
+    return 0;
+}
+
 static int audio_type_parse_init(audio_type_parse_t *status)
 {
     audio_type_parse_t *audio_type_status = status;
@@ -396,25 +413,22 @@ static int audio_type_parse_init(audio_type_parse_t *status)
     struct pcm_config *config_in = &(audio_type_status->config_in);
     struct pcm *in;
     int ret, bytes;
+    int port = 0;
+
+    if (check_chip_name("t3", 2, status->mixer_handle) &&
+            audio_type_status->input_dev == AUDIO_DEVICE_IN_HDMI &&
+            get_hdmiin_audio_mode(mixer_handle) == HDMIIN_MODE_I2S) {
+        port = PORT_I2S4PARSER;
+        audio_type_status->soft_parser = 1;
+    } else {
+        port = PORT_I2S;
+    }
 
     audio_type_status->card = (unsigned int)alsa_device_get_card_index();
-    audio_type_status->device = (unsigned int)alsa_device_update_pcm_index(PORT_I2S, CAPTURE);
+    audio_type_status->device = (unsigned int)alsa_device_update_pcm_index(port, CAPTURE);
     audio_type_status->flags = PCM_IN;
 
-    if (config_in->channels == 0) {
-        config_in->channels = 2;
-    }
-    if (config_in->rate == 0) {
-        config_in->rate = 48000;
-    }
-    if (config_in->period_size == 0) {
-        config_in->period_size = PARSER_DEFAULT_PERIOD_SIZE;
-    }
-    if (config_in->period_count == 0) {
-        config_in->period_count = 4;
-    }
-    config_in->format = PCM_FORMAT_S16_LE;
-
+    get_config_by_params(&audio_type_status->config_in, 1);
     bytes = config_in->period_size * config_in->channels * 2;
     audio_type_status->period_bytes = bytes;
 
@@ -425,14 +439,17 @@ static int audio_type_parse_init(audio_type_parse_t *status)
         return -1;
     }
 
-    /*in = pcm_open(audio_type_status->card, audio_type_status->device,
-                  PCM_IN, &audio_type_status->config_in);
-    if (!pcm_is_ready(in)) {
-        ALOGE("open device failed: %s\n", pcm_get_error(in));
-        pcm_close(in);
-        goto error;
+    if (audio_type_status->soft_parser) {
+        in = pcm_open(audio_type_status->card, audio_type_status->device,
+                      PCM_IN, &audio_type_status->config_in);
+        if (!pcm_is_ready(in)) {
+            ALOGE("open device failed: %s\n", pcm_get_error(in));
+            pcm_close(in);
+            ret = -ENXIO;
+            goto error;
+        }
+        audio_type_status->in = in;
     }
-    audio_type_status->in = in;*/
     enable_HW_resample(mixer_handle, HW_RESAMPLE_48K);
 
     ALOGD("init parser success: (%d), (%d), (%p)",
@@ -447,8 +464,10 @@ static int audio_type_parse_release(audio_type_parse_t *status)
 {
     audio_type_parse_t *audio_type_status = status;
 
-    //pcm_close(audio_type_status->in);
-    audio_type_status->in = NULL;
+    if (audio_type_status->soft_parser && audio_type_status->in) {
+        pcm_close(audio_type_status->in);
+        audio_type_status->in = NULL;
+    }
     aml_audio_free(audio_type_status->parse_buffer);
 
     return 0;
@@ -516,12 +535,56 @@ static int update_audio_type(audio_type_parse_t *status, int update_bytes, int s
     return 0;
 }
 
-void* audio_type_parse_threadloop(void *data)
+static int is_normal_config(hdmiin_audio_packet_t cur_audio_packet)
+{
+    return cur_audio_packet == AUDIO_PACKET_NONE ||
+        cur_audio_packet == AUDIO_PACKET_AUDS;
+}
+
+static int reconfig_pcm_by_packet_type(audio_type_parse_t *audio_type_status,
+            hdmiin_audio_packet_t cur_audio_packet)
+{
+    hdmiin_audio_packet_t last_packet_type = audio_type_status->hdmi_packet;
+    bool reopen = false;
+
+    if (cur_audio_packet == AUDIO_PACKET_HBR && is_normal_config(last_packet_type)) {
+        get_config_by_params(&audio_type_status->config_in, 0);
+        reopen = true;
+    } else if (is_normal_config(cur_audio_packet) && last_packet_type == AUDIO_PACKET_HBR) {
+        get_config_by_params(&audio_type_status->config_in, 1);
+        reopen = true;
+    }
+
+    if (reopen) {
+        struct pcm *in = NULL;
+
+        if (audio_type_status->in) {
+            pcm_close(audio_type_status->in);
+            audio_type_status->in = NULL;
+        }
+
+        ALOGI("%s(), reopen channels %d",
+            __func__, audio_type_status->config_in.channels);
+        in = pcm_open(audio_type_status->card, audio_type_status->device,
+                      PCM_IN, &audio_type_status->config_in);
+        if (!pcm_is_ready(in)) {
+            ALOGE("open device failed: %s\n", pcm_get_error(in));
+            pcm_close(in);
+            return -EINVAL;
+        }
+        audio_type_status->in = in;
+    }
+
+    return 0;
+}
+
+static void* audio_type_parse_threadloop(void *data)
 {
     audio_type_parse_t *audio_type_status = (audio_type_parse_t *)data;
     int bytes, ret = -1;
     int cur_samplerate = HW_RESAMPLE_48K;
     int last_cur_samplerate = HW_RESAMPLE_48K;
+    hdmiin_audio_packet_t cur_audio_packet = AUDIO_PACKET_NONE;
     int read_bytes = 0;
     int txlx_chip = check_chip_name("txlx", 4, audio_type_status->mixer_handle);
     int txl_chip = check_chip_name("txl", 3, audio_type_status->mixer_handle);
@@ -541,13 +604,19 @@ void* audio_type_parse_threadloop(void *data)
           data, bytes, audio_type_status->in);
 
     if (audio_type_status->input_dev == AUDIO_DEVICE_IN_HDMI) {
-        cur_samplerate = set_resample_source(audio_type_status->mixer_handle, RESAMPLE_FROM_FRHDMIRX);
+        eMixerAudioResampleSource resample_src = RESAMPLE_FROM_FRHDMIRX;
+        if (check_chip_name("t3", 2, audio_type_status->mixer_handle) &&
+            get_hdmiin_audio_mode(audio_type_status->mixer_handle) == HDMIIN_MODE_I2S) {
+            resample_src = RESAMPLE_FROM_TDMIN_B;
+        }
+        cur_samplerate = set_resample_source(audio_type_status->mixer_handle, resample_src);
     } else if (audio_type_status->input_dev == AUDIO_DEVICE_IN_SPDIF) {
         cur_samplerate = set_resample_source(audio_type_status->mixer_handle, RESAMPLE_FROM_SPDIFIN);
     }
 
     while (audio_type_status->running_flag) {
         if (audio_type_status->input_dev == AUDIO_DEVICE_IN_HDMI) {
+            cur_audio_packet = get_hdmiin_audio_packet(audio_type_status->mixer_handle);
             cur_samplerate = get_hdmiin_samplerate(audio_type_status->mixer_handle);
             audio_type_status->audio_samplerate = audio_transer_samplerate(cur_samplerate);
         } else if (audio_type_status->input_dev == AUDIO_DEVICE_IN_SPDIF) {
@@ -569,10 +638,21 @@ void* audio_type_parse_threadloop(void *data)
             last_cur_samplerate = cur_samplerate;
         }
 
-        if (txlx_chip && audio_type_status->in) {
+        if (audio_type_status->soft_parser && audio_type_status->in) {
+            if (audio_type_status->hdmi_packet != cur_audio_packet) {
+                ALOGI("---HDMI Format Switch [audio_packet pre:%d->cur:%d]",
+                    audio_type_status->hdmi_packet, cur_audio_packet);
+                reconfig_pcm_by_packet_type(audio_type_status, cur_audio_packet);
+                audio_type_status->hdmi_packet = cur_audio_packet;
+            }
+
             //sw audio format detection.
             if (cur_samplerate == HW_RESAMPLE_192K) {
                 read_bytes = bytes * 4;
+                if (read_bytes > audio_type_status->period_bytes) {
+                    audio_type_status->parse_buffer = aml_audio_realloc(audio_type_status->parse_buffer, read_bytes + 16);
+                    audio_type_status->period_bytes = read_bytes;
+                }
             } else {
                 read_bytes = bytes;
             }

@@ -480,4 +480,18 @@ int set_tv_source_switch_parameters(struct audio_hw_device *dev, struct str_parm
 * return false if signal need to mute
 */
 bool check_tv_stream_signal (struct audio_stream_in *stream);
+
+/*
+ * @breif set HDMIIN audio mode: "SPDIF", "I2S", "TDM"
+ * return negative if fails.
+ */
+int set_hdmiin_audio_mode(struct aml_mixer_handle *mixer_handle, char *mode);
+
+enum hdmiin_audio_mode {
+    HDMIIN_MODE_SPDIF = 0,
+    HDMIIN_MODE_I2S   = 1,
+    HDMIIN_MODE_TDM   = 2
+};
+enum hdmiin_audio_mode get_hdmiin_audio_mode(struct aml_mixer_handle *mixer_handle);
+
 #endif /* _AML_AUDIO_STREAM_H_ */

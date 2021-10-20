@@ -1192,9 +1192,9 @@ int reconfig_read_param_through_hdmiin(struct aml_audio_device *aml_dev,
             // increase the buffer size
             buf_size = ring_buffer_size * 8;
             channel = 8;
-            if (check_chip_name("t3", 2, &aml_dev->alsa_mixer)) {
-                channel = 2;    // T3's HDMIRX IP does not support 8CH in design.
-            }
+            //if (check_chip_name("t3", 2, &aml_dev->alsa_mixer)) {
+            //    channel = 2;    // T3's HDMIRX IP does not support 8CH in design.
+            //}
         } else if (cur_audio_packet == AUDIO_PACKET_AUDS) {
             bSpdifin_PAO = false;
             period_size = DEFAULT_CAPTURE_PERIOD_SIZE;
@@ -1557,4 +1557,18 @@ exit:
     return ret;
 }
 
+int set_hdmiin_audio_mode(struct aml_mixer_handle *mixer_handle, char *mode)
+{
+    if (mode == NULL || strlen(mode) > 5)
+        return -EINVAL;
+
+    return aml_mixer_ctrl_set_str(mixer_handle,
+            AML_MIXER_ID_HDMIIN_AUDIO_MODE, mode);
+}
+
+enum hdmiin_audio_mode get_hdmiin_audio_mode(struct aml_mixer_handle *mixer_handle)
+{
+    return (enum hdmiin_audio_mode)aml_mixer_ctrl_get_int(mixer_handle,
+            AML_MIXER_ID_HDMIIN_AUDIO_MODE);
+}
 

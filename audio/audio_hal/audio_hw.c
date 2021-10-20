@@ -1932,6 +1932,11 @@ static unsigned int select_port_by_device(struct aml_stream_in *in)
         if (alsa_device_is_auge() &&
                 (in_device & AUDIO_DEVICE_IN_HDMI)) {
             inport = PORT_TV;
+            /* T3 needs I2S for HDMIRX due to HBR issue */
+            if (check_chip_name("t3", 2, &adev->alsa_mixer) &&
+                get_hdmiin_audio_mode(&adev->alsa_mixer) == HDMIIN_MODE_I2S) {
+                inport = PORT_I2S4HDMIRX;
+            }
         } else if ((access(SYS_NODE_EARC, F_OK) == 0) &&
                 (in_device & AUDIO_DEVICE_IN_HDMI_ARC)) {
             inport = PORT_EARC;
@@ -8272,11 +8277,12 @@ static int adev_create_audio_patch(struct audio_hw_device *dev,
                 ret = -EINVAL;
                 unregister_audio_patch(dev, patch_set);
             }
+
+            aml_audio_input_routing(dev, inport);
             if (AUDIO_DEVICE_IN_ECHO_REFERENCE != src_config->ext.device.type &&
                 AUDIO_DEVICE_IN_TV_TUNER != src_config->ext.device.type) {
                 aml_dev->patch_src = android_input_dev_convert_to_hal_patch_src(src_config->ext.device.type);
             }
-            aml_audio_input_routing(dev, inport);
             input_src = android_input_dev_convert_to_hal_input_src(src_config->ext.device.type);
             aml_dev->active_inport = inport;
             aml_dev->src_gain[inport] = 1.0;
