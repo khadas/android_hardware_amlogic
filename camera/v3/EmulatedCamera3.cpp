@@ -201,7 +201,8 @@ void EmulatedCamera3::sendCaptureResult(camera3_capture_result_t *result) {
 }
 
 void EmulatedCamera3::sendNotify(camera3_notify_msg_t *msg) {
-    mCallbackOps->notify(mCallbackOps, msg);
+    if (mCallbackOps && mCallbackOps->notify)
+        mCallbackOps->notify(mCallbackOps, msg);
 }
 
 /****************************************************************************
