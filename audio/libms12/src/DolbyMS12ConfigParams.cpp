@@ -129,7 +129,7 @@ DolbyMS12ConfigParams::DolbyMS12ConfigParams():
     , mCompressorProfile(0)
 
     //HE-AAC SWITCHES
-    , mAssocInstanse(1)/* Error restricting associated instance to 2 channels (-as: 0,1) */
+    , mAssocInstanse(2)
     , mDefDialnormVal(108)
     , mTransportFormat(0)
 

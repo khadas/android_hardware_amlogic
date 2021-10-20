@@ -440,6 +440,12 @@ void dolby_ms12_set_dap_surround_decoder_enable(bool val);
 void dolby_ms12_set_dap_surround_virtuallizer(DAPSurroundVirtualizer *dapVirtualizerParamters);
 
 /**
+ * @brief Virtualizer Parameter
+ * - virtualizer_enable (0,1, def: 1)
+ */
+int dolby_ms12_get_dap_surround_virtuallizer(void);
+
+/**
  * @brief dap graphic eq
  * - eq_enable (0,1, def: 0)
  * - eq_nb_bands (1...20, def: 10)

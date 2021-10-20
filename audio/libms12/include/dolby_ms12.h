@@ -267,6 +267,10 @@ int dolby_ms12_get_input_atmos_info();
 */
 int dolby_ms12_set_sys_low_latency(int low_latency);
 
+/*@@
+    @brief enable the atmos drop
+*/
+int dolby_ms12_enable_atmos_drop(int atmos_drop);
 unsigned long long dolby_ms12_get_consumed_sys_audio();
 
 int dolby_ms12_hwsync_init_internal(void);

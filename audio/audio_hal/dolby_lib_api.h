@@ -18,7 +18,11 @@
 #define _DOLBY_LIB_API_H_
 
 #if ANDROID_PLATFORM_SDK_VERSION > 29
+#ifdef MS12_V24_ENABLE
 #define DOLBY_MS12_LIB_PATH_A "/odm/lib/ms12/libdolbyms12.so"
+#else
+#define DOLBY_MS12_LIB_PATH_A "/odm/lib/libdolbyms12.so"
+#endif
 #define DOLBY_DCV_LIB_PATH_A "/odm/lib/libHwAudio_dcvdec.so"
 #define DTS_DCA_LIB_PATH_A "/odm/lib/libHwAudio_dtshd.so"
 #else

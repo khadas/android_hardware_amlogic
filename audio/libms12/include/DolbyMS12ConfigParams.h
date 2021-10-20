@@ -341,6 +341,10 @@ public:
             memcpy(&DeviceDAPGraphicEQ, dapGraphicEQParamters, sizeof(DeviceDAPGraphicEQ));
         }
     }
+    virtual int getDAPSurroundVirtualizer(void)
+    {
+        return DeviceDAPSurroundVirtualizer.virtualizer_enable;
+    }
     virtual void setDAPOptimizer(DAPOptimizer *dapOptimizerParamters)
     {
         if (dapOptimizerParamters) {

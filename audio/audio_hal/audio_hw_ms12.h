@@ -28,6 +28,22 @@
 #define DDP_OUTPUT_SAMPLE_RATE (48000)
 #define SAMPLE_NUMS_IN_ONE_BLOCK (256)
 #define DDP_FRAME_DURATION(sample_nums, sample_rate) ((sample_nums) / (sample_rate))
+#define RESERVED_LENGTH 31
+
+enum MS12_PCM_TYPE {
+    NORMAL_LPCM = 0,
+    DAP_LPCM = 1,
+};
+
+typedef struct aml_ms12_dec_info {
+    int output_sr ;   /** the decoded data samplerate*/
+    int output_ch ;   /** the decoded data channels*/
+    int output_bitwidth; /**the decoded sample bit width*/
+    int data_type;
+    enum MS12_PCM_TYPE pcm_type;
+    int reserved[RESERVED_LENGTH];
+} aml_ms12_dec_info_t;
+
 
 /*
  *@brief get dolby ms12 prepared
@@ -111,12 +127,12 @@ int set_system_app_mixing_status(struct aml_stream_out *aml_out, int stream_stat
 /*
  *@brief an callback for dolby ms12 pcm output
  */
-int dap_pcm_output(void *buffer, void *priv_data, size_t size,aml_ms12_dec_info_t *ms12_info);
+int dap_pcm_output(void *buffer, void *priv_data, size_t size, aml_ms12_dec_info_t *ms12_info);
 
 /*
  *@brief an callback for dolby ms12 pcm output
  */
-int stereo_pcm_output(void *buffer, void *priv_data, size_t size,aml_ms12_dec_info_t *ms12_info);
+int stereo_pcm_output(void *buffer, void *priv_data, size_t size, aml_ms12_dec_info_t *ms12_info);
 
 /*
  *@brief an callback for dolby ms12 bitstream output
@@ -129,14 +145,14 @@ int bitstream_output(void *buffer, void *priv_data, size_t size);
 int spdif_bitstream_output(void *buffer, void *priv_data, size_t size);
 
 /*
+ *@brief an callback for dolby ms12 bitstream mat output
+ */
+int mat_bitstream_output(void *buffer, void *priv_data, size_t size);
+
+/*
  *@brief dolby ms12 register the callback
  */
 int dolby_ms12_register_callback(struct aml_stream_out *aml_out);
-
-/*
- *@brief dolby ms12 downmix output, get the bytes of PCM frame
- */
-int nbytes_of_dolby_ms12_downmix_output_pcm_frame();
 
 void dolby_ms12_app_flush();
 
@@ -158,6 +174,10 @@ int dolby_ms12_main_flush(struct audio_stream_out *stream);
  *@brief set dolby ms12 mixing level
  */
 void set_ms12_ad_mixing_level(struct dolby_ms12_desc *ms12, int mixing_level);
+/*
+ *@brief set dolby ms12 ad volume
+ */
+void set_ms12_ad_vol(struct dolby_ms12_desc *ms12, int ad_vol);
 
 /*
  *@brief set dolby ms12 ad mixing enable
@@ -221,6 +241,48 @@ int dolby_ms12_main_pipeline_latency_frames(struct audio_stream_out *stream);
  *   false if DAP is not in MS12 pipline;
  */
 bool is_audio_postprocessing_add_dolbyms12_dap(struct aml_audio_device *adev);
+
+/*
+ *@brief set ms12 dap postgain
+ */
+void set_ms12_dap_postgain(struct dolby_ms12_desc *ms12, int postgain);
+void set_ms12_ac4_presentation_group_index(struct dolby_ms12_desc *ms12, int index);
+
+/*
+ *@brief set ms12 fade and pan parameter
+ * input parameters
+ *     struct dolby_ms12_desc *ms12: ms12 pointer
+ *     int fade_byte
+ *     int gain_byte_center
+ *     int gain_byte_front
+ *     int gain_byte_surround
+ *     int pan_byte
+ */
+void set_ms12_fade_pan
+    (struct dolby_ms12_desc *ms12
+    , int fade_byte
+    , int gain_byte_center
+    , int gain_byte_front
+    , int gain_byte_surround
+    , int pan_byte
+    );
+
+/*
+ *@brief set ms12 main audio pts
+ * input parameters
+ *     struct dolby_ms12_desc *ms12: ms12 pointer
+ *     uint64_t apts
+ *     unsigned int bytes_offset
+ */
+void set_ms12_main_audio_pts(struct dolby_ms12_desc *ms12, uint64_t apts, unsigned int bytes_offset);
+/*
+ *@brief set ms12 main1 audio pts
+ * input parameters
+ *     struct dolby_ms12_desc *ms12: ms12 pointer
+ *     uint64_t apts
+ *     unsigned int bytes_offset
+ */
+void set_ms12_main1_audio_pts(struct dolby_ms12_desc *ms12, uint64_t apts, unsigned int bytes_offset);
 
 #endif //end of _AUDIO_HW_MS12_H_
 

@@ -712,6 +712,16 @@ extern "C" void dolby_ms12_set_dap_surround_virtuallizer(DAPSurroundVirtualizer 
     }
 }
 
+extern "C" int dolby_ms12_get_dap_surround_virtuallizer(void)
+{
+    ALOGV("%s()\n", __FUNCTION__);
+    android::DolbyMS12ConfigParams *config_param = getInstance();
+    if (config_param) {
+        return config_param->getDAPSurroundVirtualizer();
+    } else {
+        return -1;
+    }
+}
 
 extern "C" void dolby_ms12_set_dap_graphic_eq(DAPGraphicEQ *dapGraphicEQParamters)
 {

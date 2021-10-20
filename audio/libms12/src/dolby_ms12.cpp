@@ -442,7 +442,7 @@ extern "C" unsigned long long dolby_ms12_get_n_bytes_pcmout_of_udc()
 
 extern "C" int dolby_ms12_set_main_volume(float volume)
 {
-    ALOGI("%s()\n", __FUNCTION__);
+    ALOGV("%s()\n", __FUNCTION__);
     android::DolbyMS12* dolby_ms12_instance = getInstance();
     if (dolby_ms12_instance) {
         return dolby_ms12_instance->DolbyMS12SetMainVolume(volume);
@@ -450,6 +450,10 @@ extern "C" int dolby_ms12_set_main_volume(float volume)
     return -1;
 }
 
+extern "C" int dolby_ms12_enable_atmos_drop(int atmos_drop __unused)
+{
+    return 0;
+}
 
 extern "C" int dolby_ms12_get_input_atmos_info()
 {
