@@ -185,13 +185,14 @@ int delete_mixer_input_port(struct amlAudioMixer *audio_mixer, uint8_t port_inde
     R_CHECK_PARAM_LEGAL(-EINVAL, port_index, 0, NR_INPORTS, "");
     input_port *in_port = audio_mixer->in_ports[port_index];
     R_CHECK_POINTER_LEGAL(-EINVAL, in_port, "port_index:%d", port_index);
+
+    AM_LOGI("input port ID:%d, type:%s, cur mask:%#x", port_index,
+        mixerInputType2Str(in_port->enInPortType), audio_mixer->inportsMasks);
     pthread_mutex_lock(&audio_mixer->lock);
     pthread_mutex_lock(&audio_mixer->inport_lock);
     free_input_port(in_port);
     audio_mixer->in_ports[port_index] = NULL;
     audio_mixer->inportsMasks &= ~(1 << port_index);
-    AM_LOGI("input port ID:%d, type:%s, cur mask:%#x", port_index,
-        mixerInputType2Str(in_port->enInPortType), audio_mixer->inportsMasks);
     pthread_mutex_unlock(&audio_mixer->inport_lock);
     pthread_mutex_unlock(&audio_mixer->lock);
     return 0;

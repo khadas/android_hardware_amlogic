@@ -91,6 +91,7 @@ static unsigned int DEFAULT_OUT_SAMPLING_RATE = 48000;
 #define MM_FULL_POWER_SAMPLING_RATE 48000
 /* sampling rate when using VX port for narrow band */
 #define VX_NB_SAMPLING_RATE 8000
+#define VX_WB_SAMPLING_RATE 16000
 
 #define AUDIO_PARAMETER_STREAM_EQ "audioeffect_eq"
 #define AUDIO_PARAMETER_STREAM_SRS "audioeffect_srs_param"
@@ -306,8 +307,10 @@ typedef struct audio_hal_info{
 } audio_hal_info_t;
 
 struct aml_bt_output {
+    pthread_mutex_t lock;
     bool active;
     struct pcm *pcm_bt;
+    struct pcm_config cfg;
     char *bt_out_buffer;
     size_t bt_out_frames;
     struct resampler_itfe *resampler;
