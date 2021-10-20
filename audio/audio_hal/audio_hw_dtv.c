@@ -3536,12 +3536,14 @@ exit:
 static int create_dtv_output_stream_thread(struct aml_audio_patch *patch)
 {
     int ret = 0;
+    struct aml_audio_device *adev = (struct aml_audio_device *)patch->dev;
     ALOGI("++%s   ---- %d\n", __FUNCTION__, patch->ouput_thread_created);
 
     if (patch->ouput_thread_created == 0) {
         patch->output_thread_exit = 0;
         pthread_mutex_init(&patch->dtv_output_mutex, NULL);
         patch->dtv_replay_flag = true;
+        start_ease_in(adev->audio_ease);
         if (patch->skip_amadec_flag) {
             ret = pthread_create(&(patch->audio_output_threadID), NULL,
                                  audio_dtv_patch_output_threadloop_v2, patch);

@@ -5079,51 +5079,6 @@ static aec_timestamp get_timestamp(void) {
     return return_val;
 }
 
-static void output_mute(struct audio_stream_out *stream, void **output_buffer,size_t *output_buffer_bytes)
-{
-    struct aml_stream_out *aml_out = (struct aml_stream_out *)stream;
-    struct aml_audio_device *adev = aml_out->dev;
-
-    /* when aux/spdif/arcin/hdmiin switching, mute 1000ms, then start fade in. */
-    if (adev->patch_src == SRC_LINEIN || adev->patch_src == SRC_SPDIFIN
-            || adev->patch_src == SRC_HDMIIN) {
-        if (adev->active_input != NULL && (!adev->patch_start)) {
-            clock_gettime(CLOCK_MONOTONIC, &adev->mute_start_ts);
-            adev->patch_start = true;
-            adev->mute_start = true;
-            ALOGI ("%s() detect AUX/SPDIF start mute 1000ms", __func__);
-        }
-        if (aml_out->tmp_buffer_8ch != NULL && adev->mute_start) {
-            if (!Stop_watch(adev->mute_start_ts, 1000)) {
-                adev->mute_start = false;
-                start_ease_in(adev->audio_ease);
-                ALOGI ("%s() AUX/SPDIF/ARC unmute, start fade in", __func__);
-            } else {
-                memset(aml_out->tmp_buffer_8ch, 0, (*output_buffer_bytes));
-            }
-        }
-    } else if (adev->patch_src == SRC_DTV) {
-        if (adev->audio_patch != NULL && (!adev->patch_start)) {
-            clock_gettime(CLOCK_MONOTONIC, &adev->mute_start_ts);
-            adev->patch_start = true;
-            adev->mute_start = true;
-            ALOGI ("%s() detect DTV start mute 200ms", __func__);
-        }
-        if (/*aml_out->tmp_buffer_8ch != NULL && */adev->mute_start) {
-            if (!Stop_watch(adev->mute_start_ts, 200)) {
-            adev->mute_start = false;
-            start_ease_in(adev->audio_ease);
-            ALOGI ("%s() DTV unmute, start fade in", __func__);
-            } else {
-                memset(*output_buffer, 0, (*output_buffer_bytes));
-            }
-        }
-    }
-    /*ease in or ease out*/
-    aml_audio_ease_process(adev->audio_ease, *output_buffer, *output_buffer_bytes);
-    return;
-}
-
 ssize_t audio_hal_data_processing_ms12v2(struct audio_stream_out *stream,
                                 const void *buffer,
                                 size_t bytes,
@@ -5199,9 +5154,6 @@ ssize_t audio_hal_data_processing_ms12v2(struct audio_stream_out *stream,
             }
         }
     }
-    if (adev->audio_patching) {
-        output_mute(stream,output_buffer,output_buffer_bytes);
-    }
     return 0;
 }
 
@@ -5214,6 +5166,7 @@ ssize_t audio_hal_data_processing(struct audio_stream_out *stream,
 {
     struct aml_stream_out *aml_out = (struct aml_stream_out *)stream;
     struct aml_audio_device *adev = aml_out->dev;
+    struct aml_audio_patch *patch = adev->audio_patch;
     int out_frames = bytes / 4;
     size_t i, j;
     int ret;
@@ -5422,29 +5375,7 @@ ssize_t audio_hal_data_processing(struct audio_stream_out *stream,
         sysfs_set_sysfs_str(REPORT_DECODED_INFO, sysfs_buf);
     }
 #endif
-    if (adev->dev2mix_patch) {
-        tv_in_write(stream, buffer, bytes);
-        memset((char *)buffer, 0, bytes);
-        if (aml_out->is_tv_platform == 1) {
-            memset(aml_out->tmp_buffer_8ch, 0, (*output_buffer_bytes));
-        }
-    } else if (adev->patch_src == SRC_HDMIIN ||
-               adev->patch_src == SRC_SPDIFIN ||
-               adev->patch_src == SRC_LINEIN ||
-               adev->patch_src == SRC_ATV) {
-        if (adev->active_input != NULL &&
-                adev->spdif_fmt_hw != adev->active_input->spdif_fmt_hw) {
-            clock_gettime(CLOCK_MONOTONIC, &adev->mute_start_ts);
-            adev->spdif_fmt_hw = adev->active_input->spdif_fmt_hw;
-        }
-        //mute output audio for 500ms, when input audio change format.
-        if (aml_out->tmp_buffer_8ch != NULL && Stop_watch(adev->mute_start_ts, 500)) {
-            memset(aml_out->tmp_buffer_8ch, 0, (*output_buffer_bytes));
-        }
-    }
-    if (adev->audio_patching) {
-        output_mute(stream,output_buffer,output_buffer_bytes);
-    }
+
     return 0;
 }
 
@@ -7267,17 +7198,19 @@ ssize_t out_write_new(struct audio_stream_out *stream,
      * call many times open/close to query the hdmi capability, this will affect the
      * sink format
      */
-    if (!aml_out->is_sink_format_prepared && !adev->is_TV) {
+    if (!aml_out->is_sink_format_prepared) {
         get_sink_format(&aml_out->stream);
-        if (is_use_spdifb(aml_out)) {
-            aml_audio_select_spdif_to_hdmi(AML_SPDIF_B_TO_HDMITX);
-            aml_out->restore_hdmitx_selection = true;
-        }
-        aml_out->card = alsa_device_get_card_index();
-        if (adev->sink_format == AUDIO_FORMAT_PCM_16_BIT) {
-            aml_out->device = PORT_I2S;
-        } else {
-            aml_out->device = PORT_SPDIF;
+        if (!adev->is_TV) {
+            if (is_use_spdifb(aml_out)) {
+                aml_audio_select_spdif_to_hdmi(AML_SPDIF_B_TO_HDMITX);
+                aml_out->restore_hdmitx_selection = true;
+            }
+            aml_out->card = alsa_device_get_card_index();
+            if (adev->sink_format == AUDIO_FORMAT_PCM_16_BIT) {
+                aml_out->device = PORT_I2S;
+            } else {
+                aml_out->device = PORT_SPDIF;
+            }
         }
         aml_out->is_sink_format_prepared = true;
     }
@@ -7624,18 +7557,26 @@ void *audio_patch_input_threadloop(void *data)
             }
             in->standby = 0;
         }
-        //bytes_avail = in_read(stream_in, patch->in_buf, read_bytes);
-        if (aml_dev->patch_src == SRC_HDMIIN && in->audio_packet_type == AUDIO_PACKET_AUDS && in->config.channels != 2) {
-            ret = input_stream_channels_adjust(&in->stream, patch->in_buf, read_bytes);
-        } else {
-            aml_alsa_input_read(&in->stream, patch->in_buf, read_bytes);
-        }
 
         bytes_avail = read_bytes;
+
+        /* if audio is unstable, don't read data from hardware */
         if (aml_dev->tv_mute || !check_tv_stream_signal(&in->stream)) {
             memset(patch->in_buf, 0, bytes_avail);
+            ring_buffer_clear(ringbuffer);
+            usleep(20*1000);
+        } else {
+            if (aml_dev->patch_src == SRC_HDMIIN && in->audio_packet_type == AUDIO_PACKET_AUDS && in->config.channels != 2) {
+                ret = input_stream_channels_adjust(&in->stream, patch->in_buf, read_bytes);
+            } else {
+                aml_alsa_input_read(&in->stream, patch->in_buf, read_bytes);
+            }
+            if (get_debug_value(AML_DUMP_AUDIOHAL_TV)) {
+                aml_audio_dump_audio_bitstreams("/data/vendor/audiohal/tv_read.raw", patch->in_buf, read_bytes);
+            }
         }
-         /*noise gate is only used in Linein for 16bit audio data*/
+
+        /*noise gate is only used in Linein for 16bit audio data*/
         if (aml_dev->active_inport == INPORT_LINEIN && aml_dev->aml_ng_enable == 1) {
             int ng_status = noise_evaluation(aml_dev->aml_ng_handle, patch->in_buf, bytes_avail >> 1);
             /*if (ng_status == NG_MUTE)
@@ -7756,6 +7697,7 @@ void *audio_patch_output_threadloop(void *data)
         }
     }
     aml_dev->mix_init_flag = false;
+    aml_dev->mute_start = true;
     pthread_mutex_unlock(&aml_dev->lock);
     ret = adev_open_output_stream_new(patch->dev,
                                       0,
@@ -7807,7 +7749,6 @@ void *audio_patch_output_threadloop(void *data)
             if (ret == 0) {
                 ALOGE("%s(), ring_buffer read 0 data!", __func__);
             }
-
             /* avsync for dev->dev patch*/
             if (patch && (patch->need_do_avsync == true) && (patch->input_signal_stable == true) &&
                     (aml_dev->patch_src == SRC_ATV || aml_dev->patch_src == SRC_HDMIIN ||
@@ -7815,7 +7756,7 @@ void *audio_patch_output_threadloop(void *data)
 
                 aml_dev_try_avsync(patch);
                 if (patch->skip_frames) {
-                    //ALOGD("%s(), skip this period data for avsync!", __func__);
+                    ALOGD("%s(), skip this period data for avsync!", __func__);
                     usleep(5);
                     continue;
                 }
@@ -7971,6 +7912,7 @@ int release_patch_l(struct aml_audio_device *aml_dev)
     release_tvin_buffer(patch);
     aml_audio_free(patch);
     aml_dev->audio_patch = NULL;
+    aml_dev->patch_start = false;
     ALOGD("%s: exit", __func__);
 
     if (aml_dev->useSubMix) {

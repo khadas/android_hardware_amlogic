@@ -472,8 +472,7 @@ struct aml_audio_device {
     /*atsc has video in program*/
     bool is_has_video;
     struct aml_stream_out *ms12_out;
-    struct timespec mute_start_ts;
-	int spdif_fmt_hw;
+    int spdif_fmt_hw;
     bool ms12_ott_enable;
     bool ms12_main1_dolby_dummy;
     /*amlogic soft ware noise gate fot analog TV source*/

@@ -467,6 +467,7 @@ int aml_dev_try_avsync(struct aml_audio_patch *patch)
         /* if min video latency is larger than audio latency, seek audio buffer to enlarge the audio delay */
         if (avDiff < 0) {
             seek_duration_ret = ringbuffer_seek(patch, avDiff);
+            ring_buffer_clear(&patch->aml_ringbuffer);
         } else if (patch->audio_latency.ringbuffer_latency > AVSYNC_RINGBUFFER_MIN_LATENCY) {
             /* if it need reduce audio latency, first do ringbuffer seek */
             seek_duration = patch->audio_latency.ringbuffer_latency - AVSYNC_RINGBUFFER_MIN_LATENCY;

@@ -630,45 +630,44 @@ bool Stop_watch(struct timespec start_ts, int64_t time) {
 
 bool signal_status_check(audio_devices_t in_device, int *mute_time,
                         struct audio_stream_in *stream) {
+
+    struct aml_stream_in *in = (struct aml_stream_in *) stream;
     if (in_device & AUDIO_DEVICE_IN_HDMI) {
         bool hw_stable = is_hdmi_in_stable_hw(stream);
         bool sw_stable = is_hdmi_in_stable_sw(stream);
         if (!hw_stable || !sw_stable) {
             ALOGV("%s() hw_stable %d sw_stable %d\n", __func__, hw_stable, sw_stable);
-            *mute_time = 100;
+            *mute_time = 1000;
             return false;
         }
     }
     if ((in_device & AUDIO_DEVICE_IN_TV_TUNER) &&
             !is_atv_in_stable_hw (stream)) {
-        *mute_time = 100;
+        *mute_time = 1000;
         return false;
     }
     if (((in_device & AUDIO_DEVICE_IN_SPDIF) ||
             (in_device & AUDIO_DEVICE_IN_HDMI_ARC)) &&
             !is_spdif_in_stable_hw(stream)) {
-        *mute_time = 100;
+        *mute_time = 1000;
         return false;
     }
     if ((in_device & AUDIO_DEVICE_IN_LINE) &&
             !is_av_in_stable_hw(stream)) {
-       *mute_time = 100;
+       *mute_time = 1500;
        return false;
     }
     return true;
 }
 
-bool check_tv_stream_signal (struct audio_stream_in *stream)  {
-
+bool check_tv_stream_signal(struct audio_stream_in *stream)
+{
     struct aml_stream_in *in = (struct aml_stream_in *)stream;
     struct aml_audio_device *adev = in->dev;
     struct aml_audio_patch* patch = adev->audio_patch;
     int in_mute = 0, parental_mute = 0;
     bool stable = true;
 
-    /* when audio is unstable, need to mute the audio data for a while
-     * the mute time is related to hdmi audio buffer size
-     */
     stable = signal_status_check(adev->in_device, &in->mute_mdelay, stream);
 
     if (!stable) {
@@ -689,9 +688,6 @@ bool check_tv_stream_signal (struct audio_stream_in *stream)  {
             pcm_stop(in->pcm);
             in->mute_log_cntr = 0;
             in->mute_flag = false;
-            /* fade in start */
-            ALOGI("start fade in");
-            start_ease_in(adev->audio_ease);
         }
     }
 
@@ -705,6 +701,7 @@ bool check_tv_stream_signal (struct audio_stream_in *stream)  {
         if (patch && in_mute) {
             patch->need_do_avsync = true;
             patch->input_signal_stable = false;
+            adev->mute_start = true;
         }
         return false;
     } else {
@@ -1545,9 +1542,6 @@ int set_tv_source_switch_parameters(struct audio_hw_device *dev, struct str_parm
             adev->active_inport = INPORT_HDMIIN;
             pAudPatchTmp->sources[0].ext.device.type = AUDIO_DEVICE_IN_HDMI;
             set_audio_source(&adev->alsa_mixer, HDMIIN, alsa_device_is_auge());
-
-            //timing switch, audio is stable, do avsync once more
-            adev->audio_patch->need_do_avsync = true;
 
         }
         goto exit;
