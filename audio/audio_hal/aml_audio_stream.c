@@ -269,8 +269,7 @@ void get_sink_format(struct audio_stream_out *stream)
         (source_format != AUDIO_FORMAT_MAT) && \
         (source_format != AUDIO_FORMAT_AC4) && \
         (source_format != AUDIO_FORMAT_DTS) &&
-        (source_format != AUDIO_FORMAT_DTS_HD) && \
-        (source_format != AUDIO_FORMAT_DOLBY_TRUEHD)) {
+        (source_format != AUDIO_FORMAT_DTS_HD)) {
         /*unsupport format [dts-hd/true-hd]*/
         ALOGI("%s() source format %#x change to %#x", __FUNCTION__, source_format, AUDIO_FORMAT_PCM_16_BIT);
         source_format = AUDIO_FORMAT_PCM_16_BIT;

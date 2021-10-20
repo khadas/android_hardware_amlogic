@@ -417,7 +417,7 @@ int DolbyMS12ConfigParams::SetInputOutputFileName(char **ConfigParams, int *row_
             (*row_index)++;
             sprintf(ConfigParams[*row_index], "%s", mDolbyMain2FileName);
             (*row_index)++;
-            ALOGD("%s() line %d main1 %s main2 %s", __FUNCTION__, __LINE__, mDolbyMain1FileName, mDolbyMain2FileName);
+            ALOGD("%s() main1 %s main2 %s", __FUNCTION__, mDolbyMain1FileName, mDolbyMain2FileName);
         } else if (mAudioStreamOutFormat == AUDIO_FORMAT_MAT) {
             sprintf(ConfigParams[*row_index], "%s", "-im");
             setInputCMDMask("-immat");
@@ -430,7 +430,7 @@ int DolbyMS12ConfigParams::SetInputOutputFileName(char **ConfigParams, int *row_
             (*row_index)++;
             sprintf(ConfigParams[*row_index], "%s", mDolbyMain2FileName);
             (*row_index)++;
-            ALOGD("%s() line %d main1 %s main2 %s", __FUNCTION__, __LINE__, mDolbyMain1FileName, mDolbyMain2FileName);
+            ALOGD("%s() main1 %s main2 %s", __FUNCTION__, mDolbyMain1FileName, mDolbyMain2FileName);
         } else if (mAudioStreamOutFormat == AUDIO_FORMAT_DOLBY_TRUEHD) {
             sprintf(ConfigParams[*row_index], "%s", "-im");
             setInputCMDMask("-immlp");
@@ -438,14 +438,19 @@ int DolbyMS12ConfigParams::SetInputOutputFileName(char **ConfigParams, int *row_
             sprintf(ConfigParams[*row_index], "%s", DEFAULT_MAIN_MLP_FILE_NAME);
             (*row_index)++;
 
-            ALOGD("%s() line %d main1 %s", __FUNCTION__, __LINE__,  DEFAULT_MAIN_MLP_FILE_NAME);
+            sprintf(ConfigParams[*row_index], "%s", "-im2");
+            setInputCMDMask("-im2");
+            (*row_index)++;
+            sprintf(ConfigParams[*row_index], "%s", mDolbyMain2FileName);
+            (*row_index)++;
+            ALOGD("%s() main1 %s main2 %s", __FUNCTION__, mDolbyMain1FileName, mDolbyMain2FileName);
         } else if (mAudioStreamOutFormat == AUDIO_FORMAT_AC4) {
             sprintf(ConfigParams[*row_index], "%s", "-im");
             setInputCMDMask("-imac4");
             (*row_index)++;
             sprintf(ConfigParams[*row_index], "%s", DEFAULT_MAIN_AC4_FILE_NAME);
             (*row_index)++;
-            ALOGD("%s() line %d main1 %s", __FUNCTION__, __LINE__, mDolbyMain1FileName);
+            ALOGD("%s() main1 %s", __FUNCTION__, mDolbyMain1FileName);
         }
         if (mOTTSoundInputEnable == true && mAudioStreamOutFormat != AUDIO_FORMAT_AC4) {
             sprintf(ConfigParams[*row_index], "%s", "-iui");

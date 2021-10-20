@@ -1008,27 +1008,13 @@ bool is_ms12_passthrough(struct audio_stream_out *stream) {
     struct aml_audio_device *adev = aml_out->dev;
     struct dolby_ms12_desc *ms12 = &(adev->ms12);
 
-    /* TrueHD-content can not passthrough, should be decoded with DLB-MS12 pipeline */
-    bool is_bypass_truehd = false;
-    bool is_truehd = false;
-    bool is_truehd_supported = false;
-
-    /* Fixme: The TrueHD passthrough function is in the TODO List. */
-#if 0
-    is_truehd = (aml_out->hal_internal_format == AUDIO_FORMAT_DOLBY_TRUEHD);
-    is_truehd_supported = ((ms12->optical_format == AUDIO_FORMAT_MAT) || (ms12->optical_format == AUDIO_FORMAT_DOLBY_TRUEHD));
-    is_bypass_truehd = is_truehd && is_truehd_supported;
-    ALOGI("%s line %d is_bypass_truehd %d is_truehd %d is_truehd_supported %d",
-        __FUNCTION__, __LINE__, is_bypass_truehd, is_truehd, is_truehd_supported);
-#endif
-
     if ((adev->hdmi_format == BYPASS)
         /* when arc output, the optical_format == sink format
          * when speaker output, the optical format != format
          * only the optical_format >= hal_internal_format, we can do passthrough,
          * otherwise we need do some convert
          */
-        && ((ms12->optical_format >= aml_out->hal_internal_format) || is_bypass_truehd)) {
+        && (ms12->optical_format >= aml_out->hal_internal_format)) {
         if (aml_out->hal_internal_format == AUDIO_FORMAT_E_AC3 ||
             aml_out->hal_internal_format == AUDIO_FORMAT_AC3) {
             /*current we only support 48k ddp/dd bypass*/
@@ -1040,12 +1026,9 @@ bool is_ms12_passthrough(struct audio_stream_out *stream) {
                 bypass_ms12 = true;
             }
         }
-        else if (is_truehd) {
-            bypass_ms12 = true;
-        }
     }
-    ALOGV("%s line %d bypass_ms12 =%d hdmi format =%d optical format =0x%x intenal format 0x%x",
-        __FUNCTION__, __LINE__, bypass_ms12, adev->hdmi_format, ms12->optical_format, aml_out->hal_internal_format);
+    ALOGV("bypass_ms12 =%d hdmi format =%d optical format =0x%x 0x%x",
+        bypass_ms12, adev->hdmi_format, ms12->optical_format, aml_out->hal_internal_format);
     return bypass_ms12;
 }
 
@@ -2969,8 +2952,7 @@ bool is_rebuild_the_ms12_pipeline(    audio_format_t main_input_fmt, audio_forma
     ALOGD("%s line %d is_ac4_alive %d is_mat_alive %d is_ott_format_alive %d\n",__func__, __LINE__, is_ac4_alive, is_mat_alive, is_ott_format_alive);
 
     bool request_ac4_alive = (hal_internal_format == AUDIO_FORMAT_AC4);
-    /* if switch from MAT to Dolby-TrueHD, need to confirm it works well. */
-    bool request_mat_alive = ((hal_internal_format == AUDIO_FORMAT_MAT) || (hal_internal_format == AUDIO_FORMAT_DOLBY_TRUEHD));
+    bool request_mat_alive = (hal_internal_format == AUDIO_FORMAT_MAT);
     bool request_ott_format_alive = (hal_internal_format == AUDIO_FORMAT_AC3) || \
                                 ((hal_internal_format & AUDIO_FORMAT_E_AC3) == AUDIO_FORMAT_E_AC3) || \
                                 (hal_internal_format == AUDIO_FORMAT_PCM_16_BIT);
