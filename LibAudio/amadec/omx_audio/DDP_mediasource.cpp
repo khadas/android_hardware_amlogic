@@ -31,7 +31,7 @@ extern "C" int read_buffer(unsigned char *buffer,int size);
 namespace android {
 
 
-DDPerr DDP_MediaSource::ddbs_init(DDPshort * buf, DDPshort bitptr,DDP_BSTRM *p_bstrm)
+short DDP_MediaSource::bitstream_init(short * buf, short bitptr,BITSTREAM *p_bstrm)
 {
     p_bstrm->buf = buf;
     p_bstrm->bitptr = bitptr;
@@ -40,20 +40,20 @@ DDPerr DDP_MediaSource::ddbs_init(DDPshort * buf, DDPshort bitptr,DDP_BSTRM *p_b
 }
 
 
-DDPerr DDP_MediaSource::ddbs_unprj(DDP_BSTRM    *p_bstrm,DDPshort *p_data,  DDPshort numbits)
+short DDP_MediaSource::bitstream_unprj(BITSTREAM    *p_bstrm,short *p_data,  short numbits)
 {
-    DDPushort data;
-    *p_data = (DDPshort)((p_bstrm->data << p_bstrm->bitptr) & msktab[numbits]);
+    unsigned short data;
+    *p_data = (short)((p_bstrm->data << p_bstrm->bitptr) & msktab[numbits]);
     p_bstrm->bitptr += numbits;
     if (p_bstrm->bitptr >= BITSPERWRD)
     {
         p_bstrm->buf++;
         p_bstrm->data = *p_bstrm->buf;
         p_bstrm->bitptr -= BITSPERWRD;
-        data = (DDPushort)p_bstrm->data;
+        data = (unsigned short)p_bstrm->data;
         *p_data |= ((data >> (numbits - p_bstrm->bitptr)) & msktab[numbits]);
     }
-    *p_data = (DDPshort)((DDPushort)(*p_data) >> (BITSPERWRD - numbits));
+    *p_data = (short)((unsigned short)(*p_data) >> (BITSPERWRD - numbits));
     return 0;
 }
 
@@ -61,19 +61,19 @@ DDPerr DDP_MediaSource::ddbs_unprj(DDP_BSTRM    *p_bstrm,DDPshort *p_data,  DDPs
 int DDP_MediaSource::Get_ChNum_DD(void *buf)//at least need:56bit(=7 bytes)
 {
     int numch=0;
-    DDP_BSTRM bstrm={0, 0, 0};
-    DDP_BSTRM *p_bstrm=&bstrm;
+    BITSTREAM bstrm={0, 0, 0};
+    BITSTREAM *p_bstrm=&bstrm;
     short tmp=0,acmod,lfeon,fscod,frmsizecod;
-    ddbs_init((short*)buf,0,p_bstrm);
+    bitstream_init((short*)buf,0,p_bstrm);
 
-    ddbs_unprj(p_bstrm, &tmp, 16);
+    bitstream_unprj(p_bstrm, &tmp, 16);
     if (tmp!= SYNCWRD)
     {
         ALOGI("Invalid synchronization word");
         return 0;
     }
-    ddbs_unprj(p_bstrm, &tmp, 16);
-    ddbs_unprj(p_bstrm, &fscod, 2);
+    bitstream_unprj(p_bstrm, &tmp, 16);
+    bitstream_unprj(p_bstrm, &fscod, 2);
     if (fscod == MAXFSCOD)
     {
         ALOGI("Invalid sampling rate code");
@@ -84,7 +84,7 @@ int DDP_MediaSource::Get_ChNum_DD(void *buf)//at least need:56bit(=7 bytes)
     else if (fscod == 1) sample_rate = 44100;
     else if (fscod == 2) sample_rate = 32000;
 
-    ddbs_unprj(p_bstrm, &frmsizecod, 6);
+    bitstream_unprj(p_bstrm, &frmsizecod, 6);
     if (frmsizecod >= MAXDDDATARATE)
     {
         ALOGI("Invalid frame size code");
@@ -93,30 +93,30 @@ int DDP_MediaSource::Get_ChNum_DD(void *buf)//at least need:56bit(=7 bytes)
 
     frame_size=frmsizetab[fscod][frmsizecod];
 
-    ddbs_unprj(p_bstrm, &tmp, 5);
+    bitstream_unprj(p_bstrm, &tmp, 5);
     if (!ISDD(tmp))
     {
         ALOGI("Unsupported bitstream id");
         return 0;
     }
 
-    ddbs_unprj(p_bstrm, &tmp, 3);
-    ddbs_unprj(p_bstrm, &acmod, 3);
+    bitstream_unprj(p_bstrm, &tmp, 3);
+    bitstream_unprj(p_bstrm, &acmod, 3);
 
     if ((acmod!= MODE10) && (acmod& 0x1))
     {
-        ddbs_unprj(p_bstrm, &tmp, 2);
+        bitstream_unprj(p_bstrm, &tmp, 2);
     }
     if (acmod& 0x4)
     {
-        ddbs_unprj(p_bstrm, &tmp, 2);
+        bitstream_unprj(p_bstrm, &tmp, 2);
     }
 
     if (acmod == MODE20)
     {
-        ddbs_unprj(p_bstrm,&tmp, 2);
+        bitstream_unprj(p_bstrm,&tmp, 2);
     }
-    ddbs_unprj(p_bstrm, &lfeon, 1);
+    bitstream_unprj(p_bstrm, &lfeon, 1);
 
 
     numch = chanary[acmod];
@@ -140,22 +140,22 @@ int DDP_MediaSource::Get_ChNum_DDP(void *buf)//at least need:40bit(=5 bytes)
 {
 
     int numch=0;
-    DDP_BSTRM bstrm={0, 0, 0};
-    DDP_BSTRM *p_bstrm=&bstrm;
+    BITSTREAM bstrm={0, 0, 0};
+    BITSTREAM *p_bstrm=&bstrm;
     short tmp=0,acmod,lfeon,strmtyp;
 
-    ddbs_init((short*)buf,0,p_bstrm);
+    bitstream_init((short*)buf,0,p_bstrm);
 
-    ddbs_unprj(p_bstrm, &tmp, 16);
+    bitstream_unprj(p_bstrm, &tmp, 16);
     if (tmp!= SYNCWRD)
     {
         ALOGI("Invalid synchronization word");
         return 0;
     }
 
-    ddbs_unprj(p_bstrm, &strmtyp, 2);
-    ddbs_unprj(p_bstrm, &tmp, 3);
-    ddbs_unprj(p_bstrm, &tmp, 11);
+    bitstream_unprj(p_bstrm, &strmtyp, 2);
+    bitstream_unprj(p_bstrm, &tmp, 3);
+    bitstream_unprj(p_bstrm, &tmp, 11);
     frame_size=tmp+1;
     //---------------------------
     if (strmtyp != 0 && strmtyp != 2)
@@ -163,7 +163,7 @@ int DDP_MediaSource::Get_ChNum_DDP(void *buf)//at least need:40bit(=5 bytes)
         return 0;
     }
     //---------------------------
-    ddbs_unprj(p_bstrm, &tmp, 2);
+    bitstream_unprj(p_bstrm, &tmp, 2);
 
     if (tmp== 0x3)
     {
@@ -174,11 +174,11 @@ int DDP_MediaSource::Get_ChNum_DDP(void *buf)//at least need:40bit(=5 bytes)
         else if (tmp == 1) sample_rate = 44100;
         else if (tmp == 2) sample_rate = 32000;
 
-        ddbs_unprj(p_bstrm, &tmp, 2);
+        bitstream_unprj(p_bstrm, &tmp, 2);
     }
 
-    ddbs_unprj(p_bstrm, &acmod, 3);
-    ddbs_unprj(p_bstrm, &lfeon, 1);
+    bitstream_unprj(p_bstrm, &acmod, 3);
+    bitstream_unprj(p_bstrm, &lfeon, 1);
 
     numch = chanary[acmod];
     //numch+=lfeon;
@@ -200,7 +200,7 @@ int DDP_MediaSource::Get_ChNum_DDP(void *buf)//at least need:40bit(=5 bytes)
 }
 
 
-DDPerr DDP_MediaSource::ddbs_skip(    DDP_BSTRM     *p_bstrm, DDPshort    numbits)
+short DDP_MediaSource::bitstream_skip(    BITSTREAM     *p_bstrm, short    numbits)
 {
     p_bstrm->bitptr += numbits;
     while (p_bstrm->bitptr >= BITSPERWRD)
@@ -214,13 +214,13 @@ DDPerr DDP_MediaSource::ddbs_skip(    DDP_BSTRM     *p_bstrm, DDPshort    numbit
 }
 
 
-DDPerr DDP_MediaSource::ddbs_getbsid(DDP_BSTRM *p_inbstrm,    DDPshort *p_bsid)
+short DDP_MediaSource::bitstream_getbsid(BITSTREAM *p_inbstrm,    short *p_bsid)
 {
-    DDP_BSTRM    bstrm;
+    BITSTREAM    bstrm;
 
-    ddbs_init(p_inbstrm->buf, p_inbstrm->bitptr, &bstrm);
-    ddbs_skip(&bstrm, BS_BITOFFSET);
-    ddbs_unprj(&bstrm, p_bsid, 5);
+    bitstream_init(p_inbstrm->buf, p_inbstrm->bitptr, &bstrm);
+    bitstream_skip(&bstrm, BS_BITOFFSET);
+    bitstream_unprj(&bstrm, p_bsid, 5);
     if (!ISDDP(*p_bsid) && !ISDD(*p_bsid))
     {
         ALOGI("Unsupported bitstream id");
@@ -232,9 +232,9 @@ DDPerr DDP_MediaSource::ddbs_getbsid(DDP_BSTRM *p_inbstrm,    DDPshort *p_bsid)
 
 int DDP_MediaSource::Get_ChNum_AC3_Frame(void *buf)
 {
-    DDP_BSTRM bstrm={0, 0, 0};
-    DDP_BSTRM *p_bstrm=&bstrm;
-    DDPshort    bsid;
+    BITSTREAM bstrm={0, 0, 0};
+    BITSTREAM *p_bstrm=&bstrm;
+    short    bsid;
     int chnum=0;
     uint8_t ptr8[PTR_HEAD_SIZE];
 
@@ -256,8 +256,8 @@ int DDP_MediaSource::Get_ChNum_AC3_Frame(void *buf)
     }
 
 
-    ddbs_init((short*)ptr8,0,p_bstrm);
-    ddbs_getbsid(p_bstrm, &bsid);
+    bitstream_init((short*)ptr8,0,p_bstrm);
+    bitstream_getbsid(p_bstrm, &bsid);
     //ALOGI("LZG->bsid=%d \n", bsid );
     if (ISDDP(bsid))
     {
