@@ -27,12 +27,9 @@
 
 namespace android {
 
-#define     DDPshort short
-#define     DDPerr   short
-#define     DDPushort unsigned short
 #define     BYTESPERWRD         2
 #define     BITSPERWRD          (BYTESPERWRD*8)
-#define     SYNCWRD             ((DDPshort)0x0b77)
+#define     SYNCWRD             ((short)0x0b77)
 #define     MAXFSCOD            3
 #define     MAXDDDATARATE       38
 #define     BS_STD              8
@@ -44,29 +41,29 @@ namespace android {
 #define     PTR_HEAD_SIZE 7	//20
 #define     FRAME_RECORD_NUM   40
 	typedef struct {
-		DDPshort *buf;
-		DDPshort bitptr;
-		DDPshort data;
-	} DDP_BSTRM;
+		short *buf;
+		short bitptr;
+		short data;
+	} BITSTREAM;
 
 	typedef struct {
 		unsigned char rawbuf[6144];
 		int len;
 	} BUF_T;
 
-	const DDPshort chanary[MAXCHANCFGS] = { 2, 1, 2, 3, 3, 4, 4, 5 };
+	const short chanary[MAXCHANCFGS] = { 2, 1, 2, 3, 3, 4, 4, 5 };
 	enum { MODE11 = 0, MODE_RSVD = 0, MODE10, MODE20,
 		MODE30, MODE21, MODE31, MODE22, MODE32
 	};
 
-	const DDPushort msktab[] = {
+	const unsigned short msktab[] = {
 		0x0000, 0x8000, 0xc000, 0xe000,
 		0xf000, 0xf800, 0xfc00, 0xfe00,
 		0xff00, 0xff80, 0xffc0, 0xffe0,
 		0xfff0, 0xfff8, 0xfffc, 0xfffe, 0xffff
 	};
 
-	const DDPshort frmsizetab[MAXFSCOD][MAXDDDATARATE] = {
+	const short frmsizetab[MAXFSCOD][MAXDDDATARATE] = {
 		/* 48kHz */
 		{
 		 64, 64, 80, 80, 96, 96, 112, 112,
@@ -115,14 +112,14 @@ namespace android {
 		fp_read_buffer fpread_buffer;
 
 		//----------------------------------------
-		DDPerr ddbs_init(DDPshort * buf, DDPshort bitptr,
-				 DDP_BSTRM * p_bstrm);
-		DDPerr ddbs_unprj(DDP_BSTRM * p_bstrm, DDPshort * p_data,
-				  DDPshort numbits);
+		short bitstream_init(short * buf, short bitptr,
+				 BITSTREAM * p_bstrm);
+		short bitstream_unprj(BITSTREAM * p_bstrm, short * p_data,
+				  short numbits);
 		int Get_ChNum_DD(void *buf);
 		int Get_ChNum_DDP(void *buf);
-		DDPerr ddbs_skip(DDP_BSTRM * p_bstrm, DDPshort numbits);
-		DDPerr ddbs_getbsid(DDP_BSTRM * p_inbstrm, DDPshort * p_bsid);
+		short bitstream_skip(BITSTREAM * p_bstrm, short numbits);
+		short bitstream_getbsid(BITSTREAM * p_inbstrm, short * p_bsid);
 		int Get_ChNum_AC3_Frame(void *buf);
                 int get_frame_size(void);
                 void store_frame_size(int lastFrameLen);
