@@ -148,23 +148,25 @@ int aml_audio_nonms12_render(struct audio_stream_out *stream, const void *buffer
 
     aml_dec_t *aml_dec = aml_out->aml_dec;
 
-    if (dtv_stream_flag  && patch->decoder_offset == 0) {
-        if (patch->cur_package) {
-            aml_dec->first_in_frame_pts = patch->cur_package->pts;
-        } else {
-            ALOGI("patch->cur_package NULL ");
-        }
-        aml_dec->last_synced_frame_pts = -1;
-        aml_dec->out_synced_frame_count = 0;
-        ALOGI("first_in_frame_pts  %lld ms" , aml_dec->first_in_frame_pts / 90);
-    }
-
-    if (is_dolby_ddp_support_compression_format(aml_out->hal_internal_format)) {
-        struct dolby_ddp_dec *ddp_dec = (struct dolby_ddp_dec *)aml_dec;
-        decoder_remain_size = ddp_dec->remain_size;
-    }
 
     if (aml_dec) {
+
+        if (dtv_stream_flag  && patch->decoder_offset == 0) {
+            if (patch->cur_package) {
+                aml_dec->first_in_frame_pts = patch->cur_package->pts;
+            } else {
+                ALOGI("patch->cur_package NULL ");
+            }
+            aml_dec->last_synced_frame_pts = -1;
+            aml_dec->out_synced_frame_count = 0;
+            ALOGI("first_in_frame_pts  %lld ms" , aml_dec->first_in_frame_pts / 90);
+        }
+
+        if (is_dolby_ddp_support_compression_format(aml_out->hal_internal_format)) {
+            struct dolby_ddp_dec *ddp_dec = (struct dolby_ddp_dec *)aml_dec;
+            decoder_remain_size = ddp_dec->remain_size;
+        }
+
         dec_data_info_t * dec_pcm_data = &aml_dec->dec_pcm_data;
         dec_data_info_t * dec_raw_data = &aml_dec->dec_raw_data;
         dec_data_info_t * raw_in_data  = &aml_dec->raw_in_data;
