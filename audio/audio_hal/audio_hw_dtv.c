@@ -3380,6 +3380,7 @@ static void *audio_dtv_patch_process_threadloop_v2(void *data)
                 if (dtvsync->mediasync_new != NULL) {
                     audio_format.format = patch->dtv_aformat;
                     mediasync_wrap_setParameter(dtvsync->mediasync_new, MEDIASYNC_KEY_AUDIOFORMAT, &audio_format);
+                    mediasync_wrap_setParameter(dtvsync->mediasync_new, MEDIASYNC_KEY_HASVIDEO, &patch->dtv_has_video);
                     patch->dtvsync->mediasync = dtvsync->mediasync_new;
                     dtvsync->mediasync_new = NULL;
                 }
