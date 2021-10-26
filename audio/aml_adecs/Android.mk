@@ -48,6 +48,7 @@ LOCAL_C_INCLUDES := \
 #    LOCAL_SHARED_LIBRARIES += libms12api
 #endif
 
+LOCAL_CFLAGS += -DANDROID_PLATFORM_SDK_VERSION=$(PLATFORM_SDK_VERSION)
 LOCAL_CFLAGS += -Werror -Wno-unused-label -Wno-unused-parameter
 LOCAL_MODULE := libamladecs
 LOCAL_MODULE_TAGS := optional
