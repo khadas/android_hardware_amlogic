@@ -6720,6 +6720,7 @@ ssize_t mixer_aux_buffer_write(struct audio_stream_out *stream, const void *buff
     bool hw_mix = need_hw_mix(adev->usecase_masks);
     uint64_t enter_ns = 0;
     uint64_t leave_ns = 0;
+    uint64_t sleep_time_us = 0;
 
     if (eDolbyMS12Lib == adev->dolby_lib_type && continous_mode(adev)) {
         enter_ns = aml_audio_get_systime_ns();
@@ -6872,12 +6873,21 @@ ssize_t mixer_aux_buffer_write(struct audio_stream_out *stream, const void *buff
             }
         }
     } else {
+        size_t content_bytes = aml_hw_mixer_get_content_l(&adev->hw_mixer);
+        size_t space_bytes = adev->hw_mixer.buf_size - content_bytes;
         bytes_written = aml_hw_mixer_write(&adev->hw_mixer, buffer, bytes);
         /*these data is skip for ms12, we still need calculate it*/
         if (eDolbyMS12Lib == adev->dolby_lib_type_last) {
             ms12->sys_audio_skip += bytes / frame_size;
         }
-        usleep(bytes_written * 1000000 / frame_size / out_get_sample_rate(&stream->common));
+        if (content_bytes < adev->hw_mixer.buf_size / 2) {
+            sleep_time_us = (uint64_t)bytes_written * 1000000 / frame_size / out_get_sample_rate(&stream->common) / 2;
+        } else {
+            sleep_time_us = (uint64_t)bytes_written * 1000000 / frame_size / out_get_sample_rate(&stream->common);
+        }
+        ALOGV("aml_audio_sleep  sleep_time_us %lld ",sleep_time_us);
+        aml_audio_sleep(sleep_time_us);
+
         if (getprop_bool("vendor.media.audiohal.mixer")) {
             aml_audio_dump_audio_bitstreams("/data/audio/mixerAux.raw", buffer, bytes);
         }
