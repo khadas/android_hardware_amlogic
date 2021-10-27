@@ -2905,8 +2905,10 @@ void *audio_dtv_patch_input_threadloop(void *data)
                             } else {
                                 if (aml_dev->debug_flag > 0)
                                     ALOGI(" do not get mEsData");
-                                aml_audio_free(dtv_pacakge);
-                                dtv_pacakge = NULL;
+                                if (dtv_pacakge) {
+                                    aml_audio_free(dtv_pacakge);
+                                    dtv_pacakge = NULL;
+                                }
                                 demux_info->dtv_pacakge = NULL;
                                 demux_info->mEsData = NULL;
                                 pthread_mutex_unlock(&aml_dev->dtv_lock);
@@ -3014,6 +3016,7 @@ exit:
 
     if (inbuf) {
         aml_audio_free(inbuf);
+        inbuf = NULL;
     }
     if (ad_buffer != NULL) {
         aml_audio_free(ad_buffer);
