@@ -6,6 +6,7 @@
 #include <fcntl.h>
 #include <sys/ioctl.h>
 #include <inttypes.h>
+#include <sys/time.h>
 
 #include <ui/GraphicBuffer.h>
 #include <media/hardware/HardwareAPI.h>
@@ -26,13 +27,22 @@ extern "C" {
 
 #define OMX2_OUTPUT_BUFS_ALIGN_64 (64)
 
+typedef enum MemType {
+    VMALLOC_BUFFER = 0,
+    ION_BUFFER,
+    UVM_BUFFER,
+    SHARED_FD,
+} MemType;
+
+static MemType mem_type = SHARED_FD;
+
 using namespace android;
 OMX_CALLBACKTYPE OMXDecoder::kCallbacks = {
     &OnEvent, &OnEmptyBufferDone, &OnFillBufferDone
 };
 
 OMXDecoder::OMXDecoder(bool useDMABuffer, bool keepOriginalSize) {
-    LOG_LINE();
+    LOG_LINE("useDMABuffer=%d", useDMABuffer);
     mUseDMABuffer        = useDMABuffer;
     mKeepOriginalSize    = keepOriginalSize;
     mOutBufferNative = NULL;
@@ -77,12 +87,17 @@ bool OMXDecoder::initialize(const char* name) {
     OMX_ERRORTYPE eRet = OMX_ErrorNone;
     mDequeueFailNum = 0;
     mTimeOut = false;
+
+    /*
     for (int i = 0; i < TEMP_BUFFER_NUM; i++)
         mTempFrame[i] = (uint8_t*)malloc(mWidth*mHeight*3/2);
+    */
 
     if (0 == strcmp(name,"mjpeg"))
         mDecoderComponentName = (char *)"OMX.amlogic.mjpeg.decoder.awesome2";
+
     mLibHandle = dlopen("libOmxCore.so", RTLD_NOW);
+
     if (mLibHandle != NULL) {
         mInit         =     (InitFunc) dlsym(mLibHandle, "OMX_Init");
         mDeinit     =     (DeinitFunc) dlsym(mLibHandle, "OMX_Deinit");
@@ -264,13 +279,13 @@ void OMXDecoder::InitOMXParams(T *params) {
 void OMXDecoder::start()
 {
     LOG_LINE();
-    OMX_BUFFERHEADERTYPE *pBufferHdr = NULL;
+    /*OMX_BUFFERHEADERTYPE *pBufferHdr = NULL;
     AutoMutex l(mOutputBufferLock);
     while (!mListOfOutputBufferHeader.empty()) {
         pBufferHdr = *mListOfOutputBufferHeader.begin();
         OMX_FillThisBuffer(mVDecoderHandle, pBufferHdr);
         mListOfOutputBufferHeader.erase(mListOfOutputBufferHeader.begin());
-    }
+    }*/
 }
 
 void OMXDecoder::deinitialize()
@@ -278,21 +293,35 @@ void OMXDecoder::deinitialize()
     OMX_ERRORTYPE eRet = OMX_ErrorNone;
     OMX_STATETYPE eState1, eState2;
     LOG_LINE();
+
+    /*
     for (int i = 0; i < TEMP_BUFFER_NUM; i++)
             free(mTempFrame[i]);
+    */
+
     mNoFreeFlag = 1;
+
     if (mVDecoderHandle == NULL) {
         ALOGD("mVDecoderHandle is NULL, alread deinitialized or not initialized at all");
         return;
     }
+
+    ALOGD("flushing");
+    OMX_SendCommand(mVDecoderHandle, OMX_CommandFlush, OMX_ALL, NULL);
+
+    usleep(100 * 1000);
+
     OMX_SendCommand(mVDecoderHandle, OMX_CommandStateSet, OMX_StateIdle, NULL);
+
     do {
         eRet = OMX_GetState(mVDecoderHandle, &eState1);
+        usleep(5*1000);
     } while (OMX_StateIdle != eState1 && OMX_StateInvalid != eState1);
 
     if (eRet != OMX_ErrorNone) {
-        ALOGE("Switch to StateIdle failed");
+        LOG_LINE("OMX_GetState failed");
     }
+
     ALOGD("Switch to StateIdle successful");
 
     OMX_SendCommand(mVDecoderHandle, OMX_CommandStateSet, OMX_StateLoaded, NULL);
@@ -309,34 +338,41 @@ void OMXDecoder::deinitialize()
 
     do {
         eRet = OMX_GetState(mVDecoderHandle, &eState2);
+        usleep(5 * 1000);
+        LOG_LINE("waiting for StateLoaded");
     } while (OMX_StateLoaded != eState2 && OMX_StateInvalid != eState2);
 
     if (eRet != OMX_ErrorNone) {
-        ALOGE("Switch to StateLoaded failed");
+        LOG_LINE("OMX_GetState failed");
     }
+
     ALOGD("Switch to StateLoaded successful");
 
     (*mFreeHandle)(static_cast<OMX_HANDLETYPE *>(mVDecoderHandle));
     (*mDeinit)();
+
     if (mLibHandle != NULL) {
         ALOGD("dlclose lib handle at %p and null it", mLibHandle);
     }
-    //dlclose(mLibHandle);
-    //mLibHandle = NULL;
+
+    dlclose(mLibHandle);
+    mLibHandle = NULL;
 }
 
 OMX_BUFFERHEADERTYPE* OMXDecoder::dequeueInputBuffer()
 {
     AutoMutex l(mInputBufferLock);
     OMX_BUFFERHEADERTYPE *ret = NULL;
+
     if (!mListOfInputBufferHeader.empty()) {
         ret = *mListOfInputBufferHeader.begin();
         mListOfInputBufferHeader.erase(mListOfInputBufferHeader.begin());
     }
+
     return ret;
 }
 
-void OMXDecoder::queueInputBuffer(OMX_BUFFERHEADERTYPE* pBufferHdr)
+/*void OMXDecoder::queueInputBuffer(OMX_BUFFERHEADERTYPE* pBufferHdr)
 {
     if (pBufferHdr != NULL)
         if (mNoFreeFlag) {
@@ -347,7 +383,7 @@ void OMXDecoder::queueInputBuffer(OMX_BUFFERHEADERTYPE* pBufferHdr)
             OMX_EmptyThisBuffer(mVDecoderHandle, pBufferHdr);
         else
             ALOGD("queueInputBuffer can't find pBufferHdr .\n");
-}
+}*/
 
 OMX_BUFFERHEADERTYPE* OMXDecoder::dequeueOutputBuffer()
 {
@@ -360,7 +396,7 @@ OMX_BUFFERHEADERTYPE* OMXDecoder::dequeueOutputBuffer()
     return ret;
 }
 
-void OMXDecoder::releaseOutputBuffer(OMX_BUFFERHEADERTYPE* pBufferHdr)
+/*void OMXDecoder::releaseOutputBuffer(OMX_BUFFERHEADERTYPE* pBufferHdr)
 {
     if (pBufferHdr != NULL)
         if (mNoFreeFlag) {
@@ -371,7 +407,7 @@ void OMXDecoder::releaseOutputBuffer(OMX_BUFFERHEADERTYPE* pBufferHdr)
             OMX_FillThisBuffer(mVDecoderHandle, pBufferHdr);
         else
             ALOGD("releaseOutputBuffer can't find pBufferHdr .\n");
-}
+}*/
 
 bool OMXDecoder::uvm_buffer_init() {
     OMX_ERRORTYPE eRet = OMX_ErrorNone;
@@ -400,12 +436,16 @@ bool OMXDecoder::uvm_buffer_init() {
             ALOGE("uvm device alloc fail");
             return -1;
         }
+
         void *cpu_ptr = mmap(NULL, buffer_size, PROT_READ | PROT_WRITE, MAP_SHARED, shared_fd, 0);
         if (MAP_FAILED == cpu_ptr) {
             ALOGE("uvm mmap error!\n");
             amuvm_free(shared_fd);
             return -1;
         }
+
+        LOG_LINE("amuvm_allocate shared fd=%d, vaddr=%p", shared_fd, cpu_ptr);
+
         //mDmaBufferAlloced = true;
         OMX_BUFFERHEADERTYPE* bufferHdr;
         eRet = OMX_UseBuffer(mVDecoderHandle,
@@ -572,19 +612,81 @@ bool OMXDecoder::ion_buffer_init() {
     return true;
 }
 
+bool OMXDecoder::do_buffer_init() {
+    int shared_fd;
+    OMX_ERRORTYPE eRet = OMX_ErrorNone;
+    for (uint32_t i = 0; i < mVideoOutputPortParam.nBufferCountActual; i++) {
+        OMX_BUFFERHEADERTYPE* bufferHdr;
+        OMX_U8 *cpu_ptr = (OMX_U8 *)0xFFFFFFFF;  //fake address
+        shared_fd = -1; //fake fd
+        eRet = OMX_UseBuffer(mVDecoderHandle,
+                &bufferHdr,
+                mVideoOutputPortParam.nPortIndex,
+                (OMX_PTR)shared_fd,
+                mVideoOutputPortParam.nBufferSize,
+                (OMX_U8*)cpu_ptr);
+        if (OMX_ErrorNone != eRet) {
+            ALOGE("OMX_UseBuffer on output port failed! eRet = %#x\n", eRet);
+            return false;
+        }
+        bufferHdr->pAppPrivate = (OMX_PTR)0xff; //fake data
+        mListOfOutputBufferHeader.push_back(bufferHdr);
+        ALOGD("%s: bufferHdr = %p\n", __FUNCTION__, bufferHdr);
+    }
+    return true;
+}
+
+void OMXDecoder::do_buffer_free(void) {
+#if 0
+    while (!mListOfOutputBufferHeader.empty()) {
+        ALOGD("do_free_buffer: erase mListOfOutputBufferHeader");
+        OMX_BUFFERHEADERTYPE *pBufferHdr = *mListOfOutputBufferHeader.begin();
+        pBufferHdr->pPlatformPrivate = NULL;
+        OMX_FreeBuffer(mVDecoderHandle, mVideoOutputPortParam.nPortIndex, pBufferHdr);
+        mListOfOutputBufferHeader.erase(mListOfOutputBufferHeader.begin());
+    }
+#else
+    OMX_ERRORTYPE eRet = OMX_ErrorNone;
+
+    for (uint32_t i = 0; i < mVideoOutputPortParam.nBufferCountActual; i++) {
+        OMX_BUFFERHEADERTYPE *bufferHdr = (OMX_BUFFERHEADERTYPE *)malloc(sizeof(OMX_BUFFERHEADERTYPE));
+        bufferHdr->pPlatformPrivate = NULL;
+
+#if 0
+        eRet = OMX_FreeBuffer(mVDecoderHandle,
+                &bufferHdr,
+                mVideoOutputPortParam.nPortIndex,
+                (OMX_PTR)shared_fd,
+                mVideoOutputPortParam.nBufferSize,
+                (OMX_U8*)cpu_ptr);
+#else
+        eRet = OMX_FreeBuffer(mVDecoderHandle, mVideoOutputPortParam.nPortIndex, bufferHdr);
+#endif
+
+        if (OMX_ErrorNone != eRet) {
+            ALOGE("OMX_FreeBuffer on output port failed! eRet = %#x\n", eRet);
+        }
+    }
+#endif
+}
+
 bool OMXDecoder::prepareBuffers()
 {
     LOG_LINE();
     OMX_U32 uAlignedBytes = (((mVideoInputPortParam.nBufferSize + ZTE_BUF_ADDR_ALIGNMENT_VALUE - 1) & ~(ZTE_BUF_ADDR_ALIGNMENT_VALUE - 1)));
+
     mNoFreeFlag = 0;
     OMX_ERRORTYPE eRet = OMX_ErrorNone;
+
     for (uint32_t i = 0; i < mVideoInputPortParam.nBufferCountActual; i++) {
         OMX_BUFFERHEADERTYPE* bufferHdr;
         OMX_U8 *ptr = (OMX_U8 *)(malloc(uAlignedBytes * sizeof(OMX_U8)));
+
         if (!ptr) {
             ALOGE("out of memory when allocation input buffers");
             return false;
         }
+
         eRet = OMX_UseBuffer(mVDecoderHandle, &bufferHdr,
                 mVideoInputPortParam.nPortIndex, NULL,
                 mVideoInputPortParam.nBufferSize, ptr);
@@ -593,6 +695,7 @@ bool OMXDecoder::prepareBuffers()
             ALOGE("OMX_UseBuffer on input port failed! eRet = %#x\n", eRet);
             return false;
         }
+
         ALOGD("OMX_UseBuffer input %p", bufferHdr);
         mListOfInputBufferHeader.push_back(bufferHdr);
     }
@@ -602,12 +705,31 @@ bool OMXDecoder::prepareBuffers()
     ALOGD("Allocating %u buffers from a native window of size %u on "
             "output port", mOutBufferCount, buffer_size);
 
-    //ion_buffer_init();
-    //normal_buffer_init(buffer_size);
-    uvm_buffer_init();
+    switch (mem_type) {
+    case VMALLOC_BUFFER:
+        LOG_LINE();
+        normal_buffer_init(buffer_size);
+        break;
+    case ION_BUFFER:
+        LOG_LINE();
+        ion_buffer_init();
+        break;
+    case UVM_BUFFER:
+        LOG_LINE();
+        uvm_buffer_init();
+        break;
+    case SHARED_FD:
+        do_buffer_init();
+        break;
+    default:
+        LOG_LINE();
+        normal_buffer_init(buffer_size);
+        break;
+    }
 
     do {
         OMX_GetState(mVDecoderHandle, &eState1);
+        usleep(10*1000);
     } while (OMX_StateIdle != eState1 && OMX_StateInvalid != eState1);
     ALOGD("STATETRANS FROM LOADED TO IDLE COMPLETED, eRet =%x\n", eRet);
 
@@ -616,6 +738,7 @@ bool OMXDecoder::prepareBuffers()
 
     do {
         OMX_GetState(mVDecoderHandle, &eState2);
+        usleep(10*1000);
     } while (OMX_StateExecuting != eState2 && OMX_StateInvalid != eState2);
 
     ALOGD("STATETRANS FROM IDLE TO EXECUTING COMPLETED, eRet =%x\n", eRet);
@@ -681,11 +804,18 @@ void OMXDecoder::free_uvm_buffer() {
            OMX_ERRORTYPE err;
            if (bufferHdr != NULL) {
                if (mUseDMABuffer) {
+                   LOG_LINE("try to unmap uvm vaddr %p, fd: %d", bufferHdr->pBuffer, (int)(bufferHdr->pPlatformPrivate));
+
                    munmap(bufferHdr->pBuffer, mWidth * mHeight * 3 / 2);
+
+                   amuvm_free((int)(bufferHdr->pPlatformPrivate));
+
                    int ret = close((int)bufferHdr->pPlatformPrivate);
+
                    if (ret != 0) {
                        ALOGD("close ion shared fd failed for reason %s",strerror(errno));
                    }
+
                    ALOGD("bufferHdr->pAppPrivate: %p", bufferHdr->pAppPrivate);
 
                    err = OMX_FreeBuffer(mVDecoderHandle,mVideoOutputPortParam.nPortIndex,bufferHdr);
@@ -707,6 +837,7 @@ void OMXDecoder::freeBuffers() {
     unsigned int i;
     while (!mListOfInputBufferHeader.empty()) {
         OMX_BUFFERHEADERTYPE* bufferHdr = *(mListOfInputBufferHeader.begin());
+
         if (bufferHdr != NULL) {
             OMX_U8 *pIn = bufferHdr->pBuffer;
             ALOGD("OMX_FreeBuffer input %p", bufferHdr);
@@ -723,9 +854,27 @@ void OMXDecoder::freeBuffers() {
     }
 
     if (mUseDMABuffer) {
-        //free_ion_buffer();
-        //free_normal_buffer();
-        free_uvm_buffer();
+        switch (mem_type) {
+        case VMALLOC_BUFFER:
+            LOG_LINE();
+            free_normal_buffer();
+            break;
+        case ION_BUFFER:
+            LOG_LINE();
+            free_ion_buffer();
+            break;
+        case UVM_BUFFER:
+            LOG_LINE();
+            free_uvm_buffer();
+            break;
+        case SHARED_FD:
+            do_buffer_free();
+            break;
+        default:
+            LOG_LINE();
+            free_normal_buffer();
+            break;
+        }
     } else {
         for (i = 0; i < mOutBufferCount; i++) {
             OMX_BUFFERHEADERTYPE* bufferHdr = mOutBufferNative[i].pBuffer;
@@ -814,13 +963,11 @@ OMX_ERRORTYPE OMXDecoder::emptyBufferDone(OMX_IN OMX_BUFFERHEADERTYPE *pBuffer)
 
 OMX_ERRORTYPE OMXDecoder::fillBufferDone(OMX_IN OMX_BUFFERHEADERTYPE *pBuffer)
 {
-    ALOGD("%s: Enter \n",__FUNCTION__);
     AutoMutex l(mOutputBufferLock);
     mListOfOutputBufferHeader.push_back(pBuffer);
     //send signal
     Mutex::Autolock lock(mOMXControlMutex);
     mOMXVSync.signal();
-    ALOGD("%s: Exit \n",__FUNCTION__);
     return OMX_ErrorNone;
 }
 
@@ -854,7 +1001,8 @@ OMX_ERRORTYPE OMXDecoder::OnFillBufferDone(
     return instance->fillBufferDone(pBuffer);
 }
 
-void OMXDecoder::QueueBuffer(uint8_t* src, size_t size) {
+void OMXDecoder::QueueInputBuffer(uint8_t* src, size_t size) {
+    static OMX_TICKS timeStamp = 0;
     OMX_BUFFERHEADERTYPE *pInPutBufferHdr = NULL;
     pInPutBufferHdr = dequeueInputBuffer();
     if (pInPutBufferHdr && pInPutBufferHdr->pBuffer) {
@@ -863,11 +1011,32 @@ void OMXDecoder::QueueBuffer(uint8_t* src, size_t size) {
         pInPutBufferHdr->nOffset = 0;
         pInPutBufferHdr->nTimeStamp = timeStamp;
         pInPutBufferHdr->nFlags |= OMX_BUFFERFLAG_ENDOFFRAME;
-        queueInputBuffer(pInPutBufferHdr);
+        //queueInputBuffer(pInPutBufferHdr);
+        OMX_EmptyThisBuffer(mVDecoderHandle, pInPutBufferHdr);
         timeStamp += 33 * 1000; //44
     }
-    ALOGD("%s:omx pInPutBufferHdr->nTimeStamp= %lld \n",
-                                            __FUNCTION__,pInPutBufferHdr->nTimeStamp);
+}
+
+void OMXDecoder::SetOutputBuffer(int share_fd, uint8_t* addr) {
+    OMX_BUFFERHEADERTYPE *pBufferHdr = NULL;
+    AutoMutex l(mOutputBufferLock);
+
+    if (!mListOfOutputBufferHeader.empty()) {
+        pBufferHdr = *mListOfOutputBufferHeader.begin();
+        pBufferHdr->pAppPrivate = (void *)share_fd;
+        pBufferHdr->pPlatformPrivate = (void *)share_fd;
+        pBufferHdr->pBuffer = addr;
+
+        ALOGV("SetOutputBuffer %p, OMX_FillThisBuffer, share_fd=%d, pAppPrivate=%d, pPlatformPrivate=%d",
+                pBufferHdr,
+                share_fd,
+                (int)(pBufferHdr->pAppPrivate),
+                (int)(pBufferHdr->pPlatformPrivate));
+
+        OMX_FillThisBuffer(mVDecoderHandle, pBufferHdr);
+        ALOGV("SetOutputBuffer: erase mListOfOutputBufferHeader");
+        mListOfOutputBufferHeader.erase(mListOfOutputBufferHeader.begin());
+    }
 }
 
 int OMXDecoder::DequeueBuffer(int dst_fd ,uint8_t* dst_buf,
@@ -896,12 +1065,12 @@ int OMXDecoder::DequeueBuffer(int dst_fd ,uint8_t* dst_buf,
 #else
             //no ge2d support
             memcpy(dst_buf, pOutPutBufferHdr->pBuffer, pOutPutBufferHdr->nFilledLen);
+
 #endif
-            releaseOutputBuffer(pOutPutBufferHdr);
+            //releaseOutputBuffer(pOutPutBufferHdr);
             ret = 1;
             ALOGD("%s:Exit",__FUNCTION__);
         }
-
         return ret;
 }
 
@@ -917,55 +1086,25 @@ bool OMXDecoder::OMXWaitForVSync(nsecs_t reltime) {
     return true;
 }
 
-
 int OMXDecoder::Decode(uint8_t*src, size_t src_size,
                           int dst_fd,uint8_t *dst_buf,
                           size_t dst_w, size_t dst_h) {
-        int ret = 0;
-        QueueBuffer(src, src_size);
-
-        bool state = OMXWaitForVSync(20*1000*1000); //20ms
-
-        if (state) {
-               ret = DequeueBuffer(dst_fd,dst_buf,dst_w,dst_h);
-            if (!ret) {
-                if (mDequeueFailNum ++ > MAX_POLLING_COUNT)
-                    mTimeOut = true;
-
-                ALOGD("%s:Polling number=%d",__FUNCTION__,mDequeueFailNum);
-            }
-        } else {
-            ALOGD("%s: OMX Vsync error",__FUNCTION__);
-            ret = 0;
-        }
-#if 0
-        if (ret && mDequeueFailNum >= 1) {
-            bool Iscached = false;
-            int buffer_index = 0;
-            int dst_fd = -1;
-            for (int i = 0 ; i < TEMP_BUFFER_NUM; i++) {
-                /*becase mTempFrame is not physical consist memory,
-                 *if decode image to this buffer, we can't use ge2d to rotate
-                 *the image.
-                 */
-                int value = DequeueBuffer(dst_fd,mTempFrame[i],dst_w,dst_h);
-                if (value) {
-                    ALOGD("%s:read cached data.",__FUNCTION__);
-                    mDequeueFailNum -= 1;
-                    Iscached = true;
-                    continue;
-                }
-                else {
-                    buffer_index = i - 1;
-                    break;
-                }
-            }
-
-            if (Iscached && buffer_index >= 0) {
-                ALOGD("%s:buffer_index=%d",__FUNCTION__,buffer_index);
-                memcpy(dst_buf,mTempFrame[buffer_index],mWidth*mHeight*3/2);
-            }
-        }
-#endif
+    int ret = 0;
+    if (dst_fd < 0 || dst_buf == NULL) {
+        ALOGD("%s: dst_fd=%d, dst_buf=%p", __FUNCTION__, dst_fd, dst_buf);
         return ret;
+    }
+
+    SetOutputBuffer(dst_fd, dst_buf);
+    QueueInputBuffer(src, src_size);
+
+    if (OMXWaitForVSync(200*1000*1000)) { //wait timeout 20ms
+        /*ret = DequeueBuffer(ge2d_handle, dst_fd, dst_buf, dst_w, dst_h);
+        if (!ret) {
+            ALOGD("%s: FailNumber=%d", __FUNCTION__, mDequeueFailNum);
+        }*/
+        ret = 1;
+    }
+
+    return ret;
 }

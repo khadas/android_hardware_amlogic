@@ -43,7 +43,7 @@ using namespace android;
 #define YUV_SIZE(W, H)   ((W) * (H) * 3 >> 1)
 #define ZTE_BUF_ADDR_ALIGNMENT_VALUE 512
 #define OMX_IndexVendorZteOmxDecNormalYUVMode 0x7F10000C
-#define LOG_LINE() ALOGD("%s:%d", __FUNCTION__, __LINE__);
+#define LOG_LINE(fmt, ...) ALOGD("[%s:%d] " fmt, __FUNCTION__, __LINE__, ##__VA_ARGS__)
 typedef OMX_ERRORTYPE (*InitFunc)();
 typedef OMX_ERRORTYPE (*DeinitFunc)();
 typedef OMX_ERRORTYPE (*GetHandleFunc)(OMX_HANDLETYPE *, OMX_STRING, OMX_PTR, OMX_CALLBACKTYPE *);
@@ -72,13 +72,13 @@ public:
     void deinitialize();
     //void saveNativeBufferHdr(void *buffer, int index, int bufferNum, struct GrallocBufInfo info, bool status);//omx zero-copy
     OMX_BUFFERHEADERTYPE* dequeueInputBuffer();
-    void queueInputBuffer(OMX_BUFFERHEADERTYPE* pBufferHdr);
+    //void queueInputBuffer(OMX_BUFFERHEADERTYPE* pBufferHdr);
     //ANativeWindowBuffer * dequeueOutputBuffer();
     //native_handle_t * dequeueOutputBuffer();
     OMX_BUFFERHEADERTYPE* dequeueOutputBuffer();
     //void releaseOutputBuffer(ANativeWindowBuffer * pBufferHdr);
     //void releaseOutputBuffer(native_handle_t * pBufferHdr);
-    void releaseOutputBuffer(OMX_BUFFERHEADERTYPE* pBufferHdr);
+    //void releaseOutputBuffer(OMX_BUFFERHEADERTYPE* pBufferHdr);
 
     template<class T> void InitOMXParams(T *params);
 
@@ -91,28 +91,28 @@ public:
     OMX_ERRORTYPE emptyBufferDone(OMX_IN OMX_BUFFERHEADERTYPE *pBuffer);
     OMX_ERRORTYPE fillBufferDone(OMX_IN OMX_BUFFERHEADERTYPE *pBuffer);
 
-  static OMX_ERRORTYPE OnEvent(
-          OMX_IN OMX_HANDLETYPE hComponent,
-          OMX_IN OMX_PTR pAppData,
-          OMX_IN OMX_EVENTTYPE eEvent,
-          OMX_IN OMX_U32 nData1,
-          OMX_IN OMX_U32 nData2,
-          OMX_IN OMX_PTR pEventData);
+    static OMX_ERRORTYPE OnEvent(
+            OMX_IN OMX_HANDLETYPE hComponent,
+            OMX_IN OMX_PTR pAppData,
+            OMX_IN OMX_EVENTTYPE eEvent,
+            OMX_IN OMX_U32 nData1,
+            OMX_IN OMX_U32 nData2,
+            OMX_IN OMX_PTR pEventData);
 
-  static OMX_ERRORTYPE OnEmptyBufferDone(
-          OMX_IN OMX_HANDLETYPE hComponent,
-          OMX_IN OMX_PTR pAppData,
-          OMX_IN OMX_BUFFERHEADERTYPE *pBuffer);
+    static OMX_ERRORTYPE OnEmptyBufferDone(
+            OMX_IN OMX_HANDLETYPE hComponent,
+            OMX_IN OMX_PTR pAppData,
+            OMX_IN OMX_BUFFERHEADERTYPE *pBuffer);
 
-  static OMX_ERRORTYPE OnFillBufferDone(
-          OMX_IN OMX_HANDLETYPE hComponent,
-          OMX_IN OMX_PTR pAppData,
-          OMX_IN OMX_BUFFERHEADERTYPE *pBuffer);
+    static OMX_ERRORTYPE OnFillBufferDone(
+            OMX_IN OMX_HANDLETYPE hComponent,
+            OMX_IN OMX_PTR pAppData,
+            OMX_IN OMX_BUFFERHEADERTYPE *pBuffer);
 
     static OMX_CALLBACKTYPE kCallbacks;
     int Decode(uint8_t*src, size_t src_size,
-                                  int dst_fd,uint8_t *dst_buf,
-                                  size_t dst_w, size_t dst_h);
+            int dst_fd,uint8_t *dst_buf,
+            size_t dst_w, size_t dst_h);
 private:
     OMX_ERRORTYPE WaitForState(OMX_HANDLETYPE hComponent, OMX_STATETYPE eTestState, OMX_STATETYPE eTestState2);
     OMX_U32 mWidth;
@@ -131,15 +131,15 @@ private:
     Mutex mOutputBufferLock;
     List<OMX_BUFFERHEADERTYPE*> mListOfOutputBufferHeader;
 
-  struct out_buffer_t {
-      int index;
-      int fd;
-      int mIonFd;
-      void *fd_ptr;
-      struct ion_handle *ion_hnd;
-      OMX_BUFFERHEADERTYPE * pBuffer;
-      int bufsize;
-  };
+    struct out_buffer_t {
+        int index;
+        int fd;
+        int mIonFd;
+        void *fd_ptr;
+        struct ion_handle *ion_hnd;
+        OMX_BUFFERHEADERTYPE * pBuffer;
+        int bufsize;
+    };
 
     struct out_buffer_t *mOutBuffer;
     int mNoFreeFlag;
@@ -147,12 +147,14 @@ private:
 
     //native buffer
     uint32_t mOutBufferCount;
-  struct out_buffer_native {
-      //ANativeWindowBuffer *mOutputNativeBuffer;
-      native_handle_t* handle;
-      OMX_BUFFERHEADERTYPE *pBuffer;
-      bool isQueued;
-  };
+
+    struct out_buffer_native {
+        //ANativeWindowBuffer *mOutputNativeBuffer;
+        native_handle_t* handle;
+        OMX_BUFFERHEADERTYPE *pBuffer;
+        bool isQueued;
+    };
+
     struct out_buffer_native *mOutBufferNative;
 
     void* mLibHandle;
@@ -165,12 +167,14 @@ private:
     int mDequeueFailNum;
     uint8_t* mTempFrame[TEMP_BUFFER_NUM];
     int mUvmFd;
-	OMX_TICKS timeStamp = 0;
-	Mutex mOMXControlMutex;
+    OMX_TICKS timeStamp = 0;
+    Mutex mOMXControlMutex;
     Condition mOMXVSync;
+
 #ifdef GE2D_ENABLE
-	ge2dTransform* mGE2D;
+    ge2dTransform* mGE2D;
 #endif
+
 private:
     void QueueBuffer(uint8_t* src, size_t size);
     int DequeueBuffer(int dst_fd ,uint8_t* dst_buf,
@@ -181,6 +185,10 @@ private:
     void free_ion_buffer();
     void free_normal_buffer();
     void free_uvm_buffer();
-	bool OMXWaitForVSync(nsecs_t reltime);
+    bool OMXWaitForVSync(nsecs_t reltime);
+    void SetOutputBuffer(int share_fd, uint8_t* addr);
+    void QueueInputBuffer(uint8_t* src, size_t size);
+    bool do_buffer_init();
+    void do_buffer_free();
 };
 #endif
