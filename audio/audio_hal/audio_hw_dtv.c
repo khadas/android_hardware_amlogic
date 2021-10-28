@@ -3080,6 +3080,7 @@ void *audio_dtv_patch_output_threadloop_v2(void *data)
     struct audio_config stream_config;
     int write_bytes = DEFAULT_PLAYBACK_PERIOD_SIZE * PLAYBACK_PERIOD_COUNT;
     int ret;
+    float last_out_speed = 1.0f;
     int apts_diff = 0;
     struct timespec ts;
 
@@ -3175,7 +3176,13 @@ void *audio_dtv_patch_output_threadloop_v2(void *data)
           ALOGV("p_package->size %d",p_package->size);
         }
 
-        aml_out->output_speed = aml_audio_get_output_speed(aml_out);
+        if (last_out_speed != aml_out->output_speed) {
+            ALOGI("[%s-%d] speed change from %f to %f get_sink_format again", __func__, __LINE__,
+                last_out_speed, aml_out->output_speed);
+            get_sink_format(stream_out);
+        }
+        last_out_speed = aml_audio_get_output_speed(aml_out);
+        aml_out->output_speed = last_out_speed;
         pthread_mutex_unlock(&patch->mutex);
         pthread_mutex_lock(&(patch->dtv_output_mutex));
 
