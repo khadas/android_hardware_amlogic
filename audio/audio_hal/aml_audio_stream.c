@@ -241,6 +241,27 @@ static audio_format_t get_suitable_output_format(struct aml_stream_out *out,
 }
 
 /*
+ * When turn on the Automatic function to play the dolby audio in low speed,the TV might
+ * can't decode.So if the play mode was Automatic and the output speed was in not equal
+ * 1.0f, set the ret_format to AUDIO_FORMAT_PCM_16_BIT to send the PCM data to spdif.
+ */
+static audio_format_t reconfig_optical_audio_format(struct aml_stream_out *aml_out,
+        audio_format_t org_optical_format)
+{
+    audio_format_t ret_format = org_optical_format;
+
+    if (aml_out == NULL)
+        return org_optical_format;
+
+    if (aml_out->output_speed != 1.0f && aml_out->output_speed != 0.0f) {
+        ALOGI("change to micro speed need reconfig optical audio format to PCM");
+        ret_format = AUDIO_FORMAT_PCM_16_BIT;
+    }
+
+    return ret_format;
+}
+
+/*
  *@brief get sink format by logic min(source format / digital format / sink capability)
  * For Speaker/Headphone output, sink format keep PCM-16bits
  * For optical output, min(dd, source format, digital format)
@@ -322,6 +343,8 @@ void get_sink_format(struct audio_stream_out *stream)
                 sink_audio_format = MIN(ms12_max_support_output_format(), sink_capability);
             }
             optical_audio_format = sink_audio_format;
+
+            optical_audio_format = reconfig_optical_audio_format(aml_out, optical_audio_format);
             break;
         case BYPASS:
             if (is_dts_format(source_format)) {
@@ -363,6 +386,8 @@ void get_sink_format(struct audio_stream_out *stream)
             if (eDolbyMS12Lib == adev->dolby_lib_type && !is_dts_format(source_format)) {
                 optical_audio_format = AUDIO_FORMAT_AC3;
             }
+
+            optical_audio_format = reconfig_optical_audio_format(aml_out, optical_audio_format);
             break;
         case BYPASS:
            sink_audio_format = AUDIO_FORMAT_PCM_16_BIT;
