@@ -381,6 +381,10 @@ int aml_audio_nonms12_render(struct audio_stream_out *stream, const void *buffer
                 try_again = true;
             }
 
+            /* DTS update audio format to display audio info banner.*/
+            if (is_dts_format(aml_out->hal_internal_format))
+                update_audio_format(adev, aml_out->hal_internal_format);
+
         } while ((left_bytes > 0) || aml_dec->fragment_left_size || try_again);
     }
 

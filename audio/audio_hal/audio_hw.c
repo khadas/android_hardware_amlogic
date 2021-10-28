@@ -7484,7 +7484,9 @@ ssize_t out_write_new(struct audio_stream_out *stream,
     if (write_func_p) {
         ret = write_func_p(stream, buffer, bytes);
         /* update audio format to display audio info banner.*/
-        update_audio_format(adev, aml_out->hal_internal_format);
+        /* DTS needs earlier update in decode flow */
+        if (!is_dts_format(aml_out->hal_internal_format))
+            update_audio_format(adev, aml_out->hal_internal_format);
     }
     aml_audio_trace_int("out_write_new", 0);
     if (ret > 0) {
