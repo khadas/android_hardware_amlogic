@@ -3501,6 +3501,12 @@ static void *audio_dtv_patch_process_threadloop_v2(void *data)
             } else if (cmd == AUDIO_DTV_PATCH_CMD_STOP) {
                 ALOGI("[audiohal_kpi]++%s live now  stop  the audio decoder now \n",
                      __FUNCTION__);
+                /*
+                 * When stop after pause, need release output thread.
+                 * Or it will lead next channel no sound which has diff format.
+                 * And can't add flush action, it maybe will lead freeze.
+                 * */
+                release_dtv_output_stream_thread(patch);
                 dtv_audio_instances->demux_index_working = -1;
                 dtv_assoc_audio_stop(1);
                 aml_dev->ad_start_enable = 0;
