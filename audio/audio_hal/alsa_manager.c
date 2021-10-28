@@ -671,6 +671,7 @@ size_t aml_alsa_input_read(struct audio_stream_in *stream,
                         size_t bytes) {
     struct aml_stream_in *in = (struct aml_stream_in *)stream;
     struct aml_audio_device *aml_dev = in->dev;
+    struct aml_audio_patch *patch = aml_dev->audio_patch;
     char  *read_buf = (char *)buffer;
     int ret = 0;
     size_t  read_bytes = 0;
@@ -679,21 +680,9 @@ size_t aml_alsa_input_read(struct audio_stream_in *stream,
     size_t frame_size = in->config.channels * pcm_format_to_bits(in->config.format) / 8;
 
     while (read_bytes < bytes) {
-        /**
-        * If audio patch was not NULL, need add locks to
-        * avoid the audio patch being released when in used.
-        */
-        if (aml_dev->audio_patch != NULL) {
-            pthread_mutex_lock(&aml_dev->patch_lock);
-            /* Add lock and double check to ensure the patch was not being released */
-            if (aml_dev->audio_patch != NULL) {
-                if (aml_dev->audio_patch && aml_dev->audio_patch->input_thread_exit) {
-                    memset((void*)buffer,0,bytes);
-                    pthread_mutex_unlock(&aml_dev->patch_lock);
-                    return 0;
-                }
-            }
-            pthread_mutex_unlock(&aml_dev->patch_lock);
+        if (patch && patch->input_thread_exit) {
+            memset((void*)buffer,0,bytes);
+            return 0;
         }
 
         pcm_handle = in->pcm;
