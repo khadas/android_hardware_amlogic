@@ -1566,3 +1566,22 @@ enum hdmiin_audio_mode get_hdmiin_audio_mode(struct aml_mixer_handle *mixer_hand
             AML_MIXER_ID_HDMIIN_AUDIO_MODE);
 }
 
+void tv_do_ease_out(struct aml_audio_device *aml_dev)
+{
+    int duration_ms = 0;
+    if (aml_dev && aml_dev->audio_ease) {
+        float vol_now = aml_audio_ease_get_current_volume(aml_dev->audio_ease);
+        if (vol_now == 0.0f) {
+            ALOGI("%s(),vol_now %f skip fade out", __func__, vol_now);
+        } else {
+            ALOGI("%s(), vol_now %f do fade out", __func__, vol_now);
+            if (aml_dev->is_TV) {
+                duration_ms = property_get_int32("vendor.media.audio.dtv.fadeout.us", AUDIO_FADEOUT_TV_DURATION_US) / 1000;
+            } else {
+                duration_ms = property_get_int32("vendor.media.audio.dtv.fadeout.us", AUDIO_FADEOUT_STB_DURATION_US) / 1000;
+            }
+            start_ease_out(aml_dev->audio_ease, aml_dev->is_TV, duration_ms / 2);
+            usleep(duration_ms * 1000);
+        }
+    }
+}

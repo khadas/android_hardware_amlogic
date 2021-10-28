@@ -324,4 +324,13 @@ void set_ms12_main_audio_pts(struct dolby_ms12_desc *ms12, uint64_t apts, unsign
  */
 void set_ms12_main1_audio_pts(struct dolby_ms12_desc *ms12, uint64_t apts, unsigned int bytes_offset);
 
+/*
+ *@brief set ms12 main1 audio mute or non mute
+ * input parameters
+ *     struct dolby_ms12_desc *ms12: ms12 pointer
+ *     bool b_mute: 1 mute , 0 unmute
+ */
+void set_ms12_main1_audio_mute(struct dolby_ms12_desc *ms12, bool b_mute);
+
+
 #endif //end of _AUDIO_HW_MS12_H_

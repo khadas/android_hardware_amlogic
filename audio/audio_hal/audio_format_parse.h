@@ -68,6 +68,7 @@ typedef enum hdmiin_audio_packet {
 #define DTSHD_PERIOD_SIZE   (512*8)
 #define DTSHD_PERIOD_SIZE_1 (512*32)
 #define DTSHD_PERIOD_SIZE_2 (512*48)
+#define DTSCD_VALID_COUNT   (2)
 
 typedef struct audio_type_parse {
     struct pcm_config config_in;

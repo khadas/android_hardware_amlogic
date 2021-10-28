@@ -313,6 +313,7 @@ int audio_type_parse(void *buffer, size_t bytes, int *package_size, audio_channe
     uint32_t *tmp_pc;
     uint32_t pc = 0;
     uint32_t tmp = 0;
+    static int dts_cd_sync_count = 0;
 
     pos_sync_word = seek_61937_sync_word((char*)temp_buffer, bytes);
     pos_dtscd_sync_word = seek_dts_cd_sync_word((char*)temp_buffer, bytes);
@@ -320,10 +321,17 @@ int audio_type_parse(void *buffer, size_t bytes, int *package_size, audio_channe
     DoDumpData(temp_buffer, bytes, CC_DUMP_SRC_TYPE_INPUT_PARSE);
 
     if (pos_dtscd_sync_word >= 0) {
-        AudioType = DTSCD;
-        *package_size = DTSHD_PERIOD_SIZE * 2;
-        ALOGV("%s() %d data format: %d *package_size %d\n", __FUNCTION__, __LINE__, AudioType, *package_size);
+        dts_cd_sync_count++;
+        if (dts_cd_sync_count < DTSCD_VALID_COUNT) {
+            AudioType = LPCM;
+        } else {
+            *package_size = DTSHD_PERIOD_SIZE * 2;
+            ALOGV("%s() %d data format: %d *package_size %d\n", __FUNCTION__, __LINE__, AudioType, *package_size);
+            AudioType = DTSCD;
+        }
         return AudioType;
+    } else {
+        dts_cd_sync_count = 0;
     }
 
     if (pos_sync_word >= 0) {

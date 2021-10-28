@@ -153,6 +153,7 @@ struct dolby_ms12_desc {
     uint64_t last_synced_frame_pts;
     uint64_t out_synced_frame_count;
     bool debug_synced_frame_pts_flag;
+    bool     is_muted;
 };
 
 /*

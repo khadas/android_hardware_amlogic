@@ -474,6 +474,7 @@ void release_tvin_buffer(struct aml_audio_patch *patch);
 void tv_in_write(struct audio_stream_out *stream, const void* buffer, size_t bytes);
 int tv_in_read(struct audio_stream_in *stream, void* buffer, size_t bytes);
 int set_tv_source_switch_parameters(struct audio_hw_device *dev, struct str_parms *parms);
+void tv_do_ease_out(struct aml_audio_device *aml_dev);
 
 /*
 *@breif check tv signal need to mute or not

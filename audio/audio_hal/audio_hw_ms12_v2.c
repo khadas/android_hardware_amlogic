@@ -650,6 +650,24 @@ void dynamic_set_dolby_ms12_drc_parameters(struct dolby_ms12_desc *ms12)
 
 }
 
+void set_ms12_main1_audio_mute(struct dolby_ms12_desc *ms12, bool b_mute)
+{
+    char parm[64] = "";
+    /*
+    - target gain at end of ramp in dB (range: -96 * 128..0), the step is 1/128 db, so the range is (-96,0)
+    - duration of ramp in milliseconds (range: 0..60000)
+    - shape of the ramp (0: linear, 1: in cube, 2: out cube)
+    */
+    if (b_mute) {
+        sprintf(parm, "%s %d,%d,%d", "-main1_mixgain", -96 * 128, 10, 0);
+    } else {
+        sprintf(parm, "%s %d,%d,%d", "-main1_mixgain", 0, 10, 0);
+    }
+    if ((strlen(parm)) > 0 && ms12)
+        aml_ms12_update_runtime_params(ms12, parm);
+    ms12->is_muted = b_mute;
+}
+
 void set_dolby_ms12_drc_parameters(audio_format_t input_format, int output_config_mask)
 {
     int dolby_ms12_drc_mode = DOLBY_DRC_RF_MODE;

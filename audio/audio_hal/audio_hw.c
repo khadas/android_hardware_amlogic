@@ -5375,6 +5375,13 @@ ssize_t audio_hal_data_processing(struct audio_stream_out *stream,
         sysfs_set_sysfs_str(REPORT_DECODED_INFO, sysfs_buf);
     }
 #endif
+    if (adev->dev2mix_patch) {
+        tv_in_write(stream, buffer, bytes);
+        memset((char *)buffer, 0, bytes);
+        if (aml_out->is_tv_platform == 1) {
+           memset(aml_out->tmp_buffer_8ch, 0, (*output_buffer_bytes));
+        }
+    }
 
     return 0;
 }
@@ -7911,6 +7918,7 @@ int release_patch_l(struct aml_audio_device *aml_dev)
         ALOGD("%s(), no patch to release", __func__);
         goto exit;
     }
+    tv_do_ease_out(aml_dev);
     patch->output_thread_exit = 1;
     patch->input_thread_exit = 1;
     if (IS_HDMI_IN_HW(patch->input_src) ||

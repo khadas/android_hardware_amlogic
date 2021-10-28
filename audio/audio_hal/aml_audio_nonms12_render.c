@@ -335,15 +335,11 @@ int aml_audio_nonms12_render(struct audio_stream_out *stream, const void *buffer
                     check_audio_level("render pcm", dec_data, pcm_len);
                 }
 
-                if (adev->dev2mix_patch) {
-                    tv_in_write(stream, dec_data, pcm_len);
-                    if (aml_out->is_tv_platform == 1) {
-                        memset(dec_data, 0, pcm_len);
-                    }
-                } else if (adev->patch_src == SRC_HDMIIN ||
+                if (adev->patch_src == SRC_HDMIIN ||
                             adev->patch_src == SRC_SPDIFIN ||
                             adev->patch_src == SRC_LINEIN ||
-                            adev->patch_src == SRC_ATV) {
+                            adev->patch_src == SRC_ATV ||
+                            adev->patch_src == SRC_DTV) {
 
                     if (patch && patch->need_do_avsync) {
                          memset(dec_data, 0, pcm_len);
@@ -354,11 +350,13 @@ int aml_audio_nonms12_render(struct audio_stream_out *stream, const void *buffer
                             start_ease_in(adev->audio_ease);
                             adev->mute_start = false;
                         }
+
+                        if (adev->audio_patching) {
+                           /*ease in or ease out*/
+                           aml_audio_ease_process(adev->audio_ease, dec_data, pcm_len);
+                        }
                     }
-                    if (adev->audio_patching) {
-                        /*ease in or ease out*/
-                        aml_audio_ease_process(adev->audio_ease, dec_data, pcm_len);
-                    }
+
                     if (get_debug_value(AML_DUMP_AUDIOHAL_TV)) {
                         aml_audio_dump_audio_bitstreams("/data/vendor/audiohal/tv_non12_before_mixer.raw",
                             dec_data, pcm_len);
