@@ -598,7 +598,8 @@ int pcm_read(struct pcm *pcm, void *data, unsigned int count)
         if (!(pcm->flags & PCM_NONEBLOCK)) {
             return 0;
         }
-        return x.result;
+        return x.result * (pcm->config.channels *
+                    pcm_format_to_bits(pcm->config.format) / 8);
     }
 }
 

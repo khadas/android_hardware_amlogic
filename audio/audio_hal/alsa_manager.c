@@ -705,7 +705,7 @@ size_t aml_alsa_input_read(struct audio_stream_in *stream,
         ret = pcm_read(pcm_handle, (unsigned char *)buffer + read_bytes, bytes - read_bytes);
         if (ret >= 0) {
             nodata_count = 0;
-            read_bytes += ret*frame_size;
+            read_bytes += ret;
             ALOGV("pcm_handle:%p, ret:%d read_bytes:%d, bytes:%d ",
                 pcm_handle,ret,read_bytes,bytes);
         } else if (ret != -EAGAIN) {

@@ -441,7 +441,7 @@ static int audio_type_parse_init(audio_type_parse_t *status)
 
     if (audio_type_status->soft_parser) {
         in = pcm_open(audio_type_status->card, audio_type_status->device,
-                      PCM_IN, &audio_type_status->config_in);
+                      PCM_IN | PCM_NONEBLOCK, &audio_type_status->config_in);
         if (!pcm_is_ready(in)) {
             ALOGE("open device failed: %s\n", pcm_get_error(in));
             pcm_close(in);
@@ -578,6 +578,7 @@ static int reconfig_pcm_by_packet_type(audio_type_parse_t *audio_type_status,
     return 0;
 }
 
+#define WAIT_COUNT_MAX 30
 static void* audio_type_parse_threadloop(void *data)
 {
     audio_type_parse_t *audio_type_status = (audio_type_parse_t *)data;
@@ -585,7 +586,7 @@ static void* audio_type_parse_threadloop(void *data)
     int cur_samplerate = HW_RESAMPLE_48K;
     int last_cur_samplerate = HW_RESAMPLE_48K;
     hdmiin_audio_packet_t cur_audio_packet = AUDIO_PACKET_NONE;
-    int read_bytes = 0;
+    int read_bytes = 0, read_back, nodata_count;
     int txlx_chip = check_chip_name("txlx", 4, audio_type_status->mixer_handle);
     int txl_chip = check_chip_name("txl", 3, audio_type_status->mixer_handle);
     int auge_chip = alsa_device_is_auge();
@@ -656,7 +657,33 @@ static void* audio_type_parse_threadloop(void *data)
             } else {
                 read_bytes = bytes;
             }
-            ret = pcm_read(audio_type_status->in, audio_type_status->parse_buffer + 3, read_bytes);
+
+            /* non-blocking read prevent 10s stuck when switching TV sources */
+            nodata_count = 0;
+            read_back = 0;
+            while (read_back < read_bytes && audio_type_status->running_flag) {
+                ret = pcm_read(audio_type_status->in,
+                        audio_type_status->parse_buffer + 3, read_bytes);
+                if (ret >= 0) {
+                    nodata_count = 0;
+                    read_back += ret;
+                } else if (ret != -EAGAIN) {
+                    ALOGD("%s:%d, pcm_read fail, ret:%#x, error info:%s",
+                        __func__, __LINE__, ret, strerror(errno));
+                    memset(audio_type_status->parse_buffer + 3, 0, read_bytes);
+                    break;
+                } else {
+                    if (nodata_count >= WAIT_COUNT_MAX) {
+                        nodata_count = 0;
+                        ALOGV("aml_alsa_input_read immediate return");
+                        memset(audio_type_status->parse_buffer + 3, 0, bytes);
+                        break;
+                    }
+                    nodata_count++;
+                    usleep((read_bytes - read_back) * 1000000 / 4 / 48000 / 2);
+                }
+            }
+
             if (ret >= 0) {
                 audio_type_status->cur_audio_type = audio_type_parse(audio_type_status->parse_buffer,
                                                     read_bytes, &(audio_type_status->package_size),
