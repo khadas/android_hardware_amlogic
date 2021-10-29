@@ -220,10 +220,6 @@ public:
     {
         mEvaluationMode = val;    // 0 or 1
     }
-    virtual void setLFEpresetInSystemSoundsIn(int val)
-    {
-        mLFEPresentInSystemSoundIn = val;    // 0 or 1
-    }
     virtual void setDownmix71PCMto51OnMultiOutputs(int val)
     {
         mDonwnmix71PCMto51 = val;    //0 or 1
@@ -609,7 +605,6 @@ private:
     int mDAPDRCMode;//for multi-ch and dap output[default is 0]
     int mDownmixMode;//Lt/Rt[val=0, default] or Lo/Ro
     int mEvaluationMode;//default is 0
-    int mLFEPresentInSystemSoundIn;//default is 0[means off]
     int mDonwnmix71PCMto51;//default 0[means off]
     int mLockingChannelModeENC;//0 default, auto; 1 locked as 5.1 channel mode.
     int mRISCPrecisionFlag;//0 less&16bits for 16x32;1 high&32bits for 16x32
