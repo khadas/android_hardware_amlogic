@@ -36,6 +36,12 @@
 #ifdef __cplusplus
 namespace android
 {
+#define MS12_INPUT_MAIN   0
+#define MS12_INPUT_MAIN2  1
+#define MS12_INPUT_SYSTEM 2
+#define MS12_INPUT_APP    3
+#define MS12_INPUT_UI     4
+#define MS12_INPUT_MAX    5
 
 class DolbyMS12ConfigParams
 {
@@ -62,7 +68,7 @@ public:
     virtual int SetDdplusSwitches(char **ConfigParams, int *row_index);
 
     virtual int SetPCMSwitches(char **ConfigParams, int *row_index);
-    virtual int SetPCMSwitchesRuntime(char **ConfigParams, int *row_index);
+    //virtual int SetPCMSwitchesRuntime(char **ConfigParams, int *row_index);
 
     virtual int SetHEAACSwitches(char **ConfigParams, int *row_index);
     virtual int SetDAPDeviceSwitches(char **ConfigParams, int *row_index);
@@ -87,7 +93,7 @@ public:
     }
     virtual audio_channel_mask_t GetDolbyConfigOutputChannelMask(void)
     {
-        return mDolbyMS12OutChannelMask;
+        return mDolbyMS12OutChannelMask[MS12_INPUT_MAIN];
     }
     virtual void ResetConfigParams(void);
     //associate flags
@@ -123,12 +129,12 @@ public:
     }
     virtual int getAppFlag(void)
     {
-        ALOGI("%s() mHasSystemInput %d\n", __FUNCTION__, mHasSystemInput);
+        ALOGV("%s() mHasAppInput %d\n", __FUNCTION__, mHasAppInput);
         return mHasAppInput;
     }
 
-    virtual int APPSoundChannelMaskConvertToChannelConfiguration(audio_channel_mask_t channel_mask);
-    virtual int SystemSoundChannelMaskConvertToChannelConfiguration(audio_channel_mask_t channel_mask);
+    virtual int ChannelMask2ChannelConfig(audio_channel_mask_t channel_mask);
+    virtual int ChannelMask2LFEConfig(audio_channel_mask_t channel_mask);
 
     //*Begin||Add the APT to set the params*//
     //Functional Switches
@@ -149,13 +155,17 @@ public:
     {
         mDRCCutSystem = val;
     }
-    virtual void setChannelConfigOfAppSoundsInput(audio_channel_mask_t channel_mask)
+    virtual void setChannelMaskOfAppSoundsInput(audio_channel_mask_t channel_mask)
     {
-        mChannelConfAppSoundsIn = APPSoundChannelMaskConvertToChannelConfiguration(channel_mask);
+        mDolbyMS12OutChannelMask[MS12_INPUT_APP] = channel_mask;
     }
-    virtual void setChannelConfigOfSystemSoundsInput(audio_channel_mask_t channel_mask)
+    virtual void setChannelMaskOfSystemSoundsInput(audio_channel_mask_t channel_mask)
     {
-        mChannelConfSystemIn = SystemSoundChannelMaskConvertToChannelConfiguration(channel_mask);
+        mDolbyMS12OutChannelMask[MS12_INPUT_SYSTEM] = channel_mask;
+    }
+    virtual void setChannelMaskOfUiSoundsInput(audio_channel_mask_t channel_mask)
+    {
+        mDolbyMS12OutChannelMask[MS12_INPUT_UI] = channel_mask;
     }
     virtual void setDAPV2InitialisationMode(int val)
     {
@@ -181,14 +191,7 @@ public:
     {
         mEvaluationMode = val;    // 0 or 1
     }
-    virtual void setLFEpresentInAPPSoundsIn(int val)
-    {
-        mLFEPresentInAppSoundIn = val;    // 0 or 1
-    }
-    virtual void setLFEpresetInSystemSoundsIn(int val)
-    {
-        mLFEPresentInSystemSoundIn = val;    // 0 or 1
-    }
+
     virtual void setMaximumNumberofChannelsInTheSigalChain(int val)
     {
         mMaxChannels = val;    //6 or 8
@@ -284,15 +287,6 @@ public:
         mDdplusAssocSubstream = val;
     }
 
-    //PCM SWITCHES
-    virtual void setChnanelConfOfExternalPCMInput(audio_channel_mask_t channel_mask)
-    {
-        mChannelConfigInExtPCMInput = APPSoundChannelMaskConvertToChannelConfiguration(channel_mask);
-    }
-    virtual void setLFEpresentInExternalPCMInput(int val)
-    {
-        mLFEPresentInExtPCMInput = val;
-    }
     virtual void setPCMCompressorProfile(int val)
     {
         mCompressorProfile = val;
@@ -517,13 +511,13 @@ private:
     audio_format_t mAudioStreamOutFormat;
     audio_channel_mask_t mAudioStreamOutChannelMask;
     int mAudioSteamOutSampleRate;
+    audio_channel_mask_t mDolbyMS12OutChannelMask[MS12_INPUT_MAX];
 
     //dolby ms12 output
     int mDolbyMS12OutConfig;
 
     audio_format_t mDolbyMS12OutFormat;
     int mDolbyMS12OutSampleRate;
-    audio_channel_mask_t mDolbyMS12OutChannelMask;
     char **mConfigParams;//[MAX_ARGC][MAX_ARGV_STRING_LEN];
     bool mStereoOutputFlag;
 
@@ -534,8 +528,6 @@ private:
     int mDRCCut;
     int mDRCBoostSystem;
     int mDRCCutSystem;
-    int mChannelConfAppSoundsIn;
-    int mChannelConfSystemIn;
     bool mMainFlags;//has dd/ddp/he-aac audio
     bool mAppSoundFlags;
     bool mSystemSoundFlags;
@@ -546,8 +538,6 @@ private:
     int mDAPDRCMode;//for multi-ch and dap output[default is 0]
     int mDownmixMode;//Lt/Rt[val=0, default] or Lo/Ro
     int mEvaluationMode;//default is 0
-    int mLFEPresentInAppSoundIn;//default is 1[means on]
-    int mLFEPresentInSystemSoundIn;//default is 0[means off]
     int mMaxChannels;//only 6 or 8
     int mDonwnmix71PCMto51;//default 0[means off]
     int mLockingChannelModeENC;//0 default, auto; 1 locked as 5.1 channel mode.
@@ -589,9 +579,6 @@ private:
     //DDPLUS SWITCHES
     int mDdplusAssocSubstream;//[ddplus] Associated substream selection, [0,3], no default
 
-    //PCM SWITCHES
-    int mChannelConfigInExtPCMInput;//Channel configuration of external PCM input, default is 7;
-    bool mLFEPresentInExtPCMInput = true;//LFE present in external PCM input
     int mCompressorProfile;//[pcm] Compressor profile
 
     //HE-AAC SWITCHES
@@ -684,8 +671,6 @@ private:
     bool mDualBitstreamOut;
 
     bool mActivateOTTSignal;
-    int mChannelConfOTTSoundsIn;
-    int mLFEPresentInOTTSoundIn;
     bool mAtmosLock;
     bool mPause;
 

@@ -379,24 +379,6 @@ extern "C" void dolby_ms12_set_drc_cut_system(int val)
     }
 }
 
-extern "C" void dolby_ms12_set_channel_config_of_app_sound_input(audio_channel_mask_t channel_mask)
-{
-    ALOGV("%s()\n", __FUNCTION__);
-    android::DolbyMS12ConfigParams *config_param = getInstance();
-    if (config_param) {
-        return config_param->setChannelConfigOfAppSoundsInput(channel_mask);
-    }
-}
-
-extern "C" void dolby_ms12_set_channel_config_of_system_sound_input(audio_channel_mask_t channel_mask)
-{
-    ALOGV("%s()\n", __FUNCTION__);
-    android::DolbyMS12ConfigParams *config_param = getInstance();
-    if (config_param) {
-        return config_param->setChannelConfigOfSystemSoundsInput(channel_mask);
-    }
-}
-
 extern "C" void dolby_ms12_set_dap2_initialisation_mode(int val)
 {
     ALOGV("%s()\n", __FUNCTION__);
@@ -448,24 +430,6 @@ extern "C" void dolby_ms12_set_evalution_mode(int val)
     android::DolbyMS12ConfigParams *config_param = getInstance();
     if (config_param) {
         return config_param->setEvalutionMode(val);
-    }
-}
-
-extern "C" void dolby_ms12_set_lfe_present_in_app_sounds_in(int val)
-{
-    ALOGV("%s()\n", __FUNCTION__);
-    android::DolbyMS12ConfigParams *config_param = getInstance();
-    if (config_param) {
-        return config_param->setLFEpresentInAPPSoundsIn(val);
-    }
-}
-
-extern "C" void dolby_ms12_set_lfe_present_in_system_sounds_in(int val)
-{
-    ALOGV("%s()\n", __FUNCTION__);
-    android::DolbyMS12ConfigParams *config_param = getInstance();
-    if (config_param) {
-        return config_param->setLFEpresetInSystemSoundsIn(val);
     }
 }
 
@@ -607,25 +571,6 @@ extern "C" void dolby_ms12_set_ddp_associated_substream_selection(int val)
     }
 }
 
-
-//PCM SWITCHES
-extern "C" void dolby_ms12_set_channel_config_of_external_pcm_input(audio_channel_mask_t channel_mask)
-{
-    ALOGV("%s()\n", __FUNCTION__);
-    android::DolbyMS12ConfigParams *config_param = getInstance();
-    if (config_param) {
-        return config_param->setChnanelConfOfExternalPCMInput(channel_mask);
-    }
-}
-
-extern "C" void dolby_ms12_set_lfe_present_in_external_pcm_input(int val)
-{
-    ALOGV("%s()\n", __FUNCTION__);
-    android::DolbyMS12ConfigParams *config_param = getInstance();
-    if (config_param) {
-        return config_param->setLFEpresentInExternalPCMInput(val);
-    }
-}
 
 extern "C" void dolby_ms12_set_pcm_compressor_profile(int val)
 {

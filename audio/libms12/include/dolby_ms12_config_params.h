@@ -170,16 +170,6 @@ void dolby_ms12_set_drc_boost_system(int val);
 void dolby_ms12_set_drc_cut_system(int val);
 
 /**
- * @brief Channel configuration of Application Sounds input
- */
-void dolby_ms12_set_channel_config_of_app_sound_input(audio_channel_mask_t channel_mask);
-
-/**
- * @brief Channel configuration of System Sounds input
- */
-void dolby_ms12_set_channel_config_of_system_sound_input(audio_channel_mask_t channel_mask);
-
-/**
  * @brief DAPv2 initialisation mode
  * 0 = DAPv2 instances are not present (default)
  * 1 = DAPv2 content processing instance is present only
@@ -225,19 +215,6 @@ void dolby_ms12_set_downmix_modes(int val);
  */
 void dolby_ms12_set_evalution_mode(int val);
 
-/**
- * @brief LFE present in Application Sounds input
- * 0 = off
- * 1 = on (default)
- */
-void dolby_ms12_set_lfe_present_in_app_sounds_in(int val);
-
-/**
- * @brief LFE present in System Sounds input
- * 0 = off
- * 1 = on (default)
- */
-void dolby_ms12_set_lfe_present_in_system_sounds_in(int val);
 
 /**
  * @brief Maximum number of channels in the signal chain (6 or 8)
@@ -349,24 +326,6 @@ void dolby_ms12_set_system_sound_mixer_gain_values_for_system_sounds_input(MixGa
  * 1 - 3; No default
  */
 void dolby_ms12_set_ddp_associated_substream_selection(int val);
-
-//PCM SWITCHES
-/**
- * @brief Channel configuration of external PCM input
- * 0 = reserved
- * 1 = 1/0 (C)
- * 2 = 2/0 (L, R)
- * 7 = 3/2 (L, C, R, l, r) (default)
- * 21 = 3/2/2 (L, C, R, l, r, Lrs, Rrs)
- */
-void dolby_ms12_set_channel_config_of_external_pcm_input(int val);
-
-/**
- * @brief LFE present in external PCM input
- * 0 = off
- * 1 = on (default)
- */
-void dolby_ms12_set_lfe_present_in_external_pcm_input(int val);
 
 /**
  * @brief [pcm] Compressor profile

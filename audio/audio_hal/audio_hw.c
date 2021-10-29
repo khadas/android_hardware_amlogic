@@ -7088,7 +7088,7 @@ int usecase_change_validate_l(struct aml_stream_out *aml_out, bool is_standby)
         if ((STREAM_PCM_NORMAL == aml_out->usecase) && (aml_out->write_func == MIXER_AUX_BUFFER_WRITE_SM)) {
             ALOGE("[%s:%d], aml_out->write_func is %d, reset it!", __func__, __LINE__, aml_out->write_func);
         } else {
-            ALOGI("[%s:%d], No usecase changes, do nothing!", __func__, __LINE__);
+            ALOGV("[%s:%d], No usecase changes, do nothing!", __func__, __LINE__);
             return 0;
         }
     }
