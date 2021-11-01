@@ -520,7 +520,7 @@ static int update_audio_type(audio_type_parse_t *status, int update_bytes, int s
         if (audio_type_status->read_bytes > (audio_type_status->package_size * 2)) {
             audio_type_status->audio_type = audio_type_status->cur_audio_type;
             audio_type_status->read_bytes = 0;
-            ALOGI("no IEC61937 header found, PCM data!\n");
+            AM_LOGI("package_size:%d no IEC61937 header found, PCM data!", audio_type_status->package_size);
             enable_HW_resample(mixer_handle, sr);
         }
         audio_type_status->read_bytes += update_bytes;
@@ -529,7 +529,7 @@ static int update_audio_type(audio_type_parse_t *status, int update_bytes, int s
         immediately update audio type*/
         audio_type_status->audio_type = audio_type_status->cur_audio_type;
         audio_type_status->read_bytes = 0;
-        ALOGI("Raw data found: type(%d)\n", audio_type_status->audio_type);
+        AM_LOGI("Raw data found: type(%d)\n", audio_type_status->audio_type);
         enable_HW_resample(mixer_handle, HW_RESAMPLE_DISABLE);
     }
     return 0;
@@ -657,16 +657,20 @@ static void* audio_type_parse_threadloop(void *data)
             } else {
                 read_bytes = bytes;
             }
-
             /* non-blocking read prevent 10s stuck when switching TV sources */
             nodata_count = 0;
             read_back = 0;
             while (read_back < read_bytes && audio_type_status->running_flag) {
                 ret = pcm_read(audio_type_status->in,
-                        audio_type_status->parse_buffer + 3, read_bytes);
+                        audio_type_status->parse_buffer + read_back + 3, read_bytes - read_back);
                 if (ret >= 0) {
                     nodata_count = 0;
-                    read_back += ret;
+                    if (read_back + ret > audio_type_status->period_bytes) {
+                        AM_LOGW("overflow buffer read_cnt:%d ret:%d period_bytes:%d need:%d", read_back, ret, audio_type_status->period_bytes, read_bytes);
+                        read_back = audio_type_status->period_bytes;
+                    } else {
+                        read_back += ret;
+                    }
                 } else if (ret != -EAGAIN) {
                     ALOGD("%s:%d, pcm_read fail, ret:%#x, error info:%s",
                         __func__, __LINE__, ret, strerror(errno));
@@ -675,7 +679,7 @@ static void* audio_type_parse_threadloop(void *data)
                 } else {
                     if (nodata_count >= WAIT_COUNT_MAX) {
                         nodata_count = 0;
-                        ALOGV("aml_alsa_input_read immediate return");
+                        AM_LOGW("aml_alsa_input_read immediate return");
                         memset(audio_type_status->parse_buffer + 3, 0, bytes);
                         break;
                     }
@@ -817,8 +821,9 @@ audio_format_t audio_type_convert_to_android_audio_format_t(int codec_type)
     case TRUEHD:
         return AUDIO_FORMAT_DOLBY_TRUEHD;
     case LPCM:
-
+        return AUDIO_FORMAT_PCM_16_BIT;
     default:
+        AM_LOGW("invalid codec_type:%d, return PCM.", codec_type);
         return AUDIO_FORMAT_PCM_16_BIT;
     }
 }
