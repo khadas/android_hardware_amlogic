@@ -173,7 +173,6 @@ LOCAL_SRC_FILES := \
     fake-pipeline2/MIPISensor.cpp \
     fake-pipeline2/OMXDecoder.cpp \
     fake-pipeline2/amuvm.c \
-    fake-pipeline2/HalMediaCodec.cpp \
     fake-pipeline2/CameraIO.cpp \
     fake-pipeline2/CameraDevice.cpp \
     fake-pipeline2/Isp3a.cpp \

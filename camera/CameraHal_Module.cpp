@@ -44,13 +44,14 @@ static int camera_device_open(const hw_module_t* module, const char* name,
 static int camera_device_close(hw_device_t* device);
 static int camera_get_number_of_cameras(void);
 static int camera_get_camera_info(int camera_id, struct camera_info *info);
+static int camera_set_torch_mode(const char* camera_id, bool enabled);
 
 #ifdef CAMHAL_USER_MODE
 volatile int32_t gCamHal_LogLevel = 4;
 #else
 volatile int32_t gCamHal_LogLevel = 6;
 #endif
-static void setLogLevel(void *p){ 
+static void setLogLevel(void *p){
         int level = (int) p;
         android_atomic_write(level, &gCamHal_LogLevel);
 }
@@ -101,6 +102,7 @@ camera_module_t HAL_MODULE_INFO_SYM = {
     set_callbacks: NULL,
     get_vendor_tag_ops: NULL,
     open_legacy: NULL,
+    set_torch_mode: camera_set_torch_mode,
 };
 
 typedef struct aml_camera_device {
@@ -997,7 +999,8 @@ end:
     return rv;
 }
 
-
-
-
+int camera_set_torch_mode(const char* camera_id, bool enabled)
+{
+    return 0;
+}
 

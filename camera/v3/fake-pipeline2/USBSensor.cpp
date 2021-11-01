@@ -72,9 +72,7 @@ USBSensor::USBSensor(int type)
     mGE2D = new ge2dTransform();
 #endif
     mDecoder = NULL;
-    mHalMediaCodec = NULL;
     mIsDecoderInit = false;
-    mInitMediaCodec = false;
     mUSBDevicefd = -1;
     mCameraVirtualDevice = nullptr;
     mVinfo = NULL;
@@ -112,13 +110,11 @@ int USBSensor::camera_open(int idx)
     char property[PROPERTY_VALUE_MAX];
     ALOGV("%s: E", __FUNCTION__);
 
-    //sprintf(dev_name, "%s%d", "/dev/video", idx);
-    //mUSBDevicefd = open(dev_name, O_RDWR | O_NONBLOCK);
+
     if (mCameraVirtualDevice == nullptr)
         mCameraVirtualDevice = CameraVirtualDevice::getInstance();
 
     mUSBDevicefd = mCameraVirtualDevice->openVirtualDevice(idx);
-
     if (mUSBDevicefd < 0) {
         DBG_LOGB("open %s failed, errno=%d\n", dev_name, errno);
         ret = -ENOTTY;
@@ -126,11 +122,6 @@ int USBSensor::camera_open(int idx)
     property_get("ro.vendor.platform.omx", property, "false");
     if (strstr(property, "true"))
         mDecodeMethod = DECODE_OMX;
-    property_get("ro.vendor.platform.mediacodec", property, "false");
-    if (strstr(property, "true")) {
-        mDecodeMethod = DECODE_MEDIACODEC;
-        ALOGV("%s: use mediacodec", __FUNCTION__);
-    }
     return ret;
 }
 
@@ -189,10 +180,6 @@ status_t USBSensor::startUp(int idx) {
         case DECODE_OMX:
             if (!mDecoder)
                 mDecoder = new OMXDecoder(true, true);
-            break;
-        case DECODE_MEDIACODEC:
-            if (!mHalMediaCodec)
-                mHalMediaCodec = new HalMediaCodec();
             break;
         default:
             break;
@@ -289,32 +276,18 @@ bool USBSensor::isNeedRestart(uint32_t width, uint32_t height, uint32_t pixelfor
 
 void USBSensor::initDecoder(int width, int height, int bufferCount) {
     ALOGV("%s: width=%d, height=%d",__FUNCTION__,width,height);
-    switch (mUseHwType) {
-        case HW_H264:
-            if (mHalMediaCodec != NULL && mInitMediaCodec == false) {
-                mHalMediaCodec->init(width,height,"h264");
-                mInitMediaCodec=true;
-            }
-            break;
-        case HW_MJPEG:
-            if (mDecoder != NULL && mIsDecoderInit == false) {
-                mDecoder->setParameters(width,height, bufferCount + 2);
-                mDecoder->initialize("mjpeg");
-                mDecoder->prepareBuffers();
-                mDecoder->start();
-                mIsDecoderInit=true;
-            }
-            if (mHalMediaCodec != NULL && mInitMediaCodec == false) {
-                mHalMediaCodec->init(width,height,"mjpeg");
-                mInitMediaCodec=true;
-            }
-            break;
-        case HW_NONE:
-            break;
-        default:
-            break;
+    if (mDecoder != NULL && mIsDecoderInit == false) {
+        mDecoder->setParameters(width,height, bufferCount + 2);
+        if (mUseHwType == HW_MJPEG)
+            mDecoder->initialize("mjpeg");
+        else if (mUseHwType == HW_H264)
+            mDecoder->initialize("h264");
+        else
+            mDecoder->initialize("mjpeg");
+        mDecoder->prepareBuffers();
+        mDecoder->start();
+        mIsDecoderInit=true;
     }
-    return ;
 }
 
 status_t USBSensor::shutDown() {
@@ -325,13 +298,6 @@ status_t USBSensor::shutDown() {
         mDecoder = NULL;
         mIsDecoderInit = false;
     }
-    if (mHalMediaCodec && mInitMediaCodec == true) {
-        mHalMediaCodec->fini();
-        delete mHalMediaCodec;
-        mHalMediaCodec = NULL;
-        mInitMediaCodec = false;
-    }
-
     //return Sensor::shutDown();
     int res;
     mTimeOutCount = 0;
@@ -359,11 +325,6 @@ status_t USBSensor::streamOff(void){
         mDecoder->deinitialize();
         mIsDecoderInit = false;
     }
-    if (mHalMediaCodec && mInitMediaCodec == true) {
-        mHalMediaCodec->fini();
-        mInitMediaCodec = false;
-    }
-
     return mVinfo->releasebuf_and_stop_capturing();
 
 }
@@ -518,6 +479,10 @@ void USBSensor::takePicture(StreamBuffer b, uint32_t stride) {
                     mVinfo->putback_picture_frame();
                     usleep(5000);
                 }
+#ifdef GE2D_ENABLE
+                ALOGD("%s:do rotation and mirror",__FUNCTION__);
+                mGE2D->doRotationAndMirror(b);
+#endif
             } else if (mVinfo->picture.format.fmt.pix.pixelformat == V4L2_PIX_FMT_RGB24) {
                 if (mVinfo->picture.buf.length == width * height * 3) {
                     memcpy(b.img, src, mVinfo->picture.buf.length);
@@ -531,6 +496,10 @@ void USBSensor::takePicture(StreamBuffer b, uint32_t stride) {
                 break;
             } else if (mVinfo->picture.format.fmt.pix.pixelformat == V4L2_PIX_FMT_NV21) {
                 memcpy(b.img, src, mVinfo->picture.buf.length);
+#ifdef GE2D_ENABLE
+                ALOGD("%s:do rotation and mirror",__FUNCTION__);
+                mGE2D->doRotationAndMirror(b);
+#endif
                 break;
             }
         }
@@ -656,18 +625,12 @@ void USBSensor::captureNV21(StreamBuffer b, uint32_t gain) {
                 break;
             case V4L2_PIX_FMT_H264:
                 {
-                    int ret = mHalMediaCodec->decode(src,mVinfo->preview.buf.bytesused,b.img);
-                    if (!ret) {
-                        mVinfo->putback_frame();
+                    int ret = H264ToNV21(src, b);
+                    if (ret == 1)
                         continue;
-                    }else {
 #ifdef GE2D_ENABLE
-                        mGE2D->doRotationAndMirror(b);
+                    mGE2D->doRotationAndMirror(b);
 #endif
-                        mDecodedBuffer = b.img;
-                        mKernelBuffer = src;
-                        mVinfo->putback_frame();
-                    }
                 }
                 break;
             default:
@@ -724,29 +687,12 @@ int USBSensor::MJPEGToNV21(uint8_t* src, StreamBuffer b) {
 
             }
             break;
-        case DECODE_MEDIACODEC:
-            {
-                int ret = mHalMediaCodec->decode(src,length,b.img);
-                if (!ret) {
-                    ALOGV("mediacodec decoder error \n");
-                    mVinfo->putback_frame();
-                    //continue;
-                    flag = 1;
-                }else {
-                    mDecodedBuffer = b.img;
-                    mTempFD = b.share_fd;
-                    mKernelBuffer = src;
-                    mVinfo->putback_frame();
-                }
-
-            }
-            break;
         case DECODE_OMX:
             {
                 int ret = mDecoder->Decode(src,length,
                                             b.share_fd,b.img,
                                             width,height);
-                if (!ret) { //dose not get decode frame
+                if (!ret) {
                     mVinfo->putback_frame();
                     //continue;
                     flag = 1;
@@ -774,6 +720,33 @@ int USBSensor::MJPEGToNV21(uint8_t* src, StreamBuffer b) {
         dump(dst_index,b.img, size ,"dst.yuv");
     }
     return flag;
+}
+
+int USBSensor::H264ToNV21(uint8_t* src, StreamBuffer b) {
+    int flag = 0;
+    size_t width = mVinfo->preview.format.fmt.pix.width;
+    size_t height = mVinfo->preview.format.fmt.pix.height;
+    size_t length = mVinfo->preview.buf.bytesused;
+
+    int ret = mDecoder->Decode(src,length,
+                                b.share_fd,b.img,
+                                width,height);
+    if (!ret) {
+        mVinfo->putback_frame();
+        //continue;
+        flag = 1;
+        if (mDecoder->mTimeOut && mIsDecoderInit == true) {
+            mDecoder->deinitialize();
+            mIsDecoderInit = false;
+            initDecoder(width,height,4);
+        }
+    } else {
+        mDecodedBuffer = b.img;
+        mKernelBuffer = src;
+        mTempFD = b.share_fd;
+        mVinfo->putback_frame();
+    }
+   return flag;
 }
 
 void USBSensor::captureYV12(StreamBuffer b, uint32_t gain){

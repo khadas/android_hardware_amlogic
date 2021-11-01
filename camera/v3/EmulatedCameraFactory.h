@@ -100,6 +100,8 @@ public:
      * This method is called in response to camera_module_t::get_vendor_tag_ops callback.
      */
 	void getvendortagops(vendor_tag_ops_t* ops);
+
+	int setTorchMode(const char* camera_id, bool enabled);
     /****************************************************************************
      * Camera HAL API callbacks.
      ***************************************************************************/
@@ -115,6 +117,7 @@ public:
     static int set_callbacks(const camera_module_callbacks_t *callbacks);
 	/* camera_module_t::get_vendor_tag_ops callback entry point. */
 	static void get_vendor_tag_ops(vendor_tag_ops_t* ops);
+	static int set_torch_mode(const char* camera_id, bool enabled);
 
 private:
     /* hw_module_methods_t::open callback entry point. */

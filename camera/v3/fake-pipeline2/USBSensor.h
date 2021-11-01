@@ -5,7 +5,6 @@
 #include "CameraIO.h"
 #include "CameraUtil.h"
 #include "OMXDecoder.h"
-#include "HalMediaCodec.h"
 #include "CameraIO.h"
 #include "CameraDevice.h"
 #ifdef GE2D_ENABLE
@@ -64,19 +63,17 @@ namespace android {
             enum Decode_Method{
                 DECODE_SOFTWARE,
                 DECODE_OMX,
-                DECODE_MEDIACODEC,
+                DECODE_MAX,
             };
             int mUseHwType;
             enum Decode_Method mDecodeMethod;
             OMXDecoder* mDecoder;
-            HalMediaCodec* mHalMediaCodec;
             CameraUtil* mCameraUtil;
             FILE* fp;
             Vector<uint32_t> mSupportFormat;
             Vector<uint32_t> mTryPixelFormat;
             uint32_t mCurrentFormat;
             bool mIsDecoderInit;
-            bool mInitMediaCodec;
             //store the v4l2 info
             CVideoInfo *mVinfo;
             uint8_t* mImage_buffer;
@@ -91,6 +88,7 @@ namespace android {
             void dump(int& frame_index,uint8_t* buf, int length, std::string name);
             void initDecoder(int width, int height, int bufferCount);
             int MJPEGToNV21(uint8_t* src, StreamBuffer b);
+            int H264ToNV21(uint8_t* src, StreamBuffer b);
             int SensorInit(int idx);
             void InitVideoInfo(int idx);
             int camera_open(int idx);
