@@ -63,6 +63,8 @@ extern bool IsUsbAvailablePictureSize(const usb_frmsize_discrete_t AvailablePict
 HDMIToCSISensor::HDMIToCSISensor() {
     mCameraVirtualDevice = nullptr;
     mVinfo = NULL;
+    mCameraUtil = NULL;
+    mImage_buffer = NULL;
     ALOGD("create MIPISensor");
 }
 
@@ -133,7 +135,8 @@ int HDMIToCSISensor::camera_open(int idx) {
         ret = -ENOTTY;
     }
     ALOGD("open %s ok !", dev_name);
-    mVinfo->fd = mDevicefd[0];
+    if (mVinfo != NULL)
+        mVinfo->fd = mDevicefd[0];
     return ret;
 }
 
@@ -143,8 +146,8 @@ void HDMIToCSISensor::camera_close(void) {
         return;
     if (mCameraVirtualDevice == nullptr)
         mCameraVirtualDevice = CameraVirtualDevice::getInstance();
-
-    mCameraVirtualDevice->releaseVirtualDevice(mVinfo->idx,mDevicefd[0]);
+    if (mVinfo != NULL)
+        mCameraVirtualDevice->releaseVirtualDevice(mVinfo->idx,mDevicefd[0]);
     mDevicefd[0] = -1;
 }
 
@@ -203,15 +206,17 @@ void HDMIToCSISensor::captureRGB(uint8_t *img, uint32_t gain, uint32_t stride) {
     int dqTryNum = 3;
 
     rotate = getPictureRotate();
-    width = mVinfo->picture.format.fmt.pix.width;
-    height = mVinfo->picture.format.fmt.pix.height;
+    if (mVinfo != NULL) {
+        width = mVinfo->picture.format.fmt.pix.width;
+        height = mVinfo->picture.format.fmt.pix.height;
 
-    mVinfo->stop_capturing();
-    ret = mVinfo->start_picture(rotate);
-    if (ret < 0)
-    {
-        ALOGD("start picture failed!");
-        return;
+        mVinfo->stop_capturing();
+        ret = mVinfo->start_picture(rotate);
+        if (ret < 0)
+        {
+            ALOGD("start picture failed!");
+            return;
+        }
     }
     while (1)
     {
@@ -829,31 +834,31 @@ int HDMIToCSISensor::getStreamConfigurationDurations(uint32_t picSizes[], int64_
                 fival.height = picSizes[size-2];
                 if ((ret = ioctl(mVinfo->fd, VIDIOC_ENUM_FRAMEINTERVALS, &fival)) == 0) {
                     if (fival.type == V4L2_FRMIVAL_TYPE_DISCRETE) {
-                        temp_rate = fival.discrete.denominator/fival.discrete.numerator;
+                        if ( fival.discrete.numerator != 0 ) temp_rate = fival.discrete.denominator/fival.discrete.numerator;
                         if (framerate < temp_rate)
                             framerate = temp_rate;
                         duration[count+0] = (int64_t)(picSizes[size-4]);
                         duration[count+1] = (int64_t)(picSizes[size-3]);
                         duration[count+2] = (int64_t)(picSizes[size-2]);
-                        duration[count+3] = (int64_t)((1.0/framerate) * 1000000000);
+                        if ( framerate != 0 ) duration[count+3] = (int64_t)((1.0/framerate) * 1000000000);
                         j++;
                     } else if (fival.type == V4L2_FRMIVAL_TYPE_CONTINUOUS) {
-                        temp_rate = fival.discrete.denominator/fival.discrete.numerator;
+                        if ( fival.discrete.numerator != 0 ) temp_rate = fival.discrete.denominator/fival.discrete.numerator;
                         if (framerate < temp_rate)
                             framerate = temp_rate;
                         duration[count+0] = (int64_t)picSizes[size-4];
                         duration[count+1] = (int64_t)picSizes[size-3];
                         duration[count+2] = (int64_t)picSizes[size-2];
-                        duration[count+3] = (int64_t)((1.0/framerate) * 1000000000);
+                        if ( framerate != 0) duration[count+3] = (int64_t)((1.0/framerate) * 1000000000);
                         j++;
                     } else if (fival.type == V4L2_FRMIVAL_TYPE_STEPWISE) {
-                        temp_rate = fival.discrete.denominator/fival.discrete.numerator;
+                        if ( fival.discrete.numerator != 0 ) temp_rate = fival.discrete.denominator/fival.discrete.numerator;
                         if (framerate < temp_rate)
                             framerate = temp_rate;
                         duration[count+0] = (int64_t)picSizes[size-4];
                         duration[count+1] = (int64_t)picSizes[size-3];
                         duration[count+2] = (int64_t)picSizes[size-2];
-                        duration[count+3] = (int64_t)((1.0/framerate) * 1000000000);
+                        if ( framerate != 0 ) duration[count+3] = (int64_t)((1.0/framerate) * 1000000000);
                         j++;
                     }
                 } else {
@@ -946,17 +951,17 @@ int64_t HDMIToCSISensor::getMinFrameDuration() {
             while (ioctl(mVinfo->fd, VIDIOC_ENUM_FRAMEINTERVALS, &fival) == 0) {
                 if (fival.type == V4L2_FRMIVAL_TYPE_DISCRETE) {
                     tmpDuration =
-                        fival.discrete.numerator * 1000000000L / fival.discrete.denominator;
+                        (int64_t)fival.discrete.numerator * 1000000000L / fival.discrete.denominator;
 
                     if (frameDuration > tmpDuration)
                         frameDuration = tmpDuration;
                 } else if (fival.type == V4L2_FRMIVAL_TYPE_CONTINUOUS) {
                     frameDuration =
-                        fival.stepwise.max.numerator * 1000000000L / fival.stepwise.max.denominator;
+                        (int64_t)fival.stepwise.max.numerator * 1000000000L / fival.stepwise.max.denominator;
                     break;
                 } else if (fival.type == V4L2_FRMIVAL_TYPE_STEPWISE) {
                     frameDuration =
-                        fival.stepwise.max.numerator * 1000000000L / fival.stepwise.max.denominator;
+                        (int64_t) fival.stepwise.max.numerator * 1000000000L / fival.stepwise.max.denominator;
                     break;
                 }
                 fival.index++;

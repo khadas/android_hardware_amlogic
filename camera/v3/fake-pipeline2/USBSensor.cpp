@@ -72,12 +72,15 @@ USBSensor::USBSensor(int type)
     mGE2D = new ge2dTransform();
 #endif
     mDecoder = NULL;
+    mCurrentFormat = 0;
     mIsDecoderInit = false;
     mUSBDevicefd = -1;
     mCameraVirtualDevice = nullptr;
     mVinfo = NULL;
     mCameraUtil = NULL;
     mTempFD = -1;
+    mDecodedBuffer = NULL;
+    mIsRequestFinished = false;
     ALOGD("create usbsensor");
 }
 
@@ -132,8 +135,8 @@ void USBSensor::camera_close(void)
         return;
     if (mCameraVirtualDevice == nullptr)
         mCameraVirtualDevice = CameraVirtualDevice::getInstance();
-
-    mCameraVirtualDevice->releaseVirtualDevice(mVinfo->idx,mUSBDevicefd);
+    if (mVinfo != NULL)
+        mCameraVirtualDevice->releaseVirtualDevice(mVinfo->idx,mUSBDevicefd);
     mUSBDevicefd = -1;
 }
 
@@ -189,20 +192,21 @@ status_t USBSensor::startUp(int idx) {
 
 uint32_t USBSensor::getStreamUsage(int stream_type){
     ATRACE_CALL();
+#if 0
     uint32_t usage = Sensor::getStreamUsage(stream_type);
     usage = (GRALLOC_USAGE_HW_TEXTURE
             | GRALLOC_USAGE_HW_RENDER
             | GRALLOC_USAGE_SW_READ_MASK
             | GRALLOC_USAGE_SW_WRITE_MASK
             );
-#if 0
+
 #if ANDROID_PLATFORM_SDK_VERSION >= 28
         usage = am_gralloc_get_omx_osd_producer_usage();
 #else
         usage = GRALLOC_USAGE_HW_VIDEO_ENCODER | GRALLOC_USAGE_AML_DMA_BUFFER;
 #endif
 #endif
-    usage = GRALLOC1_PRODUCER_USAGE_CAMERA;
+    uint32_t usage = GRALLOC1_PRODUCER_USAGE_CAMERA;
     ALOGV("%s: usage=0x%x", __FUNCTION__,usage);
     return usage;
 }
@@ -949,6 +953,7 @@ void USBSensor::dump(int& frame_index, uint8_t* buf, int length, std::string nam
     }else {
         ALOGE("write frame %d ",frame_index);
         fwrite((void*)buf,1,length,fp);
+        fclose(fp);
     }
 }
 
@@ -1635,31 +1640,31 @@ int USBSensor::getStreamConfigurationDurations(uint32_t picSizes[], int64_t dura
                 fival.height = picSizes[size-2];
                 if ((ret = ioctl(mVinfo->fd, VIDIOC_ENUM_FRAMEINTERVALS, &fival)) == 0) {
                     if (fival.type == V4L2_FRMIVAL_TYPE_DISCRETE) {
-                        temp_rate = fival.discrete.denominator/fival.discrete.numerator;
+                        if ( fival.discrete.numerator != 0 ) temp_rate = fival.discrete.denominator/fival.discrete.numerator;
                         if (framerate < temp_rate)
                             framerate = temp_rate;
                         duration[count+0] = (int64_t)(picSizes[size-4]);
                         duration[count+1] = (int64_t)(picSizes[size-3]);
                         duration[count+2] = (int64_t)(picSizes[size-2]);
-                        duration[count+3] = (int64_t)((1.0/framerate) * 1000000000);
+                        if ( framerate != 0 ) duration[count+3] = (int64_t)((1.0/framerate) * 1000000000);
                         j++;
                     } else if (fival.type == V4L2_FRMIVAL_TYPE_CONTINUOUS) {
-                        temp_rate = fival.discrete.denominator/fival.discrete.numerator;
+                        if ( fival.discrete.numerator != 0 ) temp_rate = fival.discrete.denominator/fival.discrete.numerator;
                         if (framerate < temp_rate)
                             framerate = temp_rate;
                         duration[count+0] = (int64_t)picSizes[size-4];
                         duration[count+1] = (int64_t)picSizes[size-3];
                         duration[count+2] = (int64_t)picSizes[size-2];
-                        duration[count+3] = (int64_t)((1.0/framerate) * 1000000000);
+                        if ( framerate != 0 ) duration[count+3] = (int64_t)((1.0/framerate) * 1000000000);
                         j++;
                     } else if (fival.type == V4L2_FRMIVAL_TYPE_STEPWISE) {
-                        temp_rate = fival.discrete.denominator/fival.discrete.numerator;
+                        if ( fival.discrete.numerator != 0 ) temp_rate = fival.discrete.denominator/fival.discrete.numerator;
                         if (framerate < temp_rate)
                             framerate = temp_rate;
                         duration[count+0] = (int64_t)picSizes[size-4];
                         duration[count+1] = (int64_t)picSizes[size-3];
                         duration[count+2] = (int64_t)picSizes[size-2];
-                        duration[count+3] = (int64_t)((1.0/framerate) * 1000000000);
+                        if ( framerate != 0 ) duration[count+3] = (int64_t)((1.0/framerate) * 1000000000);
                         j++;
                     }
                 } else {
@@ -1760,17 +1765,17 @@ int64_t USBSensor::getMinFrameDuration()
             while (ioctl(mVinfo->fd, VIDIOC_ENUM_FRAMEINTERVALS, &fival) == 0) {
                 if (fival.type == V4L2_FRMIVAL_TYPE_DISCRETE) {
                     tmpDuration =
-                        fival.discrete.numerator * 1000000000L / fival.discrete.denominator;
+                        (int64_t) fival.discrete.numerator * 1000000000L / fival.discrete.denominator;
 
                     if (frameDuration > tmpDuration)
                         frameDuration = tmpDuration;
                 } else if (fival.type == V4L2_FRMIVAL_TYPE_CONTINUOUS) {
                     frameDuration =
-                        fival.stepwise.max.numerator * 1000000000L / fival.stepwise.max.denominator;
+                        (int64_t) fival.stepwise.max.numerator * 1000000000L / fival.stepwise.max.denominator;
                     break;
                 } else if (fival.type == V4L2_FRMIVAL_TYPE_STEPWISE) {
                     frameDuration =
-                        fival.stepwise.max.numerator * 1000000000L / fival.stepwise.max.denominator;
+                        (int64_t) fival.stepwise.max.numerator * 1000000000L / fival.stepwise.max.denominator;
                     break;
                 }
                 fival.index++;

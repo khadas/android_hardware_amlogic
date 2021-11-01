@@ -32,6 +32,7 @@ namespace android {
 PreviewWindow::PreviewWindow()
     : mPreviewWindow(NULL),
       mLastPreviewed(0),
+      mPreviewAfter(0),
       mPreviewFrameWidth(0),
       mPreviewFrameHeight(0),
       mPreviewEnabled(false)

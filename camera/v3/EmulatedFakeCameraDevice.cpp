@@ -35,6 +35,11 @@ EmulatedFakeCameraDevice::EmulatedFakeCameraDevice(EmulatedFakeCamera* camera_ha
       mGreenYUV(kGreen8),
       mBlueYUV(kBlue8),
       mLastRedrawn(0),
+      mFrameU(0),
+      mFrameV(0),
+      mUVStep(0),
+      mUVInRow(0),
+      mUVTotalNum(0),
       mCheckX(0),
       mCheckY(0),
       mCcounter(0)

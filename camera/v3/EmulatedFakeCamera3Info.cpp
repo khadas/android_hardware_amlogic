@@ -168,7 +168,7 @@ const struct EmulatedFakeCamera3::KeyInfo_s EmulatedFakeCamera3::sKeyBackwardCom
 
 int EmulatedFakeCamera3::getAvailableChKeys(CameraMetadata *info, uint8_t level){
 //actualHwLevel: legacy:0, limited:1, full:2
-    enum hardware_level_e actualHwLevel;
+    enum hardware_level_e actualHwLevel = LEGACY;
     uint8_t availCapMask = NONE;
     int size, sizeReq ,sizeofbckComp;
     int availCount = 0;

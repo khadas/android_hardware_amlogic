@@ -183,6 +183,7 @@ EmulatedFakeCamera3::EmulatedFakeCamera3(int cameraId, struct hw_module_t* modul
     for (size_t i = 0; i < CAMERA3_TEMPLATE_COUNT; i++) {
         mDefaultTemplates[i] = NULL;
     }
+    memset(&info,0,sizeof(struct ExifInfo));
 
     /**
      * Front cameras = limited mode
@@ -195,6 +196,27 @@ EmulatedFakeCamera3::EmulatedFakeCamera3(int cameraId, struct hw_module_t* modul
     mFullMode = 0;
     mFlushTag = false;
     mPlugged = false;
+
+    mControlMode = 0;
+    mFacePriority = 0;
+    mControlMode = 0;
+    mFacePriority = 0;
+    mAeState = 0;
+    mAfState = 0;
+    mAwbState = 0;
+    mAeMode = 0;
+    mAfMode = 0;
+    mAwbMode = 0;
+    mAfTriggerId = 0;
+    mZoomMin = 0;
+    mZoomMax = 0;
+    mZoomStep = 0;
+    mFrameDuration = 0;
+
+    mAeCounter = 0;
+    mAeCurrentExposureTime = 0;
+    mAeTargetExposureTime = 0;
+    mAeCurrentSensitivity = 0;
 
 }
 
@@ -457,7 +479,7 @@ status_t EmulatedFakeCamera3::configureStreams(
         camera3_stream_configuration *streamList) {
         ATRACE_CALL();
     Mutex::Autolock l(mLock);
-    uint32_t width, height, pixelfmt;
+    uint32_t width = 0, height = 0, pixelfmt = 0;
     bool isRestart = false;
     mFlushTag = false;
     DBG_LOGB("%s: %d streams", __FUNCTION__, streamList->num_streams);
@@ -1906,17 +1928,12 @@ status_t EmulatedFakeCamera3::constructStaticInfo() {
 
     maxJpegResolution = getMaxJpegResolution(picSizes,count);
     int32_t full_size[4];
-    if (mFacingBack) {
-        full_size[0] = 0;
-        full_size[1] = 0;
-        full_size[2] = maxJpegResolution.width;
-        full_size[3] = maxJpegResolution.height;
-    } else {
-        full_size[0] = 0;
-        full_size[1] = 0;
-        full_size[2] = maxJpegResolution.width;
-        full_size[3] = maxJpegResolution.height;
-    }
+
+    full_size[0] = 0;
+    full_size[1] = 0;
+    full_size[2] = maxJpegResolution.width;
+    full_size[3] = maxJpegResolution.height;
+
     /*activeArray.width <= pixelArraySize.Width && activeArray.height<= pixelArraySize.Height*/
     info.update(ANDROID_SENSOR_INFO_ACTIVE_ARRAY_SIZE,
             (int32_t*)full_size,
@@ -2136,7 +2153,7 @@ status_t EmulatedFakeCamera3::constructStaticInfo() {
             &maxZoom, 1);
     } else {
         if (mZoomMin != 0) {
-            float maxZoom = mZoomMax / mZoomMin;
+            float maxZoom = (float) (mZoomMax / mZoomMin);
             info.update(ANDROID_SCALER_AVAILABLE_MAX_DIGITAL_ZOOM,
                 &maxZoom, 1);
         } else {
@@ -2738,6 +2755,8 @@ EmulatedFakeCamera3::ReadoutThread::ReadoutThread(EmulatedFakeCamera3 *parent) :
         mParent(parent), mJpegWaiting(false) {
     mExitReadoutThread = false;
     mFlushFlag = false;
+    mThreadActive = 0;
+    memset(&mJpegHalBuffer,0,sizeof(struct camera3_stream_buffer));
 }
 
 EmulatedFakeCamera3::ReadoutThread::~ReadoutThread() {
@@ -2925,7 +2944,7 @@ bool EmulatedFakeCamera3::ReadoutThread::threadLoop() {
     bool needJpeg = false;
     HalBufferVector::iterator buf = mCurrentRequest.buffers->begin();
     while (buf != mCurrentRequest.buffers->end()) {
-        bool goodBuffer = true;
+        const bool goodBuffer = true;
         if ( buf->stream->format ==
                 HAL_PIXEL_FORMAT_BLOB) {
             Mutex::Autolock jl(mJpegLock);

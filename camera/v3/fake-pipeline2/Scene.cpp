@@ -84,8 +84,18 @@ Scene::Scene(
     int sensorWidthPx,
     int sensorHeightPx,
     float sensorSensitivity):
+        mHandshakeX(0),
+        mHandshakeY(0),
         mSensorWidth(sensorWidthPx),
         mSensorHeight(sensorHeightPx),
+        mCurrentX(0),
+        mCurrentY(0),
+        mSubX(0),
+        mSubY(0),
+        mSceneX(0),
+        mSceneY(0),
+        mSceneIdx(0),
+        mCurrentSceneMaterial(NULL),
         mHour(12),
         mExposureDuration(0.033f),
         mSensorSensitivity(sensorSensitivity)

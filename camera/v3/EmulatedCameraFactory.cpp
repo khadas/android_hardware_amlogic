@@ -559,7 +559,7 @@ void EmulatedCameraFactory::onStatusChanged(int cameraId, int newStatus)
      * Send the callback first to framework, THEN close the camera.
      */
 
-    if (newStatus == cam->getHotplugStatus()) {
+    if (cam && newStatus == cam->getHotplugStatus()) {
         ALOGD("%s: Ignoring transition to the same status", __FUNCTION__);
         return;
     }

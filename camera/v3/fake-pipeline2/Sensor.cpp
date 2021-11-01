@@ -194,16 +194,25 @@ void ReSizeNV21(struct VideoInfo *vinfo, uint8_t *src, uint8_t *img, uint32_t wi
 
 Sensor::Sensor():
         Thread(false),
+        mSensorFace(SENSOR_FACE_NONE),
         mGotVSync(false),
         mExposureTime(kFrameDurationRange[0]-kMinVerticalBlank),
         mFrameDuration(kFrameDurationRange[0]),
         mGainFactor(kDefaultSensitivity),
         mNextBuffers(NULL),
+        mKernelBuffer(NULL),
+        mTempFD(-1),
         mFrameNumber(0),
+        mRotateValue(-1),
+        mEV(-1),
         mCapturedBuffers(NULL),
         mListener(NULL),
         mTemp_buffer(NULL),
         mExitSensorThread(false),
+        vinfo(NULL),
+        mFramecount(0),
+        mCurFps(0.0),
+        mSensorType(SENSOR_MMAP),
         mIoctlSupport(0),
         mTimeOutCount(0),
         mWait(false),
@@ -211,9 +220,17 @@ Sensor::Sensor():
         mPre_height(0),
         mFlushFlag(false),
         mSensorWorkFlag(false),
+        mNextCapturedBuffers(NULL),
         mScene(kResolution[0], kResolution[1], kElectronsPerLuxSecond)
 {
-
+        memset(&mKernelPhysAddr,0,sizeof(mKernelPhysAddr));
+        memset(&mCaptureTime,0,sizeof(nsecs_t));
+        memset(&mStartupTime,0,sizeof(nsecs_t));
+        memset(&mTimeStart,0,sizeof(struct timeval));
+        memset(&mTimeEnd,0,sizeof(struct timeval));
+        memset(&mTestStart,0,sizeof(struct timeval));
+        memset(&mTestEnd,0,sizeof(struct timeval));
+        memset(&mNextCaptureTime,0,sizeof(nsecs_t));
 }
 
 Sensor::~Sensor() {
@@ -1221,7 +1238,7 @@ bool Sensor::threadLoop() {
 
     if (mFramecount == 100) {
         gettimeofday(&mTimeEnd, NULL);
-        int64_t interval = (mTimeEnd.tv_sec - mTimeStart.tv_sec) * 1000000L + (mTimeEnd.tv_usec - mTimeStart.tv_usec);
+        int64_t interval = ( int64_t )(mTimeEnd.tv_sec - mTimeStart.tv_sec) * 1000000L + (mTimeEnd.tv_usec - mTimeStart.tv_usec);
         mCurFps = mFramecount/(interval/1000000.0f);
         memcpy(&mTimeStart, &mTimeEnd, sizeof(mTimeEnd));
         mFramecount = 0;
@@ -1624,31 +1641,31 @@ int Sensor::getStreamConfigurationDurations(uint32_t picSizes[], int64_t duratio
                 fival.height = picSizes[size-2];
                 if((ret = ioctl(vinfo->fd, VIDIOC_ENUM_FRAMEINTERVALS, &fival)) == 0) {
                     if (fival.type == V4L2_FRMIVAL_TYPE_DISCRETE){
-                        temp_rate = fival.discrete.denominator/fival.discrete.numerator;
+                        if ( fival.discrete.numerator != 0) temp_rate = fival.discrete.denominator/fival.discrete.numerator;
                         if(framerate < temp_rate)
                             framerate = temp_rate;
                         duration[count+0] = (int64_t)(picSizes[size-4]);
                         duration[count+1] = (int64_t)(picSizes[size-3]);
                         duration[count+2] = (int64_t)(picSizes[size-2]);
-                        duration[count+3] = (int64_t)((1.0/framerate) * 1000000000);
+                        if (framerate != 0) duration[count+3] = (int64_t)((1.0/framerate) * 1000000000);
                         j++;
                     } else if (fival.type == V4L2_FRMIVAL_TYPE_CONTINUOUS){
-                        temp_rate = fival.discrete.denominator/fival.discrete.numerator;
+                        if ( fival.discrete.numerator != 0) temp_rate = fival.discrete.denominator/fival.discrete.numerator;
                         if(framerate < temp_rate)
                             framerate = temp_rate;
                         duration[count+0] = (int64_t)picSizes[size-4];
                         duration[count+1] = (int64_t)picSizes[size-3];
                         duration[count+2] = (int64_t)picSizes[size-2];
-                        duration[count+3] = (int64_t)((1.0/framerate) * 1000000000);
+                        if (framerate != 0) duration[count+3] = (int64_t)((1.0/framerate) * 1000000000);
                         j++;
                     } else if (fival.type == V4L2_FRMIVAL_TYPE_STEPWISE){
-                        temp_rate = fival.discrete.denominator/fival.discrete.numerator;
+                        if ( fival.discrete.numerator != 0) temp_rate = fival.discrete.denominator/fival.discrete.numerator;
                         if(framerate < temp_rate)
                             framerate = temp_rate;
                         duration[count+0] = (int64_t)picSizes[size-4];
                         duration[count+1] = (int64_t)picSizes[size-3];
                         duration[count+2] = (int64_t)picSizes[size-2];
-                        duration[count+3] = (int64_t)((1.0/framerate) * 1000000000);
+                        if (framerate != 0) duration[count+3] = (int64_t)((1.0/framerate) * 1000000000);
                         j++;
                     }
                 } else {
@@ -1752,17 +1769,17 @@ int64_t Sensor::getMinFrameDuration()
             while (ioctl(vinfo->fd, VIDIOC_ENUM_FRAMEINTERVALS, &fival) == 0) {
                 if (fival.type == V4L2_FRMIVAL_TYPE_DISCRETE) {
                     tmpDuration =
-                        fival.discrete.numerator * 1000000000L / fival.discrete.denominator;
+                        ( int64_t ) fival.discrete.numerator * 1000000000L / fival.discrete.denominator;
 
                     if (frameDuration > tmpDuration)
                         frameDuration = tmpDuration;
                 } else if (fival.type == V4L2_FRMIVAL_TYPE_CONTINUOUS) {
                     frameDuration =
-                        fival.stepwise.max.numerator * 1000000000L / fival.stepwise.max.denominator;
+                        ( int64_t ) fival.stepwise.max.numerator * 1000000000L / fival.stepwise.max.denominator;
                     break;
                 } else if (fival.type == V4L2_FRMIVAL_TYPE_STEPWISE) {
                     frameDuration =
-                        fival.stepwise.max.numerator * 1000000000L / fival.stepwise.max.denominator;
+                        ( int64_t ) fival.stepwise.max.numerator * 1000000000L / fival.stepwise.max.denominator;
                     break;
                 }
                 fival.index++;
@@ -2030,24 +2047,23 @@ void Sensor::captureRGB(uint8_t *img, uint32_t gain, uint32_t stride) {
                     return;
                 }
 #if ANDROID_PLATFORM_SDK_VERSION > 23
-        if (ConvertToI420(src, vinfo->picture.buf.bytesused, tmp_buffer, width, uBuffer, (width + 1) / 2,
-                              vBuffer, (width + 1) / 2, 0, 0, width, height,
-                              width, height, libyuv::kRotate0, libyuv::FOURCC_MJPG) != 0) {
-            DBG_LOGA("Decode MJPEG frame failed\n");
-            putback_picture_frame(vinfo);
-            usleep(5000);
-        } else {
-
-            uint8_t *pUVBuffer = tmp_buffer + width * height;
-            for (int i = 0; i < (int)(width * height / 4); i++) {
-                *pUVBuffer++ = *(vBuffer + i);
-                *pUVBuffer++ = *(uBuffer + i);
-            }
-            nv21_to_rgb24(tmp_buffer,img,width,height);
-            if (tmp_buffer != NULL)
-                delete [] tmp_buffer;
-                break;
-            }
+                if (ConvertToI420(src, vinfo->picture.buf.bytesused, tmp_buffer, width, uBuffer, (width + 1) / 2,
+                                      vBuffer, (width + 1) / 2, 0, 0, width, height,
+                                      width, height, libyuv::kRotate0, libyuv::FOURCC_MJPG) != 0) {
+                    DBG_LOGA("Decode MJPEG frame failed\n");
+                    putback_picture_frame(vinfo);
+                    usleep(5000);
+                } else {
+                    uint8_t *pUVBuffer = tmp_buffer + width * height;
+                    for (int i = 0; i < (int)(width * height / 4); i++) {
+                        *pUVBuffer++ = *(vBuffer + i);
+                        *pUVBuffer++ = *(uBuffer + i);
+                    }
+                    nv21_to_rgb24(tmp_buffer,img,width,height);
+                    if (tmp_buffer != NULL)
+                        delete [] tmp_buffer;
+                    break;
+                }
 #else
                 if (ConvertMjpegToNV21(src, vinfo->picture.buf.bytesused, tmp_buffer,
                     width, tmp_buffer + width * height, (width + 1) / 2, width,
@@ -2372,9 +2388,10 @@ void Sensor::captureNV21(StreamBuffer b, uint32_t gain) {
 #endif
         }
         mSensorWorkFlag = true;
+        /*
         if (mFlushFlag) {
             break;
-        }
+        }*/
         break;
     }
 #endif

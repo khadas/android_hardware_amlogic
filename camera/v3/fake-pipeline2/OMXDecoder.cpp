@@ -51,6 +51,17 @@ OMXDecoder::OMXDecoder(bool useDMABuffer, bool keepOriginalSize) {
     mDeinit = NULL;
     mVDecoderHandle = NULL;
     mDequeueFailNum = 0;
+    memset(&mVideoOutputPortParam,0,sizeof(OMX_PARAM_PORTDEFINITIONTYPE));
+    memset(&mInOutPutBufferParam,0,sizeof(OMX_BUFFERHEADERTYPE));
+    mOutBuffer = NULL;
+    mNoFreeFlag = 0;
+    mppBuffer = NULL;
+    mOutBufferCount = 0;
+    mInit = NULL;
+    mGetHandle = NULL;
+    mDecoderComponentName = NULL;
+    memset(&mTempFrame,0,sizeof(mTempFrame));
+    mUvmFd = -1;
 #ifdef GE2D_ENABLE
     mGE2D = new ge2dTransform();
 #endif
@@ -544,7 +555,7 @@ bool OMXDecoder::normal_buffer_init(int buffer_size){
 bool OMXDecoder::ion_buffer_init() {
 
     ion_user_handle_t ion_hnd;
-    int shared_fd;
+    int shared_fd = -1;
     int ret = 0;
     int buffer_size = mWidth * mHeight * 3 / 2 ;
     OMX_ERRORTYPE eRet = OMX_ErrorNone;

@@ -37,11 +37,14 @@ namespace android {
 EmulatedCameraHotplugThread::EmulatedCameraHotplugThread(
     const int* cameraIdArray,
     size_t size) :
-        Thread(/*canCallJava*/false) {
+        Thread(/*canCallJava*/false),
+            mInotifyFd(-1),
+            mSocketFd(-1)
+{
 
     mRunning = true;
     //mInotifyFd = 0;
-
+    memset(&sa, 0, sizeof(struct sockaddr_nl));
     for (size_t i = 0; i < size; ++i) {
         //int id = cameraIdArray[i];
 #if 0
@@ -67,7 +70,7 @@ void EmulatedCameraHotplugThread::requestExit() {
     ALOGV("%s: Requesting thread exit", __FUNCTION__);
     mRunning = false;
 
-    bool rmWatchFailed = false;
+    const bool rmWatchFailed = false;
     Vector<SubscriberInfo>::iterator it;
     for (it = mSubscribers.begin(); it != mSubscribers.end(); ++it) {
 
@@ -128,14 +131,14 @@ status_t EmulatedCameraHotplugThread::readyToRun() {
         sa.nl_pid = 0;//getpid(); both is ok
 
         mSocketFd = socket(AF_NETLINK,SOCK_RAW,NETLINK_KOBJECT_UEVENT);
-        if (mSocketFd == -1) {
+        if (mSocketFd >= 0) {
+            if (bind(mSocketFd,(struct sockaddr *)&sa,sizeof(sa)) == -1) {
+                mRunning = false;
+                CAMHAL_LOGEB("bind error:%s, disable the hotplug thread\n",strerror(errno));
+            }
+        } else {
             mRunning = false;
             CAMHAL_LOGEB("socket creating failed:%s, disable the hotplug thread\n",strerror(errno));
-        }
-
-        if (bind(mSocketFd,(struct sockaddr *)&sa,sizeof(sa)) == -1) {
-            mRunning = false;
-            CAMHAL_LOGEB("bind error:%s, disable the hotplug thread\n",strerror(errno));
         }
 
         /**
@@ -261,6 +264,7 @@ bool EmulatedCameraHotplugThread::createFileIfNotExists(int cameraId) const
     if (TEMP_FAILURE_RETRY(write(fd, "1\n", /*count*/2)) == -1) {
         ALOGE("%s: Could not write '1' to file '%s', error: '%s' (%d)",
              __FUNCTION__, filePath.string(), strerror(errno), errno);
+        close(fd);
         return false;
     }
 
