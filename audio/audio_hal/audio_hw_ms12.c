@@ -428,6 +428,7 @@ void set_dolby_ms12_runtime_system_mixing_enable(struct dolby_ms12_desc *ms12, i
     if ((strlen(parm) > 0) && ms12) {
         aml_ms12_update_runtime_params(ms12, parm);
     }
+}
 void set_ms12_main1_audio_mute(struct dolby_ms12_desc *ms12, bool b_mute)
 {
     char parm[64] = "";
@@ -444,7 +445,6 @@ void set_ms12_main1_audio_mute(struct dolby_ms12_desc *ms12, bool b_mute)
     if ((strlen(parm)) > 0 && ms12)
         aml_ms12_update_runtime_params(ms12, parm);
     ms12->is_muted = b_mute;
-}
 }
 
 void set_ms12_atmos_lock(struct dolby_ms12_desc *ms12, bool is_atmos_lock_on)

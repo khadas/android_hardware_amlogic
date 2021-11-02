@@ -692,7 +692,7 @@ static void* audio_type_parse_threadloop(void *data)
                         break;
                     }
                     nodata_count++;
-                    usleep((read_bytes - read_back) * 1000000 / 4 / 48000 / 2);
+                    usleep((read_bytes - read_back) * 1000 / 4 / 48 / 2);
                 }
             }
 

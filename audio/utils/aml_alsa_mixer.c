@@ -191,7 +191,7 @@ int aml_mixer_ctrl_get_int(struct aml_mixer_handle *mixer_handle, int mixer_id)
     pthread_mutex_lock(&mixer_handle->lock);
     pCtrl = get_mixer_ctl_handle(pMixer, mixer_id);
     if (pCtrl == NULL) {
-        ALOGE("[%s:%d] Failed to open mixer %s\n", __FUNCTION__, __LINE__,
+        ALOGV("[%s:%d] Failed to open mixer %s\n", __FUNCTION__, __LINE__,
               get_mixer_name_by_id(mixer_id));
         pthread_mutex_unlock(&mixer_handle->lock);
         return -1;
