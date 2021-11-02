@@ -914,6 +914,8 @@ int dcv_decoder_config(aml_dec_t * aml_dec, aml_dec_config_type_t config_type, a
     switch (config_type) {
     case AML_DEC_CONFIG_MIXER_LEVEL: {
         int  mixer_level = dec_config->mixer_level;
+        if (!dec_config->ad_mixing_enable)
+            mixer_level = -32;
         ALOGI("dec_config->mixer_level %d", mixer_level);
         ret = (*ddp_decoder_config)(handle, DDP_CONFIG_MIXER_LEVEL, (ddp_config_t *)&mixer_level);
         break;
