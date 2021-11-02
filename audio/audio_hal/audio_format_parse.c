@@ -707,7 +707,7 @@ static void* audio_type_parse_threadloop(void *data)
                 usleep(10 * 1000);
             }
         } else {
-            if (auge_chip) {
+            if (auge_chip || txlx_chip) {
                 // get audio format from hw.
                 if (audio_type_status->input_dev == AUDIO_DEVICE_IN_HDMI) {
                     audio_type_status->cur_audio_type = hdmiin_audio_format_detection(audio_type_status->mixer_handle);

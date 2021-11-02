@@ -632,9 +632,13 @@ bool signal_status_check(audio_devices_t in_device, int *mute_time,
                         struct audio_stream_in *stream) {
 
     struct aml_stream_in *in = (struct aml_stream_in *) stream;
+    struct aml_audio_device *adev = in->dev;
     if (in_device & AUDIO_DEVICE_IN_HDMI) {
         bool hw_stable = is_hdmi_in_stable_hw(stream);
         bool sw_stable = is_hdmi_in_stable_sw(stream);
+        int txlx_chip = check_chip_name("txlx", 4, &adev->alsa_mixer);
+        if (txlx_chip)
+            sw_stable = true;
         if (!hw_stable || !sw_stable) {
             ALOGV("%s() hw_stable %d sw_stable %d\n", __func__, hw_stable, sw_stable);
             *mute_time = 1000;
