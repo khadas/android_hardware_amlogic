@@ -262,8 +262,8 @@ static bool getAvailableStreamConfigs(int dev_id __unused, int *num_configuratio
             mconfig[0].type = TV_STREAM_TYPE_INDEPENDENT_VIDEO_SOURCE ;
             mconfig[0].max_video_width = 1920;
             mconfig[0].max_video_height = 1080;
-            mconfig[1].stream_id = STREAM_ID_FRAME_CAPTURE;
-            mconfig[1].type = TV_STREAM_TYPE_BUFFER_PRODUCER ;
+            mconfig[1].stream_id = STREAM_ID_MAIN;
+            mconfig[1].type = TV_STREAM_TYPE_INDEPENDENT_VIDEO_SOURCE ;
             mconfig[1].max_video_width = 1920;
             mconfig[1].max_video_height = 1080;
             break;
@@ -283,23 +283,16 @@ static int getUnavailableStreamConfigs(int dev_id __unused, int *num_configurati
 static int getTvStream(tv_input_private_t *priv, tv_stream_t *stream, int input_id)
 {
     ALOGD("getTvStream stream_id = %d", stream->stream_id);
-    int fixed_tunnel = 0;
-    char value[PROPERTY_VALUE_MAX];
-    if (property_get("vendor.tv.fixed_tunnel", value, NULL) > 0) {
-        fixed_tunnel = atoi(value);
-    }
-    ALOGD("fixed_tunnel =%d", fixed_tunnel);
-
-	if (stream->stream_id == STREAM_ID_NORMAL) {
+    if (stream->stream_id == STREAM_ID_NORMAL) {
         if (pTvStream == nullptr) {
-            if (SOURCE_DTVKIT == input_id) {
+            if ((SOURCE_DTVKIT == input_id) || (SOURCE_ADTV == input_id)) {
                 if (priv->mpTv->isMultiDemux()) {
                     pTvStream = am_gralloc_create_sideband_handle(AM_FIXED_TUNNEL, 1);
                 } else {
                     pTvStream = am_gralloc_create_sideband_handle(AM_TV_SIDEBAND, 1);
                 }
             } else {
-                if (fixed_tunnel)
+                if (priv->mpTv->isMultiDemux())
                     pTvStream = am_gralloc_create_sideband_handle(AM_FIXED_TUNNEL, 0);
                 else
                     pTvStream = am_gralloc_create_sideband_handle(AM_TV_SIDEBAND, 1);
@@ -315,7 +308,11 @@ static int getTvStream(tv_input_private_t *priv, tv_stream_t *stream, int input_
         //add such for pip function
         if (pMainTvStream == nullptr) {
             ALOGD("getTvStream stream_id=%d tunnelId=%d", stream->stream_id, 1);
-            pMainTvStream = am_gralloc_create_sideband_handle(AM_FIXED_TUNNEL, 1);
+            if (priv->mpTv->isMultiDemux()) {
+                pMainTvStream = am_gralloc_create_sideband_handle(AM_FIXED_TUNNEL, 0);
+            } else {
+                pMainTvStream = am_gralloc_create_sideband_handle(AM_TV_SIDEBAND, 1);
+            }
             if (pMainTvStream == nullptr) {
                 ALOGE("tvstream can not be initialized");
                 return -EINVAL;
