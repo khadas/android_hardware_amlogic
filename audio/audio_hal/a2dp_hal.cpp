@@ -403,7 +403,12 @@ ssize_t a2dp_out_write(struct aml_audio_device *adev, audio_config_base_t *confi
     size_t cur_frames = 0;
     size_t resample_frames = 0;
 
-    R_CHECK_POINTER_LEGAL(-1, hal, "a2dp hw is released");
+    if (hal == NULL) {
+        if (adev->debug_flag) {
+            AM_LOGW("a2dp_hal is null pointer");
+        }
+        return bytes;
+    }
     std::unique_lock<std::mutex> lock(hal->mutex_);
     cur_frames = a2dp_in_data_process(hal, config, buffer, bytes);
     if (cur_frames < 0) {
