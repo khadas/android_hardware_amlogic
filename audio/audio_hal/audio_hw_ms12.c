@@ -1023,6 +1023,10 @@ int dolby_ms12_main_process(
 
     pthread_mutex_lock(&ms12->main_lock);
 
+    if (get_debug_value(AML_DEBUG_AUDIOHAL_LEVEL_DETECT) && audio_is_linear_pcm(aml_out->hal_internal_format)) {
+        check_audio_level("ms12_main", buffer, bytes);
+    }
+
     if (ms12->dolby_ms12_enable) {
         //ms12 input main
         int dual_input_ret = 0;
@@ -1396,6 +1400,10 @@ int dolby_ms12_system_process(
     int ms12_output_size = 0;
     int ret = -1;
 
+    if (get_debug_value(AML_DEBUG_AUDIOHAL_LEVEL_DETECT)) {
+        check_audio_level("ms12_system", buffer, bytes);
+    }
+
     pthread_mutex_lock(&ms12->lock);
     if (ms12->dolby_ms12_enable) {
         //Dual input, here get the system data
@@ -1462,6 +1470,10 @@ int dolby_ms12_app_process(
     int dolby_ms12_input_bytes = 0;
     int ms12_output_size = 0;
     int ret = 0;
+
+    if (get_debug_value(AML_DEBUG_AUDIOHAL_LEVEL_DETECT)) {
+        check_audio_level("ms12_app", buffer, bytes);
+    }
 
     pthread_mutex_lock(&ms12->lock);
     if (ms12->dolby_ms12_enable) {
@@ -1913,6 +1925,10 @@ int dap_pcm_output_l(void *buffer, void *priv_data, size_t size)
     if (get_ms12_dump_enable(DUMP_MS12_OUTPUT_SPEAKER_PCM)) {
         dump_ms12_output_data(buffer, size, MS12_OUTPUT_SPEAKER_PCM_FILE);
     }
+    if (get_debug_value(AML_DEBUG_AUDIOHAL_LEVEL_DETECT)) {
+        check_audio_level("ms12_dap_pcm", buffer, size);
+    }
+
     if (is_dolbyms12_dap_enable(aml_out)) {
         ms12_output_master(buffer, priv_data, size, output_format);
         /* update the master pcm frame, which is used for av sync */
@@ -1978,6 +1994,11 @@ int stereo_pcm_output(void *buffer, void *priv_data, size_t size, aml_ms12_dec_i
     if (get_ms12_dump_enable(DUMP_MS12_OUTPUT_SPDIF_PCM)) {
         dump_ms12_output_data(buffer, size, MS12_OUTPUT_SPDIF_PCM_FILE);
     }
+
+    if (get_debug_value(AML_DEBUG_AUDIOHAL_LEVEL_DETECT)) {
+        check_audio_level("ms12_stereo_pcm", buffer, size);
+    }
+
 
     /*it has dap output, then this will be used for spdif output*/
     if (is_dolbyms12_dap_enable(aml_out)) {
