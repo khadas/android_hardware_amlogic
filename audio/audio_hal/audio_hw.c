@@ -7675,6 +7675,7 @@ void *audio_patch_output_threadloop(void *data)
     struct audio_config stream_config;
     struct timespec ts;
     int write_bytes = DEFAULT_PLAYBACK_PERIOD_SIZE * PLAYBACK_PERIOD_COUNT;
+    int txlx_chip = check_chip_name("txlx", 4, &aml_dev->alsa_mixer);
     int ret;
     ALOGD("%s: enter", __func__);
     stream_config.channel_mask = patch->out_chanmask;
@@ -7773,11 +7774,15 @@ void *audio_patch_output_threadloop(void *data)
                     (aml_dev->patch_src == SRC_ATV || aml_dev->patch_src == SRC_HDMIIN ||
                     aml_dev->patch_src == SRC_LINEIN || aml_dev->patch_src == SRC_SPDIFIN)) {
 
-                aml_dev_try_avsync(patch);
-                if (patch->skip_frames) {
-                    ALOGD("%s(), skip this period data for avsync!", __func__);
-                    usleep(5);
-                    continue;
+                if (!txlx_chip) {
+                    aml_dev_try_avsync(patch);
+                    if (patch->skip_frames) {
+                        ALOGD("%s(), skip this period data for avsync!", __func__);
+                        usleep(5);
+                        continue;
+                    }
+                } else {
+                    patch->need_do_avsync = 0;
                 }
             }
 
