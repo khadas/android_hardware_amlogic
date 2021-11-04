@@ -3882,6 +3882,9 @@ int enable_dtv_patch_for_tuner_framework(struct audio_config *config, struct aud
         val = android_fmt_convert_to_dmx_fmt(config->offload_info.format);//fmt
         ret = dtv_patch_handle_event(dev, AUDIO_DTV_PATCH_CMD_SET_FMT, val);
 
+        /*set security_mem_level. 0 for tunerframework.*/
+        ret = dtv_patch_handle_event(dev, AUDIO_DTV_PATCH_CMD_SET_SECURITY_MEM_LEVEL, 0);
+
         /*5.make dtv patch work via cmds.*/
         ret = dtv_patch_handle_event(dev, AUDIO_DTV_PATCH_CMD_CONTROL, AUDIO_DTV_PATCH_CMD_OPEN);
         ret = dtv_patch_handle_event(dev, AUDIO_DTV_PATCH_CMD_CONTROL, AUDIO_DTV_PATCH_CMD_START);
