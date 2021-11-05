@@ -678,6 +678,7 @@ size_t aml_alsa_input_read(struct audio_stream_in *stream,
     int nodata_count = 0;
     struct pcm *pcm_handle = in->pcm;
     size_t frame_size = in->config.channels * pcm_format_to_bits(in->config.format) / 8;
+    bool hdmi_raw_in_flag = patch && (patch->input_src == AUDIO_DEVICE_IN_HDMI) && (!audio_is_linear_pcm(patch->aformat));
 
     while (read_bytes < bytes) {
         if (patch && patch->input_thread_exit) {
@@ -703,8 +704,16 @@ size_t aml_alsa_input_read(struct audio_stream_in *stream,
             memset((void*)buffer,0,bytes);
             return ret;
         } else {
-             usleep((bytes - read_bytes) * 1000000 / audio_stream_in_frame_size(stream) /
-                in->config.rate / 2);
+            if (hdmi_raw_in_flag) {
+                usleep((bytes - read_bytes) * 1000000 / audio_stream_in_frame_size(stream) /
+                    in->config.rate);
+            } else {
+                usleep((bytes - read_bytes) * 1000000 / audio_stream_in_frame_size(stream) /
+                    in->config.rate / 2);
+
+            }
+
+             ALOGV("bytes %d bytes - read_bytes %d nodata_count %d",bytes, bytes - read_bytes, nodata_count);
              nodata_count++;
              if (nodata_count >= WAIT_COUNT_MAX) {
                  nodata_count = 0;

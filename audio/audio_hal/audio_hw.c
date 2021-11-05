@@ -7637,6 +7637,11 @@ void *audio_patch_input_threadloop(void *data)
         int period_mul = 1;//convert_audio_format_2_period_mul(patch->aformat);
         int read_threshold = 0;
         read_bytes = in->config.period_size * audio_stream_in_frame_size(&in->stream) * period_mul;
+        bool hdmi_raw_in_flag = patch && (patch->input_src == AUDIO_DEVICE_IN_HDMI) && (!audio_is_linear_pcm(patch->aformat));
+        if (hdmi_raw_in_flag) {
+            read_bytes = read_bytes / 2;
+
+        }
 
         if (patch->input_src == AUDIO_DEVICE_IN_LINE) {
             read_threshold = 4 * read_bytes;
@@ -7876,8 +7881,10 @@ void *audio_patch_output_threadloop(void *data)
         } else {
             ALOGV("%s(), no enough data in ring buffer, available data size:%d, need data size:%d", __func__,
                 get_buffer_read_space(ringbuffer), (write_bytes * period_mul));
-            usleep( (DEFAULT_PLAYBACK_PERIOD_SIZE) * 1000000 / 4 /
-                stream_config.sample_rate);
+            if (audio_is_linear_pcm(patch->aformat)) {
+                usleep( (DEFAULT_PLAYBACK_PERIOD_SIZE) * 1000000 / 4 /
+                    stream_config.sample_rate);
+            }
         }
     }
     do_output_standby_l((struct audio_stream *)out);
