@@ -222,7 +222,7 @@ static int outMmapCreateBuffer(const struct audio_stream_out *stream,
     aml_mmap_audio_param_st     *pstParam = (aml_mmap_audio_param_st *)out->pstMmapAudioParam;
     int ret = 0;
     R_CHECK_POINTER_LEGAL(-ENOSYS, pstParam, "");
-    R_CHECK_PARAM_LEGAL(-ENOSYS, min_size_frames, -1, INT_MAX - 1, "");
+    R_CHECK_PARAM_LEGAL(-EINVAL, min_size_frames, -1, INT_MAX - 1, "");
 
     info->shared_memory_address = pstParam->pu8MmapAddr;
     info->shared_memory_fd = pstParam->s32IonShareFd;

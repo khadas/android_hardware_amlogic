@@ -1986,6 +1986,11 @@ static void update_alsa_config(struct aml_stream_in *in) {
 #else
     (void)in;
 #endif
+
+    /*add for vts: CapturePositionAdvancesWithReads/18_default_primary
+    _18__48000_AUDIO_CHANNEL_IN_MONO. it uses 1ch and c0d1c, but c0d1c not support 1ch.*/
+    if ((in->device | AUDIO_DEVICE_BIT_IN) == AUDIO_DEVICE_IN_ECHO_REFERENCE && in->config.channels == 1)
+        in->config.channels = 2;
 }
 static int choose_stream_pcm_config(struct aml_stream_in *in);
 static int add_in_stream_resampler(struct aml_stream_in *in);
@@ -2173,7 +2178,7 @@ static int in_set_parameters (struct audio_stream *stream, const char *kvpairs)
     struct str_parms *parms;
     char *str;
     char value[32];
-    int ret, val = 0;
+    int ret = 0, val = 0;
     bool do_standby = false;
 
     ALOGD ("%s(%p, %s)", __FUNCTION__, stream, kvpairs);
@@ -2250,6 +2255,49 @@ static int in_set_parameters (struct audio_stream *stream, const char *kvpairs)
         }
     }
 
+    /*add for vts*/
+    int sample_rate = 0;
+    ret = str_parms_get_int (parms, AUDIO_PARAMETER_STREAM_SAMPLING_RATE, &sample_rate);
+
+    if (ret >= 0) {
+        if (sample_rate > 0) {
+            in->requested_rate = sample_rate;
+            ALOGV("  in->requested_rate:%d  <== sample_rate:%d\n",
+                  in->requested_rate, sample_rate);
+
+            pthread_mutex_lock (&adev->lock);
+            pthread_mutex_lock (&in->lock);
+            if (!in->standby && (in == adev->active_input) ) {
+                do_input_standby (in);
+                start_input_stream (in);
+                in->standby = 0;
+            }
+            pthread_mutex_unlock (&in->lock);
+            pthread_mutex_unlock (&adev->lock);
+        }
+    }
+
+    /*add for vts*/
+    int channel_mask = 0;
+    ret = str_parms_get_int (parms, AUDIO_PARAMETER_STREAM_CHANNELS, &channel_mask);
+
+    if (ret >= 0) {
+        if (channel_mask > 0) {
+            in->hal_channel_mask = channel_mask;
+            ALOGV("  in->hal_channel_mask:%d  <== channel_mask:%d\n",
+                   in->hal_channel_mask, channel_mask);
+
+            pthread_mutex_lock (&adev->lock);
+            pthread_mutex_lock (&in->lock);
+            if (!in->standby && (in == adev->active_input) ) {
+                do_input_standby (in);
+                start_input_stream (in);
+                in->standby = 0;
+            }
+            pthread_mutex_unlock (&in->lock);
+            pthread_mutex_unlock (&adev->lock);
+        }
+    }
 
     str_parms_destroy (parms);
 
@@ -2279,6 +2327,27 @@ static char * in_get_parameters (const struct audio_stream *stream, const char *
         if (cap) {
             para = strdup (cap);
             aml_audio_free (cap);
+            cap = NULL;
+            return para;
+        }
+    } else if (strstr (keys, AUDIO_PARAMETER_STREAM_SUP_SAMPLING_RATES) ) {
+        /*add for vts*/
+        ALOGV ("Amlogic - return hard coded sup_sampling_rates list for in stream.\n");
+        cap = strdup ("sup_sampling_rates=8000|11025|12000|16000|22050|24000|32000|44100|48000");
+        if (cap) {
+            para = strdup (cap);
+            aml_audio_free (cap);
+            cap = NULL;
+            return para;
+        }
+    } else if (strstr (keys, AUDIO_PARAMETER_STREAM_SUP_CHANNELS) ) {
+        /*add for vts*/
+        ALOGV ("Amlogic - return hard coded sup_channels list for in stream.\n");
+        cap = strdup ("sup_channels=AUDIO_CHANNEL_IN_MONO|AUDIO_CHANNEL_IN_STEREO");
+        if (cap) {
+            para = strdup (cap);
+            aml_audio_free (cap);
+            cap = NULL;
             return para;
         }
     }
@@ -2650,7 +2719,7 @@ static ssize_t in_read(struct audio_stream_in *stream, void* buffer, size_t byte
 #if defined(ENABLE_AEC_APP)
     struct aec_info info;
     get_pcm_timestamp(in->pcm, in->config.rate, &info, false /*isOutput*/);
-    if (ret == 0) {
+    if (ret >= 0) {
         in->frames_read += in_frames;
         in->timestamp_nsec = audio_utils_ns_from_timespec(&info.timestamp);
     }
