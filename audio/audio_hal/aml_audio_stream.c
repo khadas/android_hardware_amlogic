@@ -773,35 +773,6 @@ bool check_tv_stream_signal(struct audio_stream_in *stream)
     return true;
 }
 
-const char *audio_port_role[] = {
-    "AUDIO_PORT_ROLE_NONE",
-    "AUDIO_PORT_ROLE_SOURCE",
-    "AUDIO_PORT_ROLE_SINK",
-};
-
-const char *audio_port_role_to_str(audio_port_role_t role)
-{
-    if (role > AUDIO_PORT_ROLE_SINK)
-        return NULL;
-
-    return audio_port_role[role];
-}
-
-const char *audio_port_type[] = {
-    "AUDIO_PORT_TYPE_NONE",
-    "AUDIO_PORT_TYPE_DEVICE",
-    "AUDIO_PORT_TYPE_MIX",
-    "AUDIO_PORT_TYPE_SESSION",
-};
-
-const char *audio_port_type_to_str(audio_port_type_t type)
-{
-    if (type > AUDIO_PORT_TYPE_SESSION)
-        return NULL;
-
-    return audio_port_type[type];
-}
-
 const char *write_func_strs[MIXER_WRITE_FUNC_MAX] = {
     "OUT_WRITE_NEW",
     "MIXER_AUX_BUFFER_WRITE_SM",
@@ -838,7 +809,7 @@ void aml_audio_port_config_dump(struct audio_port_config *port_config, int fd)
     if (port_config == NULL)
         return;
 
-    dprintf(fd, "\t-id(%d), role(%s), type(%s)\n", port_config->id, audio_port_role[port_config->role], audio_port_type[port_config->type]);
+    dprintf(fd, "\t-id(%d), role(%s), type(%s)\n", port_config->id, audioPortRole2Str(port_config->role), audioPortType2Str(port_config->type));
     switch (port_config->type) {
     case AUDIO_PORT_TYPE_DEVICE:
         dprintf(fd, "\t-port device: type(%#x) addr(%s)\n",

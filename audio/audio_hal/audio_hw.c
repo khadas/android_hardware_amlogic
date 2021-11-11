@@ -4872,9 +4872,7 @@ static void dump_audio_port_config (const struct audio_port_config *port_config)
 
     ALOGI ("  -%s port_config(%p)", __FUNCTION__, port_config);
     ALOGI ("\t-id(%d), role(%s), type(%s)",
-        port_config->id,
-        audio_port_role_to_str(port_config->role),
-        audio_port_type_to_str(port_config->type));
+        port_config->id, audioPortRole2Str(port_config->role), audioPortType2Str(port_config->type));
     ALOGV ("\t-config_mask(%#x)", port_config->config_mask);
     ALOGI ("\t-sample_rate(%d), channel_mask(%#x), format(%#x)", port_config->sample_rate,
            port_config->channel_mask, port_config->format);
@@ -7057,8 +7055,9 @@ ssize_t mixer_app_buffer_write(struct audio_stream_out *stream, const void *buff
         return -1;
     }
 
-    if (aml_out->config.channels > 2) {
-        ALOGW("[%s:%d] channels:%d > 2, not support app write", __func__, __LINE__, aml_out->config.channels);
+    uint32_t channels = audio_channel_count_from_out_mask(aml_out->hal_channel_mask);
+    if (channels > 2) {
+        ALOGW("[%s:%d] channels:%d > 2, not support app write", __func__, __LINE__, channels);
         return -1;
     }
 
@@ -8854,7 +8853,8 @@ static int adev_set_audio_port_config(struct audio_hw_device *dev, const struct 
         ALOGE("[%s:%d] config_mask:%#x invalid", __func__, __LINE__, config->config_mask);
         return -EINVAL;
     }
-    ALOGI("++[%s:%d] audio_port id:%d, role:%d, type:%d", __func__, __LINE__, config->id, config->role, config->type);
+    ALOGI("++[%s:%d] audio_port id:%d, role:%s, type:%s", __func__, __LINE__, config->id,
+        audioPortRole2Str(config->role), audioPortType2Str(config->type));
     struct audio_patch_set *patch_set = NULL;
     struct audio_patch *patch = NULL;
     struct listnode *node = NULL;

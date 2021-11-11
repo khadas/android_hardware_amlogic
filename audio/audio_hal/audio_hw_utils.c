@@ -1935,6 +1935,15 @@ const char* hdmiFormat2Str(AML_HDMI_FORMAT_E type)
     ENUM_TYPE_TO_STR_END
 }
 
+const char* audioPortRole2Str(audio_port_role_t type)
+{
+    ENUM_TYPE_TO_STR_START("AUDIO_PORT_ROLE_");
+    ENUM_TYPE_TO_STR(AUDIO_PORT_ROLE_NONE)
+    ENUM_TYPE_TO_STR(AUDIO_PORT_ROLE_SOURCE)
+    ENUM_TYPE_TO_STR(AUDIO_PORT_ROLE_SINK)
+    ENUM_TYPE_TO_STR_END
+}
+
 const char* audioPortType2Str(audio_port_type_t type)
 {
     ENUM_TYPE_TO_STR_START("AUDIO_PORT_TYPE_");
