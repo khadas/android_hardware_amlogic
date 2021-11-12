@@ -102,6 +102,11 @@ static audio_format_t get_sink_capability (struct aml_audio_device *adev)
             aml_audio_free(cap);
             cap = NULL;
         }
+
+        dd_is_support = hdmi_desc->dd_fmt.is_support;
+        ddp_is_support = hdmi_desc->ddp_fmt.is_support;
+        mat_is_support = hdmi_desc->mat_fmt.is_support;
+
     } else {
         if (mat_is_support) {
             sink_capability = AUDIO_FORMAT_MAT;
