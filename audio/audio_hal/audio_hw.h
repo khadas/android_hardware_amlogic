@@ -373,6 +373,7 @@ struct aml_audio_device {
     int a2dp_updated;
     bool need_reset_a2dp;
     void * a2dp_hal;
+    pthread_mutex_t a2dp_lock;
     int hdmi_format_updated;
     struct aml_native_postprocess native_postprocess;
     /* used only for real TV source */
