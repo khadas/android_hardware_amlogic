@@ -305,37 +305,19 @@ exit:
     return -1;
 }
 
-int audio_type_parse(void *buffer, size_t bytes, int *package_size, audio_channel_mask_t *cur_ch_mask)
+int audio_type_parse(void *buffer, size_t bytes, int *package_size,
+        audio_channel_mask_t *cur_ch_mask)
 {
     int pos_sync_word = -1, pos_dtscd_sync_word = -1;
     char *temp_buffer = (char*)buffer;
-    int AudioType = LPCM;
+    enum audio_type AudioType = LPCM;
     uint32_t *tmp_pc;
     uint32_t pc = 0;
     uint32_t tmp = 0;
     static int dts_cd_sync_count = 0;
 
     DoDumpData(temp_buffer, bytes, CC_DUMP_SRC_TYPE_INPUT_PARSE);
-
     pos_sync_word = seek_61937_sync_word((char*)temp_buffer, bytes);
-
-    if (pos_sync_word < 0) {
-        pos_dtscd_sync_word = seek_dts_cd_sync_word((char*)temp_buffer, bytes);
-        if (pos_dtscd_sync_word >= 0) {
-            dts_cd_sync_count++;
-            if (dts_cd_sync_count < DTSCD_VALID_COUNT) {
-                AudioType = LPCM;
-            } else {
-                *package_size = DTSHD_PERIOD_SIZE * 2;
-                ALOGV("%s() %d data format: %d *package_size %d\n", __FUNCTION__, __LINE__, AudioType, *package_size);
-                AudioType = DTSCD;
-            }
-            return AudioType;
-        } else {
-            dts_cd_sync_count = 0;
-        }
-    }
-
     if (pos_sync_word >= 0) {
         tmp_pc = (uint32_t*)(temp_buffer + pos_sync_word + 4);
         pc = *tmp_pc;
@@ -393,8 +375,24 @@ int audio_type_parse(void *buffer, size_t bytes, int *package_size, audio_channe
             AudioType = LPCM;
             break;
         }
+        dts_cd_sync_count = 0;
         ALOGV("%s() data format: %d, *package_size %d, input size %zu\n",
               __FUNCTION__, AudioType, *package_size, bytes);
+    } else {
+        pos_dtscd_sync_word = seek_dts_cd_sync_word((char*)temp_buffer, bytes);
+        if (pos_dtscd_sync_word >= 0) {
+            dts_cd_sync_count++;
+            if (dts_cd_sync_count < DTSCD_VALID_COUNT) {
+                    AudioType = LPCM;
+            } else {
+                *package_size = DTSHD_PERIOD_SIZE * 2;
+                ALOGV("%s() %d data format: %d *package_size %d\n", __FUNCTION__, __LINE__, AudioType, *package_size);
+                AudioType = DTSCD;
+            }
+            return AudioType;
+        } else {
+            dts_cd_sync_count = 0;
+       }
     }
     return AudioType;
 }
@@ -425,15 +423,13 @@ static int audio_type_parse_init(audio_type_parse_t *status)
     int ret, bytes;
     int port = 0;
 
-    if (check_chip_name("t3", 2, status->mixer_handle) &&
-            audio_type_status->input_dev == AUDIO_DEVICE_IN_HDMI &&
+    if (audio_type_status->input_dev == AUDIO_DEVICE_IN_HDMI &&
             get_hdmiin_audio_mode(mixer_handle) == HDMIIN_MODE_I2S) {
         port = PORT_I2S4PARSER;
         audio_type_status->soft_parser = 1;
     } else {
         port = PORT_I2S;
     }
-
     audio_type_status->card = (unsigned int)alsa_device_get_card_index();
     audio_type_status->device = (unsigned int)alsa_device_update_pcm_index(port, CAPTURE);
     audio_type_status->flags = PCM_IN;
@@ -616,8 +612,7 @@ static void* audio_type_parse_threadloop(void *data)
 
     if (audio_type_status->input_dev == AUDIO_DEVICE_IN_HDMI) {
         eMixerAudioResampleSource resample_src = RESAMPLE_FROM_FRHDMIRX;
-        if (check_chip_name("t3", 2, audio_type_status->mixer_handle) &&
-            get_hdmiin_audio_mode(audio_type_status->mixer_handle) == HDMIIN_MODE_I2S) {
+        if (get_hdmiin_audio_mode(audio_type_status->mixer_handle) == HDMIIN_MODE_I2S) {
             resample_src = RESAMPLE_FROM_TDMIN_B;
         }
         cur_samplerate = set_resample_source(audio_type_status->mixer_handle, resample_src);

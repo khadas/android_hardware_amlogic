@@ -1933,8 +1933,7 @@ static unsigned int select_port_by_device(struct aml_stream_in *in)
                 (in_device & AUDIO_DEVICE_IN_HDMI)) {
             inport = PORT_TV;
             /* T3 needs I2S for HDMIRX due to HBR issue */
-            if (check_chip_name("t3", 2, &adev->alsa_mixer) &&
-                get_hdmiin_audio_mode(&adev->alsa_mixer) == HDMIIN_MODE_I2S) {
+            if (get_hdmiin_audio_mode(&adev->alsa_mixer) == HDMIIN_MODE_I2S) {
                 inport = PORT_I2S4HDMIRX;
             }
         } else if ((access(SYS_NODE_EARC, F_OK) == 0) &&

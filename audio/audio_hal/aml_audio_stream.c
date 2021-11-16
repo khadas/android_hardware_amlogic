@@ -452,6 +452,8 @@ bool is_hdmi_in_stable_hw (struct audio_stream_in *stream)
 {
     struct aml_stream_in *in = (struct aml_stream_in *) stream;
     struct aml_audio_device *aml_dev = in->dev;
+    struct aml_audio_patch *audio_patch = aml_dev->audio_patch;
+    audio_type_parse_t *audio_type_status = (audio_type_parse_t *)audio_patch->audio_parse_para;
     int type = 0;
     int stable = 0;
 
@@ -460,14 +462,14 @@ bool is_hdmi_in_stable_hw (struct audio_stream_in *stream)
         ALOGV("%s() amixer %s get %d\n", __func__, "HDMIIN audio stable", stable);
         return false;
     }
-
-    type = aml_mixer_ctrl_get_int (&aml_dev->alsa_mixer, AML_MIXER_ID_HDMIIN_AUDIO_TYPE);
-    if (type != in->spdif_fmt_hw) {
-        ALOGD ("%s(), in type changed from %d to %d", __func__, in->spdif_fmt_hw, type);
-        in->spdif_fmt_hw = type;
-        return false;
+    if (audio_type_status->soft_parser != 1) {
+        type = aml_mixer_ctrl_get_int (&aml_dev->alsa_mixer, AML_MIXER_ID_HDMIIN_AUDIO_TYPE);
+        if (type != in->spdif_fmt_hw) {
+            ALOGD ("%s(), in type changed from %d to %d", __func__, in->spdif_fmt_hw, type);
+            in->spdif_fmt_hw = type;
+            return false;
+        }
     }
-
     return true;
 }
 
@@ -723,9 +725,7 @@ bool check_tv_stream_signal(struct audio_stream_in *stream)
     struct aml_audio_patch* patch = adev->audio_patch;
     int in_mute = 0, parental_mute = 0;
     bool stable = true;
-
     stable = signal_status_check(adev->in_device, &in->mute_mdelay, stream);
-
     if (!stable) {
         if (in->mute_log_cntr == 0)
             ALOGI("%s: audio is unstable, mute channel", __func__);
