@@ -65,12 +65,12 @@ LOCAL_SHARED_LIBRARIES:= \
     libamgralloc_ext \
     libmediandk
 
-ifeq ($(TARGET_BUILD_KERNEL_5_4), true)
-BUILD_KERNEL_5_4 ?= true
+ifeq ($(TARGET_BUILD_KERNEL_4_9), true)
+BUILD_KERNEL_4_9 ?= true
 else
-BUILD_KERNEL_5_4 ?= false
+BUILD_KERNEL_4_9 ?= false
 endif
-LOCAL_CFLAGS += -DBUILD_KERNEL_5_4=$(BUILD_KERNEL_5_4)
+LOCAL_CFLAGS += -DBUILD_KERNEL_4_9=$(BUILD_KERNEL_4_9)
 
 ifeq ($(GE2D_ENABLE),true)
 ifeq ($(GE2D_VERSION_2),true)
