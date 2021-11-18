@@ -4507,6 +4507,11 @@ static char * adev_get_parameters (const struct audio_hw_device *dev,
         sprintf(temp_buf, "hal_param_audio_output_mode=%d", audio_output_mode);
         ALOGD("temp_buf %s", temp_buf);
         return strdup(temp_buf);
+    } else if (strstr (keys, "hal_param_audio_is_tv") ) {
+        int is_tv = adev->is_TV;
+        sprintf(temp_buf, "hal_param_audio_is_tv=%d", adev->is_TV);
+        ALOGD("temp_buf %s", temp_buf);
+        return strdup(temp_buf);
     }
 
     return strdup("");
@@ -8523,7 +8528,7 @@ static int adev_create_audio_patch(struct audio_hw_device *dev,
                      }
 
                      aml_dev->patch_src = SRC_DTV;
-                     if (eDolbyMS12Lib == aml_dev->dolby_lib_type /*&& aml_dev->continuous_audio_mode*/) {
+                     if (eDolbyMS12Lib == aml_dev->dolby_lib_type && aml_dev->continuous_audio_mode) {
                         get_dolby_ms12_cleanup(&aml_dev->ms12, true);
                         aml_dev->exiting_ms12 = 1;
                         aml_dev->continuous_audio_mode = 0;
