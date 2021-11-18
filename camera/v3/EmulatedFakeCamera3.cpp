@@ -865,7 +865,7 @@ const camera_metadata_t* EmulatedFakeCamera3::constructDefaultRequestSettings(
       case CAMERA3_TEMPLATE_VIDEO_SNAPSHOT:
       case CAMERA3_TEMPLATE_ZERO_SHUTTER_LAG:
       case CAMERA3_TEMPLATE_STILL_CAPTURE:
-        noiseMode = ANDROID_NOISE_REDUCTION_MODE_HIGH_QUALITY;
+        noiseMode = ANDROID_NOISE_REDUCTION_MODE_OFF;
         hotPixelMode = ANDROID_HOT_PIXEL_MODE_HIGH_QUALITY;
         demosaicMode = ANDROID_DEMOSAIC_MODE_HIGH_QUALITY;
         shadingMode = ANDROID_SHADING_MODE_HIGH_QUALITY;
