@@ -41,6 +41,7 @@ typedef struct spdifout_handle {
     void *spdif_enc_handle;
     bool b_mute;
     audio_channel_mask_t channel_mask;
+    bool spdif_mute;
 } spdifout_handle_t;
 
 
@@ -307,6 +308,14 @@ int aml_audio_spdifout_open(void **pphandle, spdif_config_t *spdif_config)
             ALOGI("%s not set spdif format", __func__);
         }
 
+        if (phandle->spdif_port == PORT_SPDIF &&
+            !aml_dev->dual_spdif_support &&
+            spdif_config->audio_format == AUDIO_FORMAT_E_AC3) {
+            /*we don't have dual spdif output and spdif output is ddp, we need mute spdif*/
+            audio_route_set_spdif_mute(&aml_dev->alsa_mixer, true);
+            phandle->spdif_mute = true;
+        }
+
         /*open output alsa*/
         ret = aml_alsa_output_open_new(&alsa_handle, &stream_config, &device_config);
 
@@ -461,6 +470,12 @@ int aml_audio_spdifout_close(void *phandle)
         /*it is spdif b output*/
         //aml_mixer_ctrl_set_int(&aml_dev->alsa_mixer, AML_MIXER_ID_SPDIF_B_FORMAT, AML_STEREO_PCM);
         aml_audio_select_spdif_to_hdmi(AML_SPDIF_A_TO_HDMITX);
+    }
+
+    /*if spdif is muted when open, we need unmtue it when close*/
+    if (spdifout_phandle->spdif_mute) {
+        audio_route_set_spdif_mute(&aml_dev->alsa_mixer, false);
+        spdifout_phandle->spdif_mute = false;
     }
 
     if (aml_dev->useSubMix) {
