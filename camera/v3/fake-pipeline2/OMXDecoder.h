@@ -36,7 +36,7 @@
 
 
 using namespace android;
-#define TEMP_BUFFER_NUM   (3)
+#define TempBufferNum   (3)
 #define MAX_POLLING_COUNT (100)
 #define ROUND_16(X)     ((X + 0xF) & (~0xF))
 #define ROUND_32(X)     ((X + 0x1F) & (~0x1F))
@@ -72,13 +72,13 @@ public:
     void deinitialize();
     //void saveNativeBufferHdr(void *buffer, int index, int bufferNum, struct GrallocBufInfo info, bool status);//omx zero-copy
     OMX_BUFFERHEADERTYPE* dequeueInputBuffer();
-    //void queueInputBuffer(OMX_BUFFERHEADERTYPE* pBufferHdr);
+    void queueInputBuffer(OMX_BUFFERHEADERTYPE* pBufferHdr);
     //ANativeWindowBuffer * dequeueOutputBuffer();
     //native_handle_t * dequeueOutputBuffer();
     OMX_BUFFERHEADERTYPE* dequeueOutputBuffer();
     //void releaseOutputBuffer(ANativeWindowBuffer * pBufferHdr);
     //void releaseOutputBuffer(native_handle_t * pBufferHdr);
-    //void releaseOutputBuffer(OMX_BUFFERHEADERTYPE* pBufferHdr);
+    void releaseOutputBuffer(OMX_BUFFERHEADERTYPE* pBufferHdr);
 
     template<class T> void InitOMXParams(T *params);
 
@@ -138,7 +138,6 @@ private:
         void *fd_ptr;
         struct ion_handle *ion_hnd;
         OMX_BUFFERHEADERTYPE * pBuffer;
-        int bufsize;
     };
 
     struct out_buffer_t *mOutBuffer;
@@ -165,7 +164,7 @@ private:
     OMX_STRING mDecoderComponentName;
     OMX_VERSIONTYPE mSpecVersion;
     int mDequeueFailNum;
-    uint8_t* mTempFrame[TEMP_BUFFER_NUM];
+    uint8_t* mTempFrame[TempBufferNum];
     int mUvmFd;
     OMX_TICKS timeStamp = 0;
     Mutex mOMXControlMutex;
@@ -180,15 +179,15 @@ private:
     int DequeueBuffer(int dst_fd ,uint8_t* dst_buf,
                                 size_t dst_w, size_t dst_h);
     bool normal_buffer_init(int buffer_size);
+    int ion_alloc_buffer(int ion_fd, size_t size, int* pShareFd, unsigned int flag, unsigned int alloc_hmask);
     bool ion_buffer_init();
     bool uvm_buffer_init();
     void free_ion_buffer();
     void free_normal_buffer();
     void free_uvm_buffer();
-    bool OMXWaitForVSync(nsecs_t reltime);
-    void SetOutputBuffer(int share_fd, uint8_t* addr);
-    void QueueInputBuffer(uint8_t* src, size_t size);
     bool do_buffer_init();
     void do_buffer_free();
+    void SetOutputBuffer(int share_fd, uint8_t* addr);
+    bool OMXWaitForVSync(nsecs_t reltime);
 };
 #endif

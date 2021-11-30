@@ -348,14 +348,15 @@ void USBSensor::setIOBufferNum()
 status_t USBSensor::getOutputFormat(void){
     uint32_t ret = 0;
 
-    if (mUseHwType == HW_MJPEG || mUseHwType == HW_NONE) {
-        ret = mVinfo->EnumerateFormat(V4L2_PIX_FMT_MJPEG);
-        if (ret)
-            return ret;
-    }
-
     if (mUseHwType == HW_H264) {
         ret = mVinfo->EnumerateFormat(V4L2_PIX_FMT_H264);
+        if (ret)
+            return ret;
+        mUseHwType = HW_MJPEG;
+    }
+
+    if (mUseHwType == HW_MJPEG || mUseHwType == HW_NONE) {
+        ret = mVinfo->EnumerateFormat(V4L2_PIX_FMT_MJPEG);
         if (ret)
             return ret;
     }
@@ -374,13 +375,15 @@ status_t USBSensor::getOutputFormat(void){
 int USBSensor::halFormatToSensorFormat(uint32_t pixelfmt){
     uint32_t ret = 0;
     uint32_t fmt = 0;
-    if  (mUseHwType == HW_MJPEG || mUseHwType == HW_NONE) {
-        ret = mVinfo->EnumerateFormat(V4L2_PIX_FMT_MJPEG);
-        if (ret)
-            return ret;
-    }
     if (mUseHwType == HW_H264) {
         ret = mVinfo->EnumerateFormat(V4L2_PIX_FMT_H264);
+        if (ret)
+            return ret;
+        mUseHwType = HW_MJPEG;
+    }
+
+    if  (mUseHwType == HW_MJPEG || mUseHwType == HW_NONE) {
+        ret = mVinfo->EnumerateFormat(V4L2_PIX_FMT_MJPEG);
         if (ret)
             return ret;
     }
@@ -478,15 +481,16 @@ void USBSensor::takePicture(StreamBuffer b, uint32_t stride) {
             } else if (mVinfo->picture.format.fmt.pix.pixelformat == V4L2_PIX_FMT_YUYV) {
                 if (mVinfo->picture.buf.length == mVinfo->picture.buf.bytesused) {
                     mCameraUtil->yuyv422_to_rgb24(src,b.img,width,height);
+#ifdef GE2D_ENABLE
+                    ALOGD("%s:do rotation and mirror",__FUNCTION__);
+                    mGE2D->doRotationAndMirror(b);
+#endif
                     break;
                 } else {
                     mVinfo->putback_picture_frame();
                     usleep(5000);
                 }
-#ifdef GE2D_ENABLE
-                ALOGD("%s:do rotation and mirror",__FUNCTION__);
-                mGE2D->doRotationAndMirror(b);
-#endif
+
             } else if (mVinfo->picture.format.fmt.pix.pixelformat == V4L2_PIX_FMT_RGB24) {
                 if (mVinfo->picture.buf.length == width * height * 3) {
                     memcpy(b.img, src, mVinfo->picture.buf.length);
