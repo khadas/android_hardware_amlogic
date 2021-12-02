@@ -173,6 +173,9 @@ typedef struct usb_frmsize_discrete {
 
 #define IOCTL_MASK_ROTATE    (1<<0)
 
+#define MAX_WIDTH  (1920)
+#define MAX_HEIGHT (1080)
+
 class Sensor: public Thread, public virtual RefBase {
   public:
 
@@ -309,6 +312,9 @@ class Sensor: public Thread, public virtual RefBase {
 
     static const int32_t kSensitivityRange[2];
     static const uint32_t kDefaultSensitivity;
+
+    uint8_t uBuffer[MAX_WIDTH * MAX_HEIGHT /4];
+    uint8_t vBuffer[MAX_WIDTH * MAX_HEIGHT /4];
 
     sensor_type_e getSensorType(void);
 

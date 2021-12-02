@@ -115,11 +115,6 @@ const usb_frmsize_discrete_t kUsbAvailablePictureSize[] = {
         {352, 288},
         {320, 240},
 };
-#define MAX_WIDTH  (1920)
-#define MAX_HEIGHT (1080)
-
-uint8_t uBuffer[MAX_WIDTH * MAX_HEIGHT /4];
-uint8_t vBuffer[MAX_WIDTH * MAX_HEIGHT /4];
 
 /** A few utility functions for math, normal distributions */
 
@@ -301,7 +296,7 @@ uint32_t Sensor::getStreamUsage(int stream_type)
                 | GRALLOC_USAGE_SW_WRITE_MASK
                 );
     }
-    /*usage = GRALLOC1_PRODUCER_USAGE_CAMERA;*/
+
     return usage;
 }
 
@@ -1208,11 +1203,8 @@ bool Sensor::threadLoop() {
         mScene.setExposureDuration((float)exposureDuration/1e9);
         mScene.calculateScene(mNextCaptureTime);
 
-        //if ( mSensorType == SENSOR_SHARE_FD) {
-            //captureNewImageWithGe2d();
-        //} else {
-            captureNewImage();
-        //}
+        captureNewImage();
+
         mFramecount ++;
         ALOGVV("Sensor vertical blanking interval");
         nsecs_t workDoneRealTime = systemTime();
@@ -1236,7 +1228,7 @@ bool Sensor::threadLoop() {
         return false;
     }
 
-    if (mFramecount == 100) {
+    if (mFramecount == 30) {
         gettimeofday(&mTimeEnd, NULL);
         int64_t interval = ( int64_t )(mTimeEnd.tv_sec - mTimeStart.tv_sec) * 1000000L + (mTimeEnd.tv_usec - mTimeStart.tv_usec);
         mCurFps = mFramecount/(interval/1000000.0f);
@@ -2258,7 +2250,12 @@ void Sensor::captureNV21(StreamBuffer b, uint32_t gain) {
             uint32_t height = vinfo->preview.format.fmt.pix.height;
 
             if ((width == b.width) && (height == b.height)) {
-                memcpy(b.img, src, b.stride * b.height * 3/2);
+                memcpy(b.img, src, b.stride * b.height);
+                uint8_t *pUVBuffer = b.img + b.stride * height;
+                for (int i = 0; i < (int)(b.stride * height / 4); i++) {
+                    *pUVBuffer++ = *(vBuffer + i);
+                    *pUVBuffer++ = *(uBuffer + i);
+                }
             } else {
                 ReSizeNV21(vinfo, src, b.img, b.width, b.height, b.stride);
             }
