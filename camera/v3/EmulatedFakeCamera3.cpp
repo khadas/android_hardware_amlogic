@@ -196,7 +196,6 @@ EmulatedFakeCamera3::EmulatedFakeCamera3(int cameraId, struct hw_module_t* modul
     mFullMode = 0;
     mFlushTag = false;
     mPlugged = false;
-
     mControlMode = 0;
     mFacePriority = 0;
     mControlMode = 0;
@@ -218,6 +217,7 @@ EmulatedFakeCamera3::EmulatedFakeCamera3(int cameraId, struct hw_module_t* modul
     mAeTargetExposureTime = 0;
     mAeCurrentSensitivity = 0;
 
+    cameraid = cameraId;
 }
 
 EmulatedFakeCamera3::~EmulatedFakeCamera3() {
@@ -611,6 +611,10 @@ status_t EmulatedFakeCamera3::configureStreams(
     if (isRestart) {
         mSensor->streamOff();
         pixelfmt = mSensor->halFormatToSensorFormat(pixelfmt);
+        /* seperate different sensor with different format */
+        /*if (cameraid == 0)
+            mSensor->setOutputFormat(width, height, V4L2_PIX_FMT_YUYV, 0);
+        else*/
         mSensor->setOutputFormat(width, height, pixelfmt, 0);
         mSensor->streamOn();
         DBG_LOGB("width=%d, height=%d, pixelfmt=%.4s\n",

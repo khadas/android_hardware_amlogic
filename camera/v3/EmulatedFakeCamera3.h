@@ -259,6 +259,7 @@ private:
     unsigned int mSupportCap;
     camera_status_t   mCameraStatus;
     bool mFlushTag;
+    int cameraid;
     /** Processing thread for sending out results */
 
     class ReadoutThread : public Thread, private JpegCompressor::JpegListener {

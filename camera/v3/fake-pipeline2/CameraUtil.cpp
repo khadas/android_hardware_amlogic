@@ -208,7 +208,28 @@ void CameraUtil::YUYVToNV21(uint8_t *src, uint8_t *dst, int width, int height)
             *dst++ = *(src + 1 + j);    //u
         }
 }
+/*
+void CameraUtil::UYVYToNV21(uint8_t *src, uint8_t *dst, int width, int height)
+{
+    for (int i = 1; i < width * height * 2; i += 2) {
+        *dst++ = *(src + i);
+    }
 
+    for (int y = 0; y < height - 1; y +=2) {
+        for (int j = 0; j < width * 2; j += 4) {
+            *dst++ = (*(src + j) + *(src + j + width * 2) + 1) >> 1;    //u
+            *dst++ = (*(src + 2 + j) + *(src + 2 + j + width * 2) + 1) >> 1;	//v
+        }
+        src += width * 2 * 2;
+    }
+
+    if (height & 1)
+        for (int j = 0; j < width * 2; j += 4) {
+            *dst++ = *(src + j);    //u
+            *dst++ = *(src + 2 + j);	//v
+        }
+}
+*/
 void CameraUtil::YUYVToYV12(uint8_t *src, uint8_t *dst, int width, int height)
 {
 	//width should be an even number.

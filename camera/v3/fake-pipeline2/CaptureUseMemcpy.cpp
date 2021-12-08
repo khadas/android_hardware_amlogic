@@ -89,12 +89,6 @@ int CaptureUseMemcpy::captureNV21frame(StreamBuffer b, struct data_in* in) {
         if (src) {
             switch (format) {
                 case V4L2_PIX_FMT_NV21:
-                    if ((width == b.width) && (height == b.height)) {
-                        memcpy(b.img, src, b.stride * b.height * 3/2);
-                    } else {
-                        mCameraUtil->ReSizeNV21(src, b.img, b.width, b.height, b.stride,width,height);
-                    }
-                    break;
                 case V4L2_PIX_FMT_YUYV:
                     if ((width == b.width) && (height == b.height)) {
                         memcpy(b.img, src, b.stride * b.height * 3/2);
@@ -102,6 +96,13 @@ int CaptureUseMemcpy::captureNV21frame(StreamBuffer b, struct data_in* in) {
                         mCameraUtil->ReSizeNV21(src, b.img, b.width, b.height, b.stride,width,height);
                     }
                     break;
+/*                case V4L2_PIX_FMT_YUYV:
+                    if ((width == b.width) && (height == b.height)) {
+                        mCameraUtil->YUYVToNV21(src, b.img, width, height);
+                    } else {
+                        mCameraUtil->ReSizeNV21(src, b.img, b.width, b.height, b.stride,width,height);
+                    }
+                    break;*/
                 default:
                     ALOGE("Unable known sensor format: %d", mInfo->preview.format.fmt.pix.pixelformat);
                     break;
@@ -131,7 +132,7 @@ int CaptureUseMemcpy::captureNV21frame(StreamBuffer b, struct data_in* in) {
                 memcpy(b.img, temp_buffer, b.width * b.height * 3/2);
                 free(temp_buffer);
                 break;
-               default:
+            default:
                 break;
         }
         return 0;

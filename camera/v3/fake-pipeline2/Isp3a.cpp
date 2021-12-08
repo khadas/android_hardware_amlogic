@@ -30,7 +30,7 @@ void isp3a::open_isp3a_library() {
 #ifdef ISP_ENABLE
     if (mIsOpened == false && mOpenCount == 0) {
         ALOGD("%s:enable isp lib",__FUNCTION__);
-        isp_lib_enable();
+        isp_lib_enable(2);
         mIsOpened = true;
     } else {
         ALOGD("%s:isp lib has been opened",__FUNCTION__);

@@ -13,6 +13,11 @@
 #include "IGdc.h"
 #endif
 
+/* custom v4l2 controls */
+#define ISP_V4L2_CID_ISP_V4L2_CLASS     (0x00f00000 | 1)
+#define ISP_V4L2_CID_BASE               (0x00f00000 | 0xf000)
+#define ISP_V4L2_CID_CUSTOM_DCAM_MODE (ISP_V4L2_CID_BASE + 166)
+
 namespace android {
 
     class MIPISensor:public Sensor {
@@ -40,6 +45,7 @@ namespace android {
             status_t force_reset_sensor() override;
             int captureNewImage() override;
             //-------dummy function-------
+            status_t setdualcam(uint8_t mode);
             int getZoom(int *zoomMin, int *zoomMax, int *zoomStep) override;
             int setZoom(int zoomValue) override;
             status_t setEffect(uint8_t effect) override;

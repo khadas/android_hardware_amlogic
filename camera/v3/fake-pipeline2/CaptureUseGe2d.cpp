@@ -87,24 +87,30 @@ namespace android {
 
     int CaptureUseGe2d::captureNV21frame(StreamBuffer b, struct data_in* in) {
             ATRACE_CALL();
-            //uint32_t width = mInfo->preview.format.fmt.pix.width;
-            //uint32_t height = mInfo->preview.format.fmt.pix.height;
-            uint32_t format = mInfo->preview.format.fmt.pix.pixelformat;
-
             int dmabuf_fd = -1;
-            //int tempfd = in->share_fd;
-            /*if (tempfd != -1) {
+            uint8_t *temp_buffer = nullptr;
+            uint32_t width = mInfo->preview.format.fmt.pix.width;
+            uint32_t height = mInfo->preview.format.fmt.pix.height;
+            uint32_t format = mInfo->preview.format.fmt.pix.pixelformat;
+            uint8_t *src = nullptr;
+            src = in->src;
+            if (src) {
                 switch (format) {
                     case V4L2_PIX_FMT_NV21:
-                        if ((width == b.width) && (height == b.height))
-                            ge2dDevice::ge2d_copy(b.share_fd,tempfd,b.stride,b.height);
+                    case V4L2_PIX_FMT_YUYV:
+                        if ((width == b.width) && (height == b.height)) {
+                            memcpy(b.img, src, b.stride * b.height * 3/2);
+                        } else {
+                            mCameraUtil->ReSizeNV21(src, b.img, b.width, b.height, b.stride,width,height);
+                        }
                         break;
                     default:
-                        ALOGE("Unable known sensor format: %d", format);
+                        ALOGE("Unable known sensor format: %d", mInfo->preview.format.fmt.pix.pixelformat);
                         break;
                 }
                 return 0;
-            }*/
+            }
+
             struct VideoInfoBuffer vb;
             int ret = mInfo->get_frame_buffer(&vb);
             dmabuf_fd = vb.dma_fd;
@@ -120,6 +126,13 @@ namespace android {
                         ALOGV("%s:dma buffer fd = %d \n",__FUNCTION__,dmabuf_fd);
                         mGE2D->ge2d_copy(b.share_fd,dmabuf_fd,b.stride,b.height,ge2dTransform::NV12);
                     }
+                    break;
+                case V4L2_PIX_FMT_YUYV:
+                    temp_buffer = (uint8_t *)malloc(width * height * 3/2);
+                    memset(temp_buffer, 0 , width * height * 3/2);
+                    mCameraUtil->YUYVToNV21((uint8_t*)vb.addr, temp_buffer, width, height);
+                    memcpy(b.img, temp_buffer, b.width * b.height * 3/2);
+                    free(temp_buffer);
                     break;
                 default:
                     break;

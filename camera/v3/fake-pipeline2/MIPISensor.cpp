@@ -378,7 +378,7 @@ void MIPISensor::captureYUYV(uint8_t *img, uint32_t gain, uint32_t stride) {
 void MIPISensor::setIOBufferNum()
 {
     char buffer_number[128];
-    int tmp = 4;
+    int tmp = 6;
     if (property_get("ro.vendor.mipicamera.iobuffer", buffer_number, NULL) > 0) {
         sscanf(buffer_number, "%d", &tmp);
         ALOGD(" get buffer number is %d from property \n",tmp);
@@ -491,6 +491,14 @@ int MIPISensor::halFormatToSensorFormat(uint32_t pixelfmt) {
 }
 
 status_t MIPISensor::streamOn() {
+    char property[PROPERTY_VALUE_MAX];
+    property_get("vendor.media.camera.dual",property,"false");
+
+    /* enable dualcamera support, but make sure hardware ready before */
+    if (strstr(property,"true")) {
+        setdualcam(1);
+    }
+
     return mVinfo->start_capturing();
 }
 
@@ -1057,6 +1065,16 @@ int MIPISensor::captureNewImage() {
     return 0;
 }
 
+status_t MIPISensor::setdualcam(uint8_t mode) {
+    int ret = 0;
+    struct v4l2_control ctl;
+    ctl.id = ISP_V4L2_CID_CUSTOM_DCAM_MODE;
+    ctl.value = mode;
+
+    ret = ioctl(mVinfo->fd, VIDIOC_S_CTRL, &ctl);
+
+    return ret;
+}
 
 int MIPISensor::getZoom(int *zoomMin, int *zoomMax, int *zoomStep) {
     int ret = 0;
