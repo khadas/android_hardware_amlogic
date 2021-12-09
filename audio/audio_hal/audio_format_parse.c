@@ -528,6 +528,7 @@ static int update_audio_type(audio_type_parse_t *status, int update_bytes, int s
             audio_type_status->read_bytes = 0;
             AM_LOGI("package_size:%d no IEC61937 header found, PCM data!", audio_type_status->package_size);
             enable_HW_resample(mixer_handle, sr);
+            ALOGD("Reset hdmiin/spdifin audio resample sr to %d\n", sr);
         }
         audio_type_status->read_bytes += update_bytes;
     } else {
@@ -537,6 +538,7 @@ static int update_audio_type(audio_type_parse_t *status, int update_bytes, int s
         audio_type_status->read_bytes = 0;
         AM_LOGI("Raw data found: type(%d)\n", audio_type_status->audio_type);
         enable_HW_resample(mixer_handle, HW_RESAMPLE_DISABLE);
+        ALOGD("Reset hdmiin/spdifin audio resample sr to %d\n", HW_RESAMPLE_DISABLE);
     }
     return 0;
 }
@@ -589,8 +591,8 @@ static void* audio_type_parse_threadloop(void *data)
 {
     audio_type_parse_t *audio_type_status = (audio_type_parse_t *)data;
     int bytes, ret = -1;
-    int cur_samplerate = HW_RESAMPLE_48K;
-    int last_cur_samplerate = HW_RESAMPLE_48K;
+    int cur_samplerate = HW_RESAMPLE_DISABLE;
+    int last_cur_samplerate = HW_RESAMPLE_DISABLE;
     hdmiin_audio_packet_t cur_audio_packet = AUDIO_PACKET_NONE;
     int read_bytes = 0, read_back, nodata_count;
     int txlx_chip = check_chip_name("txlx", 4, audio_type_status->mixer_handle);
@@ -635,13 +637,13 @@ static void* audio_type_parse_threadloop(void *data)
             cur_samplerate = HW_RESAMPLE_48K;
 
         /*check hdmiin audio input sr and reset hw resample*/
-        if (cur_samplerate != HW_RESAMPLE_DISABLE &&
-                cur_samplerate != last_cur_samplerate &&
-                audio_type_status->audio_type == LPCM) {
-            enable_HW_resample(audio_type_status->mixer_handle, cur_samplerate);
-            ALOGD("Reset hdmiin/spdifin audio resample sr from %d to %d\n",
-                last_cur_samplerate, cur_samplerate);
+        if (cur_samplerate != last_cur_samplerate && cur_samplerate != HW_RESAMPLE_DISABLE) {
             last_cur_samplerate = cur_samplerate;
+            if (audio_type_status->audio_type == LPCM) {
+                enable_HW_resample(audio_type_status->mixer_handle, cur_samplerate);
+                ALOGD("Reset hdmiin/spdifin audio resample sr from %d to %d\n",
+                    last_cur_samplerate, cur_samplerate);
+            }
         }
 
         if (audio_type_status->soft_parser && audio_type_status->in) {
