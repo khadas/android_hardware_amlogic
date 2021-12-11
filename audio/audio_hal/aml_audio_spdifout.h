@@ -48,6 +48,8 @@ int aml_audio_spdifout_pause(void *phandle);
 
 int aml_audio_spdifout_resume(void *phandle);
 
+int aml_audio_spdifout_stop(void *phandle);
+
 int aml_audio_spdifout_get_delay(void *phandle);
 
 #endif
