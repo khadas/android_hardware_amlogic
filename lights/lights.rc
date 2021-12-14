@@ -1,6 +1,8 @@
 on init
-    chmod 0666 /sys/class/leds/tlc59116_led/single_colors
-    chown system system /sys/class/leds/tlc59116_led/single_colors
+    chmod 0666 /sys/class/backlight/aml-bl/brightness
+    chown system system /sys/class/backlight/aml-bl/brightness
+    chmod 0666 /sys/class/backlight/aml-bl1/brightness
+    chown system system /sys/class/backlight/aml-bl1/brightness
 
 service vendor.lights  /vendor/bin/hw/lights
     class hal

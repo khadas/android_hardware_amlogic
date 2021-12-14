@@ -45,7 +45,8 @@ static pthread_mutex_t g_lock = PTHREAD_MUTEX_INITIALIZER;
 
 //char const* const RED_LED_FILE = "";
 //char const* const BLUE_LED_FILE = "";
-char const* const ARRAY_LED_DEVICE = "/sys/class/leds/tlc59116_led/single_colors";
+char const* const ARRAY_LED_DEVICE0 = "/sys/class/backlight/aml-bl/brightness"; //mipi edp backlight
+char const* const ARRAY_LED_DEVICE1 = "/sys/class/backlight/aml-bl1/brightness"; //vbo backlight
 
 static int sys_write_int(int fd, int value) {
     char buffer[16];
@@ -90,10 +91,11 @@ class Lights : public BnLights {
         char ordinal_str[8] = "";
         sprintf(ordinal_str, "%d", ordinal);
         LOG(ERROR) << "    ordinal_str :" << ordinal_str;
-        sprintf(color_str, "0x%06x", color & 0x00FFFFFF);
+        //sprintf(color_str, "0x%06x", color & 0x00FFFFFF);
+        sprintf(color_str, "0x%02x", (color >> 16) & 0xFF);
         LOG(ERROR) << "    color :" << color_str;
-        strcat(cmd, ordinal_str);
-        strcat(cmd, " ");
+        //strcat(cmd, ordinal_str);
+        //strcat(cmd, " ");
         strcat(cmd, color_str);
         LOG(ERROR) << "    cmd :" << cmd;
         int len = write(fd, cmd, strlen(cmd));
@@ -131,7 +133,7 @@ class Lights : public BnLights {
         addLight(LightType::WIFI, 0);
 
         for (int i = 0; i < 4; i++) {
-            addLight(LightType::MICROPHONE, i);
+            addLight(LightType::BACKLIGHT, i);
         }
     }
 
@@ -144,9 +146,12 @@ class Lights : public BnLights {
         HwLight const& light = availableLights[id];
         int ret = 0;
         switch (light.type) {
-            case LightType::MICROPHONE:
+            case LightType::BACKLIGHT:
                 LOG(ERROR) << "setLightState, light:" << light.ordinal << ", color:" << state.color ;
-                ret = writeLedArray(ARRAY_LED_DEVICE, light.ordinal, state.color);
+                ret = writeLedArray(ARRAY_LED_DEVICE0, light.ordinal, state.color);
+				if (ret < 0){
+					ret = writeLedArray(ARRAY_LED_DEVICE1, light.ordinal, state.color);
+				}
                 break;
             case LightType::BATTERY:
                 LOG(ERROR) << "Light BATTERY is not supported by now.";
