@@ -48,8 +48,9 @@ static pthread_mutex_t g_lock = PTHREAD_MUTEX_INITIALIZER;
 //char const* const RED_LED_FILE = "";
 //char const* const BLUE_LED_FILE = "";
 char const* const ARRAY_LED_DEVICE = "/sys/class/leds/i2c_leds/single_colors" ;
-char const* BACKLIGHT_DEVICE = "/sys/class/backlight/aml-bl/brightness";
-
+//char const* BACKLIGHT_DEVICE = "/sys/class/backlight/aml-bl/brightness";
+char const* const BACKLIGHT_DEVICE0 = "/sys/class/backlight/aml-bl/brightness"; //mipi edp backlight
+char const* const BACKLIGHT_DEVICE1 = "/sys/class/backlight/aml-bl1/brightness"; //vbo backlight
 
 static int sys_write_int(int fd, int value) {
     char buffer[16];
@@ -111,7 +112,7 @@ class Lights : public BnLights {
     }
 
     void writeControlSysfs(const char* path, int color) {
-        LOG(ERROR) << "writeLed test:" << path << ",color:"<< color;
+        //LOG(ERROR) << "writeLed test:" << path << ",color:"<< color;
         int fd = open(path, O_WRONLY);
         if (fd < 0) {
             LOG(ERROR) << "COULD NOT OPEN LED_DEVICE " << path;
@@ -131,7 +132,10 @@ class Lights : public BnLights {
   public:
     Lights() : BnLights() {
         pthread_mutex_init(&g_lock, NULL);
-      if (isLightSupport(BACKLIGHT_DEVICE)) {
+      if (isLightSupport(BACKLIGHT_DEVICE0)) {
+            LOG(ERROR) << "LIGHTS:BACKGROUND is supported";
+            addLight(LightType::BACKLIGHT, 0);
+      } else if (isLightSupport(BACKLIGHT_DEVICE1)) {
             LOG(ERROR) << "LIGHTS:BACKGROUND is supported";
             addLight(LightType::BACKLIGHT, 0);
       } else
@@ -174,7 +178,11 @@ class Lights : public BnLights {
                 LOG(DEBUG) <<  "Light BLUETOOTH is not supported by now.";
                 break;
             case LightType::BACKLIGHT:
-                writeControlSysfs(BACKLIGHT_DEVICE, state.color);
+				if (isLightSupport(BACKLIGHT_DEVICE0)) {
+				    writeControlSysfs(BACKLIGHT_DEVICE0, state.color);
+				} else {
+				    writeControlSysfs(BACKLIGHT_DEVICE1, state.color);
+				}
                 LOG(DEBUG) << "setLightState, light:" << light.ordinal << ", color:" << state.color ;
                 break;
             default:
