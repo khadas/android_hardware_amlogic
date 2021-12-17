@@ -25,28 +25,30 @@
 #define ARRAY_SIZE(x) (sizeof((x))/sizeof(((x)[0])))
 
 CameraVirtualDevice* CameraVirtualDevice::mInstance = nullptr;
+struct VirtualDevice CameraVirtualDevice::videoDevices[8];
 
 #if BUILD_KERNEL_4_9 == true
-struct VirtualDevice CameraVirtualDevice::videoDevices[] = {
-        {"/dev/video0",1,{FREED_VIDEO_DEVICE,NONE_DEVICE,NONE_DEVICE},{-1,-1,-1},{-1,-1,-1},0},
-        {"/dev/video1",1,{FREED_VIDEO_DEVICE,NONE_DEVICE,NONE_DEVICE},{-1,-1,-1},{-1,-1,-1},1},
-        {"/dev/video2",1,{FREED_VIDEO_DEVICE,NONE_DEVICE,NONE_DEVICE},{-1,-1,-1},{-1,-1,-1},2},
-        {"/dev/video3",1,{FREED_VIDEO_DEVICE,NONE_DEVICE,NONE_DEVICE},{-1,-1,-1},{-1,-1,-1},3},
-        {"/dev/video50",3,{FREED_VIDEO_DEVICE,FREED_META_DEVICE,FREED_VIDEO_DEVICE},{-1,-1,-1},{-1,-1,-1},50},
-        {"/dev/video51",3,{FREED_VIDEO_DEVICE,FREED_META_DEVICE,FREED_VIDEO_DEVICE},{-1,-1,-1},{-1,-1,-1},51}
+struct VirtualDevice CameraVirtualDevice::videoDeviceslists[] = {
+    {"/dev/video0",1,{FREED_VIDEO_DEVICE,NONE_DEVICE,NONE_DEVICE},{-1,-1,-1},{-1,-1,-1},0},
+    {"/dev/video1",1,{FREED_VIDEO_DEVICE,NONE_DEVICE,NONE_DEVICE},{-1,-1,-1},{-1,-1,-1},1},
+    {"/dev/video2",1,{FREED_VIDEO_DEVICE,NONE_DEVICE,NONE_DEVICE},{-1,-1,-1},{-1,-1,-1},2},
+    {"/dev/video3",1,{FREED_VIDEO_DEVICE,NONE_DEVICE,NONE_DEVICE},{-1,-1,-1},{-1,-1,-1},3},
+    {"/dev/video50",1,{FREED_VIDEO_DEVICE,NONE_DEVICE,NONE_DEVICE},{-1,-1,-1},{-1,-1,-1},4},
+    {"/dev/video51",1,{FREED_VIDEO_DEVICE,NONE_DEVICE,NONE_DEVICE},{-1,-1,-1},{-1,-1,-1},5}
 };
 #else
-struct VirtualDevice CameraVirtualDevice::videoDevices[] = {
-        {"/dev/video0",1,{FREED_VIDEO_DEVICE,NONE_DEVICE,NONE_DEVICE},{-1,-1,-1},{-1,-1,-1},0},
-        {"/dev/video2",1,{FREED_VIDEO_DEVICE,NONE_DEVICE,NONE_DEVICE},{-1,-1,-1},{-1,-1,-1},1},
-        {"/dev/video4",1,{FREED_VIDEO_DEVICE,NONE_DEVICE,NONE_DEVICE},{-1,-1,-1},{-1,-1,-1},2},
-        {"/dev/video6",1,{FREED_VIDEO_DEVICE,NONE_DEVICE,NONE_DEVICE},{-1,-1,-1},{-1,-1,-1},3},
-        {"/dev/video50",1,{FREED_VIDEO_DEVICE,NONE_DEVICE,NONE_DEVICE},{-1,-1,-1},{-1,-1,-1},50},
-        {"/dev/video51",1,{FREED_VIDEO_DEVICE,NONE_DEVICE,NONE_DEVICE},{-1,-1,-1},{-1,-1,-1},51}
+struct VirtualDevice CameraVirtualDevice::videoDeviceslists[] = {
+    {"/dev/video0",1,{FREED_VIDEO_DEVICE,NONE_DEVICE,NONE_DEVICE},{-1,-1,-1},{-1,-1,-1},0},
+    {"/dev/video2",1,{FREED_VIDEO_DEVICE,NONE_DEVICE,NONE_DEVICE},{-1,-1,-1},{-1,-1,-1},1},
+    {"/dev/video4",1,{FREED_VIDEO_DEVICE,NONE_DEVICE,NONE_DEVICE},{-1,-1,-1},{-1,-1,-1},2},
+    {"/dev/video6",1,{FREED_VIDEO_DEVICE,NONE_DEVICE,NONE_DEVICE},{-1,-1,-1},{-1,-1,-1},3},
+    {"/dev/video50",1,{FREED_VIDEO_DEVICE,NONE_DEVICE,NONE_DEVICE},{-1,-1,-1},{-1,-1,-1},4},
+    {"/dev/video51",1,{FREED_VIDEO_DEVICE,NONE_DEVICE,NONE_DEVICE},{-1,-1,-1},{-1,-1,-1},5}
 };
 #endif
 
 CameraVirtualDevice::CameraVirtualDevice() {
+    memcpy(&videoDevices, &videoDeviceslists, sizeof(videoDeviceslists));
 }
 
 int CameraVirtualDevice::checkDeviceExist(char* name) {
@@ -67,6 +69,10 @@ int CameraVirtualDevice::returnDeviceId(char* name) {
     return -1;
 }
 
+void CameraVirtualDevice::recoverDevicelists(void) {
+    ALOGD("%s: recoverDevicelists", __FUNCTION__);
+    memcpy(&videoDevices, &videoDeviceslists, sizeof(videoDeviceslists));
+}
 
 struct VirtualDevice* CameraVirtualDevice::findVideoDevice(int id) {
     int video_device_count = 0;
@@ -88,19 +94,16 @@ struct VirtualDevice* CameraVirtualDevice::findVideoDevice(int id) {
                     if (video_device_count != id)
                         video_device_count++;
                     else {
-                        ALOGD("%s: device %s stream index %d map to camera id %d", __FUNCTION__,pDev->name,stream_idx,id);
-                        if (i >= ISP_DEVICE) {
-                            pDev->cameraId[stream_idx] = id;
-                            return pDev;
-                        } else {
-                            if (pDev->deviceID != id) {
-                                memcpy(tmp, videoDevices[id].name, 64);
-                                memcpy(videoDevices[id].name, pDev->name, 64);
-                                memcpy(pDev->name, tmp, 64);
-                            }
-                            videoDevices[id].cameraId[stream_idx] = id;
-                            return &videoDevices[id];
+                        ALOGD("%s: VirtualDevice  %s stream index %d map to camera id %d sta %d", __FUNCTION__,pDev->name,stream_idx,id, pDev->status[stream_idx]);
+                        if (pDev->status[stream_idx] == USED_VIDEO_DEVICE)
+                            continue;
+                        if (pDev->deviceID != id) {
+                            memcpy(tmp, videoDevices[id].name, 64);
+                            memcpy(videoDevices[id].name, pDev->name, 64);
+                            memcpy(pDev->name, tmp, 64);
                         }
+                        videoDevices[id].cameraId[stream_idx] = id;
+                        return &videoDevices[id];
                     }
                     break;
                 default:
@@ -202,7 +205,7 @@ int CameraVirtualDevice::openVirtualDevice(int id) {
  */
 int CameraVirtualDevice::releaseVirtualDevice(int id,int fd) {
     ALOGD("%s: id =%d, fd = %d", __FUNCTION__,id,fd);
-    struct VirtualDevice* pDevice = findVideoDevice(id);
+    struct VirtualDevice* pDevice =  &videoDevices[id];
     if (pDevice == nullptr)
         return -1;
 

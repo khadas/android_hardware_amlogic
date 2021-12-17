@@ -565,6 +565,8 @@ void USBSensor::captureNV21(StreamBuffer b, uint32_t gain) {
             fd_set fds;
             struct timeval tv;
             int r;
+            if (mVinfo->fd <= 0)
+                break;
             FD_ZERO(&fds);
             FD_SET(mVinfo->fd, &fds);
             /*2s Timeout*/
@@ -581,6 +583,7 @@ void USBSensor::captureNV21(StreamBuffer b, uint32_t gain) {
             src = (uint8_t *)mVinfo->get_frame();
             if (NULL == src) {
                 if (mVinfo->get_device_status()) {
+                    camera_close();
                     break;
                 }
                 ALOGVV("%s:get frame NULL, sleep 5ms",__FUNCTION__);

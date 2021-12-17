@@ -2269,10 +2269,12 @@ void Sensor::captureNV21(StreamBuffer b, uint32_t gain) {
         if (mExitSensorThread) {
             break;
         }
-
+        if (vinfo->fd <= 0)
+            break;
         src = (uint8_t *)get_frame(vinfo);
         if (NULL == src) {
             if (get_device_status(vinfo)) {
+                camera_close(vinfo);
                 break;
             }
             ALOGVV("get frame NULL, sleep 5ms");

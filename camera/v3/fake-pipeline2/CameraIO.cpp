@@ -398,8 +398,9 @@ int CVideoInfo::get_frame_index(FrameV4L2Info& info) {
                     CAMHAL_LOGDB("VIDIOC_DQBUF failed, errno=%d\n", errno); //CAMHAL_LOGDB
                     //exit(1); /*here will generate crash, so delete.  when ocour error, should break while() loop*/
                     if (errno == ENODEV) {
-                        ALOGE("camera device is not exist!");
+                        ALOGE("camera USBSensor device is not exist!");
                         set_device_status();
+                        stop_capturing();
                         close(fd);
                         fd = -1;
                     }

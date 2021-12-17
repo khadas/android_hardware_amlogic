@@ -288,6 +288,7 @@ int EmulatedCameraFactory::get_number_of_cameras(void)
             break;
         }
     }
+    ALOGD("%s : cam is %d",__FUNCTION__, gEmulatedCameraFactory.getEmulatedCameraNum());
     return gEmulatedCameraFactory.getEmulatedCameraNum();
 }
 
@@ -482,22 +483,30 @@ void EmulatedCameraFactory::onStatusChanged(int cameraId, int newStatus)
     if (cameraId >= (MAX_CAMERA_NUM + 1))
         return;
 
+    if (mEmulatedCameraNum == 0)
+        mCameraVirtualDevice->recoverDevicelists();
+
     if (mCameraVirtualDevice->checkDeviceExist(dev_name)) {
         ALOGD("Donot response %s StatusChanged", dev_name);
         return;
     }
 
     cameraId = mCameraVirtualDevice->returnDeviceId(dev_name);
-    if (cameraId < 0)
-        return;
-    else
+    if (cameraId < 0) {
         ALOGD("Prepare StatusChanged %s, Id %d", dev_name, cameraId);
+        return;
+    }
+    else {
+        ALOGD("Prepare StatusChanged %s, Id %d, num %d", dev_name, cameraId, mEmulatedCameraNum);
+        if ((newStatus == CAMERA_DEVICE_STATUS_PRESENT) && (cameraId > mEmulatedCameraNum))
+            cameraId = mEmulatedCameraNum;
+    }
 
     CAMHAL_LOGDB("mEmulatedCameraNum step0 = %d\n", mEmulatedCameraNum);
 
     if (mEmulatedCameras[cameraId] != NULL && (!mEmulatedCameras[cameraId]->getHotplugStatus())) {
         ALOGD("close EmulatedFakeCamera3 object for the last time");
-        while (k < 150) {
+        while (k < 100) {
             if (!(mEmulatedCameras[cameraId]->getCameraStatus())) {
                 usleep(10000);
                 k++;
@@ -505,8 +514,17 @@ void EmulatedCameraFactory::onStatusChanged(int cameraId, int newStatus)
                 break;
             }
         }
-        if (k == 150) {
-            ALOGD("wait 1s, but camera still not closed , it's abnormal status.\n");
+        if (k == 100) {
+            mEmulatedCameras[cameraId]->unplugCamera();
+            if (mEmulatedCameraNum)
+                mEmulatedCameraNum --;
+            if (cb != NULL && cb->camera_device_status_change != NULL) {
+                if (cameraId > mEmulatedCameraNum)
+                    cameraId = mEmulatedCameraNum;
+                ALOGD("%d callback unplug status to framework.\n", cameraId);
+                cb->camera_device_status_change(cb, cameraId, newStatus);
+            }
+            ALOGD("wait 1s, but camera %d still not closed , it's abnormal status. num %d\n", cameraId, mEmulatedCameraNum);
             return;
         }
         delete mEmulatedCameras[cameraId];
@@ -559,8 +577,46 @@ void EmulatedCameraFactory::onStatusChanged(int cameraId, int newStatus)
      * Send the callback first to framework, THEN close the camera.
      */
 
-    if (cam && newStatus == cam->getHotplugStatus()) {
-        ALOGD("%s: Ignoring transition to the same status", __FUNCTION__);
+    if (cam && (newStatus == cam->getHotplugStatus())) {
+        if (mEmulatedCameras[mEmulatedCameraNum] == NULL) {
+            EmulatedBaseCamera *cam = mEmulatedCameras[mEmulatedCameraNum];
+            cam = new EmulatedFakeCamera3(mEmulatedCameraNum, &HAL_MODULE_INFO_SYM.common);
+            if (cam != NULL) {
+                CAMHAL_LOGDB("%s: new camera device version is %d", __FUNCTION__,
+                              getFakeCameraHalVersion(cameraId));
+                //sleep 10ms for /dev/video* create
+                usleep(50000);
+                while (i < 20) {
+                    if (0 == access(dev_name, F_OK | R_OK | W_OK)) {
+                        DBG_LOGB("access %s success\n", dev_name);
+                        break;
+                    } else {
+                        CAMHAL_LOGDB("access %s fail , i = %d .\n", dev_name,i);
+                        usleep(50000);
+                        i++;
+                    }
+                }
+                res = cam->Initialize();
+                if (res != NO_ERROR) {
+                    ALOGE("%s: Unable to intialize camera %d: %s (%d)",
+                          __FUNCTION__, cameraId, strerror(-res), res);
+                    delete cam;
+                    return ;
+                }
+
+                /* Open the camera. then send the callback to framework*/
+                mEmulatedCameras[mEmulatedCameraNum] = cam;
+                cam->plugCamera();
+            }
+        }else {
+            mEmulatedCameras[mEmulatedCameraNum]->plugCamera();
+        }
+        mEmulatedCameraNum ++;
+        if (cb != NULL && cb->camera_device_status_change != NULL) {
+            ALOGD("%d callback plug status to framework.\n", mEmulatedCameraNum - 1);
+            cb->camera_device_status_change(cb, mEmulatedCameraNum - 1, newStatus);
+        }
+        ALOGD("%s: Ignoring transition to the same status %d", __FUNCTION__, mEmulatedCameraNum);
         return;
     }
 
@@ -578,12 +634,12 @@ void EmulatedCameraFactory::onStatusChanged(int cameraId, int newStatus)
     if (newStatus == CAMERA_DEVICE_STATUS_NOT_PRESENT) {
         mEmulatedCameraNum --;
         j = cameraId;
-        if (j < mEmulatedCameraNum)
+        if (j <= (mEmulatedCameraNum + 1))
             j = mEmulatedCameraNum;
         while (m < 200) {
             if (mEmulatedCameras[j] != NULL) {
                 if (mEmulatedCameras[j]->getCameraStatus()) {
-                    DBG_LOGA("start to delete EmulatedFakeCamera3 object");
+                    ALOGD("start to delete EmulatedFakeCamera3 object %d", j);
                     mEmulatedCameras[j]->unplugCamera();
                     delete mEmulatedCameras[j];
                     mEmulatedCameras[j] = NULL;
@@ -600,7 +656,7 @@ void EmulatedCameraFactory::onStatusChanged(int cameraId, int newStatus)
         }
 
         if (cb != NULL && cb->camera_device_status_change != NULL) {
-            DBG_LOGA("callback unplug status to framework.\n");
+            ALOGD("%d callback unplug status to framework.\n", j);
             cb->camera_device_status_change(cb, j, newStatus);
         }
     } else if (newStatus == CAMERA_DEVICE_STATUS_PRESENT) {

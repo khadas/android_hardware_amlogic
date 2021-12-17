@@ -30,6 +30,7 @@ class CameraVirtualDevice {
         int getCameraNum();
         int checkDeviceExist(char* name);
         int returnDeviceId(char* name);
+        void recoverDevicelists(void);
     private:
         CameraVirtualDevice();
         struct VirtualDevice* findVideoDevice(int id);
@@ -39,6 +40,7 @@ class CameraVirtualDevice {
         int findCameraID(int id);
     private:
         static struct VirtualDevice videoDevices[8];
+        static struct VirtualDevice videoDeviceslists[8];
         static CameraVirtualDevice* mInstance;
 };
 

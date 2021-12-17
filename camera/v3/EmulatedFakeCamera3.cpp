@@ -284,7 +284,7 @@ status_t EmulatedFakeCamera3::connectCamera(hw_device_t** device) {
     DBG_LOGB("%s, ddd", __FUNCTION__);
     Mutex::Autolock l(mLock);
     status_t res;
-    DBG_LOGB("%s , mStatus = %d" , __FUNCTION__, mStatus);
+    DBG_LOGB("%s , mCameraID=%d, mStatus = %d" , __FUNCTION__, mCameraID, mStatus);
 
     if ((mStatus != STATUS_CLOSED) || !mPlugged) {
         ALOGE("%s: Can't connect in state %d, mPlugged=%d",
