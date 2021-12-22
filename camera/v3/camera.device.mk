@@ -19,8 +19,4 @@ ifeq ($(TARGET_BUILD_KERNEL_4_9), true)
 BUILD_KERNEL_4_9 ?= true
 endif
 # Setup configuration in Soong namespace
-SOONG_CONFIG_NAMESPACES += arm_camera
-SOONG_CONFIG_arm_camera := \
-    build_kernel_4_9_x
-
-SOONG_CONFIG_arm_camera_build_kernel_4_9_x := $(BUILD_KERNEL_4_9)
+$(call soong_config_set,arm_camera,build_kernel_4_9_x,$(BUILD_KERNEL_4_9))
