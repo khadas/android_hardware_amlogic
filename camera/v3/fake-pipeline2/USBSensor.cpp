@@ -58,7 +58,20 @@ const usb_frmsize_discrete_t kUsbAvailablePictureSize[] = {
         {320, 240},
 };
 
-extern bool IsUsbAvailablePictureSize(const usb_frmsize_discrete_t AvailablePictureSize[], uint32_t width, uint32_t height);
+static bool IsUsbAvailablePictureSize(const usb_frmsize_discrete_t AvailablePictureSize[], uint32_t width, uint32_t height)
+{
+    int i;
+    bool ret = false;
+    int count = sizeof(kUsbAvailablePictureSize)/sizeof(kUsbAvailablePictureSize[0]);
+    for (i = 0; i < count; i++) {
+        if ((width == AvailablePictureSize[i].width) && (height == AvailablePictureSize[i].height)) {
+            ret = true;
+        } else {
+            continue;
+        }
+    }
+    return ret;
+}
 
 
 USBSensor::USBSensor(int type)
@@ -1461,6 +1474,7 @@ int USBSensor::getStreamConfigurations(uint32_t picSizes[], const int32_t kAvail
                                     frmsize.discrete.width,
                                     frmsize.discrete.height,
                                     getformt(frmsize.pixel_format));
+
             if (0 == i) {
                 count += 4;
                 continue;
@@ -1578,6 +1592,7 @@ int USBSensor::getStreamConfigurations(uint32_t picSizes[], const int32_t kAvail
                     count += 4;
                     continue;
                 }
+
 
                 //TODO insert in descend order
                 for (k = count; k > START; k -= 4) {

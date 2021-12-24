@@ -156,7 +156,7 @@ bool IsUsbAvailablePictureSize(const usb_frmsize_discrete_t AvailablePictureSize
     bool ret = false;
     int count = sizeof(kUsbAvailablePictureSize)/sizeof(kUsbAvailablePictureSize[0]);
     for (i = 0; i < count; i++) {
-        if ((width == AvailablePictureSize[i].width) && (height == AvailablePictureSize[i].height)) {
+        if ((width == kUsbAvailablePictureSize[i].width) && (height == kUsbAvailablePictureSize[i].height)) {
             ret = true;
         } else {
             continue;
