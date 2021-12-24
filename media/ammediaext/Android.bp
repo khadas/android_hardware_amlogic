@@ -1,0 +1,50 @@
+package {
+    // See: http://go/android-license-faq
+    // A large-scale-change added 'default_applicable_licenses' to import
+    // all of the 'license_kinds' from "hardware_amlogic_media_license"
+    // to get the below license kinds:
+    //   SPDX-license-identifier-Apache-2.0
+    default_applicable_licenses: ["hardware_amlogic_media_license"],
+}
+
+
+cc_library_headers {
+    name: "libammediaext-headers",
+    vendor_available: true,
+    export_include_dirs: ["."],
+}
+
+cc_library_shared {
+    name: "libammediaext",
+
+    vendor_available: true,
+    system_ext_specific: true,
+
+    srcs: ["AmMediaDefsExt.cpp"],
+
+    shared_libs: [
+        "liblog",
+        "libcutils",
+        "libdl",
+        "libutils",
+    ],
+
+
+    cflags: [
+        "-Werror",
+        "-Wall",
+    ],
+
+    export_include_dirs: ["."],
+    sanitize: {
+        cfi: true,
+        misc_undefined: [
+            "unsigned-integer-overflow",
+            "signed-integer-overflow",
+        ],
+        diag: {
+            cfi: true,
+        },
+    },
+
+}

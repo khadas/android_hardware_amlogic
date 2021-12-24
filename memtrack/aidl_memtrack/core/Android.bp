@@ -1,0 +1,38 @@
+package {
+    // See: http://go/android-license-faq
+    // A large-scale-change added 'default_applicable_licenses' to import
+    // all of the 'license_kinds' from "hardware_interfaces_license"
+    // to get the below license kinds:
+    //   SPDX-license-identifier-Apache-2.0
+    default_applicable_licenses: ["hardware_amlogic_license"],
+}
+
+cc_library_shared {
+    name: "libmemtrack-amlogic",
+    vendor: true,
+    srcs: [
+        "Memtrack.cpp",
+        "GpuSysfsReader.cpp",
+        "filesystem.cpp",
+    ],
+    export_include_dirs: [
+        "include",
+    ],
+    shared_libs: [
+        "android.hardware.memtrack-V1-ndk",
+        "libbase",
+        "libbinder_ndk",
+        "liblog",
+    ],
+    static_libs: [
+        "libdmabufinfo"
+    ],
+    cppflags: [
+        "-Wall",
+        "-Werror",
+        "-Wformat",
+        "-Wthread-safety",
+        "-Wunused",
+        "-Wunreachable-code",
+    ],
+}

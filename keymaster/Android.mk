@@ -1,0 +1,101 @@
+# Copyright (C) 2012 The Android Open Source Project
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+LOCAL_PATH := $(call my-dir)
+
+TA_UUID := 8efb1e1c-37e5-4326-a5d6-8c33726c7d57
+TA_SUFFIX := .ta
+
+#####################################################
+#    TA Library
+#####################################################
+ifeq ($(PLATFORM_TDK_VERSION), 38)
+PLATFORM_TDK_PATH := $(BOARD_AML_VENDOR_PATH)/tdk_v3
+    ifeq ($(filter A311D2 POP1 S905C2 S905C2ENG S905X4 S805X2 S805X2G S905Y4 T965D4 T963D4 T982 S905C3 S905C3ENG, $(BOARD_AML_SOC_TYPE)),)
+        LOCAL_TA := ta/v3/signed/$(TA_UUID)$(TA_SUFFIX)
+    else
+        LOCAL_TA := ta/v3/dev/$(BOARD_AML_SOC_TYPE)/$(TA_UUID)$(TA_SUFFIX)
+    endif
+else
+PLATFORM_TDK_PATH := $(BOARD_AML_VENDOR_PATH)/tdk
+LOCAL_TA := ta/signed/$(TA_UUID)$(TA_SUFFIX)
+endif
+
+ifneq ($(USE_PRESIGNED_TA),true)
+
+include $(CLEAR_VARS)
+LOCAL_SRC_FILES := $(LOCAL_TA)
+LOCAL_MODULE := $(TA_UUID)
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-Apache-2.0
+LOCAL_LICENSE_CONDITIONS := notice
+LOCAL_MODULE_SUFFIX := $(TA_SUFFIX)
+LOCAL_STRIP_MODULE := false
+LOCAL_MODULE_CLASS := SHARED_LIBRARIES
+LOCAL_MODULE_PATH := $(TARGET_OUT_VENDOR)/lib/teetz
+include $(BUILD_PREBUILT)
+endif  # USE_PRESIGNED_TA != true
+
+include $(CLEAR_VARS)
+TRUSTY_SRC_FILES := ../../../system/core/trusty/keymaster/TrustyKeymaster.cpp \
+                    ../../../system/core/trusty/keymaster/ipc/trusty_keymaster_ipc.cpp
+TRUSTY_SHARED_LIBRARIES := libtrusty
+TRUSTY_INCLUDES = system/core/trusty/libtrusty/include \
+                  system/core/trusty/keymaster/include \
+                  system/core/libutils/include/
+LOCAL_MODULE_RELATIVE_PATH := hw
+LOCAL_SRC_FILES := keymint/service.cpp \
+                    keymint/AmlogicKeyMintDevice.cpp \
+                    keymint/AmlogicKeyMintOperation.cpp \
+                    keymint/AmlogicSecureClock.cpp \
+                    keymint/AmlogicSharedSecret.cpp \
+                    ipc/amlogic_keymaster_ipc.cpp \
+                    AmlogicKeymaster.cpp
+
+LOCAL_C_INCLUDES := \
+                    $(LOCAL_PATH)/include \
+                    $(PLATFORM_TDK_PATH)/ca_export_arm/include \
+
+LOCAL_SHARED_LIBRARIES := \
+                    android.hardware.security.keymint-V1-ndk \
+                    lib_android_keymaster_keymint_utils \
+                    android.hardware.security.sharedsecret-V1-ndk \
+                    android.hardware.security.secureclock-V1-ndk \
+                    libbase \
+                    libbinder_ndk \
+                    libhardware \
+                    libkeymaster_messages \
+                    libkeymint \
+                    liblog \
+                    libtrusty \
+                    libteec
+
+ifeq ($(shell test $(PLATFORM_SDK_VERSION) -ge 26 && echo OK),OK)
+LOCAL_PROPRIETARY_MODULE := true
+endif
+
+LOCAL_SRC_FILES += $(TRUSTY_SRC_FILES)
+LOCAL_SHARED_LIBRARIES += $(TRUSTY_SHARED_LIBRARIES)
+LOCAL_C_INCLUDES += $(TRUSTY_INCLUDES)
+
+LOCAL_CFLAGS += -Wall \
+                -Wextra
+
+LOCAL_REQUIRED_MODULES := $(TA_UUID)
+LOCAL_REQUIRED_MODULES += android.hardware.hardware_keystore.xml
+LOCAL_VINTF_FRAGMENTS := keymint/android.hardware.security.keymint-service.amlogic.xml
+LOCAL_MODULE := android.hardware.security.keymint-service.amlogic
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-Apache-2.0
+LOCAL_LICENSE_CONDITIONS := notice
+LOCAL_INIT_RC := keymint/android.hardware.security.keymint-service.amlogic.rc
+include $(BUILD_EXECUTABLE)

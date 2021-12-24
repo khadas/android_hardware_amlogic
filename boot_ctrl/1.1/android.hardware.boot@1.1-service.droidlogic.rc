@@ -1,0 +1,10 @@
+on early-init
+    symlink /dev/block/bootloader0 /dev/block/platform/${ro.boot.boot_devices}/bootloader_a
+    symlink /dev/block/bootloader1 /dev/block/platform/${ro.boot.boot_devices}/bootloader_b
+
+service vendor.boot-hal-1-1 /vendor/bin/hw/android.hardware.boot@1.1-service.droidlogic
+    interface android.hardware.boot@1.0::IBootControl default
+    interface android.hardware.boot@1.1::IBootControl default
+    class early_hal
+    user root
+    group root

@@ -1,0 +1,97 @@
+// *** THIS PACKAGE HAS SPECIAL LICENSING CONDITIONS.  PLEASE
+//     CONSULT THE OWNERS AND opensource-licensing@google.com BEFORE
+//     DEPENDING ON IT IN YOUR PROJECT. ***
+package {
+    // See: http://go/android-license-faq
+    // A large-scale-change added 'default_applicable_licenses' to import
+    // all of the 'license_kinds' from "hardware_amlogic_media_license"
+    // to get the below license kinds:
+    //   SPDX-license-identifier-Apache-2.0
+    //   legacy_by_exception_only (by exception only)
+    //   legacy_proprietary (by exception only)
+    default_applicable_licenses: ["hardware_amlogic_media_license"],
+}
+
+cc_library_shared {
+    name: "libamavutils",
+    vendor_available: true,
+    system_ext_specific: true,
+
+    cflags: [
+        "-DNO_USE_SYSWRITE",
+        "-DFB_BUFFER_NUM=3",
+        "-DANDROID_PLATFORM_SDK_VERSION=28",
+        "-Werror",
+        "-Wformat",
+        "-Wimplicit-function-declaration",
+    ],
+    srcs: [
+        "*.c",
+        "*.cpp",
+        "mediaconfig/*.cpp",
+        "mediactl/*.cpp",
+    ],
+
+    include_dirs: [
+        "hardware/amlogic/media/amcodec/include",
+    ],
+    local_include_dirs: [
+        "include",
+    ],
+
+    shared_libs: [
+        "libutils",
+        "libcutils",
+        "libc",
+        "libdl",
+        "libbinder",
+        "liblog",
+        "libui",
+    ],
+    header_libs: [
+        "libnativewindow_headers",
+        "gl_headers",
+    ],
+}
+
+cc_library_shared {
+
+    name: "libamavutils_sys",
+    system_ext_specific: true,
+
+    cflags: [
+        "-DNO_USE_SYSWRITE",
+        "-DFB_BUFFER_NUM=3",
+        "-DANDROID_PLATFORM_SDK_VERSION=28",
+        "-Werror",
+        "-Wformat",
+        "-Wimplicit-function-declaration",
+    ],
+    srcs: [
+        "*.c",
+        "*.cpp",
+        "mediaconfig/*.cpp",
+        "mediactl/*.cpp",
+    ],
+
+    include_dirs: [
+        "hardware/amlogic/media/amcodec/include",
+    ],
+    local_include_dirs: [
+        "include",
+    ],
+
+    shared_libs: [
+        "libutils",
+        "libcutils",
+        "libc",
+        "libdl",
+        "libbinder",
+        "liblog",
+        "libui",
+    ],
+    header_libs: [
+        "libnativewindow_headers",
+        "gl_headers",
+    ],
+}
