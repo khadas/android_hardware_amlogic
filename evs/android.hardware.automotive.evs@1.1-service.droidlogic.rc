@@ -1,0 +1,7 @@
+service vendor_evs_hal /vendor/bin/hw/android.hardware.automotive.evs@1.1-service.droidlogic
+    class hal
+    priority -20
+    user automotive_evs
+    group automotive_evs camera graphics
+    onrestart restart evs_manager
+    #disabled
