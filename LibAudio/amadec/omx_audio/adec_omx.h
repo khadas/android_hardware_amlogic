@@ -50,7 +50,9 @@ static const char *MEDIA_MIMETYPE_AUDIO_AAC_LATM = "audio/aac-latm";
 static const char *MEDIA_MIMETYPE_AUDIO_ADTS_PROFILE = "audio/adts";
 static const char *MEDIA_MIMETYPE_AUDIO_WMA = "audio/wma";
 static const char *MEDIA_MIMETYPE_AUDIO_WMAPRO = "audio/wmapro";
-static const char *MEDIA_MIMETYPE_AUDIO_DTSHD = "audio/dtshd";
+static const char *MEDIA_MIMETYPE_AUDIO_DTS = "audio/vnd.dts";
+static const char *MEDIA_MIMETYPE_AUDIO_DTSHD = "audio/vnd.dts.hd";
+static const char *MEDIA_MIMETYPE_AUDIO_DTS_EXPRESS = "audio/vnd.dts.hd;profile=lbr";
 static const char *MEDIA_MIMETYPE_AUDIO_TRUEHD = "audio/truehd";
 static const char *MEDIA_MIMETYPE_AUDIO_FFMPEG = "audio/ffmpeg";
 
