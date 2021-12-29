@@ -400,7 +400,7 @@ int dtv_patch_input_stop(unsigned int handle)
         pthread_mutex_unlock(&patch_out_mutex);
         return -1;
     }
-    
+
     adec_print("now enter the audio decoder stop now!\n");
 
     paramout->state = DTV_PATCH_STATE_STOPED;

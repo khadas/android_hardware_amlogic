@@ -217,6 +217,11 @@ void mad_decoder_init(struct mad_decoder *decoder, void *data __unused,
     decoder->bad_last_frame = 0;
     decoder->options      = 0;
 
+    decoder->decoded_nb_frames = 0;
+    decoder->droppped_nb_frames = 0;
+    decoder->error_nb_frames = 0;
+    decoder->bit_rate = 0;
+
     decoder->async.pid    = 0;
     decoder->async.in     = -1;
     decoder->async.out    = -1;
@@ -541,6 +546,8 @@ int run_sync(struct mad_decoder *decoder)
                 case MAD_FLOW_STOP:
                     goto done;
                 case MAD_FLOW_BREAK:
+                    decoder->droppped_nb_frames++;
+                    decoder->error_nb_frames++;
                     goto fail;
                 case MAD_FLOW_IGNORE:
                     continue;
@@ -572,7 +579,9 @@ int run_sync(struct mad_decoder *decoder)
                     continue;
                 }
             } else {
+                decoder->decoded_nb_frames++;
                 decoder->bad_last_frame = 0;
+                decoder->bit_rate = (int)decoder->sync->frame.header.bitrate;
             }
 
             if (decoder->filter_func) {
@@ -998,6 +1007,11 @@ int audio_dec_init(
 int audio_dec_getinfo(audio_decoder_operations_t *adec_ops, void *pAudioInfo)
 {
     struct mad_decoder *decoder = (struct mad_decoder *)(adec_ops->pdecoder);
+    ((AudioInfo *)pAudioInfo)->bitrate = decoder->bit_rate;
+    ((AudioInfo *)pAudioInfo)->error_num = decoder->error_nb_frames;
+    ((AudioInfo *)pAudioInfo)->drop_num = decoder->droppped_nb_frames;
+    ((AudioInfo *)pAudioInfo)->decode_num = decoder->decoded_nb_frames;
+
     if (decoder->last_ch_num <= 0 || decoder->last_sr <= 0) {
         return 0;
     }

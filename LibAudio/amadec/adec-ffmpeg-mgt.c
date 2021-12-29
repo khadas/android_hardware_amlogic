@@ -1364,7 +1364,7 @@ static int get_frame_size(aml_audio_dec_t *audec)
 static void check_audio_info_changed(aml_audio_dec_t *audec)
 {
     buffer_stream_t *g_bst = audec->g_bst;
-    AudioInfo   g_AudioInfo = {0, 0, 0, 0, 0};
+    AudioInfo g_AudioInfo = {0, 0, 0, 0, 0,0,0};
     int BufLevelAllowDoFmtChg = 0;
     audio_decoder_operations_t *adec_ops  = audec->adec_ops;
     adec_ops->getinfo(audec->adec_ops, &g_AudioInfo);
@@ -1713,7 +1713,7 @@ void *ad_audio_decode_loop(void *args)
     nAudioFormat = audec->format;
     inlen = 0;
     ad_adec_ops->nAudioDecoderType = audec->format;
-    AudioInfo   g_AudioInfo = {0, 0, 0, 0, 0};
+    AudioInfo g_AudioInfo = {0, 0, 0, 0, 0, 0, 0};
     while (1) {
         //exit_decode_loop:
         if (audec->exit_decode_thread) { //detect quit condition
