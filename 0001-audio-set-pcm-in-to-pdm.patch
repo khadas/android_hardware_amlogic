@@ -1,0 +1,37 @@
+From f6369fe0dd2e1cbad61fc86e1cc81e249fea88fd Mon Sep 17 00:00:00 2001
+From: "tenk.wang" <tenk.wang@wesion.com>
+Date: Fri, 8 Oct 2021 18:10:46 +0800
+Subject: [PATCH] audio:set pcm in to pdm
+
+Change-Id: If159a6eaf7a7fc2559f14bf2e885d043f25626db
+---
+ audio/utils/alsa_device_parser.c | 1 +
+ tuner                            | 1 +
+ 2 files changed, 2 insertions(+)
+ mode change 100644 => 100755 audio/utils/alsa_device_parser.c
+ create mode 160000 tuner
+
+diff --git a/audio/utils/alsa_device_parser.c b/audio/utils/alsa_device_parser.c
+old mode 100644
+new mode 100755
+index ddbae50..40ab474
+--- a/audio/utils/alsa_device_parser.c
++++ b/audio/utils/alsa_device_parser.c
+@@ -358,6 +358,7 @@ int alsa_device_update_pcm_index(int alsaPORT, int stream)
+ 		break;
+ 	case PORT_BUILTINMIC:
+ 		pADD = p_info->builtinmic_descrpt;
++		new_port = 3;//Set MIC to PDM
+ 		break;
+ 	case PORT_EARC:
+ 		pADD = p_info->earc_descrpt;
+diff --git a/tuner b/tuner
+new file mode 160000
+index 0000000..a582e73
+--- /dev/null
++++ b/tuner
+@@ -0,0 +1 @@
++Subproject commit a582e73e6a42243b7ecb79970aecbfb1d33eaa3b
+-- 
+2.7.4
+

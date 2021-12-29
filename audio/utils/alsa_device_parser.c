@@ -446,6 +446,10 @@ int alsa_device_update_pcm_index(int alsaPORT, int stream)
 
 	ALOGD("auge sound card, pAdd=%p fix alsaPORT:%d to :%d\n",pADD, alsaPORT, new_port);
 	/* dump_alsa_device_desc(p_info); */
-
+	//Set MIC to PDM
+	if(alsaPORT == PORT_BUILTINMIC){
+		new_port = 3;
+	}
+	//add end
 	return new_port;
 }
