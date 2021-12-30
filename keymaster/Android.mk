@@ -21,15 +21,15 @@ TA_SUFFIX := .ta
 #    TA Library
 #####################################################
 ifeq ($(PLATFORM_TDK_VERSION), 38)
-PLATFORM_TDK_PATH := $(BOARD_AML_VENDOR_PATH)/tdk_v3
-    ifeq ($(filter A311D2 POP1 S905C2 S905C2ENG S905X4 S805X2 S805X2G S905Y4 T965D4 T963D4 T982 S905C3 S905C3ENG, $(BOARD_AML_SOC_TYPE)),)
-        LOCAL_TA := ta/v3/signed/$(TA_UUID)$(TA_SUFFIX)
-    else
-        LOCAL_TA := ta/v3/dev/$(BOARD_AML_SOC_TYPE)/$(TA_UUID)$(TA_SUFFIX)
-    endif
+	PLATFORM_TDK_PATH := $(BOARD_AML_VENDOR_PATH)/tdk_v3
+	ifeq ($(BOARD_AML_SOC_TYPE),)
+		LOCAL_TA := ta/v3/signed/$(TA_UUID)$(TA_SUFFIX)
+	else
+		LOCAL_TA := ta/v3/dev/$(BOARD_AML_SOC_TYPE)/$(TA_UUID)$(TA_SUFFIX)
+	endif
 else
-PLATFORM_TDK_PATH := $(BOARD_AML_VENDOR_PATH)/tdk
-LOCAL_TA := ta/signed/$(TA_UUID)$(TA_SUFFIX)
+	PLATFORM_TDK_PATH := $(BOARD_AML_VENDOR_PATH)/tdk
+	LOCAL_TA := ta/v2/signed/$(TA_UUID)$(TA_SUFFIX)
 endif
 
 ifneq ($(USE_PRESIGNED_TA),true)
