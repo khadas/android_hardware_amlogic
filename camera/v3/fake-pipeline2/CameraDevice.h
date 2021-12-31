@@ -20,7 +20,7 @@ struct VirtualDevice {
 	int deviceID;
 };
 
-#define DEVICE_NUM (6)
+#define DEVICE_NUM (8)
 #define ISP_DEVICE (4)
 class CameraVirtualDevice {
     public:
