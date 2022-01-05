@@ -795,9 +795,9 @@ int aml_audio_hwsync_lookup_apts(audio_hwsync_t *p_hwsync, size_t offset, uint64
     //struct audio_stream_out *stream = (struct audio_stream_out *)p_hwsync->aout;
     //int    debug_enable = (adev->debug_flag > 8);
     uint32_t latency_frames = 0;
-    uint32_t latency_pts = 0;
+    uint64_t latency_pts = 0;
     apts_tab_t *pts_tab = NULL;
-    uint32_t nearest_pts = 0;
+    uint64_t nearest_pts = 0;
     uint32_t nearest_offset = 0;
     uint32_t min_offset = 0x7fffffff;
     int match_index = -1;
