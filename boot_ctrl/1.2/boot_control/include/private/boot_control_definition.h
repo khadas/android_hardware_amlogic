@@ -44,6 +44,27 @@ struct bootloader_message_ab {
     char reserved[1888];
 };
 
+typedef struct {
+	uint8_t b[16];
+} efi_guid_t;
+
+struct gpt_header {
+	__le64 signature;
+	__le32 revision;
+	__le32 header_size;
+	__le32 header_crc32;
+	__le32 reserved1;
+	__le64 my_lba;
+	__le64 alternate_lba;
+	__le64 first_usable_lba;
+	__le64 last_usable_lba;
+	efi_guid_t disk_guid;
+	__le64 partition_entry_lba;
+	__le32 num_partition_entries;
+	__le32 sizeof_partition_entry;
+	__le32 partition_entry_array_crc32;
+} __attribute__((packed));
+
 /**
  * Be cautious about the struct size change, in case we put anything post
  * bootloader_message_ab struct (b/29159185).

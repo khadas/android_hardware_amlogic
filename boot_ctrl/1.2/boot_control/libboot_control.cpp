@@ -52,6 +52,7 @@ constexpr unsigned int kDefaultBootAttempts = 7;
 #define BOOTLOADER_MAX_SIZE    (4*1024*1024)
 /*First 512 bytes in bootloader is signed data*/
 #define BOOTLOADER_OFFSET      512
+#define GPT_HEADER_SIGNATURE_UBOOT 0x5452415020494645ULL
 
 static_assert(kDefaultBootAttempts < 8, "tries_remaining field only has 3 bits");
 
@@ -125,6 +126,26 @@ bool UpdateAndSaveBootloaderControl(const std::string& misc_device, bootloader_c
   return true;
 }
 
+int is_valid_gpt_buf(char *buf)
+{
+    gpt_header *gpt_h;
+
+    /* determine start of GPT Header in the buffer */
+    gpt_h = (gpt_header*)(buf + 512);
+
+    LOG(INFO) << "signature: " << GPT_HEADER_SIGNATURE_UBOOT;
+    LOG(INFO) << "gpt header signature: " << gpt_h->signature;
+
+    /* Check the GPT header signature */
+    if (gpt_h->signature != GPT_HEADER_SIGNATURE_UBOOT) {
+        LOG(ERROR) << "gpt header signature " << gpt_h->signature
+            << " != " << GPT_HEADER_SIGNATURE_UBOOT;
+        return -1;
+    }
+
+    return 0;
+}
+
 bool write_bootloader_img(unsigned int slot, bool gpt_flag)
 {
     int iRet = 0;
@@ -177,6 +198,24 @@ bool write_bootloader_img(unsigned int slot, bool gpt_flag)
     } else {
         LOG(ERROR) << "read bootloader img failed";
         goto done;
+    }
+
+    if (gpt_flag) {
+        LOG(INFO) << "device is gpt";
+        if (is_valid_gpt_buf(data + 0x3DFE00)) {
+            LOG(ERROR) << "no gpt partition table, can't update\n";
+            goto done;
+        } else {
+            LOG(INFO) << "find gpt parition table\n";
+        }
+    } else {
+        LOG(INFO) << "device is null gpt";
+        if (is_valid_gpt_buf(data + 0x3DFE00)) {
+            LOG(INFO) << "no gpt partition table\n";
+        } else {
+            LOG(ERROR) << "find gpt parition table, can't update\n";
+            goto done;
+        }
     }
 
     /* We use robust to rollback bootloader.img in uboot
@@ -448,28 +487,6 @@ bool BootControl::SetActiveBootSlot(unsigned int slot) {
   bool ret = true;
   if (!LoadBootloaderControl(misc_device_, &bootctrl)) return false;
 
-  // Set every other slot with a lower priority than the new "active" slot.
-  const unsigned int kActivePriority = 15;
-  const unsigned int kActiveTries = 6;
-  for (unsigned int i = 0; i < num_slots_; ++i) {
-    if (i != slot) {
-      if (bootctrl.slot_info[i].priority >= kActivePriority)
-        bootctrl.slot_info[i].priority = kActivePriority - 1;
-    }
-  }
-
-  // Note that setting a slot as active doesn't change the successful bit.
-  // The successful bit will only be changed by setSlotAsUnbootable().
-  bootctrl.slot_info[slot].priority = kActivePriority;
-  bootctrl.slot_info[slot].tries_remaining = kActiveTries;
-
-  // Setting the current slot as active is a way to revert the operation that
-  // set *another* slot as active at the end of an updater. This is commonly
-  // used to cancel the pending update. We should only reset the verity_corrpted
-  // bit when attempting a new slot, otherwise the verity bit on the current
-  // slot would be flip.
-  if (slot != current_slot_) bootctrl.slot_info[slot].verity_corrupted = 0;
-
   if (ret) {
     /* check if called from update_engine or vts test,
      * just rewrite when really update
@@ -498,8 +515,31 @@ bool BootControl::SetActiveBootSlot(unsigned int slot) {
     }
   }
 
-  if (ret)
+  // Set every other slot with a lower priority than the new "active" slot.
+  if (ret) {
+    const unsigned int kActivePriority = 15;
+    const unsigned int kActiveTries = 6;
+    for (unsigned int i = 0; i < num_slots_; ++i) {
+      if (i != slot) {
+        if (bootctrl.slot_info[i].priority >= kActivePriority)
+          bootctrl.slot_info[i].priority = kActivePriority - 1;
+      }
+    }
+
+    // Note that setting a slot as active doesn't change the successful bit.
+    // The successful bit will only be changed by setSlotAsUnbootable().
+    bootctrl.slot_info[slot].priority = kActivePriority;
+    bootctrl.slot_info[slot].tries_remaining = kActiveTries;
+
+    // Setting the current slot as active is a way to revert the operation that
+    // set *another* slot as active at the end of an updater. This is commonly
+    // used to cancel the pending update. We should only reset the verity_corrpted
+    // bit when attempting a new slot, otherwise the verity bit on the current
+    // slot would be flip.
+    if (slot != current_slot_) bootctrl.slot_info[slot].verity_corrupted = 0;
+
     ret = UpdateAndSaveBootloaderControl(misc_device_, &bootctrl);
+  }
 
   return ret;
 }
