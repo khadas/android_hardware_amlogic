@@ -2,6 +2,8 @@ LOCAL_PATH:= $(call my-dir)
 
 include $(CLEAR_VARS)
 
+#LOCAL_ARM_MODE := arm
+LOCAL_MULTILIB := both
 
 LOCAL_C_INCLUDES +=                      \
     hardware/libhardware/include \
@@ -63,6 +65,6 @@ LOCAL_SHARED_LIBRARIES += \
     libam_adp
 
 LOCAL_MODULE_TAGS := optional
-LOCAL_CFLAGS += -DBUILD_IN_ANDROID -Werror -Wno-deprecated-declarations -Wno-deprecated-register \
-                -Wno-unused-parameter -Wall
+LOCAL_CFLAGS += -DBUILD_IN_ANDROID -Wno-deprecated-declarations -Wno-deprecated-register \
+                -Wno-unused-parameter -Wno-format
 include $(BUILD_SHARED_LIBRARY)

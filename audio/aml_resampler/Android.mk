@@ -31,7 +31,7 @@ LOCAL_C_INCLUDES := \
    $(TOPDIR)hardware/libhardware/include
 
 
-LOCAL_CFLAGS += -Werror -Wno-unused-label -Wno-unused-parameter
+LOCAL_CFLAGS += -Werror -Wno-unused-label -Wno-unused-parameter -Wno-format
 LOCAL_MODULE := libamlresampler
 LOCAL_MODULE_TAGS := optional
 ifeq ($(shell test $(PLATFORM_SDK_VERSION) -ge 26 && echo OK),OK)

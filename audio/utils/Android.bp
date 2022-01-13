@@ -56,7 +56,8 @@ cc_library_shared {
 
 
     cflags: ["-DBUILD_IN_ANDROID",
-             "-Werror",
+            // "-Werror",
+             "-Wno-format",
              "-Wno-unused-parameter",
              "-Wno-unused-variable",
              "-Wno-unused-function"],

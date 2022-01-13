@@ -439,7 +439,7 @@ size_t get_inport_consumed_size(input_port *port)
     return port->consumed_bytes;
 }
 
-static ssize_t output_port_start(output_port *port)
+static int output_port_start(output_port *port)
 {
     struct audioCfg cfg = port->cfg;
     struct pcm_config pcm_cfg;

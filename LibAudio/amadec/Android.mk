@@ -57,7 +57,8 @@ LOCAL_SRC_FILES := \
            audio_out/dtv_patch_out.c audio_out/aml_resample.c audiodsp_update_format.c
 LOCAL_MODULE := libamadec
 
-LOCAL_ARM_MODE := arm
+LOCAL_MULTILIB := both
+#LOCAL_ARM_MODE := arm
 
 
 include $(BUILD_STATIC_LIBRARY)
@@ -101,6 +102,9 @@ else
     endif
 endif
 
+LOCAL_CFLAGS += -Wno-format
+
+
 LOCAL_SRC_FILES := \
            adec-external-ctrl.c adec-internal-mgt.c adec-ffmpeg-mgt.c adec-message.c adec-pts-mgt.c adec_write.c adec_read.c\
            audio_out/dtv_patch_out.c  \
@@ -111,8 +115,8 @@ LOCAL_MODULE := libamadec
 ifeq ($(shell test $(PLATFORM_SDK_VERSION) -ge 26 && echo OK),OK)
 LOCAL_PROPRIETARY_MODULE := true
 endif
-
-LOCAL_ARM_MODE := arm
+LOCAL_MULTILIB := both
+#LOCAL_ARM_MODE := arm
 ##################################################
 #$(shell cp $(LOCAL_PATH)/acodec_lib/*.so $(TARGET_OUT)/lib)
 ###################################################

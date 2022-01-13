@@ -33,4 +33,9 @@ cc_library_shared {
         "libamaudioutils",
         "libsonic_ext",
     ],
+
+    cflags: [
+        "-Wno-format",
+    ],
+
 }

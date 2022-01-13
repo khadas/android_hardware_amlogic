@@ -829,58 +829,17 @@ inline bool primary_continous(struct audio_stream_out *stream)
     }
 }
 /* called when adev locked */
-inline int dolby_stream_active(struct aml_audio_device *adev)
-{
-    int i = 0;
-    int is_dolby = 0;
-    struct aml_stream_out *out = NULL;
-    for (i = 0 ; i < STREAM_USECASE_MAX; i++) {
-        out = adev->active_outputs[i];
-        if (out && (out->hal_internal_format == AUDIO_FORMAT_AC3
-            || out->hal_internal_format == AUDIO_FORMAT_E_AC3
-            || out->hal_internal_format == AUDIO_FORMAT_DOLBY_TRUEHD
-            || out->hal_internal_format == AUDIO_FORMAT_AC4
-            || out->hal_internal_format == AUDIO_FORMAT_MAT)) {
-            is_dolby = 1;
-            break;
-        }
-    }
-    return is_dolby;
-}
-
-/* called when adev locked */
-inline int dts_stream_active(struct aml_audio_device *adev)
-{
-    int i = 0;
-    int is_dts = 0;
-    struct aml_stream_out *out = NULL;
-    for (i = 0 ; i < STREAM_USECASE_MAX; i++) {
-        out = adev->active_outputs[i];
-        if (out && (out->hal_internal_format == AUDIO_FORMAT_DTS
-            || out->hal_internal_format == AUDIO_FORMAT_DTS_HD)) {
-            is_dts = 1;
-            break;
-        }
-    }
-    return is_dts;
-}
+int dolby_stream_active(struct aml_audio_device *adev);
 
 
 /* called when adev locked */
-inline int hwsync_lpcm_active(struct aml_audio_device *adev)
-{
-    int i = 0;
-    int is_hwsync_lpcm = 0;
-    struct aml_stream_out *out = NULL;
-    for (i = 0 ; i < STREAM_USECASE_MAX; i++) {
-        out = adev->active_outputs[i];
-        if (out && audio_is_linear_pcm(out->hal_internal_format) && (out->flags & AUDIO_OUTPUT_FLAG_HW_AV_SYNC)) {
-            is_hwsync_lpcm = 1;
-            break;
-        }
-    }
-    return is_hwsync_lpcm;
-}
+int dts_stream_active(struct aml_audio_device *adev);
+
+
+
+/* called when adev locked */
+int hwsync_lpcm_active(struct aml_audio_device *adev);
+
 
 inline struct aml_stream_out *direct_active(struct aml_audio_device *adev)
 {

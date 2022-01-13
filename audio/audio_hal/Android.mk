@@ -40,6 +40,7 @@ include $(BUILD_PREBUILT)
 	include $(CLEAR_VARS)
 
     LOCAL_MODULE := audio.primary.amlogic
+    LOCAL_MULTILIB := both
     ifeq ($(shell test $(PLATFORM_SDK_VERSION) -ge 26 && echo OK),OK)
         LOCAL_PROPRIETARY_MODULE := true
     endif
@@ -163,7 +164,8 @@ endif
 
     LOCAL_MODULE_TAGS := optional
 
-    LOCAL_CFLAGS += -Werror
+    LOCAL_CFLAGS += -Werror -Wno-format
+
 ifneq ($(TARGET_BUILD_VARIANT),user)
     LOCAL_CFLAGS += -DDEBUG_VOLUME_CONTROL
 endif

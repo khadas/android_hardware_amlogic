@@ -264,6 +264,62 @@ static inline short CLIP (int r)
            r;
 }
 
+
+
+
+int dolby_stream_active(struct aml_audio_device *adev)
+{
+    int i = 0;
+    int is_dolby = 0;
+    struct aml_stream_out *out = NULL;
+    for (i = 0 ; i < STREAM_USECASE_MAX; i++) {
+        out = adev->active_outputs[i];
+        if (out && (out->hal_internal_format == AUDIO_FORMAT_AC3
+            || out->hal_internal_format == AUDIO_FORMAT_E_AC3
+            || out->hal_internal_format == AUDIO_FORMAT_DOLBY_TRUEHD
+            || out->hal_internal_format == AUDIO_FORMAT_AC4
+            || out->hal_internal_format == AUDIO_FORMAT_MAT)) {
+            is_dolby = 1;
+            break;
+        }
+    }
+    return is_dolby;
+}
+
+
+int dts_stream_active(struct aml_audio_device *adev)
+{
+    int i = 0;
+    int is_dts = 0;
+    struct aml_stream_out *out = NULL;
+    for (i = 0 ; i < STREAM_USECASE_MAX; i++) {
+        out = adev->active_outputs[i];
+        if (out && (out->hal_internal_format == AUDIO_FORMAT_DTS
+            || out->hal_internal_format == AUDIO_FORMAT_DTS_HD)) {
+            is_dts = 1;
+            break;
+        }
+    }
+    return is_dts;
+}
+
+
+int hwsync_lpcm_active(struct aml_audio_device *adev)
+{
+    int i = 0;
+    int is_hwsync_lpcm = 0;
+    struct aml_stream_out *out = NULL;
+    for (i = 0 ; i < STREAM_USECASE_MAX; i++) {
+        out = adev->active_outputs[i];
+        if (out && audio_is_linear_pcm(out->hal_internal_format) && (out->flags & AUDIO_OUTPUT_FLAG_HW_AV_SYNC)) {
+            is_hwsync_lpcm = 1;
+            break;
+        }
+    }
+    return is_hwsync_lpcm;
+}
+
+
 //code here for audio hal mixer when hwsync with af mixer output stream output
 //at the same,need do a software mixer in audio hal.
 static int aml_hal_mixer_init (struct aml_hal_mixer *mixer)
@@ -7682,7 +7738,7 @@ void *audio_patch_input_threadloop(void *data)
 
         /*noise gate is only used in Linein for 16bit audio data*/
         if (aml_dev->active_inport == INPORT_LINEIN && aml_dev->aml_ng_enable == 1) {
-            int ng_status = noise_evaluation(aml_dev->aml_ng_handle, patch->in_buf, bytes_avail >> 1);
+            //int ng_status = noise_evaluation(aml_dev->aml_ng_handle, patch->in_buf, bytes_avail >> 1);
             /*if (ng_status == NG_MUTE)
                 ALOGI("noise gate is working!");*/
         }
@@ -8434,11 +8490,11 @@ static int adev_create_audio_patch(struct audio_hw_device *dev,
 
             }
             if (input_src == LINEIN && aml_dev->aml_ng_enable) {
-                aml_dev->aml_ng_handle = init_noise_gate(aml_dev->aml_ng_level,
-                                         aml_dev->aml_ng_attack_time, aml_dev->aml_ng_release_time);
-                ALOGE("%s: init amlogic noise gate: level: %fdB, attrack_time = %dms, release_time = %dms",
-                      __func__, aml_dev->aml_ng_level,
-                      aml_dev->aml_ng_attack_time, aml_dev->aml_ng_release_time);
+               // aml_dev->aml_ng_handle = init_noise_gate(aml_dev->aml_ng_level,
+               //                          aml_dev->aml_ng_attack_time, aml_dev->aml_ng_release_time);
+              //  ALOGE("%s: init amlogic noise gate: level: %fdB, attrack_time = %dms, release_time = %dms",
+               //       __func__, aml_dev->aml_ng_level,
+              //        aml_dev->aml_ng_attack_time, aml_dev->aml_ng_release_time);
             }
         } else if (src_config->type == AUDIO_PORT_TYPE_MIX) {  /* 2. mix to device audio patch */
             AM_LOGI("mix(%d) -> dev(%s) patch", src_config->ext.mix.handle, outputPort2Str(outport));
@@ -8603,8 +8659,8 @@ static int adev_release_audio_patch(struct audio_hw_device *dev,
             release_patch(aml_dev);
             if (aml_dev->patch_src == SRC_LINEIN && aml_dev->aml_ng_handle) {
 
-                release_noise_gate(aml_dev->aml_ng_handle);
-                aml_dev->aml_ng_handle = NULL;
+                //release_noise_gate(aml_dev->aml_ng_handle);
+                //aml_dev->aml_ng_handle = NULL;
             }
         }
         /* for no patch case, we need to restore it, especially note the multi-instance audio-patch */
@@ -8801,8 +8857,8 @@ static int adev_close(hw_device_t *device)
         aml_audio_free(adev->out_32_buf);
     }
     if (adev->aml_ng_handle) {
-        release_noise_gate(adev->aml_ng_handle);
-        adev->aml_ng_handle = NULL;
+        //release_noise_gate(adev->aml_ng_handle);
+        //adev->aml_ng_handle = NULL;
     }
     ring_buffer_release(&(adev->spk_tuning_rbuf));
     if (adev->ar) {

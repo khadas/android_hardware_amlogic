@@ -35,7 +35,7 @@ LOCAL_C_INCLUDES := \
 #add dolby ms12support
     LOCAL_CFLAGS += -DDOLBY_MS12_ENABLE
     LOCAL_CFLAGS += -DREPLACE_OUTPUT_BUFFER_WITH_CALLBACK
-
+    LOCAL_CFLAGS += -Wno-format
 #by default, we compile V2,V1 is not used now. TBD
 ifneq ($(TARGET_BUILD_DOLBY_MS12_V1), true)
     LOCAL_CFLAGS += -DMS12_V24_ENABLE
@@ -49,7 +49,7 @@ else
 endif
 
 LOCAL_CFLAGS += -DANDROID_PLATFORM_SDK_VERSION=$(PLATFORM_SDK_VERSION)
-LOCAL_CFLAGS += -Werror -Wno-unused-label -Wno-unused-parameter
+LOCAL_CFLAGS += -Werror -Wno-unused-label -Wno-unused-parameter -Wno-format
 LOCAL_MODULE := libamladecs
 LOCAL_MODULE_TAGS := optional
 ifeq ($(shell test $(PLATFORM_SDK_VERSION) -ge 26 && echo OK),OK)

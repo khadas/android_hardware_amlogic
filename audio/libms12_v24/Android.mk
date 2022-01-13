@@ -44,7 +44,7 @@ ifeq ($(shell test $(PLATFORM_SDK_VERSION) -ge 26 && echo OK),OK)
     LOCAL_PROPRIETARY_MODULE := true
 endif
 
-LOCAL_CFLAGS := -Werror -Wall
+LOCAL_CFLAGS := -Werror -Wall -Wno-format
 LOCAL_MODULE_TAGS := optional
 # uncomment to disable NEON on architectures that actually do support NEON, for benchmarking
 #LOCAL_CFLAGS += -DUSE_NEON=false
