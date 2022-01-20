@@ -218,6 +218,11 @@ EmulatedFakeCamera3::EmulatedFakeCamera3(int cameraId, struct hw_module_t* modul
     mAeCurrentSensitivity = 0;
 
     cameraid = cameraId;
+    memset(&KeyInfo_t,0,sizeof(KeyInfo_t));
+    memset(&maxJpegResolution,0,sizeof(maxJpegResolution));
+    mFacingBack = 0;
+    mSensorType = SENSOR_MMAP;
+    mInputStream = NULL;
 }
 
 EmulatedFakeCamera3::~EmulatedFakeCamera3() {
@@ -2168,7 +2173,7 @@ status_t EmulatedFakeCamera3::constructStaticInfo() {
             &maxZoom, 1);
     } else {
         if (mZoomMin != 0) {
-            float maxZoom = (float) (mZoomMax / mZoomMin);
+            float maxZoom = (float) mZoomMax / (float)mZoomMin;
             info.update(ANDROID_SCALER_AVAILABLE_MAX_DIGITAL_ZOOM,
                 &maxZoom, 1);
         } else {

@@ -1810,7 +1810,11 @@ int Sensor::getPictureSizes(int32_t picSizes[], int size, bool preview) {
 
     memset(&frmsize,0,sizeof(frmsize));
     preview_fmt = V4L2_PIX_FMT_NV21;//getOutputFormat();
-
+    if (preview == true)
+        frmsize.pixel_format = V4L2_PIX_FMT_NV21;
+    else
+        frmsize.pixel_format = V4L2_PIX_FMT_RGB24;
+/*
     if (preview_fmt == V4L2_PIX_FMT_MJPEG)
         frmsize.pixel_format = V4L2_PIX_FMT_MJPEG;
     else if (preview_fmt == V4L2_PIX_FMT_NV21) {
@@ -1825,7 +1829,7 @@ int Sensor::getPictureSizes(int32_t picSizes[], int size, bool preview) {
             frmsize.pixel_format = V4L2_PIX_FMT_RGB24;
     } else if (preview_fmt == V4L2_PIX_FMT_YUYV)
         frmsize.pixel_format = V4L2_PIX_FMT_YUYV;
-
+*/
     for (i = 0; ; i++) {
         frmsize.index = i;
         res = ioctl(vinfo->fd, VIDIOC_ENUM_FRAMESIZES, &frmsize);

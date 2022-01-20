@@ -66,6 +66,13 @@ OMXDecoder::OMXDecoder(bool useDMABuffer, bool keepOriginalSize) {
 #ifdef GE2D_ENABLE
     mGE2D = new ge2dTransform();
 #endif
+    mTimeOut = false;
+    mWidth = 0;
+    mHeight = 0;
+    mFormat = 0;
+    mStride = 0;
+    mIonFd = -1;
+    memset(&mVideoInputPortParam, 0, sizeof(OMX_PARAM_PORTDEFINITIONTYPE));
 }
 
 OMXDecoder::~OMXDecoder() {
@@ -361,10 +368,11 @@ void OMXDecoder::deinitialize()
     (*mFreeHandle)(static_cast<OMX_HANDLETYPE *>(mVDecoderHandle));
     (*mDeinit)();
     if (mLibHandle != NULL) {
+        dlclose(mLibHandle);
+        mLibHandle = NULL;
         ALOGD("dlclose lib handle at %p and null it", mLibHandle);
     }
-    dlclose(mLibHandle);
-    mLibHandle = NULL;
+
 }
 
 OMX_BUFFERHEADERTYPE* OMXDecoder::dequeueInputBuffer()
@@ -578,6 +586,8 @@ int OMXDecoder::ion_alloc_buffer(int ion_fd, size_t size,
             else
                 ALOGE("don't find match heap!!\n");
         } else {
+            if (heaps != NULL)
+                free(heaps);
             ALOGE("heaps is NULL or no heaps,num_heaps=%d\n", num_heaps);
         }
     } else {
@@ -592,7 +602,7 @@ int OMXDecoder::ion_alloc_buffer(int ion_fd, size_t size,
 
 bool OMXDecoder::ion_buffer_init() {
 
-    ion_user_handle_t ion_hnd;
+    ion_user_handle_t ion_hnd = 0;
     int shared_fd = -1;
     int ret = 0;
     int buffer_size = mWidth * mHeight * 3 / 2 ;
@@ -806,7 +816,9 @@ void OMXDecoder::free_ion_buffer(void) {
         OMX_ERRORTYPE err;
         if (bufferHdr != NULL) {
             if (mUseDMABuffer) {
-                munmap(bufferHdr->pBuffer, mWidth * mHeight * 3 / 2);
+                if (munmap(bufferHdr->pBuffer, mWidth * mHeight * 3 / 2) < 0) {
+                    ALOGE("munmap failed errno=%d", errno);
+                }
                 int ret = close((int)bufferHdr->pPlatformPrivate);
                 if (ret != 0) {
                     ALOGD("close ion shared fd failed for reason %s",strerror(errno));
@@ -1121,7 +1133,8 @@ int OMXDecoder::DequeueBuffer(int dst_fd ,uint8_t* dst_buf,
             if (mem_type == UVM_BUFFER) {
                 uint8_t* cpu_ptr = (uint8_t*)mmap(NULL, pOutPutBufferHdr->nFilledLen, PROT_READ | PROT_WRITE, MAP_SHARED, (int)pOutPutBufferHdr->pPlatformPrivate, 0);
                 memcpy(dst_buf, cpu_ptr, pOutPutBufferHdr->nFilledLen);
-                munmap(cpu_ptr, pOutPutBufferHdr->nFilledLen);
+                if (munmap(cpu_ptr, pOutPutBufferHdr->nFilledLen) < 0)
+                    ALOGE("%s:%d munmap failed errno=%d", __FUNCTION__,__LINE__,errno);
             } else {
                 memcpy(dst_buf, pOutPutBufferHdr->pBuffer, pOutPutBufferHdr->nFilledLen);
             }

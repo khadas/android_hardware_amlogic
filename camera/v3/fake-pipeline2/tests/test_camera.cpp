@@ -99,7 +99,7 @@ int main(int argc, char **argv)
                 }
         }
 
-        memcpy(vinfo->name,dev_name,sizeof(vinfo->name));
+        memcpy(vinfo->name,dev_name,strlen(dev_name));
         vinfo->idx = 0;
         vinfo->preview.format.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
         vinfo->preview.format.fmt.pix.width = 640;

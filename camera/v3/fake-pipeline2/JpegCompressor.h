@@ -90,7 +90,7 @@ class JpegCompressor: public Thread, public virtual RefBase {
     bool waitForDone(nsecs_t timeout);
     ssize_t GetMaxJpegBufferSize();
     void SetMaxJpegBufferSize(ssize_t size);
-    void SetExifInfo(struct ExifInfo info);
+    void SetExifInfo(struct ExifInfo &info);
     status_t Create_Exif_Use_Libexif();
     exif_buffer *get_exif_buffer();
     void exif_entry_set_string (ExifData * pEdata, ExifIfd eEifd, ExifTag eEtag, const char *s);

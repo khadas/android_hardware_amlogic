@@ -321,9 +321,7 @@ void MIPISensor::captureNV21(StreamBuffer b, uint32_t gain){
         mTempFD = b.share_fd;
         mSensorWorkFlag = true;
         mVinfo->putback_frame();
-        if (mFlushFlag) {
-            break;
-        }
+
         break;
     }
 }
@@ -345,9 +343,7 @@ void MIPISensor::captureYV12(StreamBuffer b, uint32_t gain) {
         mTempFD = b.share_fd;
         mSensorWorkFlag = true;
         mVinfo->putback_frame();
-        if (mFlushFlag) {
-            break;
-        }
+
         break;
     }
     ALOGVV("YV12 sensor image captured");
@@ -913,6 +909,11 @@ int MIPISensor::getPictureSizes(int32_t picSizes[], int size, bool preview) {
     memset(&frmsize,0,sizeof(frmsize));
     preview_fmt = V4L2_PIX_FMT_NV21;//getOutputFormat();
 
+    if (preview == true)
+        frmsize.pixel_format = V4L2_PIX_FMT_NV21;
+    else
+        frmsize.pixel_format = V4L2_PIX_FMT_RGB24;
+/*
     if (preview_fmt == V4L2_PIX_FMT_NV21) {
         if (preview == true)
             frmsize.pixel_format = V4L2_PIX_FMT_NV21;
@@ -925,7 +926,7 @@ int MIPISensor::getPictureSizes(int32_t picSizes[], int size, bool preview) {
             frmsize.pixel_format = V4L2_PIX_FMT_RGB24;
     } else if (preview_fmt == V4L2_PIX_FMT_YUYV)
         frmsize.pixel_format = V4L2_PIX_FMT_YUYV;
-
+*/
     for (i = 0; ; i++) {
         frmsize.index = i;
         res = ioctl(mVinfo->fd, VIDIOC_ENUM_FRAMESIZES, &frmsize);

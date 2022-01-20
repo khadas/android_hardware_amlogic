@@ -206,8 +206,6 @@ int CameraVirtualDevice::openVirtualDevice(int id) {
 int CameraVirtualDevice::releaseVirtualDevice(int id,int fd) {
     ALOGD("%s: id =%d, fd = %d", __FUNCTION__,id,fd);
     struct VirtualDevice* pDevice =  &videoDevices[id];
-    if (pDevice == nullptr)
-        return -1;
 
     ALOGD("%s: device name %s", __FUNCTION__,pDevice->name);
     /*set correspond stream to free*/

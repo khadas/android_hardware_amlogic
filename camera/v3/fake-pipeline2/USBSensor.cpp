@@ -78,7 +78,6 @@ USBSensor::USBSensor(int type)
 {
     mUseHwType = type;
     mDecodeMethod = DECODE_SOFTWARE;
-    fp = NULL;
     mImage_buffer = NULL;
 #ifdef GE2D_ENABLE
     mION = IONInterface::get_instance();
@@ -950,6 +949,7 @@ void USBSensor::captureYUYV(uint8_t *img, uint32_t gain, uint32_t stride){
 void USBSensor::dump(int& frame_index, uint8_t* buf, int length, std::string name) {
     ALOGD("%s:frame_index= %d",__FUNCTION__,frame_index);
     const int frame_num = 10;
+    FILE* fp = NULL;
     if (frame_index > frame_num)
         return;
     else if (frame_index == 0) {
@@ -964,13 +964,15 @@ void USBSensor::dump(int& frame_index, uint8_t* buf, int length, std::string nam
             return;
         }
     }
+    if (fp == NULL)
+        return;
     if (frame_index++ == frame_num) {
         int fd = fileno(fp);
         fsync(fd);
         fclose(fp);
         close(fd);
         return ;
-    }else {
+    } else  {
         ALOGE("write frame %d ",frame_index);
         fwrite((void*)buf,1,length,fp);
         fclose(fp);
@@ -1837,6 +1839,11 @@ int USBSensor::getPictureSizes(int32_t picSizes[], int size, bool preview) {
     memset(&frmsize,0,sizeof(frmsize));
     preview_fmt = V4L2_PIX_FMT_NV21;//getOutputFormat();
 
+    if (preview == true)
+        frmsize.pixel_format = V4L2_PIX_FMT_NV21;
+    else
+        frmsize.pixel_format = V4L2_PIX_FMT_RGB24;
+/*
     if (preview_fmt == V4L2_PIX_FMT_MJPEG)
         frmsize.pixel_format = V4L2_PIX_FMT_MJPEG;
     else if (preview_fmt == V4L2_PIX_FMT_NV21) {
@@ -1851,7 +1858,7 @@ int USBSensor::getPictureSizes(int32_t picSizes[], int size, bool preview) {
             frmsize.pixel_format = V4L2_PIX_FMT_RGB24;
     } else if (preview_fmt == V4L2_PIX_FMT_YUYV)
         frmsize.pixel_format = V4L2_PIX_FMT_YUYV;
-
+*/
     for (i = 0; ; i++) {
         frmsize.index = i;
         res = ioctl(mVinfo->fd, VIDIOC_ENUM_FRAMESIZES, &frmsize);

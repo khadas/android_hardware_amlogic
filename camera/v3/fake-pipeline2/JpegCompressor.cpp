@@ -909,7 +909,7 @@ ssize_t JpegCompressor::GetMaxJpegBufferSize()
 {
     return mMaxbufsize;
 }
-void JpegCompressor::SetExifInfo(struct ExifInfo info)
+void JpegCompressor::SetExifInfo(struct ExifInfo &info)
 {
     memcpy(&mInfo, &info, sizeof(struct ExifInfo));
 }

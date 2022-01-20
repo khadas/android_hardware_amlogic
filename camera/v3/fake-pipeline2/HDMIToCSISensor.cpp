@@ -217,7 +217,9 @@ void HDMIToCSISensor::captureRGB(uint8_t *img, uint32_t gain, uint32_t stride) {
             ALOGD("start picture failed!");
             return;
         }
-    }
+    } else
+        return;
+
     while (1)
     {
         if (mFlushFlag) {
@@ -1002,7 +1004,11 @@ int HDMIToCSISensor::getPictureSizes(int32_t picSizes[], int size, bool preview)
     ALOGI("%s:support_w=%d, support_h=%d\n",__FUNCTION__,support_w,support_h);
     memset(&frmsize,0,sizeof(frmsize));
     preview_fmt = V4L2_PIX_FMT_NV21;//getOutputFormat();
-
+    if (preview == true)
+        frmsize.pixel_format = V4L2_PIX_FMT_NV21;
+    else
+        frmsize.pixel_format = V4L2_PIX_FMT_RGB24;
+/*
     if (preview_fmt == V4L2_PIX_FMT_NV21) {
         if (preview == true)
             frmsize.pixel_format = V4L2_PIX_FMT_NV21;
@@ -1015,7 +1021,7 @@ int HDMIToCSISensor::getPictureSizes(int32_t picSizes[], int size, bool preview)
             frmsize.pixel_format = V4L2_PIX_FMT_RGB24;
     } else if (preview_fmt == V4L2_PIX_FMT_YUYV)
         frmsize.pixel_format = V4L2_PIX_FMT_YUYV;
-
+*/
     for (i = 0; ; i++) {
         frmsize.index = i;
         res = ioctl(mVinfo->fd, VIDIOC_ENUM_FRAMESIZES, &frmsize);

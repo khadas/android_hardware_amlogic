@@ -69,7 +69,6 @@ namespace android {
             enum Decode_Method mDecodeMethod;
             OMXDecoder* mDecoder;
             CameraUtil* mCameraUtil;
-            FILE* fp;
             Vector<uint32_t> mSupportFormat;
             Vector<uint32_t> mTryPixelFormat;
             uint32_t mCurrentFormat;
