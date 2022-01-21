@@ -348,6 +348,12 @@ static int audio_decoder_init(
              bool valid = (check_adts_frame_valid((unsigned char *)(in_buf + nSeekNum), inbuf_size - nSeekNum) == 0);
              adtsheader_detected = 1;
              isadts = valid;
+             /*when nSeekNum 0,and fmt is ACODEC_FMT_AAC
+              *treat the stream as adts aac
+              */
+             if (nSeekNum == 0 && adec_ops->nAudioDecoderType == ACODEC_FMT_AAC) {
+                 isadts = 1;
+             }
              audio_codec_print(" adts head detected  nSeekNum %d isadts %d", nSeekNum, isadts);
         }
         if (adec_ops->nAudioDecoderType == ACODEC_FMT_AAC_LATM) {
@@ -398,7 +404,12 @@ retry:
     config->useOldADTSFormat = 0;
     //config->dontUpSampleImplicitSBR = 1;
     NeAACDecSetConfiguration(gFaadCxt->hDecoder, config);
-    if (gFaadCxt->fail_count && isadts) {
+    /*
+     *islatm default 1, and so adts stream decoder init cost many bytes
+     *and lead to pre frame droppped. here when adts header valid
+     *and default use adts decoder to init.
+     */
+    if (isadts) {
         islatm = 0;
     }
     int skipbytes=RSYNC_SKIP_BYTES;
