@@ -169,6 +169,9 @@ status_t MIPISensor::startUp(int idx) {
 
 int MIPISensor::camera_open(int idx) {
     int ret = 0;
+    int counter = 2;
+    char property[PROPERTY_VALUE_MAX];
+
     if (mCameraVirtualDevice == nullptr)
         mCameraVirtualDevice = CameraVirtualDevice::getInstance();
     mMIPIDevicefd[0] = mCameraVirtualDevice->openVirtualDevice(idx);
@@ -176,7 +179,15 @@ int MIPISensor::camera_open(int idx) {
         ret = -ENOTTY;
     }
     mVinfo->fd = mMIPIDevicefd[0];
-    mISP->open_isp3a_library();
+
+    memset(property, 0, sizeof(property));
+    if (property_get("vendor.media.camera.count",property,NULL) > 0) {
+        sscanf(property,"%d",&counter);
+        if (counter > 4)
+            counter = 2;
+    }
+
+    mISP->open_isp3a_library(counter);
     mISP->print_status();
     return ret;
 }
