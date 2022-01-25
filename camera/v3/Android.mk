@@ -196,7 +196,6 @@ LOCAL_MODULE := camera.vbox_x86
 else
 LOCAL_MODULE:= camera.amlogic
 endif
-
 ifeq ($(shell test $(PLATFORM_SDK_VERSION) -ge 26 && echo OK),OK)
 LOCAL_PROPRIETARY_MODULE := true
 endif
@@ -208,19 +207,14 @@ include $(CLEAR_VARS)
 LOCAL_CHECK_ELF_FILES := false
 
 LOCAL_MODULE := libispaaa
-ifneq ($(ANDROID_BUILD_TYPE),true)
-LOCAL_SRC_FILES := isplib/lib/libispaaa.so
-else
-LOCAL_SRC_FILES := isplib/lib64/libispaaa.so
-endif
+LOCAL_MULTILIB := both
+LOCAL_SRC_FILES_32 := isplib/lib/libispaaa.so
+LOCAL_SRC_FILES_64 := isplib/lib64/libispaaa.so
 LOCAL_MODULE_SUFFIX := $(TARGET_SHLIB_SUFFIX)
 LOCAL_MODULE_TAGS := optional
 LOCAL_MODULE_CLASS := SHARED_LIBRARIES
-ifneq ($(ANDROID_BUILD_TYPE),64)
-LOCAL_MODULE_PATH := $(TARGET_OUT_VENDOR)/lib/
-else
-LOCAL_MODULE_PATH := $(TARGET_OUT_VENDOR)/lib64/
-endif
+LOCAL_MODULE_PATH_32 := $(TARGET_OUT_VENDOR)/lib/
+LOCAL_MODULE_PATH_64 := $(TARGET_OUT_VENDOR)/lib64/
 
 include $(BUILD_PREBUILT)
 
