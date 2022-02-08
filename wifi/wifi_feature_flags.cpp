@@ -24,7 +24,7 @@
 namespace android {
 namespace hardware {
 namespace wifi {
-namespace V1_5 {
+namespace V1_6 {
 namespace implementation {
 namespace feature_flags {
 
@@ -117,18 +117,16 @@ constexpr ChipModeId kMainModeId = chip_mode_ids::kV1Sta;
  * The main point here is to simplify the syntax required by
  * WIFI_HAL_INTERFACE_COMBINATIONS.
  */
-struct ChipIfaceCombination
-    : public hidl_vec<IWifiChip::ChipIfaceCombinationLimit> {
-    ChipIfaceCombination(
-        const std::initializer_list<IWifiChip::ChipIfaceCombinationLimit> list)
+struct ChipIfaceCombination : public hidl_vec<IWifiChip::ChipIfaceCombinationLimit> {
+    ChipIfaceCombination(const std::initializer_list<IWifiChip::ChipIfaceCombinationLimit> list)
         : hidl_vec(list) {}
 
     operator IWifiChip::ChipIfaceCombination() const { return {*this}; }
 
     static hidl_vec<IWifiChip::ChipIfaceCombination> make_vec(
-        const std::initializer_list<ChipIfaceCombination> list) {
+            const std::initializer_list<ChipIfaceCombination> list) {
         return hidl_vec<IWifiChip::ChipIfaceCombination>(  //
-            std::begin(list), std::end(list));
+                std::begin(list), std::end(list));
     }
 };
 
@@ -137,63 +135,61 @@ struct ChipIfaceCombination
 #define P2P IfaceType::P2P
 #define NAN IfaceType::NAN
 static const std::vector<IWifiChip::ChipMode> kChipModesPrimary{
-    {kMainModeId,
-     ChipIfaceCombination::make_vec({WIFI_HAL_INTERFACE_COMBINATIONS})},
+        {kMainModeId, ChipIfaceCombination::make_vec({WIFI_HAL_INTERFACE_COMBINATIONS})},
 #ifdef WIFI_HAL_INTERFACE_COMBINATIONS_AP
-    {chip_mode_ids::kV1Ap,
-     ChipIfaceCombination::make_vec({WIFI_HAL_INTERFACE_COMBINATIONS_AP})},
+        {chip_mode_ids::kV1Ap,
+         ChipIfaceCombination::make_vec({WIFI_HAL_INTERFACE_COMBINATIONS_AP})},
 #endif
 };
 
 static const std::vector<IWifiChip::ChipMode> kChipModesSecondary{
 #ifdef WIFI_HAL_INTERFACE_COMBINATIONS_SECONDARY_CHIP
-    {chip_mode_ids::kV3, ChipIfaceCombination::make_vec(
-                             {WIFI_HAL_INTERFACE_COMBINATIONS_SECONDARY_CHIP})},
+        {chip_mode_ids::kV3,
+         ChipIfaceCombination::make_vec({WIFI_HAL_INTERFACE_COMBINATIONS_SECONDARY_CHIP})},
 #endif
 };
 
 constexpr char kDebugPresetInterfaceCombinationIdxProperty[] =
-    "persist.vendor.debug.wifi.hal.preset_interface_combination_idx";
+        "persist.vendor.debug.wifi.hal.preset_interface_combination_idx";
 // List of pre-defined interface combinations that can be enabled at runtime via
 // setting the property: "kDebugPresetInterfaceCombinationIdxProperty" to the
 // corresponding index value.
-static const std::vector<
-    std::pair<std::string, std::vector<IWifiChip::ChipMode>>>
-    kDebugChipModes{
+static const std::vector<std::pair<std::string, std::vector<IWifiChip::ChipMode>>> kDebugChipModes{
         // Legacy combination - No STA/AP concurrencies.
         // 0 - (1 AP) or (1 STA + 1 of (P2P or NAN))
         {"No STA/AP Concurrency",
          {{kMainModeId,
-           ChipIfaceCombination::make_vec(
-               {{{{AP}, 1}}, {{{STA}, 1}, {{P2P, NAN}, 1}}})}}},
+           ChipIfaceCombination::make_vec({{{{AP}, 1}}, {{{STA}, 1}, {{P2P, NAN}, 1}}})}}},
 
         // STA + AP concurrency
         // 1 - (1 STA + 1 AP) or (1 STA + 1 of (P2P or NAN))
         {"STA + AP Concurrency",
-         {{kMainModeId,
-           ChipIfaceCombination::make_vec(
-               {{{{STA}, 1}, {{AP}, 1}}, {{{STA}, 1}, {{P2P, NAN}, 1}}})}}},
+         {{kMainModeId, ChipIfaceCombination::make_vec(
+                                {{{{STA}, 1}, {{AP}, 1}}, {{{STA}, 1}, {{P2P, NAN}, 1}}})}}},
 
         // STA + STA concurrency
         // 2 - (1 STA + 1 AP) or (2 STA + 1 of (P2P or NAN))
         {"Dual STA Concurrency",
-         {{kMainModeId,
-           ChipIfaceCombination::make_vec(
-               {{{{STA}, 1}, {{AP}, 1}}, {{{STA}, 2}, {{P2P, NAN}, 1}}})}}},
+         {{kMainModeId, ChipIfaceCombination::make_vec(
+                                {{{{STA}, 1}, {{AP}, 1}}, {{{STA}, 2}, {{P2P, NAN}, 1}}})}}},
 
         // AP + AP + STA concurrency
         // 3 - (1 STA + 2 AP) or (1 STA + 1 of (P2P or NAN))
         {"Dual AP Concurrency",
-         {{kMainModeId,
-           ChipIfaceCombination::make_vec(
-               {{{{STA}, 1}, {{AP}, 2}}, {{{STA}, 1}, {{P2P, NAN}, 1}}})}}},
+         {{kMainModeId, ChipIfaceCombination::make_vec(
+                                {{{{STA}, 1}, {{AP}, 2}}, {{{STA}, 1}, {{P2P, NAN}, 1}}})}}},
 
         // STA + STA concurrency and AP + AP + STA concurrency
         // 4 - (1 STA + 2 AP) or (2 STA + 1 of (P2P or NAN))
         {"Dual STA & Dual AP Concurrency",
+         {{kMainModeId, ChipIfaceCombination::make_vec(
+                                {{{{STA}, 1}, {{AP}, 2}}, {{{STA}, 2}, {{P2P, NAN}, 1}}})}}},
+
+        // STA + STA concurrency
+        // 5 - (1 STA + 1 AP (bridged or single) | P2P | NAN), or (2 STA))
+        {"Dual STA or STA plus single other interface",
          {{kMainModeId,
-           ChipIfaceCombination::make_vec(
-               {{{{STA}, 1}, {{AP}, 2}}, {{{STA}, 2}, {{P2P, NAN}, 1}}})}}}};
+           ChipIfaceCombination::make_vec({{{{STA}, 1}, {{P2P, NAN, AP}, 1}}, {{{STA}, 2}}})}}}};
 
 #undef STA
 #undef AP
@@ -201,19 +197,18 @@ static const std::vector<
 #undef NAN
 
 #ifdef WIFI_HIDL_FEATURE_DISABLE_AP_MAC_RANDOMIZATION
-#pragma message                                                               \
-    "WIFI_HIDL_FEATURE_DISABLE_AP_MAC_RANDOMIZATION is deprecated; override " \
-    "'config_wifi_ap_randomization_supported' in "                            \
-    "frameworks/base/core/res/res/values/config.xml in the device overlay "   \
-    "instead"
+#pragma message                                                                   \
+        "WIFI_HIDL_FEATURE_DISABLE_AP_MAC_RANDOMIZATION is deprecated; override " \
+        "'config_wifi_ap_randomization_supported' in "                            \
+        "frameworks/base/core/res/res/values/config.xml in the device overlay "   \
+        "instead"
 #endif  // WIFI_HIDL_FEATURE_DISABLE_AP_MAC_RANDOMIZATION
 
 WifiFeatureFlags::WifiFeatureFlags() {}
 
 std::vector<IWifiChip::ChipMode> WifiFeatureFlags::getChipModesForPrimary() {
     std::array<char, PROPERTY_VALUE_MAX> buffer;
-    auto res = property_get(kDebugPresetInterfaceCombinationIdxProperty,
-                            buffer.data(), nullptr);
+    auto res = property_get(kDebugPresetInterfaceCombinationIdxProperty, buffer.data(), nullptr);
     // Debug propety not set, use the device preset interface combination.
     if (res <= 0) return kChipModesPrimary;
 
@@ -227,19 +222,18 @@ std::vector<IWifiChip::ChipMode> WifiFeatureFlags::getChipModesForPrimary() {
     std::string name;
     std::vector<IWifiChip::ChipMode> chip_modes;
     std::tie(name, chip_modes) = kDebugChipModes[idx];
-    LOG(INFO) << "Using debug chip mode: <" << name << "> set via property: "
-              << kDebugPresetInterfaceCombinationIdxProperty;
+    LOG(INFO) << "Using debug chip mode: <" << name
+              << "> set via property: " << kDebugPresetInterfaceCombinationIdxProperty;
     return chip_modes;
 }
 
-std::vector<IWifiChip::ChipMode> WifiFeatureFlags::getChipModes(
-    bool is_primary) {
+std::vector<IWifiChip::ChipMode> WifiFeatureFlags::getChipModes(bool is_primary) {
     return (is_primary) ? getChipModesForPrimary() : kChipModesSecondary;
 }
 
 }  // namespace feature_flags
 }  // namespace implementation
-}  // namespace V1_5
+}  // namespace V1_6
 }  // namespace wifi
 }  // namespace hardware
 }  // namespace android

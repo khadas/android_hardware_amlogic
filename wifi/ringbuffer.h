@@ -23,29 +23,30 @@
 namespace android {
 namespace hardware {
 namespace wifi {
-namespace V1_5 {
+namespace V1_6 {
 namespace implementation {
 
 /**
  * Ringbuffer object used to store debug data.
  */
 class Ringbuffer {
-   public:
+  public:
     explicit Ringbuffer(size_t maxSize);
 
     // Appends the data buffer and deletes from the front until buffer is
     // within |maxSize_|.
     void append(const std::vector<uint8_t>& input);
     const std::list<std::vector<uint8_t>>& getData() const;
+    void clear();
 
-   private:
+  private:
     std::list<std::vector<uint8_t>> data_;
     size_t size_;
     size_t maxSize_;
 };
 
 }  // namespace implementation
-}  // namespace V1_5
+}  // namespace V1_6
 }  // namespace wifi
 }  // namespace hardware
 }  // namespace android

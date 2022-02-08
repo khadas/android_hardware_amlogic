@@ -24,7 +24,7 @@
 namespace android {
 namespace hardware {
 namespace wifi {
-namespace V1_5 {
+namespace V1_6 {
 namespace implementation {
 // This is in a separate namespace to prevent typename conflicts between
 // the legacy HAL types and the HIDL interface types.
@@ -33,14 +33,13 @@ namespace legacy_hal {
  * Class that creates WifiLegacyHal objects for vendor HALs in the system.
  */
 class WifiLegacyHalFactory {
-   public:
-    WifiLegacyHalFactory(
-        const std::weak_ptr<wifi_system::InterfaceTool> iface_tool);
+  public:
+    WifiLegacyHalFactory(const std::weak_ptr<wifi_system::InterfaceTool> iface_tool);
     virtual ~WifiLegacyHalFactory() = default;
 
     std::vector<std::shared_ptr<WifiLegacyHal>> getHals();
 
-   private:
+  private:
     typedef struct {
         wifi_hal_fn fn;
         bool primary;
@@ -59,7 +58,7 @@ class WifiLegacyHalFactory {
 
 }  // namespace legacy_hal
 }  // namespace implementation
-}  // namespace V1_5
+}  // namespace V1_6
 }  // namespace wifi
 }  // namespace hardware
 }  // namespace android

@@ -21,7 +21,7 @@
 namespace android {
 namespace hardware {
 namespace wifi {
-namespace V1_5 {
+namespace V1_6 {
 namespace implementation {
 
 Ringbuffer::Ringbuffer(size_t maxSize) : size_(0), maxSize_(maxSize) {}
@@ -31,8 +31,7 @@ void Ringbuffer::append(const std::vector<uint8_t>& input) {
         return;
     }
     if (input.size() > maxSize_) {
-        LOG(INFO) << "Oversized message of " << input.size()
-                  << " bytes is dropped";
+        LOG(INFO) << "Oversized message of " << input.size() << " bytes is dropped";
         return;
     }
     data_.push_back(input);
@@ -47,8 +46,13 @@ const std::list<std::vector<uint8_t>>& Ringbuffer::getData() const {
     return data_;
 }
 
+void Ringbuffer::clear() {
+    data_.clear();
+    size_ = 0;
+}
+
 }  // namespace implementation
-}  // namespace V1_5
+}  // namespace V1_6
 }  // namespace wifi
 }  // namespace hardware
 }  // namespace android

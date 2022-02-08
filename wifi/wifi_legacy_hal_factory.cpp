@@ -62,22 +62,20 @@ bool isFileExtension(const char* name, const char* ext) {
 namespace android {
 namespace hardware {
 namespace wifi {
-namespace V1_5 {
+namespace V1_6 {
 namespace implementation {
 namespace legacy_hal {
 
 WifiLegacyHalFactory::WifiLegacyHalFactory(
-    const std::weak_ptr<wifi_system::InterfaceTool> iface_tool)
+        const std::weak_ptr<wifi_system::InterfaceTool> iface_tool)
     : iface_tool_(iface_tool) {}
 
 std::vector<std::shared_ptr<WifiLegacyHal>> WifiLegacyHalFactory::getHals() {
     if (legacy_hals_.empty()) {
-        if (!initVendorHalDescriptorFromLinked())
-            initVendorHalsDescriptorList();
+        if (!initVendorHalDescriptorFromLinked()) initVendorHalsDescriptorList();
         for (auto& desc : descs_) {
             std::shared_ptr<WifiLegacyHal> hal =
-                std::make_shared<WifiLegacyHal>(iface_tool_, desc.fn,
-                                                desc.primary);
+                    std::make_shared<WifiLegacyHal>(iface_tool_, desc.fn, desc.primary);
             legacy_hals_.push_back(hal);
         }
     }
@@ -99,8 +97,8 @@ bool WifiLegacyHalFactory::initVendorHalDescriptorFromLinked() {
 bool WifiLegacyHalFactory::initLinkedHalFunctionTable(wifi_hal_fn* hal_fn) {
     init_wifi_vendor_hal_func_table_t initfn;
 
-    initfn = (init_wifi_vendor_hal_func_table_t)dlsym(
-        RTLD_DEFAULT, "init_wifi_vendor_hal_func_table");
+    initfn = (init_wifi_vendor_hal_func_table_t)dlsym(RTLD_DEFAULT,
+                                                      "init_wifi_vendor_hal_func_table");
     if (!initfn) {
         LOG(INFO) << "no vendor HAL library linked, will try dynamic load";
         return false;
@@ -136,8 +134,7 @@ void WifiLegacyHalFactory::initVendorHalsDescriptorList() {
     xmlChar* value;
     wifi_hal_lib_desc desc;
 
-    LOG(INFO) << "processing vendor HALs descriptions in "
-              << kVendorHalsDescPath;
+    LOG(INFO) << "processing vendor HALs descriptions in " << kVendorHalsDescPath;
     DIR* dirPtr = ::opendir(kVendorHalsDescPath);
     if (dirPtr == NULL) {
         LOG(ERROR) << "failed to open " << kVendorHalsDescPath;
@@ -157,26 +154,23 @@ void WifiLegacyHalFactory::initVendorHalsDescriptorList() {
         fullPath.append(entryPtr->d_name);
         xml = xmlReadFile(fullPath.c_str(), "UTF-8", XML_PARSE_RECOVER);
         if (!xml) {
-            LOG(ERROR) << "failed to parse: " << entryPtr->d_name
-                       << " skipping...";
+            LOG(ERROR) << "failed to parse: " << entryPtr->d_name << " skipping...";
             continue;
         }
         node = xmlDocGetRootElement(xml);
         if (!node) {
-            LOG(ERROR) << "empty config file: " << entryPtr->d_name
-                       << " skipping...";
+            LOG(ERROR) << "empty config file: " << entryPtr->d_name << " skipping...";
             goto skip;
         }
         if (xmlStrcmp(node->name, BAD_CAST "WifiVendorHal")) {
-            LOG(ERROR) << "bad config, root element not WifiVendorHal: "
-                       << entryPtr->d_name << " skipping...";
+            LOG(ERROR) << "bad config, root element not WifiVendorHal: " << entryPtr->d_name
+                       << " skipping...";
             goto skip;
         }
         version = (char*)xmlGetProp(node, BAD_CAST "version");
         if (!version || strtoul(version, NULL, 0) != kVendorHalsDescVersion) {
             LOG(ERROR) << "conf file: " << entryPtr->d_name
-                       << "must have version: " << kVendorHalsDescVersion
-                       << ", skipping...";
+                       << "must have version: " << kVendorHalsDescVersion << ", skipping...";
             goto skip;
         }
         cnode = node->children;
@@ -195,8 +189,8 @@ void WifiLegacyHalFactory::initVendorHalsDescriptorList() {
             cnode = cnode->next;
         }
         if (path.empty()) {
-            LOG(ERROR) << "hal library path not provided in: "
-                       << entryPtr->d_name << ", skipping...";
+            LOG(ERROR) << "hal library path not provided in: " << entryPtr->d_name
+                       << ", skipping...";
             goto skip;
         }
         if (loadVendorHalLib(path, desc)) {
@@ -211,8 +205,7 @@ void WifiLegacyHalFactory::initVendorHalsDescriptorList() {
     ::closedir(dirPtr);
 }
 
-bool WifiLegacyHalFactory::loadVendorHalLib(const std::string& path,
-                                            wifi_hal_lib_desc& desc) {
+bool WifiLegacyHalFactory::loadVendorHalLib(const std::string& path, wifi_hal_lib_desc& desc) {
     void* h = dlopen(path.c_str(), RTLD_NOW | RTLD_LOCAL);
     init_wifi_vendor_hal_func_table_t initfn;
     wifi_error res;
@@ -221,8 +214,7 @@ bool WifiLegacyHalFactory::loadVendorHalLib(const std::string& path,
         LOG(ERROR) << "failed to open vendor hal library: " << path;
         return false;
     }
-    initfn = (init_wifi_vendor_hal_func_table_t)dlsym(
-        h, "init_wifi_vendor_hal_func_table");
+    initfn = (init_wifi_vendor_hal_func_table_t)dlsym(h, "init_wifi_vendor_hal_func_table");
     if (!initfn) {
         LOG(ERROR) << "init_wifi_vendor_hal_func_table not found in: " << path;
         goto out_err;
@@ -243,8 +235,7 @@ bool WifiLegacyHalFactory::loadVendorHalLib(const std::string& path,
     // vendor HALs which do not implement early_initialize will return
     // WIFI_ERROR_NOT_SUPPORTED, treat this as success.
     if (res != WIFI_SUCCESS && res != WIFI_ERROR_NOT_SUPPORTED) {
-        LOG(ERROR) << "early initialization failed in: " << path
-                   << " error: " << res;
+        LOG(ERROR) << "early initialization failed in: " << path << " error: " << res;
         goto out_err;
     }
 
@@ -257,7 +248,7 @@ out_err:
 
 }  // namespace legacy_hal
 }  // namespace implementation
-}  // namespace V1_5
+}  // namespace V1_6
 }  // namespace wifi
 }  // namespace hardware
 }  // namespace android

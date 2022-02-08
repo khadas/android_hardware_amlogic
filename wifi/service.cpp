@@ -30,13 +30,10 @@
 using android::hardware::configureRpcThreadpool;
 using android::hardware::joinRpcThreadpool;
 using android::hardware::LazyServiceRegistrar;
-using android::hardware::wifi::V1_5::implementation::feature_flags::
-    WifiFeatureFlags;
-using android::hardware::wifi::V1_5::implementation::legacy_hal::WifiLegacyHal;
-using android::hardware::wifi::V1_5::implementation::legacy_hal::
-    WifiLegacyHalFactory;
-using android::hardware::wifi::V1_5::implementation::mode_controller::
-    WifiModeController;
+using android::hardware::wifi::V1_6::implementation::feature_flags::WifiFeatureFlags;
+using android::hardware::wifi::V1_6::implementation::legacy_hal::WifiLegacyHal;
+using android::hardware::wifi::V1_6::implementation::legacy_hal::WifiLegacyHalFactory;
+using android::hardware::wifi::V1_6::implementation::mode_controller::WifiModeController;
 
 #ifdef LAZY_SERVICE
 const bool kLazyService = true;
@@ -46,30 +43,25 @@ const bool kLazyService = false;
 
 int main(int /*argc*/, char** argv) {
     signal(SIGPIPE, SIG_IGN);
-    android::base::InitLogging(
-        argv, android::base::LogdLogger(android::base::SYSTEM));
+    android::base::InitLogging(argv, android::base::LogdLogger(android::base::SYSTEM));
     LOG(INFO) << "Wifi Hal is booting up...";
 
     configureRpcThreadpool(1, true /* callerWillJoin */);
 
-    const auto iface_tool =
-        std::make_shared<android::wifi_system::InterfaceTool>();
-    const auto legacy_hal_factory =
-        std::make_shared<WifiLegacyHalFactory>(iface_tool);
+    const auto iface_tool = std::make_shared<android::wifi_system::InterfaceTool>();
+    const auto legacy_hal_factory = std::make_shared<WifiLegacyHalFactory>(iface_tool);
 
     // Setup hwbinder service
-    android::sp<android::hardware::wifi::V1_5::IWifi> service =
-        new android::hardware::wifi::V1_5::implementation::Wifi(
-            iface_tool, legacy_hal_factory,
-            std::make_shared<WifiModeController>(),
-            std::make_shared<WifiFeatureFlags>());
+    android::sp<android::hardware::wifi::V1_6::IWifi> service =
+            new android::hardware::wifi::V1_6::implementation::Wifi(
+                    iface_tool, legacy_hal_factory, std::make_shared<WifiModeController>(),
+                    std::make_shared<WifiFeatureFlags>());
     if (kLazyService) {
         auto registrar = LazyServiceRegistrar::getInstance();
         CHECK_EQ(registrar.registerService(service), android::NO_ERROR)
-            << "Failed to register wifi HAL";
+                << "Failed to register wifi HAL";
     } else {
-        CHECK_EQ(service->registerAsService(), android::NO_ERROR)
-            << "Failed to register wifi HAL";
+        CHECK_EQ(service->registerAsService(), android::NO_ERROR) << "Failed to register wifi HAL";
     }
 
     joinRpcThreadpool();

@@ -80,7 +80,8 @@ LOCAL_SHARED_LIBRARIES := \
     android.hardware.wifi@1.2 \
     android.hardware.wifi@1.3 \
     android.hardware.wifi@1.4 \
-    android.hardware.wifi@1.5
+    android.hardware.wifi@1.5 \
+    android.hardware.wifi@1.6
 LOCAL_C_INCLUDES += $(TOP)/external/libxml2/include
 LOCAL_EXPORT_C_INCLUDE_DIRS := $(LOCAL_PATH)
 include $(BUILD_STATIC_LIBRARY)
@@ -114,7 +115,8 @@ LOCAL_SHARED_LIBRARIES := \
     android.hardware.wifi@1.2 \
     android.hardware.wifi@1.3 \
     android.hardware.wifi@1.4 \
-    android.hardware.wifi@1.5
+    android.hardware.wifi@1.5 \
+    android.hardware.wifi@1.6
 LOCAL_STATIC_LIBRARIES := \
     android.hardware.wifi@1.0-service-droidlogic-lib
 LOCAL_INIT_RC := android.hardware.wifi@1.0-service.droidlogic.rc
@@ -151,7 +153,8 @@ LOCAL_SHARED_LIBRARIES := \
     android.hardware.wifi@1.2 \
     android.hardware.wifi@1.3 \
     android.hardware.wifi@1.4 \
-    android.hardware.wifi@1.5
+    android.hardware.wifi@1.5 \
+    android.hardware.wifi@1.6
 LOCAL_STATIC_LIBRARIES := \
     android.hardware.wifi@1.0-service-droidlogic-lib
 LOCAL_INIT_RC := android.hardware.wifi@1.0-service.droidlogic-lazy.rc
