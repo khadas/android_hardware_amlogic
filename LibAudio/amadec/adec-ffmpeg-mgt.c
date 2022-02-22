@@ -1910,6 +1910,7 @@ void *audio_decode_loop(void *args)
     inlen = 0;
     nNextFrameSize = adec_ops->nInBufSize;
     adec_ops->nAudioDecoderType = audec->format;
+    uint64_t checkin_decode_offset = 0;
 
 #ifndef USE_AOUT_IN_ADEC
     if (audec->use_sw_check_apts)
@@ -2082,9 +2083,9 @@ void *audio_decode_loop(void *args)
                 }
                 //write to the pcm buffer
                 if (nAudioFormat == ACODEC_FMT_RAAC || nAudioFormat == ACODEC_FMT_COOK) {
-                    audec->decode_offset = audec->adec_ops->pts;
+                    checkin_decode_offset = audec->adec_ops->pts;
                 } else {
-                    audec->decode_offset += dlen;
+                    checkin_decode_offset = audec->decode_offset + dlen;
                 }
 
 #ifndef USE_AOUT_IN_ADEC
@@ -2092,11 +2093,12 @@ void *audio_decode_loop(void *args)
                     !is_dolby_format(nAudioFormat) &&
                     nAudioFormat != ACODEC_FMT_DTS &&
                     adec_ops->nAudioDecoderType != ACODEC_FMT_AAC_LATM) {
-                    int ret = aml_audio_swcheck_checkin_apts(0, audec->decode_offset, anchor + latencys);
+                    int ret = aml_audio_swcheck_checkin_apts(0, checkin_decode_offset, anchor + latencys);
                     if (ret < 0)
                        adec_print("audio_dtv_checkin_apts failed ret %d",ret);
                 }
 #endif
+                audec->decode_offset = checkin_decode_offset;
                 audec->decode_pcm_offset += outlen;
                 if (g_bst) {
                     int wlen = 0;
