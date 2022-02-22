@@ -29,6 +29,8 @@
 #include <hardware/hardware.h>
 #include <linux/videodev2.h>
 #include <android/native_window.h>
+#include <video_tunnel.h>
+#include <videotunnel.h>
 
 #include <cutils/properties.h>
 
@@ -40,6 +42,7 @@ static int capWidth;
 static int capHeight;
 static int supportDevices[20];
 static int count = 0;
+static int mtunnelid  = -1;
 
 native_handle_t *pTvStream = nullptr;
 native_handle_t *pMainTvStream = nullptr;
@@ -282,18 +285,22 @@ static int getUnavailableStreamConfigs(int dev_id __unused, int *num_configurati
 
 static int getTvStream(tv_input_private_t *priv, tv_stream_t *stream, int input_id)
 {
-    ALOGD("getTvStream stream_id = %d", stream->stream_id);
+    ALOGD("getTvStream: stream_id = %d, input_id = [%d]", stream->stream_id,input_id);
+    ALOGD("getTvStream: pTvStream nullptr [%d], isisMultiDemux[%d]", pTvStream == nullptr?1:0,priv->mpTv->isMultiDemux());
     if (stream->stream_id == STREAM_ID_NORMAL) {
         if (pTvStream == nullptr) {
             if ((SOURCE_DTVKIT == input_id) || (SOURCE_ADTV == input_id)) {
                 if (priv->mpTv->isMultiDemux()) {
                     pTvStream = am_gralloc_create_sideband_handle(AM_FIXED_TUNNEL, 1);
+                    mtunnelid = 1;
                 } else {
                     pTvStream = am_gralloc_create_sideband_handle(AM_TV_SIDEBAND, 1);
                 }
             } else {
-                if (priv->mpTv->isMultiDemux())
+                if (priv->mpTv->isMultiDemux()) {
                     pTvStream = am_gralloc_create_sideband_handle(AM_FIXED_TUNNEL, 0);
+                    mtunnelid = 0;
+                    }
                 else
                     pTvStream = am_gralloc_create_sideband_handle(AM_TV_SIDEBAND, 1);
             }
@@ -310,6 +317,7 @@ static int getTvStream(tv_input_private_t *priv, tv_stream_t *stream, int input_
             ALOGD("getTvStream stream_id=%d tunnelId=%d", stream->stream_id, 1);
             if (priv->mpTv->isMultiDemux()) {
                 pMainTvStream = am_gralloc_create_sideband_handle(AM_FIXED_TUNNEL, 0);
+                mtunnelid = 0;
             } else {
                 pMainTvStream = am_gralloc_create_sideband_handle(AM_TV_SIDEBAND, 1);
             }
@@ -325,6 +333,7 @@ static int getTvStream(tv_input_private_t *priv, tv_stream_t *stream, int input_
         if (pPipTvStream == nullptr) {
             ALOGD("getTvStream stream_id=%d tunnelId=%d", stream->stream_id, 2);
             pPipTvStream = am_gralloc_create_sideband_handle(AM_FIXED_TUNNEL, 2);
+            mtunnelid = 2;
             if (pPipTvStream == nullptr) {
                 ALOGE("pip tvstream can not be initialized");
                 return -EINVAL;
@@ -334,6 +343,25 @@ static int getTvStream(tv_input_private_t *priv, tv_stream_t *stream, int input_
         stream->sideband_stream_source_handle = pPipTvStream;
     } else if (stream->stream_id == STREAM_ID_FRAME_CAPTURE) {
         stream->type = TV_STREAM_TYPE_BUFFER_PRODUCER;
+    }
+    int mDevFd = meson_vt_open();
+    if (mDevFd < 0) {
+        ALOGE("getTvStream: open meson_vt error!");
+    } else {
+        ALOGD("getTvStream: mtunnelid = [%d]",mtunnelid);
+        if (-1 != mtunnelid) {
+            int tmp = meson_vt_connect(mDevFd, mtunnelid, VT_ROLE_PRODUCER);
+            ALOGD("getTvStream: connect status: [%d]!",tmp);
+            int req = meson_vt_send_cmd(mDevFd, mtunnelid, VT_CMD_SET_SHOW_SOLID_COLOR, 1);
+            tmp = meson_vt_disconnect(mDevFd, mtunnelid, VT_ROLE_PRODUCER);
+            ALOGD("getTvStream: disconnect status: [%d]!",tmp);
+            if (0 != req) {
+                ALOGE("getTvStream: send cmd error, error value [%d]!",req);
+               }
+        } else {
+            ALOGI("getTvStream: no need send cmd !");
+        }
+        meson_vt_close(mDevFd);
     }
     return 0;
 }
@@ -581,6 +609,7 @@ static int tv_input_device_close(struct hw_device_t *dev)
         if (pPipTvStream) {
             native_handle_delete((native_handle_t*)pPipTvStream);
         }
+        mtunnelid = -1;
     }
 
     ALOGD("%s", __FUNCTION__);

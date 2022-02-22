@@ -26,7 +26,8 @@ LOCAL_SHARED_LIBRARIES := \
     libui \
     liblog \
     libhardware \
-    libamgralloc_ext
+    libamgralloc_ext \
+	libvideotunnel
 
 LOCAL_REQUIRED_MODULES := libtvbinder
 
@@ -47,6 +48,8 @@ LOCAL_C_INCLUDES += \
     system/memory/libion/kernel-headers \
     hardware/amlogic/gralloc \
     hardware/amlogic/screen_source \
+	hardware/amlogic/hwcomposer/videotunnel/include \
+	hardware/amlogic/hwcomposer/videotunnel/kernel-headers/linux \
     hardware/amlogic/audio/libTVaudio \
     frameworks/native/libs/nativewindow/include \
     $(GRALLOC_DIR)
