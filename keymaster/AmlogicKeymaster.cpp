@@ -168,6 +168,15 @@ void AmlogicKeymaster::GenerateKey(const GenerateKeyRequest& request,
     }
 }
 
+void AmlogicKeymaster::GenerateRkpKey(const GenerateRkpKeyRequest& request,
+                                     GenerateRkpKeyResponse* response) {
+    ForwardCommand(KM_GENERATE_RKP_KEY, request, response);
+}
+
+void AmlogicKeymaster::GenerateCsr(const GenerateCsrRequest& request,
+                                  GenerateCsrResponse* response) {
+    ForwardCommand(KM_GENERATE_CSR, request, response);
+}
 void AmlogicKeymaster::GetKeyCharacteristics(const GetKeyCharacteristicsRequest& request,
                                             GetKeyCharacteristicsResponse* response) {
     ForwardCommand(KM_GET_KEY_CHARACTERISTICS, request, response);

@@ -91,10 +91,10 @@ void addClientAndAppData(const vector<uint8_t>& clientId, const vector<uint8_t>&
 }  // namespace
 
 ScopedAStatus AmlogicKeyMintDevice::getHardwareInfo(KeyMintHardwareInfo* info) {
-    info->versionNumber = 1;
+    info->versionNumber = 2;
     info->securityLevel = kSecurityLevel;
     info->keyMintName = "AmlogicKeyMintDevice";
-    info->keyMintAuthorName = "Google";
+    info->keyMintAuthorName = "Amlogic";
     info->timestampTokenRequired = false;
     return ScopedAStatus::ok();
 }
@@ -130,6 +130,7 @@ ScopedAStatus AmlogicKeyMintDevice::generateKey(const vector<KeyParameter>& keyP
 
     keymaster::GenerateKeyResponse response(impl_->message_version());
     impl_->GenerateKey(request, &response);
+
     if (response.error != KM_ERROR_OK) return kmError2ScopedAStatus(response.error);
 
     creationResult->keyBlob = kmBlob2vector(response.key_blob);
@@ -305,8 +306,7 @@ ScopedAStatus AmlogicKeyMintDevice::earlyBootEnded() {
 }
 
 ScopedAStatus AmlogicKeyMintDevice::convertStorageKeyToEphemeral(
-        const std::vector<uint8_t>& storageKeyBlob, std::vector<uint8_t>* ephemeralKeyBlob) {
-
+        const vector<uint8_t>& storageKeyBlob, vector<uint8_t>* ephemeralKeyBlob) {
     keymaster::ExportKeyRequest request(impl_->message_version());
     request.SetKeyMaterial(storageKeyBlob.data(), storageKeyBlob.size());
     request.key_format = KM_KEY_FORMAT_RAW;
@@ -319,6 +319,19 @@ ScopedAStatus AmlogicKeyMintDevice::convertStorageKeyToEphemeral(
         *ephemeralKeyBlob = {response.key_data, response.key_data + response.key_data_length};
     }
     return ScopedAStatus::ok();
+}
+
+ScopedAStatus AmlogicKeyMintDevice::getRootOfTrustChallenge(array<uint8_t, 16>* /* challenge */) {
+    return kmError2ScopedAStatus(KM_ERROR_UNIMPLEMENTED);
+}
+
+ScopedAStatus AmlogicKeyMintDevice::getRootOfTrust(const array<uint8_t, 16>& /* challenge */,
+                                                  vector<uint8_t>* /* rootOfTrust */) {
+    return kmError2ScopedAStatus(KM_ERROR_UNIMPLEMENTED);
+}
+
+ScopedAStatus AmlogicKeyMintDevice::sendRootOfTrust(const vector<uint8_t>& /* rootOfTrust */) {
+    return kmError2ScopedAStatus(KM_ERROR_UNIMPLEMENTED);
 }
 
 }  // namespace aidl::android::hardware::security::keymint::trusty

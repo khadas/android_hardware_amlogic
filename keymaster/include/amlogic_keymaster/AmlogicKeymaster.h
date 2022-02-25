@@ -48,6 +48,8 @@ class AmlogicKeymaster : public TrustyKeymaster {
     void AddRngEntropy(const AddEntropyRequest& request, AddEntropyResponse* response);
     void Configure(const ConfigureRequest& request, ConfigureResponse* response);
     void GenerateKey(const GenerateKeyRequest& request, GenerateKeyResponse* response);
+    void GenerateRkpKey(const GenerateRkpKeyRequest& request, GenerateRkpKeyResponse* response);
+    void GenerateCsr(const GenerateCsrRequest& request, GenerateCsrResponse* response);
     void GetKeyCharacteristics(const GetKeyCharacteristicsRequest& request,
                                GetKeyCharacteristicsResponse* response);
     void ImportKey(const ImportKeyRequest& request, ImportKeyResponse* response);
@@ -66,13 +68,12 @@ class AmlogicKeymaster : public TrustyKeymaster {
     ComputeSharedHmacResponse ComputeSharedHmac(const ComputeSharedHmacRequest& request);
     VerifyAuthorizationResponse VerifyAuthorization(const VerifyAuthorizationRequest& request);
     GetVersion2Response GetVersion2(const GetVersion2Request& request);
-
-    uint32_t message_version() const { return message_version_; }
-
-    DeviceLockedResponse DeviceLocked(const DeviceLockedRequest& request);
     EarlyBootEndedResponse EarlyBootEnded();
+    DeviceLockedResponse DeviceLocked(const DeviceLockedRequest& request);
     ConfigureVendorPatchlevelResponse ConfigureVendorPatchlevel(
             const ConfigureVendorPatchlevelRequest& request);
+
+    uint32_t message_version() const { return message_version_; }
     /* Move ForwardCommand from static method into class in order to access private members */
     void ForwardCommand(enum keymaster_command command, const KeymasterMessage& req,
             KeymasterResponse* rsp);
