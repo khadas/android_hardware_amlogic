@@ -30,8 +30,54 @@
 
     <!-- camera information -->
     <camera>
+        <!-- camera device information for v4l2loopback devices -->
+        <!-- camera group v4l2loopback_group0 -->
+        <group id='v4l2loopback_group0' synchronized='CALIBRATED'>
+            <caps>
+                <!-- list of stream configuration supported by all physical devices -->
+                <stream id='0' width='1920' height='1024' format='RGBA_8888' framerate='30'/>
+            </caps>
+
+            <!-- list of parameters -->
+            <characteristics>
+                <parameter
+                    name='REQUEST_AVAILABLE_CAPABILITIES'
+                    type='enum'
+                    size='1'
+                    value='LOGICAL_MULTI_CAMERA'
+                />
+                <parameter
+                    name='LOGICAL_MULTI_CAMERA_PHYSICAL_IDS'
+                    type='byte[]'
+                    size='4'
+                    value='/dev/video0,/dev/video2,/dev/video50,/dev/video51'
+                />
+            </characteristics>
+        </group>
+
         <!-- camera device starts -->
-        <device id='/dev/video0' position='rear'>
+        <device id='/dev/video0' position='left'>
+            <caps>
+                <!-- list of supported controls -->
+                <supported_controls>
+                    <control name='BRIGHTNESS' min='0' max='255'/>
+                    <control name='CONTRAST' min='0' max='255'/>
+                </supported_controls>
+
+                <stream id='0' width='1280'  height='720'  format='RGBA_8888' framerate='5'/>
+            </caps>
+
+            <characteristics>
+                <parameter
+                    name='LENS_INTRINSIC_CALIBRATION'
+                    type='float'
+                    size='5'
+                    value='0.0,0.0,0.0,0.0,0.0'
+                />
+            </characteristics>
+        </device>
+
+        <device id='/dev/video2' position='right'>
             <caps>
                 <!-- list of supported controls -->
                 <supported_controls>
@@ -55,6 +101,53 @@
         <device id='/dev/video50' position='front'>
             <caps>
                 <!-- list of supported controls -->
+                <supported_controls>
+                    <control name='BRIGHTNESS' min='0' max='255'/>
+                    <control name='CONTRAST' min='0' max='255'/>
+                </supported_controls>
+
+                <stream id='0' width='1920' height='1080' format='RGBA_8888' framerate='5'/>
+            </caps>
+
+            <characteristics>
+                <parameter
+                    name='LENS_DISTORTION'
+                    type='float'
+                    size='5'
+                    value='0.0,0.0,0.0,0.0,0.0'
+                />
+
+                <!-- Camera intrinsic calibration matrix. See
+                     https://developer.android.com/reference/android/hardware/camera2/CameraCharacteristics.html#LENS_INTRINSIC_CALIBRATION
+                -->
+                <parameter
+                    name='LENS_INTRINSIC_CALIBRATION'
+                    type='float'
+                    size='5'
+                    value='0.0,0.0,0.0,0.0,0.0'
+                />
+
+                <!-- Camera pose translation and rotation.  See
+                     https://developer.android.com/reference/android/hardware/camera2/CameraCharacteristics.html#LENS_POSE_TRANSLATION
+                     https://developer.android.com/reference/android/hardware/camera2/CameraCharacteristics.html#LENS_POSE_ROTATION
+                -->
+                <parameter
+                    name='LENS_POSE_TRANSLATION'
+                    type='float'
+                    size='3'
+                    value='0.0,0.0,0.0'
+                />
+                <parameter
+                    name='LENS_POSE_ROTATION'
+                    type='float'
+                    size='4'
+                    value='0.0,0.0,0.0,0.0'
+                />
+            </characteristics>
+        </device>
+
+        <device id='/dev/video51' position='rear'>
+            <caps>
                 <supported_controls>
                     <control name='BRIGHTNESS' min='0' max='255'/>
                     <control name='CONTRAST' min='0' max='255'/>
