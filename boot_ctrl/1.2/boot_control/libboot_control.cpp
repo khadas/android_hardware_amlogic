@@ -200,22 +200,12 @@ bool write_bootloader_img(unsigned int slot, bool gpt_flag)
         goto done;
     }
 
-    if (gpt_flag) {
-        LOG(INFO) << "device is gpt";
-        if (is_valid_gpt_buf(data + 0x3DFE00)) {
-            LOG(ERROR) << "no gpt partition table, can't update\n";
-            goto done;
-        } else {
-            LOG(INFO) << "find gpt parition table\n";
-        }
+    LOG(INFO) << "device is null gpt";
+    if (is_valid_gpt_buf(data + 0x3DFE00)) {
+        LOG(INFO) << "no gpt partition table\n";
     } else {
-        LOG(INFO) << "device is null gpt";
-        if (is_valid_gpt_buf(data + 0x3DFE00)) {
-            LOG(INFO) << "no gpt partition table\n";
-        } else {
-            LOG(ERROR) << "find gpt parition table, can't update\n";
-            goto done;
-        }
+        LOG(ERROR) << "find gpt parition table, can't update\n";
+        goto done;
     }
 
     /* We use robust to rollback bootloader.img in uboot
