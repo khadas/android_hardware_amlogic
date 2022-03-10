@@ -5,10 +5,10 @@
     <CameraConfig>
         <EvsGroupId>v4l2loopback_group0</EvsGroupId>
         <EvsCameraIds>
-            <Front>/dev/video60</Front>
-            <Right>/dev/video61</Right>
-            <Rear>/dev/video62</Rear>
-            <Left>/dev/video63</Left>
+            <Front>/dev/video50</Front>
+            <Right>/dev/video2</Right>
+            <Rear>/dev/video51</Rear>
+            <Left>/dev/video0</Left>
         </EvsCameraIds>
         <Masks>
             <Front>/vendor/mask_front.png</Front>

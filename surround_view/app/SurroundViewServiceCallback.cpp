@@ -225,9 +225,9 @@ bool SurroundViewServiceCallback::prepareGL() {
         glUniformMatrix4fv(loc, 1, false, identityMatrix.asArray());
     }
 
-    GLint sampler = glGetUniformLocation(mShaderProgram, "tex");
+    GLint sampler = glGetUniformLocation(mShaderProgram, "texSampler");
     if (sampler < 0) {
-        LOG(ERROR) << "Couldn't set shader parameter 'tex'";
+        LOG(ERROR) << "Couldn't set shader parameter 'texSampler'";
     } else {
         // Tell the sampler we looked up from the shader to use texture slot 0
         // as its source
