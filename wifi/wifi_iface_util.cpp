@@ -20,7 +20,6 @@
 #include <limits>
 #include <random>
 
-#include <cutils/properties.h>
 #include <android-base/logging.h>
 #include <android-base/macros.h>
 #include <private/android_filesystem_config.h>
@@ -54,14 +53,6 @@ std::array<uint8_t, 6> WifiIfaceUtil::getFactoryMacAddress(const std::string& if
 
 bool WifiIfaceUtil::setMacAddress(const std::string& iface_name,
                                   const std::array<uint8_t, 6>& mac) {
-#ifdef MULTI_WIFI_SUPPORT
-    std::array<char, PROPERTY_VALUE_MAX> buffer;
-    property_get("vendor.wifi_name", buffer.data(), nullptr);
-    if (strcmp(buffer.data(), "bcm") != 0 && !iface_tool_.lock()->SetUpState(iface_name.c_str(), false)) {
-        LOG(ERROR) << "SetUpState(false) failed.";
-        return false;
-     }
-#else
 #ifndef WIFI_AVOID_IFACE_RESET_MAC_CHANGE
     legacy_hal::wifi_error legacy_status;
     uint64_t legacy_feature_set;
@@ -74,15 +65,7 @@ bool WifiIfaceUtil::setMacAddress(const std::string& iface_name,
         return false;
     }
 #endif
-#endif
     bool success = iface_tool_.lock()->SetMacAddress(iface_name.c_str(), mac);
-#ifdef MULTI_WIFI_SUPPORT
-    property_get("vendor.wifi_name", buffer.data(), nullptr);
-    if (strcmp(buffer.data(), "bcm") != 0 && !iface_tool_.lock()->SetUpState(iface_name.c_str(), true)) {
-        LOG(ERROR) << "SetUpState(true) failed.";
-        return false;
-     }
-#else
 #ifndef WIFI_AVOID_IFACE_RESET_MAC_CHANGE
     if (!(legacy_feature_set & WIFI_FEATURE_DYNAMIC_SET_MAC) &&
         !iface_tool_.lock()->SetUpState(iface_name.c_str(), true)) {
@@ -97,7 +80,6 @@ bool WifiIfaceUtil::setMacAddress(const std::string& iface_name,
             return false;
         }
     }
-#endif
 #endif
     IfaceEventHandlers event_handlers = {};
     const auto it = event_handlers_map_.find(iface_name);
