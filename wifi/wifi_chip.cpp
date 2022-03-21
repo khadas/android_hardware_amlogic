@@ -965,10 +965,29 @@ sp<WifiApIface> WifiChip::newWifiApIface(std::string& ifname) {
 }
 
 std::pair<WifiStatus, sp<V1_5::IWifiApIface>> WifiChip::createApIfaceInternal() {
+    std::array<char, PROPERTY_VALUE_MAX> buffer;
+    std::string ifname;
+
+    property_get("vendor.wifi_name", buffer.data(), nullptr);
+    LOG(ERROR) << "property_get: vendor.wifi_name=" << buffer.data();
+
     if (!canCurrentModeSupportConcurrencyTypeWithCurrentTypes(IfaceConcurrencyType::AP)) {
         return {createWifiStatus(WifiStatusCode::ERROR_NOT_AVAILABLE), {}};
     }
-    std::string ifname = allocateApIfaceName();
+
+#ifdef WIFI_HIDL_FEATURE_DUAL_INTERFACE
+    property_set("vendor.w1_wifi_type", "ap");
+    if (strcmp(buffer.data(), "aml") == 0 || strcmp(buffer.data(), "rtl") == 0 || strcmp(buffer.data(), "qca") == 0)
+        ifname = "p2p0";//allocateApIfaceName();
+    else if (strcmp(buffer.data(), "mtk") == 0)
+        ifname = "ap0";
+    else
+        ifname = "wlan1";
+#else
+    ifname = allocateApIfaceName();
+#endif
+    LOG(ERROR) << "createApIfaceInternal: ifname=" << ifname;
+
     WifiStatus status = createVirtualApInterface(ifname);
     if (status.code != WifiStatusCode::SUCCESS) {
         return {status, {}};
@@ -1147,6 +1166,9 @@ WifiStatus WifiChip::removeNanIfaceInternal(const std::string& ifname) {
 }
 
 std::pair<WifiStatus, sp<IWifiP2pIface>> WifiChip::createP2pIfaceInternal() {
+#ifdef WIFI_HIDL_FEATURE_DUAL_INTERFACE
+    property_set("vendor.w1_wifi_type", "p2p");
+#endif
     if (!canCurrentModeSupportConcurrencyTypeWithCurrentTypes(IfaceConcurrencyType::P2P)) {
         return {createWifiStatus(WifiStatusCode::ERROR_NOT_AVAILABLE), {}};
     }
@@ -1194,7 +1216,10 @@ std::pair<WifiStatus, sp<V1_6::IWifiStaIface>> WifiChip::createStaIfaceInternal(
     if (!canCurrentModeSupportConcurrencyTypeWithCurrentTypes(IfaceConcurrencyType::STA)) {
         return {createWifiStatus(WifiStatusCode::ERROR_NOT_AVAILABLE), {}};
     }
-    std::string ifname = allocateStaIfaceName();
+    std::string ifname = "wlan0";//allocateStaIfaceName();
+
+    LOG(ERROR) << "createStaIfaceInternal: ifname=" << ifname;
+
     legacy_hal::wifi_error legacy_status = legacy_hal_.lock()->createVirtualInterface(
             ifname, hidl_struct_util::convertHidlIfaceTypeToLegacy(IfaceType::STA));
     if (legacy_status != legacy_hal::WIFI_SUCCESS) {
