@@ -1,0 +1,117 @@
+cc_binary {
+        name: "gles_test",
+        enabled: true,
+
+        srcs: [
+                "foundation/modules/GLUtils/GLUtils.cpp",
+                "foundation/platform/android/GraphicBufferUtils/GraphicBufferUtils.cpp",
+                "foundation/platform/android/ImageReader/ImageReader.cpp",
+                "foundation/platform/android/Painters/BasePainter.cpp",
+                "foundation/platform/android/Painters/TrackPainter.cpp",
+                "foundation/platform/android/Painters/TexturePainter.cpp",
+                "foundation/platform/android/Painters/SurroundPainter.cpp",
+                "foundation/platform/android/Painters/CarPainter.cpp",
+                "foundation/platform/android/Renderers/BaseRenderer.cpp",
+                "foundation/platform/android/Renderers/FrameRenderer.cpp",
+                "renderer/Renderer.cpp",
+                "tests/main.cpp",
+        ],
+
+        include_dirs: [
+                "system/memory/libion/include",
+		"system/core/libutils/include",
+        ],
+
+        local_include_dirs: [
+                "foundation/common",
+                "foundation/modules/GLUtils/include",
+                "foundation/platform/android/GraphicBufferUtils/include",
+                "foundation/platform/android/ImageReader/include",
+                "foundation/platform/android/Painters/include",
+                "foundation/platform/android/Renderers/include",
+                "renderer/include",
+        ],
+
+        shared_libs: [
+                "libion",
+                "libEGL",
+                "libGLESv2",
+                "libutils",
+                "libui",
+		"libutilscallstack",
+        ],
+
+        cflags: [
+                "-DDEBUG=1",
+                "-DANDROID=1",
+        ],
+}
+
+cc_binary {
+        name: "sv_test",
+        enabled: true,
+
+        srcs: [
+                "foundation/modules/GLUtils/GLUtils.cpp",
+                "foundation/platform/android/GraphicBufferUtils/GraphicBufferUtils.cpp",
+                "foundation/platform/android/ImageReader/ImageReader.cpp",
+                "foundation/platform/android/Painters/BasePainter.cpp",
+                "foundation/platform/android/Painters/TrackPainter.cpp",
+                "foundation/platform/android/Painters/TexturePainter.cpp",
+                "foundation/platform/android/Painters/SurroundPainter.cpp",
+                "foundation/platform/android/Painters/CarPainter.cpp",
+                "foundation/platform/android/Renderers/BaseRenderer.cpp",
+                "foundation/platform/android/Renderers/FrameRenderer.cpp",
+                "renderer/Renderer.cpp",
+                "app/modules/StreamHandler/StreamHandler.cpp",
+                "app/main.cpp",
+        ],
+
+        include_dirs: [
+                "system/memory/libion/include",
+		"system/core/libutils/include",
+        ],
+
+        local_include_dirs: [
+                "foundation/common",
+                "foundation/modules/GLUtils/include",
+                "foundation/platform/android/GraphicBufferUtils/include",
+                "foundation/platform/android/ImageReader/include",
+                "foundation/platform/android/Painters/include",
+                "foundation/platform/android/Renderers/include",
+                "renderer/include",
+                "app/modules/StreamHandler/include",
+        ],
+
+        shared_libs: [
+                "libion",
+                "libEGL",
+                "libGLESv2",
+                "libutils",
+                "libui",
+		"libutilscallstack",
+                "libbase",
+                "libhidlbase",
+                // "libhardware",
+                // "libbinder_ndk",
+                // "libcutils",
+                "libutils",
+                // "libui",
+                // "libEGL",
+                // "libGLESv2",
+                //"libpng",
+                // "libcamera_metadata",
+                "android.hardware.camera.device@3.2",
+                "android.hardware.automotive.evs@1.0",
+                "android.hardware.automotive.evs@1.1",
+                "android.hardware.automotive.vehicle@2.0",
+                // "libcartelemetry-evs-proto",
+                // "android.frameworks.automotive.telemetry-V1-ndk_platform",
+                // "libprotobuf-cpp-lite",
+        ],
+
+        cflags: [
+                "-DANDROID=1",
+                "-Wall",
+        ],
+}
