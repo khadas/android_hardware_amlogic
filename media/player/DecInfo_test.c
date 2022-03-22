@@ -120,7 +120,7 @@ int main(int argc, char *argv[])
 	char *fn = "/dev/amstream_userdata";//This file should not affect other dev file
 	struct av_param_mvdec_t para;
 
-	printf("%u %u %u \n",sizeof(struct vframe_comm_s),
+	printf("%zu %zu %zu \n",sizeof(struct vframe_comm_s),
 		sizeof(struct vframe_counter_s),sizeof(struct av_param_mvdec_t));
 	system("mkdir -p /data/tmp/mvdec");
 	system("rm /data/tmp/mvdec/vdec*");
