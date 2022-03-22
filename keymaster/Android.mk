@@ -57,6 +57,7 @@ LOCAL_MODULE_RELATIVE_PATH := hw
 LOCAL_SRC_FILES := keymint/service.cpp \
                     keymint/AmlogicKeyMintDevice.cpp \
                     keymint/AmlogicKeyMintOperation.cpp \
+                    keymint/AmlogicRemotelyProvisionedComponentDevice.cpp \
                     keymint/AmlogicSecureClock.cpp \
                     keymint/AmlogicSharedSecret.cpp \
                     ipc/amlogic_keymaster_ipc.cpp \
@@ -67,7 +68,7 @@ LOCAL_C_INCLUDES := \
                     $(PLATFORM_TDK_PATH)/ca_export_arm/include \
 
 LOCAL_SHARED_LIBRARIES := \
-                    android.hardware.security.keymint-V1-ndk \
+                    android.hardware.security.keymint-V2-ndk \
                     lib_android_keymaster_keymint_utils \
                     android.hardware.security.sharedsecret-V1-ndk \
                     android.hardware.security.secureclock-V1-ndk \
@@ -93,6 +94,7 @@ LOCAL_CFLAGS += -Wall \
 
 LOCAL_REQUIRED_MODULES := $(TA_UUID)
 LOCAL_REQUIRED_MODULES += android.hardware.hardware_keystore.xml
+LOCAL_REQUIRED_MODULES += RemoteProvisioner
 LOCAL_VINTF_FRAGMENTS := keymint/android.hardware.security.keymint-service.amlogic.xml
 LOCAL_MODULE := android.hardware.security.keymint-service.amlogic
 LOCAL_LICENSE_KINDS := SPDX-license-identifier-Apache-2.0
