@@ -25,7 +25,7 @@
     <!-- system configuration -->
     <system>
         <!-- number of cameras available to EVS -->
-        <num_cameras value='2'/>
+        <num_cameras value='4'/>
     </system>
 
     <!-- camera information -->

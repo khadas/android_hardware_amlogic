@@ -22,6 +22,7 @@
 #include <thread>
 
 #include <linux/videodev2.h>
+#include <cutils/properties.h>
 
 typedef v4l2_buffer imageBuffer;
 
@@ -60,7 +61,6 @@ public:
     int setParameter(struct v4l2_control& control);
     int getParameter(struct v4l2_control& control);
     std::set<uint32_t> enumerateCameraControls();
-    //int mCapturedTestFrame = 0;
 
     bool isMiPiCamera(const char* devName);
 private:

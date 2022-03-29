@@ -30,21 +30,23 @@ namespace implementation {
 
 
 void fillNV21FromNV21(const BufferDesc& tgtBuff, uint8_t* tgt,
-                      void* imgData, unsigned imgStride);
+                      void* imgData, unsigned imgStride, uint32_t bytesused __unused);
 
 void fillNV21FromYUYV(const BufferDesc& tgtBuff, uint8_t* tgt,
-                      void* imgData, unsigned imgStride);
+                      void* imgData, unsigned imgStride, uint32_t bytesused __unused);
 
 void fillRGBAFromYUYV(const BufferDesc& tgtBuff, uint8_t* tgt,
-                      void* imgData, unsigned imgStride);
+                      void* imgData, unsigned imgStride, uint32_t bytesused __unused);
 
 void fillYUYVFromYUYV(const BufferDesc& tgtBuff, uint8_t* tgt,
-                      void* imgData, unsigned imgStride);
+                      void* imgData, unsigned imgStride, uint32_t bytesused __unused);
 
 void fillYUYVFromUYVY(const BufferDesc& tgtBuff, uint8_t* tgt,
-                      void* imgData, unsigned imgStride);
+                      void* imgData, unsigned imgStride, uint32_t bytesused __unused);
 void fillRGBAFromNV21(const BufferDesc& tgtBuff, uint8_t* tgt,
-                      void* imgData, unsigned imgStride);
+                      void* imgData, unsigned imgStride, uint32_t bytesused __unused);
+void fillRGBAFromJPEG(const BufferDesc& tgtBuff, uint8_t* tgt,
+                      void* imgData, unsigned imgStride, uint32_t bytesused __unused);
 
 } // namespace implementation
 } // namespace V1_1
