@@ -54,8 +54,6 @@ LOCAL_MODULE := libamadec
 LOCAL_LICENSE_KINDS := SPDX-license-identifier-Apache-2.0 SPDX-license-identifier-GPL
 LOCAL_LICENSE_CONDITIONS := notice restricted
 
-LOCAL_ARM_MODE := arm
-
 
 include $(BUILD_STATIC_LIBRARY)
 
@@ -106,7 +104,6 @@ ifeq ($(shell test $(PLATFORM_SDK_VERSION) -ge 26 && echo OK),OK)
 LOCAL_PROPRIETARY_MODULE := true
 endif
 
-LOCAL_ARM_MODE := arm
 ##################################################
 #$(shell cp $(LOCAL_PATH)/acodec_lib/*.so $(TARGET_OUT)/lib)
 ###################################################
