@@ -128,6 +128,17 @@ bool VideoCapture::open(const char* deviceName, const int32_t width, const int32
     mRunMode = STOPPED;
     mFrames.clear();
 
+
+/******set MIPI Camera facing back******/
+    bool isMIPI = isMiPiCamera(deviceName);
+    if (isMIPI) {
+        struct v4l2_control ctrl;
+        ctrl.id = V4L2_CID_HFLIP;
+        ctrl.value = 1;
+        setParameter(ctrl);
+    }
+/****************************************/
+
     // Ready to go!
     return true;
 }
@@ -382,3 +393,15 @@ std::set<uint32_t> VideoCapture::enumerateCameraControls() {
 
     return std::move(ctrlIDs);
 }
+
+
+bool VideoCapture::isMiPiCamera(const char* devName) {
+    if (strstr(devName, "video50") != nullptr || strstr(devName, "video51") != nullptr) {
+        LOG(INFO) << "It's MiPiCamera!!!";
+        return true;
+    } else {
+        LOG(INFO) << "It's not MiPiCamera!!!";
+        return false;
+    }
+}
+
