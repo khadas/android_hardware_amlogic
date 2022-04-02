@@ -41,6 +41,10 @@ enum mad_flow {
 struct  mad_decoder{
     enum mad_decoder_mode mode;
     int bad_last_frame;
+    unsigned int decoded_nb_frames;
+    unsigned int droppped_nb_frames;
+    unsigned int error_nb_frames;
+    int bit_rate;
     int last_sr;
     int last_ch_num;
     int options;
