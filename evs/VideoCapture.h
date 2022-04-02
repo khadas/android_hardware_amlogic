@@ -62,6 +62,7 @@ public:
     std::set<uint32_t> enumerateCameraControls();
     //int mCapturedTestFrame = 0;
 
+    bool isMiPiCamera(const char* devName);
 private:
     void collectFrames();
     bool returnFrame(int id);
