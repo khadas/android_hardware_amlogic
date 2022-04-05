@@ -181,7 +181,7 @@ public:
      * @return CameraGroup
      *         A pointer to a camera group identified by a given id.
      */
-    unique_ptr<CameraGroupInfo>& getCameraGroupInfo(const string& gid) {
+    unique_ptr<CameraGroupInfo>& getCameraGroupInfo(const string gid) {
         unique_lock<mutex> lock(mConfigLock);
         mConfigCond.wait(lock, [this] { return mIsReady; });
 

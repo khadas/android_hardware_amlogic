@@ -64,6 +64,9 @@ bool VideoCapture::open(const char* deviceName, const int32_t width, const int32
     LOG(INFO) << "  Dev Caps: " << std::hex << caps.device_caps;
 
     // Enumerate the available capture formats (if any)
+    bool isSupportYUV , isSupportJPEG;
+    uint32_t pixelformat = V4L2_PIX_FMT_NV21;
+
     LOG(INFO) << "Supported capture formats:";
     v4l2_fmtdesc formatDescriptions;
     formatDescriptions.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
@@ -74,11 +77,22 @@ bool VideoCapture::open(const char* deviceName, const int32_t width, const int32
                       << ": " << formatDescriptions.description
                       << " " << std::hex << std::setw(8) << formatDescriptions.pixelformat
                       << " " << std::hex << formatDescriptions.flags;
+            if (!isMiPiCamera(deviceName)) {
+                if (formatDescriptions.pixelformat == V4L2_PIX_FMT_YUYV)
+                    isSupportYUV = true;
+                else if (formatDescriptions.pixelformat == V4L2_PIX_FMT_MJPEG)
+                    isSupportJPEG = true;
+            }
         } else {
             // No more formats available
             break;
         }
     }
+    //LOG(DEBUG) << "isSupportJPEG:" << isSupportJPEG << "," << isSupportYUV;
+    if (isSupportJPEG)
+        pixelformat = V4L2_PIX_FMT_MJPEG;
+    else if (isSupportYUV)
+        pixelformat = V4L2_PIX_FMT_YUYV;
 
     // Verify we can use this device for video capture
     if (!(caps.capabilities & V4L2_CAP_VIDEO_CAPTURE) ||
@@ -92,7 +106,7 @@ bool VideoCapture::open(const char* deviceName, const int32_t width, const int32
     v4l2_format format;
     format.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
     //format.fmt.pix.pixelformat = V4L2_PIX_FMT_YUYV; //ww
-    format.fmt.pix.pixelformat = V4L2_PIX_FMT_NV21;
+    format.fmt.pix.pixelformat = pixelformat;//V4L2_PIX_FMT_NV21;
     format.fmt.pix.width = width;
     format.fmt.pix.height = height;
     LOG(INFO) << "Requesting format: "
@@ -250,17 +264,16 @@ void VideoCapture::stopStream() {
                    << "Reentrancy is not supported!";
         return;
     } else {
-        // Block until the background thread is stopped
-        if (mCaptureThread.joinable()) {
-            mCaptureThread.join();
-        }
-
         // Stop the underlying video stream (automatically empties the buffer queue)
         const int type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
         if (ioctl(mDeviceFd, VIDIOC_STREAMOFF, &type) < 0) {
             PLOG(ERROR) << "VIDIOC_STREAMOFF failed";
         }
 
+        // Block until the background thread is stopped
+        if (mCaptureThread.joinable()) {
+            mCaptureThread.join();
+        }
         LOG(DEBUG) << "Capture thread stopped.";
     }
 
@@ -335,7 +348,6 @@ void VideoCapture::collectFrames() {
             }
             mCapturedTestFrame = 1;
         }*/
-
         // If a callback was requested per frame, do that now
         if (mCallback) {
             mCallback(this, &mBufferInfos[buf.index], mPixelBuffers[buf.index]);  //ww EvsV4lCamera::forwardFrame
@@ -397,10 +409,10 @@ std::set<uint32_t> VideoCapture::enumerateCameraControls() {
 
 bool VideoCapture::isMiPiCamera(const char* devName) {
     if (strstr(devName, "video50") != nullptr || strstr(devName, "video51") != nullptr) {
-        LOG(INFO) << "It's MiPiCamera!!!";
+        LOG(DEBUG) << "It's MiPiCamera!!!";
         return true;
     } else {
-        LOG(INFO) << "It's not MiPiCamera!!!";
+        LOG(DEBUG) << "It's not MiPiCamera!!!";
         return false;
     }
 }

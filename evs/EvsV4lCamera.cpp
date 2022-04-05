@@ -165,7 +165,8 @@ Return<EvsResult> EvsV4lCamera::startVideoStream(const sp<IEvsCameraStream_1_0>&
     // Choose which image transfer function we need
     // Map from V4L2 to Android graphic buffer format
     const uint32_t videoSrcFormat = mVideo.getV4LFormat();
-    LOG(INFO) << "Configuring to accept " << (char*)&videoSrcFormat
+
+    LOG(INFO) << "Configuring to accept " << std::hex << (char*)&videoSrcFormat
               << " camera data and convert to " << std::hex << mFormat;
 
     switch (mFormat) {
@@ -193,6 +194,9 @@ Return<EvsResult> EvsV4lCamera::startVideoStream(const sp<IEvsCameraStream_1_0>&
             break;
         case V4L2_PIX_FMT_NV21:
             mFillBufferFromVideo = fillRGBAFromNV21;
+            break;
+        case V4L2_PIX_FMT_MJPEG:
+            mFillBufferFromVideo = fillRGBAFromJPEG;
             break;
         default:
             LOG(ERROR) << "Unhandled camera format " << (char*)&videoSrcFormat;
@@ -813,7 +817,7 @@ void EvsV4lCamera::forwardFrame(imageBuffer* pV4lBuff, void* pData) {
 
         // Transfer the video image into the output buffer, making any needed
         // format conversion along the way
-        mFillBufferFromVideo(bufDesc_1_1, (uint8_t *)targetPixels, pData, mVideo.getStride());
+        mFillBufferFromVideo(bufDesc_1_1, (uint8_t *)targetPixels, pData, mVideo.getStride(), pV4lBuff->bytesused);
 
         // Unlock the output buffer
         mapper.unlock(bufDesc_1_1.buffer.nativeHandle);

@@ -38,7 +38,7 @@ int align(int value) {
 }
 
 
-void fillNV21FromNV21(const BufferDesc& tgtBuff, uint8_t* tgt, void* imgData, unsigned) {
+void fillNV21FromNV21(const BufferDesc& tgtBuff, uint8_t* tgt, void* imgData, unsigned, uint32_t bytesused __unused) {
     // The NV21 format provides a Y array of 8bit values, followed by a 1/2 x 1/2 interleave U/V array.
     // It assumes an even width and height for the overall image, and a horizontal stride that is
     // an even multiple of 16 bytes for both the Y and UV arrays.
@@ -57,7 +57,7 @@ void fillNV21FromNV21(const BufferDesc& tgtBuff, uint8_t* tgt, void* imgData, un
 }
 
 
-void fillNV21FromYUYV(const BufferDesc& tgtBuff, uint8_t* tgt, void* imgData, unsigned imgStride) {
+void fillNV21FromYUYV(const BufferDesc& tgtBuff, uint8_t* tgt, void* imgData, unsigned imgStride, uint32_t bytesused __unused) {
     // The YUYV format provides an interleaved array of pixel values with U and V subsampled in
     // the horizontal direction only.  Also known as interleaved 422 format.  A 4 byte
     // "macro pixel" provides the Y value for two adjacent pixels and the U and V values shared
@@ -120,7 +120,7 @@ void fillNV21FromYUYV(const BufferDesc& tgtBuff, uint8_t* tgt, void* imgData, un
 }
 
 
-void fillRGBAFromYUYV(const BufferDesc& tgtBuff, uint8_t* tgt, void* imgData, unsigned imgStride) {
+void fillRGBAFromYUYV(const BufferDesc& tgtBuff, uint8_t* tgt, void* imgData, unsigned imgStride, uint32_t bytesused __unused) {
     const AHardwareBuffer_Desc* pDesc =
         reinterpret_cast<const AHardwareBuffer_Desc*>(&tgtBuff.buffer.description);
     // Converts YUY2ToARGB (little endian).  Please note that libyuv uses the
@@ -148,7 +148,7 @@ void fillRGBAFromYUYV(const BufferDesc& tgtBuff, uint8_t* tgt, void* imgData, un
 }
 
 
-void fillRGBAFromNV21(const BufferDesc& tgtBuff, uint8_t* tgt, void* imgData, unsigned imgStride __unused) {
+void fillRGBAFromNV21(const BufferDesc& tgtBuff, uint8_t* tgt, void* imgData, unsigned imgStride __unused, uint32_t bytesused __unused) {
     const AHardwareBuffer_Desc* pDesc =
                 reinterpret_cast<const AHardwareBuffer_Desc*>(&tgtBuff.buffer.description);
     uint32_t width  = pDesc->width;
@@ -164,6 +164,57 @@ void fillRGBAFromNV21(const BufferDesc& tgtBuff, uint8_t* tgt, void* imgData, un
     result = libyuv::ABGRToARGB(tgt, dstStrideInBytes, tgt, dstStrideInBytes,
                                 pDesc->width, pDesc->height);
 }
+
+void fillRGBAFromJPEG(const BufferDesc& tgtBuff, uint8_t* tgt, void* imgData, unsigned imgStride __unused,uint32_t bytesused __unused) {
+    const AHardwareBuffer_Desc* pDesc =
+                reinterpret_cast<const AHardwareBuffer_Desc*>(&tgtBuff.buffer.description);
+    uint32_t width  = pDesc->width;
+    uint32_t height = pDesc->height;
+    //LOG(ERROR) << "fillRGBAFromJPEG:" << width << "x" << height << ",used:" << std::hex << bytesused;
+
+    int src_len = bytesused ;//ww:need to confirm
+
+    uint8_t *tmpBuf = new uint8_t[width * height * 3 / 2];
+    if ( tmpBuf == NULL) {
+        LOG(ERROR) << "new buffer failed! " ;
+        return;
+    }
+    uint8_t *vBuffer = new uint8_t[width * height / 4];
+    if (vBuffer == NULL)
+        LOG(ERROR) << "alloc temperary v buffer failed " ;
+    uint8_t *uBuffer = new uint8_t[width * height / 4];
+    if (uBuffer == NULL) {
+        if (vBuffer != NULL) {
+            delete []vBuffer;
+        }
+        LOG(ERROR) << "alloc temperary u buffer failed " ;
+        return;
+    }
+
+    if (libyuv::ConvertToI420((unsigned char *)imgData, src_len, tmpBuf, width, uBuffer, (width + 1) / 2,
+                vBuffer, (width + 1) / 2, 0, 0, width, height,
+                width, height, libyuv::kRotate0, libyuv::FOURCC_MJPG) != 0) {
+        LOG(ERROR) << "Decode MJPEG frame failed " ;
+        delete []vBuffer;
+        delete []uBuffer;
+        return;
+        } else {
+
+        uint8_t *pUVBuffer = tmpBuf + width * height;
+        for (int i = 0; i < (int)(width * height / 4); i++) {
+            *pUVBuffer++ = *(vBuffer + i);
+            *pUVBuffer++ = *(uBuffer + i);
+        }
+
+        delete []vBuffer;
+        delete []uBuffer;
+        //nv21_to_rgb24(tmpBuf,tgt,width,height);
+        fillRGBAFromNV21(tgtBuff, tgt, tmpBuf, 0, bytesused);
+        if (tmpBuf != NULL)
+            delete [] tmpBuf;
+        }
+}
+
 
 #if 0
 void fillRGBAFromNV21(const BufferDesc& tgtBuff, uint8_t* tgt, void* imgData, unsigned imgStride __unused) {
@@ -213,7 +264,7 @@ void fillRGBAFromNV21(const BufferDesc& tgtBuff, uint8_t* tgt, void* imgData, un
 
 #endif
 
-void fillYUYVFromYUYV(const BufferDesc& tgtBuff, uint8_t* tgt, void* imgData, unsigned imgStride) {
+void fillYUYVFromYUYV(const BufferDesc& tgtBuff, uint8_t* tgt, void* imgData, unsigned imgStride, uint32_t bytesused __unused) {
     const AHardwareBuffer_Desc* pDesc =
         reinterpret_cast<const AHardwareBuffer_Desc*>(&tgtBuff.buffer.description);
     unsigned width = pDesc->width;
@@ -230,7 +281,7 @@ void fillYUYVFromYUYV(const BufferDesc& tgtBuff, uint8_t* tgt, void* imgData, un
 }
 
 
-void fillYUYVFromUYVY(const BufferDesc& tgtBuff, uint8_t* tgt, void* imgData, unsigned imgStride) {
+void fillYUYVFromUYVY(const BufferDesc& tgtBuff, uint8_t* tgt, void* imgData, unsigned imgStride, uint32_t bytesused __unused) {
     const AHardwareBuffer_Desc* pDesc =
         reinterpret_cast<const AHardwareBuffer_Desc*>(&tgtBuff.buffer.description);
     unsigned width = pDesc->width;
