@@ -52,6 +52,7 @@ LOCAL_C_INCLUDES += \
 	hardware/amlogic/hwcomposer/videotunnel/kernel-headers/linux \
     hardware/amlogic/audio/libTVaudio \
     frameworks/native/libs/nativewindow/include \
+    system/libfmq/include \
     $(GRALLOC_DIR)
 
 LOCAL_C_INCLUDES += \
