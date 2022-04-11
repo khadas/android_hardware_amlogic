@@ -89,10 +89,11 @@ bool VideoCapture::open(const char* deviceName, const int32_t width, const int32
         }
     }
     //LOG(DEBUG) << "isSupportJPEG:" << isSupportJPEG << "," << isSupportYUV;
-    if (isSupportJPEG)
-        pixelformat = V4L2_PIX_FMT_MJPEG;
-    else if (isSupportYUV)
+    //make yuyv has high priority
+    if (isSupportYUV)
         pixelformat = V4L2_PIX_FMT_YUYV;
+    else if (isSupportJPEG)
+        pixelformat = V4L2_PIX_FMT_MJPEG;
 
     // Verify we can use this device for video capture
     if (!(caps.capabilities & V4L2_CAP_VIDEO_CAPTURE) ||
