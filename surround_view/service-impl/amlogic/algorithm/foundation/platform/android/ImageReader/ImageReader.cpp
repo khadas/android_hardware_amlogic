@@ -199,7 +199,7 @@ int ImageReader::MallocTexture(Texture &texture) {
     if (mMemType == AllocatdByMalloc) {
         texture.data = malloc(texture.size);
         if (texture.data == nullptr) {
-            LOGE("malloc failed! size: %zu", texture.size);
+            LOGE("malloc failed! size: %d", texture.size);
             return RESULT_BASE_MODULE_ERROR;
         }
 

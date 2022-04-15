@@ -270,7 +270,7 @@ int TexturePainter::SetParams(const char *type, ...) {
             }
 
             if (mTexturesNum < num) {
-                LOGD("reshape textue from %d to %d", mTexturesNum, num);
+                LOGD("reshape textue from %zu to %zu", mTexturesNum, num);
                 int result = DeinitTextureData(num);
 
                 if (result != RESULT_OK) {
@@ -383,7 +383,7 @@ GLenum TexturePainter::InitTexture() {
 
     for (size_t index = 0; index < mTexturesNum; index++) {
         if (mTextures[index].replaced) {
-            LOGD("bind texture %d: %p", index,
+            LOGD("bind texture %zu: %p", index,
                     mTextures[index].buffer?
                     mTextures[index].buffer.get():nullptr);
 
