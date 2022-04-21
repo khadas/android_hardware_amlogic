@@ -94,7 +94,7 @@ const int32_t Sensor::kSensitivityRange[2] = {100, 1600};
 const uint32_t Sensor::kDefaultSensitivity = 100;
 
 const usb_frmsize_discrete_t kUsbAvailablePictureSize[] = {
-        {4128, 3096},
+        /*{4128, 3096},
         {3264, 2448},
         {2592, 1944},
         {2592, 1936},
@@ -105,7 +105,7 @@ const usb_frmsize_discrete_t kUsbAvailablePictureSize[] = {
         {1920, 1088},
         {1920, 1080},
         {1440, 1080},
-        {1280, 960},
+        {1280, 960},*/
         {1280, 720},
         {1024, 768},
         {960, 720},
@@ -155,7 +155,7 @@ bool IsUsbAvailablePictureSize(const usb_frmsize_discrete_t AvailablePictureSize
     bool ret = false;
     int count = sizeof(kUsbAvailablePictureSize)/sizeof(kUsbAvailablePictureSize[0]);
     for (i = 0; i < count; i++) {
-        if ((width == AvailablePictureSize[i].width) && (height == AvailablePictureSize[i].height)) {
+        if ((width == kUsbAvailablePictureSize[i].width) && (height == kUsbAvailablePictureSize[i].height)) {
             ret = true;
         } else {
             continue;
@@ -1261,7 +1261,7 @@ int Sensor::captureNewImage() {
     ALOGVV("size=%d\n", mNextCapturedBuffers->size());
     for (size_t i = 0; i < mNextCapturedBuffers->size(); i++) {
         const StreamBuffer &b = (*mNextCapturedBuffers)[i];
-        ALOGVV("Sensor capturing buffer %d: stream %d,"
+        ALOGD("Sensor capturing buffer %d: stream %d,"
                 " %d x %d, format %x, stride %d, buf %p, img %p",
                 i, b.streamId, b.width, b.height, b.format, b.stride,
                 b.buffer, b.img);
@@ -1286,19 +1286,18 @@ int Sensor::captureNewImage() {
                 orientation = getPictureRotate();
                 ALOGD("bAux orientation=%d",orientation);
                 uint32_t pixelfmt;
-                if ((b.width == vinfo->preview.format.fmt.pix.width &&
-                b.height == vinfo->preview.format.fmt.pix.height) && (orientation == 0)) {
-
-                pixelfmt = getOutputFormat();
-                if (pixelfmt == V4L2_PIX_FMT_YVU420) {
-                    pixelfmt = HAL_PIXEL_FORMAT_YV12;
-                } else if (pixelfmt == V4L2_PIX_FMT_NV21) {
-                    pixelfmt = HAL_PIXEL_FORMAT_YCrCb_420_SP;
-                } else if (pixelfmt == V4L2_PIX_FMT_YUYV) {
-                    pixelfmt = HAL_PIXEL_FORMAT_YCbCr_422_I;
-                } else {
-                    pixelfmt = HAL_PIXEL_FORMAT_YCrCb_420_SP;
-                }
+                // Force to set go here to avoid re-config usb camera
+                if (1) {
+                    pixelfmt = getOutputFormat();
+                    if (pixelfmt == V4L2_PIX_FMT_YVU420) {
+                        pixelfmt = HAL_PIXEL_FORMAT_YV12;
+                    } else if (pixelfmt == V4L2_PIX_FMT_NV21) {
+                        pixelfmt = HAL_PIXEL_FORMAT_YCrCb_420_SP;
+                    } else if (pixelfmt == V4L2_PIX_FMT_YUYV) {
+                        pixelfmt = HAL_PIXEL_FORMAT_YCbCr_422_I;
+                    } else {
+                        pixelfmt = HAL_PIXEL_FORMAT_YCrCb_420_SP;
+                    }
                 } else {
                     isjpeg = true;
                     pixelfmt = HAL_PIXEL_FORMAT_RGB_888;
@@ -1555,8 +1554,8 @@ int Sensor::getStreamConfigurations(uint32_t picSizes[], const int32_t kAvailabl
                 if (0 != (frmsize.discrete.width%16))
                     continue;
 
-                //if((frmsize.discrete.width > support_w) && (frmsize.discrete.height >support_h))
-                //    continue;
+                if ((frmsize.discrete.width > support_w) && (frmsize.discrete.height >support_h))
+                    continue;
 
                 if (count >= size)
                     break;
@@ -2041,41 +2040,43 @@ void Sensor::captureRGB(uint8_t *img, uint32_t gain, uint32_t stride) {
                     return;
                 }
 #if ANDROID_PLATFORM_SDK_VERSION > 23
+               if (ConvertToI420(src, vinfo->picture.buf.bytesused, tmp_buffer, width, uBuffer, (width + 1) / 2,
+                                     vBuffer, (width + 1) / 2, 0, 0, width, height,
+                                     width, height, libyuv::kRotate0, libyuv::FOURCC_MJPG) != 0) {
+                   DBG_LOGA("Decode MJPEG frame Capture failed\n");
+                   if (tmp_buffer != NULL)
+                       delete [] tmp_buffer;
+                   putback_picture_frame(vinfo);
+                   usleep(5000);
+               } else {
+                   uint8_t *pUVBuffer = tmp_buffer + width * height;
+                   for (int i = 0; i < (int)(width * height / 4); i++) {
+                       *pUVBuffer++ = *(vBuffer + i);
+                       *pUVBuffer++ = *(uBuffer + i);
+                   }
 
-        if (ConvertToI420(src, vinfo->picture.buf.bytesused, tmp_buffer, width, uBuffer, (width + 1) / 2,
-                              vBuffer, (width + 1) / 2, 0, 0, width, height,
-                              width, height, libyuv::kRotate0, libyuv::FOURCC_MJPG) != 0) {
-            DBG_LOGA("Decode MJPEG frame failed\n");
-            putback_picture_frame(vinfo);
-            usleep(5000);
-        } else {
-
-            uint8_t *pUVBuffer = tmp_buffer + width * height;
-            for (int i = 0; i < (int)(width * height / 4); i++) {
-                *pUVBuffer++ = *(vBuffer + i);
-                *pUVBuffer++ = *(uBuffer + i);
-            }
-
-            nv21_to_rgb24(tmp_buffer,img,width,height);
-            if (tmp_buffer != NULL)
-                delete [] tmp_buffer;
-            break;
-        }
+                   nv21_to_rgb24(tmp_buffer,img,width,height);
+                   if (tmp_buffer != NULL)
+                       delete [] tmp_buffer;
+                   break;
+               }
 #else
-        if (ConvertMjpegToNV21(src, vinfo->picture.buf.bytesused, tmp_buffer,
-                    width, tmp_buffer + width * height, (width + 1) / 2, width,
-                    height, width, height, libyuv::FOURCC_MJPG) != 0) {
-            DBG_LOGA("Decode MJPEG frame failed\n");
-            putback_picture_frame(vinfo);
-            usleep(5000);
-        } else {
-            nv21_to_rgb24(tmp_buffer,img,width,height);
-            if (tmp_buffer != NULL)
-                delete [] tmp_buffer;
-            break;
-        }
+               if (ConvertMjpegToNV21(src, vinfo->picture.buf.bytesused, tmp_buffer,
+                           width, tmp_buffer + width * height, (width + 1) / 2, width,
+                           height, width, height, libyuv::FOURCC_MJPG) != 0) {
+                   DBG_LOGA("Decode MJPEG frame Capture failed\n");
+                   if (tmp_buffer != NULL)
+                       delete [] tmp_buffer;
+                   putback_picture_frame(vinfo);
+                   usleep(5000);
+               } else {
+                   nv21_to_rgb24(tmp_buffer,img,width,height);
+                   if (tmp_buffer != NULL)
+                       delete [] tmp_buffer;
+                   break;
+               }
 #endif
-            } else if (vinfo->picture.format.fmt.pix.pixelformat == V4L2_PIX_FMT_YUYV) {
+           } else if (vinfo->picture.format.fmt.pix.pixelformat == V4L2_PIX_FMT_YUYV) {
                 if (vinfo->picture.buf.length == vinfo->picture.buf.bytesused) {
                     yuyv422_to_rgb24(src,img,width,height);
                     break;
@@ -2144,7 +2145,7 @@ void Sensor::YUYVToYV12(uint8_t *src, uint8_t *dst, int width, int height)
     cr_offset = y_size;
     cb_offset = y_size+c_size;
 
-    for(i=0;i< y_size;i++){
+    for (i = 0;i < y_size; i++) {
         *dst++ = *src;
         src += 2;
     }
@@ -2152,8 +2153,8 @@ void Sensor::YUYVToYV12(uint8_t *src, uint8_t *dst, int width, int height)
     dst = dst_copy;
     src = src_copy;
 
-    for(i=0;i<height;i+=2){
-        for(j=1;j<width*2;j+=4){//one line has 2*width bytes for yuyv.
+    for (i = 0; i < height; i += 2) {
+        for (j = 1;j < width*2; j += 4) {//one line has 2*width bytes for yuyv.
             //ceil(u1+u2)/2
             *(dst+cr_offset+j/4)= (*(src+j+2) + *(src+j+2+width*2) + 1)/2;
             *(dst+cb_offset+j/4)= (*(src+j) + *(src+j+width*2) + 1)/2;
@@ -2253,7 +2254,6 @@ void Sensor::captureNV21(StreamBuffer b, uint32_t gain) {
         } else if (vinfo->preview.format.fmt.pix.pixelformat == V4L2_PIX_FMT_MJPEG) {
             uint32_t width = vinfo->preview.format.fmt.pix.width;
             uint32_t height = vinfo->preview.format.fmt.pix.height;
-
             if ((width == b.width) && (height == b.height)) {
                 memcpy(b.img, src, b.stride * b.height);
                 uint8_t *pUVBuffer = b.img + b.stride * height;

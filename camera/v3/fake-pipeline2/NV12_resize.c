@@ -67,23 +67,23 @@ VT_resizeFrame_Video_opt2_lp
   mmUint32 cox, coy, codx, cody;
   mmUint16 idx,idy, idxC;
 
-  if(i_img_ptr->uWidth == o_img_ptr->uWidth)
-	{
-		if(i_img_ptr->uHeight == o_img_ptr->uHeight)
-			{
-				CAMHAL_LOGVB("(i_img_ptr->uHeight == o_img_ptr->uHeight)\n"
-				        "i_img_ptr->width = %d,i_img_ptr->uHeight = %d\n" 
-				        "o_img_ptr->width = %d,o_img_ptr->uHeight = %d\n",
-                                        i_img_ptr->uWidth, i_img_ptr->uHeight,
-                                        o_img_ptr->uWidth, o_img_ptr->uHeight);
-			}
-	}
+  if (i_img_ptr->uWidth == o_img_ptr->uWidth)
+  {
+      if (i_img_ptr->uHeight == o_img_ptr->uHeight)
+      {
+          CAMHAL_LOGVB("(i_img_ptr->uHeight == o_img_ptr->uHeight)\n"
+                       "i_img_ptr->width = %d,i_img_ptr->uHeight = %d\n"
+                       "o_img_ptr->width = %d,o_img_ptr->uHeight = %d\n",
+                       i_img_ptr->uWidth, i_img_ptr->uHeight,
+                       o_img_ptr->uWidth, o_img_ptr->uHeight);
+      }
+  }
 
   if (!i_img_ptr || !i_img_ptr->imgPtr ||
     !o_img_ptr || !o_img_ptr->imgPtr)
   {
-	CAMHAL_LOGEA("Image Point NULL");
-	return FALSE;
+    CAMHAL_LOGEA("Image Point NULL");
+    return FALSE;
   }
 
   inImgPtrY = (mmUchar *) i_img_ptr->imgPtr + i_img_ptr->uOffset;

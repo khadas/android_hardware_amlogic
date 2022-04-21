@@ -279,7 +279,7 @@ status_t EmulatedFakeCamera3::connectCamera(hw_device_t** device) {
     }
 
     mReadoutThread = new ReadoutThread(this);
-    mJpegCompressor = new JpegCompressor();
+    if (mJpegCompressor == nullptr ) mJpegCompressor = new JpegCompressor();
 
     res = mReadoutThread->setJpegCompressorListener(this);
     if (res != NO_ERROR) {
@@ -398,6 +398,8 @@ status_t EmulatedFakeCamera3::closeCamera() {
         }
         mStreams.clear();
         mReadoutThread.clear();
+        mReadoutThread = nullptr;
+        mJpegCompressor = nullptr;
     }
     CAMHAL_LOGDB("%s, %d\n", __FUNCTION__, __LINE__);
     return EmulatedCamera3::closeCamera();
@@ -580,8 +582,7 @@ status_t EmulatedFakeCamera3::configureStreams(
         camera3_stream_t *newStream = streamList->streams[i];
         DBG_LOGB("find propert width and height, format=%x, w*h=%dx%d, stream_type=%d, max_buffers=%d\n",
                 newStream->format, newStream->width, newStream->height, newStream->stream_type, newStream->max_buffers);
-        if ((HAL_PIXEL_FORMAT_BLOB != newStream->format) &&
-            (CAMERA3_STREAM_OUTPUT == newStream->stream_type)) {
+        if ((CAMERA3_STREAM_OUTPUT == newStream->stream_type)) {
 
             if (width < newStream->width)
                     width = newStream->width;
@@ -769,7 +770,7 @@ const camera_metadata_t* EmulatedFakeCamera3::constructDefaultRequestSettings(
     settings.update(ANDROID_LENS_APERTURE, &aperture, 1);
 
 //    static const float focalLength = 5.0f;
-	static const float focalLength = 3.299999952316284f;
+    static const float focalLength = 3.299999952316284f;
     settings.update(ANDROID_LENS_FOCAL_LENGTH, &focalLength, 1);
 
     static const float filterDensity = 0;

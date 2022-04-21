@@ -110,7 +110,7 @@ int cameraConfigureStreams(struct VideoInfo *vinfo, camera3_stream_configuration
 }
 
 int fillStream(struct VideoInfo *src, uintptr_t physAddr, const android::StreamBuffer &dst) {
-    /* data operating. */ 
+    /* data operating. */
     int ge2d_fd;
     config_para_ex_t cfg;
     ge2d_para_t  para;
