@@ -50,6 +50,9 @@ GE2D_ENABLE := true
 GE2D_VERSION_2 := true
 ISP_ENABLE := false
 GDC_ENABLE := false
+ifeq ($(TARGET_PRODUCT), t7_an400)
+DEWARP_ENABLE := true
+endif
 LOCAL_SHARED_LIBRARIES:= \
     libbinder \
     liblog \
@@ -87,6 +90,10 @@ endif
 ifeq ($(GDC_ENABLE),true)
 LOCAL_SHARED_LIBRARIES += libgdc
 LOCAL_CFLAGS += -DGDC_ENABLE
+else ifeq ($(DEWARP_ENABLE),true)
+LOCAL_SHARED_LIBRARIES += libgdc
+LOCAL_SHARED_LIBRARIES += libdewarp
+LOCAL_CFLAGS += -DPREVIEW_DEWARP_ENABLE -DPICTURE_DEWARP_ENABLE
 endif
 LOCAL_STATIC_LIBRARIES := \
     libyuv_static \
@@ -143,6 +150,9 @@ endif
 
 ifeq ($(GDC_ENABLE),true)
 LOCAL_C_INCLUDES += $(TOP)/vendor/amlogic/common/system/libgdc/include
+else ifeq ($(DEWARP_ENABLE),true)
+LOCAL_C_INCLUDES += $(TOP)/vendor/amlogic/common/system/libgdc/dewarp
+
 endif
 
 LOCAL_SRC_FILES := \
@@ -189,6 +199,9 @@ endif
 ifeq ($(GDC_ENABLE),true)
 LOCAL_SRC_FILES += fake-pipeline2/gdcUseFd.cpp
 LOCAL_SRC_FILES += fake-pipeline2/gdcUseMemcpy.cpp
+else ifeq ($(DEWARP_ENABLE),true)
+LOCAL_SRC_FILES += fake-pipeline2/CameraConfig.cpp
+LOCAL_SRC_FILES += fake-pipeline2/dewarp.cpp
 endif
 
 ifeq ($(TARGET_PRODUCT),vbox_x86)
