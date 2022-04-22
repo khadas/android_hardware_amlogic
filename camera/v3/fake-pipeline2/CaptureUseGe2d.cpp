@@ -4,6 +4,9 @@
 #include <utils/Trace.h>
 #include "CaptureUseGe2d.h"
 #include "ge2d_stream.h"
+#if defined(PREVIEW_DEWARP_ENABLE) || defined(PICTURE_DEWARP_ENABLE)
+#include "dewarp.h"
+#endif
 
 namespace android {
     CaptureUseGe2d::CaptureUseGe2d(MIPIVideoInfo* info) {
@@ -88,7 +91,6 @@ namespace android {
     int CaptureUseGe2d::captureNV21frame(StreamBuffer b, struct data_in* in) {
             ATRACE_CALL();
             int dmabuf_fd = -1;
-            uint8_t *temp_buffer = nullptr;
             uint32_t width = mInfo->preview.format.fmt.pix.width;
             uint32_t height = mInfo->preview.format.fmt.pix.height;
             uint32_t format = mInfo->preview.format.fmt.pix.pixelformat;
@@ -119,7 +121,42 @@ namespace android {
                 usleep(5000);
                 return -1;
             }
-
+#ifdef PREVIEW_DEWARP_ENABLE
+            char property[PROPERTY_VALUE_MAX];
+            property_get("vendor.camhal.use.dewarp", property, "false");
+            if (strstr(property, "true")) {//dewarp
+                DeWarp* GDCObj = nullptr;
+                property_get("vendor.camhal.use.dewarp.linear", property, "false");
+                CameraConfig* config = CameraConfig::getInstance(DEWARP_CAM2PORT_PREVIEW);
+                config->setWidth(b.width);
+                config->setHeight(b.height);
+                ALOGV("%s-%d b.width:%d b.height:%d width:%d,height:%d",
+                      __FUNCTION__, __LINE__, b.width, b.height, config->getWidth(), config->getHeight());
+                if (strstr(property, "true")) {
+                    GDCObj = DeWarp::getInstance(DEWARP_CAM2PORT_PREVIEW, PROJ_MODE_LINEAR, Rotation::ROTATION_0);
+                } else {
+                    GDCObj = DeWarp::getInstance(DEWARP_CAM2PORT_PREVIEW, PROJ_MODE_EQUISOLID, Rotation::ROTATION_0);
+                }
+                if (GDCObj) {
+                    GDCObj->mInput_fd = dmabuf_fd;
+                    GDCObj->mOutput_fd = b.share_fd;
+                    GDCObj->gdc_do_fisheye_correction();
+                }
+            }
+            else {
+                switch (format) {
+                    case V4L2_PIX_FMT_NV21:
+                        if (mInfo->preview.buf.length == b.width * b.height * 3/2) {
+                            ALOGV("%s:dma buffer fd = %d \n", __FUNCTION__, dmabuf_fd);
+                            mGE2D->ge2d_copy(b.share_fd, dmabuf_fd, b.stride, b.height, ge2dTransform::NV12);
+                        }
+                        break;
+                    default:
+                        break;
+                }
+            }
+#else
+            uint8_t *temp_buffer = nullptr;
             switch (format) {
                 case V4L2_PIX_FMT_NV21:
                     if (mInfo->preview.buf.length == b.width * b.height * 3/2) {
@@ -137,6 +174,7 @@ namespace android {
                 default:
                     break;
             }
+#endif
             in->dmabuf_fd = dmabuf_fd;
             return 0;
     }
