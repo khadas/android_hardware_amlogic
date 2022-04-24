@@ -592,9 +592,7 @@ status_t EmulatedFakeCamera3::configureStreams(
         camera3_stream_t *newStream = streamList->streams[i];
         DBG_LOGB("find propert width and height, format=%x, w*h=%dx%d, stream_type=%d, max_buffers=%d\n",
                 newStream->format, newStream->width, newStream->height, newStream->stream_type, newStream->max_buffers);
-        if ((HAL_PIXEL_FORMAT_BLOB != newStream->format) &&
-            (CAMERA3_STREAM_OUTPUT == newStream->stream_type)) {
-
+        if (CAMERA3_STREAM_OUTPUT == newStream->stream_type) {
             if (width < newStream->width)
                     width = newStream->width;
 
@@ -605,7 +603,6 @@ status_t EmulatedFakeCamera3::configureStreams(
             if (HAL_PIXEL_FORMAT_YCbCr_420_888 == pixelfmt)
                 pixelfmt =  HAL_PIXEL_FORMAT_YCrCb_420_SP;
         }
-
     }
 
     //TODO modify this ugly code

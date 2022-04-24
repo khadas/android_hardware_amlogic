@@ -2883,7 +2883,7 @@ static void ParserLimitedRateInfo(LimitedRate_t* rate)
     char* pos = NULL;
     memset(property,0,sizeof(property));
     rate->num = 0;
-    if (property_get("ro.media.camera_preview.limitedrate", property, NULL) > 0) {
+    if (property_get("vendor.media.camera_preview.limitedrate", property, NULL) > 0) {
         pos = &property[0];
         while((pos != NULL)&&(rate->num<MAX_LIMITED_RATE_NUM)){
             if(sscanf(pos,"%dx%dx%d",&w,&h,&r)!=3){

@@ -1298,19 +1298,17 @@ int Sensor::captureNewImage() {
                 orientation = getPictureRotate();
                 ALOGD("bAux orientation=%d",orientation);
                 uint32_t pixelfmt;
-                if ((b.width == vinfo->preview.format.fmt.pix.width &&
-                b.height == vinfo->preview.format.fmt.pix.height) && (orientation == 0)) {
-
-                pixelfmt = getOutputFormat();
-                if (pixelfmt == V4L2_PIX_FMT_YVU420) {
-                    pixelfmt = HAL_PIXEL_FORMAT_YV12;
-                } else if (pixelfmt == V4L2_PIX_FMT_NV21) {
-                    pixelfmt = HAL_PIXEL_FORMAT_YCrCb_420_SP;
-                } else if (pixelfmt == V4L2_PIX_FMT_YUYV) {
-                    pixelfmt = HAL_PIXEL_FORMAT_YCbCr_422_I;
-                } else {
-                    pixelfmt = HAL_PIXEL_FORMAT_YCrCb_420_SP;
-                }
+                if (1) {
+                    pixelfmt = getOutputFormat();
+                    if (pixelfmt == V4L2_PIX_FMT_YVU420) {
+                        pixelfmt = HAL_PIXEL_FORMAT_YV12;
+                    } else if (pixelfmt == V4L2_PIX_FMT_NV21) {
+                        pixelfmt = HAL_PIXEL_FORMAT_YCrCb_420_SP;
+                    } else if (pixelfmt == V4L2_PIX_FMT_YUYV) {
+                        pixelfmt = HAL_PIXEL_FORMAT_YCbCr_422_I;
+                    } else {
+                        pixelfmt = HAL_PIXEL_FORMAT_YCrCb_420_SP;
+                    }
                 } else {
                     isjpeg = true;
                     pixelfmt = HAL_PIXEL_FORMAT_RGB_888;
@@ -1363,7 +1361,7 @@ int Sensor::getStreamConfigurations(uint32_t picSizes[], const int32_t kAvailabl
     support_w = 10000;
     support_h = 10000;
     memset(property, 0, sizeof(property));
-    if (property_get("ro.media.camera_preview.maxsize", property, NULL) > 0) {
+    if (property_get("vendor.media.camera_preview.maxsize", property, NULL) > 0) {
         CAMHAL_LOGDB("support Max Preview Size :%s",property);
         if(sscanf(property,"%dx%d",&support_w,&support_h)!=2){
             support_w = 10000;
@@ -1544,13 +1542,13 @@ int Sensor::getStreamConfigurations(uint32_t picSizes[], const int32_t kAvailabl
                 break;
             }
 
-            if(frmsize.type == V4L2_FRMSIZE_TYPE_DISCRETE){ //only support this type
+            if (frmsize.type == V4L2_FRMSIZE_TYPE_DISCRETE) { //only support this type
 
                 if (0 != (frmsize.discrete.width%16))
                     continue;
 
-                //if((frmsize.discrete.width > support_w) && (frmsize.discrete.height >support_h))
-                //    continue;
+                if ((frmsize.discrete.width > support_w) && (frmsize.discrete.height >support_h))
+                    continue;
 
                 if (count >= size)
                     break;
@@ -1800,7 +1798,7 @@ int Sensor::getPictureSizes(int32_t picSizes[], int size, bool preview) {
     support_w = 10000;
     support_h = 10000;
     memset(property, 0, sizeof(property));
-    if (property_get("ro.media.camera_preview.maxsize", property, NULL) > 0) {
+    if (property_get("vendor.media.camera_preview.maxsize", property, NULL) > 0) {
         CAMHAL_LOGDB("support Max Preview Size :%s",property);
         if(sscanf(property,"%dx%d",&support_w,&support_h)!=2){
             support_w = 10000;
