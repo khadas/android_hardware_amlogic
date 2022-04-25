@@ -1157,7 +1157,7 @@ int OMXDecoder::Decode(uint8_t*src, size_t src_size,
         SetOutputBuffer(dst_fd, dst_buf);
         QueueBuffer(src, src_size);
 
-        if (OMXWaitForVSync(30*1000*1000) == false) { //wait timeout 30ms
+        if (OMXWaitForVSync(200*1000*1000) == false) { //wait timeout 200ms
             mDequeueFailNum ++;
             ALOGD("Decoderss failed %d", mDequeueFailNum);
             return ret;
@@ -1170,7 +1170,7 @@ int OMXDecoder::Decode(uint8_t*src, size_t src_size,
 
     QueueBuffer(src, src_size);
 
-    bool state = OMXWaitForVSync(30*1000*1000); //30ms
+    bool state = OMXWaitForVSync(200*1000*1000); //200ms
 
     if (state) {
         ret = DequeueBuffer(dst_fd,dst_buf,dst_w,dst_h);
