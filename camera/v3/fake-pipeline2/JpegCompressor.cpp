@@ -398,7 +398,7 @@ bool JpegCompressor::threadLoop() {
     }
     mFoundJpeg = false;
     mFoundAux = false;
-    for (size_t i = 0; i < mBuffers->size(); i++) {
+    for (size_t i = 0; mBuffers != NULL && i < mBuffers->size(); i++) {
         const StreamBuffer &b = (*mBuffers)[i];
         if (b.format == HAL_PIXEL_FORMAT_BLOB) {
             mJpegBuffer = b;
@@ -471,6 +471,10 @@ bool JpegCompressor::threadLoop() {
             delete ri->buf;
         }
         delete ri;
+    }
+    if (mBuffers != NULL) {
+        delete mBuffers;
+        mBuffers = NULL;
     }
     gettimeofday(&mTimeend, NULL);
     intreval = (mTimeend.tv_sec - mTimeStart.tv_sec) * 1000 + ((mTimeend.tv_usec - mTimeStart.tv_usec))/1000;

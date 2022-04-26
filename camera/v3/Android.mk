@@ -52,6 +52,8 @@ ISP_ENABLE := false
 GDC_ENABLE := false
 ifeq ($(TARGET_PRODUCT), t7_an400)
 DEWARP_ENABLE := true
+else ifeq ($(TARGET_PRODUCT), t7_an400_arm64)
+DEWARP_ENABLE := true
 endif
 LOCAL_SHARED_LIBRARIES:= \
     libbinder \
@@ -198,7 +200,8 @@ LOCAL_SRC_FILES := \
 ifeq ($(GE2D_ENABLE),true)
 LOCAL_SRC_FILES += fake-pipeline2/ge2d_stream.cpp \
                    fake-pipeline2/IonIf.cpp \
-                   fake-pipeline2/CaptureUseGe2d.cpp
+                   fake-pipeline2/CaptureUseGe2d.cpp \
+                   fake-pipeline2/MIPIBaseIO3.cpp
 endif
 
 ifeq ($(GDC_ENABLE),true)
@@ -209,6 +212,10 @@ LOCAL_SRC_FILES += fake-pipeline2/CameraConfig.cpp
 LOCAL_SRC_FILES += fake-pipeline2/dewarp.cpp
 endif
 
+LOCAL_SRC_FILES += fake-pipeline2/MIPIBaseIO.cpp \
+                   fake-pipeline2/MIPIBaseIO2.cpp \
+                   fake-pipeline2/GlobalResource.cpp \
+                   fake-pipeline2/V4l2Utils.cpp
 ifeq ($(TARGET_PRODUCT),vbox_x86)
 LOCAL_MODULE := camera.vbox_x86
 else

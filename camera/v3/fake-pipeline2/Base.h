@@ -45,6 +45,9 @@ struct StreamBuffer {
     buffer_handle_t *buffer;
     uint8_t *img;
     int     share_fd;
+    static bool comp (const StreamBuffer &a, const StreamBuffer &b) {
+        return a.width > b.width;
+    };
 };
 typedef Vector<StreamBuffer> Buffers;
 
@@ -84,14 +87,14 @@ struct ExifInfo {
 	int orientation;
 };
 
-    struct Request {
-        uint32_t         frameNumber;
-        struct ExifInfo info;
-        CameraMetadata   settings;
-        HalBufferVector *buffers;
-        Buffers         *sensorBuffers;
-        bool             havethumbnail;
-    };
+struct Request {
+    uint32_t         frameNumber;
+    struct ExifInfo info;
+    CameraMetadata   settings;
+    HalBufferVector *buffers;
+    Buffers         *sensorBuffers;
+    bool             havethumbnail;
+};
 
 } // namespace android;
 

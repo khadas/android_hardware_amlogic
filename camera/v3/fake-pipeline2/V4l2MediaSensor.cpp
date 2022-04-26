@@ -455,7 +455,7 @@ V4l2MediaSensor::~V4l2MediaSensor() {
 
 }
 
-status_t V4l2MediaSensor::streamOff(void) {
+status_t V4l2MediaSensor::streamOff(channel ch) {
     ALOGV("%s: E", __FUNCTION__);
 #ifdef GDC_ENABLE
     if (mIGdc && mIsGdcInit) {
@@ -472,9 +472,12 @@ int V4l2MediaSensor::SensorInit(int idx) {
 
     ret = camera_open(idx);
     if (ret < 0) {
-        ALOGE("Unable to open sensor %d, ALOGEno=%d\n", mVinfo->idx, ret);
-        return -1;
+        ALOGE("Unable to open sensor %d, ALOGEno=%d\n",  mVinfo->get_index(), ret);
+        return ret;
     }
+
+    if (mVinfo == NULL)
+        mVinfo =  new MIPIVideoInfo();
 
     // ======== pipe match & stream init ==============
     struct media_device * media_dev = media_device_new_with_fd(mMediaDevicefd);
@@ -500,15 +503,19 @@ int V4l2MediaSensor::SensorInit(int idx) {
         return -1;
     }
 
-    // =========== vinfo init ============
-    if (mVinfo == NULL)
-        mVinfo =  new MIPIVideoInfo();
+    InitVideoInfo(idx);
 
     if (mVinfo) {
+        std::vector<int> fds;
         media_stream_t* stream = (media_stream_t*)mMediaStream;
         mVinfo->fd = stream->video_ent->fd;
         mVinfo->idx = idx;
+        mVinfo->mWorkMode = ONE_FD;
+        fds.push_back(mVinfo->fd);
+        mVinfo->set_fds(fds);
+        mVinfo->set_index(idx);
     }
+
     mVinfo->camera_init();
 
     if (!mCapture) {
@@ -563,10 +570,22 @@ void V4l2MediaSensor::camera_close(void) {
     if (mCameraVirtualDevice == nullptr)
         mCameraVirtualDevice = CameraVirtualDevice::getInstance();
 
-    mCameraVirtualDevice->releaseVirtualDevice(mVinfo->idx,  mMediaDevicefd);
+    mCameraVirtualDevice->releaseVirtualDevice(mVinfo->get_index(),  mMediaDevicefd);
     mMediaDevicefd = -1;
 }
 
+void V4l2MediaSensor::InitVideoInfo(int idx) {
+/*
+     if (mVinfo) {
+        std::vector<int> fds;
+        mVinfo->mWorkMode = PIC_SCALER;
+        fds.push_back(((media_stream_t *)mMediaStream)->video_ent0->fd);
+        fds.push_back(((media_stream_t *)mMediaStream)->video_ent1->fd);
+        fds.push_back(((media_stream_t *)mMediaStream)->video_ent2->fd);
+        mVinfo->set_fds(fds);
+        mVinfo->set_index(idx);
+    }*/
+}
 
 status_t V4l2MediaSensor::shutDown() {
     ALOGV("%s: E", __FUNCTION__);
@@ -709,25 +728,20 @@ status_t V4l2MediaSensor::getOutputFormat(void) {
     return V4L2_PIX_FMT_UYVY;
 }
 
-status_t V4l2MediaSensor::setOutputFormat(int width, int height, int pixelformat, bool isjpeg) {
+status_t V4l2MediaSensor::setOutputFormat(int width, int height, int pixelformat,  channel ch) {
 
     int res;
     mFramecount = 0;
     mCurFps = 0;
     gettimeofday(&mTimeStart, NULL);
 
-    if (isjpeg) {
+    if (ch == channel_capture) {
         //----set snap shot pixel format
-        mVinfo->picture.format.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
-        mVinfo->picture.format.fmt.pix.width = width;
-        mVinfo->picture.format.fmt.pix.height = height;
-        mVinfo->picture.format.fmt.pix.pixelformat = pixelformat;
+        mVinfo->set_picture_format(width, height, pixelformat);
     } else {
         //----set preview pixel format
-        mVinfo->preview.format.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
-        mVinfo->preview.format.fmt.pix.width = width;
-        mVinfo->preview.format.fmt.pix.height = height;
-        mVinfo->preview.format.fmt.pix.pixelformat = pixelformat;
+        mVinfo->set_preview_format(width, height, pixelformat);
+
         res = mVinfo->setBuffersFormat();
         if (res < 0) {
             ALOGE("set buffer failed\n");
@@ -755,8 +769,8 @@ status_t V4l2MediaSensor::setOutputFormat(int width, int height, int pixelformat
     }
     //----alloc memory for temporary buffer
     if (NULL == mImage_buffer) {
-        mPre_width = mVinfo->preview.format.fmt.pix.width;
-        mPre_height = mVinfo->preview.format.fmt.pix.height;
+        mPre_width = mVinfo->get_preview_width();
+        mPre_height = mVinfo->get_preview_height();
         DBG_LOGB("setOutputFormat :: pre_width = %d, pre_height = %d \n" , mPre_width , mPre_height);
         mImage_buffer = new uint8_t[mPre_width * mPre_height * 3 / 2];
         if (mImage_buffer == NULL) {
@@ -765,14 +779,14 @@ status_t V4l2MediaSensor::setOutputFormat(int width, int height, int pixelformat
         }
     }
     //-----free old buffer and alloc new buffer
-    if ((mPre_width != mVinfo->preview.format.fmt.pix.width)
-        && (mPre_height != mVinfo->preview.format.fmt.pix.height)) {
+    if ((mPre_width != mVinfo->get_preview_width())
+        && (mPre_height != mVinfo->get_preview_height())) {
         if (mImage_buffer) {
             delete [] mImage_buffer;
             mImage_buffer = NULL;
         }
-        mPre_width = mVinfo->preview.format.fmt.pix.width;
-        mPre_height = mVinfo->preview.format.fmt.pix.height;
+        mPre_width = mVinfo->get_preview_width();
+        mPre_height = mVinfo->get_preview_height();
         mImage_buffer = new uint8_t[mPre_width * mPre_height * 3 / 2];
         if (mImage_buffer == NULL) {
             ALOGE("allocate mTemp_buffer failed !");
@@ -786,20 +800,21 @@ int V4l2MediaSensor::halFormatToSensorFormat(uint32_t pixelfmt) {
     return getOutputFormat();
 }
 
-status_t V4l2MediaSensor::streamOn() {
+status_t V4l2MediaSensor::streamOn(channel ch) {
     return mVinfo->start_capturing();
 }
 
 bool V4l2MediaSensor::isStreaming() {
-    return mVinfo->isStreaming;
+    return mVinfo->Stream_status();
 }
 
-bool V4l2MediaSensor::isNeedRestart(uint32_t width, uint32_t height, uint32_t pixelformat) {
-    if ((mVinfo->preview.format.fmt.pix.width != width)
-        ||(mVinfo->preview.format.fmt.pix.height != height)) {
+bool V4l2MediaSensor::isNeedRestart(uint32_t width, uint32_t height, uint32_t pixelformat,channel ch) {
+    if ((mVinfo->get_preview_width()!= width)
+        ||(mVinfo->get_preview_height() != height)) {
         return true;
     }
     return false;
+
 }
 
 
@@ -1111,9 +1126,9 @@ status_t V4l2MediaSensor::force_reset_sensor() {
     // todo: reset pipeline
     status_t ret;
     mTimeOutCount = 0;
-    ret = streamOff();
+    ret = streamOff(channel_preview);
     ret = mVinfo->setBuffersFormat();
-    ret = streamOn();
+    ret = streamOn(channel_preview);
     DBG_LOGB("%s , ret = %d", __FUNCTION__, ret);
     return ret;
 }

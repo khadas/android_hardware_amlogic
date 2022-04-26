@@ -226,6 +226,7 @@ Sensor::Sensor():
         memset(&mTestStart,0,sizeof(struct timeval));
         memset(&mTestEnd,0,sizeof(struct timeval));
         memset(&mNextCaptureTime,0,sizeof(nsecs_t));
+        memset(mDeviceName,0,sizeof(mDeviceName));
 }
 
 Sensor::~Sensor() {
@@ -301,7 +302,7 @@ uint32_t Sensor::getStreamUsage(int stream_type)
     return usage;
 }
 
-status_t Sensor::setOutputFormat(int width, int height, int pixelformat, bool isjpeg)
+status_t Sensor::setOutputFormat(int width, int height, int pixelformat, channel ch)
 {
     int res;
     ATRACE_CALL();
@@ -309,7 +310,7 @@ status_t Sensor::setOutputFormat(int width, int height, int pixelformat, bool is
     mCurFps = 0;
     gettimeofday(&mTimeStart, NULL);
 
-    if (isjpeg) {
+    if (ch == channel_capture) {
         vinfo->picture.format.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
         vinfo->picture.format.fmt.pix.width = width;
         vinfo->picture.format.fmt.pix.height = height;
@@ -356,7 +357,7 @@ status_t Sensor::setOutputFormat(int width, int height, int pixelformat, bool is
 
 }
 
-status_t Sensor::streamOn() {
+status_t Sensor::streamOn(channel ch) {
     ATRACE_CALL();
     return start_capturing(vinfo);
 }
@@ -366,7 +367,7 @@ bool Sensor::isStreaming() {
     return vinfo->isStreaming;
 }
 
-bool Sensor::isNeedRestart(uint32_t width, uint32_t height, uint32_t pixelformat)
+bool Sensor::isNeedRestart(uint32_t width, uint32_t height, uint32_t pixelformat, channel ch)
 {
     if ((vinfo->preview.format.fmt.pix.width != width)
         ||(vinfo->preview.format.fmt.pix.height != height)
@@ -379,7 +380,7 @@ bool Sensor::isNeedRestart(uint32_t width, uint32_t height, uint32_t pixelformat
 
     return false;
 }
-status_t Sensor::streamOff() {
+status_t Sensor::streamOff(channel ch) {
     if (mSensorType == SENSOR_USB) {
         return releasebuf_and_stop_capturing(vinfo);
     } else {
@@ -999,6 +1000,16 @@ void Sensor::setDestinationBuffers(Buffers *buffers) {
     mNextBuffers = buffers;
 }
 
+void Sensor::setPictureRequest(Request &PicRequest) {
+    ATRACE_CALL();
+    //Request * newRequest = new Request(PicRequest);
+    {
+        Mutex::Autolock lock(mPictureThreadCntler.requestOperaionLock);
+        mPictureThreadCntler.NextPictureRequest.push_back(PicRequest);
+        mPictureThreadCntler.unprocessedRequest.signal();
+    }
+}
+
 void Sensor::setFrameNumber(uint32_t frameNumber) {
     ATRACE_CALL();
     Mutex::Autolock lock(mControlMutex);
@@ -1008,6 +1019,11 @@ void Sensor::setFrameNumber(uint32_t frameNumber) {
 
 void Sensor::setFlushFlag(bool flushFlag) {
     mFlushFlag = flushFlag;
+}
+
+void Sensor::setDeviceName(char* name) {
+    ALOGVV("setDeviceName %s", name);
+    sprintf(mDeviceName,"%s",name);
 }
 
 status_t Sensor::waitForVSync(nsecs_t reltime) {
@@ -1981,9 +1997,9 @@ status_t Sensor::force_reset_sensor() {
     DBG_LOGA("force_reset_sensor");
     status_t ret;
     mTimeOutCount = 0;
-    ret = streamOff();
+    ret = streamOff(channel_preview);
     ret = setBuffersFormat(vinfo);
-    ret = streamOn();
+    ret = streamOn(channel_preview);
     DBG_LOGB("%s , ret = %d", __FUNCTION__, ret);
     return ret;
 }
