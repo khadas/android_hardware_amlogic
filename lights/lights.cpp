@@ -45,7 +45,9 @@ static pthread_mutex_t g_lock = PTHREAD_MUTEX_INITIALIZER;
 
 //char const* const RED_LED_FILE = "";
 //char const* const BLUE_LED_FILE = "";
+#ifdef SUPPORT_MICROPHONE
 char const* const ARRAY_LED_DEVICE = "/sys/class/leds/tlc59116_led/single_colors";
+#endif
 
 static int sys_write_int(int fd, int value) {
     char buffer[16];
@@ -78,7 +80,7 @@ class Lights : public BnLights {
     }
 
    int writeLedArray(const char* path, int const& ordinal, int color) {
-        LOG(ERROR) << "writeLedArray,id: " << ordinal << ",color:" << color;
+        LOG(DEBUG) << "writeLedArray,id: " << ordinal << ",color:" << color;
         int const fd = open(path, O_RDWR);
         if (fd < 0) {
             LOG(ERROR) << "COULD NOT OPEN ARRAY_LED_DEVICE " << path;
@@ -89,18 +91,18 @@ class Lights : public BnLights {
         char cmd[60]="";
         char ordinal_str[8] = "";
         sprintf(ordinal_str, "%d", ordinal);
-        LOG(ERROR) << "    ordinal_str :" << ordinal_str;
+        LOG(DEBUG) << "    ordinal_str :" << ordinal_str;
         sprintf(color_str, "0x%06x", color & 0x00FFFFFF);
-        LOG(ERROR) << "    color :" << color_str;
+        LOG(DEBUG) << "    color :" << color_str;
         strcat(cmd, ordinal_str);
         strcat(cmd, " ");
         strcat(cmd, color_str);
-        LOG(ERROR) << "    cmd :" << cmd;
+        LOG(DEBUG) << "    cmd :" << cmd;
         int len = write(fd, cmd, strlen(cmd));
         if (len <= 0) {
             LOG(ERROR) << "   Unable to write:" << path << ",error:" << errno;
         } else {
-            LOG(ERROR) << "   Wrote " << len << "bytes to " << path;
+            LOG(DEBUG) << "   Wrote " << len << "bytes to " << path;
         }
         close(fd);
         return 0;
@@ -129,10 +131,11 @@ class Lights : public BnLights {
         addLight(LightType::ATTENTION, 0);
         addLight(LightType::BLUETOOTH, 0);
         addLight(LightType::WIFI, 0);
-
+#ifdef SUPPORT_MICROPHONE
         for (int i = 0; i < 4; i++) {
             addLight(LightType::MICROPHONE, i);
         }
+#endif
     }
 
     ScopedAStatus setLightState(int id, const HwLightState& state) override {
@@ -145,8 +148,10 @@ class Lights : public BnLights {
         int ret = 0;
         switch (light.type) {
             case LightType::MICROPHONE:
-                LOG(ERROR) << "setLightState, light:" << light.ordinal << ", color:" << state.color ;
+                LOG(DEBUG) << "setLightState, light:" << light.ordinal << ", color:" << state.color ;
+#ifdef SUPPORT_MICROPHONE
                 ret = writeLedArray(ARRAY_LED_DEVICE, light.ordinal, state.color);
+#endif
                 break;
             case LightType::BATTERY:
                 LOG(ERROR) << "Light BATTERY is not supported by now.";
