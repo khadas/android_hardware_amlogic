@@ -240,6 +240,7 @@ class Sensor: public Thread, public virtual RefBase {
     // To simplify tracking sensor's current frame
     void setFrameNumber(uint32_t frameNumber);
     void  setFlushFlag(bool flushFlag);
+    void setDeviceName(char* name);
     virtual status_t force_reset_sensor();
     bool get_sensor_status();
     /*
@@ -378,6 +379,7 @@ class Sensor: public Thread, public virtual RefBase {
     bool mFlushFlag;
     bool mSensorWorkFlag;
     int mOpenCameraID;
+    char mDeviceName[64];
     struct PictureThreadCntler {
         std::thread *PictureThread;
         Vector<Request> NextPictureRequest;

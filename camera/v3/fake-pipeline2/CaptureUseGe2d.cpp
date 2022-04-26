@@ -170,7 +170,9 @@ int CaptureUseGe2d::captureNV21frame(StreamBuffer b, struct data_in* in) {
                     if ((width == b.width) && (height == b.height)) {
                         mGE2D->ge2d_copy(b.share_fd, in->share_fd, b.stride, b.height, V4L2_PIX_FMT_NV21);
                     } else if (width >= b.width && height >= b.height) {
+
                         mGE2D->ge2d_scale(b.share_fd, PIXEL_FORMAT_YCbCr_420_SP_NV12, b.width, b.height, in->share_fd, width, height);
+
                     }
                 } else {
                     struct VideoInfoBuffer vb_rec;
@@ -197,6 +199,9 @@ int CaptureUseGe2d::captureNV21frame(StreamBuffer b, struct data_in* in) {
                             CameraConfig* config = CameraConfig::getInstance(DEWARP_CAM2PORT_CAPTURE);
                             config->setWidth(b.width);
                             config->setHeight(b.height);
+                            ALOGV("%s-%d b.width:%d b.height:%d b.fd:%d width:%d height:%d fd:%d",
+                                  __FUNCTION__, __LINE__, b.width, b.height, b.share_fd,
+                                  config->getWidth(), config->getHeight(), dmabuf_fd_rec);
                             if (strstr(property, "true")) {
                                 GDCObj = DeWarp::getInstance(DEWARP_CAM2PORT_CAPTURE, PROJ_MODE_LINEAR, Rotation::ROTATION_0);
                             } else {
@@ -207,9 +212,6 @@ int CaptureUseGe2d::captureNV21frame(StreamBuffer b, struct data_in* in) {
                                 GDCObj->mOutput_fd = b.share_fd;
                                 GDCObj->gdc_do_fisheye_correction();
                             }
-                            ALOGV("%s-%d b.width:%d b.height:%d b.fd:%d width:%d height:%d fd:%d",
-                                  __FUNCTION__, __LINE__, b.width, b.height, b.share_fd,
-                                  config->getWidth(), config->getHeight(), dmabuf_fd_rec);
                         }
 #else
                         mGE2D->ge2d_scale(b.share_fd, PIXEL_FORMAT_YCbCr_420_SP_NV12, b.width, b.height,
@@ -237,6 +239,7 @@ int CaptureUseGe2d::captureNV21frame(StreamBuffer b, struct data_in* in) {
         }
         return NO_NEW_FRAME;
     }
+
 
     struct VideoInfoBuffer vb;
     int ret = mInfo->get_frame_buffer(&vb);
@@ -275,8 +278,11 @@ int CaptureUseGe2d::captureNV21frame(StreamBuffer b, struct data_in* in) {
                     if (mInfo->get_preview_buf_length() == b.width * b.height * 3/2) {
                         ALOGV("%s:dma buffer fd = %d \n", __FUNCTION__, dmabuf_fd);
                         mGE2D->ge2d_copy(b.share_fd, dmabuf_fd, b.stride, b.height, ge2dTransform::NV12);
-                    } else {
+                    }
+                    else {
+
                         mGE2D->ge2d_scale(b.share_fd, PIXEL_FORMAT_YCbCr_420_SP_NV12, b.width, b.height, dmabuf_fd, width, height);
+
                     }
                     break;
                 case V4L2_PIX_FMT_UYVY:
@@ -308,6 +314,10 @@ int CaptureUseGe2d::captureNV21frame(StreamBuffer b, struct data_in* in) {
             } else {
                 mGE2D->ge2d_scale(b.share_fd, PIXEL_FORMAT_YCbCr_420_SP_NV12, b.width, b.height, dmabuf_fd, width, height);
             }
+            break;
+        case V4L2_PIX_FMT_UYVY:
+            mGE2D->ge2d_fmt_convert(b.share_fd, PIXEL_FORMAT_YCrCb_420_SP, b.stride, b.height,
+                                   dmabuf_fd, PIXEL_FORMAT_YCbCr_422_UYVY, width, height);
             break;
         default:
             break;

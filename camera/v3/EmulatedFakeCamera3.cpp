@@ -608,7 +608,7 @@ status_t EmulatedFakeCamera3::configureStreams(
         DBG_LOGB("find propert width and height, format=%x, w*h=%dx%d, stream_type=%d, max_buffers=%d\n",
                 newStream->format, newStream->width, newStream->height, newStream->stream_type, newStream->max_buffers);
         if (CAMERA3_STREAM_OUTPUT == newStream->stream_type) {
-            if (newStream->format == HAL_PIXEL_FORMAT_BLOB && mSensorType == SENSOR_V4L2MEDIA) {
+            if (newStream->format == HAL_PIXEL_FORMAT_BLOB && (mSensorType == SENSOR_V4L2MEDIA || mSensorType == SENSOR_MIPI)) {
                 ALOGI("skip add blob stream for mipi sensor have multi dma port");
                 continue;
             }
@@ -637,7 +637,7 @@ status_t EmulatedFakeCamera3::configureStreams(
     if (isRestart) {
         isRestart = mSensor->isNeedRestart(width, height, pixelfmt, channel_preview);
     }
-    if (mSensorType == SENSOR_V4L2MEDIA)
+    if (mSensorType == SENSOR_V4L2MEDIA || mSensorType == SENSOR_MIPI)
         isRestartRec = mSensor->isNeedRestart(UHDWidth, UHDHeight, UHDPixelfmt, channel_record);
 
     if (isRestart) {
@@ -1442,8 +1442,8 @@ status_t EmulatedFakeCamera3::processCaptureRequest(
 
                      return NO_INIT;
               }
-              if (mSensorType == SENSOR_V4L2MEDIA &&
-                    destBuf.format == HAL_PIXEL_FORMAT_BLOB) {// picture buffer
+              if ((mSensorType == SENSOR_V4L2MEDIA || mSensorType == SENSOR_MIPI)
+                  && destBuf.format == HAL_PIXEL_FORMAT_BLOB) {// picture buffer
                   pictureSensorBuffers->push_back(destBuf);
                   pictureHalBuffers->push_back(srcBuf);
               } else {// preview buffer
@@ -1488,7 +1488,7 @@ status_t EmulatedFakeCamera3::processCaptureRequest(
               } else {
                    info.has_focallen = false;
               }
-              if (mSensorType != SENSOR_V4L2MEDIA) {
+              if ((mSensorType != SENSOR_V4L2MEDIA || mSensorType != SENSOR_MIPI)) {
                   jpegbuffersize = getJpegBufferSize(info.mainwidth,info.mainheight);
 
                   mJpegCompressor->SetMaxJpegBufferSize(jpegbuffersize);
@@ -1766,6 +1766,8 @@ status_t EmulatedFakeCamera3::createSensor() {
             ALOGE("not support this camera:%d",mSensorType);
         }
     }while(0);
+    if (mSensor)
+        mSensor->setDeviceName(device->name);
     return OK;
 }
 
@@ -3059,7 +3061,7 @@ bool EmulatedFakeCamera3::ReadoutThread::threadLoop() {
     while (buf != mCurrentRequest.buffers->end()) {
         const bool goodBuffer = true;
         if ( buf->stream->format == HAL_PIXEL_FORMAT_BLOB &&
-             mParent->mSensorType != SENSOR_V4L2MEDIA) {
+             (mParent->mSensorType != SENSOR_V4L2MEDIA || mParent->mSensorType != SENSOR_MIPI)) {
             Mutex::Autolock jl(mJpegLock);
             needJpeg = true;
             CaptureRequest currentcapture;

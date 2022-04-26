@@ -41,7 +41,7 @@ class VideoInfoUsePictureScaler {
         FrameV4L2Info picture;
         FrameV4L2Info picture_config;
         std::vector<struct VideoInfoBuffer> mem;
-        std::vector<struct VideoInfoBuffer> mem_rec;
+	std::vector<struct VideoInfoBuffer> mem_rec;
         struct VideoInfoBuffer mem_pic[NUM_PICTURE_BUFFER];
         //unsigned int canvas[IO_PREVIEW_BUFFER];
         bool isStreaming;

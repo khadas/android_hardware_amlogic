@@ -233,8 +233,7 @@ status_t V4l2MediaSensor::streamOff(channel ch) {
 int V4l2MediaSensor::SensorInit(int idx) {
     ALOGV("%s: E", __FUNCTION__);
     int ret = 0;
-    if (mVinfo == NULL)
-        mVinfo =  new MIPIVideoInfo();
+
     ret = camera_open(idx);
     if (ret < 0) {
         ALOGE("Unable to open sensor %d, ALOGE no=%d\n", mVinfo->get_index(), ret);

@@ -20,6 +20,10 @@
 #include "MIPISensor.h"
 #include "CaptureUseMemcpy.h"
 #include "CaptureUseGe2d.h"
+#include "V4l2Utils.h"
+#if defined(PREVIEW_DEWARP_ENABLE) || defined(PICTURE_DEWARP_ENABLE)
+#include "dewarp.h"
+#endif
 
 #if ANDROID_PLATFORM_SDK_VERSION >= 24
 #if ANDROID_PLATFORM_SDK_VERSION >= 29
@@ -39,25 +43,9 @@
 namespace android {
 
 const usb_frmsize_discrete_t kUsbAvailablePictureSize[] = {
-        {4128, 3096},
-        {3264, 2448},
-        {2592, 1944},
-        {2592, 1936},
-        {2560, 1920},
-        {2688, 1520},
-        {2048, 1536},
-        {1600, 1200},
-        {1920, 1088},
+        {4096, 3120},
+        {3840, 2160},
         {1920, 1080},
-        {1440, 1080},
-        {1280, 960},
-        {1280, 720},
-        {1024, 768},
-        {960, 720},
-        {720, 480},
-        {640, 480},
-        {352, 288},
-        {320, 240},
 };
 
 extern bool IsUsbAvailablePictureSize(const usb_frmsize_discrete_t AvailablePictureSize[], uint32_t width, uint32_t height);
@@ -66,16 +54,100 @@ MIPISensor::MIPISensor() {
     mCameraVirtualDevice = nullptr;
     mVinfo = NULL;
     mCapture = NULL;
-    mISP = isp3a::get_instance();
+    mFrameDuration = FRAME_DURATION;
+    enableZsl = false;
+    PictureThreadCntler::resetAndInit(mPictureThreadCntler);
+    char property[PROPERTY_VALUE_MAX];
+    property_get("vendor.camera.zsl.enable", property, "false");
+    if (strstr(property, "true"))
+        enableZsl = true;
+    if (mPictureThreadCntler.PictureThread == NULL) {
+        mPictureThreadCntler.PictureThread = new std::thread([this]() {
+            //uint32_t ION_try = 0;
+            while (mPictureThreadCntler.PictureThreadExit != true) {
+                Mutex::Autolock lock(mPictureThreadCntler.requestOperaionLock);
+                if (mPictureThreadCntler.NextPictureRequest.empty()) {
+                    mPictureThreadCntler.unprocessedRequest.wait(mPictureThreadCntler.requestOperaionLock);
+                } else {
+                    Request *PicRequest = mPictureThreadCntler.NextPictureRequest.begin();
+                    Buffers * pictureBuffers = PicRequest->sensorBuffers;
+                    uint32_t jpegpixelfmt = getOutputFormat();
+                    bool isTakePictureDone = false;
+                    if ((jpegpixelfmt == V4L2_PIX_FMT_MJPEG) || (jpegpixelfmt == V4L2_PIX_FMT_YUYV)) {
+                           setOutputFormat(mMaxWidth, mMaxHeight, jpegpixelfmt, channel_capture);
+                    } else {
+                           setOutputFormat(mMaxWidth, mMaxHeight, V4L2_PIX_FMT_RGB24, channel_capture);
+                    }
+                    for (size_t i = 0; i < pictureBuffers->size(); i++) {
+                        const StreamBuffer &b = (*pictureBuffers)[i];
+                        CAMHAL_LOGDB("Sensor capturing buffer %d: stream %d,"
+                            " %d x %d, format %x, stride %d, buf %p, img %p",
+                            i, b.streamId, b.width, b.height, b.format, b.stride,
+                            b.buffer, b.img);
+                        if (b.format == HAL_PIXEL_FORMAT_BLOB) {
+                            // Add auxillary buffer of the right size
+                            // Assumes only one BLOB (JPEG) buffer in
+                            // mNextCapturedBuffers
+                            size_t len;
+                            int orientation;
+                            uint32_t stride;
+                            int ION_try = 0;
+                            orientation = getPictureRotate();
+                            CAMHAL_LOGDB("bAux orientation=%d",orientation);
+                            CAMHAL_LOGDB("%s: the picture width=%d, height=%d\n",__FUNCTION__,b.width,b.height);
+                            StreamBuffer bAux;
 
+                            bAux.streamId = 0;
+                            bAux.width = b.width;
+                            bAux.height = b.height;
+                            bAux.format = HAL_PIXEL_FORMAT_YCrCb_420_SP;
+                            bAux.stride = b.width;
+                            bAux.buffer = NULL;
+                            len = b.width * b.height * 3/2;
+                            stride = bAux.stride;
+#ifdef GE2D_ENABLE
+                            bAux.img = mION->alloc_buffer(len, &bAux.share_fd);
+                            while (bAux.img == NULL && ION_try < 20) {
+                                usleep(5 * 1000);
+                                bAux.img = mION->alloc_buffer(len,&bAux.share_fd);
+                                ION_try ++;
+                            }
+                            ION_try = 0;
+#else
+                            bAux.img = new uint8_t[len];
+#endif
+                            if (bAux.img == NULL) {//don't capture
+                                ALOGE("%s:%d fatal: no buffer to capture,skip ...",__FUNCTION__,__LINE__);
+                                //return -1;
+                            } else {
+                                takePicture(bAux, mGainFactor, b.stride);
+                                pictureBuffers->push_back(bAux);
+                                isTakePictureDone = true;
+                            }
+                        }
+                    }
+                    if (mListener && isTakePictureDone)
+                        mListener->onSensorPicJpeg(*PicRequest);
+                    mPictureThreadCntler.NextPictureRequest.erase(PicRequest);
+               }
+            }
+            return false;
+         });
+        }
+
+#if 1
+    mISP = isp3a::get_instance();
+#endif
+    mResource = GlobalResource::getInstance();
 #ifdef GE2D_ENABLE
     mION = IONInterface::get_instance();
     mGE2D = new ge2dTransform();
 #endif
-    mImage_buffer = NULL;
+
 #ifdef GDC_ENABLE
     mIsGdcInit = false;
 #endif
+    mPortFds.resize(3,-1);
     ALOGD("create MIPISensor");
 }
 
@@ -89,6 +161,7 @@ MIPISensor::~MIPISensor() {
         delete(mVinfo);
         mVinfo = NULL;
     }
+    PictureThreadCntler::stopAndRelease(mPictureThreadCntler);
 
 #ifdef GDC_ENABLE
     if (mIGdc) {
@@ -114,13 +187,30 @@ MIPISensor::~MIPISensor() {
 
 status_t MIPISensor::streamOff(channel ch) {
     ALOGV("%s: E", __FUNCTION__);
-#ifdef GDC_ENABLE
-    if (mIGdc && mIsGdcInit) {
-        mIGdc->gdc_exit();
-        mIsGdcInit = false;
+    status_t ret = 0;
+
+    if (ch == channel_capture) {
+        mVinfo->stop_picture();
     }
+    else if(ch == channel_record) {
+        mVinfo->stop_recording();
+    }
+    else if(ch == channel_preview) {
+#ifdef GDC_ENABLE
+        if (mIGdc && mIsGdcInit) {
+            mIGdc->gdc_exit();
+            mIsGdcInit = false;
+        }
 #endif
-    return mVinfo->stop_capturing();
+        ret = mVinfo->stop_capturing();
+#if defined(PREVIEW_DEWARP_ENABLE) || defined(PICTURE_DEWARP_ENABLE)
+        //DeWarp::putInstance();
+#endif
+    }
+    else
+        return -1;
+
+    return ret;
 }
 
 int MIPISensor::SensorInit(int idx) {
@@ -133,7 +223,7 @@ int MIPISensor::SensorInit(int idx) {
         ALOGE("Unable to open sensor %d, errno=%d\n", mVinfo->get_index(), ret);
         return ret;
     }
-    InitVideoInfo(idx);
+    //InitVideoInfo(idx);
     mVinfo->camera_init();
     if (!mCapture) {
 #ifdef GE2D_ENABLE
@@ -146,6 +236,7 @@ int MIPISensor::SensorInit(int idx) {
     setIOBufferNum();
     //----set camera type
     mSensorType = SENSOR_MIPI;
+
     return ret;
 }
 
@@ -153,6 +244,7 @@ status_t MIPISensor::startUp(int idx) {
     ALOGV("%s: E", __FUNCTION__);
     int res;
     mCapturedBuffers = NULL;
+
     mOpenCameraID = idx;
     res = run("EmulatedFakeCamera3::Sensor",ANDROID_PRIORITY_URGENT_DISPLAY);
 
@@ -172,14 +264,6 @@ int MIPISensor::camera_open(int idx) {
     int ret = 0;
     int counter = 2;
     char property[PROPERTY_VALUE_MAX];
-
-    if (mCameraVirtualDevice == nullptr)
-        mCameraVirtualDevice = CameraVirtualDevice::getInstance();
-    mMIPIDevicefd[0] = mCameraVirtualDevice->openVirtualDevice(idx);
-    if (mMIPIDevicefd[0] < 0) {
-        ret = -ENOTTY;
-    }
-
     memset(property, 0, sizeof(property));
     if (property_get("vendor.media.camera.count",property,NULL) > 0) {
         sscanf(property,"%d",&counter);
@@ -189,22 +273,59 @@ int MIPISensor::camera_open(int idx) {
 
     mISP->open_isp3a_library(counter);
     mISP->print_status();
+
+     mVinfo = new MIPIVideoInfo();
+     if (mVinfo) {
+        mVinfo->mWorkMode = PIC_SCALER;
+        int portFd[3];
+        for (int i = 0; i < 3; i++)
+            portFd[i] = open(mDeviceName, O_RDWR);
+
+        mPortFds[channel_preview] = portFd[1];// sc0
+        mPortFds[channel_capture] = portFd[0];// sc3 no resize
+        mPortFds[channel_record] = portFd[2];// sc1
+        mVinfo->set_fds(mPortFds);
+        mVinfo->set_index(idx);
+
+        int32_t picSizes[64 * 8];
+        int32_t count = sizeof(picSizes)/sizeof(picSizes[0]);
+        getPictureSizes(picSizes, count, true);
+        for (int i = 0; i < count; i+= 2) {
+            int32_t width = picSizes[i];
+            int32_t height = picSizes[i+1];
+            if (width * height > mMaxWidth * mMaxHeight) {
+                mMaxWidth = width;
+                mMaxHeight = height;
+            }
+        }
+        /*set the max size of isp port*/
+        struct v4l2_format format;
+        format.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+        format.fmt.pix.width = mMaxWidth;
+        format.fmt.pix.height = mMaxHeight;
+        format.fmt.pix.pixelformat = V4L2_PIX_FMT_NV21;
+
+        int ret = ioctl(mPortFds[channel_capture], VIDIOC_S_FMT, &format);
+        if (ret < 0) {
+            ALOGD("Open: VIDIOC_S_FMT Failed: %s, fd=%d\n",
+                strerror(errno), mPortFds[channel_capture]);
+            return -1;
+        }
+        ALOGI("max width %d, max height %d", mMaxWidth, mMaxHeight);
+     }
     return ret;
 }
 
 void MIPISensor::camera_close(void) {
     ALOGV("%s: E", __FUNCTION__);
-    if (mMIPIDevicefd[0] < 0)
-        return;
-    if (mCameraVirtualDevice == nullptr)
-        mCameraVirtualDevice = CameraVirtualDevice::getInstance();
-    if (mVinfo != NULL)
-        mCameraVirtualDevice->releaseVirtualDevice(mVinfo->get_index(), mMIPIDevicefd[0]);
-    mMIPIDevicefd[0] = -1;
     mISP->close_isp3a_library();
     mISP->print_status();
+    for (int i = 0;i < mPortFds.size();i++)
+        close(mPortFds[i]);
+    mPortFds.clear();
 }
 
+/*
 void MIPISensor::InitVideoInfo(int idx) {
     if (mVinfo) {
         std::vector<int> fds;
@@ -213,7 +334,7 @@ void MIPISensor::InitVideoInfo(int idx) {
         mVinfo->set_fds(fds);
         mVinfo->set_index(idx);
     }
-}
+}*/
 
 status_t MIPISensor::shutDown() {
     ALOGV("%s: E", __FUNCTION__);
@@ -223,15 +344,14 @@ status_t MIPISensor::shutDown() {
     if (res != OK) {
         ALOGE("Unable to shut down sensor capture thread: %d", res);
     }
-    if (mVinfo != NULL)
+    if (mVinfo != NULL) {
+        mVinfo->stop_picture();
+        mVinfo->stop_recording();
         mVinfo->stop_capturing();
+    }
 
     camera_close();
 
-    if (mImage_buffer) {
-        delete [] mImage_buffer;
-        mImage_buffer = NULL;
-    }
 #ifdef GDC_ENABLE
     if (mIGdc) {
         if (mIsGdcInit) {
@@ -241,6 +361,10 @@ status_t MIPISensor::shutDown() {
         delete mIGdc;
         mIGdc = NULL;
     }
+#endif
+
+#if defined(PREVIEW_DEWARP_ENABLE) || defined(PICTURE_DEWARP_ENABLE)
+    //DeWarp::putInstance();
 #endif
     mSensorWorkFlag = false;
     ALOGD("%s: Exit", __FUNCTION__);
@@ -268,27 +392,73 @@ uint32_t MIPISensor::getStreamUsage(int stream_type){
     return usage;
 }
 
-void MIPISensor::captureNV21(StreamBuffer b, uint32_t gain){
+void MIPISensor::captureRGB(uint8_t *img, uint32_t gain, uint32_t stride) {
+
+}
+
+void MIPISensor::takePicture(StreamBuffer& b, uint32_t gain, uint32_t stride) {
+    int ret = 0;
+    bool stop = false;
+    struct data_in in;
+    in.src = mKernelBuffer;
+    in.share_fd = mTempFD;
+    ALOGD("%s: E",__FUNCTION__);
+    V4l2Utils::set_notify_3A_is_capturing(mVinfo->get_fd(), DO_CAPTURING);
+    if (!isPicture()) {
+        mVinfo->start_picture(0);
+        enableZsl = false;
+        char property[PROPERTY_VALUE_MAX];
+        property_get("vendor.camera.zsl.enable", property, "false");
+        if (strstr(property, "true"))
+            enableZsl = true;
+        stop = true;
+    }
+    while (1)
+    {
+        if (mExitSensorThread || mFlushFlag)
+            break;
+
+        ret = mCapture->getPicture(b, &in, mION);
+        if (ret == ERROR_FRAME)
+            break;
+#ifdef GE2D_ENABLE
+        //----do rotation
+        mGE2D->doRotationAndMirror(b);
+#endif
+        mVinfo->putback_picture_frame();
+        mSensorWorkFlag = true;
+        break;
+    }
+
+    if (stop == true)
+        mVinfo->stop_picture();
+    V4l2Utils::set_notify_3A_is_capturing(mVinfo->get_fd(), NOT_CAPTURING);
+    ALOGD("get picture success !");
+}
+
+void MIPISensor::captureNV21(StreamBuffer b, uint32_t gain) {
     ATRACE_CALL();
     //ALOGVV("MIPI NV21 sensor image captured");
     struct data_in in;
     in.src = mKernelBuffer;
     in.share_fd = mTempFD;
     in.src_fmt = mKernelBufferFmt;
-
     ALOGVV("%s:mTempFD = %d",__FUNCTION__,mTempFD);
     while (1) {
         if (mExitSensorThread) {
             break;
         }
         //----get one frame
-        int ret = mCapture->captureNV21frame(b,&in);
-        if (ret == -1)
-            continue;
+        int ret = mCapture->captureNV21frame(b, &in);
+        if (ret == ERROR_FRAME) {
+          break;
+       }
 #ifdef GE2D_ENABLE
         //----do rotation
-        if (mTempFD < 0)
+        if (mTempFD < 0) {
+            ALOGVV("%s:doRotationAndMirror",__FUNCTION__);
             mGE2D->doRotationAndMirror(b);
+        }
 #endif
 
 #ifdef GDC_ENABLE
@@ -301,12 +471,17 @@ void MIPISensor::captureNV21(StreamBuffer b, uint32_t gain){
         p.output_fd = b.share_fd;
         mIGdc->gdc_do_fisheye_correction(&p);
 #endif
-        mKernelBuffer = b.img;
-        mTempFD = b.share_fd;
-        mKernelBufferFmt = V4L2_PIX_FMT_NV21;
+        if (ret == NEW_FRAME) {
+            mKernelBuffer = b.img;
+            mTempFD = b.share_fd;
+            mKernelBufferFmt = V4L2_PIX_FMT_NV21;
+        }
         mSensorWorkFlag = true;
-        mVinfo->putback_frame();
-
+        if (ret == NEW_FRAME)
+            mVinfo->putback_frame();
+        if (mFlushFlag) {
+            break;
+        }
         break;
     }
 }
@@ -328,7 +503,9 @@ void MIPISensor::captureYV12(StreamBuffer b, uint32_t gain) {
         mTempFD = b.share_fd;
         mSensorWorkFlag = true;
         mVinfo->putback_frame();
-
+        if (mFlushFlag) {
+            break;
+        }
         break;
     }
     ALOGVV("YV12 sensor image captured");
@@ -383,19 +560,32 @@ status_t MIPISensor::getOutputFormat(void) {
 }
 
 status_t MIPISensor::setOutputFormat(int width, int height, int pixelformat, channel ch) {
+    int res;
     mFramecount = 0;
     mCurFps = 0;
-    gettimeofday(&mTimeStart, NULL);
+
+    CAMHAL_LOGDB("%s: channel=%d \n",__FUNCTION__, ch);
 
     if (ch == channel_capture) {
+        //setCrop(width, height);
         //----set snap shot pixel format
         mVinfo->set_picture_format(width, height, pixelformat);
-    } else {
+    } else if (ch == channel_record) {
+        //setCrop(width, height);
+        //----set record pixel format
+        mVinfo->set_record_format(width, height, pixelformat);
+    } else if (ch == channel_preview) {
         //----set preview pixel format
         mVinfo->set_preview_format(width, height, pixelformat);
-        status_t res = mVinfo->setBuffersFormat();
+        /*
+        mVinfo->preview.format.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+        mVinfo->preview.format.fmt.pix.width = width;
+        mVinfo->preview.format.fmt.pix.height = height;
+        mVinfo->preview.format.fmt.pix.pixelformat = pixelformat;
+        */
+        res = mVinfo->setBuffersFormat();
         if (res < 0) {
-            ALOGE("set buffer failed\n");
+            ALOGE("set preview format failed\n");
             return res;
         }
 #ifdef GDC_ENABLE
@@ -405,33 +595,7 @@ status_t MIPISensor::setOutputFormat(int width, int height, int pixelformat, cha
         }
 #endif
     }
-    //----alloc memory for temperary buffer
-    if (NULL == mImage_buffer) {
-        mPre_width = mVinfo->get_preview_width();
-        mPre_height = mVinfo->get_preview_height();
-        DBG_LOGB("setOutputFormat :: pre_width = %d, pre_height = %d \n" , mPre_width , mPre_height);
-        mImage_buffer = new uint8_t[mPre_width * mPre_height * 3 / 2];
-        if (mImage_buffer == NULL) {
-            ALOGE("first time allocate mTemp_buffer failed !");
-            return -1;
-            }
-        }
-    //-----free old buffer and alloc new buffer
-    if ((mPre_width != mVinfo->get_preview_width())
-        && (mPre_height != mVinfo->get_preview_height())) {
-            if (mImage_buffer) {
-                delete [] mImage_buffer;
-                mImage_buffer = NULL;
-            }
-            mPre_width = mVinfo->get_preview_width();
-            mPre_height = mVinfo->get_preview_height();
-            mImage_buffer = new uint8_t[mPre_width * mPre_height * 3 / 2];
-            if (mImage_buffer == NULL) {
-                ALOGE("allocate mTemp_buffer failed !");
-                return -1;
-            }
-        }
-        return OK;
+    return OK;
 }
 
 int MIPISensor::halFormatToSensorFormat(uint32_t pixelfmt) {
@@ -472,12 +636,22 @@ status_t MIPISensor::streamOn(channel channel) {
     if (strstr(property,"true")) {
         setdualcam(1);
     }
-
-    return mVinfo->start_capturing();
+    if (channel == channel_capture)
+        return mVinfo->start_picture(0);
+    else if(channel == channel_preview)
+        return mVinfo->start_capturing();
+    else if(channel == channel_record)
+        return mVinfo->start_recording();
+    else
+        return -1;
 }
 
 bool MIPISensor::isStreaming() {
     return mVinfo->Stream_status();
+}
+
+bool MIPISensor::isPicture() {
+    return mVinfo->Picture_status();
 }
 
 bool MIPISensor::isNeedRestart(uint32_t width, uint32_t height, uint32_t pixelformat, channel ch) {
@@ -485,380 +659,156 @@ bool MIPISensor::isNeedRestart(uint32_t width, uint32_t height, uint32_t pixelfo
         ||(mVinfo->get_preview_height() != height)) {
         return true;
     }
-
     return false;
 }
 
 int MIPISensor::getStreamConfigurations(uint32_t picSizes[], const int32_t kAvailableFormats[], int size) {
-    int res;
-    int i, j, k, START;
-    int count = 0;
-    //int pixelfmt;
-    struct v4l2_frmsizeenum frmsize;
+    const uint32_t length = ARRAY_SIZE(kUsbAvailablePictureSize);
+    uint32_t count = 0, size_start = 0;
     char property[PROPERTY_VALUE_MAX];
-    unsigned int support_w,support_h;
+    int fullsize_preview = FALSE;
 
-    support_w = 10000;
-    support_h = 10000;
-    memset(property, 0, sizeof(property));
-    if (property_get("ro.media.camera_preview.maxsize", property, NULL) > 0) {
-        CAMHAL_LOGDB("support Max Preview Size :%s",property);
-        if (sscanf(property,"%dx%d",&support_w,&support_h) != 2) {
-            support_w = 10000;
-            support_h = 10000;
-        }
-    } else {
-        support_w = 1920;
-        support_h = 1080;
+    property_get("vendor.amlogic.camera.fullsize.preview", property, "true");
+    if (strstr(property, "true")) {
+        fullsize_preview = TRUE;
     }
-    ALOGI("%s:support_w=%d, support_h=%d\n",__FUNCTION__,support_w,support_h);
-    memset(&frmsize,0,sizeof(frmsize));
+
+    if (fullsize_preview == FALSE) size_start = 1;
+
+    struct v4l2_frmsizeenum frmsize, frmsizeMax;
+    memset(&frmsize, 0, sizeof(frmsize));
+    memset(&frmsizeMax, 0, sizeof(frmsize));
     frmsize.pixel_format = getOutputFormat();
 
-    START = 0;
-    for (i = 0; ; i++) {
+    for (uint32_t i = 0; ; i++) {
         frmsize.index = i;
-        res = ioctl(mVinfo->get_fd(), VIDIOC_ENUM_FRAMESIZES, &frmsize);
+        auto res = ioctl(mVinfo->get_fd(), VIDIOC_ENUM_FRAMESIZES, &frmsize);
         if (res < 0) {
             DBG_LOGB("index=%d, break\n", i);
             break;
         }
-
         if (frmsize.type == V4L2_FRMSIZE_TYPE_DISCRETE) { //only support this type
-
-            if (0 != (frmsize.discrete.width%16))
-                continue;
-
-            if ((frmsize.discrete.width * frmsize.discrete.height) > (support_w * support_h))
-                continue;
-            if (count >= size)
-                break;
-
-            picSizes[count+0] = HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED;
-            picSizes[count+1] = frmsize.discrete.width;
-            picSizes[count+2] = frmsize.discrete.height;
-            picSizes[count+3] = ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT;
-
-            DBG_LOGB("get output width=%d, height=%d, format=%d\n",
-                frmsize.discrete.width, frmsize.discrete.height, frmsize.pixel_format);
-            if (0 == i) {
-                count += 4;
-                continue;
-            }
-
-            for (k = count; k > START; k -= 4) {
-                if (frmsize.discrete.width * frmsize.discrete.height >
-                    picSizes[k - 3] * picSizes[k - 2]) {
-                    picSizes[k + 1] = picSizes[k - 3];
-                    picSizes[k + 2] = picSizes[k - 2];
-
-                } else {
-                    break;
-                }
-            }
-            picSizes[k + 1] = frmsize.discrete.width;
-            picSizes[k + 2] = frmsize.discrete.height;
-
-            count += 4;
-        }
-    }
-
-    START = count;
-    for (i = 0; ; i++) {
-        frmsize.index = i;
-        res = ioctl(mVinfo->get_fd(), VIDIOC_ENUM_FRAMESIZES, &frmsize);
-        if (res < 0) {
-            DBG_LOGB("index=%d, break\n", i);
-            break;
-        }
-
-        if (frmsize.type == V4L2_FRMSIZE_TYPE_DISCRETE) { //only support this type
-
             if (0 != (frmsize.discrete.width % 16))
                 continue;
-
-            if ((frmsize.discrete.width * frmsize.discrete.height) > (support_w * support_h))
-                continue;
-            if (count >= size)
-                break;
-
-            picSizes[count+0] = HAL_PIXEL_FORMAT_YCbCr_420_888;
-            picSizes[count+1] = frmsize.discrete.width;
-            picSizes[count+2] = frmsize.discrete.height;
-            picSizes[count+3] = ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT;
-
-            DBG_LOGB("get output width=%d, height=%d, format =\
-                HAL_PIXEL_FORMAT_YCbCr_420_888\n", frmsize.discrete.width,
-                                                    frmsize.discrete.height);
-            if (0 == i) {
-                count += 4;
-                continue;
-            }
-
-            for (k = count; k > START; k -= 4) {
-                if (frmsize.discrete.width * frmsize.discrete.height >
-                        picSizes[k - 3] * picSizes[k - 2]) {
-                    picSizes[k + 1] = picSizes[k - 3];
-                    picSizes[k + 2] = picSizes[k - 2];
-
-                } else {
-                    break;
-                }
-            }
-            picSizes[k + 1] = frmsize.discrete.width;
-            picSizes[k + 2] = frmsize.discrete.height;
-
-            count += 4;
+            if ((frmsize.discrete.width * frmsize.discrete.height) >
+                (frmsizeMax.discrete.width * frmsizeMax.discrete.height))
+                frmsizeMax = frmsize;
         }
     }
-
-    uint32_t jpgSrcfmt[] = {
-        V4L2_PIX_FMT_RGB24,
-        V4L2_PIX_FMT_YUYV,
-    };
-
-    START = count;
-    for (j = 0; j<(int)(sizeof(jpgSrcfmt)/sizeof(jpgSrcfmt[0])); j++) {
-        memset(&frmsize,0,sizeof(frmsize));
-        frmsize.pixel_format = jpgSrcfmt[j];
-
-        for (i = 0; ; i++) {
-            frmsize.index = i;
-            res = ioctl(mVinfo->get_fd(), VIDIOC_ENUM_FRAMESIZES, &frmsize);
-            if (res < 0) {
-                DBG_LOGB("index=%d, break\n", i);
-                break;
-            }
-
-            if (frmsize.type == V4L2_FRMSIZE_TYPE_DISCRETE) { //only support this type
-
-                if (0 != (frmsize.discrete.width%16))
-                    continue;
-
-                if ((frmsize.discrete.width > support_w) && (frmsize.discrete.height >support_h))
-                    continue;
-
-                if (count >= size)
-                    break;
-
-                if (frmsize.pixel_format == V4L2_PIX_FMT_YUYV) {
-                    if (!IsUsbAvailablePictureSize(kUsbAvailablePictureSize, frmsize.discrete.width, frmsize.discrete.height))
-                        continue;
-                }
-
-                picSizes[count+0] = HAL_PIXEL_FORMAT_BLOB;
-                picSizes[count+1] = frmsize.discrete.width;
-                picSizes[count+2] = frmsize.discrete.height;
-                picSizes[count+3] = ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT;
-
-                if (0 == i) {
-                    count += 4;
-                    continue;
-                }
-
-                //TODO insert in descend order
-                for (k = count; k > START; k -= 4) {
-                    if (frmsize.discrete.width * frmsize.discrete.height >
-                            picSizes[k - 3] * picSizes[k - 2]) {
-                        picSizes[k + 1] = picSizes[k - 3];
-                        picSizes[k + 2] = picSizes[k - 2];
-
-                    } else {
-                        break;
-                    }
-                }
-
-                picSizes[k + 1] = frmsize.discrete.width;
-                picSizes[k + 2] = frmsize.discrete.height;
-
-                count += 4;
-            }
-        }
-
-        if (frmsize.index > 0)
-            break;
+    DBG_LOGB("get max output width=%d, height=%d, format=%d\n",
+        frmsizeMax.discrete.width, frmsizeMax.discrete.height, frmsizeMax.pixel_format);
+    for (uint32_t i = size_start; i < length; i++) {//preview
+        if (kUsbAvailablePictureSize[i].width > frmsizeMax.discrete.width ||
+            kUsbAvailablePictureSize[i].height > frmsizeMax.discrete.height)
+            continue;
+        picSizes[count++] = HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED;
+        picSizes[count++] = kUsbAvailablePictureSize[i].width;
+        picSizes[count++] = kUsbAvailablePictureSize[i].height;
+        picSizes[count++] = ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT;
     }
 
-    if (frmsize.index == 0)
-        CAMHAL_LOGDA("no support pixel fmt for jpeg");
+    for (uint32_t i = size_start; i < length; i++) { //preview
+        if (kUsbAvailablePictureSize[i].width > frmsizeMax.discrete.width ||
+            kUsbAvailablePictureSize[i].height > frmsizeMax.discrete.height)
+            continue;
+        picSizes[count++] = HAL_PIXEL_FORMAT_YCbCr_420_888;
+        picSizes[count++] = kUsbAvailablePictureSize[i].width;
+        picSizes[count++] = kUsbAvailablePictureSize[i].height;
+        picSizes[count++] = ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT;
+    }
 
-    return count;
+    for (uint32_t i = 0; i < length; i++) {
+        if (kUsbAvailablePictureSize[i].width > frmsizeMax.discrete.width ||
+            kUsbAvailablePictureSize[i].height > frmsizeMax.discrete.height)
+            continue;
+        picSizes[count++] = HAL_PIXEL_FORMAT_BLOB;
+        picSizes[count++] = kUsbAvailablePictureSize[i].width;
+        picSizes[count++] = kUsbAvailablePictureSize[i].height;
+        picSizes[count++] = ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT;
+    }
+    return (int)count;
 }
 
-int MIPISensor::getStreamConfigurationDurations(uint32_t picSizes[], int64_t duration[], int size, bool flag) {
-    int ret=0; int framerate=0; int temp_rate=0;
-    struct v4l2_frmivalenum fival;
-    int i,j=0;
-    int count = 0;
-    int tmp_size = size;
-    memset(duration, 0 ,sizeof(int64_t) * size);
-    int pixelfmt_tbl[] = {
-        V4L2_PIX_FMT_YVU420,
-        V4L2_PIX_FMT_NV21,
-        V4L2_PIX_FMT_RGB24,
-        V4L2_PIX_FMT_YUYV,
-    };
+int MIPISensor::
+getStreamConfigurationDurations(uint32_t picSizes[], int64_t duration[], int size, bool flag) {
+    uint32_t count = 0, size_start = 0;
 
-    for ( i = 0; i < (int) ARRAY_SIZE(pixelfmt_tbl); i++)
-    {
-        /* we got all duration for each resolution for prev format*/
-        if (count >= tmp_size)
-            break;
+    char property[PROPERTY_VALUE_MAX];
+    int fullsize_preview = FALSE;
 
-        for ( ; size > 0; size-=4)
-        {
-            memset(&fival, 0, sizeof(fival));
-
-            for (fival.index = 0;;fival.index++)
-            {
-                fival.pixel_format = pixelfmt_tbl[i];
-                fival.width = picSizes[size-3];
-                fival.height = picSizes[size-2];
-                if ((ret = ioctl(mVinfo->get_fd(), VIDIOC_ENUM_FRAMEINTERVALS, &fival)) == 0) {
-                    if (fival.type == V4L2_FRMIVAL_TYPE_DISCRETE) {
-                        if (fival.discrete.numerator != 0 ) temp_rate = fival.discrete.denominator/fival.discrete.numerator;
-                        if (framerate < temp_rate)
-                            framerate = temp_rate;
-                        duration[count+0] = (int64_t)(picSizes[size-4]);
-                        duration[count+1] = (int64_t)(picSizes[size-3]);
-                        duration[count+2] = (int64_t)(picSizes[size-2]);
-                        if ( framerate != 0 ) duration[count+3] = (int64_t)((1.0/framerate) * 1000000000);
-                        j++;
-                    } else if (fival.type == V4L2_FRMIVAL_TYPE_CONTINUOUS) {
-                        if (fival.discrete.numerator != 0 ) temp_rate = fival.discrete.denominator/fival.discrete.numerator;
-                        if (framerate < temp_rate)
-                            framerate = temp_rate;
-                        duration[count+0] = (int64_t)picSizes[size-4];
-                        duration[count+1] = (int64_t)picSizes[size-3];
-                        duration[count+2] = (int64_t)picSizes[size-2];
-                        if ( framerate != 0 ) duration[count+3] = (int64_t)((1.0/framerate) * 1000000000);
-                        j++;
-                    } else if (fival.type == V4L2_FRMIVAL_TYPE_STEPWISE) {
-                        if (fival.discrete.numerator != 0 ) temp_rate = fival.discrete.denominator/fival.discrete.numerator;
-                        if (framerate < temp_rate)
-                            framerate = temp_rate;
-                        duration[count+0] = (int64_t)picSizes[size-4];
-                        duration[count+1] = (int64_t)picSizes[size-3];
-                        duration[count+2] = (int64_t)picSizes[size-2];
-                        if ( framerate != 0 ) duration[count+3] = (int64_t)((1.0/framerate) * 1000000000);
-                        j++;
-                    }
-                } else {
-                    if (j > 0) {
-                        if (count >= tmp_size)
-                            break;
-                        duration[count+0] = (int64_t)(picSizes[size-4]);
-                        duration[count+1] = (int64_t)(picSizes[size-3]);
-                        duration[count+2] = (int64_t)(picSizes[size-2]);
-                        if (framerate == 5) {
-                            if ((!flag) && ((duration[count+0] == HAL_PIXEL_FORMAT_YCbCr_420_888)
-                                || (duration[count+0] == HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED)))
-                                duration[count+3] = 0;
-                            else
-                                duration[count+3] = (int64_t)200000000L;
-                        } else if (framerate == 10) {
-                            if ((!flag) && ((duration[count+0] == HAL_PIXEL_FORMAT_YCbCr_420_888)
-                                || (duration[count+0] == HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED)))
-                                duration[count+3] = 0;
-                            else
-                                duration[count+3] = (int64_t)100000000L;
-                        } else if (framerate == 15) {
-                            if ((!flag) && ((duration[count+0] == HAL_PIXEL_FORMAT_YCbCr_420_888)
-                                || (duration[count+0] == HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED)))
-                                duration[count+3] = 0;
-                            else
-                                duration[count+3] = (int64_t)66666666L;
-                        } else if (framerate == 30) {
-                            if ((!flag) && ((duration[count+0] == HAL_PIXEL_FORMAT_YCbCr_420_888)
-                                || (duration[count+0] == HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED)))
-                                duration[count+3] = 0;
-                            else
-                                duration[count+3] = (int64_t)33333333L;
-                        } else if (framerate == 60) {
-                            if ((!flag) && ((duration[count+0] == HAL_PIXEL_FORMAT_YCbCr_420_888)
-                                || (duration[count+0] == HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED)))
-                                duration[count+3] = 0;
-                            else {
-                                if (mSensorType == SENSOR_USB)
-                                    duration[count+3] = (int64_t)33333333L;
-                                else
-                                    duration[count+3] = (int64_t)16666666L;
-                            }
-                        } else {
-                            if ((!flag) && ((duration[count+0] == HAL_PIXEL_FORMAT_YCbCr_420_888)
-                                || (duration[count+0] == HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED)))
-                                duration[count+3] = 0;
-                            else
-                                duration[count+3] = (int64_t)66666666L;
-                        }
-                        count += 4;
-                        break;
-                    } else {
-                        break;
-                    }
-                }
-            }
-            framerate=0;
-            j=0;
-        }
-        size = tmp_size;
+    property_get("vendor.amlogic.camera.fullsize.preview", property, "true");
+    if (strstr(property, "true")) {
+        fullsize_preview = TRUE;
     }
 
-    return count;
+    if (fullsize_preview == FALSE ) size_start = 1;
+
+    struct v4l2_frmsizeenum frmsize, frmsizeMax;
+    memset(&frmsize, 0, sizeof(frmsize));
+    memset(&frmsizeMax, 0, sizeof(frmsize));
+    frmsize.pixel_format = getOutputFormat();
+
+    for (uint32_t i = 0; ; i++) {
+        frmsize.index = i;
+        auto res = ioctl(mVinfo->get_fd(), VIDIOC_ENUM_FRAMESIZES, &frmsize);
+        if (res < 0) {
+            DBG_LOGB("index=%d, break\n", i);
+            break;
+        }
+        if (frmsize.type == V4L2_FRMSIZE_TYPE_DISCRETE) { //only support this type
+            if (0 != (frmsize.discrete.width % 16))
+                continue;
+            if ((frmsize.discrete.width * frmsize.discrete.height) >
+                (frmsizeMax.discrete.width * frmsizeMax.discrete.height))
+                frmsizeMax = frmsize;
+        }
+    }
+    DBG_LOGB("get max output width=%d, height=%d, format=%d\n",
+        frmsizeMax.discrete.width, frmsizeMax.discrete.height, frmsizeMax.pixel_format);
+
+    for (uint32_t i = size_start; i < ARRAY_SIZE(kUsbAvailablePictureSize); i++) {
+            if (kUsbAvailablePictureSize[i].width > frmsizeMax.discrete.width ||
+                kUsbAvailablePictureSize[i].height > frmsizeMax.discrete.height)
+                continue;
+            duration[count+0] = HAL_PIXEL_FORMAT_YCbCr_420_888;
+            duration[count+1] = kUsbAvailablePictureSize[i].width;
+            duration[count+2] = kUsbAvailablePictureSize[i].height;
+            if (!flag)
+                duration[count+3] = 0;
+            else
+                duration[count+3] = (int64_t)FRAME_DURATION;
+            count += 4;
+    }
+
+    for (uint32_t i = size_start; i < ARRAY_SIZE(kUsbAvailablePictureSize); i++) {
+            if (kUsbAvailablePictureSize[i].width > frmsizeMax.discrete.width ||
+                kUsbAvailablePictureSize[i].height > frmsizeMax.discrete.height)
+                continue;
+            duration[count+0] = HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED;
+            duration[count+1] = kUsbAvailablePictureSize[i].width;
+            duration[count+2] = kUsbAvailablePictureSize[i].height;
+            if (!flag)
+                duration[count+3] = 0;
+            else
+                duration[count+3] = (int64_t)FRAME_DURATION;
+            count += 4;
+    }
+
+    for (uint32_t i = 0; i < ARRAY_SIZE(kUsbAvailablePictureSize); i++) {
+            if (kUsbAvailablePictureSize[i].width > frmsizeMax.discrete.width ||
+                kUsbAvailablePictureSize[i].height > frmsizeMax.discrete.height)
+                continue;
+            duration[count+0] = HAL_PIXEL_FORMAT_BLOB;
+            duration[count+1] = kUsbAvailablePictureSize[i].width;
+            duration[count+2] = kUsbAvailablePictureSize[i].height;
+            duration[count+3] = (int64_t)FRAME_DURATION;
+            count += 4;
+    }
+    return (int)count;
 }
 
 int64_t MIPISensor::getMinFrameDuration() {
-    int64_t tmpDuration =  66666666L; // 1/15 s
-    int64_t frameDuration =  66666666L; // 1/15 s
-    struct v4l2_frmivalenum fival;
-    int i,j;
-
-    uint32_t pixelfmt_tbl[]={
-        V4L2_PIX_FMT_YUYV,
-        V4L2_PIX_FMT_NV21,
-    };
-    struct v4l2_frmsize_discrete resolution_tbl[]={
-        {1920, 1080},
-        {1280, 960},
-        {640, 480},
-        {352, 288},
-        {320, 240},
-    };
-
-    for (i = 0; i < (int)ARRAY_SIZE(pixelfmt_tbl); i++) {
-        for (j = 0; j < (int) ARRAY_SIZE(resolution_tbl); j++) {
-            memset(&fival, 0, sizeof(fival));
-            fival.index = 0;
-            fival.pixel_format = pixelfmt_tbl[i];
-            fival.width = resolution_tbl[j].width;
-            fival.height = resolution_tbl[j].height;
-
-            while (ioctl(mVinfo->get_fd(), VIDIOC_ENUM_FRAMEINTERVALS, &fival) == 0) {
-                if (fival.type == V4L2_FRMIVAL_TYPE_DISCRETE) {
-                    tmpDuration =
-                        ( int64_t ) fival.discrete.numerator * 1000000000L / fival.discrete.denominator;
-
-                    if (frameDuration > tmpDuration)
-                        frameDuration = tmpDuration;
-                } else if (fival.type == V4L2_FRMIVAL_TYPE_CONTINUOUS) {
-                    frameDuration =
-                        ( int64_t ) fival.stepwise.max.numerator * 1000000000L / fival.stepwise.max.denominator;
-                    break;
-                } else if (fival.type == V4L2_FRMIVAL_TYPE_STEPWISE) {
-                    frameDuration =
-                        ( int64_t ) fival.stepwise.max.numerator * 1000000000L / fival.stepwise.max.denominator;
-                    break;
-                }
-                fival.index++;
-            }
-        }
-
-        if (fival.index > 0) {
-            break;
-        }
-    }
-
-    //CAMHAL_LOGDB("enum frameDuration=%lld\n", frameDuration);
+    int64_t frameDuration =  FRAME_DURATION;
     return frameDuration;
 }
 
@@ -867,23 +817,11 @@ int MIPISensor::getPictureSizes(int32_t picSizes[], int size, bool preview) {
     int i;
     int count = 0;
     struct v4l2_frmsizeenum frmsize;
-    char property[PROPERTY_VALUE_MAX];
     unsigned int support_w,support_h;
     int preview_fmt;
 
-    support_w = 10000;
-    support_h = 10000;
-    memset(property, 0, sizeof(property));
-    if (property_get("ro.media.camera_preview.maxsize", property, NULL) > 0) {
-        CAMHAL_LOGDB("support Max Preview Size :%s",property);
-        if (sscanf(property,"%dx%d",&support_w,&support_h) !=2 ) {
-            support_w = 10000;
-            support_h = 10000;
-        }
-    } else {
-            support_w = 1920;
-            support_h = 1080;
-    }
+    support_w = kUsbAvailablePictureSize[0].width;
+    support_h = kUsbAvailablePictureSize[0].height;
     ALOGI("%s:support_w=%d, support_h=%d\n",__FUNCTION__,support_w,support_h);
     memset(&frmsize,0,sizeof(frmsize));
     preview_fmt = V4L2_PIX_FMT_NV21;//getOutputFormat();
@@ -892,20 +830,7 @@ int MIPISensor::getPictureSizes(int32_t picSizes[], int size, bool preview) {
         frmsize.pixel_format = V4L2_PIX_FMT_NV21;
     else
         frmsize.pixel_format = V4L2_PIX_FMT_RGB24;
-/*
-    if (preview_fmt == V4L2_PIX_FMT_NV21) {
-        if (preview == true)
-            frmsize.pixel_format = V4L2_PIX_FMT_NV21;
-        else
-            frmsize.pixel_format = V4L2_PIX_FMT_RGB24;
-    } else if (preview_fmt == V4L2_PIX_FMT_YVU420) {
-        if (preview == true)
-            frmsize.pixel_format = V4L2_PIX_FMT_YVU420;
-        else
-            frmsize.pixel_format = V4L2_PIX_FMT_RGB24;
-    } else if (preview_fmt == V4L2_PIX_FMT_YUYV)
-        frmsize.pixel_format = V4L2_PIX_FMT_YUYV;
-*/
+
     for (i = 0; ; i++) {
         frmsize.index = i;
         res = ioctl(mVinfo->get_fd(), VIDIOC_ENUM_FRAMESIZES, &frmsize);
@@ -913,7 +838,6 @@ int MIPISensor::getPictureSizes(int32_t picSizes[], int size, bool preview) {
             DBG_LOGB("index=%d, break\n", i);
             break;
         }
-
 
         if (frmsize.type == V4L2_FRMSIZE_TYPE_DISCRETE) { //only support this type
 
@@ -997,8 +921,7 @@ int MIPISensor::captureNewImage() {
                 ALOGD("bAux orientation=%d",orientation);
                 uint32_t pixelfmt;
                 if ((b.width == mVinfo->get_preview_width() &&
-                    b.height == mVinfo->get_preview_height()) && (orientation == 0)) {
-
+                  b.height == mVinfo->get_preview_height()) && (orientation == 0)) {
                     pixelfmt = getOutputFormat();
                     if (pixelfmt == V4L2_PIX_FMT_YVU420) {
                         pixelfmt = HAL_PIXEL_FORMAT_YV12;
@@ -1011,7 +934,7 @@ int MIPISensor::captureNewImage() {
                     }
                 } else {
                     isjpeg = true;
-                    pixelfmt = HAL_PIXEL_FORMAT_RGB_888;
+                    pixelfmt = HAL_PIXEL_FORMAT_YCrCb_420_SP;
                 }
 
                 bAux.streamId = 0;
@@ -1021,7 +944,7 @@ int MIPISensor::captureNewImage() {
                 bAux.stride = b.width;
                 bAux.buffer = NULL;
 #ifdef GE2D_ENABLE
-                bAux.img = mION->alloc_buffer(b.width * b.height * 3,&bAux.share_fd);
+                bAux.img = mION->alloc_buffer(b.width * b.height * 3, &bAux.share_fd);
 #else
                 bAux.img = new uint8_t[b.width * b.height * 3];
 #endif
@@ -1130,7 +1053,7 @@ int MIPISensor::getExposure(int *maxExp, int *minExp, int *def, camera_metadata_
 
        memset( &qc, 0, sizeof(qc));
 
-       DBG_LOGA("getExposure\n");
+           DBG_LOGA("getExposure\n");
        qc.id = V4L2_CID_EXPOSURE;
        ret = ioctl(mVinfo->get_fd(), VIDIOC_QUERYCTRL, &qc);
        if (ret < 0) {
@@ -1239,7 +1162,6 @@ int MIPISensor::getAntiBanding(uint8_t *antiBanding, uint8_t maxCont) {
                     antiBanding[mode_count] = ANDROID_CONTROL_AE_ANTIBANDING_MODE_AUTO;
                     mode_count++;
                 }
-
             }
         }
     }
@@ -1270,7 +1192,7 @@ status_t MIPISensor::setAntiBanding(uint8_t antiBanding) {
             return BAD_VALUE;
     }
 
-    DBG_LOGB("anti banding mode:%d", antiBanding);
+    CAMHAL_LOGDB("anti banding mode:%d", antiBanding);
     ret = ioctl(mVinfo->get_fd(), VIDIOC_S_CTRL, &ctl);
     if ( ret < 0) {
         CAMHAL_LOGDA("failed to set anti banding mode!\n");

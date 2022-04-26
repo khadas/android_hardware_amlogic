@@ -45,6 +45,9 @@ struct StreamBuffer {
     buffer_handle_t *buffer;
     uint8_t *img;
     int     share_fd;
+    static bool comp (const StreamBuffer &a, const StreamBuffer &b) {
+        return a.width > b.width;
+    };
 };
 typedef Vector<StreamBuffer> Buffers;
 

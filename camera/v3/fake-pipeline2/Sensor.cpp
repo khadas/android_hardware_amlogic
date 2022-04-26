@@ -226,6 +226,7 @@ Sensor::Sensor():
         memset(&mTestStart,0,sizeof(struct timeval));
         memset(&mTestEnd,0,sizeof(struct timeval));
         memset(&mNextCaptureTime,0,sizeof(nsecs_t));
+        memset(mDeviceName,0,sizeof(mDeviceName));
 }
 
 Sensor::~Sensor() {
@@ -1018,6 +1019,11 @@ void Sensor::setFrameNumber(uint32_t frameNumber) {
 
 void Sensor::setFlushFlag(bool flushFlag) {
     mFlushFlag = flushFlag;
+}
+
+void Sensor::setDeviceName(char* name) {
+    ALOGVV("setDeviceName %s", name);
+    sprintf(mDeviceName,"%s",name);
 }
 
 status_t Sensor::waitForVSync(nsecs_t reltime) {

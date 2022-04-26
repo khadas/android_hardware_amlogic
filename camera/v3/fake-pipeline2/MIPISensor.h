@@ -13,10 +13,14 @@
 #include "IGdc.h"
 #endif
 
+#include "GlobalResource.h"
+
 /* custom v4l2 controls */
 #define ISP_V4L2_CID_ISP_V4L2_CLASS     (0x00f00000 | 1)
 #define ISP_V4L2_CID_BASE               (0x00f00000 | 0xf000)
 #define ISP_V4L2_CID_CUSTOM_DCAM_MODE (ISP_V4L2_CID_BASE + 166)
+
+#define FRAME_DURATION (33333333L) // 1/30 s
 
 namespace android {
 
@@ -28,14 +32,18 @@ namespace android {
             status_t streamOff(channel ch) override;
             status_t startUp(int idx) override;
             status_t shutDown(void) override;
+            //when take picture we may change image format
+            void takePicture(StreamBuffer& b, uint32_t gain, uint32_t stride);
+            void captureRGB(uint8_t *img, uint32_t gain, uint32_t stride);
             void captureNV21(StreamBuffer b, uint32_t gain) override;
             void captureYV12(StreamBuffer b, uint32_t gain) override;
             void captureYUYV(uint8_t *img, uint32_t gain, uint32_t stride) override;
             status_t getOutputFormat(void) override;
-            status_t setOutputFormat(int width, int height, int pixelformat, channel ch) override;
+            status_t setOutputFormat(int width, int height, int pixelformat,       channel ch) override;
             int halFormatToSensorFormat(uint32_t pixelfmt) override;
-            status_t streamOn(channel ch) override;
+            status_t streamOn(channel chn) override;
             bool isStreaming() override;
+            bool isPicture();
             bool isNeedRestart(uint32_t width, uint32_t height, uint32_t pixelformat, channel ch) override;
             int getStreamConfigurations(uint32_t picSizes[], const int32_t kAvailableFormats[], int size) override;
             int getStreamConfigurationDurations(uint32_t picSizes[], int64_t duration[], int size, bool flag) override;
@@ -61,14 +69,19 @@ namespace android {
             uint32_t getStreamUsage(int stream_type) override;
         private:
             CameraVirtualDevice* mCameraVirtualDevice;
-            int mMIPIDevicefd[3];
+            //int mMIPIDevicefd[3];
+            std::vector<int> mPortFds;
             //store the v4l2 info
             MIPIVideoInfo *mVinfo;
-            uint8_t* mImage_buffer;
+            //uint8_t* mImage_buffer;
             const int MAX_LEVEL_FOR_EXPOSURE = 16;
             const int MIN_LEVEL_FOR_EXPOSURE = 3;
             isp3a* mISP;
+            bool enableZsl;
             ICapture* mCapture;
+            GlobalResource* mResource;
+            int32_t mMaxWidth;
+            int32_t mMaxHeight;
 #ifdef GE2D_ENABLE
             IONInterface* mION;
             ge2dTransform* mGE2D;
@@ -83,8 +96,7 @@ namespace android {
             void InitVideoInfo(int idx);
             int SensorInit(int idx);
             void setIOBufferNum();
-            void dump(int& frame_index, uint8_t* buf,
-                              int length, std::string name);
+            void dump(int& frame_index, uint8_t* buf, int length, std::string name);
     };
 
 }

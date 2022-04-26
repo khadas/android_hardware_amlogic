@@ -515,7 +515,7 @@ status_t HDMIToCSISensor::setOutputFormat(int width, int height, int pixelformat
         if (res < 0) {
             ALOGE("set buffer failed\n");
             return res;
-            }
+        }
     }
     if (NULL == mImage_buffer) {
         mPre_width = mVinfo->preview.format.fmt.pix.width;
@@ -526,23 +526,23 @@ status_t HDMIToCSISensor::setOutputFormat(int width, int height, int pixelformat
         if (mImage_buffer == NULL) {
             ALOGE("first time allocate mTemp_buffer failed !");
             return -1;
-            }
         }
+    }
     if ((mPre_width != mVinfo->preview.format.fmt.pix.width)
         && (mPre_height != mVinfo->preview.format.fmt.pix.height)) {
-            if (mImage_buffer) {
-                delete [] mImage_buffer;
-                mImage_buffer = NULL;
-            }
-            mPre_width = mVinfo->preview.format.fmt.pix.width;
-            mPre_height = mVinfo->preview.format.fmt.pix.height;
-            mImage_buffer = new uint8_t[mPre_width * mPre_height * 3 / 2];
-            if (mImage_buffer == NULL) {
-                ALOGE("allocate mTemp_buffer failed !");
-                return -1;
-            }
+        if (mImage_buffer) {
+            delete [] mImage_buffer;
+            mImage_buffer = NULL;
         }
-        return OK;
+        mPre_width = mVinfo->preview.format.fmt.pix.width;
+        mPre_height = mVinfo->preview.format.fmt.pix.height;
+        mImage_buffer = new uint8_t[mPre_width * mPre_height * 3 / 2];
+        if (mImage_buffer == NULL) {
+            ALOGE("allocate mTemp_buffer failed !");
+            return -1;
+        }
+    }
+    return OK;
 }
 
 int HDMIToCSISensor::halFormatToSensorFormat(uint32_t pixelfmt) {
