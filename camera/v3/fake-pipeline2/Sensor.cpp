@@ -490,6 +490,14 @@ status_t Sensor::shutDown() {
         ALOGE("Unable to shut down sensor capture thread: %d", res);
     }
 
+    {
+        std::unique_lock<std::mutex> _l(mDecoderTask.lock);
+        mDecoderTask.exitThread = true;
+        mDecoderTask.condition.notify_one();
+    }
+    if (mDecoderThread.joinable()) {
+        mDecoderThread.join();
+    }
     if (vinfo != NULL) {
         if (mSensorType == SENSOR_USB) {
             releasebuf_and_stop_capturing(vinfo);
@@ -531,6 +539,12 @@ void Sensor::sendExitSingalToSensor() {
     {
         Mutex::Autolock lock(mReadoutMutex);
         mReadoutAvailable.signal();
+    }
+
+    {
+        std::unique_lock<std::mutex> _l(mDecoderTask.lock);
+        mDecoderTask.exitThread = true;
+        mDecoderTask.condition.notify_one();
     }
 }
 
@@ -1078,6 +1092,8 @@ status_t Sensor::readyToRun() {
     mNextCaptureTime = 0;
     mNextCapturedBuffers = NULL;
 
+    mDecoderThread = std::thread(decoderThread, this);
+
     DBG_LOGA("");
 
     return OK;
@@ -1347,7 +1363,7 @@ int Sensor::captureNewImage() {
                 break;
         }
     }
-    if ((!isjpeg)&&(mKernelBuffer)) { //jpeg buffer that is rgb888 has been  save in the different buffer struct;
+    if ((!isjpeg) && (mKernelBuffer)) { //jpeg buffer that is rgb888 has been  save in the different buffer struct;
         // whose buffer putback separately.
         putback_frame(vinfo);
     }
@@ -2177,59 +2193,6 @@ status_t Sensor::force_reset_sensor() {
 
 
 void Sensor::captureNV21(StreamBuffer b, uint32_t gain) {
-#if 0
-    float totalGain = gain/100.0 * kBaseGainFactor;
-    // Using fixed-point math with 6 bits of fractional precision.
-    // In fixed-point math, calculate total scaling from electrons to 8bpp
-    const int scale64x = 64 * totalGain * 255 / kMaxRawValue;
-    // In fixed-point math, saturation point of sensor after gain
-    const int saturationPoint = 64 * 255;
-    // Fixed-point coefficients for RGB-YUV transform
-    // Based on JFIF RGB->YUV transform.
-    // Cb/Cr offset scaled by 64x twice since they're applied post-multiply
-    const int rgbToY[]  = {19, 37, 7};
-    const int rgbToCb[] = {-10,-21, 32, 524288};
-    const int rgbToCr[] = {32,-26, -5, 524288};
-    // Scale back to 8bpp non-fixed-point
-    const int scaleOut = 64;
-    const int scaleOutSq = scaleOut * scaleOut; // after multiplies
-
-    uint32_t inc = kResolution[0] / stride;
-    uint32_t outH = kResolution[1] / inc;
-    for (unsigned int y = 0, outY = 0;
-         y < kResolution[1]; y+=inc, outY++) {
-        uint8_t *pxY = img + outY * stride;
-        uint8_t *pxVU = img + (outH + outY / 2) * stride;
-        mScene.setReadoutPixel(0,y);
-        for (unsigned int outX = 0; outX < stride; outX++) {
-            int32_t rCount, gCount, bCount;
-            // TODO: Perfect demosaicing is a cheat
-            const uint32_t *pixel = mScene.getPixelElectrons();
-            rCount = pixel[Scene::R]  * scale64x;
-            rCount = rCount < saturationPoint ? rCount : saturationPoint;
-            gCount = pixel[Scene::Gr] * scale64x;
-            gCount = gCount < saturationPoint ? gCount : saturationPoint;
-            bCount = pixel[Scene::B]  * scale64x;
-            bCount = bCount < saturationPoint ? bCount : saturationPoint;
-
-            *pxY++ = (rgbToY[0] * rCount +
-                    rgbToY[1] * gCount +
-                    rgbToY[2] * bCount) / scaleOutSq;
-            if (outY % 2 == 0 && outX % 2 == 0) {
-                *pxVU++ = (rgbToCr[0] * rCount +
-                        rgbToCr[1] * gCount +
-                        rgbToCr[2] * bCount +
-                        rgbToCr[3]) / scaleOutSq;
-                *pxVU++ = (rgbToCb[0] * rCount +
-                        rgbToCb[1] * gCount +
-                        rgbToCb[2] * bCount +
-                        rgbToCb[3]) / scaleOutSq;
-            }
-            for (unsigned int j = 1; j < inc; j++)
-                mScene.getPixelElectrons();
-        }
-    }
-#else
     uint8_t *src;
 
     if (mKernelBuffer) {
@@ -2254,15 +2217,11 @@ void Sensor::captureNV21(StreamBuffer b, uint32_t gain) {
         } else if (vinfo->preview.format.fmt.pix.pixelformat == V4L2_PIX_FMT_MJPEG) {
             uint32_t width = vinfo->preview.format.fmt.pix.width;
             uint32_t height = vinfo->preview.format.fmt.pix.height;
+            std::unique_lock<std::mutex> _l(mDecoderTask.lock);
             if ((width == b.width) && (height == b.height)) {
-                memcpy(b.img, src, b.stride * b.height);
-                uint8_t *pUVBuffer = b.img + b.stride * height;
-                for (int i = 0; i < (int)(b.stride * height / 4); i++) {
-                    *pUVBuffer++ = *(vBuffer + i);
-                    *pUVBuffer++ = *(uBuffer + i);
-                }
+                memcpy(b.img, mDecoderTask.validBuffer, b.stride * b.height * 3/2);
             } else {
-                ReSizeNV21(vinfo, src, b.img, b.width, b.height, b.stride);
+                ReSizeNV21(vinfo, mDecoderTask.validBuffer, b.img, b.width, b.height, b.stride);
             }
         } else {
             ALOGE("Unable known sensor format: %d", vinfo->preview.format.fmt.pix.pixelformat);
@@ -2327,67 +2286,51 @@ void Sensor::captureNV21(StreamBuffer b, uint32_t gain) {
         } else if (vinfo->preview.format.fmt.pix.pixelformat == V4L2_PIX_FMT_MJPEG) {
             uint32_t width = vinfo->preview.format.fmt.pix.width;
             uint32_t height = vinfo->preview.format.fmt.pix.height;
-#if ANDROID_PLATFORM_SDK_VERSION > 23
-            if ((width == b.width) && (height == b.height)) {
-                if (ConvertToI420(src, vinfo->preview.buf.bytesused, b.img, b.stride, uBuffer, (b.stride + 1) / 2,
-                      vBuffer, (b.stride + 1) / 2, 0, 0, width, height,
-                      width, height, libyuv::kRotate0, libyuv::FOURCC_MJPG) != 0) {
-                    DBG_LOGA("Decode MJPEG frame failed\n");
-                    putback_frame(vinfo);
-                    ALOGE("%s , %d , Decode MJPEG frame failed \n", __FUNCTION__ , __LINE__);
-                    continue;
+            uint32_t bytesused = vinfo->preview.buf.bytesused;
+            std::unique_lock<std::mutex> _l(mDecoderTask.lock);
+            if (mDecoderTask.taskRuning == false) {
+                mDecoderTask.inputBuffer = mInputBuffer;
+                memcpy(mInputBuffer, src, bytesused);
+                mDecoderTask.intputWidth = width;
+                mDecoderTask.intputHeight = height;
+                mDecoderTask.intputBytesused = bytesused;
+                mDecoderTask.outputWidth = b.width;
+                mDecoderTask.outputHeight = b.height;
+                mDecoderTask.outputStride = b.stride;
+                if (mDecoderTask.validBuffer == mRingBuffer1) {
+                    ALOGV("use buffer2 for working buffer %p", mRingBuffer2);
+                    mDecoderTask.workingBuffer = mRingBuffer2;
                 }
-                uint8_t *pUVBuffer = b.img + b.stride * height;
-                for (int i = 0; i < (int)(b.stride * height / 4); i++) {
-                    *pUVBuffer++ = *(vBuffer + i);
-                    *pUVBuffer++ = *(uBuffer + i);
+                else if (mDecoderTask.validBuffer == mRingBuffer2) {
+                    ALOGV("use buffer1 for working buffer %p", mRingBuffer1);
+                    mDecoderTask.workingBuffer = mRingBuffer1;
                 }
-                mKernelBuffer = b.img;
+                else {
+                    ALOGV("no valid buffer now, just use buffer1 %p", mRingBuffer1);
+                    mDecoderTask.workingBuffer = mRingBuffer1;
+                }
+                mDecoderTask.condition.notify_one();
             } else {
-                memset(mTemp_buffer, 0 , width * height * 3/2);
-                if (ConvertToI420(src, vinfo->preview.buf.bytesused, mTemp_buffer, width, uBuffer, (width + 1) / 2,
-                      vBuffer, (width + 1) / 2, 0, 0, width, height,
-                      width, height, libyuv::kRotate0, libyuv::FOURCC_MJPG) != 0) {
-                    DBG_LOGA("Decode MJPEG frame failed\n");
-                    putback_frame(vinfo);
-                    ALOGE("%s , %d , Decode MJPEG frame failed \n", __FUNCTION__ , __LINE__);
-                    continue;
-                }
-                uint8_t *pUVBuffer = mTemp_buffer + width * height;
-                for (int i = 0; i < (int)(width * height / 4); i++) {
-                    *pUVBuffer++ = *(vBuffer + i);
-                    *pUVBuffer++ = *(uBuffer + i);
-                }
-                ReSizeNV21(vinfo, mTemp_buffer, b.img, b.width, b.height, b.stride);
-                mKernelBuffer = mTemp_buffer;
-          }
-#else
-            if ((width == b.width) && (height == b.height)) {
-                if (ConvertMjpegToNV21(src, vinfo->preview.buf.bytesused, b.img,
-                            b.stride, b.img + b.stride * height, (b.stride + 1) / 2, width,
-                            height, width, height, libyuv::FOURCC_MJPG) != 0) {
-                    putback_frame(vinfo);
-                    ALOGE("%s , %d , Decode MJPEG frame failed \n", __FUNCTION__ , __LINE__);
-                    continue;
-                }
-                mKernelBuffer = b.img;
-            } else {
-                memset(mTemp_buffer, 0 , width * height * 3/2);
-                if (ConvertMjpegToNV21(src, vinfo->preview.buf.bytesused, mTemp_buffer,
-                            width, mTemp_buffer + width * height, (width + 1) / 2, width,
-                            height, width, height, libyuv::FOURCC_MJPG) != 0) {
-                    putback_frame(vinfo);
-                    ALOGE("%s , %d , Decode MJPEG frame failed \n", __FUNCTION__ , __LINE__);
-                    continue;
-                }
-                if ((b.height % 2) != 0) {
-                    DBG_LOGB("%d, b.height = %d", __LINE__, b.height);
-                    b.height = b.height - 1;
-                }
-                ReSizeNV21(vinfo, mTemp_buffer, b.img, b.width, b.height, b.stride);
-                mKernelBuffer = mTemp_buffer;
+                ALOGV("Task is busy, do not post anymore");
             }
-#endif
+            // wait fisrt frame valid
+            while (!mDecoderTask.validBuffer) {
+                _l.unlock();
+                ALOGV("sleep+");
+                usleep(10000);
+                ALOGV("sleep-");
+                _l.lock();
+            }
+            ALOGVV("memcpy + %dx%d", b.width, b.height);
+            if ((width == b.width) && (height == b.height)) {
+                memcpy(b.img, mDecoderTask.validBuffer, b.stride * b.height * 3/2);
+                mKernelBuffer = b.img;
+            } else {
+                ReSizeNV21(vinfo, mDecoderTask.validBuffer, b.img, b.width, b.height, b.stride);
+                mKernelBuffer = mDecoderTask.validBuffer;
+            }
+            ALOGVV("memcpy -");
+            ALOGVV("Capture Done");
         }
         mSensorWorkFlag = true;
         if (mFlushFlag) {
@@ -2395,9 +2338,73 @@ void Sensor::captureNV21(StreamBuffer b, uint32_t gain) {
         }
         break;
     }
-#endif
 
     ALOGVV("NV21 sensor image captured");
+}
+
+status_t Sensor::decoderThread(void* user) {
+    Sensor* const self = static_cast<Sensor*>(user);
+    auto& task = self->mDecoderTask;
+    ALOGV("decoderThread +");
+    while (1) {
+        std::unique_lock<std::mutex> _l(task.lock);
+        task.condition.wait(_l, [&] {
+            return (task.workingBuffer != nullptr) || (task.exitThread);
+        });
+        if (task.exitThread) {
+            ALOGV("decoderThread exit");
+            return 0;
+        }
+        ALOGV("Decoder wakeup +");
+        task.taskRuning = true;
+        uint8_t *inputBuffer = task.inputBuffer;
+        uint32_t intputWidth = task.intputWidth;
+        uint32_t intputHeight = task.intputHeight;
+        uint32_t intputBytesused = task.intputBytesused;
+        uint32_t outputWidth = task.outputWidth;
+        uint32_t outputHeight = task.outputHeight;
+        uint32_t outputStride = task.outputStride;
+        uint8_t *workingBuffer = task.workingBuffer;
+        {
+            ALOGVV("Decoder +");
+            _l.unlock();
+            if ((intputWidth == outputWidth) && (intputHeight == outputHeight)) {
+                memset(workingBuffer, 0 , intputWidth * intputHeight * 3/2);
+                if (ConvertToI420(inputBuffer, intputBytesused, workingBuffer, outputStride, self->uBuffer2, (outputStride + 1) / 2,
+                      self->vBuffer2, (outputStride + 1) / 2, 0, 0, intputWidth, intputHeight,
+                      intputWidth, intputHeight, libyuv::kRotate0, libyuv::FOURCC_MJPG) != 0) {
+                    DBG_LOGA("Decode MJPEG frame failed\n");
+                    ALOGE("%s , %d , Decode MJPEG frame failed \n", __FUNCTION__ , __LINE__);
+                    continue;
+                }
+                uint8_t *pUVBuffer = workingBuffer + outputStride * intputHeight;
+                for (int i = 0; i < (int)(outputStride * intputHeight / 4); i++) {
+                    *pUVBuffer++ = *(self->vBuffer2 + i);
+                    *pUVBuffer++ = *(self->uBuffer2 + i);
+                }
+            } else {
+                memset(workingBuffer, 0 , intputWidth * intputHeight * 3/2);
+                if (ConvertToI420(inputBuffer, intputBytesused, workingBuffer, intputWidth, self->uBuffer2, (intputWidth + 1) / 2,
+                      self->vBuffer2, (intputWidth + 1) / 2, 0, 0, intputWidth, intputHeight,
+                      intputWidth, intputHeight, libyuv::kRotate0, libyuv::FOURCC_MJPG) != 0) {
+                    DBG_LOGA("Decode MJPEG frame failed\n");
+                    ALOGE("%s , %d , Decode MJPEG frame failed \n", __FUNCTION__ , __LINE__);
+                    continue;
+                }
+                uint8_t *pUVBuffer = workingBuffer + intputWidth * intputHeight;
+                for (int i = 0; i < (int)(intputWidth * intputHeight / 4); i++) {
+                    *pUVBuffer++ = *(self->vBuffer2 + i);
+                    *pUVBuffer++ = *(self->uBuffer2 + i);
+                }
+            }
+            _l.lock();
+            ALOGVV("Decoder -");
+        }
+        task.validBuffer = workingBuffer;
+        task.workingBuffer = nullptr;
+        task.taskRuning = false;
+        ALOGV("Decoder Done validBuffer changed %p", task.validBuffer);
+    }
 }
 
 void Sensor::captureYV12(StreamBuffer b, uint32_t gain) {

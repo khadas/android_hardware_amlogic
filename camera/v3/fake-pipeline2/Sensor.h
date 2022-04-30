@@ -85,6 +85,12 @@
 #include "camera_hw.h"
 #include <cstdlib>
 
+#include <condition_variable>
+#include <memory>
+#include <mutex>
+#include <thread>
+#include <utility>
+
 namespace android {
 
 typedef enum camera_mirror_flip_e {
@@ -357,6 +363,26 @@ class Sensor: private Thread, public virtual RefBase {
     uint32_t mFramecount;
     float mCurFps;
 
+    struct DeocderTask {
+        mutable std::mutex lock;
+        std::condition_variable condition;
+        uint8_t *inputBuffer = nullptr;
+        uint32_t intputWidth, intputHeight, intputBytesused;
+        uint32_t outputWidth, outputHeight, outputStride;
+        uint8_t *workingBuffer = nullptr;
+        uint8_t *validBuffer = nullptr;
+        bool taskRuning = false;
+        bool exitThread = false;
+    };
+    struct DeocderTask mDecoderTask;
+    std::thread mDecoderThread;
+    uint8_t mInputBuffer[1920*1080*3/2];
+    uint8_t mRingBuffer1[1920*1080*3/2];
+    uint8_t mRingBuffer2[1920*1080*3/2];
+    uint8_t vBuffer2[1920*1080/4];
+    uint8_t uBuffer2[1920*1080/4];
+    bool needReturnVinfo = true;
+
     enum sensor_type_e mSensorType;
     unsigned int mIoctlSupport;
     unsigned int msupportrotate;
@@ -374,6 +400,8 @@ class Sensor: private Thread, public virtual RefBase {
     virtual status_t readyToRun();
 
     virtual bool threadLoop();
+
+    static status_t decoderThread(void* user);
 
     nsecs_t mNextCaptureTime;
     Buffers *mNextCapturedBuffers;
