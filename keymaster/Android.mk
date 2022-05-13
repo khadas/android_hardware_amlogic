@@ -47,6 +47,14 @@ include $(BUILD_PREBUILT)
 endif  # USE_PRESIGNED_TA != true
 
 include $(CLEAR_VARS)
+LOCAL_MODULE := android.hardware.hardware_keystore.amlogic.xml
+LOCAL_SRC_FILES := android.hardware.hardware_keystore.amlogic.xml
+LOCAL_MODULE_CLASS := ETC
+LOCAL_MODULE_PATH := $(TARGET_OUT_VENDOR)/etc/permissions
+LOCAL_MODULE_TAGS := optional
+include $(BUILD_PREBUILT)
+
+include $(CLEAR_VARS)
 TRUSTY_SRC_FILES := ../../../system/core/trusty/keymaster/TrustyKeymaster.cpp \
                     ../../../system/core/trusty/keymaster/ipc/trusty_keymaster_ipc.cpp
 TRUSTY_SHARED_LIBRARIES := libtrusty
@@ -93,7 +101,7 @@ LOCAL_CFLAGS += -Wall \
                 -Wextra
 
 LOCAL_REQUIRED_MODULES := $(TA_UUID)
-LOCAL_REQUIRED_MODULES += android.hardware.hardware_keystore.xml
+LOCAL_REQUIRED_MODULES += android.hardware.hardware_keystore.amlogic.xml
 LOCAL_REQUIRED_MODULES += RemoteProvisioner
 LOCAL_VINTF_FRAGMENTS := keymint/android.hardware.security.keymint-service.amlogic.xml
 LOCAL_MODULE := android.hardware.security.keymint-service.amlogic
