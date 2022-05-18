@@ -49,7 +49,6 @@ bool HintManager::IsHintSupported(const std::string& hint_type) const {
 }
 
 bool HintManager::DoHint(const std::string& hint_type) {
-    LOG(INFO) << "Do Powerhint: " << hint_type;
     return ValidateHint(hint_type)
                ? nm_->Request(actions_.at(hint_type), hint_type)
                : false;
@@ -57,8 +56,6 @@ bool HintManager::DoHint(const std::string& hint_type) {
 
 bool HintManager::DoHint(const std::string& hint_type,
                          std::chrono::milliseconds timeout_ms_override) {
-    LOG(INFO) << "Do Powerhint: " << hint_type << " for "
-                 << timeout_ms_override.count() << "ms";
     if (!ValidateHint(hint_type)) {
         return false;
     }
@@ -70,7 +67,6 @@ bool HintManager::DoHint(const std::string& hint_type,
 }
 
 bool HintManager::EndHint(const std::string& hint_type) {
-    LOG(INFO) << "End Powerhint: " << hint_type;
     return ValidateHint(hint_type)
                ? nm_->Cancel(actions_.at(hint_type), hint_type)
                : false;
