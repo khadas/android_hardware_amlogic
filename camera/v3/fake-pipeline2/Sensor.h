@@ -363,18 +363,18 @@ class Sensor: private Thread, public virtual RefBase {
     uint32_t mFramecount;
     float mCurFps;
 
-    struct DeocderTask {
+    struct DecoderTask {
         mutable std::mutex lock;
         std::condition_variable condition;
         uint8_t *inputBuffer = nullptr;
-        uint32_t intputWidth, intputHeight, intputBytesused;
+        uint32_t inputWidth, inputHeight, inputBytesused;
         uint32_t outputWidth, outputHeight, outputStride;
         uint8_t *workingBuffer = nullptr;
         uint8_t *validBuffer = nullptr;
-        bool taskRuning = false;
+        bool taskRunning = false;
         bool exitThread = false;
     };
-    struct DeocderTask mDecoderTask;
+    struct DecoderTask mDecoderTask;
     std::thread mDecoderThread;
     uint8_t mInputBuffer[1920*1080*3/2];
     uint8_t mRingBuffer1[1920*1080*3/2];

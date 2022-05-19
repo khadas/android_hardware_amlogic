@@ -2288,12 +2288,12 @@ void Sensor::captureNV21(StreamBuffer b, uint32_t gain) {
             uint32_t height = vinfo->preview.format.fmt.pix.height;
             uint32_t bytesused = vinfo->preview.buf.bytesused;
             std::unique_lock<std::mutex> _l(mDecoderTask.lock);
-            if (mDecoderTask.taskRuning == false) {
+            if (mDecoderTask.taskRunning == false) {
                 mDecoderTask.inputBuffer = mInputBuffer;
                 memcpy(mInputBuffer, src, bytesused);
-                mDecoderTask.intputWidth = width;
-                mDecoderTask.intputHeight = height;
-                mDecoderTask.intputBytesused = bytesused;
+                mDecoderTask.inputWidth = width;
+                mDecoderTask.inputHeight = height;
+                mDecoderTask.inputBytesused = bytesused;
                 mDecoderTask.outputWidth = b.width;
                 mDecoderTask.outputHeight = b.height;
                 mDecoderTask.outputStride = b.stride;
@@ -2356,11 +2356,11 @@ status_t Sensor::decoderThread(void* user) {
             return 0;
         }
         ALOGV("Decoder wakeup +");
-        task.taskRuning = true;
+        task.taskRunning = true;
         uint8_t *inputBuffer = task.inputBuffer;
-        uint32_t intputWidth = task.intputWidth;
-        uint32_t intputHeight = task.intputHeight;
-        uint32_t intputBytesused = task.intputBytesused;
+        uint32_t inputWidth = task.inputWidth;
+        uint32_t inputHeight = task.inputHeight;
+        uint32_t inputBytesused = task.inputBytesused;
         uint32_t outputWidth = task.outputWidth;
         uint32_t outputHeight = task.outputHeight;
         uint32_t outputStride = task.outputStride;
@@ -2368,31 +2368,31 @@ status_t Sensor::decoderThread(void* user) {
         {
             ALOGVV("Decoder +");
             _l.unlock();
-            if ((intputWidth == outputWidth) && (intputHeight == outputHeight)) {
-                memset(workingBuffer, 0 , intputWidth * intputHeight * 3/2);
-                if (ConvertToI420(inputBuffer, intputBytesused, workingBuffer, outputStride, self->uBuffer2, (outputStride + 1) / 2,
-                      self->vBuffer2, (outputStride + 1) / 2, 0, 0, intputWidth, intputHeight,
-                      intputWidth, intputHeight, libyuv::kRotate0, libyuv::FOURCC_MJPG) != 0) {
+            if ((inputWidth == outputWidth) && (inputHeight == outputHeight)) {
+                memset(workingBuffer, 0 , inputWidth * inputHeight * 3/2);
+                if (ConvertToI420(inputBuffer, inputBytesused, workingBuffer, outputStride, self->uBuffer2, (outputStride + 1) / 2,
+                      self->vBuffer2, (outputStride + 1) / 2, 0, 0, inputWidth, inputHeight,
+                      inputWidth, inputHeight, libyuv::kRotate0, libyuv::FOURCC_MJPG) != 0) {
                     DBG_LOGA("Decode MJPEG frame failed\n");
                     ALOGE("%s , %d , Decode MJPEG frame failed \n", __FUNCTION__ , __LINE__);
                     continue;
                 }
-                uint8_t *pUVBuffer = workingBuffer + outputStride * intputHeight;
-                for (int i = 0; i < (int)(outputStride * intputHeight / 4); i++) {
+                uint8_t *pUVBuffer = workingBuffer + outputStride * inputHeight;
+                for (int i = 0; i < (int)(outputStride * inputHeight / 4); i++) {
                     *pUVBuffer++ = *(self->vBuffer2 + i);
                     *pUVBuffer++ = *(self->uBuffer2 + i);
                 }
             } else {
-                memset(workingBuffer, 0 , intputWidth * intputHeight * 3/2);
-                if (ConvertToI420(inputBuffer, intputBytesused, workingBuffer, intputWidth, self->uBuffer2, (intputWidth + 1) / 2,
-                      self->vBuffer2, (intputWidth + 1) / 2, 0, 0, intputWidth, intputHeight,
-                      intputWidth, intputHeight, libyuv::kRotate0, libyuv::FOURCC_MJPG) != 0) {
+                memset(workingBuffer, 0 , inputWidth * inputHeight * 3/2);
+                if (ConvertToI420(inputBuffer, inputBytesused, workingBuffer, inputWidth, self->uBuffer2, (inputWidth + 1) / 2,
+                      self->vBuffer2, (inputWidth + 1) / 2, 0, 0, inputWidth, inputHeight,
+                      inputWidth, inputHeight, libyuv::kRotate0, libyuv::FOURCC_MJPG) != 0) {
                     DBG_LOGA("Decode MJPEG frame failed\n");
                     ALOGE("%s , %d , Decode MJPEG frame failed \n", __FUNCTION__ , __LINE__);
                     continue;
                 }
-                uint8_t *pUVBuffer = workingBuffer + intputWidth * intputHeight;
-                for (int i = 0; i < (int)(intputWidth * intputHeight / 4); i++) {
+                uint8_t *pUVBuffer = workingBuffer + inputWidth * inputHeight;
+                for (int i = 0; i < (int)(inputWidth * inputHeight / 4); i++) {
                     *pUVBuffer++ = *(self->vBuffer2 + i);
                     *pUVBuffer++ = *(self->uBuffer2 + i);
                 }
@@ -2402,7 +2402,7 @@ status_t Sensor::decoderThread(void* user) {
         }
         task.validBuffer = workingBuffer;
         task.workingBuffer = nullptr;
-        task.taskRuning = false;
+        task.taskRunning = false;
         ALOGV("Decoder Done validBuffer changed %p", task.validBuffer);
     }
 }
