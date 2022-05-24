@@ -46,7 +46,7 @@ static pthread_mutex_t g_lock = PTHREAD_MUTEX_INITIALIZER;
 //char const* const RED_LED_FILE = "";
 //char const* const BLUE_LED_FILE = "";
 #ifdef SUPPORT_MICROPHONE
-char const* const ARRAY_LED_DEVICE = "/sys/class/leds/tlc59116_led/single_colors";
+char const* const ARRAY_LED_DEVICE = "/sys/class/leds/i2c_leds/single_colors";
 #endif
 
 static int sys_write_int(int fd, int value) {
