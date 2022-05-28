@@ -79,7 +79,7 @@ class Lights : public BnLights {
     }
 
    int writeLedArray(const char* path, int const& ordinal, int color) {
-        LOG(ERROR) << "writeLedArray,id: " << ordinal << ",color:" << color;
+        //LOG(ERROR) << "writeLedArray,id: " << ordinal << ",color:" << color;
         int const fd = open(path, O_RDWR);
         if (fd < 0) {
             LOG(ERROR) << "COULD NOT OPEN ARRAY_LED_DEVICE " << path;
@@ -90,26 +90,26 @@ class Lights : public BnLights {
         char cmd[60]="";
         char ordinal_str[8] = "";
         sprintf(ordinal_str, "%d", ordinal);
-        LOG(ERROR) << "    ordinal_str :" << ordinal_str;
+        //LOG(ERROR) << "    ordinal_str :" << ordinal_str;
         //sprintf(color_str, "0x%06x", color & 0x00FFFFFF);
         sprintf(color_str, "0x%02x", (color >> 16) & 0xFF);
-        LOG(ERROR) << "    color :" << color_str;
+        //LOG(ERROR) << "    color :" << color_str;
         //strcat(cmd, ordinal_str);
         //strcat(cmd, " ");
         strcat(cmd, color_str);
-        LOG(ERROR) << "    cmd :" << cmd;
+        //LOG(ERROR) << "    cmd :" << cmd;
         int len = write(fd, cmd, strlen(cmd));
         if (len <= 0) {
             LOG(ERROR) << "   Unable to write:" << path << ",error:" << errno;
         } else {
-            LOG(ERROR) << "   Wrote " << len << "bytes to " << path;
+            //LOG(ERROR) << "   Wrote " << len << "bytes to " << path;
         }
         close(fd);
         return 0;
     }
 
     void writeLed(const char* path, int color) {
-        LOG(ERROR) << "writeLed test:" << path << ",color:"<< color;
+        //LOG(ERROR) << "writeLed test:" << path << ",color:"<< color;
         int fd = open(path, O_WRONLY);
         if (fd < 0) {
             LOG(ERROR) << "COULD NOT OPEN LED_DEVICE " << path;
@@ -147,7 +147,7 @@ class Lights : public BnLights {
         int ret = 0;
         switch (light.type) {
             case LightType::BACKLIGHT:
-                LOG(ERROR) << "setLightState, light:" << light.ordinal << ", color:" << state.color ;
+                //LOG(ERROR) << "setLightState, light:" << light.ordinal << ", color:" << state.color ;
                 ret = writeLedArray(ARRAY_LED_DEVICE0, light.ordinal, state.color);
 				if (ret < 0){
 					ret = writeLedArray(ARRAY_LED_DEVICE1, light.ordinal, state.color);
