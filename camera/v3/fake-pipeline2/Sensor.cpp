@@ -1277,7 +1277,7 @@ int Sensor::captureNewImage() {
     ALOGVV("size=%d\n", mNextCapturedBuffers->size());
     for (size_t i = 0; i < mNextCapturedBuffers->size(); i++) {
         const StreamBuffer &b = (*mNextCapturedBuffers)[i];
-        ALOGD("Sensor capturing buffer %d: stream %d,"
+        ALOGD("Sensor capturing buffer %zu: stream %d,"
                 " %d x %d, format %x, stride %d, buf %p, img %p",
                 i, b.streamId, b.width, b.height, b.format, b.stride,
                 b.buffer, b.img);
