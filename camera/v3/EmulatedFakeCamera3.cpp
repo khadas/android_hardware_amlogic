@@ -2871,6 +2871,10 @@ status_t EmulatedFakeCamera3::ReadoutThread::waitForReadout() {
                     __FUNCTION__);
             return INVALID_OPERATION;
         }
+        if (mExitReadoutThread) {
+            ALOGE("%s: Readout Thread is exit", __FUNCTION__);
+            return INVALID_OPERATION;
+        }
         if (loopCount == kMaxWaitLoops) {
             ALOGE("%s: Timed out waiting for in-flight queue to shrink",
                     __FUNCTION__);
@@ -2909,6 +2913,7 @@ status_t EmulatedFakeCamera3::ReadoutThread::shutdownJpegCompressor(EmulatedFake
 }
 
 void EmulatedFakeCamera3::ReadoutThread::sendExitReadoutThreadSignal(void) {
+    Mutex::Autolock l(mLock);
     mExitReadoutThread = true;
     mInFlightSignal.signal();
 }
