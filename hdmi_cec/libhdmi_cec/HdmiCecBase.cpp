@@ -132,6 +132,8 @@ int __unit_log_print(int prio, const char *tag, const char *cec_tag, const char 
     va_start(ap, fmt);
     vsnprintf(buf + cec_tag_len, DEFAULT_LOG_BUFFER_LEN - cec_tag_len, fmt, ap);
 
+    va_end(ap);
+
     return __android_log_write(prio, tag, buf);
 }
 

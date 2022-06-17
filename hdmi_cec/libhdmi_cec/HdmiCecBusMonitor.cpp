@@ -27,7 +27,10 @@ HdmiCecBusMonitor::HdmiCecBusMonitor(sp<HdmiCecListener> listener) {
         ALOGE("uevent_open_socket failed.");
         return;
     }
-    fcntl(mUeventFd, F_SETFL, O_NONBLOCK);
+    if (fcntl(mUeventFd, F_SETFL, O_NONBLOCK) == -1) {
+        ALOGE("fcntl mUeventFd failed.");
+        return;
+    }
 
     //epoll
     mEpollFd = epoll_create1(EPOLL_CLOEXEC);
