@@ -3,3 +3,5 @@ on early-init
     symlink /dev/block/bootloader1 /dev/block/platform/${ro.boot.boot_devices}/by-name/bootloader_b
     symlink /dev/block/bootloader0 /dev/block/by-name/bootloader_a
     symlink /dev/block/bootloader1 /dev/block/by-name/bootloader_b
+    symlink /dev/block/by-name/vendor_boot_a /dev/block/platform/${ro.boot.boot_devices}/by-name/recovery_a
+    symlink /dev/block/by-name/vendor_boot_b /dev/block/platform/${ro.boot.boot_devices}/by-name/recovery_b
