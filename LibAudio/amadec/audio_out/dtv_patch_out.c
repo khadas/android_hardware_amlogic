@@ -34,15 +34,18 @@
 #include <adec-external-ctrl.h>
 #include <amthreadpool.h>
 #include <dtv_patch_out.h>
-
+#include "Amsysfsutils.h"
 
 #define AUD_ASSO_PROP "vendor.media.audio.enable_asso"
 #define AUD_ASSO_MIX_PROP "vendor.media.audio.mix_asso"
 #define VID_DISABLED_PROP "vendor.media.dvb.video.disabled"
 #define AUD_DISABLED_PROP "vendor.media.dvb.audio.disabled"
+#define AUD_REPORT_INTERVAL_PROP "vendor.media.audio.report.interval"
+#define REPORT_DECODED_INFO "/sys/class/amaudio/codec_report_info"
+#define AUD_REPORT_INTERVAL_DEFAULT (50) //ms
+#define MAX_BUFF_LEN (64)
 
 typedef struct _dtv_patch_out {
-
     aml_audio_dec_t *audec;
     out_pcm_write pcmout_cb;
     out_get_wirte_status_info status_cb;
@@ -51,6 +54,9 @@ typedef struct _dtv_patch_out {
     int state;
     pthread_t tid;
     void *pargs;
+    int report_level;
+    int report_latency;
+    struct timespec report_ts;
 } dtv_patch_out;
 
 enum {
@@ -71,6 +77,9 @@ static dtv_patch_out outparam = {
     .state = DTV_PATCH_STATE_CLODED,
     .tid = -1,
     .pargs = NULL,
+    .report_level = 0,
+    .report_latency = 0,
+    .report_ts = {0, 0},
 };
 
 static pthread_mutex_t patch_out_mutex = PTHREAD_MUTEX_INITIALIZER;
@@ -162,6 +171,94 @@ unsigned long dtv_patch_get_pts(void)
     }
 }
 
+#if ANDROID_PLATFORM_SDK_VERSION < 29
+static int get_packages_length(aml_audio_dec_t * audec)
+{
+    int length = 0, i;
+    struct package *p = audec->pack_list.first;
+
+    lp_lock(&(audec->pack_list.tslock));
+    for (i = 0; i < audec->pack_list.pack_num; i++) {
+        if (p) {
+            length += p->size;
+            p = p->next;
+        }
+    }
+    lp_unlock(&(audec->pack_list.tslock));
+    return length;
+}
+
+static int64_t calc_time_interval(struct timespec *ts_start, struct timespec *ts_end)
+{
+    int64_t start_us, end_us;
+    int64_t interval_us;
+
+    start_us = ts_start->tv_sec * 1000000LL +
+               ts_start->tv_nsec / 1000LL;
+    end_us   = ts_end->tv_sec * 1000000LL +
+               ts_end->tv_nsec / 1000LL;
+    interval_us = end_us - start_us;
+    return interval_us;
+}
+
+static void dtv_report_audio_info(dtv_patch_out *patchparm)
+{
+    aml_audio_dec_t *audec = (aml_audio_dec_t *)patchparm->audec;
+    int raw_len = 0, pcm_len = 0, ms, interval, raw_format, latency = 0;
+    struct timespec after_ts;
+    char info_buf[MAX_BUFF_LEN] = {0};
+
+    if (audec->use_sw_check_apts) {
+        return;
+    }
+    clock_gettime(CLOCK_MONOTONIC, &after_ts);
+    ms = calc_time_interval(&patchparm->report_ts, &after_ts) / 1000;
+    interval = property_get_int32(AUD_REPORT_INTERVAL_PROP, AUD_REPORT_INTERVAL_DEFAULT);
+    if (ms < interval) {
+        return;
+    }
+    clock_gettime(CLOCK_MONOTONIC, &patchparm->report_ts);
+    raw_format = (audec->format == ACODEC_FMT_AC3 ||
+    audec->format == ACODEC_FMT_EAC3 || audec->format == ACODEC_FMT_AC4 ||
+    audec->format == ACODEC_FMT_DTS);
+    if (raw_format) {
+        raw_len = patchparm->status_cb(patchparm->pargs, BUFFER_LEVEL);
+        //latency = patchparm->status_cb(patchparm->pargs, PTS_CACHED_LATENCY);
+    } else {
+        pcm_len = patchparm->status_cb(patchparm->pargs, BUFFER_LEVEL);
+        //latency = patchparm->status_cb(patchparm->pargs, PTS_CACHED_LATENCY);
+    }
+    raw_len += get_packages_length(audec);
+    //adec_print("dtv_report_audio_info raw %d, latency %d\n", raw_len, latency);
+    if (patchparm->report_level != raw_len) {
+        sprintf(info_buf, "stream_level %d", raw_len);
+        amsysfs_set_sysfs_str(REPORT_DECODED_INFO, info_buf);
+        patchparm->report_level = raw_len;
+    }
+    if (patchparm->report_latency != latency) {
+        sprintf(info_buf, "buf_latency %d\n", latency);
+        amsysfs_set_sysfs_str(REPORT_DECODED_INFO, info_buf);
+        patchparm->report_latency = latency;
+    }
+}
+
+static void dtv_report_audio_clean(dtv_patch_out *patchparm)
+{
+    aml_audio_dec_t *audec = (aml_audio_dec_t *)patchparm->audec;
+    char info_buf[MAX_BUFF_LEN] = {0};
+
+    if (audec->use_sw_check_apts) {
+        return;
+    }
+    strcpy(info_buf, "stream_level 0");
+    amsysfs_set_sysfs_str(REPORT_DECODED_INFO, info_buf);
+    patchparm->report_level = 0;
+    sprintf(info_buf, "buf_latency 0");
+    amsysfs_set_sysfs_str(REPORT_DECODED_INFO, info_buf);
+    patchparm->report_latency = 0;
+}
+#endif
+
 static void *dtv_patch_out_loop(void *args)
 {
 
@@ -200,6 +297,9 @@ static void *dtv_patch_out_loop(void *args)
                 usleep(10000);
                 continue;
             }
+#if ANDROID_PLATFORM_SDK_VERSION < 29
+            dtv_report_audio_info(patchparm);
+#endif
             /*[SE][BUG][SWPL-14813][chengshun.wang] decrease buf_level avoid
              *dolby stream underrun
              *XXX 768 is some audio format frame size*/
@@ -293,6 +393,9 @@ static void *dtv_patch_out_loop(void *args)
         // pthread_mutex_unlock(&patch_out_mutex);
     }
 exit:
+#if ANDROID_PLATFORM_SDK_VERSION < 29
+    dtv_report_audio_clean(patchparm);
+#endif
     adec_print("Exit alsa playback loop !\n");
     pthread_exit(NULL);
     return NULL;
@@ -379,6 +482,7 @@ int dtv_patch_input_start(unsigned int handle, int demux_id, int pid, int aforma
     paramout->state = DTV_PATCH_STATE_RUNNING;
     param.security_mem_level = paramout->status_cb(paramout->pargs, SECURITY_MEM_LEVEL);
     audio_decode_init((void **)(&(paramout->audec)), &param);
+    clock_gettime(CLOCK_MONOTONIC, &(paramout->report_ts));
     ret = pthread_create(&(paramout->tid), NULL, (void *)dtv_patch_out_loop, paramout);
     out_patch_initd = 1;
     pthread_mutex_unlock(&patch_out_mutex);
