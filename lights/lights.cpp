@@ -45,9 +45,9 @@ static pthread_mutex_t g_lock = PTHREAD_MUTEX_INITIALIZER;
 
 //char const* const RED_LED_FILE = "";
 //char const* const BLUE_LED_FILE = "";
-#ifdef SUPPORT_MICROPHONE
-char const* const ARRAY_LED_DEVICE = "/sys/class/leds/i2c_leds/single_colors";
-#endif
+char const* const ARRAY_LED_DEVICE = "/sys/class/leds/i2c_leds/single_colors" ;
+char const* BACKLIGHT_DEVICE = "/sys/class/backlight/aml-bl/brightness";
+
 
 static int sys_write_int(int fd, int value) {
     char buffer[16];
@@ -108,7 +108,7 @@ class Lights : public BnLights {
         return 0;
     }
 
-    void writeLed(const char* path, int color) {
+    void writeControlSysfs(const char* path, int color) {
         LOG(ERROR) << "writeLed test:" << path << ",color:"<< color;
         int fd = open(path, O_WRONLY);
         if (fd < 0) {
@@ -119,23 +119,41 @@ class Lights : public BnLights {
         close(fd);
     }
 
+  bool isLightSupport(const char* path) {
+        bool ret;
+        int fd = open(path, O_WRONLY);
+        if (fd < 0)
+          ret = false;
+        else
+          ret = true;
+        close(fd);
+        return ret;
+  }
+
   public:
     Lights() : BnLights() {
         pthread_mutex_init(&g_lock, NULL);
-
-        addLight(LightType::BACKLIGHT, 0);
-        addLight(LightType::KEYBOARD, 0);
+      if (isLightSupport(BACKLIGHT_DEVICE)) {
+            LOG(ERROR) << "LIGHTS:BACKGROUND is supported";
+            addLight(LightType::BACKLIGHT, 0);
+      } else
+           LOG(ERROR) << "LIGHTS:BACKGROUND is not supported";
+       /* addLight(LightType::KEYBOARD, 0);
         addLight(LightType::BUTTONS, 0);
         addLight(LightType::BATTERY, 0);
         addLight(LightType::NOTIFICATIONS, 0);
         addLight(LightType::ATTENTION, 0);
         addLight(LightType::BLUETOOTH, 0);
-        addLight(LightType::WIFI, 0);
-#ifdef SUPPORT_MICROPHONE
+        addLight(LightType::WIFI, 0);*/
+
+      if (isLightSupport(ARRAY_LED_DEVICE)) {
+         LOG(ERROR) << "LIGHTS:MICROPHONE is supported";
         for (int i = 0; i < 4; i++) {
             addLight(LightType::MICROPHONE, i);
         }
-#endif
+      } else {
+        LOG(ERROR) << "LIGHTS:MICROPHONE is not supported";
+      }
     }
 
     ScopedAStatus setLightState(int id, const HwLightState& state) override {
@@ -149,15 +167,17 @@ class Lights : public BnLights {
         switch (light.type) {
             case LightType::MICROPHONE:
                 LOG(DEBUG) << "setLightState, light:" << light.ordinal << ", color:" << state.color ;
-#ifdef SUPPORT_MICROPHONE
                 ret = writeLedArray(ARRAY_LED_DEVICE, light.ordinal, state.color);
-#endif
                 break;
             case LightType::BATTERY:
-                LOG(ERROR) << "Light BATTERY is not supported by now.";
+                LOG(DEBUG) << "Light BATTERY is not supported by now.";
                 break;
             case LightType::BLUETOOTH:
-                LOG(ERROR) <<  "Light BLUETOOTH is not supported by now.";
+                LOG(DEBUG) <<  "Light BLUETOOTH is not supported by now.";
+                break;
+            case LightType::BACKLIGHT:
+                writeControlSysfs(BACKLIGHT_DEVICE, state.color);
+                LOG(DEBUG) << "setLightState, light:" << light.ordinal << ", color:" << state.color ;
                 break;
             default:
                 break;

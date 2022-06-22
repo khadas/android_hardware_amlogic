@@ -6,25 +6,11 @@ package {
     //   SPDX-license-identifier-Apache-2.0
     default_applicable_licenses: ["hardware_amlogic_license"],
 }
-soong_config_module_type_import {
-    from: "device/amlogic/common/soong_config/Android.bp",
-    module_types: ["amlogic_vendorconfig_cc_defaults"],
-}
-
-amlogic_vendorconfig_cc_defaults {
-    name: "lights_defaults",
-    soong_config_variables: {
-        build_lights_microphone: {
-            cflags: ["-DSUPPORT_MICROPHONE"],
-        },
-    },
-}
 
 cc_binary {
     name: "lights",
     relative_install_path: "hw",
     init_rc: ["lights.rc"],
-    defaults: ["lights_defaults"],
     vintf_fragments: ["lights.xml"],
     vendor: true,
     shared_libs: [
