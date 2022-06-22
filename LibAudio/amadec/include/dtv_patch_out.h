@@ -23,7 +23,7 @@ typedef enum {
     BUFFER_LEVEL = 0,
     BUFFER_SPACE,
     AD_MIXING_ENABLE,
-    AD_MIXING_LEVLE,
+    AD_MIXING_LEVEL,
     AD_MIXING_PCMSCALE,
     SECURITY_MEM_LEVEL
 }INFO_TYPE_E;
@@ -49,9 +49,9 @@ int dtv_patch_input_resume(unsigned int handle);
 unsigned long dtv_patch_get_pts(void);
 int dtv_patch_get_audio_loop(void);
 int dtv_patch_clear_audio_loop(void);
-unsigned long dtv_patch_get_checkin_dicontinue_apts(void);
+unsigned long dtv_patch_get_checkin_discontinue_apts(void);
 int dtv_patch_get_decoder_status(unsigned int *perror_count);
-int dtv_audio_decpara_get(int *pfs, int *pch, int *lfepresent);
+int dtv_audio_dec_para_get(int *pfs, int *pch, int *lfepresent);
 int dtv_patch_input_stop_dmx(unsigned int handle);
 
 #endif

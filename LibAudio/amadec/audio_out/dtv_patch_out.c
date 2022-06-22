@@ -114,7 +114,7 @@ int dtv_patch_get_audio_loop(void)
     return ret;
 }
 
-unsigned long dtv_patch_get_checkin_dicontinue_apts(void)
+unsigned long dtv_patch_get_checkin_discontinue_apts(void)
 {
     unsigned long pts = (unsigned long) - 1;
     dtv_patch_out *param = get_patchout();
@@ -220,7 +220,7 @@ static void *dtv_patch_out_loop(void *args)
 #ifndef USE_AOUT_IN_ADEC
                 if (audec->associate_dec_supported) {
                     audec->associate_audio_enable =  patchparm->status_cb(patchparm->pargs, AD_MIXING_ENABLE);
-                    audec->mixing_level =  patchparm->status_cb(patchparm->pargs, AD_MIXING_LEVLE);
+                    audec->mixing_level =  patchparm->status_cb(patchparm->pargs, AD_MIXING_LEVEL);
                     audec->ad_pcmscale =  patchparm->status_cb(patchparm->pargs, AD_MIXING_PCMSCALE);
                 }
 #endif
@@ -481,7 +481,7 @@ int dtv_patch_get_decoder_status(unsigned int *perror_count)
     return 0;
 }
 
-int dtv_audio_decpara_get(int *pfs, int *pch, int *lfepresent)
+int dtv_audio_dec_para_get(int *pfs, int *pch, int *lfepresent)
 {
     int ret = 0;
     dtv_patch_out *param = get_patchout();
