@@ -11,12 +11,10 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
 soong_config_module_type {
     name: "arm_camera_cc_defaults",
     module_type: "cc_defaults",
     config_namespace: "arm_camera",
-
     bool_variables: [
         "build_kernel_4_9_x",
     ],
@@ -24,22 +22,18 @@ soong_config_module_type {
         "cflags",
     ],
 }
-
 soong_config_bool_variable {
     name: "build_kernel_4_9_x",
 }
-
 arm_camera_cc_defaults {
     name: "arm_camera_defaults",
     vendor: true,
-
     soong_config_variables: {
         build_kernel_4_9_x: {
             cflags: ["-DBUILD_KERNEL_4_9=1"],
         },
     },
 }
-
 package {
     // See: http://go/android-license-faq
     // A large-scale-change added 'default_applicable_licenses' to import
@@ -48,7 +42,6 @@ package {
     //   SPDX-license-identifier-Apache-2.0
     default_applicable_licenses: ["hardware_amlogic_license"],
 }
-
 cc_library_headers {
     name: "camera_amlogic_headers",
     recovery_available: true,
@@ -58,7 +51,6 @@ cc_library_headers {
         "isplib/inc/",
     ],
 }
-
 cc_library_shared {
     name: "camera.amlogic",
     defaults: [
@@ -74,7 +66,6 @@ cc_library_shared {
         "-Wno-unused-parameter",
         "-Wno-missing-field-initializers",
     ],
-
     shared_libs: [
         "libbinder",
         "liblog",
@@ -91,7 +82,6 @@ cc_library_shared {
         "libamgralloc_ext",
         "libyuv",
     ],
-
     static_libs: [
         "android.hardware.camera.common@1.0-helper",
     ],
@@ -127,7 +117,6 @@ cc_library_shared {
         "fake-pipeline2/camera_hw.cpp",
         "VendorTags.cpp",
     ],
-
     arch: {
         x86: {
             enabled:false,
@@ -157,3 +146,4 @@ cc_prebuilt_library_shared{
         },
     },
 }
+
