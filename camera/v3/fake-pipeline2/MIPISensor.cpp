@@ -153,6 +153,7 @@ status_t MIPISensor::startUp(int idx) {
     ALOGV("%s: E", __FUNCTION__);
     int res;
     mCapturedBuffers = NULL;
+    mOpenCameraID = idx;
     res = run("EmulatedFakeCamera3::Sensor",ANDROID_PRIORITY_URGENT_DISPLAY);
 
     if (res != OK) {
