@@ -239,6 +239,7 @@ status_t Sensor::startUp(int idx) {
 
     int res;
     mCapturedBuffers = NULL;
+    mOpenCameraID = idx;
     res = run("EmulatedFakeCamera3::Sensor",
             ANDROID_PRIORITY_URGENT_DISPLAY);
 
@@ -1234,7 +1235,7 @@ bool Sensor::threadLoop() {
         mCurFps = mFramecount/(interval/1000000.0f);
         memcpy(&mTimeStart, &mTimeEnd, sizeof(mTimeEnd));
         mFramecount = 0;
-        CAMHAL_LOGIB("interval(%" PRId64"), interval=%f, fps=%f\n", interval, interval/1000000.0f, mCurFps);
+        CAMHAL_LOGIB("openid %d, interval(%" PRId64"), interval=%f, fps=%f\n", mOpenCameraID, interval, interval/1000000.0f, mCurFps);
     }
 
     return true;
