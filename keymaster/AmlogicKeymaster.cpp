@@ -291,4 +291,10 @@ ConfigureVendorPatchlevelResponse AmlogicKeymaster::ConfigureVendorPatchlevel(
     return response;
 }
 
+GetRootOfTrustResponse AmlogicKeymaster::GetRootOfTrust(const GetRootOfTrustRequest& request) {
+    GetRootOfTrustResponse response(message_version());
+    ForwardCommand(KM_GET_ROOT_OF_TRUST, request, &response);
+    return response;
+}
+
 }  // namespace keymaster

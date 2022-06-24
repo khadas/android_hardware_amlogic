@@ -325,9 +325,20 @@ ScopedAStatus AmlogicKeyMintDevice::getRootOfTrustChallenge(array<uint8_t, 16>* 
     return kmError2ScopedAStatus(KM_ERROR_UNIMPLEMENTED);
 }
 
-ScopedAStatus AmlogicKeyMintDevice::getRootOfTrust(const array<uint8_t, 16>& /* challenge */,
-                                                  vector<uint8_t>* /* rootOfTrust */) {
-    return kmError2ScopedAStatus(KM_ERROR_UNIMPLEMENTED);
+ScopedAStatus AmlogicKeyMintDevice::getRootOfTrust(const array<uint8_t, 16>& challenge,
+                                                  vector<uint8_t>* rootOfTrust) {
+    if (!rootOfTrust) {
+        return kmError2ScopedAStatus(KM_ERROR_UNEXPECTED_NULL_POINTER);
+    }
+    keymaster::GetRootOfTrustRequest request(impl_->message_version(),
+                                             {challenge.begin(), challenge.end()});
+    keymaster::GetRootOfTrustResponse response = impl_->GetRootOfTrust(request);
+    if (response.error != KM_ERROR_OK) {
+        return kmError2ScopedAStatus(response.error);
+    }
+
+    *rootOfTrust = std::move(response.rootOfTrust);
+    return ScopedAStatus::ok();
 }
 
 ScopedAStatus AmlogicKeyMintDevice::sendRootOfTrust(const vector<uint8_t>& /* rootOfTrust */) {

@@ -72,6 +72,7 @@ class AmlogicKeymaster : public TrustyKeymaster {
     DeviceLockedResponse DeviceLocked(const DeviceLockedRequest& request);
     ConfigureVendorPatchlevelResponse ConfigureVendorPatchlevel(
             const ConfigureVendorPatchlevelRequest& request);
+    GetRootOfTrustResponse GetRootOfTrust(const GetRootOfTrustRequest& request);
 
     uint32_t message_version() const { return message_version_; }
     /* Move ForwardCommand from static method into class in order to access private members */
