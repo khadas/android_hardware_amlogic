@@ -412,9 +412,9 @@ int HdmiCecControl::getVendorId(uint32_t* vendorId)
 
     int ret = ioctl(mCecDevice.driver_fd, CEC_IOC_GET_VENDOR_ID, vendorId);
     LOGD("%s, vendorId: %x, ret = %d", __FUNCTION__, *vendorId, ret);
-    if (*vendorId == 0) {
-        LOGD("use none zerio vendor id for cts");
-        *vendorId = VENDOR_ID_CTS;
+    if (*vendorId == 0 || *vendorId == VENDOR_ID_DEFAULT) {
+        LOGD("use amlogic vendor id");
+        *vendorId = VENDOR_ID_AML;
     }
     return ret;
 }

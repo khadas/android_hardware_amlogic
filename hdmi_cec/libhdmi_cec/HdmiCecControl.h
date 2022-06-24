@@ -58,7 +58,8 @@
 
 #define INVALID_PHYSICAL_ADDRESS        0xFFFF
 
-#define VENDOR_ID_CTS                   0xFFFFFF
+#define VENDOR_ID_DEFAULT               0xFFFFFF
+#define VENDOR_ID_AML                   0x1CA410
 
 #define DELAY_TIMEOUT_MS  5000
 
