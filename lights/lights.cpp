@@ -33,6 +33,8 @@
 #include <android/binder_manager.h>
 #include <android/binder_process.h>
 
+#include <iostream>
+
 using ::aidl::android::hardware::light::BnLights;
 using ::aidl::android::hardware::light::HwLight;
 using ::aidl::android::hardware::light::HwLightState;
@@ -120,14 +122,10 @@ class Lights : public BnLights {
     }
 
   bool isLightSupport(const char* path) {
-        bool ret;
-        int fd = open(path, O_WRONLY);
-        if (fd < 0)
-          ret = false;
+        if (access(path, F_OK) == 0)
+            return true;
         else
-          ret = true;
-        close(fd);
-        return ret;
+        return false;
   }
 
   public:
