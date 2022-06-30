@@ -373,6 +373,7 @@ class Sensor: private Thread, public virtual RefBase {
         uint8_t *validBuffer = nullptr;
         bool taskRunning = false;
         bool exitThread = false;
+        bool bDecoderflag;
     };
     struct DecoderTask mDecoderTask;
     std::thread mDecoderThread;

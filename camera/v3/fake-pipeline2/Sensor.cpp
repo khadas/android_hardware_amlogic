@@ -2314,13 +2314,20 @@ void Sensor::captureNV21(StreamBuffer b, uint32_t gain) {
                 ALOGV("Task is busy, do not post anymore");
             }
             // wait fisrt frame valid
+            uint32_t count = 0;
             while (!mDecoderTask.validBuffer) {
-                _l.unlock();
+                 _l.unlock();
                 ALOGV("sleep+");
-                usleep(10000);
+                usleep(1000);
                 ALOGV("sleep-");
                 _l.lock();
+                if (count++ >= 100 || !mDecoderTask.bDecoderflag) {
+                    ALOGV("timeout wait for validBuffer");
+                    break;
+                }
             }
+            if (!mDecoderTask.bDecoderflag)
+                continue;
             ALOGVV("memcpy + %dx%d", b.width, b.height);
             if ((width == b.width) && (height == b.height)) {
                 memcpy(b.img, mDecoderTask.validBuffer, b.stride * b.height * 3/2);
@@ -2365,7 +2372,8 @@ status_t Sensor::decoderThread(void* user) {
         uint32_t outputHeight = task.outputHeight;
         uint32_t outputStride = task.outputStride;
         uint8_t *workingBuffer = task.workingBuffer;
-        {
+        bool bDecoderFlag = false;
+        do {
             ALOGVV("Decoder +");
             _l.unlock();
             if ((inputWidth == outputWidth) && (inputHeight == outputHeight)) {
@@ -2375,7 +2383,10 @@ status_t Sensor::decoderThread(void* user) {
                       inputWidth, inputHeight, libyuv::kRotate0, libyuv::FOURCC_MJPG) != 0) {
                     DBG_LOGA("Decode MJPEG frame failed\n");
                     ALOGE("%s , %d , Decode MJPEG frame failed \n", __FUNCTION__ , __LINE__);
-                    continue;
+                    _l.lock();
+                    break;
+                } else {
+                    bDecoderFlag = true;
                 }
                 uint8_t *pUVBuffer = workingBuffer + outputStride * inputHeight;
                 for (int i = 0; i < (int)(outputStride * inputHeight / 4); i++) {
@@ -2389,7 +2400,10 @@ status_t Sensor::decoderThread(void* user) {
                       inputWidth, inputHeight, libyuv::kRotate0, libyuv::FOURCC_MJPG) != 0) {
                     DBG_LOGA("Decode MJPEG frame failed\n");
                     ALOGE("%s , %d , Decode MJPEG frame failed \n", __FUNCTION__ , __LINE__);
-                    continue;
+                    _l.lock();
+                    break;
+                } else {
+                    bDecoderFlag = true;
                 }
                 uint8_t *pUVBuffer = workingBuffer + inputWidth * inputHeight;
                 for (int i = 0; i < (int)(inputWidth * inputHeight / 4); i++) {
@@ -2399,7 +2413,8 @@ status_t Sensor::decoderThread(void* user) {
             }
             _l.lock();
             ALOGVV("Decoder -");
-        }
+        } while(0);
+        task.bDecoderflag = bDecoderFlag;
         task.validBuffer = workingBuffer;
         task.workingBuffer = nullptr;
         task.taskRunning = false;
