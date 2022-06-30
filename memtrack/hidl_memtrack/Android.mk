@@ -18,7 +18,7 @@ LOCAL_PATH := $(call my-dir)
 # hw/<POWERS_HARDWARE_MODULE_ID>.default.so
 include $(CLEAR_VARS)
 
-ifeq ($(TARGET_BUILD_KERNEL_4_9), true)
+ifeq ($(TARGET_BUILD_KERNEL_VERSION), 4.9)
 BUILD_KERNEL_4_9 := true
 else
 BUILD_KERNEL_4_9 := false

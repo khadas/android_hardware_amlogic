@@ -15,7 +15,7 @@
 
 # Configuration that should be included by BoardConfig.mk to configure necessary Soong namespaces.
 
-ifeq ($(TARGET_BUILD_KERNEL_4_9), true)
+ifeq ($(TARGET_BUILD_KERNEL_VERSION), 4.9)
 BUILD_KERNEL_4_9 ?= true
 endif
 # Setup configuration in Soong namespace
