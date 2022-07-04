@@ -282,8 +282,10 @@ int set_bootloader_env(const char* name, const char* value)
 
     if (ubootenv->updateValue(ubootenv_name, value)) {
         PLOG(ERROR) << "could not set boot env";
+        delete ubootenv;
         return -1;
     }
+    delete ubootenv;
     return 0;
 }
 
@@ -293,7 +295,10 @@ char* get_bootloader_env(const char * name)
     char ubootenv_name[128] = {0};
     const char *ubootenv_var = "ubootenv.var.";
     sprintf(ubootenv_name, "%s%s", ubootenv_var, name);
-    return (char *)ubootenv->getValue(ubootenv_name);
+
+    char *uboot_env = (char *)ubootenv->getValue(ubootenv_name);
+    delete ubootenv;
+    return uboot_env;
 }
 
 void InitDefaultBootloaderControl(BootControl* control, bootloader_control* boot_ctrl) {
@@ -332,8 +337,8 @@ void InitDefaultBootloaderControl(BootControl* control, bootloader_control* boot
     // the boot partitions up to the number of slots, and no boot partition
     // after that. Not finding any of the boot partitions implies a problem so
     // we just leave the number of slots in the maximum value.
-    if ((last_existing_slot != -1 && last_existing_slot + 1 == first_missing_slot) ||
-        (first_missing_slot == -1 && last_existing_slot + 1 == kMaxNumSlots)) {
+    if ((last_existing_slot != -1 && last_existing_slot == first_missing_slot - 1) ||
+        (first_missing_slot == -1 && last_existing_slot == kMaxNumSlots - 1)) {
       boot_ctrl->nb_slot = last_existing_slot + 1;
       LOG(INFO) << "Found a system with " << last_existing_slot + 1 << " slots.";
     }
