@@ -205,7 +205,7 @@ bool write_bootloader_img(unsigned int slot, bool gpt_flag)
         if (is_valid_gpt_buf(data + 0x3DFE00)) {
             LOG(INFO) << "no gpt partition table\n";
         } else {
-            LOG(ERROR) << "find gpt parition table, can't update\n";
+            LOG(ERROR) << "find gpt partition table, can't update\n";
             ret = true;
             goto done;
         }
