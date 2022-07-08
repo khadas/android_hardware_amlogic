@@ -17,7 +17,7 @@
 /**
 * @file SensorListener.cpp
 *
-* This file listens and propogates sensor events to CameraHal.
+* This file listens and propagates sensor events to CameraHal.
 *
 */
 

@@ -25,7 +25,7 @@
 
 #include <adec-pts-mgt.h>
 #include <adec_write.h>
-#include <adec_omx_brige.h>
+#include <adec_omx_bridge.h>
 #include <Amsysfsutils.h>
 #include <audio-dec.h>
 #include <cutils/properties.h>
@@ -598,23 +598,23 @@ static void  audio_resample_api(char* buffer, unsigned int *size, int Chnum, int
     //  adec_print("resample size from %d to %d, original %d\n", request, *size, dsp_read);
 }
 
-static  int skip_thred = 400;
-static  int up_thred =  100;
-static   int dn_thred = 200;
+static  int skip_thread = 400;
+static  int up_thread =  100;
+static   int dn_thread = 200;
 static int   dn_resample_delta = 2;
 static int   up_resample_delta = -4;
-static void set_wfd_pcm_thredhold()
+static void set_wfd_pcm_threshold()
 {
 
     char value[PROPERTY_VALUE_MAX];
     if (property_get("vendor.media.wfd.skip", value, NULL) > 0) {
-        skip_thred = atoi(value);
+        skip_thread = atoi(value);
     }
     if (property_get("vendor.media.wfd.up", value, NULL) > 0) {
-        up_thred = atoi(value);
+        up_thread = atoi(value);
     }
     if (property_get("vendor.media.wfd.dn", value, NULL) > 0) {
-        dn_thred = atoi(value);
+        dn_thread = atoi(value);
     }
     if (property_get("vendor.media.wfd.dn_delta", value, NULL) > 0) {
         dn_resample_delta = atoi(value);
@@ -648,7 +648,7 @@ void *audio_wfd_decode_loop(void *args)
     while (!audec->exit_decode_thread) {
         outlen = 0;
         //  adec_refresh_pts(audec);
-        set_wfd_pcm_thredhold();
+        set_wfd_pcm_threshold();
         audec->decode_offset = adec_ops->decode(adec_ops, (char *)outbuf, &outlen, (char*)&in_latency, 0);
 
         if (outlen > 0) {
@@ -673,14 +673,14 @@ void *audio_wfd_decode_loop(void *args)
                     }
                 }
             }
-            if (total_latency > skip_thred) {
+            if (total_latency > skip_thread) {
                 if (debug_latency) {
                     adec_print(" total latency  %d ms ,skip bytes %d \n", total_latency, outlen);
                 }
                 outlen = 0;
-            } else if (total_latency > dn_thred) {
+            } else if (total_latency > dn_thread) {
                 audio_resample_api((char *)outbuf, (unsigned int *)&outlen, 2, 1, dn_resample_delta);
-            } else if (total_latency < up_thred) {
+            } else if (total_latency < up_thread) {
                 audio_resample_api((char *)outbuf, (unsigned int *)&outlen, 2, 1, up_resample_delta);
             }
             if (debug_latency) {
@@ -794,7 +794,7 @@ void *adec_wfddec_msg_loop(void *args)
             }
             break;
 #if 0
-        case CMD_CHANL_SWAP:
+        case CMD_CHANNEL_SWAP:
 
             adec_print("Receive Channels Swap Command!");
             audio_hardware_ctrl(HW_CHANNELS_SWAP);

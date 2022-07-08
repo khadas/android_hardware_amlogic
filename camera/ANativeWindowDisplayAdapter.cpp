@@ -961,7 +961,7 @@ bool ANativeWindowDisplayAdapter::processHalMsg()
         case DisplayThread::DISPLAY_STOP:
             ///@bug There is no API to disable SF without destroying it
             ///@bug Buffers might still be w/ display and will get displayed
-            ///@remarks Ideal seqyence should be something like this
+            ///@remarks Ideal sequence should be something like this
             ///mOverlay->setParameter("enabled", false);
             CAMHAL_LOGDA("Display thread received DISPLAY_STOP command from Camera HAL");
             mDisplayState = ANativeWindowDisplayAdapter::DISPLAY_STOPPED;

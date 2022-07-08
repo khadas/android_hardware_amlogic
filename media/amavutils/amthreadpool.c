@@ -44,7 +44,7 @@ typedef struct threadpool_thread_data {
     threadpool_t *pool;
     pthread_mutex_t pthread_mutex;
     pthread_cond_t pthread_cond;
-    int on_requred_exit;
+    int on_required_exit;
     int thread_inited;
 } threadpool_thread_data_t;
 #define POOL_OF_ITEM(item) ((threadpool_t *)(item)->extdata[0])
@@ -94,7 +94,7 @@ static threadpool_t * amthreadpool_create_pool(pthread_t pid)
     }
     pool->threadlist.max_items = 0;
     pool->threadlist.item_ext_buf_size = 0;
-    pool->threadlist.muti_threads_access = 1;
+    pool->threadlist.multi_threads_access = 1;
     pool->threadlist.reject_same_item_data = 1;
     itemlist_init(&pool->threadlist);
     exdata[0] = (unsigned long)pool;
@@ -156,7 +156,7 @@ static int amthreadpool_thread_wake_t(threadpool_thread_data_t*t, int trycancel)
 {
     int ret;
     pthread_mutex_lock(&t->pthread_mutex);
-    t->on_requred_exit = trycancel;
+    t->on_required_exit = trycancel;
     ret = pthread_cond_signal(&t->pthread_cond);
     pthread_mutex_unlock(&t->pthread_mutex);
     return ret;
@@ -182,11 +182,11 @@ int amthreadpool_thread_usleep_in_monotonic(int us)
         usleep(us);//for not deadlock.
         return 0;
     }
-    if (t->on_requred_exit > 1) {
+    if (t->on_required_exit > 1) {
         if (us64 < 100 * 1000) {
             us64 = 100 * 1000;
         }
-        t->on_requred_exit--; /*if on_requred_exit,do less sleep till 1.*/
+        t->on_required_exit--; /*if on_required_exit,do less sleep till 1.*/
     }
 #if defined(__LP32__) && __ANDROID_API__ < 21
     struct timespec tnow;
@@ -227,11 +227,11 @@ int amthreadpool_thread_usleep_in(int us)
         usleep(us);//for not deadlock.
         return 0;
     }
-    if (t->on_requred_exit > 1) {
+    if (t->on_required_exit > 1) {
         if (us64 < 100 * 1000) {
             us64 = 100 * 1000;
         }
-        t->on_requred_exit--; /*if on_requred_exit,do less sleep till 1.*/
+        t->on_required_exit--; /*if on_required_exit,do less sleep till 1.*/
     }
     ret = gettimeofday(&now, NULL);
     pthread_ts.tv_sec = now.tv_sec + (us64 + now.tv_usec) / 1000000;
@@ -267,7 +267,7 @@ int amthreadpool_thread_wake(pthread_t pid)
         ALOGE("%lu wake thread data not found!!!\n", pid);
         return -1;
     }
-    return amthreadpool_thread_wake_t(t, t->on_requred_exit);
+    return amthreadpool_thread_wake_t(t, t->on_required_exit);
 }
 int amthreadpool_on_requare_exit(pthread_t pid)
 {
@@ -276,10 +276,10 @@ int amthreadpool_on_requare_exit(pthread_t pid)
     if (!t) {
         return 0;
     }
-    if (t->on_requred_exit) {
+    if (t->on_required_exit) {
         ///ALOGI("%lu name  on try exit.\n", pid);
     }
-    return !!t->on_requred_exit;
+    return !!t->on_required_exit;
 }
 
 static int amthreadpool_pool_thread_cancel_l1(pthread_t pid, int cancel, int allthreads)
@@ -437,13 +437,13 @@ int amthreadpool_system_init(void)
     inited ++;
     threadpool_list.max_items = 0;
     threadpool_list.item_ext_buf_size = 0;
-    threadpool_list.muti_threads_access = 1;
+    threadpool_list.multi_threads_access = 1;
     threadpool_list.reject_same_item_data = 1;
     itemlist_init(&threadpool_list);
 
     threadpool_threadlist.max_items = 0;
     threadpool_threadlist.item_ext_buf_size = 0;
-    threadpool_threadlist.muti_threads_access = 1;
+    threadpool_threadlist.multi_threads_access = 1;
     threadpool_threadlist.reject_same_item_data = 1;
     itemlist_init(&threadpool_threadlist);
     return 0;
@@ -468,7 +468,7 @@ int amthreadpool_system_dump_info(void)
             //ALOGI("----name=%p\n",amthreadpool_thread_name(t->pid));
             ALOGI("----ppid=%lu,%lu,%lu,%lu,%lu", t->ppid[0], t->ppid[1], t->ppid[2], t->ppid[3], t->ppid[4]);
             ALOGI("----pool:%p\n", t->pool);
-            ALOGI("----on_requred_exit:%d\n", t->on_requred_exit);
+            ALOGI("----on_required_exit:%d\n", t->on_required_exit);
         }
         FOR_ITEM_END(&pool->threadlist);
     }
@@ -480,7 +480,7 @@ int amthreadpool_system_dump_info(void)
         //ALOGI("----name=%p\n",amthreadpool_thread_name(t->pid));
         ALOGI("----ppid=%lu,%lu,%lu,%lu,%lu", t->ppid[0], t->ppid[1], t->ppid[2], t->ppid[3], t->ppid[4]);
         ALOGI("----pool:%p\n", t->pool);
-        ALOGI("----on_requred_exit:%d\n", t->on_requred_exit);
+        ALOGI("----on_required_exit:%d\n", t->on_required_exit);
     }
     FOR_ITEM_END(&threadpool_threadlist);
     ALOGI("------------amthreadpool_system_dump_info----------END\n");

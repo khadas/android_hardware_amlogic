@@ -90,7 +90,7 @@ public:
     bool isVolatileCam();
     bool getCameraHandle();
 
-    ///Initialzes the camera adapter creates any resources required
+    ///Initializes the camera adapter creates any resources required
     virtual status_t initialize(CameraProperties::Properties*);
     //virtual status_t initialize(CameraProperties::Properties*, int sensor_index=0);
 

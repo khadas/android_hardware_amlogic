@@ -363,7 +363,7 @@ status_t EmulatedFakeCamera3::closeCamera() {
     }
 
     CAMHAL_LOGDB("%s, %d\n", __FUNCTION__, __LINE__);
-    mReadoutThread->sendFlushSingnal();
+    mReadoutThread->sendFlushSignal();
     mSensor->sendExitSingalToSensor();
     res = mSensor->shutDown();
     if (res != NO_ERROR) {
@@ -386,7 +386,7 @@ status_t EmulatedFakeCamera3::closeCamera() {
     CAMHAL_LOGDB("%s, %d\n", __FUNCTION__, __LINE__);
 
     mReadoutThread->join();
-    DBG_LOGA("Sucess exit ReadOutThread");
+    DBG_LOGA("Success exit ReadOutThread");
     {
         Mutex::Autolock l(mLock);
         // Clear out private stream information
@@ -455,18 +455,18 @@ void EmulatedFakeCamera3::getValidJpegSize(uint32_t picSizes[], uint32_t availab
 
 status_t EmulatedFakeCamera3::checkValidJpegSize(uint32_t width, uint32_t height) {
 
-    int validsizecount = 0;
+    int validSizeCount = 0;
     uint32_t count = sizeof(mAvailableJpegSize)/sizeof(mAvailableJpegSize[0]);
     for (uint32_t f = 0; f < count; f+=2) {
         if (mAvailableJpegSize[f] != 0) {
             if ((mAvailableJpegSize[f] == width)&&(mAvailableJpegSize[f+1] == height)) {
-                validsizecount++;
+                validSizeCount++;
             }
         } else {
             break;
         }
     }
-    if (validsizecount == 0)
+    if (validSizeCount == 0)
         return BAD_VALUE;
     return OK;
 }
@@ -1254,7 +1254,7 @@ status_t EmulatedFakeCamera3::processCaptureRequest(
               //return BAD_VALUE;
          } else {
               exposureCmp = e.data.i32[0];
-              DBG_LOGB("set expsore compensaton %d\n", exposureCmp);
+              DBG_LOGB("set expsore compensation %d\n", exposureCmp);
               mSensor->setExposure(exposureCmp);
          }
 
@@ -2431,7 +2431,7 @@ status_t EmulatedFakeCamera3::doFakeAF(CameraMetadata &settings) {
                         __FUNCTION__, afMode);
                 return BAD_VALUE;
             }
-            mSensor->setAutoFocuas(afMode);
+            mSensor->setAutoFocus(afMode);
             // OK, handle transitions lower on
             break;
         default:
@@ -2449,7 +2449,7 @@ status_t EmulatedFakeCamera3::doFakeAF(CameraMetadata &settings) {
     int32_t y0 = e.data.i32[1];
     int32_t x1 = e.data.i32[2];
     int32_t y1 = e.data.i32[3];
-    mSensor->setFocuasArea(x0, y0, x1, y1);
+    mSensor->setFocusArea(x0, y0, x1, y1);
     DBG_LOGB(" x0:%d, y0:%d,x1:%d,y1:%d,\n", x0, y0, x1, y1);
 #endif
 
@@ -2744,16 +2744,16 @@ status_t EmulatedFakeCamera3::ReadoutThread::flushAllRequest(bool flag) {
         mParent->mSensor->setFlushFlag(true);
         res = mFlush.waitRelative(mLock, kSyncWaitTimeout * 15);
         if (res != OK && res != TIMED_OUT) {
-           ALOGE("%s: Error waiting for mFlush singnal : %d",
-                __FUNCTION__, res);
-           return INVALID_OPERATION;
+            ALOGE("%s: Error waiting for mFlush signal : %d",
+                  __FUNCTION__, res);
+            return INVALID_OPERATION;
         }
         DBG_LOGA("finish flush all request");
     }
     return 0;
 }
 
-void EmulatedFakeCamera3::ReadoutThread::sendFlushSingnal(void) {
+void EmulatedFakeCamera3::ReadoutThread::sendFlushSignal(void) {
     Mutex::Autolock l(mLock);
     mFlush.signal();
 }
@@ -2800,7 +2800,7 @@ status_t EmulatedFakeCamera3::ReadoutThread::setJpegCompressorListener(EmulatedF
     status_t res;
     res = mParent->mJpegCompressor->setlistener(this);
     if (res != NO_ERROR) {
-        ALOGE("%s: set JpegCompressor Listner failed",__FUNCTION__);
+        ALOGE("%s: set JpegCompressor Listener failed",__FUNCTION__);
     }
     return res;
 }

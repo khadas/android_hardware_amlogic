@@ -35,7 +35,7 @@
 #include "bits.h"
 #include "ps_dec.h"
 
-/* type definitaions */
+/* type definitions */
 typedef const int8_t (*ps_huff_tab)[2];
 
 /* static data tables */

@@ -24,7 +24,7 @@
 
 extern "C" int read_buffer(unsigned char *buffer,int size);
 
-//#define LOG_TAG "DTSHD_Medissource"
+//#define LOG_TAG "DTSHD_Mediasource"
 //#define ALOGI(...) __android_log_print(ANDROID_LOG_INFO,LOG_TAG,__VA_ARGS__)
 //#define ALOGE(...) __android_log_print(ANDROID_LOG_ERROR,LOG_TAG,__VA_ARGS__)
 
@@ -96,7 +96,7 @@ static int AML_DCA_Estimate_Frame_size( unsigned char *buf,int size,int *syncpos
 
      if (frame_size == 0)
      {
-         ALOGE("[%s %d ]FrameSize detect Falied,used defualt value/1024\n",__FUNCTION__,__LINE__);
+         ALOGE("[%s %d ]FrameSize detect Failed,used default value/1024\n",__FUNCTION__,__LINE__);
          frame_size=1024;
      }else{
          frame_size += 4;
@@ -250,7 +250,7 @@ status_t Dtshd_MediaSource::read(MediaBufferBase **out, const ReadOptions *optio
          FirFraBuf_Len=AML_DCA_INPUT_DATA_LEN_PTIME;
          if (MediaSourceRead_buffer(FirFraBuf,FirFraBuf_Len) != FirFraBuf_Len)
          {
-            ALOGE("[%s %d] Stream Lengh <%d> Err!\n",__FUNCTION__,__LINE__,FirFraBuf_Len);
+            ALOGE("[%s %d] Stream Length <%d> Err!\n",__FUNCTION__,__LINE__,FirFraBuf_Len);
             return ERROR_END_OF_STREAM;
          }
 

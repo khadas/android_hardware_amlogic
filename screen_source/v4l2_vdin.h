@@ -59,7 +59,7 @@ struct VideoInfo {
 enum State{
     START,
     PAUSE,
-    STOPING,
+    STOPPING,
     STOP,
 };
 
@@ -112,7 +112,7 @@ class vdin_screen_source {
         int get_port_type();
         int set_port_type(unsigned int portType);
         int set_mode(int display_mode);
-        int microdimming(long* src, unsigned char *dest);
+        int micro_dimming(long* src, unsigned char *dest);
     private:
         int init_native_window();
         int workThread();

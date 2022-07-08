@@ -1540,7 +1540,7 @@ status_t VirtualCamHal::startPreview()
     CameraFrame frame;
     const char *valstr = NULL;
     unsigned int required_buffer_count;
-    unsigned int max_queueble_buffers;
+    unsigned int max_queueable_buffers;
 
 #if PPM_INSTRUMENTATION || PPM_INSTRUMENTATION_ABS
     gettimeofday(&mStartPreview, NULL);
@@ -1610,7 +1610,7 @@ status_t VirtualCamHal::startPreview()
     required_buffer_count = atoi(mCameraProperties->get(CameraProperties::REQUIRED_PREVIEW_BUFS));
 
     ///Allocate the preview buffers
-    ret = allocPreviewBufs(mPreviewWidth, mPreviewHeight, mParameters.getPreviewFormat(), required_buffer_count, max_queueble_buffers);
+    ret = allocPreviewBufs(mPreviewWidth, mPreviewHeight, mParameters.getPreviewFormat(), required_buffer_count, max_queueable_buffers);
 
     if ( NO_ERROR != ret )
     {
@@ -1654,7 +1654,7 @@ status_t VirtualCamHal::startPreview()
     desc.mFd = mPreviewFd;
     desc.mLength = mPreviewLength;
     desc.mCount = ( size_t ) required_buffer_count;
-    desc.mMaxQueueable = (size_t) max_queueble_buffers;
+    desc.mMaxQueueable = (size_t) max_queueable_buffers;
 
     ret = mCameraAdapter->sendCommand(CameraAdapter::CAMERA_USE_BUFFERS_PREVIEW,
                                       ( int ) &desc);
@@ -3635,7 +3635,7 @@ void VirtualCamHal::forceStopPreview()
         // passed the LOADED_PREVIEW_STATE
         if (mCameraAdapter->getState() > CameraAdapter::LOADED_PREVIEW_STATE) {
            // according to javadoc...FD should be stopped in stopPreview
-           // and application needs to call startFaceDection again
+           // and application needs to call startFaceDetection again
            // to restart FD
            mCameraAdapter->sendCommand(CameraAdapter::CAMERA_STOP_FD);
         }

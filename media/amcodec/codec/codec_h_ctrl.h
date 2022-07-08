@@ -61,10 +61,10 @@ CODEC_HANDLE codec_h_open(const char *port_addr, int flags);
 int codec_h_close(CODEC_HANDLE h);
 int codec_h_write(CODEC_HANDLE , void *, int);
 int codec_h_read(CODEC_HANDLE, void *, int);
-int codec_h_control(CODEC_HANDLE h, int cmd, unsigned long paramter);
+int codec_h_control(CODEC_HANDLE h, int cmd, unsigned long parameter);
 void codec_h_set_support_new_cmd(int value);
 int codec_h_is_support_new_cmd();
 CODEC_HANDLE codec_h_open_rd(const char *port_addr);
-int codec_h_ioctl(CODEC_HANDLE h, int cmd, int subcmd, unsigned long paramter);
+int codec_h_ioctl(CODEC_HANDLE h, int cmd, int subcmd, unsigned long parameter);
 
 #endif

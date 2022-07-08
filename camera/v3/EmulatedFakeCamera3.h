@@ -20,7 +20,7 @@
 /**
  * Contains declaration of a class EmulatedCamera that encapsulates
  * functionality of a fake camera that implements version 3 of the camera device
- * interace.
+ * interface.
  */
 
 #include "EmulatedCamera3.h"
@@ -289,7 +289,7 @@ private:
         void sendExitReadoutThreadSignal(void);
         status_t flushAllRequest(bool flag);
         void setFlushFlag(bool flag);
-        void sendFlushSingnal(void);
+        void sendFlushSignal(void);
       private:
         static const nsecs_t kWaitPerLoop  = 10000000L; // 10 ms
         static const nsecs_t kMaxWaitLoops = 1000;

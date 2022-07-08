@@ -101,7 +101,7 @@ typedef struct FaadContext {
     int frame_length_his[FRAME_RECORD_NUM];
     unsigned int muted_samples;
     unsigned int muted_count;
-    unsigned init_cost; // summary init funciton cost bytes
+    unsigned init_cost; // summary init function cost bytes
     unsigned init_start_flag; //start flag to summary data cost
     int64_t starttime;
     int64_t endtime;
@@ -432,7 +432,7 @@ retry:
         }
         goto retry;
     }
-    audio_codec_print("init sucess cost %d gFaadCxt->success_count %d\n", ret, gFaadCxt->success_count);
+    audio_codec_print("init success cost %d gFaadCxt->success_count %d\n", ret, gFaadCxt->success_count);
     NeAACDecStruct* hDecoder = (NeAACDecStruct*)(gFaadCxt->hDecoder);
     if (hDecoder->adts_header_present &&
         adec_ops->nAudioDecoderType == ACODEC_FMT_AAC_LATM) {

@@ -45,7 +45,7 @@ typedef struct _dtv_patch_out {
 
     aml_audio_dec_t *audec;
     out_pcm_write pcmout_cb;
-    out_get_wirte_status_info status_cb;
+    out_get_write_status_info status_cb;
     out_audio_info   info_cb;
     int device_opened;
     int state;
@@ -299,7 +299,7 @@ exit:
 }
 
 int dtv_patch_input_open(unsigned int *handle, out_pcm_write pcmcb,
-                    out_get_wirte_status_info buffercb, out_audio_info info_cb,void *args)
+                    out_get_write_status_info buffercb, out_audio_info info_cb,void *args)
 {
     //int ret;
 

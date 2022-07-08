@@ -65,7 +65,7 @@ void CMsgQueueThread::removeMsg(CMessage &msg)
             m_v_msg.removeAt(i);
         }
     }
-    //some msg removeed
+    //some msg removed
     if (beforeSize > (int)m_v_msg.size())
         mGetMsgCondition.signal();
 }

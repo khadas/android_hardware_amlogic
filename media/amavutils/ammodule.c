@@ -39,7 +39,7 @@
 #define AM_LIBRARY_PATH2    "/vendor/lib/amplayer"
 #define AM_LIBRARY_SETTING  "media.libplayer.modulepath"
 
-static const char *defaut_path[] = {
+static const char *default_path[] = {
     AM_LIBRARY_PATH1,
     AM_LIBRARY_PATH2,
     ""/*real path.*/
@@ -47,7 +47,7 @@ static const char *defaut_path[] = {
 };
 
 static const int PATH_COUNT =
-    (sizeof(defaut_path) / sizeof(defaut_path[0]));
+    (sizeof(default_path) / sizeof(default_path[0]));
 
 /**
  * Load the file defined by the variant and if successful
@@ -63,7 +63,7 @@ static int amload(const char *path,
 
     /*
      * load the symbols resolving undefined symbols before
-     * dlopen returns. Since RTLD_GLOBAL is not or'd in with
+     * dlopen returns. Since RTLD_GLOBAL is not in with
      * RTLD_NOW the external symbols will not be global
      */
     handle = dlopen(path, RTLD_NOW);
@@ -126,7 +126,7 @@ int ammodule_load_module(const char *modulename, const struct ammodule_t **modul
 
     for (i = -1 ; i < PATH_COUNT; i++) {
         if (i >= 0) {
-            prepath = defaut_path[i];
+            prepath = default_path[i];
         } else {
             if (am_getconfig(AM_LIBRARY_SETTING, prop, NULL) <= 0) {
                 continue;

@@ -30,7 +30,7 @@
 // Bit 11:5     //aififo word counter number
 // Bit 4:0      //how many bits left in the first pop register
 #define AIU_AIFIFO_STATUS                          0x1581
-// Same fucntion as the AIGBIT of AIFIFO in CDROM module
+// Same function as the AIGBIT of AIFIFO in CDROM module
 // write to this register how many bits wanna pop,
 // and reading this register gets the corresponding bits data
 #define AIU_AIFIFO_GBIT                            0x1582

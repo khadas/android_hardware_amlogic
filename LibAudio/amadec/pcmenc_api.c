@@ -50,7 +50,7 @@ int pcmenc_init()
         return -1;
     }
     ioctl(dev_fd, AUDIODSP_PCMENC_GET_RING_BUF_SIZE, &buffer_size);
-    /* mapping the kernel buffer to user space to acess */
+    /* mapping the kernel buffer to user space to access */
     map_buf = mmap(0, buffer_size, PROT_READ , MAP_PRIVATE, dev_fd, 0);
     if (map_buf == (void*)-1L) {
         //printf("pcmenc:mmap failed,err id %d \n",errno);
@@ -102,7 +102,7 @@ int pcmenc_read_pcm(char *inputbuf, uint size)
 
         //ioctl(dev_fd, AUDIODSP_PCMENC_GET_RING_BUF_CONTENT, &ring_buf_content);
     }
-    //adec_print("read num %d,countent %d,total %d\n",pcm_read_num,ring_buf_content,pcm_read_num+ring_buf_content);
+    //adec_print("read num %d,content %d,total %d\n",pcm_read_num,ring_buf_content,pcm_read_num+ring_buf_content);
     if (ring_buf_content > size) {
         if (read_offset + size > buffer_size) {
             //tail = size - read_offset;

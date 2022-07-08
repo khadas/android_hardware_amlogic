@@ -182,7 +182,7 @@ bool write_bootloader_img(unsigned int slot, bool gpt_flag)
      * /dev/block/platform/soc/fe08c000.mmc/by-name/bootloader_a --> /dev/block/mmcblk0boot0
      * /dev/block/platform/soc/fe08c000.mmc/by-name/bootloader_b --> /dev/block/mmcblk0boot1
      *
-     * for gpt mode, bootloader_a/bootloader_b is real paritition table
+     * for gpt mode, bootloader_a/bootloader_b is real partition table
      *
      * update_engine will update bootloader_a or bootloader_b according to current slot
     */
@@ -531,7 +531,7 @@ bool BootControl::SetActiveBootSlot(unsigned int slot) {
 
     // Setting the current slot as active is a way to revert the operation that
     // set *another* slot as active at the end of an updater. This is commonly
-    // used to cancel the pending update. We should only reset the verity_corrpted
+    // used to cancel the pending update. We should only reset the verity_corrupted
     // bit when attempting a new slot, otherwise the verity bit on the current
     // slot would be flip.
     if (slot != current_slot_) bootctrl.slot_info[slot].verity_corrupted = 0;

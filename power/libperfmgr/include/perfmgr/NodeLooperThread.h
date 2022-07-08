@@ -44,7 +44,7 @@ struct NodeAction {
 };
 
 // The NodeLooperThread is responsible for managing each of the sysfs nodes
-// specified in the configuration. At initialization, the NodeLooperThrea holds
+// specified in the configuration. At initialization, the NodeLooperThread holds
 // a vector containing the nodes defined in the configuration. The NodeManager
 // gets powerhint requests and cancellations from the HintManager, maintains
 // state about the current set of powerhint requests on each sysfs node, and

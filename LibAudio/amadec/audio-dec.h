@@ -174,13 +174,13 @@ struct aml_audio_dec {
     int exit_decode_thread_success;
     unsigned long decode_offset;
     int64_t decode_pcm_offset;
-    int use_get_out_posion;
+    int use_get_out_position;
     int nDecodeErrCount;
     int fd_uio;
     uint64_t last_valid_pts;
     int out_len_after_last_valid_pts;
-    int64_t last_out_postion;
-    int64_t last_get_postion_time_us;
+    int64_t last_out_position;
+    int64_t last_get_position_time_us;
     int pcm_cache_size;
     Package_List pack_list;
     StartCode start_code;
@@ -217,7 +217,7 @@ struct aml_audio_dec {
     //code to handle small pts discontinue (1s < diff < 3s )
     int last_discontinue_apts;//the apts when audio has little discontinue
     int apts_reset_scr_delay_ms;
-    int64_t last_discontinue_time;  //the time when littile discontinue happens
+    int64_t last_discontinue_time;  //the time when little discontinue happens
 
     int VersionNum;
     int DTSHDIEC958_FS;

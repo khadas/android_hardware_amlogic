@@ -899,7 +899,7 @@ typedef __u64 v4l2_std_id;
 /*
  * "Common" PAL - This macro is there to be compatible with the old
  * V4L1 concept of "PAL": /BGDKHI.
- * Several PAL standards are mising here: /M, /N and /Nc
+ * Several PAL standards are missing here: /M, /N and /Nc
  */
 #define V4L2_STD_PAL        (V4L2_STD_PAL_BG    |\
                  V4L2_STD_PAL_DK    |\

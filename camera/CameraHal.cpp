@@ -411,17 +411,17 @@ int CameraHal::setParameters(const CameraParameters& params)
                 mParameters.set(ExCameraParameters::KEY_AUTOCONVERGENCE, valstr);
                 }
 #ifdef METADATA_MODE_FOR_PREVIEW_CALLBACK
-            if ((valstr = params.get(ExCameraParameters::KEY_PREVEIW_CALLBACK_IN_METADATA_ENABLE)) != NULL)
+            if ((valstr = params.get(ExCameraParameters::KEY_PREVIEW_CALLBACK_IN_METADATA_ENABLE)) != NULL)
                 {
                 int metadata;
                 CAMHAL_LOGDB("Preview callback meta mode is %s", valstr);
-                mParameters.set(ExCameraParameters::KEY_PREVEIW_CALLBACK_IN_METADATA_ENABLE, valstr);
-                metadata = mParameters.getInt(ExCameraParameters::KEY_PREVEIW_CALLBACK_IN_METADATA_ENABLE);
+                mParameters.set(ExCameraParameters::KEY_PREVIEW_CALLBACK_IN_METADATA_ENABLE, valstr);
+                metadata = mParameters.getInt(ExCameraParameters::KEY_PREVIEW_CALLBACK_IN_METADATA_ENABLE);
                 if (metadata == 1) {
-                    if ((valstr = params.get(ExCameraParameters::KEY_PREVEIW_CALLBACK_IN_METADATA_LENGTH)) != NULL)
+                    if ((valstr = params.get(ExCameraParameters::KEY_PREVIEW_CALLBACK_IN_METADATA_LENGTH)) != NULL)
                         {
-                        mParameters.set(ExCameraParameters::KEY_PREVEIW_CALLBACK_IN_METADATA_LENGTH, valstr);
-                        metadata = mParameters.getInt(ExCameraParameters::KEY_PREVEIW_CALLBACK_IN_METADATA_LENGTH);
+                        mParameters.set(ExCameraParameters::KEY_PREVIEW_CALLBACK_IN_METADATA_LENGTH, valstr);
+                        metadata = mParameters.getInt(ExCameraParameters::KEY_PREVIEW_CALLBACK_IN_METADATA_LENGTH);
                         CAMHAL_LOGDB("Preview callback meta mode length is %d", metadata);
                         if (metadata == 16)
                             mAppCallbackNotifier->useMetaDataBufferMode(true);
@@ -1586,7 +1586,7 @@ status_t CameraHal::startPreview()
     CameraFrame frame;
     const char *valstr = NULL;
     unsigned int required_buffer_count;
-    unsigned int max_queueble_buffers;
+    unsigned int max_queueable_buffers;
 
 #if PPM_INSTRUMENTATION || PPM_INSTRUMENTATION_ABS
     gettimeofday(&mStartPreview, NULL);
@@ -1657,7 +1657,7 @@ status_t CameraHal::startPreview()
     required_buffer_count = atoi(mCameraProperties->get(CameraProperties::REQUIRED_PREVIEW_BUFS));
 
     ///Allocate the preview buffers
-    ret = allocPreviewBufs(mPreviewWidth, mPreviewHeight, mParameters.getPreviewFormat(), required_buffer_count, max_queueble_buffers);
+    ret = allocPreviewBufs(mPreviewWidth, mPreviewHeight, mParameters.getPreviewFormat(), required_buffer_count, max_queueable_buffers);
 
     if ( NO_ERROR != ret )
     {
@@ -1701,7 +1701,7 @@ status_t CameraHal::startPreview()
     desc.mFd = mPreviewFd;
     desc.mLength = mPreviewLength;
     desc.mCount = ( size_t ) required_buffer_count;
-    desc.mMaxQueueable = (size_t) max_queueble_buffers;
+    desc.mMaxQueueable = (size_t) max_queueable_buffers;
 
     ret = mCameraAdapter->sendCommand(CameraAdapter::CAMERA_USE_BUFFERS_PREVIEW,
                                       ( int ) &desc);
@@ -3635,8 +3635,8 @@ void CameraHal::initDefaultParameters()
     //p.set(CameraParameters::KEY_PREFERRED_PREVIEW_SIZE_FOR_VIDEO, mCameraProperties->get(CameraProperties::PREFERRED_PREVIEW_SIZE_FOR_VIDEO));
 
 #ifdef METADATA_MODE_FOR_PREVIEW_CALLBACK
-     p.set(ExCameraParameters::KEY_PREVEIW_CALLBACK_IN_METADATA_ENABLE,ExCameraParameters::PREVEIW_CALLBACK_IN_METADATA_DISABLE);
-     p.set(ExCameraParameters::KEY_PREVEIW_CALLBACK_IN_METADATA_LENGTH,ExCameraParameters::PREVEIW_CALLBACK_IN_METADATA_LENGTH);
+     p.set(ExCameraParameters::KEY_PREVIEW_CALLBACK_IN_METADATA_ENABLE,ExCameraParameters::PREVIEW_CALLBACK_IN_METADATA_DISABLE);
+     p.set(ExCameraParameters::KEY_PREVIEW_CALLBACK_IN_METADATA_LENGTH,ExCameraParameters::PREVIEW_CALLBACK_IN_METADATA_LENGTH);
 #endif
     LOG_FUNCTION_NAME_EXIT;
 }
@@ -3676,7 +3676,7 @@ void CameraHal::forceStopPreview()
         // passed the LOADED_PREVIEW_STATE
         if (mCameraAdapter->getState() > CameraAdapter::LOADED_PREVIEW_STATE) {
            // according to javadoc...FD should be stopped in stopPreview
-           // and application needs to call startFaceDection again
+           // and application needs to call startFaceDetection again
            // to restart FD
            mCameraAdapter->sendCommand(CameraAdapter::CAMERA_STOP_FD);
         }

@@ -120,7 +120,7 @@ status_t EmulatedQemuCameraDevice::disconnectDevice()
     /* Disconnect from the camera device via emulator. */
     const status_t res = mQemuClient.queryDisconnect();
     if (res == NO_ERROR) {
-        ALOGV("%s: Disonnected from device '%s'",
+        ALOGV("%s: Disconnected from device '%s'",
              __FUNCTION__, (const char*)mDeviceName);
         mState = ECDS_INITIALIZED;
     } else {

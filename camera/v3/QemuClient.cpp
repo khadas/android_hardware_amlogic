@@ -129,7 +129,7 @@ status_t QemuQuery::completeQuery(status_t status)
      * Note that 'ok', or 'ko' prefixes are always 3 characters long: in case
      * there are more data in the reply, that data will be separated from 'ok'/'ko'
      * with a ':'. If there is no more data in the reply, the prefix will be
-     * zero-terminated, and the terminator will be inculded in the reply. */
+     * zero-terminated, and the terminator will be included in the reply. */
     if (mReplyBuffer == NULL || mReplySize < 3) {
         ALOGE("%s: Invalid reply to the query", __FUNCTION__);
         mQueryDeliveryStatus = EINVAL;
@@ -330,7 +330,7 @@ status_t QemuClient::receiveMessage(void** data, size_t* data_size)
 
 status_t QemuClient::doQuery(QemuQuery* query)
 {
-    /* Make sure that query has been successfuly constructed. */
+    /* Make sure that query has been successfully constructed. */
     if (query->mQueryDeliveryStatus != NO_ERROR) {
         ALOGE("%s: Query is invalid", __FUNCTION__);
         return query->mQueryDeliveryStatus;
@@ -424,7 +424,7 @@ status_t FactoryQemuClient::listCameras(char** list)
 
 /* Connect to the camera device. */
 const char CameraQemuClient::mQueryConnect[]    = "connect";
-/* Disconect from the camera device. */
+/* Disconnect from the camera device. */
 const char CameraQemuClient::mQueryDisconnect[] = "disconnect";
 /* Start capturing video from the camera device. */
 const char CameraQemuClient::mQueryStart[]      = "start";

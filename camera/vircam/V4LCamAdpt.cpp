@@ -416,13 +416,13 @@ status_t V4LCamAdpt::setParameters(const CameraParameters &params)
     const char *exposure=NULL;
     const char *effect=NULL;
     //const char *night_mode=NULL;
-    const char *qulity=NULL;
+    const char *quality=NULL;
     const char *banding=NULL;
     const char *flashmode=NULL;
     const char *focusmode=NULL;
     const char *supportfocusmode=NULL;
 
-    qulity=mParams.get(CameraParameters::KEY_JPEG_QUALITY);
+    quality=mParams.get(CameraParameters::KEY_JPEG_QUALITY);
     
     flashmode = mParams.get(CameraParameters::KEY_FLASH_MODE);
     if((mIoctlSupport & IOCTL_MASK_FLASH) && flashmode){
@@ -1359,7 +1359,7 @@ int V4LCamAdpt::GenExif(ExifElementsTable* exiftable)
     //Image orientation
     int orientation = mParams.getInt(CameraParameters::KEY_ROTATION);
     //covert 0 90 180 270 to 0 1 2 3
-    CAMHAL_LOGDB("get orientaion %d",orientation);
+    CAMHAL_LOGDB("get orientation %d",orientation);
     if(orientation == 0)
         orientation = 1;
     else if(orientation == 90)
@@ -1448,10 +1448,10 @@ int V4LCamAdpt::GenExif(ExifElementsTable* exiftable)
         int latitudedegree = latitude;
         float latitudeminuts = (latitude-(float)latitudedegree)*60;
         int latitudeminuts_int = latitudeminuts;
-        float latituseconds = (latitudeminuts-(float)latitudeminuts_int)*60+0.5;
-        int latituseconds_int = latituseconds;
+        float latitudeSeconds = (latitudeminuts-(float)latitudeminuts_int)*60+0.5;
+        int latitudeSeconds_int = latitudeSeconds;
         sprintf(exifcontent,"%d/%d,%d/%d,%d/%d",
-                latitudedegree,1,latitudeminuts_int,1,latituseconds_int,1);
+                latitudedegree,1,latitudeminuts_int,1,latitudeSeconds_int,1);
         exiftable->insertElement("GPSLatitude",(const char*)exifcontent);
 
         exiftable->insertElement("GPSLatitudeRef",(offset==1)?"S":"N");
@@ -1470,12 +1470,12 @@ int V4LCamAdpt::GenExif(ExifElementsTable* exiftable)
         }
 
         int longitudedegree = longitude;
-        float longitudeminuts = (longitude-(float)longitudedegree)*60;
-        int longitudeminuts_int = longitudeminuts;
-        float longitudeseconds = (longitudeminuts-(float)longitudeminuts_int)*60+0.5;
+        float longitudeMinutes = (longitude-(float)longitudedegree)*60;
+        int longitudeMinutes_int = longitudeMinutes;
+        float longitudeseconds = (longitudeMinutes-(float)longitudeMinutes_int)*60+0.5;
         int longitudeseconds_int = longitudeseconds;
         sprintf(exifcontent,"%d/%d,%d/%d,%d/%d",
-                longitudedegree,1,longitudeminuts_int,1,longitudeseconds_int,1);
+                longitudedegree,1,longitudeMinutes_int,1,longitudeseconds_int,1);
         exiftable->insertElement("GPSLongitude",(const char*)exifcontent);
 
         exiftable->insertElement("GPSLongitudeRef",(offset==1)?"S":"N");

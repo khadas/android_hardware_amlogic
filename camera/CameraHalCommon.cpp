@@ -62,7 +62,7 @@ void CameraHal::PPM(const char* str){
    @brief PPM instrumentation
 
    Dumps the current time offset. The time reference point
-   lies within the CameraHAL constructor. This implemetation
+   lies within the CameraHAL constructor. This implementation
    will also dump the abosolute timestamp, which is useful when
    post calculation is done with data coming from the upper
    layers (Camera application etc.)

@@ -41,7 +41,7 @@ namespace android {
 #else
     //if didn't define AMLOGIC_FRONT_CAMERA_SUPPORT nor AMLOGIC_BACK_CAMERA_SUPPORT, 
 	//we set the MAX_CAMERAS_SUPPORTED to the max nums we may support ,and
-	//will dectect the camera number in function CameraAdapter_CameraNum();
+	//will detect the camera number in function CameraAdapter_CameraNum();
 	#define MAX_CAMERAS_SUPPORTED 2
 #endif
 #ifdef AMLOGIC_VIRTUAL_CAMERA_SUPPORT

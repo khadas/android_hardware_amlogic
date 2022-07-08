@@ -57,7 +57,7 @@ cc_binary {
     required: ["android.hardware.health@2.1-impl.droidlogic"],
 
     vintf_fragments: [
-        "android.hardware.health@2.1-servcie.droidlogic.xml"
+        "android.hardware.health@2.1-service.droidlogic.xml"
     ],
 
     overrides: [

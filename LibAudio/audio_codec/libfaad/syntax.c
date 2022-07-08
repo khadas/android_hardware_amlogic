@@ -1852,7 +1852,7 @@ static uint8_t scale_factor_data(NeAACDecStruct *hDecoder, ic_stream *ics, bitfi
         ret = decode_scale_factors(ics, ld);
 #ifdef ERROR_RESILIENCE
     } else {
-        /* In ER AAC the parameters for RVLC are seperated from the actual
+        /* In ER AAC the parameters for RVLC are Separated from the actual
            data that holds the scale_factors.
            Strangely enough, 2 parameters for HCR are put inbetween them.
         */
@@ -2091,10 +2091,10 @@ static uint16_t extension_payload(bitfile *ld, drc_info *drc, uint16_t count)
     case EXT_FILL_DATA:
         /* fill_nibble = */
         faad_getbits(ld, 4
-                     DEBUGVAR(1, 136, "extension_payload(): fill_nibble")); /* must be ‘0000’ */
+                     DEBUGVAR(1, 136, "extension_payload(): fill_nibble")); /* must be ï¿½0000ï¿½ */
         for (i = 0; i < count - 1; i++) {
             /* fill_byte[i] = */ faad_getbits(ld, 8
-                                              DEBUGVAR(1, 88, "extension_payload(): fill_byte")); /* must be ‘10100101’ */
+                                              DEBUGVAR(1, 88, "extension_payload(): fill_byte")); /* must be ï¿½10100101ï¿½ */
         }
         return count;
     case EXT_DATA_ELEMENT:

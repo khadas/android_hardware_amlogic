@@ -4,7 +4,7 @@
 
 LOCAL_PATH := $(call my-dir)
 
-# HAL module implemenation, not prelinked and stored in
+# HAL module implementation, not prelinked and stored in
 # /system/lib/hw/screen_source.amlogic.so
 include $(CLEAR_VARS)
 LOCAL_MODULE_RELATIVE_PATH := hw

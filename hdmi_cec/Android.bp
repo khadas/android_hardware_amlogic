@@ -38,7 +38,7 @@ license {
     ],
 }
 
-// HAL module implemenation, not prelinked and stored in
+// HAL module implementation, not prelinked and stored in
 // hw/<LIGHTS_HARDWARE_MODULE_ID>.<ro.hardware>.so
 
 cc_library_shared {

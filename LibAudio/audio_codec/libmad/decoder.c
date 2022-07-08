@@ -567,7 +567,7 @@ int run_sync(struct mad_decoder *decoder)
                 case MAD_FLOW_BREAK:
                     goto fail;
                 case MAD_FLOW_IGNORE:
-                    // for this error,we should skip one bytes for another frame sync,otherwise no chance to cosume data again
+                    // for this error,we should skip one bytes for another frame sync,otherwise no chance to consume data again
                     if (decoder->sync->stream.this_frame == decoder->sync->stream.buffer) {
                         decoder->sync->stream.this_frame = decoder->sync->stream.buffer + 1;
                     }

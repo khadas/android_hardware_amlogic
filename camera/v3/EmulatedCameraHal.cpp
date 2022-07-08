@@ -19,7 +19,7 @@
  * under the emulator.
  *
  * This file contains only required HAL header, which directs all the API calls
- * to the EmulatedCameraFactory class implementation, wich is responsible for
+ * to the EmulatedCameraFactory class implementation, which is responsible for
  * managing emulated cameras.
  */
 

@@ -42,7 +42,7 @@ static unsigned stream_type = STREAM_DTS;
 static short iec958_buf[6144 / 2];
 static char *map_buf = (void *)-1L;
 static unsigned first_write = 1;
-#define IEC958_LANTENCY  20
+#define IEC958_LATENCY  20
 int iec958_init()
 {
     int ret = 0;
@@ -61,12 +61,12 @@ int iec958_init()
     /* get 958 dma buffer size */
     ioctl(dev_fd, AUDIO_SPDIF_GET_958_BUF_SIZE, &iec958_buffer_size);
     //adec_print("iec958 buffer size %x\n",iec958_buffer_size);
-    wr_offset = hw_rd_offset + 4 * 48000 * IEC958_LANTENCY / 1000; //delay
+    wr_offset = hw_rd_offset + 4 * 48000 * IEC958_LATENCY / 1000; //delay
     if (wr_offset >= iec958_buffer_size) {
         wr_offset = iec958_buffer_size;
     }
     ioctl(dev_fd, AUDIO_SPDIF_SET_958_WR_OFFSET, &wr_offset);
-    /* mapping the kernel 958 dma buffer to user space to acess */
+    /* mapping the kernel 958 dma buffer to user space to access */
     map_buf = mmap(0, iec958_buffer_size, PROT_READ | PROT_WRITE, MAP_SHARED/*MAP_PRIVATE*/, dev_fd, 0);
     if (map_buf == (void *)-1L) {
         printf("mmap failed,error num %d \n", errno);
@@ -171,9 +171,9 @@ static int iec958_buf_space_size(int dev_fd)
     int  space = 0;
     ioctl(dev_fd, AUDIO_SPDIF_GET_958_BUF_RD_OFFSET, &hw_rd_offset);
     if (first_write == 1) {
-        if (hw_rd_offset >= wr_offset || (wr_offset - hw_rd_offset) < (4 * 48000 * IEC958_LANTENCY / 1000)) {
+        if (hw_rd_offset >= wr_offset || (wr_offset - hw_rd_offset) < (4 * 48000 * IEC958_LATENCY / 1000)) {
             adec_print("reset iec958 hw wr ptr\n");
-            wr_offset = hw_rd_offset + 4 * 48000 * IEC958_LANTENCY / 1000; //delay
+            wr_offset = hw_rd_offset + 4 * 48000 * IEC958_LATENCY / 1000; //delay
             if (wr_offset >= iec958_buffer_size) {
                 wr_offset = wr_offset - iec958_buffer_size;
             }

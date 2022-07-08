@@ -1931,7 +1931,7 @@ int codec_set_sync_video_discont(codec_para_t *pcodec, int discontinue)
 *
 * @param[in]  pcodec       Pointer of codec parameter structure
 *
-* @return     discontiue state, or fail if < 0
+* @return     discontinue state, or fail if < 0
 */
 /* --------------------------------------------------------------------------*/
 int codec_get_sync_audio_discont(codec_para_t *pcodec)
@@ -1952,7 +1952,7 @@ int codec_get_sync_audio_discont(codec_para_t *pcodec)
 *
 * @param[in]  pcodec       Pointer of codec parameter structure
 *
-* @return     discontiue state, or fail if < 0
+* @return     discontinue state, or fail if < 0
 */
 /* --------------------------------------------------------------------------*/
 int codec_get_sync_video_discont(codec_para_t *pcodec)
@@ -1973,7 +1973,7 @@ int codec_get_sync_video_discont(codec_para_t *pcodec)
 *
 * @param[in]  pcodec       Pointer of codec parameter structure
 *
-* @return     discontiue diff, or fail if < 0
+* @return     discontinue diff, or fail if < 0
 */
 /* --------------------------------------------------------------------------*/
 unsigned long codec_get_sync_audio_discont_diff(codec_para_t *pcodec)
@@ -1994,7 +1994,7 @@ unsigned long codec_get_sync_audio_discont_diff(codec_para_t *pcodec)
 *
 * @param[in]  pcodec       Pointer of codec parameter structure
 *
-* @return     discontiue diff, or fail if < 0
+* @return     discontinue diff, or fail if < 0
 */
 /* --------------------------------------------------------------------------*/
 unsigned long codec_get_sync_video_discont_diff(codec_para_t *pcodec)
@@ -2342,7 +2342,7 @@ int codec_get_video_cur_delay_ms(codec_para_t *pcodec, int *delay_ms)
 
 /* --------------------------------------------------------------------------*/
 /**
-* @brief  codec_get_audio_cur_delay_ms   get vido   latest bitrate.
+* @brief  codec_get_audio_cur_delay_ms   get video   latest bitrate.
 *
 * @param[in]  pcodec  Pointer of codec parameter structure
 *
@@ -2370,7 +2370,7 @@ int codec_get_audio_cur_bitrate(codec_para_t *pcodec, int *bitrate)
 }
 /* --------------------------------------------------------------------------*/
 /**
-* @brief  codec_get_video_checkin_bitrate   get vido   latest bitrate.
+* @brief  codec_get_video_checkin_bitrate   get video   latest bitrate.
 *
 * @param[in]  pcodec  Pointer of codec parameter structure
 *
@@ -2431,7 +2431,7 @@ int codec_get_last_checkin_apts(codec_para_t* pcodec, unsigned long* apts)
 /**
  *@brief  codec_get_pcm_level get the PCM data in buffer between DSP and output
  *
- * @param[in] pcodec Pointer of codec parameter structre
+ * @param[in] pcodec Pointer of codec parameter structure
  * @param[in] level  Address to store "level"
  * @return 0 for success, or fail type if<0
  */
@@ -2479,15 +2479,15 @@ int codec_get_cntl_vpts(codec_para_t *pcodec)
 
 /* --------------------------------------------------------------------------*/
 /**
-* @brief  codec_disalbe_slowsync  Set the slowsync disable or enable
+* @brief  codec_disable_slowsync  Set the slowsync disable or enable
 *
 * @param[in]  pcodec  Pointer of codec parameter structure
-* @param[in]  disalbe_slowsync  disable slowsync or not
+* @param[in]  disable_slowsync  disable slowsync or not
 *
 * @return     0 or fail error type
 */
 /* --------------------------------------------------------------------------*/
-int codec_disalbe_slowsync(codec_para_t *pcodec, int disable_slowsync)
+int codec_disable_slowsync(codec_para_t *pcodec, int disable_slowsync)
 {
     int r;
 

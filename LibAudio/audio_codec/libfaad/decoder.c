@@ -514,7 +514,7 @@ static int LatmReadStreamMuxConfiguration(latm_mux_t *m, bitfile *ld)
             st->i_frame_length_type = faad_getbits(ld, 3);
             switch (st->i_frame_length_type) {
             case 0: {
-                faad_flushbits(ld, 8); /* latmBufferFullnes */
+                faad_flushbits(ld, 8); /* latmBufferFullness */
                 if (!m->b_same_time_framing)
                     if (st->cfg.i_object_type == 6 || st->cfg.i_object_type == 20 ||
                         st->cfg.i_object_type == 8 || st->cfg.i_object_type == 24) {
@@ -961,20 +961,20 @@ long NEAACDECAPI NeAACDecInit(NeAACDecHandle hpDecoder,
     adif_header adif;
     adts_header adts;
     NeAACDecStruct* hDecoder = (NeAACDecStruct*)hpDecoder;
-    unsigned char* temp_bufer = hDecoder->temp_bufer;
+    unsigned char* temp_buffer = hDecoder->temp_buffer;
     int temp_size = 0;
     faad_log_info("enter NeAACDecInit \r\n");
 #ifdef NEW_CODE_CHECK_LATM
     int i_frame_size;
     if (buffer_size > TMP_BUF_SIZE) {
         LATM_LOG("init input buffer size too big %lu, buffer size %d \n", buffer_size,TMP_BUF_SIZE);
-        //buffer_size = sizeof(temp_bufer);
+        //buffer_size = sizeof(temp_buffer);
         buffer_size =  TMP_BUF_SIZE ;
     }
     if (buffer_size > 0) {
-        memcpy(temp_bufer, buffer, buffer_size);
+        memcpy(temp_buffer, buffer, buffer_size);
         temp_size = buffer_size;
-        buffer  = temp_bufer;
+        buffer  = temp_buffer;
     }
     unsigned char *pbuffer = buffer;
     int  pbuffer_size = buffer_size;
@@ -1726,7 +1726,7 @@ static void* aac_frame_decode(NeAACDecStruct *hDecoder,
     int mux_length = 0;
     short* dec_buffer = hDecoder->dec_buffer;
     short* output_buffer = hDecoder->output_buffer;
-    unsigned char* temp_bufer = hDecoder->temp_bufer;
+    unsigned char* temp_buffer = hDecoder->temp_buffer;
     int temp_size = 0;
 #ifdef NEW_CODE_CHECK_LATM
     int i_frame_size;
@@ -1770,13 +1770,13 @@ static void* aac_frame_decode(NeAACDecStruct *hDecoder,
 #ifdef NEW_CODE_CHECK_LATM
     if (buffer_size > TMP_BUF_SIZE) {
         LATM_LOG("input buffer size tooo big %lu, buffer size %d \n", buffer_size,TMP_BUF_SIZE);
-        //buffer_size = sizeof(temp_bufer);
+        //buffer_size = sizeof(temp_buffer);
         buffer_size =  TMP_BUF_SIZE;
     }
     if (buffer_size > 0) {
-        memcpy(temp_bufer, buffer, buffer_size);
+        memcpy(temp_buffer, buffer, buffer_size);
         temp_size = buffer_size;
-        buffer  = temp_bufer;
+        buffer  = temp_buffer;
     }
 NEXT_CHECK:
     if (hDecoder->latm_header_present) {
@@ -2181,7 +2181,7 @@ start_decode:
         int sample_out;
         int sum;
         unsigned ch_map_scale[6] = {2, 4, 4, 2, 2, 0}; //full scale == 8
-        short *ouput = dec_buffer;
+        short *output = dec_buffer;
         unsigned char adts_header[7];
         unsigned char *pbuf = NULL;
         unsigned char *inbuf = NULL;
@@ -2228,18 +2228,18 @@ start_decode:
                 }
                 for (i = 0; i < aacFrameInfo.outputSamps / ch_num; i++) {
                     if (ch_num == 5 || ch_num == 6) {
-                        output_buffer[i * 2] = ((int)(ouput[ch_num * i + FRONT_LEFT]) +
-                                                ((int)((((int)ouput[ch_num * i + FRONT_CENTER]) -
-                                                        ((int)ouput[ch_num * i + SIDE_LEFT]) -
-                                                        ((int)ouput[ch_num * i + SIDE_RIGHT])) * 707 / 1000)));
-                        output_buffer[2 * i + 1] = ((int)(ouput[ch_num * i + FRONT_RIGHT]) +
-                                                    ((int)((((int)ouput[ch_num * i + FRONT_CENTER]) +
-                                                            ((int)ouput[ch_num * i + SIDE_LEFT]) +
-                                                            ((int)ouput[ch_num * i + SIDE_RIGHT])) * 707 / 1000)));
+                        output_buffer[i * 2] = ((int)(output[ch_num * i + FRONT_LEFT]) +
+                                                ((int)((((int)output[ch_num * i + FRONT_CENTER]) -
+                                                        ((int)output[ch_num * i + SIDE_LEFT]) -
+                                                        ((int)output[ch_num * i + SIDE_RIGHT])) * 707 / 1000)));
+                        output_buffer[2 * i + 1] = ((int)(output[ch_num * i + FRONT_RIGHT]) +
+                                                    ((int)((((int)output[ch_num * i + FRONT_CENTER]) +
+                                                            ((int)output[ch_num * i + SIDE_LEFT]) +
+                                                            ((int)output[ch_num * i + SIDE_RIGHT])) * 707 / 1000)));
                     } else {
-                        sum = ((int)ouput[ch_num * i + FRONT_LEFT] * ch_map_scale[FRONT_LEFT] + (int)ouput[ch_num * i + FRONT_CENTER] * ch_map_scale[FRONT_CENTER] + (int)ouput[ch_num * i + BACK_LEFT] * ch_map_scale[BACK_LEFT]);
+                        sum = ((int)output[ch_num * i + FRONT_LEFT] * ch_map_scale[FRONT_LEFT] + (int)output[ch_num * i + FRONT_CENTER] * ch_map_scale[FRONT_CENTER] + (int)output[ch_num * i + BACK_LEFT] * ch_map_scale[BACK_LEFT]);
                         output_buffer[i * 2] = sum >> 3;
-                        sum = ((int)ouput[ch_num * i + FRONT_RIGHT] * ch_map_scale[FRONT_RIGHT] + (int)ouput[ch_num * i + FRONT_CENTER] * ch_map_scale[FRONT_CENTER] + (int)ouput[ch_num * i + BACK_LEFT] * ch_map_scale[BACK_LEFT]);
+                        sum = ((int)output[ch_num * i + FRONT_RIGHT] * ch_map_scale[FRONT_RIGHT] + (int)output[ch_num * i + FRONT_CENTER] * ch_map_scale[FRONT_CENTER] + (int)output[ch_num * i + BACK_LEFT] * ch_map_scale[BACK_LEFT]);
                         output_buffer[2 * i + 1] = sum >> 3;
                     }
                 }

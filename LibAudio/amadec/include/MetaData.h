@@ -33,7 +33,7 @@ namespace android {
 enum {
     kKeyMIMEType          = 'mime',  // cstring
     kKeyWidth             = 'widt',  // int32_t, image pixel
-    kKeyHeight            = 'heig',  // int32_t, image pixel
+    kKeyHeight            = 'height',  // int32_t, image pixel
     kKeyDisplayWidth      = 'dWid',  // int32_t, display/presentation
     kKeyDisplayHeight     = 'dHgt',  // int32_t, display/presentation
     kKeySARWidth          = 'sarW',  // int32_t, sampleAspectRatio width

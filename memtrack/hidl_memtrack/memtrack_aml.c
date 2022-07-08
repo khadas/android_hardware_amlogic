@@ -96,7 +96,7 @@ static void bufs_array_add(bufs_array_t* arr, buf_info_t* buf_info) {
 /**
  * Free memory used by array of buffers.
  *
- * @param[in]     arr       Poiner to bufs_array_t structure for which memory should be freed.
+ * @param[in]     arr       Pointer to bufs_array_t structure for which memory should be freed.
  */
 static void bufs_array_free(bufs_array_t* arr) {
     if (arr == NULL) return;

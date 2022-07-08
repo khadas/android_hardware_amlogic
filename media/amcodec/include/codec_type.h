@@ -98,7 +98,7 @@ unsigned int dv_enable:
     int audio_pid;              ///< stream audio pid
     int sub_pid;                ///< stream subtitle pid
     int audio_channels;         ///< stream audio channel number
-    int audio_samplerate;       ///< steram audio sample rate
+    int audio_samplerate;       ///< stream audio sample rate
     int vbuf_size;              ///< video buffer size of codec device
     int abuf_size;              ///< audio buffer size of codec device
     dec_sysinfo_t am_sysinfo;   ///< system information for video

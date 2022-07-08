@@ -302,7 +302,7 @@ public:
     int set_banding(int camera_fd,const char *snm);
     status_t allocImageIONBuf(CameraProperties::Properties* caps);
 
-    ///Initialzes the camera adapter creates any resources required
+    ///Initializes the camera adapter creates any resources required
     virtual status_t initialize(CameraProperties::Properties*);
     //virtual status_t initialize(CameraProperties::Properties*, int sensor_index=0);
 
@@ -396,8 +396,8 @@ private:
     int mPreviewHeight;
     int mCaptureWidth;
     int mCaptureHeight;
-    int mPreviewOriation;
-    int mCaptureOriation;
+    int mPreviewOrientation;
+    int mCaptureOrientation;
     bool mPreviewing;
     bool mCapturing;
     Mutex mLock;

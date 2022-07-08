@@ -227,7 +227,7 @@ static void auto_correlation(sbr_info *sbr, acorr_coef *ac,
         real_t buf_j_1 = ((QMF_RE(buffer[j - 1][bd]) + (1 << (exp - 1))) >> exp);
         real_t buf_j_2 = ((QMF_RE(buffer[j - 2][bd]) + (1 << (exp - 1))) >> exp);
 
-        /* normalisation with rounding */
+        /* normalization with rounding */
         r01 += MUL_R(buf_j, buf_j_1);
         r02 += MUL_R(buf_j, buf_j_2);
         r11 += MUL_R(buf_j_1, buf_j_1);

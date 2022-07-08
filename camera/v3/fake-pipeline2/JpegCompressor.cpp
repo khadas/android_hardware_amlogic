@@ -395,7 +395,7 @@ bool JpegCompressor::threadLoop() {
     }
 
     struct timeval mTimeStart,mTimeend;
-    int intreval;
+    int interval;
     ALOGV("%s: Starting compression thread", __FUNCTION__);
     gettimeofday(&mTimeStart, NULL);
 
@@ -412,8 +412,8 @@ bool JpegCompressor::threadLoop() {
         delete ri;
     }
     gettimeofday(&mTimeend, NULL);
-    intreval = (mTimeend.tv_sec - mTimeStart.tv_sec) * 1000 + ((mTimeend.tv_usec - mTimeStart.tv_usec))/1000;
-    ALOGD("jpeg compress cost time =%d ms",intreval);
+    interval = (mTimeend.tv_sec - mTimeStart.tv_sec) * 1000 + ((mTimeend.tv_usec - mTimeStart.tv_usec))/1000;
+    ALOGD("jpeg compress cost time =%d ms",interval);
     cleanUp();
 
     return true;
@@ -472,7 +472,7 @@ static void resize_nv12(params* params, uint8_t* dst_buffer) {
     i_img_ptr.clrPtr = (mmByte *)i_img_ptr.imgPtr + (i_img_ptr.uWidth * i_img_ptr.uHeight);
     i_img_ptr.uOffset = 0;
 
-    //ouput
+    //output
     o_img_ptr.uWidth = (mmInt32)params->out_width;
     o_img_ptr.uStride = (mmInt32)o_img_ptr.uWidth;
     o_img_ptr.uHeight = (mmInt32)params->out_height;
@@ -1009,7 +1009,7 @@ ExifEntry* JpegCompressor::init_tag(ExifData *exif, ExifIfd ifd, ExifTag tag)
 
         /* Ownership of the ExifEntry has now been passed to the IFD.
                * One must be very careful in accessing a structure after
-               * unref'ing it; in this case, we know "entry" won't be freed
+               * unrefined it; in this case, we know "entry" won't be freed
               * because the reference count was bumped when it was added to
               * the IFD.
               */
@@ -1235,8 +1235,8 @@ exif_buffer * JpegCompressor::get_exif_buffer() {
         r1.numerator = (uint32_t)latitude;
         float latitudeminuts = (latitude-(float)(r1.numerator))*60;
         r2.numerator = (uint32_t)latitudeminuts;
-        float latituseconds = (latitudeminuts-(float)(r2.numerator))*60+0.5;
-        r3.numerator = (uint32_t)latituseconds;
+        float latitudeSeconds = (latitudeminuts-(float)(r2.numerator))*60+0.5;
+        r3.numerator = (uint32_t)latitudeSeconds;
         exif_entry_set_gps_coord(pEd, (ExifTag) EXIF_TAG_GPS_LATITUDE, r1, r2, r3);
         exif_entry_set_gps_coord_ref(pEd, (ExifTag) EXIF_TAG_GPS_LATITUDE_REF, offset == 1 ? "S":"N");
     }
@@ -1255,9 +1255,9 @@ exif_buffer * JpegCompressor::get_exif_buffer() {
             offset = 1;
         }
         r1.numerator = (uint32_t)longitude;
-        float longitudeminuts = (longitude-(float)(r1.numerator))*60;
-        r2.numerator = (uint32_t)longitudeminuts;
-        float longitudeseconds = (longitudeminuts-(float)(r2.numerator))*60+0.5;
+        float longitudeMinutes = (longitude-(float)(r1.numerator))*60;
+        r2.numerator = (uint32_t)longitudeMinutes;
+        float longitudeseconds = (longitudeMinutes-(float)(r2.numerator))*60+0.5;
         r3.numerator = (uint32_t)longitudeseconds;
         exif_entry_set_gps_coord(pEd, (ExifTag) EXIF_TAG_GPS_LONGITUDE, r1, r2, r3);
         exif_entry_set_gps_coord_ref(pEd, (ExifTag) EXIF_TAG_GPS_LONGITUDE_REF, offset == 1 ? "W":"E");

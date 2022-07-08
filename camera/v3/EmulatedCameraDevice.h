@@ -175,7 +175,7 @@ public:
      * camera device has not been started, this method must return a failure.
      * Note that this method should be called only after at least one frame has
      * been captured and delivered. Otherwise it will return garbage in the
-     * preview frame buffer. Typically, this method shuld be called from
+     * preview frame buffer. Typically, this method should be called from
      * onNextFrameAvailable callback.
      * Param:
      *  buffer - Buffer, large enough to contain the entire preview frame.
@@ -261,7 +261,7 @@ public:
      */
 
     inline bool isInitialized() const {
-        /* Instance is initialized when the worker thread has been successfuly
+        /* Instance is initialized when the worker thread has been successfully
          * created (but not necessarily started). */
         return mWorkerThread.get() != NULL && mState != ECDS_CONSTRUCTED;
     }
@@ -399,8 +399,8 @@ protected:
                 return run(NULL, ANDROID_PRIORITY_URGENT_DISPLAY, 0);
             }
 
-            /* Overriden base class method.
-             * It is overriden in order to provide one-time initialization just
+            /* Overridden base class method.
+             * It is overridden in order to provide one-time initialization just
              * prior to starting the thread routine.
              */
             status_t readyToRun();

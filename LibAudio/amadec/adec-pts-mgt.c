@@ -35,9 +35,9 @@
 #include "amconfigutils.h"
 
 #define LOG_TAG "adec-pts-mgt"
-#define DROP_PCM_DURATION_THRESHHOLD 4 //unit:s
+#define DROP_PCM_DURATION_THRESHOLD 4 //unit:s
 #define DROP_PCM_MAX_TIME 1000 // unit :ms
-#define DROP_PCM_PTS_DIFF_THRESHHOLD   90000*10
+#define DROP_PCM_PTS_DIFF_THRESHOLD   90000*10
 #define DROP_PCM_RESET_PCR_THRESHOLD 90000/2
 
 int adec_pts_droppcm(aml_audio_dec_t *audec);
@@ -351,7 +351,7 @@ int adec_pts_droppcm(aml_audio_dec_t *audec)
             apts = adec_calc_pts(audec);
             diff = (apts > checkin_firstvpts) ? (apts - checkin_firstvpts) : (checkin_firstvpts - apts);
             adec_print("before drop pre --apts 0x%lx,checkin_firstvpts 0x%lx,apts %s, diff 0x%x\n", apts, checkin_firstvpts, (apts > checkin_firstvpts) ? "big" : "small", diff);
-            if ((apts < checkin_firstvpts) && (diff < DROP_PCM_PTS_DIFF_THRESHHOLD)) {
+            if ((apts < checkin_firstvpts) && (diff < DROP_PCM_PTS_DIFF_THRESHOLD)) {
                 droppts = checkin_firstvpts - apts;
                 audec->droppcm_ms = droppts / 90;
                 drop_size = (droppts / 90) * (audec->samplerate / 1000) * audec->channels * 2;
@@ -421,8 +421,8 @@ int adec_pts_droppcm(aml_audio_dec_t *audec)
     }
     //when start to play,may audio discontinue happens, in this case, don't drop pcm operation
 #if 1
-    else if (diff > DROP_PCM_PTS_DIFF_THRESHHOLD) {
-        adec_print("pts diff 0x%x bigger than %d (ms), don't drop pcm \n", diff, DROP_PCM_PTS_DIFF_THRESHHOLD * 1000 / 90000);
+    else if (diff > DROP_PCM_PTS_DIFF_THRESHOLD) {
+        adec_print("pts diff 0x%x bigger than %d (ms), don't drop pcm \n", diff, DROP_PCM_PTS_DIFF_THRESHOLD * 1000 / 90000);
         return 0;
     }
 #endif
@@ -888,7 +888,7 @@ int droppcm_use_size(aml_audio_dec_t *audec, int drop_size)
 
     start_time = gettime();
     adec_print("before droppcm: drop_size=%d, nDropCount:%d, drop_max_time:%d,platform:%s, ---\n", drop_size, nDropCount, drop_max_time, platformtype);
-    while (drop_size > 0 && !audec->need_stop/*&& drop_duration < DROP_PCM_DURATION_THRESHHOLD*/) {
+    while (drop_size > 0 && !audec->need_stop/*&& drop_duration < DROP_PCM_DURATION_THRESHOLD*/) {
         ret = audec->adsp_ops.dsp_read(&audec->adsp_ops, buffer, MIN(drop_size, DROPPCM_TMPBUF_SIZE));
         if (drop_raw > 0 && ret > 0) {
             drop_raw_size = ret * audec->codec_type;

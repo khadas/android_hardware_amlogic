@@ -227,7 +227,7 @@ static int set_params(alsa_param_t *alsa_params)
 
 #endif
     alsa_params->bits_per_sample = snd_pcm_format_physical_width(alsa_params->format);
-    //bits_per_frame = bits_per_sample * hwparams.realchanl;
+    //bits_per_frame = bits_per_sample * hwparams.real_channel;
     alsa_params->bits_per_frame = alsa_params->bits_per_sample * alsa_params->channelcount;
     adec_print("bits_per_sample %d,bits_per_frame %d\n",alsa_params->bits_per_sample,alsa_params->bits_per_frame);
     bufsize = PERIOD_NUM * PERIOD_SIZE;
@@ -527,7 +527,7 @@ static unsigned oversample_play(alsa_param_t * alsa_param, char * src, unsigned 
     to = (unsigned short *)output_buffer;
     from = (unsigned short *)src;
 
-    if (alsa_param->realchanl == 2) {
+    if (alsa_param->real_channel == 2) {
         if (alsa_param->oversample == -1) {
             frames = count * 8 / alsa_param->bits_per_frame;
             frames = frames & (~(32 - 1));
@@ -543,7 +543,7 @@ static unsigned oversample_play(alsa_param_t * alsa_param, char * src, unsigned 
             frames = count * 8 / alsa_param->bits_per_frame;
             frames = frames & (~(16 - 1));
 #ifdef USE_INTERPOLATION
-            pcm_interpolation(1, alsa_param->realchanl, frames, (short*)src);
+            pcm_interpolation(1, alsa_param->real_channel, frames, (short*)src);
             memcpy(output_buffer, interpolation_output, (frames * alsa_param->bits_per_frame / 4));
 #else
             short l, r;
@@ -563,7 +563,7 @@ static unsigned oversample_play(alsa_param_t * alsa_param, char * src, unsigned 
             frames = count * 8 / alsa_param->bits_per_frame;
             frames = frames & (~(8 - 1));
 #ifdef USE_INTERPOLATION
-            pcm_interpolation(2, alsa_param->realchanl, frames, (short*)src);
+            pcm_interpolation(2, alsa_param->real_channel, frames, (short*)src);
             memcpy(output_buffer, interpolation_output, (frames * alsa_param->bits_per_frame / 2));
 #else
             short l, r;
@@ -584,7 +584,7 @@ static unsigned oversample_play(alsa_param_t * alsa_param, char * src, unsigned 
             ret = ret * alsa_param->bits_per_frame / 8;
             ret = ret / 4;
         }
-    } else if (alsa_param->realchanl == 1) {
+    } else if (alsa_param->real_channel == 1) {
         if (alsa_param->oversample == -1) {
             frames = count * 8 / alsa_param->bits_per_frame;
             frames = frames & (~(32 - 1));
@@ -609,7 +609,7 @@ static unsigned oversample_play(alsa_param_t * alsa_param, char * src, unsigned 
             frames = count * 8 / (alsa_param->bits_per_frame >> 1);
             frames = frames & (~(8 - 1));
 #ifdef USE_INTERPOLATION
-            pcm_interpolation(1, alsa_param->realchanl, frames, (short*)src);
+            pcm_interpolation(1, alsa_param->real_channel, frames, (short*)src);
             from = (unsigned short*)interpolation_output;
             for (i = 0; i < (frames * 2); i++) {
                 *to++ = *from;
@@ -630,7 +630,7 @@ static unsigned oversample_play(alsa_param_t * alsa_param, char * src, unsigned 
             frames = count * 8 / (alsa_param->bits_per_frame >> 1);
             frames = frames & (~(8 - 1));
 #ifdef USE_INTERPOLATION
-            pcm_interpolation(2, alsa_param->realchanl, frames, (short*)src);
+            pcm_interpolation(2, alsa_param->real_channel, frames, (short*)src);
             from = (unsigned short*)interpolation_output;
             for (i = 0; i < (frames * 4); i++) {
                 *to++ = *from;
@@ -673,7 +673,7 @@ static int alsa_play(alsa_param_t * alsa_param, char * data, unsigned len)
     return r ;
 }
 
-static int alsa_swtich_port(alsa_param_t *alsa_params, int card, int port)
+static int alsa_switch_port(alsa_param_t *alsa_params, int card, int port)
 {
     char dev[10] = {0};
     adec_print("card = %d, port = %d\n", card, port);
@@ -732,7 +732,7 @@ static void *alsa_playback_loop(void *args)
     if (hdmi_out == 0) {
             adec_print("===dynmiac get hdmi plugin state===\n");
             if (alsa_get_hdmi_state() == 1) {
-                if (alsa_swtich_port(alsa_params, alsa_get_aml_card(), alsa_get_spdif_port()) == -1) {
+                if (alsa_switch_port(alsa_params, alsa_get_aml_card(), alsa_get_spdif_port()) == -1) {
                     adec_print("switch to hdmi port failed.\n");
                     goto exit;
                 }
@@ -741,7 +741,7 @@ static void *alsa_playback_loop(void *args)
                 adec_print("[%s,%d]get hdmi device, use hdmi device \n", __FUNCTION__, __LINE__);
             }
         } else if (alsa_get_hdmi_state() == 0) {
-            if (alsa_swtich_port(alsa_params, alsa_get_aml_card(), 0) == -1) {
+            if (alsa_switch_port(alsa_params, alsa_get_aml_card(), 0) == -1) {
                 adec_print("switch to default port failed.\n");
                 goto exit;
             }
@@ -868,7 +868,7 @@ int alsa_init(struct aml_audio_dec* audec)
     }
 
     alsa_param->channelcount = 2;
-    alsa_param->realchanl = audec->channels;
+    alsa_param->real_channel = audec->channels;
     //alsa_param->rate = audec->samplerate;
     alsa_param->format = SND_PCM_FORMAT_S16_LE;
     alsa_param->wait_flag = 0;

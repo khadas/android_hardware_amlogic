@@ -49,7 +49,7 @@ BaseCameraAdapter::BaseCameraAdapter()
     mPreviewDataBuffersCount = 0;
     mPreviewDataBuffersLength = 0;
 
-    mAdapterState = INTIALIZED_STATE;
+    mAdapterState = INITIALIZED_STATE;
     mFocusMoveEnabled = false;
 
 #if PPM_INSTRUMENTATION || PPM_INSTRUMENTATION_ABS
@@ -366,7 +366,7 @@ status_t BaseCameraAdapter::sendCommand(CameraCommands operation, int value1, in
                     {
                         mPreviewBuffersAvailable.add(mPreviewBuffers[i], 0);
                     }
-                    // initial ref count for undeqeueued buffers is 1 since buffer provider
+                    // initial ref count for dequeued buffers is 1 since buffer provider
                     // is still holding on to it
                     for ( uint32_t i = desc->mMaxQueueable ; i < desc->mCount ; i++ )
                     {
@@ -419,7 +419,7 @@ status_t BaseCameraAdapter::sendCommand(CameraCommands operation, int value1, in
                             {
                             mPreviewDataBuffersAvailable.add(mPreviewDataBuffers[i], 0);
                             }
-                        // initial ref count for undeqeueued buffers is 1 since buffer provider
+                        // initial ref count for dequeued buffers is 1 since buffer provider
                         // is still holding on to it
                         for ( uint32_t i = desc->mMaxQueueable ; i < desc->mCount ; i++ )
                             {
@@ -472,7 +472,7 @@ status_t BaseCameraAdapter::sendCommand(CameraCommands operation, int value1, in
                         {
                         mCaptureBuffersAvailable.add(mCaptureBuffers[i], 0);
                         }
-                    // initial ref count for undeqeueued buffers is 1 since buffer provider
+                    // initial ref count for dequeued buffers is 1 since buffer provider
                     // is still holding on to it
                     for ( uint32_t i = desc->mMaxQueueable ; i < desc->mCount ; i++ )
                         {
@@ -1315,7 +1315,7 @@ status_t BaseCameraAdapter::__sendFrameToSubscribers(CameraFrame* frame,
             for(uint32_t i = 0; i<subscribers_ref.size();i++){
                 if((frame->mCookie == ( void * ) subscribers_ref.keyAt(i))&&(subscribers_ref.valueAt(i) == 0)){
                     subscribers_ref.replaceValueFor((uint32_t)frame->mCookie,1);
-                    //CAMHAL_LOGDB("Frame callbback is available, cookie:0x%x, callback:0x%x",(uint32_t)frame->mCookie,(uint32_t)callback);
+                    //CAMHAL_LOGDB("Frame callback is available, cookie:0x%x, callback:0x%x",(uint32_t)frame->mCookie,(uint32_t)callback);
                     callback(frame);
                     k = 0;
                     is_find = true;
@@ -1331,7 +1331,7 @@ status_t BaseCameraAdapter::__sendFrameToSubscribers(CameraFrame* frame,
                     CAMHAL_LOGEB("ref count has reached 0!ref size:%d, cur size:%d",subscribers_ref.size(),subscribers->size());
                 }
             }else{
-                //CAMHAL_LOGDB("Frame callbback is unavailable for some reason, cookie:0x%x, callback:0x%x,index:%d",(uint32_t)frame->mCookie,(uint32_t)callback,k);
+                //CAMHAL_LOGDB("Frame callback is unavailable for some reason, cookie:0x%x, callback:0x%x,index:%d",(uint32_t)frame->mCookie,(uint32_t)callback,k);
                 k++;
             }
         }
@@ -1804,11 +1804,11 @@ status_t BaseCameraAdapter::setState(CameraCommands operation)
     switch ( mAdapterState )
         {
 
-        case INTIALIZED_STATE:
+        case INITIALIZED_STATE:
             switch ( operation )
 			{
                 case CAMERA_USE_BUFFERS_PREVIEW:
-                    CAMHAL_LOGDB("Adapter state switch INTIALIZED_STATE->LOADED_PREVIEW_STATE event = 0x%x",
+                    CAMHAL_LOGDB("Adapter state switch INITIALIZED_STATE->LOADED_PREVIEW_STATE event = 0x%x",
                                  operation);
                     mNextState = LOADED_PREVIEW_STATE;
                     break;
@@ -1817,13 +1817,13 @@ status_t BaseCameraAdapter::setState(CameraCommands operation)
                 case CAMERA_QUERY_RESOLUTION_PREVIEW:
                 case CAMERA_QUERY_BUFFER_SIZE_IMAGE_CAPTURE:
                 case CAMERA_QUERY_BUFFER_SIZE_PREVIEW_DATA:
-                    CAMHAL_LOGDB("Adapter state switch INTIALIZED_STATE->INTIALIZED_STATE event = 0x%x",
+                    CAMHAL_LOGDB("Adapter state switch INITIALIZED_STATE->INITIALIZED_STATE event = 0x%x",
                                  operation);
-                    mNextState = INTIALIZED_STATE;
+                    mNextState = INITIALIZED_STATE;
                     break;
 
                 default:
-                    CAMHAL_LOGDB("Adapter state switch INTIALIZED_STATE Invalid Op! event = 0x%x",
+                    CAMHAL_LOGDB("Adapter state switch INITIALIZED_STATE Invalid Op! event = 0x%x",
                                  operation);
                     ret = INVALID_OPERATION;
                     break;
@@ -1868,9 +1868,9 @@ status_t BaseCameraAdapter::setState(CameraCommands operation)
                 {
 
                 case CAMERA_STOP_PREVIEW:
-                    CAMHAL_LOGDB("Adapter state switch PREVIEW_STATE->INTIALIZED_STATE event = 0x%x",
+                    CAMHAL_LOGDB("Adapter state switch PREVIEW_STATE->INITIALIZED_STATE event = 0x%x",
                                  operation);
-                    mNextState = INTIALIZED_STATE;
+                    mNextState = INITIALIZED_STATE;
                     break;
 
                 case CAMERA_PERFORM_AUTOFOCUS:
@@ -2258,7 +2258,7 @@ status_t BaseCameraAdapter::rollbackToInitializedState()
 
     LOG_FUNCTION_NAME;
 
-    while ((getState() != INTIALIZED_STATE) && (ret == NO_ERROR)) {
+    while ((getState() != INITIALIZED_STATE) && (ret == NO_ERROR)) {
         ret = rollbackToPreviousState();
     }
 
@@ -2276,7 +2276,7 @@ status_t BaseCameraAdapter::rollbackToPreviousState()
     CameraAdapter::AdapterState currentState = getState();
 
     switch (currentState) {
-        case INTIALIZED_STATE:
+        case INITIALIZED_STATE:
             return NO_ERROR;
 
         case PREVIEW_STATE:

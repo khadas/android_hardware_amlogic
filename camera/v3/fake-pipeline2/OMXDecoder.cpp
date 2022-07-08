@@ -773,7 +773,7 @@ void OMXDecoder::free_ion_buffer(void) {
     }
     if (mIonFd != -1) {
         int ret = ion_close(mIonFd);
-        ALOGD("free_ion_buffer:close ion device fd %s",ret==0 ? "sucess":strerror(errno));
+        ALOGD("free_ion_buffer:close ion device fd %s",ret==0 ? "success":strerror(errno));
         mIonFd = -1;
     }
 }

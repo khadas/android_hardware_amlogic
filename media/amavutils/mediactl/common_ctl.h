@@ -31,7 +31,7 @@ extern "C" {
 //#define CTRL_PRINT
 int media_open(const char *path, int flags);
 int media_close(int fd);
-int media_control(int fd, int cmd, unsigned long paramter);
+int media_control(int fd, int cmd, unsigned long parameter);
 int media_set_ctl(const char * path,int setval);
 int media_get_ctl(const char * path);
 int media_set_ctl_str(const char * path,char* setval);

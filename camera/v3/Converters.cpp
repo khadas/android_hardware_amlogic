@@ -15,7 +15,7 @@
  */
 
 /*
- * Contains implemenation of framebuffer conversion routines.
+ * Contains implementation of framebuffer conversion routines.
  */
 
 #define LOG_NDEBUG 0

@@ -110,7 +110,7 @@ int EventProvider::disableEventNotification(int32_t frameTypes)
 
 /*--------------------CameraArea Class STARTS here-----------------------------*/
 
-status_t CameraArea::transfrom(size_t width,
+status_t CameraArea::transform(size_t width,
                                size_t height,
                                size_t &top,
                                size_t &left,

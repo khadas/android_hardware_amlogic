@@ -24,7 +24,7 @@
 
 extern "C" int read_buffer(unsigned char *buffer,int size);
 
-//#define LOG_TAG "DDP_Medissource"
+//#define LOG_TAG "DDP_Mediasource"
 //#define ALOGI(...) __android_log_print(ANDROID_LOG_INFO,LOG_TAG,__VA_ARGS__)
 //#define ALOGE(...) __android_log_print(ANDROID_LOG_ERROR,LOG_TAG,__VA_ARGS__)
 
@@ -142,7 +142,7 @@ int DDP_MediaSource::Get_ChNum_DDP(void *buf)//at least need:40bit(=5 bytes)
     int numch=0;
     BITSTREAM bstrm={0, 0, 0};
     BITSTREAM *p_bstrm=&bstrm;
-    short tmp=0,acmod,lfeon,strmtyp;
+    short tmp=0,acmod,lfeon,strtype;
 
     bitstream_init((short*)buf,0,p_bstrm);
 
@@ -153,12 +153,12 @@ int DDP_MediaSource::Get_ChNum_DDP(void *buf)//at least need:40bit(=5 bytes)
         return 0;
     }
 
-    bitstream_unprj(p_bstrm, &strmtyp, 2);
+    bitstream_unprj(p_bstrm, &strtype, 2);
     bitstream_unprj(p_bstrm, &tmp, 3);
     bitstream_unprj(p_bstrm, &tmp, 11);
     frame_size=tmp+1;
     //---------------------------
-    if (strmtyp != 0 && strmtyp != 2)
+    if (strtype != 0 && strtype != 2)
     {
         return 0;
     }

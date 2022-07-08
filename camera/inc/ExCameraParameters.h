@@ -78,7 +78,7 @@ static const char KEY_SENSOR_ORIENTATION_VALUES[];
 static const char ZOOM_SUPPORTED[];
 static const char ZOOM_UNSUPPORTED[];
 
-//extensions for camera capabilies
+//extensions for camera capabilities
 static const char INITIAL_VALUES_TRUE[];
 static const char INITIAL_VALUES_FALSE[];
 
@@ -235,12 +235,12 @@ static const char FACING_FRONT[];
 static const char FACING_BACK[];
 
 #ifdef METADATA_MODE_FOR_PREVIEW_CALLBACK
-static const char KEY_PREVEIW_CALLBACK_IN_METADATA_ENABLE[];
-static const char KEY_PREVEIW_CALLBACK_IN_METADATA_LENGTH[];
-static const char PREVEIW_CALLBACK_IN_METADATA_ENABLE[];
-static const char PREVEIW_CALLBACK_IN_METADATA_DISABLE[];
-static const char PREVEIW_CALLBACK_IN_METADATA_LENGTH_NONE[];
-static const char PREVEIW_CALLBACK_IN_METADATA_LENGTH[];
+static const char KEY_PREVIEW_CALLBACK_IN_METADATA_ENABLE[];
+static const char KEY_PREVIEW_CALLBACK_IN_METADATA_LENGTH[];
+static const char PREVIEW_CALLBACK_IN_METADATA_ENABLE[];
+static const char PREVIEW_CALLBACK_IN_METADATA_DISABLE[];
+static const char PREVIEW_CALLBACK_IN_METADATA_LENGTH_NONE[];
+static const char PREVIEW_CALLBACK_IN_METADATA_LENGTH[];
 #endif
 };
 

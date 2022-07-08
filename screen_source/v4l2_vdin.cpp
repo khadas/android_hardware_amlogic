@@ -53,8 +53,8 @@ namespace android {
         (type *) ((char *) __mptr - (char *)(&((type *)0)->member)); })
 #endif
 
-#define BOUNDRY 32
-#define ALIGN_32(x) ((x + (BOUNDRY) - 1)& ~((BOUNDRY) - 1))
+#define boundary 32
+#define ALIGN_32(x) ((x + (boundary) - 1)& ~((boundary) - 1))
 #define ALIGN(b,w) (((b)+((w)-1))/(w)*(w))
 
 static size_t getBufSize(int format, int width, int height)
@@ -405,7 +405,7 @@ int vdin_screen_source::stop()
 {
     ALOGE("!!!!!!!!!%s %d", __FUNCTION__, __LINE__);
     int ret;
-    mState = STOPING;
+    mState = STOPPING;
 
     if(mWorkThread != NULL){
         mWorkThread->requestExitAndWait();
@@ -881,7 +881,7 @@ int vdin_screen_source::init_native_window()
     return NO_ERROR;
 }
 
-int vdin_screen_source::microdimming(long* src, unsigned char *dest)
+int vdin_screen_source::micro_dimming(long* src, unsigned char *dest)
 {
     int i = 0;
     int j = 0;
@@ -1019,7 +1019,7 @@ int vdin_screen_source::workThread()
                 return BAD_VALUE;
             }
             if (mVideoInfo->dimming_flag == 1)
-                microdimming(src, dest);
+                micro_dimming(src, dest);
             else
                 memcpy(dest, src, mBufferSize);
             graphicBuffer->unlock();

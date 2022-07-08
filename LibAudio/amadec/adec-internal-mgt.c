@@ -460,7 +460,7 @@ static void *adec_message_loop(void *args)
             }
             break;
 
-        case CMD_CHANL_SWAP:
+        case CMD_CHANNEL_SWAP:
 
             adec_print("Receive Channels Swap Command!");
             audio_hardware_ctrl(HW_CHANNELS_SWAP);
@@ -570,7 +570,7 @@ static void set_multichs_prop()
             nread = nread - 5;
             for (i = 0; i < nread; i++) {
                 if ((infobuf[i] == 'P') && (infobuf[i + 1] == 'C') && (infobuf[i + 2] == 'M')) {
-                    if (dgraw == 3) { // if configured mutli-channel output,check if the HDMI sink support multi-channel PCM output
+                    if (dgraw == 3) { // if configured multi-channel output,check if the HDMI sink support multi-channel PCM output
                         if (infobuf[i + 5] == '8') {
                             property_set(MULTICH_SUPPORT_PROPERTY, "hdmi8");
                             channel = channel < 8 ? 8 : channel;

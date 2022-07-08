@@ -183,7 +183,7 @@ void CallbackNotifier::releaseRecordingFrame(const void* opaque)
 status_t CallbackNotifier::storeMetaDataInBuffers(bool enable)
 {
     /* Return INVALID_OPERATION means HAL does not support metadata. So HAL will
-     * return actual frame data with CAMERA_MSG_VIDEO_FRRAME. Return
+     * return actual frame data with CAMERA_MSG_VIDEO_FRAME. Return
      * INVALID_OPERATION to mean metadata is not supported. */
     return INVALID_OPERATION;
 }

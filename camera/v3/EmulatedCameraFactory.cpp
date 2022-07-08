@@ -70,7 +70,7 @@ int updateLogLevels()
     if (property_get("camera.log_levels", levels_value, NULL) > 0)
         sscanf(levels_value, "%d", &tmp);
     else
-        ALOGD("Can not read property camera.log_levels, using defalut value\n");
+        ALOGD("Can not read property camera.log_levels, using default value\n");
     gCamHal_LogLevel = tmp;
     return tmp;
 }
@@ -125,7 +125,7 @@ EmulatedCameraFactory::EmulatedCameraFactory()
                     getFakeCameraHalVersion(cameraId));
             res = mEmulatedCameras[i]->Initialize();
             if (res != NO_ERROR) {
-                ALOGE("%s: Unable to intialize camera %d: %s (%d)",
+                ALOGE("%s: Unable to initialize camera %d: %s (%d)",
                     __FUNCTION__, i, strerror(-res), res);
                 delete mEmulatedCameras[i];
             }
@@ -307,7 +307,7 @@ int EmulatedCameraFactory::setTorchMode(const char* camera_id, bool enabled)
  * Camera HAL API callbacks.
  ***************************************************************************/
 
-EmulatedBaseCamera* EmulatedCameraFactory::getValidCameraOject()
+EmulatedBaseCamera* EmulatedCameraFactory::getValidCameraObject()
 {
     EmulatedBaseCamera* cam = NULL;
     for (int i = 0; i < MAX_CAMERA_NUM; i++) {
@@ -319,7 +319,7 @@ EmulatedBaseCamera* EmulatedCameraFactory::getValidCameraOject()
     return cam;
 }
 
-int EmulatedCameraFactory::getValidCameraOjectId()
+int EmulatedCameraFactory::getValidCameraObjectId()
 {
     int j =0;
     for (int i = 0; i < MAX_CAMERA_NUM; i++) {
@@ -356,7 +356,7 @@ int EmulatedCameraFactory::device_open(const hw_module_t* module,
 int EmulatedCameraFactory::get_number_of_cameras(void)
 {
     int i = 0;
-    EmulatedBaseCamera* cam = gEmulatedCameraFactory.getValidCameraOject();
+    EmulatedBaseCamera* cam = gEmulatedCameraFactory.getValidCameraObject();
     while (i < 6) {
         if (cam != NULL) {
             if (!cam->getHotplugStatus()) {
@@ -451,7 +451,7 @@ void EmulatedCameraFactory::createQemuCameras()
     memset(mEmulatedCameras, 0, sizeof(EmulatedBaseCamera*) * (num + 1));
 
     /*
-     * Iterate the list, creating, and initializin emulated qemu cameras for each
+     * Iterate the list, creating, and initializing emulated qemu cameras for each
      * entry (line) in the list.
      */
 
@@ -567,7 +567,7 @@ void EmulatedCameraFactory::onStatusChanged(int cameraId, int newStatus)
         return;
 
     CAMHAL_LOGDB("mEmulatedCameraNum =%d\n", mEmulatedCameraNum);
-    n = getValidCameraOjectId();
+    n = getValidCameraObjectId();
     if ((n != cameraId) && (mEmulatedCameras[n] != NULL)) {
         DBG_LOGA("device node changed");
         mEmulatedCameras[n]->unplugCamera();
@@ -615,7 +615,7 @@ void EmulatedCameraFactory::onStatusChanged(int cameraId, int newStatus)
             }
             res = cam->Initialize();
             if (res != NO_ERROR) {
-                ALOGE("%s: Unable to intialize camera %d: %s (%d)",
+                ALOGE("%s: Unable to initialize camera %d: %s (%d)",
                     __FUNCTION__, cameraId, strerror(-res), res);
                 delete cam;
                 return ;
@@ -656,7 +656,7 @@ void EmulatedCameraFactory::onStatusChanged(int cameraId, int newStatus)
 
     if (newStatus == CAMERA_DEVICE_STATUS_NOT_PRESENT) {
         mEmulatedCameraNum --;
-        j = getValidCameraOjectId();
+        j = getValidCameraObjectId();
         while (m < 200) {
             if (mEmulatedCameras[j] != NULL) {
                 if (mEmulatedCameras[j]->getCameraStatus()) {

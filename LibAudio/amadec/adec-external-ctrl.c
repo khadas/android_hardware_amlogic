@@ -523,7 +523,7 @@ int audio_channels_swap(void *handle)
     cmd = adec_message_alloc();
     if (cmd) {
         audec->soundtrack = HW_CHANNELS_SWAP;
-        cmd->ctrl_cmd = CMD_CHANL_SWAP;
+        cmd->ctrl_cmd = CMD_CHANNEL_SWAP;
         ret = adec_send_message(audec, cmd);
     } else {
         adec_print("message alloc failed, no memory!");

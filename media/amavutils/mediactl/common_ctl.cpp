@@ -195,16 +195,16 @@ int media_close(int fd)
     return res;
 }
 
-int media_control(int fd, int cmd, unsigned long paramter)
+int media_control(int fd, int cmd, unsigned long parameter)
 {
     int r;
 
     if (fd < 0) {
         return -1;
     }
-    r = ioctl(fd, cmd, paramter);
+    r = ioctl(fd, cmd, parameter);
     if (r < 0) {
-        CTRL_PRINT("send control failed,handle=%d,cmd=%x,paramter=%lx, t=%x errno=%d\n", fd, cmd, paramter, r, errno);
+        CTRL_PRINT("send control failed,handle=%d,cmd=%x,parameter=%lx, t=%x errno=%d\n", fd, cmd, parameter, r, errno);
         return r;
     }
     return 0;

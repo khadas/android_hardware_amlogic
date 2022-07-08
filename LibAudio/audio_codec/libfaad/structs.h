@@ -508,7 +508,7 @@ extern "C" {
         int last_ch_configure;
         short  dec_buffer[DEC_BUF_SIZE];
         short output_buffer[OUT_BUF_SIZE];
-        unsigned char temp_bufer[TMP_BUF_SIZE];
+        unsigned char temp_buffer[TMP_BUF_SIZE];
     } NeAACDecStruct;
 
 

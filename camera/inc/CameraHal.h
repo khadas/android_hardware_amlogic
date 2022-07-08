@@ -132,7 +132,7 @@ public:
                                 mRight(right),
                                 mWeight(weight) {}
 
-    status_t transfrom(size_t width,
+    status_t transform(size_t width,
                        size_t height,
                        size_t &top,
                        size_t &left,
@@ -253,7 +253,7 @@ class CameraFrame
 	PIXEL_FMT_RGB24,
     };
 
-    //default contrustor
+    //default constructor
     CameraFrame():
     mCookie(NULL),
     mCookie2(NULL),
@@ -393,7 +393,7 @@ public:
         CameraHalEvent::FaceEventData faceEvent;
     };
 
-    //default contrustor
+    //default constructor
     CameraHalEvent():
     mCookie(NULL),
     mEventType(NO_EVENTS) {}
@@ -414,12 +414,12 @@ public:
 typedef void (*frame_callback) (CameraFrame *cameraFrame);
 typedef void (*event_callback) (CameraHalEvent *event);
 
-//signals CameraHAL to relase image buffers
+//signals CameraHAL to release image buffers
 typedef void (*release_image_buffers_callback) (void *userData);
 typedef void (*end_image_capture_callback) (void *userData);
 
 /**
-  * Interface class implemented by classes that have some events to communicate to dependendent classes
+  * Interface class implemented by classes that have some events to communicate to dependent classes
   * Dependent classes use this interface for registering for events
   */
 class MessageNotifier
@@ -448,7 +448,7 @@ public:
 
 
 /**
-  * Interace class abstraction for Camera Adapter to act as a frame provider
+  * interface class abstraction for Camera Adapter to act as a frame provider
   * This interface is fully implemented by Camera Adapter
   */
 class FrameNotifier : public MessageNotifier
@@ -545,7 +545,7 @@ public:
 
     ~AppCallbackNotifier();
 
-    ///Initialzes the callback notifier, creates any resources required
+    ///Initializes the callback notifier, creates any resources required
     status_t initialize();
 
     ///Starts the callbacks to application
@@ -730,7 +730,7 @@ class CameraAdapter: public FrameNotifier, public virtual RefBase
 {
 protected:
     enum AdapterActiveStates {
-        INTIALIZED_ACTIVE =     1 << 0,
+        INITIALIZED_ACTIVE =     1 << 0,
         LOADED_PREVIEW_ACTIVE = 1 << 1,
         PREVIEW_ACTIVE =        1 << 2,
         LOADED_CAPTURE_ACTIVE = 1 << 3,
@@ -793,26 +793,26 @@ public:
         };
 
     enum AdapterState {
-        INTIALIZED_STATE           = INTIALIZED_ACTIVE,
-        LOADED_PREVIEW_STATE       = LOADED_PREVIEW_ACTIVE | INTIALIZED_ACTIVE,
-        PREVIEW_STATE              = PREVIEW_ACTIVE | INTIALIZED_ACTIVE,
-        LOADED_CAPTURE_STATE       = LOADED_CAPTURE_ACTIVE | PREVIEW_ACTIVE | INTIALIZED_ACTIVE,
-        CAPTURE_STATE              = CAPTURE_ACTIVE | PREVIEW_ACTIVE | INTIALIZED_ACTIVE,
-        BRACKETING_STATE           = BRACKETING_ACTIVE | CAPTURE_ACTIVE | PREVIEW_ACTIVE | INTIALIZED_ACTIVE ,
-        AF_STATE                   = AF_ACTIVE | PREVIEW_ACTIVE | INTIALIZED_ACTIVE,
-        ZOOM_STATE                 = ZOOM_ACTIVE | PREVIEW_ACTIVE | INTIALIZED_ACTIVE,
-        VIDEO_STATE                = VIDEO_ACTIVE | PREVIEW_ACTIVE | INTIALIZED_ACTIVE,
-        VIDEO_AF_STATE             = VIDEO_ACTIVE | AF_ACTIVE | PREVIEW_ACTIVE | INTIALIZED_ACTIVE,
-        VIDEO_ZOOM_STATE           = VIDEO_ACTIVE | ZOOM_ACTIVE | PREVIEW_ACTIVE | INTIALIZED_ACTIVE,
-        VIDEO_LOADED_CAPTURE_STATE = VIDEO_ACTIVE | LOADED_CAPTURE_ACTIVE | PREVIEW_ACTIVE | INTIALIZED_ACTIVE,
-        VIDEO_CAPTURE_STATE        = VIDEO_ACTIVE | CAPTURE_ACTIVE | PREVIEW_ACTIVE | INTIALIZED_ACTIVE,
-        AF_ZOOM_STATE              = AF_ACTIVE | ZOOM_ACTIVE | PREVIEW_ACTIVE | INTIALIZED_ACTIVE,
-        BRACKETING_ZOOM_STATE      = BRACKETING_ACTIVE | ZOOM_ACTIVE | PREVIEW_ACTIVE | INTIALIZED_ACTIVE,
+        INITIALIZED_STATE           = INITIALIZED_ACTIVE,
+        LOADED_PREVIEW_STATE       = LOADED_PREVIEW_ACTIVE | INITIALIZED_ACTIVE,
+        PREVIEW_STATE              = PREVIEW_ACTIVE | INITIALIZED_ACTIVE,
+        LOADED_CAPTURE_STATE       = LOADED_CAPTURE_ACTIVE | PREVIEW_ACTIVE | INITIALIZED_ACTIVE,
+        CAPTURE_STATE              = CAPTURE_ACTIVE | PREVIEW_ACTIVE | INITIALIZED_ACTIVE,
+        BRACKETING_STATE           = BRACKETING_ACTIVE | CAPTURE_ACTIVE | PREVIEW_ACTIVE | INITIALIZED_ACTIVE ,
+        AF_STATE                   = AF_ACTIVE | PREVIEW_ACTIVE | INITIALIZED_ACTIVE,
+        ZOOM_STATE                 = ZOOM_ACTIVE | PREVIEW_ACTIVE | INITIALIZED_ACTIVE,
+        VIDEO_STATE                = VIDEO_ACTIVE | PREVIEW_ACTIVE | INITIALIZED_ACTIVE,
+        VIDEO_AF_STATE             = VIDEO_ACTIVE | AF_ACTIVE | PREVIEW_ACTIVE | INITIALIZED_ACTIVE,
+        VIDEO_ZOOM_STATE           = VIDEO_ACTIVE | ZOOM_ACTIVE | PREVIEW_ACTIVE | INITIALIZED_ACTIVE,
+        VIDEO_LOADED_CAPTURE_STATE = VIDEO_ACTIVE | LOADED_CAPTURE_ACTIVE | PREVIEW_ACTIVE | INITIALIZED_ACTIVE,
+        VIDEO_CAPTURE_STATE        = VIDEO_ACTIVE | CAPTURE_ACTIVE | PREVIEW_ACTIVE | INITIALIZED_ACTIVE,
+        AF_ZOOM_STATE              = AF_ACTIVE | ZOOM_ACTIVE | PREVIEW_ACTIVE | INITIALIZED_ACTIVE,
+        BRACKETING_ZOOM_STATE      = BRACKETING_ACTIVE | ZOOM_ACTIVE | PREVIEW_ACTIVE | INITIALIZED_ACTIVE,
     };
 
 public:
 
-    ///Initialzes the camera adapter creates any resources required
+    ///Initializes the camera adapter creates any resources required
     virtual int initialize(CameraProperties::Properties*) = 0;
 
     virtual int setErrorHandler(ErrorNotifier *errorNotifier) = 0;
@@ -857,7 +857,7 @@ public:
     // Receive orientation events from CameraHal
     virtual void onOrientationEvent(uint32_t orientation, uint32_t tilt) = 0;
 
-    // Rolls the state machine back to INTIALIZED_STATE from the current state
+    // Rolls the state machine back to INITIALIZED_STATE from the current state
     virtual status_t rollbackToInitializedState() = 0;
 protected:
     //The first two methods will try to switch the adapter state.
@@ -1084,10 +1084,10 @@ public:
 
 #if PPM_INSTRUMENTATION || PPM_INSTRUMENTATION_ABS
 
-    //Uses the constructor timestamp as a reference to calcluate the
+    //Uses the constructor timestamp as a reference to calculate the
     // elapsed time
     static void PPM(const char *);
-    //Uses a user provided timestamp as a reference to calcluate the
+    //Uses a user provided timestamp as a reference to calculate the
     // elapsed time
     static void PPM(const char *, struct timeval*, ...);
 

@@ -33,7 +33,7 @@
 namespace android {
 
 /**
- * SensorListner class - Registers with sensor manager to get sensor events
+ * SensorListener class - Registers with sensor manager to get sensor events
  */
 
 typedef void (*orientation_callback_t) (uint32_t orientation, uint32_t tilt, void* cookie);

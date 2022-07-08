@@ -35,7 +35,7 @@ typedef enum {
     CMD_MUTE = 1 << 4,
     CMD_SET_VOL = 1 << 5,
     CMD_GET_VOL = 1 << 6,
-    CMD_CHANL_SWAP = 1 << 7,
+    CMD_CHANNEL_SWAP = 1 << 7,
     CMD_LEFT_MONO = 1 << 8,
     CMD_RIGHT_MONO = 1 << 9,
     CMD_STEREO = 1 << 10,

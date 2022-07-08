@@ -10,7 +10,7 @@
 
 /**
 * @file codec_msg.c
-* @brief  Codec message covertion functions
+* @brief  Codec message conversion functions
 * 
 * @version 1.0.0
 * @date 2011-02-24

@@ -244,7 +244,7 @@ int codec_get_pre_mute(codec_para_t *p, uint *mute)
 
 /* --------------------------------------------------------------------------*/
 /**
-* @brief  codec_set_volume  Set audio volume seperately
+* @brief  codec_set_volume  Set audio volume separately
 *
 * @param[in]  p    Pointer of codec parameter structure
 * @param[in]  lvol  left Volume to be set
@@ -263,7 +263,7 @@ int codec_set_lrvolume(codec_para_t *p, float lvol, float rvol)
 
 /* --------------------------------------------------------------------------*/
 /**
-* @brief  codec_get_volume  Get audio left and right volume seperately
+* @brief  codec_get_volume  Get audio left and right volume separately
 *
 * @param[in]  p  Pointer of codec parameter structure
 *

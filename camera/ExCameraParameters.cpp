@@ -200,12 +200,12 @@ const char ExCameraParameters::ORIENTATION_SENSOR_180[] = "180";
 const char ExCameraParameters::ORIENTATION_SENSOR_270[] = "270";
 #ifdef METADATA_MODE_FOR_PREVIEW_CALLBACK
  //extensions to add preview callback in metadata mode
-const char ExCameraParameters::KEY_PREVEIW_CALLBACK_IN_METADATA_ENABLE[] = "preview-callback-in-metadata-enable";
-const char ExCameraParameters::KEY_PREVEIW_CALLBACK_IN_METADATA_LENGTH[] = "preview-callback-in-metadata-length";
-const char ExCameraParameters::PREVEIW_CALLBACK_IN_METADATA_ENABLE[] = "1";
-const char ExCameraParameters::PREVEIW_CALLBACK_IN_METADATA_DISABLE[] = "0";
-const char ExCameraParameters::PREVEIW_CALLBACK_IN_METADATA_LENGTH_NONE[] = "0";
-const char ExCameraParameters::PREVEIW_CALLBACK_IN_METADATA_LENGTH[] = "16";
+const char ExCameraParameters::KEY_PREVIEW_CALLBACK_IN_METADATA_ENABLE[] = "preview-callback-in-metadata-enable";
+const char ExCameraParameters::KEY_PREVIEW_CALLBACK_IN_METADATA_LENGTH[] = "preview-callback-in-metadata-length";
+const char ExCameraParameters::PREVIEW_CALLBACK_IN_METADATA_ENABLE[] = "1";
+const char ExCameraParameters::PREVIEW_CALLBACK_IN_METADATA_DISABLE[] = "0";
+const char ExCameraParameters::PREVIEW_CALLBACK_IN_METADATA_LENGTH_NONE[] = "0";
+const char ExCameraParameters::PREVIEW_CALLBACK_IN_METADATA_LENGTH[] = "16";
 #endif
 };
 

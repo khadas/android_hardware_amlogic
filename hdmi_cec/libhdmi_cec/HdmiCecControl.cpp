@@ -304,8 +304,8 @@ void HdmiCecControl::onAddressAllocated(int logicalAddress)
 
     // Android has implemented the function of ONE TOUCH PLAY with keyevents Power and Home. In the previous version
     // like p we use an easy way which is doing this when logical address is allocated. This will make the playback
-    // wake up tv if needed and gain the active source in senarios incluing boot, wake up without power key, and
-    // hotplug in. This is not accepted by google and most of our cutomers do not care about it, thus we will disable
+    // wake up tv if needed and gain the active source in senarios including boot, wake up without power key, and
+    // hotplug in. This is not accepted by google and most of our customers do not care about it, thus we will disable
     // it by default from q. If the customer wants to do it, please do it in frameworks/base.
     // Remove the code from r. Don't produce any messages outside of android framework. Details is in SWPL-26388.
     /*
@@ -339,7 +339,7 @@ void HdmiCecControl::setOption(int flag, int value)
     int ret = -1;
     switch (flag) {
         case HDMI_OPTION_ENABLE_CEC:
-            ret = ioctl(mCecDevice.driver_fd, CEC_IOC_SET_OPTION_ENALBE_CEC, value);
+            ret = ioctl(mCecDevice.driver_fd, CEC_IOC_SET_OPTION_ENABLE_CEC, value);
             mCecDevice.is_cec_enabled = (value == 1);
             if (mCecDevice.is_cec_enabled) {
                 mCecDevice.is_cec_controled = true;
@@ -678,7 +678,7 @@ bool HdmiCecControl::transferableInSleep(char *msgBuf)
 * @param msgBuf is a message Buf
 *   msgBuf[1]: message type
 *   msgBuf[2]-msgBuf[n]: message para
-* @param len is message lenth
+* @param len is message length
 * @param deviceType is type of device
 */
 
@@ -702,7 +702,7 @@ void HdmiCecControl::messageValidateAndHandle(hdmi_cec_event_t* event)
         switch (opcode) {
             case CEC_MESSAGE_REPORT_PHYSICAL_ADDRESS:
                 devPhyAddr = ((event->cec.body[1] & 0xff) << 8) +  (event->cec.body[2] & 0xff);
-                // Compat code: not accpet a device other than tv takes physical address 0.
+                // Compat code: not accept a device other than tv takes physical address 0.
                 if (event->cec.body[1] == 0) {
                     msg.mType = HdmiCecControl::MsgHandler::MSG_GIVE_PHYSICAL_ADDRESS;
                     msg.mDelayMs = DELAY_TIMEOUT_MS/5;
@@ -710,9 +710,9 @@ void HdmiCecControl::messageValidateAndHandle(hdmi_cec_event_t* event)
                     mMsgHandler->removeMsg(msg);
                     mMsgHandler->sendMsg(msg);
                     event->eventType = 0;
-                    LOGE("receviced message: %02x validate fail and drop", event->cec.body[0]);
+                    LOGE("received message: %02x validate fail and drop", event->cec.body[0]);
                 } else {
-                    // Compat code: no tranfer the same <Report Physical Address> if it has been done.
+                    // Compat code: no transfer the same <Report Physical Address> if it has been done.
                     // Preserve this code for projects like amazon fireos.
                     // Check if we have added the specific address, we should not allow the same
                     // devices reports too many messages so that tv might trigger so many NewDeviceActions.
@@ -728,7 +728,7 @@ void HdmiCecControl::messageValidateAndHandle(hdmi_cec_event_t* event)
                     mCecDevice.added_phy_addr[initiator] = devPhyAddr;
                     /*
                     // Compat code: Process uboot cec wake up and forge missed otp messages.
-                    // aml cec driver forging messages may have hight risk.
+                    // aml cec driver forging messages may have height risk.
                     if (mCecDevice.cec_wake_status.processed
                         && mCecDevice.cec_wake_status.wake_device_logical_addr == initiator
                         && mCecDevice.cec_wake_status.wake_device_phy_addr == devPhyAddr) {
@@ -743,7 +743,7 @@ void HdmiCecControl::messageValidateAndHandle(hdmi_cec_event_t* event)
                 [[fallthrough]];
             case CEC_MESSAGE_ROUTING_INFORMATION:
                 if (destination != CEC_ADDR_BROADCAST) {
-                    LOGD("receviced message: %02x validate fail and drop", opcode);
+                    LOGD("received message: %02x validate fail and drop", opcode);
                     event->eventType = 0;
                 }
                 break;
@@ -786,7 +786,7 @@ void HdmiCecControl::handleSetMenuLanguage(hdmi_cec_event_t* event)
 {
     if (event->cec.initiator != CEC_ADDR_TV) {
         event->eventType = 0;
-        LOGE("handleSetMenuLanguage message from no tv is not accpeted");
+        LOGE("handleSetMenuLanguage message from no tv is not accepted");
         return;
     }
 

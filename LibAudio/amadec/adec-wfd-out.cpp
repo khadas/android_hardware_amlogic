@@ -279,7 +279,7 @@ EXTERN_TAG int  pcm_output_write(char *buf,unsigned size)
 	char *data,  *data_dst;
 	char *data_src;	
 	char outbuf[8192];
-	int total_len,ouput_len;
+	int total_len,output_len;
 #ifdef CODE_CALC_VOLUME
 	float vol = get_android_stream_volume();
 	apply_stream_volume(vol,buf,size);
@@ -303,11 +303,11 @@ EXTERN_TAG int  pcm_output_write(char *buf,unsigned size)
 		memcpy((void *)data_dst, (void *)data_src, cached_len);
 		data_dst += cached_len;
 	}
-	ouput_len = total_len &(~0x3f);
+	output_len = total_len &(~0x3f);
 	data = (char*)buf;
 
-	memcpy((void *)data_dst, (void *)data, ouput_len-cached_len);
-	data += (ouput_len-cached_len);
+	memcpy((void *)data_dst, (void *)data, output_len-cached_len);
+	data += (output_len-cached_len);
 	cached_len = total_len & 0x3f;
 	data_src = (char *)cache_buffer_bytes;
 
@@ -318,13 +318,13 @@ EXTERN_TAG int  pcm_output_write(char *buf,unsigned size)
 	char *write_buf = outbuf;
 	int *tmp_buffer = NULL;
 	if (tv_mode) {
-		tmp_buffer = (int*)malloc(ouput_len*8);
+		tmp_buffer = (int*)malloc(output_len*8);
 		if (tmp_buffer == NULL) {
 			ALOGE("malloc tmp_buffer failed\n");
 			return -1;
 		}
 		int i;
-		int out_frames = ouput_len/4;
+		int out_frames = output_len/4;
 		short  *in_buffer = (short*)outbuf;
 		for (i = 0; i < out_frames; i ++) {
 			tmp_buffer[8*i] = ((int)(in_buffer[2*i])) << 16;
@@ -337,9 +337,9 @@ EXTERN_TAG int  pcm_output_write(char *buf,unsigned size)
 			tmp_buffer[8*i + 7] = 0;
 		}
 		write_buf = (char*)tmp_buffer;
-		ouput_len = ouput_len*8;
+		output_len = output_len*8;
 	}
-	ret = pcm_write(wfd_pcm,write_buf,ouput_len);
+	ret = pcm_write(wfd_pcm,write_buf,output_len);
 	if(ret < 0 ){
 		adec_print("pcm_output_write failed ? \n");
 	}
@@ -370,7 +370,7 @@ EXTERN_TAG int  pcm_output_latency()
 	else
 		return avail*1000/wfd_config_out.rate;
 #else
-	return pcm_hw_lantency(wfd_pcm);
+	return pcm_hw_latency(wfd_pcm);
 #endif
 }
 #ifdef CODE_CALC_VOLUME

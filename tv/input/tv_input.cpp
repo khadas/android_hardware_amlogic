@@ -78,7 +78,7 @@ void EventCallback::onTvEvent (const source_connect_t &scrConnect) {
     }
 }
 
-static int channelCheckStaus(tv_input_private_t *priv, int check_status, int device_id)
+static int channelCheckStatus(tv_input_private_t *priv, int check_status, int device_id)
 {
     int ret = 0;
 
@@ -466,7 +466,7 @@ static int tv_input_open_stream(struct tv_input_device *dev, int device_id,
             return -EINVAL;
         }
         if (stream->stream_id == STREAM_ID_NORMAL || stream->stream_id == STREAM_ID_MAIN || stream->stream_id == STREAM_ID_PIP) {
-            if (!channelCheckStaus(priv, 0, device_id))
+            if (!channelCheckStatus(priv, 0, device_id))
                 channelControl(priv, true, device_id);
         }
         else if (stream->stream_id == STREAM_ID_FRAME_CAPTURE) {
@@ -516,7 +516,7 @@ static int tv_input_close_stream(struct tv_input_device *dev, int device_id,
     }
 
     if (stream_id == STREAM_ID_NORMAL || stream_id == STREAM_ID_MAIN || stream_id == STREAM_ID_PIP) {
-        if (!channelCheckStaus(priv, 1, device_id))
+        if (!channelCheckStatus(priv, 1, device_id))
             channelControl(priv, false, device_id);
         return 0;
     } else if (stream_id == STREAM_ID_FRAME_CAPTURE) {

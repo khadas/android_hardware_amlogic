@@ -274,7 +274,7 @@ static void sbr_header(bitfile *ld, sbr_info *sbr)
     sbr->bs_amp_res = faad_get1bit(ld
                                    DEBUGVAR(1, 203, "sbr_header(): bs_amp_res"));
 
-    /* bs_start_freq and bs_stop_freq must define a fequency band that does
+    /* bs_start_freq and bs_stop_freq must define a frequency band that does
        not exceed 48 channels */
     sbr->bs_start_freq = (uint8_t)faad_getbits(ld, 4
                          DEBUGVAR(1, 204, "sbr_header(): bs_start_freq"));

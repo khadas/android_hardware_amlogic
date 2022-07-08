@@ -46,7 +46,7 @@ int main() {
 
     ALOGI("USB Gadget HAL Ready.");
     joinRpcThreadpool();
-    // Under noraml cases, execution will not reach this line.
+    // Under normal cases, execution will not reach this line.
     ALOGI("USB Gadget HAL failed to join thread pool.");
     return 1;
 }

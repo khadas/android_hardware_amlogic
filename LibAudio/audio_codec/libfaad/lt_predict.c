@@ -177,7 +177,7 @@ void lt_update_state(int16_t *lt_pred_stat, real_t *time, real_t *overlap,
      *
      * These values are shifted up by N*2 to avoid (i<0)
      *
-     * For the LD object type an extra 512 samples lookback is accomodated here.
+     * For the LD object type an extra 512 samples lookback is accommodate here.
      */
 #ifdef LD_DEC
     if (object_type == LD) {

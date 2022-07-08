@@ -14,7 +14,7 @@
 
 LOCAL_PATH := $(call my-dir)
 
-# HAL module implemenation stored in
+# HAL module implementation stored in
 # hw/<POWERS_HARDWARE_MODULE_ID>.default.so
 include $(CLEAR_VARS)
 
@@ -35,7 +35,7 @@ SKIP_COUNT_ION := false
 endif
 
 LOCAL_CFLAGS += -DSKIP_COUNT_ION=$(SKIP_COUNT_ION)
-$(warning "the valaue of SKIP_COUNT_ION is $(SKIP_COUNT_ION)")
+$(warning "the value of SKIP_COUNT_ION is $(SKIP_COUNT_ION)")
 
 LOCAL_CFLAGS += -Wno-unused-parameter
 LOCAL_CFLAGS += -Wno-unused-variable

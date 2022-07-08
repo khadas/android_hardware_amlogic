@@ -141,7 +141,7 @@ uint8_t rvlc_decode_scale_factors(ic_stream *ics, bitfile *ld)
 
     if (ics->length_of_rvlc_sf > 0) {
         /* We read length_of_rvlc_sf bits here to put it in a
-           seperate bitfile.
+           separate bitfile.
         */
         rvlc_sf_buffer = faad_getbitbuffer(ld, ics->length_of_rvlc_sf
                                            DEBUGVAR(1, 156, "rvlc_decode_scale_factors(): bitbuffer: length_of_rvlc_sf"));
@@ -153,7 +153,7 @@ uint8_t rvlc_decode_scale_factors(ic_stream *ics, bitfile *ld)
 
     if (ics->sf_escapes_present) {
         /* We read length_of_rvlc_escapes bits here to put it in a
-           seperate bitfile.
+           separate bitfile.
         */
         rvlc_esc_buffer = faad_getbitbuffer(ld, ics->length_of_rvlc_escapes
                                             DEBUGVAR(1, 157, "rvlc_decode_scale_factors(): bitbuffer: length_of_rvlc_escapes"));

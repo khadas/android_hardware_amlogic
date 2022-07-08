@@ -45,7 +45,7 @@ private:
 
 /*class CHandler
 {
-    pubulic:
+    public:
     CHandler(CMsgQueueThread& msgQueue);
     ~CHandler();
     void sendMsg();

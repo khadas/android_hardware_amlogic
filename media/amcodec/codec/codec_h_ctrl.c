@@ -122,21 +122,21 @@ int codec_h_close(CODEC_HANDLE h)
 *
 * @param[in]  h         Codec device handler
 * @param[in]  cmd       IOCTL commands
-* @param[in]  paramter  IOCTL commands parameter
+* @param[in]  parameter  IOCTL commands parameter
 *
 * @return     0 for success, non-0 for fail
 */
 /* --------------------------------------------------------------------------*/
-int codec_h_control(CODEC_HANDLE h, int cmd, unsigned long paramter)
+int codec_h_control(CODEC_HANDLE h, int cmd, unsigned long parameter)
 {
     int r;
 
     if (h < 0) {
         return -1;
     }
-    r = ioctl(h, cmd, paramter);
+    r = ioctl(h, cmd, parameter);
     if (r < 0) {
-        CODEC_PRINT("send control failed,handle=%d,cmd=%x,paramter=%lx, t=%x errno=%d\n", h, cmd, paramter, r, errno);
+        CODEC_PRINT("send control failed,handle=%d,cmd=%x,parameter=%lx, t=%x errno=%d\n", h, cmd, parameter, r, errno);
         return r;
     }
     return 0;
@@ -264,7 +264,7 @@ int get_old_cmd(int cmd)
     return -1;
 }
 
-static int codec_h_ioctl_set(CODEC_HANDLE h, int subcmd, unsigned long paramter)
+static int codec_h_ioctl_set(CODEC_HANDLE h, int subcmd, unsigned long parameter)
 {
     int r;
     int cmd_new = AMSTREAM_IOC_SET;
@@ -289,7 +289,7 @@ static int codec_h_ioctl_set(CODEC_HANDLE h, int subcmd, unsigned long paramter)
         struct am_ioctl_parm parm;
         memset(&parm, 0, sizeof(parm));
         parm.cmd = subcmd;
-        parm.data_32 = paramter;
+        parm.data_32 = parameter;
         parm_new = (unsigned long)&parm;
         r = ioctl(h, cmd_new, parm_new);
     }
@@ -298,7 +298,7 @@ static int codec_h_ioctl_set(CODEC_HANDLE h, int subcmd, unsigned long paramter)
         struct am_ioctl_parm parm;
         memset(&parm, 0, sizeof(parm));
         parm.cmd = subcmd;
-        parm.data_vformat = paramter;
+        parm.data_vformat = parameter;
         parm_new = (unsigned long)&parm;
         r = ioctl(h, cmd_new, parm_new);
     }
@@ -307,7 +307,7 @@ static int codec_h_ioctl_set(CODEC_HANDLE h, int subcmd, unsigned long paramter)
         struct am_ioctl_parm parm;
         memset(&parm, 0, sizeof(parm));
         parm.cmd = subcmd;
-        parm.data_aformat = paramter;
+        parm.data_aformat = parameter;
         parm_new = (unsigned long)&parm;
         r = ioctl(h, cmd_new, parm_new);
     }
@@ -327,7 +327,7 @@ static int codec_h_ioctl_set(CODEC_HANDLE h, int subcmd, unsigned long paramter)
         struct am_ioctl_parm parm;
         memset(&parm, 0, sizeof(parm));
         parm.cmd = subcmd;
-        parm.data_32 = paramter;
+        parm.data_32 = parameter;
         parm_new = (unsigned long)&parm;
         r = ioctl(h, cmd_new, parm_new);
     }
@@ -335,16 +335,16 @@ static int codec_h_ioctl_set(CODEC_HANDLE h, int subcmd, unsigned long paramter)
     }
 
     if (r < 0) {
-        CODEC_PRINT("codec_h_ioctl_set failed,handle=%d,cmd=%x,paramter=%lx, t=%x errno=%d\n", h, subcmd, paramter, r, errno);
+        CODEC_PRINT("codec_h_ioctl_set failed,handle=%d,cmd=%x,parameter=%lx, t=%x errno=%d\n", h, subcmd, parameter, r, errno);
         return r;
     }
     return 0;
 }
-static int codec_h_ioctl_set_ex(CODEC_HANDLE h __unused, int subcmd __unused, unsigned long paramter __unused)
+static int codec_h_ioctl_set_ex(CODEC_HANDLE h __unused, int subcmd __unused, unsigned long parameter __unused)
 {
     return 0;
 }
-static int codec_h_ioctl_set_ptr(CODEC_HANDLE h, int subcmd, unsigned long paramter)
+static int codec_h_ioctl_set_ptr(CODEC_HANDLE h, int subcmd, unsigned long parameter)
 {
     int r;
     int cmd_new = AMSTREAM_IOC_SET_PTR;
@@ -354,7 +354,7 @@ static int codec_h_ioctl_set_ptr(CODEC_HANDLE h, int subcmd, unsigned long param
         struct am_ioctl_parm_ptr parm;
         memset(&parm, 0, sizeof(parm));
         parm.cmd = subcmd;
-        parm.pdata_audio_info = (struct audio_info *)paramter;
+        parm.pdata_audio_info = (struct audio_info *)parameter;
         parm_new = (unsigned long)&parm;
         r = ioctl(h, cmd_new, parm_new);
     }
@@ -364,31 +364,31 @@ static int codec_h_ioctl_set_ptr(CODEC_HANDLE h, int subcmd, unsigned long param
         break;
     }
     if (r < 0) {
-        CODEC_PRINT("codec_h_ioctl_set_ptr failed,handle=%d,subcmd=%x,paramter=%lx, t=%x errno=%d\n", h, subcmd, paramter, r, errno);
+        CODEC_PRINT("codec_h_ioctl_set_ptr failed,handle=%d,subcmd=%x,parameter=%lx, t=%x errno=%d\n", h, subcmd, parameter, r, errno);
         return r;
     }
     return 0;
 }
-static int codec_h_ioctl_get(CODEC_HANDLE h, int subcmd, unsigned long paramter)
+static int codec_h_ioctl_get(CODEC_HANDLE h, int subcmd, unsigned long parameter)
 {
     int r;
     struct am_ioctl_parm parm;
     unsigned long parm_new;
     memset(&parm, 0, sizeof(parm));
     parm.cmd = subcmd;
-    parm.data_32 = *(unsigned int *)paramter;
+    parm.data_32 = *(unsigned int *)parameter;
     parm_new = (unsigned long)&parm;
     r = ioctl(h, AMSTREAM_IOC_GET, parm_new);
     if (r < 0) {
-        CODEC_PRINT("codec_h_ioctl_get failed,handle=%d,subcmd=%x,paramter=%lx, t=%x errno=%d\n", h, subcmd, paramter, r, errno);
+        CODEC_PRINT("codec_h_ioctl_get failed,handle=%d,subcmd=%x,parameter=%lx, t=%x errno=%d\n", h, subcmd, parameter, r, errno);
         return r;
     }
-    if (paramter != 0) {
-        *(unsigned int *)paramter = parm.data_32;
+    if (parameter != 0) {
+        *(unsigned int *)parameter = parm.data_32;
     }
     return 0;
 }
-static int codec_h_ioctl_get_ex(CODEC_HANDLE h, int subcmd, unsigned long paramter)
+static int codec_h_ioctl_get_ex(CODEC_HANDLE h, int subcmd, unsigned long parameter)
 {
     int r;
     int cmd_new = AMSTREAM_IOC_GET_EX;
@@ -401,8 +401,8 @@ static int codec_h_ioctl_get_ex(CODEC_HANDLE h, int subcmd, unsigned long paramt
         parm.cmd = subcmd;
         parm_new = (unsigned long)&parm;
         r = ioctl(h, cmd_new, parm_new);
-        if (r >= 0 && paramter != 0) {
-            memcpy((void *)paramter, &parm.status, sizeof(struct buf_status));
+        if (r >= 0 && parameter != 0) {
+            memcpy((void *)parameter, &parm.status, sizeof(struct buf_status));
         }
     }
     break;
@@ -412,8 +412,8 @@ static int codec_h_ioctl_get_ex(CODEC_HANDLE h, int subcmd, unsigned long paramt
         parm.cmd = subcmd;
         parm_new = (unsigned long)&parm;
         r = ioctl(h, cmd_new, parm_new);
-        if (r >= 0 && paramter != 0) {
-            memcpy((void *)paramter, &parm.vstatus, sizeof(struct vdec_status));
+        if (r >= 0 && parameter != 0) {
+            memcpy((void *)parameter, &parm.vstatus, sizeof(struct vdec_status));
         }
     }
     break;
@@ -423,8 +423,8 @@ static int codec_h_ioctl_get_ex(CODEC_HANDLE h, int subcmd, unsigned long paramt
         parm.cmd = subcmd;
         parm_new = (unsigned long)&parm;
         r = ioctl(h, cmd_new, parm_new);
-        if (r >= 0 && paramter != 0) {
-            memcpy((void *)paramter, &parm.astatus, sizeof(struct adec_status));
+        if (r >= 0 && parameter != 0) {
+            memcpy((void *)parameter, &parm.astatus, sizeof(struct adec_status));
         }
     }
     break;
@@ -433,13 +433,13 @@ static int codec_h_ioctl_get_ex(CODEC_HANDLE h, int subcmd, unsigned long paramt
         break;
     }
     if (r < 0) {
-        CODEC_PRINT("codec_h_ioctl_get_ex failed,handle=%d,subcmd=%x,paramter=%lx, t=%x errno=%d\n", h, subcmd, paramter, r, errno);
+        CODEC_PRINT("codec_h_ioctl_get_ex failed,handle=%d,subcmd=%x,parameter=%lx, t=%x errno=%d\n", h, subcmd, parameter, r, errno);
         return r;
     }
     return 0;
 
 }
-static int codec_h_ioctl_get_ptr(CODEC_HANDLE h, int subcmd, unsigned long paramter)
+static int codec_h_ioctl_get_ptr(CODEC_HANDLE h, int subcmd, unsigned long parameter)
 {
     int r;
     int cmd_new = AMSTREAM_IOC_GET_PTR;
@@ -449,7 +449,7 @@ static int codec_h_ioctl_get_ptr(CODEC_HANDLE h, int subcmd, unsigned long param
         struct am_ioctl_parm_ptr parm;
         memset(&parm, 0, sizeof(parm));
         parm.cmd = subcmd;
-        parm.pdata_sub_info = (struct subtitle_info *)paramter;
+        parm.pdata_sub_info = (struct subtitle_info *)parameter;
         parm_new = (unsigned long)&parm;
         r = ioctl(h, cmd_new, parm_new);
     }
@@ -459,7 +459,7 @@ static int codec_h_ioctl_get_ptr(CODEC_HANDLE h, int subcmd, unsigned long param
         break;
     }
     if (r < 0) {
-        CODEC_PRINT("codec_h_ioctl_get_ptr failed,handle=%d,subcmd=%x,paramter=%lx, t=%x errno=%d\n", h, subcmd, paramter, r, errno);
+        CODEC_PRINT("codec_h_ioctl_get_ptr failed,handle=%d,subcmd=%x,parameter=%lx, t=%x errno=%d\n", h, subcmd, parameter, r, errno);
         return r;
     }
     return 0;
@@ -470,12 +470,12 @@ static int codec_h_ioctl_get_ptr(CODEC_HANDLE h, int subcmd, unsigned long param
 *
 * @param[in]  h         Codec device handler
 * @param[in]  cmd       IOCTL commands
-* @param[in]  paramter  IOCTL commands parameter
+* @param[in]  parameter  IOCTL commands parameter
 *
 * @return     0 for success, non-0 for fail
 */
 /* --------------------------------------------------------------------------*/
-int codec_h_ioctl(CODEC_HANDLE h, int cmd, int subcmd, unsigned long paramter)
+int codec_h_ioctl(CODEC_HANDLE h, int cmd, int subcmd, unsigned long parameter)
 {
     int r;
     if (h < 0) {
@@ -487,34 +487,34 @@ int codec_h_ioctl(CODEC_HANDLE h, int cmd, int subcmd, unsigned long paramter)
         if (old_cmd == -1) {
             return -1;
         }
-        return codec_h_control(h, old_cmd, paramter);
+        return codec_h_control(h, old_cmd, parameter);
     }
     switch (cmd) {
     case AMSTREAM_IOC_SET:
-        r = codec_h_ioctl_set(h, subcmd, paramter);
+        r = codec_h_ioctl_set(h, subcmd, parameter);
         break;
     case AMSTREAM_IOC_SET_EX:
-        r = codec_h_ioctl_set_ex(h, subcmd, paramter);
+        r = codec_h_ioctl_set_ex(h, subcmd, parameter);
         break;
     case AMSTREAM_IOC_SET_PTR:
-        r = codec_h_ioctl_set_ptr(h, subcmd, paramter);
+        r = codec_h_ioctl_set_ptr(h, subcmd, parameter);
         break;
     case AMSTREAM_IOC_GET:
-        r = codec_h_ioctl_get(h, subcmd, paramter);
+        r = codec_h_ioctl_get(h, subcmd, parameter);
         break;
     case AMSTREAM_IOC_GET_EX:
-        r = codec_h_ioctl_get_ex(h, subcmd, paramter);
+        r = codec_h_ioctl_get_ex(h, subcmd, parameter);
         break;
     case AMSTREAM_IOC_GET_PTR:
-        r = codec_h_ioctl_get_ptr(h, subcmd, paramter);
+        r = codec_h_ioctl_get_ptr(h, subcmd, parameter);
         break;
     default:
-        r = ioctl(h, cmd, paramter);
+        r = ioctl(h, cmd, parameter);
         break;
     }
 
     if (r < 0) {
-        CODEC_PRINT("codec_h_ioctl failed,handle=%d,cmd=%x,subcmd=%x, paramter=%lx, t=%x errno=%d\n", h, cmd, subcmd, paramter, r, errno);
+        CODEC_PRINT("codec_h_ioctl failed,handle=%d,cmd=%x,subcmd=%x, parameter=%lx, t=%x errno=%d\n", h, cmd, subcmd, parameter, r, errno);
         return r;
     }
     return 0;

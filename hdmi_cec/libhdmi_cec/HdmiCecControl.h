@@ -31,7 +31,7 @@
 #define CEC_IOC_GET_PORT_NUM            _IOR(CEC_IOC_MAGIC, 0x04, int)
 #define CEC_IOC_GET_SEND_FAIL_REASON    _IOR(CEC_IOC_MAGIC, 0x05, uint32_t)
 #define CEC_IOC_SET_OPTION_WAKEUP       _IOW(CEC_IOC_MAGIC, 0x06, uint32_t)
-#define CEC_IOC_SET_OPTION_ENALBE_CEC   _IOW(CEC_IOC_MAGIC, 0x07, uint32_t)
+#define CEC_IOC_SET_OPTION_ENABLE_CEC   _IOW(CEC_IOC_MAGIC, 0x07, uint32_t)
 #define CEC_IOC_SET_OPTION_SYS_CTRL     _IOW(CEC_IOC_MAGIC, 0x08, uint32_t)
 #define CEC_IOC_SET_OPTION_SET_LANG     _IOW(CEC_IOC_MAGIC, 0x09, uint32_t)
 #define CEC_IOC_GET_CONNECT_STATUS      _IOR(CEC_IOC_MAGIC, 0x0A, uint32_t)
@@ -122,7 +122,7 @@ typedef struct hdmi_device {
 
     bool                        is_tv;
     bool                        is_playback;
-    bool                        is_audio_sysetm;
+    bool                        is_audio_system;
     bool                        is_cec_enabled;
     bool                        is_cec_controled;
     unsigned int                cec_connect_status;

@@ -181,7 +181,7 @@ private:
 
     /* Type of the frame to display in the current rotation:
      *  0 - Checkerboard.
-     *  1 - White/Red/Green/Blue horisontal stripes
+     *  1 - White/Red/Green/Blue horizontal stripes
      *  2 - Solid color. */
     int         mCurrentFrameType;
 

@@ -26,7 +26,7 @@
 /*
  * Contains declaration of framebuffer conversion routines.
  *
- * NOTE: RGB and big/little endian considerations. Wherewer in this code RGB
+ * NOTE: RGB and big/little endian considerations. Wherever in this code RGB
  * pixels are represented as WORD, or DWORD, the color order inside the
  * WORD / DWORD matches the one that would occur if that WORD / DWORD would have
  * been read from the typecasted framebuffer:
@@ -184,7 +184,7 @@ RGB32ToYUV(uint32_t rgb, uint8_t* y, uint8_t* u, uint8_t* v)
  * YUV -> RGB conversion macros
  */
 
-/* "Optimized" macros that take specialy prepared Y, U, and V values:
+/* "Optimized" macros that take special prepared Y, U, and V values:
  *  C = Y - 16
  *  D = U - 128
  *  E = V - 128

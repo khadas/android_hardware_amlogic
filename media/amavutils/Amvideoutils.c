@@ -72,8 +72,8 @@ int amvideo_utils_get_freescale_enable(void)
     char buf[32];
 
     ret = amsysfs_get_sysfs_str("/sys/class/graphics/fb0/free_scale", buf, 32);
-    if ((ret >= 0) && strncmp(buf, "free_scale_enalbe:[0x1]",
-                              strlen("free_scale_enalbe:[0x1]")) == 0) {
+    if ((ret >= 0) && strncmp(buf, "free_scale_enable:[0x1]",
+                              strlen("free_scale_enable:[0x1]")) == 0) {
 
         return 1;
 
@@ -372,7 +372,7 @@ int amvideo_convert_axis(int32_t* x, int32_t* y, int32_t* w, int32_t* h, int *ro
     amdisplay_utils_get_size(&fb0_w, &fb0_h);
     ALOGD("amvideo_convert_axis convert before %d,%d,%d,%d -- %d,%d", *x, *y, *w, *h, *rotation, osd_rotation);
     /*if the video's width  >= fb0_w  and x == 0 , we think this a full screen video,then transfer the whole display size to decode
-        either is to y == 0 and hight >= fb0_h.
+        either is to y == 0 and height >= fb0_h.
         this is added for platforms which is 4:3 and hdmi mode are 16:9*/
     if (osd_rotation == 90) {
         *rotation = (*rotation + osd_rotation) % 360;

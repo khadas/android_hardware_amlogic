@@ -98,7 +98,7 @@ class ThermalHelper {
     bool readTemperature(std::string_view sensor_name, Temperature_1_0 *out) const;
     bool readTemperature(
             std::string_view sensor_name, Temperature_2_0 *out,
-            std::pair<ThrottlingSeverity, ThrottlingSeverity> *throtting_status = nullptr) const;
+            std::pair<ThrottlingSeverity, ThrottlingSeverity> *throttling_status = nullptr) const;
     bool readTemperatureThreshold(std::string_view sensor_name, TemperatureThreshold *out) const;
     // Read the value of a single cooling device.
     bool readCoolingDevice(std::string_view cooling_device, CoolingDevice_2_0 *out) const;

@@ -335,7 +335,7 @@ void USBSensor::setIOBufferNum()
         sscanf(buffer_number, "%d", &tmp);
         ALOGD("get property value is %d\n",tmp);
     } else {
-        ALOGD("defalut buffer number is %d\n",tmp);
+        ALOGD("default buffer number is %d\n",tmp);
     }
     mVinfo->set_buffer_numbers(tmp);
 }
@@ -1187,7 +1187,7 @@ status_t USBSensor::setAntiBanding(uint8_t antiBanding)
     return ret;
 }
 
-status_t USBSensor::setFocuasArea(int32_t x0, int32_t y0, int32_t x1, int32_t y1)
+status_t USBSensor::setFocusArea(int32_t x0, int32_t y0, int32_t x1, int32_t y1)
 {
     int ret = 0;
     struct v4l2_control ctl;
@@ -1249,7 +1249,7 @@ int USBSensor::getAutoFocus(uint8_t *afMode, uint8_t maxCount)
     return mode_count;
 }
 
-status_t USBSensor::setAutoFocuas(uint8_t afMode)
+status_t USBSensor::setAutoFocus(uint8_t afMode)
 {
     struct v4l2_control ctl;
     ctl.id = V4L2_CID_FOCUS_AUTO;
@@ -1274,7 +1274,7 @@ status_t USBSensor::setAutoFocuas(uint8_t afMode)
     }
 
     if (ioctl(mVinfo->fd, VIDIOC_S_CTRL, &ctl) < 0) {
-        CAMHAL_LOGDA("failed to set camera focuas mode!\n");
+        CAMHAL_LOGDA("failed to set camera focus mode!\n");
         return BAD_VALUE;
     }
 

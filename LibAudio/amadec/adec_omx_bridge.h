@@ -15,8 +15,8 @@
  *
  */
 
-#ifndef __ADEC_OMXDDPDEC_BRIGE_H__
-#define __ADEC_OMXDDPDEC_BRIGE_H__
+#ifndef __ADEC_OMXDDPDEC_BRIDGE_H__
+#define __ADEC_OMXDDPDEC_BRIDGE_H__
 
 #include <stdio.h>
 #include <stdlib.h>

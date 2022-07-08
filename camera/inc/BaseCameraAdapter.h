@@ -32,7 +32,7 @@ public:
     BaseCameraAdapter();
     virtual ~BaseCameraAdapter();
 
-    ///Initialzes the camera adapter creates any resources required
+    ///Initializes the camera adapter creates any resources required
     virtual status_t initialize(CameraProperties::Properties*) = 0;
 
     virtual int setErrorHandler(ErrorNotifier *errorNotifier);
@@ -60,7 +60,7 @@ public:
     //Retrieves the next Adapter state
     virtual AdapterState getNextState();
 
-    // Rolls the state machine back to INTIALIZED_STATE from the current state
+    // Rolls the state machine back to INITIALIZED_STATE from the current state
     virtual status_t rollbackToInitializedState();
 
 protected:
@@ -79,13 +79,13 @@ protected:
 
     //-----------Interface that needs to be implemented by deriving classes --------------------
 
-    //Should be implmented by deriving classes in order to start image capture
+    //Should be implemented by deriving classes in order to start image capture
     virtual status_t takePicture();
 
-    //Should be implmented by deriving classes in order to start image capture
+    //Should be implemented by deriving classes in order to start image capture
     virtual status_t stopImageCapture();
 
-    //Should be implmented by deriving classes in order to start temporal bracketing
+    //Should be implemented by deriving classes in order to start temporal bracketing
     virtual status_t startBracketing(int range);
 
     //Should be implemented by deriving classes in order to stop temporal bracketing

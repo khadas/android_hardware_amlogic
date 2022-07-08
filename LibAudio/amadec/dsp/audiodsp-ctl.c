@@ -199,7 +199,7 @@ int audiodsp_init(dsp_operations_t *dsp_ops)
         }
     }
     if (i > 0) {
-        ret = 0;    //ignore the some fmt register error,for compatible some old kernel.can't support muti filename,
+        ret = 0;    //ignore the some fmt register error,for compatible some old kernel.can't support multi filename,
     }
     if (ret != 0) {
         close(fd);

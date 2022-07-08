@@ -191,7 +191,7 @@
 #define GE2D_FORMAT_YUV             0x20000
 #define GE2D_FORMAT_COMP_RANGE      0x10000
 /*bit8(2)  format   bi6(2) mode_8b_sel  bit5(1)lut_en   bit2 sep_en*/
-/*M  seperate block S one block.*/ 
+/*M  separate block S one block.*/
 
 #define GE2D_FMT_S8_Y            	0x00000 /* 00_00_0_00_0_00 */
 #define GE2D_FMT_S8_CB           	0x00040 /* 00_01_0_00_0_00 */

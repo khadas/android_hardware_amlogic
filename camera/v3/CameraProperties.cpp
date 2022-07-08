@@ -30,7 +30,7 @@ extern "C" void loadCaps(int camera_id, CameraProperties::Properties* params)
 {}
 
 /*********************************************************
- CameraProperties - public function implemetation
+ CameraProperties - public function implementation
 **********************************************************/
 
 CameraProperties::CameraProperties() : mCamerasSupported(0)

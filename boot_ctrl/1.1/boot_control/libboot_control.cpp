@@ -429,7 +429,7 @@ bool BootControl::SetActiveBootSlot(unsigned int slot) {
 
   // Setting the current slot as active is a way to revert the operation that
   // set *another* slot as active at the end of an updater. This is commonly
-  // used to cancel the pending update. We should only reset the verity_corrpted
+  // used to cancel the pending update. We should only reset the verity_corrupted
   // bit when attempting a new slot, otherwise the verity bit on the current
   // slot would be flip.
   if (slot != current_slot_) bootctrl.slot_info[slot].verity_corrupted = 0;

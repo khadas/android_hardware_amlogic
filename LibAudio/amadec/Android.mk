@@ -94,7 +94,7 @@ endif
 LOCAL_SRC_FILES := \
            adec-external-ctrl.c adec-internal-mgt.c adec-ffmpeg-mgt.c adec-message.c adec-pts-mgt.c adec_write.c adec_read.c\
            audio_out/dtv_patch_out.c  \
-           adec_omx_brige.c
+           adec_omx_bridge.c
 
 LOCAL_MODULE := libamadec
 LOCAL_LICENSE_KINDS := SPDX-license-identifier-Apache-2.0 SPDX-license-identifier-GPL

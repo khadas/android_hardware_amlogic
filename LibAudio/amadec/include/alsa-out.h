@@ -34,7 +34,7 @@ typedef struct {
     unsigned int channelcount;
     unsigned int rate;
     int oversample;
-    int realchanl;
+    int real_channel;
     int flag;
     int stop_flag;
     int pause_flag;

@@ -147,7 +147,7 @@ typedef struct IC_crop_struct
 *
 * Value Returned : mmBool               -> FALSE on error TRUE on success
 * NOTE:
-*            Not tested for crop funtionallity.
+*            Not tested for crop functionality.
 *            faster version.
 ============================================================================*/
 mmBool

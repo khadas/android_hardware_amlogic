@@ -105,7 +105,7 @@ public:
 
     ~AppCbNotifier();
 
-    ///Initialzes the callback notifier, creates any resources required
+    ///Initializes the callback notifier, creates any resources required
     status_t initialize();
 
     ///Starts the callbacks to application
@@ -425,10 +425,10 @@ public:
 
 #if PPM_INSTRUMENTATION || PPM_INSTRUMENTATION_ABS
 
-    //Uses the constructor timestamp as a reference to calcluate the
+    //Uses the constructor timestamp as a reference to calculate the
     // elapsed time
     static void PPM(const char *);
-    //Uses a user provided timestamp as a reference to calcluate the
+    //Uses a user provided timestamp as a reference to calculate the
     // elapsed time
     static void PPM(const char *, struct timeval*, ...);
 

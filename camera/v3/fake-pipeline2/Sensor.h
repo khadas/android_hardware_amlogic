@@ -225,10 +225,10 @@ class Sensor: private Thread, public virtual RefBase {
     status_t setEffect(uint8_t effect);
     int getAntiBanding(uint8_t *antiBanding, uint8_t maxCont);
     status_t setAntiBanding(uint8_t antiBanding);
-    status_t setFocuasArea(int32_t x0, int32_t y0, int32_t x1, int32_t y1);
+    status_t setFocusArea(int32_t x0, int32_t y0, int32_t x1, int32_t y1);
     int getAWB(uint8_t *awbMode, uint8_t maxCount);
     status_t setAWB(uint8_t awbMode);
-    status_t setAutoFocuas(uint8_t afMode);
+    status_t setAutoFocus(uint8_t afMode);
     int getAutoFocus(uint8_t *afMode, uint8_t maxCount);
     void setExposureTime(uint64_t ns);
     void setFrameDuration(uint64_t ns);
@@ -373,7 +373,7 @@ class Sensor: private Thread, public virtual RefBase {
         uint8_t *validBuffer = nullptr;
         bool taskRunning = false;
         bool exitThread = false;
-        bool bDecoderflag;
+        bool bDecoderFlag;
     };
     struct DecoderTask mDecoderTask;
     std::thread mDecoderThread;

@@ -30,7 +30,7 @@ CAMERA_UTILS_SRC:= \
 	utils/Semaphore.cpp \
 	utils/util.cpp
 
-CAMERA_HAL_VERTURAL_CAMERA_SRC:= \
+CAMERA_HAL_VIRTUAL_CAMERA_SRC:= \
 	VirtualCamHal.cpp \
 	AppCbNotifier.cpp \
 	V4LCamAdpt.cpp
@@ -82,7 +82,7 @@ endif
 
 ifeq ($(BOARD_USE_USB_CAMERA),true)
     LOCAL_CFLAGS += -DAMLOGIC_USB_CAMERA_SUPPORT
-#descrease the number of camera captrue frames,and let skype run smoothly
+#decrease the number of camera capture frames,and let skype run smoothly
 ifeq ($(BOARD_USB_CAMREA_DECREASE_FRAMES), true)
 	LOCAL_CFLAGS += -DAMLOGIC_USB_CAMERA_DECREASE_FRAMES
 endif
@@ -105,7 +105,7 @@ endif
 ifeq ($(BOARD_HAVE_VIRTUAL_CAMERA),true)
     LOCAL_CFLAGS += -DAMLOGIC_VIRTUAL_CAMERA_SUPPORT
     LOCAL_SRC_FILES+= \
-	$(CAMERA_HAL_VERTURAL_CAMERA_SRC)
+	$(CAMERA_HAL_VIRTUAL_CAMERA_SRC)
 endif
 
 LOCAL_MODULE_RELATIVE_PATH := hw

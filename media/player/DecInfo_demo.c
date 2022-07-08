@@ -87,7 +87,7 @@ struct vframe_counter_s {
 };
 
 /*This is a versioning structure, the key member is the struct_size.
- *In the 1st version it is not used,but will have its role in fureture.
+ *In the 1st version it is not used,but will have its role in future.
  *https://bytes.com/topic/c/answers/811125-struct-versioning
  */
 struct av_param_mvdec_t {

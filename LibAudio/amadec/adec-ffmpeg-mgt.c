@@ -25,7 +25,7 @@
 #include <dlfcn.h>
 
 #include "audiodsp_update_format.h"
-#include "adec_omx_brige.h"
+#include "adec_omx_bridge.h"
 #include "adec_reg.h"
 #include <adec-pts-mgt.h>
 #include <adec_write.h>
@@ -796,7 +796,7 @@ static int audio_codec_init(aml_audio_dec_t *audec)
     audec->sn_threadid = -1;
     audec->sn_getpackage_threadid = -1;
     audec->OmxFirstFrameDecoded = 0;
-    audec->use_get_out_posion = am_getconfig_bool_def("vendor.media.audio.pts.use_get_posion", 0);
+    audec->use_get_out_position = am_getconfig_bool_def("vendor.media.audio.pts.use_get_position", 0);
     package_list_init(audec);
     audec->use_sw_check_apts = 0;
     audec->audio_loopback = 0;
@@ -1302,7 +1302,7 @@ static void stop_decode_thread(aml_audio_dec_t *audec)
 
 static int get_frame_size(aml_audio_dec_t *audec)
 {
-    int frame_szie = 0;
+    int frame_size = 0;
     int ret = 0;
     int extra_data = 8; //?
     StartCode *start_code = &audec->start_code;
@@ -1351,10 +1351,10 @@ static int get_frame_size(aml_audio_dec_t *audec)
                 return 0;
             }
             start_code->size = 4;
-            frame_szie  = start_code->buff[3] << 24 | start_code->buff[2] << 16 | start_code->buff[1] << 8 | start_code->buff[0] + extra_data;
-            frame_szie  = (frame_szie + 3) & (~3);
+            frame_size  = start_code->buff[3] << 24 | start_code->buff[2] << 16 | start_code->buff[1] << 8 | start_code->buff[0] + extra_data;
+            frame_size  = (frame_size + 3) & (~3);
             start_code->status = FRAME_SIZE_FOUND; //found frame size
-            return frame_szie;
+            return frame_size;
         }
     }
 
@@ -1375,7 +1375,7 @@ static void check_audio_info_changed(aml_audio_dec_t *audec)
                 g_bst->channels = audec->channels = g_AudioInfo.channels;
                 g_bst->samplerate = audec->samplerate = g_AudioInfo.samplerate;
             } else {
-                //experienc value:0.2 Secs
+                // experience value:0.2 Secs
                 BufLevelAllowDoFmtChg = audec->samplerate * audec->channels * (audec->adec_ops->bps >> 3) / 5;
                 #ifdef USE_AOUT_IN_ADEC
                 while ((audec->format_changed_flag || g_bst->buf_level > BufLevelAllowDoFmtChg) && !audec->exit_decode_thread) {
@@ -1783,7 +1783,7 @@ void *ad_audio_decode_loop(void *args)
                 }
                 dlen = ad_adec_ops->decode(audec->ad_adec_ops, outbuf, &outlen, inbuf + declen, inlen);
                 if (outlen > AVCODEC_MAX_AUDIO_FRAME_SIZE) {
-                    adec_print("!!!!!fatal error,out buffer overwriten,out len %d,actual %d", outlen, AVCODEC_MAX_AUDIO_FRAME_SIZE);
+                    adec_print("!!!!!fatal error,out buffer overwrite,out len %d,actual %d", outlen, AVCODEC_MAX_AUDIO_FRAME_SIZE);
                 }
                 if (dlen <= 0) {
                     if (nAudioFormat == ACODEC_FMT_APE) {
@@ -2041,7 +2041,7 @@ void *audio_decode_loop(void *args)
 #endif
                 }
                 if (outlen > AVCODEC_MAX_AUDIO_FRAME_SIZE) {
-                    adec_print("!!!!!fatal error,out buffer overwriten,out len %d,actual %d", outlen, AVCODEC_MAX_AUDIO_FRAME_SIZE);
+                    adec_print("!!!!!fatal error,out buffer overwrite,out len %d,actual %d", outlen, AVCODEC_MAX_AUDIO_FRAME_SIZE);
                 }
 
                 if (dlen <= 0 ) {
@@ -2257,7 +2257,7 @@ MSG_LOOP:
             }
             break;
 
-        case CMD_CHANL_SWAP:
+        case CMD_CHANNEL_SWAP:
 
             adec_print("Receive Channels Swap Command!");
             audio_hardware_ctrl(HW_CHANNELS_SWAP);

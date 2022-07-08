@@ -124,7 +124,7 @@ public:
 protected:
     /* Actual handler for camera_device_ops_t::set_preview_window callback.
      * NOTE: When this method is called the object is locked.
-     * Note that failures in this method are reported as negave EXXX statuses.
+     * Note that failures in this method are reported as negative EXXX statuses.
      */
     virtual status_t setPreviewWindow(struct preview_stream_ops *window);
 
@@ -156,7 +156,7 @@ protected:
 
     /* Actual handler for camera_device_ops_t::start_preview callback.
      * NOTE: When this method is called the object is locked.
-     * Note that failures in this method are reported as negave EXXX statuses.
+     * Note that failures in this method are reported as negative EXXX statuses.
      */
     virtual status_t startPreview();
 
@@ -174,13 +174,13 @@ protected:
 
     /* Actual handler for camera_device_ops_t::store_meta_data_in_buffers callback.
      * NOTE: When this method is called the object is locked.
-     * Note that failures in this method are reported as negave EXXX statuses.
+     * Note that failures in this method are reported as negative EXXX statuses.
      */
     virtual status_t storeMetaDataInBuffers(int enable);
 
     /* Actual handler for camera_device_ops_t::start_recording callback.
      * NOTE: When this method is called the object is locked.
-     * Note that failures in this method are reported as negave EXXX statuses.
+     * Note that failures in this method are reported as negative EXXX statuses.
      */
     virtual status_t startRecording();
 
@@ -203,31 +203,31 @@ protected:
 
     /* Actual handler for camera_device_ops_t::auto_focus callback.
      * NOTE: When this method is called the object is locked.
-     * Note that failures in this method are reported as negave EXXX statuses.
+     * Note that failures in this method are reported as negative EXXX statuses.
      */
     virtual status_t setAutoFocus();
 
     /* Actual handler for camera_device_ops_t::cancel_auto_focus callback.
      * NOTE: When this method is called the object is locked.
-     * Note that failures in this method are reported as negave EXXX statuses.
+     * Note that failures in this method are reported as negative EXXX statuses.
      */
     virtual status_t cancelAutoFocus();
 
     /* Actual handler for camera_device_ops_t::take_picture callback.
      * NOTE: When this method is called the object is locked.
-     * Note that failures in this method are reported as negave EXXX statuses.
+     * Note that failures in this method are reported as negative EXXX statuses.
      */
     virtual status_t takePicture();
 
     /* Actual handler for camera_device_ops_t::cancel_picture callback.
      * NOTE: When this method is called the object is locked.
-     * Note that failures in this method are reported as negave EXXX statuses.
+     * Note that failures in this method are reported as negative EXXX statuses.
      */
     virtual status_t cancelPicture();
 
     /* Actual handler for camera_device_ops_t::set_parameters callback.
      * NOTE: When this method is called the object is locked.
-     * Note that failures in this method are reported as negave EXXX statuses.
+     * Note that failures in this method are reported as negative EXXX statuses.
      */
     virtual status_t setParameters(const char* parms);
 
@@ -249,7 +249,7 @@ protected:
 
     /* Actual handler for camera_device_ops_t::send_command callback.
      * NOTE: When this method is called the object is locked.
-     * Note that failures in this method are reported as negave EXXX statuses.
+     * Note that failures in this method are reported as negative EXXX statuses.
      */
     virtual status_t sendCommand(int32_t cmd, int32_t arg1, int32_t arg2);
 
@@ -260,7 +260,7 @@ protected:
 
     /* Actual handler for camera_device_ops_t::dump callback.
      * NOTE: When this method is called the object is locked.
-     * Note that failures in this method are reported as negave EXXX statuses.
+     * Note that failures in this method are reported as negative EXXX statuses.
      */
     virtual status_t dumpCamera(int fd);
 

@@ -118,7 +118,7 @@ public:
      *  status - Query delivery status. This status doesn't necessarily reflects
      *      the final query status (which is defined by 'ok'/'ko' prefix in the
      *      reply buffer). This status simply states whether or not the query has
-     *      been sent, and a reply has been received successfuly. However, if
+     *      been sent, and a reply has been received successfully. However, if
      *      this status indicates a failure, it means that the entire query has
      *      failed.
      * Return:
@@ -160,7 +160,7 @@ public:
     }
 
     /****************************************************************************
-     * Public data memebers
+     * Public data members
      ***************************************************************************/
 
 public:
@@ -180,7 +180,7 @@ public:
     int         mReplyStatus;
 
     /****************************************************************************
-     * Private data memebers
+     * Private data members
      ***************************************************************************/
 
 protected:
@@ -251,7 +251,7 @@ public:
     /* Receives data from the service.
      * This method assumes that data to receive will come in two chunks: 8
      * characters encoding the payload size in hexadecimal string, followed by
-     * the paylod (if any).
+     * the payload (if any).
      * This method will allocate data buffer where to receive the response.
      * Param:
      *  data - Upon success contains address of the allocated data buffer with
@@ -328,7 +328,7 @@ public:
      *      - 'pix' - pixel format (a "fourcc" uint), chosen for the video frames
      *        by the camera service.
      *      - 'framedims' contains a list of frame dimensions supported by the
-     *        camera for the chosen pixel format. Each etry in the list is in form
+     *        camera for the chosen pixel format. Each entry in the list is in form
      *        '<width>x<height>', where 'width' and 'height' are numeric values
      *        for width and height of a supported frame dimension. Entries in
      *        this list are separated with ',' with no spaces between the entries.

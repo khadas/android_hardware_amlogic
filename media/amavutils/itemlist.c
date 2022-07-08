@@ -10,7 +10,7 @@
 
 /********************************************
  * name : player_itemlis.c
- * function: item  fifo manage  for muti threads
+ * function: item  fifo manage  for multi threads
  * date     : 2011.3.23
  * author :zhouzhi
  ********************************************/
@@ -192,13 +192,13 @@ struct item *  itemlist_find_match_item(struct itemlist *itemlist, unsigned long
 we think the item->data is grow,
 we find the first item great or equal  item->data;
 */
-struct item *  itemlist_find_match_item_ex(struct itemlist *itemlist, struct item *tomatch __unused, item_is_match_fun match __unused, int reveser __unused) {
+struct item *  itemlist_find_match_item_ex(struct itemlist *itemlist, struct item *tomatch __unused, item_is_match_fun match __unused, int reverse __unused) {
     //struct item *item = NULL;
     //struct list_head *llist, *tmplist;
     struct item *finditem = NULL;
     ITEM_LOCK(itemlist);
     /*
-    if (reveser) {
+    if (reverse) {
         list_for_each_entry_reverse(item, &itemlist->list, list) {
             if (match(item, tomatch)) {
                 finditem = item;
@@ -324,12 +324,12 @@ int itemlist_del_match_data_item(struct itemlist *itemlist, unsigned long data)
 }
 
 /*
-postion must in the itemlist.
+position must in the itemlist.
 flags: 1: before position;
-      2: after postion;
-      3: replace postion;
+      2: after position;
+      3: replace position;
       else:
-        2:after postion;
+        2:after position;
 */
 int itemlist_item_insert(struct itemlist *itemlist, struct itemlist *position, struct itemlist *newitem, int flags)
 {

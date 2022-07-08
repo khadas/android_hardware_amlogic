@@ -283,7 +283,7 @@ bool ThermalHelper::readTemperature(std::string_view sensor_name, Temperature_1_
 
 bool ThermalHelper::readTemperature(
         std::string_view sensor_name, Temperature_2_0 *out,
-        std::pair<ThrottlingSeverity, ThrottlingSeverity> *throtting_status) const {
+        std::pair<ThrottlingSeverity, ThrottlingSeverity> *throttling_status) const {
     // Read the file.  If the file can't be read temp will be empty string.
     std::string temp;
 
@@ -317,8 +317,8 @@ bool ThermalHelper::readTemperature(
                                            sensor_info.hot_hysteresis, sensor_info.cold_hysteresis,
                                            prev_hot_severity, prev_cold_severity, out->value);
     }
-    if (throtting_status) {
-        *throtting_status = status;
+    if (throttling_status) {
+        *throttling_status = status;
     }
 
     out->throttlingStatus = static_cast<size_t>(status.first) > static_cast<size_t>(status.second)
@@ -591,8 +591,8 @@ bool ThermalHelper::thermalWatcherCallbackFunc(const std::set<std::string> &ueve
             continue;
         }
 
-        std::pair<ThrottlingSeverity, ThrottlingSeverity> throtting_status;
-        if (!readTemperature(name_status_pair.first, &temp, &throtting_status)) {
+        std::pair<ThrottlingSeverity, ThrottlingSeverity> throttling_status;
+        if (!readTemperature(name_status_pair.first, &temp, &throttling_status)) {
             LOG(ERROR) << __func__
                        << ": error reading temperature for sensor: " << name_status_pair.first;
             continue;
@@ -606,11 +606,11 @@ bool ThermalHelper::thermalWatcherCallbackFunc(const std::set<std::string> &ueve
         {
             // writer lock
             std::unique_lock<std::shared_mutex> _lock(sensor_status_map_mutex_);
-            if (throtting_status.first != sensor_status.prev_hot_severity) {
-                sensor_status.prev_hot_severity = throtting_status.first;
+            if (throttling_status.first != sensor_status.prev_hot_severity) {
+                sensor_status.prev_hot_severity = throttling_status.first;
             }
-            if (throtting_status.second != sensor_status.prev_cold_severity) {
-                sensor_status.prev_cold_severity = throtting_status.second;
+            if (throttling_status.second != sensor_status.prev_cold_severity) {
+                sensor_status.prev_cold_severity = throttling_status.second;
             }
             if (temp.throttlingStatus != sensor_status.severity) {
                 temps.push_back(temp);

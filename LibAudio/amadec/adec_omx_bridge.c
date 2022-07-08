@@ -26,7 +26,7 @@
 #include <audio-dec.h>
 #include <adec-pts-mgt.h>
 #include <adec_write.h>
-#include "adec_omx_brige.h"
+#include "adec_omx_bridge.h"
 #include <amthreadpool.h>
 #include "Amsysfsutils.h"
 #include "amconfigutils.h"
@@ -106,7 +106,7 @@ int find_omx_lib(aml_audio_dec_t *audec)
         audec->parm_omx_codec_start  == NULL || audec->parm_omx_codec_pause  == NULL || audec->parm_omx_codec_get_declen == NULL ||
         audec->parm_omx_codec_get_FS == NULL || audec->parm_omx_codec_get_Nch == NULL
        ) {
-        adec_print("[NOTE]load func_api in libamadec_omx_api.so faided, StageFrightCodecEnableType=0\n");
+        adec_print("[NOTE]load func_api in libamadec_omx_api.so failed, StageFrightCodecEnableType=0\n");
         audec->StageFrightCodecEnableType = 0;
         return 0;
     }

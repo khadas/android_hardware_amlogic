@@ -272,7 +272,7 @@ static void resize_nv12(Encoder_libjpeg::params* params, uint8_t* dst_buffer) {
     i_img_ptr.imgPtr = (uint8_t*) params->src;
     i_img_ptr.clrPtr = i_img_ptr.imgPtr + (i_img_ptr.uWidth * i_img_ptr.uHeight);
 
-    //ouput
+    //output
     o_img_ptr.uWidth = params->out_width;
     o_img_ptr.uStride = o_img_ptr.uWidth;
     o_img_ptr.uHeight = params->out_height;

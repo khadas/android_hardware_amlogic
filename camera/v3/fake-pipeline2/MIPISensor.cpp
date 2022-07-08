@@ -392,7 +392,7 @@ void MIPISensor::setIOBufferNum()
         ALOGD(" get buffer number is %d from property \n",tmp);
     }
 
-    ALOGD("defalut buffer number is %d\n",tmp);
+    ALOGD("default buffer number is %d\n",tmp);
     mVinfo->set_buffer_numbers(tmp);
 }
 
@@ -439,7 +439,7 @@ status_t MIPISensor::setOutputFormat(int width, int height, int pixelformat, boo
         }
 #endif
     }
-    //----alloc memory for temperary buffer
+    //----alloc memory for temporary buffer
     if (NULL == mImage_buffer) {
         mPre_width = mVinfo->preview.format.fmt.pix.width;
         mPre_height = mVinfo->preview.format.fmt.pix.height;
@@ -1288,7 +1288,7 @@ status_t MIPISensor::setAntiBanding(uint8_t antiBanding) {
     return ret;
 }
 
-status_t MIPISensor::setFocuasArea(int32_t x0, int32_t y0, int32_t x1, int32_t y1) {
+status_t MIPISensor::setFocusArea(int32_t x0, int32_t y0, int32_t x1, int32_t y1) {
     int ret = 0;
     struct v4l2_control ctl;
     ctl.id = V4L2_CID_FOCUS_ABSOLUTE;
@@ -1346,7 +1346,7 @@ int MIPISensor::getAutoFocus(uint8_t *afMode, uint8_t maxCount) {
 
     return mode_count;
 }
-status_t MIPISensor::setAutoFocuas(uint8_t afMode) {
+status_t MIPISensor::setAutoFocus(uint8_t afMode) {
     struct v4l2_control ctl;
     ctl.id = V4L2_CID_FOCUS_AUTO;
 
@@ -1370,7 +1370,7 @@ status_t MIPISensor::setAutoFocuas(uint8_t afMode) {
     }
 
     if (ioctl(mVinfo->fd, VIDIOC_S_CTRL, &ctl) < 0) {
-        CAMHAL_LOGDA("failed to set camera focuas mode!\n");
+        CAMHAL_LOGDA("failed to set camera focus mode!\n");
         return BAD_VALUE;
     }
 

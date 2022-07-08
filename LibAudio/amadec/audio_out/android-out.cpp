@@ -45,7 +45,7 @@ extern "C" {
 namespace android
 {
 
-#if ANDROID_PLATFORM_SDK_VERSION >= 21 
+#if ANDROID_PLATFORM_SDK_VERSION >= 21
 //android 5.0 level= 20
 #define AUDIO_FORMAT_EAC3 AUDIO_FORMAT_E_AC3
 #endif
@@ -65,11 +65,11 @@ static int unnormal_discontinue1 = 0;
 extern "C" int get_audio_decoder(void);
 static int get_digitalraw_mode(void)
 {
-	return amsysfs_get_sysfs_int("/sys/class/audiodsp/digital_raw");
+    return amsysfs_get_sysfs_int("/sys/class/audiodsp/digital_raw");
 }
 #define DTSETC_DECODE_VERSION_CORE  350
 #define DTSETC_DECODE_VERSION_M6_M8 380
-#define DTSHD_IEC958_PKTTYPE_CORE      0 //common feature for DTSETC_DECODE_VERSION 350/380,so set it to 0 by default 
+#define DTSHD_IEC958_PKTTYPE_CORE      0 //common feature for DTSETC_DECODE_VERSION 350/380,so set it to 0 by default
 #define DTSHD_IEC958_PKTTYPE_SINGLEI2S 1
 #define DTSHD_IEC958_PKTTYPE_FOURI2S   2
 
@@ -80,53 +80,53 @@ void restore_system_samplerate(struct aml_audio_dec* audec)
     {
         ;//do nothing
     }else if(audec->samplerate == 48000 || (audec->format != ACODEC_FMT_DTS && \
-            audec->format != ACODEC_FMT_AC3 && audec->format != ACODEC_FMT_EAC3 && 
+            audec->format != ACODEC_FMT_AC3 && audec->format != ACODEC_FMT_EAC3 &&
             audec->format != ACODEC_FMT_TRUEHD))
         return ;
-	audio_io_handle_t handle = -1;	
+    audio_io_handle_t handle = -1;
 //for mx, raw/pcm use the same audio hal
 #ifndef USE_ARM_AUDIO_DEC
 /*
-	handle = 	AudioSystem::getOutput(AUDIO_STREAM_MUSIC,
-	                            48000,
-	                            AUDIO_FORMAT_PCM_16_BIT,
-	                            AUDIO_CHANNEL_OUT_STEREO,
-#if defined(_VERSION_ICS) 
-					AUDIO_POLICY_OUTPUT_FLAG_INDIRECT
-#else	//JB...			
-	                            AUDIO_OUTPUT_FLAG_PRIMARY
-#endif	                            
-	                            );
-	                            */
-		if(handle > 0){
-			char str[64];
-			memset(str,0,sizeof(str));
-			sprintf(str,"sampling_rate=%d",default_sr);
-			AudioSystem::setParameters(handle, String8(str));			
-		}		
+    handle =    AudioSystem::getOutput(AUDIO_STREAM_MUSIC,
+                                48000,
+                                AUDIO_FORMAT_PCM_16_BIT,
+                                AUDIO_CHANNEL_OUT_STEREO,
+#if defined(_VERSION_ICS)
+                    AUDIO_POLICY_OUTPUT_FLAG_INDIRECT
+#else   //JB...
+                                AUDIO_OUTPUT_FLAG_PRIMARY
+#endif
+                                );
+                                */
+        if (handle > 0) {
+            char str[64];
+            memset(str,0,sizeof(str));
+            sprintf(str,"sampling_rate=%d",default_sr);
+            AudioSystem::setParameters(handle, String8(str));
+        }
 #else
 /*
 //for  M8, raw/pcm  output use different HAL, so only check the raw output device
-	handle = 	AudioSystem::getOutput(AUDIO_STREAM_MUSIC,
-	                            48000,
-	                            AUDIO_FORMAT_AC3, //use AC3 as the format tag for all raw output
-	                            AUDIO_CHANNEL_OUT_STEREO,
-#if defined(_VERSION_ICS) 
-					AUDIO_POLICY_OUTPUT_FLAG_INDIRECT
-#else	//JB...			
-	                            AUDIO_OUTPUT_FLAG_DIRECT
-#endif	                            
-	                            );*/
-		
-		if(handle > 0){
-			char str[64];
-			memset(str,0,sizeof(str));
-			sprintf(str,"sampling_rate=%d",default_sr);
-			AudioSystem::setParameters(handle, String8(str));
-			AudioSystem::releaseOutput(handle);
-		}else{
-			adec_print("WARNIN: handle/%d resetore sysFs failed!\n",handle);
-		}
+    handle =    AudioSystem::getOutput(AUDIO_STREAM_MUSIC,
+                                48000,
+                                AUDIO_FORMAT_AC3, //use AC3 as the format tag for all raw output
+                                AUDIO_CHANNEL_OUT_STEREO,
+#if defined(_VERSION_ICS)
+                    AUDIO_POLICY_OUTPUT_FLAG_INDIRECT
+#else   //JB...
+                                AUDIO_OUTPUT_FLAG_DIRECT
+#endif
+                                );*/
+
+        if (handle > 0) {
+            char str[64];
+            memset(str,0,sizeof(str));
+            sprintf(str,"sampling_rate=%d",default_sr);
+            AudioSystem::setParameters(handle, String8(str));
+            AudioSystem::releaseOutput(handle);
+        } else {
+            adec_print("WARNING: handle/%d restore sysFs failed!\n",handle);
+        }
 #endif
 }
 
@@ -146,15 +146,15 @@ void restore_system_framesize()
     //int sr = 0;
     audio_io_handle_t handle = -1;
     /*
-    handle = 	AudioSystem::getOutput(AUDIO_STREAM_MUSIC,
+    handle =    AudioSystem::getOutput(AUDIO_STREAM_MUSIC,
                     48000,
                     AUDIO_FORMAT_PCM_16_BIT,
                     AUDIO_CHANNEL_OUT_STEREO,
-#if defined(_VERSION_ICS) 
+#if defined(_VERSION_ICS)
                     AUDIO_POLICY_OUTPUT_FLAG_INDIRECT
-#else	//JB...			
+#else   //JB...
                     AUDIO_OUTPUT_FLAG_PRIMARY
-#endif	                            
+#endif
                     );
     */
     if (handle > 0) {
@@ -171,28 +171,28 @@ void restore_system_framesize()
         adec_print("restore frame success: %zd\n", old_frame_count);
 #endif
     }
-}		
+}
 
 void reset_system_samplerate(struct aml_audio_dec* audec)
 {
-	unsigned digital_raw = 0;
-	audio_io_handle_t handle = -1;	
-	int dtsFS_88_96_Directout=0;
-	digital_raw = get_digitalraw_mode();	
-	if(audec->format == ACODEC_FMT_DTS && audec->samplerate>48000 && !digital_raw)
-	{
-	   char tmp[128]={0};
-       if(property_get("vendor.media.libplayer.88_96K", tmp, "0") > 0 && !strcmp(tmp, "1"))
+    unsigned digital_raw = 0;
+    audio_io_handle_t handle = -1;
+    int dtsFS_88_96_Directout=0;
+    digital_raw = get_digitalraw_mode();
+    if (audec->format == ACODEC_FMT_DTS && audec->samplerate > 48000 && !digital_raw)
+    {
+       char tmp[128]={0};
+       if (property_get("vendor.media.libplayer.88_96K", tmp, "0") > 0 && !strcmp(tmp, "1"))
             dtsFS_88_96_Directout=1;
     }
-	if(!audec || (!digital_raw && audec->channels!=8 && !dtsFS_88_96_Directout))
-		return;
-	/*
-	1)32k,44k dts
-	2) 32k,44k ac3 
-	3)44.1k eac3 when hdmi passthrough
-	4)32k,44k eac3 when spdif pasthrough 
-	*/
+    if (!audec || (!digital_raw && audec->channels != 8 && !dtsFS_88_96_Directout))
+        return;
+    /*
+    1)32k,44k dts
+    2) 32k,44k ac3
+    3)44.1k eac3 when hdmi passthrough
+    4)32k,44k eac3 when spdif passthrough
+    */
     adec_print("[%s %d]format %d,audec->samplerate%d DTSHDIEC958_FS/%d\n",__FUNCTION__,__LINE__,audec->format ,audec->samplerate,audec->DTSHDIEC958_FS );
     int Samplerate=audec->samplerate;
     int dts_raw_reset_sysFS=0;
@@ -209,8 +209,8 @@ void reset_system_samplerate(struct aml_audio_dec* audec)
              Samplerate=audec->samplerate/2;
          else if(audec->samplerate==176400 || audec->samplerate==192000)
              Samplerate=audec->samplerate/4;
-         else{ 
-             adec_print("[%s %d] Unvalid samplerate/%d for DTSCore Rawoutput\n",__FUNCTION__,__LINE__,audec->samplerate); 
+         else{
+             adec_print("[%s %d] Unvalid samplerate/%d for DTSCore Rawoutput\n",__FUNCTION__,__LINE__,audec->samplerate);
              return;
          }
     }else if(audec->format == ACODEC_FMT_DTS && digital_raw==2 && audec->VersionNum==DTSETC_DECODE_VERSION_M6_M8 && audec->DTSHDIEC958_PktType==DTSHD_IEC958_PKTTYPE_SINGLEI2S){
@@ -247,63 +247,63 @@ void reset_system_samplerate(struct aml_audio_dec* audec)
          Samplerate = 192000;
     }
     if(   (audec->format == ACODEC_FMT_AC3  && (audec->samplerate == 32000 || audec->samplerate == 44100))
-        ||(audec->format == ACODEC_FMT_EAC3 && digital_raw == 2 && audec->samplerate == 44100) 
+        ||(audec->format == ACODEC_FMT_EAC3 && digital_raw == 2 && audec->samplerate == 44100)
         ||(audec->format == ACODEC_FMT_EAC3 && digital_raw == 1 && (audec->samplerate == 32000 || audec->samplerate == 44100))
         || dts_raw_reset_sysFS
-		||(audec->format == ACODEC_FMT_TRUEHD && (digital_raw == 1 || digital_raw == 2)/* && 
-		(audec->samplerate == 192000 || audec->samplerate == 96000)*/))
-		
-	{
-		adec_print("[%s %d]Change AudioSysFS to/%d\n",__FUNCTION__,__LINE__,Samplerate);
-		//int sr = 0;
-		if(/*sr*/48000 != Samplerate){
+        ||(audec->format == ACODEC_FMT_TRUEHD && (digital_raw == 1 || digital_raw == 2)/* &&
+        (audec->samplerate == 192000 || audec->samplerate == 96000)*/))
+
+    {
+        adec_print("[%s %d]Change AudioSysFS to/%d\n",__FUNCTION__,__LINE__,Samplerate);
+        //int sr = 0;
+        if (/*sr*/48000 != Samplerate) {
 #ifndef USE_ARM_AUDIO_DEC
             /*
-			handle = 	AudioSystem::getOutput(AUDIO_STREAM_MUSIC,
-			                            48000,
-			                            AUDIO_FORMAT_PCM_16_BIT,
-			                            AUDIO_CHANNEL_OUT_STEREO,
-#if defined(_VERSION_ICS) 
-							AUDIO_POLICY_OUTPUT_FLAG_INDIRECT
-#else	//JB...			
-			                            AUDIO_OUTPUT_FLAG_PRIMARY
-#endif	                            
-			                            );
-			                            */
-				if(handle > 0){
-					char str[64];
-					memset(str,0,sizeof(str));
-					sprintf(str,"sampling_rate=%d",audec->samplerate);
-					AudioSystem::setParameters(handle, String8(str));			
-				}		
+            handle =    AudioSystem::getOutput(AUDIO_STREAM_MUSIC,
+                                        48000,
+                                        AUDIO_FORMAT_PCM_16_BIT,
+                                        AUDIO_CHANNEL_OUT_STEREO,
+#if defined(_VERSION_ICS)
+                            AUDIO_POLICY_OUTPUT_FLAG_INDIRECT
+#else   //JB...
+                                        AUDIO_OUTPUT_FLAG_PRIMARY
+#endif
+                                        );
+                                        */
+                if (handle > 0) {
+                    char str[64];
+                    memset(str,0,sizeof(str));
+                    sprintf(str,"sampling_rate=%d",audec->samplerate);
+                    AudioSystem::setParameters(handle, String8(str));
+                }
 #else
 /*
-		//for  M8, raw/pcm  output use different HAL, so only check the raw output device
-			handle = 	AudioSystem::getOutput(AUDIO_STREAM_MUSIC,
-			                            48000,
-			                            AUDIO_FORMAT_AC3, //use AC3 as the format tag for all raw output
-			                            AUDIO_CHANNEL_OUT_STEREO,
-#if defined(_VERSION_ICS) 
-							AUDIO_POLICY_OUTPUT_FLAG_INDIRECT
-#else	//JB...			
-			                            AUDIO_OUTPUT_FLAG_DIRECT
-#endif	                            
-			                            );*/
-				
-				if(handle > 0){
-					char str[64];
-					memset(str,0,sizeof(str));
-					sprintf(str,"sampling_rate=%d",Samplerate);
-					AudioSystem::setParameters(handle, String8(str));
-					AudioSystem::releaseOutput(handle);
-				}else{
-					adec_print("WARNIN:handle/%d reset sysFs failed!\n",handle);
-				}
+        //for  M8, raw/pcm  output use different HAL, so only check the raw output device
+            handle =    AudioSystem::getOutput(AUDIO_STREAM_MUSIC,
+                                        48000,
+                                        AUDIO_FORMAT_AC3, //use AC3 as the format tag for all raw output
+                                        AUDIO_CHANNEL_OUT_STEREO,
+#if defined(_VERSION_ICS)
+                            AUDIO_POLICY_OUTPUT_FLAG_INDIRECT
+#else   //JB...
+                                        AUDIO_OUTPUT_FLAG_DIRECT
+#endif
+                                        );*/
+
+                if (handle > 0) {
+                    char str[64];
+                    memset(str,0,sizeof(str));
+                    sprintf(str,"sampling_rate=%d",Samplerate);
+                    AudioSystem::setParameters(handle, String8(str));
+                    AudioSystem::releaseOutput(handle);
+                } else {
+                    adec_print("WARNING:handle/%d reset sysFs failed!\n",handle);
+                }
 #endif
 
-		}
-		
-		
+        }
+
+
        }
 }
 
@@ -385,7 +385,7 @@ void audioCallback(int event, void* user, void *info)
     aml_audio_dec_t *audec = static_cast<aml_audio_dec_t *>(user);
     dsp_operations_t *dsp_ops = &audec->adsp_ops;
     //unsigned long apts, pcrscr;
-	struct am_io_param am_io;
+    struct am_io_param am_io;
 
     if (event != AudioTrack::EVENT_MORE_DATA) {
         //adec_refresh_pts(audec);
@@ -397,7 +397,7 @@ void audioCallback(int event, void* user, void *info)
         adec_print("audioCallback: Wrong buffer\n");
         return;
     }
-    
+
     if(wfd_enable){
         ioctl(audec->adsp_ops.amstream_fd, AMSTREAM_IOC_GET_LAST_CHECKIN_APTS, &last_checkin);
         last_checkout = dsp_ops->get_cur_pts(dsp_ops);
@@ -416,29 +416,29 @@ void audioCallback(int event, void* user, void *info)
 
       diff_avr = 0;
       for (i=0;i<0x40;i++) diff_avr+=diff_record[i];
-      diff_avr = diff_avr / 0x40;    
+      diff_avr = diff_avr / 0x40;
 
-   //   if ((xxx++ % 30) == 0) 
+   //   if ((xxx++ % 30) == 0)
    //    adec_print("audioCallback start: request %d, in: %d, out: %d, diff: %d, filtered: %d",buffer->size, last_checkin/90, last_checkout/90, diff, diff_avr);
-      if(bytes_skipped == 0 && diff < 200){
-	 if(dsp_ops->set_skip_bytes)	
-        	dsp_ops->set_skip_bytes(&audec->adsp_ops, 0x7fffffff);
+      if (bytes_skipped == 0 && diff < 200) {
+     if (dsp_ops->set_skip_bytes)
+            dsp_ops->set_skip_bytes(&audec->adsp_ops, 0x7fffffff);
         bytes_skipped = 0x7fffffff;
       }
 
-      if(diff >1000){ // too much data in audiobuffer,should be skipped
-	 if(dsp_ops->set_skip_bytes)	      
-        	dsp_ops->set_skip_bytes(&audec->adsp_ops, 0);
+      if (diff >1000) { // too much data in audiobuffer,should be skipped
+      if (dsp_ops->set_skip_bytes)
+            dsp_ops->set_skip_bytes(&audec->adsp_ops, 0);
         bytes_skipped = 0;
         adec_print("skip more data: last_checkin[%d]-last_checkout[%d]=%d, diff=%d\n", last_checkin/90, last_checkout/90, (last_checkin-last_checkout)/90, diff);
       }
-      
+
       if ((int)diff_avr > /*220*/wfd_ds_thrdhold) {
         resample = 1; resample_step = 2;
       } else if ((int)diff_avr</*180*/wfd_us_thrdhold) {
-        // once we see a single shot of low boundry we finish down-sampling
+        // once we see a single shot of low boundary we finish down-sampling
         resample = 1; resample_step = -2;
-      }else if(resample && (diff_avr < 200)){
+      }else if (resample && (diff_avr < 200)){
         resample = 0;
       }
 
@@ -456,7 +456,7 @@ void audioCallback(int event, void* user, void *info)
 
             apts64 = audec->apts64;
             pcrscr64 = audec->pcrscr64;
- 
+
             if (apts64 && pcrscr64 &&  (abs(apts64 - pcrscr64) <= 90000*60*10)) {
                 ioctl(audec->adsp_ops.amstream_fd, AMSTREAM_IOC_AB_STATUS, (unsigned long)&am_io);
                 //adec_print("ab_level=%x, ab_rd_ptr=%x", am_io.status.data_len, am_io.status.read_pointer);
@@ -472,7 +472,7 @@ void audioCallback(int event, void* user, void *info)
                 }
                 //if (((apts64 - pcrscr64) > (int64_t)(audec->fill_trackzero_thrsh)) ||((apts64 > pcrscr64) && (am_io.status.data_len < 0x200))) {
                 if ((apts64 - pcrscr64) > (int64_t)(audec->fill_trackzero_thrsh)) {
-                //adec_print("[%s:%d] %d, thrsh:%d,   apts64:%ld, pcrscr64:%ld, diff:%ld, lastapts:%lx, pcmsize:%ld, abuffer_lv:0x%x\n", 
+                //adec_print("[%s:%d] %d, thrsh:%d,   apts64:%ld, pcrscr64:%ld, diff:%ld, lastapts:%lx, pcmsize:%ld, abuffer_lv:0x%x\n",
                 //__FUNCTION__, __LINE__, fill_audiotrack_zero, audec->fill_trackzero_thrsh,apts64, pcrscr64, apts64-pcrscr64,audec->adsp_ops.last_audio_pts,buffer->size, am_io.status.data_len);
                 if (skip_unnormal_discontinue++ > 10) {
                         memset((char*)(buffer->i16), 0, buffer->size);
@@ -480,10 +480,10 @@ void audioCallback(int event, void* user, void *info)
                             adec_pts_pause();
                         }
                         fill_audiotrack_zero =  audec->fill_trackzero_thrsh/(20*90);
-                        //adec_print("[%s:%d] %d, thrsh:%d,   apts64:%ld, pcrscr64:%ld, diff:%ld, lastapts:%lx, pcmsize:%ld, abuffer_lv:0x%x\n", 
+                        //adec_print("[%s:%d] %d, thrsh:%d,   apts64:%ld, pcrscr64:%ld, diff:%ld, lastapts:%lx, pcmsize:%ld, abuffer_lv:0x%x\n",
                         //__FUNCTION__, __LINE__, fill_audiotrack_zero, audec->fill_trackzero_thrsh,apts64, pcrscr64, apts64-pcrscr64,audec->adsp_ops.last_audio_pts,buffer->size, am_io.status.data_len);
                         return;
-                    }      
+                    }
                 } else {
                        if (skip_unnormal_discontinue>0) {
                           //adec_print("[%s:%d], skip_unnormal_discontinue:%d, fill_audiotrack_zero:%d, apts-pcr:%lld, ---------------------------\n",__FUNCTION__, __LINE__, skip_unnormal_discontinue,fill_audiotrack_zero,apts64 - pcrscr64);
@@ -494,14 +494,14 @@ void audioCallback(int event, void* user, void *info)
                 }
                 if ((fill_audiotrack_zero > 0) && ((apts64 - pcrscr64) > (int64_t)(70*TIME_UNIT90K/1000))) {
                     fill_audiotrack_zero--;
-          
+
                     if (!fill_audiotrack_zero) {
                         adec_pts_resume();
                         skip_unnormal_discontinue = 0;
                         unnormal_discontinue = 0;
                         unnormal_discontinue1 = 0;
                     }
-    
+
                     memset((char*)(buffer->i16), 0, buffer->size);
                     //adec_print("## %d, %d, apts bigger than pcr, 2222 apts64:%lld, pcrscr64:%lld, diff:%lld, \n", fill_audiotrack_zero, buffering_audio_data, apts64, pcrscr64, apts64-pcrscr64);
                     return;
@@ -516,7 +516,7 @@ void audioCallback(int event, void* user, void *info)
                         adec_print("[%s:%d], fill enough! ---------------------------\n",__FUNCTION__, __LINE__);
                     }
                 }
-        
+
                 if (audec->apts64 - audec->last_apts64 > RESAMPLE_THRESHOLD) {
                     int64_t diff_discontinue = abs(pcrscr64 - apts64);
                     if (diff_discontinue > (int64_t)(TIME_UNIT90K * 3)) {
@@ -539,7 +539,7 @@ void audioCallback(int event, void* user, void *info)
             }
         } else {
             audec->adis_flag--;
-            //adec_print("[%s:%d], pcr:%lx, apts:%lx, tsync_pcr_dispoint:%x, adis_flag:%d,-------------\n",__FUNCTION__, __LINE__, 
+            //adec_print("[%s:%d], pcr:%lx, apts:%lx, tsync_pcr_dispoint:%x, adis_flag:%d,-------------\n",__FUNCTION__, __LINE__,
             //audec->pcrscr64, audec->apts64, audec->tsync_pcr_dispoint,audec->adis_flag);
         }
     }
@@ -589,10 +589,10 @@ void audioCallback(int event, void* user, void *info)
 
       ioctl(audec->adsp_ops.amstream_fd, AMSTREAM_IOC_AB_STATUS, (unsigned long)&am_io);
       if (am_io.status.size > 0)
-      adec_print("ab_level=%x,ab_size=%x, alevel:%f, ab_rd_ptr=%x", 
+      adec_print("ab_level=%x,ab_size=%x, alevel:%f, ab_rd_ptr=%x",
       am_io.status.data_len,  am_io.status.size, (float)(am_io.status.data_len)/(am_io.status.size), am_io.status.read_pointer);
       }
-    }    
+    }
     return;
 }
 #ifdef USE_ARM_AUDIO_DEC
@@ -615,7 +615,7 @@ static void i2s_iec958_sync_force(struct aml_audio_dec* audec,int bytes_readed_d
         while(bytes_cnt<raw_size_discard && !audec->need_stop){
               len=audec->adsp_ops.dsp_read_raw(&audec->adsp_ops,tmp,(raw_size_discard-bytes_cnt)>2048?2048:(raw_size_discard-bytes_cnt));
               bytes_cnt+=len;
-              if (len=0) 
+              if (len=0)
                   break;
         }
         audec->raw_bytes_readed+=bytes_cnt;
@@ -626,7 +626,7 @@ static void i2s_iec958_sync_force(struct aml_audio_dec* audec,int bytes_readed_d
         while(bytes_cnt<pcm_size_discard && !audec->need_stop){
               len=audec->adsp_ops.dsp_read(&audec->adsp_ops,tmp,(pcm_size_discard-bytes_cnt)>2048?2048:(pcm_size_discard-bytes_cnt));
               bytes_cnt+=len;
-              if (len=0) 
+              if (len=0)
                   break;
         }
         audec->pcm_bytes_readed+=bytes_cnt;
@@ -661,7 +661,7 @@ void audioCallback_raw(int event, void* user, void *info)
             }
             adec_print("NOTE:i2s has started read pcm\n");
          }
-     
+
          bytes_readed_diff=audec->raw_bytes_readed-audec->pcm_bytes_readed*audec->codec_type;
          if(bytes_readed_diff>0){//iec958 was faster than i2s:
              //adec_print("Iec958 faster than I2s: bytes_readed_diff/%d (SyncGate/%d RawBytesReaded/%lld PcmBytesReaded/%lld codec_type/%f)\n",
@@ -675,11 +675,11 @@ void audioCallback_raw(int event, void* user, void *info)
                    (audec->raw_bytes_readed <audec->i2s_iec958_sync_gate) &&
                    !audec->need_stop
                   )
-             {  
+             {
                   bytes_readed_diff=audec->pcm_bytes_readed*audec->codec_type-audec->raw_bytes_readed;
                   //adec_print("iec958 was slower than i2s:bytes_readed_diff/%d\n",-bytes_readed_diff);
                   while(bytes_readed_diff && !audec->need_stop){
-                     readed_bytes=audec->adsp_ops.dsp_read_raw(&audec->adsp_ops,tmp,bytes_readed_diff>4096?4096: bytes_readed_diff); 
+                     readed_bytes=audec->adsp_ops.dsp_read_raw(&audec->adsp_ops,tmp,bytes_readed_diff>4096?4096: bytes_readed_diff);
                      audec->raw_bytes_readed+=readed_bytes;
                      bytes_readed_diff-=readed_bytes;
                      if(readed_bytes==0)
@@ -695,7 +695,7 @@ void audioCallback_raw(int event, void* user, void *info)
          while (bytes_cnt < (int)buffer->size && !audec->need_stop) {
                  len=audec->adsp_ops.dsp_read_raw(&audec->adsp_ops, (char*)(buffer->i16)+bytes_cnt,buffer->size-bytes_cnt);
                  bytes_cnt+=len;
-                 if (len == 0) 
+                 if (len == 0)
                     break;
          }
          buffer->size=bytes_cnt;
@@ -704,16 +704,16 @@ void audioCallback_raw(int event, void* user, void *info)
           adec_print("[%s %d]audioCallback: dsp not work!\n",__FUNCTION__,__LINE__);
     }
 // memset raw data when start playback to walkround HDMI audio format changed noise for some kind of TV set
-    if(audec->format != ACODEC_FMT_TRUEHD ){
-	if(audec->raw_bytes_readed < 16*4*1024)
-	memset((char *)(buffer->i16),0,buffer->size);
+    if (audec->format != ACODEC_FMT_TRUEHD ) {
+        if (audec->raw_bytes_readed < 16*4*1024)
+            memset((char *)(buffer->i16),0,buffer->size);
     }
     return;
 }
 
 extern "C" int android_init_raw(struct aml_audio_dec* audec)
 {
-	Mutex::Autolock _l(mLock_raw);
+    Mutex::Autolock _l(mLock_raw);
     adec_print("[%s %d]android raw_out init",__FUNCTION__,__LINE__);
     status_t status;
     AudioTrack *track;
@@ -750,7 +750,7 @@ extern "C" int android_init_raw(struct aml_audio_dec* audec)
     if (dgraw == 1 ) {
         if((audec->format == ACODEC_FMT_AC3) ||
            (audec->format == ACODEC_FMT_EAC3)){
-            /*if spdif pass through,force to DD otuput */
+            /*if spdif pass through,force to DD output */
             aformat = AUDIO_FORMAT_AC3;
             audec->codec_type=1;
         }else if(audec->format==ACODEC_FMT_DTS){
@@ -791,7 +791,7 @@ extern "C" int android_init_raw(struct aml_audio_dec* audec)
                 if(audec->DTSHDIEC958_FS==48000||audec->DTSHDIEC958_FS==44100)
                 {
                     SampleRate=audec->DTSHDIEC958_FS;
-                }else if(audec->DTSHDIEC958_FS==192000||audec->DTSHDIEC958_FS==176400){// clock need Mutiple 4
+                }else if(audec->DTSHDIEC958_FS==192000||audec->DTSHDIEC958_FS==176400){// clock need Multiple 4
                     SampleRate=audec->DTSHDIEC958_FS/4;
                     #if ANDROID_PLATFORM_SDK_VERSION >= 21//android 5.0
                     aformat = (audio_format_t)AUDIO_FORMAT_DTS_HD;
@@ -800,7 +800,7 @@ extern "C" int android_init_raw(struct aml_audio_dec* audec)
                 }else{
                     unvalidpara=1;
                 }
-            }else if(audec->DTSHDIEC958_PktType==DTSHD_IEC958_PKTTYPE_FOURI2S){// clock need Mutiple 4
+            }else if(audec->DTSHDIEC958_PktType==DTSHD_IEC958_PKTTYPE_FOURI2S){// clock need Multiple 4
                 if(audec->DTSHDIEC958_FS==192000||audec->DTSHDIEC958_FS==384000 || audec->DTSHDIEC958_FS==768000 ||
                    audec->DTSHDIEC958_FS==176400||audec->DTSHDIEC958_FS==352800 || audec->DTSHDIEC958_FS==705600)
                 {
@@ -858,7 +858,7 @@ extern "C" int android_init_raw(struct aml_audio_dec* audec)
         0,           // notificationFrames
         0,           // shared buffer
         false,       // threadCanCallJava
-        SessionID);  // sessionId                        
+        SessionID);  // sessionId
        if (status != NO_ERROR) {
               adec_print("[%s %d]track->set returns %d",__FUNCTION__,__LINE__, status);
               adec_print("[%s %d]audio out samplet  %d",__FUNCTION__,__LINE__, audec->samplerate);
@@ -874,14 +874,14 @@ extern "C" int android_init_raw(struct aml_audio_dec* audec)
               out_ops->private_data_raw=NULL;
              return -1;
        }
-        
-       out_ops->private_data_raw= (void *)track;       
-       
+
+       out_ops->private_data_raw= (void *)track;
+
        //1/10=0.1s=100ms
        audec->raw_frame_size=audec->channels*(audec->adec_ops->bps>>3);
        audec->max_bytes_readded_diff=audec->samplerate*audec->raw_frame_size*audec->codec_type/10;
-       audec->i2s_iec958_sync_gate=audec->samplerate*audec->raw_frame_size*audec->codec_type*0.4;//400ms	 
-	return 0;
+       audec->i2s_iec958_sync_gate=audec->samplerate*audec->raw_frame_size*audec->codec_type*0.4;//400ms
+    return 0;
 }
 #endif
 //-------------------------------------------------------------------------
@@ -909,15 +909,15 @@ extern "C" int android_init(struct aml_audio_dec* audec)
     memset(&diff_record[0], 0, 0x40*sizeof(diff_record[0]));
     diff_wp = 0;
     if (get_audio_decoder() == AUDIO_ARC_DECODER) {
-		wfd_ds_thrdhold = 220;
-		wfd_us_thrdhold = 180;
-			
-    }	
+        wfd_ds_thrdhold = 220;
+        wfd_us_thrdhold = 180;
+
+    }
      else{
-		wfd_ds_thrdhold = 250;
-		wfd_us_thrdhold = 150;	 	
+        wfd_ds_thrdhold = 250;
+        wfd_us_thrdhold = 150;
      }
-     adec_print("up/down sampling thread 	 %d /%d ms \n",wfd_us_thrdhold,wfd_ds_thrdhold);	
+     adec_print("up/down sampling thread     %d /%d ms \n",wfd_us_thrdhold,wfd_ds_thrdhold);
     if(property_get("vendor.media.libplayer.wfd", wfd_prop, "0") > 0){
        wfd_enable = (strcmp(wfd_prop, "1") == 0);
     if (wfd_enable) {
@@ -925,25 +925,25 @@ extern "C" int android_init(struct aml_audio_dec* audec)
                                         48000,
                                         AUDIO_FORMAT_PCM_16_BIT,
                                         AUDIO_CHANNEL_OUT_STEREO,
-#if defined(_VERSION_ICS) 
+#if defined(_VERSION_ICS)
                                         AUDIO_POLICY_OUTPUT_FLAG_INDIRECT
-#else	//JB...			
+#else   //JB...
                                         AUDIO_OUTPUT_FLAG_PRIMARY
-#endif	                            
+#endif
                                         );*/
     if(handle > 0){
-	  char str[64];
+      char str[64];
       status_t ret;
-	  memset(str,0,sizeof(str));
+      memset(str,0,sizeof(str));
       // backup old framecount
 #if ANDROID_PLATFORM_SDK_VERSION >= 21 //FIXME on 5.0
       AudioSystem::getFrameCount(handle,&old_frame_count);
 #else
       AudioSystem::getFrameCount(handle, AUDIO_STREAM_MUSIC, &old_frame_count);
 #endif
-	  
+
       sprintf(str,"frame_count=%d",256);
-	  ret = AudioSystem::setParameters(handle, String8(str));
+      ret = AudioSystem::setParameters(handle, String8(str));
       if(ret != 0){
         adec_print("change frame count failed: ret = %d\n", ret);
       }
@@ -971,13 +971,13 @@ extern "C" int android_init(struct aml_audio_dec* audec)
 #endif
     int user_raw_enable = amsysfs_get_sysfs_int("/sys/class/audiodsp/digital_raw");
 #ifdef USE_ARM_AUDIO_DEC
-	out_ops->audio_out_raw_enable = user_raw_enable && (audec->format == ACODEC_FMT_DTS || 
+    out_ops->audio_out_raw_enable = user_raw_enable && (audec->format == ACODEC_FMT_DTS ||
                                                             audec->format == ACODEC_FMT_AC3 ||
                                                             audec->format == ACODEC_FMT_EAC3||
                                                             (audec->format == ACODEC_FMT_TRUEHD && user_raw_enable == 2));
     if(out_ops->audio_out_raw_enable)
        android_init_raw(audec);
-#endif	
+#endif
     //---------------------------
     adec_print("[%s %d]android out init",__FUNCTION__,__LINE__);
 #if ANDROID_PLATFORM_SDK_VERSION < 19
@@ -1026,7 +1026,7 @@ extern "C" int android_init(struct aml_audio_dec* audec)
             Flag=AUDIO_OUTPUT_FLAG_DEEP_BUFFER;
             aformat=AUDIO_FORMAT_PCM_16_BIT;
         }else{
-            adec_print("create HD-PCM(Fs/%d>48000)Direct Ouputtrack\n",audec->samplerate);
+            adec_print("create HD-PCM(Fs/%d>48000)Direct OutputTrack\n",audec->samplerate);
             ChMask=AUDIO_CHANNEL_OUT_STEREO;
             Flag =AUDIO_OUTPUT_FLAG_DIRECT;
 //TODO
@@ -1050,7 +1050,7 @@ extern "C" int android_init(struct aml_audio_dec* audec)
                         SessionID);      // sessionId
     }else{
 //here calculate the min framecount and set the audiotrack
-//refered to android_media_AudioTrack_get_min_buff_size
+//referred to android_media_AudioTrack_get_min_buff_size
 //return frameCount * channelCount * bytesPerSample;
        size_t frameCount = 0;
        status = AudioTrack::getMinFrameCount(&frameCount, AUDIO_STREAM_MUSIC,audec->samplerate);
@@ -1073,8 +1073,8 @@ extern "C" int android_init(struct aml_audio_dec* audec)
                         0,       // shared buffer
                         false,   // threadCanCallJava
                         SessionID);      // sessionId
-		}
-                        
+        }
+
 #elif defined(_VERSION_ICS)
     status = track->set(AUDIO_STREAM_MUSIC,
                         audec->samplerate,
@@ -1086,7 +1086,7 @@ extern "C" int android_init(struct aml_audio_dec* audec)
                         audec,    // user when callback
                         0,       // notificationFrames
                         0,       // shared buffer
-                        false,	 // threadCanCallJava
+                        false,   // threadCanCallJava
                         SessionID);      // sessionId
 #else   // GB or lower:
     status = track->set(AudioSystem::MUSIC,
@@ -1126,7 +1126,7 @@ extern "C" int android_init(struct aml_audio_dec* audec)
 #ifdef USE_ARM_AUDIO_DEC
 extern "C" int android_start_raw(struct aml_audio_dec* audec)
 {
-	Mutex::Autolock _l(mLock_raw);
+    Mutex::Autolock _l(mLock_raw);
     adec_print("[%s %d]android raw_out start",__FUNCTION__,__LINE__);
     status_t status;
     audio_out_operations_t *out_ops = &audec->aout_ops;
@@ -1151,7 +1151,7 @@ extern "C" int android_start_raw(struct aml_audio_dec* audec)
             out_ops->private_data_raw= NULL;
            return -1;
     }
-    
+
     track->start();
     adec_print("[%s %d]AudioTrack_raw initCheck OK and started.",__FUNCTION__,__LINE__);
     return 0;
@@ -1176,12 +1176,12 @@ extern "C" int android_start(struct aml_audio_dec* audec)
     AudioTrack *track = mpAudioTrack.get();
 #endif
 
-   
-#ifdef USE_ARM_AUDIO_DEC	
+
+#ifdef USE_ARM_AUDIO_DEC
     i2s_iec958_sync_force(audec,0);
     if(out_ops->audio_out_raw_enable)
-    	android_start_raw(audec);
-#endif	
+        android_start_raw(audec);
+#endif
     adec_print("android out start");
     ttt = 0;
     resample = 0;
@@ -1205,13 +1205,13 @@ extern "C" int android_start(struct aml_audio_dec* audec)
     }
     track->start();
     adec_print("AudioTrack initCheck OK and started.");
-    
+
     return 0;
 }
 
 extern "C" int android_pause_raw(struct aml_audio_dec* audec __unused)
 {
-		Mutex::Autolock _l(mLock_raw);
+        Mutex::Autolock _l(mLock_raw);
         adec_print("[%s %d]android raw_out pause",__FUNCTION__,__LINE__);
 
 #if ANDROID_PLATFORM_SDK_VERSION < 19
@@ -1244,9 +1244,9 @@ extern "C" int android_pause(struct aml_audio_dec* audec)
     AudioTrack *track = mpAudioTrack.get();
 #endif
 #ifdef USE_ARM_AUDIO_DEC
-	//if(out_ops->audio_out_raw_enable)
-    //	android_pause_raw(audec);
-#endif 
+    //if(out_ops->audio_out_raw_enable)
+    //  android_pause_raw(audec);
+#endif
     adec_print("android out pause");
 
     if (track == 0) {
@@ -1255,20 +1255,20 @@ extern "C" int android_pause(struct aml_audio_dec* audec)
     }
 
     track->pause();
-#ifdef USE_ARM_AUDIO_DEC	
+#ifdef USE_ARM_AUDIO_DEC
     //adec_print("[%s %d] PRE_PAUSE:raw_bytes_readed/%ld pcm_bytes_readed/%ld delta/%ld\n",__FUNCTION__,__LINE__,
     //        audec->raw_bytes_readed,audec->pcm_bytes_readed,audec->pcm_bytes_readed-audec->raw_bytes_readed);
     i2s_iec958_sync_force(audec,0);
     //adec_print("[%s %d] POST_PAUSE:raw_bytes_readed/%ld pcm_bytes_readed/%ld delta/%ld\n",__FUNCTION__,__LINE__,
     //        audec->raw_bytes_readed,audec->pcm_bytes_readed,audec->pcm_bytes_readed-audec->raw_bytes_readed);
     audec->i2s_iec958_sync_flag=1;
-#endif	
+#endif
     return 0;
 }
 
 extern "C" int android_resume_raw(struct aml_audio_dec* audec __unused)
 {
-	Mutex::Autolock _l(mLock_raw);
+    Mutex::Autolock _l(mLock_raw);
     adec_print("[%s %d]android raw_out resume",__FUNCTION__,__LINE__);
 
 #if ANDROID_PLATFORM_SDK_VERSION < 19
@@ -1283,7 +1283,7 @@ extern "C" int android_resume_raw(struct aml_audio_dec* audec __unused)
     }
     track->start();
     return 0;
-}	
+}
 /**
  * \brief resume output
  * \param audec pointer to audec
@@ -1303,9 +1303,9 @@ extern "C" int android_resume(struct aml_audio_dec* audec __unused)
 
 #ifdef USE_ARM_AUDIO_DEC
     //i2s_iec958_sync_force(audec,0);
-	//if(out_ops->audio_out_raw_enable)
-    //	android_resume_raw(audec);
-#endif	
+    //if(out_ops->audio_out_raw_enable)
+    //  android_resume_raw(audec);
+#endif
     adec_print("android out resume");
     ttt = 0;
     resample = 0;
@@ -1318,13 +1318,13 @@ extern "C" int android_resume(struct aml_audio_dec* audec __unused)
            return -1;
     }
     track->start();
- 
+
     return 0;
 }
 #ifdef USE_ARM_AUDIO_DEC
 extern "C" int android_stop_raw(struct aml_audio_dec* audec __unused)
 {
-	Mutex::Autolock _l(mLock_raw);
+    Mutex::Autolock _l(mLock_raw);
     adec_print("[%s %d]android raw_out stop",__FUNCTION__,__LINE__);
 
     audio_out_operations_t *out_ops = &audec->aout_ops;
@@ -1366,9 +1366,9 @@ extern "C" int android_stop(struct aml_audio_dec* audec)
     AudioTrack *track = mpAudioTrack.get();
 #endif
 #ifdef USE_ARM_AUDIO_DEC
-	//if(out_ops->audio_out_raw_enable)
-       //	android_stop_raw(audec);
-#endif 
+    //if(out_ops->audio_out_raw_enable)
+       //   android_stop_raw(audec);
+#endif
     adec_print("android out stop");
     if(audec->channels == 8){
         property_set(DOLBY_SYSTEM_CHANNEL,"false");
@@ -1392,7 +1392,7 @@ extern "C" int android_stop(struct aml_audio_dec* audec)
 #endif
     if(wfd_enable){
         restore_system_framesize();
-    }	
+    }
     return 0;
 }
 
@@ -1411,7 +1411,7 @@ extern "C" unsigned long android_latency(struct aml_audio_dec* audec)
 #else
     AudioTrack *track = mpAudioTrack.get();
 #endif
-    if (audec->use_get_out_posion && audec->aout_ops.get_out_position)
+    if (audec->use_get_out_position && audec->aout_ops.get_out_position)
         return 0;
     if (track) {
         status_t s;
@@ -1490,8 +1490,8 @@ extern "C" int android_get_position(struct aml_audio_dec* audec __unused,
  */
 extern "C" int android_mute_raw(struct aml_audio_dec* audec, adec_bool_t en)
 {
-	Mutex::Autolock _l(mLock_raw);
-	adec_print("[%s %d]android raw_out mute",__FUNCTION__,__LINE__);
+    Mutex::Autolock _l(mLock_raw);
+    adec_print("[%s %d]android raw_out mute",__FUNCTION__,__LINE__);
 
 #if ANDROID_PLATFORM_SDK_VERSION < 19
     audio_out_operations_t *out_ops = &audec->aout_ops;
@@ -1516,7 +1516,7 @@ extern "C" int android_mute(struct aml_audio_dec* audec __unused, adec_bool_t en
 {
     Mutex::Autolock _l(mLock);
     adec_print("android out mute");
-    
+
 #if ANDROID_PLATFORM_SDK_VERSION < 19
     audio_out_operations_t *out_ops = &audec->aout_ops;
     AudioTrack *track = (AudioTrack *)out_ops->private_data;

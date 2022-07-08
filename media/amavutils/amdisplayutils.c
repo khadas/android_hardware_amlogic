@@ -53,7 +53,7 @@ static void get_display_mode(char *mode)
     int fd;
     char *path = "/sys/class/display/mode";
     if (!mode) {
-        LOGE("[get_display_mode]Invalide parameter!");
+        LOGE("[get_display_mode] Invalid parameter!");
         return;
     }
     fd = open(path, O_RDONLY);

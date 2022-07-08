@@ -183,7 +183,7 @@ void ReSizeNV21(struct VideoInfo *vinfo, uint8_t *src, uint8_t *img, uint32_t wi
                               0};
 
     if (!VT_resizeFrame_Video_opt2_lp(&input, &output, NULL, 0))
-        ALOGE("Sclale NV21 frame down failed!\n");
+        ALOGE("Scale NV21 frame down failed!\n");
 }
 
 Sensor::Sensor():
@@ -426,7 +426,7 @@ int Sensor::getOutputFormat()
 }
 
 /* if sensor supports MJPEG, return it first, otherwise
- * trasform HAL format to v4l2 format then check whether
+ * transform HAL format to v4l2 format then check whether
  * it is supported.
  */
 int Sensor::halFormatToSensorFormat(uint32_t pixelfmt)
@@ -793,7 +793,7 @@ status_t Sensor::setAntiBanding(uint8_t antiBanding)
     return ret;
 }
 
-status_t Sensor::setFocuasArea(int32_t x0, int32_t y0, int32_t x1, int32_t y1)
+status_t Sensor::setFocusArea(int32_t x0, int32_t y0, int32_t x1, int32_t y1)
 {
     int ret = 0;
     struct v4l2_control ctl;
@@ -855,7 +855,7 @@ int Sensor::getAutoFocus(uint8_t *afMode, uint8_t maxCount)
     return mode_count;
 }
 
-status_t Sensor::setAutoFocuas(uint8_t afMode)
+status_t Sensor::setAutoFocus(uint8_t afMode)
 {
     struct v4l2_control ctl;
     ctl.id = V4L2_CID_FOCUS_AUTO;
@@ -880,7 +880,7 @@ status_t Sensor::setAutoFocuas(uint8_t afMode)
     }
 
     if (ioctl(vinfo->fd, VIDIOC_S_CTRL, &ctl) < 0) {
-        CAMHAL_LOGDA("failed to set camera focuas mode!\n");
+        CAMHAL_LOGDA("failed to set camera focus mode!\n");
         return BAD_VALUE;
     }
 
@@ -2313,7 +2313,7 @@ void Sensor::captureNV21(StreamBuffer b, uint32_t gain) {
             } else {
                 ALOGV("Task is busy, do not post anymore");
             }
-            // wait fisrt frame valid
+            // wait first frame valid
             uint32_t count = 0;
             while (!mDecoderTask.validBuffer) {
                  _l.unlock();
@@ -2321,12 +2321,12 @@ void Sensor::captureNV21(StreamBuffer b, uint32_t gain) {
                 usleep(1000);
                 ALOGV("sleep-");
                 _l.lock();
-                if (count++ >= 100 || !mDecoderTask.bDecoderflag) {
+                if (count++ >= 100 || !mDecoderTask.bDecoderFlag) {
                     ALOGV("timeout wait for validBuffer");
                     break;
                 }
             }
-            if (!mDecoderTask.bDecoderflag)
+            if (!mDecoderTask.bDecoderFlag)
                 continue;
             ALOGVV("memcpy + %dx%d", b.width, b.height);
             if ((width == b.width) && (height == b.height)) {
@@ -2414,7 +2414,7 @@ status_t Sensor::decoderThread(void* user) {
             _l.lock();
             ALOGVV("Decoder -");
         } while(0);
-        task.bDecoderflag = bDecoderFlag;
+        task.bDecoderFlag = bDecoderFlag;
         task.validBuffer = workingBuffer;
         task.workingBuffer = nullptr;
         task.taskRunning = false;
@@ -2481,7 +2481,7 @@ void Sensor::captureYV12(StreamBuffer b, uint32_t gain) {
         src = mKernelBuffer;
         if (vinfo->preview.format.fmt.pix.pixelformat == V4L2_PIX_FMT_YVU420) {
             //memcpy(b.img, src, 200 * 100 * 3 / 2 /*vinfo->preview.buf.length*/);
-                ALOGI("Sclale YV12 frame down \n");
+                ALOGI("Scale YV12 frame down \n");
 
             int width = vinfo->preview.format.fmt.pix.width;
             int height = vinfo->preview.format.fmt.pix.height;
@@ -2495,7 +2495,7 @@ void Sensor::captureYV12(StreamBuffer b, uint32_t gain) {
                                         b.width, b.height,
                                         libyuv::kFilterNone);
             if (ret < 0)
-                ALOGE("Sclale YV12 frame down failed!\n");
+                ALOGE("Scale YV12 frame down failed!\n");
         } else if (vinfo->preview.format.fmt.pix.pixelformat == V4L2_PIX_FMT_YUYV) {
             int width = vinfo->preview.format.fmt.pix.width;
             int height = vinfo->preview.format.fmt.pix.height;
@@ -2518,7 +2518,7 @@ void Sensor::captureYV12(StreamBuffer b, uint32_t gain) {
                                         b.width, b.height,
                                         libyuv::kFilterNone);
             if (ret < 0)
-                ALOGE("Sclale YV12 frame down failed!\n");
+                ALOGE("Scale YV12 frame down failed!\n");
             delete [] tmp_buffer;
         } else if (vinfo->preview.format.fmt.pix.pixelformat == V4L2_PIX_FMT_MJPEG) {
             int width = vinfo->preview.format.fmt.pix.width;
@@ -2546,7 +2546,7 @@ void Sensor::captureYV12(StreamBuffer b, uint32_t gain) {
                                         b.width, b.height,
                                         libyuv::kFilterNone);
             if (ret < 0)
-                ALOGE("Sclale YV12 frame down failed!\n");
+                ALOGE("Scale YV12 frame down failed!\n");
 
             delete [] tmp_buffer;
         } else {
