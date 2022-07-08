@@ -96,10 +96,9 @@ namespace android {
             uint32_t format = mInfo->preview.format.fmt.pix.pixelformat;
             uint8_t *src = nullptr;
             src = in->src;
-            if (src) {
-                switch (format) {
+            if (src && in->src_fmt > 0) {
+                switch (in->src_fmt) {
                     case V4L2_PIX_FMT_NV21:
-                    case V4L2_PIX_FMT_YUYV:
                         if ((width == b.width) && (height == b.height)) {
                             memcpy(b.img, src, b.stride * b.height * 3/2);
                         } else {
@@ -151,6 +150,10 @@ namespace android {
                             mGE2D->ge2d_copy(b.share_fd, dmabuf_fd, b.stride, b.height, ge2dTransform::NV12);
                         }
                         break;
+                    case V4L2_PIX_FMT_UYVY:
+                        mGE2D->ge2d_fmt_convert(b.share_fd, PIXEL_FORMAT_YCrCb_420_SP, b.stride, b.height,
+                                               dmabuf_fd, PIXEL_FORMAT_YCbCr_422_UYVY, width, height);
+                        break;
                     default:
                         break;
                 }
@@ -171,6 +174,11 @@ namespace android {
                     memcpy(b.img, temp_buffer, b.width * b.height * 3/2);
                     free(temp_buffer);
                     break;
+                case V4L2_PIX_FMT_UYVY:
+                    mGE2D->ge2d_fmt_convert(b.share_fd, PIXEL_FORMAT_YCrCb_420_SP, b.stride, b.height,
+                                           dmabuf_fd, PIXEL_FORMAT_YCbCr_422_UYVY, width, height);
+                    break;
+
                 default:
                     break;
             }

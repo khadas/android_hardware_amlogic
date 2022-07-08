@@ -1,33 +1,33 @@
-#ifndef HW_EMULATOR_CAMERA3_USBSENSOR_H
-#define HW_EMULATOR_CAMERA3_USBSENSOR_H
+#ifndef HW_EMULATOR_CAMERA3_V4L2MEDIASENSOR_H
+#define HW_EMULATOR_CAMERA3_V4L2MEDIASENSOR_H
 
 #include "Sensor.h"
-#include "CameraIO.h"
+#include "MIPICameraIO.h"
 #include "CameraUtil.h"
-#include "OMXDecoder.h"
-#include "CameraIO.h"
+
 #include "CameraDevice.h"
-#ifdef GE2D_ENABLE
-#include "ge2d_stream.h"
-#endif
+
+#include "ICapture.h"
 #include "IonIf.h"
+
+#ifdef GDC_ENABLE
+#include "gdcUseMemcpy.h"
+#include "gdcUseFd.h"
+#include "IGdc.h"
+#endif
 
 namespace android {
 
-    class USBSensor:public Sensor {
+    class V4l2MediaSensor:public Sensor {
         public:
-            enum Decoder_Type{
-                HW_NONE,
-                HW_MJPEG,
-                HW_H264,
-            };
-        public:
-            USBSensor(int type);
-            ~USBSensor();
+            V4l2MediaSensor();
+            ~V4l2MediaSensor();
         public:
             status_t streamOff(void) override;
             status_t startUp(int idx) override;
             status_t shutDown(void) override;
+            void captureRGB(uint8_t *img, uint32_t gain, uint32_t stride) override;
+            void captureNV21(StreamBuffer b, uint32_t gain) override;
             void captureYV12(StreamBuffer b, uint32_t gain) override;
             void captureYUYV(uint8_t *img, uint32_t gain, uint32_t stride) override;
             status_t getOutputFormat(void) override;
@@ -57,49 +57,36 @@ namespace android {
             status_t setAWB(uint8_t awbMode) override;
             void setSensorListener(SensorListener *listener) override;
             uint32_t getStreamUsage(int stream_type) override;
+
         private:
+
             CameraVirtualDevice* mCameraVirtualDevice;
-            int mUSBDevicefd;
-            enum Decode_Method{
-                DECODE_SOFTWARE,
-                DECODE_OMX,
-                DECODE_MAX,
-            };
-            int mUseHwType;
-            enum Decode_Method mDecodeMethod;
-            OMXDecoder* mDecoder;
-            CameraUtil* mCameraUtil;
-            Vector<uint32_t> mSupportFormat;
-            Vector<uint32_t> mTryPixelFormat;
-            uint32_t mCurrentFormat;
-            bool mIsDecoderInit;
+            int mMediaDevicefd;
+            void * mMediaStream;
             //store the v4l2 info
-            CVideoInfo *mVinfo;
+            MIPIVideoInfo *mVinfo;
             uint8_t* mImage_buffer;
-            uint8_t* mDecodedBuffer;
-            bool mIsRequestFinished;
+
+            ICapture* mCapture;
 #ifdef GE2D_ENABLE
             IONInterface* mION;
             ge2dTransform* mGE2D;
 #endif
-            StreamBuffer mSensorOutBuf;
-
+#ifdef GDC_ENABLE
+            IGdc* mIGdc;
+            bool mIsGdcInit;
+#endif
         private:
-            USBSensor();
-            void dump(int& frame_index,uint8_t* buf, int length, std::string name);
-            void initDecoder(int in_width, int in_height,
-                                        int out_width, int out_height, int out_bufferCount);
-            int MJPEGToNV21(uint8_t* src, StreamBuffer b);
-            int H264ToNV21(uint8_t* src, StreamBuffer b);
-            int SensorInit(int idx);
-            void InitVideoInfo(int idx);
             int camera_open(int idx);
             void camera_close(void);
-            const char* getformt(int id);
+            void InitVideoInfo(int idx);
+            int SensorInit(int idx);
             void setIOBufferNum();
-            void captureNV21UsbSensor(StreamBuffer b, uint32_t gain, bool needSensorOutBuf);
 
+    protected:
+            virtual status_t readyToRun();
     };
 }
-#endif
+
+#endif //HW_EMULATOR_CAMERA3_V4L2MEDIASENSOR_H
 

@@ -21,31 +21,36 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <errno.h>
+#include <linux/media.h>
+
 
 #define ARRAY_SIZE(x) (sizeof((x))/sizeof(((x)[0])))
 
 CameraVirtualDevice* CameraVirtualDevice::mInstance = nullptr;
-struct VirtualDevice CameraVirtualDevice::videoDevices[8];
+struct VirtualDevice CameraVirtualDevice::videoDevices[10];
 
 #if BUILD_KERNEL_4_9 == true
 struct VirtualDevice CameraVirtualDevice::videoDeviceslists[] = {
-    {"/dev/video0",1,{FREED_VIDEO_DEVICE,NONE_DEVICE,NONE_DEVICE},{-1,-1,-1},{-1,-1,-1},0},
-    {"/dev/video1",1,{FREED_VIDEO_DEVICE,NONE_DEVICE,NONE_DEVICE},{-1,-1,-1},{-1,-1,-1},1},
-    {"/dev/video2",1,{FREED_VIDEO_DEVICE,NONE_DEVICE,NONE_DEVICE},{-1,-1,-1},{-1,-1,-1},2},
-    {"/dev/video3",1,{FREED_VIDEO_DEVICE,NONE_DEVICE,NONE_DEVICE},{-1,-1,-1},{-1,-1,-1},3},
-    {"/dev/video50",1,{FREED_VIDEO_DEVICE,NONE_DEVICE,NONE_DEVICE},{-1,-1,-1},{-1,-1,-1},4},
-    {"/dev/video51",1,{FREED_VIDEO_DEVICE,NONE_DEVICE,NONE_DEVICE},{-1,-1,-1},{-1,-1,-1},5},
-    {"/dev/video52",1,{FREED_VIDEO_DEVICE,NONE_DEVICE,NONE_DEVICE},{-1,-1,-1},{-1,-1,-1},6}
+    {"/dev/video0",1,{FREED_VIDEO_DEVICE,NONE_DEVICE,NONE_DEVICE},{-1,-1,-1},{-1,-1,-1},0, USB_CAM_DEV},
+    {"/dev/video1",1,{FREED_VIDEO_DEVICE,NONE_DEVICE,NONE_DEVICE},{-1,-1,-1},{-1,-1,-1},1, USB_CAM_DEV},
+    {"/dev/video2",1,{FREED_VIDEO_DEVICE,NONE_DEVICE,NONE_DEVICE},{-1,-1,-1},{-1,-1,-1},2, USB_CAM_DEV},
+    {"/dev/video3",1,{FREED_VIDEO_DEVICE,NONE_DEVICE,NONE_DEVICE},{-1,-1,-1},{-1,-1,-1},3, USB_CAM_DEV},
+    {"/dev/video50",1,{FREED_VIDEO_DEVICE,NONE_DEVICE,NONE_DEVICE},{-1,-1,-1},{-1,-1,-1},4, MIPI_CAM_DEV},
+    {"/dev/video51",1,{FREED_VIDEO_DEVICE,NONE_DEVICE,NONE_DEVICE},{-1,-1,-1},{-1,-1,-1},5, MIPI_CAM_DEV},
 };
 #else
 struct VirtualDevice CameraVirtualDevice::videoDeviceslists[] = {
-    {"/dev/video0",1,{FREED_VIDEO_DEVICE,NONE_DEVICE,NONE_DEVICE},{-1,-1,-1},{-1,-1,-1},0},
-    {"/dev/video2",1,{FREED_VIDEO_DEVICE,NONE_DEVICE,NONE_DEVICE},{-1,-1,-1},{-1,-1,-1},1},
-    {"/dev/video4",1,{FREED_VIDEO_DEVICE,NONE_DEVICE,NONE_DEVICE},{-1,-1,-1},{-1,-1,-1},2},
-    {"/dev/video6",1,{FREED_VIDEO_DEVICE,NONE_DEVICE,NONE_DEVICE},{-1,-1,-1},{-1,-1,-1},3},
-    {"/dev/video50",1,{FREED_VIDEO_DEVICE,NONE_DEVICE,NONE_DEVICE},{-1,-1,-1},{-1,-1,-1},4},
-    {"/dev/video51",1,{FREED_VIDEO_DEVICE,NONE_DEVICE,NONE_DEVICE},{-1,-1,-1},{-1,-1,-1},5},
-    {"/dev/video52",1,{FREED_VIDEO_DEVICE,NONE_DEVICE,NONE_DEVICE},{-1,-1,-1},{-1,-1,-1},6}
+    {"/dev/video0",1,{FREED_VIDEO_DEVICE,NONE_DEVICE,NONE_DEVICE},{-1,-1,-1},{-1,-1,-1},0, USB_CAM_DEV},
+    {"/dev/video2",1,{FREED_VIDEO_DEVICE,NONE_DEVICE,NONE_DEVICE},{-1,-1,-1},{-1,-1,-1},1, USB_CAM_DEV},
+    {"/dev/video4",1,{FREED_VIDEO_DEVICE,NONE_DEVICE,NONE_DEVICE},{-1,-1,-1},{-1,-1,-1},2, USB_CAM_DEV},
+    {"/dev/video6",1,{FREED_VIDEO_DEVICE,NONE_DEVICE,NONE_DEVICE},{-1,-1,-1},{-1,-1,-1},3, USB_CAM_DEV},
+    {"/dev/video50",1,{FREED_VIDEO_DEVICE,NONE_DEVICE,NONE_DEVICE},{-1,-1,-1},{-1,-1,-1},4, MIPI_CAM_DEV},
+    {"/dev/video51",1,{FREED_VIDEO_DEVICE,NONE_DEVICE,NONE_DEVICE},{-1,-1,-1},{-1,-1,-1},5, MIPI_CAM_DEV},
+
+    {"/dev/media0",1,{FREED_VIDEO_DEVICE,NONE_DEVICE,NONE_DEVICE},{-1,-1,-1},{-1,-1,-1},60, V4L2MEDIA_CAM_DEV}, // not support hotplug
+    {"/dev/media1",1,{FREED_VIDEO_DEVICE,NONE_DEVICE,NONE_DEVICE},{-1,-1,-1},{-1,-1,-1},61, V4L2MEDIA_CAM_DEV}, // not support hotplug
+    {"/dev/media2",1,{FREED_VIDEO_DEVICE,NONE_DEVICE,NONE_DEVICE},{-1,-1,-1},{-1,-1,-1},62, V4L2MEDIA_CAM_DEV}, // not support hotplug
+    {"/dev/media3",1,{FREED_VIDEO_DEVICE,NONE_DEVICE,NONE_DEVICE},{-1,-1,-1},{-1,-1,-1},63, V4L2MEDIA_CAM_DEV} // not support hotplug
 };
 #endif
 
@@ -80,12 +85,19 @@ struct VirtualDevice* CameraVirtualDevice::findVideoDevice(int id) {
     int video_device_count = 0;
     char tmp[64];
     /*scan the device name*/
-    for (size_t i = 0; i < ARRAY_SIZE(videoDevices); i++) {
+    for (size_t i = 0; i < DEVICE_NUM; i++) {
         struct VirtualDevice* pDev = &videoDevices[i];
         if (!findCameraID(pDev->deviceID)
             || 0 != access(pDev->name, F_OK | R_OK | W_OK)) {
             ALOGD("%s: device %s is invaild", __FUNCTION__,pDev->name);
             continue;
+        }
+        if (pDev->type == V4L2MEDIA_CAM_DEV) {
+            // for media device. skip usb cameras' media dev node.
+            if ( false == isAmlMediaCamera(pDev->name) ) {
+                // skip
+                continue;
+            }
         }
 
         for (int stream_idx = 0; stream_idx < pDev->streamNum; stream_idx++) {
@@ -97,6 +109,10 @@ struct VirtualDevice* CameraVirtualDevice::findVideoDevice(int id) {
                         video_device_count++;
                     else {
                         ALOGD("%s: VirtualDevice  %s stream index %d map to camera id %d sta %d", __FUNCTION__,pDev->name,stream_idx,id, pDev->status[stream_idx]);
+                        if (i >= ISP_DEVICE) {
+                            pDev->cameraId[stream_idx] = id;
+                            return pDev;
+                        }
                         if (pDev->status[stream_idx] == USED_VIDEO_DEVICE)
                             continue;
                         if (pDev->deviceID != id) {
@@ -202,6 +218,14 @@ int CameraVirtualDevice::openVirtualDevice(int id) {
     }
     return -1;
 }
+
+struct VirtualDevice* CameraVirtualDevice::getVirtualDevice(int id)
+{
+    ALOGD("%s: id = %d E", __FUNCTION__,id);
+    return findVideoDevice(id);
+}
+
+
 /*for mipi camera ,once we has opened all ports,
  *we never closed them.
  */
@@ -241,20 +265,58 @@ CameraVirtualDevice* CameraVirtualDevice::getInstance() {
     }
 }
 
+bool CameraVirtualDevice::isAmlMediaCamera (char *dev_node_name)
+{
+    int ret = -1;
+    bool result = false;
+    struct media_device_info mdi;
+    /* Open Media device and keep it open */
+    int fd = open(dev_node_name, O_RDWR);
+    if (fd == -1) {
+        ALOGE("Media Device open errno %s\n", strerror(errno));
+        return false;
+    } else {
+        ret = ioctl(fd, MEDIA_IOC_DEVICE_INFO, &mdi);
+        if (ret < 0) {
+            ALOGI("Media Device Info errno %s\n", strerror(errno));
+            result = false;
+        } else {
+            ALOGI("Media device info: model %s driver %s serial %s bus_info %s \n",
+                mdi.model, mdi.driver, mdi.serial, mdi.bus_info );
+            if ( 0 == strncmp(mdi.driver, "t7-cam", 6) ||
+                 0 == strncmp(mdi.driver, "t7c-cam", 7)
+                ) {
+                result = true;
+            }
+        }
+        close(fd);
+    }
+    return result;
+}
+
 int CameraVirtualDevice::getCameraNum() {
     int iCamerasNum = 0;
     ATRACE_CALL();
-    for (int i = 0; i < (int)ARRAY_SIZE(videoDevices); i++ ) {
+    for (int i = 0; i < DEVICE_NUM; i++ ) {
         struct VirtualDevice* pDev = &videoDevices[i];
-        if (findCameraID(pDev->deviceID)
-            && 0 == access(pDev->name, F_OK | R_OK | W_OK))
+        int ret = access(pDev->name, F_OK | R_OK | W_OK);
+        if ( 0 == ret)
         {
             ALOGD("access %s success\n", pDev->name);
+            if (pDev->type == V4L2MEDIA_CAM_DEV) {
+                // for media device. skip usb cameras' media dev node.
+                if ( false == isAmlMediaCamera(pDev->name) ) {
+                    // skip
+                    continue;
+                }
+            }
             for (int stream_idx = 0; stream_idx < pDev->streamNum; stream_idx++)
                 if (pDev->status[stream_idx] == FREED_VIDEO_DEVICE) {
                     ALOGD("device %s stream %d \n", pDev->name,stream_idx);
                     iCamerasNum++;
                 }
+        } else {
+            ALOGD(" %s, access failed. ret %d \n", pDev->name, ret);
         }
     }
     return iCamerasNum;
@@ -269,6 +331,9 @@ int CameraVirtualDevice::findCameraID(int id) {
             break;
         }
     }
+
+    ALOGD("%s:id=%d, ret flag = %d",__FUNCTION__,id, flag);
+
     return flag;
 }
 

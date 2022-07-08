@@ -37,6 +37,7 @@
 #include <cutils/properties.h>
 #include "fake-pipeline2/Sensor.h"
 #include "fake-pipeline2/JpegCompressor.h"
+#include "fake-pipeline2/V4l2MediaSensor.h"
 #include <cmath>
 #include <binder/IPCThreadState.h>
 #include <amlogic/am_gralloc_ext.h>
@@ -285,8 +286,7 @@ status_t EmulatedFakeCamera3::Initialize() {
 
 status_t EmulatedFakeCamera3::connectCamera(hw_device_t** device) {
     ATRACE_CALL();
-    ALOGV("%s: E", __FUNCTION__);
-    DBG_LOGB("%s, ddd", __FUNCTION__);
+
     Mutex::Autolock l(mLock);
     status_t res;
     DBG_LOGB("%s , mCameraID=%d, mStatus = %d" , __FUNCTION__, mCameraID, mStatus);
@@ -300,8 +300,11 @@ status_t EmulatedFakeCamera3::connectCamera(hw_device_t** device) {
     mSensor->setSensorListener(this);
 
     res = mSensor->startUp(mCameraID);
-    DBG_LOGB("mSensor startUp, mCameraID=%d\n", mCameraID);
-    if (res != NO_ERROR) return res;
+    DBG_LOGB("mSensor after startUp, mCameraID=%d\n", mCameraID);
+    if (res != NO_ERROR) {
+        ALOGE(" mSensor startup ret %d, failed ", res);
+        return res;
+    }
 
     mReadoutThread = new ReadoutThread(this);
     if (mJpegCompressor == nullptr ) mJpegCompressor = new JpegCompressor();
@@ -312,11 +315,15 @@ status_t EmulatedFakeCamera3::connectCamera(hw_device_t** device) {
     }
     res = mReadoutThread->startJpegCompressor(this);
     if (res != NO_ERROR) {
+        ALOGE(" startJpegCompressor failed, ret %d ", res);
         return res;
     }
 
     res = mReadoutThread->run("EmuCam3::readoutThread");
-    if (res != NO_ERROR) return res;
+    if (res != NO_ERROR) {
+        ALOGE(" mReadoutThread run failed, ret %d ", res);
+        return res;
+    }
 
     // Initialize fake 3A
 
@@ -332,7 +339,13 @@ status_t EmulatedFakeCamera3::connectCamera(hw_device_t** device) {
     mAeCurrentExposureTime = kNormalExposureTime;
     mAeCurrentSensitivity  = kNormalSensitivity;
 
-    return EmulatedCamera3::connectCamera(device);
+    res = EmulatedCamera3::connectCamera(device);
+    if (res != NO_ERROR) {
+        ALOGE(" EmulatedCamera3 connectCamera, ret %d ", res);
+        return res;
+    }
+    ALOGD("%s, Leave success", __func__);
+    return res;
 }
 
 status_t EmulatedFakeCamera3::plugCamera() {
@@ -811,6 +824,11 @@ const camera_metadata_t* EmulatedFakeCamera3::constructDefaultRequestSettings(
         if (frameDuration < (int64_t)33333333L)
             frameDuration = (int64_t)33333333L;
     }
+    if (mSensorType == SENSOR_V4L2MEDIA) {
+        if (frameDuration < (int64_t)33333333L)
+            frameDuration = (int64_t)33333333L;
+    }
+
     settings.update(ANDROID_SENSOR_FRAME_DURATION, &frameDuration, 1);
 
     static const int32_t sensitivity = 100;
@@ -1103,6 +1121,8 @@ const camera_metadata_t* EmulatedFakeCamera3::constructDefaultRequestSettings(
         &aberrationMode, 1);
 
     mDefaultTemplates[type] = settings.release();
+
+    DBG_LOGB("%s: Leave ", __FUNCTION__);
 
     return mDefaultTemplates[type];
 }
@@ -1665,6 +1685,16 @@ void EmulatedFakeCamera3::updateCameraMetaData(CameraMetadata *info) {
 }
 
 status_t EmulatedFakeCamera3::createSensor() {
+
+    VirtualDevice * device = CameraVirtualDevice::getInstance()->getVirtualDevice(mCameraID);
+    ALOGD("device %s  type %d", device->name, device->type);
+    if (device->type == V4L2MEDIA_CAM_DEV) {
+        mSensorType = SENSOR_V4L2MEDIA;
+        ALOGD("v4l2media sensor, mCameraID=%d",mCameraID);
+        mSensor = new V4l2MediaSensor();
+        return OK;
+    }
+
     sp<Sensor> s = new Sensor();
     status_t ret = s->startUp(mCameraID);
     if (ret != OK) {
@@ -1792,6 +1822,7 @@ status_t EmulatedFakeCamera3::constructStaticInfo() {
           mFacingBack = 0;
         }
         break;
+     case SENSOR_V4L2MEDIA:
      case SENSOR_MIPI:
         property_get("ro.vendor.camera_mipi.faceback", property, NULL);
         if (strstr(property, "true")) {
@@ -2476,7 +2507,7 @@ status_t EmulatedFakeCamera3::doFakeAF(CameraMetadata &settings) {
                         __FUNCTION__, afMode);
                 return BAD_VALUE;
             }
-            mSensor->setAutoFocuas(afMode);
+            mSensor->setAutoFocus(afMode);
             // OK, handle transitions lower on
             break;
         default:

@@ -778,7 +778,7 @@ status_t Sensor::setAntiBanding(uint8_t antiBanding)
     return ret;
 }
 
-status_t Sensor::setFocuasArea(int32_t x0, int32_t y0, int32_t x1, int32_t y1)
+status_t Sensor::setFocusArea(int32_t x0, int32_t y0, int32_t x1, int32_t y1)
 {
     ATRACE_CALL();
     int ret = 0;
@@ -842,7 +842,7 @@ int Sensor::getAutoFocus(uint8_t *afMode, uint8_t maxCount)
     return mode_count;
 }
 
-status_t Sensor::setAutoFocuas(uint8_t afMode)
+status_t Sensor::setAutoFocus(uint8_t afMode)
 {
     ATRACE_CALL();
     struct v4l2_control ctl;

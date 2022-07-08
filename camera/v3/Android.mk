@@ -20,7 +20,7 @@ include $(CLEAR_VARS)
 LOCAL_VENDOR_MODULE := true
 LOCAL_MODULE_RELATIVE_PATH := hw
 LOCAL_CFLAGS += -fno-short-enums -DQEMU_HARDWARE
-LOCAL_CFLAGS += -Wno-unused-parameter -Wno-missing-field-initializers -Wno-format
+LOCAL_CFLAGS += -Wno-unused-parameter -Wno-missing-field-initializers -Wno-format  -Wno-unused-function
 LOCAL_CFLAGS += -DPLATFORM_SDK_VERSION=$(PLATFORM_SDK_VERSION)
 
 ########################################################################################################
@@ -189,6 +189,11 @@ LOCAL_SRC_FILES := \
     fake-pipeline2/MIPICameraIO.cpp \
     fake-pipeline2/CaptureUseMemcpy.cpp \
     fake-pipeline2/HDMIToCSISensor.cpp \
+    fake-pipeline2/V4l2MediaSensor.cpp \
+    fake-pipeline2/media-v4l2/libmediactl.cpp \
+    fake-pipeline2/media-v4l2/libv4l2subdev.cpp \
+    fake-pipeline2/media-v4l2/libv4l2videodev.cpp
+
 
 ifeq ($(GE2D_ENABLE),true)
 LOCAL_SRC_FILES += fake-pipeline2/ge2d_stream.cpp \

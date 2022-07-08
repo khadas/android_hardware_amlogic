@@ -157,6 +157,7 @@ typedef enum sensor_type_e{
     SENSOR_CANVAS_MODE,
     SENSOR_MIPI,
     SENSOR_USB,
+    SENSOR_V4L2MEDIA,
     SENSOR_SHARE_FD,
 }sensor_type_t;
 
@@ -222,10 +223,10 @@ class Sensor: public Thread, public virtual RefBase {
     virtual status_t setEffect(uint8_t effect);
     virtual int getAntiBanding(uint8_t *antiBanding, uint8_t maxCont);
     virtual status_t setAntiBanding(uint8_t antiBanding);
-    virtual status_t setFocuasArea(int32_t x0, int32_t y0, int32_t x1, int32_t y1);
+    virtual status_t setFocusArea(int32_t x0, int32_t y0, int32_t x1, int32_t y1);
     virtual int getAWB(uint8_t *awbMode, uint8_t maxCount);
     virtual status_t setAWB(uint8_t awbMode);
-    virtual status_t setAutoFocuas(uint8_t afMode);
+    virtual status_t setAutoFocus(uint8_t afMode);
     virtual int getAutoFocus(uint8_t *afMode, uint8_t maxCount);
     void setExposureTime(uint64_t ns);
     void setFrameDuration(uint64_t ns);
@@ -330,6 +331,7 @@ class Sensor: public Thread, public virtual RefBase {
     uint32_t  mGainFactor;
     Buffers  *mNextBuffers;
     uint8_t  *mKernelBuffer;
+    int mKernelBufferFmt;
     int mTempFD;
     uintptr_t mKernelPhysAddr;
     uint32_t  mFrameNumber;

@@ -179,6 +179,7 @@ bool EmulatedCameraHotplugThread::threadLoop() {
     char buf[4096];
     struct iovec iov;
     struct msghdr msg;
+    char *v4l2_dev_name_string;
     char *video4linux_string;
     char *action_string;
     //int i;
@@ -204,6 +205,11 @@ bool EmulatedCameraHotplugThread::threadLoop() {
         if (len < 4096)
             buf[len] = '\0';
 
+        //buf like that:    add@/devices/lm1/usb1/1-1/1-1.3/1-1.3:1.0/video4linux/video0 ACTION=add DEVPATH=/devices/lm1/usb1/1-1/1-1.3/1-1.3:1.0/video4linux/video0 ...
+        //                  add@/devices/platform/camera0/video4linux/v4l-subdev0 ACTION=add DEVPATH=/devices/platform/camera0/video4linux/v4l-subdev0 ...
+        //                  add@/devices/platform/camera0/video4linux/video50 ACTION=add DEVPATH=/devices/platform/camera0/video4linux/video50...
+        //                  add@/devices/platform/camera0/video4linux/video60 ACTION=add DEVPATH=/devices/platform/camera0/video4linux/video60 ...
+
         CAMHAL_LOGDB("buf=%s\n", buf);
         video4linux_string = strstr(buf, "video4linux");
         CAMHAL_LOGVB("video4linux=%s\n", video4linux_string);
@@ -226,13 +232,17 @@ bool EmulatedCameraHotplugThread::threadLoop() {
             break;
         }
 
-        //string like that: add@/devices/lm1/usb1/1-1/1-1.3/1-1.3:1.0/video4linux/video0
-        video4linux_string += 17;
-        cameraId = strtol(video4linux_string, NULL, 10);
+        v4l2_dev_name_string = video4linux_string + 12; // skip video4linux/ - get video60 or v4l-subdev0
+        if (0 == strncmp(v4l2_dev_name_string, "video", 5) ) {
+            video4linux_string += 17;
+            cameraId = strtol(video4linux_string, NULL, 10);
 
-        gEmulatedCameraFactory.onStatusChanged(cameraId,
+            gEmulatedCameraFactory.onStatusChanged(cameraId,
                 halStatus);
-
+        } else {
+            CAMHAL_LOGDB(" %s is not v4l2 video device.\n",v4l2_dev_name_string );
+            break;
+        }
     }
 
     if (!mRunning) {

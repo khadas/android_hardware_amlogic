@@ -83,7 +83,7 @@ EmulatedCameraFactory::EmulatedCameraFactory()
                     getFakeCameraHalVersion(cameraId));
             res = mEmulatedCameras[i]->Initialize();
             if (res != NO_ERROR) {
-                ALOGE("%s: Unable to intialize camera %d: %s (%d)",
+                ALOGE("%s: Unable to initialize camera %d: %s (%d)",
                     __FUNCTION__, i, strerror(-res), res);
                 delete mEmulatedCameras[i];
             }
@@ -214,14 +214,16 @@ void EmulatedCameraFactory::getvendortagops(vendor_tag_ops_t* ops)
 
 int EmulatedCameraFactory::setTorchMode(const char* camera_id, bool enabled)
 {
-    return 0;
+    //OPERATION_NOT_SUPPORTED
+    ALOGW("%s : operation not supported !!", __func__);
+    return -ENOSYS;
 }
 
 /****************************************************************************
  * Camera HAL API callbacks.
  ***************************************************************************/
 
-EmulatedBaseCamera* EmulatedCameraFactory::getValidCameraOject()
+EmulatedBaseCamera* EmulatedCameraFactory::getValidCameraObject()
 {
     EmulatedBaseCamera* cam = NULL;
     for (int i = 0; i < MAX_CAMERA_NUM; i++) {
@@ -233,7 +235,7 @@ EmulatedBaseCamera* EmulatedCameraFactory::getValidCameraOject()
     return cam;
 }
 
-int EmulatedCameraFactory::getValidCameraOjectId()
+int EmulatedCameraFactory::getValidCameraObjectId()
 {
     int id = -1;
     for (int i = 0; i < MAX_CAMERA_NUM; i++) {
@@ -273,7 +275,7 @@ int EmulatedCameraFactory::get_number_of_cameras(void)
 {
     ATRACE_CALL();
     int i = 0;
-    EmulatedBaseCamera* cam = gEmulatedCameraFactory.getValidCameraOject();
+    EmulatedBaseCamera* cam = gEmulatedCameraFactory.getValidCameraObject();
     while (i < 6) {
         if (cam != NULL) {
             if (!cam->getHotplugStatus()) {

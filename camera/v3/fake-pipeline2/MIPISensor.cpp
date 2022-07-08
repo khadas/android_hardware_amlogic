@@ -305,6 +305,8 @@ void MIPISensor::captureNV21(StreamBuffer b, uint32_t gain){
     struct data_in in;
     in.src = mKernelBuffer;
     in.share_fd = mTempFD;
+    in.src_fmt = mKernelBufferFmt;
+
     ALOGVV("%s:mTempFD = %d",__FUNCTION__,mTempFD);
     while (1) {
         if (mExitSensorThread) {
@@ -332,6 +334,7 @@ void MIPISensor::captureNV21(StreamBuffer b, uint32_t gain){
 #endif
         mKernelBuffer = b.img;
         mTempFD = b.share_fd;
+        mKernelBufferFmt = V4L2_PIX_FMT_NV21;
         mSensorWorkFlag = true;
         mVinfo->putback_frame();
 
@@ -999,6 +1002,7 @@ int MIPISensor::captureNewImage() {
     bool isjpeg = false;
     uint32_t gain = mGainFactor;
     mKernelBuffer = NULL;
+    mKernelBufferFmt = 0;
     mTempFD = -1;
     // Might be adding more buffers, so size isn't constant
     ALOGVV("%s:buffer size=%d\n",__FUNCTION__,mNextCapturedBuffers->size());
@@ -1312,7 +1316,7 @@ status_t MIPISensor::setAntiBanding(uint8_t antiBanding) {
     return ret;
 }
 
-status_t MIPISensor::setFocuasArea(int32_t x0, int32_t y0, int32_t x1, int32_t y1) {
+status_t MIPISensor::setFocusArea(int32_t x0, int32_t y0, int32_t x1, int32_t y1) {
     int ret = 0;
     struct v4l2_control ctl;
     ctl.id = V4L2_CID_FOCUS_ABSOLUTE;
@@ -1370,7 +1374,7 @@ int MIPISensor::getAutoFocus(uint8_t *afMode, uint8_t maxCount) {
 
     return mode_count;
 }
-status_t MIPISensor::setAutoFocuas(uint8_t afMode) {
+status_t MIPISensor::setAutoFocus(uint8_t afMode) {
     struct v4l2_control ctl;
     ctl.id = V4L2_CID_FOCUS_AUTO;
 

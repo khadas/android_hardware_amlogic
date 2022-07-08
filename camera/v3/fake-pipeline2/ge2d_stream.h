@@ -50,6 +50,9 @@ public:
         int ge2d_keep_ration_scale(int dst_fd,int dst_fmt, size_t dst_w,
                 size_t dst_h,int src_fd, size_t src_w, size_t src_h);
 
+        int ge2d_fmt_convert(int dst_fd,int dst_fmt, size_t dst_w,size_t dst_h,
+                                          int src_fd, int src_fmt, size_t src_w, size_t src_h);
+
         int ge2d_rotation(int dst_fd,size_t src_w, size_t src_h, int fmt,
                                                         int degree);
         int ge2d_mirror(int dst_fd,size_t src_w,size_t src_h,int fmt);

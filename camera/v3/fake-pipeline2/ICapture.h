@@ -5,11 +5,13 @@
 
 namespace android {
     struct data_in {
-		/*in*/
+        /*in*/
         uint8_t* src;
-		/*in*/
+        /*in*/
+        int src_fmt;
+        /*in*/
         int share_fd;
-		/*out*/
+        /*out*/
         int dmabuf_fd;
     };
     class ICapture {

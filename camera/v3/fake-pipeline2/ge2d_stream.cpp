@@ -435,6 +435,52 @@ int ge2dTransform::ge2d_scale(int dst_fd,int dst_fmt, size_t dst_w,
     return 0;
 }
 
+//format convert. eg. UYVY->NV12
+int ge2dTransform::ge2d_fmt_convert(int dst_fd,int dst_fmt, size_t dst_w,size_t dst_h,
+                                    int src_fd, int src_fmt, size_t src_w, size_t src_h) {
+
+    m_amlge2d.ge2dinfo.src_info[0].shared_fd[0] = src_fd;
+    m_amlge2d.ge2dinfo.src_info[0].memtype = GE2D_CANVAS_ALLOC;
+    m_amlge2d.ge2dinfo.src_info[0].mem_alloc_type = AML_GE2D_MEM_ION;
+    m_amlge2d.ge2dinfo.src_info[1].memtype = GE2D_CANVAS_TYPE_INVALID;
+    m_amlge2d.ge2dinfo.src_info[1].mem_alloc_type = AML_GE2D_MEM_INVALID;
+
+    m_amlge2d.ge2dinfo.src_info[0].plane_number = 1;
+    m_amlge2d.ge2dinfo.src_info[0].canvas_w = src_w;
+    m_amlge2d.ge2dinfo.src_info[0].canvas_h = src_h;
+    m_amlge2d.ge2dinfo.src_info[0].rect.x = 0;
+    m_amlge2d.ge2dinfo.src_info[0].rect.y = 0;
+    m_amlge2d.ge2dinfo.src_info[0].rect.w = src_w;
+    m_amlge2d.ge2dinfo.src_info[0].rect.h = src_h;
+
+    m_amlge2d.ge2dinfo.src_info[0].format = src_fmt ; //PIXEL_FORMAT_YCbCr_422_UYVY; //PIXEL_FORMAT_YCbCr_420_SP_NV12
+    m_amlge2d.ge2dinfo.src_info[0].plane_alpha = 0xFF; /* global plane alpha*/
+
+    m_amlge2d.ge2dinfo.dst_info.shared_fd[0] = dst_fd;
+    m_amlge2d.ge2dinfo.dst_info.memtype = GE2D_CANVAS_ALLOC;
+    m_amlge2d.ge2dinfo.dst_info.mem_alloc_type = AML_GE2D_MEM_ION;
+    m_amlge2d.ge2dinfo.dst_info.plane_number = 1;
+    m_amlge2d.ge2dinfo.dst_info.canvas_w = dst_w;
+    m_amlge2d.ge2dinfo.dst_info.canvas_h = dst_h;
+    m_amlge2d.ge2dinfo.dst_info.rect.x = 0;
+    m_amlge2d.ge2dinfo.dst_info.rect.y = 0;
+    m_amlge2d.ge2dinfo.dst_info.rect.w = dst_w;
+    m_amlge2d.ge2dinfo.dst_info.rect.h = dst_h;
+    m_amlge2d.ge2dinfo.dst_info.rotation = GE2D_ROTATION_0;
+    m_amlge2d.ge2dinfo.dst_info.format =  dst_fmt ; //PIXEL_FORMAT_YCbCr_420_SP_NV12; //PIXEL_FORMAT_RGBA_8888;
+    m_amlge2d.ge2dinfo.dst_info.plane_alpha = 0xFF; /* global plane alpha*/
+
+    m_amlge2d.ge2dinfo.ge2d_op = AML_GE2D_STRETCHBLIT;
+
+    int ret = aml_ge2d_process(&m_amlge2d.ge2dinfo);
+    if (ret < 0) {
+        printf("ge2d process failed, %s (%d)\n", __func__, __LINE__);
+        return ret;
+    }
+    return ret;
+}
+
+
 //scale nv21 to other format
 int ge2dTransform::ge2d_keep_ration_scale(int dst_fd,int dst_fmt, size_t dst_w,
                 size_t dst_h,int src_fd, size_t src_w, size_t src_h) {
