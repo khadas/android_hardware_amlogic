@@ -20,6 +20,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <string.h>
+#include <sys/ioctl.h>
 
 #include <string>
 
@@ -29,6 +30,7 @@
 #include <android-base/stringprintf.h>
 #include <android-base/unique_fd.h>
 #include <bootloader_message/bootloader_message.h>
+#include <cutils/android_reboot.h>
 
 #include "private/boot_control_definition.h"
 
@@ -53,6 +55,8 @@ constexpr unsigned int kDefaultBootAttempts = 7;
 /*First 512 bytes in bootloader is signed data*/
 #define BOOTLOADER_OFFSET      512
 #define GPT_HEADER_SIGNATURE_UBOOT 0x5452415020494645ULL
+
+#define SYS_BOOT_COMPLETE       "/sys/class/tee_info/sys_boot_complete"
 
 static_assert(kDefaultBootAttempts < 8, "tries_remaining field only has 3 bits");
 
@@ -82,6 +86,14 @@ static uint32_t CRC32(const uint8_t* buf, size_t size) {
   }
 
   return ~ret;
+}
+
+static int reboot_device() {
+  if (android_reboot(ANDROID_RB_RESTART2, 0, nullptr) == -1) {
+    LOG(ERROR) << "Failed to reboot.";
+    return -1;
+  }
+  while (true) pause();
 }
 
 // Return the little-endian representation of the CRC-32 of the first fields
@@ -144,6 +156,28 @@ int is_valid_gpt_buf(char *buf)
     }
 
     return 0;
+}
+
+static int set_sys_boot_complete(void)
+{
+    int fd;
+    int len;
+    char buf[] = "1";
+
+    fd = open(SYS_BOOT_COMPLETE, O_WRONLY);
+    if (fd < 0) {
+        LOG(INFO) << "open " << SYS_BOOT_COMPLETE << " failed";
+        return -1;
+    }
+
+    len = write(fd, buf, sizeof(buf));
+
+    close(fd);
+
+    if (len != sizeof(buf))
+        return -1;
+    else
+        return 0;
 }
 
 bool write_bootloader_img(unsigned int slot, bool gpt_flag)
@@ -426,6 +460,11 @@ bool BootControl::Init() {
     return false;
   }
 
+  if (boot_ctrl.slot_info[current_slot_].successful_boot == 1) {
+    set_sys_boot_complete();
+    LOG(INFO) << "call set_sys_boot_complete in init";
+  }
+
   num_slots_ = boot_ctrl.nb_slot;
   return true;
 }
@@ -440,14 +479,27 @@ unsigned int BootControl::GetCurrentSlot() {
 
 bool BootControl::MarkBootSuccessful() {
   bootloader_control bootctrl;
+  bool ret;
+  int flag = 0;
   if (!LoadBootloaderControl(misc_device_, &bootctrl)) return false;
 
+  if (bootctrl.slot_info[current_slot_].successful_boot == 0) {
+    flag = 1;
+    set_sys_boot_complete();
+    LOG(INFO) << "call set_sys_boot_complete in MarkBootSuccessful";
+  }
   bootctrl.slot_info[current_slot_].successful_boot = 1;
   // tries_remaining == 0 means that the slot is not bootable anymore, make
   // sure we mark the current slot as bootable if it succeeds in the last
   // attempt.
   bootctrl.slot_info[current_slot_].tries_remaining = 1;
-  return UpdateAndSaveBootloaderControl(misc_device_, &bootctrl);
+
+  ret = UpdateAndSaveBootloaderControl(misc_device_, &bootctrl);
+  if (flag ==1) {
+    LOG(INFO) << "reboot for ARB";
+    reboot_device();
+  }
+  return ret;
 }
 
 bool BootControl::SetBootloaderIndex(const char* boot_num) {
