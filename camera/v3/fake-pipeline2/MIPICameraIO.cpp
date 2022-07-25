@@ -286,7 +286,6 @@ int MIPIVideoInfo::get_frame_index(FrameV4L2Info& info) {
 int MIPIVideoInfo::get_frame_buffer(struct VideoInfoBuffer* b)
 {
     int index = get_frame_index(preview);
-    ALOGD("%s:index = %d \n",__FUNCTION__,index);
     if (index < 0)
         return -1;
     else {
@@ -318,6 +317,7 @@ int MIPIVideoInfo::putback_frame()
                 set_device_status();
             }
         }
+        ALOGD("%s:\n",__FUNCTION__);
 
         return 0;
 }

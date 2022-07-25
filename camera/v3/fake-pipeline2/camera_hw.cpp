@@ -26,7 +26,6 @@
 #include <errno.h>
 #include <cutils/properties.h>
 #include "camera_hw.h"
-#include "ispaaalib.h"
 #include "CameraDevice.h"
 #ifdef __cplusplus
 //extern "C" {

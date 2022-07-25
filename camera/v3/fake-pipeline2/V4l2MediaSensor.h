@@ -16,6 +16,8 @@
 #include "IGdc.h"
 #endif
 
+#include "ispMgr/ispMgr.h"
+
 namespace android {
 
     class V4l2MediaSensor:public Sensor {
@@ -63,6 +65,7 @@ namespace android {
             CameraVirtualDevice* mCameraVirtualDevice;
             int mMediaDevicefd;
             void * mMediaStream;
+            sp<IspMgr> mIspMgr;
             //store the v4l2 info
             MIPIVideoInfo *mVinfo;
             uint8_t* mImage_buffer;

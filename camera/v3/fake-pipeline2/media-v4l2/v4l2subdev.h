@@ -257,5 +257,6 @@ const char *v4l2_subdev_pixelcode_to_string(unsigned int code);
 enum v4l2_mbus_pixelcode v4l2_subdev_string_to_pixelcode(const char *string,
                              unsigned int length);
 
+int v4l2_subdev_set_ctrls(struct media_entity *entity, struct v4l2_ext_control *ctrls, int count);
 
 #endif

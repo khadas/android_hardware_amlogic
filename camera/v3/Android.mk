@@ -83,10 +83,12 @@ LOCAL_SHARED_LIBRARIES += libge2d
 endif
 LOCAL_CFLAGS += -DGE2D_ENABLE
 endif
+
 ifeq ($(NEED_ISP),true)
 LOCAL_SHARED_LIBRARIES += libispaaa
 LOCAL_CFLAGS += -DISP_ENABLE
 endif
+
 ifeq ($(GDC_ENABLE),true)
 LOCAL_SHARED_LIBRARIES += libgdc
 LOCAL_CFLAGS += -DGDC_ENABLE
@@ -152,8 +154,9 @@ ifeq ($(GDC_ENABLE),true)
 LOCAL_C_INCLUDES += $(TOP)/vendor/amlogic/common/system/libgdc/include
 else ifeq ($(DEWARP_ENABLE),true)
 LOCAL_C_INCLUDES += $(TOP)/vendor/amlogic/common/system/libgdc/dewarp
-
 endif
+
+LOCAL_C_INCLUDES += $(TOP)/hardware/amlogic/camera/v3/fake-pipeline2
 
 LOCAL_SRC_FILES := \
     EmulatedCameraHal.cpp \
@@ -188,12 +191,19 @@ LOCAL_SRC_FILES := \
     fake-pipeline2/Isp3a.cpp \
     fake-pipeline2/MIPICameraIO.cpp \
     fake-pipeline2/CaptureUseMemcpy.cpp \
-    fake-pipeline2/HDMIToCSISensor.cpp \
+    fake-pipeline2/HDMIToCSISensor.cpp
+
+LOCAL_SRC_FILES += \
     fake-pipeline2/V4l2MediaSensor.cpp \
     fake-pipeline2/media-v4l2/libmediactl.cpp \
     fake-pipeline2/media-v4l2/libv4l2subdev.cpp \
-    fake-pipeline2/media-v4l2/libv4l2videodev.cpp
-
+    fake-pipeline2/media-v4l2/libv4l2videodev.cpp \
+    fake-pipeline2/media-v4l2/mediaApi.cpp \
+    fake-pipeline2/ispMgr/ispMgr.cpp \
+    fake-pipeline2/ispMgr/staticPipe.cpp \
+    fake-pipeline2/ispMgr/sensor/sensor_config.cpp \
+    fake-pipeline2/ispMgr/sensor/imx290/imx290_config.cpp \
+    fake-pipeline2/ispMgr/sensor/imx415/imx415_config.cpp
 
 ifeq ($(GE2D_ENABLE),true)
 LOCAL_SRC_FILES += fake-pipeline2/ge2d_stream.cpp \
@@ -226,8 +236,28 @@ LOCAL_CHECK_ELF_FILES := false
 
 LOCAL_MODULE := libispaaa
 LOCAL_MULTILIB := both
+
 LOCAL_SRC_FILES_32 := isplib/lib/libispaaa.so
 LOCAL_SRC_FILES_64 := isplib/lib64/libispaaa.so
+
+LOCAL_MODULE_SUFFIX := $(TARGET_SHLIB_SUFFIX)
+LOCAL_MODULE_TAGS := optional
+LOCAL_MODULE_CLASS := SHARED_LIBRARIES
+LOCAL_MODULE_PATH_32 := $(TARGET_OUT_VENDOR)/lib/
+LOCAL_MODULE_PATH_64 := $(TARGET_OUT_VENDOR)/lib64/
+
+include $(BUILD_PREBUILT)
+
+include $(CLEAR_VARS)
+
+LOCAL_CHECK_ELF_FILES := false
+
+LOCAL_MODULE := libispaml
+LOCAL_MULTILIB := both
+
+LOCAL_SRC_FILES_32 := isplib/lib/libispaml.so
+LOCAL_SRC_FILES_64 := isplib/lib64/libispaml.so
+
 LOCAL_MODULE_SUFFIX := $(TARGET_SHLIB_SUFFIX)
 LOCAL_MODULE_TAGS := optional
 LOCAL_MODULE_CLASS := SHARED_LIBRARIES

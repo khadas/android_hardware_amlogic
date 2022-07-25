@@ -193,6 +193,27 @@ int v4l2_subdev_set_selection(struct media_entity *entity,
     return 0;
 }
 
+int v4l2_subdev_set_ctrls(struct media_entity *entity, struct v4l2_ext_control *ctrls, int count)
+{
+    int ret = 0;
+    struct v4l2_ext_controls ext_ctrls;
+
+    ret = v4l2_subdev_open(entity);
+    if (ret < 0) {
+        return ret;
+    }
+
+    memset(&ext_ctrls, 0, sizeof(ext_ctrls));
+
+    ext_ctrls.which = V4L2_CTRL_WHICH_CUR_VAL;
+    ext_ctrls.controls = ctrls;
+    ext_ctrls.count = count;
+
+    ret = ioctl(entity->fd, VIDIOC_S_EXT_CTRLS, &ext_ctrls);
+
+    return ret;
+}
+
 #if 0
 int v4l2_subdev_get_dv_timings_caps(struct media_entity *entity,
     struct v4l2_dv_timings_cap *caps)
