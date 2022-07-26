@@ -64,7 +64,11 @@ void ThermalWatcher::registerFilesToWatch(const std::set<std::string> &sensors_t
         return;
     }
 
-    fcntl(uevent_fd_, F_SETFL, O_NONBLOCK);
+    int ret = fcntl(uevent_fd_, F_SETFL, O_NONBLOCK);
+    if (ret < 0) {
+        LOG(ERROR) << "fcntl failed " << strerror(errno);
+        return ;
+    }
 
     looper_->addFd(uevent_fd_.get(), 0, Looper::EVENT_INPUT, nullptr, nullptr);
     is_polling_ = false;

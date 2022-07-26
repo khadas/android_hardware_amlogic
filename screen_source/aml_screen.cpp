@@ -327,6 +327,9 @@ static int aml_screen_device_open(const struct hw_module_t* module, const char* 
         gAmlScreenOpen++;
         status = 0;
 
+    } else {
+        ALOGE("dev name is null!");
+        return -EINVAL;
     }
     return status;
 }
