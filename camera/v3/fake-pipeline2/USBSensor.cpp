@@ -533,7 +533,7 @@ void USBSensor::captureNV21UsbSensor(StreamBuffer b, uint32_t gain, bool needSen
                 ALOGD("select error:%s",strerror(errno));
             }
             if (0 == r)
-            ALOGD("select timeout:%s",strerror(errno));
+                ALOGD("select timeout:%s",strerror(errno));
             src = (uint8_t *)mVinfo->get_frame();
             if (NULL == src) {
                 if (mVinfo->get_device_status()) {
@@ -613,8 +613,10 @@ void USBSensor::captureNV21UsbSensor(StreamBuffer b, uint32_t gain, bool needSen
                     } else {
                         ret = MJPEGToNV21(src, b);
                     }
-                    if (ret == 1)
+                    if (ret == 1) {
+                        mVinfo->putback_frame();
                         continue;
+                    }
 #ifdef GE2D_ENABLE
                     mGE2D->doRotationAndMirror(b);
 #endif
@@ -624,9 +626,30 @@ void USBSensor::captureNV21UsbSensor(StreamBuffer b, uint32_t gain, bool needSen
                 break;
             case V4L2_PIX_FMT_H264:
                 {
-                    int ret = H264ToNV21(src, b);
-                    if (ret == 1)
+                    int ret = 1;
+                    if (needSensorOutBuf
+                        && ( b.width != mVinfo->preview.format.fmt.pix.width || b.height != mVinfo->preview.format.fmt.pix.width)) {
+                          // need store sensor output buffer AND b.size not equal to sensor output size
+                          // first - decode to mSensorOutBuf; then resize to b
+                        if (mSensorOutBuf.img == NULL || mSensorOutBuf.share_fd < 0) {
+                            // here we need mSensorOutBuf has been ready.
+                            ALOGE("mSensorOutBuf not allocated.");
+                        } else {
+                            ret = H264ToNV21(src, mSensorOutBuf);
+#ifdef GE2D_ENABLE
+                            mGE2D->ge2d_keep_ration_scale(b.share_fd, PIXEL_FORMAT_YCbCr_420_SP_NV12, b.width, b.height,
+                                          mSensorOutBuf.share_fd, mSensorOutBuf.width, mSensorOutBuf.height);
+#else
+                            mCameraUtil->ReSizeNV21(mSensorOutBuf.img, b.img, b.width, b.height, b.stride, mSensorOutBuf.width, mSensorOutBuf.height);
+#endif
+                        }
+                    } else {
+                        ret = H264ToNV21(src, b);
+                    }
+                    if (ret == 1) {
+                        mVinfo->putback_frame();
                         continue;
+                    }
 #ifdef GE2D_ENABLE
                     mGE2D->doRotationAndMirror(b);
 #endif
@@ -1416,7 +1439,7 @@ int USBSensor::getStreamConfigurations(uint32_t picSizes[], const int32_t kAvail
     support_w = 10000;
     support_h = 10000;
     memset(property, 0, sizeof(property));
-    if (property_get("ro.media.camera_preview.maxsize", property, NULL) > 0) {
+    if (property_get("vendor.media.camera_preview.maxsize", property, NULL) > 0) {
         CAMHAL_LOGDB("support Max Preview Size :%s",property);
         if (sscanf(property,"%dx%d",&support_w,&support_h) != 2) {
             support_w = 10000;
@@ -1548,14 +1571,13 @@ int USBSensor::getStreamConfigurations(uint32_t picSizes[], const int32_t kAvail
                 DBG_LOGB("index=%d, break\n", i);
                 break;
             }
-
             if (frmsize.type == V4L2_FRMSIZE_TYPE_DISCRETE) { //only support this type
 
                 if (0 != (frmsize.discrete.width%16))
                     continue;
 
-                //if((frmsize.discrete.width > support_w) && (frmsize.discrete.height >support_h))
-                //    continue;
+                if ((frmsize.discrete.width > support_w) && (frmsize.discrete.height >support_h))
+                    continue;
 
                 if (count >= size)
                     break;
@@ -1565,7 +1587,6 @@ int USBSensor::getStreamConfigurations(uint32_t picSizes[], const int32_t kAvail
                     if (!IsUsbAvailablePictureSize(kUsbAvailablePictureSize, frmsize.discrete.width, frmsize.discrete.height))
                         continue;
                 }
-
                 picSizes[count+0] = HAL_PIXEL_FORMAT_BLOB;
                 picSizes[count+1] = frmsize.discrete.width;
                 picSizes[count+2] = frmsize.discrete.height;
@@ -1805,7 +1826,7 @@ int USBSensor::getPictureSizes(int32_t picSizes[], int size, bool preview) {
     support_w = 10000;
     support_h = 10000;
     memset(property, 0, sizeof(property));
-    if (property_get("ro.media.camera_preview.maxsize", property, NULL) > 0) {
+    if (property_get("vendor.media.camera_preview.maxsize", property, NULL) > 0) {
         CAMHAL_LOGDB("support Max Preview Size :%s",property);
         if (sscanf(property,"%dx%d",&support_w,&support_h) !=2) {
             support_w = 10000;

@@ -52,6 +52,7 @@ OMXDecoder::OMXDecoder(bool useDMABuffer, bool keepOriginalSize) {
     mDeinit = NULL;
     mVDecoderHandle = NULL;
     mDequeueFailNum = 0;
+    mContinuousVsyncFailNum = 0;
     memset(&mVideoOutputPortParam,0,sizeof(OMX_PARAM_PORTDEFINITIONTYPE));
     memset(&mInOutPutBufferParam,0,sizeof(OMX_BUFFERHEADERTYPE));
     mOutBuffer = NULL;
@@ -108,6 +109,7 @@ bool OMXDecoder::initialize(const char* name) {
     LOG_LINE();
     OMX_ERRORTYPE eRet = OMX_ErrorNone;
     mDequeueFailNum = 0;
+    mContinuousVsyncFailNum = 0;
     mTimeOut = false;
     /*for (int i = 0; i < TempBufferNum; i++)
         mTempFrame[i] = (uint8_t*)malloc(mOutWidth*mOutHeight*3/2);
@@ -123,9 +125,19 @@ bool OMXDecoder::initialize(const char* name) {
     } else if (0 == strcmp(name,"h264")) {
         decoderType = DEC_H264;
         mDecoderComponentName = (char *)"OMX.amlogic.avc.decoder.awesome2";
+        if (mOutWidth != mInWidth || mOutHeight != mInHeight) {
+            mOutWidth = mInWidth;
+            mOutHeight = mInHeight;
+            ALOGD("dec out size changed to w=%d, h=%d, using ge2d resize output", mOutWidth, mOutHeight);
+        }
     } else {
         ALOGE("cannot support this format");
     }
+
+    if (decoderType == DEC_H264)
+        mWaitVsyncDuration = 30;
+    else
+        mWaitVsyncDuration = 200;
 
     mLibHandle = dlopen("libOmxCore.so", RTLD_NOW);
     if (mLibHandle != NULL) {
@@ -398,15 +410,17 @@ OMX_BUFFERHEADERTYPE* OMXDecoder::dequeueInputBuffer()
 
 void OMXDecoder::queueInputBuffer(OMX_BUFFERHEADERTYPE* pBufferHdr)
 {
-    if (pBufferHdr != NULL)
+    if (pBufferHdr != NULL) {
         if (mNoFreeFlag) {
             ALOGD("exiting!! return to input queue.");
             AutoMutex l(mInputBufferLock);
             mListOfInputBufferHeader.push_back(pBufferHdr);
-        } else
+        } else {
             OMX_EmptyThisBuffer(mVDecoderHandle, pBufferHdr);
-        else
-            ALOGD("queueInputBuffer can't find pBufferHdr .\n");
+        }
+    } else {
+        ALOGD("queueInputBuffer invalid pBufferHdr(NULL)\n");
+    }
 }
 
 OMX_BUFFERHEADERTYPE* OMXDecoder::dequeueOutputBuffer()
@@ -418,6 +432,15 @@ OMX_BUFFERHEADERTYPE* OMXDecoder::dequeueOutputBuffer()
         mListOfOutputBufferHeader.erase(mListOfOutputBufferHeader.begin());
     }
     return ret;
+}
+
+bool OMXDecoder::hasReadyOutputBuffer()
+{
+    AutoMutex l(mOutputBufferLock);
+    if (mListOfOutputBufferHeader.empty()) {
+        return false;
+    }
+    return true;
 }
 
 void OMXDecoder::releaseOutputBuffer(OMX_BUFFERHEADERTYPE* pBufferHdr)
@@ -1025,6 +1048,7 @@ OMX_ERRORTYPE OMXDecoder::OnEvent(
 
 OMX_ERRORTYPE OMXDecoder::emptyBufferDone(OMX_IN OMX_BUFFERHEADERTYPE *pBuffer)
 {
+    //ALOGD("%s ++", __func__);
     AutoMutex l(mInputBufferLock);
     mListOfInputBufferHeader.push_back(pBuffer);
     return OMX_ErrorNone;
@@ -1032,6 +1056,7 @@ OMX_ERRORTYPE OMXDecoder::emptyBufferDone(OMX_IN OMX_BUFFERHEADERTYPE *pBuffer)
 
 OMX_ERRORTYPE OMXDecoder::fillBufferDone(OMX_IN OMX_BUFFERHEADERTYPE *pBuffer)
 {
+    //ALOGD("%s ++", __func__);
     AutoMutex l(mOutputBufferLock);
     mListOfOutputBufferHeader.push_back(pBuffer);
     //send signal
@@ -1074,8 +1099,9 @@ void OMXDecoder::QueueBuffer(uint8_t* src, size_t size) {
     static OMX_TICKS timeStamp = 0;
     OMX_BUFFERHEADERTYPE *pInPutBufferHdr = NULL;
     pInPutBufferHdr = dequeueInputBuffer();
-    //ALOGD("omx pInPutBufferHdr = %p\n", pInPutBufferHdr);
+
     if (pInPutBufferHdr && pInPutBufferHdr->pBuffer) {
+        //ALOGD("omx queue input buf %p \n", pInPutBufferHdr);
         memcpy(pInPutBufferHdr->pBuffer, src, size);
         pInPutBufferHdr->nFilledLen = size;
         pInPutBufferHdr->nOffset = 0;
@@ -1083,6 +1109,8 @@ void OMXDecoder::QueueBuffer(uint8_t* src, size_t size) {
         pInPutBufferHdr->nFlags |= OMX_BUFFERFLAG_ENDOFFRAME;
         queueInputBuffer(pInPutBufferHdr);
         timeStamp += 33 * 1000; //44
+    } else {
+        ALOGE("no more input bufs");
     }
 }
 
@@ -1199,7 +1227,7 @@ int OMXDecoder::Decode(uint8_t*src, size_t src_size,
         SetOutputBuffer(dst_fd, dst_buf);
         QueueBuffer(src, src_size);
 
-        if (OMXWaitForVSync(200*1000*1000) == false) { //wait timeout 200ms
+        if (OMXWaitForVSync(mWaitVsyncDuration*1000*1000) == false) {
             mDequeueFailNum ++;
             ALOGD("Decoderss failed %d", mDequeueFailNum);
             return ret;
@@ -1212,9 +1240,17 @@ int OMXDecoder::Decode(uint8_t*src, size_t src_size,
 
     QueueBuffer(src, src_size);
 
-    bool state = OMXWaitForVSync(200*1000*1000); //200ms
+    bool state = true;
+    if ( false == hasReadyOutputBuffer() ) {
+        // no ready output buf. wait
+        state = OMXWaitForVSync(mWaitVsyncDuration*1000*1000);
+    } else {
+        // has ready output buf. state should be true.
+        state = true;
+    }
 
     if (state) {
+        mContinuousVsyncFailNum = 0;
         ret = DequeueBuffer(dst_fd, dst_buf, src_w, src_h, dst_w, dst_h);
         if (!ret) {
             if (mDequeueFailNum ++ > MAX_POLLING_COUNT) {
@@ -1224,7 +1260,10 @@ int OMXDecoder::Decode(uint8_t*src, size_t src_size,
             ALOGD("%s:Polling number=%d",__FUNCTION__,mDequeueFailNum);
         }
     } else {
-        ALOGD("%s: OMX Vsync error",__FUNCTION__);
+        if ( mContinuousVsyncFailNum++ > MAX_CONTINUE_VSYNC_FAIL_COUNT) {
+            mTimeOut = true;
+        }
+        ALOGD("%s: OMX Vsync error num = %d",__FUNCTION__, mContinuousVsyncFailNum);
         ret = 0;
     }
 

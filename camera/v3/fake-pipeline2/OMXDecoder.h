@@ -38,6 +38,7 @@
 using namespace android;
 #define TempBufferNum   (3)
 #define MAX_POLLING_COUNT (100)
+#define MAX_CONTINUE_VSYNC_FAIL_COUNT (45) // 30fps, about 1.5s
 #define ROUND_16(X)     ((X + 0xF) & (~0xF))
 #define ROUND_32(X)     ((X + 0x1F) & (~0x1F))
 #define YUV_SIZE(W, H)   ((W) * (H) * 3 >> 1)
@@ -88,6 +89,7 @@ public:
     //void releaseOutputBuffer(ANativeWindowBuffer * pBufferHdr);
     //void releaseOutputBuffer(native_handle_t * pBufferHdr);
     void releaseOutputBuffer(OMX_BUFFERHEADERTYPE* pBufferHdr);
+    bool hasReadyOutputBuffer();
 
     template<class T> void InitOMXParams(T *params);
 
@@ -132,6 +134,7 @@ public:
     }
 private:
     int decoderType;
+    int mWaitVsyncDuration;
 
     OMX_ERRORTYPE WaitForState(OMX_HANDLETYPE hComponent, OMX_STATETYPE eTestState, OMX_STATETYPE eTestState2);
     OMX_U32 mInWidth;
@@ -185,6 +188,7 @@ private:
     OMX_STRING mDecoderComponentName;
     OMX_VERSIONTYPE mSpecVersion;
     int mDequeueFailNum;
+    int mContinuousVsyncFailNum;
     uint8_t* mTempFrame[TempBufferNum];
     int mUvmFd;
     OMX_TICKS timeStamp = 0;
