@@ -1382,7 +1382,7 @@ static LookupTable calibration_shading_ls_a_b = { .ptr = _CALIBRATION_SHADING_LS
 static LookupTable calibration_lens_shading_ctl = { .ptr = _CALIBRATION_LENS_SHADING_CTL, .rows = 1, .cols = sizeof(_CALIBRATION_LENS_SHADING_CTL) / sizeof(_CALIBRATION_LENS_SHADING_CTL[0]), .width = sizeof(_CALIBRATION_LENS_SHADING_CTL[0] ) };
 static LookupTable calibration_fpnr = { .ptr = _CALIBRATION_FPNR, .rows = 1, .cols = sizeof(_CALIBRATION_FPNR) / sizeof(_CALIBRATION_FPNR[0]), .width = sizeof(_CALIBRATION_FPNR[0] ) };
 
-static int dynamic_calibrations_init_imx415(aisp_calib_info_t *calib)
+static int dynamic_calibrations_init_ov13b10(aisp_calib_info_t *calib)
 {
 	calib->calibrations[CALIBRATION_TOP_CTL] = &calibration_top_ctl;
 	calib->calibrations[CALIBRATION_AWB_CTL] = &calibration_awb_ctl;

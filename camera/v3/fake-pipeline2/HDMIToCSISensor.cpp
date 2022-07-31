@@ -80,7 +80,7 @@ HDMIToCSISensor::~HDMIToCSISensor() {
     }
 }
 
-status_t HDMIToCSISensor::streamOff(void) {
+status_t HDMIToCSISensor::streamOff(channel ch) {
     ALOGV("%s: E", __FUNCTION__);
     return mVinfo->stop_capturing();
 }
@@ -495,13 +495,13 @@ status_t HDMIToCSISensor::getOutputFormat(void) {
     return BAD_VALUE;
 }
 
-status_t HDMIToCSISensor::setOutputFormat(int width, int height, int pixelformat, bool isjpeg) {
+status_t HDMIToCSISensor::setOutputFormat(int width, int height, int pixelformat, channel ch) {
     int res;
     mFramecount = 0;
     mCurFps = 0;
     gettimeofday(&mTimeStart, NULL);
 
-    if (isjpeg) {
+    if (ch == channel_capture) {
         mVinfo->picture.format.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
         mVinfo->picture.format.fmt.pix.width = width;
         mVinfo->picture.format.fmt.pix.height = height;
@@ -593,7 +593,7 @@ status_t HDMIToCSISensor::IoctlStateProbe(void) {
     return mIoctlSupport;
 }
 */
-status_t HDMIToCSISensor::streamOn() {
+status_t HDMIToCSISensor::streamOn(channel channel) {
     return mVinfo->start_capturing();
 }
 
@@ -601,7 +601,7 @@ bool HDMIToCSISensor::isStreaming() {
     return mVinfo->isStreaming;
 }
 
-bool HDMIToCSISensor::isNeedRestart(uint32_t width, uint32_t height, uint32_t pixelformat) {
+bool HDMIToCSISensor::isNeedRestart(uint32_t width, uint32_t height, uint32_t pixelformat, channel ch) {
     if ((mVinfo->preview.format.fmt.pix.width != width)
         ||(mVinfo->preview.format.fmt.pix.height != height)) {
         return true;
@@ -1070,9 +1070,9 @@ status_t HDMIToCSISensor::force_reset_sensor() {
     DBG_LOGA("force_reset_sensor");
     status_t ret;
     mTimeOutCount = 0;
-    ret = streamOff();
+    ret = streamOff(channel_preview);
     ret = mVinfo->setBuffersFormat();
-    ret = streamOn();
+    ret = streamOn(channel_preview);
     DBG_LOGB("%s , ret = %d", __FUNCTION__, ret);
     return ret;
 }

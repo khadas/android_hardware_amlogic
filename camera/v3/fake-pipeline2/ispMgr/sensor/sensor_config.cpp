@@ -31,6 +31,7 @@
 
 #include "imx290/imx290_api.h"
 #include "imx415/imx415_api.h"
+#include "ov13b10/ov13b10_api.h"
 
 #define ARRAY_SIZE(array)   (sizeof(array) / sizeof((array)[0]))
 
@@ -62,15 +63,41 @@ struct sensorConfig imx415Cfg = {
     .sensorEntityName = "imx415-0",
 };
 
+struct sensorConfig ov13b10Cfg = {
+    .expFunc.pfn_cmos_fps_set = cmos_fps_set_ov13b10,
+    .expFunc.pfn_cmos_get_alg_default = cmos_get_ae_default_ov13b10,
+    .expFunc.pfn_cmos_alg_update = cmos_alg_update_ov13b10,
+    .expFunc.pfn_cmos_again_calc_table = cmos_again_calc_table_ov13b10,
+    .expFunc.pfn_cmos_dgain_calc_table = cmos_dgain_calc_table_ov13b10,
+    .expFunc.pfn_cmos_inttime_calc_table = cmos_inttime_calc_table_ov13b10,
+    .cmos_set_sensor_entity = cmos_set_sensor_entity_ov13b10,
+    .cmos_get_sensor_calibration = cmos_get_sensor_calibration_ov13b10,
+    .sensorWidth      = 4208,
+    .sensorHeight     = 3120,
+    .sensorEntityName = "ov13b10-1",
+};
+
 struct sensorConfig *supportedCfgs[] = {
     &imx290Cfg,
-    &imx415Cfg
+    &imx415Cfg,
+    &ov13b10Cfg,
 };
 
 struct sensorConfig *matchSensorConfig(media_stream_t *stream) {
     for (int i = 0; i < ARRAY_SIZE(supportedCfgs); i++) {
         if (strncmp(supportedCfgs[i]->sensorEntityName,
             stream->sensor_ent_name, strlen(stream->sensor_ent_name)) == 0) {
+            return supportedCfgs[i];
+        }
+    }
+    ALOGE("fail to match sensorConfig");
+    return nullptr;
+}
+
+struct sensorConfig *matchSensorConfig(const char* sensorEntityName) {
+    for (int i = 0; i < ARRAY_SIZE(supportedCfgs); i++) {
+        if (strncmp(supportedCfgs[i]->sensorEntityName,
+            sensorEntityName, strlen(sensorEntityName)) == 0) {
             return supportedCfgs[i];
         }
     }

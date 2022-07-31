@@ -84,6 +84,8 @@
 //#include "Base.h"
 #include "camera_hw.h"
 #include <cstdlib>
+#include <thread>
+#include <utils/threads.h>
 
 namespace android {
 
@@ -172,6 +174,7 @@ typedef struct usb_frmsize_discrete {
     uint32_t height;
 } usb_frmsize_discrete_t;
 
+
 #define IOCTL_MASK_ROTATE    (1<<0)
 
 #define MAX_WIDTH  (1920)
@@ -192,20 +195,20 @@ class Sensor: public Thread, public virtual RefBase {
 
     virtual int getOutputFormat();
     virtual int halFormatToSensorFormat(uint32_t pixelfmt);
-    virtual status_t setOutputFormat(int width, int height, int pixelformat, bool isjpeg);
+    virtual status_t setOutputFormat(int width, int height, int pixelformat, channel ch);
     void setPictureRotate(int rotate);
     int getPictureRotate();
     virtual uint32_t getStreamUsage(int stream_type);
 
-    virtual status_t streamOn();
-    virtual status_t streamOff();
+    virtual status_t streamOn(channel ch);
+    virtual status_t streamOff(channel ch);
 
     virtual int getPictureSizes(int32_t picSizes[], int size, bool preview);
     virtual int getStreamConfigurations(uint32_t picSizes[], const int32_t kAvailableFormats[], int size);
     virtual int64_t getMinFrameDuration();
     virtual int getStreamConfigurationDurations(uint32_t picSizes[], int64_t duration[], int size, bool flag);
     virtual bool isStreaming();
-    virtual bool isNeedRestart(uint32_t width, uint32_t height, uint32_t pixelformat);
+    virtual bool isNeedRestart(uint32_t width, uint32_t height, uint32_t pixelformat, channel ch);
     void dump(int fd);
     /*
      * Access to scene
@@ -233,6 +236,7 @@ class Sensor: public Thread, public virtual RefBase {
     void setSensitivity(uint32_t gain);
     // Buffer must be at least stride*height*2 bytes in size
     void setDestinationBuffers(Buffers *buffers);
+    void setPictureRequest(Request &PicRequest);
     // To simplify tracking sensor's current frame
     void setFrameNumber(uint32_t frameNumber);
     void  setFlushFlag(bool flushFlag);
@@ -272,6 +276,7 @@ class Sensor: public Thread, public virtual RefBase {
 
         virtual void onSensorEvent(uint32_t frameNumber, Event e,
                 nsecs_t timestamp) = 0;
+        virtual void onSensorPicJpeg(Request &r) = 0;
         virtual ~SensorListener();
     };
 
@@ -373,6 +378,41 @@ class Sensor: public Thread, public virtual RefBase {
     bool mFlushFlag;
     bool mSensorWorkFlag;
     int mOpenCameraID;
+    struct PictureThreadCntler {
+        std::thread *PictureThread;
+        Vector<Request> NextPictureRequest;
+        bool PictureThreadExit;
+        Mutex requestOperaionLock;
+        Condition unprocessedRequest;
+        static void resetAndInit(struct PictureThreadCntler &c) {
+            c.PictureThread = NULL;
+            c.PictureThreadExit = false;
+            c.NextPictureRequest.setCapacity(30);
+        }
+        static void stopAndRelease(struct PictureThreadCntler &c) {
+            if (c.PictureThread != NULL) {
+                c.PictureThreadExit = true;
+                c.unprocessedRequest.signal();
+                c.PictureThread->join();
+                delete c.PictureThread;
+                c.PictureThread = NULL;
+                if (!c.NextPictureRequest.empty()) {
+                  for(auto iter = c.NextPictureRequest.begin();
+                        iter != c.NextPictureRequest.end(); iter++) {
+                        if (iter->buffers != NULL) {
+                            delete iter->buffers;
+                            iter->buffers = NULL;
+                        }
+                        if (iter->sensorBuffers != NULL) {
+                            delete iter->sensorBuffers;
+                            iter->sensorBuffers = NULL;
+                        }
+                   }
+                   c.NextPictureRequest.clear();
+               }
+            }
+        }
+    } mPictureThreadCntler;
     /**
      * Inherited Thread virtual overrides, and members only used by the
      * processing thread

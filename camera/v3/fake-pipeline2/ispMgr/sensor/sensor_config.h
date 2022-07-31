@@ -43,6 +43,7 @@ struct sensorConfig {
 };
 
 struct sensorConfig *matchSensorConfig(media_stream_t *stream);
+struct sensorConfig *matchSensorConfig(const char* sensorEntityName);
 void cmos_sensor_control_cb(struct sensorConfig *cfg, ALG_SENSOR_EXP_FUNC_S *stSnsExp);
 void cmos_set_sensor_entity(struct sensorConfig *cfg, struct media_entity * sensor_ent);
 void cmos_get_sensor_calibration(struct sensorConfig *cfg, aisp_calib_info_t * calib);

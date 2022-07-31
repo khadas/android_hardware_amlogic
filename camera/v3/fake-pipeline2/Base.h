@@ -84,14 +84,21 @@ struct ExifInfo {
 	int orientation;
 };
 
-    struct Request {
-        uint32_t         frameNumber;
-        struct ExifInfo info;
-        CameraMetadata   settings;
-        HalBufferVector *buffers;
-        Buffers         *sensorBuffers;
-        bool             havethumbnail;
-    };
+struct Request {
+    uint32_t         frameNumber;
+    struct ExifInfo info;
+    CameraMetadata   settings;
+    HalBufferVector *buffers;
+    Buffers         *sensorBuffers;
+    bool             havethumbnail;
+};
+
+typedef enum channel {
+    channel_preview = 0,
+    channel_capture = 1,
+    channel_record  = 2,
+    channel_all     = 3,
+} channel_t;
 
 } // namespace android;
 

@@ -38,12 +38,15 @@
 #define V4L2_META_AML_ISP_STATS     v4l2_fourcc('A', 'S', 'T', 'S') /* Aml isp statistics */
 
 typedef struct pipe_info {
-    const char *media_dev_name ;
-    const char *sensor_ent_name ;
+    const char *media_dev_name;
+    const char *sensor_ent_name;
     const char *csiphy_ent_name;
     const char *adap_ent_name;
     const char *isp_ent_name;
-    const char *video_ent_name;
+    const char *video_ent_name0;
+    const char *video_ent_name1;
+    const char *video_ent_name2;
+    const char *video_ent_name3;
     const char *video_stats_name;
     const char *video_param_name;
     const bool  ispDev;
@@ -51,6 +54,7 @@ typedef struct pipe_info {
 
 typedef struct stream_configuration{
     struct aml_format format;
+    struct aml_format vformat[4];
 } stream_configuration_t;
 
 typedef struct media_stream {
@@ -59,7 +63,10 @@ typedef struct media_stream {
     char csiphy_ent_name[32];
     char adap_ent_name[32];
     char isp_ent_name[32];
-    char video_ent_name[32];
+    char video_ent_name0[32];
+    char video_ent_name1[32];
+    char video_ent_name2[32];
+    char video_ent_name3[32];
     char video_stats_name[32];
     char video_param_name[32];
 
@@ -69,7 +76,10 @@ typedef struct media_stream {
     struct media_entity  *csiphy_ent;
     struct media_entity  *adap_ent;
     struct media_entity  *isp_ent;
-    struct media_entity  *video_ent;
+    struct media_entity  *video_ent0;
+    struct media_entity  *video_ent1;
+    struct media_entity  *video_ent2;
+    struct media_entity  *video_ent3;
     struct media_entity  *video_stats;
     struct media_entity  *video_param;
 } media_stream_t;

@@ -1,5 +1,10 @@
-
 #define LOG_TAG "IspMgr"
+
+#if defined(LOG_NNDEBUG) && LOG_NNDEBUG == 0
+#define ALOGVV ALOGV
+#else
+#define ALOGVV(...) ((void)0)
+#endif
 
 #define ATRACE_TAG (ATRACE_TAG_CAMERA | ATRACE_TAG_HAL | ATRACE_TAG_ALWAYS)
 #include <dlfcn.h>
@@ -345,7 +350,7 @@ status_t IspMgr::pollDevices(const std::vector<struct media_entity *> &devices,
                                 std::vector<struct media_entity *> &activeDevices,
                                 std::vector<struct media_entity *> &inactiveDevices,
                                 int timeOut, int flushFd, int events) {
-    ALOGD("%s +", __FUNCTION__);
+    ALOGVV("%s +", __FUNCTION__);
     int numFds = devices.size();
     int totalNumFds = (flushFd != -1) ? numFds + 1 : numFds; //adding one more fd if flushfd given.
     struct pollfd pollFds[totalNumFds];
@@ -401,6 +406,7 @@ status_t IspMgr::pollDevices(const std::vector<struct media_entity *> &devices,
     return ret;
 }
 
+
 status_t IspMgr::readyToRun() {
     ALOGD("readyToRun");
     return NO_ERROR;
@@ -408,22 +414,21 @@ status_t IspMgr::readyToRun() {
 
 bool IspMgr::threadLoop() {
     int rc;
-
-    ALOGD("threadLoop+");
+    ALOGVV("threadLoop+");
     auto pollingDevices = mPollingDevices;
     do {
         rc = IspMgr::pollDevices(pollingDevices, mActiveDevices,
                                  mInactiveDevices, kSyncWaitTimeout, mFlushFd[0]);
         if (mActiveDevices.size() != mPollingDevices.size()) {
             pollingDevices = mInactiveDevices;
-            ALOGD("not all device is ready, continue polling");
+            ALOGVV("not all device is ready, continue polling");
             for (int i = 0; i < mInactiveDevices.size(); ++i)
-                ALOGD("InactiveDevices %d: %s", i, mInactiveDevices[i]->info.name);
+                ALOGVV("InactiveDevices %d: %s", i, mInactiveDevices[i]->info.name);
             continue;
         } else if (mActiveDevices.size() == mPollingDevices.size()) {
-            ALOGD("all device is ready");
+            ALOGVV("all device is ready");
         } else {
-            ALOGD("return from flush or error");
+            ALOGVV("return from flush or error");
             return false;
         }
 
@@ -464,7 +469,7 @@ bool IspMgr::threadLoop() {
             break;
         }
     } while(0);
-    ALOGD("threadLoop-");
+    ALOGVV("threadLoop-");
     return true;
 }
 }

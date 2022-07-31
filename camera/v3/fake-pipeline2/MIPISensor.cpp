@@ -112,7 +112,7 @@ MIPISensor::~MIPISensor() {
 
 }
 
-status_t MIPISensor::streamOff(void) {
+status_t MIPISensor::streamOff(channel ch) {
     ALOGV("%s: E", __FUNCTION__);
 #ifdef GDC_ENABLE
     if (mIGdc && mIsGdcInit) {
@@ -130,7 +130,7 @@ int MIPISensor::SensorInit(int idx) {
         mVinfo =  new MIPIVideoInfo();
     ret = camera_open(idx);
     if (ret < 0) {
-        ALOGE("Unable to open sensor %d, errno=%d\n", mVinfo->idx, ret);
+        ALOGE("Unable to open sensor %d, errno=%d\n", mVinfo->get_index(), ret);
         return ret;
     }
     InitVideoInfo(idx);
@@ -179,7 +179,6 @@ int MIPISensor::camera_open(int idx) {
     if (mMIPIDevicefd[0] < 0) {
         ret = -ENOTTY;
     }
-    mVinfo->fd = mMIPIDevicefd[0];
 
     memset(property, 0, sizeof(property));
     if (property_get("vendor.media.camera.count",property,NULL) > 0) {
@@ -200,7 +199,7 @@ void MIPISensor::camera_close(void) {
     if (mCameraVirtualDevice == nullptr)
         mCameraVirtualDevice = CameraVirtualDevice::getInstance();
     if (mVinfo != NULL)
-        mCameraVirtualDevice->releaseVirtualDevice(mVinfo->idx,mMIPIDevicefd[0]);
+        mCameraVirtualDevice->releaseVirtualDevice(mVinfo->get_index(), mMIPIDevicefd[0]);
     mMIPIDevicefd[0] = -1;
     mISP->close_isp3a_library();
     mISP->print_status();
@@ -208,8 +207,11 @@ void MIPISensor::camera_close(void) {
 
 void MIPISensor::InitVideoInfo(int idx) {
     if (mVinfo) {
-        mVinfo->fd = mMIPIDevicefd[0];
-        mVinfo->idx = idx;
+        std::vector<int> fds;
+        fds.push_back(mMIPIDevicefd[0]);
+        mVinfo->mWorkMode = ONE_FD;
+        mVinfo->set_fds(fds);
+        mVinfo->set_index(idx);
     }
 }
 
@@ -264,39 +266,6 @@ uint32_t MIPISensor::getStreamUsage(int stream_type){
     uint32_t usage = GRALLOC1_PRODUCER_USAGE_CAMERA;
     ALOGV("%s: usage=0x%x", __FUNCTION__,usage);
     return usage;
-}
-
-void MIPISensor::captureRGB(uint8_t *img, uint32_t gain, uint32_t stride) {
-    int ret = 0;
-    struct data_in in;
-    in.src = mKernelBuffer;
-    in.share_fd = mTempFD;
-
-    mVinfo->stop_capturing();
-    ret = mVinfo->start_picture(0);
-    if (ret < 0) {
-        ALOGD("start picture failed!");
-        return;
-    }
-    while (1)
-    {
-        if (mExitSensorThread) {
-            break;
-        }
-
-        int ret = mCapture->captureRGBframe(img,&in);
-        if (ret == -1)
-            continue;
-        mVinfo->putback_picture_frame();
-        mSensorWorkFlag = true;
-        if (mFlushFlag) {
-            break;
-        }
-
-    }
-    ALOGVV("get picture success !");
-    mVinfo->stop_picture();
-
 }
 
 void MIPISensor::captureNV21(StreamBuffer b, uint32_t gain){
@@ -413,29 +382,22 @@ status_t MIPISensor::getOutputFormat(void) {
     return BAD_VALUE;
 }
 
-status_t MIPISensor::setOutputFormat(int width, int height, int pixelformat, bool isjpeg) {
-    int res;
+status_t MIPISensor::setOutputFormat(int width, int height, int pixelformat, channel ch) {
     mFramecount = 0;
     mCurFps = 0;
     gettimeofday(&mTimeStart, NULL);
 
-    if (isjpeg) {
+    if (ch == channel_capture) {
         //----set snap shot pixel format
-        mVinfo->picture.format.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
-        mVinfo->picture.format.fmt.pix.width = width;
-        mVinfo->picture.format.fmt.pix.height = height;
-        mVinfo->picture.format.fmt.pix.pixelformat = pixelformat;
+        mVinfo->set_picture_format(width, height, pixelformat);
     } else {
         //----set preview pixel format
-        mVinfo->preview.format.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
-        mVinfo->preview.format.fmt.pix.width = width;
-        mVinfo->preview.format.fmt.pix.height = height;
-        mVinfo->preview.format.fmt.pix.pixelformat = pixelformat;
-        res = mVinfo->setBuffersFormat();
+        mVinfo->set_preview_format(width, height, pixelformat);
+        status_t res = mVinfo->setBuffersFormat();
         if (res < 0) {
             ALOGE("set buffer failed\n");
             return res;
-            }
+        }
 #ifdef GDC_ENABLE
         if (mIGdc && !mIsGdcInit) {
             mIGdc->gdc_init(width,height,NV12,1);
@@ -445,8 +407,8 @@ status_t MIPISensor::setOutputFormat(int width, int height, int pixelformat, boo
     }
     //----alloc memory for temperary buffer
     if (NULL == mImage_buffer) {
-        mPre_width = mVinfo->preview.format.fmt.pix.width;
-        mPre_height = mVinfo->preview.format.fmt.pix.height;
+        mPre_width = mVinfo->get_preview_width();
+        mPre_height = mVinfo->get_preview_height();
         DBG_LOGB("setOutputFormat :: pre_width = %d, pre_height = %d \n" , mPre_width , mPre_height);
         mImage_buffer = new uint8_t[mPre_width * mPre_height * 3 / 2];
         if (mImage_buffer == NULL) {
@@ -455,14 +417,14 @@ status_t MIPISensor::setOutputFormat(int width, int height, int pixelformat, boo
             }
         }
     //-----free old buffer and alloc new buffer
-    if ((mPre_width != mVinfo->preview.format.fmt.pix.width)
-        && (mPre_height != mVinfo->preview.format.fmt.pix.height)) {
+    if ((mPre_width != mVinfo->get_preview_width())
+        && (mPre_height != mVinfo->get_preview_height())) {
             if (mImage_buffer) {
                 delete [] mImage_buffer;
                 mImage_buffer = NULL;
             }
-            mPre_width = mVinfo->preview.format.fmt.pix.width;
-            mPre_height = mVinfo->preview.format.fmt.pix.height;
+            mPre_width = mVinfo->get_preview_width();
+            mPre_height = mVinfo->get_preview_height();
             mImage_buffer = new uint8_t[mPre_width * mPre_height * 3 / 2];
             if (mImage_buffer == NULL) {
                 ALOGE("allocate mTemp_buffer failed !");
@@ -502,7 +464,7 @@ int MIPISensor::halFormatToSensorFormat(uint32_t pixelfmt) {
     return BAD_VALUE;
 }
 
-status_t MIPISensor::streamOn() {
+status_t MIPISensor::streamOn(channel channel) {
     char property[PROPERTY_VALUE_MAX];
     property_get("vendor.media.camera.dual",property,"false");
 
@@ -515,14 +477,15 @@ status_t MIPISensor::streamOn() {
 }
 
 bool MIPISensor::isStreaming() {
-    return mVinfo->isStreaming;
+    return mVinfo->Stream_status();
 }
 
-bool MIPISensor::isNeedRestart(uint32_t width, uint32_t height, uint32_t pixelformat) {
-    if ((mVinfo->preview.format.fmt.pix.width != width)
-        ||(mVinfo->preview.format.fmt.pix.height != height)) {
+bool MIPISensor::isNeedRestart(uint32_t width, uint32_t height, uint32_t pixelformat, channel ch) {
+    if ((mVinfo->get_preview_width()!= width)
+        ||(mVinfo->get_preview_height() != height)) {
         return true;
     }
+
     return false;
 }
 
@@ -555,7 +518,7 @@ int MIPISensor::getStreamConfigurations(uint32_t picSizes[], const int32_t kAvai
     START = 0;
     for (i = 0; ; i++) {
         frmsize.index = i;
-        res = ioctl(mVinfo->fd, VIDIOC_ENUM_FRAMESIZES, &frmsize);
+        res = ioctl(mVinfo->get_fd(), VIDIOC_ENUM_FRAMESIZES, &frmsize);
         if (res < 0) {
             DBG_LOGB("index=%d, break\n", i);
             break;
@@ -603,7 +566,7 @@ int MIPISensor::getStreamConfigurations(uint32_t picSizes[], const int32_t kAvai
     START = count;
     for (i = 0; ; i++) {
         frmsize.index = i;
-        res = ioctl(mVinfo->fd, VIDIOC_ENUM_FRAMESIZES, &frmsize);
+        res = ioctl(mVinfo->get_fd(), VIDIOC_ENUM_FRAMESIZES, &frmsize);
         if (res < 0) {
             DBG_LOGB("index=%d, break\n", i);
             break;
@@ -661,7 +624,7 @@ int MIPISensor::getStreamConfigurations(uint32_t picSizes[], const int32_t kAvai
 
         for (i = 0; ; i++) {
             frmsize.index = i;
-            res = ioctl(mVinfo->fd, VIDIOC_ENUM_FRAMESIZES, &frmsize);
+            res = ioctl(mVinfo->get_fd(), VIDIOC_ENUM_FRAMESIZES, &frmsize);
             if (res < 0) {
                 DBG_LOGB("index=%d, break\n", i);
                 break;
@@ -751,7 +714,7 @@ int MIPISensor::getStreamConfigurationDurations(uint32_t picSizes[], int64_t dur
                 fival.pixel_format = pixelfmt_tbl[i];
                 fival.width = picSizes[size-3];
                 fival.height = picSizes[size-2];
-                if ((ret = ioctl(mVinfo->fd, VIDIOC_ENUM_FRAMEINTERVALS, &fival)) == 0) {
+                if ((ret = ioctl(mVinfo->get_fd(), VIDIOC_ENUM_FRAMEINTERVALS, &fival)) == 0) {
                     if (fival.type == V4L2_FRMIVAL_TYPE_DISCRETE) {
                         if (fival.discrete.numerator != 0 ) temp_rate = fival.discrete.denominator/fival.discrete.numerator;
                         if (framerate < temp_rate)
@@ -870,7 +833,7 @@ int64_t MIPISensor::getMinFrameDuration() {
             fival.width = resolution_tbl[j].width;
             fival.height = resolution_tbl[j].height;
 
-            while (ioctl(mVinfo->fd, VIDIOC_ENUM_FRAMEINTERVALS, &fival) == 0) {
+            while (ioctl(mVinfo->get_fd(), VIDIOC_ENUM_FRAMEINTERVALS, &fival) == 0) {
                 if (fival.type == V4L2_FRMIVAL_TYPE_DISCRETE) {
                     tmpDuration =
                         ( int64_t ) fival.discrete.numerator * 1000000000L / fival.discrete.denominator;
@@ -945,7 +908,7 @@ int MIPISensor::getPictureSizes(int32_t picSizes[], int size, bool preview) {
 */
     for (i = 0; ; i++) {
         frmsize.index = i;
-        res = ioctl(mVinfo->fd, VIDIOC_ENUM_FRAMESIZES, &frmsize);
+        res = ioctl(mVinfo->get_fd(), VIDIOC_ENUM_FRAMESIZES, &frmsize);
         if (res < 0) {
             DBG_LOGB("index=%d, break\n", i);
             break;
@@ -991,9 +954,9 @@ status_t MIPISensor::force_reset_sensor() {
     DBG_LOGA("force_reset_sensor");
     status_t ret;
     mTimeOutCount = 0;
-    ret = streamOff();
+    ret = streamOff(channel_preview);
     ret = mVinfo->setBuffersFormat();
-    ret = streamOn();
+    ret = streamOn(channel_preview);
     DBG_LOGB("%s , ret = %d", __FUNCTION__, ret);
     return ret;
 }
@@ -1033,8 +996,8 @@ int MIPISensor::captureNewImage() {
                 orientation = getPictureRotate();
                 ALOGD("bAux orientation=%d",orientation);
                 uint32_t pixelfmt;
-                if ((b.width == mVinfo->preview.format.fmt.pix.width &&
-                b.height == mVinfo->preview.format.fmt.pix.height) && (orientation == 0)) {
+                if ((b.width == mVinfo->get_preview_width() &&
+                    b.height == mVinfo->get_preview_height()) && (orientation == 0)) {
 
                     pixelfmt = getOutputFormat();
                     if (pixelfmt == V4L2_PIX_FMT_YVU420) {
@@ -1089,7 +1052,7 @@ status_t MIPISensor::setdualcam(uint8_t mode) {
     ctl.id = ISP_V4L2_CID_CUSTOM_DCAM_MODE;
     ctl.value = mode;
 
-    ret = ioctl(mVinfo->fd, VIDIOC_S_CTRL, &ctl);
+    ret = ioctl(mVinfo->get_fd(), VIDIOC_S_CTRL, &ctl);
 
     return ret;
 }
@@ -1099,7 +1062,7 @@ int MIPISensor::getZoom(int *zoomMin, int *zoomMax, int *zoomStep) {
     struct v4l2_queryctrl qc;
     memset(&qc, 0, sizeof(qc));
     qc.id = V4L2_CID_ZOOM_ABSOLUTE;
-    ret = ioctl (mVinfo->fd, VIDIOC_QUERYCTRL, &qc);
+    ret = ioctl (mVinfo->get_fd(), VIDIOC_QUERYCTRL, &qc);
     if ((qc.flags == V4L2_CTRL_FLAG_DISABLED) || ( ret < 0)
         || (qc.type != V4L2_CTRL_TYPE_INTEGER)) {
         ret = -1;
@@ -1127,7 +1090,7 @@ int MIPISensor::setZoom(int zoomValue) {
     memset( &ctl, 0, sizeof(ctl));
     ctl.value = zoomValue;
     ctl.id = V4L2_CID_ZOOM_ABSOLUTE;
-    ret = ioctl(mVinfo->fd, VIDIOC_S_CTRL, &ctl);
+    ret = ioctl(mVinfo->get_fd(), VIDIOC_S_CTRL, &ctl);
     if (ret < 0) {
         ALOGE("%s: Set zoom level failed!\n", __FUNCTION__);
         }
@@ -1153,7 +1116,7 @@ status_t MIPISensor::setEffect(uint8_t effect) {
         return BAD_VALUE;
     }
     DBG_LOGB("set effect mode:%d", effect);
-    ret = ioctl(mVinfo->fd, VIDIOC_S_CTRL, &ctl);
+    ret = ioctl(mVinfo->get_fd(), VIDIOC_S_CTRL, &ctl);
     if (ret < 0)
         CAMHAL_LOGDB("Set effect fail: %s. ret=%d", strerror(errno),ret);
     return ret ;
@@ -1167,9 +1130,9 @@ int MIPISensor::getExposure(int *maxExp, int *minExp, int *def, camera_metadata_
 
        memset( &qc, 0, sizeof(qc));
 
-           DBG_LOGA("getExposure\n");
+       DBG_LOGA("getExposure\n");
        qc.id = V4L2_CID_EXPOSURE;
-       ret = ioctl(mVinfo->fd, VIDIOC_QUERYCTRL, &qc);
+       ret = ioctl(mVinfo->get_fd(), VIDIOC_QUERYCTRL, &qc);
        if (ret < 0) {
            CAMHAL_LOGDB("QUERYCTRL failed, errno=%d\n", errno);
            *minExp = -4;
@@ -1220,7 +1183,7 @@ status_t MIPISensor::setExposure(int expCmp) {
 
     qc.id = V4L2_CID_EXPOSURE;
 
-    ret = ioctl(mVinfo->fd, VIDIOC_QUERYCTRL, &qc);
+    ret = ioctl(mVinfo->get_fd(), VIDIOC_QUERYCTRL, &qc);
     if (ret < 0) {
         CAMHAL_LOGDB("AMLOGIC CAMERA get Exposure fail: %s. ret=%d", strerror(errno),ret);
     }
@@ -1228,7 +1191,7 @@ status_t MIPISensor::setExposure(int expCmp) {
     ctl.id = V4L2_CID_EXPOSURE;
     ctl.value = expCmp + (qc.maximum - qc.minimum) / 2;
 
-    ret = ioctl(mVinfo->fd, VIDIOC_S_CTRL, &ctl);
+    ret = ioctl(mVinfo->get_fd(), VIDIOC_S_CTRL, &ctl);
     if (ret < 0) {
         CAMHAL_LOGDB("AMLOGIC CAMERA Set Exposure fail: %s. ret=%d", strerror(errno),ret);
     }
@@ -1244,11 +1207,11 @@ int MIPISensor::getAntiBanding(uint8_t *antiBanding, uint8_t maxCont) {
 
     memset(&qc, 0, sizeof(struct v4l2_queryctrl));
     qc.id = V4L2_CID_POWER_LINE_FREQUENCY;
-    ret = ioctl (mVinfo->fd, VIDIOC_QUERYCTRL, &qc);
+    ret = ioctl (mVinfo->get_fd(), VIDIOC_QUERYCTRL, &qc);
     if ( (ret<0) || (qc.flags == V4L2_CTRL_FLAG_DISABLED)) {
-        DBG_LOGB("camera handle %d can't support this ctrl",mVinfo->fd);
+        DBG_LOGB("camera handle %d can't support this ctrl",mVinfo->get_fd());
     } else if ( qc.type != V4L2_CTRL_TYPE_INTEGER) {
-        DBG_LOGB("this ctrl of camera handle %d can't support menu type",mVinfo->fd);
+        DBG_LOGB("this ctrl of camera handle %d can't support menu type",mVinfo->get_fd());
     } else {
         memset(&qm, 0, sizeof(qm));
 
@@ -1263,7 +1226,7 @@ int MIPISensor::getAntiBanding(uint8_t *antiBanding, uint8_t maxCont) {
             memset(&qm, 0, sizeof(struct v4l2_querymenu));
             qm.id = V4L2_CID_POWER_LINE_FREQUENCY;
             qm.index = index;
-            if (ioctl (mVinfo->fd, VIDIOC_QUERYMENU, &qm) < 0) {
+            if (ioctl (mVinfo->get_fd(), VIDIOC_QUERYMENU, &qm) < 0) {
                 continue;
             } else {
                 if (strcmp((char*)qm.name,"50hz") == 0) {
@@ -1308,7 +1271,7 @@ status_t MIPISensor::setAntiBanding(uint8_t antiBanding) {
     }
 
     DBG_LOGB("anti banding mode:%d", antiBanding);
-    ret = ioctl(mVinfo->fd, VIDIOC_S_CTRL, &ctl);
+    ret = ioctl(mVinfo->get_fd(), VIDIOC_S_CTRL, &ctl);
     if ( ret < 0) {
         CAMHAL_LOGDA("failed to set anti banding mode!\n");
         return BAD_VALUE;
@@ -1323,7 +1286,7 @@ status_t MIPISensor::setFocusArea(int32_t x0, int32_t y0, int32_t x1, int32_t y1
     ctl.value = ((x0 + x1) / 2 + 1000) << 16;
     ctl.value |= ((y0 + y1) / 2 + 1000) & 0xffff;
 
-    ret = ioctl(mVinfo->fd, VIDIOC_S_CTRL, &ctl);
+    ret = ioctl(mVinfo->get_fd(), VIDIOC_S_CTRL, &ctl);
     return ret;
 }
 
@@ -1335,11 +1298,11 @@ int MIPISensor::getAutoFocus(uint8_t *afMode, uint8_t maxCount) {
 
     memset(&qc, 0, sizeof(struct v4l2_queryctrl));
     qc.id = V4L2_CID_FOCUS_AUTO;
-    ret = ioctl (mVinfo->fd, VIDIOC_QUERYCTRL, &qc);
+    ret = ioctl (mVinfo->get_fd(), VIDIOC_QUERYCTRL, &qc);
     if ( (ret<0) || (qc.flags == V4L2_CTRL_FLAG_DISABLED)) {
-        DBG_LOGB("camera handle %d can't support this ctrl",mVinfo->fd);
+        DBG_LOGB("camera handle %d can't support this ctrl",mVinfo->get_fd());
     } else if ( qc.type != V4L2_CTRL_TYPE_MENU) {
-        DBG_LOGB("this ctrl of camera handle %d can't support menu type",mVinfo->fd);
+        DBG_LOGB("this ctrl of camera handle %d can't support menu type",mVinfo->get_fd());
     } else {
         memset(&qm, 0, sizeof(qm));
 
@@ -1354,7 +1317,7 @@ int MIPISensor::getAutoFocus(uint8_t *afMode, uint8_t maxCount) {
             memset(&qm, 0, sizeof(struct v4l2_querymenu));
             qm.id = V4L2_CID_FOCUS_AUTO;
             qm.index = index;
-            if (ioctl (mVinfo->fd, VIDIOC_QUERYMENU, &qm) < 0) {
+            if (ioctl (mVinfo->get_fd(), VIDIOC_QUERYMENU, &qm) < 0) {
                 continue;
             } else {
                 if (strcmp((char*)qm.name,"auto") == 0) {
@@ -1397,7 +1360,7 @@ status_t MIPISensor::setAutoFocus(uint8_t afMode) {
             return BAD_VALUE;
     }
 
-    if (ioctl(mVinfo->fd, VIDIOC_S_CTRL, &ctl) < 0) {
+    if (ioctl(mVinfo->get_fd(), VIDIOC_S_CTRL, &ctl) < 0) {
         CAMHAL_LOGDA("failed to set camera focuas mode!\n");
         return BAD_VALUE;
     }
@@ -1412,11 +1375,11 @@ int MIPISensor::getAWB(uint8_t *awbMode, uint8_t maxCount) {
 
     memset(&qc, 0, sizeof(struct v4l2_queryctrl));
     qc.id = V4L2_CID_DO_WHITE_BALANCE;
-    ret = ioctl (mVinfo->fd, VIDIOC_QUERYCTRL, &qc);
+    ret = ioctl (mVinfo->get_fd(), VIDIOC_QUERYCTRL, &qc);
     if ( (ret<0) || (qc.flags == V4L2_CTRL_FLAG_DISABLED)) {
-        DBG_LOGB("camera handle %d can't support this ctrl",mVinfo->fd);
+        DBG_LOGB("camera handle %d can't support this ctrl",mVinfo->get_fd());
     } else if ( qc.type != V4L2_CTRL_TYPE_MENU) {
-        DBG_LOGB("this ctrl of camera handle %d can't support menu type",mVinfo->fd);
+        DBG_LOGB("this ctrl of camera handle %d can't support menu type",mVinfo->get_fd());
     } else {
         memset(&qm, 0, sizeof(qm));
 
@@ -1431,7 +1394,7 @@ int MIPISensor::getAWB(uint8_t *awbMode, uint8_t maxCount) {
             memset(&qm, 0, sizeof(struct v4l2_querymenu));
             qm.id = V4L2_CID_DO_WHITE_BALANCE;
             qm.index = index;
-            if (ioctl (mVinfo->fd, VIDIOC_QUERYMENU, &qm) < 0) {
+            if (ioctl (mVinfo->get_fd(), VIDIOC_QUERYMENU, &qm) < 0) {
                 continue;
             } else {
                 if (strcmp((char*)qm.name,"auto") == 0) {
@@ -1492,7 +1455,7 @@ status_t MIPISensor::setAWB(uint8_t awbMode) {
                     __FUNCTION__, awbMode);
             return BAD_VALUE;
     }
-    ret = ioctl(mVinfo->fd, VIDIOC_S_CTRL, &ctl);
+    ret = ioctl(mVinfo->get_fd(), VIDIOC_S_CTRL, &ctl);
     return ret;
 }
 void MIPISensor::setSensorListener(SensorListener *listener) {

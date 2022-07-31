@@ -19,6 +19,7 @@ class staticPipe {
   public:
     static std::vector<struct pipe_info*> supportedPipes;
     static int constructStaticPipe();
+    static int fetchPipeMaxResolution(int idx, uint32_t& width, uint32_t &height);
 };
 }
 #endif

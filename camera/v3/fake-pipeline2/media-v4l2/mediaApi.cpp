@@ -21,6 +21,12 @@
 
 #define LOG_TAG "mediaApi"
 
+#if defined(LOG_NNDEBUG) && LOG_NNDEBUG == 0
+#define ALOGVV ALOGV
+#else
+#define ALOGVV(...) ((void)0)
+#endif
+
 #include <utils/Log.h>
 #include <android/log.h>
 #include <stdio.h>
@@ -30,7 +36,7 @@
 
 bool entInPipe(struct pipe_info * pipe, char * ent_name, int name_len)
 {
-    if (strncmp(ent_name, pipe->sensor_ent_name,name_len) == 0) {
+    if (strncmp(ent_name, pipe->sensor_ent_name, name_len) == 0) {
         return true;
     }
 #if 0
@@ -58,7 +64,7 @@ void mediaLog(const char *fmt, ...)
     vsnprintf(buf, 256, fmt, args);
     va_end(args);
 
-    ALOGI("%s ", buf);
+    ALOGVV("%s ", buf);
 }
 
 struct pipe_info *mediaFindMatchedPipe(
@@ -90,19 +96,25 @@ struct pipe_info *mediaFindMatchedPipe(
     return NULL;
 }
 
-int mediaStreamInit(media_stream_t * stream, struct pipe_info *pipe_info_ptr, struct media_device * dev)
+int mediaStreamInit(media_stream_t *stream, struct pipe_info *pipe_info_ptr, struct media_device * dev)
 {
     memset(stream, 0, sizeof(*stream));
 
-    strncpy(stream->media_dev_name, pipe_info_ptr->media_dev_name, sizeof(stream->media_dev_name));
-
-    strncpy(stream->sensor_ent_name, pipe_info_ptr->sensor_ent_name, sizeof(stream->sensor_ent_name));
-    strncpy(stream->csiphy_ent_name, pipe_info_ptr->csiphy_ent_name, sizeof(stream->csiphy_ent_name));
-    strncpy(stream->adap_ent_name,   pipe_info_ptr->adap_ent_name,   sizeof(stream->adap_ent_name));
-    strncpy(stream->isp_ent_name,   pipe_info_ptr->isp_ent_name,   sizeof(stream->isp_ent_name));
-    strncpy(stream->video_ent_name,  pipe_info_ptr->video_ent_name,  sizeof(stream->video_ent_name));
-    strncpy(stream->video_stats_name,   pipe_info_ptr->video_stats_name,   sizeof(stream->video_stats_name));
-    strncpy(stream->video_param_name,  pipe_info_ptr->video_param_name,  sizeof(stream->video_param_name));
+    auto copyName = [&] (char* dst ,const char* src, size_t size) {
+        if (src && dst)
+            strncpy(dst, src, size);
+    };
+    copyName(stream->media_dev_name,  pipe_info_ptr->media_dev_name,   sizeof(stream->media_dev_name));
+    copyName(stream->sensor_ent_name, pipe_info_ptr->sensor_ent_name,  sizeof(stream->sensor_ent_name));
+    copyName(stream->csiphy_ent_name, pipe_info_ptr->csiphy_ent_name,  sizeof(stream->csiphy_ent_name));
+    copyName(stream->adap_ent_name,   pipe_info_ptr->adap_ent_name,    sizeof(stream->adap_ent_name));
+    copyName(stream->isp_ent_name,    pipe_info_ptr->isp_ent_name,     sizeof(stream->isp_ent_name));
+    copyName(stream->video_ent_name0, pipe_info_ptr->video_ent_name0,  sizeof(stream->video_ent_name0));
+    copyName(stream->video_ent_name1, pipe_info_ptr->video_ent_name1,  sizeof(stream->video_ent_name1));
+    copyName(stream->video_ent_name2, pipe_info_ptr->video_ent_name2,  sizeof(stream->video_ent_name2));
+    copyName(stream->video_ent_name3, pipe_info_ptr->video_ent_name3,  sizeof(stream->video_ent_name3));
+    copyName(stream->video_stats_name,pipe_info_ptr->video_stats_name, sizeof(stream->video_stats_name));
+    copyName(stream->video_param_name,pipe_info_ptr->video_param_name, sizeof(stream->video_param_name));
 
     stream->media_dev = dev;
 
@@ -130,6 +142,7 @@ int mediaStreamInit(media_stream_t * stream, struct pipe_info *pipe_info_ptr, st
         return -1;
     }
 
+    //mandatory
     stream->csiphy_ent = media_get_entity_by_name(stream->media_dev, stream->csiphy_ent_name, strlen(stream->csiphy_ent_name));
     if (NULL == stream->csiphy_ent) {
         ALOGE("get  csiphy_ent fail");
@@ -142,32 +155,58 @@ int mediaStreamInit(media_stream_t * stream, struct pipe_info *pipe_info_ptr, st
         return -1;
     }
 
-    stream->isp_ent = media_get_entity_by_name(stream->media_dev, stream->isp_ent_name, strlen(stream->isp_ent_name));
-    if (NULL == stream->isp_ent) {
-        ALOGE("get isp_ent fail");
+    stream->video_ent0 = media_get_entity_by_name(stream->media_dev, stream->video_ent_name0, strlen(stream->video_ent_name0));
+    if (NULL == stream->video_ent0) {
+        ALOGE("get video_ent0 fail");
         return -1;
     }
 
-    stream->video_ent = media_get_entity_by_name(stream->media_dev, stream->video_ent_name, strlen(stream->video_ent_name));
-    if (NULL == stream->video_ent) {
-        ALOGE("get video_ent fail");
-        return -1;
+    //optional
+    stream->isp_ent = media_get_entity_by_name(stream->media_dev, stream->isp_ent_name, strlen(stream->isp_ent_name));
+    if (NULL == stream->isp_ent) {
+        ALOGE("get isp_ent fail");
+    }
+
+    stream->video_ent1 = media_get_entity_by_name(stream->media_dev, stream->video_ent_name1, strlen(stream->video_ent_name1));
+    if (NULL == stream->video_ent1) {
+        ALOGE("get video_ent1 fail");
+    }
+
+    stream->video_ent2 = media_get_entity_by_name(stream->media_dev, stream->video_ent_name2, strlen(stream->video_ent_name2));
+    if (NULL == stream->video_ent2) {
+        ALOGE("get video_ent22 fail");
+    }
+
+    stream->video_ent3 = media_get_entity_by_name(stream->media_dev, stream->video_ent_name3, strlen(stream->video_ent_name3));
+    if (NULL == stream->video_ent3) {
+        ALOGE("get video_ent3 fail");
     }
 
     stream->video_stats = media_get_entity_by_name(stream->media_dev, stream->video_stats_name, strlen(stream->video_stats_name));
     if (NULL == stream->video_stats) {
         ALOGE("get video_stats fail");
-        return -1;
     }
 
     stream->video_param = media_get_entity_by_name(stream->media_dev, stream->video_param_name, strlen(stream->video_param_name));
     if (NULL == stream->video_param) {
         ALOGE("get video_param fail");
-        return -1;
     }
 
-    int ret = v4l2_video_open(stream->video_ent);
-    ALOGD("%s open video fd, ret %d ", __FUNCTION__, ret);
+    int ret = v4l2_video_open(stream->video_ent0);
+    ALOGD("%s open video0 fd %d ", __FUNCTION__, stream->video_ent0->fd);
+
+    if (stream->video_ent1) {
+        ret = v4l2_video_open(stream->video_ent1);
+        ALOGD("%s open video1 fd %d ", __FUNCTION__, stream->video_ent1->fd);
+    }
+    if (stream->video_ent2) {
+        ret = v4l2_video_open(stream->video_ent2);
+        ALOGD("%s open video2 fd %d ", __FUNCTION__, stream->video_ent2->fd);
+    }
+    if (stream->video_ent3) {
+        ret = v4l2_video_open(stream->video_ent3);
+        ALOGD("%s open video3 fd %d ", __FUNCTION__, stream->video_ent3->fd);
+    }
 
     ALOGD("media stream init success");
     return 0;
@@ -330,22 +369,33 @@ int setImgFormat(media_stream_t *stream, stream_configuration_t *cfg)
     ALOGD("%s ++", __FUNCTION__);
 
     memset (&v4l2_fmt, 0, sizeof (struct v4l2_format));
-    if (cfg->format.nplanes > 1) {
-        ALOGE ("not supported yet!");
-        return -1;
-    }
 
-    v4l2_fmt.type                    = V4L2_BUF_TYPE_VIDEO_CAPTURE;
-    v4l2_fmt.fmt.pix_mp.width        = cfg->format.width;
-    v4l2_fmt.fmt.pix_mp.height       = cfg->format.height;
-    v4l2_fmt.fmt.pix_mp.pixelformat  = cfg->format.fourcc;
-    v4l2_fmt.fmt.pix_mp.field        = V4L2_FIELD_ANY;
-    ALOGD("%s ++ %dx%d fmt %d",__FUNCTION__, cfg->format.width, cfg->format.height, cfg->format.fourcc);
-
-    rtn = v4l2_video_set_format( stream->video_ent,&v4l2_fmt);
-    if (rtn < 0) {
-        ALOGE("Failed to set video fmt, ret %d", rtn);
-        return rtn;
+    for (int i = 0; i < 4; ++i) {
+        if (cfg->vformat[i].width > 0 && cfg->vformat[i].height > 0) {
+            if (cfg->vformat[i].nplanes > 1) {
+                ALOGE ("not supported yet!");
+                return -1;
+            }
+            v4l2_fmt.type                    = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+            v4l2_fmt.fmt.pix_mp.width        = cfg->vformat[i].width;
+            v4l2_fmt.fmt.pix_mp.height       = cfg->vformat[i].height;
+            v4l2_fmt.fmt.pix_mp.pixelformat  = cfg->vformat[i].fourcc;
+            v4l2_fmt.fmt.pix_mp.field        = V4L2_FIELD_ANY;
+            ALOGD("%s:%d ++ %dx%d fmt %d", __FUNCTION__, i,
+                cfg->vformat[i].width, cfg->vformat[i].height, cfg->vformat[i].fourcc);
+            switch (i) {
+                case 0: rtn = v4l2_video_set_format( stream->video_ent0, &v4l2_fmt); break;
+                case 1: rtn = v4l2_video_set_format( stream->video_ent1, &v4l2_fmt); break;
+                case 2: rtn = v4l2_video_set_format( stream->video_ent2, &v4l2_fmt); break;
+                case 3: rtn = v4l2_video_set_format( stream->video_ent3, &v4l2_fmt); break;
+                default:
+                    break;
+            }
+            if (rtn < 0) {
+                ALOGE("Failed to set video fmt, ret %d", rtn);
+                return rtn;
+            }
+        }
     }
 
     ALOGD("%s success --", __FUNCTION__);
@@ -406,7 +456,7 @@ int mediaStreamConfig(media_stream_t * stream, stream_configuration_t *cfg)
 {
     int rtn = -1;
 
-    ALOGD("%s ++", __FUNCTION__);
+    ALOGD("%s %dx%d ++", __FUNCTION__, cfg->format.width, cfg->format.height);
 
     rtn = setSdFormat(stream, cfg);
     if (rtn < 0) {
