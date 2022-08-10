@@ -40,7 +40,7 @@
 static snd_pcm_sframes_t (*readi_func)(snd_pcm_t *handle, void *buffer, snd_pcm_uframes_t size);
 static snd_pcm_sframes_t (*writei_func)(snd_pcm_t *handle, const void *buffer, snd_pcm_uframes_t size);
 static snd_pcm_sframes_t (*readn_func)(snd_pcm_t *handle, void **bufs, snd_pcm_uframes_t size);
-static snd_pcm_sframes_t (*writen_func)(snd_pcm_t *handle, void **bufs, snd_pcm_uframes_t size);
+static snd_pcm_sframes_t (*written_func)(snd_pcm_t *handle, void **bufs, snd_pcm_uframes_t size);
 
 static float  alsa_default_vol = 1.0;
 static int hdmi_out = 0;
@@ -904,7 +904,7 @@ int alsa_init(struct aml_audio_dec* audec)
     readi_func = snd_pcm_readi;
     writei_func = snd_pcm_writei;
     readn_func = snd_pcm_readn;
-    writen_func = snd_pcm_writen;
+    written_func = snd_pcm_written;
 
     set_params(alsa_param);
 

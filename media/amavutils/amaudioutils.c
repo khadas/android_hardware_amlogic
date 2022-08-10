@@ -50,9 +50,9 @@ static int set_audiodsp_frelevel(int m1_flag, int coeff)
         if (val > 0 && coeff > 0) {
             val = coeff * val;
             amsysfs_set_sysfs_int(AUDIODSP_CODEC_MIPS_OUT, val);
-            LOGI("m1:set_cpu_freq_scaling_based_auido %d\n", val);
+            LOGI("m1:set_cpu_freq_scaling_based_audio %d\n", val);
         } else {
-            LOGI("m1:set_cpu_freq_scaling_based_auido failed\n");
+            LOGI("m1:set_cpu_freq_scaling_based_audio failed\n");
             return -1;
         }
     } else {

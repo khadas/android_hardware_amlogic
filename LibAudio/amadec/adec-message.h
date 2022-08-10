@@ -46,7 +46,7 @@ typedef enum {
 
 typedef struct {
     int type;               /* 1 = reply; 0 = no reply */
-    int has_arg;         /* 1 = value is valid; 0 = value is unvalid */
+    int has_arg;         /* 1 = value is valid; 0 = value is invalid */
     ctrl_cmd_t  ctrl_cmd;
     union {
         int en;

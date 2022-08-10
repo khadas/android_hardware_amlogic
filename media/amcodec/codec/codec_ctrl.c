@@ -417,7 +417,7 @@ static inline int codec_audio_es_init(codec_para_t *pcodec)
 
     /*if ((pcodec->audio_type == AFORMAT_ADPCM) || (pcodec->audio_type == AFORMAT_WMAPRO) || (pcodec->audio_type == AFORMAT_WMA) || (pcodec->audio_type == AFORMAT_PCM_S16BE)
         || (pcodec->audio_type == AFORMAT_PCM_S16LE) || (pcodec->audio_type == AFORMAT_PCM_U8)||(pcodec->audio_type == AFORMAT_AMR)) {*/
-    if (IS_AUIDO_NEED_EXT_INFO(pcodec->audio_type)) {
+    if (IS_AUDIO_NEED_EXT_INFO(pcodec->audio_type)) {
         r = set_audio_info(pcodec);
         if (r < 0) {
             codec_h_close(handle);
@@ -526,7 +526,7 @@ static inline int codec_ps_init(codec_para_t *pcodec)
         /*if ((pcodec->audio_type == AFORMAT_ADPCM) || (pcodec->audio_type == AFORMAT_WMA) || (pcodec->audio_type == AFORMAT_WMAPRO) || (pcodec->audio_type == AFORMAT_PCM_S16BE)
             || (pcodec->audio_type == AFORMAT_PCM_S16LE) || (pcodec->audio_type == AFORMAT_PCM_U8)
             || (pcodec->audio_type == AFORMAT_PCM_BLURAY)||(pcodec->audio_type == AFORMAT_AMR)) {*/
-        if (IS_AUIDO_NEED_EXT_INFO(pcodec->audio_type)) {
+        if (IS_AUDIO_NEED_EXT_INFO(pcodec->audio_type)) {
             r = set_audio_info(pcodec);
             if (r < 0) {
                 goto error1;
@@ -787,7 +787,7 @@ int codec_init(codec_para_t *pcodec)
         a_ainfo.codec_id   = pcodec->audio_info.codec_id;
         a_ainfo.automute   = pcodec->automute_flag;
         a_ainfo.has_video  = pcodec->has_video;
-        if (IS_AUIDO_NEED_EXT_INFO(pcodec->audio_type)) {
+        if (IS_AUDIO_NEED_EXT_INFO(pcodec->audio_type)) {
             if (pcodec->audio_type != AFORMAT_WMA && pcodec->audio_type != AFORMAT_WMAPRO && pcodec->audio_type != AFORMAT_WMAVOI) {
                 a_ainfo.extradata_size = pcodec->audio_info.extradata_size;
                 if (a_ainfo.extradata_size > 0 && a_ainfo.extradata_size <= AUDIO_EXTRA_DATA_SIZE) {
@@ -946,7 +946,7 @@ void codec_resume_audio(codec_para_t *pcodec, unsigned int orig)
             }
             pcodec->switch_audio_flag = 0;
         }
-        if (IS_AUIDO_NEED_EXT_INFO(pcodec->audio_type)) {
+        if (IS_AUDIO_NEED_EXT_INFO(pcodec->audio_type)) {
             if (pcodec->audio_type != AFORMAT_WMA && pcodec->audio_type != AFORMAT_WMAPRO && pcodec->audio_type != AFORMAT_WMAVOI) {
                 a_ainfo.extradata_size = pcodec->audio_info.extradata_size;
                 if (a_ainfo.extradata_size > 0 && a_ainfo.extradata_size <= AUDIO_EXTRA_DATA_SIZE) {

@@ -1302,7 +1302,7 @@ exif_buffer * JpegCompressor::get_exif_buffer() {
     if (mInfo.has_gpsProcessingMethod) {
         char* processmethod = (char*)mInfo.gpsProcessingMethod;
         if (processmethod != NULL) {
-            const char ExifAsciiPrefix[] = { 0x41, 0x53, 0x43, 0x49, 0x49, 0x0, 0x0, 0x0 };//asicii
+            const char ExifAsciiPrefix[] = { 0x41, 0x53, 0x43, 0x49, 0x49, 0x0, 0x0, 0x0 };//ascii
             unsigned char* data = (unsigned char*)malloc(strlen(processmethod) + sizeof(ExifAsciiPrefix));
             exif_buffer buffer;
             if (data != NULL)

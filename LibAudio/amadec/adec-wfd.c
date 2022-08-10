@@ -825,7 +825,7 @@ void *adec_wfddec_msg_loop(void *args)
             break;
 
         default:
-            adec_print("Unknow Command!");
+            adec_print("Unknown Command!");
             break;
 
         }

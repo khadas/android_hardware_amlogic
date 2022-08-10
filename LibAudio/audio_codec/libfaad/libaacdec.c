@@ -533,7 +533,7 @@ int audio_dec_decode(
     sample_buffer = NeAACDecDecode(gFaadCxt->hDecoder, &frameInfo, (unsigned char *)dec_buf, dec_bufsize);
     dec_bufsize -= frameInfo.bytesconsumed;
     if (frameInfo.channels < 0 || frameInfo.channels > 8) {
-        audio_codec_print("[%s %d]ERR__Unvalid Nch/%d bytesconsumed/%d error/%d\n",
+        audio_codec_print("[%s %d]ERR__Invalid Nch/%d bytesconsumed/%d error/%d\n",
                            __FUNCTION__,__LINE__,frameInfo.channels,(int)frameInfo.bytesconsumed,frameInfo.error);
         sample_buffer=NULL;
     }

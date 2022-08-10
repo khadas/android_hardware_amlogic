@@ -31,7 +31,7 @@ namespace aidl::android::hardware::health {
 class LinkedCallback {
   public:
     // Automatically linkToDeath upon construction with the returned object as the cookie.
-    // service->death_reciepient() should be from CreateDeathRecipient().
+    // service->death_recipient() should be from CreateDeathRecipient().
     // Not using a strong reference to |service| to avoid circular reference. The lifetime
     // of |service| must be longer than this LinkedCallback object.
     static std::unique_ptr<LinkedCallback> Make(std::shared_ptr<Health> service,
@@ -44,7 +44,7 @@ class LinkedCallback {
     // The wrapped IHealthInfoCallback object.
     const std::shared_ptr<IHealthInfoCallback>& callback() const { return callback_; }
 
-    // On callback died, unreigster it from the service.
+    // On callback died, unregister it from the service.
     void OnCallbackDied();
 
   private:

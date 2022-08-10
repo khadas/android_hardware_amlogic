@@ -184,7 +184,7 @@ void onAsyncRttResults(wifi_request_id id, unsigned num_results, wifi_rtt_result
 // callbacks.
 // So, handle all of them here directly to avoid adding an unnecessary layer.
 std::function<void(transaction_id, const NanResponseMsg&)> on_nan_notify_response_user_callback;
-void onAysncNanNotifyResponse(transaction_id id, NanResponseMsg* msg) {
+void onAsyncNanNotifyResponse(transaction_id id, NanResponseMsg* msg) {
     const auto lock = hidl_sync_util::acquireGlobalLock();
     if (on_nan_notify_response_user_callback && msg) {
         on_nan_notify_response_user_callback(id, *msg);
@@ -192,12 +192,12 @@ void onAysncNanNotifyResponse(transaction_id id, NanResponseMsg* msg) {
 }
 
 std::function<void(const NanPublishRepliedInd&)> on_nan_event_publish_replied_user_callback;
-void onAysncNanEventPublishReplied(NanPublishRepliedInd* /* event */) {
-    LOG(ERROR) << "onAysncNanEventPublishReplied triggered";
+void onAsyncNanEventPublishReplied(NanPublishRepliedInd* /* event */) {
+    LOG(ERROR) << "onAsyncNanEventPublishReplied triggered";
 }
 
 std::function<void(const NanPublishTerminatedInd&)> on_nan_event_publish_terminated_user_callback;
-void onAysncNanEventPublishTerminated(NanPublishTerminatedInd* event) {
+void onAsyncNanEventPublishTerminated(NanPublishTerminatedInd* event) {
     const auto lock = hidl_sync_util::acquireGlobalLock();
     if (on_nan_event_publish_terminated_user_callback && event) {
         on_nan_event_publish_terminated_user_callback(*event);
@@ -205,7 +205,7 @@ void onAysncNanEventPublishTerminated(NanPublishTerminatedInd* event) {
 }
 
 std::function<void(const NanMatchInd&)> on_nan_event_match_user_callback;
-void onAysncNanEventMatch(NanMatchInd* event) {
+void onAsyncNanEventMatch(NanMatchInd* event) {
     const auto lock = hidl_sync_util::acquireGlobalLock();
     if (on_nan_event_match_user_callback && event) {
         on_nan_event_match_user_callback(*event);
@@ -213,7 +213,7 @@ void onAysncNanEventMatch(NanMatchInd* event) {
 }
 
 std::function<void(const NanMatchExpiredInd&)> on_nan_event_match_expired_user_callback;
-void onAysncNanEventMatchExpired(NanMatchExpiredInd* event) {
+void onAsyncNanEventMatchExpired(NanMatchExpiredInd* event) {
     const auto lock = hidl_sync_util::acquireGlobalLock();
     if (on_nan_event_match_expired_user_callback && event) {
         on_nan_event_match_expired_user_callback(*event);
@@ -222,7 +222,7 @@ void onAysncNanEventMatchExpired(NanMatchExpiredInd* event) {
 
 std::function<void(const NanSubscribeTerminatedInd&)>
         on_nan_event_subscribe_terminated_user_callback;
-void onAysncNanEventSubscribeTerminated(NanSubscribeTerminatedInd* event) {
+void onAsyncNanEventSubscribeTerminated(NanSubscribeTerminatedInd* event) {
     const auto lock = hidl_sync_util::acquireGlobalLock();
     if (on_nan_event_subscribe_terminated_user_callback && event) {
         on_nan_event_subscribe_terminated_user_callback(*event);
@@ -230,7 +230,7 @@ void onAysncNanEventSubscribeTerminated(NanSubscribeTerminatedInd* event) {
 }
 
 std::function<void(const NanFollowupInd&)> on_nan_event_followup_user_callback;
-void onAysncNanEventFollowup(NanFollowupInd* event) {
+void onAsyncNanEventFollowup(NanFollowupInd* event) {
     const auto lock = hidl_sync_util::acquireGlobalLock();
     if (on_nan_event_followup_user_callback && event) {
         on_nan_event_followup_user_callback(*event);
@@ -238,7 +238,7 @@ void onAysncNanEventFollowup(NanFollowupInd* event) {
 }
 
 std::function<void(const NanDiscEngEventInd&)> on_nan_event_disc_eng_event_user_callback;
-void onAysncNanEventDiscEngEvent(NanDiscEngEventInd* event) {
+void onAsyncNanEventDiscEngEvent(NanDiscEngEventInd* event) {
     const auto lock = hidl_sync_util::acquireGlobalLock();
     if (on_nan_event_disc_eng_event_user_callback && event) {
         on_nan_event_disc_eng_event_user_callback(*event);
@@ -246,7 +246,7 @@ void onAysncNanEventDiscEngEvent(NanDiscEngEventInd* event) {
 }
 
 std::function<void(const NanDisabledInd&)> on_nan_event_disabled_user_callback;
-void onAysncNanEventDisabled(NanDisabledInd* event) {
+void onAsyncNanEventDisabled(NanDisabledInd* event) {
     const auto lock = hidl_sync_util::acquireGlobalLock();
     if (on_nan_event_disabled_user_callback && event) {
         on_nan_event_disabled_user_callback(*event);
@@ -254,7 +254,7 @@ void onAysncNanEventDisabled(NanDisabledInd* event) {
 }
 
 std::function<void(const NanTCAInd&)> on_nan_event_tca_user_callback;
-void onAysncNanEventTca(NanTCAInd* event) {
+void onAsyncNanEventTca(NanTCAInd* event) {
     const auto lock = hidl_sync_util::acquireGlobalLock();
     if (on_nan_event_tca_user_callback && event) {
         on_nan_event_tca_user_callback(*event);
@@ -262,7 +262,7 @@ void onAysncNanEventTca(NanTCAInd* event) {
 }
 
 std::function<void(const NanBeaconSdfPayloadInd&)> on_nan_event_beacon_sdf_payload_user_callback;
-void onAysncNanEventBeaconSdfPayload(NanBeaconSdfPayloadInd* event) {
+void onAsyncNanEventBeaconSdfPayload(NanBeaconSdfPayloadInd* event) {
     const auto lock = hidl_sync_util::acquireGlobalLock();
     if (on_nan_event_beacon_sdf_payload_user_callback && event) {
         on_nan_event_beacon_sdf_payload_user_callback(*event);
@@ -270,14 +270,14 @@ void onAysncNanEventBeaconSdfPayload(NanBeaconSdfPayloadInd* event) {
 }
 
 std::function<void(const NanDataPathRequestInd&)> on_nan_event_data_path_request_user_callback;
-void onAysncNanEventDataPathRequest(NanDataPathRequestInd* event) {
+void onAsyncNanEventDataPathRequest(NanDataPathRequestInd* event) {
     const auto lock = hidl_sync_util::acquireGlobalLock();
     if (on_nan_event_data_path_request_user_callback && event) {
         on_nan_event_data_path_request_user_callback(*event);
     }
 }
 std::function<void(const NanDataPathConfirmInd&)> on_nan_event_data_path_confirm_user_callback;
-void onAysncNanEventDataPathConfirm(NanDataPathConfirmInd* event) {
+void onAsyncNanEventDataPathConfirm(NanDataPathConfirmInd* event) {
     const auto lock = hidl_sync_util::acquireGlobalLock();
     if (on_nan_event_data_path_confirm_user_callback && event) {
         on_nan_event_data_path_confirm_user_callback(*event);
@@ -285,7 +285,7 @@ void onAysncNanEventDataPathConfirm(NanDataPathConfirmInd* event) {
 }
 
 std::function<void(const NanDataPathEndInd&)> on_nan_event_data_path_end_user_callback;
-void onAysncNanEventDataPathEnd(NanDataPathEndInd* event) {
+void onAsyncNanEventDataPathEnd(NanDataPathEndInd* event) {
     const auto lock = hidl_sync_util::acquireGlobalLock();
     if (on_nan_event_data_path_end_user_callback && event) {
         on_nan_event_data_path_end_user_callback(*event);
@@ -293,7 +293,7 @@ void onAysncNanEventDataPathEnd(NanDataPathEndInd* event) {
 }
 
 std::function<void(const NanTransmitFollowupInd&)> on_nan_event_transmit_follow_up_user_callback;
-void onAysncNanEventTransmitFollowUp(NanTransmitFollowupInd* event) {
+void onAsyncNanEventTransmitFollowUp(NanTransmitFollowupInd* event) {
     const auto lock = hidl_sync_util::acquireGlobalLock();
     if (on_nan_event_transmit_follow_up_user_callback && event) {
         on_nan_event_transmit_follow_up_user_callback(*event);
@@ -301,7 +301,7 @@ void onAysncNanEventTransmitFollowUp(NanTransmitFollowupInd* event) {
 }
 
 std::function<void(const NanRangeRequestInd&)> on_nan_event_range_request_user_callback;
-void onAysncNanEventRangeRequest(NanRangeRequestInd* event) {
+void onAsyncNanEventRangeRequest(NanRangeRequestInd* event) {
     const auto lock = hidl_sync_util::acquireGlobalLock();
     if (on_nan_event_range_request_user_callback && event) {
         on_nan_event_range_request_user_callback(*event);
@@ -309,7 +309,7 @@ void onAysncNanEventRangeRequest(NanRangeRequestInd* event) {
 }
 
 std::function<void(const NanRangeReportInd&)> on_nan_event_range_report_user_callback;
-void onAysncNanEventRangeReport(NanRangeReportInd* event) {
+void onAsyncNanEventRangeReport(NanRangeReportInd* event) {
     const auto lock = hidl_sync_util::acquireGlobalLock();
     if (on_nan_event_range_report_user_callback && event) {
         on_nan_event_range_report_user_callback(*event);
@@ -1194,14 +1194,14 @@ wifi_error WifiLegacyHal::nanRegisterCallbackHandlers(const std::string& iface_n
 
     return global_func_table_.wifi_nan_register_handler(
             getIfaceHandle(iface_name),
-            {onAysncNanNotifyResponse, onAysncNanEventPublishReplied,
-             onAysncNanEventPublishTerminated, onAysncNanEventMatch, onAysncNanEventMatchExpired,
-             onAysncNanEventSubscribeTerminated, onAysncNanEventFollowup,
-             onAysncNanEventDiscEngEvent, onAysncNanEventDisabled, onAysncNanEventTca,
-             onAysncNanEventBeaconSdfPayload, onAysncNanEventDataPathRequest,
-             onAysncNanEventDataPathConfirm, onAysncNanEventDataPathEnd,
-             onAysncNanEventTransmitFollowUp, onAysncNanEventRangeRequest,
-             onAysncNanEventRangeReport, onAsyncNanEventScheduleUpdate});
+            {onAsyncNanNotifyResponse, onAsyncNanEventPublishReplied,
+             onAsyncNanEventPublishTerminated, onAsyncNanEventMatch, onAsyncNanEventMatchExpired,
+             onAsyncNanEventSubscribeTerminated, onAsyncNanEventFollowup,
+             onAsyncNanEventDiscEngEvent, onAsyncNanEventDisabled, onAsyncNanEventTca,
+             onAsyncNanEventBeaconSdfPayload, onAsyncNanEventDataPathRequest,
+             onAsyncNanEventDataPathConfirm, onAsyncNanEventDataPathEnd,
+             onAsyncNanEventTransmitFollowUp, onAsyncNanEventRangeRequest,
+             onAsyncNanEventRangeReport, onAsyncNanEventScheduleUpdate});
 }
 
 wifi_error WifiLegacyHal::nanEnableRequest(const std::string& iface_name, transaction_id id,

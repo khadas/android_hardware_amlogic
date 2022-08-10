@@ -86,7 +86,7 @@ int amdisplay_utils_get_size(int *width, int *height)
         LOGI("disp resolution %dx%d\n", disp_w, disp_h);
         disp_h = disp_h / FB_BUFFER_NUM;
     } else {
-        return -2;/*format unknow*/
+        return -2;/*format unknown*/
     }
     *width = disp_w;
     *height = disp_h;
@@ -109,7 +109,7 @@ int amdisplay_utils_get_size_fb2(int *width, int *height)
         LOGI("disp resolution %dx%d\n", disp_w, disp_h);
         disp_h = disp_h / FB_BUFFER_NUM;
     } else {
-        return -2;/*format unknow*/
+        return -2;/*format unknown*/
     }
     *width = disp_w;
     *height = disp_h;

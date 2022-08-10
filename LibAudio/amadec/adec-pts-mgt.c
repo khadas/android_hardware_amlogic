@@ -525,7 +525,7 @@ int adec_refresh_pts(aml_audio_dec_t *audec)
     }
 
     apts_start_flag = audec->apts_start_flag;
-    //if the audio start has not been triggered to tsync,calculate the audio  pcm data which writen to audiotrack
+    //if the audio start has not been triggered to tsync,calculate the audio  pcm data which written to audiotrack
     if (!audec->apts_start_flag) {
         int latency;
         int wait = pre_filltime;
@@ -795,7 +795,7 @@ int avsync_en(int e)
  *
  * When audio track switch occurred, use this function to judge audio should
  * be played or not. If system time fall behind audio pts , and their difference
- * is greater than SYSTIME_CORRECTION_THRESHOLD, auido should wait for
+ * is greater than SYSTIME_CORRECTION_THRESHOLD, audio should wait for
  * video. Otherwise audio can be played.
  */
 int track_switch_pts(aml_audio_dec_t *audec)
@@ -979,7 +979,7 @@ int droppcm_get_refpts(aml_audio_dec_t *audec, unsigned long *refpts)
         return -1;
     }
     if ((tsync_mode == TSYNC_MODE_AMASTER && !strcmp(tsync_mode_str, "amaster"))
-        || (tsync_mode == TSYNC_MODE_VMASTER && !strcmp(tsync_mode_str, "vmaster") && audec->droppcm_flag)/* switch audio flag, firstvpts is unvalid when switch audio*/) {
+        || (tsync_mode == TSYNC_MODE_VMASTER && !strcmp(tsync_mode_str, "vmaster") && audec->droppcm_flag)/* switch audio flag, firstvpts is invalid when switch audio*/) {
         refmode = TSYNC_MODE_AMASTER;
     } else if (tsync_mode == TSYNC_MODE_VMASTER && !strcmp(tsync_mode_str, "vmaster") && !audec->droppcm_flag) {
         refmode = TSYNC_MODE_VMASTER;

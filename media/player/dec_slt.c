@@ -598,7 +598,7 @@ int parser_frame(
                 if ((p[0] == 0xb5) /* country code */
                     && ((p[1] == 0x00) && (p[2] == 0x3b)) /* terminal_provider_code */
                     && ((p[3] == 0x00) && (p[4] == 0x00) && (p[5] == 0x08) && (p[6] == 0x00))) { /* terminal_provider_oriented_code */
-                    printf("\t\tdolbyvison rpu\n");
+                    printf("\t\tdolbyvision rpu\n");
                     meta_buf[0] = meta_buf[1] = meta_buf[2] = 0;
                     meta_buf[3] = 0x01;    meta_buf[4] = 0x19;
 
@@ -899,7 +899,7 @@ static int do_video_decoder(int tcase)
     int ret = CODEC_ERROR_NONE;
     char buffer[READ_SIZE];
 
-    unsigned int read_len, isize, pading_size, rest_size;
+    unsigned int read_len, isize, padding_size, rest_size;
     unsigned int wait_cnt = 0;
     char *vstream = hevc_stream;
 
@@ -971,14 +971,14 @@ static int do_video_decoder(int tcase)
     }
 
     pcodec = vpcodec;
-    pading_size = 4096;
+    padding_size = 4096;
 
     if (is_video_file_type_ivf(NULL, vpcodec->video_type, vstream)) {
         printf("input video file is ivf with av1.\n");
         ivf_write_dat_with_size((uint8_t *)vstream, rest_size);
     } else {
         while (1) {
-            if (pading_size) {
+            if (padding_size) {
                 if (rest_size <= READ_SIZE) {
                     memcpy(buffer, vstream, rest_size);
                     read_len = rest_size;
@@ -1011,13 +1011,13 @@ static int do_video_decoder(int tcase)
                 }
             } while (isize < read_len);
 
-            if ((!rest_size) && (!pading_size))
+            if ((!rest_size) && (!padding_size))
                 break;
 
             if (!rest_size) {
-                memset(buffer, 0, pading_size);
-                read_len = pading_size;
-                pading_size = 0;
+                memset(buffer, 0, padding_size);
+                read_len = padding_size;
+                padding_size = 0;
             }
         }
     }

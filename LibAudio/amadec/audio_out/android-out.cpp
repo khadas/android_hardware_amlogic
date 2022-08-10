@@ -210,7 +210,7 @@ void reset_system_samplerate(struct aml_audio_dec* audec)
          else if(audec->samplerate==176400 || audec->samplerate==192000)
              Samplerate=audec->samplerate/4;
          else{
-             adec_print("[%s %d] Unvalid samplerate/%d for DTSCore Rawoutput\n",__FUNCTION__,__LINE__,audec->samplerate);
+             adec_print("[%s %d] Invalid samplerate/%d for DTSCore Rawoutput\n",__FUNCTION__,__LINE__,audec->samplerate);
              return;
          }
     }else if(audec->format == ACODEC_FMT_DTS && digital_raw==2 && audec->VersionNum==DTSETC_DECODE_VERSION_M6_M8 && audec->DTSHDIEC958_PktType==DTSHD_IEC958_PKTTYPE_SINGLEI2S){
@@ -221,7 +221,7 @@ void reset_system_samplerate(struct aml_audio_dec* audec)
          }else if(audec->DTSHDIEC958_FS==192000||audec->DTSHDIEC958_FS==1764000){
              Samplerate =audec->DTSHDIEC958_FS/4;
          }else{
-             adec_print("[%s %d] Unvalid DTSHDIEC958_FS/%d for DTSHD RawOutput\n",__FUNCTION__,__LINE__,audec->DTSHDIEC958_FS);
+             adec_print("[%s %d] Invalid DTSHDIEC958_FS/%d for DTSHD RawOutput\n",__FUNCTION__,__LINE__,audec->DTSHDIEC958_FS);
              return;
          }
          if(Samplerate%48000!=0)
@@ -233,7 +233,7 @@ void reset_system_samplerate(struct aml_audio_dec* audec)
          {
               Samplerate=audec->DTSHDIEC958_FS/4;
          }else{
-              adec_print("[%s %d] Unvalid DTSHDIEC958_FS/%d for DTSLL RawOutput\n",__FUNCTION__,__LINE__,audec->DTSHDIEC958_FS);
+              adec_print("[%s %d] Invalid DTSHDIEC958_FS/%d for DTSLL RawOutput\n",__FUNCTION__,__LINE__,audec->DTSHDIEC958_FS);
               return;
          }
          if(Samplerate!=48000)
@@ -726,7 +726,7 @@ extern "C" int android_init_raw(struct aml_audio_dec* audec)
        (audec->format != ACODEC_FMT_EAC3) &&
        (audec->format != ACODEC_FMT_TRUEHD))
     {
-          adec_print("[%s %d]NOTE: now just ACODEC_FMT_DTS_rawoutpu was support! ",__FUNCTION__,__LINE__);
+          adec_print("[%s %d]NOTE: now just ACODEC_FMT_DTS_rawoutput was support! ",__FUNCTION__,__LINE__);
           return 0;
     }else if(amsysfs_get_sysfs_int("/sys/class/audiodsp/digital_raw")==0){
           adec_print("[%s %d]DIGITAL_RAW WAS DISABLE !",__FUNCTION__,__LINE__);
@@ -786,7 +786,7 @@ extern "C" int android_init_raw(struct aml_audio_dec* audec)
                audec->codec_type=1;
             }
         }else if(audec->format==ACODEC_FMT_DTS && audec->VersionNum==DTSETC_DECODE_VERSION_M6_M8){
-            int unvalidpara=0;
+            int invalidpara=0;
             if(audec->DTSHDIEC958_PktType==DTSHD_IEC958_PKTTYPE_SINGLEI2S){
                 if(audec->DTSHDIEC958_FS==48000||audec->DTSHDIEC958_FS==44100)
                 {
@@ -798,7 +798,7 @@ extern "C" int android_init_raw(struct aml_audio_dec* audec)
                     SampleRate=audec->DTSHDIEC958_FS;
                     #endif
                 }else{
-                    unvalidpara=1;
+                    invalidpara=1;
                 }
             }else if(audec->DTSHDIEC958_PktType==DTSHD_IEC958_PKTTYPE_FOURI2S){// clock need Multiple 4
                 if(audec->DTSHDIEC958_FS==192000||audec->DTSHDIEC958_FS==384000 || audec->DTSHDIEC958_FS==768000 ||
@@ -810,14 +810,14 @@ extern "C" int android_init_raw(struct aml_audio_dec* audec)
                     SampleRate=audec->DTSHDIEC958_FS;
                     #endif
                 }else{
-                    unvalidpara=2;
+                    invalidpara=2;
                 }
             }else{
-                unvalidpara=3;
+                invalidpara=3;
             }
-            if(unvalidpara){
-               adec_print("[%s %d]NOTE:Unvalid Paras/%d for RawOutput:PCM_FS/%d IEC958_FS/%d PCMSamsInFrm/%d IEC958PktFrmSize/%d ",
-                                __FUNCTION__,__LINE__,unvalidpara,audec->samplerate,audec->DTSHDIEC958_FS,audec->DTSHDPCM_SamsInFrmAtMaxSR,audec->DTSHDIEC958_PktFrmSize);
+            if (invalidpara) {
+               adec_print("[%s %d]NOTE:Invalid Paras/%d for RawOutput:PCM_FS/%d IEC958_FS/%d PCMSamsInFrm/%d IEC958PktFrmSize/%d ",
+                                __FUNCTION__,__LINE__,invalidpara,audec->samplerate,audec->DTSHDIEC958_FS,audec->DTSHDPCM_SamsInFrmAtMaxSR,audec->DTSHDIEC958_PktFrmSize);
                return 0;
             }
             audec->codec_type=audec->DTSHDIEC958_FS/audec->samplerate;

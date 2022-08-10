@@ -1508,7 +1508,7 @@ int V4LCamAdpt::GenExif(ExifElementsTable* exiftable)
     if(processmethod!=NULL)
     {
         memset(exifcontent,0,sizeof(exifcontent));
-        char ExifAsciiPrefix[] = { 0x41, 0x53, 0x43, 0x49, 0x49, 0x0, 0x0, 0x0 };//asicii
+        char ExifAsciiPrefix[] = { 0x41, 0x53, 0x43, 0x49, 0x49, 0x0, 0x0, 0x0 };//ascii
         memcpy(exifcontent,ExifAsciiPrefix,8);
         memcpy(exifcontent+8,processmethod,strlen(processmethod));
         exiftable->insertElement("GPSProcessingMethod",(const char*)exifcontent);

@@ -999,7 +999,7 @@ static int audio_hardware_ctrl(hw_command_t cmd)
         break;
 
     default:
-        adec_print("Unknow Command %d!", cmd);
+        adec_print("Unknown Command %d!", cmd);
         break;
 
     };
@@ -2288,7 +2288,7 @@ MSG_LOOP:
             break;
 
         default:
-            adec_print("Unknow Command!");
+            adec_print("Unknown Command!");
             break;
 
         }

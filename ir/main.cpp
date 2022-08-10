@@ -49,7 +49,7 @@ bool isSupportedFreq(int32_t freq) {
 ::ndk::ScopedAStatus ConsumerIr::transmit(int32_t in_carrierFreqHz,
                                           const std::vector<int32_t>& in_pattern) {
     if (isSupportedFreq(in_carrierFreqHz)) {
-        // trasmit the pattern, each integer is number of microseconds in an
+        // transmit the pattern, each integer is number of microseconds in an
         // alternating on/off state.
         usleep(std::accumulate(in_pattern.begin(), in_pattern.end(), 0));
         return ::ndk::ScopedAStatus::ok();

@@ -1770,7 +1770,7 @@ bool convertHidlNanConfigRequestToLegacy(const V1_4::NanConfigRequest& hidl_requ
     }
     *legacy_request = {};
 
-    // TODO: b/34059183 tracks missing configurations in legacy HAL or uknown
+    // TODO: b/34059183 tracks missing configurations in legacy HAL or unknown
     // defaults
     legacy_request->master_pref = hidl_request.masterPref;
     legacy_request->discovery_indication_cfg = 0;

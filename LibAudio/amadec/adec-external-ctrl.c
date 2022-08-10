@@ -831,7 +831,7 @@ int audio_set_associate_enable(void* handle __unused, unsigned int enable __unus
  * \param handle pointer to player private data
  * \param buf pointer of the destination buffer address
  * \param size which means that the length of request size
- * \return [0, size], the length that have writen to destination buffer.
+ * \return [0, size], the length that have written to destination buffer.
  * \return -1, handle or other error
  */
 int audio_send_associate_data(void* handle __unused, uint8_t *buf __unused, size_t size)

@@ -159,7 +159,7 @@ static adec_audio_format_t get_audio_format(void)
         return ADEC_AUDIO_FORMAT_PCM_WIFIDISPLAY;
     }
 
-    adec_print("audio format unknow.");
+    adec_print("audio format unknown.");
 
     return ADEC_AUDIO_FORMAT_UNKNOWN;
 }
