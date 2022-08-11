@@ -1661,6 +1661,7 @@ int main(int argc, char *argv[])
     int end;
     int cnt = 0;
     uint32_t last_rp = 1;
+    int data_cnt = 0;
 
     if (argc < 2) {
         print_help();
@@ -1834,7 +1835,11 @@ int main(int argc, char *argv[])
         if (++cnt > 500)
             break;
 #endif
-    } while (vbuf.data_len > 0x100);
+        if (vbuf.data_len < 0x100)
+            data_cnt++;
+        else
+            data_cnt = 0;
+    } while (data_cnt < 10);
 
     printf("play end\n");
 error:
