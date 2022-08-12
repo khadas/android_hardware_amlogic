@@ -316,8 +316,7 @@ void MIPISensor::captureNV21(StreamBuffer b, uint32_t gain){
             continue;
 #ifdef GE2D_ENABLE
         //----do rotation
-        if (mTempFD < 0)
-            mGE2D->doRotationAndMirror(b);
+        mGE2D->doRotationAndMirror(b);
 #endif
 
 #ifdef GDC_ENABLE
