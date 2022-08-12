@@ -12,7 +12,7 @@ class isp3a {
 	public:
 		~isp3a();
 		static isp3a* get_instance(void);
-		void open_isp3a_library(int num);
+		void open_isp3a_library(void);
 		void close_isp3a_library(void);
 		void print_status(void);
 };

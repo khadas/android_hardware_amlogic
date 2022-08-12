@@ -25,12 +25,12 @@ isp3a::isp3a() {
 isp3a::~isp3a() {
     ALOGD("%s:release isp3a object",__FUNCTION__);
 }
-void isp3a::open_isp3a_library(int num) {
+void isp3a::open_isp3a_library() {
     ALOGD("%s:E",__FUNCTION__);
 #ifdef ISP_ENABLE
     if (mIsOpened == false && mOpenCount == 0) {
         ALOGD("%s:enable isp lib",__FUNCTION__);
-        isp_lib_enable(num);
+        isp_lib_enable(2);
         mIsOpened = true;
     } else {
         ALOGD("%s:isp lib has been opened",__FUNCTION__);
