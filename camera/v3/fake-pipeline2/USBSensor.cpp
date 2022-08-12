@@ -184,7 +184,6 @@ status_t USBSensor::startUp(int idx) {
     DBG_LOGA("ddd");
     int res;
     mCapturedBuffers = NULL;
-    mOpenCameraID = idx;
     res = run("Camera::USBSensor",ANDROID_PRIORITY_URGENT_DISPLAY);
     if (res != OK) {
         ALOGE("Unable to start up sensor capture thread: %d", res);

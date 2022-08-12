@@ -370,7 +370,6 @@ class Sensor: public Thread, public virtual RefBase {
     uint32_t mPre_height;
     bool mFlushFlag;
     bool mSensorWorkFlag;
-    int mOpenCameraID;
     /**
      * Inherited Thread virtual overrides, and members only used by the
      * processing thread
