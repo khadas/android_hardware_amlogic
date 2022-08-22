@@ -31,7 +31,7 @@ cc_binary {
     vintf_fragments: ["default/android.hardware.power-service.xml"],
     vendor: true,
     shared_libs: [
-        "android.hardware.power-V2-ndk",
+        "android.hardware.power-V3-ndk",
         "libbase",
         "libcutils",
         "liblog",
