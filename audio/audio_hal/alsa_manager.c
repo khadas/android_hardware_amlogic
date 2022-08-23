@@ -612,21 +612,6 @@ int aml_alsa_output_resume(struct audio_stream_out *stream) {
     return 0;
 }
 
-int aml_alsa_output_stop(struct audio_stream_out *stream) {
-    struct aml_stream_out *out = (struct aml_stream_out *)stream;
-    struct aml_audio_device *adev = out->dev;
-    int ret = 0;
-    if (out->pcm && pcm_is_ready (out->pcm)) {
-        ret = pcm_stop(out->pcm);
-        if (ret < 0) {
-            ALOGE ("cannot stop alsa pcm\n");
-        }
-    }
-
-    return 0;
-}
-
-
 int aml_alsa_output_get_latency(struct audio_stream_out *stream) {
     const struct aml_stream_out *aml_out = (const struct aml_stream_out *)stream;
     struct aml_audio_device *adev = aml_out->dev;
@@ -1090,23 +1075,6 @@ int aml_alsa_output_resume_new(void *handle) {
     }
     return ret;
 }
-
-int aml_alsa_output_stop_new(void *handle) {
-    int ret = -1;
-    alsa_handle_t * alsa_handle = (alsa_handle_t *)handle;
-
-    if (handle == NULL) {
-        return -1;
-    }
-    if (alsa_handle->pcm) {
-        ret = pcm_stop(alsa_handle->pcm);
-        if (ret < 0) {
-            ALOGE("%s error %d", __func__, ret);
-        }
-    }
-    return ret;
-}
-
 
 void alsa_out_reconfig_params(struct audio_stream_out *stream)
 {

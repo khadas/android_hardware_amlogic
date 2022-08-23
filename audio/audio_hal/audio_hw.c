@@ -899,23 +899,23 @@ static int out_flush (struct audio_stream_out *stream)
     pthread_mutex_lock (&out->lock);
     if (out->pause_status == true) {
         // when pause status, set status prepare to avoid static pop sound
-        ret = aml_alsa_output_stop(stream);
+        ret = aml_alsa_output_resume(stream);
         if (ret < 0) {
-            ALOGE("aml_alsa_output_stop error =%d", ret);
+            ALOGE("aml_alsa_output_resume error =%d", ret);
         }
 
         if (out->spdifout_handle) {
-            ret = aml_audio_spdifout_stop(out->spdifout_handle);
+            ret = aml_audio_spdifout_resume(out->spdifout_handle);
             if (ret < 0) {
-                ALOGE("aml_audio_spdifout_stop error =%d", ret);
+                ALOGE("aml_audio_spdifout_resume error =%d", ret);
             }
 
         }
 
         if (out->spdifout2_handle) {
-            ret = aml_audio_spdifout_stop(out->spdifout2_handle);
+            ret = aml_audio_spdifout_resume(out->spdifout2_handle);
             if (ret < 0) {
-                ALOGE("aml_audio_spdifout_stop error =%d", ret);
+                ALOGE("aml_audio_spdifout_resume error =%d", ret);
             }
         }
 
@@ -5056,15 +5056,15 @@ int do_output_standby_l(struct audio_stream *stream)
     if (aml_out->status == STREAM_HW_WRITING &&
         ((!continous_mode(adev) || (!ms12->dolby_ms12_enable && (eDolbyMS12Lib == adev->dolby_lib_type))))) {
         ALOGI("%s aml_out(%p)standby close", __func__, aml_out);
-        aml_alsa_output_stop(out);
+        aml_alsa_output_close(out);
 
         if (aml_out->spdifout_handle) {
-            aml_audio_spdifout_stop(aml_out->spdifout_handle);
-            //aml_out->spdifout_handle = NULL;
+            aml_audio_spdifout_close(aml_out->spdifout_handle);
+            aml_out->spdifout_handle = NULL;
         }
         if (aml_out->spdifout2_handle) {
-            aml_audio_spdifout_stop(aml_out->spdifout2_handle);
-            //aml_out->spdifout2_handle = NULL;
+            aml_audio_spdifout_close(aml_out->spdifout2_handle);
+            aml_out->spdifout2_handle = NULL;
         }
     }
     aml_out->status = STREAM_STANDBY;
@@ -6206,22 +6206,15 @@ void config_output(struct audio_stream_out *stream, bool reset_decoder)
                 aml_decoder_release(aml_out->aml_dec);
                 aml_out->aml_dec = NULL;
             }
-            /* In netflix, when ddp do seek, we should not
-             * close the spdif out, otherwise it will disable
-             * the audio clock, and this will causes the audio
-             * clock discontinuty.
-             * todo: shall remove it for all cases?
-             */
-            if (!adev->is_netflix) {
-                if (aml_out->spdifout_handle) {
-                    aml_audio_spdifout_close(aml_out->spdifout_handle);
-                    aml_out->spdifout_handle = NULL;
-                    aml_out->dual_output_flag = 0;
-                }
-                if (aml_out->spdifout2_handle) {
-                    aml_audio_spdifout_close(aml_out->spdifout2_handle);
-                    aml_out->spdifout2_handle = NULL;
-                }
+
+            if (aml_out->spdifout_handle) {
+                aml_audio_spdifout_close(aml_out->spdifout_handle);
+                aml_out->spdifout_handle = NULL;
+                aml_out->dual_output_flag = 0;
+            }
+            if (aml_out->spdifout2_handle) {
+                aml_audio_spdifout_close(aml_out->spdifout2_handle);
+                aml_out->spdifout2_handle = NULL;
             }
 
             memset(&aml_out->dec_config, 0, sizeof(aml_dec_config_t));
