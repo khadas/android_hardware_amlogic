@@ -595,7 +595,7 @@ void USBSensor::captureNV21UsbSensor(StreamBuffer b, uint32_t gain, bool needSen
                 {
                     int ret = 1;
                     if (needSensorOutBuf
-                        && ( b.width != mVinfo->preview.format.fmt.pix.width || b.height != mVinfo->preview.format.fmt.pix.width)) {
+                        && ( b.width != mVinfo->preview.format.fmt.pix.width || b.height != mVinfo->preview.format.fmt.pix.height)) {
                           // need store sensor output buffer AND b.size not equal to sensor output size
                           // first - decode to mSensorOutBuf; then resize to b
                         if (mSensorOutBuf.img == NULL || mSensorOutBuf.share_fd < 0) {
@@ -628,7 +628,7 @@ void USBSensor::captureNV21UsbSensor(StreamBuffer b, uint32_t gain, bool needSen
                 {
                     int ret = 1;
                     if (needSensorOutBuf
-                        && ( b.width != mVinfo->preview.format.fmt.pix.width || b.height != mVinfo->preview.format.fmt.pix.width)) {
+                        && ( b.width != mVinfo->preview.format.fmt.pix.width || b.height != mVinfo->preview.format.fmt.pix.height)) {
                           // need store sensor output buffer AND b.size not equal to sensor output size
                           // first - decode to mSensorOutBuf; then resize to b
                         if (mSensorOutBuf.img == NULL || mSensorOutBuf.share_fd < 0) {
