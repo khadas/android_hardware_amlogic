@@ -36,7 +36,7 @@
 #define VFORMAT_MAX		(INT_MAX)
 
 // video type for sysinfo
-#define VIDEO_DEC_FORMAT_UNKNOW		(0)
+#define VIDEO_DEC_FORMAT_UNKNOWN		(0)
 #define VIDEO_DEC_FORMAT_MPEG4_3	(1)
 #define VIDEO_DEC_FORMAT_MPEG4_4	(2)
 #define VIDEO_DEC_FORMAT_MPEG4_5	(3)
@@ -61,14 +61,14 @@
 #define C_PAE                               (0x01000000)
 #define CODEC_ERROR_NONE                    ( 0)
 #define CODEC_ERROR_PARAMETER               (C_PAE | 5)
-#define CODEC_ERROR_VIDEO_TYPE_UNKNOW       (C_PAE | 7)
-#define CODEC_ERROR_STREAM_TYPE_UNKNOW      (C_PAE | 8)
+#define CODEC_ERROR_VIDEO_TYPE_UNKNOWN       (C_PAE | 7)
+#define CODEC_ERROR_STREAM_TYPE_UNKNOWN      (C_PAE | 8)
 #define CODEC_ERROR_INIT_FAILED             (C_PAE | 10)
 #define CODEC_ERROR_SET_BUFSIZE_FAILED      (C_PAE | 11)
 #define CODEC_OPEN_HANDLE_FAILED            (C_PAE | 12)
 
 typedef enum {
-    STREAM_TYPE_UNKNOW,
+    STREAM_TYPE_UNKNOWN,
     STREAM_TYPE_ES_VIDEO,
     STREAM_TYPE_ES_AUDIO,
     STREAM_TYPE_ES_SUB,

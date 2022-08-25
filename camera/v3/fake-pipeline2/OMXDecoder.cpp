@@ -147,7 +147,7 @@ bool OMXDecoder::initialize(const char* name) {
         return false;
     }
     else
-        ALOGD("OMX_GetParameter succes!\n");
+        ALOGD("OMX_GetParameter success!\n");
 
     /*configure input port*/
     mVideoInputPortParam.nSize = sizeof(OMX_PARAM_PORTDEFINITIONTYPE);

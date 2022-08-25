@@ -123,7 +123,7 @@ static  int set_video_format(codec_para_t *pcodec)
     int r;
 
     if (format < 0 || format > VFORMAT_MAX) {
-        return -CODEC_ERROR_VIDEO_TYPE_UNKNOW;
+        return -CODEC_ERROR_VIDEO_TYPE_UNKNOWN;
     }
 
     r = codec_h_ioctl(pcodec->handle, AMSTREAM_IOC_SET, AMSTREAM_SET_VFORMAT, format);
@@ -174,7 +174,7 @@ static  int set_audio_format(codec_para_t *pcodec)
     int codec_r;
 
     if (format < 0 || format > AFORMAT_MAX) {
-        return -CODEC_ERROR_AUDIO_TYPE_UNKNOW;
+        return -CODEC_ERROR_AUDIO_TYPE_UNKNOWN;
     }
 
     r = codec_h_ioctl(pcodec->handle, AMSTREAM_IOC_SET, AMSTREAM_SET_AFORMAT, format);
@@ -750,9 +750,9 @@ int codec_init(codec_para_t *pcodec)
     case STREAM_TYPE_RM:
         ret = codec_rm_init(pcodec);
         break;
-    case STREAM_TYPE_UNKNOW:
+    case STREAM_TYPE_UNKNOWN:
     default:
-        return -CODEC_ERROR_STREAM_TYPE_UNKNOW;
+        return -CODEC_ERROR_STREAM_TYPE_UNKNOWN;
     }
     if (ret != 0) {
         return ret;

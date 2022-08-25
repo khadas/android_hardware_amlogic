@@ -91,10 +91,10 @@ protected:
     //Should be implemented by deriving classes in order to stop temporal bracketing
     virtual status_t stopBracketing();
 
-    //Should be implemented by deriving classes in oder to initiate autoFocus
+    // Should be implemented by deriving classes in order to initiate autoFocus
     virtual status_t autoFocus();
 
-    //Should be implemented by deriving classes in oder to initiate autoFocus
+    // Should be implemented by deriving classes in order to initiate autoFocus
     virtual status_t cancelAutoFocus();
 
     //Should be called by deriving classes in order to do some bookkeeping

@@ -34,7 +34,7 @@ int amthreadpool_pthread_create_name(pthread_t * newthread,
 int amthreadpool_pthread_join(pthread_t thid, void ** ret_val);
 int amthreadpool_system_init(void);
 int amthreadpool_system_dump_info(void);
-int amthreadpool_on_requare_exit(pthread_t pid);
+int amthreadpool_on_require_exit(pthread_t pid);
 
 
 

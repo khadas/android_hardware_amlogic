@@ -165,7 +165,7 @@ int check_adts_frame_valid(unsigned char *buffer, unsigned long buffer_size);
         unsigned char outputFormat;
         unsigned char downMatrix;
         unsigned char useOldADTSFormat;
-        unsigned char dontUpSampleImplicitSBR;
+        unsigned char doNotUpSampleImplicitSBR;
     } NeAACDecConfiguration, *NeAACDecConfigurationPtr;
 
     typedef struct NeAACDecFrameInfo {

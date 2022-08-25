@@ -70,9 +70,9 @@ const codec_errors_t codec_errno[] = {
     { -CODEC_ERROR_NOMEM, "no enough memory for codec"},
     { -CODEC_ERROR_IO, "codec io error"},
     { -CODEC_ERROR_PARAMETER, "Parameters error"},
-    { -CODEC_ERROR_AUDIO_TYPE_UNKNOW, "Audio Type error"},
-    { -CODEC_ERROR_VIDEO_TYPE_UNKNOW, "Video Type error"},
-    { -CODEC_ERROR_STREAM_TYPE_UNKNOW, "Stream Type error"},
+    { -CODEC_ERROR_AUDIO_TYPE_UNKNOWN, "Audio Type error"},
+    { -CODEC_ERROR_VIDEO_TYPE_UNKNOWN, "Video Type error"},
+    { -CODEC_ERROR_STREAM_TYPE_UNKNOWN, "Stream Type error"},
     { -CODEC_ERROR_INIT_FAILED, "Codec init failed"},
     { -CODEC_ERROR_SET_BUFSIZE_FAILED, "Codec change buffer size failed"},
 

@@ -655,7 +655,7 @@ int parser_frame(
             else
                 meta_type = 0;
             p = data + bytes_read;
-            printf("\tmeta type %s %zu+%zu\n", meta_type_name[type], bytes_read, payload_size - bytes_read);
+            printf("\t meta type %s %zu+%zu\n", meta_type_name[type], bytes_read, payload_size - bytes_read);
 
             if (meta_type == OBU_METADATA_TYPE_ITUT_T35) {
 #if 0 /* for dumping original obu payload */
@@ -668,7 +668,7 @@ int parser_frame(
                 if ((p[0] == 0xb5) /* country code */
                     && ((p[1] == 0x00) && (p[2] == 0x3b)) /* terminal_provider_code */
                     && ((p[3] == 0x00) && (p[4] == 0x00) && (p[5] == 0x08) && (p[6] == 0x00))) { /* terminal_provider_oriented_code */
-                    printf("\t\tdolbyvision rpu\n");
+                    printf("\t\t dolby vision rpu\n");
                     meta_buf[0] = meta_buf[1] = meta_buf[2] = 0;
                     meta_buf[3] = 0x01;    meta_buf[4] = 0x19;
 
@@ -677,7 +677,7 @@ int parser_frame(
                         rpu_size |= (p[11] & 0x0f) << 4;
                         rpu_size |= (p[12] >> 4) & 0x0f;
                         if (p[12] & 0x08) {
-                            printf("\tmeta rpu in obu exceed 512 bytes\n");
+                            printf("\t meta rpu in obu exceed 512 bytes\n");
                             break;
                         }
                         for (i = 0; i < rpu_size; i++) {
@@ -699,20 +699,20 @@ int parser_frame(
                 }
             }
             else if (meta_type == OBU_METADATA_TYPE_HDR_CLL) {
-                printf("\t\thdr10 cll:\n");
-                printf("\t\tmax_cll = %x\n", (p[0] << 8) | p[1]);
-                printf("\t\tmax_fall = %x\n", (p[2] << 8) | p[3]);
+                printf("\t\t hdr10 cll:\n");
+                printf("\t\t max_cll = %x\n", (p[0] << 8) | p[1]);
+                printf("\t\t max_fall = %x\n", (p[2] << 8) | p[3]);
             }
             else if (meta_type == OBU_METADATA_TYPE_HDR_MDCV) {
-                printf("\t\thdr10 primaries[r,g,b] = \n");
+                printf("\t\t hdr10 primaries[r,g,b] = \n");
                 for (i = 0; i < 3; i++) {
                     printf("\t\t %x, %x\n",
                         (p[i * 4] << 8) | p[i * 4 + 1],
                         (p[i * 4 + 2] << 8) | p[i * 4 + 3]);
                 }
-                printf("\t\twhite point = %x, %x\n", (p[12] << 8) | p[13], (p[14] << 8) | p[15]);
-                printf("\t\tmaxl = %x\n", (p[16] << 24) | (p[17] << 16) | (p[18] << 8) | p[19]);
-                printf("\t\tminl = %x\n", (p[20] << 24) | (p[21] << 16) | (p[22] << 8) | p[23]);
+                printf("\t\t white point = %x, %x\n", (p[12] << 8) | p[13], (p[14] << 8) | p[15]);
+                printf("\t\t maxl = %x\n", (p[16] << 24) | (p[17] << 16) | (p[18] << 8) | p[19]);
+                printf("\t\t minl = %x\n", (p[20] << 24) | (p[21] << 16) | (p[22] << 8) | p[23]);
             }
                 break;
         case OBU_TILE_LIST:
@@ -805,7 +805,7 @@ int ivf_write_dat(FILE *src_fp, uint8_t *src_buffer)
             }
         }
         if (meta_size) {
-            printf("\tmeta len=%d\n", meta_size);
+            printf("\t meta len=%d\n", meta_size);
             /* dump meta here */
         }
         free(dst_buffer);
@@ -1231,14 +1231,14 @@ int ivf_write_dat_with_size(uint8_t *src_buffer,unsigned int size)
 
         parser_frame(0, buffer, buffer + src_frame_size, dst_buffer, &dst_frame_size, meta_buffer, &meta_size);
         if (dst_frame_size) {
-            printf("\toutput len=%d\n", dst_frame_size);
+            printf("\t output len=%d\n", dst_frame_size);
             if (send_buffer_to_device((char *)dst_buffer, dst_frame_size) < 0) {
                 free(dst_buffer);
                 break;
             }
         }
         if (meta_size) {
-            printf("\tmeta len=%d\n", meta_size);
+            printf("\t meta len=%d\n", meta_size);
             /* dump meta here */
         }
         free(dst_buffer);

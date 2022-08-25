@@ -2475,7 +2475,7 @@ int V4LCamAdpt::get_framerate ( int camera_fd, int *fps, int *fps_num)
 	else 
 	{
 		if (streamparm.parm.capture.capability & V4L2_CAP_TIMEPERFRAME) {
-			// it seems numerator is allways 1 but we don't do assumptions here :-)
+			// it seems numerator is always 1 but we don't do assumptions here :-)
 			*fps = streamparm.parm.capture.timeperframe.denominator;
 			*fps_num = streamparm.parm.capture.timeperframe.numerator;
 		}

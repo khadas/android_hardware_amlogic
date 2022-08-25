@@ -404,7 +404,7 @@ retry:
     config->outputFormat = FAAD_FMT_16BIT;
     config->downMatrix = 0x01;
     config->useOldADTSFormat = 0;
-    //config->dontUpSampleImplicitSBR = 1;
+    //config->doNotUpSampleImplicitSBR = 1;
     NeAACDecSetConfiguration(gFaadCxt->hDecoder, config);
     /*
      *islatm default 1, and so adts stream decoder init cost many bytes

@@ -269,7 +269,7 @@ int amthreadpool_thread_wake(pthread_t pid)
     }
     return amthreadpool_thread_wake_t(t, t->on_required_exit);
 }
-int amthreadpool_on_requare_exit(pthread_t pid)
+int amthreadpool_on_require_exit(pthread_t pid)
 {
     unsigned long rpid = pid != 0 ? pid : pthread_self();
     threadpool_thread_data_t *t = amthreadpool_findthead_thread_data(rpid);

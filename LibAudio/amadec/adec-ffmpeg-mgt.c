@@ -1049,7 +1049,7 @@ static int start_adec(aml_audio_dec_t *audec)
         //get info from the audiodsp == can get from amstreamer
         while ((!get_first_apts_flag(dsp_ops)) && (!audec->need_stop) && (!audec->no_first_apts)) {
             adec_print("wait first pts checkin complete !");
-            if (amthreadpool_on_requare_exit(pthread_self())) {
+            if (amthreadpool_on_require_exit(pthread_self())) {
                 adec_print("[%s:%d] quick interrupt \n", __FUNCTION__, __LINE__);
                 break;
             }

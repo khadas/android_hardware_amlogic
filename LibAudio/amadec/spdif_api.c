@@ -264,10 +264,10 @@ int iec958_packed_frame_write_958buf(char *buf, int frame_size)
 int iec958buf_fill_zero()
 {
     unsigned int zero_filled_cnt = 0, i2s_status = 0, write_ret = 0;
-    char zerobuf[2048] = {0};
+    char zero_buffer[2048] = {0};
     ioctl(dev_fd, AUDIO_SPDIF_GET_I2S_ENABLE_STATUS, &i2s_status);
     while ((zero_filled_cnt < iec958_buffer_size) && i2s_status) {
-        write_ret = iec958_packed_frame_write_958buf(zerobuf, 2048);
+        write_ret = iec958_packed_frame_write_958buf(zero_buffer, 2048);
         if (write_ret) {
             break;
         }

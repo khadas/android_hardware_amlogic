@@ -263,7 +263,7 @@ int ANativeWindowDisplayAdapter::setFrameProvider(FrameNotifier *frameProvider)
         delete mFrameProvider;
     }
 
-    /** Dont do anything here, Just save the pointer for use when display is
+    /** Do not do anything here, Just save the pointer for use when display is
          actually enabled or disabled
     */
     mFrameProvider = new FrameProvider(frameProvider, this, frameCallbackRelay);

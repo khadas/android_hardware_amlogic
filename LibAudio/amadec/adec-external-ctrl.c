@@ -774,7 +774,7 @@ int audio_get_decoded_pcm_delay(void *handle)
 /**
  * \brief check if the audio format supported by audio decoder
  * \param handle pointer to player private data
- * \return 0 = diable,1 = enable, -1 = error
+ * \return 0 = disable,1 = enable, -1 = error
  */
 int audio_get_format_supported(int format)
 {

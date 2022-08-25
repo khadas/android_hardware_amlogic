@@ -1201,10 +1201,13 @@ nonlatm_check:
 
 #ifdef SBR_DEC
     /* implicit signalling */
-    if (*samplerate <= 24000 && (hDecoder->config.dontUpSampleImplicitSBR == 0)) {
+    if (*samplerate <= 24000 && (hDecoder->config.doNotUpSampleImplicitSBR == 0))
+    {
         *samplerate *= 2;
         hDecoder->forceUpSampling = 1;
-    } else if (*samplerate > 24000 && (hDecoder->config.dontUpSampleImplicitSBR == 0)) {
+    }
+    else if (*samplerate > 24000 && (hDecoder->config.doNotUpSampleImplicitSBR == 0))
+    {
         hDecoder->downSampledSBR = 1;
     }
 #endif
@@ -1283,7 +1286,7 @@ int NEAACDECAPI NeAACDecInit2(NeAACDecHandle hpDecoder,
 #ifdef SBR_DEC
     hDecoder->sbr_present_flag = mp4ASC.sbr_present_flag;
     hDecoder->downSampledSBR = mp4ASC.downSampledSBR;
-    if (hDecoder->config.dontUpSampleImplicitSBR == 0) {
+    if (hDecoder->config.doNotUpSampleImplicitSBR == 0) {
         hDecoder->forceUpSampling = mp4ASC.forceUpSampling;
     } else {
         hDecoder->forceUpSampling = 0;
@@ -1341,7 +1344,7 @@ char NEAACDECAPI NeAACDecInitDRM(NeAACDecHandle *hpDecoder,
     (*hDecoder)->config.defObjectType = DRM_ER_LC;
 
     (*hDecoder)->config.defSampleRate = samplerate;
-#ifdef ERROR_RESILIENCE // This shoudl always be defined for DRM
+#ifdef ERROR_RESILIENCE // This should always be defined for DRM
     (*hDecoder)->aacSectionDataResilienceFlag = 1; /* VCB11 */
     (*hDecoder)->aacScalefactorDataResilienceFlag = 0; /* no RVLC */
     (*hDecoder)->aacSpectralDataResilienceFlag = 1; /* HCR */

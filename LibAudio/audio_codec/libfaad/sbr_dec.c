@@ -302,7 +302,7 @@ static void sbr_save_matrix(sbr_info *sbr, uint8_t ch)
 }
 
 static uint8_t sbr_process_channel(sbr_info *sbr, real_t *channel_buf, qmf_t X[MAX_NTSR][64],
-                                   uint8_t ch, uint8_t dont_process,
+                                   uint8_t ch, uint8_t do_not_process,
                                    const uint8_t downSampledSBR __unused)
 {
     int16_t k, l;
@@ -335,13 +335,13 @@ static uint8_t sbr_process_channel(sbr_info *sbr, real_t *channel_buf, qmf_t X[M
 
 
     /* subband analysis */
-    if (dont_process) {
+    if (do_not_process) {
         sbr_qmf_analysis_32(sbr, sbr->qmfa[ch], channel_buf, sbr->Xsbr[ch], sbr->tHFGen, 32);
     } else {
         sbr_qmf_analysis_32(sbr, sbr->qmfa[ch], channel_buf, sbr->Xsbr[ch], sbr->tHFGen, sbr->kx);
     }
 
-    if (!dont_process) {
+    if (!do_not_process) {
 #if 1
         /* insert high frequencies here */
         /* hf generation using patching */
@@ -369,11 +369,11 @@ static uint8_t sbr_process_channel(sbr_info *sbr, real_t *channel_buf, qmf_t X[M
                             , ch);
 #endif
         if (ret > 0) {
-            dont_process = 1;
+            do_not_process = 1;
         }
     }
 
-    if ((sbr->just_seeked != 0) || dont_process) {
+    if ((sbr->just_seeked != 0) || do_not_process) {
         for (l = 0; l < sbr->numTimeSlotsRate; l++) {
             for (k = 0; k < 32; k++) {
                 QMF_RE(X[l][k]) = QMF_RE(sbr->Xsbr[ch][l + sbr->tHFAdj][k]);
@@ -437,7 +437,7 @@ static uint8_t sbr_process_channel(sbr_info *sbr, real_t *channel_buf, qmf_t X[M
 uint8_t sbrDecodeCoupleFrame(sbr_info *sbr, real_t *left_chan, real_t *right_chan,
                              const uint8_t just_seeked, const uint8_t downSampledSBR)
 {
-    uint8_t dont_process = 0;
+    uint8_t do_not_process = 0;
     uint8_t ret = 0;
     ALIGN qmf_t X[MAX_NTSR][64];
 
@@ -452,7 +452,7 @@ uint8_t sbrDecodeCoupleFrame(sbr_info *sbr, real_t *left_chan, real_t *right_cha
 
     if (sbr->ret || (sbr->header_count == 0)) {
         /* don't process just upsample */
-        dont_process = 1;
+        do_not_process = 1;
 
         /* Re-activate reset for next frame */
         if (sbr->ret && sbr->Reset) {
@@ -466,7 +466,7 @@ uint8_t sbrDecodeCoupleFrame(sbr_info *sbr, real_t *left_chan, real_t *right_cha
         sbr->just_seeked = 0;
     }
 
-    sbr->ret += sbr_process_channel(sbr, left_chan, X, 0, dont_process, downSampledSBR);
+    sbr->ret += sbr_process_channel(sbr, left_chan, X, 0, do_not_process, downSampledSBR);
     /* subband synthesis */
     if (downSampledSBR) {
         sbr_qmf_synthesis_32(sbr, sbr->qmfs[0], X, left_chan);
@@ -474,7 +474,7 @@ uint8_t sbrDecodeCoupleFrame(sbr_info *sbr, real_t *left_chan, real_t *right_cha
         sbr_qmf_synthesis_64(sbr, sbr->qmfs[0], X, left_chan);
     }
 
-    sbr->ret += sbr_process_channel(sbr, right_chan, X, 1, dont_process, downSampledSBR);
+    sbr->ret += sbr_process_channel(sbr, right_chan, X, 1, do_not_process, downSampledSBR);
     /* subband synthesis */
     if (downSampledSBR) {
         sbr_qmf_synthesis_32(sbr, sbr->qmfs[1], X, right_chan);
@@ -521,7 +521,7 @@ uint8_t sbrDecodeCoupleFrame(sbr_info *sbr, real_t *left_chan, real_t *right_cha
 uint8_t sbrDecodeSingleFrame(sbr_info *sbr, real_t *channel,
                              const uint8_t just_seeked, const uint8_t downSampledSBR)
 {
-    uint8_t dont_process = 0;
+    uint8_t do_not_process = 0;
     uint8_t ret = 0;
     ALIGN qmf_t X[MAX_NTSR][64];
 
@@ -536,7 +536,7 @@ uint8_t sbrDecodeSingleFrame(sbr_info *sbr, real_t *channel,
 
     if (sbr->ret || (sbr->header_count == 0)) {
         /* don't process just upsample */
-        dont_process = 1;
+        do_not_process = 1;
 
         /* Re-activate reset for next frame */
         if (sbr->ret && sbr->Reset) {
@@ -550,7 +550,7 @@ uint8_t sbrDecodeSingleFrame(sbr_info *sbr, real_t *channel,
         sbr->just_seeked = 0;
     }
 
-    sbr->ret += sbr_process_channel(sbr, channel, X, 0, dont_process, downSampledSBR);
+    sbr->ret += sbr_process_channel(sbr, channel, X, 0, do_not_process, downSampledSBR);
     /* subband synthesis */
     if (downSampledSBR) {
         sbr_qmf_synthesis_32(sbr, sbr->qmfs[0], X, channel);
@@ -591,7 +591,7 @@ uint8_t sbrDecodeSingleFramePS(sbr_info *sbr, real_t *left_channel, real_t *righ
                                const uint8_t just_seeked, const uint8_t downSampledSBR)
 {
     uint8_t l, k;
-    uint8_t dont_process = 0;
+    uint8_t do_not_process = 0;
     uint8_t ret = 0;
     ALIGN qmf_t X_left[38][64];// = {{0}};
     ALIGN qmf_t X_right[38][64];// = {{0}}; /* must set this to 0 */
@@ -607,7 +607,7 @@ uint8_t sbrDecodeSingleFramePS(sbr_info *sbr, real_t *left_channel, real_t *righ
 
     if (sbr->ret || (sbr->header_count == 0)) {
         /* don't process just upsample */
-        dont_process = 1;
+        do_not_process = 1;
 
         /* Re-activate reset for next frame */
         if (sbr->ret && sbr->Reset) {
@@ -625,7 +625,7 @@ uint8_t sbrDecodeSingleFramePS(sbr_info *sbr, real_t *left_channel, real_t *righ
         sbr->qmfs[1] = qmfs_init((downSampledSBR) ? 32 : 64);
     }
 
-    sbr->ret += sbr_process_channel(sbr, left_channel, X_left, 0, dont_process, downSampledSBR);
+    sbr->ret += sbr_process_channel(sbr, left_channel, X_left, 0, do_not_process, downSampledSBR);
 
     /* copy some extra data for PS */
     for (l = sbr->numTimeSlotsRate; l < sbr->numTimeSlotsRate + 6; l++) {
