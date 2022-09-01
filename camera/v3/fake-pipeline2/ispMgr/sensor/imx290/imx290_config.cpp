@@ -62,8 +62,8 @@ int cmos_get_ae_default_imx290(int ViPipe, ALG_SENSOR_DEFAULT_S *pstAeSnsDft)
     sensor.snsAlgInfo.bits = 12;
 
     sensor.snsAlgInfo.sensor_gain_number = 1;
-    sensor.snsAlgInfo.total.width = 2028;
-    sensor.snsAlgInfo.total.height = 1220;
+    sensor.snsAlgInfo.total.width = 4400;
+    sensor.snsAlgInfo.total.height = 1125;
 
     sensor.snsAlgInfo.lines_per_second = sensor.snsAlgInfo.total.height*30;
     sensor.snsAlgInfo.pixels_per_line = sensor.snsAlgInfo.total.width;
