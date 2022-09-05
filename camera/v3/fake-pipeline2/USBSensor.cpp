@@ -228,13 +228,13 @@ uint32_t USBSensor::getStreamUsage(int stream_type){
 }
 
 status_t USBSensor::setOutputFormat(int width, int height,
-    int pixelformat, channel ch) {
+    int pixelformat, bool isjpeg){
     int res;
     mFramecount = 0;
     mCurFps = 0;
     gettimeofday(&mTimeStart, NULL);
-    initDecoder(width, height, width, height, 4);
-    if (ch == channel_capture) {
+    initDecoder(width, height, width, height,4);
+    if (isjpeg) {
         mVinfo->picture.format.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
         mVinfo->picture.format.fmt.pix.width = width;
         mVinfo->picture.format.fmt.pix.height = height;
@@ -310,7 +310,7 @@ status_t USBSensor::setOutputFormat(int width, int height,
         return OK;
 }
 
-status_t USBSensor::streamOn(channel ch) {
+status_t USBSensor::streamOn() {
     return mVinfo->start_capturing();
 
 }
@@ -319,7 +319,7 @@ bool USBSensor::isStreaming() {
 }
 
 
-bool USBSensor::isNeedRestart(uint32_t width, uint32_t height, uint32_t pixelformat, channel ch) {
+bool USBSensor::isNeedRestart(uint32_t width, uint32_t height, uint32_t pixelformat) {
     if ((mVinfo->preview.format.fmt.pix.width != width)
         ||(mVinfo->preview.format.fmt.pix.height != height)) {
         return true;
@@ -382,7 +382,7 @@ status_t USBSensor::shutDown() {
     return res;
 }
 
-status_t USBSensor::streamOff(channel ch) {
+status_t USBSensor::streamOff(void){
     ALOGV("%s: E", __FUNCTION__);
     if (mDecoder && mIsDecoderInit == true) {
         mDecoder->deinitialize();
@@ -595,7 +595,7 @@ void USBSensor::captureNV21UsbSensor(StreamBuffer b, uint32_t gain, bool needSen
                 {
                     int ret = 1;
                     if (needSensorOutBuf
-                        && ( b.width != mVinfo->preview.format.fmt.pix.width || b.height != mVinfo->preview.format.fmt.pix.height)) {
+                        && ( b.width != mVinfo->preview.format.fmt.pix.width || b.height != mVinfo->preview.format.fmt.pix.width)) {
                           // need store sensor output buffer AND b.size not equal to sensor output size
                           // first - decode to mSensorOutBuf; then resize to b
                         if (mSensorOutBuf.img == NULL || mSensorOutBuf.share_fd < 0) {
@@ -628,7 +628,7 @@ void USBSensor::captureNV21UsbSensor(StreamBuffer b, uint32_t gain, bool needSen
                 {
                     int ret = 1;
                     if (needSensorOutBuf
-                        && ( b.width != mVinfo->preview.format.fmt.pix.width || b.height != mVinfo->preview.format.fmt.pix.height)) {
+                        && ( b.width != mVinfo->preview.format.fmt.pix.width || b.height != mVinfo->preview.format.fmt.pix.width)) {
                           // need store sensor output buffer AND b.size not equal to sensor output size
                           // first - decode to mSensorOutBuf; then resize to b
                         if (mSensorOutBuf.img == NULL || mSensorOutBuf.share_fd < 0) {
@@ -1907,9 +1907,9 @@ status_t USBSensor::force_reset_sensor() {
     DBG_LOGA("force_reset_sensor");
     status_t ret;
     mTimeOutCount = 0;
-    ret = streamOff(channel_preview);
+    ret = streamOff();
     ret = mVinfo->setBuffersFormat();
-    ret = streamOn(channel_preview);
+    ret = streamOn();
     DBG_LOGB("%s , ret = %d", __FUNCTION__, ret);
     return ret;
 }

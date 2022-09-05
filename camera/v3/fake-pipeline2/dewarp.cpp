@@ -23,10 +23,8 @@ namespace android {
         ALOGD("%s: E \n",__FUNCTION__);
         //gdc init and alloc buffer for gdc
         memset(&mDewarp_params,0,sizeof(struct dewarp_params));
-        if (mGDCContext == nullptr) {
+        if (mGDCContext == nullptr)
             mGDCContext = (struct gdc_usr_ctx_s*)malloc(sizeof(struct gdc_usr_ctx_s));
-            memset(mGDCContext, 0, sizeof(struct gdc_usr_ctx_s));
-        }
 
         CameraConfig* config = CameraConfig::getInstance(mGroupId);
 
@@ -121,7 +119,7 @@ namespace android {
 
         out->width = width;
         out->height = height;
-        property_get("vendor.camhal.use.dewarp.linear", property, "true");
+        property_get("vendor.camhal.use.dewarp.linear", property, "false");
         if (strstr(property, "true")) {
             proj[0].projection_mode = PROJ_MODE_LINEAR;
             mProj_mode = PROJ_MODE_LINEAR;
@@ -353,16 +351,6 @@ namespace android {
            IONDevice->free_buffer(mFw_fd);
            mFw_fd = -1;
         }
-        auto gdc_gs = &mGDCContext->gs_ex;
-        gdc_gs->config_buffer.shared_fd = -1;
-        gdc_gs->config_buffer.u_base_fd = -1;
-        gdc_gs->config_buffer.v_base_fd = -1;
-        gdc_gs->input_buffer.shared_fd = -1;
-        gdc_gs->input_buffer.u_base_fd = -1;
-        gdc_gs->input_buffer.v_base_fd = -1;
-        gdc_gs->output_buffer.shared_fd = -1;
-        gdc_gs->output_buffer.u_base_fd = -1;
-        gdc_gs->output_buffer.v_base_fd = -1;
 
         gdc_destroy_ctx(mGDCContext);
 

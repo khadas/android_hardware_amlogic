@@ -404,6 +404,7 @@ int ge2dTransform::ge2d_scale(int dst_fd,int dst_fmt, size_t dst_w,
     amlge2d.ge2dinfo.src_info[0].plane_number = 1;
     amlge2d.ge2dinfo.src_info[0].plane_alpha = 0xff;
 
+
     amlge2d.ge2dinfo.dst_info.rect.x = 0;
     amlge2d.ge2dinfo.dst_info.rect.y = 0;
     amlge2d.ge2dinfo.dst_info.rect.w = dst_w;
@@ -557,6 +558,7 @@ int ge2dTransform::ge2d_keep_ration_scale(int dst_fd,int dst_fmt, size_t dst_w,
     amlge2d.ge2dinfo.src_info[0].layer_mode = 0;
     amlge2d.ge2dinfo.src_info[0].plane_number = 1;
     amlge2d.ge2dinfo.src_info[0].plane_alpha = 0xff;
+
 
     amlge2d.ge2dinfo.dst_info.rect.x = 0;
     amlge2d.ge2dinfo.dst_info.rect.y = 0;
