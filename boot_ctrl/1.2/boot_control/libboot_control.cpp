@@ -427,6 +427,10 @@ bool BootControl::Init() {
     return false;
   }
   current_slot_ = SlotSuffixToIndex(suffix_prop.c_str());
+  if (current_slot_ < 0) {
+    LOG(ERROR) << "current_slot_ = : " << current_slot_;
+    return false;
+  }
 
   std::string err;
   std::string device = get_bootloader_message_blk_device(&err);
