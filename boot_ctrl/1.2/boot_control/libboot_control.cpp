@@ -557,9 +557,13 @@ bool BootControl::SetActiveBootSlot(unsigned int slot) {
     if (device_prop != "generic" && fastbootd_prop != "running") {
       if (gpt_mode && (strcmp(gpt_mode, "true") == 0)) {
         LOG(INFO) << "set bootloader index for gpt";
-        ret = write_bootloader_img(slot, true);
-        if (ret)
-          ret = SetBootloaderIndex("1");
+        char* write_boot = get_bootloader_env("write_boot");
+        if (!strcmp(write_boot, "0")) {
+            LOG(INFO) << "need to set write_boot 1";
+            set_bootloader_env("write_boot", "1");
+        } else {
+            LOG(INFO) << "need't to set write_boot, now write_boot = " << write_boot;
+        }
       } else {
         LOG(INFO) << "write bootloader in dts mode";
         ret = write_bootloader_img(slot, false);
