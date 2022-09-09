@@ -83,6 +83,7 @@ status_t IspMgr::configure(struct media_stream *stream) {
     int rc;
     Mutex::Autolock _l(mLock);
     mMediaStream = stream;
+    mPollingDevices.clear();
 
     if (mFlushFd[1] != -1 || mFlushFd[0] != -1) {
         close(mFlushFd[0]);
@@ -178,6 +179,7 @@ status_t IspMgr::start() {
         ALOGD("[params] Buffer[%d] mapped at address 0x%p length: %u offset: %u", i, mISParams.mem[i].addr, v4l2_buf.length, v4l2_buf.m.offset);
         if (mISParams.mem[i].addr == MAP_FAILED) {
             ALOGE("[params] error: mmap buffers");
+            mISParams.mem[i].addr = nullptr;
             return -1;
         }
     }
@@ -236,6 +238,7 @@ status_t IspMgr::start() {
         ALOGD("[stats] Buffer[%d] mapped at address 0x%p length: %u offset: %u", i, mISPStats.mem[i].addr, v4l2_buf.length, v4l2_buf.m.offset);
         if (mISPStats.mem[i].addr == MAP_FAILED) {
             ALOGE("[stats] error: mmap buffers");
+            mISPStats.mem[i].addr = nullptr;
             return -1;
         }
     }
@@ -291,6 +294,7 @@ status_t IspMgr::stop() {
         ALOGE("Unable to stop IspMgr thread: %d", rc);
     }
     ALOGD("requestExitAndWait-");
+    Mutex::Autolock _l(mLock);
     {
         char readbuf;
         if (mFlushFd[0] != -1) {
@@ -323,11 +327,13 @@ status_t IspMgr::stop() {
     }
     /* unmap buffers */
     for (int i = 0; i < kIspStatsNbBuffers; i++) {
-        munmap (mISPStats.mem[i].addr, mISPStats.mem[i].size);
+        if (mISPStats.mem[i].addr != nullptr)
+            munmap (mISPStats.mem[i].addr, mISPStats.mem[i].size);
         if (mISPStats.mem[i].dma_fd >= 0)
             close(mISPStats.mem[i].dma_fd);
     }
 
+    memset (&mISParams.rb, 0, sizeof (struct v4l2_requestbuffers));
     mISParams.rb.count  = 0;
     mISParams.rb.type   = V4L2_BUF_TYPE_VIDEO_CAPTURE;
     mISParams.rb.memory = V4L2_MEMORY_MMAP;
@@ -338,7 +344,8 @@ status_t IspMgr::stop() {
     }
     /* unmap buffers */
     for (int i = 0; i < kIspParamsNbBuffers; i++) {
-        munmap (mISParams.mem[i].addr, mISParams.mem[i].size);
+        if (mISParams.mem[i].addr != nullptr)
+            munmap (mISParams.mem[i].addr, mISParams.mem[i].size);
         if (mISParams.mem[i].dma_fd >= 0)
             close(mISParams.mem[i].dma_fd);
     }

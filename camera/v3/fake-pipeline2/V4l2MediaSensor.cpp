@@ -1,5 +1,3 @@
-#define LOG_NDEBUG  0
-#define LOG_NNDEBUG 0
 
 #define LOG_TAG "V4l2MediaSensor"
 
@@ -286,7 +284,7 @@ int V4l2MediaSensor::SensorInit(int idx) {
     setIOBufferNum();
     //----set camera type
     mSensorType = SENSOR_V4L2MEDIA;
-    staticPipe::fetchPipeMaxResolution(mVinfo->get_index(), mMaxWidth, mMaxHeight);
+    staticPipe::fetchPipeMaxResolution((media_stream_t*) mMediaStream, mMaxWidth, mMaxHeight);
     ALOGI("max width %d, max height %d", mMaxWidth, mMaxHeight);
     setOutputFormat(mMaxWidth, mMaxHeight, V4L2_PIX_FMT_NV21, channel_capture);
     return ret;
@@ -354,8 +352,11 @@ status_t V4l2MediaSensor::shutDown() {
     if (res != OK) {
         ALOGE("Unable to shut down sensor capture thread: %d", res);
     }
-    if (mVinfo != NULL)
+    if (mVinfo != NULL) {
         mVinfo->stop_capturing();
+        if (mVinfo->Picture_status())
+            mVinfo->stop_picture();
+    }
 
     if (mIspMgr) {
         mIspMgr->stop();
@@ -429,7 +430,7 @@ void V4l2MediaSensor::takePicture(StreamBuffer& b, uint32_t gain, uint32_t strid
         property_get("vendor.camera.zsl.enable", property, "false");
         if (strstr(property, "true"))
             enableZsl = true;
-        stop = true;
+        //stop = true;
     }
     while (1)
     {
@@ -639,7 +640,7 @@ int V4l2MediaSensor::getStreamConfigurations(uint32_t picSizes[], const int32_t 
     memset(&frmsizeMax, 0, sizeof(frmsizeMax));
     frmsizeMax.pixel_format = getOutputFormat();
     staticPipe::fetchPipeMaxResolution(
-        mVinfo->get_index(), frmsizeMax.discrete.width, frmsizeMax.discrete.height);
+        (media_stream_t*) mMediaStream, frmsizeMax.discrete.width, frmsizeMax.discrete.height);
 
     DBG_LOGB("get max output width=%d, height=%d, format=%d\n",
         frmsizeMax.discrete.width, frmsizeMax.discrete.height, frmsizeMax.pixel_format);
@@ -686,7 +687,7 @@ int V4l2MediaSensor::getStreamConfigurationDurations(uint32_t picSizes[], int64_
     memset(&frmsizeMax, 0, sizeof(frmsizeMax));
     frmsizeMax.pixel_format = getOutputFormat();
     staticPipe::fetchPipeMaxResolution(
-        mVinfo->get_index(), frmsizeMax.discrete.width, frmsizeMax.discrete.height);
+        (media_stream_t*) mMediaStream, frmsizeMax.discrete.width, frmsizeMax.discrete.height);
 
     DBG_LOGB("get max output width=%d, height=%d, format=%d\n",
         frmsizeMax.discrete.width, frmsizeMax.discrete.height, frmsizeMax.pixel_format);
@@ -877,14 +878,14 @@ int V4l2MediaSensor::captureNewImage() {
 
 int V4l2MediaSensor::getZoom(int *zoomMin, int *zoomMax, int *zoomStep) {
     int ret = 0;
-    ALOGW("%s not implemented yet!", __func__);
+    ALOGVV("%s not implemented yet!", __func__);
 
     return ret ;
 }
 
 int V4l2MediaSensor::setZoom(int zoomValue) {
     int ret = 0;
-    ALOGW("%s not implemented yet!", __func__);
+    ALOGVV("%s not implemented yet!", __func__);
 
     return ret ;
 }
@@ -892,79 +893,68 @@ int V4l2MediaSensor::setZoom(int zoomValue) {
 
 status_t V4l2MediaSensor::setEffect(uint8_t effect) {
     int ret = 0;
-    ALOGW("%s not implemented yet!", __func__);
+    ALOGVV("%s not implemented yet!", __func__);
     return ret ;
 }
 
 int V4l2MediaSensor::getExposure(int *maxExp, int *minExp, int *def, camera_metadata_rational *step) {
    int ret=0;
-   ALOGW("%s not implemented yet!", __func__);
+   ALOGVV("%s not implemented yet!", __func__);
    return ret;
 }
 
 status_t V4l2MediaSensor::setExposure(int expCmp) {
     int ret = 0;
-    ALOGW("%s not implemented yet!", __func__);
+    ALOGVV("%s not implemented yet!", __func__);
     return ret ;
 }
 
 int V4l2MediaSensor::getAntiBanding(uint8_t *antiBanding, uint8_t maxCont) {
 
     int mode_count = -1;
-    ALOGW("%s not implemented yet!", __func__);
+    ALOGVV("%s not implemented yet!", __func__);
 
     return mode_count;
 }
 
-
-
 status_t V4l2MediaSensor::setAntiBanding(uint8_t antiBanding) {
     int ret = 0;
-    ALOGW("%s not implemented yet!", __func__);
+    ALOGVV("%s not implemented yet!", __func__);
     return ret;
 }
 
 status_t V4l2MediaSensor::setFocusArea(int32_t x0, int32_t y0, int32_t x1, int32_t y1) {
     int ret = 0;
-    ALOGW("%s not implemented yet!", __func__);
+    ALOGVV("%s not implemented yet!", __func__);
     return ret;
 }
 
 int V4l2MediaSensor::getAutoFocus(uint8_t *afMode, uint8_t maxCount) {
     int mode_count = -1;
-    ALOGW("%s not implemented yet!", __func__);
+    ALOGVV("%s not implemented yet!", __func__);
 
     return mode_count;
 }
 
-
-
 status_t V4l2MediaSensor::setAutoFocus(uint8_t afMode) {
-    ALOGW("%s not implemented yet!", __func__);
+    ALOGVV("%s not implemented yet!", __func__);
     return 0;
 }
-
-
 
 int V4l2MediaSensor::getAWB(uint8_t *awbMode, uint8_t maxCount) {
     int mode_count = -1;
-    ALOGW("%s not implemented yet!", __func__);
+    ALOGVV("%s not implemented yet!", __func__);
     return mode_count;
 }
 
-
-
 status_t V4l2MediaSensor::setAWB(uint8_t awbMode) {
-    ALOGW("%s not implemented yet!", __func__);
+    ALOGVV("%s not implemented yet!", __func__);
     return 0;
 }
-
-
 
 void V4l2MediaSensor::setSensorListener(SensorListener *listener) {
     Sensor::setSensorListener(listener);
 }
-
 
 status_t V4l2MediaSensor::readyToRun() {
     //int res;

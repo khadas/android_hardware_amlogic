@@ -107,15 +107,12 @@ int staticPipe::constructStaticPipe() {
     return 0;
 }
 
-int staticPipe::fetchPipeMaxResolution(int idx, uint32_t& width, uint32_t &height) {
+int staticPipe::fetchPipeMaxResolution(media_stream_t *stream, uint32_t& width, uint32_t &height) {
     if (supportedPipes.empty()) {
         ALOGE("supportedPipes not been constructed yet");
         return -1;
-    } else if (idx > supportedPipes.size() - 1) {
-        ALOGE("idx %d overflow, supportedPipes size %d", idx, supportedPipes.size());
-        return -1;
     }
-    auto cfg = matchSensorConfig(supportedPipes[idx]->sensor_ent_name);
+    auto cfg = matchSensorConfig(stream);
     if (cfg) {
         width = cfg->sensorWidth;
         height = cfg->sensorHeight;

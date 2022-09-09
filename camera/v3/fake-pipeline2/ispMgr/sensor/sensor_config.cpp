@@ -101,7 +101,7 @@ struct sensorConfig *matchSensorConfig(const char* sensorEntityName) {
             return supportedCfgs[i];
         }
     }
-    ALOGE("fail to match sensorConfig");
+    ALOGE("fail to match sensorConfig %s", sensorEntityName);
     return nullptr;
 }
 
