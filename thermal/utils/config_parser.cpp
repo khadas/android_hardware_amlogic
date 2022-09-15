@@ -27,6 +27,7 @@
 
 #include "config_parser.h"
 
+
 namespace android {
 namespace hardware {
 namespace thermal {
@@ -60,6 +61,25 @@ float getFloatFromValue(const Json::Value &value) {
     }
 }
 
+int resetShutDownTemp(int config_sd_value, int min_temp) {
+    int temp = 0;
+    int fd = open("/sys/class/thermal/thermal_zone0/trip_point_2_temp", O_RDONLY|O_CLOEXEC);
+     if (fd >= 0) {
+        char value[10];
+        memset(value, 0, 10);
+        int ret = read(fd, value, sizeof(value));
+        if (ret > 0) {
+            temp = std::stoi(value);
+            temp = temp/1000;
+        }
+        close(fd);
+    }
+    LOG(INFO) << "resetShutDownTemp config:" << config_sd_value << ", kernel:" << temp << ",min:" << min_temp;
+    if (temp < min_temp)
+        return config_sd_value;
+    else
+        return temp < config_sd_value ? temp : config_sd_value ;
+}
 }  // namespace
 
 std::map<std::string, SensorInfo> ParseSensorInfo(std::string_view config_path) {
@@ -133,8 +153,11 @@ std::map<std::string, SensorInfo> ParseSensorInfo(std::string_view config_path) 
                         sensors_parsed.clear();
                         return sensors_parsed;
                     }
+                    if (j == kThrottlingSeverityCount-1)
+                        hot_thresholds[j] = resetShutDownTemp(hot_thresholds[j], min);
                     min = hot_thresholds[j];
                 }
+
                 LOG(INFO) << "Sensor[" << name << "]'s HotThreshold[" << j
                           << "]: " << hot_thresholds[j];
             }
