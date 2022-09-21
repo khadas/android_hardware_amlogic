@@ -34,27 +34,6 @@
 
 #include "mediaApi.h"
 
-bool entInPipe(struct pipe_info * pipe, char * ent_name, int name_len)
-{
-    if (strncmp(ent_name, pipe->sensor_ent_name, name_len) == 0) {
-        return true;
-    }
-#if 0
-    else if (strncmp(ent_name, pipe->csiphy_ent_name,name_len) == 0) {
-        return true;
-    } else if (strncmp(ent_name, pipe->adap_ent_name,name_len) == 0) {
-        return true;
-    } else if (strncmp(ent_name, pipe->video_ent_name,name_len) == 0) {
-        return true;
-    } else if (strncmp(ent_name, pipe->video_stats_name,name_len) == 0) {
-        return true;
-    } else if (strncmp(ent_name, pipe->video_param_name,name_len) == 0) {
-        return true;
-    }
-#endif
-    return false;
-}
-
 void mediaLog(const char *fmt, ...)
 {
     va_list args;
@@ -67,54 +46,10 @@ void mediaLog(const char *fmt, ...)
     ALOGVV("%s ", buf);
 }
 
-struct pipe_info *mediaFindMatchedPipe(
-       std::vector<struct pipe_info *> &supportedPipes, struct media_device *media_dev)
+int mediaStreamInit(media_stream_t *stream, struct media_device * dev)
 {
-    media_debug_set_handler(media_dev, mediaLog, NULL);
-
-    if (0 != media_device_enumerate(media_dev) ) {
-        ALOGE("media_device_enumerate fail");
-        return NULL;
-    }
-
-    int node_num = media_get_entities_count(media_dev);
-
-    for (int pipe_idx = 0 ; pipe_idx < supportedPipes.size(); ++pipe_idx) {
-        bool all_ent_matched = false;
-        for (int ii = 0; ii < node_num; ++ii) {
-            struct media_entity * ent = media_get_entity(media_dev, ii);
-            ALOGI("ent %d, name %s , devnode %s ", ii, ent->info.name, ent->devname);
-            if (true == entInPipe(supportedPipes[pipe_idx], ent->info.name, strlen(ent->info.name))) {
-                all_ent_matched = true;
-                break;
-            }
-        }
-        if (all_ent_matched) {
-            return supportedPipes[pipe_idx];
-        }
-    }
-    return NULL;
-}
-
-int mediaStreamInit(media_stream_t *stream, struct pipe_info *pipe_info_ptr, struct media_device * dev)
-{
+    ALOGD("%s ++", __FUNCTION__);
     memset(stream, 0, sizeof(*stream));
-
-    auto copyName = [&] (char* dst ,const char* src, size_t size) {
-        if (src && dst)
-            strncpy(dst, src, size);
-    };
-    copyName(stream->media_dev_name,  pipe_info_ptr->media_dev_name,   sizeof(stream->media_dev_name));
-    copyName(stream->sensor_ent_name, pipe_info_ptr->sensor_ent_name,  sizeof(stream->sensor_ent_name));
-    copyName(stream->csiphy_ent_name, pipe_info_ptr->csiphy_ent_name,  sizeof(stream->csiphy_ent_name));
-    copyName(stream->adap_ent_name,   pipe_info_ptr->adap_ent_name,    sizeof(stream->adap_ent_name));
-    copyName(stream->isp_ent_name,    pipe_info_ptr->isp_ent_name,     sizeof(stream->isp_ent_name));
-    copyName(stream->video_ent_name0, pipe_info_ptr->video_ent_name0,  sizeof(stream->video_ent_name0));
-    copyName(stream->video_ent_name1, pipe_info_ptr->video_ent_name1,  sizeof(stream->video_ent_name1));
-    copyName(stream->video_ent_name2, pipe_info_ptr->video_ent_name2,  sizeof(stream->video_ent_name2));
-    copyName(stream->video_ent_name3, pipe_info_ptr->video_ent_name3,  sizeof(stream->video_ent_name3));
-    copyName(stream->video_stats_name,pipe_info_ptr->video_stats_name, sizeof(stream->video_stats_name));
-    copyName(stream->video_param_name,pipe_info_ptr->video_param_name, sizeof(stream->video_param_name));
 
     stream->media_dev = dev;
 
@@ -131,9 +66,36 @@ int mediaStreamInit(media_stream_t *stream, struct pipe_info *pipe_info_ptr, str
     }
 
     int node_num = media_get_entities_count(stream->media_dev);
-    for (int ii = 0; ii < node_num; ++ii) {
-        struct media_entity * ent = media_get_entity(stream->media_dev, ii);
-        ALOGI("ent %d, name %s ", ii, ent->info.name);
+    for (int i = 0, j = 0; i < node_num; ++i) {
+        struct media_entity *ent = media_get_entity(stream->media_dev, i);
+        ALOGI("ent %d, name %s ", i, ent->info.name);
+        if (strstr(ent->info.name, "csiphy")) {
+            sprintf(stream->csiphy_ent_name, "%s", ent->info.name);
+        } else if (strstr(ent->info.name, "adapter")) {
+            sprintf(stream->adap_ent_name, "%s", ent->info.name);
+        } else if (strstr(ent->info.name, "imx")
+                || strstr(ent->info.name, "ov")
+                || strstr(ent->info.name, "os")) {
+            sprintf(stream->sensor_ent_name, "%s", ent->info.name);
+        } else if (strstr(ent->info.name, "core")) {
+            sprintf(stream->isp_ent_name, "%s", ent->info.name);
+        } else if (strstr(ent->info.name, "stats")) {
+            sprintf(stream->video_stats_name, "%s", ent->info.name);
+        } else if (strstr(ent->info.name, "param")) {
+            sprintf(stream->video_param_name, "%s", ent->info.name);
+        } else if (strstr(ent->info.name, "output")) {
+            if (j == 0)
+                sprintf(stream->video_ent_name0, "%s", ent->info.name);
+            else if (j == 1)
+                sprintf(stream->video_ent_name1, "%s", ent->info.name);
+            else if (j == 2)
+                sprintf(stream->video_ent_name2, "%s", ent->info.name);
+            else if (j == 3)
+                sprintf(stream->video_ent_name3, "%s", ent->info.name);
+            else
+                ALOGE("invalid index %d, ent %s", j, ent->info.name);
+            j++;
+        }
     }
 
     stream->sensor_ent = media_get_entity_by_name(stream->media_dev, stream->sensor_ent_name, strlen(stream->sensor_ent_name));
@@ -450,6 +412,39 @@ int setConfigFormat(media_stream_t *camera, stream_configuration_t *cfg)
 
     ALOGD("%s success", __FUNCTION__);
     return 0;
+}
+
+int media_set_wdrMode(media_stream_t *camera, uint32_t wdr_mode)
+{
+    int rtn = 0;
+
+    ALOGD("%s ++ wdr_mode : %d \n", __FUNCTION__, wdr_mode);
+    if (wdr_mode != ISP_SDR_DCAM_MODE) {
+        // sensor wdr mode
+        rtn = v4l2_subdev_set_wdr(camera->sensor_ent, wdr_mode);
+        if (rtn < 0) {
+            ALOGE("Failed to set sensor wdr mode");
+            return rtn;
+        }
+    }
+
+    // adapter wdr mode
+    rtn = v4l2_subdev_set_wdr(camera->adap_ent, wdr_mode);
+    if (rtn < 0) {
+        ALOGE("Failed to set adapter wdr mode");
+        return rtn;
+    }
+
+    // isp wdr mode
+    rtn = v4l2_subdev_set_wdr(camera->isp_ent, wdr_mode);
+    if (rtn < 0) {
+        ALOGE("Failed to set isp wdr mode");
+        return rtn;
+    }
+
+    ALOGD("%s success --\n", __FUNCTION__);
+
+    return rtn;
 }
 
 int mediaStreamConfig(media_stream_t * stream, stream_configuration_t *cfg)

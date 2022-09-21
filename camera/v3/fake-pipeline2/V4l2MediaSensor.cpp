@@ -160,7 +160,6 @@ V4l2MediaSensor::V4l2MediaSensor() {
     mIsGdcInit = false;
 #endif
     memset(&mStreamconfig, 0, sizeof(stream_configuration_t));
-    staticPipe::constructStaticPipe();
     ALOGD("construct V4l2MediaSensor");
 }
 
@@ -248,27 +247,26 @@ int V4l2MediaSensor::SensorInit(int idx) {
         ALOGE("new media device failed \n");
         return -1;
     }
-
-    struct pipe_info *matchPipe = mediaFindMatchedPipe(staticPipe::supportedPipes, media_dev);
-    if (NULL == matchPipe ) {
-        ALOGE("media can not match supported pipes\n");
-        return -1;
-    }
-
-    if (matchPipe->ispDev == true) {
+    char property[PROPERTY_VALUE_MAX];
+    property_get("vendor.media.isp.enable", property, "true");
+    if (strstr(property, "true")) {
         mIspMgr = new IspMgr(idx);
         ALOGD("an ispDev found");
-    } else
+    } else {
         ALOGD("not an ispDev");
+    }
     mMediaStream = malloc( sizeof( struct media_stream) );
     if (mMediaStream == NULL) {
         ALOGE("alloc media stream mem fail\n");
         return -1;
     }
-
-    if (0 != mediaStreamInit((media_stream_t *)mMediaStream, matchPipe, media_dev) ) {
+    if (0 != mediaStreamInit((media_stream_t *)mMediaStream, media_dev) ) {
         ALOGE("media stream init failed\n");
         return -1;
+    }
+    property_get("vendor.media.camera.dual", property, "false");
+    if (strstr(property,"true")) {
+        media_set_wdrMode((media_stream_t *)mMediaStream, ISP_SDR_DCAM_MODE);
     }
 
     InitVideoInfo(idx);
@@ -517,7 +515,7 @@ void V4l2MediaSensor::captureYUYV(uint8_t *img, uint32_t gain, uint32_t stride) 
 void V4l2MediaSensor::setIOBufferNum()
 {
     char buffer_number[128];
-    int tmp = 4;
+    int tmp = 6;
     if (property_get("ro.vendor.mipicamera.iobuffer", buffer_number, NULL) > 0) {
         sscanf(buffer_number, "%d", &tmp);
         ALOGD(" get buffer number is %d from property \n",tmp);

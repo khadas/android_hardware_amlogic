@@ -46,7 +46,7 @@ struct sensorConfig imx290Cfg = {
     .cmos_get_sensor_calibration = cmos_get_sensor_calibration_imx290,
     .sensorWidth      = 1920,
     .sensorHeight     = 1080,
-    .sensorEntityName = "imx290-0",
+    .sensorName       = "imx290",
 };
 
 struct sensorConfig imx415Cfg = {
@@ -60,7 +60,7 @@ struct sensorConfig imx415Cfg = {
     .cmos_get_sensor_calibration = cmos_get_sensor_calibration_imx415,
     .sensorWidth      = 3840,
     .sensorHeight     = 2160,
-    .sensorEntityName = "imx415-0",
+    .sensorName       = "imx415",
 };
 
 struct sensorConfig ov13b10Cfg = {
@@ -74,7 +74,7 @@ struct sensorConfig ov13b10Cfg = {
     .cmos_get_sensor_calibration = cmos_get_sensor_calibration_ov13b10,
     .sensorWidth      = 4208,
     .sensorHeight     = 3120,
-    .sensorEntityName = "ov13b10-1",
+    .sensorName       = "ov13b10",
 };
 
 struct sensorConfig *supportedCfgs[] = {
@@ -85,8 +85,7 @@ struct sensorConfig *supportedCfgs[] = {
 
 struct sensorConfig *matchSensorConfig(media_stream_t *stream) {
     for (int i = 0; i < ARRAY_SIZE(supportedCfgs); i++) {
-        if (strncmp(supportedCfgs[i]->sensorEntityName,
-            stream->sensor_ent_name, strlen(stream->sensor_ent_name)) == 0) {
+        if (strstr(stream->sensor_ent_name, supportedCfgs[i]->sensorName)) {
             return supportedCfgs[i];
         }
     }
@@ -96,8 +95,7 @@ struct sensorConfig *matchSensorConfig(media_stream_t *stream) {
 
 struct sensorConfig *matchSensorConfig(const char* sensorEntityName) {
     for (int i = 0; i < ARRAY_SIZE(supportedCfgs); i++) {
-        if (strncmp(supportedCfgs[i]->sensorEntityName,
-            sensorEntityName, strlen(sensorEntityName)) == 0) {
+        if (strstr(sensorEntityName, supportedCfgs[i]->sensorName)) {
             return supportedCfgs[i];
         }
     }

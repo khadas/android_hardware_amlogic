@@ -37,21 +37,6 @@
 #define V4L2_META_AML_ISP_CONFIG    v4l2_fourcc('A', 'C', 'F', 'G') /* Aml isp config */
 #define V4L2_META_AML_ISP_STATS     v4l2_fourcc('A', 'S', 'T', 'S') /* Aml isp statistics */
 
-typedef struct pipe_info {
-    const char *media_dev_name;
-    const char *sensor_ent_name;
-    const char *csiphy_ent_name;
-    const char *adap_ent_name;
-    const char *isp_ent_name;
-    const char *video_ent_name0;
-    const char *video_ent_name1;
-    const char *video_ent_name2;
-    const char *video_ent_name3;
-    const char *video_stats_name;
-    const char *video_param_name;
-    const bool  ispDev;
-} pipe_info_t;
-
 typedef struct stream_configuration{
     struct aml_format format;
     struct aml_format vformat[4];
@@ -84,14 +69,9 @@ typedef struct media_stream {
     struct media_entity  *video_param;
 } media_stream_t;
 
-bool entInPipe(struct pipe_info * pipe, char * ent_name, int name_len);
-
 void mediaLog(const char *fmt, ...);
 
-struct pipe_info *mediaFindMatchedPipe(
-       std::vector<struct pipe_info *> &supportedPipes, struct media_device *media_dev);
-
-int mediaStreamInit(media_stream_t * stream, struct pipe_info *pipe_info_ptr, struct media_device * dev);
+int mediaStreamInit(media_stream_t * stream, struct media_device * dev);
 
 int createLinks(media_stream_t *stream);
 
@@ -99,12 +79,11 @@ int setSdFormat(media_stream_t *stream, stream_configuration_t *cfg);
 
 int setImgFormat(media_stream_t *stream, stream_configuration_t *cfg);
 
-
 int setDataFormat(media_stream_t *camera, stream_configuration_t *cfg);
-
 
 int setConfigFormat(media_stream_t *camera, stream_configuration_t *cfg);
 
+int media_set_wdrMode(media_stream_t *camera, uint32_t wdr_mode);
 
 int mediaStreamConfig(media_stream_t * stream, stream_configuration_t *cfg);
 

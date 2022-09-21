@@ -23,7 +23,7 @@
 const size_t  kMaxRetryCount   = 100;
 const int64_t kSyncWaitTimeout = 300000000LL; // 300ms
 
-const size_t kIspStatsNbBuffers = 4;
+const size_t kIspStatsNbBuffers = 3;
 const size_t kIspStatsWidth = 1024;
 const size_t kIspStatsHeight = 256;
 

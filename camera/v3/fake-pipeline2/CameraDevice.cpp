@@ -23,10 +23,6 @@
 #include <errno.h>
 #include <linux/media.h>
 
-
-#include "media-v4l2/mediaApi.h"
-#include "ispMgr/staticPipe.h"
-
 #define ARRAY_SIZE(x) (sizeof((x))/sizeof(((x)[0])))
 
 CameraVirtualDevice* CameraVirtualDevice::mInstance = nullptr;
@@ -59,7 +55,6 @@ struct VirtualDevice CameraVirtualDevice::videoDeviceslists[] = {
 
 CameraVirtualDevice::CameraVirtualDevice() {
     memcpy(&videoDevices, &videoDeviceslists, sizeof(videoDeviceslists));
-    android::staticPipe::constructStaticPipe();
 }
 
 int CameraVirtualDevice::checkDeviceExist(char* name) {
