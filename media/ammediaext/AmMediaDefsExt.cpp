@@ -25,7 +25,7 @@ namespace android
 
 const int64_t kUnknownPTS = INT64_MIN;
 
-const char *MEDIA_MIMETYPE_VIDEO_MJPEG = "video/mjpeg";
+const char *MEDIA_MIMETYPE_VIDEO_MJPEG = "video/x-motion-jpeg";
 const char *MEDIA_MIMETYPE_VIDEO_MSMPEG4 = "video/x-msmpeg";
 const char *MEDIA_MIMETYPE_VIDEO_SORENSON_SPARK = "video/x-sorenson-spark";
 const char *MEDIA_MIMETYPE_VIDEO_WMV = "video/x-ms-wmv";
