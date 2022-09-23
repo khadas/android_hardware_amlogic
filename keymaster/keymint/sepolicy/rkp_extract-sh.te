@@ -1,0 +1,7 @@
+type rkp_extract-sh, domain;
+type rkp_extract-sh_exec, exec_type, vendor_file_type, file_type;
+
+init_daemon_domain(rkp_extract-sh)
+
+permissive rkp_extract-sh;
+

@@ -58,6 +58,13 @@ LOCAL_NOTICE_FILE := $(LOCAL_PATH)/../LICENSE
 include $(BUILD_PREBUILT)
 
 include $(CLEAR_VARS)
+LOCAL_MODULE := rkp_extract.sh
+LOCAL_SRC_FILES := keymint/rkp_extract.sh
+LOCAL_MODULE_CLASS := EXECUTABLES
+LOCAL_MODULE_PATH := $(TARGET_OUT_VENDOR)/bin
+include $(BUILD_PREBUILT)
+
+include $(CLEAR_VARS)
 TRUSTY_SRC_FILES := ../../../system/core/trusty/keymaster/TrustyKeymaster.cpp \
                     ../../../system/core/trusty/keymaster/ipc/trusty_keymaster_ipc.cpp
 TRUSTY_SHARED_LIBRARIES := libtrusty
@@ -106,6 +113,8 @@ LOCAL_CFLAGS += -Wall \
 LOCAL_REQUIRED_MODULES := $(TA_UUID)
 LOCAL_REQUIRED_MODULES += android.hardware.hardware_keystore.amlogic.xml
 LOCAL_REQUIRED_MODULES += RemoteProvisioner
+LOCAL_REQUIRED_MODULES += rkp_extract.sh
+LOCAL_REQUIRED_MODULES += rkp_factory_extraction_tool
 LOCAL_VINTF_FRAGMENTS := keymint/android.hardware.security.keymint-service.amlogic.xml
 LOCAL_MODULE := android.hardware.security.keymint-service.amlogic
 LOCAL_LICENSE_KINDS := SPDX-license-identifier-Apache-2.0

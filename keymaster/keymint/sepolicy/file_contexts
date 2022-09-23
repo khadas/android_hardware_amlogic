@@ -1,0 +1,3 @@
+/vendor/bin/rkp_extract\.sh    u:object_r:rkp_extract-sh_exec:s0
+/vendor/bin/rkp_factory_extraction_tool    u:object_r:tee_exec:s0
+/data/vendor/csrs(/.*)?       u:object_r:csrs_vendor_data_file:s0
