@@ -46,6 +46,15 @@ const usb_frmsize_discrete_t kUsbAvailablePictureSize[] = {
         {4096, 3120},
         {3840, 2160},
         {1920, 1080},
+        {1440, 1080},
+        {1280, 960},
+        {1280, 720},
+        {1024, 768},
+        {960, 720},
+        {720, 480},
+        {640, 480},
+        {352, 288},
+        {320, 240},
 };
 
 extern bool IsUsbAvailablePictureSize(const usb_frmsize_discrete_t AvailablePictureSize[], uint32_t width, uint32_t height);
