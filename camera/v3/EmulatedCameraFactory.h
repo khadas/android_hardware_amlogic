@@ -19,12 +19,12 @@
 
 #include <utils/RefBase.h>
 #include "EmulatedBaseCamera.h"
-#include "QemuClient.h"
 
 #include <hardware/hardware.h>
 #include <hardware/camera_common.h>
 #include <system/camera_vendor_tags.h>
 #include "VendorTags.h"
+#include "fake-pipeline2/CameraDevice.h"
 namespace android {
 
 #ifndef ARRAY_SIZE
@@ -59,7 +59,7 @@ class EmulatedCameraHotplugThread;
  */
 
 #ifndef MAX_CAMERA_NUM
-#define MAX_CAMERA_NUM 5
+#define MAX_CAMERA_NUM 6
 #endif
 class EmulatedCameraFactory {
 public:
@@ -102,7 +102,6 @@ public:
 	void getvendortagops(vendor_tag_ops_t* ops);
 
 	int setTorchMode(const char* camera_id, bool enabled);
-
     /****************************************************************************
      * Camera HAL API callbacks.
      ***************************************************************************/
@@ -158,9 +157,7 @@ public:
 
     void onStatusChanged(int cameraId, int newStatus);
 
-    int getValidCameraId(void);
-
-    int checkIsCamera(char * name);
+    void onStatusReady(char * dev_name);
 
     /****************************************************************************
      * Private API
@@ -185,8 +182,8 @@ private:
      ***************************************************************************/
 
 private:
+	CameraVirtualDevice* mCameraVirtualDevice;
     /* Connection to the camera service in the emulator. */
-    FactoryQemuClient   mQemuClient;
 
     /* Array of cameras available for the emulation. */
     EmulatedBaseCamera*     mEmulatedCameras[MAX_CAMERA_NUM];

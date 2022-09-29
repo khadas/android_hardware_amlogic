@@ -1969,4 +1969,16 @@ int USBSensor::captureNewImage() {
     return 0;
 }
 
+status_t USBSensor::readyToRun() {
+    //int res;
+    ATRACE_CALL();
+    ALOGV("Starting up usb sensor thread");
+    mStartupTime = systemTime();
+    mNextCaptureTime = 0;
+    mNextCapturedBuffers = NULL;
+    DBG_LOGA("");
+
+    return OK;
+}
+
 }

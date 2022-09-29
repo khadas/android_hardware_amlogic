@@ -176,7 +176,11 @@ bool EmulatedCameraHotplugThread::threadLoop() {
     char buf[4096];
     struct iovec iov;
     struct msghdr msg;
+    char *v4l2_dev_name_string;
     char *video4linux_string;
+    char *camera0_string;
+    char *camera1_string;
+
     char *action_string;
     //int i;
     int cameraId;
@@ -198,43 +202,78 @@ bool EmulatedCameraHotplugThread::threadLoop() {
             CAMHAL_LOGDA("invalid message");
             break;
         }
-        buf[len] = '\0';
+        if (len < 4096)
+            buf[len] = '\0';
 
+        //buf like that:    add@/devices/lm1/usb1/1-1/1-1.3/1-1.3:1.0/video4linux/video0 ACTION=add DEVPATH=/devices/lm1/usb1/1-1/1-1.3/1-1.3:1.0/video4linux/video0 ...
+        //                  add@/devices/platform/camera0/video4linux/v4l-subdev0 ACTION=add DEVPATH=/devices/platform/camera0/video4linux/v4l-subdev0 ...
+        //                  add@/devices/platform/camera0/video4linux/video50 ACTION=add DEVPATH=/devices/platform/camera0/video4linux/video50...
+        //                  add@/devices/platform/camera0/video4linux/video60 ACTION=add DEVPATH=/devices/platform/camera0/video4linux/video60 ...
+        //                  add@/devices/platform/camera0/media0  ACTION=add
         CAMHAL_LOGDB("buf=%s\n", buf);
         video4linux_string = strstr(buf, "video4linux");
-        CAMHAL_LOGVB("video4linux=%s\n", video4linux_string);
-        if (video4linux_string == NULL) {
-            CAMHAL_LOGDA("not video event\n");
+        camera0_string = strstr(buf, "camera0");
+        camera1_string = strstr(buf, "camera1");
+
+        if (video4linux_string == NULL && camera0_string == NULL && camera1_string == NULL) {
+            CAMHAL_LOGDA("not video or camera0 or camera1 event\n");
             break;
         }
+        if (NULL != video4linux_string) {
+            CAMHAL_LOGVB("video=%s\n", video4linux_string);
+            action_string = strchr(video4linux_string, '\0');
+            action_string ++;
+            CAMHAL_LOGDB("action string=%s\n", action_string);
 
-        CAMHAL_LOGVB("video=%s\n", video4linux_string);
-        action_string = strchr(video4linux_string, '\0');
-        action_string ++;
-        CAMHAL_LOGDB("action string=%s\n", action_string);
+            if (strstr(action_string, "ACTION=add") != NULL) {
+                halStatus = CAMERA_DEVICE_STATUS_PRESENT;
+            } else if (strstr(action_string, "ACTION=remove") != NULL) {
+                halStatus = CAMERA_DEVICE_STATUS_NOT_PRESENT;
+            } else {
+                CAMHAL_LOGDA("no find add or remove\n");
+                break;
+            }
 
-        if (strstr(action_string, "ACTION=add") != NULL) {
-            halStatus = CAMERA_DEVICE_STATUS_PRESENT;
-        } else if (strstr(action_string, "ACTION=remove") != NULL) {
-            halStatus = CAMERA_DEVICE_STATUS_NOT_PRESENT;
+            v4l2_dev_name_string = video4linux_string + 12; // skip video4linux/ - get video60 or v4l-subdev0
+            if (0 == strncmp(v4l2_dev_name_string, "video", 5) ) {
+                video4linux_string += 17;
+                cameraId = strtol(video4linux_string, NULL, 10);
+                if (ISP_CAM_VIDEO_DEV_BEGIN_NUM <= cameraId &&
+                    cameraId < MIPI_ONLY_CAM_VIDEO_DEV_BEGIN_NUM &&
+                     halStatus == CAMERA_DEVICE_STATUS_PRESENT) {
+                    // isp video node
+                    char dev_name[64];
+                    sprintf(dev_name, "%s%d", "/dev/video", cameraId);
+                    gEmulatedCameraFactory.onStatusReady(dev_name);
+                } else {
+                    gEmulatedCameraFactory.onStatusChanged(cameraId,
+                    halStatus);
+                }
+            } else {
+                CAMHAL_LOGDB(" %s is not v4l2 video device.\n",v4l2_dev_name_string );
+                break;
+            }
         } else {
-            CAMHAL_LOGDA("no find add or remove\n");
-            break;
+            char * camerax_string = camera0_string;
+            if (NULL == camerax_string) {
+                camerax_string = camera1_string;
+            }
+            if (camerax_string) {
+                action_string = strchr(camerax_string, '\0');
+                action_string ++;
+
+                if (strstr(action_string, "ACTION=add") != NULL) {
+                    // aml media node
+                    camerax_string += 13; // skip camera0/media
+                    cameraId = strtol(camerax_string, NULL, 10);
+
+                    char dev_name[64];
+                    sprintf(dev_name, "%s%d", "/dev/media", cameraId);
+                    CAMHAL_LOGDB("camera: %s ready. notify\n", dev_name);
+                    gEmulatedCameraFactory.onStatusReady(dev_name);
+                }
+            }
         }
-
-        cameraId = gEmulatedCameraFactory.checkIsCamera(video4linux_string);
-        if (cameraId < 0) {
-            ALOGE("isn't valid camera %s", video4linux_string);
-            continue;
-        }
-
-        //string like that: add@/devices/lm1/usb1/1-1/1-1.3/1-1.3:1.0/video4linux/video0
-        video4linux_string += 17;
-        cameraId = strtol(video4linux_string, NULL, 10);
-
-        gEmulatedCameraFactory.onStatusChanged(cameraId,
-                halStatus);
-
     }
 
     if (!mRunning) {

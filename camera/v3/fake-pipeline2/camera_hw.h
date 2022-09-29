@@ -47,20 +47,20 @@
 #define V4L2_ROTATE_ID 0x980922  //V4L2_CID_ROTATE
 
 typedef struct FrameV4L2Info {
-    struct v4l2_format format;
-    struct v4l2_buffer buf;
-    struct v4l2_requestbuffers rb;
+	struct	v4l2_format format;
+	struct	v4l2_buffer buf;
+	struct	v4l2_requestbuffers rb;
 }FrameV4L2Info;
 
 struct VideoInfo {
-        struct v4l2_capability cap;
-        FrameV4L2Info preview;
-        FrameV4L2Info picture;
+		struct	v4l2_capability cap;
+		FrameV4L2Info preview;
+		FrameV4L2Info picture;
         void    *mem[NB_BUFFER];
-        void    *mem_pic[NB_PIC_BUFFER];
+		void    *mem_pic[NB_PIC_BUFFER];
         unsigned int canvas[NB_BUFFER];
         bool isStreaming;
-        bool isPicture;
+		bool isPicture;
         bool canvas_mode;
         int width;
         int height;

@@ -79,6 +79,14 @@ struct ExifInfo {
 	float focallen;
 	int orientation;
 };
+
+typedef enum channel {
+    channel_preview = 0,
+    channel_capture = 1,
+    channel_record  = 2,
+    channel_all     = 3,
+} channel_t;
+
 } // namespace android;
 
 #endif

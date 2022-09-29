@@ -37,6 +37,7 @@
 #include <libexif/exif-ifd.h>
 #include <libexif/exif-loader.h>
 #include <libexif/exif-mem.h>
+#include "IonIf.h"
 
 extern "C" {
 #include <jpeglib.h>
@@ -56,7 +57,7 @@ typedef struct _exif_buffer {
     unsigned int size;
 } exif_buffer;
 
-class JpegCompressor: private Thread, public virtual RefBase {
+class JpegCompressor: public Thread, public virtual RefBase {
   public:
 
     JpegCompressor();
@@ -133,6 +134,9 @@ class JpegCompressor: private Thread, public virtual RefBase {
     struct ExifInfo mInfo;
     StreamBuffer mJpegBuffer, mAuxBuffer;
     bool mFoundJpeg, mFoundAux;
+#ifdef GE2D_ENABLE
+    IONInterface* mION;
+#endif
     //jpeg_compress_struct mCInfo;
 
     struct JpegError : public jpeg_error_mgr {

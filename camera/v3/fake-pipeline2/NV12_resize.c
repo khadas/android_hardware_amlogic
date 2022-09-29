@@ -69,14 +69,14 @@ VT_resizeFrame_Video_opt2_lp
 
   if (i_img_ptr->uWidth == o_img_ptr->uWidth)
   {
-      if (i_img_ptr->uHeight == o_img_ptr->uHeight)
-      {
-          CAMHAL_LOGVB("(i_img_ptr->uHeight == o_img_ptr->uHeight)\n"
-                       "i_img_ptr->width = %d,i_img_ptr->uHeight = %d\n"
-                       "o_img_ptr->width = %d,o_img_ptr->uHeight = %d\n",
-                       i_img_ptr->uWidth, i_img_ptr->uHeight,
-                       o_img_ptr->uWidth, o_img_ptr->uHeight);
-      }
+    if (i_img_ptr->uHeight == o_img_ptr->uHeight)
+    {
+      CAMHAL_LOGVB("(i_img_ptr->uHeight == o_img_ptr->uHeight)\n"
+          "i_img_ptr->width = %d,i_img_ptr->uHeight = %d\n"
+          "o_img_ptr->width = %d,o_img_ptr->uHeight = %d\n",
+          i_img_ptr->uWidth, i_img_ptr->uHeight,
+          o_img_ptr->uWidth, o_img_ptr->uHeight);
+    }
   }
 
   if (!i_img_ptr || !i_img_ptr->imgPtr ||

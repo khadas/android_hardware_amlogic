@@ -14,8 +14,8 @@
 extern "C"
 {
 #endif
-    int isp_lib_enable(void);
-    void isp_lib_disable(void);
+	int isp_lib_enable(int camera_num);
+	void isp_lib_disable(void);
 #ifdef __cplusplus
 }
 #endif

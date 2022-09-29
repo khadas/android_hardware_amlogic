@@ -124,10 +124,18 @@ JpegCompressor::JpegCompressor():
         mPendingrequest(0),
         mListener(NULL) {
         memset(&mInfo,0,sizeof(struct ExifInfo));
+#ifdef GE2D_ENABLE
+        mION = IONInterface::get_instance();
+#endif
 }
 
 JpegCompressor::~JpegCompressor() {
     Mutex::Autolock lock(mMutex);
+#ifdef GE2D_ENABLE
+    if (mION) {
+        mION->put_instance();
+    }
+#endif
 }
 
 void JpegCompressor::queueRequest(CaptureRequest &r) {
@@ -857,7 +865,12 @@ void JpegCompressor::cleanUp() {
     }
     if (mFoundAux) {
         if (mAuxBuffer.streamId == 0) {
+            //size_t size = mAuxBuffer.width * mAuxBuffer.height * 3;
+#ifdef GE2D_ENABLE
+            mION->free_buffer(mAuxBuffer.share_fd);
+#else
             delete[] mAuxBuffer.img;
+#endif
         } else if (!mSynchronous) {
             mListener->onJpegInputDone(mAuxBuffer);
         }

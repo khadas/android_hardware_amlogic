@@ -46,8 +46,8 @@ LOCAL_CFLAGS+=-DCAMHAL_HOSTNAME=\"${CAMHAL_HOSTNAME}\"
 LOCAL_CFLAGS+=-DCAMHAL_IP=\"${CAMHAL_IP}\"
 LOCAL_CFLAGS+=-DCAMHAL_PATH=\"${CAMHAL_PATH}\"
 ########################################################################################################
-GE2D_ENABLE := false
-GE2D_VERSION_2 := false
+GE2D_ENABLE := true
+GE2D_VERSION_2 := true
 ISP_ENABLE := false
 GDC_ENABLE := false
 LOCAL_SHARED_LIBRARIES:= \
@@ -80,10 +80,12 @@ LOCAL_SHARED_LIBRARIES += libge2d
 endif
 LOCAL_CFLAGS += -DGE2D_ENABLE
 endif
+
 ifeq ($(NEED_ISP),true)
 LOCAL_SHARED_LIBRARIES += libispaaa
 LOCAL_CFLAGS += -DISP_ENABLE
 endif
+
 ifeq ($(GDC_ENABLE),true)
 LOCAL_SHARED_LIBRARIES += libgdc
 LOCAL_CFLAGS += -DGDC_ENABLE
@@ -143,7 +145,11 @@ endif
 
 ifeq ($(GDC_ENABLE),true)
 LOCAL_C_INCLUDES += $(TOP)/vendor/amlogic/common/system/libgdc/include
+else ifeq ($(DEWARP_ENABLE),true)
+LOCAL_C_INCLUDES += $(TOP)/vendor/amlogic/common/system/libgdc/dewarp
 endif
+
+LOCAL_C_INCLUDES += $(TOP)/hardware/amlogic/camera/v3/fake-pipeline2
 
 LOCAL_SRC_FILES := \
     EmulatedCameraHal.cpp \
@@ -178,7 +184,19 @@ LOCAL_SRC_FILES := \
     fake-pipeline2/Isp3a.cpp \
     fake-pipeline2/MIPICameraIO.cpp \
     fake-pipeline2/CaptureUseMemcpy.cpp \
-    fake-pipeline2/HDMIToCSISensor.cpp \
+    fake-pipeline2/HDMIToCSISensor.cpp
+
+LOCAL_SRC_FILES += \
+    fake-pipeline2/V4l2MediaSensor.cpp \
+    fake-pipeline2/media-v4l2/libmediactl.cpp \
+    fake-pipeline2/media-v4l2/libv4l2subdev.cpp \
+    fake-pipeline2/media-v4l2/libv4l2videodev.cpp \
+    fake-pipeline2/media-v4l2/mediaApi.cpp \
+    fake-pipeline2/ispMgr/ispMgr.cpp \
+    fake-pipeline2/ispMgr/staticPipe.cpp \
+    fake-pipeline2/ispMgr/sensor/sensor_config.cpp \
+    fake-pipeline2/ispMgr/sensor/imx290/imx290_config.cpp \
+    fake-pipeline2/ispMgr/sensor/imx415/imx415_config.cpp
 
 ifeq ($(GE2D_ENABLE),true)
 LOCAL_SRC_FILES += fake-pipeline2/ge2d_stream.cpp \
@@ -201,9 +219,6 @@ ifeq ($(shell test $(PLATFORM_SDK_VERSION) -ge 26 && echo OK),OK)
 LOCAL_PROPRIETARY_MODULE := true
 endif
 
-LOCAL_LICENSE_KINDS := SPDX-license-identifier-Apache-2.0
-LOCAL_LICENSE_CONDITIONS := notice
-LOCAL_NOTICE_FILE := $(LOCAL_PATH)/../../LICENSE
 include $(BUILD_SHARED_LIBRARY)
 
 include $(call all-makefiles-under,$(LOCAL_PATH))
@@ -252,9 +267,6 @@ ifeq ($(shell test $(PLATFORM_SDK_VERSION) -ge 26 && echo OK),OK)
 LOCAL_PROPRIETARY_MODULE := true
 endif
 
-LOCAL_LICENSE_KINDS := SPDX-license-identifier-Apache-2.0
-LOCAL_LICENSE_CONDITIONS := notice
-LOCAL_NOTICE_FILE := $(LOCAL_PATH)/../../LICENSE
 include $(BUILD_SHARED_LIBRARY)
 
 endif # !PDK
