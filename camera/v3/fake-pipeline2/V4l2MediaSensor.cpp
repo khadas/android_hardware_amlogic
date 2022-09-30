@@ -46,6 +46,7 @@ namespace android {
 
 const usb_frmsize_discrete_t kUsbAvailablePictureSize[] = {
         {1920, 1080},
+        {1280, 720},
 };
 
 static int fakeEnumFrameSize( struct v4l2_frmsizeenum * frmsizeenum)
@@ -73,7 +74,6 @@ V4l2MediaSensor::V4l2MediaSensor() {
     mIsGdcInit = false;
 #endif
     memset(&mStreamconfig, 0, sizeof(stream_configuration_t));
-    staticPipe::constructStaticPipe();
     ALOGD("construct V4l2MediaSensor");
 }
 
@@ -144,25 +144,20 @@ int V4l2MediaSensor::SensorInit(int idx) {
         ALOGE("new media device failed \n");
         return -1;
     }
-
-    struct pipe_info *matchPipe = mediaFindMatchedPipe(staticPipe::supportedPipes, media_dev);
-    if (NULL == matchPipe ) {
-        ALOGE("media can not match supported pipes\n");
-        return -1;
-    }
-
-    if (matchPipe->ispDev == true) {
+    char property[PROPERTY_VALUE_MAX];
+    property_get("vendor.media.isp.enable", property, "true");
+    if (strstr(property, "true")) {
         mIspMgr = new IspMgr(idx);
         ALOGD("an ispDev found");
-    } else
+    } else {
         ALOGD("not an ispDev");
+    }
     mMediaStream = malloc( sizeof( struct media_stream) );
     if (mMediaStream == NULL) {
         ALOGE("alloc media stream mem fail\n");
         return -1;
     }
-
-    if (0 != mediaStreamInit((media_stream_t *)mMediaStream, matchPipe, media_dev) ) {
+    if (0 != mediaStreamInit((media_stream_t *)mMediaStream, media_dev) ) {
         ALOGE("media stream init failed\n");
         return -1;
     }
@@ -184,7 +179,7 @@ int V4l2MediaSensor::SensorInit(int idx) {
     setIOBufferNum();
     //----set camera type
     mSensorType = SENSOR_V4L2MEDIA;
-    staticPipe::fetchPipeMaxResolution(mVinfo->idx, mMaxWidth, mMaxHeight);
+    staticPipe::fetchPipeMaxResolution((media_stream_t*) mMediaStream, mMaxWidth, mMaxHeight);
     ALOGI("max width %d, max height %d", mMaxWidth, mMaxHeight);
     return ret;
 }
@@ -361,7 +356,7 @@ void V4l2MediaSensor::captureYUYV(uint8_t *img, uint32_t gain, uint32_t stride) 
 void V4l2MediaSensor::setIOBufferNum()
 {
     char buffer_number[128];
-    int tmp = 4;
+    int tmp = 8;
     if (property_get("ro.vendor.mipicamera.iobuffer", buffer_number, NULL) > 0) {
         sscanf(buffer_number, "%d", &tmp);
         ALOGD(" get buffer number is %d from property \n",tmp);
@@ -471,7 +466,7 @@ int V4l2MediaSensor::getStreamConfigurations(uint32_t picSizes[], const int32_t 
     memset(&frmsizeMax, 0, sizeof(frmsizeMax));
     frmsizeMax.pixel_format = getOutputFormat();
     staticPipe::fetchPipeMaxResolution(
-        mVinfo->idx, frmsizeMax.discrete.width, frmsizeMax.discrete.height);
+        (media_stream_t*) mMediaStream, frmsizeMax.discrete.width, frmsizeMax.discrete.height);
 
     DBG_LOGB("get max output width=%d, height=%d, format=%d\n",
         frmsizeMax.discrete.width, frmsizeMax.discrete.height, frmsizeMax.pixel_format);
@@ -518,7 +513,7 @@ int V4l2MediaSensor::getStreamConfigurationDurations(uint32_t picSizes[], int64_
     memset(&frmsizeMax, 0, sizeof(frmsizeMax));
     frmsizeMax.pixel_format = getOutputFormat();
     staticPipe::fetchPipeMaxResolution(
-        mVinfo->idx, frmsizeMax.discrete.width, frmsizeMax.discrete.height);
+        (media_stream_t*) mMediaStream, frmsizeMax.discrete.width, frmsizeMax.discrete.height);
 
     DBG_LOGB("get max output width=%d, height=%d, format=%d\n",
         frmsizeMax.discrete.width, frmsizeMax.discrete.height, frmsizeMax.pixel_format);
@@ -562,8 +557,8 @@ int V4l2MediaSensor::getStreamConfigurationDurations(uint32_t picSizes[], int64_
 }
 
 int64_t V4l2MediaSensor::getMinFrameDuration() {
-    int64_t minFrameDuration =  1000000000L/60L ; // 60fps
-    ALOGW("%s to be implemented, min frame duration  %" PRId64 "\n", __func__, minFrameDuration);
+    int64_t minFrameDuration =  1000000000L/30L ; // 30fps
+    ALOGW("%s to be implemented, minframeduration  %" PRId64 "\n", __func__, minFrameDuration);
     return minFrameDuration;
 }
 

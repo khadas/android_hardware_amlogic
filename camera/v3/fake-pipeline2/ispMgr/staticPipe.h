@@ -17,9 +17,7 @@ namespace android {
 
 class staticPipe {
   public:
-    static std::vector<struct pipe_info*> supportedPipes;
-    static int constructStaticPipe();
-    static int fetchPipeMaxResolution(int idx, uint32_t& width, uint32_t &height);
+    static int fetchPipeMaxResolution(media_stream_t *stream, uint32_t& width, uint32_t &height);
 };
 }
 #endif

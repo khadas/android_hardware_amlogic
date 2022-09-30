@@ -45,7 +45,7 @@ struct sensorConfig imx290Cfg = {
     .cmos_get_sensor_calibration = cmos_get_sensor_calibration_imx290,
     .sensorWidth      = 1920,
     .sensorHeight     = 1080,
-    .sensorEntityName = "imx290-0",
+    .sensorName       = "imx290",
 };
 
 struct sensorConfig imx415Cfg = {
@@ -59,32 +59,25 @@ struct sensorConfig imx415Cfg = {
     .cmos_get_sensor_calibration = cmos_get_sensor_calibration_imx415,
     .sensorWidth      = 3840,
     .sensorHeight     = 2160,
-    .sensorEntityName = "imx415-0",
+    .sensorName       = "imx415",
 };
 
-struct sensorConfig ov5640Cfg_0 = {
+struct sensorConfig ov5640Cfg = {
     .sensorWidth      = 1920,
     .sensorHeight     = 1080,
-    .sensorEntityName = "ov5640-0",
+    .sensorName       = "ov5640",
 };
 
-struct sensorConfig ov5640Cfg_1 = {
-    .sensorWidth      = 1920,
-    .sensorHeight     = 1080,
-    .sensorEntityName = "ov5640-1",
-};
 
 struct sensorConfig *supportedCfgs[] = {
     &imx290Cfg,
     &imx415Cfg,
-    &ov5640Cfg_0,
-    &ov5640Cfg_1,
+    &ov5640Cfg,
 };
 
 struct sensorConfig *matchSensorConfig(media_stream_t *stream) {
     for (int i = 0; i < ARRAY_SIZE(supportedCfgs); i++) {
-        if (strncmp(supportedCfgs[i]->sensorEntityName,
-            stream->sensor_ent_name, strlen(stream->sensor_ent_name)) == 0) {
+        if (strstr(stream->sensor_ent_name, supportedCfgs[i]->sensorName)) {
             return supportedCfgs[i];
         }
     }
@@ -94,12 +87,11 @@ struct sensorConfig *matchSensorConfig(media_stream_t *stream) {
 
 struct sensorConfig *matchSensorConfig(const char* sensorEntityName) {
     for (int i = 0; i < ARRAY_SIZE(supportedCfgs); i++) {
-        if (strncmp(supportedCfgs[i]->sensorEntityName,
-            sensorEntityName, strlen(sensorEntityName)) == 0) {
+        if (strstr(sensorEntityName, supportedCfgs[i]->sensorName)) {
             return supportedCfgs[i];
         }
     }
-    ALOGE("fail to match sensorConfig");
+    ALOGE("fail to match sensorConfig %s", sensorEntityName);
     return nullptr;
 }
 

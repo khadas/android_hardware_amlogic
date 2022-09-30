@@ -39,7 +39,7 @@ struct sensorConfig {
     void (*cmos_get_sensor_calibration)(aisp_calib_info_t * calib);
     int sensorWidth;// max width
     int sensorHeight;// max height
-    const char* sensorEntityName;
+    const char* sensorName;
 };
 
 struct sensorConfig *matchSensorConfig(media_stream_t *stream);
