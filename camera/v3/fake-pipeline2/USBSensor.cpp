@@ -276,7 +276,7 @@ bool USBSensor::isNeedRestart(uint32_t width, uint32_t height, uint32_t pixelfor
 void USBSensor::initDecoder(int width, int height, int bufferCount) {
     ALOGV("%s: width=%d, height=%d",__FUNCTION__,width,height);
     if (mDecoder != NULL && mIsDecoderInit == false) {
-        mDecoder->setParameters(width,height, bufferCount + 2);
+        mDecoder->setParameters(width,height, bufferCount + 4);
         if (mUseHwType == HW_MJPEG)
             mDecoder->initialize("mjpeg");
         else if (mUseHwType == HW_H264)

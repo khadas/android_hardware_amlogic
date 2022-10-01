@@ -32,7 +32,7 @@ namespace android {
             src = (uint8_t *)mInfo->get_picture();
             if (nullptr == src) {
                 usleep(5000);
-                return -1;
+                return ERROR_FRAME;
             }
 
             switch (format) {
@@ -54,7 +54,7 @@ namespace android {
                 default:
                     break;
             }
-            return 0;
+            return NEW_FRAME;
     }
 
     int CaptureUseGe2d::captureYUYVframe(uint8_t *img, struct data_in* in) {
@@ -69,20 +69,20 @@ namespace android {
                         ALOGE("Unable known sensor format: %d", format);
                         break;
                 }
-                return 0;
+                return NO_NEW_FRAME;
             }
 
             src = (uint8_t *)mInfo->get_frame();
             if (nullptr == src) {
                 ALOGV("get frame NULL, sleep 5ms");
                 usleep(5000);
-                return -1;
+                return ERROR_FRAME;
             }
 
             if (format == V4L2_PIX_FMT_YUYV)
                 memcpy(img, src, mInfo->preview.buf.length);
 
-            return 0;
+            return NEW_FRAME;
     }
 
     int CaptureUseGe2d::captureNV21frame(StreamBuffer b, struct data_in* in) {
@@ -97,17 +97,18 @@ namespace android {
             if (src && in->src_fmt > 0) {
                 switch (in->src_fmt) {
                     case V4L2_PIX_FMT_NV21:
+                        ALOGV("rec in");
                         if ((width == b.width) && (height == b.height)) {
-                            memcpy(b.img, src, b.stride * b.height * 3/2);
-                        } else {
-                            mCameraUtil->ReSizeNV21(src, b.img, b.width, b.height, b.stride,width,height);
+                            mGE2D->ge2d_copy(b.share_fd, in->share_fd, b.stride, b.height, V4L2_PIX_FMT_NV21);
+                        } else if (width >= b.width && height >= b.height) {
+                            mGE2D->ge2d_scale(b.share_fd, PIXEL_FORMAT_YCbCr_420_SP_NV12, b.width, b.height, in->share_fd, width, height);
                         }
                         break;
                     default:
                         ALOGE("Unable known sensor format: %d", mInfo->preview.format.fmt.pix.pixelformat);
                         break;
                 }
-                return 0;
+                return NO_NEW_FRAME;
             }
 
             struct VideoInfoBuffer vb;
@@ -116,7 +117,7 @@ namespace android {
             if (-1 == ret || -1 == dmabuf_fd) {
                 ALOGV("%s:get frame fd fail!, sleep 5ms",__FUNCTION__);
                 usleep(5000);
-                return -1;
+                return ERROR_FRAME;
             }
 
             switch (format) {
@@ -137,7 +138,7 @@ namespace android {
             }
             in->dmabuf_fd = dmabuf_fd;
             ALOGV("%s leave", __func__);
-            return 0;
+            return NEW_FRAME;
     }
 
     int CaptureUseGe2d::captureYV12frame(StreamBuffer b, struct data_in* in) {
@@ -150,7 +151,7 @@ namespace android {
             if (-1 == ret) {
                 ALOGV("get frame NULL, sleep 5ms");
                 usleep(5000);
-                return -1;
+                return ERROR_FRAME;
             }
             dmabuf_fd = vb.dma_fd;
             switch (format) {
@@ -162,7 +163,7 @@ namespace android {
                 default:
                     break;
                 }
-                return 0;
+                return NEW_FRAME;
      }
 
 }

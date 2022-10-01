@@ -314,7 +314,7 @@ void V4l2MediaSensor::captureNV21(StreamBuffer b, uint32_t gain){
         }
         //----get one frame
         int ret = mCapture->captureNV21frame(b,&in);
-        if (ret == -1)
+        if (ret == ERROR_FRAME)
             continue;
 #ifdef GE2D_ENABLE
         //----do rotation
@@ -335,7 +335,8 @@ void V4l2MediaSensor::captureNV21(StreamBuffer b, uint32_t gain){
         mKernelBufferFmt = V4L2_PIX_FMT_NV21;
         mTempFD = b.share_fd;
         mSensorWorkFlag = true;
-        mVinfo->putback_frame();
+        if (ret == NEW_FRAME)
+            mVinfo->putback_frame();
         if (mFlushFlag) {
             break;
         }

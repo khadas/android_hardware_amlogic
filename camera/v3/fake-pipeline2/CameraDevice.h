@@ -43,6 +43,7 @@ class CameraVirtualDevice {
         int getCameraNum();
         int checkDeviceExist(char* name);
         int returnDeviceId(char* name);
+        void recoverDevicelists(void);
     private:
         CameraVirtualDevice();
         struct VirtualDevice* findVideoDevice(int id);
@@ -53,6 +54,7 @@ class CameraVirtualDevice {
         bool isAmlMediaCamera (char *dev_node_name);
     private:
         static struct VirtualDevice videoDevices[10];
+        static struct VirtualDevice videoDeviceslists[10];
         static CameraVirtualDevice* mInstance;
 };
 
