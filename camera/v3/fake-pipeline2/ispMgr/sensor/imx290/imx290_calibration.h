@@ -1268,6 +1268,16 @@ static uint16_t _CALIBRATION_NOISE_PROFILE[8][16] =
 
 static uint8_t _CALIBRATION_FPNR[2048*2*5] = {0};
 
+//aisp_awb_info_t
+static uint32_t _CALIBRATION_AWB_PRESET[5] =
+{
+    560,    //awb_sys_r_gain;
+    256,    //awb_sys_g_gain;
+    506,    //awb_sys_b_gain;
+    7563,   //awb_sys_ct;
+    20,     //awb_sys_cdiff;
+};
+
 static LookupTable calibration_top_ctl = {.ptr = _CALIBRATION_TOP_CTL, .rows = 1, .cols = sizeof( _CALIBRATION_TOP_CTL ) / sizeof( _CALIBRATION_TOP_CTL[0] ), .width = sizeof( _CALIBRATION_TOP_CTL[0] )};
 static LookupTable calibration_awb_ctl = {.ptr = _CALIBRATION_AWB_CTL, .rows = 1, .cols = sizeof( _CALIBRATION_AWB_CTL ) / sizeof( _CALIBRATION_AWB_CTL[0] ), .width = sizeof( _CALIBRATION_AWB_CTL[0] )};
 static LookupTable calibration_res_ctl = {.ptr = _CALIBRATION_RES_CTL, .rows = 1, .cols = sizeof( _CALIBRATION_RES_CTL ) / sizeof( _CALIBRATION_RES_CTL[0] ), .width = sizeof( _CALIBRATION_RES_CTL[0] )};
@@ -1382,6 +1392,7 @@ static LookupTable calibration_shading_ls_a_g = { .ptr = _CALIBRATION_SHADING_LS
 static LookupTable calibration_shading_ls_a_b = { .ptr = _CALIBRATION_SHADING_LS_A_B, .rows = 1, .cols = sizeof( _CALIBRATION_SHADING_LS_A_B ) / sizeof( _CALIBRATION_SHADING_LS_A_B[0] ), .width = sizeof( _CALIBRATION_SHADING_LS_A_B[0] )};
 static LookupTable calibration_lens_shading_ctl = { .ptr = _CALIBRATION_LENS_SHADING_CTL, .rows = 1, .cols = sizeof(_CALIBRATION_LENS_SHADING_CTL) / sizeof(_CALIBRATION_LENS_SHADING_CTL[0]), .width = sizeof(_CALIBRATION_LENS_SHADING_CTL[0] ) };
 static LookupTable calibration_fpnr = { .ptr = _CALIBRATION_FPNR, .rows = 1, .cols = sizeof(_CALIBRATION_FPNR) / sizeof(_CALIBRATION_FPNR[0]), .width = sizeof(_CALIBRATION_FPNR[0] ) };
+static LookupTable calibration_awb_preset = { .ptr = _CALIBRATION_AWB_PRESET, .rows = 1, .cols = sizeof(_CALIBRATION_AWB_PRESET) / sizeof(_CALIBRATION_AWB_PRESET[0]), .width = sizeof(_CALIBRATION_AWB_PRESET[0] ) };
 
 static int dynamic_calibrations_init_imx290(aisp_calib_info_t *calib)
 {
@@ -1497,6 +1508,7 @@ static int dynamic_calibrations_init_imx290(aisp_calib_info_t *calib)
 	calib->calibrations[CALIBRATION_AWB_WB_OTP_D50] = &calibration_awb_wb_otp_d50;
 	calib->calibrations[CALIBRATION_NOISE_PROFILE] = &calibration_noise_profile;
 	calib->calibrations[CALIBRATION_FPNR] = &calibration_fpnr;
+	calib->calibrations[CALIBRATION_AWB_PRESET] = &calibration_awb_preset;
 
     return 0;
 }

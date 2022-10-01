@@ -356,7 +356,7 @@ void V4l2MediaSensor::captureYUYV(uint8_t *img, uint32_t gain, uint32_t stride) 
 void V4l2MediaSensor::setIOBufferNum()
 {
     char buffer_number[128];
-    int tmp = 8;
+    int tmp = 6;
     if (property_get("ro.vendor.mipicamera.iobuffer", buffer_number, NULL) > 0) {
         sscanf(buffer_number, "%d", &tmp);
         ALOGD(" get buffer number is %d from property \n",tmp);

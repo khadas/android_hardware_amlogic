@@ -150,6 +150,7 @@ typedef enum cali_type {
     CALIBRATION_PPS_SCALE_V               ,
     CALIBRATION_DECMP0                    ,
     CALIBRATION_DECMP1                    ,
+    CALIBRATION_AWB_PRESET                ,
     CALIBRATION_TOTAL_SIZE                ,
 } cali_type_t;
 
