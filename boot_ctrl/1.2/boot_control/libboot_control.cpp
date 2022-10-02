@@ -558,11 +558,11 @@ bool BootControl::SetActiveBootSlot(unsigned int slot) {
       if (gpt_mode && (strcmp(gpt_mode, "true") == 0)) {
         LOG(INFO) << "set bootloader index for gpt";
         char* write_boot = get_bootloader_env("write_boot");
-        if (!strcmp(write_boot, "0")) {
+        if (write_boot && (!strcmp(write_boot, "0"))) {
             LOG(INFO) << "need to set write_boot 1";
             set_bootloader_env("write_boot", "1");
         } else {
-            LOG(INFO) << "need't to set write_boot, now write_boot = " << write_boot;
+            LOG(INFO) << "need't to set write_boot, now write_boot is NULL or not equal 0 ";
         }
       } else {
         LOG(INFO) << "write bootloader in dts mode";
