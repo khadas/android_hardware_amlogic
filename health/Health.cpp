@@ -212,7 +212,10 @@ bool IsDeadObjectLogged(const ndk::ScopedAStatus& ret) {
 // Subclass helpers / overrides
 //
 
-void Health::UpdateHealthInfo(HealthInfo* /* health_info */) {
+
+
+
+void Health::UpdateHealthInfo(HealthInfo*      health_info) {
     /*
         // Sample code for a subclass to implement this:
         // If you need to modify values (e.g. batteryChargeTimeToFullNowSeconds), do it here.
@@ -222,6 +225,21 @@ void Health::UpdateHealthInfo(HealthInfo* /* health_info */) {
         // and implementation to operate on HealthInfo directly, then call:
         healthd_board_battery_update(health_info);
     */
+    health_info->chargerAcOnline = true;
+    health_info->chargerUsbOnline = false;
+    health_info->chargerWirelessOnline = false;
+    health_info->chargerDockOnline = false;
+    health_info->maxChargingCurrentMicroamps = 0;
+    health_info->maxChargingVoltageMicrovolts = 0;
+    health_info->batteryStatus = ::aidl::android::hardware::health::BatteryStatus::UNKNOWN;
+    health_info->batteryHealth = ::aidl::android::hardware::health::BatteryHealth::UNKNOWN;
+    health_info->batteryPresent = false;
+    health_info->batteryLevel = 50;
+    health_info->batteryVoltageMillivolts = 4000;
+    health_info->batteryCycleCount = 0;
+
+    health_info->batteryTechnology = "Li-ion";
+
 }
 
 //
