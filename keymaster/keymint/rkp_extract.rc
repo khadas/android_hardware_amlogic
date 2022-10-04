@@ -9,3 +9,4 @@ service rkp_extract /vendor/bin/rkp_extract.sh
     user root
     group root
     oneshot
+    seclabel u:r:su:s0

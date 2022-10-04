@@ -3,5 +3,11 @@ type rkp_extract-sh_exec, exec_type, vendor_file_type, file_type;
 
 init_daemon_domain(rkp_extract-sh)
 
-permissive rkp_extract-sh;
-
+allow rkp_extract-sh { vendor_shell_exec vendor_toolbox_exec }:file execute_no_trans;
+allow rkp_extract-sh { vendor_shell_exec vendor_toolbox_exec }:file rx_file_perms;
+allow rkp_extract-sh csrs_vendor_data_file:dir { search write add_name };
+allow rkp_extract-sh csrs_vendor_data_file:file { create write open getattr };
+allow rkp_extract-sh tee_exec:file { execute_no_trans };
+allow rkp_extract-sh tmpfs:dir read;
+allow rkp_extract-sh servicemanager:binder call;
+allow rkp_extract-sh hal_keymint_default:binder call;
