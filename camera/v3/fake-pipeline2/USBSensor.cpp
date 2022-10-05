@@ -543,6 +543,8 @@ void USBSensor::captureNV21(StreamBuffer b, uint32_t gain) {
             fd_set fds;
             struct timeval tv;
             int r;
+            if (mVinfo->fd <= 0)
+                break;
             FD_ZERO(&fds);
             FD_SET(mVinfo->fd, &fds);
             /*2s Timeout*/
@@ -555,10 +557,11 @@ void USBSensor::captureNV21(StreamBuffer b, uint32_t gain) {
                 ALOGD("select error:%s",strerror(errno));
             }
             if (0 == r)
-            ALOGD("select timeout:%s",strerror(errno));
+                ALOGD("select timeout:%s",strerror(errno));
             src = (uint8_t *)mVinfo->get_frame();
             if (NULL == src) {
                 if (mVinfo->get_device_status()) {
+                    camera_close();
                     break;
                 }
                 ALOGVV("%s:get frame NULL, sleep 5ms",__FUNCTION__);
@@ -1547,8 +1550,8 @@ int USBSensor::getStreamConfigurations(uint32_t picSizes[], const int32_t kAvail
                 if (0 != (frmsize.discrete.width%16))
                     continue;
 
-                //if((frmsize.discrete.width > support_w) && (frmsize.discrete.height >support_h))
-                //    continue;
+                if ((frmsize.discrete.width > support_w) && (frmsize.discrete.height >support_h))
+                    continue;
 
                 if (count >= size)
                     break;
@@ -1634,31 +1637,31 @@ int USBSensor::getStreamConfigurationDurations(uint32_t picSizes[], int64_t dura
                 fival.height = picSizes[size-2];
                 if ((ret = ioctl(mVinfo->fd, VIDIOC_ENUM_FRAMEINTERVALS, &fival)) == 0) {
                     if (fival.type == V4L2_FRMIVAL_TYPE_DISCRETE) {
-                        temp_rate = fival.discrete.denominator/fival.discrete.numerator;
+                        if ( fival.discrete.numerator != 0 ) temp_rate = fival.discrete.denominator/fival.discrete.numerator;
                         if (framerate < temp_rate)
                             framerate = temp_rate;
                         duration[count+0] = (int64_t)(picSizes[size-4]);
                         duration[count+1] = (int64_t)(picSizes[size-3]);
                         duration[count+2] = (int64_t)(picSizes[size-2]);
-                        duration[count+3] = (int64_t)((1.0/framerate) * 1000000000);
+                        if ( framerate != 0 ) duration[count+3] = (int64_t)((1.0/framerate) * 1000000000);
                         j++;
                     } else if (fival.type == V4L2_FRMIVAL_TYPE_CONTINUOUS) {
-                        temp_rate = fival.discrete.denominator/fival.discrete.numerator;
+                        if ( fival.discrete.numerator != 0 ) temp_rate = fival.discrete.denominator/fival.discrete.numerator;
                         if (framerate < temp_rate)
                             framerate = temp_rate;
                         duration[count+0] = (int64_t)picSizes[size-4];
                         duration[count+1] = (int64_t)picSizes[size-3];
                         duration[count+2] = (int64_t)picSizes[size-2];
-                        duration[count+3] = (int64_t)((1.0/framerate) * 1000000000);
+                        if ( framerate != 0 ) duration[count+3] = (int64_t)((1.0/framerate) * 1000000000);
                         j++;
                     } else if (fival.type == V4L2_FRMIVAL_TYPE_STEPWISE) {
-                        temp_rate = fival.discrete.denominator/fival.discrete.numerator;
+                        if ( fival.discrete.numerator != 0 ) temp_rate = fival.discrete.denominator/fival.discrete.numerator;
                         if (framerate < temp_rate)
                             framerate = temp_rate;
                         duration[count+0] = (int64_t)picSizes[size-4];
                         duration[count+1] = (int64_t)picSizes[size-3];
                         duration[count+2] = (int64_t)picSizes[size-2];
-                        duration[count+3] = (int64_t)((1.0/framerate) * 1000000000);
+                        if ( framerate != 0 ) duration[count+3] = (int64_t)((1.0/framerate) * 1000000000);
                         j++;
                     }
                 } else {
@@ -1759,17 +1762,17 @@ int64_t USBSensor::getMinFrameDuration()
             while (ioctl(mVinfo->fd, VIDIOC_ENUM_FRAMEINTERVALS, &fival) == 0) {
                 if (fival.type == V4L2_FRMIVAL_TYPE_DISCRETE) {
                     tmpDuration =
-                        fival.discrete.numerator * 1000000000L / fival.discrete.denominator;
+                        (int64_t) fival.discrete.numerator * 1000000000L / fival.discrete.denominator;
 
                     if (frameDuration > tmpDuration)
                         frameDuration = tmpDuration;
                 } else if (fival.type == V4L2_FRMIVAL_TYPE_CONTINUOUS) {
                     frameDuration =
-                        fival.stepwise.max.numerator * 1000000000L / fival.stepwise.max.denominator;
+                        (int64_t) fival.stepwise.max.numerator * 1000000000L / fival.stepwise.max.denominator;
                     break;
                 } else if (fival.type == V4L2_FRMIVAL_TYPE_STEPWISE) {
                     frameDuration =
-                        fival.stepwise.max.numerator * 1000000000L / fival.stepwise.max.denominator;
+                        (int64_t) fival.stepwise.max.numerator * 1000000000L / fival.stepwise.max.denominator;
                     break;
                 }
                 fival.index++;
@@ -1809,20 +1812,10 @@ int USBSensor::getPictureSizes(int32_t picSizes[], int size, bool preview) {
     memset(&frmsize,0,sizeof(frmsize));
     preview_fmt = V4L2_PIX_FMT_NV21;//getOutputFormat();
 
-    if (preview_fmt == V4L2_PIX_FMT_MJPEG)
-        frmsize.pixel_format = V4L2_PIX_FMT_MJPEG;
-    else if (preview_fmt == V4L2_PIX_FMT_NV21) {
-        if (preview == true)
-            frmsize.pixel_format = V4L2_PIX_FMT_NV21;
-        else
-            frmsize.pixel_format = V4L2_PIX_FMT_RGB24;
-    } else if (preview_fmt == V4L2_PIX_FMT_YVU420) {
-        if (preview == true)
-            frmsize.pixel_format = V4L2_PIX_FMT_YVU420;
-        else
-            frmsize.pixel_format = V4L2_PIX_FMT_RGB24;
-    } else if (preview_fmt == V4L2_PIX_FMT_YUYV)
-        frmsize.pixel_format = V4L2_PIX_FMT_YUYV;
+    if (preview == true)
+        frmsize.pixel_format = V4L2_PIX_FMT_NV21;
+    else
+        frmsize.pixel_format = V4L2_PIX_FMT_RGB24;
 
     for (i = 0; ; i++) {
         frmsize.index = i;

@@ -47,6 +47,7 @@ namespace android {
 const usb_frmsize_discrete_t kUsbAvailablePictureSize[] = {
         {1920, 1080},
         {1280, 720},
+        {640,  480},
 };
 
 static int fakeEnumFrameSize( struct v4l2_frmsizeenum * frmsizeenum)
@@ -436,7 +437,7 @@ status_t V4l2MediaSensor::streamOn() {
         rc = mIspMgr->start();
     }
     rc = mVinfo->start_capturing();
-    //v4l2_video_stream_on(((media_stream_t *)mMediaStream)->video_ent, V4L2_BUF_TYPE_VIDEO_CAPTURE);
+    ALOGV("%s: X", __FUNCTION__);
     return rc;
 }
 
