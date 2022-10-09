@@ -22,6 +22,10 @@
 #include <fcntl.h>
 #include <errno.h>
 #include <linux/media.h>
+#include "media-v4l2/mediaApi.h"
+#include "media-v4l2/mediactl.h"
+
+
 
 #define ARRAY_SIZE(x) (sizeof((x))/sizeof(((x)[0])))
 
@@ -280,11 +284,35 @@ bool CameraVirtualDevice::isAmlMediaCamera (char *dev_node_name)
             result = false;
         } else {
             ALOGI("Media device info: model %s driver %s serial %s bus_info %s \n",
-                mdi.model, mdi.driver, mdi.serial, mdi.bus_info );
-            if ( 0 == strncmp(mdi.driver, "t7-cam", 6) ||
-                 0 == strncmp(mdi.driver, "t7c-cam", 7) ||
-                 0 == strncmp(mdi.driver, "aml-cam", 7)) {
+                mdi.model, mdi.driver, mdi.serial, mdi.bus_info);
+            if (0 == strncmp(mdi.driver, "t7-cam", 6) ||
+                0 == strncmp(mdi.driver, "t7c-cam", 7)) {
                 result = true;
+            } else if (0 == strncmp(mdi.driver, "aml-cam", 7)) {
+                ALOGD("start check for for aml-cam");
+                void* mediaStream = malloc(sizeof( struct media_stream));
+                if (mediaStream == NULL) {
+                    ALOGE("alloc media stream mem fail\n");
+                    result = false;
+                } else {
+                    struct media_device * media_dev = media_device_new_with_fd(fd);
+                    if (media_dev == NULL) {
+                        ALOGE("new media device failed \n");
+                        result = false;
+                    } else if (0 == mediaStreamInit((media_stream_t *)mediaStream, media_dev)) {
+                        ALOGD("mediaStreamInit successed");
+                        result = true;
+                    } else {
+                        ALOGD("mediaStreamInit failed");
+                        result = false;
+                    }
+                    if (media_dev) {
+                        media_device_unref(media_dev);
+                    }
+                    if (mediaStream) {
+                        free(mediaStream);
+                    }
+                }
             }
         }
         close(fd);
