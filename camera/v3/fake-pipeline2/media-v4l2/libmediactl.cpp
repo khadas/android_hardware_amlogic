@@ -724,7 +724,7 @@ int media_device_add_entity(struct media_device *media,
                 const struct media_entity_desc *desc,
                 const char *devnode)
 {
-    struct media_entity **defent = NULL;
+    struct media_entity **defend = NULL;
     struct media_entity *entity;
     unsigned int size;
 
@@ -751,27 +751,27 @@ int media_device_add_entity(struct media_device *media,
 
     switch (entity->info.type) {
     case MEDIA_ENT_T_DEVNODE_V4L:
-        defent = &media->def.v4l;
+        defend = &media->def.v4l;
         entity->info.v4l = desc->v4l;
         break;
     case MEDIA_ENT_T_DEVNODE_FB:
-        defent = &media->def.fb;
+        defend = &media->def.fb;
         entity->info.fb = desc->fb;
         break;
     case MEDIA_ENT_T_DEVNODE_ALSA:
-        defent = &media->def.alsa;
+        defend = &media->def.alsa;
         entity->info.alsa = desc->alsa;
         break;
     case MEDIA_ENT_T_DEVNODE_DVB:
-        defent = &media->def.dvb;
+        defend = &media->def.dvb;
         entity->info.dvb = desc->dvb;
         break;
     }
 
     if (desc->flags & MEDIA_ENT_FL_DEFAULT) {
         entity->info.flags |= MEDIA_ENT_FL_DEFAULT;
-        if (defent)
-            *defent = entity;
+        if (defend)
+            *defend = entity;
     }
 
     return 0;

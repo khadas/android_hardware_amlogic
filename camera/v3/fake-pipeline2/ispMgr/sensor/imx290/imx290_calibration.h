@@ -100,11 +100,11 @@ static int32_t _CALIBRATION_AWB_CTL[14] = {
 //_CALIBRATION_AWB_CT_POS
 static uint32_t _CALIBRATION_AWB_CT_POS[20] = {7500,6500,5000,4050,3850,2800,2200};
 
-//_CALIBRATION_AWB_CT_RG_COMPENSAT
-static int32_t  _CALIBRATION_AWB_CT_RG_COMPENSAT[20] = {0,0,0,0,0,0,0};
+//_CALIBRATION_AWB_CT_RG_COMPENSATION
+static int32_t  _CALIBRATION_AWB_CT_RG_COMPENSATION[20] = {0,0,0,0,0,0,0};
 
-//_CALIBRATION_AWB_CT_BG_COMPENSAT
-static int32_t  _CALIBRATION_AWB_CT_BG_COMPENSAT[20] = {0,0,0,0,0,0,0};
+//_CALIBRATION_AWB_CT_BG_COMPENSATION
+static int32_t  _CALIBRATION_AWB_CT_BG_COMPENSATION[20] = {0,0,0,0,0,0,0};
 
 //_CALIBRATION_AWB_CT_WGT
 static int32_t _CALIBRATION_AWB_CT_WGT[20] = {1,2,3,2,1,1,1};
@@ -1282,8 +1282,8 @@ static LookupTable calibration_top_ctl = {.ptr = _CALIBRATION_TOP_CTL, .rows = 1
 static LookupTable calibration_awb_ctl = {.ptr = _CALIBRATION_AWB_CTL, .rows = 1, .cols = sizeof( _CALIBRATION_AWB_CTL ) / sizeof( _CALIBRATION_AWB_CTL[0] ), .width = sizeof( _CALIBRATION_AWB_CTL[0] )};
 static LookupTable calibration_res_ctl = {.ptr = _CALIBRATION_RES_CTL, .rows = 1, .cols = sizeof( _CALIBRATION_RES_CTL ) / sizeof( _CALIBRATION_RES_CTL[0] ), .width = sizeof( _CALIBRATION_RES_CTL[0] )};
 static LookupTable calibration_awb_ct_pos = { .ptr = _CALIBRATION_AWB_CT_POS, .rows = 1, .cols = sizeof(_CALIBRATION_AWB_CT_POS) / sizeof(_CALIBRATION_AWB_CT_POS[0]), .width = sizeof(_CALIBRATION_AWB_CT_POS[0] ) };
-static LookupTable calibration_awb_ct_rg_compensat = { .ptr = _CALIBRATION_AWB_CT_RG_COMPENSAT, .rows = 1, .cols = sizeof( _CALIBRATION_AWB_CT_RG_COMPENSAT ) / sizeof( _CALIBRATION_AWB_CT_RG_COMPENSAT[0] ), .width = sizeof( _CALIBRATION_AWB_CT_RG_COMPENSAT[0] )};
-static LookupTable calibration_awb_ct_bg_compensat = { .ptr = _CALIBRATION_AWB_CT_BG_COMPENSAT, .rows = 1, .cols = sizeof(_CALIBRATION_AWB_CT_BG_COMPENSAT) / sizeof(_CALIBRATION_AWB_CT_BG_COMPENSAT[0]), .width = sizeof(_CALIBRATION_AWB_CT_BG_COMPENSAT[0] ) };
+static LookupTable calibration_awb_ct_rg_compensation = { .ptr = _CALIBRATION_AWB_CT_RG_COMPENSATION, .rows = 1, .cols = sizeof( _CALIBRATION_AWB_CT_RG_COMPENSATION ) / sizeof( _CALIBRATION_AWB_CT_RG_COMPENSATION[0] ), .width = sizeof( _CALIBRATION_AWB_CT_RG_COMPENSATION[0] )};
+static LookupTable calibration_awb_ct_bg_compensation = { .ptr = _CALIBRATION_AWB_CT_BG_COMPENSATION, .rows = 1, .cols = sizeof(_CALIBRATION_AWB_CT_BG_COMPENSATION) / sizeof(_CALIBRATION_AWB_CT_BG_COMPENSATION[0]), .width = sizeof(_CALIBRATION_AWB_CT_BG_COMPENSATION[0] ) };
 static LookupTable calibration_awb_ct_wgt = { .ptr = _CALIBRATION_AWB_CT_WGT, .rows = 1, .cols = sizeof( _CALIBRATION_AWB_CT_WGT ) / sizeof( _CALIBRATION_AWB_CT_WGT[0] ), .width = sizeof( _CALIBRATION_AWB_CT_WGT[0] )};
 static LookupTable calibration_awb_ct_dyn_cvrange = { .ptr = _CALIBRATION_AWB_CT_DYN_CVRANGE, .rows = 1, .cols = sizeof(_CALIBRATION_AWB_CT_DYN_CVRANGE) / sizeof(_CALIBRATION_AWB_CT_DYN_CVRANGE[0]), .width = sizeof(_CALIBRATION_AWB_CT_DYN_CVRANGE[0] ) };
 static LookupTable calibration_awb_gray_zone = {.ptr = _CALIBRATION_AWB_GRAY_ZONE, .rows = sizeof( _CALIBRATION_AWB_GRAY_ZONE ) / sizeof( _CALIBRATION_AWB_GRAY_ZONE[0] ), .cols = sizeof( _CALIBRATION_AWB_GRAY_ZONE[0] ) / sizeof( _CALIBRATION_AWB_GRAY_ZONE[0][0] ), .width = sizeof( _CALIBRATION_AWB_GRAY_ZONE[0][0] )};
@@ -1399,8 +1399,8 @@ static int dynamic_calibrations_init_imx290(aisp_calib_info_t *calib)
 	calib->calibrations[CALIBRATION_TOP_CTL] = &calibration_top_ctl;
 	calib->calibrations[CALIBRATION_AWB_CTL] = &calibration_awb_ctl;
 	calib->calibrations[CALIBRATION_AWB_CT_POS] = &calibration_awb_ct_pos;
-	calib->calibrations[CALIBRATION_AWB_CT_RG_COMPENSAT] = &calibration_awb_ct_rg_compensat;
-	calib->calibrations[CALIBRATION_AWB_CT_BG_COMPENSAT] = &calibration_awb_ct_bg_compensat;
+	calib->calibrations[CALIBRATION_AWB_CT_RG_COMPENSATION] = &calibration_awb_ct_rg_compensation;
+	calib->calibrations[CALIBRATION_AWB_CT_BG_COMPENSATION] = &calibration_awb_ct_bg_compensation;
 	calib->calibrations[CALIBRATION_AWB_CT_WGT] = &calibration_awb_ct_wgt;
 	calib->calibrations[CALIBRATION_AWB_CT_DYN_CVRANGE] = &calibration_awb_ct_dyn_cvrange;
 	calib->calibrations[CALIBRATION_AWB_GRAY_ZONE] = &calibration_awb_gray_zone;
