@@ -3,6 +3,12 @@
 #include <string>
 #include <vector>
 
+#if BUILD_KERNEL_4_9 == true
+#define MAX_USB_CAM_VIDEO_ID  3
+#else
+#define MAX_USB_CAM_VIDEO_ID  6
+#endif
+
 enum deviceStatus_t{
     FREED_VIDEO_DEVICE = 0,
     USED_VIDEO_DEVICE,
@@ -27,31 +33,40 @@ struct VirtualDevice {
     deviceType_t type;
 };
 
-#define DEVICE_NUM (10)
-#define ISP_DEVICE (4)
 class CameraVirtualDevice {
     public:
-        int openVirtualDevice(int id);
-        struct VirtualDevice* getVirtualDevice(int id);
-        int releaseVirtualDevice(int id,int fd);
+        int openVirtualDevice(int cam_id);
+        struct VirtualDevice* getVirtualDevice(int cam_id);
+        int releaseVirtualDevice(int cam_id,int fd);
+
         static CameraVirtualDevice* getInstance();
         int getCameraNum();
-        int checkDeviceExist(char* name);
-        int returnDeviceId(char* name);
-        void recoverDevicelists(void);
+
+        int checkUsbDeviceExist(char* name);
+        int returnUsbDeviceId(char* name);
+        void recoverUsbDevicelists(void);
     private:
         CameraVirtualDevice();
-        struct VirtualDevice* findVideoDevice(int id);
+        struct VirtualDevice* findVideoDevice(int cam_id);
+        struct VirtualDevice* findMipiVideoDevice(int cam_id);
+        struct VirtualDevice* findUsbVideoDevice(int cam_id);
+
         int checkDeviceStatus(struct VirtualDevice* pDev);
         int OpenVideoDevice(struct VirtualDevice* pDev);
         int CloseVideoDevice(struct VirtualDevice* pDev);
-        int findCameraID(int id);
+
+        int findUsbCameraID(int cam_id);
         bool isAmlMediaCamera (char *dev_node_name);
+
     private:
-        static struct VirtualDevice videoDevices[10];
-        static struct VirtualDevice videoDeviceslists[10];
+        static struct VirtualDevice usbvideoDevices[4];
+
+        static struct VirtualDevice usbvideoDeviceslists[4];
+        static struct VirtualDevice mipivideoDeviceslists[6];
+
         static CameraVirtualDevice* mInstance;
+        int    pluggedMipiCameraNum;
 };
 
-
 #endif
+

@@ -467,7 +467,7 @@ int EmulatedCameraFactory::getFakeCameraHalVersion(int cameraId __unused)
 #endif
 }
 
-void EmulatedCameraFactory::onStatusChanged(int cameraId, int newStatus)
+void EmulatedCameraFactory::onStatusChanged(int videoId, int newStatus)
 {
     ATRACE_CALL();
     status_t res;
@@ -475,25 +475,25 @@ void EmulatedCameraFactory::onStatusChanged(int cameraId, int newStatus)
     int i = 0 , j = 0;
     int m = 0;
     int k = 0;
-    //EmulatedBaseCamera *cam = mEmulatedCameras[cameraId];
-    const camera_module_callbacks_t* cb = mCallbacks;
-    sprintf(dev_name, "%s%d", "/dev/video", cameraId);
+    int cameraId = -1;
 
-    /* ignore cameraid >= MAX_CAMERA_NUM to avoid overflow, we now have
-     * ion device with device like /dev/video13
+    const camera_module_callbacks_t* cb = mCallbacks;
+    sprintf(dev_name, "%s%d", "/dev/video", videoId);
+
+    /* ignore videoId > MAX_USB_CAM_VIDEO_ID
      */
-    if (cameraId >= (MAX_CAMERA_NUM + 1))
+    if (videoId >  MAX_USB_CAM_VIDEO_ID )
         return;
 
-    if (mEmulatedCameraNum == 0)
-        mCameraVirtualDevice->recoverDevicelists();
-
-    if (mCameraVirtualDevice->checkDeviceExist(dev_name)) {
+    if (mCameraVirtualDevice->checkUsbDeviceExist(dev_name)) {
         ALOGD("Donot response %s StatusChanged", dev_name);
         return;
     }
 
-    cameraId = mCameraVirtualDevice->returnDeviceId(dev_name);
+    if (mEmulatedCameraNum == 0)
+        mCameraVirtualDevice->recoverUsbDevicelists();
+
+    cameraId = mCameraVirtualDevice->returnUsbDeviceId(dev_name);
     if (cameraId < 0) {
         ALOGD("Prepare StatusChanged %s, Id %d", dev_name, cameraId);
         return;
