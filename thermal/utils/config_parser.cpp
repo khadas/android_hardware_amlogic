@@ -64,11 +64,11 @@ float getFloatFromValue(const Json::Value &value) {
 int resetShutDownTemp(int config_sd_value, int min_temp) {
     int temp = 0;
     int fd = open("/sys/class/thermal/thermal_zone0/trip_point_2_temp", O_RDONLY|O_CLOEXEC);
-     if (fd >= 0) {
-        char value[10];
-        memset(value, 0, 10);
-        int ret = read(fd, value, sizeof(value));
+    if (fd >= 0) {
+        char value[10] = {0};
+        int ret = read(fd, value, sizeof(value)-1);
         if (ret > 0) {
+            value[ret] = '\0';
             temp = std::stoi(value);
             temp = temp/1000;
         }
