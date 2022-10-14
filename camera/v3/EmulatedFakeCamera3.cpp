@@ -1350,7 +1350,8 @@ status_t EmulatedFakeCamera3::processCaptureRequest(
               }
               if (res == OK) {
                      // Lock buffer for writing
-                     const Rect rect(destBuf.width, destBuf.height);
+                     const Rect rect(am_gralloc_get_width((native_handle_t*)(*srcBuf.buffer)),
+                                am_gralloc_get_height((native_handle_t*)(*srcBuf.buffer)));
                      if (srcBuf.stream->format == HAL_PIXEL_FORMAT_YCbCr_420_888) {
                          if (am_gralloc_get_format((native_handle_t*)(*srcBuf.buffer)) ==
                              HAL_PIXEL_FORMAT_YCbCr_420_888/*HAL_PIXEL_FORMAT_YCrCb_420_SP*/) {
