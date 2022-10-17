@@ -426,11 +426,12 @@ bool BootControl::Init() {
     LOG(ERROR) << "Slot suffix property is not set";
     return false;
   }
-  current_slot_ = SlotSuffixToIndex(suffix_prop.c_str());
-  if (current_slot_ < 0) {
-    LOG(ERROR) << "current_slot_ = : " << current_slot_;
+  int current_slot_m = SlotSuffixToIndex(suffix_prop.c_str());
+  if (current_slot_m < 0) {
+    LOG(ERROR) << "Fail SlotSuffixToIndex return < 0 (" << current_slot_m << " )";
     return false;
-  }
+  } else
+    current_slot_ = current_slot_m;
 
   std::string err;
   std::string device = get_bootloader_message_blk_device(&err);
