@@ -80,6 +80,7 @@ enum {
     kKeyExtraData	  = 'exda',
     kKeyExtraDataSize	  = 'edsz',
     kKeyCodecID 	  = 'cdid',
+    kKeyC2CodecID 	  = 'c2id',
 
     //amffmpeg extended types
     kKeyProgramName 	  = 'proN', // cstring
