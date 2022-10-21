@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#define LOG_NDEBUG 0
-#define LOG_NNDEBUG 0
+//#define LOG_NDEBUG 0
+//#define LOG_NNDEBUG 0
 
 #define LOG_TAG "ge2d_stream"
 #define ATRACE_TAG (ATRACE_TAG_CAMERA | ATRACE_TAG_HAL | ATRACE_TAG_ALWAYS)
