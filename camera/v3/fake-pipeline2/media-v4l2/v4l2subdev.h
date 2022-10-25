@@ -24,8 +24,22 @@
 
 #include <linux/v4l2-subdev.h>
 
-
 struct media_entity;
+
+enum {
+    WDR_MODE_NONE,
+    WDR_MODE_2To1_LINE,
+    WDR_MODE_2To1_FRAME,
+    SDR_DDR_MODE,
+    ISP_SDR_DCAM_MODE,
+};
+
+#define V4L2_CID_AML_BASE            (V4L2_CID_BASE + 0x1000)
+#define V4L2_CID_AML_ORIG_FPS        (V4L2_CID_AML_BASE + 0x000)
+#define V4L2_CID_AML_USER_FPS        (V4L2_CID_AML_BASE + 0x001)
+#define V4L2_CID_AML_ROLE            (V4L2_CID_AML_BASE + 0x002)
+#define V4L2_CID_AML_STROBE          (V4L2_CID_AML_BASE + 0x003)
+#define V4L2_CID_AML_MODE            (V4L2_CID_AML_BASE + 0x004)
 
 /**
  * @brief Open a sub-device.
@@ -258,5 +272,8 @@ enum v4l2_mbus_pixelcode v4l2_subdev_string_to_pixelcode(const char *string,
                              unsigned int length);
 
 int v4l2_subdev_set_ctrls(struct media_entity *entity, struct v4l2_ext_control *ctrls, int count);
+
+int v4l2_subdev_set_wdr(struct media_entity *entity, uint32_t wdr_mode);
+
 
 #endif

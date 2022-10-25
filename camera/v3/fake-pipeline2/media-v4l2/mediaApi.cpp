@@ -418,6 +418,39 @@ int setConfigFormat(media_stream_t *camera, stream_configuration_t *cfg)
     return 0;
 }
 
+int media_set_wdrMode(media_stream_t *camera, uint32_t wdr_mode)
+{
+    int rtn = 0;
+
+    ALOGD("%s ++ wdr_mode : %d \n", __FUNCTION__, wdr_mode);
+    if (wdr_mode != ISP_SDR_DCAM_MODE) {
+        // sensor wdr mode
+        rtn = v4l2_subdev_set_wdr(camera->sensor_ent, wdr_mode);
+        if (rtn < 0) {
+            ALOGE("Failed to set sensor wdr mode");
+            return rtn;
+        }
+    }
+
+    // adapter wdr mode
+    rtn = v4l2_subdev_set_wdr(camera->adap_ent, wdr_mode);
+    if (rtn < 0) {
+        ALOGE("Failed to set adapter wdr mode");
+        return rtn;
+    }
+
+    // isp wdr mode
+    rtn = v4l2_subdev_set_wdr(camera->isp_ent, wdr_mode);
+    if (rtn < 0) {
+        ALOGE("Failed to set isp wdr mode");
+        return rtn;
+    }
+
+    ALOGD("%s success --\n", __FUNCTION__);
+
+    return rtn;
+}
+
 int mediaStreamConfig(media_stream_t * stream, stream_configuration_t *cfg)
 {
     int rtn = -1;

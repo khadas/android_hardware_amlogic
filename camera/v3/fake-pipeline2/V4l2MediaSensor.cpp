@@ -163,6 +163,11 @@ int V4l2MediaSensor::SensorInit(int idx) {
         return -1;
     }
 
+    property_get("vendor.media.camera.dual", property, "false");
+    if (strstr(property,"true")) {
+        media_set_wdrMode((media_stream_t *)mMediaStream, ISP_SDR_DCAM_MODE);
+    }
+
     if (mVinfo) {
         media_stream_t* stream = (media_stream_t*)mMediaStream;
         mVinfo->fd = stream->video_ent0->fd;
