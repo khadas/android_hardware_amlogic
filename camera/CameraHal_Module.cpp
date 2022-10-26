@@ -44,7 +44,6 @@ static int camera_device_open(const hw_module_t* module, const char* name,
 static int camera_device_close(hw_device_t* device);
 static int camera_get_number_of_cameras(void);
 static int camera_get_camera_info(int camera_id, struct camera_info *info);
-static int camera_set_torch_mode(const char* camera_id, bool enabled);
 
 #ifdef CAMHAL_USER_MODE
 volatile int32_t gCamHal_LogLevel = 4;
@@ -102,7 +101,6 @@ camera_module_t HAL_MODULE_INFO_SYM = {
     set_callbacks: NULL,
     get_vendor_tag_ops: NULL,
     open_legacy: NULL,
-    set_torch_mode: camera_set_torch_mode,
 };
 
 typedef struct aml_camera_device {
@@ -922,7 +920,7 @@ int camera_get_number_of_cameras(void)
                   "build-time:    %s\n"
                   "build-name:    %s\n"
                   "uncommitted-file-num:%d\n"
-                  "ssh user@, cd %s\n"
+                  "ssh user@%s, cd %s\n"
                   "hostname %s\n"
                   "--------------------------------\n",
                   CAMHAL_BRANCH_NAME,
@@ -931,7 +929,7 @@ int camera_get_number_of_cameras(void)
                   CAMHAL_BUILD_TIME,
                   CAMHAL_BUILD_NAME,
                   CAMHAL_GIT_UNCOMMIT_FILE_NUM,
-                  CAMHAL_PATH, CAMHAL_HOSTNAME
+                  CAMHAL_IP, CAMHAL_PATH, CAMHAL_HOSTNAME
                   );
 #endif
     for(unsigned i = 0;i<sizeof(macro_info)/sizeof(macro_info[0]) ;i++){
@@ -999,10 +997,7 @@ end:
     return rv;
 }
 
-int camera_set_torch_mode(const char* camera_id, bool enabled)
-{
-    return 0;
-}
+
 
 
 

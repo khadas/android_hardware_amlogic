@@ -19,12 +19,12 @@
 
 #include <utils/RefBase.h>
 #include "EmulatedBaseCamera.h"
-#include "QemuClient.h"
 
 #include <hardware/hardware.h>
 #include <hardware/camera_common.h>
 #include <system/camera_vendor_tags.h>
 #include "VendorTags.h"
+#include "fake-pipeline2/CameraDevice.h"
 namespace android {
 
 #ifndef ARRAY_SIZE
@@ -59,7 +59,7 @@ class EmulatedCameraHotplugThread;
  */
 
 #ifndef MAX_CAMERA_NUM
-#define MAX_CAMERA_NUM 5
+#define MAX_CAMERA_NUM 6
 #endif
 class EmulatedCameraFactory {
 public:
@@ -100,9 +100,6 @@ public:
      * This method is called in response to camera_module_t::get_vendor_tag_ops callback.
      */
 	void getvendortagops(vendor_tag_ops_t* ops);
-
-	int setTorchMode(const char* camera_id, bool enabled);
-
     /****************************************************************************
      * Camera HAL API callbacks.
      ***************************************************************************/
@@ -118,7 +115,6 @@ public:
     static int set_callbacks(const camera_module_callbacks_t *callbacks);
 	/* camera_module_t::get_vendor_tag_ops callback entry point. */
 	static void get_vendor_tag_ops(vendor_tag_ops_t* ops);
-	static int set_torch_mode(const char* camera_id, bool enabled);
 
 private:
     /* hw_module_methods_t::open callback entry point. */
@@ -158,10 +154,6 @@ public:
 
     void onStatusChanged(int cameraId, int newStatus);
 
-    int getValidCameraId(void);
-
-    int checkIsCamera(char * name);
-
     /****************************************************************************
      * Private API
      ***************************************************************************/
@@ -185,8 +177,8 @@ private:
      ***************************************************************************/
 
 private:
+	CameraVirtualDevice* mCameraVirtualDevice;
     /* Connection to the camera service in the emulator. */
-    FactoryQemuClient   mQemuClient;
 
     /* Array of cameras available for the emulation. */
     EmulatedBaseCamera*     mEmulatedCameras[MAX_CAMERA_NUM];

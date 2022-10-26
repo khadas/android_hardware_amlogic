@@ -155,6 +155,7 @@ typedef enum sensor_type_e{
     SENSOR_ION_MPLANE,
     SENSOR_DMA,
     SENSOR_CANVAS_MODE,
+    SENSOR_MIPI,
     SENSOR_USB,
     SENSOR_SHARE_FD,
 }sensor_type_t;
@@ -170,9 +171,9 @@ typedef struct usb_frmsize_discrete {
     uint32_t height;
 } usb_frmsize_discrete_t;
 
-#define IOCTL_MASK_ROTATE	(1<<0)
+#define IOCTL_MASK_ROTATE    (1<<0)
 
-class Sensor: private Thread, public virtual RefBase {
+class Sensor: public Thread, public virtual RefBase {
   public:
 
     Sensor();
@@ -182,26 +183,25 @@ class Sensor: private Thread, public virtual RefBase {
      * Power control
      */
     void sendExitSingalToSensor();
-    status_t startUp(int idx);
-    status_t shutDown();
+    virtual status_t startUp(int idx);
+    virtual status_t shutDown();
 
-    int getOutputFormat();
-    int halFormatToSensorFormat(uint32_t pixelfmt);
-    status_t setOutputFormat(int width, int height, int pixelformat, bool isjpeg);
+    virtual int getOutputFormat();
+    virtual int halFormatToSensorFormat(uint32_t pixelfmt);
+    virtual status_t setOutputFormat(int width, int height, int pixelformat, bool isjpeg);
     void setPictureRotate(int rotate);
     int getPictureRotate();
-    uint32_t getStreamUsage(int stream_type);
+    virtual uint32_t getStreamUsage(int stream_type);
 
-    status_t streamOn();
-    status_t streamOff();
+    virtual status_t streamOn();
+    virtual status_t streamOff();
 
-    int getPictureSizes(int32_t picSizes[], int size, bool preview);
-    int getStreamConfigurations(uint32_t picSizes[], const int32_t kAvailableFormats[], int size);
-    int64_t getMinFrameDuration();
-    int getStreamConfigurationDurations(uint32_t picSizes[], int64_t duration[], int size, bool flag);
-    bool isStreaming();
-    bool isNeedRestart(uint32_t width, uint32_t height, uint32_t pixelformat);
-    status_t IoctlStateProbe(void);
+    virtual int getPictureSizes(int32_t picSizes[], int size, bool preview);
+    virtual int getStreamConfigurations(uint32_t picSizes[], const int32_t kAvailableFormats[], int size);
+    virtual int64_t getMinFrameDuration();
+    virtual int getStreamConfigurationDurations(uint32_t picSizes[], int64_t duration[], int size, bool flag);
+    virtual bool isStreaming();
+    virtual bool isNeedRestart(uint32_t width, uint32_t height, uint32_t pixelformat);
     void dump(int fd);
     /*
      * Access to scene
@@ -212,18 +212,18 @@ class Sensor: private Thread, public virtual RefBase {
      * Controls that can be updated every frame
      */
 
-    int getZoom(int *zoomMin, int *zoomMax, int *zoomStep);
-    int setZoom(int zoomValue);
-    int getExposure(int *mamExp, int *minExp, int *def, camera_metadata_rational *step);
-    status_t setExposure(int expCmp);
-    status_t setEffect(uint8_t effect);
-    int getAntiBanding(uint8_t *antiBanding, uint8_t maxCont);
-    status_t setAntiBanding(uint8_t antiBanding);
-    status_t setFocuasArea(int32_t x0, int32_t y0, int32_t x1, int32_t y1);
-    int getAWB(uint8_t *awbMode, uint8_t maxCount);
-    status_t setAWB(uint8_t awbMode);
-    status_t setAutoFocuas(uint8_t afMode);
-    int getAutoFocus(uint8_t *afMode, uint8_t maxCount);
+    virtual int getZoom(int *zoomMin, int *zoomMax, int *zoomStep);
+    virtual int setZoom(int zoomValue);
+    virtual int getExposure(int *mamExp, int *minExp, int *def, camera_metadata_rational *step);
+    virtual status_t setExposure(int expCmp);
+    virtual status_t setEffect(uint8_t effect);
+    virtual int getAntiBanding(uint8_t *antiBanding, uint8_t maxCont);
+    virtual status_t setAntiBanding(uint8_t antiBanding);
+    virtual status_t setFocuasArea(int32_t x0, int32_t y0, int32_t x1, int32_t y1);
+    virtual int getAWB(uint8_t *awbMode, uint8_t maxCount);
+    virtual status_t setAWB(uint8_t awbMode);
+    virtual status_t setAutoFocuas(uint8_t afMode);
+    virtual int getAutoFocus(uint8_t *afMode, uint8_t maxCount);
     void setExposureTime(uint64_t ns);
     void setFrameDuration(uint64_t ns);
     void setSensitivity(uint32_t gain);
@@ -232,7 +232,7 @@ class Sensor: private Thread, public virtual RefBase {
     // To simplify tracking sensor's current frame
     void setFrameNumber(uint32_t frameNumber);
     void  setFlushFlag(bool flushFlag);
-    status_t force_reset_sensor();
+    virtual status_t force_reset_sensor();
     bool get_sensor_status();
     /*
      * Controls that cause reconfiguration delay
@@ -271,7 +271,7 @@ class Sensor: private Thread, public virtual RefBase {
         virtual ~SensorListener();
     };
 
-    void setSensorListener(SensorListener *listener);
+    virtual void setSensorListener(SensorListener *listener);
 
     /**
      * Static sensor characteristics
@@ -314,7 +314,7 @@ class Sensor: private Thread, public virtual RefBase {
 
     sensor_face_type_e mSensorFace;
 
-  private:
+  protected:
     Mutex mControlMutex; // Lock before accessing control parameters
     // Start of control parameters
     Condition mVSync;
@@ -324,6 +324,7 @@ class Sensor: private Thread, public virtual RefBase {
     uint32_t  mGainFactor;
     Buffers  *mNextBuffers;
     uint8_t  *mKernelBuffer;
+    int mTempFD;
     uintptr_t mKernelPhysAddr;
     uint32_t  mFrameNumber;
     int  mRotateValue;
@@ -357,7 +358,6 @@ class Sensor: private Thread, public virtual RefBase {
 
     enum sensor_type_e mSensorType;
     unsigned int mIoctlSupport;
-    unsigned int msupportrotate;
     uint32_t mTimeOutCount;
     bool mWait;
     uint32_t mPre_width;
@@ -368,7 +368,7 @@ class Sensor: private Thread, public virtual RefBase {
      * Inherited Thread virtual overrides, and members only used by the
      * processing thread
      */
-  private:
+  protected:
     virtual status_t readyToRun();
 
     virtual bool threadLoop();
@@ -377,15 +377,14 @@ class Sensor: private Thread, public virtual RefBase {
     Buffers *mNextCapturedBuffers;
 
     Scene mScene;
-
-    int captureNewImageWithGe2d();
-    int captureNewImage();
+    virtual int captureNewImage();
     void captureRaw(uint8_t *img, uint32_t gain, uint32_t stride);
     void captureRGBA(uint8_t *img, uint32_t gain, uint32_t stride);
-    void captureRGB(uint8_t *img, uint32_t gain, uint32_t stride);
-    void captureNV21(StreamBuffer b, uint32_t gain);
-    void captureYV12(StreamBuffer b, uint32_t gain);
-    void captureYUYV(uint8_t *img, uint32_t gain, uint32_t stride);
+    virtual void captureRGB(uint8_t *img, uint32_t gain, uint32_t stride);
+    virtual void captureNV21(StreamBuffer b, uint32_t gain);
+    virtual void captureYV12(StreamBuffer b, uint32_t gain);
+    virtual void captureYUYV(uint8_t *img, uint32_t gain, uint32_t stride);
+  private:
     void YUYVToNV21(uint8_t *src, uint8_t *dst, int width, int height);
     void YUYVToYV12(uint8_t *src, uint8_t *dst, int width, int height);
 };
