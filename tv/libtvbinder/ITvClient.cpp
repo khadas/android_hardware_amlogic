@@ -27,7 +27,7 @@ public:
     // generic callback from tv service to app
     void notifyCallback(int32_t msgType, const Parcel &p)
     {
-        ALOGV("BpTvClient notifyCallback datasize = %d pos = %d", p.dataSize(), p.dataPosition());
+        ALOGV("BpTvClient notifyCallback datasize = %zu pos = %zu", p.dataSize(), p.dataPosition());
         Parcel data, reply;
         data.writeInterfaceToken(ITvClient::getInterfaceDescriptor());
         data.writeInt32(msgType);
