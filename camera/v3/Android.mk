@@ -216,6 +216,9 @@ else
 LOCAL_MODULE:= camera.amlogic
 endif
 
+LOCAL_LICENSE_KINDS:= SPDX-license-identifier-Apache-2.0
+LOCAL_LICENSE_CONDITIONS:= notice
+
 ifeq ($(shell test $(PLATFORM_SDK_VERSION) -ge 26 && echo OK),OK)
 LOCAL_PROPRIETARY_MODULE := true
 endif
@@ -263,6 +266,9 @@ LOCAL_C_INCLUDES += external/jpeg \
 LOCAL_SRC_FILES := JpegStub.cpp
 
 LOCAL_MODULE := camera.goldfish.jpeg
+
+LOCAL_LICENSE_KINDS:= SPDX-license-identifier-Apache-2.0
+LOCAL_LICENSE_CONDITIONS:= notice
 
 ifeq ($(shell test $(PLATFORM_SDK_VERSION) -ge 26 && echo OK),OK)
 LOCAL_PROPRIETARY_MODULE := true

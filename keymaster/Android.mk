@@ -62,6 +62,8 @@ LOCAL_MODULE := rkp_extract.sh
 LOCAL_SRC_FILES := keymint/rkp_extract.sh
 LOCAL_MODULE_CLASS := EXECUTABLES
 LOCAL_MODULE_PATH := $(TARGET_OUT_VENDOR)/bin
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-Apache-2.0
+LOCAL_LICENSE_CONDITIONS := notice
 include $(BUILD_PREBUILT)
 
 include $(CLEAR_VARS)
