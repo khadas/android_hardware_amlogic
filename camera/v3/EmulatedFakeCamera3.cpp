@@ -1776,6 +1776,17 @@ status_t EmulatedFakeCamera3::constructStaticInfo() {
           lensFacing = ANDROID_LENS_FACING_EXTERNAL;
           mFacingBack = 0;
         }
+		if(0 == mCameraID){
+		lensFacing =  ANDROID_LENS_FACING_BACK;
+		mFacingBack = 1;
+		} else if(1 == mCameraID){
+		lensFacing = ANDROID_LENS_FACING_FRONT;
+		mFacingBack = 0;
+		} else {
+          // Default facing external using for cts
+          lensFacing = ANDROID_LENS_FACING_EXTERNAL;
+          mFacingBack = 0;
+        }
         break;
      case SENSOR_MIPI:
         property_get("ro.vendor.camera_mipi.faceback", property, NULL);
