@@ -466,7 +466,7 @@ bool OMXDecoder::uvm_buffer_init() {
         eRet = OMX_UseBuffer(mVDecoderHandle,
                     &bufferHdr,
                     mVideoOutputPortParam.nPortIndex,
-                    (OMX_PTR)shared_fd,
+                    (OMX_PTR)(long)shared_fd,
                     mVideoOutputPortParam.nBufferSize,
                     (OMX_U8*)0xFFFF);//(OMX_U8*)cpu_ptr);
         if (OMX_ErrorNone != eRet) {
@@ -668,14 +668,14 @@ bool OMXDecoder::ion_buffer_init() {
         eRet = OMX_UseBuffer(mVDecoderHandle,
                 &bufferHdr,
                 mVideoOutputPortParam.nPortIndex,
-                (OMX_PTR)shared_fd,
+                (OMX_PTR)(long)shared_fd,
                 mVideoOutputPortParam.nBufferSize,
                 (OMX_U8*)cpu_ptr);
         if (OMX_ErrorNone != eRet) {
             ALOGE("OMX_UseBuffer on output port failed! eRet = %#x\n", eRet);
             return false;
         }
-        bufferHdr->pAppPrivate = (OMX_PTR)ion_hnd;
+        bufferHdr->pAppPrivate = (OMX_PTR)(long)ion_hnd;
         mListOfOutputBufferHeader.push_back(bufferHdr);
     }
     return true;
@@ -691,7 +691,7 @@ bool OMXDecoder::do_buffer_init() {
         eRet = OMX_UseBuffer(mVDecoderHandle,
                 &bufferHdr,
                 mVideoOutputPortParam.nPortIndex,
-                (OMX_PTR)shared_fd,
+                (OMX_PTR)(long)shared_fd,
                 mVideoOutputPortParam.nBufferSize,
                 (OMX_U8*)cpu_ptr);
         if (OMX_ErrorNone != eRet) {
@@ -819,12 +819,12 @@ void OMXDecoder::free_ion_buffer(void) {
                 if (munmap(bufferHdr->pBuffer, mWidth * mHeight * 3 / 2) < 0) {
                     ALOGE("munmap failed errno=%d", errno);
                 }
-                int ret = close((int)bufferHdr->pPlatformPrivate);
+                int ret = close((int)(long)bufferHdr->pPlatformPrivate);
                 if (ret != 0) {
                     ALOGD("close ion shared fd failed for reason %s",strerror(errno));
                 }
                 ALOGD("bufferHdr->pAppPrivate: %p", bufferHdr->pAppPrivate);
-                ret = ion_free(mIonFd, (ion_user_handle_t)(bufferHdr->pAppPrivate));
+                ret = ion_free(mIonFd, (ion_user_handle_t)(long)(bufferHdr->pAppPrivate));
                 if (ret != 0) {
                     ALOGD("ion_free failed for reason %s",strerror(errno));
                 }
@@ -870,11 +870,11 @@ void OMXDecoder::free_uvm_buffer() {
            OMX_ERRORTYPE err;
            if (bufferHdr != NULL) {
                if (mUseDMABuffer) {
-                   LOG_LINE("try to unmap uvm vaddr %p, fd: %d", bufferHdr->pBuffer, (int)(bufferHdr->pPlatformPrivate));
+                   LOG_LINE("try to unmap uvm vaddr %p, fd: %d", bufferHdr->pBuffer, (int)(long)(bufferHdr->pPlatformPrivate));
 
                    //munmap(bufferHdr->pBuffer, mWidth * mHeight * 3 / 2);
 
-                   amuvm_free((int)(bufferHdr->pPlatformPrivate));
+                   amuvm_free((int)(long)(bufferHdr->pPlatformPrivate));
 
                    ALOGD("bufferHdr->pAppPrivate: %p", bufferHdr->pAppPrivate);
 
@@ -1082,15 +1082,15 @@ void OMXDecoder::SetOutputBuffer(int share_fd, uint8_t* addr) {
 
     if (!mListOfOutputBufferHeader.empty()) {
         pBufferHdr = *mListOfOutputBufferHeader.begin();
-        pBufferHdr->pAppPrivate = (void *)share_fd;
-        pBufferHdr->pPlatformPrivate = (void *)share_fd;
+        pBufferHdr->pAppPrivate = (void *)(long)share_fd;
+        pBufferHdr->pPlatformPrivate = (void *)(long)share_fd;
         pBufferHdr->pBuffer = addr;
 
         ALOGV("SetOutputBuffer %p, OMX_FillThisBuffer, share_fd=%d, pAppPrivate=%d, pPlatformPrivate=%d",
                 pBufferHdr,
                 share_fd,
-                (int)(pBufferHdr->pAppPrivate),
-                (int)(pBufferHdr->pPlatformPrivate));
+                (int)(long)(pBufferHdr->pAppPrivate),
+                (int)(long)(pBufferHdr->pPlatformPrivate));
 
         OMX_FillThisBuffer(mVDecoderHandle, pBufferHdr);
         ALOGV("SetOutputBuffer: erase mListOfOutputBufferHeader");
@@ -1114,7 +1114,7 @@ int OMXDecoder::DequeueBuffer(int dst_fd ,uint8_t* dst_buf,
 #ifdef GE2D_ENABLE
            if (dst_fd != -1) {
                 //copy data using ge2d
-                int omx_share_fd = (int)pOutPutBufferHdr->pPlatformPrivate;
+                int omx_share_fd = (int)(long)pOutPutBufferHdr->pPlatformPrivate;
                 if (mGE2D) {
                     mGE2D->ge2d_copy(dst_fd,omx_share_fd,dst_w,dst_h,ge2dTransform::NV12);
                 }else
@@ -1122,7 +1122,7 @@ int OMXDecoder::DequeueBuffer(int dst_fd ,uint8_t* dst_buf,
             }
             else {
                 if (mem_type == UVM_BUFFER) {
-                    uint8_t* cpu_ptr = (uint8_t*)mmap(NULL, pOutPutBufferHdr->nFilledLen, PROT_READ | PROT_WRITE, MAP_SHARED, (int)pOutPutBufferHdr->pPlatformPrivate, 0);
+                    uint8_t* cpu_ptr = (uint8_t*)mmap(NULL, pOutPutBufferHdr->nFilledLen, PROT_READ | PROT_WRITE, MAP_SHARED, (int)(long)pOutPutBufferHdr->pPlatformPrivate, 0);
                     memcpy(dst_buf, cpu_ptr, pOutPutBufferHdr->nFilledLen);
                     munmap(cpu_ptr, pOutPutBufferHdr->nFilledLen);
                 } else
@@ -1131,7 +1131,7 @@ int OMXDecoder::DequeueBuffer(int dst_fd ,uint8_t* dst_buf,
 #else
             //no ge2d support
             if (mem_type == UVM_BUFFER) {
-                uint8_t* cpu_ptr = (uint8_t*)mmap(NULL, pOutPutBufferHdr->nFilledLen, PROT_READ | PROT_WRITE, MAP_SHARED, (int)pOutPutBufferHdr->pPlatformPrivate, 0);
+                uint8_t* cpu_ptr = (uint8_t*)mmap(NULL, pOutPutBufferHdr->nFilledLen, PROT_READ | PROT_WRITE, MAP_SHARED, (int)(long)pOutPutBufferHdr->pPlatformPrivate, 0);
                 memcpy(dst_buf, cpu_ptr, pOutPutBufferHdr->nFilledLen);
                 if (munmap(cpu_ptr, pOutPutBufferHdr->nFilledLen) < 0)
                     ALOGE("%s:%d munmap failed errno=%d", __FUNCTION__,__LINE__,errno);

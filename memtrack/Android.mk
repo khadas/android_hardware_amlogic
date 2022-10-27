@@ -39,6 +39,7 @@ $(warning "the valaue of SKIP_COUNT_ION is $(SKIP_COUNT_ION)")
 
 LOCAL_CFLAGS += -Wno-unused-parameter
 LOCAL_CFLAGS += -Wno-unused-variable
+LOCAL_CFLAGS += -Wno-format
 
 LOCAL_MODULE_RELATIVE_PATH := hw
 LOCAL_C_INCLUDES += \
