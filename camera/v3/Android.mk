@@ -20,7 +20,7 @@ include $(CLEAR_VARS)
 LOCAL_VENDOR_MODULE := true
 LOCAL_MODULE_RELATIVE_PATH := hw
 LOCAL_CFLAGS += -fno-short-enums -DQEMU_HARDWARE
-LOCAL_CFLAGS += -Wno-unused-parameter -Wno-missing-field-initializers -Wno-format
+LOCAL_CFLAGS += -Wno-unused-parameter -Wno-missing-field-initializers
 LOCAL_CFLAGS += -DPLATFORM_SDK_VERSION=$(PLATFORM_SDK_VERSION)
 
 ########################################################################################################
@@ -250,7 +250,7 @@ include $(CLEAR_VARS)
 
 LOCAL_MODULE_RELATIVE_PATH := hw
 LOCAL_CFLAGS += -fno-short-enums -DQEMU_HARDWARE
-LOCAL_CFLAGS += -Wno-unused-parameter -Wno-format
+LOCAL_CFLAGS += -Wno-unused-parameter
 LOCAL_SHARED_LIBRARIES:= \
     libcutils \
     liblog \
