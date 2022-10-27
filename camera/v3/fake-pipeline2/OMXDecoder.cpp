@@ -67,8 +67,8 @@ OMXDecoder::OMXDecoder(bool useDMABuffer, bool keepOriginalSize) {
     mGE2D = new ge2dTransform();
 #endif
     mTimeOut = false;
-    mWidth = 0;
-    mHeight = 0;
+    mOutWidth = 0;
+    mOutHeight = 0;
     mFormat = 0;
     mStride = 0;
     mIonFd = -1;
@@ -86,18 +86,21 @@ OMXDecoder::~OMXDecoder() {
 }
 
 //Please don't use saveNativeBufferHdr() again if you want to use setParameters().
-bool OMXDecoder::setParameters(uint32_t width, uint32_t height,
-        uint32_t out_buffer_count) {
-    if (!width || !height || !out_buffer_count) {
-        ALOGD("Error parameters!!! width %u  height %u  out_buffer_count %u",
-                width, height, out_buffer_count);
+bool OMXDecoder::setParameters(uint32_t in_width, uint32_t in_height,
+                               uint32_t out_width, uint32_t out_height,
+                               uint32_t out_buffer_count) {
+    if (!out_width || !out_height || !out_buffer_count) {
+        ALOGE("Error parameters!!! in_width %u  in_height %u out_height %u  out_height %u  out_buffer_count %u",
+                in_width, in_height, out_width, out_height, out_buffer_count);
         return false;
     }
-    mWidth = width;
-    mHeight = height;
+    mInWidth = in_width;
+    mInHeight = in_height;
+    mOutWidth = out_width;
+    mOutHeight = out_height;
     mOutBufferCount = out_buffer_count;
-    ALOGD("width %u  height %u  out_buffer_count %u",
-            width, height, out_buffer_count);
+    ALOGD("in_width %u  in_height %u out_height %u  out_height %u  out_buffer_count %u",
+                in_width, in_height, out_width, out_height, out_buffer_count);
     return true;
 }
 
@@ -107,11 +110,18 @@ bool OMXDecoder::initialize(const char* name) {
     mDequeueFailNum = 0;
     mTimeOut = false;
     /*for (int i = 0; i < TempBufferNum; i++)
-        mTempFrame[i] = (uint8_t*)malloc(mWidth*mHeight*3/2);
+        mTempFrame[i] = (uint8_t*)malloc(mOutWidth*mOutHeight*3/2);
     */
     if (0 == strcmp(name,"mjpeg")) {
+        decoderType = DEC_MJPEG;
         mDecoderComponentName = (char *)"OMX.amlogic.mjpeg.decoder.awesome2";
+        if (mOutWidth != mInWidth || mOutHeight != mInHeight) {
+            mOutWidth = mInWidth;
+            mOutHeight = mInHeight;
+            ALOGD("dec out size changed to w=%d, h=%d, using ge2d resize output", mOutWidth, mOutHeight);
+        }
     } else if (0 == strcmp(name,"h264")) {
+        decoderType = DEC_H264;
         mDecoderComponentName = (char *)"OMX.amlogic.avc.decoder.awesome2";
     } else {
         ALOGE("cannot support this format");
@@ -186,8 +196,8 @@ bool OMXDecoder::initialize(const char* name) {
             __FUNCTION__, __LINE__,
             mVideoInputPortParam.nBufferSize, mVideoInputPortParam.format.video.eColorFormat);
 
-    mVideoInputPortParam.format.video.nFrameWidth = mWidth;
-    mVideoInputPortParam.format.video.nFrameHeight = mHeight;
+    mVideoInputPortParam.format.video.nFrameWidth = mInWidth;
+    mVideoInputPortParam.format.video.nFrameHeight = mInHeight;
     if (strcmp(name,"mjpeg") == 0)
         mVideoInputPortParam.format.video.eCompressionFormat = OMX_VIDEO_CodingMJPEG;
     else if (strcmp(name,"h264") == 0)
@@ -258,10 +268,10 @@ bool OMXDecoder::initialize(const char* name) {
                 __FUNCTION__, __LINE__, eRet);
 
     mVideoOutputPortParam.nBufferCountActual = mOutBufferCount;
-    mVideoOutputPortParam.format.video.nFrameWidth = mWidth;
-    mVideoOutputPortParam.format.video.nFrameHeight = mHeight;
-    mVideoOutputPortParam.format.video.nStride = ROUND_16(mWidth);
-    mVideoOutputPortParam.format.video.nSliceHeight = ROUND_16(mHeight);
+    mVideoOutputPortParam.format.video.nFrameWidth = mOutWidth;
+    mVideoOutputPortParam.format.video.nFrameHeight = mOutHeight;
+    mVideoOutputPortParam.format.video.nStride = ROUND_16(mOutWidth);
+    mVideoOutputPortParam.format.video.nSliceHeight = ROUND_16(mOutHeight);
     mVideoOutputPortParam.format.video.eColorFormat = static_cast<OMX_COLOR_FORMATTYPE>(HAL_PIXEL_FORMAT_YCrCb_420_SP);//OMX_COLOR_FormatYUV420SemiPlanar;
     mVideoOutputPortParam.format.video.xFramerate = (15 << 16);
     mVideoOutputPortParam.nBufferSize = YUV_SIZE(mVideoOutputPortParam.format.video.nStride,
@@ -434,13 +444,13 @@ bool OMXDecoder::uvm_buffer_init() {
     }
 
     int i = 0;
-    uint32_t width = mWidth;
-    uint32_t height = mHeight;
+    uint32_t width = mOutWidth;
+    uint32_t height = mOutHeight;
     //if (mDoubleWriteMode == 0x3) {
     width = (width  + (OMX2_OUTPUT_BUFS_ALIGN_64 - 1)) & (~(OMX2_OUTPUT_BUFS_ALIGN_64 - 1));
     height = (height + (OMX2_OUTPUT_BUFS_ALIGN_64 - 1)) & (~(OMX2_OUTPUT_BUFS_ALIGN_64 - 1));
     //}
-    ALOGI("AllocDmaBuffers uvm mDecOutWidth:%d mDecOutHeight:%d, %dx%d", mWidth, mHeight, width, height);
+    ALOGI("AllocDmaBuffers uvm mDecOutWidth:%d mDecOutHeight:%d, %dx%d", mOutWidth, mOutHeight, width, height);
     while (i < mOutBufferCount) {
         int shared_fd = -1;
         int buffer_size = width * height * 3 / 2;
@@ -459,7 +469,7 @@ bool OMXDecoder::uvm_buffer_init() {
         }
 
         LOG_LINE("amuvm_allocate shared fd=%d, vaddr=%p", shared_fd, cpu_ptr);
-        munmap(cpu_ptr, mWidth * mHeight * 3 / 2);*/
+        munmap(cpu_ptr, mOutWidth * mOutHeight * 3 / 2);*/
 
         //mDmaBufferAlloced = true;
         OMX_BUFFERHEADERTYPE* bufferHdr;
@@ -503,8 +513,8 @@ bool OMXDecoder::normal_buffer_init(int buffer_size){
         } else {
             sp<GraphicBuffer> graphicBuffer(new GraphicBuffer(mOutBufferNative[i].handle,
                         GraphicBuffer::TAKE_HANDLE,
-                        mWidth,
-                        mHeight,
+                        mOutWidth,
+                        mOutHeight,
                         mFormat,
                         1,
                         GRALLOC_USAGE_HW_TEXTURE | GRALLOC_USAGE_HW_RENDER | GRALLOC_USAGE_SW_READ_MASK | GRALLOC_USAGE_SW_WRITE_MASK,
@@ -569,8 +579,8 @@ int OMXDecoder::ion_alloc_buffer(int ion_fd, size_t size,
         if (heaps != NULL && num_heaps) {
             if (ion_query_get_heaps(ion_fd, num_heaps, heaps) >= 0) {
                 for (int i = 0; i != num_heaps; ++i) {
-                    ALOGD("heaps[%d].type=%d, heap_id=%d\n", i, heaps[i].type, heaps[i].heap_id);
-                    if ((1 << heaps[i].type) == alloc_hmask) {
+                    ALOGD("match name heaps[%d].type=%d, heap_id=%d, name=%s\n", i, heaps[i].type, heaps[i].heap_id, heaps[i].name);
+                    if ((1 << heaps[i].type) == alloc_hmask && 0 == strcmp(heaps[i].name, "ion-dev")) {
                         heap_mask = 1 << heaps[i].heap_id;
                         ALOGD("%d, m=%x, 1<<heap_id=%x, heap_mask=%x, name=%s, alloc_hmask=%x\n",
                                 heaps[i].type, 1<<heaps[i].type,
@@ -605,7 +615,7 @@ bool OMXDecoder::ion_buffer_init() {
     ion_user_handle_t ion_hnd = 0;
     int shared_fd = -1;
     int ret = 0;
-    int buffer_size = mWidth * mHeight * 3 / 2 ;
+    int buffer_size = mOutWidth * mOutHeight * 3 / 2 ;
     OMX_ERRORTYPE eRet = OMX_ErrorNone;
     unsigned int ion_flag = ION_FLAG_CACHED | ION_FLAG_CACHED_NEEDS_SYNC;
     mIonFd = ion_open();
@@ -765,7 +775,7 @@ bool OMXDecoder::prepareBuffers()
     }
 
     OMX_STATETYPE eState1, eState2;
-    int buffer_size = mWidth * mHeight * 3 / 2 ;
+    int buffer_size = mOutWidth * mOutHeight * 3 / 2 ;
     ALOGD("Allocating %u buffers from a native window of size %u on "
             "output port", mOutBufferCount, buffer_size);
 
@@ -816,7 +826,7 @@ void OMXDecoder::free_ion_buffer(void) {
         OMX_ERRORTYPE err;
         if (bufferHdr != NULL) {
             if (mUseDMABuffer) {
-                if (munmap(bufferHdr->pBuffer, mWidth * mHeight * 3 / 2) < 0) {
+                if (munmap(bufferHdr->pBuffer, mOutWidth * mOutHeight * 3 / 2) < 0) {
                     ALOGE("munmap failed errno=%d", errno);
                 }
                 int ret = close((int)(long)bufferHdr->pPlatformPrivate);
@@ -872,7 +882,7 @@ void OMXDecoder::free_uvm_buffer() {
                if (mUseDMABuffer) {
                    LOG_LINE("try to unmap uvm vaddr %p, fd: %d", bufferHdr->pBuffer, (int)(long)(bufferHdr->pPlatformPrivate));
 
-                   //munmap(bufferHdr->pBuffer, mWidth * mHeight * 3 / 2);
+                   //munmap(bufferHdr->pBuffer, mOutWidth * mOutHeight * 3 / 2);
 
                    amuvm_free((int)(long)(bufferHdr->pPlatformPrivate));
 
@@ -1000,7 +1010,7 @@ OMX_ERRORTYPE OMXDecoder::OnEvent(
                 ALOGD("OMX_GetParameter FAILED");
             }
             ALOGD("w= %zu, h= %zu\n", mVideoOutputPortParam.format.video.nFrameWidth, mVideoOutputPortParam.format.video.nFrameHeight);
-            if (mWidth != mVideoOutputPortParam.format.video.nFrameWidth || mHeight != mVideoOutputPortParam.format.video.nFrameHeight)
+            if (mOutWidth != mVideoOutputPortParam.format.video.nFrameWidth || mOutHeight != mVideoOutputPortParam.format.video.nFrameHeight)
             {
                 ALOGD("Dynamic resolution changes triggered");
             }
@@ -1099,15 +1109,17 @@ void OMXDecoder::SetOutputBuffer(int share_fd, uint8_t* addr) {
 }
 
 int OMXDecoder::DequeueBuffer(int dst_fd ,uint8_t* dst_buf,
-                                    size_t dst_w, size_t dst_h) {
+                              size_t src_w, size_t src_h,
+                              size_t dst_w, size_t dst_h) {
+
         int ret = 0;
-        ALOGD("%s:Enter",__FUNCTION__);
+        ALOGD("%s:Enter, src_w=%d, dst_w=%d", __FUNCTION__, src_w, dst_w);
 
         OMX_BUFFERHEADERTYPE *pOutPutBufferHdr = NULL;
         pOutPutBufferHdr = dequeueOutputBuffer();
         if (pOutPutBufferHdr == NULL) {
             //dequeue fail
-            //ALOGD("%s:dequeue fail",__FUNCTION__);
+            ALOGE("%s:dequeue fail",__FUNCTION__);
             ret = 0;
         } else {
             //ALOGD("omx pOutPutBufferHdr = %p\n", pOutPutBufferHdr);
@@ -1116,27 +1128,43 @@ int OMXDecoder::DequeueBuffer(int dst_fd ,uint8_t* dst_buf,
                 //copy data using ge2d
                 int omx_share_fd = (int)(long)pOutPutBufferHdr->pPlatformPrivate;
                 if (mGE2D) {
-                    mGE2D->ge2d_copy(dst_fd,omx_share_fd,dst_w,dst_h,ge2dTransform::NV12);
-                }else
+                    if (src_w == dst_w && src_h == dst_h) {
+                        //ALOGD("%s ge2d copy");
+                        mGE2D->ge2d_copy(dst_fd, omx_share_fd, dst_w, dst_h, ge2dTransform::NV12);
+                    } else {
+                        // scale & crop
+                        //ALOGD("%s ge2d scale to dst size", __FUNCTION__);
+                        mGE2D->ge2d_keep_ration_scale(dst_fd, PIXEL_FORMAT_YCbCr_420_SP_NV12, dst_w, dst_h,
+                                          omx_share_fd, src_w, src_h);
+                    }
+                } else {
                     ALOGE("%s:ge2d object is null",__FUNCTION__);
-            }
-            else {
+                }
+            } else if (src_w == dst_w && src_h == dst_h) {
                 if (mem_type == UVM_BUFFER) {
                     uint8_t* cpu_ptr = (uint8_t*)mmap(NULL, pOutPutBufferHdr->nFilledLen, PROT_READ | PROT_WRITE, MAP_SHARED, (int)(long)pOutPutBufferHdr->pPlatformPrivate, 0);
                     memcpy(dst_buf, cpu_ptr, pOutPutBufferHdr->nFilledLen);
                     munmap(cpu_ptr, pOutPutBufferHdr->nFilledLen);
-                } else
+                } else {
+                    //ALOGD("%s ge2d. no dst_fd, using sw memcpy");
                     memcpy(dst_buf, pOutPutBufferHdr->pBuffer, pOutPutBufferHdr->nFilledLen);
+                }
+            } else {
+                ALOGE(" ge2d src w&h not equal dst w&h. hw dec not supported");
             }
 #else
             //no ge2d support
-            if (mem_type == UVM_BUFFER) {
-                uint8_t* cpu_ptr = (uint8_t*)mmap(NULL, pOutPutBufferHdr->nFilledLen, PROT_READ | PROT_WRITE, MAP_SHARED, (int)(long)pOutPutBufferHdr->pPlatformPrivate, 0);
-                memcpy(dst_buf, cpu_ptr, pOutPutBufferHdr->nFilledLen);
-                if (munmap(cpu_ptr, pOutPutBufferHdr->nFilledLen) < 0)
-                    ALOGE("%s:%d munmap failed errno=%d", __FUNCTION__,__LINE__,errno);
+            if (src_w == dst_w && src_h == dst_h) {
+                if (mem_type == UVM_BUFFER) {
+                    uint8_t* cpu_ptr = (uint8_t*)mmap(NULL, pOutPutBufferHdr->nFilledLen, PROT_READ | PROT_WRITE, MAP_SHARED, (int)(long)pOutPutBufferHdr->pPlatformPrivate, 0);
+                    memcpy(dst_buf, cpu_ptr, pOutPutBufferHdr->nFilledLen);
+                    if (munmap(cpu_ptr, pOutPutBufferHdr->nFilledLen) < 0)
+                        ALOGE("%s:%d munmap failed errno=%d", __FUNCTION__,__LINE__,errno);
+                } else {
+                    memcpy(dst_buf, pOutPutBufferHdr->pBuffer, pOutPutBufferHdr->nFilledLen);
+                }
             } else {
-                memcpy(dst_buf, pOutPutBufferHdr->pBuffer, pOutPutBufferHdr->nFilledLen);
+                ALOGE("src w&h not equal dst w&h. hw dec not supported");
             }
 #endif
             releaseOutputBuffer(pOutPutBufferHdr);
@@ -1159,14 +1187,15 @@ bool OMXDecoder::OMXWaitForVSync(nsecs_t reltime) {
 
 int OMXDecoder::Decode(uint8_t*src, size_t src_size,
                           int dst_fd,uint8_t *dst_buf,
+                          size_t src_w, size_t src_h,
                           size_t dst_w, size_t dst_h) {
     int ret = 0;
-    if (dst_fd < 0 || dst_buf == NULL) {
-        ALOGD("%s: dst_fd=%d, dst_buf=%p", __FUNCTION__, dst_fd, dst_buf);
+    if (dst_buf == NULL) {
+        ALOGE("%s: dst_fd=%d, dst_buf=%p", __FUNCTION__, dst_fd, dst_buf);
         return ret;
     }
 
-    if (mem_type == SHARED_FD) {
+    if (dst_fd > 0 && mem_type == SHARED_FD) {
         SetOutputBuffer(dst_fd, dst_buf);
         QueueBuffer(src, src_size);
 
@@ -1186,10 +1215,11 @@ int OMXDecoder::Decode(uint8_t*src, size_t src_size,
     bool state = OMXWaitForVSync(200*1000*1000); //200ms
 
     if (state) {
-        ret = DequeueBuffer(dst_fd,dst_buf,dst_w,dst_h);
+        ret = DequeueBuffer(dst_fd, dst_buf, src_w, src_h, dst_w, dst_h);
         if (!ret) {
-            if (mDequeueFailNum ++ > MAX_POLLING_COUNT)
+            if (mDequeueFailNum ++ > MAX_POLLING_COUNT) {
                 mTimeOut = true;
+            }
 
             ALOGD("%s:Polling number=%d",__FUNCTION__,mDequeueFailNum);
         }
@@ -1200,3 +1230,4 @@ int OMXDecoder::Decode(uint8_t*src, size_t src_size,
 
     return ret;
 }
+

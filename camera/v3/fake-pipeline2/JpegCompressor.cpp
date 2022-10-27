@@ -420,9 +420,49 @@ bool JpegCompressor::threadLoop() {
     ALOGV("%s: Starting compression thread", __FUNCTION__);
     gettimeofday(&mTimeStart, NULL);
 
+    char property[PROPERTY_VALUE_MAX];
+    property_get("camera.debug.dump.jpeg", property, "false");
+    if (strstr(property, "true")) {
+        // debug. dump
+        FILE* fp = NULL;
+        fp = fopen("/data/vendor/camera/jpeg.yuv","ab+");
+        if (!fp) {
+            ALOGE("open file fail, error: %s !!!",strerror(errno));
+        } else {
+            fwrite((void*)mAuxBuffer.img, 1, mAuxBuffer.width * mAuxBuffer.height *3/2 ,fp);
+            fclose(fp);
+        }
+    }
+
     res = compress();
 
     Create_Exif_Use_Libexif();
+
+    property_get("camera.debug.dump.jpeg", property, "false");
+    if (strstr(property, "true")) {
+        // debug. dump
+        FILE* fp = NULL;
+        fp = fopen("/data/vendor/camera/jpeg.compressed.jpg","ab+");
+        if (!fp) {
+            ALOGE("open file fail, error: %s !!!",strerror(errno));
+        } else {
+            int offset = mMaxbufsize - sizeof(struct camera2_jpeg_blob);
+            struct camera2_jpeg_blob * jpeg_blob_ptr = (struct camera2_jpeg_blob *)(mJpegBuffer.img + offset);
+
+            if (jpeg_blob_ptr->jpeg_blob_id == 0x00FF) {
+                ALOGD("dump jpeg size: %d", jpeg_blob_ptr->jpeg_size);
+
+                fwrite((void*)mJpegBuffer.img, 1, jpeg_blob_ptr->jpeg_size, fp);
+            } else {
+                ALOGD("dump jpeg, bad blob id = 0x%x", jpeg_blob_ptr->jpeg_blob_id);
+            }
+            fclose(fp);
+        }
+    }
+
+    if (strstr(property, "true")) {
+        property_set("camera.debug.dump.jpeg", "false");
+    }
 
     mListener->onJpegDone(mJpegBuffer, res == OK, mJpegRequest);
 
@@ -789,15 +829,22 @@ status_t JpegCompressor::compress() {
     params  enc_params;
     enc_params.src = mAuxBuffer.img;
     enc_params.src_size = calc_frame_length(mAuxBuffer.format, mAuxBuffer.width, mAuxBuffer.height);
+
     enc_params.dst = mJpegBuffer.img;
     enc_params.dst_size = mMaxbufsize;
     enc_params.quality = 80;
+
     enc_params.in_width = mAuxBuffer.width;
     enc_params.in_height = mAuxBuffer.height;
-    enc_params.out_width= mAuxBuffer.width;
-    enc_params.out_height = mAuxBuffer.height;
     enc_params.format = mAuxBuffer.format;
+
+    enc_params.out_width = mJpegBuffer.width;
+    enc_params.out_height = mJpegBuffer.height;
+
     enc_params.jpeg_size = 0;
+
+    ALOGD("%s in_width=%d, in_height=%d, out_w=%d, out_h=%d", __FUNCTION__,
+           enc_params.in_width, enc_params.in_height, enc_params.out_width, enc_params.out_height);
 
     mMainJpegSize = encode(&enc_params);
     ALOGD("mMainJpegSize = %d",mMainJpegSize);

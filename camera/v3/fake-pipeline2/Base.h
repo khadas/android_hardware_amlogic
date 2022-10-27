@@ -25,8 +25,12 @@
 //#include <system/window.h>
 #include <hardware/camera2.h>
 #include <utils/Vector.h>
+#include <CameraMetadata.h>
+#include <hardware/camera3.h>
 
 namespace android {
+using ::android::hardware::camera::common::V1_0::helper::CameraMetadata;
+typedef Vector<camera3_stream_buffer>     HalBufferVector;
 
 
 /* Internal structure for passing buffers across threads */
@@ -79,6 +83,16 @@ struct ExifInfo {
 	float focallen;
 	int orientation;
 };
+
+    struct Request {
+        uint32_t         frameNumber;
+        struct ExifInfo info;
+        CameraMetadata   settings;
+        HalBufferVector *buffers;
+        Buffers         *sensorBuffers;
+        bool             havethumbnail;
+    };
+
 } // namespace android;
 
 #endif

@@ -59,12 +59,21 @@ struct GrallocBufInfo {
 class OMXDecoder
 {
 public:
+    enum Decoder_Type{
+        DEC_NONE,
+        DEC_MJPEG,
+        DEC_H264,
+    };
+
+public:
     bool mTimeOut;
 public:
     OMXDecoder();
     OMXDecoder(bool useDMABuffer, bool keepOriginalSize);
     ~OMXDecoder();
-    bool setParameters(uint32_t width, uint32_t height, uint32_t out_buffer_count);
+    bool setParameters(uint32_t in_width, uint32_t in_height,
+                               uint32_t out_width, uint32_t out_height,
+                               uint32_t out_buffer_count);
     bool initialize(const char* name);
     bool prepareBuffers();
     void start();
@@ -112,11 +121,23 @@ public:
     static OMX_CALLBACKTYPE kCallbacks;
     int Decode(uint8_t*src, size_t src_size,
             int dst_fd,uint8_t *dst_buf,
+            size_t src_w, size_t src_h,
             size_t dst_w, size_t dst_h);
+
+    size_t outputWidth() {
+        return mOutWidth;
+    }
+    size_t outputHeight() {
+        return mOutHeight;
+    }
 private:
+    int decoderType;
+
     OMX_ERRORTYPE WaitForState(OMX_HANDLETYPE hComponent, OMX_STATETYPE eTestState, OMX_STATETYPE eTestState2);
-    OMX_U32 mWidth;
-    OMX_U32 mHeight;
+    OMX_U32 mInWidth;
+    OMX_U32 mInHeight;
+    OMX_U32 mOutWidth;
+    OMX_U32 mOutHeight;
     int mFormat;
     uint32_t mStride;
     int mIonFd;
@@ -177,7 +198,9 @@ private:
 private:
     void QueueBuffer(uint8_t* src, size_t size);
     int DequeueBuffer(int dst_fd ,uint8_t* dst_buf,
-                                size_t dst_w, size_t dst_h);
+                      size_t src_w, size_t src_h,
+                      size_t dst_w, size_t dst_h);
+
     bool normal_buffer_init(int buffer_size);
     int ion_alloc_buffer(int ion_fd, size_t size, int* pShareFd, unsigned int flag, unsigned int alloc_hmask);
     bool ion_buffer_init();

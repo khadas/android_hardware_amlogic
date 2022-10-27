@@ -11,6 +11,7 @@
 #include "ge2d_stream.h"
 #endif
 #include "IonIf.h"
+
 namespace android {
 
     class USBSensor:public Sensor {
@@ -27,7 +28,6 @@ namespace android {
             status_t streamOff(void) override;
             status_t startUp(int idx) override;
             status_t shutDown(void) override;
-            void captureNV21(StreamBuffer b, uint32_t gain) override;
             void captureYV12(StreamBuffer b, uint32_t gain) override;
             void captureYUYV(uint8_t *img, uint32_t gain, uint32_t stride) override;
             status_t getOutputFormat(void) override;
@@ -82,10 +82,13 @@ namespace android {
             IONInterface* mION;
             ge2dTransform* mGE2D;
 #endif
+            StreamBuffer mSensorOutBuf;
+
         private:
             USBSensor();
             void dump(int& frame_index,uint8_t* buf, int length, std::string name);
-            void initDecoder(int width, int height, int bufferCount);
+            void initDecoder(int in_width, int in_height,
+                                        int out_width, int out_height, int out_bufferCount);
             int MJPEGToNV21(uint8_t* src, StreamBuffer b);
             int H264ToNV21(uint8_t* src, StreamBuffer b);
             int SensorInit(int idx);
@@ -94,7 +97,9 @@ namespace android {
             void camera_close(void);
             const char* getformt(int id);
             void setIOBufferNum();
-            void takePicture(StreamBuffer b, uint32_t stride);
+            void captureNV21UsbSensor(StreamBuffer b, uint32_t gain, bool needSensorOutBuf);
+
     };
 }
 #endif
+

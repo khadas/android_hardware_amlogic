@@ -43,6 +43,13 @@ private:
 public:
         ge2dTransform();
         ~ge2dTransform();
+
+        int ge2d_scale(int dst_fd,int dst_fmt, size_t dst_w, size_t dst_h,
+                       int src_fd, size_t src_w, size_t src_h);
+
+        int ge2d_keep_ration_scale(int dst_fd,int dst_fmt, size_t dst_w,
+                size_t dst_h,int src_fd, size_t src_w, size_t src_h);
+
         int ge2d_rotation(int dst_fd,size_t src_w, size_t src_h, int fmt,
                                                         int degree);
         int ge2d_mirror(int dst_fd,size_t src_w,size_t src_h,int fmt);

@@ -1120,6 +1120,8 @@ status_t EmulatedFakeCamera3::processCaptureRequest(
     Buffers *sensorBuffers = NULL;
     HalBufferVector *buffers = NULL;
 
+
+
     if (mFlushTag) {
        DBG_LOGA("already flush, but still send Capture Request .\n");
     }
@@ -1343,9 +1345,9 @@ status_t EmulatedFakeCamera3::processCaptureRequest(
                      info.mainheight = srcBuf.stream->height;
 
                      if ((jpegpixelfmt == V4L2_PIX_FMT_MJPEG) || (jpegpixelfmt == V4L2_PIX_FMT_YUYV)) {
-                            mSensor->setOutputFormat(info.mainwidth,info.mainheight,jpegpixelfmt,1);
+                            mSensor->setOutputFormat(info.mainwidth, info.mainheight, jpegpixelfmt, 1);
                      } else {
-                            mSensor->setOutputFormat(info.mainwidth,info.mainheight,V4L2_PIX_FMT_RGB24,1);
+                            mSensor->setOutputFormat(info.mainwidth, info.mainheight, V4L2_PIX_FMT_RGB24, 1);
                      }
               }
 
@@ -1506,7 +1508,7 @@ status_t EmulatedFakeCamera3::processCaptureRequest(
 
         /**
         * Configure sensor and queue up the request to the readout thread
-     */
+        */
         mSensor->setExposureTime(exposureTime);
         //mSensor->setFrameDuration(frameDuration);
         mSensor->setFrameDuration(mFrameDuration);
@@ -1514,7 +1516,7 @@ status_t EmulatedFakeCamera3::processCaptureRequest(
         mSensor->setDestinationBuffers(sensorBuffers);
         mSensor->setFrameNumber(request->frame_number);
 
-        ReadoutThread::Request r;
+        Request r;
         r.frameNumber = request->frame_number;
         r.settings = settings;
         r.sensorBuffers = sensorBuffers;

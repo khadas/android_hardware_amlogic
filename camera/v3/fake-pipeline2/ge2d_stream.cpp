@@ -342,6 +342,208 @@ int ge2dTransform::ge2d_flip(int dst_fd,size_t src_w,
     return 0;
 }
 
+//scale nv21 to other format
+int ge2dTransform::ge2d_scale(int dst_fd,int dst_fmt, size_t dst_w,
+                size_t dst_h,int src_fd, size_t src_w, size_t src_h) {
+
+    //ATRACE_CALL();
+    //ALOGD("%s: w=%d, h=%d, src %d %d", __FUNCTION__,dst_w,dst_h,src_w,src_h);
+    aml_ge2d_t amlge2d;
+    int src_width = src_w;
+    int src_height = src_h;
+    memset(&amlge2d,0,sizeof(aml_ge2d_t));
+    memset(&(amlge2d.ge2dinfo.src_info[0]), 0, sizeof(buffer_info_t));
+    memset(&(amlge2d.ge2dinfo.src_info[1]), 0, sizeof(buffer_info_t));
+    memset(&(amlge2d.ge2dinfo.dst_info), 0, sizeof(buffer_info_t));
+    // the input format is NV21
+    amlge2d.ge2dinfo.src_info[0].format = PIXEL_FORMAT_YCbCr_420_SP_NV12;
+    amlge2d.ge2dinfo.src_info[1].format = PIXEL_FORMAT_YCbCr_420_SP_NV12;
+    amlge2d.ge2dinfo.dst_info.format = dst_fmt;
+    //configure the source canvas size
+    amlge2d.ge2dinfo.src_info[0].canvas_w = src_width;
+    amlge2d.ge2dinfo.src_info[0].canvas_h = src_height;
+    amlge2d.ge2dinfo.src_info[0].plane_number = 1;
+    amlge2d.ge2dinfo.src_info[0].shared_fd[0] = src_fd;
+
+    amlge2d.ge2dinfo.src_info[1].canvas_w = src_width;
+    amlge2d.ge2dinfo.src_info[1].canvas_h = src_height;
+    amlge2d.ge2dinfo.src_info[1].plane_number = 1;
+    amlge2d.ge2dinfo.src_info[1].shared_fd[0] = -1;
+    //configure the destination canvas size
+    amlge2d.ge2dinfo.dst_info.canvas_w = dst_w;
+    amlge2d.ge2dinfo.dst_info.canvas_h = dst_h;
+    amlge2d.ge2dinfo.dst_info.plane_number = 1;
+    amlge2d.ge2dinfo.dst_info.shared_fd[0] = dst_fd;
+
+    amlge2d.ge2dinfo.dst_info.rotation = GE2D_ROTATION_0;
+    amlge2d.ge2dinfo.offset = 0;
+    amlge2d.ge2dinfo.ge2d_op = AML_GE2D_STRETCHBLIT;
+    amlge2d.ge2dinfo.blend_mode = BLEND_MODE_PREMULTIPLIED;
+
+    amlge2d.ge2dinfo.src_info[0].memtype = GE2D_CANVAS_ALLOC;
+    amlge2d.ge2dinfo.src_info[1].memtype = GE2D_CANVAS_TYPE_INVALID;
+    amlge2d.ge2dinfo.dst_info.memtype = GE2D_CANVAS_ALLOC;
+    amlge2d.ge2dinfo.src_info[0].mem_alloc_type = AML_GE2D_MEM_ION;
+    amlge2d.ge2dinfo.src_info[1].mem_alloc_type = AML_GE2D_MEM_INVALID;
+    amlge2d.ge2dinfo.dst_info.mem_alloc_type = AML_GE2D_MEM_ION;
+
+
+    int ret = aml_ge2d_init(&amlge2d);
+    if (ret < 0) {
+        aml_ge2d_exit(&amlge2d);
+        ALOGE("%s: %s", __FUNCTION__,strerror(errno));
+        return ret;
+    }
+
+    amlge2d.ge2dinfo.src_info[0].rect.x = 0;
+    amlge2d.ge2dinfo.src_info[0].rect.y = 0;
+    amlge2d.ge2dinfo.src_info[0].rect.w = src_width;
+    amlge2d.ge2dinfo.src_info[0].rect.h = src_height;
+    amlge2d.ge2dinfo.src_info[0].shared_fd[0] = src_fd;
+    amlge2d.ge2dinfo.src_info[0].layer_mode = 0;
+    amlge2d.ge2dinfo.src_info[0].plane_number = 1;
+    amlge2d.ge2dinfo.src_info[0].plane_alpha = 0xff;
+
+
+    amlge2d.ge2dinfo.dst_info.rect.x = 0;
+    amlge2d.ge2dinfo.dst_info.rect.y = 0;
+    amlge2d.ge2dinfo.dst_info.rect.w = dst_w;
+    amlge2d.ge2dinfo.dst_info.rect.h = dst_h;
+    amlge2d.ge2dinfo.dst_info.rotation = GE2D_ROTATION_0;
+    amlge2d.ge2dinfo.dst_info.shared_fd[0] = dst_fd;
+    amlge2d.ge2dinfo.dst_info.plane_number = 1;
+    switch (dst_fmt) {
+        case PIXEL_FORMAT_YCbCr_420_SP_NV12:
+            amlge2d.ge2dinfo.dst_info.offset[0] = 0 * dst_w *dst_h * 3/2;
+            break;
+        case PIXEL_FORMAT_RGB_888:
+        case PIXEL_FORMAT_RGB_888 | DST_SIGN_MDOE:
+            amlge2d.ge2dinfo.dst_info.offset[0] = 0 * dst_w *dst_h * 3;
+            break;
+        default://nv12
+            amlge2d.ge2dinfo.dst_info.offset[0] = 0 * dst_w *dst_h * 3/2;
+            break;
+    }
+    ret = aml_ge2d_process(&amlge2d.ge2dinfo);
+    if (ret < 0) {
+        aml_ge2d_exit(&amlge2d);
+        ALOGE("%s: %s", __FUNCTION__,strerror(errno));
+        return ret;
+    }
+    aml_ge2d_exit(&amlge2d);
+
+    return 0;
+}
+
+//scale nv21 to other format
+int ge2dTransform::ge2d_keep_ration_scale(int dst_fd,int dst_fmt, size_t dst_w,
+                size_t dst_h,int src_fd, size_t src_w, size_t src_h) {
+
+    //ATRACE_CALL();
+    //ALOGD("%s: w=%d, h=%d, src %d %d", __FUNCTION__,dst_w,dst_h,src_w,src_h);
+    aml_ge2d_t amlge2d;
+    int src_rect_start_row = 0;
+    int src_rect_start_col = 0;
+    int src_rect_width     = src_w;
+    int src_rect_height    = src_h;
+
+    int src_width = src_w;
+    int src_height = src_h;
+    if (src_w * dst_h != src_h * dst_w) {
+        // int & out not the same ration.
+        if (dst_w * src_h < dst_h * src_w) {
+            // eg: src 16:9  dst 4:3.
+            src_rect_width     = src_h * dst_w / dst_h;
+            src_rect_start_col = (src_w - src_width) / 2;
+        } else {
+            src_rect_height    = src_w * dst_h / dst_w;
+            src_rect_start_row = (src_h - src_height) / 2;
+        }
+    }
+    memset(&amlge2d,0,sizeof(aml_ge2d_t));
+    memset(&(amlge2d.ge2dinfo.src_info[0]), 0, sizeof(buffer_info_t));
+    memset(&(amlge2d.ge2dinfo.src_info[1]), 0, sizeof(buffer_info_t));
+    memset(&(amlge2d.ge2dinfo.dst_info), 0, sizeof(buffer_info_t));
+    // the input format is NV21
+    amlge2d.ge2dinfo.src_info[0].format = PIXEL_FORMAT_YCbCr_420_SP_NV12;
+    amlge2d.ge2dinfo.src_info[1].format = PIXEL_FORMAT_YCbCr_420_SP_NV12;
+    amlge2d.ge2dinfo.dst_info.format = dst_fmt;
+    //configure the source canvas size
+    amlge2d.ge2dinfo.src_info[0].canvas_w = src_width;
+    amlge2d.ge2dinfo.src_info[0].canvas_h = src_height;
+    amlge2d.ge2dinfo.src_info[0].plane_number = 1;
+    amlge2d.ge2dinfo.src_info[0].shared_fd[0] = src_fd;
+
+    amlge2d.ge2dinfo.src_info[1].canvas_w = src_width;
+    amlge2d.ge2dinfo.src_info[1].canvas_h = src_height;
+    amlge2d.ge2dinfo.src_info[1].plane_number = 1;
+    amlge2d.ge2dinfo.src_info[1].shared_fd[0] = -1;
+    //configure the destination canvas size
+    amlge2d.ge2dinfo.dst_info.canvas_w = dst_w;
+    amlge2d.ge2dinfo.dst_info.canvas_h = dst_h;
+    amlge2d.ge2dinfo.dst_info.plane_number = 1;
+    amlge2d.ge2dinfo.dst_info.shared_fd[0] = dst_fd;
+
+    amlge2d.ge2dinfo.dst_info.rotation = GE2D_ROTATION_0;
+    amlge2d.ge2dinfo.offset = 0;
+    amlge2d.ge2dinfo.ge2d_op = AML_GE2D_STRETCHBLIT;
+    amlge2d.ge2dinfo.blend_mode = BLEND_MODE_PREMULTIPLIED;
+
+    amlge2d.ge2dinfo.src_info[0].memtype = GE2D_CANVAS_ALLOC;
+    amlge2d.ge2dinfo.src_info[1].memtype = GE2D_CANVAS_TYPE_INVALID;
+    amlge2d.ge2dinfo.dst_info.memtype = GE2D_CANVAS_ALLOC;
+    amlge2d.ge2dinfo.src_info[0].mem_alloc_type = AML_GE2D_MEM_ION;
+    amlge2d.ge2dinfo.src_info[1].mem_alloc_type = AML_GE2D_MEM_INVALID;
+    amlge2d.ge2dinfo.dst_info.mem_alloc_type = AML_GE2D_MEM_ION;
+
+
+    int ret = aml_ge2d_init(&amlge2d);
+    if (ret < 0) {
+        aml_ge2d_exit(&amlge2d);
+        ALOGE("%s: %s", __FUNCTION__,strerror(errno));
+        return ret;
+    }
+
+    amlge2d.ge2dinfo.src_info[0].rect.x = src_rect_start_col;
+    amlge2d.ge2dinfo.src_info[0].rect.y = src_rect_start_row;
+    amlge2d.ge2dinfo.src_info[0].rect.w = src_rect_width;
+    amlge2d.ge2dinfo.src_info[0].rect.h = src_rect_height;
+    amlge2d.ge2dinfo.src_info[0].shared_fd[0] = src_fd;
+    amlge2d.ge2dinfo.src_info[0].layer_mode = 0;
+    amlge2d.ge2dinfo.src_info[0].plane_number = 1;
+    amlge2d.ge2dinfo.src_info[0].plane_alpha = 0xff;
+
+
+    amlge2d.ge2dinfo.dst_info.rect.x = 0;
+    amlge2d.ge2dinfo.dst_info.rect.y = 0;
+    amlge2d.ge2dinfo.dst_info.rect.w = dst_w;
+    amlge2d.ge2dinfo.dst_info.rect.h = dst_h;
+    amlge2d.ge2dinfo.dst_info.rotation = GE2D_ROTATION_0;
+    amlge2d.ge2dinfo.dst_info.shared_fd[0] = dst_fd;
+    amlge2d.ge2dinfo.dst_info.plane_number = 1;
+    switch (dst_fmt) {
+        case PIXEL_FORMAT_YCbCr_420_SP_NV12:
+            amlge2d.ge2dinfo.dst_info.offset[0] = 0 * dst_w *dst_h * 3/2;
+            break;
+        case PIXEL_FORMAT_RGB_888:
+        case PIXEL_FORMAT_RGB_888 | DST_SIGN_MDOE:
+            amlge2d.ge2dinfo.dst_info.offset[0] = 0 * dst_w *dst_h * 3;
+            break;
+        default://nv12
+            amlge2d.ge2dinfo.dst_info.offset[0] = 0 * dst_w *dst_h * 3/2;
+            break;
+    }
+    ret = aml_ge2d_process(&amlge2d.ge2dinfo);
+    if (ret < 0) {
+        aml_ge2d_exit(&amlge2d);
+        ALOGE("%s: %s", __FUNCTION__,strerror(errno));
+        return ret;
+    }
+    aml_ge2d_exit(&amlge2d);
+
+    return 0;
+}
+
 /*function: make image rotation some degree using ge2d device
   dst_fd : the share fd of destination buffer.
   src_w  : the width of source image.

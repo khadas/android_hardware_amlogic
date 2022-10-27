@@ -267,14 +267,6 @@ private:
         ReadoutThread(EmulatedFakeCamera3 *parent);
         ~ReadoutThread();
 
-        struct Request {
-            uint32_t         frameNumber;
-            CameraMetadata   settings;
-            HalBufferVector *buffers;
-            Buffers         *sensorBuffers;
-            bool             havethumbnail;
-        };
-
         /**
          * Interface to parent class
          */

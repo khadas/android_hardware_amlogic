@@ -44,6 +44,7 @@ IONInterface::~IONInterface() {
 IONInterface* IONInterface::get_instance() {
     ALOGD("%s\n", __FUNCTION__);
     Mutex::Autolock lock(&IonLock);
+    mCount++;
     if (mIONInstance != nullptr)
         return mIONInstance;
 
@@ -60,7 +61,8 @@ IONInterface* IONInterface::get_instance() {
 void IONInterface::put_instance() {
     ALOGD("%s\n", __FUNCTION__);
     Mutex::Autolock lock(&IonLock);
-    if (mIONInstance != nullptr) {
+    mCount = mCount - 1;
+    if (!mCount && mIONInstance != nullptr) {
         ion_close(mIONDevice_fd);
         mIONDevice_fd = -1;
         ALOGD("%s delete ION Instance \n", __FUNCTION__);
@@ -84,7 +86,7 @@ int IONInterface::__alloc_buffer(int ion_fd, size_t size,
             if (ion_query_get_heaps(ion_fd, num_heaps, heaps) >= 0) {
                 for (int i = 0; i != num_heaps; ++i) {
                     ALOGD("heaps[%d].type=%d, heap_id=%d\n", i, heaps[i].type, heaps[i].heap_id);
-                    if ((1 << heaps[i].type) == alloc_hmask) {
+                    if ((1 << heaps[i].type) == alloc_hmask && 0 == strcmp(heaps[i].name, "ion-dev")) {
                         heap_mask = 1 << heaps[i].heap_id;
                         ALOGD("%d, m=%x, 1<<heap_id=%x, heap_mask=%x, name=%s, alloc_hmask=%x\n",
                                 heaps[i].type, 1<<heaps[i].type,

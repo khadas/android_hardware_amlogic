@@ -1241,31 +1241,9 @@ bool Sensor::threadLoop() {
     return true;
 };
 
-/*int Sensor::captureNewImageWithGe2d() {
-
-    //uint32_t gain = mGainFactor;
-    mKernelPhysAddr = 0;
-
-
-    while ((mKernelPhysAddr = get_frame_phys(vinfo)) == 0) {
-        usleep(5000);
-    }
-
-    // Might be adding more buffers, so size isn't constant
-    for (size_t i = 0; i < mNextCapturedBuffers->size(); i++) {
-        const StreamBuffer &b = (*mNextCapturedBuffers)[i];
-        fillStream(vinfo, mKernelPhysAddr, b);
-    }
-    putback_frame(vinfo);
-    mKernelPhysAddr = 0;
-
-    return 0;
-
-}*/
-
 int Sensor::captureNewImage() {
     ATRACE_CALL();
-    bool isjpeg = false;
+
     uint32_t gain = mGainFactor;
     mKernelBuffer = NULL;
     mTempFD = -1;
@@ -1283,9 +1261,6 @@ int Sensor::captureNewImage() {
                 captureRaw(b.img, gain, b.stride);
                 break;
 #endif
-            case HAL_PIXEL_FORMAT_RGB_888:
-                captureRGB(b.img, gain, b.stride);
-                break;
             case HAL_PIXEL_FORMAT_RGBA_8888:
                 captureRGBA(b.img, gain, b.stride);
                 break;
@@ -1309,9 +1284,6 @@ int Sensor::captureNewImage() {
                     } else {
                         pixelfmt = HAL_PIXEL_FORMAT_YCrCb_420_SP;
                     }
-                } else {
-                    isjpeg = true;
-                    pixelfmt = HAL_PIXEL_FORMAT_RGB_888;
                 }
 
                 bAux.streamId = 0;
@@ -1340,12 +1312,6 @@ int Sensor::captureNewImage() {
                 break;
         }
     }
-    if ((!isjpeg)&&(mKernelBuffer)) { //jpeg buffer that is rgb888 has been  save in the different buffer struct;
-        // whose buffer putback separately.
-        putback_frame(vinfo);
-    }
-    mKernelBuffer = NULL;
-
     return 0;
 }
 
@@ -1949,161 +1915,11 @@ void Sensor::captureRGBA(uint8_t *img, uint32_t gain, uint32_t stride) {
     ALOGVV("RGBA sensor image captured");
 }
 
+// preview with RGB
 void Sensor::captureRGB(uint8_t *img, uint32_t gain, uint32_t stride) {
-#if 0
-    float totalGain = gain/100.0 * kBaseGainFactor;
-    // In fixed-point math, calculate total scaling from electrons to 8bpp
-    int scale64x = 64 * totalGain * 255 / kMaxRawValue;
-    uint32_t inc = kResolution[0] / stride;
-
-    for (unsigned int y = 0, outY = 0; y < kResolution[1]; y += inc, outY++ ) {
-        mScene.setReadoutPixel(0, y);
-        uint8_t *px = img + outY * stride * 3;
-        for (unsigned int x = 0; x < kResolution[0]; x += inc) {
-            uint32_t rCount, gCount, bCount;
-            // TODO: Perfect demosaicing is a cheat
-            const uint32_t *pixel = mScene.getPixelElectrons();
-            rCount = pixel[Scene::R]  * scale64x;
-            gCount = pixel[Scene::Gr] * scale64x;
-            bCount = pixel[Scene::B]  * scale64x;
-
-            *px++ = rCount < 255*64 ? rCount / 64 : 255;
-            *px++ = gCount < 255*64 ? gCount / 64 : 255;
-            *px++ = bCount < 255*64 ? bCount / 64 : 255;
-            for (unsigned int j = 1; j < inc; j++)
-                mScene.getPixelElectrons();
-        }
-        // TODO: Handle this better
-        //simulatedTime += kRowReadoutTime;
-    }
-#else
-    uint8_t *src = NULL;
-    int ret = 0, rotate = 0;
-    uint32_t width = 0, height = 0;
-    int dqTryNum = 3;
-
-    rotate = getPictureRotate();
-    width = vinfo->picture.format.fmt.pix.width;
-    height = vinfo->picture.format.fmt.pix.height;
-
-    if (mSensorType == SENSOR_USB) {
-        releasebuf_and_stop_capturing(vinfo);
-    } else {
-        stop_capturing(vinfo);
-    }
-
-    ret = start_picture(vinfo,rotate);
-    if (ret < 0)
-    {
-        ALOGD("start picture failed!");
-        return;
-    }
-    while(1)
-    {
-        if (mFlushFlag) {
-            break;
-        }
-
-        if (mExitSensorThread) {
-            break;
-        }
-
-        src = (uint8_t *)get_picture(vinfo);
-        if (get_device_status(vinfo)) {
-            break;
-        }
-        if (NULL == src) {
-            usleep(10000);
-            continue;
-        }
-        if ((NULL != src) && ((vinfo->picture.format.fmt.pix.pixelformat == V4L2_PIX_FMT_YUYV) ||
-            (vinfo->picture.format.fmt.pix.pixelformat == V4L2_PIX_FMT_RGB24))) {
-
-            while (dqTryNum > 0) {
-                if (NULL != src) {
-                    putback_picture_frame(vinfo);
-                }
-                usleep(10000);
-                dqTryNum --;
-                src = (uint8_t *)get_picture(vinfo);
-                while (src == NULL) {
-                    usleep(10000);
-                    src = (uint8_t *)get_picture(vinfo);
-                }
-            }
-        }
-
-        if (NULL != src) {
-            mSensorWorkFlag = true;
-            if (vinfo->picture.format.fmt.pix.pixelformat == V4L2_PIX_FMT_MJPEG) {
-                uint8_t *tmp_buffer = new uint8_t[width * height * 3 / 2];
-                if ( tmp_buffer == NULL) {
-                    ALOGE("new buffer failed!\n");
-                    return;
-                }
-#if ANDROID_PLATFORM_SDK_VERSION > 23
-                if (ConvertToI420(src, vinfo->picture.buf.bytesused, tmp_buffer, width, uBuffer, (width + 1) / 2,
-                                      vBuffer, (width + 1) / 2, 0, 0, width, height,
-                                      width, height, libyuv::kRotate0, libyuv::FOURCC_MJPG) != 0) {
-                    DBG_LOGA("Decode MJPEG frame failed\n");
-                    putback_picture_frame(vinfo);
-                    usleep(5000);
-                } else {
-                    uint8_t *pUVBuffer = tmp_buffer + width * height;
-                    for (int i = 0; i < (int)(width * height / 4); i++) {
-                        *pUVBuffer++ = *(vBuffer + i);
-                        *pUVBuffer++ = *(uBuffer + i);
-                    }
-                    nv21_to_rgb24(tmp_buffer,img,width,height);
-                    if (tmp_buffer != NULL)
-                        delete [] tmp_buffer;
-                    break;
-                }
-#else
-                if (ConvertMjpegToNV21(src, vinfo->picture.buf.bytesused, tmp_buffer,
-                    width, tmp_buffer + width * height, (width + 1) / 2, width,
-                    height, width, height, libyuv::FOURCC_MJPG) != 0) {
-                    DBG_LOGA("Decode MJPEG frame failed\n");
-                    putback_picture_frame(vinfo);
-                    usleep(5000);
-                } else {
-                    nv21_to_rgb24(tmp_buffer,img,width,height);
-                    if (tmp_buffer != NULL)
-                        delete [] tmp_buffer;
-                    break;
-                }
-#endif
-            } else if (vinfo->picture.format.fmt.pix.pixelformat == V4L2_PIX_FMT_YUYV) {
-                if (vinfo->picture.buf.length == vinfo->picture.buf.bytesused) {
-                    yuyv422_to_rgb24(src,img,width,height);
-                    break;
-                } else {
-                    putback_picture_frame(vinfo);
-                    usleep(5000);
-                }
-            } else if (vinfo->picture.format.fmt.pix.pixelformat == V4L2_PIX_FMT_RGB24) {
-                if (vinfo->picture.buf.length == width * height * 3) {
-                    memcpy(img, src, vinfo->picture.buf.length);
-                } else {
-                    rgb24_memcpy(img, src, width, height);
-                }
-                break;
-            } else if (vinfo->picture.format.fmt.pix.pixelformat == V4L2_PIX_FMT_NV21) {
-                memcpy(img, src, vinfo->picture.buf.length);
-                break;
-            }
-        }
-    }
-    ALOGD("get picture success !");
-
-    if (mSensorType == SENSOR_USB) {
-        releasebuf_and_stop_picture(vinfo);
-    } else {
-        stop_picture(vinfo);
-    }
-
-#endif
+    ALOGE("preview with rgb, not supported yet!");
 }
+
 
 void Sensor::YUYVToNV21(uint8_t *src, uint8_t *dst, int width, int height)
 {
@@ -2173,59 +1989,6 @@ status_t Sensor::force_reset_sensor() {
 }
 
 void Sensor::captureNV21(StreamBuffer b, uint32_t gain) {
-#if 0
-    float totalGain = gain/100.0 * kBaseGainFactor;
-    // Using fixed-point math with 6 bits of fractional precision.
-    // In fixed-point math, calculate total scaling from electrons to 8bpp
-    const int scale64x = 64 * totalGain * 255 / kMaxRawValue;
-    // In fixed-point math, saturation point of sensor after gain
-    const int saturationPoint = 64 * 255;
-    // Fixed-point coefficients for RGB-YUV transform
-    // Based on JFIF RGB->YUV transform.
-    // Cb/Cr offset scaled by 64x twice since they're applied post-multiply
-    const int rgbToY[]  = {19, 37, 7};
-    const int rgbToCb[] = {-10,-21, 32, 524288};
-    const int rgbToCr[] = {32,-26, -5, 524288};
-    // Scale back to 8bpp non-fixed-point
-    const int scaleOut = 64;
-    const int scaleOutSq = scaleOut * scaleOut; // after multiplies
-
-    uint32_t inc = kResolution[0] / stride;
-    uint32_t outH = kResolution[1] / inc;
-    for (unsigned int y = 0, outY = 0;
-         y < kResolution[1]; y+=inc, outY++) {
-        uint8_t *pxY = img + outY * stride;
-        uint8_t *pxVU = img + (outH + outY / 2) * stride;
-        mScene.setReadoutPixel(0,y);
-        for (unsigned int outX = 0; outX < stride; outX++) {
-            int32_t rCount, gCount, bCount;
-            // TODO: Perfect demosaicing is a cheat
-            const uint32_t *pixel = mScene.getPixelElectrons();
-            rCount = pixel[Scene::R]  * scale64x;
-            rCount = rCount < saturationPoint ? rCount : saturationPoint;
-            gCount = pixel[Scene::Gr] * scale64x;
-            gCount = gCount < saturationPoint ? gCount : saturationPoint;
-            bCount = pixel[Scene::B]  * scale64x;
-            bCount = bCount < saturationPoint ? bCount : saturationPoint;
-
-            *pxY++ = (rgbToY[0] * rCount +
-                    rgbToY[1] * gCount +
-                    rgbToY[2] * bCount) / scaleOutSq;
-            if (outY % 2 == 0 && outX % 2 == 0) {
-                *pxVU++ = (rgbToCr[0] * rCount +
-                        rgbToCr[1] * gCount +
-                        rgbToCr[2] * bCount +
-                        rgbToCr[3]) / scaleOutSq;
-                *pxVU++ = (rgbToCb[0] * rCount +
-                        rgbToCb[1] * gCount +
-                        rgbToCb[2] * bCount +
-                        rgbToCb[3]) / scaleOutSq;
-            }
-            for (unsigned int j = 1; j < inc; j++)
-                mScene.getPixelElectrons();
-        }
-    }
-#else
     ATRACE_CALL();
     uint8_t *src;
 
@@ -2396,65 +2159,11 @@ void Sensor::captureNV21(StreamBuffer b, uint32_t gain) {
         }*/
         break;
     }
-#endif
-
+    putback_frame(vinfo);
     ALOGVV("NV21 sensor image captured");
 }
 
 void Sensor::captureYV12(StreamBuffer b, uint32_t gain) {
-#if 0
-    float totalGain = gain/100.0 * kBaseGainFactor;
-    // Using fixed-point math with 6 bits of fractional precision.
-    // In fixed-point math, calculate total scaling from electrons to 8bpp
-    const int scale64x = 64 * totalGain * 255 / kMaxRawValue;
-    // In fixed-point math, saturation point of sensor after gain
-    const int saturationPoint = 64 * 255;
-    // Fixed-point coefficients for RGB-YUV transform
-    // Based on JFIF RGB->YUV transform.
-    // Cb/Cr offset scaled by 64x twice since they're applied post-multiply
-    const int rgbToY[]  = {19, 37, 7};
-    const int rgbToCb[] = {-10,-21, 32, 524288};
-    const int rgbToCr[] = {32,-26, -5, 524288};
-    // Scale back to 8bpp non-fixed-point
-    const int scaleOut = 64;
-    const int scaleOutSq = scaleOut * scaleOut; // after multiplies
-
-    uint32_t inc = kResolution[0] / stride;
-    uint32_t outH = kResolution[1] / inc;
-    for (unsigned int y = 0, outY = 0;
-         y < kResolution[1]; y+=inc, outY++) {
-        uint8_t *pxY = img + outY * stride;
-        uint8_t *pxVU = img + (outH + outY / 2) * stride;
-        mScene.setReadoutPixel(0,y);
-        for (unsigned int outX = 0; outX < stride; outX++) {
-            int32_t rCount, gCount, bCount;
-            // TODO: Perfect demosaicing is a cheat
-            const uint32_t *pixel = mScene.getPixelElectrons();
-            rCount = pixel[Scene::R]  * scale64x;
-            rCount = rCount < saturationPoint ? rCount : saturationPoint;
-            gCount = pixel[Scene::Gr] * scale64x;
-            gCount = gCount < saturationPoint ? gCount : saturationPoint;
-            bCount = pixel[Scene::B]  * scale64x;
-            bCount = bCount < saturationPoint ? bCount : saturationPoint;
-
-            *pxY++ = (rgbToY[0] * rCount +
-                    rgbToY[1] * gCount +
-                    rgbToY[2] * bCount) / scaleOutSq;
-            if (outY % 2 == 0 && outX % 2 == 0) {
-                *pxVU++ = (rgbToCr[0] * rCount +
-                        rgbToCr[1] * gCount +
-                        rgbToCr[2] * bCount +
-                        rgbToCr[3]) / scaleOutSq;
-                *pxVU++ = (rgbToCb[0] * rCount +
-                        rgbToCb[1] * gCount +
-                        rgbToCb[2] * bCount +
-                        rgbToCb[3]) / scaleOutSq;
-            }
-            for (unsigned int j = 1; j < inc; j++)
-                mScene.getPixelElectrons();
-        }
-    }
-#else
     uint8_t *src;
     if (mKernelBuffer) {
         src = mKernelBuffer;
@@ -2534,6 +2243,7 @@ void Sensor::captureYV12(StreamBuffer b, uint32_t gain) {
         return ;
     }
     while(1){
+
         if (mFlushFlag) {
             break;
         }
@@ -2593,65 +2303,13 @@ void Sensor::captureYV12(StreamBuffer b, uint32_t gain) {
         mSensorWorkFlag = true;
         break;
     }
-#endif
+    putback_frame(vinfo);
     //mKernelBuffer = src;
     ALOGVV("YV12 sensor image captured");
 }
 
 void Sensor::captureYUYV(uint8_t *img, uint32_t gain, uint32_t stride) {
-#if 0
-    float totalGain = gain/100.0 * kBaseGainFactor;
-    // Using fixed-point math with 6 bits of fractional precision.
-    // In fixed-point math, calculate total scaling from electrons to 8bpp
-    const int scale64x = 64 * totalGain * 255 / kMaxRawValue;
-    // In fixed-point math, saturation point of sensor after gain
-    const int saturationPoint = 64 * 255;
-    // Fixed-point coefficients for RGB-YUV transform
-    // Based on JFIF RGB->YUV transform.
-    // Cb/Cr offset scaled by 64x twice since they're applied post-multiply
-    const int rgbToY[]  = {19, 37, 7};
-    const int rgbToCb[] = {-10,-21, 32, 524288};
-    const int rgbToCr[] = {32,-26, -5, 524288};
-    // Scale back to 8bpp non-fixed-point
-    const int scaleOut = 64;
-    const int scaleOutSq = scaleOut * scaleOut; // after multiplies
 
-    uint32_t inc = kResolution[0] / stride;
-    uint32_t outH = kResolution[1] / inc;
-    for (unsigned int y = 0, outY = 0;
-         y < kResolution[1]; y+=inc, outY++) {
-        uint8_t *pxY = img + outY * stride;
-        uint8_t *pxVU = img + (outH + outY / 2) * stride;
-        mScene.setReadoutPixel(0,y);
-        for (unsigned int outX = 0; outX < stride; outX++) {
-            int32_t rCount, gCount, bCount;
-            // TODO: Perfect demosaicing is a cheat
-            const uint32_t *pixel = mScene.getPixelElectrons();
-            rCount = pixel[Scene::R]  * scale64x;
-            rCount = rCount < saturationPoint ? rCount : saturationPoint;
-            gCount = pixel[Scene::Gr] * scale64x;
-            gCount = gCount < saturationPoint ? gCount : saturationPoint;
-            bCount = pixel[Scene::B]  * scale64x;
-            bCount = bCount < saturationPoint ? bCount : saturationPoint;
-
-            *pxY++ = (rgbToY[0] * rCount +
-                    rgbToY[1] * gCount +
-                    rgbToY[2] * bCount) / scaleOutSq;
-            if (outY % 2 == 0 && outX % 2 == 0) {
-                *pxVU++ = (rgbToCr[0] * rCount +
-                        rgbToCr[1] * gCount +
-                        rgbToCr[2] * bCount +
-                        rgbToCr[3]) / scaleOutSq;
-                *pxVU++ = (rgbToCb[0] * rCount +
-                        rgbToCb[1] * gCount +
-                        rgbToCb[2] * bCount +
-                        rgbToCb[3]) / scaleOutSq;
-            }
-            for (unsigned int j = 1; j < inc; j++)
-                mScene.getPixelElectrons();
-        }
-    }
-#else
     uint8_t *src;
     if (mKernelBuffer) {
         src = mKernelBuffer;
@@ -2704,7 +2362,7 @@ void Sensor::captureYUYV(uint8_t *img, uint32_t gain, uint32_t stride) {
         mSensorWorkFlag = true;
         break;
     }
-#endif
+    putback_frame(vinfo);
     //mKernelBuffer = src;
     ALOGVV("YUYV sensor image captured");
 }
