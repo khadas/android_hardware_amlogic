@@ -113,6 +113,20 @@ int v4l2_subdev_set_format(struct media_entity *entity,
     return 0;
 }
 
+int v4l2_subdev_set_wdr(struct media_entity *entity, uint32_t wdr_mode)
+{
+    int ret;
+    struct v4l2_ext_control ext_control;
+    ext_control.id = V4L2_CID_AML_MODE;
+    ext_control.value = wdr_mode;
+
+    ret = v4l2_subdev_set_ctrls(entity, &ext_control, 1);
+    if (ret < 0)
+        return -errno;
+
+    return 0;
+}
+
 int v4l2_subdev_get_selection(struct media_entity *entity,
     struct v4l2_rect *rect, unsigned int pad, unsigned int target,
     enum v4l2_subdev_format_whence which)

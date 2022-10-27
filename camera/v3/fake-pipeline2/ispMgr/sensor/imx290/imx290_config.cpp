@@ -34,7 +34,7 @@
 
 typedef struct
 {
-    int  enWDRMode;
+    int  enWDRMode = 0;
     ALG_SENSOR_DEFAULT_S snsAlgInfo;
     struct media_entity  * sensor_ent;
 } ISP_SNS_STATE_S;
@@ -58,22 +58,26 @@ int cmos_get_ae_default_imx290(int ViPipe, ALG_SENSOR_DEFAULT_S *pstAeSnsDft)
     sensor.snsAlgInfo.active.width = 1920;
     sensor.snsAlgInfo.active.height = 1080;
     sensor.snsAlgInfo.fps = 30;
-    sensor.snsAlgInfo.sensor_exp_number = 1;
-    sensor.snsAlgInfo.bits = 12;
 
     sensor.snsAlgInfo.sensor_gain_number = 1;
-    sensor.snsAlgInfo.total.width = 4400;
-    sensor.snsAlgInfo.total.height = 1125;
 
     sensor.snsAlgInfo.lines_per_second = sensor.snsAlgInfo.total.height*30;
     sensor.snsAlgInfo.pixels_per_line = sensor.snsAlgInfo.total.width;
 
     if (sensor.enWDRMode == 1) {
+        sensor.snsAlgInfo.sensor_exp_number = 2;
+        sensor.snsAlgInfo.bits = 10;
+        sensor.snsAlgInfo.total.width = 2028;
+        sensor.snsAlgInfo.total.height = 1220;
         sensor.snsAlgInfo.integration_time_min = 1<<SHUTTER_TIME_SHIFT;
         sensor.snsAlgInfo.integration_time_max = (225 - 3) << SHUTTER_TIME_SHIFT;
         sensor.snsAlgInfo.integration_time_long_max = (sensor.snsAlgInfo.total.height*2 - (225 + 3)) << SHUTTER_TIME_SHIFT;
         sensor.snsAlgInfo.integration_time_limit = (225 - 3)<<SHUTTER_TIME_SHIFT;
     } else {
+        sensor.snsAlgInfo.sensor_exp_number = 1;
+        sensor.snsAlgInfo.bits = 12;
+        sensor.snsAlgInfo.total.width = 4400;
+        sensor.snsAlgInfo.total.height = 1125;
         sensor.snsAlgInfo.integration_time_min = 1<<SHUTTER_TIME_SHIFT;
         sensor.snsAlgInfo.integration_time_max = sensor.snsAlgInfo.total.height<<SHUTTER_TIME_SHIFT;
         sensor.snsAlgInfo.integration_time_long_max = sensor.snsAlgInfo.total.height<<SHUTTER_TIME_SHIFT;
@@ -92,13 +96,18 @@ int cmos_get_ae_default_imx290(int ViPipe, ALG_SENSOR_DEFAULT_S *pstAeSnsDft)
     sensor.snsAlgInfo.again_high_accuracy = (1<<(LOG2_GAIN_SHIFT))/20;
     sensor.snsAlgInfo.again_accuracy_fmt = 1;
     sensor.snsAlgInfo.again_accuracy = (1<<(LOG2_GAIN_SHIFT))/20;
+    sensor.snsAlgInfo.expos_lines = (0x2A2<<(SHUTTER_TIME_SHIFT));
     sensor.snsAlgInfo.expos_accuracy = (1<<(SHUTTER_TIME_SHIFT));
+    sensor.snsAlgInfo.sexpos_lines = (1<<(SHUTTER_TIME_SHIFT));
     sensor.snsAlgInfo.sexpos_accuracy = (1<<(SHUTTER_TIME_SHIFT));
+    sensor.snsAlgInfo.vsexpos_lines = (1<<(SHUTTER_TIME_SHIFT));
     sensor.snsAlgInfo.vsexpos_accuracy = (1<<(SHUTTER_TIME_SHIFT));
+    sensor.snsAlgInfo.vvsexpos_lines = (1<<(SHUTTER_TIME_SHIFT));
     sensor.snsAlgInfo.vvsexpos_accuracy = (1<<(SHUTTER_TIME_SHIFT));
 
     sensor.snsAlgInfo.gain_apply_delay = 0;
     sensor.snsAlgInfo.integration_time_apply_delay = 0;
+    ALOGD("cmos_get_ae_default++++++\n");
 
     memcpy(pstAeSnsDft, &sensor.snsAlgInfo, sizeof(ALG_SENSOR_DEFAULT_S));
 
@@ -168,7 +177,7 @@ void cmos_fps_set_imx290(int ViPipe, float f32Fps, ALG_SENSOR_DEFAULT_S *pstAeSn
 
 void cmos_alg_update_imx290(int ViPipe)
 {
-    uint32_t shutter_time_lines = 0;//, shutter_time_lines_short = 0;
+    uint32_t shutter_time_lines = 0, shutter_time_lines_short = 0;
     uint32_t i = 0;
 
     if ( sensor.snsAlgInfo.u16GainCnt || sensor.snsAlgInfo.u16IntTimeCnt ) {
@@ -192,12 +201,16 @@ void cmos_alg_update_imx290(int ViPipe)
             }
 
             if (sensor.enWDRMode) {
-                //shutter_time_lines_short = sensor.snsAlgInfo.u32Inttime[1][sensor.snsAlgInfo.integration_time_apply_delay];
+                shutter_time_lines_short = sensor.snsAlgInfo.u32Inttime[1][sensor.snsAlgInfo.integration_time_apply_delay];
                 //imx290_write_register(ViPipe, 0x3020, shutter_time_lines_short & 0xff);
                 //imx290_write_register(ViPipe, 0x3021, (shutter_time_lines_short>>8) & 0xff);
                 //imx290_write_register(ViPipe, 0x3024, shutter_time_lines&0xff);
                 //imx290_write_register(ViPipe, 0x3025, (shutter_time_lines>>8) & 0xff);
-                //ALOGD("sensor expo: %d, %d\n", shutter_time_lines, shutter_time_lines_short);
+                //ALOGD("cmos expo: %d, %d, %x\n", shutter_time_lines, shutter_time_lines_short, (shutter_time_lines << 16) | shutter_time_lines_short);
+                struct v4l2_ext_control expo;
+                expo.id = V4L2_CID_EXPOSURE;
+                expo.value = (shutter_time_lines << 16) | shutter_time_lines_short;
+                v4l2_subdev_set_ctrls(sensor.sensor_ent, &expo, 1);
             }
         }
     }

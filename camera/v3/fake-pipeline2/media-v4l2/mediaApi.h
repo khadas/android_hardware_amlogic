@@ -83,6 +83,7 @@ int setDataFormat(media_stream_t *camera, stream_configuration_t *cfg);
 
 int setConfigFormat(media_stream_t *camera, stream_configuration_t *cfg);
 
+int media_set_wdrMode(media_stream_t *camera, uint32_t wdr_mode);
 
 int mediaStreamConfig(media_stream_t * stream, stream_configuration_t *cfg);
 
