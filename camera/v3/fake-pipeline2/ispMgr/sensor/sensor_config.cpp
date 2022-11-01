@@ -46,8 +46,9 @@ struct sensorConfig imx290Cfg = {
     .sensorWidth      = 1920,
     .sensorHeight     = 1080,
     .sensorName       = "imx290",
+    .wdrFormat        = MEDIA_BUS_FMT_SRGGB10_1X10,
+    .sdrFormat        = MEDIA_BUS_FMT_SRGGB12_1X12,
 };
-
 struct sensorConfig imx415Cfg = {
     .expFunc.pfn_cmos_fps_set = cmos_fps_set_imx415,
     .expFunc.pfn_cmos_get_alg_default = cmos_get_ae_default_imx415,
@@ -60,6 +61,8 @@ struct sensorConfig imx415Cfg = {
     .sensorWidth      = 3840,
     .sensorHeight     = 2160,
     .sensorName       = "imx415",
+    .wdrFormat        = MEDIA_BUS_FMT_SRGGB10_1X10,
+    .sdrFormat        = MEDIA_BUS_FMT_SRGGB12_1X12,
 };
 
 struct sensorConfig ov5640Cfg = {
@@ -67,7 +70,6 @@ struct sensorConfig ov5640Cfg = {
     .sensorHeight     = 1080,
     .sensorName       = "ov5640",
 };
-
 
 struct sensorConfig *supportedCfgs[] = {
     &imx290Cfg,
@@ -105,9 +107,9 @@ void cmos_sensor_control_cb(struct sensorConfig *cfg, ALG_SENSOR_EXP_FUNC_S *stS
     stSnsExp->pfn_cmos_fps_set = cfg->expFunc.pfn_cmos_fps_set;
 }
 
-void cmos_set_sensor_entity(struct sensorConfig *cfg, struct media_entity *sensor_ent)
+void cmos_set_sensor_entity(struct sensorConfig *cfg, struct media_entity *sensor_ent, int wdr)
 {
-    (cfg->cmos_set_sensor_entity)(sensor_ent);
+    (cfg->cmos_set_sensor_entity)(sensor_ent, wdr);
 }
 
 void cmos_get_sensor_calibration(struct sensorConfig *cfg, aisp_calib_info_t *calib)

@@ -26,4 +26,13 @@ int staticPipe::fetchPipeMaxResolution(media_stream_t *stream, uint32_t& width, 
     ALOGE("do not find matched sensor configs");
     return -1;
 }
+
+int staticPipe::fetchSensorFormat(media_stream_t *stream, int hdrEnable) {
+    auto cfg = matchSensorConfig(stream);
+    if (cfg) {
+        return hdrEnable ? cfg->wdrFormat : cfg->sdrFormat;
+    }
+    ALOGE("do not find matched");
+    return -1;
+}
 }

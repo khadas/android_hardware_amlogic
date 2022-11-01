@@ -72,6 +72,7 @@ namespace android {
             MIPIVideoInfo *mVinfo;
             uint8_t* mImage_buffer;
 
+            int enableHdr;
             ICapture* mCapture;
 
             uint32_t mMaxWidth;

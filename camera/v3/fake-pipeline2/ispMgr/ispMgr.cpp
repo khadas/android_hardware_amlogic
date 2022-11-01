@@ -78,7 +78,7 @@ IspMgr::~IspMgr() {
     ALOGD("%s", __FUNCTION__);
 }
 
-status_t IspMgr::configure(struct media_stream *stream) {
+status_t IspMgr::configure(struct media_stream *stream, int wdr) {
     ALOGD("%s +", __FUNCTION__);
     int rc;
     Mutex::Autolock _l(mLock);
@@ -137,7 +137,7 @@ status_t IspMgr::configure(struct media_stream *stream) {
         ALOGE("Failed to matchSensorConfig");
         return -1;
     }
-    cmos_set_sensor_entity(mSensorConfig, mMediaStream->sensor_ent);
+    cmos_set_sensor_entity(mSensorConfig, mMediaStream->sensor_ent, wdr);
     cmos_sensor_control_cb(mSensorConfig, &mPstAlgCtx.stSnsExp);
     cmos_get_sensor_calibration(mSensorConfig, &mCalibInfo);
     return rc;
