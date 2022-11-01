@@ -17,6 +17,7 @@
 
 #define LOG_TAG "android.hardware.keymaster@4.1-impl.amlogic"
 
+#include <android/hardware/keymaster/3.0/IKeymasterDevice.h>
 #include <authorization_set.h>
 #include <log/log.h>
 #include <keymaster/android_keymaster_messages.h>
@@ -46,6 +47,9 @@ using ::keymaster::UpdateOperationRequest;
 using ::keymaster::UpdateOperationResponse;
 using ::keymaster::ng::Tag;
 //using ::keymaster::ng::hidlKeyParams2Km;
+
+typedef ::android::hardware::keymaster::V3_0::Tag Tag3;
+using ::android::hardware::keymaster::V4_0::Constants;
 
 namespace keymaster {
 namespace V4_1 {
@@ -82,6 +86,45 @@ inline ErrorCode legacy_enum_conversion(const keymaster_error_t value) {
 
 inline keymaster_tag_type_t typeFromTag(const keymaster_tag_t tag) {
     return keymaster_tag_get_type(tag);
+}
+
+/*
+ * injectAuthToken translates a KM4 authToken into a legacy AUTH_TOKEN tag
+ *
+ * Currently, system/keymaster's reference implementation only accepts this
+ * method for passing an auth token, so until that changes we need to
+ * translate to the old format.
+ */
+inline hidl_vec<KeyParameter> injectAuthToken(const hidl_vec<KeyParameter>& keyParamsBase,
+                                              const HardwareAuthToken& authToken) {
+    std::vector<KeyParameter> keyParams(keyParamsBase);
+    const size_t mac_len = static_cast<size_t>(Constants::AUTH_TOKEN_MAC_LENGTH);
+    /*
+     * mac.size() == 0 indicates no token provided, so we should not copy.
+     * mac.size() != mac_len means it is incompatible with the old
+     *   hw_auth_token_t structure. This is forbidden by spec, but to be safe
+     *   we only copy if mac.size() == mac_len, e.g. there is an authToken
+     *   with a hw_auth_token_t compatible MAC.
+     */
+    if (authToken.mac.size() == mac_len) {
+        KeyParameter p;
+        p.tag = static_cast<Tag>(Tag3::AUTH_TOKEN);
+        p.blob.resize(sizeof(hw_auth_token_t));
+
+        hw_auth_token_t* auth_token = reinterpret_cast<hw_auth_token_t*>(p.blob.data());
+        auth_token->version = 0;
+        auth_token->challenge = authToken.challenge;
+        auth_token->user_id = authToken.userId;
+        auth_token->authenticator_id = authToken.authenticatorId;
+        auth_token->authenticator_type =
+                htobe32(static_cast<uint32_t>(authToken.authenticatorType));
+        auth_token->timestamp = htobe64(authToken.timestamp);
+        static_assert(mac_len == sizeof(auth_token->hmac));
+        memcpy(auth_token->hmac, authToken.mac.data(), mac_len);
+        keyParams.push_back(p);
+    }
+
+    return hidl_vec<KeyParameter>(std::move(keyParams));
 }
 
 class KmParamSet : public keymaster_key_param_set_t {
@@ -523,11 +566,11 @@ Return<ErrorCode> AmlogicKeymaster41Device::destroyAttestationIds() {
 Return<void> AmlogicKeymaster41Device::begin(KeyPurpose purpose, const hidl_vec<uint8_t>& key,
                                            const hidl_vec<KeyParameter>& inParams,
                                            const HardwareAuthToken& authToken, begin_cb _hidl_cb) {
-    (void)authToken;
+    hidl_vec<KeyParameter> extendedParams = injectAuthToken(inParams, authToken);
     BeginOperationRequest request(impl_->message_version());
     request.purpose = legacy_enum_conversion(purpose);
     request.SetKeyMaterial(key.data(), key.size());
-    request.additional_params.Reinitialize(KmParamSet(inParams));
+    request.additional_params.Reinitialize(KmParamSet(extendedParams));
 
     BeginOperationResponse response(impl_->message_version());
     impl_->BeginOperation(request, &response);
@@ -547,16 +590,16 @@ Return<void> AmlogicKeymaster41Device::update(uint64_t operationHandle,
                                             const HardwareAuthToken& authToken,
                                             const VerificationToken& verificationToken,
                                             update_cb _hidl_cb) {
-    (void)authToken;
     (void)verificationToken;
     UpdateOperationRequest request(impl_->message_version());
     UpdateOperationResponse response(impl_->message_version());
     hidl_vec<KeyParameter> resultParams;
     hidl_vec<uint8_t> resultBlob;
+    hidl_vec<KeyParameter> extendedParams = injectAuthToken(inParams, authToken);
     uint32_t resultConsumed = 0;
 
     request.op_handle = operationHandle;
-    request.additional_params.Reinitialize(KmParamSet(inParams));
+    request.additional_params.Reinitialize(KmParamSet(extendedParams));
 
     size_t inp_size = input.size();
     size_t ser_size = request.SerializedSize();
@@ -588,13 +631,14 @@ Return<void> AmlogicKeymaster41Device::finish(uint64_t operationHandle,
                                             const HardwareAuthToken& authToken,
                                             const VerificationToken& verificationToken,
                                             finish_cb _hidl_cb) {
-    (void)authToken;
     (void)verificationToken;
     FinishOperationRequest request(impl_->message_version());
+    FinishOperationRequest request;
+    hidl_vec<KeyParameter> extendedParams = injectAuthToken(inParams, authToken);
     request.op_handle = operationHandle;
     request.input.Reinitialize(input.data(), input.size());
     request.signature.Reinitialize(signature.data(), signature.size());
-    request.additional_params.Reinitialize(KmParamSet(inParams));
+    request.additional_params.Reinitialize(KmParamSet(extendedParams));
 
     FinishOperationResponse response(impl_->message_version());
     impl_->FinishOperation(request, &response);
