@@ -314,7 +314,12 @@ void *get_frame(struct VideoInfo *vinfo)
                         default:
                                 CAMHAL_LOGDB("VIDIOC_DQBUF failed, errno=%d\n", errno); //CAMHAL_LOGDB
                                 //exit(1); /*here will generate crash, so delete.  when ocour error, should break while() loop*/
-                                set_device_status(vinfo);
+                                if (errno == ENODEV) {
+                                    set_device_status(vinfo);
+                                    stop_capturing(vinfo);
+                                    close(vinfo->fd);
+                                    vinfo->fd = -1;
+                                }
                                 return NULL;
                 }
         }
