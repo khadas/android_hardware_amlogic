@@ -201,7 +201,7 @@ uint32_t USBSensor::getStreamUsage(int stream_type){
         usage = GRALLOC_USAGE_HW_VIDEO_ENCODER | GRALLOC_USAGE_AML_DMA_BUFFER;
 #endif
 #endif
-    usage = GRALLOC1_PRODUCER_USAGE_CAMERA;
+    usage = GRALLOC1_PRODUCER_USAGE_CAMERA | usage;
     ALOGV("%s: usage=0x%x", __FUNCTION__,usage);
     return usage;
 }
