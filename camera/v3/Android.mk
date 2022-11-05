@@ -124,6 +124,7 @@ LOCAL_C_INCLUDES += external/jpeg \
                     external/libyuv/files/include/ \
                     $(TOP)/system/core/include \
                     $(TOP)/system/core/libion/include \
+                    $(TOP)/system/core/libcutils/include \
                     $(TOP)/system/core/libion/kernel-headers \
                     $(TOP)/$(MESON_GRALLOC_DIR) \
                     $(LOCAL_PATH)/inc \

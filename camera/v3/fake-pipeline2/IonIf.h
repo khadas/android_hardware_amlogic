@@ -9,30 +9,28 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <utils/threads.h>
+#include <cutils/native_handle.h>
 
 namespace android {
 struct IONBufferNode {
     int share_fd;
-    int ion_handle;
+    buffer_handle_t buffer_handle;
     uint8_t* vaddr;
-    size_t size;
-    size_t IsUsed;
+    size_t   size;
+    size_t   IsUsed;
 };
 //#define MAX_BUFFER_NUM (12)
 #define MAX_BUFFER_NUM (25)
 
 class IONInterface {
 private:
-    static int mIONDevice_fd;
     IONBufferNode mPicBuffers[MAX_BUFFER_NUM];
     static IONInterface* mIONInstance;
-    static Mutex IonLock;
+    static Mutex mLock;
     static int mCount;
 private:
     IONInterface();
     ~IONInterface();
-    int __alloc_buffer(int ion_fd, size_t size,
-            int* pShareFd, unsigned int flag, unsigned int alloc_hmask);
 public:
     static IONInterface* get_instance();
     static void put_instance();
