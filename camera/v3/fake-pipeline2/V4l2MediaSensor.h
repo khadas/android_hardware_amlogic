@@ -32,6 +32,7 @@ namespace android {
             //when take picture we may change image format
             void takePicture(StreamBuffer& b, uint32_t gain, uint32_t stride);
             void captureRGB(uint8_t *img, uint32_t gain, uint32_t stride) override;
+            void mediaCaptureRGBA(StreamBuffer b, uint32_t gain, uint32_t stride);
             void captureNV21(StreamBuffer b, uint32_t gain) override;
             void captureYV12(StreamBuffer b, uint32_t gain) override;
             void captureYUYV(uint8_t *img, uint32_t gain, uint32_t stride) override;

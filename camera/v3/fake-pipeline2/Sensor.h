@@ -430,7 +430,7 @@ class Sensor: public Thread, public virtual RefBase {
     Scene mScene;
     virtual int captureNewImage();
     void captureRaw(uint8_t *img, uint32_t gain, uint32_t stride);
-    void captureRGBA(uint8_t *img, uint32_t gain, uint32_t stride);
+    virtual void captureRGBA(uint8_t *img, uint32_t gain, uint32_t stride);
     virtual void captureRGB(uint8_t *img, uint32_t gain, uint32_t stride);
     virtual void captureNV21(StreamBuffer b, uint32_t gain);
     virtual void captureYV12(StreamBuffer b, uint32_t gain);

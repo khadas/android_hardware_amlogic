@@ -414,6 +414,33 @@ void V4l2MediaSensor::captureRGB(uint8_t *img, uint32_t gain, uint32_t stride) {
     ALOGE("capture RGB not supported");
 }
 
+void V4l2MediaSensor::mediaCaptureRGBA(StreamBuffer b, uint32_t gain, uint32_t stride){
+    struct data_in in;
+    in.src = mKernelBuffer;
+    in.src_fmt = mKernelBufferFmt;
+    in.share_fd = mTempFD;
+     while (1) {
+        if (mExitSensorThread) {
+            break;
+        }
+        //----get one frame
+        int ret = mCapture->captureRGBAframe(b,&in);
+        if (ret == ERROR_FRAME) {
+           break;
+        }
+
+        mSensorWorkFlag = true;
+        if (ret == NEW_FRAME) {
+            mVinfo->putback_frame();
+            //ALOGW("putback frame");
+        }
+        if (mFlushFlag) {
+            break;
+        }
+        break;
+     }
+}
+
 void V4l2MediaSensor::takePicture(StreamBuffer& b, uint32_t gain, uint32_t stride) {
     int ret = 0;
     bool stop = false;
@@ -669,6 +696,15 @@ int V4l2MediaSensor::getStreamConfigurations(uint32_t picSizes[], const int32_t 
         picSizes[count++] = kUsbAvailablePictureSize[i].height;
         picSizes[count++] = ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT;
     }
+    for (uint32_t i = 0; i < length; i++) {
+        if (kUsbAvailablePictureSize[i].width > frmsizeMax.discrete.width ||
+            kUsbAvailablePictureSize[i].height > frmsizeMax.discrete.height)
+            continue;
+        picSizes[count++] = HAL_PIXEL_FORMAT_RGBA_8888;
+        picSizes[count++] = kUsbAvailablePictureSize[i].width;
+        picSizes[count++] = kUsbAvailablePictureSize[i].height;
+        picSizes[count++] = ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT;
+    }
     return (int)count;
 }
 
@@ -720,6 +756,16 @@ int V4l2MediaSensor::getStreamConfigurationDurations(uint32_t picSizes[], int64_
                 kUsbAvailablePictureSize[i].height > frmsizeMax.discrete.height)
                 continue;
             duration[count+0] = HAL_PIXEL_FORMAT_BLOB;
+            duration[count+1] = kUsbAvailablePictureSize[i].width;
+            duration[count+2] = kUsbAvailablePictureSize[i].height;
+            duration[count+3] = (int64_t)FRAME_DURATION;
+            count += 4;
+    }
+    for (uint32_t i = 0; i < ARRAY_SIZE(kUsbAvailablePictureSize); i++) {
+            if (kUsbAvailablePictureSize[i].width > frmsizeMax.discrete.width ||
+                kUsbAvailablePictureSize[i].height > frmsizeMax.discrete.height)
+                continue;
+            duration[count+0] = HAL_PIXEL_FORMAT_RGBA_8888;
             duration[count+1] = kUsbAvailablePictureSize[i].width;
             duration[count+2] = kUsbAvailablePictureSize[i].height;
             duration[count+3] = (int64_t)FRAME_DURATION;
@@ -863,6 +909,9 @@ int V4l2MediaSensor::captureNewImage() {
                 break;
             case HAL_PIXEL_FORMAT_YCbCr_422_I:
                 captureYUYV(b.img, gain, b.stride);
+                break;
+            case HAL_PIXEL_FORMAT_RGBA_8888:
+                mediaCaptureRGBA(b, gain, b.stride);
                 break;
             default:
                 ALOGE("%s: Unknown format %x, no output", __FUNCTION__,

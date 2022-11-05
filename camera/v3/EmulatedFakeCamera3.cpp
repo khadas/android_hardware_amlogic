@@ -63,7 +63,7 @@ const int64_t MSEC = USEC * 1000LL;
 const int32_t EmulatedFakeCamera3::kAvailableFormats[] = {
         //HAL_PIXEL_FORMAT_RAW_SENSOR,
         HAL_PIXEL_FORMAT_BLOB,
-        //HAL_PIXEL_FORMAT_RGBA_8888,
+        HAL_PIXEL_FORMAT_RGBA_8888,
         HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED,
         // These are handled by YCbCr_420_888
         HAL_PIXEL_FORMAT_YV12,

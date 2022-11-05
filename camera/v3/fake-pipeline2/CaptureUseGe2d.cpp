@@ -351,4 +351,42 @@ int CaptureUseGe2d::captureYV12frame(StreamBuffer b, struct data_in* in) {
             }
             return 0;
 }
+
+int CaptureUseGe2d::captureRGBAframe(StreamBuffer b, struct data_in* in){
+    uint32_t width = mInfo->get_preview_width();
+    uint32_t height = mInfo->get_preview_height();
+    uint32_t format = mInfo->get_preview_pixelformat();
+    uint8_t *src = nullptr;
+    int dmabuf_fd = -1;
+
+    src = in->src;
+    if (src && in->src_fmt > 0) {
+        switch (in->src_fmt) {
+            case V4L2_PIX_FMT_NV21:
+                break;
+                default:
+                    ALOGE("Unable known sensor format: %d", mInfo->get_preview_pixelformat());
+                    break;
+        }
+        return NO_NEW_FRAME;
+    }
+    struct VideoInfoBuffer vb;
+    int ret = mInfo->get_frame_buffer(&vb);
+    if (-1 == ret) {
+        ALOGV("get frame NULL, sleep 5ms");
+        usleep(5000);
+        return -1;
+    }
+    dmabuf_fd = vb.dma_fd;
+    switch (format) {
+        case V4L2_PIX_FMT_NV21:
+            mGE2D->ge2d_fmt_convert(b.share_fd, PIXEL_FORMAT_RGBA_8888, b.stride, b.height,
+                                                  dmabuf_fd,  PIXEL_FORMAT_YCrCb_420_SP, width, height);
+            break;
+        default:
+            ALOGE("error: only support NV21 -> RGBA");
+            break;
+    }
+    return NEW_FRAME;
+}
 }

@@ -29,6 +29,7 @@ namespace android {
             virtual int captureYUYVframe(uint8_t *img, struct data_in* in)=0;
             virtual int captureNV21frame(StreamBuffer b, struct data_in* in)=0;
             virtual int captureYV12frame(StreamBuffer b, struct data_in* in)=0;
+            virtual int captureRGBAframe(StreamBuffer b, struct data_in* in) = 0;
     };
 }
 #endif
