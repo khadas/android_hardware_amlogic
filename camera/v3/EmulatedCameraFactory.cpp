@@ -99,9 +99,11 @@ EmulatedCameraFactory::EmulatedCameraFactory()
         for (int i = 0; i < mEmulatedCameraNum; ++i) {
             cameraIdVector.push_back(i);
         }
+        if (mEmulatedCameraNum) {
         mHotplugThread = new EmulatedCameraHotplugThread(&cameraIdVector[0],
                                                          mEmulatedCameraNum);
         mHotplugThread->run("");
+            }
     }
 
     mConstructedOK = true;
