@@ -206,6 +206,7 @@ LOCAL_SRC_FILES += \
     fake-pipeline2/ispMgr/sensor/imx290/imx290_config.cpp \
     fake-pipeline2/ispMgr/sensor/imx415/imx415_config.cpp \
     fake-pipeline2/ispMgr/sensor/ov13b10/ov13b10_config.cpp \
+	fake-pipeline2/ispMgr/sensor/ov08a10/ov08a10_config.cpp \
 
 ifeq ($(GE2D_ENABLE),true)
 LOCAL_SRC_FILES += fake-pipeline2/ge2d_stream.cpp \

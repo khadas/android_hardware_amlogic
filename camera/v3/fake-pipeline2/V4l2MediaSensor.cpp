@@ -560,7 +560,7 @@ status_t V4l2MediaSensor::setOutputFormat(int width, int height, int pixelformat
             mStreamconfig.format.width  = mMaxWidth;
             mStreamconfig.format.height = mMaxHeight;
             mStreamconfig.format.fourcc = pixelformat;
-            mStreamconfig.format.code   = MEDIA_BUS_FMT_SRGGB12_1X12;
+            mStreamconfig.format.code   = MEDIA_BUS_FMT_SBGGR10_1X10;
         } else {
             mStreamconfig.format.width  = width;
             mStreamconfig.format.height = height;
