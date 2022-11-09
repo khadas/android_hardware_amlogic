@@ -35,6 +35,13 @@
 using namespace android;
 
 #define HDMI_MAX_SUPPORT_NUM 4
+#define VPP_SOURCE_TYPE "/sys/class/video/tvin_source_type"
+
+typedef enum tvin_surface_type_e {
+    TVIN_SOURCE_TYPE_OTHERS = 0,
+    TVIN_SOURCE_TYPE_DECODER = 1,  /**DTV**/
+    TVIN_SOURCE_TYPE_VDIN = 2,   /**ATV HDMIIN CVBS**/
+} tvin_surface_type_t;
 
 typedef enum tv_source_input_e {
     SOURCE_INVALID = -1,
@@ -101,6 +108,8 @@ public:
     int getHdmiPort(tv_source_input_t source_input);
     bool isMultiDemux();
     virtual void notify(const tv_parcel_t &parcel);
+    int writeSurfaceTypetoVpp(tvin_surface_type_t type);
+    void setStreamTunnelId(int id);
 
 private:
     pthread_mutex_t mMutex;
@@ -108,11 +117,13 @@ private:
     int mDeviceGivenId;
     bool mSourceStatus;
     bool mIsTv;
+    int mTunnelId;
     std::queue<tv_source_input_t> start_queue;
     std::queue<tv_source_input_t> stop_queue;
     std::queue<tv_source_input_t> hold_queue;
     tv_source_input_t mSourceInput;
     sp<TvServerHidlClient> mTvSession;
+    int writeSys(const char *path, const char *val);
 #ifdef SUPPORT_DTVKIT
     sp<DTVKitHidlClient> mDkSession;
 #endif

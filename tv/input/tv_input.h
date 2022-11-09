@@ -67,7 +67,7 @@ enum {
     STREAM_ID_FRAME_CAPTURE = 4,
 };
 
-void channelControl(tv_input_private_t *priv, bool opsStart, int device_id);
+void channelControl(tv_input_private_t *priv, bool opsStart, int device_id, int stream_id);
 int notifyDeviceStatus(tv_input_private_t *priv, tv_source_input_t inputSrc, int type);
 void initTvDevices(tv_input_private_t *priv);
 

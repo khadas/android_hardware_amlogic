@@ -29,8 +29,6 @@
 #include <hardware/hardware.h>
 #include <linux/videodev2.h>
 #include <android/native_window.h>
-#include <video_tunnel.h>
-#include <videotunnel.h>
 
 #include <cutils/properties.h>
 
@@ -42,8 +40,8 @@ static int capWidth;
 static int capHeight;
 static int supportDevices[20];
 static int count = 0;
-static int mtunnelid  = -1;
 
+native_handle_t *pFixedTvStream = nullptr;
 native_handle_t *pTvStream = nullptr;
 native_handle_t *pMainTvStream = nullptr;
 native_handle_t *pPipTvStream = nullptr;
@@ -88,7 +86,7 @@ static int channelCheckStatus(tv_input_private_t *priv, int check_status, int de
     return ret;
 }
 
-void channelControl(tv_input_private_t *priv, bool opsStart, int device_id) {
+void channelControl(tv_input_private_t *priv, bool opsStart, int device_id, int stream_id) {
     if (priv->mpTv) {
         ALOGI ("%s, device id:%d, %s.\n", __FUNCTION__, device_id, opsStart ? "startTV": "stopTV");
 
@@ -104,6 +102,7 @@ void channelControl(tv_input_private_t *priv, bool opsStart, int device_id) {
                     SOURCE_DTVKIT_PIP == (tv_source_input_t) device_id) {
                     priv->mpTv->switchSourceInput((tv_source_input_t) device_id);
                     priv->mpTv->setDeviceGivenId(device_id);
+                    priv->mpTv->setStreamGivenId(stream_id);
                     priv->mpTv->setSourceStatus(true);
 
                     return;
@@ -115,6 +114,7 @@ void channelControl(tv_input_private_t *priv, bool opsStart, int device_id) {
             priv->mpTv->startTv((tv_source_input_t) device_id);
             priv->mpTv->switchSourceInput((tv_source_input_t) device_id);
             priv->mpTv->setDeviceGivenId(device_id);
+            priv->mpTv->setStreamGivenId(stream_id);
         } else if (priv->mpTv->getCurrentSourceInput() == device_id) {
             tv_source_input_t wait_source = priv->mpTv->checkWaitSource(true);
 
@@ -123,23 +123,25 @@ void channelControl(tv_input_private_t *priv, bool opsStart, int device_id) {
                 (SOURCE_DTVKIT == (tv_source_input_t) device_id ||
                 SOURCE_DTVKIT_PIP == (tv_source_input_t) device_id)) {
                 priv->mpTv->setDeviceGivenId(-1);
+                priv->mpTv->setStreamGivenId(-1);
                 priv->mpTv->setSourceStatus(false);
 
                 return;
             }
 
-            char buf[PROPERTY_VALUE_MAX];
+            char buf[PROPERTY_VALUE_MAX] = { 0 };
             int ret = property_get("tv.need.tvview.fast_switch", buf, NULL);
             if (ret <= 0 || strcmp(buf, "true") != 0) {
                 priv->mpTv->stopTv((tv_source_input_t) device_id);
                 priv->mpTv->setDeviceGivenId(-1);
+                priv->mpTv->setStreamGivenId(-1);
             }
 
             if (wait_source != SOURCE_INVALID) {
                 priv->mpTv->startTv(wait_source);
                 priv->mpTv->switchSourceInput(wait_source);
                 priv->mpTv->setDeviceGivenId(wait_source);
-                priv->mpTv->setStreamGivenId(STREAM_ID_NORMAL);
+                priv->mpTv->setStreamGivenId(stream_id);
             }
         }
     }
@@ -285,83 +287,97 @@ static int getUnavailableStreamConfigs(int dev_id __unused, int *num_configurati
 
 static int getTvStream(tv_input_private_t *priv, tv_stream_t *stream, int input_id)
 {
-    ALOGD("getTvStream: stream_id = %d, input_id = [%d]", stream->stream_id,input_id);
-    ALOGD("getTvStream: pTvStream nullptr [%d], isisMultiDemux[%d]", pTvStream == nullptr?1:0,priv->mpTv->isMultiDemux());
-    if (stream->stream_id == STREAM_ID_NORMAL) {
-        if (pTvStream == nullptr) {
-            if ((SOURCE_DTVKIT == input_id) || (SOURCE_ADTV == input_id)) {
-                if (priv->mpTv->isMultiDemux()) {
-                    pTvStream = am_gralloc_create_sideband_handle(AM_FIXED_TUNNEL, 1);
-                    mtunnelid = 1;
-                } else {
-                    pTvStream = am_gralloc_create_sideband_handle(AM_TV_SIDEBAND, 1);
-                }
-            } else {
-                if (priv->mpTv->isMultiDemux()) {
-                    pTvStream = am_gralloc_create_sideband_handle(AM_FIXED_TUNNEL, 0);
-                    mtunnelid = 0;
-                    }
-                else
-                    pTvStream = am_gralloc_create_sideband_handle(AM_TV_SIDEBAND, 1);
-            }
-            if (pTvStream == nullptr) {
-                ALOGE("tvstream can not be initialized");
-                return -EINVAL;
-            }
-        }
-        stream->type = TV_STREAM_TYPE_INDEPENDENT_VIDEO_SOURCE;
-        stream->sideband_stream_source_handle = pTvStream;
-    } else if (stream->stream_id == STREAM_ID_MAIN) {
-        //add such for pip function
-        if (pMainTvStream == nullptr) {
-            ALOGD("getTvStream stream_id=%d tunnelId=%d", stream->stream_id, 1);
-            if (priv->mpTv->isMultiDemux()) {
-                pMainTvStream = am_gralloc_create_sideband_handle(AM_FIXED_TUNNEL, 0);
-                mtunnelid = 0;
-            } else {
-                pMainTvStream = am_gralloc_create_sideband_handle(AM_TV_SIDEBAND, 1);
-            }
-            if (pMainTvStream == nullptr) {
-                ALOGE("tvstream can not be initialized");
-                return -EINVAL;
-            }
-        }
-        stream->type = TV_STREAM_TYPE_INDEPENDENT_VIDEO_SOURCE;
-        stream->sideband_stream_source_handle = pMainTvStream;
-    } else if (stream->stream_id == STREAM_ID_PIP) {
-        //add such for pip function
-        if (pPipTvStream == nullptr) {
-            ALOGD("getTvStream stream_id=%d tunnelId=%d", stream->stream_id, 2);
-            pPipTvStream = am_gralloc_create_sideband_handle(AM_FIXED_TUNNEL, 2);
-            mtunnelid = 2;
-            if (pPipTvStream == nullptr) {
-                ALOGE("pip tvstream can not be initialized");
-                return -EINVAL;
-            }
-        }
-        stream->type = TV_STREAM_TYPE_INDEPENDENT_VIDEO_SOURCE;
-        stream->sideband_stream_source_handle = pPipTvStream;
-    } else if (stream->stream_id == STREAM_ID_FRAME_CAPTURE) {
-        stream->type = TV_STREAM_TYPE_BUFFER_PRODUCER;
+    int fixed_tunnel = -1;
+    char value[PROPERTY_VALUE_MAX] = { 0 };
+    int tunnelId = -1;
+
+    if (property_get("vendor.tv.fixed_tunnel", value, NULL) > 0) {
+        fixed_tunnel = atoi(value);
     }
-    int mDevFd = meson_vt_open();
-    if (mDevFd < 0) {
-        ALOGE("getTvStream: open meson_vt error!");
-    } else {
-        ALOGD("getTvStream: mtunnelid = [%d]",mtunnelid);
-        if (-1 != mtunnelid) {
-            int tmp = meson_vt_connect(mDevFd, mtunnelid, VT_ROLE_PRODUCER);
-            ALOGD("getTvStream: connect status: [%d]!",tmp);
-            int req = meson_vt_send_cmd(mDevFd, mtunnelid, VT_CMD_SET_SHOW_SOLID_COLOR, 1);
-            tmp = meson_vt_disconnect(mDevFd, mtunnelid, VT_ROLE_PRODUCER);
-            ALOGD("getTvStream: disconnect status: [%d]!",tmp);
-            if (0 != req) {
-                ALOGE("getTvStream: send cmd error, error value [%d]!",req);
-               }
-        } else {
-            ALOGI("getTvStream: no need send cmd !");
+    ALOGD("fixed_tunnel =%d", fixed_tunnel);
+    ALOGD("getTvStream stream_id = %d", stream->stream_id);
+    if (!fixed_tunnel) {
+        if (pFixedTvStream == nullptr) {
+            pFixedTvStream = am_gralloc_create_sideband_handle(AM_TV_SIDEBAND, 1);
         }
-        meson_vt_close(mDevFd);
+        if (pFixedTvStream == nullptr) {
+            ALOGE("tvstream can not be initialized");
+            return -EINVAL;
+        }
+        stream->type = TV_STREAM_TYPE_INDEPENDENT_VIDEO_SOURCE;
+        stream->sideband_stream_source_handle = pFixedTvStream;
+    } else {
+        if (stream->stream_id == STREAM_ID_NORMAL) {
+            if (pTvStream == nullptr) {
+                if ((SOURCE_DTVKIT == input_id) || (SOURCE_ADTV == input_id)) {
+                    if (priv->mpTv->isMultiDemux()) {
+                        pTvStream = am_gralloc_create_sideband_handle(AM_FIXED_TUNNEL, 1);
+                        tunnelId = 1;
+                    } else {
+                        pTvStream = am_gralloc_create_sideband_handle(AM_TV_SIDEBAND, 1);
+                    }
+                } else {
+                    if (priv->mpTv->isMultiDemux()) {
+                        pTvStream = am_gralloc_create_sideband_handle(AM_FIXED_TUNNEL, 0);
+                        tunnelId = 0;
+                    }
+                    else
+                        pTvStream = am_gralloc_create_sideband_handle(AM_TV_SIDEBAND, 1);
+                }
+                if (pTvStream == nullptr) {
+                    ALOGE("tvstream can not be initialized");
+                    return -EINVAL;
+                }
+            } else if (priv->mpTv->isMultiDemux()) {
+                if ((SOURCE_DTVKIT == input_id) || (SOURCE_ADTV == input_id)) {
+                    tunnelId = 1;
+                } else {
+                    tunnelId = 0;
+                }
+                ALOGD("STREAM_ID_NORMAL set tunnel id = %d", tunnelId);
+            }
+            stream->type = TV_STREAM_TYPE_INDEPENDENT_VIDEO_SOURCE;
+            stream->sideband_stream_source_handle = pTvStream;
+        } else if (stream->stream_id == STREAM_ID_MAIN) {
+            //add such for pip function
+            if (pMainTvStream == nullptr) {
+                ALOGD("getTvStream stream_id=%d tunnelId=%d", stream->stream_id, 1);
+                if (priv->mpTv->isMultiDemux() || fixed_tunnel == 1) {
+                    pMainTvStream = am_gralloc_create_sideband_handle(AM_FIXED_TUNNEL, 0);
+                    tunnelId = 0;
+                } else {
+                    pMainTvStream = am_gralloc_create_sideband_handle(AM_TV_SIDEBAND, 1);
+                }
+                if (pMainTvStream == nullptr) {
+                    ALOGE("tvstream can not be initialized");
+                    return -EINVAL;
+                }
+            } else if (priv->mpTv->isMultiDemux() || fixed_tunnel == 1) {
+                tunnelId = 0;
+                ALOGD("STREAM_ID_MAIN set tunnel id = %d", tunnelId);
+            }
+            stream->type = TV_STREAM_TYPE_INDEPENDENT_VIDEO_SOURCE;
+            stream->sideband_stream_source_handle = pMainTvStream;
+        } else if (stream->stream_id == STREAM_ID_PIP) {
+            //add such for pip function
+            if (pPipTvStream == nullptr) {
+                ALOGD("getTvStream stream_id=%d tunnelId=%d", stream->stream_id, 2);
+                pPipTvStream = am_gralloc_create_sideband_handle(AM_FIXED_TUNNEL, 2);
+                tunnelId = 2;
+            if (pPipTvStream == nullptr) {
+                    ALOGE("pip tvstream can not be initialized");
+                    return -EINVAL;
+                }
+            }
+            stream->type = TV_STREAM_TYPE_INDEPENDENT_VIDEO_SOURCE;
+            stream->sideband_stream_source_handle = pPipTvStream;
+        } else if (stream->stream_id == STREAM_ID_FRAME_CAPTURE) {
+            stream->type = TV_STREAM_TYPE_BUFFER_PRODUCER;
+        }
+    }
+    ALOGD("new stream tunnel id: %d",tunnelId);
+    if (tunnelId != -1) {
+        priv->mpTv->setStreamTunnelId(tunnelId);
     }
     return 0;
 }
@@ -461,37 +477,43 @@ static int tv_input_open_stream(struct tv_input_device *dev, int device_id,
         return -EEXIST;
     }
 
-    if (priv) {
-        if (getTvStream(priv, stream, device_id) != 0) {
-            return -EINVAL;
-        }
-        if (stream->stream_id == STREAM_ID_NORMAL || stream->stream_id == STREAM_ID_MAIN || stream->stream_id == STREAM_ID_PIP) {
-            if (!channelCheckStatus(priv, 0, device_id))
-                channelControl(priv, true, device_id);
-        }
-        else if (stream->stream_id == STREAM_ID_FRAME_CAPTURE) {
-            aml_screen_module_t* screenModule;
-            if (hw_get_module(AML_SCREEN_HARDWARE_MODULE_ID, (const hw_module_t **)&screenModule) < 0) {
-                ALOGE("can not get screen source module");
-            } else {
-                screenModule->common.methods->open((const hw_module_t *)screenModule,
-                    AML_SCREEN_SOURCE, (struct hw_device_t**)&(priv->mDev));
-                //do test here, we can use ops of mDev to operate vdin source
-            }
-
-            if (priv->mDev) {
-                if (capWidth == 0 || capHeight == 0) {
-                    capWidth = stream->buffer_producer.width;
-                    capHeight = stream->buffer_producer.height;
-                }
-                priv->mDev->ops.set_format(priv->mDev, capWidth, capHeight, V4L2_PIX_FMT_NV21);
-                priv->mDev->ops.set_port_type(priv->mDev, (int)0x4000); //TVIN_PORT_HDMI0 = 0x4000
-                priv->mDev->ops.start_v4l2_device(priv->mDev);
-            }
-        }
-        return 0;
+    if (getTvStream(priv, stream, device_id) != 0) {
+        return -EINVAL;
     }
-    return -EINVAL;
+
+    if (SOURCE_TV <= device_id && device_id < SOURCE_ADTV) {
+        priv->mpTv->writeSurfaceTypetoVpp(TVIN_SOURCE_TYPE_VDIN);
+    } else if (device_id == SOURCE_DTVKIT) {
+        priv->mpTv->writeSurfaceTypetoVpp(TVIN_SOURCE_TYPE_DECODER);
+    } else {
+        priv->mpTv->writeSurfaceTypetoVpp(TVIN_SOURCE_TYPE_OTHERS);
+    }
+
+    if (stream->stream_id == STREAM_ID_NORMAL || stream->stream_id == STREAM_ID_MAIN || stream->stream_id == STREAM_ID_PIP) {
+        if (!channelCheckStatus(priv, 0, device_id))
+            channelControl(priv, true, device_id, stream->stream_id);
+    } else if (stream->stream_id == STREAM_ID_FRAME_CAPTURE) {
+        aml_screen_module_t* screenModule;
+        if (hw_get_module(AML_SCREEN_HARDWARE_MODULE_ID, (const hw_module_t **)&screenModule) < 0) {
+            ALOGE("can not get screen source module");
+        } else {
+            screenModule->common.methods->open((const hw_module_t *)screenModule,
+                AML_SCREEN_SOURCE, (struct hw_device_t**)&(priv->mDev));
+            //do test here, we can use ops of mDev to operate vdin source
+        }
+
+        if (priv->mDev) {
+            if (capWidth == 0 || capHeight == 0) {
+                capWidth = stream->buffer_producer.width;
+                capHeight = stream->buffer_producer.height;
+            }
+            priv->mDev->ops.set_format(priv->mDev, capWidth, capHeight, V4L2_PIX_FMT_NV21);
+            priv->mDev->ops.set_port_type(priv->mDev, (int)0x4000); //TVIN_PORT_HDMI0 = 0x4000
+            priv->mDev->ops.start_v4l2_device(priv->mDev);
+        }
+    }
+
+    return 0;
 }
 
 static int tv_input_close_stream(struct tv_input_device *dev, int device_id,
@@ -515,9 +537,11 @@ static int tv_input_close_stream(struct tv_input_device *dev, int device_id,
         return -ENOENT;
     }
 
+    priv->mpTv->writeSurfaceTypetoVpp(TVIN_SOURCE_TYPE_OTHERS);
+
     if (stream_id == STREAM_ID_NORMAL || stream_id == STREAM_ID_MAIN || stream_id == STREAM_ID_PIP) {
         if (!channelCheckStatus(priv, 1, device_id))
-            channelControl(priv, false, device_id);
+            channelControl(priv, false, device_id, stream_id);
         return 0;
     } else if (stream_id == STREAM_ID_FRAME_CAPTURE) {
         if (priv->mDev) {
@@ -535,7 +559,7 @@ static int tv_input_request_capture(
     tv_input_private_t *priv = (tv_input_private_t *)dev;
     unsigned char *dest = NULL;
     if (priv->mDev) {
-        aml_screen_buffer_info_t buffInfo;
+        aml_screen_buffer_info_t buffInfo = { NULL, 0 ,0 ,0 };
         int ret = priv->mDev->ops.aquire_buffer(priv->mDev, &buffInfo);
         if (ret != 0 || (buffInfo.buffer_mem == nullptr)) {
             ALOGE("Get V4l2 buffer failed");
@@ -600,6 +624,9 @@ static int tv_input_device_close(struct hw_device_t *dev)
             priv->eventCallback = nullptr;
         }
         free(priv);
+        if (pFixedTvStream) {
+            native_handle_delete((native_handle_t*)pFixedTvStream);
+        }
         if (pTvStream) {
             native_handle_delete((native_handle_t*)pTvStream);
         }
@@ -609,7 +636,6 @@ static int tv_input_device_close(struct hw_device_t *dev)
         if (pPipTvStream) {
             native_handle_delete((native_handle_t*)pPipTvStream);
         }
-        mtunnelid = -1;
     }
 
     ALOGD("%s", __FUNCTION__);
@@ -623,6 +649,9 @@ static int tv_input_device_open(const struct hw_module_t *module,
     int status = -EINVAL;
     if (!strcmp(name, TV_INPUT_DEFAULT_DEVICE)) {
         tv_input_private_t *dev = (tv_input_private_t *)malloc(sizeof(*dev));
+        if (!dev)
+            return status;
+
         /* initialize our state here */
         memset(dev, 0, sizeof(*dev));
         dev->mpTv = new TvInputIntf();

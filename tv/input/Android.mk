@@ -27,8 +27,7 @@ LOCAL_SHARED_LIBRARIES := \
     liblog \
     libhardware \
     libamgralloc_ext \
-	libvideotunnel
-
+    libvideotunnel
 LOCAL_REQUIRED_MODULES := libtvbinder
 
 LOCAL_CFLAGS += -DPLATFORM_SDK_VERSION=$(PLATFORM_SDK_VERSION)
@@ -48,8 +47,8 @@ LOCAL_C_INCLUDES += \
     system/memory/libion/kernel-headers \
     hardware/amlogic/gralloc \
     hardware/amlogic/screen_source \
-	hardware/amlogic/hwcomposer/videotunnel/include \
-	hardware/amlogic/hwcomposer/videotunnel/kernel-headers/linux \
+    hardware/amlogic/hwcomposer/videotunnel/include \
+    hardware/amlogic/hwcomposer/videotunnel/kernel-headers/linux \
     hardware/amlogic/audio/libTVaudio \
     frameworks/native/libs/nativewindow/include \
     system/libfmq/include \

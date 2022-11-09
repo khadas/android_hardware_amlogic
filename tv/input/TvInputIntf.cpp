@@ -31,6 +31,8 @@
 #include <json/json.h>
 #endif
 
+#define TV_INPUT_VERSION "V2.00"
+
 using namespace android;
 
 TvInputIntf::TvInputIntf() : mpObserver(nullptr) {
@@ -49,6 +51,8 @@ TvInputIntf::TvInputIntf() : mpObserver(nullptr) {
         mIsTv = true;
     else
         mIsTv = false;
+
+    ALOGI("create TvInputIntf: mIsTv = %d, %s.", mIsTv, TV_INPUT_VERSION);
 
     init();
 }
@@ -71,10 +75,16 @@ void TvInputIntf::init()
     if (mSourceStatus && mSourceInput != SOURCE_INVALID)
         stopTv(mSourceInput);
 
+    if (checkHoldSource() != SOURCE_INVALID)
+        stopTv(mSourceInput);
+
+    pthread_mutex_lock(&mMutex);
+
     mStreamGivenId = -1;
     mDeviceGivenId = -1;
     mSourceStatus = false;
     mSourceInput = SOURCE_INVALID;
+    mTunnelId = -1;
 
     while (!start_queue.empty())
         start_queue.pop();
@@ -84,6 +94,8 @@ void TvInputIntf::init()
 
     while (!hold_queue.empty())
         hold_queue.pop();
+
+    pthread_mutex_unlock(&mMutex);
 }
 
 int TvInputIntf::setTvObserver ( TvPlayObserver *ob )
@@ -111,7 +123,7 @@ int TvInputIntf::startTv(tv_source_input_t source_input)
 #ifdef SUPPORT_DTVKIT
     Json::Value json;
     json[0] = "";
-    Json::StreamWriterBuilder factory;
+    Json::FastWriter writer;
 #endif
 
     pthread_mutex_lock(&mMutex);
@@ -123,11 +135,15 @@ int TvInputIntf::startTv(tv_source_input_t source_input)
     if (SOURCE_DTVKIT == source_input || SOURCE_DTVKIT_PIP == source_input) {
 #ifdef SUPPORT_DTVKIT
         mDkSession->request(std::string("Dvb.requestDtvDevice"),
-                Json::writeString(factory, json));
+                writer.write(json));
 #endif
         ret = 0;
-    } else
+    } else {
+        //mTvSession->setTunnelId(mTunnelId);
         ret = mTvSession->startTv();
+
+    }
+
 
     pthread_mutex_unlock(&mMutex);
 
@@ -140,7 +156,7 @@ int TvInputIntf::stopTv(tv_source_input_t source_input)
 #ifdef SUPPORT_DTVKIT
     Json::Value json;
     json[0] = "";
-    Json::StreamWriterBuilder factory;
+    Json::FastWriter writer;
 #endif
 
     pthread_mutex_lock(&mMutex);
@@ -152,12 +168,13 @@ int TvInputIntf::stopTv(tv_source_input_t source_input)
     if (SOURCE_DTVKIT == source_input || SOURCE_DTVKIT_PIP == source_input) {
 #ifdef SUPPORT_DTVKIT
         mDkSession->request(std::string("Dvb.releaseDtvDevice"),
-                Json::writeString(factory, json));
+                writer.write(json));
 #endif
         ret = 0;
-    } else
+    } else {
         ret = mTvSession->stopTv();
-
+        //mTvSession->setTunnelId(-1);
+    }
     pthread_mutex_unlock(&mMutex);
 
     return ret;
@@ -211,10 +228,13 @@ int TvInputIntf::checkSourceStatus(tv_source_input_t source_input, bool check_st
 
     if (mSourceInput != SOURCE_INVALID && source_input != SOURCE_INVALID && mSourceInput != source_input) {
         if (!check_status && mSourceStatus) {
-            if (!check_status)
-                start_queue.push(source_input);
-            else
-                stop_queue.push(source_input); /* maybe handle stop queue. */
+            start_queue.push(source_input);
+
+            ret = -EBUSY;
+        }
+
+        if (check_status && !mSourceStatus) {
+            stop_queue.push(source_input); /* maybe handle stop queue. */
 
             ret = -EBUSY;
         }
@@ -296,7 +316,11 @@ int TvInputIntf::getStreamGivenId()
 
 void TvInputIntf::setStreamGivenId(int stream_id)
 {
+    pthread_mutex_lock(&mMutex);
+
     mStreamGivenId = stream_id;
+
+    pthread_mutex_unlock(&mMutex);
 }
 
 int TvInputIntf::getDeviceGivenId()
@@ -306,7 +330,17 @@ int TvInputIntf::getDeviceGivenId()
 
 void TvInputIntf::setDeviceGivenId(int device_id)
 {
+    pthread_mutex_lock(&mMutex);
+
     mDeviceGivenId = device_id;
+
+    pthread_mutex_unlock(&mMutex);
+}
+
+void TvInputIntf::setStreamTunnelId(int id)
+{
+    mTunnelId = id;
+
 }
 
 int TvInputIntf::getHdmiAvHotplugDetectOnoff()
@@ -359,5 +393,29 @@ bool TvInputIntf::isMultiDemux() {
     } else {
         return true;
     }
+}
+
+int TvInputIntf::writeSurfaceTypetoVpp(tvin_surface_type_t type) {
+    char buf[4] = {0};
+    snprintf(buf, 4, "%d", type);
+    return writeSys(VPP_SOURCE_TYPE, buf);
+}
+
+int TvInputIntf::writeSys(const char *path, const char *val) {
+    int fd, size;
+
+    if ((fd = open(path, O_RDWR)) < 0) {
+        ALOGE("writeSys, open %s fail.", path);
+        return -1;
+    }
+
+    size = strlen(val);
+    if (write(fd, val, size) != size) {
+        ALOGE("writeSys, write %d size error: %s\n", size, strerror(errno));
+        close(fd);
+        return -1;
+    }
+    close(fd);
+    return 0;
 }
 
