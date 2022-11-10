@@ -118,10 +118,8 @@ int IONInterface::release_node(IONBufferNode* pBuffer) {
     if (ret)
         ALOGD("munmap fail: %s\n", strerror(errno));
 
-    ret = close(pBuffer->share_fd);
-    ALOGD("-----------%s: close share_fd = %d", __FUNCTION__, pBuffer->share_fd);
-    if (ret != 0)
-        ALOGD("close ion shared fd failed for reason %s", strerror(errno));
+    /* do not need close share_fd */
+    pBuffer->share_fd = -1;
     if (pBuffer->buffer_handle) {
         allocService.free(pBuffer->buffer_handle);
         pBuffer->buffer_handle = NULL;
