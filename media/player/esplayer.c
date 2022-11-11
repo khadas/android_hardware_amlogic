@@ -137,11 +137,17 @@ int set_display_axis(int recovery)
     char *path = "/sys/class/display/axis";
     char str[128];
     int count;
+    int ret;
 
     fd = open(path, O_CREAT | O_RDWR | O_TRUNC, 0644);
     if (fd >= 0) {
         if (!recovery) {
-            read(fd, str, 128);
+            ret = read(fd, str, 128);
+            if (ret <= 0) {
+                printf("set_display_axis read fail ret=%d\n", ret);
+                close(fd);
+                return -1;
+            }
             printf("read axis %s, length %zu\n", str, strlen(str));
             count = parse_para(str, 8, axis);
         }
@@ -769,6 +775,7 @@ int ivf_write_dat(FILE *src_fp, uint8_t *src_buffer)
     }
     if (fread(src_buffer, 1, 32, src_fp) != 32) {
         printf("read input file error!\n");
+        free(meta_buffer);
         return -1;
     }
     p_size = (unsigned int *)(src_buffer + 24);
@@ -1050,10 +1057,8 @@ int GetAnnexbNALU (FILE* fe, NALU_t *nalu, int format)
         rewind = -prefix_len;
 
     if (0 != fseek (fe, rewind, SEEK_CUR))
-    {
-        free(Buf);
         printf("GetAnnexbNALU: Cannot fseek in the bit stream file");
-    }
+
 
     // Here the Start code, the complete NALU, and the next start code is in the Buf.
     // The size of Buf is pos, pos+rewind are the number of bytes excluding the next
@@ -1199,6 +1204,7 @@ int ivf_write_dat_with_size(uint8_t *src_buffer,unsigned int size)
 
     meta_buffer = calloc(1, 1024);
     if (!meta_buffer) {
+        free(buffer);
         printf("fail to alloc meta buf\n");
         return -1;
     }
@@ -1246,6 +1252,7 @@ int ivf_write_dat_with_size(uint8_t *src_buffer,unsigned int size)
     }
     printf("Process %d frame\n", frame_count);
     free(meta_buffer);
+    free(buffer);
     return 0;
 }
 
@@ -1276,6 +1283,7 @@ void get_vdec_id()
         }
         id = count - 1;
         printf("count = %d,id = %d\n",count,id);
+        close(cfd);
     }
 }
 
