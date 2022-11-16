@@ -50,6 +50,11 @@ GE2D_ENABLE := true
 GE2D_VERSION_2 := true
 ISP_ENABLE := false
 GDC_ENABLE := false
+ifeq ($(TARGET_PRODUCT), t7_an400)
+DEWARP_ENABLE := true
+else ifeq ($(TARGET_PRODUCT), t7_an400_arm64)
+DEWARP_ENABLE := true
+endif
 LOCAL_SHARED_LIBRARIES:= \
     libbinder \
     liblog \
@@ -80,15 +85,17 @@ LOCAL_SHARED_LIBRARIES += libge2d
 endif
 LOCAL_CFLAGS += -DGE2D_ENABLE
 endif
-
 ifeq ($(NEED_ISP),true)
 LOCAL_SHARED_LIBRARIES += libispaaa
 LOCAL_CFLAGS += -DISP_ENABLE
 endif
-
 ifeq ($(GDC_ENABLE),true)
 LOCAL_SHARED_LIBRARIES += libgdc
 LOCAL_CFLAGS += -DGDC_ENABLE
+else ifeq ($(DEWARP_ENABLE),true)
+LOCAL_SHARED_LIBRARIES += libgdc
+LOCAL_SHARED_LIBRARIES += libdewarp
+LOCAL_CFLAGS += -DPREVIEW_DEWARP_ENABLE -DPICTURE_DEWARP_ENABLE
 endif
 LOCAL_STATIC_LIBRARIES := \
     libyuv_static \
@@ -177,7 +184,6 @@ LOCAL_SRC_FILES := \
     fake-pipeline2/util.c \
     VendorTags.cpp \
     fake-pipeline2/USBSensor.cpp \
-    fake-pipeline2/MIPISensor.cpp \
     fake-pipeline2/OMXDecoder.cpp \
     fake-pipeline2/amuvm.c \
     fake-pipeline2/CameraIO.cpp \
@@ -197,19 +203,26 @@ LOCAL_SRC_FILES += \
     fake-pipeline2/ispMgr/staticPipe.cpp \
     fake-pipeline2/ispMgr/sensor/sensor_config.cpp \
     fake-pipeline2/ispMgr/sensor/imx290/imx290_config.cpp \
-    fake-pipeline2/ispMgr/sensor/imx415/imx415_config.cpp
+    fake-pipeline2/ispMgr/sensor/imx415/imx415_config.cpp \
+    fake-pipeline2/ispMgr/sensor/ov13b10/ov13b10_config.cpp \
 
 ifeq ($(GE2D_ENABLE),true)
 LOCAL_SRC_FILES += fake-pipeline2/ge2d_stream.cpp \
                    fake-pipeline2/IonIf.cpp \
-                   fake-pipeline2/CaptureUseGe2d.cpp
+                   fake-pipeline2/CaptureUseGe2d.cpp \
+                   fake-pipeline2/MIPIBaseIO3.cpp
 endif
 
 ifeq ($(GDC_ENABLE),true)
 LOCAL_SRC_FILES += fake-pipeline2/gdcUseFd.cpp
 LOCAL_SRC_FILES += fake-pipeline2/gdcUseMemcpy.cpp
+else ifeq ($(DEWARP_ENABLE),true)
+LOCAL_SRC_FILES += fake-pipeline2/CameraConfig.cpp
+LOCAL_SRC_FILES += fake-pipeline2/dewarp.cpp
 endif
 
+LOCAL_SRC_FILES += fake-pipeline2/MIPIBaseIO.cpp \
+                   fake-pipeline2/MIPIBaseIO2.cpp
 ifeq ($(TARGET_PRODUCT),vbox_x86)
 LOCAL_MODULE := camera.vbox_x86
 else

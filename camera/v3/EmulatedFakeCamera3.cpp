@@ -471,9 +471,11 @@ status_t EmulatedFakeCamera3::configureStreams(
         camera3_stream_configuration *streamList) {
         ATRACE_CALL();
     Mutex::Autolock l(mLock);
-    uint32_t width, height, pixelfmt;
-    bool isRestart = false;
+    uint32_t width = 0, height = 0, pixelfmt = 0;
+    uint32_t UHDWidth = 0, UHDHeight = 0, UHDPixelfmt = 0;
+    bool isRestart = false, isRestartRec = false;
     mFlushTag = false;
+    m4KRec = false;
     DBG_LOGB("%s: %d streams", __FUNCTION__, streamList->num_streams);
 
     if (mStatus != STATUS_OPEN && mStatus != STATUS_READY) {
@@ -580,6 +582,18 @@ status_t EmulatedFakeCamera3::configureStreams(
         DBG_LOGB("find propert width and height, format=%x, w*h=%dx%d, stream_type=%d, max_buffers=%d\n",
                 newStream->format, newStream->width, newStream->height, newStream->stream_type, newStream->max_buffers);
         if (CAMERA3_STREAM_OUTPUT == newStream->stream_type) {
+            if (newStream->format == HAL_PIXEL_FORMAT_BLOB && (mSensorType == SENSOR_V4L2MEDIA || mSensorType == SENSOR_MIPI)) {
+                ALOGI("skip add blob stream for mipi sensor have multi dma port");
+                continue;
+            }
+            if (newStream->width >= 3840 && newStream->height >= 2160 && newStream->format != HAL_PIXEL_FORMAT_BLOB) {
+                ALOGI("4k recording mode");
+                UHDWidth = newStream->width;
+                UHDHeight = newStream->height;
+                UHDPixelfmt = (uint32_t)newStream->format;
+                m4KRec = true;
+                continue;
+            }
 
             if (width < newStream->width)
                     width = newStream->width;
@@ -591,21 +605,29 @@ status_t EmulatedFakeCamera3::configureStreams(
             if (HAL_PIXEL_FORMAT_YCbCr_420_888 == pixelfmt)
                 pixelfmt =  HAL_PIXEL_FORMAT_YCrCb_420_SP;
         }
-
     }
 
     //TODO modify this ugly code
     if (isRestart) {
-        isRestart = mSensor->isNeedRestart(width, height, pixelfmt);
+        isRestart = mSensor->isNeedRestart(width, height, pixelfmt, channel_preview);
     }
+    if (mSensorType == SENSOR_V4L2MEDIA || mSensorType == SENSOR_MIPI)
+        isRestartRec = mSensor->isNeedRestart(UHDWidth, UHDHeight, UHDPixelfmt, channel_record);
 
     if (isRestart) {
-        mSensor->streamOff();
+        mSensor->streamOff(channel_preview);
         pixelfmt = mSensor->halFormatToSensorFormat(pixelfmt);
-        mSensor->setOutputFormat(width, height, pixelfmt, 0);
-        mSensor->streamOn();
-        DBG_LOGB("width=%d, height=%d, pixelfmt=%.4s\n",
-                        width, height, (char*)&pixelfmt);
+        mSensor->setOutputFormat(width, height, pixelfmt, channel_preview);
+        mSensor->streamOn(channel_preview);
+        DBG_LOGB("width=%d, height=%d, pixelfmt=%.4s\n", width, height, (char*)&pixelfmt);
+    }
+    if (isRestartRec) {
+        mSensor->streamOff(channel_record);
+        UHDPixelfmt = mSensor->halFormatToSensorFormat(UHDPixelfmt);
+        mSensor->setOutputFormat(UHDWidth, UHDHeight, UHDPixelfmt, channel_record);
+        if (UHDWidth * UHDHeight != 0)
+            mSensor->streamOn(channel_record);
+        DBG_LOGB("Rec width=%d, height=%d, pixelfmt=%.4s\n", width, height, (char*)&pixelfmt);
     }
 
     /**
@@ -1111,6 +1133,10 @@ status_t EmulatedFakeCamera3::processCaptureRequest(
     CameraMetadata settings;
     Buffers *sensorBuffers = NULL;
     HalBufferVector *buffers = NULL;
+    Buffers *pictureSensorBuffers = NULL;
+    HalBufferVector *pictureHalBuffers = NULL;
+
+
 
     if (mFlushTag) {
        DBG_LOGA("already flush, but still send Capture Request .\n");
@@ -1306,9 +1332,12 @@ status_t EmulatedFakeCamera3::processCaptureRequest(
       //frameDuration = settings.find(ANDROID_SENSOR_FRAME_DURATION).data.i64[0];
       sensitivity = settings.find(ANDROID_SENSOR_SENSITIVITY).data.i32[0];
 
+      // preview
       sensorBuffers = new Buffers();
       buffers = new HalBufferVector();
 
+      pictureSensorBuffers = new Buffers();
+      pictureHalBuffers = new HalBufferVector();
       sensorBuffers->setCapacity(request->num_output_buffers);
       buffers->setCapacity(request->num_output_buffers);
 
@@ -1333,12 +1362,6 @@ status_t EmulatedFakeCamera3::processCaptureRequest(
 
                      info.mainwidth = srcBuf.stream->width;
                      info.mainheight = srcBuf.stream->height;
-
-                     if ((jpegpixelfmt == V4L2_PIX_FMT_MJPEG) || (jpegpixelfmt == V4L2_PIX_FMT_YUYV)) {
-                            mSensor->setOutputFormat(info.mainwidth,info.mainheight,jpegpixelfmt,1);
-                     } else {
-                            mSensor->setOutputFormat(info.mainwidth,info.mainheight,V4L2_PIX_FMT_RGB24,1);
-                     }
               }
 
               // Wait on fence
@@ -1394,8 +1417,14 @@ status_t EmulatedFakeCamera3::processCaptureRequest(
 
                      return NO_INIT;
               }
-              sensorBuffers->push_back(destBuf);
-              buffers->push_back(srcBuf);
+              if ((mSensorType == SENSOR_V4L2MEDIA || mSensorType == SENSOR_MIPI)
+                  && destBuf.format == HAL_PIXEL_FORMAT_BLOB) {// picture buffer
+                  pictureSensorBuffers->push_back(destBuf);
+                  pictureHalBuffers->push_back(srcBuf);
+              } else {// preview buffer
+                  sensorBuffers->push_back(destBuf);
+                  buffers->push_back(srcBuf);
+              }
       }
 
       if (needJpeg) {
@@ -1434,11 +1463,13 @@ status_t EmulatedFakeCamera3::processCaptureRequest(
               } else {
                    info.has_focallen = false;
               }
-              jpegbuffersize = getJpegBufferSize(info.mainwidth,info.mainheight);
+              if ((mSensorType != SENSOR_V4L2MEDIA || mSensorType != SENSOR_MIPI)) {
+                  jpegbuffersize = getJpegBufferSize(info.mainwidth,info.mainheight);
 
-              mJpegCompressor->SetMaxJpegBufferSize(jpegbuffersize);
-              mJpegCompressor->SetExifInfo(info);
-              mSensor->setPictureRotate(info.orientation);
+                  mJpegCompressor->SetMaxJpegBufferSize(jpegbuffersize);
+                  mJpegCompressor->SetExifInfo(info);
+                  mSensor->setPictureRotate(info.orientation);
+              }
               if ((info.thumbwidth > 0) && (info.thumbheight > 0)) {
                    mHaveThumbnail = true;
               }
@@ -1507,7 +1538,7 @@ status_t EmulatedFakeCamera3::processCaptureRequest(
         mSensor->setDestinationBuffers(sensorBuffers);
         mSensor->setFrameNumber(request->frame_number);
 
-        ReadoutThread::Request r;
+        Request r, r_picture;
         r.frameNumber = request->frame_number;
         r.settings = settings;
         r.sensorBuffers = sensorBuffers;
@@ -1516,6 +1547,22 @@ status_t EmulatedFakeCamera3::processCaptureRequest(
 
         mReadoutThread->queueCaptureRequest(r);
         ALOGVV("%s: Queued frame %d", __FUNCTION__, request->frame_number);
+
+        /*picture request*/
+        if (!pictureSensorBuffers->empty()) {
+            r_picture.frameNumber = request->frame_number;
+            r_picture.info = info;
+            r_picture.settings = settings;
+            r_picture.sensorBuffers = pictureSensorBuffers;
+            r_picture.buffers = pictureHalBuffers;
+            r_picture.havethumbnail = mHaveThumbnail;
+            mSensor->setPictureRequest(r_picture);
+        } else {
+            delete pictureSensorBuffers;
+            pictureSensorBuffers = NULL;
+            delete pictureHalBuffers;
+            pictureHalBuffers = NULL;
+        }
 
         // Cache the settings for next time
         mPrevSettings.acquire(settings);
@@ -1656,7 +1703,6 @@ void EmulatedFakeCamera3::updateCameraMetaData(CameraMetadata *info) {
 }
 
 status_t EmulatedFakeCamera3::createSensor() {
-
     VirtualDevice * device = CameraVirtualDevice::getInstance()->getVirtualDevice(mCameraID);
     ALOGD("device %s  type %d", device->name, device->type);
     if (device->type == V4L2MEDIA_CAM_DEV) {
@@ -1685,32 +1731,33 @@ status_t EmulatedFakeCamera3::createSensor() {
             break;
         }
         if (mSensorType == SENSOR_MIPI) {
-                ALOGD("MIPISensor,mCameraID=%d",mCameraID);
-                mSensor = new MIPISensor();
-                break;
+            ALOGW("Should not be Here, MIPISensor,mCameraID=%d",mCameraID);
+            break;
         } else if (mSensorType == SENSOR_USB) {
-                property_get("ro.vendor.platform.useswmjpeg", property, "false");
-                if (strstr(property, "true")) {
-                    mSensor = new USBSensor(USBSensor::HW_NONE);
-                    break;
-                }
-                property_get("ro.vendor.platform.usehwmjpeg", property, "false");
-                if (strstr(property, "true")) {
-                    ALOGD("USBSensor,HW_MJPEG decoder");
-                    mSensor = new USBSensor(USBSensor::HW_MJPEG);
-                    break;
-                }
-                property_get("ro.vendor.platform.usehwh264", property, "false");
-                if (strstr(property, "true")) {
-                    mSensor = new USBSensor(USBSensor::HW_H264);
-                    break;
-                }
-                ALOGD("Sensor to do CTS");
-                mSensor = new Sensor();
+            property_get("ro.vendor.platform.useswmjpeg", property, "false");
+            if (strstr(property, "true")) {
+                mSensor = new USBSensor(USBSensor::HW_NONE);
+                break;
+            }
+            property_get("ro.vendor.platform.usehwmjpeg", property, "false");
+            if (strstr(property, "true")) {
+                ALOGD("USBSensor,HW_MJPEG decoder");
+                mSensor = new USBSensor(USBSensor::HW_MJPEG);
+                break;
+            }
+            property_get("ro.vendor.platform.usehwh264", property, "false");
+            if (strstr(property, "true")) {
+                mSensor = new USBSensor(USBSensor::HW_H264);
+                break;
+            }
+            ALOGD("Sensor to do CTS");
+            mSensor = new Sensor();
         }else {
             ALOGE("not support this camera:%d",mSensorType);
         }
     }while(0);
+    if (mSensor)
+        mSensor->setDeviceName(device->name);
     return OK;
 }
 
@@ -2766,6 +2813,38 @@ void EmulatedFakeCamera3::onSensorEvent(uint32_t frameNumber, Event e,
     }
 }
 
+void EmulatedFakeCamera3::onSensorPicJpeg(Request &r) {
+    #define WAIT_DONE_TRY_MAX 20
+    int waitDoneTry = 0;
+    mJpegCompressor->SetMaxJpegBufferSize(getJpegBufferSize(r.info.mainwidth,r.info.mainheight));
+    mJpegCompressor->SetExifInfo(r.info);
+    mSensor->setPictureRotate(r.info.orientation);
+    while (waitDoneTry < WAIT_DONE_TRY_MAX) {
+        bool ready = mJpegCompressor->waitForDone(kFenceTimeoutMs);
+        waitDoneTry ++;
+        if (ready) {
+               break;
+        }
+    }
+   HalBufferVector::iterator buf = r.buffers->begin();
+   while (buf != r.buffers->end()) {
+       if ( buf->stream->format ==
+               HAL_PIXEL_FORMAT_BLOB) {
+           Mutex::Autolock jl(mReadoutThread->mJpegLock);
+           //needJpeg = true;
+           CaptureRequest currentcapture;
+           currentcapture.frameNumber = r.frameNumber;
+           currentcapture.sensorBuffers = r.sensorBuffers;
+           currentcapture.buf = buf;
+           currentcapture.mNeedThumbnail = r.havethumbnail;
+           mJpegCompressor->queueRequest(currentcapture);
+           //this sensorBuffers delete in the jpegcompress;
+           r.sensorBuffers = NULL;
+           buf = r.buffers->erase(buf);
+           continue;
+       }
+  }
+}
 EmulatedFakeCamera3::ReadoutThread::ReadoutThread(EmulatedFakeCamera3 *parent) :
         mParent(parent), mJpegWaiting(false) {
     mExitReadoutThread = false;
@@ -2834,6 +2913,10 @@ status_t EmulatedFakeCamera3::ReadoutThread::waitForReadout() {
                     __FUNCTION__);
             return INVALID_OPERATION;
         }
+        if (mExitReadoutThread) {
+            ALOGE("%s: Readout Thread is exit", __FUNCTION__);
+            return INVALID_OPERATION;
+        }
         if (loopCount == kMaxWaitLoops) {
             ALOGE("%s: Timed out waiting for in-flight queue to shrink",
                     __FUNCTION__);
@@ -2872,6 +2955,7 @@ status_t EmulatedFakeCamera3::ReadoutThread::shutdownJpegCompressor(EmulatedFake
 }
 
 void EmulatedFakeCamera3::ReadoutThread::sendExitReadoutThreadSignal(void) {
+    Mutex::Autolock l(mLock);
     mExitReadoutThread = true;
     mInFlightSignal.signal();
 }
@@ -2957,9 +3041,9 @@ bool EmulatedFakeCamera3::ReadoutThread::threadLoop() {
     bool needJpeg = false;
     HalBufferVector::iterator buf = mCurrentRequest.buffers->begin();
     while (buf != mCurrentRequest.buffers->end()) {
-        bool goodBuffer = true;
-        if ( buf->stream->format ==
-                HAL_PIXEL_FORMAT_BLOB) {
+        const bool goodBuffer = true;
+        if ( buf->stream->format == HAL_PIXEL_FORMAT_BLOB &&
+             (mParent->mSensorType != SENSOR_V4L2MEDIA || mParent->mSensorType != SENSOR_MIPI)) {
             Mutex::Autolock jl(mJpegLock);
             needJpeg = true;
             CaptureRequest currentcapture;
@@ -3022,9 +3106,10 @@ bool EmulatedFakeCamera3::ReadoutThread::threadLoop() {
     // Clean up
     mCurrentRequest.settings.unlock(result.result);
 
-    delete mCurrentRequest.buffers;
-    mCurrentRequest.buffers = NULL;
     if (!needJpeg) {
+        delete mCurrentRequest.buffers;
+        mCurrentRequest.buffers = NULL;
+
         delete mCurrentRequest.sensorBuffers;
         mCurrentRequest.sensorBuffers = NULL;
     }

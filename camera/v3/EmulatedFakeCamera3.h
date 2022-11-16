@@ -27,7 +27,6 @@
 #include "fake-pipeline2/Base.h"
 #include "fake-pipeline2/Sensor.h"
 #include "fake-pipeline2/USBSensor.h"
-#include "fake-pipeline2/MIPISensor.h"
 #include "fake-pipeline2/HDMIToCSISensor.h"
 #include "fake-pipeline2/JpegCompressor.h"
 #include <CameraMetadata.h>
@@ -178,6 +177,7 @@ private:
 
     /** Handle interrupt events from the sensor */
     void     onSensorEvent(uint32_t frameNumber, Event e, nsecs_t timestamp);
+    void     onSensorPicJpeg(Request &r);
 
     /****************************************************************************
      * Static configuration information
@@ -266,14 +266,6 @@ private:
         ReadoutThread(EmulatedFakeCamera3 *parent);
         ~ReadoutThread();
 
-        struct Request {
-            uint32_t         frameNumber;
-            CameraMetadata   settings;
-            HalBufferVector *buffers;
-            Buffers         *sensorBuffers;
-            bool             havethumbnail;
-        };
-
         /**
          * Interface to parent class
          */
@@ -293,6 +285,7 @@ private:
         status_t flushAllRequest(bool flag);
         void setFlushFlag(bool flag);
         void sendFlushSignal(void);
+        Mutex                 mJpegLock;
       private:
         static const nsecs_t kWaitPerLoop  = 10000000L; // 10 ms
         static const nsecs_t kMaxWaitLoops = 1000;
@@ -313,7 +306,7 @@ private:
 
         // Jpeg completion callbacks
         bool                  mExitReadoutThread;
-        Mutex                 mJpegLock;
+
         bool                  mJpegWaiting;
         camera3_stream_buffer mJpegHalBuffer;
         //uint32_t              mJpegFrameNumber;
@@ -367,6 +360,7 @@ private:
     nsecs_t mAeTargetExposureTime;
     int     mAeCurrentSensitivity;
 
+    bool    m4KRec;
 };
 
 } // namespace android

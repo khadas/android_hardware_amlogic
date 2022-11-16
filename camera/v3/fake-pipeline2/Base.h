@@ -25,8 +25,12 @@
 //#include <system/window.h>
 #include <hardware/camera2.h>
 #include <utils/Vector.h>
+#include <CameraMetadata.h>
+#include <hardware/camera3.h>
 
 namespace android {
+using ::android::hardware::camera::common::V1_0::helper::CameraMetadata;
+typedef Vector<camera3_stream_buffer>     HalBufferVector;
 
 
 /* Internal structure for passing buffers across threads */
@@ -41,6 +45,9 @@ struct StreamBuffer {
     buffer_handle_t *buffer;
     uint8_t *img;
     int     share_fd;
+    static bool comp (const StreamBuffer &a, const StreamBuffer &b) {
+        return a.width > b.width;
+    };
 };
 typedef Vector<StreamBuffer> Buffers;
 
@@ -78,6 +85,15 @@ struct ExifInfo {
 	bool has_focallen;
 	float focallen;
 	int orientation;
+};
+
+struct Request {
+    uint32_t         frameNumber;
+    struct ExifInfo info;
+    CameraMetadata   settings;
+    HalBufferVector *buffers;
+    Buffers         *sensorBuffers;
+    bool             havethumbnail;
 };
 
 typedef enum channel {

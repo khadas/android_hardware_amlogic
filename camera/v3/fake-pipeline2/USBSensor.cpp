@@ -207,18 +207,18 @@ uint32_t USBSensor::getStreamUsage(int stream_type){
 }
 
 status_t USBSensor::setOutputFormat(int width, int height,
-    int pixelformat, bool isjpeg){
+    int pixelformat, channel ch) {
     int res;
     mFramecount = 0;
     mCurFps = 0;
     gettimeofday(&mTimeStart, NULL);
     initDecoder(width,height,4);
-    if (isjpeg) {
+    if (ch == channel_capture) {
         mVinfo->picture.format.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
         mVinfo->picture.format.fmt.pix.width = width;
         mVinfo->picture.format.fmt.pix.height = height;
         mVinfo->picture.format.fmt.pix.pixelformat = pixelformat;
-        } else {
+    } else {
         mVinfo->preview.format.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
         mVinfo->preview.format.fmt.pix.width = width;
         mVinfo->preview.format.fmt.pix.height = height;
@@ -227,8 +227,8 @@ status_t USBSensor::setOutputFormat(int width, int height,
         if (res < 0) {
             ALOGE("set buffer failed\n");
             return res;
-            }
         }
+    }
         if (NULL == mImage_buffer) {
             mPre_width = mVinfo->preview.format.fmt.pix.width;
             mPre_height = mVinfo->preview.format.fmt.pix.height;
@@ -256,7 +256,7 @@ status_t USBSensor::setOutputFormat(int width, int height,
         return OK;
 }
 
-status_t USBSensor::streamOn() {
+status_t USBSensor::streamOn(channel ch) {
     return mVinfo->start_capturing();
 
 }
@@ -265,7 +265,7 @@ bool USBSensor::isStreaming() {
 }
 
 
-bool USBSensor::isNeedRestart(uint32_t width, uint32_t height, uint32_t pixelformat) {
+bool USBSensor::isNeedRestart(uint32_t width, uint32_t height, uint32_t pixelformat, channel ch) {
     if ((mVinfo->preview.format.fmt.pix.width != width)
         ||(mVinfo->preview.format.fmt.pix.height != height)) {
         return true;
@@ -318,7 +318,7 @@ status_t USBSensor::shutDown() {
     return res;
 }
 
-status_t USBSensor::streamOff(void){
+status_t USBSensor::streamOff(channel ch) {
     ALOGV("%s: E", __FUNCTION__);
     if (mDecoder && mIsDecoderInit == true) {
         mDecoder->deinitialize();
@@ -1866,9 +1866,9 @@ status_t USBSensor::force_reset_sensor() {
     DBG_LOGA("force_reset_sensor");
     status_t ret;
     mTimeOutCount = 0;
-    ret = streamOff();
+    ret = streamOff(channel_preview);
     ret = mVinfo->setBuffersFormat();
-    ret = streamOn();
+    ret = streamOn(channel_preview);
     DBG_LOGB("%s , ret = %d", __FUNCTION__, ret);
     return ret;
 }
