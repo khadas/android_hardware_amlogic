@@ -163,12 +163,29 @@ struct buf_status {
     unsigned int write_pointer;
 };
 
+enum E_ASPECT_RATIO {
+    ASPECT_RATIO_4_3,
+    ASPECT_RATIO_16_9,
+    ASPECT_UNDEFINED = 255
+};
+
+struct aspect_ratio_info {
+    int sar_width; /* -1 :invalid value */
+    int sar_height; /* -1 :invalid value */
+    int dar_width; /* -1 :invalid value */
+    int dar_height; /* -1 :invalid value */
+};
+
 struct vdec_status {
     unsigned int width;
     unsigned int height;
     unsigned int fps;
     unsigned int error_count;
     unsigned int status;
+    struct aspect_ratio_info aspect_ratio;
+    unsigned long long arg;
+    unsigned int size;
+    char reserved[60];
 };
 
 struct usr_crc_info_t {
