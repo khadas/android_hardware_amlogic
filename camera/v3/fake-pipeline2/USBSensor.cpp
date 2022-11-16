@@ -1415,7 +1415,7 @@ int USBSensor::getStreamConfigurations(uint32_t picSizes[], const int32_t kAvail
     support_w = 10000;
     support_h = 10000;
     memset(property, 0, sizeof(property));
-    if (property_get("ro.media.camera_preview.maxsize", property, NULL) > 0) {
+    if (property_get("vendor.media.camera_preview.maxsize", property, NULL) > 0) {
         CAMHAL_LOGDB("support Max Preview Size :%s",property);
         if (sscanf(property,"%dx%d",&support_w,&support_h) != 2) {
             support_w = 10000;
@@ -1800,7 +1800,7 @@ int USBSensor::getPictureSizes(int32_t picSizes[], int size, bool preview) {
     support_w = 10000;
     support_h = 10000;
     memset(property, 0, sizeof(property));
-    if (property_get("ro.media.camera_preview.maxsize", property, NULL) > 0) {
+    if (property_get("vendor.media.camera_preview.maxsize", property, NULL) > 0) {
         CAMHAL_LOGDB("support Max Preview Size :%s",property);
         if (sscanf(property,"%dx%d",&support_w,&support_h) !=2) {
             support_w = 10000;
@@ -1873,7 +1873,6 @@ status_t USBSensor::force_reset_sensor() {
     return ret;
 }
 int USBSensor::captureNewImage() {
-    bool isjpeg = false;
     uint32_t gain = mGainFactor;
     mKernelBuffer = NULL;
     mTempFD = -1;
@@ -1911,10 +1910,7 @@ int USBSensor::captureNewImage() {
                 orientation = getPictureRotate();
                 ALOGD("bAux orientation=%d",orientation);
                 uint32_t pixelfmt;
-                if ((b.width == mVinfo->preview.format.fmt.pix.width
-                    && b.height == mVinfo->preview.format.fmt.pix.height)
-                    && (orientation == 0)) {
-
+                if (1) {
                     pixelfmt = getOutputFormat();
                     if (pixelfmt == V4L2_PIX_FMT_YVU420) {
                         pixelfmt = HAL_PIXEL_FORMAT_YV12;
@@ -1925,11 +1921,7 @@ int USBSensor::captureNewImage() {
                     } else {
                         pixelfmt = HAL_PIXEL_FORMAT_YCrCb_420_SP;
                     }
-                } else {
-                    isjpeg = true;
-                    pixelfmt = HAL_PIXEL_FORMAT_RGB_888;
                 }
-
                 bAux.streamId = 0;
                 bAux.width = b.width;
                 bAux.height = b.height;
