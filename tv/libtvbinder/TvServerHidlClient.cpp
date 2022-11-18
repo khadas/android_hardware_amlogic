@@ -165,132 +165,251 @@ void TvServerHidlClient::setListener(const sp<TvListener> &listener)
 }
 
 int TvServerHidlClient::startTv() {
-    return mTvServer->startTv();
+    Return<int32_t> ret = mTvServer->startTv();
+    if (!ret.isOk()) {
+        ALOGE("startTv error");
+    }
+    return ret;
 }
 
 int TvServerHidlClient::stopTv() {
-    return mTvServer->stopTv();
+    Return<int32_t> ret = mTvServer->stopTv();
+    if (!ret.isOk()) {
+        ALOGE("stopTv error");
+    }
+    return ret;
 }
 
 int TvServerHidlClient::switchInputSrc(int32_t inputSrc) {
-    return mTvServer->switchInputSrc(inputSrc);
+    //return mTvServer->switchInputSrc(inputSrc);
+    Return<int32_t> ret = mTvServer->switchInputSrc(inputSrc);
+    if (!ret.isOk()) {
+        ALOGE("switchInputSrc error");
+    }
+    return ret;
 }
 
 int TvServerHidlClient::getInputSrcConnectStatus(int32_t inputSrc) {
-    return mTvServer->getInputSrcConnectStatus(inputSrc);
+    //return mTvServer->getInputSrcConnectStatus(inputSrc);
+        Return<int32_t> ret = mTvServer->getInputSrcConnectStatus(inputSrc);
+    if (!ret.isOk()) {
+        ALOGE("getInputSrcConnectStatus error");
+    }
+    return ret;
 }
 
 int TvServerHidlClient::getCurrentInputSrc() {
-    return mTvServer->getCurrentInputSrc();
+    //return mTvServer->getCurrentInputSrc();
+    Return<int32_t> ret = mTvServer->getCurrentInputSrc();
+    if (!ret.isOk()) {
+        ALOGE("getCurrentInputSrc error");
+    }
+    return ret;
 }
 
 int TvServerHidlClient::getHdmiAvHotplugStatus() {
-    return mTvServer->getHdmiAvHotplugStatus();
+    //return mTvServer->getHdmiAvHotplugStatus();
+    Return<int32_t> ret = mTvServer->getHdmiAvHotplugStatus();
+    if (!ret.isOk()) {
+        ALOGE("getHdmiAvHotplugStatus error");
+    }
+    return ret;
 }
 
 std::string TvServerHidlClient::getSupportInputDevices() {
     int ret;
     std::string tvDevices;
-    mTvServer->getSupportInputDevices([&](int32_t result, const ::android::hardware::hidl_string& devices) {
+    Return<void> result = mTvServer->getSupportInputDevices([&](int32_t result, const ::android::hardware::hidl_string& devices) {
         ret = result;
         tvDevices = devices;
     });
+    if (!result.isOk()) {
+        ALOGE("getSupportInputDevices error");
+    }
     return tvDevices;
 }
 
 int TvServerHidlClient::getHdmiPorts(int32_t inputSrc) {
-    return mTvServer->getHdmiPorts(inputSrc);
+    //return mTvServer->getHdmiPorts(inputSrc);
+    Return<int32_t> ret = mTvServer->getHdmiPorts(inputSrc);
+    if (!ret.isOk()) {
+        ALOGE("getHdmiPorts error");
+    }
+    return ret;
 }
 
 SignalInfo TvServerHidlClient::getCurSignalInfo() {
     SignalInfo signalInfo;
-    mTvServer->getCurSignalInfo([&](const SignalInfo& info) {
+    Return<void> ret = mTvServer->getCurSignalInfo([&](const SignalInfo& info) {
         signalInfo.fmt = info.fmt;
         signalInfo.transFmt = info.transFmt;
         signalInfo.status = info.status;
         signalInfo.frameRate = info.frameRate;
     });
+    if (!ret.isOk()) {
+        ALOGE("getCurSignalInfo error");
+    }
     return signalInfo;
 }
 
 int TvServerHidlClient::setMiscCfg(const std::string& key, const std::string& val) {
-    return mTvServer->setMiscCfg(key, val);
+    //return mTvServer->setMiscCfg(key, val);
+    Return<int32_t> ret = mTvServer->setMiscCfg(key, val);
+    if (!ret.isOk()) {
+        ALOGE("setMiscCfg error");
+    }
+    return ret;
 }
 
 std::string TvServerHidlClient::getMiscCfg(const std::string& key, const std::string& def) {
     std::string miscCfg;
-    mTvServer->getMiscCfg(key, def, [&](const std::string& cfg) {
+    Return<void> ret = mTvServer->getMiscCfg(key, def, [&](const std::string& cfg) {
         miscCfg = cfg;
     });
-
+    if (!ret.isOk()) {
+        ALOGE("getMiscCfg error");
+    }
     return miscCfg;
 }
 
 int TvServerHidlClient::loadEdidData(int32_t isNeedBlackScreen, int32_t isDolbyVisionEnable) {
-    return mTvServer->loadEdidData(isNeedBlackScreen, isDolbyVisionEnable);
+    //return mTvServer->loadEdidData(isNeedBlackScreen, isDolbyVisionEnable);
+    Return<int32_t> ret = mTvServer->loadEdidData(isNeedBlackScreen, isDolbyVisionEnable);
+    if (!ret.isOk()) {
+        ALOGE("loadEdidData error");
+    }
+    return ret;
 }
 
 int TvServerHidlClient::updateEdidData(int32_t inputSrc, const std::string& edidData) {
-    return mTvServer->updateEdidData(inputSrc, edidData);
+    //return mTvServer->updateEdidData(inputSrc, edidData);
+    Return<int32_t> ret = mTvServer->updateEdidData(inputSrc, edidData);
+    if (!ret.isOk()) {
+        ALOGE("updateEdidData error");
+    }
+    return ret;
 }
 
 int TvServerHidlClient::setHdmiEdidVersion(int32_t port_id, int32_t ver) {
-    return mTvServer->setHdmiEdidVersion(port_id, ver);
+    //return mTvServer->setHdmiEdidVersion(port_id, ver);
+    Return<int32_t> ret = mTvServer->setHdmiEdidVersion(port_id, ver);
+    if (!ret.isOk()) {
+        ALOGE("setHdmiEdidVersion error");
+    }
+    return ret;
 }
 
 int TvServerHidlClient::getHdmiEdidVersion(int32_t port_id) {
-    return mTvServer->getHdmiEdidVersion(port_id);
+    //return mTvServer->getHdmiEdidVersion(port_id);
+    Return<int32_t> ret = mTvServer->getHdmiEdidVersion(port_id);
+    if (!ret.isOk()) {
+        ALOGE("setHdmiEdidVersion error");
+    }
+    return ret;
 }
 
 int TvServerHidlClient::saveHdmiEdidVersion(int32_t port_id, int32_t ver) {
-    return mTvServer->saveHdmiEdidVersion(port_id, ver);
+    //return mTvServer->saveHdmiEdidVersion(port_id, ver);
+    Return<int32_t> ret = mTvServer->saveHdmiEdidVersion(port_id, ver);
+    if (!ret.isOk()) {
+        ALOGE("saveHdmiEdidVersion error");
+    }
+    return ret;
 }
 
 int TvServerHidlClient::setHdmiColorRangeMode(int32_t range_mode) {
-    return mTvServer->setHdmiColorRangeMode(range_mode);
+    //return mTvServer->setHdmiColorRangeMode(range_mode);
+    Return<int32_t> ret = mTvServer->setHdmiColorRangeMode(range_mode);
+    if (!ret.isOk()) {
+        ALOGE("setHdmiColorRangeMode error");
+    }
+    return ret;
 }
 
 int TvServerHidlClient::getHdmiColorRangeMode() {
-    return mTvServer->getHdmiColorRangeMode();
+    //return mTvServer->getHdmiColorRangeMode();
+    Return<int32_t> ret = mTvServer->getHdmiColorRangeMode();
+    if (!ret.isOk()) {
+        ALOGE("getHdmiColorRangeMode error");
+    }
+    return ret;
 }
 
 FormatInfo TvServerHidlClient::getHdmiFormatInfo() {
     FormatInfo info;
-    mTvServer->getHdmiFormatInfo([&](const FormatInfo formatInfo) {
+    Return<void> ret = mTvServer->getHdmiFormatInfo([&](const FormatInfo formatInfo) {
         info.width     = formatInfo.width;
         info.height    = formatInfo.height;
         info.fps       = formatInfo.fps;
         info.interlace = formatInfo.interlace;
     });
+    if (!ret.isOk()) {
+       ALOGE("getHdmiFormatInfo error");
+    }
     return info;
 }
 
 int TvServerHidlClient::handleGPIO(const std::string& key, int32_t is_out, int32_t edge) {
     return mTvServer->handleGPIO(key, is_out, edge);
+    Return<int32_t> ret = mTvServer->handleGPIO(key, is_out, edge);
+    if (!ret.isOk()) {
+        ALOGE("handleGPIO error");
+    }
+    return ret;
 }
 
 int TvServerHidlClient::vdinUpdateForPQ(int32_t gameStatus, int32_t pcStatus, int32_t autoSwitchFlag) {
-    return mTvServer->vdinUpdateForPQ(gameStatus, pcStatus, autoSwitchFlag);
+    //return mTvServer->vdinUpdateForPQ(gameStatus, pcStatus, autoSwitchFlag);
+    Return<int32_t> ret = mTvServer->vdinUpdateForPQ(gameStatus, pcStatus, autoSwitchFlag);
+    if (!ret.isOk()) {
+        ALOGE("vdinUpdateForPQ error");
+    }
+    return ret;
 }
 
 int TvServerHidlClient::setWssStatus(int status) {
-    return mTvServer->setWssStatus(status);
+    //return mTvServer->setWssStatus(status);
+    Return<int32_t> ret = mTvServer->setWssStatus(status);
+    if (!ret.isOk()) {
+        ALOGE("setWssStatus error");
+    }
+    return ret;
 }
 
 int TvServerHidlClient::setDeviceIdForCec(int DeviceId) {
-    return mTvServer->setDeviceIdForCec(DeviceId);
+    //return mTvServer->setDeviceIdForCec(DeviceId);
+    Return<int32_t> ret = mTvServer->setDeviceIdForCec(DeviceId);
+    if (!ret.isOk()) {
+        ALOGE("setDeviceIdForCec error");
+    }
+    return ret;
 }
 
 int TvServerHidlClient::setScreenColorForSignalChange(int screenColor, int is_save) {
-    return mTvServer->setScreenColorForSignalChange(screenColor, is_save);
+    //return mTvServer->setScreenColorForSignalChange(screenColor, is_save);
+    Return<int32_t> ret = mTvServer->setScreenColorForSignalChange(screenColor, is_save);
+    if (!ret.isOk()) {
+        ALOGE("setScreenColorForSignalChange error");
+    }
+    return ret;
 }
 
 int TvServerHidlClient::getScreenColorForSignalChange() {
-    return mTvServer->getScreenColorForSignalChange();
+    //return mTvServer->getScreenColorForSignalChange();
+    Return<int32_t> ret = mTvServer->getScreenColorForSignalChange();
+    if (!ret.isOk()) {
+        ALOGE("getScreenColorForSignalChange error");
+    }
+    return ret;
 }
 
 int TvServerHidlClient::dtvGetSignalSNR() {
-    return mTvServer->dtvGetSignalSNR();
+    //return mTvServer->dtvGetSignalSNR();
+    Return<int32_t> ret = mTvServer->dtvGetSignalSNR();
+    if (!ret.isOk()) {
+        ALOGE("dtvGetSignalSNR error");
+    }
+    return ret;
 }
 
 // callback from tv service
