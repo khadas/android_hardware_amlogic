@@ -101,7 +101,9 @@ sp<TvServerHidlClient> TvServerHidlClient::connect(tv_connect_type_t type)
 void TvServerHidlClient::reconnect()
 {
     ALOGI("tvserver client type:%d reconnect", mType);
-    mTvServer.clear();
+    if (mTvServer != nullptr) {
+        mTvServer.clear();
+    }
     //reconnect to server
     mTvServer = getTvService();
     if (mTvServer != nullptr) {
