@@ -66,7 +66,7 @@ class IspMgr: public Thread, public virtual RefBase {
     IspMgr(int id);
     ~IspMgr();
   public:
-    status_t configure(struct media_stream *stream);
+    status_t configure(struct media_stream *stream, int wdr = 0);
     status_t start();
     status_t stop();
   public:

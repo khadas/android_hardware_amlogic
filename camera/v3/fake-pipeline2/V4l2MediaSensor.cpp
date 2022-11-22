@@ -65,6 +65,11 @@ V4l2MediaSensor::V4l2MediaSensor() {
     mCameraVirtualDevice = nullptr;
     mVinfo = NULL;
     mCapture = NULL;
+    enableHdr = 0;
+    char property[PROPERTY_VALUE_MAX];
+    property_get("vendor.camera.hdr.enable", property, "false");
+    if (strstr(property, "true"))
+        enableHdr = 1;
 
 #ifdef GE2D_ENABLE
     mION = IONInterface::get_instance();
@@ -408,7 +413,10 @@ status_t V4l2MediaSensor::setOutputFormat(int width, int height, int pixelformat
             mStreamconfig.format.width  = mMaxWidth;
             mStreamconfig.format.height = mMaxHeight;
             mStreamconfig.format.fourcc = pixelformat;
-            mStreamconfig.format.code   = MEDIA_BUS_FMT_SRGGB12_1X12;
+            if (enableHdr) {
+                media_set_wdrMode((media_stream_t*) mMediaStream, 1);
+            }
+            mStreamconfig.format.code   = staticPipe::fetchSensorFormat((media_stream_t *) mMediaStream, enableHdr);
         } else {
             mStreamconfig.format.width  = width;
             mStreamconfig.format.height = height;
@@ -438,7 +446,7 @@ status_t V4l2MediaSensor::streamOn() {
     ALOGV("%s: E", __FUNCTION__);
     int rc;
     if (mIspMgr) {
-        rc = mIspMgr->configure((media_stream_t *)mMediaStream);
+        rc = mIspMgr->configure((media_stream_t *)mMediaStream, enableHdr);
         rc = mIspMgr->start();
     }
     rc = mVinfo->start_capturing();

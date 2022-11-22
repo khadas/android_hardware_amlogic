@@ -14,7 +14,7 @@
 
 #define ISO_NUM_MAX     (10)
 
-typedef enum cali_type {
+typedef enum CALIBRATION_TYPE {
     CALIBRATION_TOP_CTL                   ,
     CALIBRATION_RES_CTL                   ,
     CALIBRATION_AWB_CTL                   ,
@@ -23,13 +23,13 @@ typedef enum cali_type {
     CALIBRATION_AWB_CT_BG_COMPENSATION    ,
     CALIBRATION_AWB_CT_WGT                ,
     CALIBRATION_AWB_CT_DYN_CVRANGE        ,
-    CALIBRATION_AWB_GRAY_ZONE             ,
     CALIBRATION_AE_CTL                    ,
     CALIBRATION_AE_CORR_LUT               ,
     CALIBRATION_AE_CORR_POS_LUT           ,
     CALIBRATION_AE_ROUTE                  ,
     CALIBRATION_AE_WEIGHT_H               ,
     CALIBRATION_AE_WEIGHT_V               ,
+    CALIBRATION_DAYNIGHT_DETECT           ,
     CALIBRATION_AF_CTL                    ,
     CALIBRATION_AF_WEIGHT_H               ,
     CALIBRATION_AF_WEIGHT_V               ,
@@ -37,6 +37,8 @@ typedef enum cali_type {
     CALIBRATION_GTM                       ,
     CALIBRATION_GE_ADJ                    ,
     CALIBRATION_GE_S_ADJ                  ,
+    CALIBRATION_DPC_CTL                   ,
+    CALIBRATION_DPC_S_CTL                 ,
     CALIBRATION_DPC_ADJ                   ,
     CALIBRATION_DPC_S_ADJ                 ,
     CALIBRATION_WDR_CTL                   ,
@@ -69,14 +71,25 @@ typedef enum cali_type {
     CALIBRATION_CCM_ADJ                   ,
     CALIBRATION_CNR_CTL                   ,
     CALIBRATION_CNR_ADJ                   ,
+    CALIBRATION_PURPLE_CTL                ,
+    CALIBRATION_PURPLE_ADJ                ,
     CALIBRATION_LTM_CTL                   ,
     CALIBRATION_LTM_LO_HI_GM              ,
+    CALIBRATION_LTM_CONTRAST              ,
     CALIBRATION_LTM_SHARP_ADJ             ,
     CALIBRATION_LTM_SATUR_LUT             ,
     CALIBRATION_LC_CTL                    ,
+    CALIBRATION_LC_STRENGTH               ,
     CALIBRATION_LC_SATUR_LUT              ,
     CALIBRATION_DNLP_CTL                  ,
+    CALIBRATION_DNLP_STRENGTH             ,
+    CALIBRATION_DNLP_SCURV_LOW            ,
+    CALIBRATION_DNLP_SCURV_MID1           ,
+    CALIBRATION_DNLP_SCURV_MID2           ,
+    CALIBRATION_DNLP_SCURV_HGH1           ,
+    CALIBRATION_DNLP_SCURV_HGH2           ,
     CALIBRATION_DHZ_CTL                   ,
+    CALIBRATION_DHZ_STRENGTH              ,
     CALIBRATION_PEAKING_CTL               ,
     CALIBRATION_PEAKING_ADJUST            ,
     CALIBRATION_PEAKING_FLT1_MOTION_ADP_GAIN,
@@ -133,11 +146,6 @@ typedef enum cali_type {
     CALIBRATION_EOTF0                     ,
     CALIBRATION_EOTF1                     ,
     CALIBRATION_LTM_HIST_BLK65            ,
-    CALIBRATION_DNLP_SCURV_LOW            ,
-    CALIBRATION_DNLP_SCURV_MID1           ,
-    CALIBRATION_DNLP_SCURV_MID2           ,
-    CALIBRATION_DNLP_SCURV_HGH1           ,
-    CALIBRATION_DNLP_SCURV_HGH2           ,
     CALIBRATION_DNLP_ADP_THRD             ,
     CALIBRATION_DNLP_BLK_BOOST            ,
     CALIBRATION_DNLP_GAIN_VAR_LUT49       ,
@@ -150,9 +158,10 @@ typedef enum cali_type {
     CALIBRATION_PPS_SCALE_V               ,
     CALIBRATION_DECMP0                    ,
     CALIBRATION_DECMP1                    ,
+    CALIBRATION_DYM_CUSTOM_SETTING        ,
     CALIBRATION_AWB_PRESET                ,
     CALIBRATION_TOTAL_SIZE                ,
-} cali_type_t;
+} CALIBRATION_TYPE_E;
 
 typedef enum
 {
@@ -213,8 +222,9 @@ typedef enum
     AML_MBI_ISP_FMWAttr,
     AML_MBI_ISP_RotAttr,
     AML_MBI_ISP_FpsAttr,
-
-} aisp_cmd_id_t;
+    AML_MBI_ISP_SwitchIq,
+    AML_MBI_ISP_CfgAlgFps,
+} AISP_CMD_ID_E;
 
 typedef struct LookupTable {
     void *ptr;

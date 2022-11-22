@@ -18,6 +18,7 @@ namespace android {
 class staticPipe {
   public:
     static int fetchPipeMaxResolution(media_stream_t *stream, uint32_t& width, uint32_t &height);
+    static int fetchSensorFormat(media_stream_t *stream, int hdrEnable);
 };
 }
 #endif

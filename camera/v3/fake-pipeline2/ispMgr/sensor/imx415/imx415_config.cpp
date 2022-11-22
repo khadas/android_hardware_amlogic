@@ -29,7 +29,9 @@
 
 #include "aml_isp_api.h"
 
-#include "imx415_calibration.h"
+#include "imx415_sdr_calibration.h"
+#include "imx415_wdr_calibration.h"
+
 #include "imx415_api.h"
 
 typedef struct
@@ -41,14 +43,18 @@ typedef struct
 
 static ISP_SNS_STATE_S sensor;
 
-void cmos_set_sensor_entity_imx415(struct media_entity * sensor_ent)
+void cmos_set_sensor_entity_imx415(struct media_entity * sensor_ent,int wdr)
 {
     sensor.sensor_ent = sensor_ent;
+    sensor.enWDRMode = wdr;
 }
 
 void cmos_get_sensor_calibration_imx415(aisp_calib_info_t * calib)
 {
-    dynamic_calibrations_init_imx415(calib);
+    if (sensor.enWDRMode == 1)
+        Imx415WdrCalibration::dynamic_wdr_calibrations_init_imx415(calib);
+    else
+        Imx415SdrCalibration::dynamic_sdr_calibrations_init_imx415(calib);
 }
 
 int cmos_get_ae_default_imx415(int ViPipe, ALG_SENSOR_DEFAULT_S *pstAeSnsDft)
