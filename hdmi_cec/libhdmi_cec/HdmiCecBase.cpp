@@ -56,6 +56,9 @@ void HdmiCecBase::printCecEvent(const hdmi_cec_event_t *event)
 
 void HdmiCecBase::printCecMessage(const cec_message_t* message)
 {
+    if (message->length < 1) {
+        return;
+    }
     char buf[64];
     int i, size = 0;
     memset(buf, 0, sizeof(buf));
@@ -68,6 +71,9 @@ void HdmiCecBase::printCecMessage(const cec_message_t* message)
 
 void HdmiCecBase::printCecMessage(const cec_message_t* message, int result)
 {
+    if (message->length < 1) {
+        return;
+    }
     char buf[64];
     int i, size = 0;
     memset(buf, 0, sizeof(buf));

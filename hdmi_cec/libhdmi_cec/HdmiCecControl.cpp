@@ -90,7 +90,7 @@ HdmiCecControl::HdmiCecEventHandler::~HdmiCecEventHandler()
 }
 
 void HdmiCecControl::HdmiCecEventHandler::onCecEvent(int type) {
-    LOGD("onCecEvent type :%d", type);
+    //LOGD("onCecEvent type :%d", type);
     if (HDMI_EVENT_HOT_PLUG == type) {
         mControl->checkConnectStatus();
     } else if (HDMI_EVENT_CEC_MESSAGE == type) {
@@ -858,7 +858,7 @@ void HdmiCecControl::checkConnectStatus()
         }
         bit = prevStatus & (1 << port);
         if (bit ^ ((connect ? 1 : 0) << port)) {//connect status has changed
-            LOGI("port:%x, connect status changed, now:%x, prevStatus:%x\n",
+            LOGI("Hotplug event port:%x, now:%x, prevStatus:%x\n",
                     mCecDevice.port_data[i].port_id, connect, prevStatus);
             if (mEventListener != NULL && mCecDevice.is_cec_enabled && mCecDevice.is_cec_controled) {
                 event.eventType = HDMI_EVENT_HOT_PLUG;
