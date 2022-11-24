@@ -33,6 +33,12 @@
 
 #include "media-v4l2/mediaApi.h"
 
+enum sensorType
+{
+    sensor_raw,
+    sensor_yuv,
+    sensor_NULL,
+};
 struct sensorConfig {
     ALG_SENSOR_EXP_FUNC_S expFunc;
     void (*cmos_set_sensor_entity)(struct media_entity * sensor_ent, int wdr);
@@ -42,6 +48,7 @@ struct sensorConfig {
     const char* sensorName;
     uint32_t wdrFormat;
     uint32_t sdrFormat;
+    sensorType type;
 };
 
 struct sensorConfig *matchSensorConfig(media_stream_t *stream);

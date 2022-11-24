@@ -381,8 +381,19 @@ void V4l2MediaSensor::setIOBufferNum()
 status_t V4l2MediaSensor::getOutputFormat(void) {
 
     // todo: output format from sensor subdev
-    if (!mIspMgr)
+    char property[PROPERTY_VALUE_MAX];
+    property_get("vendor.media.isp.enable", property, "true");
+    if (strstr(property, "false")) {
+        ALOGD("%s: isp not enable", __FUNCTION__);
+        if (mMediaStream != NULL) {
+            if ((staticPipe::fetchSensorType((media_stream_t *) mMediaStream)) == sensor_yuv) {
+                return V4L2_PIX_FMT_NV21;
+            }
+        } else {
+            ALOGE("%s: mMediaStream == NULL", __FUNCTION__);
+        }
         return V4L2_PIX_FMT_UYVY;
+    }
     else
         return V4L2_PIX_FMT_NV21;
 }
@@ -417,6 +428,11 @@ status_t V4l2MediaSensor::setOutputFormat(int width, int height, int pixelformat
                 media_set_wdrMode((media_stream_t*) mMediaStream, 1);
             }
             mStreamconfig.format.code   = staticPipe::fetchSensorFormat((media_stream_t *) mMediaStream, enableHdr);
+        } else if ((staticPipe::fetchSensorType((media_stream_t *) mMediaStream)) == sensor_yuv) {
+            mStreamconfig.format.width  = mMaxWidth;
+            mStreamconfig.format.height = mMaxHeight;
+            mStreamconfig.format.fourcc = pixelformat;
+            mStreamconfig.format.code   = MEDIA_BUS_FMT_YUYV8_2X8;//MEDIA_BUS_FMT_YUYV8_2X8
         } else {
             mStreamconfig.format.width  = width;
             mStreamconfig.format.height = height;

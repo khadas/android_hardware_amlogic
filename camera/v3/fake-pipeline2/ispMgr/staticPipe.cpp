@@ -11,7 +11,7 @@
 #include <vector>
 
 #include "staticPipe.h"
-#include "sensor/sensor_config.h"
+
 
 namespace android {
 
@@ -34,5 +34,12 @@ int staticPipe::fetchSensorFormat(media_stream_t *stream, int hdrEnable) {
     }
     ALOGE("do not find matched");
     return -1;
+}
+sensorType staticPipe::fetchSensorType(media_stream_t * stream) {
+    auto cfg = matchSensorConfig(stream);
+    if (cfg) {
+        return cfg->type;
+    }
+    return sensor_NULL;
 }
 }

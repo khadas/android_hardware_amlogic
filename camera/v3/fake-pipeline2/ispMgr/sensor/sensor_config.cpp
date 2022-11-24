@@ -48,6 +48,7 @@ struct sensorConfig imx290Cfg = {
     .sensorName       = "imx290",
     .wdrFormat        = MEDIA_BUS_FMT_SRGGB10_1X10,
     .sdrFormat        = MEDIA_BUS_FMT_SRGGB12_1X12,
+    .type             = sensor_raw,
 };
 struct sensorConfig imx415Cfg = {
     .expFunc.pfn_cmos_fps_set = cmos_fps_set_imx415,
@@ -63,12 +64,16 @@ struct sensorConfig imx415Cfg = {
     .sensorName       = "imx415",
     .wdrFormat        = MEDIA_BUS_FMT_SRGGB10_1X10,
     .sdrFormat        = MEDIA_BUS_FMT_SRGGB12_1X12,
+    .type             = sensor_raw,
 };
 
 struct sensorConfig ov5640Cfg = {
     .sensorWidth      = 1920,
     .sensorHeight     = 1080,
     .sensorName       = "ov5640",
+    .wdrFormat        = MEDIA_BUS_FMT_YUYV8_2X8,
+    .sdrFormat        = MEDIA_BUS_FMT_YUYV8_2X8,
+    .type             = sensor_yuv,
 };
 
 struct sensorConfig *supportedCfgs[] = {
