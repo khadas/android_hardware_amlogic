@@ -37,6 +37,8 @@ using ::vendor::amlogic::hardware::tvserver::V1_0::ConnectType;
 using ::vendor::amlogic::hardware::tvserver::V1_0::SignalInfo;
 using ::vendor::amlogic::hardware::tvserver::V1_0::TvHidlParcel;
 using ::vendor::amlogic::hardware::tvserver::V1_0::FormatInfo;
+using ::vendor::amlogic::hardware::tvserver::V1_0::BasicVdecState;
+
 
 using ::android::hardware::hidl_array;
 using ::android::hardware::hidl_string;
@@ -75,6 +77,7 @@ public:
 
     int startTv();
     int stopTv();
+    int setTunnelId(int tunnelId);
     int switchInputSrc(int32_t inputSrc);
     int getInputSrcConnectStatus(int32_t inputSrc);
     int getCurrentInputSrc();
@@ -100,6 +103,7 @@ public:
     int setScreenColorForSignalChange(int screenColor, int is_save);
     int getScreenColorForSignalChange();
     int dtvGetSignalSNR();
+    BasicVdecState getBasicVdecStatusInfo(int vdecId);
 private:
     class TvServerHidlCallback : public ITvServerCallback {
     public:

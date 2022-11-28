@@ -182,6 +182,14 @@ int TvServerHidlClient::stopTv() {
     return ret;
 }
 
+int TvServerHidlClient::setTunnelId(int tunnelId) {
+    Return<int32_t> ret = mTvServer->setTunnelId(tunnelId);
+    if (!ret.isOk()) {
+        ALOGE("setTunnelId error");
+    }
+    return ret;
+}
+
 int TvServerHidlClient::switchInputSrc(int32_t inputSrc) {
     //return mTvServer->switchInputSrc(inputSrc);
     Return<int32_t> ret = mTvServer->switchInputSrc(inputSrc);
@@ -412,6 +420,25 @@ int TvServerHidlClient::dtvGetSignalSNR() {
         ALOGE("dtvGetSignalSNR error");
     }
     return ret;
+}
+
+BasicVdecState TvServerHidlClient::getBasicVdecStatusInfo(int vdecId) {
+    BasicVdecState info;
+    Return<void> ret = mTvServer->getBasicVdecStatusInfo(vdecId,[&](const BasicVdecState vInfo) {
+        info.decode_time_cost   = vInfo.decode_time_cost;
+        info.frame_width        = vInfo.frame_width;
+        info.frame_height       = vInfo.frame_height;
+        info.frame_rate         = vInfo.frame_rate;
+        info.error_count        = vInfo.error_count;
+        info.frame_count        = vInfo.frame_count;
+        info.error_frame_count  = vInfo.error_frame_count;
+        info.drop_frame_count   = vInfo.drop_frame_count;
+        info.double_write_mode  = vInfo.double_write_mode;
+    });
+    if (!ret.isOk()) {
+        ALOGE("getBasicVdecStatusInfo error");
+    }
+    return info;
 }
 
 // callback from tv service

@@ -139,7 +139,7 @@ int TvInputIntf::startTv(tv_source_input_t source_input)
 #endif
         ret = 0;
     } else {
-        //mTvSession->setTunnelId(mTunnelId);
+        mTvSession->setTunnelId(mTunnelId);
         ret = mTvSession->startTv();
 
     }
@@ -173,7 +173,7 @@ int TvInputIntf::stopTv(tv_source_input_t source_input)
         ret = 0;
     } else {
         ret = mTvSession->stopTv();
-        //mTvSession->setTunnelId(-1);
+        mTvSession->setTunnelId(-1);
     }
     pthread_mutex_unlock(&mMutex);
 
