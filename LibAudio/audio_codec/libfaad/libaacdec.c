@@ -78,7 +78,7 @@
 #define ERROR_RESET_COUNT  40
 #define  RSYNC_SKIP_BYTES  1
 #define FRAME_RECORD_NUM   40
-#define FRAME_SIZE_MARGIN  300
+#define FRAME_SIZE_MARGIN  100
 #define PROPERTY_FILTER_HEAAC "vendor.media.filter.heaac"
 #define PROPERTY_FAAD_DETECT_FORMAT_DISABLE "vendor.media.faad.detect.format.disable"
 
@@ -316,6 +316,7 @@ static int audio_decoder_init(
 {
     unsigned long samplerate;
     unsigned char channels;
+    unsigned long frame_size;
     int ret;
     NeAACDecConfigurationPtr config = NULL;
     char *in_buf;
@@ -415,7 +416,7 @@ retry:
         islatm = 0;
     }
     int skipbytes=RSYNC_SKIP_BYTES;
-    if ((ret = NeAACDecInit(gFaadCxt->hDecoder, (unsigned char *)in_buf, inbuf_size, &samplerate, &channels, islatm,&skipbytes)) < 0) {
+    if ((ret = NeAACDecInit(gFaadCxt->hDecoder, (unsigned char *)in_buf, inbuf_size, &samplerate, &channels,&frame_size, islatm,&skipbytes)) < 0) {
         in_buf += skipbytes;
         inbuf_size -= skipbytes;
         NeAACDecClose(gFaadCxt->hDecoder);
@@ -434,6 +435,10 @@ retry:
     }
     audio_codec_print("init success cost %d gFaadCxt->success_count %d\n", ret, gFaadCxt->success_count);
     NeAACDecStruct* hDecoder = (NeAACDecStruct*)(gFaadCxt->hDecoder);
+    if (hDecoder->adts_header_present) {
+       store_frame_size(gFaadCxt, frame_size);
+    }
+
     if (hDecoder->adts_header_present &&
         adec_ops->nAudioDecoderType == ACODEC_FMT_AAC_LATM) {
         gFaadCxt->success_count++;

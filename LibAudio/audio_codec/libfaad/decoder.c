@@ -953,6 +953,7 @@ long NEAACDECAPI NeAACDecInit(NeAACDecHandle hpDecoder,
                               unsigned long buffer_size,
                               unsigned long *samplerate,
                               unsigned char *channels,
+                              unsigned long *frame_size,
                               int is_latm_external,
                               int *skipbytes)
 {
@@ -1142,6 +1143,7 @@ nonlatm_check:
                 *samplerate = get_sample_rate(hDecoder->sf_index);
                 *channels = (adts.channel_configuration > 6) ?
                             2 : adts.channel_configuration;
+                *frame_size = adts.aac_frame_length;
             } else {
                 /*we guess it is a ADTS aac files and try to resync from the error*/
                 int ii;

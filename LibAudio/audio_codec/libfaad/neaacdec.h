@@ -212,6 +212,7 @@ int check_adts_frame_valid(unsigned char *buffer, unsigned long buffer_size);
                                   unsigned long buffer_size,
                                   unsigned long *samplerate,
                                   unsigned char *channels,
+                                  unsigned long *frame_size,
                                   int is_latm_external,
                                   int *skipbytes);
 
