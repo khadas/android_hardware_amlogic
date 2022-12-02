@@ -31,6 +31,7 @@
 
 #include "imx290/imx290_api.h"
 #include "imx415/imx415_api.h"
+#include "ov13b10/ov13b10_api.h"
 
 #define ARRAY_SIZE(array)   (sizeof(array) / sizeof((array)[0]))
 
@@ -67,6 +68,23 @@ struct sensorConfig imx415Cfg = {
     .type             = sensor_raw,
 };
 
+struct sensorConfig ov13b10Cfg = {
+    .expFunc.pfn_cmos_fps_set = cmos_fps_set_ov13b10,
+    .expFunc.pfn_cmos_get_alg_default = cmos_get_ae_default_ov13b10,
+    .expFunc.pfn_cmos_alg_update = cmos_alg_update_ov13b10,
+    .expFunc.pfn_cmos_again_calc_table = cmos_again_calc_table_ov13b10,
+    .expFunc.pfn_cmos_dgain_calc_table = cmos_dgain_calc_table_ov13b10,
+    .expFunc.pfn_cmos_inttime_calc_table = cmos_inttime_calc_table_ov13b10,
+    .cmos_set_sensor_entity = cmos_set_sensor_entity_ov13b10,
+    .cmos_get_sensor_calibration = cmos_get_sensor_calibration_ov13b10,
+    .sensorWidth      = 4208,
+    .sensorHeight     = 3120,
+    .sensorName       = "ov13b10",
+    .wdrFormat        = MEDIA_BUS_FMT_SRGGB12_1X12,
+    .sdrFormat        = MEDIA_BUS_FMT_SRGGB12_1X12,
+    .type             = sensor_raw,
+};
+
 struct sensorConfig ov5640Cfg = {
     .sensorWidth      = 1920,
     .sensorHeight     = 1080,
@@ -79,6 +97,7 @@ struct sensorConfig ov5640Cfg = {
 struct sensorConfig *supportedCfgs[] = {
     &imx290Cfg,
     &imx415Cfg,
+    &ov13b10Cfg,
     &ov5640Cfg,
 };
 

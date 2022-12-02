@@ -112,6 +112,7 @@ enum format {
 
 JpegCompressor::JpegCompressor():
         Thread(false),
+        mMaxbufsize(0),
         mIsBusy(false),
         mSynchronous(false),
         mExitJpegThread(false),
@@ -122,8 +123,15 @@ JpegCompressor::JpegCompressor():
         mDstThumbBuffer(NULL),
         mBuffers(NULL),
         mPendingrequest(0),
-        mListener(NULL) {
+        mListener(NULL)
+        {
         memset(&mInfo,0,sizeof(struct ExifInfo));
+        memset(&mJpegRequest,0,sizeof(struct CaptureRequest));
+        memset(&mJpegBuffer,0,sizeof(struct StreamBuffer));
+        memset(&mAuxBuffer,0,sizeof(struct StreamBuffer));
+        mFoundJpeg = 0;
+        mFoundAux = 0;
+        mJpegErrorInfo = NULL;
 #ifdef GE2D_ENABLE
         mION = IONInterface::get_instance();
 #endif
@@ -214,7 +222,10 @@ status_t JpegCompressor::cancel() {
     mPendingrequest++;
     mInJpegRequestSignal.signal();
     mMutex.unlock();
-    requestExitAndWait();
+    int res = requestExitAndWait();
+    if (res != OK) {
+        ALOGE("Unable to shut down JpegCompressor thread: %d", res);
+    }
     for (List<CaptureRequest*>::iterator i = mInJpegRequestQueue.begin();
          i != mInJpegRequestQueue.end(); i++) {
         delete (*i)->buf;
@@ -277,15 +288,16 @@ status_t JpegCompressor::Create_Exif_Use_Libexif() {
                 }
             } else {
                 uint8_t * mTempJpegBuffer = (uint8_t *)malloc(mMainJpegSize + sEb->size);
-                memset(mTempJpegBuffer, 0, sizeof(char) * (mMainJpegSize + sEb->size));
-                memcpy(mTempJpegBuffer, exif_header, exif_header_len);
-                mTempJpegBuffer[exif_header_len] = (sEb->size+2) >> 8;
-                mTempJpegBuffer[exif_header_len + 1] = ((sEb->size+2) & 0xff);
-                memcpy(mTempJpegBuffer + exif_header_len + 2, sEb->data, sEb->size);
-                memcpy(mTempJpegBuffer + exif_header_len + sEb->size + 2, mJpegBuffer.img + image_data_offset,
-                   mMainJpegSize - image_data_offset);
-                memcpy(mJpegBuffer.img, mTempJpegBuffer, mMainJpegSize + sEb->size);
                 if (mTempJpegBuffer != NULL) {
+                    memset(mTempJpegBuffer, 0, sizeof(char) * (mMainJpegSize + sEb->size));
+                    memcpy(mTempJpegBuffer, exif_header, exif_header_len);
+                    mTempJpegBuffer[exif_header_len] = (sEb->size+2) >> 8;
+                    mTempJpegBuffer[exif_header_len + 1] = ((sEb->size+2) & 0xff);
+                    memcpy(mTempJpegBuffer + exif_header_len + 2, sEb->data, sEb->size);
+                    memcpy(mTempJpegBuffer + exif_header_len + sEb->size + 2, mJpegBuffer.img + image_data_offset,
+                       mMainJpegSize - image_data_offset);
+                    memcpy(mJpegBuffer.img, mTempJpegBuffer, mMainJpegSize + sEb->size);
+
                     free(mTempJpegBuffer);
                     mTempJpegBuffer = NULL;
                 }
@@ -309,7 +321,7 @@ status_t JpegCompressor::Create_Exif_Use_Libexif() {
                     CAMHAL_LOGDA("free malloc sEb buffer");
                 }
             }
-        } else {
+        } /*else {
             DBG_LOGA("get exif buffer failed, so only callback Main JPEG data");
             for (uint32_t size = (mMainJpegSize + sEb->size); size > 0; size--) {
                 if (checkJpegEnd(mJpegBuffer.img + size)) {
@@ -321,7 +333,7 @@ status_t JpegCompressor::Create_Exif_Use_Libexif() {
             blob.jpeg_blob_id = 0x00FF;
             blob.jpeg_size = realjpegsize;
             memcpy(mJpegBuffer.img+offset, &blob, sizeof(struct camera2_jpeg_blob));
-        }
+        }*/
     } else {
             uint32_t realjpegsize = 0;
             for (uint32_t size = (mMainJpegSize); /*size > 0*/; size--) {
@@ -385,7 +397,7 @@ bool JpegCompressor::threadLoop() {
     }
     mFoundJpeg = false;
     mFoundAux = false;
-    for (size_t i = 0; i < mBuffers->size(); i++) {
+    for (size_t i = 0; mBuffers != NULL && i < mBuffers->size(); i++) {
         const StreamBuffer &b = (*mBuffers)[i];
         if (b.format == HAL_PIXEL_FORMAT_BLOB) {
             mJpegBuffer = b;
@@ -418,6 +430,10 @@ bool JpegCompressor::threadLoop() {
             delete ri->buf;
         }
         delete ri;
+    }
+    if (mBuffers != NULL) {
+        delete mBuffers;
+        mBuffers = NULL;
     }
     gettimeofday(&mTimeend, NULL);
     interval = (mTimeend.tv_sec - mTimeStart.tv_sec) * 1000 + ((mTimeend.tv_usec - mTimeStart.tv_usec))/1000;
@@ -776,15 +792,22 @@ status_t JpegCompressor::compress() {
     params  enc_params;
     enc_params.src = mAuxBuffer.img;
     enc_params.src_size = calc_frame_length(mAuxBuffer.format, mAuxBuffer.width, mAuxBuffer.height);
+
     enc_params.dst = mJpegBuffer.img;
     enc_params.dst_size = mMaxbufsize;
     enc_params.quality = 80;
+
     enc_params.in_width = mAuxBuffer.width;
     enc_params.in_height = mAuxBuffer.height;
-    enc_params.out_width= mAuxBuffer.width;
-    enc_params.out_height = mAuxBuffer.height;
     enc_params.format = mAuxBuffer.format;
+
+    enc_params.out_width = mJpegBuffer.width;
+    enc_params.out_height = mJpegBuffer.height;
+
     enc_params.jpeg_size = 0;
+
+    ALOGD("%s in_width=%d, in_height=%d, out_w=%d, out_h=%d", __FUNCTION__,
+           enc_params.in_width, enc_params.in_height, enc_params.out_width, enc_params.out_height);
 
     mMainJpegSize = encode(&enc_params);
     ALOGD("mMainJpegSize = %d",mMainJpegSize);
