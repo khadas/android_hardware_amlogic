@@ -155,24 +155,29 @@ int CameraVirtualDevice::checkDeviceStatus(struct VirtualDevice* pDev) {
 
 int CameraVirtualDevice::OpenVideoDevice(struct VirtualDevice* pDev) {
     ALOGD("%s: E", __FUNCTION__);
+    int fd = -1;
     if (pDev == nullptr) {
         ALOGD("%s: device is null!", __FUNCTION__);
         return -1;
     }
     for (int i = 0; i < pDev->streamNum; i++) {
-
-        int fd = open(pDev->name,O_RDWR | O_NONBLOCK);
-        if (fd < 0) {
-            ALOGE("open device %s , the %dth stream fail!",pDev->name,i);
-            ALOGE("the reason is %s",strerror(errno));
-            return -1;
-        } else {
-            if (pDev->status[i] == FREED_VIDEO_DEVICE) {
-                pDev->status[i] = USED_VIDEO_DEVICE;
+        for (int try_count = 0; try_count < 1000; ++try_count) {
+            fd = open(pDev->name,O_RDWR | O_NONBLOCK);
+            if (fd <= 0) {
+                ALOGE("open device %s , the %dth stream fail!",pDev->name,i);
+                ALOGE("the reason is %s",strerror(errno));
+                usleep(1000*50);
+            } else {
+                if (pDev->status[i] == FREED_VIDEO_DEVICE) {
+                    pDev->status[i] = USED_VIDEO_DEVICE;
+                }
+                pDev->fileDesc[i] = fd;
+                break;
             }
-            pDev->fileDesc[i] = fd;
         }
         ALOGD("%s: stream = %d ,fd = %d, status = %d!", __FUNCTION__,i,fd,pDev->status[i]);
+        if (fd < 0)
+        return -1;
     }
     return 0;
 }
