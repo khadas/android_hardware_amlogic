@@ -470,6 +470,16 @@ bool BootControl::Init() {
     LOG(INFO) << "call set_sys_boot_complete in init";
   }
 
+  LOG(INFO) << "boot_ctrl.roll_flag = " << boot_ctrl.roll_flag;
+
+  if (boot_ctrl.roll_flag == 1) {
+    if (unlink("/data/misc/update_engine/prefs/update-state-next-operation") < 0) {
+        LOG(ERROR) << "unlink update-state-next-operation failed.";
+    }
+    boot_ctrl.roll_flag = 0;
+    UpdateAndSaveBootloaderControl(device.c_str(), &boot_ctrl);
+  }
+
   num_slots_ = boot_ctrl.nb_slot;
   return true;
 }

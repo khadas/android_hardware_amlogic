@@ -114,7 +114,7 @@ struct bootloader_control {
     // Status of any pending snapshot merge of dynamic partitions.
     uint8_t merge_status : 3;
     // Ensure 4-bytes alignment for slot_info field.
-    uint8_t reserved0[1];
+    uint8_t roll_flag;
     // Per-slot information.  Up to 4 slots.
     struct slot_metadata slot_info[4];
     // Reserved for further use.
