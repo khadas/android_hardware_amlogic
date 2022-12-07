@@ -56,9 +56,21 @@ const usb_frmsize_discrete_t kUsbAvailablePictureSize[] = {
         {352, 288},
         {320, 240},
 };
-
-extern bool IsUsbAvailablePictureSize(const usb_frmsize_discrete_t AvailablePictureSize[], uint32_t width, uint32_t height);
-
+const uint32_t pictureSizeNum = sizeof(kUsbAvailablePictureSize)/sizeof(kUsbAvailablePictureSize[0]);
+bool IsUsbSensorAvailablePictureSize(const usb_frmsize_discrete_t AvailablePictureSize[], uint32_t size_num, uint32_t width, uint32_t height)
+{
+    int i = 0;
+    bool ret = false;
+    int count = size_num;
+    for (i = 0; i < count; i++) {
+        if ((width == AvailablePictureSize[i].width) && (height == AvailablePictureSize[i].height)) {
+            ret = true;
+        } else {
+            continue;
+        }
+    }
+    return ret;
+}
 
 USBSensor::USBSensor(int type)
 {
@@ -1536,7 +1548,6 @@ int USBSensor::getStreamConfigurations(uint32_t picSizes[], const int32_t kAvail
     for (j = 0; j<(int)(sizeof(jpgSrcfmt)/sizeof(jpgSrcfmt[0])); j++) {
         memset(&frmsize,0,sizeof(frmsize));
         frmsize.pixel_format = jpgSrcfmt[j];
-
         for (i = 0; ; i++) {
             frmsize.index = i;
             res = ioctl(mVinfo->fd, VIDIOC_ENUM_FRAMESIZES, &frmsize);
@@ -1558,7 +1569,7 @@ int USBSensor::getStreamConfigurations(uint32_t picSizes[], const int32_t kAvail
 
                 if ((frmsize.pixel_format == V4L2_PIX_FMT_MJPEG)
                     || (frmsize.pixel_format == V4L2_PIX_FMT_YUYV)) {
-                    if (!IsUsbAvailablePictureSize(kUsbAvailablePictureSize, frmsize.discrete.width, frmsize.discrete.height))
+                    if (!IsUsbSensorAvailablePictureSize(kUsbAvailablePictureSize, pictureSizeNum, frmsize.discrete.width, frmsize.discrete.height))
                         continue;
                 }
 
