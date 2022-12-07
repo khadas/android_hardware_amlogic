@@ -20,7 +20,6 @@
 *.mod.c
 *.i
 *.lst
-*.symtypes
 *.order
 modules.builtin
 *.elf
@@ -41,13 +40,12 @@ modules.builtin
 /TAGS
 /linux
 /vmlinux
-/vmlinuz
 /System.map
 /Module.markers
 Module.symvers
 
 #
-# Debian directory (make deb-pkg)
+# directory (make deb-pkg)
 #
 /debian/
 
@@ -73,13 +71,9 @@ series
 
 # cscope files
 cscope.*
-ncscope.*
 
 # gnu global files
-GPATH
 GRTAGS
-GSYMS
-GTAGS
 
 *.orig
 *~

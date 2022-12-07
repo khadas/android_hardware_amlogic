@@ -17,7 +17,7 @@ The variables holding these "std::function" callbacks are reset from the HIDL
 thread when they are no longer used. For example: stopGscan() will reset the
 corresponding "on_gscan_*" callback variables which were set when startGscan()
 was invoked. This is not thread safe since these callback variables are
-accesed from the legacy hal event loop thread as well.
+accessed from the legacy hal event loop thread as well.
 
 Synchronization Solution
 ========================
