@@ -464,8 +464,6 @@ bool IspMgr::threadLoop() {
         (IspMgr::mIspIF.alg2User)(mId, mISPStats.mem[v4l2_buf_stats.index].addr);
         (IspMgr::mIspIF.alg2Kernel)(mId, mISParams.mem[v4l2_buf_param.index].addr);
 
-        usleep(1000*10);
-
         rc = v4l2_video_q_buf(mMediaStream->video_stats,  &v4l2_buf_stats);
         if (rc < 0) {
             ALOGE ("[stats] error: queue buffer");
