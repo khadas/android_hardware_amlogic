@@ -65,6 +65,8 @@ constexpr unsigned int kMaxNumSlots =
 constexpr const char* kSlotSuffixes[kMaxNumSlots] = { "_a", "_b", "_c", "_d" };
 constexpr off_t kBootloaderControlOffset = offsetof(bootloader_message_ab, slot_suffix);
 
+static char env_buffer[64];
+
 static uint32_t CRC32(const uint8_t* buf, size_t size) {
   static uint32_t crc_table[256];
 
@@ -331,8 +333,10 @@ char* get_bootloader_env(const char * name)
     sprintf(ubootenv_name, "%s%s", ubootenv_var, name);
 
     char *uboot_env = (char *)ubootenv->getValue(ubootenv_name);
+    memset(env_buffer, 0, 64);
+    strncpy(env_buffer, uboot_env, strlen(uboot_env));
     delete ubootenv;
-    return uboot_env;
+    return env_buffer;
 }
 
 void InitDefaultBootloaderControl(BootControl* control, bootloader_control* boot_ctrl) {
