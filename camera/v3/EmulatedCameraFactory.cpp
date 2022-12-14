@@ -54,7 +54,6 @@ int updateLogLevels()
     return tmp;
 }
 
-
 namespace android {
 
 EmulatedCameraFactory::EmulatedCameraFactory()
@@ -86,6 +85,7 @@ EmulatedCameraFactory::EmulatedCameraFactory()
                 ALOGE("%s: Unable to initialize camera %d: %s (%d)",
                     __FUNCTION__, i, strerror(-res), res);
                 delete mEmulatedCameras[i];
+                mEmulatedCameras[i] = NULL;
             }
         }
     }

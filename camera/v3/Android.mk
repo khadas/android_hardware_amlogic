@@ -181,6 +181,7 @@ LOCAL_SRC_FILES := \
     EmulatedFakeCamera3.cpp \
     EmulatedFakeCamera3Info.cpp \
     fake-pipeline2/camera_hw.cpp \
+    fake-pipeline2/MPlaneCameraIO.cpp \
     fake-pipeline2/util.c \
     VendorTags.cpp \
     fake-pipeline2/USBSensor.cpp \
@@ -192,7 +193,8 @@ LOCAL_SRC_FILES := \
     fake-pipeline2/Isp3a.cpp \
     fake-pipeline2/MIPICameraIO.cpp \
     fake-pipeline2/CaptureUseMemcpy.cpp \
-    fake-pipeline2/HDMIToCSISensor.cpp
+    fake-pipeline2/HDMIToCSISensor.cpp \
+    fake-pipeline2/HDMISensor.cpp
 
 LOCAL_SRC_FILES += \
     fake-pipeline2/V4l2MediaSensor.cpp \

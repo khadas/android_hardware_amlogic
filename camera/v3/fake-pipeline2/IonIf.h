@@ -24,7 +24,7 @@ struct IONBufferNode {
 class IONInterface {
 private:
     static int mIONDevice_fd;
-    IONBufferNode mPicBuffers[MAX_BUFFER_NUM];
+    static IONBufferNode mPicBuffers[MAX_BUFFER_NUM];
     static IONInterface* mIONInstance;
     static Mutex IonLock;
     static int mCount;

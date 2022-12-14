@@ -160,6 +160,7 @@ typedef enum sensor_type_e{
     SENSOR_MIPI,
     SENSOR_USB,
     SENSOR_V4L2MEDIA,
+    SENSOR_HDMI,
     SENSOR_SHARE_FD,
 }sensor_type_t;
 

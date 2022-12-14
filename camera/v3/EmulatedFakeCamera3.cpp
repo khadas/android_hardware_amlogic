@@ -38,6 +38,7 @@
 #include "fake-pipeline2/Sensor.h"
 #include "fake-pipeline2/JpegCompressor.h"
 #include "fake-pipeline2/V4l2MediaSensor.h"
+#include "fake-pipeline2/HDMISensor.h"
 #include <cmath>
 #include <binder/IPCThreadState.h>
 #include <amlogic/am_gralloc_ext.h>
@@ -1713,11 +1714,22 @@ void EmulatedFakeCamera3::updateCameraMetaData(CameraMetadata *info) {
 status_t EmulatedFakeCamera3::createSensor() {
 
     VirtualDevice * device = CameraVirtualDevice::getInstance()->getVirtualDevice(mCameraID);
+    if (device == nullptr) {
+        ALOGE("mCameraID=%d, get device fail",mCameraID);
+        return INVALID_OPERATION;
+    }
     ALOGD("device %s  type %d", device->name, device->type);
     if (device->type == V4L2MEDIA_CAM_DEV) {
         mSensorType = SENSOR_V4L2MEDIA;
         ALOGD("v4l2media sensor, mCameraID=%d",mCameraID);
         mSensor = new V4l2MediaSensor();
+        return OK;
+    }
+
+    if (device->type == HDMI_CAM_DEV) {
+        mSensorType = SENSOR_HDMI;
+        ALOGD("HDMI vdin sensor, mCameraID=%d",mCameraID);
+        mSensor = new HDMISensor();
         return OK;
     }
 
@@ -1785,8 +1797,10 @@ status_t EmulatedFakeCamera3::constructStaticInfo() {
     createSensor();
     if (mSensor)
         mSensor->startUp(mCameraID);
-    else
+    else {
         ALOGE("sensor object can not is NULL");
+        return BAD_VALUE;
+    }
 
     // android.lens
 
@@ -1864,6 +1878,10 @@ status_t EmulatedFakeCamera3::constructStaticInfo() {
             mFacingBack = 0;
             lensFacing =  ANDROID_LENS_FACING_FRONT;
         }
+        break;
+     case SENSOR_HDMI:
+        lensFacing =  ANDROID_LENS_FACING_BACK;
+        mFacingBack = 1;
         break;
      default:
          ALOGE("not support this sensor type!");

@@ -20,7 +20,8 @@ enum deviceStatus_t{
 typedef enum  deviceType {
 	USB_CAM_DEV = 0,
 	MIPI_CAM_DEV,
-	V4L2MEDIA_CAM_DEV
+	V4L2MEDIA_CAM_DEV,
+	HDMI_CAM_DEV,
 } deviceType_t;
 
 struct VirtualDevice {
@@ -57,12 +58,12 @@ class CameraVirtualDevice {
 
         int findUsbCameraID(int cam_id);
         bool isAmlMediaCamera (char *dev_node_name);
-
+        bool isHdmiVdinCameraEnable();
     private:
         static struct VirtualDevice usbvideoDevices[4];
 
         static struct VirtualDevice usbvideoDeviceslists[4];
-        static struct VirtualDevice mipivideoDeviceslists[6];
+        static struct VirtualDevice mipivideoDeviceslists[7];
 
         static CameraVirtualDevice* mInstance;
         int    pluggedMipiCameraNum;

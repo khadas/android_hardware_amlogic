@@ -19,6 +19,7 @@ IONInterface* IONInterface::mIONInstance = nullptr;
 int IONInterface::mIONDevice_fd = -1;
 Mutex IONInterface::IonLock;
 int IONInterface::mCount = 0;
+IONBufferNode IONInterface::mPicBuffers[MAX_BUFFER_NUM];
 IONInterface::IONInterface() {
     for (int i = 0; i < MAX_BUFFER_NUM; i++) {
         mPicBuffers[i].vaddr = nullptr;
