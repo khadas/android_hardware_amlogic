@@ -54,7 +54,6 @@ int updateLogLevels()
     return tmp;
 }
 
-
 namespace android {
 
 EmulatedCameraFactory::EmulatedCameraFactory()
@@ -86,6 +85,7 @@ EmulatedCameraFactory::EmulatedCameraFactory()
                 ALOGE("%s: Unable to initialize camera %d: %s (%d)",
                     __FUNCTION__, i, strerror(-res), res);
                 delete mEmulatedCameras[i];
+                mEmulatedCameras[i] = NULL;
             }
         }
     }
@@ -95,11 +95,7 @@ EmulatedCameraFactory::EmulatedCameraFactory()
 
     /* Create hotplug thread */
     {
-        Vector<int> cameraIdVector;
-        for (int i = 0; i < mEmulatedCameraNum; ++i) {
-            cameraIdVector.push_back(i);
-        }
-        mHotplugThread = new EmulatedCameraHotplugThread(&cameraIdVector[0],
+        mHotplugThread = new EmulatedCameraHotplugThread(NULL,
                                                          mEmulatedCameraNum);
         mHotplugThread->run("");
     }
