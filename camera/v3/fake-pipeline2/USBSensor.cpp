@@ -56,12 +56,12 @@ const usb_frmsize_discrete_t kUsbAvailablePictureSize[] = {
         {352, 288},
         {320, 240},
 };
-const uint32_t pictureSizeNum = sizeof(kUsbAvailablePictureSize)/sizeof(kUsbAvailablePictureSize[0]);
-bool IsUsbSensorAvailablePictureSize(const usb_frmsize_discrete_t AvailablePictureSize[], uint32_t size_num, uint32_t width, uint32_t height)
+
+static bool IsUsbAvailablePictureSize(const usb_frmsize_discrete_t AvailablePictureSize[], uint32_t width, uint32_t height)
 {
-    int i = 0;
+    int i;
     bool ret = false;
-    int count = size_num;
+    int count = sizeof(kUsbAvailablePictureSize)/sizeof(kUsbAvailablePictureSize[0]);
     for (i = 0; i < count; i++) {
         if ((width == AvailablePictureSize[i].width) && (height == AvailablePictureSize[i].height)) {
             ret = true;
@@ -72,23 +72,30 @@ bool IsUsbSensorAvailablePictureSize(const usb_frmsize_discrete_t AvailablePictu
     return ret;
 }
 
+
 USBSensor::USBSensor(int type)
 {
     mUseHwType = type;
     mDecodeMethod = DECODE_SOFTWARE;
-    fp = NULL;
     mImage_buffer = NULL;
+    fp = NULL;
 #ifdef GE2D_ENABLE
     mION = IONInterface::get_instance();
     mGE2D = new ge2dTransform();
 #endif
+    mSensorOutBuf.img = NULL;
+    mSensorOutBuf.share_fd = -1;
+
     mDecoder = NULL;
+    mCurrentFormat = 0;
     mIsDecoderInit = false;
     mUSBDevicefd = -1;
     mCameraVirtualDevice = nullptr;
     mVinfo = NULL;
     mCameraUtil = NULL;
     mTempFD = -1;
+    mDecodedBuffer = NULL;
+    mIsRequestFinished = false;
     ALOGD("create usbsensor");
 }
 
@@ -102,6 +109,10 @@ USBSensor::~USBSensor() {
         delete mCameraUtil;
         mCameraUtil = NULL;
     }
+  if (fp) {
+        fclose(fp);
+        fp = NULL;
+        }
 #ifdef GE2D_ENABLE
     if (mION) {
         mION->put_instance();
@@ -143,8 +154,8 @@ void USBSensor::camera_close(void)
         return;
     if (mCameraVirtualDevice == nullptr)
         mCameraVirtualDevice = CameraVirtualDevice::getInstance();
-
-    mCameraVirtualDevice->releaseVirtualDevice(mVinfo->idx,mUSBDevicefd);
+    if (mVinfo != NULL)
+        mCameraVirtualDevice->releaseVirtualDevice(mVinfo->idx,mUSBDevicefd);
     mUSBDevicefd = -1;
 }
 
@@ -179,6 +190,7 @@ status_t USBSensor::startUp(int idx) {
     DBG_LOGA("ddd");
     int res;
     mCapturedBuffers = NULL;
+    mOpenCameraID = idx;
     res = run("Camera::USBSensor",ANDROID_PRIORITY_URGENT_DISPLAY);
     if (res != OK) {
         ALOGE("Unable to start up sensor capture thread: %d", res);
@@ -200,6 +212,7 @@ status_t USBSensor::startUp(int idx) {
 
 uint32_t USBSensor::getStreamUsage(int stream_type){
     ATRACE_CALL();
+
     uint32_t usage = Sensor::getStreamUsage(stream_type);
     usage = (GRALLOC_USAGE_HW_TEXTURE
             | GRALLOC_USAGE_HW_RENDER
@@ -224,7 +237,7 @@ status_t USBSensor::setOutputFormat(int width, int height,
     mFramecount = 0;
     mCurFps = 0;
     gettimeofday(&mTimeStart, NULL);
-    initDecoder(width,height,4);
+    initDecoder(width, height, width, height, 4);
     if (ch == channel_capture) {
         mVinfo->picture.format.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
         mVinfo->picture.format.fmt.pix.width = width;
@@ -249,22 +262,55 @@ status_t USBSensor::setOutputFormat(int width, int height,
             if (mImage_buffer == NULL) {
                 ALOGE("first time allocate mTemp_buffer failed !");
                 return -1;
-                }
             }
+        }
+        mSensorOutBuf.streamId = 0;
+        mSensorOutBuf.buffer = NULL;
+        mSensorOutBuf.format = pixelformat;
+
+        if (NULL == mSensorOutBuf.img) {
+            mSensorOutBuf.width = mPre_width;
+            mSensorOutBuf.height = mPre_height;
+            mSensorOutBuf.stride = mPre_width;
+#ifdef GE2D_ENABLE
+            mSensorOutBuf.img = mION->alloc_buffer(mPre_width * mPre_height * 3, &mSensorOutBuf.share_fd);
+#else
+            mSensorOutBuf.img = new uint8_t[mPre_width * mPre_height * 3];
+#endif
+        }
+
         if ((mPre_width != mVinfo->preview.format.fmt.pix.width)
             && (mPre_height != mVinfo->preview.format.fmt.pix.height)) {
                 if (mImage_buffer) {
                     delete [] mImage_buffer;
                     mImage_buffer = NULL;
                 }
+                if (mSensorOutBuf.img) {
+#ifdef GE2D_ENABLE
+                    mION->free_buffer(mSensorOutBuf.share_fd);
+#else
+                    delete[] mSensorOutBuf.img;
+#endif
+                    mSensorOutBuf.img = NULL;
+                }
                 mPre_width = mVinfo->preview.format.fmt.pix.width;
                 mPre_height = mVinfo->preview.format.fmt.pix.height;
+
                 mImage_buffer = new uint8_t[mPre_width * mPre_height * 3 / 2];
                 if (mImage_buffer == NULL) {
                     ALOGE("allocate mTemp_buffer failed !");
                     return -1;
                 }
-            }
+
+                mSensorOutBuf.width = mPre_width;
+                mSensorOutBuf.height = mPre_height;
+                mSensorOutBuf.stride = mPre_width;
+#ifdef GE2D_ENABLE
+                mSensorOutBuf.img = mION->alloc_buffer(mPre_width * mPre_height * 3, &mSensorOutBuf.share_fd);
+#else
+                mSensorOutBuf.img = new uint8_t[mPre_width * mPre_height * 3];
+#endif
+        }
         return OK;
 }
 
@@ -285,10 +331,11 @@ bool USBSensor::isNeedRestart(uint32_t width, uint32_t height, uint32_t pixelfor
     return false;
 }
 
-void USBSensor::initDecoder(int width, int height, int bufferCount) {
-    ALOGV("%s: width=%d, height=%d",__FUNCTION__,width,height);
+void USBSensor::initDecoder(int in_width, int in_height, int out_width, int out_height, int out_bufferCount) {
+    ALOGV("%s: in_width=%d, in_height=%d out_width=%d, out_height=%d",
+         __FUNCTION__, in_width, in_height, out_width, out_height);
     if (mDecoder != NULL && mIsDecoderInit == false) {
-        mDecoder->setParameters(width,height, bufferCount + 4);
+        mDecoder->setParameters(in_width, in_height, out_width, out_height, out_bufferCount + 2);
         if (mUseHwType == HW_MJPEG)
             mDecoder->initialize("mjpeg");
         else if (mUseHwType == HW_H264)
@@ -325,6 +372,15 @@ status_t USBSensor::shutDown() {
         delete [] mImage_buffer;
         mImage_buffer = NULL;
     }
+    if (mSensorOutBuf.img && mSensorOutBuf.share_fd >= 0) {
+#ifdef GE2D_ENABLE
+        mION->free_buffer(mSensorOutBuf.share_fd);
+#else
+        delete[] mSensorOutBuf.img;
+#endif
+        mSensorOutBuf.img = NULL;
+        mSensorOutBuf.share_fd = -1;
+    }
     mSensorWorkFlag = false;
     ALOGD("%s: Exit", __FUNCTION__);
     return res;
@@ -347,7 +403,7 @@ void USBSensor::setIOBufferNum()
         sscanf(buffer_number, "%d", &tmp);
         ALOGD("get property value is %d\n",tmp);
     } else {
-        ALOGD("default buffer number is %d\n",tmp);
+        ALOGD("defalut buffer number is %d\n",tmp);
     }
     mVinfo->set_buffer_numbers(tmp);
 }
@@ -355,14 +411,15 @@ void USBSensor::setIOBufferNum()
 status_t USBSensor::getOutputFormat(void){
     uint32_t ret = 0;
 
-    if (mUseHwType == HW_MJPEG || mUseHwType == HW_NONE) {
-        ret = mVinfo->EnumerateFormat(V4L2_PIX_FMT_MJPEG);
-        if (ret)
-            return ret;
-    }
-
     if (mUseHwType == HW_H264) {
         ret = mVinfo->EnumerateFormat(V4L2_PIX_FMT_H264);
+        if (ret)
+            return ret;
+        mUseHwType = HW_MJPEG;
+    }
+
+    if (mUseHwType == HW_MJPEG || mUseHwType == HW_NONE) {
+        ret = mVinfo->EnumerateFormat(V4L2_PIX_FMT_MJPEG);
         if (ret)
             return ret;
     }
@@ -381,13 +438,15 @@ status_t USBSensor::getOutputFormat(void){
 int USBSensor::halFormatToSensorFormat(uint32_t pixelfmt){
     uint32_t ret = 0;
     uint32_t fmt = 0;
-    if  (mUseHwType == HW_MJPEG || mUseHwType == HW_NONE) {
-        ret = mVinfo->EnumerateFormat(V4L2_PIX_FMT_MJPEG);
-        if (ret)
-            return ret;
-    }
     if (mUseHwType == HW_H264) {
         ret = mVinfo->EnumerateFormat(V4L2_PIX_FMT_H264);
+        if (ret)
+            return ret;
+        mUseHwType = HW_MJPEG;
+    }
+
+    if  (mUseHwType == HW_MJPEG || mUseHwType == HW_NONE) {
+        ret = mVinfo->EnumerateFormat(V4L2_PIX_FMT_MJPEG);
         if (ret)
             return ret;
     }
@@ -419,107 +478,7 @@ int USBSensor::halFormatToSensorFormat(uint32_t pixelfmt){
     return BAD_VALUE;
 }
 
-void USBSensor::takePicture(StreamBuffer b, uint32_t stride) {
-    uint8_t *src = NULL;
-    int ret = 0, rotate = 0;
-    uint32_t width = 0, height = 0;
-    int dqTryNum = 3;
-
-    rotate = getPictureRotate();
-    width = mVinfo->picture.format.fmt.pix.width;
-    height = mVinfo->picture.format.fmt.pix.height;
-
-    mVinfo->releasebuf_and_stop_capturing();
-    ret = mVinfo->start_picture(rotate);
-    if (ret < 0)
-    {
-        ALOGD("start picture failed!");
-        return;
-    }
-    while (1)
-    {
-        if (mFlushFlag)
-            break;
-
-        if (mExitSensorThread)
-            break;
-
-        src = (uint8_t *)mVinfo->get_picture();
-        if (NULL == src) {
-            usleep(10000);
-            continue;
-        }
-        if ((NULL != src) && ((mVinfo->picture.format.fmt.pix.pixelformat == V4L2_PIX_FMT_YUYV) ||
-                    (mVinfo->picture.format.fmt.pix.pixelformat == V4L2_PIX_FMT_RGB24))) {
-
-            while (dqTryNum > 0) {
-                if (NULL != src) {
-                    mVinfo->putback_picture_frame();
-                }
-                usleep(10000);
-                dqTryNum --;
-                src = (uint8_t *)mVinfo->get_picture();
-                while (src == NULL) {
-                    usleep(10000);
-                    src = (uint8_t *)mVinfo->get_picture();
-                }
-            }
-        }
-
-        if (NULL != src) {
-            mSensorWorkFlag = true;
-            if (mVinfo->picture.format.fmt.pix.pixelformat == V4L2_PIX_FMT_MJPEG) {
-                int result = 0;
-                int length = mVinfo->picture.buf.bytesused;
-                result = mCameraUtil->MJPEGToRGB(src,length,width,height,b.img);
-                if (result != 0) {
-                    mVinfo->putback_picture_frame();
-                    usleep(5000);
-                }else {
-#ifdef GE2D_ENABLE
-                    ALOGD("%s:do rotation and mirror",__FUNCTION__);
-                    mGE2D->doRotationAndMirror(b);
-#endif
-                    break;
-                }
-            } else if (mVinfo->picture.format.fmt.pix.pixelformat == V4L2_PIX_FMT_YUYV) {
-                if (mVinfo->picture.buf.length == mVinfo->picture.buf.bytesused) {
-                    mCameraUtil->yuyv422_to_rgb24(src,b.img,width,height);
-                    break;
-                } else {
-                    mVinfo->putback_picture_frame();
-                    usleep(5000);
-                }
-#ifdef GE2D_ENABLE
-                ALOGD("%s:do rotation and mirror",__FUNCTION__);
-                mGE2D->doRotationAndMirror(b);
-#endif
-            } else if (mVinfo->picture.format.fmt.pix.pixelformat == V4L2_PIX_FMT_RGB24) {
-                if (mVinfo->picture.buf.length == width * height * 3) {
-                    memcpy(b.img, src, mVinfo->picture.buf.length);
-                } else {
-                    mCameraUtil->rgb24_memcpy(b.img, src, width, height);
-                }
-#ifdef GE2D_ENABLE
-                ALOGD("%s:do rotation and mirror",__FUNCTION__);
-                mGE2D->doRotationAndMirror(b);
-#endif
-                break;
-            } else if (mVinfo->picture.format.fmt.pix.pixelformat == V4L2_PIX_FMT_NV21) {
-                memcpy(b.img, src, mVinfo->picture.buf.length);
-#ifdef GE2D_ENABLE
-                ALOGD("%s:do rotation and mirror",__FUNCTION__);
-                mGE2D->doRotationAndMirror(b);
-#endif
-                break;
-            }
-        }
-    }
-    ALOGD("get picture success !");
-    mVinfo->releasebuf_and_stop_picture();
-}
-
-void USBSensor::captureNV21(StreamBuffer b, uint32_t gain) {
+void USBSensor::captureNV21UsbSensor(StreamBuffer b, uint32_t gain, bool needSensorOutBuf) {
     ALOGVV("%s: E", __FUNCTION__);
     uint8_t *src;
     int pixelformat;
@@ -544,7 +503,16 @@ void USBSensor::captureNV21(StreamBuffer b, uint32_t gain) {
                 memcpy(b.img, src, b.stride * b.height * 3/2);
 #endif
             } else {
-                mCameraUtil->ReSizeNV21(src, b.img, b.width, b.height, b.stride,width,height);
+#ifdef GE2D_ENABLE
+                if (mTempFD != -1) {
+                    mGE2D->ge2d_keep_ration_scale(b.share_fd, PIXEL_FORMAT_YCbCr_420_SP_NV12, b.width, b.height,
+                                          mTempFD, width, height);
+                } else {
+                    mCameraUtil->ReSizeNV21(src, b.img, b.width, b.height, b.stride, width, height);
+                }
+#else
+                mCameraUtil->ReSizeNV21(src, b.img, b.width, b.height, b.stride, width, height);
+#endif
             }
         }  else {
             ALOGE("Unable known sensor format: %d", mVinfo->preview.format.fmt.pix.pixelformat);
@@ -629,22 +597,68 @@ void USBSensor::captureNV21(StreamBuffer b, uint32_t gain) {
                 break;
             case V4L2_PIX_FMT_MJPEG:
                 {
-                    int ret = MJPEGToNV21(src, b);
-                    if (ret == 1)
+                    int ret = 1;
+                    if (needSensorOutBuf
+                        && ( b.width != mVinfo->preview.format.fmt.pix.width || b.height != mVinfo->preview.format.fmt.pix.height)) {
+                          // need store sensor output buffer AND b.size not equal to sensor output size
+                          // first - decode to mSensorOutBuf; then resize to b
+                        if (mSensorOutBuf.img == NULL || mSensorOutBuf.share_fd < 0) {
+                            // here we need mSensorOutBuf has been ready.
+                            ALOGE("mSensorOutBuf not allocated.");
+                        } else {
+                            ret = MJPEGToNV21(src, mSensorOutBuf);
+#ifdef GE2D_ENABLE
+                            mGE2D->ge2d_keep_ration_scale(b.share_fd, PIXEL_FORMAT_YCbCr_420_SP_NV12, b.width, b.height,
+                                          mSensorOutBuf.share_fd, mSensorOutBuf.width, mSensorOutBuf.height);
+#else
+                            mCameraUtil->ReSizeNV21(mSensorOutBuf.img, b.img, b.width, b.height, b.stride, mSensorOutBuf.width, mSensorOutBuf.height);
+#endif
+                        }
+                    } else {
+                        ret = MJPEGToNV21(src, b);
+                    }
+                    if (ret == 1) {
+                        mVinfo->putback_frame();
                         continue;
+                    }
 #ifdef GE2D_ENABLE
                     mGE2D->doRotationAndMirror(b);
 #endif
+                    mVinfo->putback_frame();
+
                 }
                 break;
             case V4L2_PIX_FMT_H264:
                 {
-                    int ret = H264ToNV21(src, b);
-                    if (ret == 1)
+                    int ret = 1;
+                    if (needSensorOutBuf
+                        && ( b.width != mVinfo->preview.format.fmt.pix.width || b.height != mVinfo->preview.format.fmt.pix.height)) {
+                          // need store sensor output buffer AND b.size not equal to sensor output size
+                          // first - decode to mSensorOutBuf; then resize to b
+                        if (mSensorOutBuf.img == NULL || mSensorOutBuf.share_fd < 0) {
+                            // here we need mSensorOutBuf has been ready.
+                            ALOGE("mSensorOutBuf not allocated.");
+                        } else {
+                            ret = H264ToNV21(src, mSensorOutBuf);
+#ifdef GE2D_ENABLE
+                            mGE2D->ge2d_keep_ration_scale(b.share_fd, PIXEL_FORMAT_YCbCr_420_SP_NV12, b.width, b.height,
+                                          mSensorOutBuf.share_fd, mSensorOutBuf.width, mSensorOutBuf.height);
+#else
+                            mCameraUtil->ReSizeNV21(mSensorOutBuf.img, b.img, b.width, b.height, b.stride, mSensorOutBuf.width, mSensorOutBuf.height);
+#endif
+                        }
+                    } else {
+                        ret = H264ToNV21(src, b);
+                    }
+                    if (ret == 1) {
+                        mVinfo->putback_frame();
                         continue;
+                    }
 #ifdef GE2D_ENABLE
                     mGE2D->doRotationAndMirror(b);
 #endif
+                    mVinfo->putback_frame();
+
                 }
                 break;
             default:
@@ -664,62 +678,61 @@ void USBSensor::captureNV21(StreamBuffer b, uint32_t gain) {
 }
 
 int USBSensor::MJPEGToNV21(uint8_t* src, StreamBuffer b) {
-    ALOGVV("%s: E", __FUNCTION__);
+    ALOGVV("%s: E, src=0x%p b.w=%d", __FUNCTION__, src, b.width);
     int flag = 0;
-    size_t width = mVinfo->preview.format.fmt.pix.width;
-    size_t height = mVinfo->preview.format.fmt.pix.height;
-    size_t length = mVinfo->preview.buf.bytesused;
+    size_t src_width = mVinfo->preview.format.fmt.pix.width;
+    size_t src_height = mVinfo->preview.format.fmt.pix.height;
+    size_t src_length = mVinfo->preview.buf.bytesused;
 
     char property[PROPERTY_VALUE_MAX];
     property_get("camera.debug.dump.device", property, "false");
     if (strstr(property, "true")) {
         static int src_index = 0;
-        dump(src_index,src,length,"src.mjpg");
+        dump(src_index,src, src_length, "src.mjpg");
     }
+
+
     switch (mDecodeMethod) {
         case DECODE_SOFTWARE:
             {
                 int result = 0;
-                memset(mImage_buffer, 0 , width * height * 3/2);
-                result = mCameraUtil->MJPEGToNV21(src,length,width,
-                height,b.img,b.width,b.height,b.stride,mImage_buffer);
+                memset(mImage_buffer, 0, src_width * src_height * 3/2);
+                result = mCameraUtil->MJPEGToNV21(src, src_length,
+                                                src_width, src_height,
+                                                b.img, b.width, b.height, b.stride,
+                                                mImage_buffer);
                 if (result != 0) {
-                    mVinfo->putback_frame();
-                    //continue;
                     ALOGE("software decoder error \n");
                     flag = 1;
                 } else {
-                    if (width == b.width && height == b.height) {
+                    if (src_width == b.width && src_height == b.height) {
                         mDecodedBuffer = b.img;
                         mTempFD = b.share_fd;
                     }else {
                         mDecodedBuffer = mImage_buffer;
                     }
-                        mKernelBuffer = src;
-                        mVinfo->putback_frame();
+                    mKernelBuffer = src;
                 }
-
             }
             break;
         case DECODE_OMX:
             {
-                int ret = mDecoder->Decode(src,length,
-                                            b.share_fd,b.img,
-                                            width,height);
+                int ret = mDecoder->Decode(src, src_length,
+                                            b.share_fd, b.img,
+                                            src_width, src_height,
+                                            b.width, b.height);
                 if (!ret) {
-                    mVinfo->putback_frame();
-                    //continue;
                     flag = 1;
                     if (mDecoder->mTimeOut && mIsDecoderInit == true) {
                         mDecoder->deinitialize();
                         mIsDecoderInit = false;
-                        initDecoder(width,height,4);
+                        initDecoder(src_width, src_height,
+                                    b.width, b.height, 4);
                     }
                 } else {
                     mDecodedBuffer = b.img;
                     mKernelBuffer = src;
                     mTempFD = b.share_fd;
-                    mVinfo->putback_frame();
                 }
             }
             break;
@@ -738,27 +751,26 @@ int USBSensor::MJPEGToNV21(uint8_t* src, StreamBuffer b) {
 
 int USBSensor::H264ToNV21(uint8_t* src, StreamBuffer b) {
     int flag = 0;
-    size_t width = mVinfo->preview.format.fmt.pix.width;
-    size_t height = mVinfo->preview.format.fmt.pix.height;
-    size_t length = mVinfo->preview.buf.bytesused;
+    size_t src_width = mVinfo->preview.format.fmt.pix.width;
+    size_t src_height = mVinfo->preview.format.fmt.pix.height;
+    size_t src_length = mVinfo->preview.buf.bytesused;
 
-    int ret = mDecoder->Decode(src,length,
-                                b.share_fd,b.img,
-                                width,height);
+    int ret = mDecoder->Decode(src, src_length,
+                                b.share_fd, b.img,
+                                src_width, src_height,
+                                b.width, b.height);
     if (!ret) {
-        mVinfo->putback_frame();
-        //continue;
         flag = 1;
         if (mDecoder->mTimeOut && mIsDecoderInit == true) {
             mDecoder->deinitialize();
             mIsDecoderInit = false;
-            initDecoder(width,height,4);
+            initDecoder(src_width, src_height,
+                        b.width, b.height, 4);
         }
     } else {
         mDecodedBuffer = b.img;
         mKernelBuffer = src;
         mTempFD = b.share_fd;
-        mVinfo->putback_frame();
     }
    return flag;
 }
@@ -938,31 +950,43 @@ void USBSensor::captureYUYV(uint8_t *img, uint32_t gain, uint32_t stride){
 }
 
 void USBSensor::dump(int& frame_index, uint8_t* buf, int length, std::string name) {
-    ALOGD("%s:frame_index= %d",__FUNCTION__,frame_index);
-    const int frame_num = 10;
-    if (frame_index > frame_num)
-        return;
-    else if (frame_index == 0) {
-        std::string path("/data/vendor/camera/");
-        path.append(name);
-        ALOGD("full_name:%s",path.c_str());
-
+    int frame_num = 0;
+    char property[PROPERTY_VALUE_MAX];
+    property_get("vendor.camera.dump.num", property, "0");
+    frame_num = atoi(property);
+    std::string path("/data/vendor/camera/");
+    path.append(name);
+    ALOGD("full_name:%s",path.c_str());
+    if (frame_num != 0) {
+        if (frame_index == frame_num)
+            return;
+            path = path + "-" + std :: to_string(frame_index);
+            fp = fopen(path.c_str(),"wb+");
+            if (!fp) {
+                ALOGE("open file %s fail, error: %s !!!",
+                         path.c_str(),strerror(errno));
+                return;
+            }
+                ALOGE("write frame %d ",frame_index);
+                fwrite((void*)buf,1,length,fp);
+                fclose(fp);
+                fp = NULL;
+                frame_index++;
+                return;
+    }
+    if (frame_num == 0) {
+        ALOGD("%s: frame_num == 0",__FUNCTION__);
         fp = fopen(path.c_str(),"ab+");
         if (!fp) {
             ALOGE("open file %s fail, error: %s !!!",
-                    path.c_str(),strerror(errno));
+                     path.c_str(),strerror(errno));
+             return;
+        } else {
+            fwrite((void*)buf,1,length,fp);
+            fclose(fp);
+            fp = NULL;
             return;
         }
-    }
-    if (frame_index++ == frame_num) {
-        int fd = fileno(fp);
-        fsync(fd);
-        fclose(fp);
-        close(fd);
-        return ;
-    }else {
-        ALOGE("write frame %d ",frame_index);
-        fwrite((void*)buf,1,length,fp);
     }
 }
 
@@ -1289,7 +1313,7 @@ status_t USBSensor::setAutoFocus(uint8_t afMode)
     }
 
     if (ioctl(mVinfo->fd, VIDIOC_S_CTRL, &ctl) < 0) {
-        CAMHAL_LOGDA("failed to set camera focus mode!\n");
+        CAMHAL_LOGDA("failed to set camera focuas mode!\n");
         return BAD_VALUE;
     }
 
@@ -1454,6 +1478,7 @@ int USBSensor::getStreamConfigurations(uint32_t picSizes[], const int32_t kAvail
 
             if ((frmsize.discrete.width * frmsize.discrete.height) > (support_w * support_h))
                 continue;
+
             if (count >= size)
                 break;
 
@@ -1466,6 +1491,7 @@ int USBSensor::getStreamConfigurations(uint32_t picSizes[], const int32_t kAvail
                                     frmsize.discrete.width,
                                     frmsize.discrete.height,
                                     getformt(frmsize.pixel_format));
+
             if (0 == i) {
                 count += 4;
                 continue;
@@ -1504,6 +1530,7 @@ int USBSensor::getStreamConfigurations(uint32_t picSizes[], const int32_t kAvail
 
             if ((frmsize.discrete.width * frmsize.discrete.height) > (support_w * support_h))
                 continue;
+
             if (count >= size)
                 break;
 
@@ -1548,6 +1575,7 @@ int USBSensor::getStreamConfigurations(uint32_t picSizes[], const int32_t kAvail
     for (j = 0; j<(int)(sizeof(jpgSrcfmt)/sizeof(jpgSrcfmt[0])); j++) {
         memset(&frmsize,0,sizeof(frmsize));
         frmsize.pixel_format = jpgSrcfmt[j];
+
         for (i = 0; ; i++) {
             frmsize.index = i;
             res = ioctl(mVinfo->fd, VIDIOC_ENUM_FRAMESIZES, &frmsize);
@@ -1555,7 +1583,6 @@ int USBSensor::getStreamConfigurations(uint32_t picSizes[], const int32_t kAvail
                 DBG_LOGB("index=%d, break\n", i);
                 break;
             }
-
             if (frmsize.type == V4L2_FRMSIZE_TYPE_DISCRETE) { //only support this type
 
                 if (0 != (frmsize.discrete.width%16))
@@ -1569,10 +1596,9 @@ int USBSensor::getStreamConfigurations(uint32_t picSizes[], const int32_t kAvail
 
                 if ((frmsize.pixel_format == V4L2_PIX_FMT_MJPEG)
                     || (frmsize.pixel_format == V4L2_PIX_FMT_YUYV)) {
-                    if (!IsUsbSensorAvailablePictureSize(kUsbAvailablePictureSize, pictureSizeNum, frmsize.discrete.width, frmsize.discrete.height))
+                    if (!IsUsbAvailablePictureSize(kUsbAvailablePictureSize, frmsize.discrete.width, frmsize.discrete.height))
                         continue;
                 }
-
                 picSizes[count+0] = HAL_PIXEL_FORMAT_BLOB;
                 picSizes[count+1] = frmsize.discrete.width;
                 picSizes[count+2] = frmsize.discrete.height;
@@ -1582,6 +1608,7 @@ int USBSensor::getStreamConfigurations(uint32_t picSizes[], const int32_t kAvail
                     count += 4;
                     continue;
                 }
+
 
                 //TODO insert in descend order
                 for (k = count; k > START; k -= 4) {
@@ -1827,7 +1854,22 @@ int USBSensor::getPictureSizes(int32_t picSizes[], int size, bool preview) {
         frmsize.pixel_format = V4L2_PIX_FMT_NV21;
     else
         frmsize.pixel_format = V4L2_PIX_FMT_RGB24;
-
+/*
+    if (preview_fmt == V4L2_PIX_FMT_MJPEG)
+        frmsize.pixel_format = V4L2_PIX_FMT_MJPEG;
+    else if (preview_fmt == V4L2_PIX_FMT_NV21) {
+        if (preview == true)
+            frmsize.pixel_format = V4L2_PIX_FMT_NV21;
+        else
+            frmsize.pixel_format = V4L2_PIX_FMT_RGB24;
+    } else if (preview_fmt == V4L2_PIX_FMT_YVU420) {
+        if (preview == true)
+            frmsize.pixel_format = V4L2_PIX_FMT_YVU420;
+        else
+            frmsize.pixel_format = V4L2_PIX_FMT_RGB24;
+    } else if (preview_fmt == V4L2_PIX_FMT_YUYV)
+        frmsize.pixel_format = V4L2_PIX_FMT_YUYV;
+*/
     for (i = 0; ; i++) {
         frmsize.index = i;
         res = ioctl(mVinfo->fd, VIDIOC_ENUM_FRAMESIZES, &frmsize);
@@ -1883,32 +1925,37 @@ status_t USBSensor::force_reset_sensor() {
     DBG_LOGB("%s , ret = %d", __FUNCTION__, ret);
     return ret;
 }
+
 int USBSensor::captureNewImage() {
     uint32_t gain = mGainFactor;
     mKernelBuffer = NULL;
     mTempFD = -1;
     mDecodedBuffer = NULL;
     mIsRequestFinished = false;
+
+    bool needSensorOutBuffer = false;
+
     size_t buffer_num = mNextCapturedBuffers->size();
     // Might be adding more buffers, so size isn't constant
     ALOGVV("%s:buffer size=%zu\n",__FUNCTION__,buffer_num);
+    if (buffer_num > 1) {
+        needSensorOutBuffer = true;
+    }
     for (size_t i = 0; i < mNextCapturedBuffers->size(); i++) {
         const StreamBuffer &b = (*mNextCapturedBuffers)[i];
         ALOGVV("Sensor capturing buffer %zu: stream %d,"
                 " %d x %d, format %x, stride %d, buf %p, img %p",
                 i, b.streamId, b.width, b.height, b.format, b.stride,
                 b.buffer, b.img);
-        if (i == buffer_num - 1)
+        if (i == buffer_num - 1) {
                 mIsRequestFinished = true;
+        }
         switch (b.format) {
 #if PLATFORM_SDK_VERSION <= 22
             case HAL_PIXEL_FORMAT_RAW_SENSOR:
                 captureRaw(b.img, gain, b.stride);
                 break;
 #endif
-            case HAL_PIXEL_FORMAT_RGB_888:
-                takePicture(b,b.stride);
-                break;
             case HAL_PIXEL_FORMAT_RGBA_8888:
                 captureRGBA(b.img, gain, b.stride);
                 break;
@@ -1933,6 +1980,7 @@ int USBSensor::captureNewImage() {
                         pixelfmt = HAL_PIXEL_FORMAT_YCrCb_420_SP;
                     }
                 }
+
                 bAux.streamId = 0;
                 bAux.width = b.width;
                 bAux.height = b.height;
@@ -1948,7 +1996,7 @@ int USBSensor::captureNewImage() {
                 break;
             case HAL_PIXEL_FORMAT_YCrCb_420_SP:
             case HAL_PIXEL_FORMAT_YCbCr_420_888:
-                captureNV21(b, gain);
+                captureNV21UsbSensor(b, gain, needSensorOutBuffer);
                 break;
             case HAL_PIXEL_FORMAT_YV12:
                 captureYV12(b, gain);
@@ -1977,4 +2025,6 @@ status_t USBSensor::readyToRun() {
     return OK;
 }
 
+
 }
+

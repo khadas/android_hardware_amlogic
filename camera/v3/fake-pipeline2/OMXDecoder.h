@@ -36,8 +36,9 @@
 
 
 using namespace android;
-#define TEMP_BUFFER_NUM   (3)
+#define TempBufferNum   (3)
 #define MAX_POLLING_COUNT (100)
+#define MAX_CONTINUE_VSYNC_FAIL_COUNT (45) // 30fps, about 1.5s
 #define ROUND_16(X)     ((X + 0xF) & (~0xF))
 #define ROUND_32(X)     ((X + 0x1F) & (~0x1F))
 #define YUV_SIZE(W, H)   ((W) * (H) * 3 >> 1)
@@ -59,12 +60,21 @@ struct GrallocBufInfo {
 class OMXDecoder
 {
 public:
+    enum Decoder_Type{
+        DEC_NONE,
+        DEC_MJPEG,
+        DEC_H264,
+    };
+
+public:
     bool mTimeOut;
 public:
     OMXDecoder();
     OMXDecoder(bool useDMABuffer, bool keepOriginalSize);
     ~OMXDecoder();
-    bool setParameters(uint32_t width, uint32_t height, uint32_t out_buffer_count);
+    bool setParameters(uint32_t in_width, uint32_t in_height,
+                               uint32_t out_width, uint32_t out_height,
+                               uint32_t out_buffer_count);
     bool initialize(const char* name);
     bool prepareBuffers();
     void start();
@@ -72,13 +82,14 @@ public:
     void deinitialize();
     //void saveNativeBufferHdr(void *buffer, int index, int bufferNum, struct GrallocBufInfo info, bool status);//omx zero-copy
     OMX_BUFFERHEADERTYPE* dequeueInputBuffer();
-    //void queueInputBuffer(OMX_BUFFERHEADERTYPE* pBufferHdr);
+    void queueInputBuffer(OMX_BUFFERHEADERTYPE* pBufferHdr);
     //ANativeWindowBuffer * dequeueOutputBuffer();
     //native_handle_t * dequeueOutputBuffer();
     OMX_BUFFERHEADERTYPE* dequeueOutputBuffer();
     //void releaseOutputBuffer(ANativeWindowBuffer * pBufferHdr);
     //void releaseOutputBuffer(native_handle_t * pBufferHdr);
-    //void releaseOutputBuffer(OMX_BUFFERHEADERTYPE* pBufferHdr);
+    void releaseOutputBuffer(OMX_BUFFERHEADERTYPE* pBufferHdr);
+    bool hasReadyOutputBuffer();
 
     template<class T> void InitOMXParams(T *params);
 
@@ -112,14 +123,26 @@ public:
     static OMX_CALLBACKTYPE kCallbacks;
     int Decode(uint8_t*src, size_t src_size,
             int dst_fd,uint8_t *dst_buf,
+            size_t src_w, size_t src_h,
             size_t dst_w, size_t dst_h);
+
+    size_t outputWidth() {
+        return mOutWidth;
+    }
+    size_t outputHeight() {
+        return mOutHeight;
+    }
 private:
+    int decoderType;
+    int mWaitVsyncDuration;
+
     OMX_ERRORTYPE WaitForState(OMX_HANDLETYPE hComponent, OMX_STATETYPE eTestState, OMX_STATETYPE eTestState2);
-    OMX_U32 mWidth;
-    OMX_U32 mHeight;
+    OMX_U32 mInWidth;
+    OMX_U32 mInHeight;
+    OMX_U32 mOutWidth;
+    OMX_U32 mOutHeight;
     int mFormat;
     uint32_t mStride;
-    int mIonFd;
     bool mUseDMABuffer;
     bool mKeepOriginalSize;
     OMX_PARAM_PORTDEFINITIONTYPE mVideoInputPortParam;
@@ -138,7 +161,6 @@ private:
         void *fd_ptr;
         struct ion_handle *ion_hnd;
         OMX_BUFFERHEADERTYPE * pBuffer;
-        int bufsize;
     };
 
     struct out_buffer_t *mOutBuffer;
@@ -165,7 +187,8 @@ private:
     OMX_STRING mDecoderComponentName;
     OMX_VERSIONTYPE mSpecVersion;
     int mDequeueFailNum;
-    uint8_t* mTempFrame[TEMP_BUFFER_NUM];
+    int mContinuousVsyncFailNum;
+    uint8_t* mTempFrame[TempBufferNum];
     int mUvmFd;
     OMX_TICKS timeStamp = 0;
     Mutex mOMXControlMutex;
@@ -178,17 +201,18 @@ private:
 private:
     void QueueBuffer(uint8_t* src, size_t size);
     int DequeueBuffer(int dst_fd ,uint8_t* dst_buf,
-                                size_t dst_w, size_t dst_h);
+                      size_t src_w, size_t src_h,
+                      size_t dst_w, size_t dst_h);
+
     bool normal_buffer_init(int buffer_size);
     bool ion_buffer_init();
     bool uvm_buffer_init();
     void free_ion_buffer();
     void free_normal_buffer();
     void free_uvm_buffer();
-    bool OMXWaitForVSync(nsecs_t reltime);
-    void SetOutputBuffer(int share_fd, uint8_t* addr);
-    void QueueInputBuffer(uint8_t* src, size_t size);
     bool do_buffer_init();
     void do_buffer_free();
+    void SetOutputBuffer(int share_fd, uint8_t* addr);
+    bool OMXWaitForVSync(nsecs_t reltime);
 };
 #endif
