@@ -589,6 +589,10 @@ bool BootControl::SetActiveBootSlot(unsigned int slot) {
         if (ret)
           ret = SetBootloaderIndex("0");
       }
+      LOG(INFO) << "update dt in boot";
+      set_bootloader_env("update_dt", "1");
+      char* update_dt = get_bootloader_env("update_dt");
+      LOG(INFO) << "update_dt = " << update_dt;
     }
   }
 
