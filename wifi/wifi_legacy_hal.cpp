@@ -119,6 +119,16 @@ void onSyncLinkLayerStatsResult(wifi_request_id id, wifi_iface_stat* iface_stat,
     }
 }
 
+// Callback to be invoked for Multi link layer stats results.
+std::function<void((wifi_request_id, wifi_iface_ml_stat*, int, wifi_radio_stat*))>
+        on_link_layer_ml_stats_result_internal_callback;
+void onSyncLinkLayerMlStatsResult(wifi_request_id id, wifi_iface_ml_stat* iface_ml_stat,
+                                  int num_radios, wifi_radio_stat* radio_stat) {
+    if (on_link_layer_ml_stats_result_internal_callback) {
+        on_link_layer_ml_stats_result_internal_callback(id, iface_ml_stat, num_radios, radio_stat);
+    }
+}
+
 // Callback to be invoked for rssi threshold breach.
 std::function<void((wifi_request_id, uint8_t*, int8_t))>
         on_rssi_threshold_breached_internal_callback;
@@ -744,8 +754,10 @@ std::pair<wifi_error, LinkLayerStats> WifiLegacyHal::getLinkLayerStats(
     };
 
     wifi_error status = global_func_table_.wifi_get_link_stats(0, getIfaceHandle(iface_name),
-                                                               {onSyncLinkLayerStatsResult});
+                                                               {onSyncLinkLayerStatsResult,
+                                                               onSyncLinkLayerMlStatsResult});
     on_link_layer_stats_result_internal_callback = nullptr;
+    on_link_layer_ml_stats_result_internal_callback = nullptr;
     return {status, link_stats};
 }
 
@@ -1592,6 +1604,7 @@ void WifiLegacyHal::invalidate() {
     on_gscan_event_internal_callback = nullptr;
     on_gscan_full_result_internal_callback = nullptr;
     on_link_layer_stats_result_internal_callback = nullptr;
+    on_link_layer_ml_stats_result_internal_callback = nullptr;
     on_rssi_threshold_breached_internal_callback = nullptr;
     on_ring_buffer_data_internal_callback = nullptr;
     on_error_alert_internal_callback = nullptr;
