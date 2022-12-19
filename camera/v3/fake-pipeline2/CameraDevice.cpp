@@ -30,70 +30,92 @@
 #define ARRAY_SIZE(x) (sizeof((x))/sizeof(((x)[0])))
 
 CameraVirtualDevice* CameraVirtualDevice::mInstance = nullptr;
-struct VirtualDevice CameraVirtualDevice::videoDevices[10];
+struct VirtualDevice CameraVirtualDevice::usbvideoDevices[4];
 
 #if BUILD_KERNEL_4_9 == true
-struct VirtualDevice CameraVirtualDevice::videoDeviceslists[] = {
-        {"/dev/video0",1,{FREED_VIDEO_DEVICE,NONE_DEVICE,NONE_DEVICE},{-1,-1,-1},{-1,-1,-1},0, USB_CAM_DEV},
-        {"/dev/video1",1,{FREED_VIDEO_DEVICE,NONE_DEVICE,NONE_DEVICE},{-1,-1,-1},{-1,-1,-1},1, USB_CAM_DEV},
-        {"/dev/video2",1,{FREED_VIDEO_DEVICE,NONE_DEVICE,NONE_DEVICE},{-1,-1,-1},{-1,-1,-1},2, USB_CAM_DEV},
-        {"/dev/video3",1,{FREED_VIDEO_DEVICE,NONE_DEVICE,NONE_DEVICE},{-1,-1,-1},{-1,-1,-1},3, USB_CAM_DEV},
-        {"/dev/video50",3,{FREED_VIDEO_DEVICE,FREED_META_DEVICE,FREED_VIDEO_DEVICE},{-1,-1,-1},{-1,-1,-1},ISP_CAM_VIDEO_DEV_BEGIN_NUM + 0, MIPI_CAM_DEV},
-        {"/dev/video51",3,{FREED_VIDEO_DEVICE,FREED_META_DEVICE,FREED_VIDEO_DEVICE},{-1,-1,-1},{-1,-1,-1},ISP_CAM_VIDEO_DEV_BEGIN_NUM + 1, MIPI_CAM_DEV}
+
+#define USB_DEVICE_NUM  (4)
+#define MIPI_DEVICE_NUM (2)
+
+struct VirtualDevice CameraVirtualDevice::mipivideoDeviceslists[] = {
+    {"/dev/video50",1,{FREED_VIDEO_DEVICE,NONE_DEVICE,NONE_DEVICE},{-1,-1,-1},{-1,-1,-1},4, MIPI_CAM_DEV},
+    {"/dev/video51",1,{FREED_VIDEO_DEVICE,NONE_DEVICE,NONE_DEVICE},{-1,-1,-1},{-1,-1,-1},5, MIPI_CAM_DEV}
 };
+
+struct VirtualDevice CameraVirtualDevice::usbvideoDeviceslists[] = {
+    {"/dev/video0",1,{FREED_VIDEO_DEVICE,NONE_DEVICE,NONE_DEVICE},{-1,-1,-1},{-1,-1,-1},0, USB_CAM_DEV},
+    {"/dev/video1",1,{FREED_VIDEO_DEVICE,NONE_DEVICE,NONE_DEVICE},{-1,-1,-1},{-1,-1,-1},1, USB_CAM_DEV},
+    {"/dev/video2",1,{FREED_VIDEO_DEVICE,NONE_DEVICE,NONE_DEVICE},{-1,-1,-1},{-1,-1,-1},2, USB_CAM_DEV},
+    {"/dev/video3",1,{FREED_VIDEO_DEVICE,NONE_DEVICE,NONE_DEVICE},{-1,-1,-1},{-1,-1,-1},3, USB_CAM_DEV}
+};
+
 #else
-struct VirtualDevice CameraVirtualDevice::videoDeviceslists[] = {
-        {"/dev/video0",1,{FREED_VIDEO_DEVICE,NONE_DEVICE,NONE_DEVICE},{-1,-1,-1},{-1,-1,-1},0, USB_CAM_DEV},
-        {"/dev/video2",1,{FREED_VIDEO_DEVICE,NONE_DEVICE,NONE_DEVICE},{-1,-1,-1},{-1,-1,-1},1, USB_CAM_DEV},
-        {"/dev/video4",1,{FREED_VIDEO_DEVICE,NONE_DEVICE,NONE_DEVICE},{-1,-1,-1},{-1,-1,-1},2, USB_CAM_DEV},
-        {"/dev/video6",1,{FREED_VIDEO_DEVICE,NONE_DEVICE,NONE_DEVICE},{-1,-1,-1},{-1,-1,-1},3, USB_CAM_DEV},
-        {"/dev/video50",3,{FREED_VIDEO_DEVICE,FREED_META_DEVICE,FREED_VIDEO_DEVICE},{-1,-1,-1},{-1,-1,-1},ISP_CAM_VIDEO_DEV_BEGIN_NUM + 0, MIPI_CAM_DEV},
-        {"/dev/video51",3,{FREED_VIDEO_DEVICE,FREED_META_DEVICE,FREED_VIDEO_DEVICE},{-1,-1,-1},{-1,-1,-1},ISP_CAM_VIDEO_DEV_BEGIN_NUM + 1, MIPI_CAM_DEV},
-        {"/dev/media0",1,{FREED_VIDEO_DEVICE,NONE_DEVICE,NONE_DEVICE},{-1,-1,-1},{-1,-1,-1},MIPI_ONLY_CAM_VIDEO_DEV_BEGIN_NUM + 0, V4L2MEDIA_CAM_DEV},
-        {"/dev/media1",1,{FREED_VIDEO_DEVICE,NONE_DEVICE,NONE_DEVICE},{-1,-1,-1},{-1,-1,-1},MIPI_ONLY_CAM_VIDEO_DEV_BEGIN_NUM + 1, V4L2MEDIA_CAM_DEV},
-        {"/dev/media2",1,{FREED_VIDEO_DEVICE,NONE_DEVICE,NONE_DEVICE},{-1,-1,-1},{-1,-1,-1},MIPI_ONLY_CAM_VIDEO_DEV_BEGIN_NUM + 2, V4L2MEDIA_CAM_DEV},
-        {"/dev/media3",1,{FREED_VIDEO_DEVICE,NONE_DEVICE,NONE_DEVICE},{-1,-1,-1},{-1,-1,-1},MIPI_ONLY_CAM_VIDEO_DEV_BEGIN_NUM + 3, V4L2MEDIA_CAM_DEV}
+#define USB_DEVICE_NUM  (4)
+#define MIPI_DEVICE_NUM (6)
+
+struct VirtualDevice CameraVirtualDevice::mipivideoDeviceslists[] = {
+    {"/dev/video50",1,{FREED_VIDEO_DEVICE,NONE_DEVICE,NONE_DEVICE},{-1,-1,-1},{-1,-1,-1},4, MIPI_CAM_DEV},
+    {"/dev/video51",1,{FREED_VIDEO_DEVICE,NONE_DEVICE,NONE_DEVICE},{-1,-1,-1},{-1,-1,-1},5, MIPI_CAM_DEV},
+
+    {"/dev/media0",1,{FREED_VIDEO_DEVICE,NONE_DEVICE,NONE_DEVICE},{-1,-1,-1},{-1,-1,-1},60, V4L2MEDIA_CAM_DEV},
+    {"/dev/media1",1,{FREED_VIDEO_DEVICE,NONE_DEVICE,NONE_DEVICE},{-1,-1,-1},{-1,-1,-1},61, V4L2MEDIA_CAM_DEV},
+    {"/dev/media2",1,{FREED_VIDEO_DEVICE,NONE_DEVICE,NONE_DEVICE},{-1,-1,-1},{-1,-1,-1},62, V4L2MEDIA_CAM_DEV},
+    {"/dev/media3",1,{FREED_VIDEO_DEVICE,NONE_DEVICE,NONE_DEVICE},{-1,-1,-1},{-1,-1,-1},63, V4L2MEDIA_CAM_DEV}
 };
+
+struct VirtualDevice CameraVirtualDevice::usbvideoDeviceslists[] = {
+    {"/dev/video0",1,{FREED_VIDEO_DEVICE,NONE_DEVICE,NONE_DEVICE},{-1,-1,-1},{-1,-1,-1},0, USB_CAM_DEV},
+    {"/dev/video2",1,{FREED_VIDEO_DEVICE,NONE_DEVICE,NONE_DEVICE},{-1,-1,-1},{-1,-1,-1},1, USB_CAM_DEV},
+    {"/dev/video4",1,{FREED_VIDEO_DEVICE,NONE_DEVICE,NONE_DEVICE},{-1,-1,-1},{-1,-1,-1},2, USB_CAM_DEV},
+    {"/dev/video6",1,{FREED_VIDEO_DEVICE,NONE_DEVICE,NONE_DEVICE},{-1,-1,-1},{-1,-1,-1},3, USB_CAM_DEV}
+};
+
 #endif
 
 CameraVirtualDevice::CameraVirtualDevice() {
-    memcpy(&videoDevices, &videoDeviceslists, sizeof(videoDeviceslists));
+    recoverUsbDevicelists();
 }
 
-int CameraVirtualDevice::checkDeviceExist(char* name) {
-    for (int i = 0; i < DEVICE_NUM; i++) {
-        if (strcmp(name, videoDevices[i].name) == 0) {
+// check if devname is a potential camera device
+// return value: 0 - potential camera.
+//               otherwise: not a potential camera.
+int CameraVirtualDevice::checkUsbDeviceExist(char* devname) {
+    for (int i = 0; i < USB_DEVICE_NUM; i++) {
+        if (strcmp(devname, usbvideoDevices[i].name) == 0) {
             return 0;
         }
     }
     return -1;
 }
 
-int CameraVirtualDevice::returnDeviceId(char* name) {
-    for (int i = 0; i < DEVICE_NUM; i++) {
-        if (strcmp(name, videoDevices[i].name) == 0) {
-            return videoDevices[i].deviceID;
+
+// for usb camera. runtime camera id is stored in deviceID.
+int CameraVirtualDevice::returnUsbDeviceId(char* name) {
+    for (int i = 0; i < USB_DEVICE_NUM; i++) {
+        if (strcmp(name, usbvideoDevices[i].name) == 0) {
+            return usbvideoDevices[i].deviceID + pluggedMipiCameraNum;
         }
     }
     return -1;
 }
 
-void CameraVirtualDevice::recoverDevicelists(void) {
-    ALOGD("%s: recoverDevicelists", __FUNCTION__);
-    memcpy(&videoDevices, &videoDeviceslists, sizeof(videoDeviceslists));
+
+void CameraVirtualDevice::recoverUsbDevicelists(void) {
+    ALOGD("%s: recoverUsbDevicelists", __FUNCTION__);
+    memcpy(&usbvideoDevices, &usbvideoDeviceslists, sizeof(usbvideoDeviceslists));
 }
 
-struct VirtualDevice* CameraVirtualDevice::findVideoDevice(int id) {
+
+struct VirtualDevice* CameraVirtualDevice::findMipiVideoDevice(int cam_id) {
     int video_device_count = 0;
-    char tmp[64];
-    /*scan the device name*/
-    for (size_t i = 0; i < DEVICE_NUM; i++) {
-        struct VirtualDevice* pDev = &videoDevices[i];
-        if (!findCameraID(pDev->deviceID)
-            || 0 != access(pDev->name, F_OK | R_OK | W_OK)) {
-            ALOGD("%s: device %s is invalid", __FUNCTION__,pDev->name);
+
+    for (size_t i = 0; i < MIPI_DEVICE_NUM; i++) {
+        struct VirtualDevice* pDev = &mipivideoDeviceslists[i];
+        if ( 0 != access(pDev->name, F_OK | R_OK | W_OK)) {
+            ALOGD("%s: device %s access fail", __FUNCTION__,pDev->name);
             continue;
         }
+
         if (pDev->type == V4L2MEDIA_CAM_DEV) {
             // for media device. skip usb cameras' media dev node.
             if ( false == isAmlMediaCamera(pDev->name) ) {
@@ -103,37 +125,79 @@ struct VirtualDevice* CameraVirtualDevice::findVideoDevice(int id) {
         }
 
         for (int stream_idx = 0; stream_idx < pDev->streamNum; stream_idx++) {
-            switch (pDev->status[stream_idx])
-            {
-                case FREED_VIDEO_DEVICE:
-                case USED_VIDEO_DEVICE:
-                    if (video_device_count != id)
-                        video_device_count++;
-                    else {
-                        ALOGD("%s: device %s stream index %d map to camera id %d", __FUNCTION__,pDev->name,stream_idx,id);
-                        if (i >= ISP_DEVICE) {
-                            pDev->cameraId[stream_idx] = id;
-                            return pDev;
-                        }
-                        if (pDev->status[stream_idx] == USED_VIDEO_DEVICE)
-                            continue;
-                        if (pDev->deviceID != id) {
-                            memcpy(tmp, videoDevices[id].name, 64);
-                            memcpy(videoDevices[id].name, pDev->name, 64);
-                            memcpy(pDev->name, tmp, 64);
-                        }
-                        videoDevices[id].cameraId[stream_idx] = id;
-                        return &videoDevices[id];
+            if (NONE_DEVICE != pDev->status[stream_idx]) {
+                if (video_device_count != cam_id) {
+                    video_device_count++;
+                } else {
+                    ALOGD("%s: devname  %s stream index %d map to camera id %d sta %d", __FUNCTION__,
+                               pDev->name,stream_idx,cam_id, pDev->status[stream_idx]);
+                    pDev->cameraId[stream_idx] = cam_id;
+                    return pDev;
+                }
+            }
+        }
+    }
+    return nullptr;
+
+}
+
+
+struct VirtualDevice* CameraVirtualDevice::findUsbVideoDevice(int cam_id) {
+    int video_device_count = pluggedMipiCameraNum;
+    int prefered_usb_device_idx = cam_id - pluggedMipiCameraNum;
+
+    char tmp[64];
+
+    if (cam_id < pluggedMipiCameraNum) {
+        ALOGE("bad args. cam id for usb cam should >= %d", pluggedMipiCameraNum);
+        return nullptr;
+    }
+
+    for (size_t i = 0; i < USB_DEVICE_NUM; i++) {
+        struct VirtualDevice* pDev = &usbvideoDevices[i];
+        if ( 0 != access(pDev->name, F_OK | R_OK | W_OK)) {
+            ALOGD("%s: device %s access fail", __FUNCTION__,pDev->name);
+            continue;
+        }
+
+        for (int stream_idx = 0; stream_idx < pDev->streamNum; stream_idx++) {
+            if ( NONE_DEVICE != pDev->status[stream_idx]) {
+                if (video_device_count != cam_id) {
+                    video_device_count++;
+                } else {
+                    ALOGD("%s: devname  %s stream index %d map to camera id %d sta %d", __FUNCTION__,
+                              pDev->name,stream_idx,cam_id, pDev->status[stream_idx]);
+
+                    if (i != prefered_usb_device_idx) {
+                        // swap usb camera's devname. lower index has higher priority.
+                        memcpy(tmp, usbvideoDevices[prefered_usb_device_idx].name, 64);
+                        memcpy(usbvideoDevices[prefered_usb_device_idx].name, usbvideoDevices[i].name, 64);
+                        memcpy(usbvideoDevices[i].name, tmp, 64);
                     }
-                    break;
-                default:
-                    break;
+                    usbvideoDevices[prefered_usb_device_idx].cameraId[stream_idx] = cam_id;
+                    return &usbvideoDevices[prefered_usb_device_idx];
+                }
            }
         }
     }
     return nullptr;
 }
 
+// parameter: cam id
+// return value: related VirtualDevice
+// scan current videoDevices array. all USED and FREED streams are counted.
+struct VirtualDevice* CameraVirtualDevice::findVideoDevice(int cam_id) {
+    struct VirtualDevice*  pDev = findMipiVideoDevice(cam_id);
+    if (nullptr == pDev) {
+        return findUsbVideoDevice( cam_id );
+    } else {
+        return pDev;
+    }
+}
+
+// check all streams. if one stream is USED, return 1 (busy state).
+// return 0 (free) when all streams are FREED_VIDEO_DEVICE.
+// invalid args - return value < 0.
 int CameraVirtualDevice::checkDeviceStatus(struct VirtualDevice* pDev) {
     int ret = 0; //free
     if (pDev == nullptr) {
@@ -152,37 +216,34 @@ int CameraVirtualDevice::checkDeviceStatus(struct VirtualDevice* pDev) {
     return ret;
 }
 
-
+// open all streams of given device.
 int CameraVirtualDevice::OpenVideoDevice(struct VirtualDevice* pDev) {
     ALOGD("%s: E", __FUNCTION__);
-    int fd = -1;
     if (pDev == nullptr) {
         ALOGD("%s: device is null!", __FUNCTION__);
         return -1;
     }
     for (int i = 0; i < pDev->streamNum; i++) {
-        for (int try_count = 0; try_count < 1000; ++try_count) {
-            fd = open(pDev->name,O_RDWR | O_NONBLOCK);
-            if (fd <= 0) {
-                ALOGE("open device %s , the %dth stream fail!",pDev->name,i);
-                ALOGE("the reason is %s",strerror(errno));
-                usleep(1000*50);
-            } else {
-                if (pDev->status[i] == FREED_VIDEO_DEVICE) {
-                    pDev->status[i] = USED_VIDEO_DEVICE;
-                }
-                pDev->fileDesc[i] = fd;
-                break;
+
+        int fd = open(pDev->name,O_RDWR | O_NONBLOCK);
+        if (fd < 0) {
+            ALOGE("open device %s , the %dth stream fail!",pDev->name,i);
+            ALOGE("the reason is %s",strerror(errno));
+            return -1;
+        } else {
+            if (pDev->status[i] == FREED_VIDEO_DEVICE) {
+                // only transfer FREED to USED. do nothing to NONE_DEVICE.
+                pDev->status[i] = USED_VIDEO_DEVICE;
             }
+            pDev->fileDesc[i] = fd;
         }
         ALOGD("%s: stream = %d ,fd = %d, status = %d!", __FUNCTION__,i,fd,pDev->status[i]);
-        if (fd < 0)
-        return -1;
     }
     return 0;
 }
 
-/*this function not be called*/
+
+// open all streams of given device.
 int CameraVirtualDevice::CloseVideoDevice(struct VirtualDevice* pDev) {
     ALOGD("%s: E", __FUNCTION__);
     if (pDev == nullptr) {
@@ -190,8 +251,13 @@ int CameraVirtualDevice::CloseVideoDevice(struct VirtualDevice* pDev) {
         return -1;
     }
     for (int i = 0; i < pDev->streamNum; i++) {
-        close(pDev->fileDesc[i]);
+        if (pDev->fileDesc[i] >= 0) {
+            close(pDev->fileDesc[i]);
+        } else {
+            ALOGE("close fd is invalid. has been closed before !!?");
+        }
         if (pDev->status[i] == USED_VIDEO_DEVICE) {
+            // only transfer USED to FREED. do nothing to NONE_DEVICE
             pDev->status[i] = FREED_VIDEO_DEVICE ;
         }
         pDev->fileDesc[i] = -1;
@@ -199,26 +265,33 @@ int CameraVirtualDevice::CloseVideoDevice(struct VirtualDevice* pDev) {
     return 0;
 }
 
-/*only the first time to do open operation.
- *anytime, we only return pointed fd.
- */
-int CameraVirtualDevice::openVirtualDevice(int id) {
-    ALOGD("%s: id = %d E", __FUNCTION__,id);
-    struct VirtualDevice* pDevice = findVideoDevice(id);
+
+/*
+only the first time to do open operation.
+for multi stream devices, we open all streams.
+*/
+int CameraVirtualDevice::openVirtualDevice(int cam_id) {
+
+    ALOGD("%s: cam_id = %d E", __FUNCTION__,cam_id);
+
+    struct VirtualDevice* pDevice = findVideoDevice(cam_id);
+
     if (pDevice == nullptr) {
         ALOGD("%s: device is null!", __FUNCTION__);
         return -1;
     }
+
     ALOGD("%s: device name is %s", __FUNCTION__,pDevice->name);
     int DeviceStatus = checkDeviceStatus(pDevice);
-    if (!DeviceStatus) {
-        ALOGD("%s: device %s is free,open it", __FUNCTION__,pDevice->name);
+    if (0 == DeviceStatus) {
+        ALOGD("%s: device %s, all streams are free, open them", __FUNCTION__,pDevice->name);
         OpenVideoDevice(pDevice);
     }
+
     for (int i = 0; i < pDevice->streamNum; i++) {
-        if (pDevice->cameraId[i] == id) {
+        if (pDevice->cameraId[i] == cam_id) {
             ALOGD("%s: camera id:%d  fd = %d",
-                __FUNCTION__,id,pDevice->fileDesc[i]);
+                __FUNCTION__,cam_id, pDevice->fileDesc[i]);
             pDevice->status[i] = USED_VIDEO_DEVICE;
             return pDevice->fileDesc[i];
         }
@@ -226,24 +299,39 @@ int CameraVirtualDevice::openVirtualDevice(int id) {
     return -1;
 }
 
-struct VirtualDevice* CameraVirtualDevice::getVirtualDevice(int id)
+struct VirtualDevice* CameraVirtualDevice::getVirtualDevice(int cam_id)
 {
-    ALOGD("%s: id = %d E", __FUNCTION__,id);
-    return findVideoDevice(id);
+    ALOGD("%s: cam id = %d E", __FUNCTION__,cam_id);
+    return findVideoDevice(cam_id);
 }
 
 
-/*for mipi camera ,once we has opened all ports,
- *we never closed them.
- */
-int CameraVirtualDevice::releaseVirtualDevice(int id,int fd) {
-    ALOGD("%s: id =%d, fd = %d", __FUNCTION__,id,fd);
-    struct VirtualDevice* pDevice =  &videoDevices[id];
+/*
+for multi stream device. we close all streams
+when all streams are in FREED state.
+*/
+int CameraVirtualDevice::releaseVirtualDevice(int cam_id, int fd) {
+    ALOGD("%s: id =%d, fd = %d", __FUNCTION__, cam_id, fd);
+    struct VirtualDevice* pDevice = NULL;
 
-    ALOGD("%s: device name %s", __FUNCTION__,pDevice->name);
+    if (cam_id >= pluggedMipiCameraNum) {
+        // release a usb camera device.
+        int prefered_usb_device_idx = cam_id - pluggedMipiCameraNum;
+        pDevice = &usbvideoDevices[prefered_usb_device_idx];
+    } else {
+        // release a mipi camera
+        pDevice = findMipiVideoDevice (cam_id);
+    }
+
+    if (pDevice == nullptr) {
+        ALOGD("%s: device is null!", __FUNCTION__);
+        return -1;
+    }
+
+    ALOGD("%s: device name %s", __FUNCTION__, pDevice->name);
     /*set correspond stream to free*/
     for (int i = 0; i < pDevice->streamNum; i++) {
-        if (pDevice->cameraId[i] == id && pDevice->fileDesc[i] == fd) {
+        if (pDevice->cameraId[i] == cam_id && pDevice->fileDesc[i] == fd) {
             switch (pDevice->status[i]) {
                 case USED_VIDEO_DEVICE:
                     pDevice->status[i] = FREED_VIDEO_DEVICE;
@@ -258,10 +346,13 @@ int CameraVirtualDevice::releaseVirtualDevice(int id,int fd) {
     }
 
     int DeviceStatus = checkDeviceStatus(pDevice);
-    if (!DeviceStatus)//free
+    if (0 == DeviceStatus) {
+        // all streams are FREED. close all streams.
         CloseVideoDevice(pDevice);
+    }
     return 0;
 }
+
 
 CameraVirtualDevice* CameraVirtualDevice::getInstance() {
     if (mInstance != nullptr) {
@@ -289,9 +380,9 @@ bool CameraVirtualDevice::isAmlMediaCamera (char *dev_node_name)
             result = false;
         } else {
             ALOGI("Media device info: model %s driver %s serial %s bus_info %s \n",
-                mdi.model, mdi.driver, mdi.serial, mdi.bus_info);
-            if (0 == strncmp(mdi.driver, "t7-cam", 6) ||
-                0 == strncmp(mdi.driver, "t7c-cam", 7)) {
+                mdi.model, mdi.driver, mdi.serial, mdi.bus_info );
+            if ( 0 == strncmp(mdi.driver, "t7-cam", 6) ||
+                 0 == strncmp(mdi.driver, "t7c-cam", 7)) {
                 result = true;
             } else if (0 == strncmp(mdi.driver, "aml-cam", 7)) {
                 ALOGD("start check for for aml-cam");
@@ -309,7 +400,6 @@ bool CameraVirtualDevice::isAmlMediaCamera (char *dev_node_name)
                         result = true;
                     } else {
                         ALOGD("mediaStreamInit failed");
-                        result = false;
                     }
                     if (media_dev) {
                         media_device_unref(media_dev);
@@ -325,16 +415,20 @@ bool CameraVirtualDevice::isAmlMediaCamera (char *dev_node_name)
     return result;
 }
 
+
+// scan the videoDevices array.
+// enumerate accessable devname as cameras.
+// for multistream cameras. one stream is one camera.
 int CameraVirtualDevice::getCameraNum() {
+
     int iCamerasNum = 0;
-    ATRACE_CALL();
-    for (int i = 0; i < DEVICE_NUM; i++ ) {
-        struct VirtualDevice* pDev = &videoDevices[i];
+
+    for (int i = 0; i < MIPI_DEVICE_NUM; i++ ) {
+        struct VirtualDevice* pDev = &mipivideoDeviceslists[i];
         int ret = access(pDev->name, F_OK | R_OK | W_OK);
         if ( 0 == ret)
         {
             ALOGD("access %s success\n", pDev->name);
-
             if (pDev->type == V4L2MEDIA_CAM_DEV) {
                 // for media device. skip usb cameras' media dev node.
                 if ( false == isAmlMediaCamera(pDev->name) ) {
@@ -342,9 +436,8 @@ int CameraVirtualDevice::getCameraNum() {
                     continue;
                 }
             }
-
             for (int stream_idx = 0; stream_idx < pDev->streamNum; stream_idx++)
-                if (pDev->status[stream_idx] == FREED_VIDEO_DEVICE) {
+                if (pDev->status[stream_idx] != NONE_DEVICE) {
                     ALOGD("device %s stream %d \n", pDev->name,stream_idx);
                     iCamerasNum++;
                 }
@@ -352,20 +445,43 @@ int CameraVirtualDevice::getCameraNum() {
             ALOGD(" %s, access failed. ret %d \n", pDev->name, ret);
         }
     }
+
+    // save plugged mipi camera number.
+    pluggedMipiCameraNum = iCamerasNum;
+
+    for (int i = 0; i < USB_DEVICE_NUM; i++ ) {
+        struct VirtualDevice* pDev = &usbvideoDevices[i];
+        int ret = access(pDev->name, F_OK | R_OK | W_OK);
+        if ( 0 == ret)
+        {
+            for (int stream_idx = 0; stream_idx < pDev->streamNum; stream_idx++)
+                if (pDev->status[stream_idx] != NONE_DEVICE) {
+                    ALOGD("device %s stream %d \n", pDev->name,stream_idx);
+                    iCamerasNum++;
+                }
+        } else {
+            ALOGD(" %s, access failed. ret %d \n", pDev->name, ret);
+        }
+    }
+
     return iCamerasNum;
 }
 
-int CameraVirtualDevice::findCameraID(int id) {
+// for usb camera. deviceID is its camera id.
+int CameraVirtualDevice::findUsbCameraID(int cam_id) {
+
     bool flag = false;
-    ALOGD("%s:id=%d",__FUNCTION__,id);
-    for (int i = 0; i < DEVICE_NUM; i++) {
-        if (id == videoDevices[i].deviceID) {
+
+    ALOGD("%s:cam id=%d",__FUNCTION__,cam_id);
+
+    for (int i = 0; i < USB_DEVICE_NUM; i++) {
+        if (cam_id == usbvideoDevices[i].deviceID) {
             flag = true;
             break;
         }
     }
 
-    ALOGD("%s:id=%d, ret flag = %d",__FUNCTION__,id, flag);
+    ALOGD("%s:cam_id=%d, ret flag = %d",__FUNCTION__,cam_id, flag);
 
     return flag;
 }

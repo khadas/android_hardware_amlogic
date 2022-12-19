@@ -1974,10 +1974,8 @@ status_t EmulatedFakeCamera3::constructStaticInfo() {
     //for version 3.2 ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS
     count = sizeof(picSizes)/sizeof(picSizes[0]);
     count = mSensor->getStreamConfigurations(picSizes, kAvailableFormats, count);
-
     info.update(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS,
            (int32_t*)picSizes, count);
-
     if (count < availablejpegsize) {
         availablejpegsize = count;
     }
