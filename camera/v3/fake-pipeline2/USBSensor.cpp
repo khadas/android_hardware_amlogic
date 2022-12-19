@@ -951,42 +951,41 @@ void USBSensor::captureYUYV(uint8_t *img, uint32_t gain, uint32_t stride){
 
 void USBSensor::dump(int& frame_index, uint8_t* buf, int length, std::string name) {
     int frame_num = 0;
-    char property[PROPERTY_VALUE_MAX];
-    property_get("vendor.camera.dump.num", property, "0");
-    frame_num = atoi(property);
     std::string path("/data/vendor/camera/");
     path.append(name);
-    ALOGD("full_name:%s",path.c_str());
-    if (frame_num != 0) {
-        if (frame_index == frame_num)
-            return;
-            path = path + "-" + std :: to_string(frame_index);
-            fp = fopen(path.c_str(),"wb+");
-            if (!fp) {
-                ALOGE("open file %s fail, error: %s !!!",
-                         path.c_str(),strerror(errno));
-                return;
-            }
-                ALOGE("write frame %d ",frame_index);
-                fwrite((void*)buf,1,length,fp);
-                fclose(fp);
-                fp = NULL;
-                frame_index++;
-                return;
-    }
-    if (frame_num == 0) {
-        ALOGD("%s: frame_num == 0",__FUNCTION__);
+    char property[PROPERTY_VALUE_MAX];
+    property_get("vendor.camera.dump.forever", property, "false");
+    if (strstr(property, "true")) {
+        ALOGD("full_name:%s",path.c_str());
         fp = fopen(path.c_str(),"ab+");
         if (!fp) {
             ALOGE("open file %s fail, error: %s !!!",
-                     path.c_str(),strerror(errno));
-             return;
+                path.c_str(),strerror(errno));
+            return;
         } else {
             fwrite((void*)buf,1,length,fp);
             fclose(fp);
             fp = NULL;
             return;
+       }
+    } else {
+        property_get("vendor.camera.dump.num", property, "0");
+        frame_num = atoi(property);
+        if (frame_index == frame_num)
+            return;
+        path = path + "-" + std :: to_string(frame_index);
+        fp = fopen(path.c_str(),"wb+");
+        if (!fp) {
+        ALOGE("open file %s fail, error: %s !!!",
+            path.c_str(),strerror(errno));
+        return;
         }
+        ALOGE("write frame %d ",frame_index);
+        fwrite((void*)buf,1,length,fp);
+        fclose(fp);
+        fp = NULL;
+        frame_index++;
+        return;
     }
 }
 
