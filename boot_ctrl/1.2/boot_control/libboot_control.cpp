@@ -333,6 +333,10 @@ char* get_bootloader_env(const char * name)
     sprintf(ubootenv_name, "%s%s", ubootenv_var, name);
 
     char *uboot_env = (char *)ubootenv->getValue(ubootenv_name);
+    if (uboot_env == NULL) {
+        delete ubootenv;
+        return NULL;
+    }
     memset(env_buffer, 0, 64);
     strncpy(env_buffer, uboot_env, strlen(uboot_env));
     delete ubootenv;
