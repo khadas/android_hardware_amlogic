@@ -181,11 +181,23 @@ void onAsyncSubsystemRestart(const char* error) {
 // Callback to be invoked for rtt results results.
 std::function<void(wifi_request_id, unsigned num_results, wifi_rtt_result* rtt_results[])>
         on_rtt_results_internal_callback;
+std::function<void(wifi_request_id, unsigned num_results, wifi_rtt_result_v2* rtt_results_v2[])>
+        on_rtt_results_internal_callback_v2;
+
 void onAsyncRttResults(wifi_request_id id, unsigned num_results, wifi_rtt_result* rtt_results[]) {
     const auto lock = hidl_sync_util::acquireGlobalLock();
     if (on_rtt_results_internal_callback) {
         on_rtt_results_internal_callback(id, num_results, rtt_results);
         on_rtt_results_internal_callback = nullptr;
+    }
+}
+
+void onAsyncRttResultsV2(wifi_request_id id, unsigned num_results,
+                         wifi_rtt_result_v2* rtt_results_v2[]) {
+    const auto lock = hidl_sync_util::acquireGlobalLock();
+    if (on_rtt_results_internal_callback_v2) {
+        on_rtt_results_internal_callback_v2(id, num_results, rtt_results_v2);
+        on_rtt_results_internal_callback_v2 = nullptr;
     }
 }
 
@@ -1115,7 +1127,7 @@ wifi_error WifiLegacyHal::startRttRangeRequest(
     std::vector<wifi_rtt_config> rtt_configs_internal(rtt_configs);
     wifi_error status = global_func_table_.wifi_rtt_range_request(
             id, getIfaceHandle(iface_name), rtt_configs.size(), rtt_configs_internal.data(),
-            {onAsyncRttResults});
+            {onAsyncRttResults, onAsyncRttResultsV2});
     if (status != WIFI_SUCCESS) {
         on_rtt_results_internal_callback = nullptr;
     }
@@ -1611,6 +1623,7 @@ void WifiLegacyHal::invalidate() {
     on_radio_mode_change_internal_callback = nullptr;
     on_subsystem_restart_internal_callback = nullptr;
     on_rtt_results_internal_callback = nullptr;
+    on_rtt_results_internal_callback_v2 = nullptr;
     on_nan_notify_response_user_callback = nullptr;
     on_nan_event_publish_terminated_user_callback = nullptr;
     on_nan_event_match_user_callback = nullptr;
