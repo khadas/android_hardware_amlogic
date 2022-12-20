@@ -56,7 +56,8 @@ typedef struct {
                                      // medium for the first time, at head of its AC queue,
                                      // or as part of an MPDU or A-MPDU. This timestamp is
                                      // not updated for each retry, only the first transmit attempt.
-    u64 transmit_success_timestamp;  // firmware timestamp (us) when packet is successfully
+
+    u64 transmit_success_timestamp;  // fimrware timestamp (us) when packet is successfully
                                      // transmitted or aborted because it has exhausted
                                      // its maximum number of retries.
     u8 data[0];  // packet data. The length of packet data is determined by the entry_size field of

@@ -169,7 +169,7 @@ wifi_error wifi_rtt_range_cancel(wifi_request_id id, wifi_interface_handle iface
 
 /* NBD ranging channel map */
 typedef struct {
-    wifi_channel availability[32];  // specifies the channel map for each of the 16 TU windows
+    wifi_channel availablity[32];  // specifies the channel map for each of the 16 TU windows
     // frequency of 0 => unspecified; which means firmware is
     // free to do whatever it wants in this window.
 } wifi_channel_map;

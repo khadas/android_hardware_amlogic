@@ -289,7 +289,7 @@ typedef struct {
 } wifi_significant_change_handler;
 
 // The sample size parameters in the wifi_significant_change_params structure
-// represent the number of occurrence of a g-scan where the BSSID was seen and RSSI was
+// represent the number of occurence of a g-scan where the BSSID was seen and RSSI was
 // collected for that BSSID, or, the BSSID was expected to be seen and didn't.
 // for instance: lost_ap_sample_size : number of time a g-scan was performed on the
 // channel the BSSID was seen last, and the BSSID was not seen during those g-scans
@@ -301,12 +301,12 @@ typedef struct {
     ap_threshold_param ap[MAX_SIGNIFICANT_CHANGE_APS];
 } wifi_significant_change_params;
 
-/* Set the significant AP change list */
+/* Set the Signifcant AP change list */
 wifi_error wifi_set_significant_change_handler(wifi_request_id id, wifi_interface_handle iface,
                                                wifi_significant_change_params params,
                                                wifi_significant_change_handler handler);
 
-/* Clear the significant AP change list */
+/* Clear the Signifcant AP change list */
 wifi_error wifi_reset_significant_change_handler(wifi_request_id id, wifi_interface_handle iface);
 
 /* Random MAC OUI for PNO */

@@ -191,7 +191,7 @@ typedef struct {
     wifi_traffic_ac ac;  // access category (VI, VO, BE, BK)
     u32 tx_mpdu;         // number of successfully transmitted unicast data pkts (ACK rcvd)
     u32 rx_mpdu;         // number of received unicast data packets
-    u32 tx_mcast;        // number of successfully transmitted multicast data packets
+    u32 tx_mcast;        // number of succesfully transmitted multicast data packets
                    // STA case: implies ACK received from AP for the unicast packet in which mcast
                    // pkt was sent
     u32 rx_mcast;   // number of received multicast data packets
