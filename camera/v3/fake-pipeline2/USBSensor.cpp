@@ -1642,126 +1642,22 @@ int USBSensor::getStreamConfigurations(uint32_t picSizes[], const int32_t kAvail
 
 int USBSensor::getStreamConfigurationDurations(uint32_t picSizes[], int64_t duration[], int size, bool flag)
 {
-     int ret=0; int framerate=0; int temp_rate=0;
-    struct v4l2_frmivalenum fival;
-    int i,j=0;
     int count = 0;
     int tmp_size = size;
     memset(duration, 0 ,sizeof(int64_t) * size);
-    int pixelfmt_tbl[] = {
-        V4L2_PIX_FMT_MJPEG,
-        V4L2_PIX_FMT_H264,
-        V4L2_PIX_FMT_YVU420,
-        V4L2_PIX_FMT_NV21,
-        V4L2_PIX_FMT_RGB24,
-        V4L2_PIX_FMT_YUYV,
-        //V4L2_PIX_FMT_YVU420
-    };
 
-    for ( i = 0; i < (int) ARRAY_SIZE(pixelfmt_tbl); i++)
+    for ( ; size > 0; size-=4)
     {
-        /* we got all duration for each resolution for prev format*/
-        if (count >= tmp_size)
-            break;
-
-        for ( ; size > 0; size-=4)
-        {
-            memset(&fival, 0, sizeof(fival));
-
-            for (fival.index = 0;;fival.index++)
-            {
-                fival.pixel_format = pixelfmt_tbl[i];
-                fival.width = picSizes[size-3];
-                fival.height = picSizes[size-2];
-                if ((ret = ioctl(mVinfo->fd, VIDIOC_ENUM_FRAMEINTERVALS, &fival)) == 0) {
-                    if (fival.type == V4L2_FRMIVAL_TYPE_DISCRETE) {
-                        if ( fival.discrete.numerator != 0 ) temp_rate = fival.discrete.denominator/fival.discrete.numerator;
-                        if (framerate < temp_rate)
-                            framerate = temp_rate;
-                        duration[count+0] = (int64_t)(picSizes[size-4]);
-                        duration[count+1] = (int64_t)(picSizes[size-3]);
-                        duration[count+2] = (int64_t)(picSizes[size-2]);
-                        if ( framerate != 0 ) duration[count+3] = (int64_t)((1.0/framerate) * 1000000000);
-                        j++;
-                    } else if (fival.type == V4L2_FRMIVAL_TYPE_CONTINUOUS) {
-                        if ( fival.discrete.numerator != 0 ) temp_rate = fival.discrete.denominator/fival.discrete.numerator;
-                        if (framerate < temp_rate)
-                            framerate = temp_rate;
-                        duration[count+0] = (int64_t)picSizes[size-4];
-                        duration[count+1] = (int64_t)picSizes[size-3];
-                        duration[count+2] = (int64_t)picSizes[size-2];
-                        if ( framerate != 0 ) duration[count+3] = (int64_t)((1.0/framerate) * 1000000000);
-                        j++;
-                    } else if (fival.type == V4L2_FRMIVAL_TYPE_STEPWISE) {
-                        if ( fival.discrete.numerator != 0 ) temp_rate = fival.discrete.denominator/fival.discrete.numerator;
-                        if (framerate < temp_rate)
-                            framerate = temp_rate;
-                        duration[count+0] = (int64_t)picSizes[size-4];
-                        duration[count+1] = (int64_t)picSizes[size-3];
-                        duration[count+2] = (int64_t)picSizes[size-2];
-                        if ( framerate != 0 ) duration[count+3] = (int64_t)((1.0/framerate) * 1000000000);
-                        j++;
-                    }
-                } else {
-                    if (j > 0) {
-                        if (count >= tmp_size)
-                            break;
-                        duration[count+0] = (int64_t)(picSizes[size-4]);
-                        duration[count+1] = (int64_t)(picSizes[size-3]);
-                        duration[count+2] = (int64_t)(picSizes[size-2]);
-                        if (framerate == 5) {
-                            if ((!flag) && ((duration[count+0] == HAL_PIXEL_FORMAT_YCbCr_420_888)
-                                || (duration[count+0] == HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED)))
-                                duration[count+3] = 0;
-                            else
-                                duration[count+3] = (int64_t)200000000L;
-                        } else if (framerate == 10) {
-                            if ((!flag) && ((duration[count+0] == HAL_PIXEL_FORMAT_YCbCr_420_888)
-                                || (duration[count+0] == HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED)))
-                                duration[count+3] = 0;
-                            else
-                                duration[count+3] = (int64_t)100000000L;
-                        } else if (framerate == 15) {
-                            if ((!flag) && ((duration[count+0] == HAL_PIXEL_FORMAT_YCbCr_420_888)
-                                || (duration[count+0] == HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED)))
-                                duration[count+3] = 0;
-                            else
-                                duration[count+3] = (int64_t)66666666L;
-                        } else if (framerate == 30) {
-                            if ((!flag) && ((duration[count+0] == HAL_PIXEL_FORMAT_YCbCr_420_888)
-                                || (duration[count+0] == HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED)))
-                                duration[count+3] = 0;
-                            else
-                                duration[count+3] = (int64_t)33333333L;
-                        } else if (framerate == 60) {
-                            if ((!flag) && ((duration[count+0] == HAL_PIXEL_FORMAT_YCbCr_420_888)
-                                || (duration[count+0] == HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED)))
-                                duration[count+3] = 0;
-                            else {
-                                if (mSensorType == SENSOR_USB)
-                                    duration[count+3] = (int64_t)33333333L;
-                                else
-                                    duration[count+3] = (int64_t)16666666L;
-                            }
-                        } else {
-                            if ((!flag) && ((duration[count+0] == HAL_PIXEL_FORMAT_YCbCr_420_888)
-                                || (duration[count+0] == HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED)))
-                                duration[count+3] = 0;
-                            else
-                                duration[count+3] = (int64_t)66666666L;
-                        }
-                        count += 4;
-                        break;
-                    } else {
-                        break;
-                    }
-                }
-            }
-            framerate=0;
-            j=0;
-        }
-        size = tmp_size;
+        duration[count+0] = (int64_t)(picSizes[size-4]);
+        duration[count+1] = (int64_t)(picSizes[size-3]);
+        duration[count+2] = (int64_t)(picSizes[size-2]);
+        if (!flag && picSizes[size-4] != HAL_PIXEL_FORMAT_BLOB)
+            duration[count+3] = 0;
+        else
+            duration[count+3] = (int64_t)FRAME_DURATION;
+        count+=4;
     }
+    size = tmp_size;
 
     return count;
 

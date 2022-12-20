@@ -12,6 +12,8 @@
 #endif
 #include "IonIf.h"
 
+#define FRAME_DURATION (33333333L)
+
 namespace android {
 
     class USBSensor:public Sensor {
