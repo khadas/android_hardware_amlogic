@@ -315,8 +315,11 @@ status_t USBSensor::setOutputFormat(int width, int height,
 }
 
 status_t USBSensor::streamOn(channel ch) {
-    return mVinfo->start_capturing();
-
+    int ret = mVinfo->start_capturing();
+    if (mUseHwType == HW_H264) {
+        ret = DecFillBufThreadStart();
+    }
+    return ret;
 }
 bool USBSensor::isStreaming() {
     return mVinfo->isStreaming;
@@ -350,6 +353,9 @@ void USBSensor::initDecoder(int in_width, int in_height, int out_width, int out_
 
 status_t USBSensor::shutDown() {
     ALOGV("%s: E", __FUNCTION__);
+    if (mUseHwType == HW_H264) {
+        DecFillBufThreadStop();
+    }
     if (mDecoder && mIsDecoderInit == true) {
         mDecoder->deinitialize();
         delete mDecoder;
@@ -388,6 +394,9 @@ status_t USBSensor::shutDown() {
 
 status_t USBSensor::streamOff(channel ch) {
     ALOGV("%s: E", __FUNCTION__);
+    if (mUseHwType == HW_H264) {
+        DecFillBufThreadStop();
+    }
     if (mDecoder && mIsDecoderInit == true) {
         mDecoder->deinitialize();
         mIsDecoderInit = false;
@@ -520,6 +529,9 @@ void USBSensor::captureNV21UsbSensor(StreamBuffer b, uint32_t gain, bool needSen
         return ;
     }
     while (1) {
+        if (mUseHwType == HW_H264) {
+            src = nullptr;
+        } else {
             fd_set fds;
             struct timeval tv;
             int r;
@@ -536,8 +548,17 @@ void USBSensor::captureNV21UsbSensor(StreamBuffer b, uint32_t gain, bool needSen
                     continue;
                 ALOGD("select error:%s",strerror(errno));
             }
-            if (0 == r)
+            if (0 == r) {
+                int ret = streamOff(channel_preview);
+                ret = mVinfo->setBuffersFormat();
+                initDecoder(mVinfo->preview.format.fmt.pix.width, mVinfo->preview.format.fmt.pix.height,
+                            b.width, b.height, 4);
+                ret = streamOn(channel_preview);
+                if (ret != 0) {
+                    ALOGE("can't reset");
+                }
                 ALOGD("select timeout:%s",strerror(errno));
+            }
             src = (uint8_t *)mVinfo->get_frame();
             if (NULL == src) {
                 if (mVinfo->get_device_status()) {
@@ -556,6 +577,7 @@ void USBSensor::captureNV21UsbSensor(StreamBuffer b, uint32_t gain, bool needSen
                 continue;
             }
             mTimeOutCount = 0;
+        }
         pixelformat = mVinfo->preview.format.fmt.pix.pixelformat;
         switch (pixelformat) {
             case V4L2_PIX_FMT_NV21:
@@ -650,14 +672,13 @@ void USBSensor::captureNV21UsbSensor(StreamBuffer b, uint32_t gain, bool needSen
                     } else {
                         ret = H264ToNV21(src, b);
                     }
-                    if (ret == 1) {
-                        mVinfo->putback_frame();
+
+                    if (ret == 1)
                         continue;
-                    }
+
 #ifdef GE2D_ENABLE
                     mGE2D->doRotationAndMirror(b);
 #endif
-                    mVinfo->putback_frame();
 
                 }
                 break;
@@ -751,22 +772,37 @@ int USBSensor::MJPEGToNV21(uint8_t* src, StreamBuffer b) {
 
 int USBSensor::H264ToNV21(uint8_t* src, StreamBuffer b) {
     int flag = 0;
+    int ret = 0;
     size_t src_width = mVinfo->preview.format.fmt.pix.width;
     size_t src_height = mVinfo->preview.format.fmt.pix.height;
     size_t src_length = mVinfo->preview.buf.bytesused;
 
-    int ret = mDecoder->Decode(src, src_length,
+    {
+        AutoMutex l(mDecFillThreadResetLock);
+        if (mDecFillThreadNeedReset) {
+            ret = streamOff(channel_preview);
+            ret = mVinfo->setBuffersFormat();
+            initDecoder(src_width, src_height,
+                        b.width, b.height, 4);
+            ret = streamOn(channel_preview);
+            mDecFillThreadNeedReset = false;
+        }
+    }
+    ret = mDecoder->DecodeH264(src, src_length,
                                 b.share_fd, b.img,
                                 src_width, src_height,
                                 b.width, b.height);
+
     if (!ret) {
         flag = 1;
         if (mDecoder->mTimeOut && mIsDecoderInit == true) {
+            AutoMutex l(mDecFillThreadWaitLock);
             mDecoder->deinitialize();
             mIsDecoderInit = false;
             initDecoder(src_width, src_height,
                         b.width, b.height, 4);
         }
+
     } else {
         mDecodedBuffer = b.img;
         mKernelBuffer = src;
@@ -1920,6 +1956,69 @@ status_t USBSensor::readyToRun() {
     return OK;
 }
 
+void *USBSensor::DecFillBufThread(void *sensor){
+    uint8_t *src;
+    USBSensor *usbSensor = (USBSensor *)sensor;
+    CVideoInfo *Vinfo = usbSensor->mVinfo;
+    OMXDecoder *decoder = usbSensor->mDecoder;
+    while (1) {
+        if (usbSensor->mDecFillBufThreadNeedStop)
+            break;
+
+        fd_set fds;
+        struct timeval tv;
+        int r;
+        if (Vinfo->fd <= 0)
+            break;
+        FD_ZERO(&fds);
+        FD_SET(Vinfo->fd, &fds);
+        /*2s Timeout*/
+        tv.tv_sec = 1;
+        tv.tv_usec = 0;
+        r = select(Vinfo->fd + 1, &fds, NULL, NULL, &tv);
+        if (-1 == r) {
+            if (EINTR == errno)
+                continue;
+            ALOGD("select error:%s",strerror(errno));
+        }
+        if (0 == r) {
+            AutoMutex l(usbSensor->mDecFillThreadResetLock);
+            if (!usbSensor->mDecFillThreadNeedReset) {
+                usbSensor->mDecFillThreadNeedReset = true;
+                ALOGD("select timeout:%s",strerror(errno));
+                break;
+            }
+        }
+
+        src = (uint8_t *)Vinfo->get_frame();
+        if (NULL == src) {
+            AutoMutex l(usbSensor->mDecFillThreadResetLock);
+            if (!usbSensor->mDecFillThreadNeedReset) {
+                usbSensor->mDecFillThreadNeedReset = true;
+                break;
+            }
+        }
+        {
+            AutoMutex l(usbSensor->mDecFillThreadWaitLock);
+            decoder->PutInBuffer(src, Vinfo->preview.buf.bytesused);
+        }
+        Vinfo->putback_frame();
+    }
+    return((void *)0);
+}
+int USBSensor::DecFillBufThreadStart(){
+    int ret = 0;
+    mDecFillBufThreadNeedStop = 0;
+    ret = pthread_create(&mDecFillBufThreadTid, NULL, USBSensor::DecFillBufThread, this);
+    if (ret != 0)
+        ALOGE("****create thread fail\n");
+    return ret;
+}
+
+void USBSensor::DecFillBufThreadStop(){
+    mDecFillBufThreadNeedStop = 1;
+    pthread_join(mDecFillBufThreadTid, NULL);
+}
 
 }
 

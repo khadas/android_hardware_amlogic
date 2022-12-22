@@ -86,6 +86,11 @@ namespace android {
             ge2dTransform* mGE2D;
 #endif
             StreamBuffer mSensorOutBuf;
+            int mDecFillBufThreadNeedStop;
+            Mutex mDecFillThreadResetLock;
+            bool mDecFillThreadNeedReset = false;
+            Mutex mDecFillThreadWaitLock;
+            pthread_t mDecFillBufThreadTid = 0;
         protected:
             virtual status_t readyToRun();
         private:
@@ -102,8 +107,12 @@ namespace android {
             const char* getformt(int id);
             void setIOBufferNum();
             void captureNV21UsbSensor(StreamBuffer b, uint32_t gain, bool needSensorOutBuf);
+            static void *DecFillBufThread(void *sensor);
+            int DecFillBufThreadStart();
+            void DecFillBufThreadStop();
 
     };
 }
 #endif
+
 

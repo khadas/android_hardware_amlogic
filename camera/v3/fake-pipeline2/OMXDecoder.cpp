@@ -1043,6 +1043,12 @@ int OMXDecoder::DequeueBuffer(int dst_fd ,uint8_t* dst_buf,
         ALOGD("%s:Enter, src_w=%zu, dst_w=%zu", __FUNCTION__, src_w, dst_w);
 
         OMX_BUFFERHEADERTYPE *pOutPutBufferHdr = NULL;
+        int outputbuffersize = mListOfOutputBufferHeader.size();
+        while (outputbuffersize > 1) {
+            pOutPutBufferHdr = dequeueOutputBuffer();
+            releaseOutputBuffer(pOutPutBufferHdr);
+            outputbuffersize--;
+        }
         pOutPutBufferHdr = dequeueOutputBuffer();
         if (pOutPutBufferHdr == NULL) {
             //dequeue fail
@@ -1167,5 +1173,42 @@ int OMXDecoder::Decode(uint8_t*src, size_t src_size,
     }
 
     return ret;
+}
+
+int OMXDecoder::DecodeH264(uint8_t*src, size_t src_size,
+                          int dst_fd,uint8_t *dst_buf,
+                          size_t src_w, size_t src_h,
+                          size_t dst_w, size_t dst_h) {
+    int ret = 0;
+    bool state = true;
+    if ( false == hasReadyOutputBuffer() ) {
+        // no ready output buf. wait
+        state = OMXWaitForVSync(mWaitVsyncDuration*1000*1000);
+    } else {
+        // has ready output buf. state should be true.
+        state = true;
+    }
+
+    if (state) {
+        mContinuousVsyncFailNum = 0;
+        ret = DequeueBuffer(dst_fd, dst_buf, src_w, src_h, dst_w, dst_h);
+        if (!ret) {
+           if (mDequeueFailNum ++ > MAX_POLLING_COUNT) {
+                mTimeOut = true;
+            }
+            ALOGD("%s:Polling number=%d",__FUNCTION__,mDequeueFailNum);
+        }
+    } else {
+        if (mContinuousVsyncFailNum++ > MAX_CONTINUE_VSYNC_FAIL_COUNT) {
+            mTimeOut = true;
+        }
+        ALOGD("%s: OMX Vsync error num = %d",__FUNCTION__, mContinuousVsyncFailNum);
+        ret = 0;
+    }
+    return ret;
+}
+
+void OMXDecoder::PutInBuffer(uint8_t* src, size_t size){
+    return QueueBuffer(src, size);
 }
 

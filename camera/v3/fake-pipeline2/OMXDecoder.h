@@ -125,7 +125,11 @@ public:
             int dst_fd,uint8_t *dst_buf,
             size_t src_w, size_t src_h,
             size_t dst_w, size_t dst_h);
-
+    int DecodeH264(uint8_t*src, size_t src_size,
+            int dst_fd,uint8_t *dst_buf,
+            size_t src_w, size_t src_h,
+            size_t dst_w, size_t dst_h);
+    void PutInBuffer(uint8_t* src, size_t size);
     size_t outputWidth() {
         return mOutWidth;
     }
