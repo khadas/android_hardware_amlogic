@@ -374,7 +374,7 @@ int mad_layer_II(struct mad_stream *stream, struct mad_frame *frame)
             }
 # endif
         } else { /* nch == 1 */
-            if (bitrate_per_channel > 192000) {
+            if (bitrate_per_channel > 384000) {
                 /*
                  * ISO/IEC 11172-3 does not allow single channel mode for 224, 256,
                  * 320, or 384 kbps bitrates in Layer II.
