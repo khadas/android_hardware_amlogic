@@ -115,8 +115,21 @@ void channelControl(tv_input_private_t *priv, bool opsStart, int device_id, int 
             priv->mpTv->switchSourceInput((tv_source_input_t) device_id);
             priv->mpTv->setDeviceGivenId(device_id);
             priv->mpTv->setStreamGivenId(stream_id);
-        } else if (priv->mpTv->getCurrentSourceInput() == device_id) {
+        } else {
             tv_source_input_t wait_source = priv->mpTv->checkWaitSource(true);
+
+            /* Force the current source to stop when the current source blocks the start of other sources,
+             * and the close action of the blocked source is also triggered.
+             */
+            if (priv->mpTv->getCurrentSourceInput() != device_id) {
+                if (priv->mpTv->getSourceStatus() && device_id == wait_source) {
+                    priv->mpTv->stopTv((tv_source_input_t) priv->mpTv->getCurrentSourceInput());
+                    priv->mpTv->setDeviceGivenId(-1);
+                    priv->mpTv->setStreamGivenId(-1);
+                }
+
+                return;
+            }
 
             /* DTVKit is actually stopped only when a new source is entered */
             if (wait_source == SOURCE_INVALID &&
