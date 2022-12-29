@@ -30,11 +30,11 @@ cc_defaults {
         "libhidlbase",
     ],
     static_libs: [
-        "libbatterymonitor",
+        "libbatterymonitor-V1",
         "libhealthloop",
 
         // TODO(b/177269435): remove when BatteryMonitor works with AIDL HealthInfo.
-        "android.hardware.health-translate-ndk",
+        "android.hardware.health-translate-V1-ndk",
     ],
 }
 
@@ -55,12 +55,12 @@ cc_defaults {
 
     static_libs: [
         // common
-        "libbatterymonitor",
+        "libbatterymonitor-V1",
         "libhealthloop",
 
         // charger UI only
         "libhealthd_draw",
-        "libhealthd_charger_ui",
+        "libhealthd_charger_ui-V1",
         "libminui",
         "libsuspend",
     ],
@@ -76,7 +76,7 @@ cc_defaults {
             ],
             exclude_static_libs: [
                 "libhealthd_draw",
-                "libhealthd_charger_ui",
+                "libhealthd_charger_ui-V1",
                 "libminui",
                 "libsuspend",
             ],
@@ -97,7 +97,7 @@ cc_library_static {
     recovery_available: true,
     export_include_dirs: ["include"],
     export_static_lib_headers: [
-        "libbatterymonitor",
+        "libbatterymonitor-V1",
     ],
     srcs: [
         "ChargerUtils.cpp",
