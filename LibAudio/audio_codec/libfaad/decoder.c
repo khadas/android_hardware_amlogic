@@ -1160,6 +1160,7 @@ nonlatm_check:
                         faad_log_info("[%s %d]resync and got ADTS header\n", __FUNCTION__, __LINE__);
                         adts.old_format = hDecoder->config.useOldADTSFormat;
                         adts_err = adts_frame(&adts, &ld);
+                        *frame_size = adts.aac_frame_length;
                         if (adts_err == 5) {
                             return -1;
                         }

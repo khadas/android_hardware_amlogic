@@ -78,7 +78,7 @@
 #define ERROR_RESET_COUNT  40
 #define  RSYNC_SKIP_BYTES  1
 #define FRAME_RECORD_NUM   40
-#define FRAME_SIZE_MARGIN  100
+#define FRAME_SIZE_MARGIN  10
 #define PROPERTY_FILTER_HEAAC "vendor.media.filter.heaac"
 #define PROPERTY_FAAD_DETECT_FORMAT_DISABLE "vendor.media.faad.detect.format.disable"
 
