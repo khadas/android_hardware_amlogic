@@ -58,3 +58,17 @@ LOCAL_VENDOR_MODULE := true
 LOCAL_CFLAGS += -Wno-unused-label -Wno-unused-parameter -Wno-format -Wno-switch
 include $(BUILD_EXECUTABLE)
 
+include $(CLEAR_VARS)
+LOCAL_MODULE    := vdec_debug
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-Apache-2.0
+LOCAL_LICENSE_CONDITIONS := notice
+LOCAL_MODULE_TAGS := optional
+#LOCAL_ARM_MODE := arm
+LOCAL_SRC_FILES := \
+	vdec_debug_port.c
+
+LOCAL_LDLIBS := -llog
+LOCAL_VENDOR_MODULE := true
+LOCAL_CFLAGS += -Wno-unused-label -Wno-unused-parameter -Wno-format -Wno-switch
+include $(BUILD_EXECUTABLE)
+
