@@ -75,6 +75,8 @@
 #define PROPERTY_DEVICE_AUTO_POWEROFF   "persist.vendor.sys.cec.deviceautopoweroff"
 #define PROPERTY_LOGICAL_ADDRESS        "persist.vendor.sys.cec.logicaladdress"
 
+#define PROPERTY_ARC_PORT               "persist.vendor.sys.arc_port"
+
 namespace android {
 
 /*
@@ -119,6 +121,7 @@ typedef struct hdmi_device {
     int                         total_port;
     hdmi_port_info_t            *port_data;
     uint16_t                    phy_addr;
+    int                         arc_port;
 
     bool                        is_tv;
     bool                        is_playback;

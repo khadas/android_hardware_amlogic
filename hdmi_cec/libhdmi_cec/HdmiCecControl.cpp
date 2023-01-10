@@ -107,6 +107,7 @@ HdmiCecControl::HdmiCecControl()
     mCecDevice.added_phy_addr = NULL;
     mCecDevice.total_device = 0;
     mCecDevice.phy_addr = INVALID_PHYSICAL_ADDRESS;
+    mCecDevice.arc_port = 0x2;
     mCecDevice.run = true;
     mCecDevice.exited = false;
     mCecDevice.total_port = 0;
@@ -273,6 +274,14 @@ void HdmiCecControl::getPortInfos(hdmi_port_info_t* list[], int* total)
                 mCecDevice.port_data[i].cec_supported,
                 mCecDevice.port_data[i].arc_supported,
                 mCecDevice.port_data[i].physical_address);
+
+        if (mCecDevice.port_data[i].arc_supported) {
+            mCecDevice.arc_port = mCecDevice.port_data[i].port_id;
+            LOGI("arc port:%d", mCecDevice.arc_port);
+            char arcPort[128];
+            sprintf(arcPort, "%d", mCecDevice.arc_port);
+            setProperty(PROPERTY_ARC_PORT, arcPort);
+        }
     }
 
     *list = mCecDevice.port_data;
