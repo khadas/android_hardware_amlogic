@@ -195,7 +195,7 @@ static uint64_t getDmaBufPerProcess(const std::vector<DmaBuffer>& bufs) {
 		}
         for (auto& inode : inodes) {
             DmaBuffer& buf = inode_to_dmabuf[inode];
-            uint64_t proc_pss = buf.Pss(pid);
+            uint64_t proc_pss = buf.Pss();
 			if (debug_level)
 	            ALOGD("%22s %13" PRIu64 " kB %13" PRIu64 " kB %16zu %16" PRIuMAX "\n",
 	                   buf.name().empty() ? "<unknown>" : buf.name().c_str(), buf.size() / 1024,

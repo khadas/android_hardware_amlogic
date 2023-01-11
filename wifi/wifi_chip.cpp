@@ -977,7 +977,7 @@ std::pair<WifiStatus, sp<V1_5::IWifiApIface>> WifiChip::createApIfaceInternal() 
 
 #ifdef WIFI_HIDL_FEATURE_DUAL_INTERFACE
     property_set("vendor.w1_wifi_type", "ap");
-    if (strncasecmp(buffer.data(), "bcm", 3) != 0)
+    if (strcmp(buffer.data(), "bcm") != 0)
         ifname = "ap0";
     else
         ifname = "wlan1";

@@ -64,6 +64,7 @@ LOCAL_MODULE_CLASS := EXECUTABLES
 LOCAL_MODULE_PATH := $(TARGET_OUT_VENDOR)/bin
 LOCAL_LICENSE_KINDS := SPDX-license-identifier-Apache-2.0
 LOCAL_LICENSE_CONDITIONS := notice
+LOCAL_NOTICE_FILE := $(LOCAL_PATH)/../LICENSE
 include $(BUILD_PREBUILT)
 
 include $(CLEAR_VARS)
@@ -89,6 +90,7 @@ LOCAL_C_INCLUDES := \
 
 LOCAL_SHARED_LIBRARIES := \
                     android.hardware.security.keymint-V2-ndk \
+                    android.hardware.security.rkp-V2-ndk \
                     lib_android_keymaster_keymint_utils \
                     android.hardware.security.sharedsecret-V1-ndk \
                     android.hardware.security.secureclock-V1-ndk \
