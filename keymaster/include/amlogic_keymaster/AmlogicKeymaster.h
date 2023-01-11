@@ -25,6 +25,8 @@ extern "C" {
 #include <tee_client_api.h>
 }
 
+int init_service_later(void);
+
 namespace keymaster {
 
 class AmlogicKeymaster : public TrustyKeymaster {
@@ -78,6 +80,8 @@ class AmlogicKeymaster : public TrustyKeymaster {
     /* Move ForwardCommand from static method into class in order to access private members */
     void ForwardCommand(enum keymaster_command command, const KeymasterMessage& req,
             KeymasterResponse* rsp);
+    void ForwardCommand2(enum keymaster_command command, const KeymasterMessage& req,
+          KeymasterResponse* rsp);
   private:
     TEEC_Context KM_context;
     TEEC_Session KM_session;

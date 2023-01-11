@@ -53,14 +53,18 @@ std::shared_ptr<T> addService(Args&&... args) {
     return service;
 }
 
-int main() {
-    auto amlKeymaster = std::make_shared<keymaster::AmlogicKeymaster>();
-    int err = KEYMASTER_TEMP_FAILURE_RETRY(amlKeymaster->Initialize(keymaster::KmVersion::KEYMINT_2), 1000);
+static auto amlKeymaster = std::make_shared<keymaster::AmlogicKeymaster>();
+
+int init_service_later() {
+    int err = KEYMASTER_TEMP_FAILURE_RETRY(amlKeymaster->Initialize(keymaster::KmVersion::KEYMINT_2), 10000);
     if (err != 0) {
         LOG(FATAL) << "Could not initialize AmlogicKeymaster for KeyMint (" << err << ")";
         return -1;
     }
+    return 0;
+}
 
+int main() {
     // Zero threads seems like a useless pool but below we'll join this thread to it, increasing
     // the pool size to 1.
     ABinderProcess_setThreadPoolMaxThreadCount(0);
@@ -72,4 +76,6 @@ int main() {
             addService<AmlogicRemotelyProvisionedComponentDevice>(amlKeymaster);
     ABinderProcess_joinThreadPool();
     return EXIT_FAILURE;  // should not reach
+
 }
+

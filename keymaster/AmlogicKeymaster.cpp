@@ -24,6 +24,8 @@
 
 namespace keymaster {
 
+static bool initialize_flag = false;
+
 int AmlogicKeymaster::Initialize(KmVersion version) {
     int err;
 
@@ -100,6 +102,22 @@ AmlogicKeymaster::~AmlogicKeymaster() {
 /* Move this method into class */
 void AmlogicKeymaster::ForwardCommand(enum keymaster_command command, const KeymasterMessage& req,
                            KeymasterResponse* rsp) {
+    int error;
+    if (initialize_flag == false) {
+        initialize_flag = true;
+        error = init_service_later();
+    }
+
+    keymaster_error_t err;
+    err = aml_keymaster_send(&KM_session, command, req, rsp);
+    if (err != KM_ERROR_OK) {
+        ALOGE("Failed to send cmd %d err: %d", command, err);
+        rsp->error = err;
+    }
+}
+
+void AmlogicKeymaster::ForwardCommand2(enum keymaster_command command, const KeymasterMessage& req,
+                           KeymasterResponse* rsp) {
     keymaster_error_t err;
     err = aml_keymaster_send(&KM_session, command, req, rsp);
     if (err != KM_ERROR_OK) {
@@ -148,7 +166,7 @@ void AmlogicKeymaster::AddRngEntropy(const AddEntropyRequest& request,
 }
 
 void AmlogicKeymaster::Configure(const ConfigureRequest& request, ConfigureResponse* response) {
-    ForwardCommand(KM_CONFIGURE, request, response);
+    ForwardCommand2(KM_CONFIGURE, request, response);
 }
 
 void AmlogicKeymaster::GenerateKey(const GenerateKeyRequest& request,
@@ -268,7 +286,7 @@ VerifyAuthorizationResponse AmlogicKeymaster::VerifyAuthorization(
 
 GetVersion2Response AmlogicKeymaster::GetVersion2(const GetVersion2Request& request) {
     GetVersion2Response response(message_version());
-    ForwardCommand(KM_GET_VERSION_2, request, &response);
+    ForwardCommand2(KM_GET_VERSION_2, request, &response);
     return response;
 }
 
@@ -293,7 +311,7 @@ ConfigureVendorPatchlevelResponse AmlogicKeymaster::ConfigureVendorPatchlevel(
 
 GetRootOfTrustResponse AmlogicKeymaster::GetRootOfTrust(const GetRootOfTrustRequest& request) {
     GetRootOfTrustResponse response(message_version());
-    ForwardCommand(KM_GET_ROOT_OF_TRUST, request, &response);
+    ForwardCommand2(KM_GET_ROOT_OF_TRUST, request, &response);
     return response;
 }
 
