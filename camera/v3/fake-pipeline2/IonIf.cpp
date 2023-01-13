@@ -42,6 +42,7 @@ IONInterface::~IONInterface() {
 IONInterface* IONInterface::get_instance() {
     ALOGD("%s\n", __FUNCTION__);
     Mutex::Autolock lock(&mLock);
+    mCount++;
     if (mIONInstance != nullptr)
         return mIONInstance;
     ALOGD("%s: create new ion object \n", __FUNCTION__);
@@ -52,7 +53,8 @@ IONInterface* IONInterface::get_instance() {
 void IONInterface::put_instance() {
     ALOGD("%s\n", __FUNCTION__);
     Mutex::Autolock lock(&mLock);
-    if (mIONInstance != nullptr) {
+    mCount = mCount - 1;
+    if (!mCount && mIONInstance != nullptr) {
         ALOGD("%s delete ION Instance \n", __FUNCTION__);
         delete mIONInstance;
         mIONInstance = nullptr;
