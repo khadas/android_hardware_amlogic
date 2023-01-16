@@ -165,6 +165,13 @@ struct VirtualDevice* CameraVirtualDevice::findUsbVideoDevice(int cam_id) {
             continue;
         }
 
+        if (pDev->type == USB_CAM_DEV) {
+            if ( false == isStandardUSBCamera(pDev->name) ) {
+                ALOGD("%s is not a standrad usb camera", pDev->name);
+                continue;
+            }
+        }
+
         for (int stream_idx = 0; stream_idx < pDev->streamNum; stream_idx++) {
             if ( NONE_DEVICE != pDev->status[stream_idx]) {
                 if (video_device_count != cam_id) {
@@ -367,6 +374,32 @@ CameraVirtualDevice* CameraVirtualDevice::getInstance() {
         return mInstance;
     }
 }
+bool CameraVirtualDevice::isStandardUSBCamera(char * dev_node_name)
+{
+    int ret = -1;
+    int j;
+    bool result = false;
+    struct v4l2_frmsizeenum frmsize;
+    uint32_t jpgSrcfmt[] = {
+        V4L2_PIX_FMT_RGB24,
+        V4L2_PIX_FMT_MJPEG,
+        V4L2_PIX_FMT_YUYV,
+        V4L2_PIX_FMT_H264,
+    };
+    int fd = open(dev_node_name, O_RDWR);
+    for (j = 0; j<(int)(sizeof(jpgSrcfmt)/sizeof(jpgSrcfmt[0])); j++) {
+        memset(&frmsize,0,sizeof(frmsize));
+        frmsize.pixel_format = jpgSrcfmt[j];
+        frmsize.index = 0;
+        ret = ioctl(fd, VIDIOC_ENUM_FRAMESIZES, &frmsize);
+        if (ret >= 0) {
+           result = true;
+           break;
+        }
+    }
+    close(fd);
+    return result;
+}
 
 bool CameraVirtualDevice::isAmlMediaCamera (char *dev_node_name)
 {
@@ -451,6 +484,7 @@ int CameraVirtualDevice::getCameraNum() {
                     continue;
                 }
             }
+
             for (int stream_idx = 0; stream_idx < pDev->streamNum; stream_idx++)
                 if (pDev->status[stream_idx] != NONE_DEVICE) {
                     ALOGD("device %s stream %d \n", pDev->name,stream_idx);
@@ -469,6 +503,13 @@ int CameraVirtualDevice::getCameraNum() {
         int ret = access(pDev->name, F_OK | R_OK | W_OK);
         if ( 0 == ret)
         {
+            if (pDev->type == USB_CAM_DEV) {
+                if ( false == isStandardUSBCamera(pDev->name) ) {
+                    ALOGD("%s is not a standrad usb camera", pDev->name);
+                    continue;
+                }
+            }
+
             for (int stream_idx = 0; stream_idx < pDev->streamNum; stream_idx++) {
                 if (pDev->status[stream_idx] != NONE_DEVICE) {
                     ALOGD("device %s stream %d \n", pDev->name,stream_idx);

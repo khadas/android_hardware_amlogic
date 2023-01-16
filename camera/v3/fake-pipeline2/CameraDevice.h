@@ -65,6 +65,7 @@ class CameraVirtualDevice {
 
         int findUsbCameraID(int cam_id);
         bool isAmlMediaCamera (char *dev_node_name);
+        bool isStandardUSBCamera (char *dev_node_name);
         bool isHdmiVdinCameraEnable();
     private:
         static struct VirtualDevice usbvideoDevices[4];
