@@ -588,11 +588,12 @@ bool BootControl::SetActiveBootSlot(unsigned int slot) {
         ret = write_bootloader_img(slot, false);
         if (ret)
           ret = SetBootloaderIndex("0");
+        /* when using dts, the dt will be updated in uboot */
+        LOG(INFO) << "update dt in uboot";
+        set_bootloader_env("update_dt", "1");
+        char* update_dt = get_bootloader_env("update_dt");
+        LOG(INFO) << "update_dt = " << update_dt;
       }
-      LOG(INFO) << "update dt in boot";
-      set_bootloader_env("update_dt", "1");
-      char* update_dt = get_bootloader_env("update_dt");
-      LOG(INFO) << "update_dt = " << update_dt;
     }
   }
 
