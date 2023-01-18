@@ -103,11 +103,11 @@ static int32_t _CALIBRATION_AWB_CTL[16] = {
 //_CALIBRATION_AWB_CT_POS
 static uint32_t _CALIBRATION_AWB_CT_POS[20] = {10000,7500,6500,5000,4050,3850,2800,2200};
 
-//_CALIBRATION_AWB_CT_RG_COMPENSAT
-static int32_t  _CALIBRATION_AWB_CT_RG_COMPENSAT[20] = {0,0,0,0,0,0,0,0};
+//_CALIBRATION_AWB_CT_RG_COMPENSATE
+static int32_t  _CALIBRATION_AWB_CT_RG_COMPENSATE[20] = {0,0,0,0,0,0,0,0};
 
-//_CALIBRATION_AWB_CT_BG_COMPENSAT
-static int32_t  _CALIBRATION_AWB_CT_BG_COMPENSAT[20] = {0,0,0,0,0,0,0,0};
+//_CALIBRATION_AWB_CT_BG_COMPENSATE
+static int32_t  _CALIBRATION_AWB_CT_BG_COMPENSATE[20] = {0,0,0,0,0,0,0,0};
 
 //_CALIBRATION_AWB_CT_WGT
 static int32_t _CALIBRATION_AWB_CT_WGT[20] = {1,1,2,3,2,1,1,1};
@@ -376,7 +376,7 @@ static int32_t _CALIBRATION_WDR_CTL[37] = {
     0,                              // u3, when force long exp is enabled, using reg_wdr_force_exp_mode to select the out exp, 0: long exp; 1: short1 exp; 2: short2 exp
 };
 
-//WDR cabliration parameters
+//WDR calibration parameters
 static uint32_t _CALIBRATION_WDR_ADJUST[ISO_NUM_MAX][3] = {
 /* mdetc ratio| noise gain | noise flor */
     { 128,     1,     1,},
@@ -1293,7 +1293,7 @@ static uint8_t _CALIBRATION_SHADING_LS_A_B[1024]=
 static uint32_t _CALIBRATION_LENS_SHADING_CTL[4] =
 {
     2, //mesh shading split mode 0:64x64 1: 32x64 2:32x32
-    1, //mesh lut normlize select 0: 128 1:64 2:32 3:16
+    1, //mesh lut normalize select 0: 128 1:64 2:32 3:16
     32, //mesh hori-node numbers
     32, //mesh vert-node numbers
 };
@@ -1397,7 +1397,7 @@ static int16_t _CALIBRATION_AWB_WB_GOLDEN_D50[] = {2168,2146};
 //CALIBRATION_AWB_WB_OTP_D50
 static int16_t _CALIBRATION_AWB_WB_OTP_D50[] = {2168,2146};
 
-//Noise reduce cabliration parameters
+//Noise reduce calibration parameters
 static uint16_t _CALIBRATION_NOISE_PROFILE[9][16] =
 {
 {0,9,23,31,34,36,37,38,37,35,32,29,24,18,11,3,},
@@ -1428,8 +1428,8 @@ static LookupTable calibration_top_ctl = {.ptr = _CALIBRATION_TOP_CTL, .rows = 1
 static LookupTable calibration_awb_ctl = {.ptr = _CALIBRATION_AWB_CTL, .rows = 1, .cols = sizeof( _CALIBRATION_AWB_CTL ) / sizeof( _CALIBRATION_AWB_CTL[0] ), .width = sizeof( _CALIBRATION_AWB_CTL[0] )};
 static LookupTable calibration_res_ctl = {.ptr = _CALIBRATION_RES_CTL, .rows = 1, .cols = sizeof( _CALIBRATION_RES_CTL ) / sizeof( _CALIBRATION_RES_CTL[0] ), .width = sizeof( _CALIBRATION_RES_CTL[0] )};
 static LookupTable calibration_awb_ct_pos = { .ptr = _CALIBRATION_AWB_CT_POS, .rows = 1, .cols = sizeof(_CALIBRATION_AWB_CT_POS) / sizeof(_CALIBRATION_AWB_CT_POS[0]), .width = sizeof(_CALIBRATION_AWB_CT_POS[0] ) };
-static LookupTable calibration_awb_ct_rg_compensat = { .ptr = _CALIBRATION_AWB_CT_RG_COMPENSAT, .rows = 1, .cols = sizeof( _CALIBRATION_AWB_CT_RG_COMPENSAT ) / sizeof( _CALIBRATION_AWB_CT_RG_COMPENSAT[0] ), .width = sizeof( _CALIBRATION_AWB_CT_RG_COMPENSAT[0] )};
-static LookupTable calibration_awb_ct_bg_compensat = { .ptr = _CALIBRATION_AWB_CT_BG_COMPENSAT, .rows = 1, .cols = sizeof(_CALIBRATION_AWB_CT_BG_COMPENSAT) / sizeof(_CALIBRATION_AWB_CT_BG_COMPENSAT[0]), .width = sizeof(_CALIBRATION_AWB_CT_BG_COMPENSAT[0] ) };
+static LookupTable calibration_awb_ct_rg_compensate = { .ptr = _CALIBRATION_AWB_CT_RG_COMPENSATE, .rows = 1, .cols = sizeof( _CALIBRATION_AWB_CT_RG_COMPENSATE ) / sizeof( _CALIBRATION_AWB_CT_RG_COMPENSATE[0] ), .width = sizeof( _CALIBRATION_AWB_CT_RG_COMPENSATE[0] )};
+static LookupTable calibration_awb_ct_bg_compensate = { .ptr = _CALIBRATION_AWB_CT_BG_COMPENSATE, .rows = 1, .cols = sizeof(_CALIBRATION_AWB_CT_BG_COMPENSATE) / sizeof(_CALIBRATION_AWB_CT_BG_COMPENSATE[0]), .width = sizeof(_CALIBRATION_AWB_CT_BG_COMPENSATE[0] ) };
 static LookupTable calibration_awb_ct_wgt = { .ptr = _CALIBRATION_AWB_CT_WGT, .rows = 1, .cols = sizeof( _CALIBRATION_AWB_CT_WGT ) / sizeof( _CALIBRATION_AWB_CT_WGT[0] ), .width = sizeof( _CALIBRATION_AWB_CT_WGT[0] )};
 static LookupTable calibration_awb_ct_dyn_cvrange = { .ptr = _CALIBRATION_AWB_CT_DYN_CVRANGE, .rows = sizeof(_CALIBRATION_AWB_CT_DYN_CVRANGE) / sizeof(_CALIBRATION_AWB_CT_DYN_CVRANGE[0]), .cols = sizeof(_CALIBRATION_AWB_CT_DYN_CVRANGE[0]) / sizeof(_CALIBRATION_AWB_CT_DYN_CVRANGE[0][0]), .width = sizeof(_CALIBRATION_AWB_CT_DYN_CVRANGE[0][0] ) };
 static LookupTable calibration_ae_ctl = {.ptr = _CALIBRATION_AE_CTL, .rows = 1, .cols = sizeof( _CALIBRATION_AE_CTL ) / sizeof( _CALIBRATION_AE_CTL[0] ), .width = sizeof( _CALIBRATION_AE_CTL[0] )};
@@ -1559,8 +1559,8 @@ int dynamic_sdr_calibrations_init_imx415(aisp_calib_info_t *calib)
 	calib->calibrations[CALIBRATION_RES_CTL] = &calibration_res_ctl;
 	calib->calibrations[CALIBRATION_AWB_CTL] = &calibration_awb_ctl;
 	calib->calibrations[CALIBRATION_AWB_CT_POS] = &calibration_awb_ct_pos;
-	calib->calibrations[CALIBRATION_AWB_CT_RG_COMPENSATION] = &calibration_awb_ct_rg_compensat;
-	calib->calibrations[CALIBRATION_AWB_CT_BG_COMPENSATION] = &calibration_awb_ct_bg_compensat;
+	calib->calibrations[CALIBRATION_AWB_CT_RG_COMPENSATION] = &calibration_awb_ct_rg_compensate;
+	calib->calibrations[CALIBRATION_AWB_CT_BG_COMPENSATION] = &calibration_awb_ct_bg_compensate;
 	calib->calibrations[CALIBRATION_AWB_CT_WGT] = &calibration_awb_ct_wgt;
 	calib->calibrations[CALIBRATION_AWB_CT_DYN_CVRANGE] = &calibration_awb_ct_dyn_cvrange;
 	calib->calibrations[CALIBRATION_AE_CTL] = &calibration_ae_ctl;
