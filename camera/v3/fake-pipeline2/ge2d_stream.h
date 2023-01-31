@@ -57,7 +57,7 @@ public:
                                                         int degree);
         int ge2d_mirror(int dst_fd,size_t src_w,size_t src_h,int fmt);
         int ge2d_flip(int dst_fd,size_t src_w,size_t src_h,int fmt);
-        int doRotationAndMirror(android::StreamBuffer &b);
+        int doRotationAndMirror(android::StreamBuffer &b, bool forceMirror = false);
         int ge2d_copy(int dst_fd, int src_fd, size_t width, size_t height, int fmt);
         int ge2d_copy_dma(int dst_fd, int src_fd, size_t width, size_t height,int fmt);
 
