@@ -450,6 +450,16 @@ status_t EmulatedFakeCamera3::closeCamera() {
 
 status_t EmulatedFakeCamera3::getCameraInfo(struct camera_info *info) {
     ATRACE_CALL();
+    ALOGV("%s mCameraInfo %p", __FUNCTION__, mCameraInfo);
+    status_t res;
+    camera_metadata_entry_t e;
+    res = find_camera_metadata_entry(mCameraInfo,
+              ANDROID_LENS_FACING,
+              &e);
+    if (res != NO_ERROR)
+        ALOGV("%s get facing fail set facing is back", __FUNCTION__);
+    else
+        info->facing = *e.data.u8;
     return EmulatedCamera3::getCameraInfo(info);
 }
 
@@ -1880,8 +1890,8 @@ status_t EmulatedFakeCamera3::constructStaticInfo() {
         }
         break;
      case SENSOR_HDMI:
-        lensFacing =  ANDROID_LENS_FACING_BACK;
-        mFacingBack = 1;
+        lensFacing =  ANDROID_LENS_FACING_FRONT;
+        mFacingBack = 0;
         break;
      default:
          ALOGE("not support this sensor type!");

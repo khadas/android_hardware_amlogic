@@ -180,10 +180,10 @@ status_t HDMISensor::shutDown() {
     }
 
     mMPlaneCameraIO->closeCamera();
-    if (vdin_fd > 0) {
+    /*if (vdin_fd > 0) {
         close(vdin_fd);
         vdin_fd = -1;
-    }
+    }*/
 
     mSensorWorkFlag = false;
     ALOGD("%s: Exit", __FUNCTION__);
@@ -599,6 +599,7 @@ void HDMISensor::captureNV21(StreamBuffer b, uint32_t gain) {
                 mGE2D->ge2d_scale(b.share_fd, PIXEL_FORMAT_YCbCr_420_SP_NV12, b.width, b.height, output_info.dma_fd, width, height);
             }
         }
+        mGE2D->doRotationAndMirror(b, true);
         mSensorWorkFlag = true;
         break;
     }

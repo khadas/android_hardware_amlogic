@@ -760,7 +760,7 @@ int ge2dTransform::ge2d_rotation(int dst_fd,size_t src_w,
     return 0;
 }
 
-int ge2dTransform::doRotationAndMirror(StreamBuffer &b) {
+int ge2dTransform::doRotationAndMirror(StreamBuffer &b, bool forceMirror) {
     ATRACE_CALL();
     char property[PROPERTY_VALUE_MAX];
     property_get("vendor.camera.rotation", property, "0");
@@ -785,6 +785,8 @@ int ge2dTransform::doRotationAndMirror(StreamBuffer &b) {
         mirror = true;
     else
         mirror = false;
+
+    mirror = forceMirror ? true : mirror;
 
     property_get("vendor.camera.flip", property, "false");
     if (strstr(property, "true"))
