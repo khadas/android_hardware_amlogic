@@ -43,6 +43,7 @@
 #include <audio-dec.h>
 #include <amthreadpool.h>
 #include <cutils/properties.h>
+#include <inttypes.h>
 #include "aml_malloc_debug.h"
 
 extern int read_buffer(unsigned char *buffer, int size);
@@ -1672,14 +1673,14 @@ AD_PACK_STATUS_T check_ad_and_main_discontinue(int64_t ad_pts, int64_t main_pts)
        if (ad_pts < main_pts) {
            diff = main_pts - ad_pts;
            if (diff > AD_PACK_STATUS_DROP_THRESHOLD) {
-              adec_print("DROP AD ,main ahead time %lld ms", diff / 90);
+              adec_print("DROP AD ,main ahead time %" PRIu64 " ms", diff / 90);
               return AD_PACK_STATUS_DROP;
            }
 
        } else {
            diff = ad_pts - main_pts;
            if (diff > AD_PACK_STATUS_HOLD_THRESHOLD) {
-                adec_print("WAIT MAIN ,ad ahead time %lld ms", diff / 90);
+                adec_print("WAIT MAIN ,ad ahead time %" PRIu64 " ms", diff / 90);
                 return AD_PACK_STATUS_HOLD;;
            }
        }
