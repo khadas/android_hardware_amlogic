@@ -2523,9 +2523,6 @@ RttBw convertLegacyRttBwToHidl(legacy_hal::wifi_rtt_bw type) {
             return RttBw::BW_160MHZ;
         case legacy_hal::WIFI_RTT_BW_320:
             return RttBw::BW_320MHZ;
-        default:
-            CHECK(false) << "Unknown legacy type: " << type;
-            return RttBw::BW_320MHZ;
     };
     CHECK(false) << "Unknown legacy type: " << type;
 }
