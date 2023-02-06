@@ -427,16 +427,16 @@ bool IspMgr::threadLoop() {
     do {
         rc = IspMgr::pollDevices(pollingDevices, mActiveDevices,
                                  mInactiveDevices, kSyncWaitTimeout, mFlushFd[0]);
-        if (mActiveDevices.size() != mPollingDevices.size()) {
+        if (mInactiveDevices.size() > 0) {
             pollingDevices = mInactiveDevices;
             ALOGVV("not all device is ready, continue polling");
             for (int i = 0; i < mInactiveDevices.size(); ++i)
                 ALOGVV("InactiveDevices %d: %s", i, mInactiveDevices[i]->info.name);
             continue;
-        } else if (mActiveDevices.size() == mPollingDevices.size()) {
+        } else if (mActiveDevices.size() > 0 && mInactiveDevices.size() == 0) {
             ALOGVV("all device is ready");
         } else {
-            ALOGVV("return from flush or error");
+            ALOGE("return from flush or error");
             return false;
         }
 
@@ -474,7 +474,8 @@ bool IspMgr::threadLoop() {
             ALOGE ("[params] error: queue buffer");
             break;
         }
-    } while(0);
+        break;
+    } while(1);
     ALOGVV("threadLoop-");
     return true;
 }

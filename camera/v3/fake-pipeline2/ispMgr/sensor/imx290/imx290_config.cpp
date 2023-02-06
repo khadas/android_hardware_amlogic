@@ -81,8 +81,8 @@ int cmos_get_ae_default_imx290(int ViPipe, ALG_SENSOR_DEFAULT_S *pstAeSnsDft)
     } else {
         sensor.snsAlgInfo.sensor_exp_number = 1;
         sensor.snsAlgInfo.bits = 12;
-        sensor.snsAlgInfo.total.width = 4400; // should match sensor hmax register[0x301a-0x3018]
-        sensor.snsAlgInfo.total.height = 1157; // should match sensor vmax register[0x301d-0x301c]
+        sensor.snsAlgInfo.total.width = 0x1130; // should match sensor hmax register
+        sensor.snsAlgInfo.total.height = 0x0475; // should match sensor vmax register
         sensor.snsAlgInfo.integration_time_min = 1<<SHUTTER_TIME_SHIFT;
         sensor.snsAlgInfo.integration_time_max = sensor.snsAlgInfo.total.height<<SHUTTER_TIME_SHIFT;
         sensor.snsAlgInfo.integration_time_long_max = sensor.snsAlgInfo.total.height<<SHUTTER_TIME_SHIFT;
