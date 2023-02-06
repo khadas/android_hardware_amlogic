@@ -909,7 +909,7 @@ int check_adts_frame_valid(unsigned char *buffer,
     if (adts_frame(&adts, &ld) > 0) {
            return -1;
     }
-    if (adts.aac_frame_length + 2 > buffer_size) {
+    if (adts.aac_frame_length + 2 > buffer_size || adts.aac_frame_length == 0) {
         return -1;
     }
     faad_log_info("adts.aac_frame_length  %d buffer_size %lu", adts.aac_frame_length, buffer_size);
