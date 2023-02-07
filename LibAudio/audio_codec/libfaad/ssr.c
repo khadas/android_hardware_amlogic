@@ -48,6 +48,8 @@ void ssr_decode(ssr_info *ssr, fb_info *fb, uint8_t window_sequence,
     uint16_t ssr_frame_len = frame_len / SSR_BANDS;
     real_t time_tmp[2048] = {0};
     real_t output[1024] = {0};
+    if (!time_out || !overlap)
+        return;
 
     for (band = 0; band < SSR_BANDS; band++) {
         int16_t j;

@@ -45,6 +45,7 @@
 #include "mdct.h"
 
 
+
 fb_info *filter_bank_init(uint16_t frame_len)
 {
     uint16_t nshort = frame_len / 8;
@@ -176,6 +177,9 @@ void ifilter_bank(fb_info *fb, uint8_t window_sequence, uint8_t window_shape,
     uint16_t trans = nshort / 2;
 
     uint16_t nflat_ls = (nlong - nshort) / 2;
+
+    if (!time_out || !overlap)
+        return;
 
 #ifdef PROFILE
     int64_t count = faad_get_ts();

@@ -77,7 +77,8 @@ void sbr_qmf_analysis_32(sbr_info *sbr, qmfa_info *qmfa, const real_t *input,
 #endif
     uint32_t in = 0;
     uint8_t l;
-
+    if (!qmfa || !input || !sbr)
+        return;
     /* qmf subsample l */
     for (l = 0; l < sbr->numTimeSlotsRate; l++) {
         int16_t n;
@@ -252,6 +253,8 @@ void sbr_qmf_synthesis_32(sbr_info *sbr, qmfs_info *qmfs, qmf_t X[MAX_NTSRHFG][6
     ALIGN real_t y[16];
     int32_t n, k, out = 0;
     uint8_t l;
+    if (!qmfa || !output || !sbr)
+        return;
 
     /* qmf subsample l */
     for (l = 0; l < sbr->numTimeSlotsRate; l++) {
@@ -317,6 +320,8 @@ void sbr_qmf_synthesis_64(sbr_info *sbr, qmfs_info *qmfs, qmf_t X[MAX_NTSRHFG][6
     int32_t n, k, out = 0;
     uint8_t l;
 
+    if (!qmfs || !output || !sbr)
+        return;
 
     /* qmf subsample l */
     for (l = 0; l < sbr->numTimeSlotsRate; l++) {
@@ -384,6 +389,8 @@ void sbr_qmf_synthesis_32(sbr_info *sbr, qmfs_info *qmfs, qmf_t X[MAX_NTSRHFG][6
     int32_t n, k, out = 0;
     uint8_t l;
 
+    if (!qmfs || !output || !sbr)
+        return;
 
     /* qmf subsample l */
     for (l = 0; l < sbr->numTimeSlotsRate; l++) {
@@ -441,6 +448,8 @@ void sbr_qmf_synthesis_64(sbr_info *sbr, qmfs_info *qmfs, qmf_t X[MAX_NTSRHFG][6
                           real_t *output)
 {
     //    ALIGN real_t x1[64], x2[64];
+    if (!qmfs || !output || !sbr)
+        return;
 #ifndef SBR_LOW_POWER
     ALIGN real_t in_real1[32], in_imag1[32], out_real1[32], out_imag1[32];
     ALIGN real_t in_real2[32], in_imag2[32], out_real2[32], out_imag2[32];

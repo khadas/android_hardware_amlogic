@@ -167,7 +167,8 @@ void lt_update_state(int16_t *lt_pred_stat, real_t *time, real_t *overlap,
                      uint16_t frame_len, uint8_t object_type)
 {
     uint16_t i;
-
+    if (!time || !overlap)
+        return;
     /*
      * The reference point for index i and the content of the buffer
      * lt_pred_stat are arranged so that lt_pred_stat(0 ... N/2 - 1) contains the
