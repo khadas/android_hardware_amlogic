@@ -2,7 +2,9 @@
 #define _CAMERA_DEVICE_H_
 #include <string>
 #include <vector>
+#include <HDMIStatus.h>
 
+namespace android {
 #if BUILD_KERNEL_4_9 == true
 #define MAX_USB_CAM_VIDEO_ID  3
 #else
@@ -27,6 +29,7 @@ typedef enum  deviceType {
 typedef enum videoDevBeginNum {
     ISP_CAM_VIDEO_DEV_BEGIN_NUM = 50,
     MIPI_ONLY_CAM_VIDEO_DEV_BEGIN_NUM = 60,
+    HDMI_VDIN_DEV_BEGIN_NUM = 70,
 } videoDevBeginNum_t;
 
 struct VirtualDevice {
@@ -39,8 +42,6 @@ struct VirtualDevice {
     deviceType_t type;
 };
 
-#define DEVICE_NUM (10)
-#define ISP_DEVICE (4)
 class CameraVirtualDevice {
     public:
         int openVirtualDevice(int cam_id);
@@ -66,16 +67,15 @@ class CameraVirtualDevice {
         int findUsbCameraID(int cam_id);
         bool isAmlMediaCamera (char *dev_node_name);
         bool isStandardUSBCamera (char *dev_node_name);
-        bool isHdmiVdinCameraEnable();
     private:
-        static struct VirtualDevice usbvideoDevices[4];
+        static struct VirtualDevice usbvideoDevices[5];
 
-        static struct VirtualDevice usbvideoDeviceslists[4];
-        static struct VirtualDevice mipivideoDeviceslists[7];
+        static struct VirtualDevice usbvideoDeviceslists[5];
+        static struct VirtualDevice mipivideoDeviceslists[6];
 
         static CameraVirtualDevice* mInstance;
         int    pluggedMipiCameraNum;
 };
-
+}
 
 #endif
