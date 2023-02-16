@@ -182,6 +182,29 @@ static int set_sys_boot_complete(void)
         return 0;
 }
 
+static int get_sys_boot_complete(void)
+{
+    int fd;
+    int len;
+    char buf[8] = {0};
+
+    fd = open(SYS_BOOT_COMPLETE, O_RDONLY);
+    if (fd < 0) {
+        LOG(INFO) << "open " << SYS_BOOT_COMPLETE << " failed";
+        return -1;
+    }
+
+    len = read(fd, buf, 8);
+
+    close(fd);
+
+    if (strncmp(buf, "1", 1) == 0)
+        return 0;
+    else
+        return -1;
+}
+
+
 bool write_bootloader_img(unsigned int slot, bool gpt_flag)
 {
     int iRet = 0;
@@ -474,8 +497,10 @@ bool BootControl::Init() {
   }
 
   if (boot_ctrl.slot_info[current_slot_].successful_boot == 1) {
-    set_sys_boot_complete();
-    LOG(INFO) << "call set_sys_boot_complete in init";
+    if (get_sys_boot_complete() != 0) {
+      set_sys_boot_complete();
+      LOG(INFO) << "call set_sys_boot_complete in init";
+    }
   }
 
   LOG(INFO) << "boot_ctrl.roll_flag = " << boot_ctrl.roll_flag;
@@ -507,9 +532,11 @@ bool BootControl::MarkBootSuccessful() {
   if (!LoadBootloaderControl(misc_device_, &bootctrl)) return false;
 
   if (bootctrl.slot_info[current_slot_].successful_boot == 0) {
-    flag = 1;
-    set_sys_boot_complete();
-    LOG(INFO) << "call set_sys_boot_complete in MarkBootSuccessful";
+    if (get_sys_boot_complete() != 0) {
+      flag = 1;
+      set_sys_boot_complete();
+      LOG(INFO) << "call set_sys_boot_complete in MarkBootSuccessful";
+    }
   }
   bootctrl.slot_info[current_slot_].successful_boot = 1;
   // tries_remaining == 0 means that the slot is not bootable anymore, make
