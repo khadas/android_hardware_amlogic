@@ -444,8 +444,11 @@ retry:
         gFaadCxt->success_count++;
         in_buf += skipbytes;
         inbuf_size -= skipbytes;
-        if (gFaadCxt->success_count < 2)
+        if (gFaadCxt->success_count < 2) {
+            NeAACDecClose(gFaadCxt->hDecoder);
+            gFaadCxt->hDecoder = NULL;
             goto retry;
+        }
     }
     in_buf += ret;
     inbuf_size -= ret;
@@ -617,6 +620,7 @@ int audio_dec_release(
     FaadContext *gFaadCxt = (FaadContext*)adec_ops->pdecoder;
     if (gFaadCxt->hDecoder) {
         NeAACDecClose(gFaadCxt->hDecoder);
+        gFaadCxt->hDecoder = NULL;
     }
     if (adec_ops->pdecoder) {
         free(adec_ops->pdecoder);
