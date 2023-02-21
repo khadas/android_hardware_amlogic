@@ -68,7 +68,8 @@
 #define CEC_STATE_ENABLED               "1"
 #define CEC_STATE_UNABLED               "0"
 
-#define PROPERTY_DEVICE_TYPE            "ro.vendor.platform.hdmi.device_type"
+//#define PROPERTY_DEVICE_TYPE            "ro.vendor.platform.hdmi.device_type"
+#define PROPERTY_DEVICE_TYPE            "ro.hdmi.device_type"
 #define PROPERTY_AUTO_OTP               "ro.vendor.hdmi.auto_otp"
 #define PROPERTY_ONE_TOUCH_PLAY         "persist.vendor.sys.cec.onetouchplay"
 #define PROPERTY_SET_MENU_LANGUAGE      "persist.vendor.sys.cec.set_menu_language"
