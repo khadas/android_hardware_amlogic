@@ -38,7 +38,7 @@
 using namespace android;
 #define TempBufferNum   (3)
 #define MAX_POLLING_COUNT (100)
-#define MAX_CONTINUE_VSYNC_FAIL_COUNT (45) // 30fps, about 1.5s
+#define MAX_CONTINUE_VSYNC_FAIL_COUNT (450) // 30fps, about 1.5s
 #define ROUND_16(X)     ((X + 0xF) & (~0xF))
 #define ROUND_32(X)     ((X + 0x1F) & (~0x1F))
 #define YUV_SIZE(W, H)   ((W) * (H) * 3 >> 1)

@@ -212,6 +212,7 @@ bool OMXDecoder::initialize(const char* name) {
     else if (strcmp(name,"h264") == 0)
         mVideoInputPortParam.format.video.eCompressionFormat = OMX_VIDEO_CodingAVC;
     mVideoInputPortParam.format.video.xFramerate = (15 << 16);
+    mVideoInputPortParam.nBufferCountActual = 6;
     eRet = OMX_SetParameter(mVDecoderHandle, OMX_IndexParamPortDefinition, &mVideoInputPortParam);
     if (OMX_ErrorNone != eRet) {
         ALOGE("[%s:%d]OMX_SetParameter OMX_IndexParamPortDefinition error!! eRet = %#x\n",
