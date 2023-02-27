@@ -1517,6 +1517,12 @@ int USBSensor::getStreamConfigurations(uint32_t picSizes[], const int32_t kAvail
             if (count >= size)
                 break;
 
+            if ((frmsize.pixel_format == V4L2_PIX_FMT_MJPEG)
+                || (frmsize.pixel_format == V4L2_PIX_FMT_YUYV)) {
+                if (!IsUsbAvailablePictureSize(kUsbAvailablePictureSize, frmsize.discrete.width, frmsize.discrete.height))
+                    continue;
+            }
+
             picSizes[count+0] = HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED;
             picSizes[count+1] = frmsize.discrete.width;
             picSizes[count+2] = frmsize.discrete.height;
@@ -1568,6 +1574,12 @@ int USBSensor::getStreamConfigurations(uint32_t picSizes[], const int32_t kAvail
 
             if (count >= size)
                 break;
+
+            if ((frmsize.pixel_format == V4L2_PIX_FMT_MJPEG)
+                || (frmsize.pixel_format == V4L2_PIX_FMT_YUYV)) {
+                if (!IsUsbAvailablePictureSize(kUsbAvailablePictureSize, frmsize.discrete.width, frmsize.discrete.height))
+                    continue;
+            }
 
             picSizes[count+0] = HAL_PIXEL_FORMAT_YCbCr_420_888;
             picSizes[count+1] = frmsize.discrete.width;
