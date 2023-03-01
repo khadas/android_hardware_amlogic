@@ -107,7 +107,12 @@ endif
 ##################################################
 #$(shell cp $(LOCAL_PATH)/acodec_lib/*.so $(TARGET_OUT)/lib)
 ###################################################
-LOCAL_SHARED_LIBRARIES += libutils libz libbinder libdl libcutils libc libamavutils liblog libamaudioutils libdvbaudioutils
+LOCAL_SHARED_LIBRARIES += libutils libz libbinder libdl libcutils libc libamavutils liblog libamaudioutils
+
+ifneq ($(BOARD_DISABLE_DVB_AUDIO), true)
+    LOCAL_SHARED_LIBRARIES += libdvbaudioutils
+endif
+
 
 LOCAL_PRELINK_MODULE := false
 LOCAL_MODULE_TAGS := optional

@@ -12,9 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//package {
-//    default_applicable_licenses: ["hardware_interfaces_license"],
-//}
+package {
+    default_applicable_licenses: ["hardware_amlogic_license"],
+}
 
 cc_defaults {
     name: "libhealth_aidl_common_defaults",
