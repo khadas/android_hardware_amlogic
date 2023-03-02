@@ -1,5 +1,4 @@
 #define LOG_NDEBUG  0
-#define LOG_NNDEBUG 0
 
 #define LOG_TAG "USBSensor"
 
@@ -191,7 +190,8 @@ status_t USBSensor::startUp(int idx) {
     int res;
     mCapturedBuffers = NULL;
     mOpenCameraID = idx;
-    res = run("Camera::USBSensor",ANDROID_PRIORITY_URGENT_DISPLAY);
+
+    res = run("Camera::USBSensor", ANDROID_PRIORITY_URGENT_AUDIO);
     if (res != OK) {
         ALOGE("Unable to start up sensor capture thread: %d", res);
         return res;

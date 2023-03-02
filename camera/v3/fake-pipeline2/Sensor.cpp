@@ -223,7 +223,7 @@ status_t Sensor::startUp(int idx) {
     int res;
     mCapturedBuffers = NULL;
     res = run("EmulatedFakeCamera3::Sensor",
-            ANDROID_PRIORITY_URGENT_DISPLAY);
+            ANDROID_PRIORITY_URGENT_AUDIO);
 
     if (res != OK) {
         ALOGE("Unable to start up sensor capture thread: %d", res);

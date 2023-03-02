@@ -2137,7 +2137,7 @@ status_t EmulatedFakeCamera3::constructStaticInfo() {
 
 
     static const int32_t availableTargetFpsRanges[] = {
-            5, 15, 15, 15, 5, 20, 20, 20, 5, 25, 25, 25, 5, 30, 30, 30,
+            15, 30, 30, 30,
     };
     info.update(ANDROID_CONTROL_AE_AVAILABLE_TARGET_FPS_RANGES,
             availableTargetFpsRanges,
