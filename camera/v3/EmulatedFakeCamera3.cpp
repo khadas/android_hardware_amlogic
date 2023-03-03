@@ -1447,9 +1447,9 @@ status_t EmulatedFakeCamera3::processCaptureRequest(
                    info.latitude = settings.find(ANDROID_JPEG_GPS_COORDINATES).data.d[0];
                    info.longitude = settings.find(ANDROID_JPEG_GPS_COORDINATES).data.d[1];
                    info.altitude = settings.find(ANDROID_JPEG_GPS_COORDINATES).data.d[2];
-                   info.has_latitude = true;
-                   info.has_longitude = true;
-                   info.has_altitude = true;
+                   info.has_latitude = info.latitude != 0;
+                   info.has_longitude = info.longitude != 0;
+                   info.has_altitude = info.altitude != 0;
               } else {
                    info.has_latitude = false;
                    info.has_longitude = false;
