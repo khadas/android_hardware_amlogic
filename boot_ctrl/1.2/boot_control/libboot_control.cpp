@@ -39,6 +39,7 @@
 #include <errno.h>
 #include <sys/stat.h>
 #include <unistd.h>
+#include "systemcontrol.h"
 #include "ubootenv/Ubootenv.h"
 
 namespace android {
@@ -332,6 +333,18 @@ done:
     return ret;
 }
 
+int is_recovery_mode() {
+    int ret = access("/system/bin/recovery", F_OK);
+    if (ret == 0) {
+        LOG(INFO) << "recovery mode";
+        return 1;
+    } else {
+        LOG(INFO) << "android mode";
+        return 0;
+    }
+}
+
+//just use for recovery mode, android mode need use sc_set_bootenv
 int set_bootloader_env(const char* name, const char* value)
 {
     Ubootenv *ubootenv = new Ubootenv();
@@ -348,6 +361,7 @@ int set_bootloader_env(const char* name, const char* value)
     return 0;
 }
 
+//just use for recovery mode, android mode need use sc_read_bootenv
 char* get_bootloader_env(const char * name)
 {
     Ubootenv *ubootenv = new Ubootenv();
@@ -365,6 +379,33 @@ char* get_bootloader_env(const char * name)
     delete ubootenv;
     return env_buffer;
 }
+
+//android mode only can set/get uboot env by systemocontrol service
+//or the uboot env you set will be rewrite by systemcontrol if systemcontrol
+//setenv after bootctrl of update_engine
+void set_bootloader_env_common(const char* name, const char* value) {
+    int mode = is_recovery_mode();
+    if (mode == 1) {
+        set_bootloader_env(name, value);
+    } else {
+        std::string tmp(value);
+        sc_set_bootenv(name, tmp);
+    }
+}
+
+char* get_bootloader_env_common(const char * name) {
+    int mode = is_recovery_mode();
+    if (mode == 1) {
+        return get_bootloader_env(name);
+    } else {
+        std::string tmp;
+        sc_read_bootenv(name, tmp);
+        memset(env_buffer, 0, 64);
+        strncpy(env_buffer, tmp.c_str(), strlen(tmp.c_str()));
+        return env_buffer;
+    }
+}
+
 
 void InitDefaultBootloaderControl(BootControl* control, bootloader_control* boot_ctrl) {
   memset(boot_ctrl, 0, sizeof(*boot_ctrl));
@@ -553,9 +594,9 @@ bool BootControl::MarkBootSuccessful() {
 }
 
 bool BootControl::SetBootloaderIndex(const char* boot_num) {
-  set_bootloader_env("reboot_status", "reboot_next");
-  set_bootloader_env("expect_index", boot_num);
-  set_bootloader_env("update_env", "1");
+  set_bootloader_env_common("reboot_status", "reboot_next");
+  set_bootloader_env_common("expect_index", boot_num);
+  set_bootloader_env_common("update_env", "1");
   return true;
 }
 
@@ -596,17 +637,17 @@ bool BootControl::SetActiveBootSlot(unsigned int slot) {
     LOG(INFO) << "device_prop: " << device_prop;
     LOG(INFO) << "fastbootd_prop: " << fastbootd_prop;
 
-    char* gpt_mode = get_bootloader_env("gpt_mode");
+    char* gpt_mode = get_bootloader_env_common("gpt_mode");
     if (gpt_mode != NULL)
       LOG(INFO) << "gpt_mode: " << gpt_mode;
 
     if (device_prop != "generic" && fastbootd_prop != "running") {
       if (gpt_mode && (strcmp(gpt_mode, "true") == 0)) {
         LOG(INFO) << "set bootloader index for gpt";
-        char* write_boot = get_bootloader_env("write_boot");
+        char* write_boot = get_bootloader_env_common("write_boot");
         if (write_boot && (!strcmp(write_boot, "0"))) {
             LOG(INFO) << "need to set write_boot 1";
-            set_bootloader_env("write_boot", "1");
+            set_bootloader_env_common("write_boot", "1");
         } else {
             LOG(INFO) << "need't to set write_boot, now write_boot is NULL or not equal 0 ";
         }
@@ -617,8 +658,8 @@ bool BootControl::SetActiveBootSlot(unsigned int slot) {
           ret = SetBootloaderIndex("0");
         /* when using dts, the dt will be updated in uboot */
         LOG(INFO) << "update dt in uboot";
-        set_bootloader_env("update_dt", "1");
-        char* update_dt = get_bootloader_env("update_dt");
+        set_bootloader_env_common("update_dt", "1");
+        char* update_dt = get_bootloader_env_common("update_dt");
         LOG(INFO) << "update_dt = " << update_dt;
       }
     }

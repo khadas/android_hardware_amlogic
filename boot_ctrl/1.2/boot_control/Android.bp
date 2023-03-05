@@ -52,7 +52,10 @@ cc_library_static {
     defaults: ["libboot_control_defaults_droidlogic"],
     export_include_dirs: ["include"],
 
-    srcs: ["libboot_control.cpp"],
+    srcs: [
+        "libboot_control.cpp",
+        "systemcontrol.cpp",
+    ],
     static_libs: [
         "libcutils",
         "libz",
@@ -61,9 +64,18 @@ cc_library_static {
         "libsystemcontrol_static",
         "libmeson_display_adapter_local_static",
     ],
+    product_variables: {
+        platform_sdk_version: {
+            cflags: ["-DPLATFORM_SDK_VERSION=%d"],
+        }
+    },
+
     shared_libs: [
         "liblog",
         "libcutils",
+        "libutils",
+        "vendor.amlogic.hardware.systemcontrol@1.0",
+        "vendor.amlogic.hardware.systemcontrol@1.1",
     ],
 }
 
