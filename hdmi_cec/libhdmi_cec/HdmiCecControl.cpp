@@ -457,6 +457,7 @@ int HdmiCecControl::getPhysicalAddress(uint16_t* addr)
 int HdmiCecControl::sendMessage(const cec_message_t* message)
 {
     int ret = -1;
+    int retry = 0;
     if (assertHdmiCecDevice()) {
         LOGE("sendMessage not valid cec device!");
         return -EINVAL;
@@ -470,7 +471,12 @@ int HdmiCecControl::sendMessage(const cec_message_t* message)
     if (preHandleOfSend(message) < 0) {
         return HDMI_RESULT_SUCCESS;
     }
-    ret = send(message);
+    // As there is no retry in driver and the limit of retry count is 5, we could retry
+    // twice in hal and there could be in total 4 times plus android's retry twice.
+    do {
+        ret = send(message);
+    } while((ret != HDMI_RESULT_SUCCESS) && (++retry < SEND_MESSAGE_RETRY_HAL));
+
     postHandleOfSend(message, ret);
     return ret;
 }

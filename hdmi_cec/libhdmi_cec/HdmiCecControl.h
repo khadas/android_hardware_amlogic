@@ -78,6 +78,9 @@
 
 #define PROPERTY_ARC_PORT               "persist.vendor.sys.arc_port"
 
+#define SEND_MESSAGE_RETRY_HAL          2
+
+
 namespace android {
 
 /*
