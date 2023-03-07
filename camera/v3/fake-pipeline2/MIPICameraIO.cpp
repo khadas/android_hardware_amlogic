@@ -980,6 +980,20 @@ void MIPIVideoInfo::releasebuf_and_stop_picture()
         }
     }
 
+    uint32_t MIPIVideoInfo::get_preview_stride() {
+        switch (mWorkMode) {
+            case ONE_FD:
+                return mOneFd.preview.format.fmt.pix.bytesperline?mOneFd.preview.format.fmt.pix.bytesperline:mOneFd.preview.format.fmt.pix.width;
+            case TWO_FD:
+                return mTwoFd.preview.format.fmt.pix.bytesperline?mTwoFd.preview.format.fmt.pix.bytesperline:mTwoFd.preview.format.fmt.pix.width;
+            case PIC_SCALER:
+                return mPicScaler.preview.format.fmt.pix.bytesperline?mPicScaler.preview.format.fmt.pix.bytesperline:mPicScaler.preview.format.fmt.pix.width;
+            default:
+                ALOGE("%s: work mode error",__FUNCTION__);
+                 return 0;
+        }
+    }
+
     uint32_t MIPIVideoInfo::get_preview_height(){
         switch (mWorkMode) {
             case ONE_FD:
@@ -1070,6 +1084,17 @@ void MIPIVideoInfo::releasebuf_and_stop_picture()
         }
     }
 
+    uint32_t MIPIVideoInfo::get_record_stride() {
+        switch (mWorkMode) {
+            case PIC_SCALER:
+                return mPicScaler.record.format.fmt.pix.bytesperline?mPicScaler.record.format.fmt.pix.bytesperline:mPicScaler.record.format.fmt.pix.width;
+            default:
+                ALOGE("%s: work mode error",__FUNCTION__);
+                 return 0;
+        }
+    }
+
+
     uint32_t MIPIVideoInfo::get_record_height(){
         switch (mWorkMode) {
             case PIC_SCALER:
@@ -1145,6 +1170,21 @@ void MIPIVideoInfo::releasebuf_and_stop_picture()
                  return 0;
         }
 
+    }
+
+
+    uint32_t MIPIVideoInfo::get_picture_stride() {
+        switch (mWorkMode) {
+            case ONE_FD:
+                return mOneFd.picture.format.fmt.pix.bytesperline?mOneFd.picture.format.fmt.pix.bytesperline:mOneFd.picture.format.fmt.pix.width;
+            case TWO_FD:
+                return mTwoFd.picture.format.fmt.pix.bytesperline?mTwoFd.picture.format.fmt.pix.bytesperline:mTwoFd.picture.format.fmt.pix.width;
+            case PIC_SCALER:
+                return mPicScaler.picture_config.format.fmt.pix.bytesperline?mPicScaler.picture_config.format.fmt.pix.bytesperline:mPicScaler.picture_config.format.fmt.pix.width;
+            default:
+                ALOGE("%s: work mode error",__FUNCTION__);
+                 return 0;
+        }
     }
 
     uint32_t MIPIVideoInfo::get_picture_height() {

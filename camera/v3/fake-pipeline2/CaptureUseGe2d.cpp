@@ -62,6 +62,7 @@ int CaptureUseGe2d::getPicture(StreamBuffer b, struct data_in* in, IONInterface 
     uint32_t format = mInfo->get_picture_pixelformat();
     uint32_t width = mInfo->get_picture_width();
     uint32_t height = mInfo->get_picture_height();
+    uint32_t stride = mInfo->get_picture_stride();
 
 #ifdef PICTURE_DEWARP_ENABLE
     int outbuf_fd = -1;
@@ -99,9 +100,16 @@ int CaptureUseGe2d::getPicture(StreamBuffer b, struct data_in* in, IONInterface 
             memcpy(b.img, vb.addr, length);
             break;
         case V4L2_PIX_FMT_NV21:
-            CAMHAL_LOGDB("%s:width=%d,height=%d,size=%d",__FUNCTION__,b.width,b.height,vb.size);
-            mGE2D->ge2d_scale(b.share_fd, PIXEL_FORMAT_YCbCr_420_SP_NV12,
-                b.width, b.height, dmabuf_fd, width, height);
+            if (width == b.width && height == b.height && stride == b.stride) {
+                ALOGV("line %d ge2d copy dmabuf_fd %d  w %d stride %d h %d \n", __LINE__, dmabuf_fd, b.width, b.stride, b.height);
+                mGE2D->ge2d_copy(b.share_fd, dmabuf_fd, b.stride, b.height, ge2dTransform::NV12);
+            } else {
+                ALOGV("line %d ge2d scale in w %d stride %d h %d , out w %d stride %d h %d", __LINE__, width, stride, height,
+                          b.width, b.stride, b.height);
+                mGE2D->ge2d_convert_scale(b.share_fd, PIXEL_FORMAT_YCbCr_420_SP_NV12, b.width, b.stride, b.height,
+                                          dmabuf_fd, PIXEL_FORMAT_YCbCr_420_SP_NV12, width, stride, height);
+            }
+
             if (property_get_bool("vendor.camhal.dump.capture", false)) {
                 char path[256];
                 static int index = 0;
@@ -155,25 +163,17 @@ int CaptureUseGe2d::captureYUYVframe(uint8_t *img, struct data_in* in) {
 int CaptureUseGe2d::captureNV21frame(StreamBuffer b, struct data_in* in) {
     ATRACE_CALL();
 
-    uint32_t width = mInfo->get_preview_width();
-    uint32_t height = mInfo->get_preview_height();
-    uint32_t format = mInfo->get_preview_pixelformat();
+    uint8_t *src = in->src;
 
-    uint8_t *src = nullptr;
-    int dmabuf_fd = -1;
-
-    src = in->src;
     if (src && in->src_fmt > 0) {
         switch (in->src_fmt) {
             case V4L2_PIX_FMT_NV21:
                 //  we assume that [in] is always preview stream
                 if (b.width < 3840 && b.height < 2160) {
-                    if ((width == b.width) && (height == b.height)) {
+                    if ((in->src_width == b.width) && (in->src_height == b.height)) {
                         mGE2D->ge2d_copy(b.share_fd, in->share_fd, b.stride, b.height, V4L2_PIX_FMT_NV21);
-                    } else if (width >= b.width && height >= b.height) {
-
-                        mGE2D->ge2d_scale(b.share_fd, PIXEL_FORMAT_YCbCr_420_SP_NV12, b.width, b.height, in->share_fd, width, height);
-
+                    } else if (in->src_width >= b.width && in->src_height >= b.height) {
+                        mGE2D->ge2d_scale(b.share_fd, PIXEL_FORMAT_YCbCr_420_SP_NV12, b.width, b.height, in->share_fd, in->src_width, in->src_height);
                     }
                 } else {
                     struct VideoInfoBuffer vb_rec;
@@ -241,6 +241,11 @@ int CaptureUseGe2d::captureNV21frame(StreamBuffer b, struct data_in* in) {
         return NO_NEW_FRAME;
     }
 
+    int dmabuf_fd = -1;
+    uint32_t width = mInfo->get_preview_width();
+    uint32_t height = mInfo->get_preview_height();
+    uint32_t format = mInfo->get_preview_pixelformat();
+    uint32_t stride = mInfo->get_preview_stride();
 
     struct VideoInfoBuffer vb;
     int ret = mInfo->get_frame_buffer(&vb);
@@ -276,15 +281,16 @@ int CaptureUseGe2d::captureNV21frame(StreamBuffer b, struct data_in* in) {
         else {
             switch (format) {
                 case V4L2_PIX_FMT_NV21:
-                    if (mInfo->get_preview_buf_length() == b.width * b.height * 3/2) {
-                        ALOGV("%s:dma buffer fd = %d \n", __FUNCTION__, dmabuf_fd);
-                        mGE2D->ge2d_copy(b.share_fd, dmabuf_fd, b.stride, b.height, ge2dTransform::NV12);
+                    if (width == b.width && height == b.height && stride == b.stride) {
+                        ALOGV("line %d ge2d copy dmabuf_fd %d  w %d stride %d h %d \n", __LINE__, dmabuf_fd, b.width, b.stride, b.height);
+                        mGE2D->ge2d_copy(b.share_fd, dmabuf_fd, b.stride,b.height, ge2dTransform::NV12);
+                    } else {
+                        ALOGV("line %d ge2d scale in w %d stride %d h %d , out w %d stride %d h %d", __LINE__, width, stride, height,
+                                  b.width, b.stride, b.height);
+                        mGE2D->ge2d_convert_scale(b.share_fd, PIXEL_FORMAT_YCbCr_420_SP_NV12, b.width, b.stride, b.height,
+                                                  dmabuf_fd, PIXEL_FORMAT_YCbCr_420_SP_NV12, width, stride, height);
                     }
-                    else {
 
-                        mGE2D->ge2d_scale(b.share_fd, PIXEL_FORMAT_YCbCr_420_SP_NV12, b.width, b.height, dmabuf_fd, width, height);
-
-                    }
                     break;
                 case V4L2_PIX_FMT_UYVY:
                     mGE2D->ge2d_fmt_convert(b.share_fd, PIXEL_FORMAT_YCrCb_420_SP, b.stride, b.height,
@@ -302,23 +308,26 @@ int CaptureUseGe2d::captureNV21frame(StreamBuffer b, struct data_in* in) {
                     mInfo->get_preview_width(), mInfo->get_preview_height(), index2);
                 dump2File(path, vb.addr, mInfo->get_preview_buf_length());
                 sprintf(path, "/data/vendor/camera/preview-out-%dx%d-%d.yuv", b.width, b.height, index2);
-                dump2File(path, b.img, b.width *  b.height * 3/2);
+                dump2File(path, b.img, b.stride *  b.height * 3/2);
             }
             index2++;
         }
 #else
     switch (format) {
         case V4L2_PIX_FMT_NV21:
-            if (mInfo->get_preview_buf_length() == b.width * b.height * 3/2) {
-                CAMHAL_LOGDB("%s:dma buffer fd = %d \n",__FUNCTION__,dmabuf_fd);
+            if (width == b.width && height == b.height && stride == b.stride) {
+                ALOGV("line %d ge2d copy dmabuf_fd %d  w %d stride %d h %d \n", __LINE__, dmabuf_fd, b.width, b.stride, b.height);
                 mGE2D->ge2d_copy(b.share_fd, dmabuf_fd, b.stride,b.height, ge2dTransform::NV12);
             } else {
-                mGE2D->ge2d_scale(b.share_fd, PIXEL_FORMAT_YCbCr_420_SP_NV12, b.width, b.height, dmabuf_fd, width, height);
+                ALOGV("line %d ge2d scale in w %d stride %d h %d , out w %d stride %d h %d", __LINE__, width, stride, height,
+                          b.width, b.stride, b.height);
+                mGE2D->ge2d_convert_scale(b.share_fd, PIXEL_FORMAT_YCbCr_420_SP_NV12, b.width, b.stride, b.height,
+                                          dmabuf_fd, PIXEL_FORMAT_YCbCr_420_SP_NV12, width, stride, height);
             }
             break;
         case V4L2_PIX_FMT_UYVY:
-            mGE2D->ge2d_fmt_convert(b.share_fd, PIXEL_FORMAT_YCrCb_420_SP, b.stride, b.height,
-                                   dmabuf_fd, PIXEL_FORMAT_YCbCr_422_UYVY, width, height);
+            mGE2D->ge2d_convert_scale(b.share_fd, PIXEL_FORMAT_YCrCb_420_SP, b.width, b.stride, b.height,
+                                       dmabuf_fd, PIXEL_FORMAT_YCbCr_422_UYVY, width, width * 2, height);
             break;
         default:
             break;

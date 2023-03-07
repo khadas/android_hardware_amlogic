@@ -433,7 +433,7 @@ void V4l2MediaSensor::takePicture(StreamBuffer& b, uint32_t gain, uint32_t strid
         property_get("vendor.camera.zsl.enable", property, "false");
         if (strstr(property, "true"))
             enableZsl = true;
-        //stop = true;
+        stop = true;
     }
     while (1)
     {
@@ -464,9 +464,14 @@ void V4l2MediaSensor::captureNV21(StreamBuffer b, uint32_t gain){
     //       simply using mKernelBuffer & mTempFd cause green image
     //       due to pixel format difference.
     struct data_in in;
-    in.src = mKernelBuffer;
-    in.src_fmt = mKernelBufferFmt;
-    in.share_fd = mTempFD;
+
+    in.src = mSavedDecodedBuffer.vaddr;
+    in.src_fmt = mSavedDecodedBuffer.fmt;
+    in.share_fd = mSavedDecodedBuffer.fd;
+    in.src_width = mSavedDecodedBuffer.width;
+    in.src_stride = mSavedDecodedBuffer.stride;
+    in.src_height = mSavedDecodedBuffer.height;
+
     ALOGVV("%s:mTempFD = %d",__FUNCTION__,mTempFD);
     while (1) {
         if (mExitSensorThread) {
@@ -493,9 +498,12 @@ void V4l2MediaSensor::captureNV21(StreamBuffer b, uint32_t gain){
         mIGdc->gdc_do_fisheye_correction(&p);
 #endif
         if (ret == NEW_FRAME) {
-            mKernelBuffer = b.img;
-            mKernelBufferFmt = V4L2_PIX_FMT_NV21;
-            mTempFD = b.share_fd;
+            mSavedDecodedBuffer.vaddr = b.img;
+            mSavedDecodedBuffer.fmt = V4L2_PIX_FMT_NV21;
+            mSavedDecodedBuffer.fd = b.share_fd;
+            mSavedDecodedBuffer.width = b.width;
+            mSavedDecodedBuffer.height = b.height;
+            mSavedDecodedBuffer.stride = b.stride;
         }
         mSensorWorkFlag = true;
         if (ret == NEW_FRAME)
@@ -846,9 +854,10 @@ status_t V4l2MediaSensor::force_reset_sensor() {
 
 int V4l2MediaSensor::captureNewImage() {
     uint32_t gain = mGainFactor;
-    mKernelBuffer = NULL;
-    mKernelBufferFmt = 0;
-    mTempFD = -1;
+
+    memset(&mSavedDecodedBuffer, 0, sizeof (mSavedDecodedBuffer) );
+    mSavedDecodedBuffer.fd = -1;
+
     // Might be adding more buffers, so size isn't constant
     ALOGVV("%s:buffer size=%zu\n",__FUNCTION__,mNextCapturedBuffers->size());
     for (size_t i = 0; i < mNextCapturedBuffers->size(); i++) {

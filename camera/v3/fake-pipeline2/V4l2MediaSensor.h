@@ -78,8 +78,20 @@ namespace android {
             bool enableZsl;
             ICapture* mCapture;
 
+            struct bufInfo {
+                uint8_t*   vaddr;
+                uint32_t   width;
+                uint32_t   stride;
+                uint32_t   height;
+                int        fd;
+                uint32_t   fmt;
+            };
+
+            bufInfo  mSavedDecodedBuffer;
+
             uint32_t mMaxWidth;
             uint32_t mMaxHeight;
+
 #ifdef GE2D_ENABLE
             IONInterface* mION;
             ge2dTransform* mGE2D;

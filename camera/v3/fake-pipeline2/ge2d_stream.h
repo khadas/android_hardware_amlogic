@@ -44,6 +44,9 @@ public:
         ge2dTransform();
         ~ge2dTransform();
 
+        int ge2d_convert_scale(int dst_fd, int dst_fmt, int dst_w, int dst_stride, int dst_h,
+                               int src_fd, int src_fmt, int src_w, int src_stride, int src_h);
+
         int ge2d_scale(int dst_fd,int dst_fmt, size_t dst_w, size_t dst_h,
                        int src_fd, size_t src_w, size_t src_h);
 

@@ -8,13 +8,15 @@ namespace android {
     struct data_in {
         /*in*/
         uint8_t* src;
-        /*in*/
         int src_fmt;
-        /*in*/
         int share_fd;
+        int src_width;
+        int src_stride;
+        int src_height;
         /*out*/
         int dmabuf_fd;
     };
+
     enum capture_status {
         ERROR_FRAME = -1,
         NEW_FRAME = 0,
