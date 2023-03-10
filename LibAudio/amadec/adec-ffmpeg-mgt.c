@@ -1836,13 +1836,7 @@ void *ad_audio_decode_loop(void *args)
                 if (outlen) {
                     dump_amadec_data(outbuf,outlen,"/data/adec_ad.pcm");
                     ad_adec_ops->getinfo(audec->ad_adec_ops, &g_AudioInfo);
-                    float mixing_coefficient = ((float)(audec->mixing_level  + 32 ) / 64 ) * (audec->ad_pcmscale / 100.0f) ;
-                    if (audec->associate_audio_enable == 0)
-                        mixing_coefficient = 0;
-                    if (audec->debug_flag)
-                        adec_print("mixing_coefficient %f audec->ad_pcmscale %d",mixing_coefficient,audec->ad_pcmscale);
-                    apply_volume(mixing_coefficient, outbuf, sizeof(uint16_t), outlen);
-                    if (g_AudioInfo.channels == 1 && audec->channels == 2) {
+                     if (g_AudioInfo.channels == 1 && audec->channels == 2) {
                         int16_t *buf = (int16_t *)outbuf;
                         int i = 0, samples_num,samples;
                         samples_num = outlen / sizeof(int16_t);
@@ -1855,6 +1849,25 @@ void *ad_audio_decode_loop(void *args)
                         }
                         outlen *= 2;
                     }
+
+                    float mixing_coefficient = 1.0f;
+                    mixing_coefficient = DbToAmpl(audec->mixing_level);
+                    mixing_coefficient *= (audec->ad_pcmscale / 100.0f) ;
+                    if (property_get_bool("vendor.media.dtv.pesmode",true)) {
+                        int ad_pan = 0;
+                        ad_pan = dtv_assoc_get_ad_pan();
+                        apply_volume_pan(ad_pan, outbuf, sizeof(uint16_t), outlen);
+                        if (audec->debug_flag)
+                            adec_print("ad_pan %d",ad_pan);
+                    }
+
+                    if (audec->associate_audio_enable == 0)
+                        mixing_coefficient = 0;
+                    if (audec->debug_flag)
+                        adec_print("mixing_coefficient %f audec->ad_pcmscale %d",mixing_coefficient,audec->ad_pcmscale);
+
+                    apply_volume(mixing_coefficient, outbuf, sizeof(uint16_t), outlen);
+                    dump_amadec_data(outbuf,outlen,"/data/adec_ad_pan.pcm");
                     while (aml_hw_mixer_get_content_l(&audec->hw_mixer) + outlen >= AD_MIXER_BUF_SIZE && !audec->exit_decode_thread)
                             amthreadpool_thread_usleep(50000);
                     aml_hw_mixer_write(&audec->hw_mixer, outbuf, outlen);
@@ -2057,7 +2070,20 @@ void *audio_decode_loop(void *args)
 #ifndef USE_AOUT_IN_ADEC
                     if (audec->associate_dec_supported) {
                         {
-                            float mixing_coefficient = 1.0f - (float)(audec->mixing_level  + 32 ) / 64;
+                            float mixing_coefficient = 1.0f;
+                            //do not change main audio loudnees for dtg uk cert
+                            //if (audec->mixing_level > 0) {
+                               // mixing_coefficient = 1.0f - (float)(audec->mixing_level) / 32;
+                            //}
+                            if (property_get_bool("vendor.media.dtv.pesmode",true)) {
+                                int ad_fade = 0;
+                                ad_fade = dtv_assoc_get_ad_fade();
+                                float ad_fade_coef = DbToAmpl(ad_fade * (-0.3f));
+                                if (audec->debug_flag)
+                                    adec_print("ad_fade %d ad_fade_coef %f",ad_fade, ad_fade_coef);
+                                mixing_coefficient *= ad_fade_coef;
+                            }
+
                             apply_volume(mixing_coefficient, outbuf, sizeof(uint16_t), outlen);
                             if (aml_hw_mixer_get_content_l(&audec->hw_mixer) < outlen )
                                 amthreadpool_thread_usleep(outlen * 1000 * 1000/ (audec->samplerate * audec->channels * 2));
