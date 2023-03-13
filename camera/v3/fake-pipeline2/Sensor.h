@@ -142,9 +142,9 @@ typedef enum camera_flashlight_status_e{
 
 typedef enum camera_focus_mode_e {
     CAM_FOCUS_MODE_RELEASE = 0,
+    CAM_FOCUS_MODE_AUTO,
     CAM_FOCUS_MODE_FIXED,
     CAM_FOCUS_MODE_INFINITY,
-    CAM_FOCUS_MODE_AUTO,
     CAM_FOCUS_MODE_MACRO,
     CAM_FOCUS_MODE_EDOF,
     CAM_FOCUS_MODE_CONTI_VID,

@@ -645,6 +645,12 @@ status_t MIPISensor::streamOn(channel channel) {
     if (strstr(property,"true")) {
         setdualcam(1);
     }
+    struct v4l2_control ctl;
+    ctl.id = V4L2_CID_FOCUS_AUTO;
+    ctl.value = 0;
+    if (ioctl(mPortFds[channel_capture], VIDIOC_S_CTRL, &ctl) < 0) {
+        ALOGD("%s : failed to set camera focuas mode!", __FUNCTION__);
+    }
     if (channel == channel_capture)
         return mVinfo->start_picture(0);
     else if(channel == channel_preview)
@@ -1271,7 +1277,8 @@ int MIPISensor::getAutoFocus(uint8_t *afMode, uint8_t maxCount) {
 status_t MIPISensor::setAutoFocus(uint8_t afMode) {
     struct v4l2_control ctl;
     ctl.id = V4L2_CID_FOCUS_AUTO;
-
+    ALOGD("%s ++", __FUNCTION__);
+    ALOGD("%s: ctl.id = %x", __FUNCTION__, V4L2_CID_FOCUS_AUTO);
     switch (afMode) {
         case ANDROID_CONTROL_AF_MODE_AUTO:
             ctl.value = CAM_FOCUS_MODE_AUTO;
@@ -1290,9 +1297,10 @@ status_t MIPISensor::setAutoFocus(uint8_t afMode) {
                     __FUNCTION__, afMode);
             return BAD_VALUE;
     }
-
-    if (ioctl(mVinfo->get_fd(), VIDIOC_S_CTRL, &ctl) < 0) {
-        CAMHAL_LOGDA("failed to set camera focuas mode!\n");
+    ALOGD("%s: --", __FUNCTION__);
+    ctl.value = 1;
+    if (ioctl(mPortFds[channel_capture], VIDIOC_S_CTRL, &ctl) < 0) {
+        ALOGD("%s : failed to set camera focuas mode!", __FUNCTION__);
         return BAD_VALUE;
     }
 

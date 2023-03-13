@@ -39,6 +39,7 @@
 #include "fake-pipeline2/JpegCompressor.h"
 #include "fake-pipeline2/V4l2MediaSensor.h"
 #include "fake-pipeline2/HDMISensor.h"
+#include "fake-pipeline2/MIPISensor.h"
 #include <cmath>
 #include <binder/IPCThreadState.h>
 #include <amlogic/am_gralloc_ext.h>
@@ -540,6 +541,7 @@ status_t EmulatedFakeCamera3::configureStreams(
         return BAD_VALUE;
     }
 
+    mSensor->setAutoFocus(ANDROID_CONTROL_AF_MODE_AUTO);
     camera3_stream_t *inputStream = NULL;
     for (size_t i = 0; i < streamList->num_streams; i++) {
         camera3_stream_t *newStream = streamList->streams[i];
