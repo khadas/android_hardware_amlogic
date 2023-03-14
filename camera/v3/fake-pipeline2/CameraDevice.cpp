@@ -149,7 +149,7 @@ struct VirtualDevice* CameraVirtualDevice::findMipiVideoDevice(int cam_id) {
 
 struct VirtualDevice* CameraVirtualDevice::findUsbVideoDevice(int cam_id) {
     int video_device_count = pluggedMipiCameraNum;
-    int prefered_usb_device_idx = cam_id - pluggedMipiCameraNum;
+    int preferred_usb_device_idx = cam_id - pluggedMipiCameraNum;
 
     char tmp[64];
 
@@ -180,14 +180,14 @@ struct VirtualDevice* CameraVirtualDevice::findUsbVideoDevice(int cam_id) {
                     ALOGD("%s: devname  %s stream index %d map to camera id %d sta %d", __FUNCTION__,
                               pDev->name,stream_idx,cam_id, pDev->status[stream_idx]);
 
-                    if (i != prefered_usb_device_idx) {
+                    if (i != preferred_usb_device_idx) {
                         // swap usb camera's devname. lower index has higher priority.
-                        memcpy(tmp, usbvideoDevices[prefered_usb_device_idx].name, 64);
-                        memcpy(usbvideoDevices[prefered_usb_device_idx].name, usbvideoDevices[i].name, 64);
+                        memcpy(tmp, usbvideoDevices[preferred_usb_device_idx].name, 64);
+                        memcpy(usbvideoDevices[preferred_usb_device_idx].name, usbvideoDevices[i].name, 64);
                         memcpy(usbvideoDevices[i].name, tmp, 64);
                     }
-                    usbvideoDevices[prefered_usb_device_idx].cameraId[stream_idx] = cam_id;
-                    return &usbvideoDevices[prefered_usb_device_idx];
+                    usbvideoDevices[preferred_usb_device_idx].cameraId[stream_idx] = cam_id;
+                    return &usbvideoDevices[preferred_usb_device_idx];
                 }
            }
         }
@@ -328,8 +328,8 @@ int CameraVirtualDevice::releaseVirtualDevice(int cam_id, int fd) {
 
     if (cam_id >= pluggedMipiCameraNum) {
         // release a usb camera device.
-        int prefered_usb_device_idx = cam_id - pluggedMipiCameraNum;
-        pDevice = &usbvideoDevices[prefered_usb_device_idx];
+        int preferred_usb_device_idx = cam_id - pluggedMipiCameraNum;
+        pDevice = &usbvideoDevices[preferred_usb_device_idx];
     } else {
         // release a mipi camera
         pDevice = findMipiVideoDevice (cam_id);
@@ -434,7 +434,7 @@ bool CameraVirtualDevice::isAmlMediaCamera (char *dev_node_name)
                         ALOGE("new media device failed \n");
                         result = false;
                     } else if (0 == mediaStreamInit((media_stream_t *)mediaStream, media_dev)) {
-                        ALOGD("mediaStreamInit successed");
+                        ALOGD("mediaStreamInit succeeded");
                         result = true;
                     } else {
                         ALOGD("mediaStreamInit failed");
@@ -460,7 +460,7 @@ bool CameraVirtualDevice::isHdmiVdinCameraEnable() {
 }
 
 // scan the videoDevices array.
-// enumerate accessable devname as cameras.
+// enumerate accessible devname as cameras.
 // for multistream cameras. one stream is one camera.
 int CameraVirtualDevice::getCameraNum() {
 

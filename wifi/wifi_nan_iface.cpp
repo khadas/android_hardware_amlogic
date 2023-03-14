@@ -447,7 +447,7 @@ WifiNanIface::WifiNanIface(const std::string& ifname, bool is_dedicated_iface,
     legacy_hal::wifi_error legacy_status =
             legacy_hal_.lock()->nanRegisterCallbackHandlers(ifname_, callback_handlers);
     if (legacy_status != legacy_hal::WIFI_SUCCESS) {
-        LOG(ERROR) << "Failed to register nan callbacks. Invalidating object";
+        LOG(ERROR) << "Failed to register na callbacks. Invalidating object";
         invalidate();
     }
 

@@ -1856,10 +1856,10 @@ typedef struct {
     /*
        flag to indicate if the Match occurred in a Beacon Frame or in a
        Service Discovery Frame.
-         0 - Match occured in a Service Discovery Frame
-         1 - Match occured in a Beacon Frame
+         0 - Match occurred in a Service Discovery Frame
+         1 - Match occurred in a Beacon Frame
     */
-    u8 match_occured_flag;
+    u8 match_occurred_flag;
 
     /*
        flag to indicate FW is out of resource and that it can no longer

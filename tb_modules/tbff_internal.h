@@ -37,9 +37,9 @@ struct _tbff_stats {
 	int ro_polar5_f4_i3;
 };
 
-extern void tbff_stats_inital(struct _tbff_stats *pReg, int irow, int icol);
+extern void tbff_stats_initial(struct _tbff_stats *pReg, int irow, int icol);
 extern void get_tbff_stats(unsigned long *in, struct _tbff_stats *pReg);
-extern void tbff_fwalg_inital(int init_mode);
+extern void tbff_fwalg_initial(int init_mode);
 extern int tbff_fwalg(struct _tbff_stats *pReg, int fld_id, int is_tff, int frm, int skip_flg, int print_flg);
 extern int get_tbff_majority_flg(void);
 extern const char *get_version_info(void);

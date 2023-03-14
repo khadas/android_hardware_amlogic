@@ -64,7 +64,7 @@ typedef enum {
                                   // reason for the event is available; however, at most one of
                                   // these events should be reported per scan. If there are
                                   // multiple buckets that were scanned this period and one has the
-                                  // EACH_SCAN flag set then this event should be prefered.
+                                  // EACH_SCAN flag set then this event should be preferred.
     WIFI_SCAN_THRESHOLD_NUM_SCANS,  // can be reported when REPORT_EVENTS_EACH_SCAN is not set and
                                     // report_threshold_num_scans is reached.
     WIFI_SCAN_THRESHOLD_PERCENT,    // can be reported when REPORT_EVENTS_EACH_SCAN is not set and

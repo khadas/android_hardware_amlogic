@@ -1293,7 +1293,7 @@ static uint8_t _CALIBRATION_SHADING_LS_A_B[1024]=
 static uint32_t _CALIBRATION_LENS_SHADING_CTL[4] =
 {
     2, //mesh shading split mode 0:64x64 1: 32x64 2:32x32
-    1, //mesh lut normlize select 0: 128 1:64 2:32 3:16
+    1, //mesh lut normalize select 0: 128 1:64 2:32 3:16
     32, //mesh hori-node numbers
     32, //mesh vert-node numbers
 };

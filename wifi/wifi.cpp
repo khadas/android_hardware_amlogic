@@ -236,7 +236,7 @@ WifiStatus Wifi::initializeModeControllerAndLegacyHal() {
         if (legacy_status != legacy_hal::WIFI_SUCCESS) {
             // Currently WifiLegacyHal::initialize does not allocate extra mem,
             // only initializes the function table. If this changes, need to
-            // implement WifiLegacyHal::deinitialize and deinitalize the
+            // implement WifiLegacyHal::deinitialize and deinitialize the
             // HALs already initialized
             LOG(ERROR) << "Failed to initialize legacy HAL index: " << index
                        << " error: " << legacyErrorToString(legacy_status);

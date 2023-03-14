@@ -197,7 +197,7 @@ uint8_t sbr_extension_data(bitfile *ld, sbr_info *sbr, uint16_t cnt,
                                          sbr->bs_samplerate_mode, sbr->bs_freq_scale,
                                          sbr->bs_alter_scale, sbr->bs_xover_band);
 
-            /* if an error occured with the new header values revert to the old ones */
+            /* if an error occurred with the new header values revert to the old ones */
             if (rt > 0) {
                 calc_sbr_tables(sbr, saved_start_freq, saved_stop_freq,
                                 saved_samplerate_mode, saved_freq_scale,

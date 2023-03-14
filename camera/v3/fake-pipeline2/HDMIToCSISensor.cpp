@@ -1092,7 +1092,7 @@ int HDMIToCSISensor::captureNewImage() {
                 captureRGBA(b.img, gain, b.stride);
                 break;
             case HAL_PIXEL_FORMAT_BLOB:
-                    // Add auxillary buffer of the right size
+                    // Add auxiliary buffer of the right size
                     // Assumes only one BLOB (JPEG) buffer in
                     // mNextCapturedBuffers
                     StreamBuffer bAux;

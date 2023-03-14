@@ -96,7 +96,7 @@ int find_omx_lib(aml_audio_dec_t *audec)
             audec->parm_omx_codec_get_FS    = dlsym(fd, "arm_omx_codec_get_FS");
             audec->parm_omx_codec_get_Nch   = dlsym(fd, "arm_omx_codec_get_Nch");
         } else {
-            adec_print("[NOTE]cant find libamadec_omx_api.so ,StageFrightCodecEnableType=0\n");
+            adec_print("[NOTE]can't find libamadec_omx_api.so ,StageFrightCodecEnableType=0\n");
             audec->StageFrightCodecEnableType = 0;
             return 0;
         }

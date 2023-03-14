@@ -2237,7 +2237,7 @@ int V4LCameraAdapter::pictureThread()
 
 #ifdef AMLOGIC_USB_CAMERA_SUPPORT
         if(mIsDequeuedEIOError){
-            CAMHAL_LOGEA("DQBUF EIO has occured!\n");
+            CAMHAL_LOGEA("DQBUF EIO has occurred!\n");
             return -EINVAL;
         }
 #endif
@@ -2282,7 +2282,7 @@ int V4LCameraAdapter::pictureThread()
                 mVideoInfo->buf.memory = m_eV4l2Memory;
 
                 if(mIsDequeuedEIOError){
-                    CAMHAL_LOGEA("DQBUF EIO has occured!\n");
+                    CAMHAL_LOGEA("DQBUF EIO has occurred!\n");
                     break;
                 }
 

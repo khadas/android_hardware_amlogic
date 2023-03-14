@@ -109,7 +109,7 @@ static int wfd_register_audio_lib(aml_audio_dec_t *audec)
                     goto error;
                 }
             } else {
-                adec_print("wfd cant find decoder lib\n");
+                adec_print("wfd can't find decoder lib\n");
                 goto error;
             }
             return 0;

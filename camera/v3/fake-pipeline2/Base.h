@@ -37,7 +37,7 @@ typedef Vector<camera3_stream_buffer>     HalBufferVector;
 struct StreamBuffer {
     // Positive numbers are output streams
     // Negative numbers are input reprocess streams
-    // Zero is an auxillary buffer
+    // Zero is an auxiliary buffer
     int streamId;
     uint32_t width, height;
     uint32_t format;

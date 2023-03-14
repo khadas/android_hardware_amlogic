@@ -109,11 +109,11 @@ static void sync_wrapdata(u8 dir, struct _tbff_stats *internal, struct tbff_stat
 	}
 }
 
-static void tbff_stats_inital_wrap(struct tbff_stats *pReg, int irow, int icol)
+static void tbff_stats_initial_wrap(struct tbff_stats *pReg, int irow, int icol)
 {
 	struct _tbff_stats internal_data;
 
-	tbff_stats_inital(&internal_data, irow, icol);
+	tbff_stats_initial(&internal_data, irow, icol);
 
 	sync_wrapdata(0, &internal_data, pReg);
 }
@@ -144,9 +144,9 @@ static int tbff_fwalg_wrap(struct tbff_stats *pReg, int fld_id, int is_tff, int 
 }
 
 const struct TB_DetectFuncPtr gTB_Func = {
-	tbff_stats_inital_wrap,
+	tbff_stats_initial_wrap,
 	get_tbff_stats_wrap,
-	tbff_fwalg_inital,
+	tbff_fwalg_initial,
 	tbff_fwalg_wrap,
 	get_tbff_majority_flg,
 };

@@ -92,9 +92,9 @@ V4l2MediaSensor::V4l2MediaSensor() {
         mPictureThreadCntler.PictureThread = new std::thread([this]() {
             //uint32_t ION_try = 0;
             while (mPictureThreadCntler.PictureThreadExit != true) {
-                Mutex::Autolock lock(mPictureThreadCntler.requestOperaionLock);
+                Mutex::Autolock lock(mPictureThreadCntler.requestOperationLock);
                 if (mPictureThreadCntler.NextPictureRequest.empty()) {
-                    mPictureThreadCntler.unprocessedRequest.wait(mPictureThreadCntler.requestOperaionLock);
+                    mPictureThreadCntler.unprocessedRequest.wait(mPictureThreadCntler.requestOperationLock);
                 } else {
                     Request *PicRequest = mPictureThreadCntler.NextPictureRequest.begin();
                     Buffers * pictureBuffers = PicRequest->sensorBuffers;
@@ -106,7 +106,7 @@ V4l2MediaSensor::V4l2MediaSensor() {
                             i, b.streamId, b.width, b.height, b.format, b.stride,
                             b.buffer, b.img);
                         if (b.format == HAL_PIXEL_FORMAT_BLOB) {
-                            // Add auxillary buffer of the right size
+                            // Add auxiliary buffer of the right size
                             // Assumes only one BLOB (JPEG) buffer in
                             // mNextCapturedBuffers
                             size_t len;
@@ -526,7 +526,7 @@ void V4l2MediaSensor::setIOBufferNum()
         ALOGD(" get buffer number is %d from property \n",tmp);
     }
 
-    ALOGD("defalut buffer number is %d\n",tmp);
+    ALOGD("default buffer number is %d\n",tmp);
     mVinfo->set_buffer_numbers(tmp);
 }
 
@@ -859,7 +859,7 @@ int V4l2MediaSensor::captureNewImage() {
                 b.buffer, b.img);
         switch (b.format) {
             case HAL_PIXEL_FORMAT_BLOB:
-                // Add auxillary buffer of the right size
+                // Add auxiliary buffer of the right size
                 // Assumes only one BLOB (JPEG) buffer in
                 // mNextCapturedBuffers
                 StreamBuffer bAux;

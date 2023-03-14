@@ -2240,7 +2240,7 @@ bool convertLegacyNanMatchIndToHidl(const legacy_hal::NanMatchInd& legacy_ind,
     hidl_ind->matchFilter =
             std::vector<uint8_t>(legacy_ind.sdf_match_filter,
                                  legacy_ind.sdf_match_filter + legacy_ind.sdf_match_filter_len);
-    hidl_ind->matchOccuredInBeaconFlag = legacy_ind.match_occured_flag == 1;
+    hidl_ind->matchOccuredInBeaconFlag = legacy_ind.match_occurred_flag == 1;
     hidl_ind->outOfResourceFlag = legacy_ind.out_of_resource_flag == 1;
     hidl_ind->rssiValue = legacy_ind.rssi_value;
     hidl_ind->peerCipherType = (V1_6::NanCipherSuiteType)legacy_ind.peer_cipher_type;

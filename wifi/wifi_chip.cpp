@@ -644,7 +644,7 @@ Return<void> WifiChip::debug(const hidl_handle& handle, const hidl_vec<hidl_stri
         }
         uint32_t n_error = cpioArchiveFilesInDir(fd, kTombstoneFolderPath);
         if (n_error != 0) {
-            LOG(ERROR) << n_error << " errors occured in cpio function";
+            LOG(ERROR) << n_error << " errors occurred in cpio function";
         }
         fsync(fd);
     } else {

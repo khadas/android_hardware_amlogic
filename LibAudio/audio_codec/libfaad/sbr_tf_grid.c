@@ -140,7 +140,7 @@ uint8_t envelope_time_border_vector(sbr_info *sbr, uint8_t ch)
         break;
     }
 
-    /* no error occured, we can safely use this t_E vector */
+    /* no error occurred, we can safely use this t_E vector */
     for (l = 0; l < 6; l++) {
         sbr->t_E[ch][l] = t_E_temp[l];
     }

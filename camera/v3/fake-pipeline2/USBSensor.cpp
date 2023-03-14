@@ -412,7 +412,7 @@ void USBSensor::setIOBufferNum()
         sscanf(buffer_number, "%d", &tmp);
         ALOGD("get property value is %d\n",tmp);
     } else {
-        ALOGD("defalut buffer number is %d\n",tmp);
+        ALOGD("default buffer number is %d\n",tmp);
     }
     mVinfo->set_buffer_numbers(tmp);
 }
@@ -1903,7 +1903,7 @@ int USBSensor::captureNewImage() {
                 captureRGBA(b.img, gain, b.stride);
                 break;
             case HAL_PIXEL_FORMAT_BLOB:
-                // Add auxillary buffer of the right size
+                // Add auxiliary buffer of the right size
                 // Assumes only one BLOB (JPEG) buffer in
                 // mNextCapturedBuffers
                 StreamBuffer bAux;

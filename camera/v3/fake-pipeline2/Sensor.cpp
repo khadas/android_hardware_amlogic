@@ -999,7 +999,7 @@ void Sensor::setPictureRequest(Request &PicRequest) {
     ATRACE_CALL();
     //Request * newRequest = new Request(PicRequest);
     {
-        Mutex::Autolock lock(mPictureThreadCntler.requestOperaionLock);
+        Mutex::Autolock lock(mPictureThreadCntler.requestOperationLock);
         mPictureThreadCntler.NextPictureRequest.push_back(PicRequest);
         mPictureThreadCntler.unprocessedRequest.signal();
     }
@@ -1304,7 +1304,7 @@ int Sensor::captureNewImage() {
                 captureRGBA(b.img, gain, b.stride);
                 break;
             case HAL_PIXEL_FORMAT_BLOB:
-                // Add auxillary buffer of the right size
+                // Add auxiliary buffer of the right size
                 // Assumes only one BLOB (JPEG) buffer in
                 // mNextCapturedBuffers
                 StreamBuffer bAux;

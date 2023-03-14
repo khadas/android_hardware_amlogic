@@ -410,7 +410,7 @@ class Sensor: public Thread, public virtual RefBase {
         std::thread *PictureThread;
         Vector<Request> NextPictureRequest;
         bool PictureThreadExit;
-        Mutex requestOperaionLock;
+        Mutex requestOperationLock;
         Condition unprocessedRequest;
         static void resetAndInit(struct PictureThreadCntler &c) {
             c.PictureThread = NULL;

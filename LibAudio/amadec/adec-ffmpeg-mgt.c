@@ -179,7 +179,7 @@ int find_audio_lib(aml_audio_dec_t *audec)
                 ad_adec_ops->getinfo = dlsym(fd, "audio_dec_getinfo");
 #endif
             } else {
-                adec_print("cant find decoder lib\n");
+                adec_print("can't find decoder lib\n");
                 return -1;
             }
             return 0;

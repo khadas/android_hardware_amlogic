@@ -93,7 +93,7 @@ qemud_channel_open(const char*  name)
         /* read answer from daemon */
         if (qemud_fd_read(fd, answer, 2) != 2 ||
             answer[0] != 'O' || answer[1] != 'K') {
-            D("cant' connect to %s service through qemud", name);
+            D("can't' connect to %s service through qemud", name);
             close(fd);
             return -1;
         }
