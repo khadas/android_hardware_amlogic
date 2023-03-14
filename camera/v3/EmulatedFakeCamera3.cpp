@@ -428,12 +428,23 @@ status_t EmulatedFakeCamera3::getCameraInfo(struct camera_info *info) {
     status_t res;
     camera_metadata_entry_t e;
     res = find_camera_metadata_entry(mCameraInfo,
-              ANDROID_LENS_FACING,
-              &e);
+                                     ANDROID_LENS_FACING, &e);
     if (res != NO_ERROR)
         ALOGV("%s get facing fail set facing is back", __FUNCTION__);
-    else
-        info->facing = *e.data.u8;
+    else {
+        switch (*e.data.u8) {
+            case ANDROID_LENS_FACING_BACK:
+                info->facing = CAMERA_FACING_BACK;
+                break;
+            case ANDROID_LENS_FACING_FRONT:
+                info->facing = CAMERA_FACING_FRONT;
+                break;
+            case ANDROID_LENS_FACING_EXTERNAL:
+            default:
+                info->facing = CAMERA_FACING_EXTERNAL;
+                break;
+        }
+    }
     return EmulatedCamera3::getCameraInfo(info);
 }
 
