@@ -116,7 +116,6 @@ LOCAL_CFLAGS += -Wall \
 
 LOCAL_REQUIRED_MODULES := $(TA_UUID)
 LOCAL_REQUIRED_MODULES += android.hardware.hardware_keystore.amlogic.xml
-LOCAL_REQUIRED_MODULES += RemoteProvisioner
 LOCAL_REQUIRED_MODULES += rkp_extract.sh
 LOCAL_REQUIRED_MODULES += rkp_factory_extraction_tool
 LOCAL_VINTF_FRAGMENTS := keymint/android.hardware.security.keymint-service.amlogic.xml
