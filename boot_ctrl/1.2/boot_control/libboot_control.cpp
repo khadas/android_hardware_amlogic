@@ -52,6 +52,7 @@ using ::android::hardware::boot::V1_1::MergeStatus;
 constexpr unsigned int kDefaultBootAttempts = 7;
 
 #define EMMC_USER_PARTITION        "bootloader"
+#define EMMC_DEVICE           "/dev/block/by-name/mmcblk0"
 #define BOOTLOADER_MAX_SIZE    (4*1024*1024)
 /*First 512 bytes in bootloader is signed data*/
 #define BOOTLOADER_OFFSET      512
@@ -159,6 +160,34 @@ int is_valid_gpt_buf(char *buf)
     }
 
     return 0;
+}
+
+static int get_gpt_mode(void) {
+    int size = 0;
+    int ret = 0;
+    int fd = open(EMMC_DEVICE, O_RDONLY);
+    if (fd < 0) {
+        LOG(INFO) << "opem mmcblk0 error";
+        return -1;
+    }
+
+    char buffer[1024];
+    size = read(fd, buffer, 1024);
+    if (size != 1024) {
+        LOG(INFO) << "read mmcblk0 error";
+        close(fd);
+        return -1;
+    }
+    close(fd);
+
+    ret = is_valid_gpt_buf(buffer);
+    if (ret == 0) {
+        LOG(INFO) << "device is gpt mode";
+        return 0;
+    } else {
+        LOG(INFO) << "device is dts mode";
+        return 1;
+    }
 }
 
 static int set_sys_boot_complete(void)
@@ -637,12 +666,14 @@ bool BootControl::SetActiveBootSlot(unsigned int slot) {
     LOG(INFO) << "device_prop: " << device_prop;
     LOG(INFO) << "fastbootd_prop: " << fastbootd_prop;
 
-    char* gpt_mode = get_bootloader_env_common("gpt_mode");
-    if (gpt_mode != NULL)
-      LOG(INFO) << "gpt_mode: " << gpt_mode;
+    int gpt_mode = get_gpt_mode();
+    if (gpt_mode < 0) {
+        LOG(INFO) << "get gpt mode failed";
+        return false;
+    }
 
     if (device_prop != "generic" && fastbootd_prop != "running") {
-      if (gpt_mode && (strcmp(gpt_mode, "true") == 0)) {
+      if (gpt_mode == 0) {
         LOG(INFO) << "set bootloader index for gpt";
         char* write_boot = get_bootloader_env_common("write_boot");
         if (write_boot && (!strcmp(write_boot, "0"))) {
