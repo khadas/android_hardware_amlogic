@@ -38,6 +38,7 @@ namespace power {
 namespace impl {
 namespace droidlogic {
 
+static int num = 0;
 
 Power::Power(std::shared_ptr<HintManager> hm, std::shared_ptr<DisplayLowPower> dlpw)
     : mHintManager(hm),
@@ -47,6 +48,7 @@ Power::Power(std::shared_ptr<HintManager> hm, std::shared_ptr<DisplayLowPower> d
       mSustainedPerfModeOn(false) {
     mInteractionHandler = std::make_unique<InteractionHandler>(mHintManager);
     mInteractionHandler->Init();
+    mSysCtrl = ::android::SystemControlClient::getInstance();
 
     // Now start to take powerhint
     ALOGI("PowerHAL ready to process hints");
@@ -58,16 +60,23 @@ ndk::ScopedAStatus Power::setMode(Mode type, bool enabled) {
     switch (type) {
         case Mode::INTERACTIVE:
             if (enabled) {
+                if (num != 0) {
+                    std::string value;
+                    mSysCtrl->getBootEnv("ubootenv.var.quiescent_env_bk", value);
+                    if (!value.empty())
+                        LOG(INFO) << "quiescent_env_bk: " << value.c_str();
+                    mSysCtrl->setBootEnv("ubootenv.var.quiescent_env_bk", "0");
+                }
                 mHintManager->EndHint("INTERACTIVE");
             } else {
                 mHintManager->DoHint("INTERACTIVE");
             }
+            num ++;
             break;
         default:
             LOG(INFO) << "Power mode " << toString(type) << " is not supported now";
             break;
     }
-
     return ndk::ScopedAStatus::ok();
 }
 

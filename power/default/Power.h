@@ -26,6 +26,7 @@
 #include "disp-power/DisplayLowPower.h"
 #include "disp-power/InteractionHandler.h"
 #include "aidl/android/hardware/power/BnPowerHintSession.h"
+#include "SystemControlClient.h"
 
 namespace aidl {
 namespace hardware {
@@ -59,6 +60,7 @@ class Power : public ::aidl::android::hardware::power::BnPower {
     std::unique_ptr<InteractionHandler> mInteractionHandler;
     std::atomic<bool> mVRModeOn;
     std::atomic<bool> mSustainedPerfModeOn;
+    ::android::sp<::android::SystemControlClient> mSysCtrl;
 };
 
 }  // namespace droidlogic
