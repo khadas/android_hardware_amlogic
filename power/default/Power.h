@@ -61,6 +61,7 @@ class Power : public ::aidl::android::hardware::power::BnPower {
     std::atomic<bool> mVRModeOn;
     std::atomic<bool> mSustainedPerfModeOn;
     ::android::sp<::android::SystemControlClient> mSysCtrl;
+    std::vector<std::shared_ptr<IPowerHintSession>> mPowerHintSessions;
 };
 
 }  // namespace droidlogic

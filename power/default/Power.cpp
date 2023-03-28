@@ -18,7 +18,7 @@
 #define LOG_TAG "android.hardware.power-service.libperfmgr"
 
 #include "Power.h"
-
+#include "PowerHintSession.h"
 #include <mutex>
 
 #include <android-base/file.h>
@@ -37,6 +37,9 @@ namespace hardware {
 namespace power {
 namespace impl {
 namespace droidlogic {
+
+using namespace std::chrono_literals;
+using ndk::ScopedAStatus;
 
 static int num = 0;
 
@@ -111,15 +114,24 @@ ndk::ScopedAStatus Power::isBoostSupported(Boost type, bool *_aidl_return) {
     return ndk::ScopedAStatus::ok();
 }
 
-ndk::ScopedAStatus Power::createHintSession(int32_t, int32_t, const std::vector<int32_t>&, int64_t,
-                                            std::shared_ptr<IPowerHintSession>* _aidl_return) {
-    *_aidl_return = nullptr;
-    return ndk::ScopedAStatus::fromExceptionCode(EX_UNSUPPORTED_OPERATION);
+ndk::ScopedAStatus Power::createHintSession(int32_t tgid, int32_t uid,
+                                         const std::vector<int32_t>& threadIds,
+                                         int64_t durationNanos,
+                                         std::shared_ptr<IPowerHintSession>* _aidl_return) {
+    if (threadIds.size() == 0) {
+        *_aidl_return = nullptr;
+        return ndk::ScopedAStatus::fromExceptionCode(EX_ILLEGAL_ARGUMENT);
+    }
+    std::shared_ptr<IPowerHintSession> session =
+            ndk::SharedRefBase::make<PowerHintSession>(tgid, uid, threadIds, durationNanos);
+    mPowerHintSessions.push_back(session);
+    *_aidl_return = session;
+    return ndk::ScopedAStatus::ok();
 }
 
 ndk::ScopedAStatus Power::getHintSessionPreferredRate(int64_t* outNanoseconds) {
-    *outNanoseconds = -1;
-    return ndk::ScopedAStatus::fromExceptionCode(EX_UNSUPPORTED_OPERATION);
+    *outNanoseconds = std::chrono::nanoseconds(1ms).count();
+    return ndk::ScopedAStatus::ok();
 }
 
 constexpr const char *boolToString(bool b) {
