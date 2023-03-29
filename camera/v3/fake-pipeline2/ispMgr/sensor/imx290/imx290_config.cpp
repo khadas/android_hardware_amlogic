@@ -89,14 +89,15 @@ int cmos_get_ae_default_imx290(int ViPipe, ALG_SENSOR_DEFAULT_S *pstAeSnsDft)
         sensor.snsAlgInfo.integration_time_limit = sensor.snsAlgInfo.total.height<<SHUTTER_TIME_SHIFT;
     }
 
-    sensor.snsAlgInfo.again_log2_max = (72/6)<<(LOG2_GAIN_SHIFT);
-    sensor.snsAlgInfo.again_high_log2_max = (72/6)<<(LOG2_GAIN_SHIFT);
     sensor.snsAlgInfo.dgain_log2_max = 0;
     sensor.snsAlgInfo.dgain_high_log2_max = 0;
     sensor.snsAlgInfo.dgain_high_accuracy_fmt = 0;
     sensor.snsAlgInfo.dgain_high_accuracy = 1;
     sensor.snsAlgInfo.dgain_accuracy_fmt = 0;
     sensor.snsAlgInfo.dgain_accuracy = 1;
+    sensor.snsAlgInfo.again_log2_max = (72/6)<<(LOG2_GAIN_SHIFT);
+    sensor.snsAlgInfo.again_high_log2_max = (72/6)<<(LOG2_GAIN_SHIFT);
+    sensor.snsAlgInfo.again_log2 = 0x02 << LOG2_GAIN_SHIFT;
     sensor.snsAlgInfo.again_high_accuracy_fmt = 1;
     sensor.snsAlgInfo.again_high_accuracy = (1<<(LOG2_GAIN_SHIFT))/20;
     sensor.snsAlgInfo.again_accuracy_fmt = 1;
