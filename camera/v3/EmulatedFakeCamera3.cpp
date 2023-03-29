@@ -1880,8 +1880,8 @@ status_t EmulatedFakeCamera3::constructStaticInfo() {
         }
         break;
      case SENSOR_HDMI:
-        lensFacing =  ANDROID_LENS_FACING_FRONT;
-        mFacingBack = 0;
+        lensFacing =  ANDROID_LENS_FACING_BACK;
+        mFacingBack = 1;
         break;
      default:
          ALOGE("not support this sensor type!");
