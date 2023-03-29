@@ -1806,7 +1806,8 @@ NEXT_CHECK:
             LATM_LOG("i_frame_size  error\n");
             return NULL;
         }
-        if ((int)buffer_size < (LOAS_HEADER_SIZE + i_frame_size)) {
+        /*need check the next frame header*/
+        if ((int)buffer_size < (LOAS_HEADER_SIZE + i_frame_size + 2)) {
             hInfo->error =  35;
             LATM_LOG("buffer size small then frame size,need more data\n");
             return NULL;
