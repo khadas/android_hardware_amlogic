@@ -56,7 +56,7 @@ std::shared_ptr<T> addService(Args&&... args) {
 static auto amlKeymaster = std::make_shared<keymaster::AmlogicKeymaster>();
 
 int init_service_later() {
-    int err = KEYMASTER_TEMP_FAILURE_RETRY(amlKeymaster->Initialize(keymaster::KmVersion::KEYMINT_2), 10000);
+    int err = KEYMASTER_TEMP_FAILURE_RETRY(amlKeymaster->Initialize(keymaster::KmVersion::KEYMINT_3), 10000);
     if (err != 0) {
         LOG(FATAL) << "Could not initialize AmlogicKeymaster for KeyMint (" << err << ")";
         return -1;

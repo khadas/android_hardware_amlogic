@@ -89,8 +89,8 @@ LOCAL_C_INCLUDES := \
                     $(PLATFORM_TDK_PATH)/ca_export_arm/include \
 
 LOCAL_SHARED_LIBRARIES := \
-                    android.hardware.security.keymint-V2-ndk \
-                    android.hardware.security.rkp-V2-ndk \
+                    android.hardware.security.keymint-V3-ndk \
+                    android.hardware.security.rkp-V3-ndk \
                     lib_android_keymaster_keymint_utils \
                     android.hardware.security.sharedsecret-V1-ndk \
                     android.hardware.security.secureclock-V1-ndk \

@@ -195,6 +195,12 @@ void AmlogicKeymaster::GenerateCsr(const GenerateCsrRequest& request,
                                   GenerateCsrResponse* response) {
     ForwardCommand(KM_GENERATE_CSR, request, response);
 }
+
+void AmlogicKeymaster::GenerateCsrV2(const GenerateCsrV2Request& request,
+                                    GenerateCsrV2Response* response) {
+    ForwardCommand(KM_GENERATE_CSR_V2, request, response);
+}
+
 void AmlogicKeymaster::GetKeyCharacteristics(const GetKeyCharacteristicsRequest& request,
                                             GetKeyCharacteristicsResponse* response) {
     ForwardCommand(KM_GET_KEY_CHARACTERISTICS, request, response);
@@ -312,6 +318,12 @@ ConfigureVendorPatchlevelResponse AmlogicKeymaster::ConfigureVendorPatchlevel(
 GetRootOfTrustResponse AmlogicKeymaster::GetRootOfTrust(const GetRootOfTrustRequest& request) {
     GetRootOfTrustResponse response(message_version());
     ForwardCommand2(KM_GET_ROOT_OF_TRUST, request, &response);
+    return response;
+}
+
+GetHwInfoResponse AmlogicKeymaster::GetHwInfo() {
+    GetHwInfoResponse response(message_version());
+    ForwardCommand(KM_GET_HW_INFO, GetHwInfoRequest(message_version()), &response);
     return response;
 }
 

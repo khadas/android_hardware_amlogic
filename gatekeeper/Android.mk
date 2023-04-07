@@ -48,6 +48,9 @@ endif  # USE_PRESIGNED_TA != true
 
 
 include $(CLEAR_VARS)
+LOCAL_MODULE := android.hardware.gatekeeper-service.amlogic
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-Apache-2.0
+LOCAL_LICENSE_CONDITIONS := notice
 TRUSTY_SRC_FILES := ../../../system/core/trusty/gatekeeper/trusty_gatekeeper_ipc.c
 TRUSTY_SHARED_LIBRARIES := libtrusty
 TRUSTY_INCLUDES = system/core/trusty/libtrusty/include \
@@ -63,10 +66,11 @@ LOCAL_C_INCLUDES := \
                     $(PLATFORM_TDK_PATH)/ca_export_arm/include
 
 LOCAL_SHARED_LIBRARIES := \
-                    android.hardware.gatekeeper@1.0\
+                    android.hardware.gatekeeper-V1-ndk \
                     libbase \
-                    libhidlbase\
+                    libbinder_ndk \
                     libgatekeeper \
+                    libhardware \
                     libutils \
                     liblog \
                     libcutils \
@@ -86,9 +90,6 @@ LOCAL_CFLAGS += -Wall \
                 -fvisibility=hidden
 
 LOCAL_REQUIRED_MODULES := $(TA_UUID)
-LOCAL_VINTF_FRAGMENTS := android.hardware.gatekeeper@1.0-service.amlogic.xml
-LOCAL_MODULE := android.hardware.gatekeeper@1.0-service.amlogic
-LOCAL_LICENSE_KINDS := SPDX-license-identifier-Apache-2.0
-LOCAL_LICENSE_CONDITIONS := notice
-LOCAL_INIT_RC := android.hardware.gatekeeper@1.0-service.amlogic.rc
+LOCAL_VINTF_FRAGMENTS := android.hardware.gatekeeper-service.amlogic.xml
+LOCAL_INIT_RC := android.hardware.gatekeeper-service.amlogic.rc
 include $(BUILD_EXECUTABLE)

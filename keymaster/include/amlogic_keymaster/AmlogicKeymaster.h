@@ -52,6 +52,7 @@ class AmlogicKeymaster : public TrustyKeymaster {
     void GenerateKey(const GenerateKeyRequest& request, GenerateKeyResponse* response);
     void GenerateRkpKey(const GenerateRkpKeyRequest& request, GenerateRkpKeyResponse* response);
     void GenerateCsr(const GenerateCsrRequest& request, GenerateCsrResponse* response);
+    void GenerateCsrV2(const GenerateCsrV2Request& request, GenerateCsrV2Response* response);
     void GetKeyCharacteristics(const GetKeyCharacteristicsRequest& request,
                                GetKeyCharacteristicsResponse* response);
     void ImportKey(const ImportKeyRequest& request, ImportKeyResponse* response);
@@ -75,6 +76,7 @@ class AmlogicKeymaster : public TrustyKeymaster {
     ConfigureVendorPatchlevelResponse ConfigureVendorPatchlevel(
             const ConfigureVendorPatchlevelRequest& request);
     GetRootOfTrustResponse GetRootOfTrust(const GetRootOfTrustRequest& request);
+    GetHwInfoResponse GetHwInfo();
 
     uint32_t message_version() const { return message_version_; }
     /* Move ForwardCommand from static method into class in order to access private members */

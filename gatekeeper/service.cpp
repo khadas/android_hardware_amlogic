@@ -13,27 +13,28 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#define LOG_TAG "android.hardware.gatekeeper@1.0-service.amlogic"
+#define LOG_TAG "android.hardware.gatekeeper-service.amlogic"
 
 #include <android-base/logging.h>
-#include <android/hardware/gatekeeper/1.0/IGatekeeper.h>
-
-#include <hidl/LegacySupport.h>
+#include <android/binder_manager.h>
+#include <android/binder_process.h>
 
 #include "amlogic_gatekeeper.h"
 
-// Generated HIDL files
-using android::hardware::gatekeeper::V1_0::IGatekeeper;
-using gatekeeper::AmlogicGateKeeperDevice;
+using aidl::android::hardware::gatekeeper::AmlogicGateKeeperDevice;
 
 int main() {
-    ::android::hardware::configureRpcThreadpool(1, true /* willJoinThreadpool */);
-    android::sp<AmlogicGateKeeperDevice> gatekeeper(new AmlogicGateKeeperDevice());
-    auto status = gatekeeper->registerAsService();
-    if (status != android::OK) {
-        LOG(FATAL) << "Could not register service for Gatekeeper 1.0 (amlogic) (" << status << ")";
-    }
+    ABinderProcess_setThreadPoolMaxThreadCount(0);
 
-    android::hardware::joinRpcThreadpool();
+    std::shared_ptr<AmlogicGateKeeperDevice> gatekeeper =
+            ndk::SharedRefBase::make<AmlogicGateKeeperDevice>();
+
+    const std::string instance = std::string() + AmlogicGateKeeperDevice::descriptor + "/default";
+    binder_status_t status =
+            AServiceManager_addService(gatekeeper->asBinder().get(), instance.c_str());
+    CHECK_EQ(status, STATUS_OK);
+
+    ABinderProcess_joinThreadPool();
+
     return -1;  // Should never get here.
 }
