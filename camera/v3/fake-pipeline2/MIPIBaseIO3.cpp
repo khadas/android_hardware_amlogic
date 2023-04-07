@@ -978,6 +978,8 @@ int VideoInfoUsePictureScaler::get_frame_buffer(struct VideoInfoBuffer* b)
         const int POLL_TIMEOUT = 100;//
         const int POLL_TRY_TIMES = 20;//max poll time = POLL_TIMEOUT * POLL_TRY_TIMES
         struct pollfd pfds[1];
+
+read_queue:
         pfds[0].fd = mPreviewFd;
         pfds[0].events = POLLIN;
         pfds[0].revents = 0;
@@ -1015,6 +1017,18 @@ int VideoInfoUsePictureScaler::get_frame_buffer(struct VideoInfoBuffer* b)
                     }
                     return -1;
             }
+        }
+        // Do not allow frames to back up at the driver/sensor.
+        // The sensor will almost always supply frames as fast as we can handle them.
+        pfds[0].fd = mPreviewFd;
+        pfds[0].events = POLLIN;
+        pfds[0].revents = 0;
+        if (poll(pfds, 1, 0) > 0) {
+            if (ioctl(mPreviewFd, VIDIOC_QBUF, &preview.buf)) {
+                ALOGE("%s: VIDIOC_QBUF/flush failed, errno=%d\n", __func__, errno);
+                return -1;
+            }
+            goto read_queue;
         }
 
         CAMHAL_LOGDB("%s: index=%d,dma_fd=%d\n",__FUNCTION__,
