@@ -174,6 +174,7 @@ static void signal_handler(int signum)
     set_display_axis(1);
     osd_blank("/sys/class/graphics/fb0/blank", 0);
     osd_blank("/sys/class/graphics/fb0/osd_display_debug", 0);
+    osd_blank("/sys/kernel/debug/dri/0/vpu/blank", 0);
     signal(signum, SIG_DFL);
     raise(signum);
 }
@@ -1684,6 +1685,8 @@ int main(int argc, char *argv[])
 
     osd_blank("/sys/class/graphics/fb0/osd_display_debug", 1);
     osd_blank("/sys/class/graphics/fb0/blank", 1);
+    if (osd_blank("/sys/kernel/debug/dri/0/vpu/blank", 1))
+        printf("if osd not close, try: mount -t debugfs none /sys/kernel/debug/ ");
     osd_blank("/sys/class/video/disable_video", 2);
     osd_blank("/sys/class/video/video_global_output", 1);
     set_display_axis(0);
@@ -1847,6 +1850,7 @@ error:
     fclose(fp);
 osd_restore:
     set_display_axis(1);
+    osd_blank("/sys/kernel/debug/dri/0/vpu/blank", 0);
     osd_blank("/sys/class/graphics/fb0/blank", 0);
     osd_blank("/sys/class/graphics/fb0/osd_display_debug", 0);
     free(buffer);
