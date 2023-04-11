@@ -29,6 +29,7 @@ typedef enum OMX_AUDIO_VENDOR_CODINGEXTTYPE {
     OMX_AUDIO_CodingAndroidALAC,
     OMX_AUDIO_CodingAndroidTRUEHD,
     OMX_AUDIO_CodingFFMPEG,              /**< ffmpeg audio encoded data */
+    OMX_AUDIO_CodingAV3A,
 } OMX_AUDIO_VENDOR_CODINGEXTTYPE;
 
 typedef enum OMX_VIDEO_VENDOR_CODINGEXTTYPE {

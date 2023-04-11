@@ -63,7 +63,7 @@ const char *MEDIA_MIMETYPE_AUDIO_WMAPRO = "audio/wmapro";
 const char *MEDIA_MIMETYPE_AUDIO_TRUEHD = "audio/truehd";
 const char *MEDIA_MIMETYPE_AUDIO_AC3 = "audio/ac3";
 const char *MEDIA_MIMETYPE_AUDIO_EC3 = "audio/eac3";
-
+const char *MEDIA_MIMETYPE_AUDIO_AV3A = "audio/av3a";
 const char *MEDIA_MIMETYPE_AUDIO_APE = "audio/ape";
 const char *MEDIA_MIMETYPE_AUDIO_FFMPEG = "audio/ffmpeg";
 

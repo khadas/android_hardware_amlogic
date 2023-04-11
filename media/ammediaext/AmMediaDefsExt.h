@@ -70,7 +70,7 @@ extern const char *MEDIA_MIMETYPE_AUDIO_AC3;
 extern const char *MEDIA_MIMETYPE_AUDIO_EC3;
 extern const char *MEDIA_MIMETYPE_AUDIO_TRUEHD;
 extern const char *MEDIA_MIMETYPE_AUDIO_ADTS_PROFILE;
-
+extern const char *MEDIA_MIMETYPE_AUDIO_AV3A;
 
 extern const char *MEDIA_MIMETYPE_TEXT_TTML;
 
