@@ -132,6 +132,7 @@ typedef struct hdmi_device {
     bool                        is_audio_system;
     bool                        is_cec_enabled;
     bool                        is_cec_controled;
+    bool                        hdmi_cfg_init;
     unsigned int                cec_connect_status;
     bool                        run;
     bool                        exited;

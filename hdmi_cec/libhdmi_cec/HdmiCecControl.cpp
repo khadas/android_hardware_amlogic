@@ -116,6 +116,7 @@ HdmiCecControl::HdmiCecControl()
     mCecDevice.playback_logical_addr = CEC_ADDR_BROADCAST;
     mCecDevice.is_cec_enabled = true;
     mCecDevice.is_cec_controled = false;
+    mCecDevice.hdmi_cfg_init = false;
     getDeviceTypes();
 
     int index = 0;
@@ -362,6 +363,11 @@ void HdmiCecControl::setOption(int flag, int value)
         case HDMI_OPTION_SYSTEM_CEC_CONTROL:
             ret = ioctl(mCecDevice.driver_fd, CEC_IOC_SET_OPTION_SYS_CTRL, value);
             mCecDevice.is_cec_controled = (value == 1);
+            if (!mCecDevice.hdmi_cfg_init && mCecDevice.is_cec_controled) {
+                LOGI("%s boot initialize hdmi cec config!", __FUNCTION__);
+                ioctl(mCecDevice.driver_fd, CEC_IOC_SET_OPTION_ENABLE_CEC, value);
+                mCecDevice.hdmi_cfg_init = true;
+            }
             /* removed for the tv compat logic has been moved to driver.
             if (mCecDevice.is_cec_controled) {
                 initCecWakeupInfo();
