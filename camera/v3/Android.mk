@@ -50,11 +50,11 @@ GE2D_ENABLE := true
 GE2D_VERSION_2 := true
 ISP_ENABLE := false
 GDC_ENABLE := false
-ifeq ($(TARGET_PRODUCT), t7_an400)
+#ifeq ($(TARGET_PRODUCT), t7_an400)
 DEWARP_ENABLE := true
-else ifeq ($(TARGET_PRODUCT), t7_an400_arm64)
-DEWARP_ENABLE := true
-endif
+#else ifeq ($(TARGET_PRODUCT), t7_an400_arm64)
+#DEWARP_ENABLE := true
+#endif
 LOCAL_SHARED_LIBRARIES:= \
     libbinder \
     liblog \
