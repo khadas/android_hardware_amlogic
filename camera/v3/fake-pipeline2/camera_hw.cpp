@@ -31,6 +31,7 @@
 #ifdef __cplusplus
 //extern "C" {
 #endif
+using namespace android;
 static CameraVirtualDevice* DeviceInstance;
 static int set_rotate_value(int camera_fd, int value)
 {

@@ -46,6 +46,7 @@ namespace android {
             ge2dTransform* mGE2D = NULL;
             int kernel_dma_fd = -1;
             int vdin_fd = -1;
+            int hdmi_port_index;
             bool successStreamOn;
             bool isStableSignal();
     };

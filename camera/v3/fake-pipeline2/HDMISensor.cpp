@@ -32,7 +32,6 @@
 #endif
 
 #define ARRAY_SIZE(x) (sizeof((x))/sizeof(((x)[0])))
-#define HDMI_PORT_INDEX 2
 
 namespace android {
 
@@ -60,6 +59,13 @@ HDMISensor::HDMISensor() {
     mGE2D = new ge2dTransform();
     kernel_dma_fd = -1;
     successStreamOn = false;
+    char property[PROPERTY_VALUE_MAX];
+    property_get("vendor.media.hdmi.vdin.port", property, "1");
+    hdmi_port_index = atoi(property);
+    if (hdmi_port_index > 3 || hdmi_port_index <= 0) {
+        ALOGE("invalid port set default port1");
+        hdmi_port_index = 1;
+    }
 }
 HDMISensor::~HDMISensor() {
     if (mMPlaneCameraIO) {
@@ -153,8 +159,7 @@ status_t HDMISensor::startUp(int idx) {
     }
 
     // set input
-    int input_index = HDMI_PORT_INDEX;
-    res = mMPlaneCameraIO->setInputPort(&input_index);
+    res = mMPlaneCameraIO->setInputPort(&hdmi_port_index);
     if (res < 0) {
         ALOGE("Unable set input HDMI3_RX3");
     }
@@ -163,6 +168,7 @@ status_t HDMISensor::startUp(int idx) {
     if (vdin_fd < 0) {
         ALOGE("HDMISensor open vdin0 fail %s", strerror(errno));
     }
+
     return res;
 
 }
@@ -180,10 +186,6 @@ status_t HDMISensor::shutDown() {
     }
 
     mMPlaneCameraIO->closeCamera();
-    /*if (vdin_fd > 0) {
-        close(vdin_fd);
-        vdin_fd = -1;
-    }*/
 
     mSensorWorkFlag = false;
     ALOGD("%s: Exit", __FUNCTION__);

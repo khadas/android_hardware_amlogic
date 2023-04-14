@@ -25,6 +25,9 @@
 #include <system/camera_vendor_tags.h>
 #include "VendorTags.h"
 #include "fake-pipeline2/CameraDevice.h"
+#include <utils/Mutex.h>
+#include <HDMIStatus.h>
+
 namespace android {
 
 #ifndef ARRAY_SIZE
@@ -32,7 +35,6 @@ namespace android {
 #endif
 
 class EmulatedCameraHotplugThread;
-
 
 /*
  * Contains declaration of a class EmulatedCameraFactory that manages cameras
@@ -199,7 +201,9 @@ private:
     const camera_module_callbacks_t* mCallbacks;
 
     /* Hotplug thread (to call onStatusChanged) */
+    HDMIStatus* mHDMIStatusInstance;
     sp<EmulatedCameraHotplugThread> mHotplugThread;
+    Mutex mMutex;
 
 public:
     /* Contains device open entry point, as required by HAL API. */

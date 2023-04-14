@@ -1736,7 +1736,7 @@ status_t EmulatedFakeCamera3::createSensor() {
         return OK;
     }
 
-    if (device->type == HDMI_CAM_DEV) {
+    if (!strcmp(device->name, "/dev/video70")) {
         mSensorType = SENSOR_HDMI;
         ALOGD("HDMI vdin sensor, mCameraID=%d",mCameraID);
         mSensor = new HDMISensor();

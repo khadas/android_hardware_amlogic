@@ -31,6 +31,7 @@
 #include "EmulatedFakeCamera3.h"
 #include "EmulatedCameraHotplugThread.h"
 #include "EmulatedCameraFactory.h"
+#include "HDMIStatus.h"
 #include <utils/Trace.h>
 
 extern camera_module_t HAL_MODULE_INFO_SYM;
@@ -70,7 +71,8 @@ EmulatedCameraFactory::EmulatedCameraFactory()
     memset(mEmulatedCameras, 0,(MAX_CAMERA_NUM) * sizeof(EmulatedBaseCamera*));
     if (!mCameraVirtualDevice)
         mCameraVirtualDevice = CameraVirtualDevice::getInstance();
-
+    if (!mHDMIStatusInstance)
+        mHDMIStatusInstance = HDMIStatus::getInstance();
     mEmulatedCameraNum = mCameraVirtualDevice->getCameraNum();
     CAMHAL_LOGDB("Camera num = %d", mEmulatedCameraNum);
 
@@ -99,7 +101,7 @@ EmulatedCameraFactory::EmulatedCameraFactory()
                                                          mEmulatedCameraNum);
         mHotplugThread->run("");
     }
-
+    mHDMIStatusInstance->startDetectStatus();
     mConstructedOK = true;
 }
 
@@ -115,6 +117,12 @@ EmulatedCameraFactory::~EmulatedCameraFactory()
     if (mHotplugThread != NULL) {
         mHotplugThread->requestExit();
         mHotplugThread->join();
+        mHotplugThread = NULL;
+    }
+
+    if (mHDMIStatusInstance) {
+        HDMIStatus::putInstance();
+        mHDMIStatusInstance = NULL;
     }
 }
 
@@ -465,6 +473,7 @@ int EmulatedCameraFactory::getFakeCameraHalVersion(int cameraId __unused)
 
 void EmulatedCameraFactory::onStatusChanged(int videoId, int newStatus)
 {
+    Mutex::Autolock al(mMutex);
     ATRACE_CALL();
     status_t res;
     char dev_name[128];
@@ -478,17 +487,17 @@ void EmulatedCameraFactory::onStatusChanged(int videoId, int newStatus)
 
     /* ignore videoId > MAX_USB_CAM_VIDEO_ID
      */
-    if (videoId >  MAX_USB_CAM_VIDEO_ID )
+     if ((mEmulatedCameraNum == 0)  &&  (newStatus == CAMERA_DEVICE_STATUS_NOT_PRESENT)) {
+        //video70 plug boot
+        return;
+    }
+    if (cameraId >=  MAX_USB_CAM_VIDEO_ID && cameraId != HDMI_VDIN_DEV_BEGIN_NUM)
         return;
 
     if (mCameraVirtualDevice->checkUsbDeviceExist(dev_name)) {
         ALOGD("Donot response %s StatusChanged", dev_name);
         return;
     }
-
-    if (mEmulatedCameraNum == 0)
-        mCameraVirtualDevice->recoverUsbDevicelists();
-
     cameraId = mCameraVirtualDevice->returnUsbDeviceId(dev_name);
     if (cameraId < 0) {
         ALOGD("Prepare StatusChanged %s, Id %d", dev_name, cameraId);

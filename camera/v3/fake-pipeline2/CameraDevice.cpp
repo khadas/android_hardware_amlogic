@@ -26,9 +26,9 @@
 #include "media-v4l2/mediactl.h"
 
 #define ARRAY_SIZE(x) (sizeof((x))/sizeof(((x)[0])))
-
+namespace android {
 CameraVirtualDevice* CameraVirtualDevice::mInstance = nullptr;
-struct VirtualDevice CameraVirtualDevice::usbvideoDevices[4];
+struct VirtualDevice CameraVirtualDevice::usbvideoDevices[5];
 
 #if BUILD_KERNEL_4_9 == true
 
@@ -47,14 +47,12 @@ struct VirtualDevice CameraVirtualDevice::usbvideoDeviceslists[] = {
     {"/dev/video3",1,{FREED_VIDEO_DEVICE,NONE_DEVICE,NONE_DEVICE},{-1,-1,-1},{-1,-1,-1},3, USB_CAM_DEV}
 };
 #else
-
-#define USB_DEVICE_NUM  (4)
-#define MIPI_DEVICE_NUM (7)
+#define USB_DEVICE_NUM  (5)
+#define MIPI_DEVICE_NUM (6)
 
 struct VirtualDevice CameraVirtualDevice::mipivideoDeviceslists[] = {
     {"/dev/video50",1,{FREED_VIDEO_DEVICE,NONE_DEVICE,NONE_DEVICE},{-1,-1,-1},{-1,-1,-1},4, MIPI_CAM_DEV},
     {"/dev/video51",1,{FREED_VIDEO_DEVICE,NONE_DEVICE,NONE_DEVICE},{-1,-1,-1},{-1,-1,-1},5, MIPI_CAM_DEV},
-    {"/dev/video70",1,{FREED_VIDEO_DEVICE,NONE_DEVICE,NONE_DEVICE},{-1,-1,-1},{-1,-1,-1},6, HDMI_CAM_DEV},
 
     {"/dev/media0",1,{FREED_VIDEO_DEVICE,NONE_DEVICE,NONE_DEVICE},{-1,-1,-1},{-1,-1,-1},60, V4L2MEDIA_CAM_DEV},
     {"/dev/media1",1,{FREED_VIDEO_DEVICE,NONE_DEVICE,NONE_DEVICE},{-1,-1,-1},{-1,-1,-1},61, V4L2MEDIA_CAM_DEV},
@@ -66,7 +64,8 @@ struct VirtualDevice CameraVirtualDevice::usbvideoDeviceslists[] = {
     {"/dev/video0",1,{FREED_VIDEO_DEVICE,NONE_DEVICE,NONE_DEVICE},{-1,-1,-1},{-1,-1,-1},0, USB_CAM_DEV},
     {"/dev/video2",1,{FREED_VIDEO_DEVICE,NONE_DEVICE,NONE_DEVICE},{-1,-1,-1},{-1,-1,-1},1, USB_CAM_DEV},
     {"/dev/video4",1,{FREED_VIDEO_DEVICE,NONE_DEVICE,NONE_DEVICE},{-1,-1,-1},{-1,-1,-1},2, USB_CAM_DEV},
-    {"/dev/video6",1,{FREED_VIDEO_DEVICE,NONE_DEVICE,NONE_DEVICE},{-1,-1,-1},{-1,-1,-1},3, USB_CAM_DEV}
+    {"/dev/video6",1,{FREED_VIDEO_DEVICE,NONE_DEVICE,NONE_DEVICE},{-1,-1,-1},{-1,-1,-1},3, USB_CAM_DEV},
+    {"/dev/video70",1,{FREED_VIDEO_DEVICE,NONE_DEVICE,NONE_DEVICE},{-1,-1,-1},{-1,-1,-1},4, USB_CAM_DEV},
 };
 #endif
 
@@ -118,11 +117,7 @@ struct VirtualDevice* CameraVirtualDevice::findMipiVideoDevice(int cam_id) {
                 continue;
             }
         }
-        if (pDev->type == HDMI_CAM_DEV) {
-            if (!isHdmiVdinCameraEnable()) {
-                continue;
-            }
-        }
+
         for (int stream_idx = 0; stream_idx < pDev->streamNum; stream_idx++) {
             if (NONE_DEVICE != pDev->status[stream_idx]) {
                 if (video_device_count != cam_id) {
@@ -158,6 +153,21 @@ struct VirtualDevice* CameraVirtualDevice::findUsbVideoDevice(int cam_id) {
             ALOGD("%s: device %s access fail", __FUNCTION__,pDev->name);
             continue;
         }
+        if (pDev->type == USB_CAM_DEV) {
+            bool bypass = false;
+            if (!strcmp(pDev->name, HDMI_VDIN_VIDEO_PATH)) {
+                if (!(HDMIStatus::getInstance()->isStandardHDMICamera()))
+                    bypass = true;
+            } else {
+                if (!isStandardUSBCamera(pDev->name))
+                    bypass = true;
+            }
+            if (bypass) {
+                ALOGD("%s is not a valid usb camera", pDev->name);
+                continue;
+            }
+        }
+
 
         for (int stream_idx = 0; stream_idx < pDev->streamNum; stream_idx++) {
             if ( NONE_DEVICE != pDev->status[stream_idx]) {
@@ -358,6 +368,32 @@ CameraVirtualDevice* CameraVirtualDevice::getInstance() {
         return mInstance;
     }
 }
+bool CameraVirtualDevice::isStandardUSBCamera(char * dev_node_name)
+{
+    int ret = -1;
+    int j;
+    bool result = false;
+    struct v4l2_frmsizeenum frmsize;
+    uint32_t jpgSrcfmt[] = {
+        V4L2_PIX_FMT_RGB24,
+        V4L2_PIX_FMT_MJPEG,
+        V4L2_PIX_FMT_YUYV,
+        V4L2_PIX_FMT_H264,
+    };
+    int fd = open(dev_node_name, O_RDWR);
+    for (j = 0; j<(int)(sizeof(jpgSrcfmt)/sizeof(jpgSrcfmt[0])); j++) {
+        memset(&frmsize,0,sizeof(frmsize));
+        frmsize.pixel_format = jpgSrcfmt[j];
+        frmsize.index = 0;
+        ret = ioctl(fd, VIDIOC_ENUM_FRAMESIZES, &frmsize);
+        if (ret >= 0) {
+           result = true;
+           break;
+        }
+    }
+    close(fd);
+    return result;
+}
 
 bool CameraVirtualDevice::isAmlMediaCamera (char *dev_node_name)
 {
@@ -411,12 +447,6 @@ bool CameraVirtualDevice::isAmlMediaCamera (char *dev_node_name)
     return result;
 }
 
-bool CameraVirtualDevice::isHdmiVdinCameraEnable() {
-    char property[PROPERTY_VALUE_MAX];
-    property_get("vendor.media.hdmi_vdin.enable", property, "false");
-    return strstr(property, "true");
-}
-
 // scan the videoDevices array.
 // enumerate accessable devname as cameras.
 // for multistream cameras. one stream is one camera.
@@ -437,16 +467,13 @@ int CameraVirtualDevice::getCameraNum() {
                     continue;
                 }
             }
-            if (pDev->type == HDMI_CAM_DEV) {
-                if (!isHdmiVdinCameraEnable()) {
-                    continue;
-                }
-            }
-            for (int stream_idx = 0; stream_idx < pDev->streamNum; stream_idx++)
+
+            for (int stream_idx = 0; stream_idx < pDev->streamNum; stream_idx++) {
                 if (pDev->status[stream_idx] != NONE_DEVICE) {
                     ALOGD("device %s stream %d \n", pDev->name,stream_idx);
                     iCamerasNum++;
                 }
+            }
         } else {
             ALOGD(" %s, access failed. ret %d \n", pDev->name, ret);
         }
@@ -460,6 +487,20 @@ int CameraVirtualDevice::getCameraNum() {
         int ret = access(pDev->name, F_OK | R_OK | W_OK);
         if ( 0 == ret)
         {
+            if (pDev->type == USB_CAM_DEV) {
+                bool bypass = false;
+                if (!strcmp(pDev->name, HDMI_VDIN_VIDEO_PATH)) {
+                    if (!(HDMIStatus::getInstance()->isStandardHDMICamera()))
+                        bypass = true;
+                } else {
+                    if (!isStandardUSBCamera(pDev->name))
+                        bypass = true;
+                }
+                if (bypass) {
+                    ALOGD("%s is not a valid usb camera", pDev->name);
+                    continue;
+                }
+            }
             for (int stream_idx = 0; stream_idx < pDev->streamNum; stream_idx++) {
                 if (pDev->status[stream_idx] != NONE_DEVICE) {
                     ALOGD("device %s stream %d \n", pDev->name,stream_idx);
@@ -470,7 +511,6 @@ int CameraVirtualDevice::getCameraNum() {
             ALOGD(" %s, access failed. ret %d \n", pDev->name, ret);
         }
     }
-
     return iCamerasNum;
 }
 
@@ -491,5 +531,6 @@ int CameraVirtualDevice::findUsbCameraID(int cam_id) {
     ALOGD("%s:cam_id=%d, ret flag = %d",__FUNCTION__,cam_id, flag);
 
     return flag;
+}
 }
 

@@ -158,6 +158,7 @@ LOCAL_C_INCLUDES += $(TOP)/vendor/amlogic/common/system/libgdc/dewarp
 endif
 
 LOCAL_C_INCLUDES += $(TOP)/hardware/amlogic/camera/v3/fake-pipeline2
+LOCAL_C_INCLUDES += $(TOP)/hardware/amlogic/camera/v3/hdmiutils/include
 
 LOCAL_SRC_FILES := \
     EmulatedCameraHal.cpp \
@@ -194,7 +195,8 @@ LOCAL_SRC_FILES := \
     fake-pipeline2/MIPICameraIO.cpp \
     fake-pipeline2/CaptureUseMemcpy.cpp \
     fake-pipeline2/HDMIToCSISensor.cpp \
-    fake-pipeline2/HDMISensor.cpp
+    fake-pipeline2/HDMISensor.cpp \
+    hdmiutils/HDMIStatus.cpp
 
 LOCAL_SRC_FILES += \
     fake-pipeline2/V4l2MediaSensor.cpp \
