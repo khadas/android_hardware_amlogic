@@ -163,9 +163,9 @@ int screen_source_set_amlvideo2_crop(struct aml_screen_device* dev, int x, int y
     return android::BAD_VALUE;
 }
 
-int screen_source_aquire_buffer(struct aml_screen_device* dev, aml_screen_buffer_info_t* buff_info)
+int screen_source_acquire_buffer(struct aml_screen_device* dev, aml_screen_buffer_info_t* buff_info)
 {
-    return gScreenHals[dev->device_id]->aquire_buffer(buff_info);
+    return gScreenHals[dev->device_id]->acquire_buffer(buff_info);
 }
 
 int screen_source_release_buffer(struct aml_screen_device* dev, long* ptr)
@@ -233,6 +233,11 @@ int screen_source_set_port_type(struct aml_screen_device* dev,unsigned int portT
 int screen_source_set_mode(struct aml_screen_device* dev, int displayMode)
 {
        return gScreenHals[dev->device_id]->set_mode(displayMode);
+}
+
+int screen_source_get_all_ptr(struct aml_screen_device* dev, long **buffers)
+{
+       return gScreenHals[dev->device_id]->get_all_ptr(buffers);
 }
 
 /* int screen_source_inc_buffer_refcount(struct aml_screen_device* dev, int* ptr)
@@ -307,7 +312,7 @@ static int aml_screen_device_open(const struct hw_module_t* module, const char* 
         dev->ops.set_crop = screen_source_set_crop;
         dev->ops.get_amlvideo2_crop = screen_source_get_amlvideo2_crop;
         dev->ops.set_amlvideo2_crop = screen_source_set_amlvideo2_crop;
-        dev->ops.aquire_buffer = screen_source_aquire_buffer;
+        dev->ops.acquire_buffer = screen_source_acquire_buffer;
         dev->ops.release_buffer = screen_source_release_buffer;
         dev->ops.setStateCallBack = screen_source_set_state_callback;
         //dev->ops.setPreviewWindow = screen_source_set_preview_window;
@@ -321,6 +326,7 @@ static int aml_screen_device_open(const struct hw_module_t* module, const char* 
         dev->ops.get_port_type = screen_source_get_port_type;
         dev->ops.set_port_type = screen_source_set_port_type;
         dev->ops.set_mode = screen_source_set_mode;
+        dev->ops.get_all_ptr = screen_source_get_all_ptr;
         dev->device_id = deviceid;
         *device = &dev->common;
         gScreenHals[deviceid] = source;

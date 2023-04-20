@@ -491,7 +491,6 @@ int vdin_screen_source::get_format()
 int vdin_screen_source::set_mode(int displayMode)
 {
     ALOGE("run into set_mode,displaymode = %d\n", displayMode);
-    mVideoInfo->displaymode = displayMode;
     m_displaymode = displayMode;
     return 0;
 }
@@ -525,8 +524,12 @@ int vdin_screen_source::set_format(int width, int height, int color_format)
     mVideoInfo->format.fmt.pix.height = height;
     mVideoInfo->format.fmt.pix.pixelformat = color_format;
     mPixelFormat = color_format;
-    if (mPixelFormat == V4L2_PIX_FMT_RGB32)
+    if (mPixelFormat == V4L2_PIX_FMT_RGB32) {
         mBufferCount = 3;
+    }
+    if (m_displaymode == AML_SCREEN_CATCH_MODE)
+        mBufferCount = 1;
+
     for (int i = 0; i < mBufferCount; i++) {
         src_temp[i] = NULL;
     }
@@ -543,7 +546,7 @@ int vdin_screen_source::set_format(int width, int height, int color_format)
             }
         }
     }
-    ALOGD("mFrameWidth:%d,mFrameHeight:%d",mFrameWidth,mFrameHeight);
+    ALOGD("mFrameWidth:%d,mFrameHeight:%d,m_displaymode=%d,mBufferCount=%d",mFrameWidth,mFrameHeight,m_displaymode,mBufferCount);
     ALOGD("mPixelFormat:%x,mNativeWindowPixelFormat:%x,mBufferSize:%d",mPixelFormat,mNativeWindowPixelFormat,mBufferSize);
     ret = ioctl(mCameraHandle, VIDIOC_S_FMT, &mVideoInfo->format);
     if (ret < 0) {
@@ -717,10 +720,19 @@ int vdin_screen_source::set_screen_mode(int mode)
     }
     return ret;
 }
-
-int vdin_screen_source::aquire_buffer(aml_screen_buffer_info_t *buff_info)
+int vdin_screen_source::get_all_ptr(long **buffers)
 {
     ALOGE("%s %d", __FUNCTION__, __LINE__);
+    int ret = NO_ERROR;
+    for ( int i = 0; i < mBufferCount; i++) {
+        *(buffers + i) = mVideoInfo->mem[i];
+    }
+    return ret;
+}
+
+int vdin_screen_source::acquire_buffer(aml_screen_buffer_info_t *buff_info)
+{
+    // ALOGE("%s %d", __FUNCTION__, __LINE__);
     int ret = -1;
     mVideoInfo->buf.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
     mVideoInfo->buf.memory = V4L2_MEMORY_MMAP;
@@ -730,11 +742,11 @@ int vdin_screen_source::aquire_buffer(aml_screen_buffer_info_t *buff_info)
         if(EAGAIN == errno){
             ret = -EAGAIN;
         }else{
-            ALOGE("[%s %d]aquire_buffer %d", __FUNCTION__, __LINE__, ret);
+            // ALOGE("[%s %d]acquire_buffer %d", __FUNCTION__, __LINE__, ret);
         }
         buff_info->buffer_mem    = 0;
         buff_info->buffer_canvas = 0;
-            ALOGE("aquire_buffer %d %d", ret ,__LINE__);
+            // ALOGE("acquire_buffer %d %d", ret ,__LINE__);
             return ret;
     }
 
@@ -768,14 +780,16 @@ int vdin_screen_source::aquire_buffer(aml_screen_buffer_info_t *buff_info)
         buff_info->buffer_canvas = mVideoInfo->canvas[mVideoInfo->buf.index];
         buff_info->tv_sec        = mVideoInfo->buf.timestamp.tv_sec;
         buff_info->tv_usec       = mVideoInfo->buf.timestamp.tv_usec;
+        buff_info->index         = mVideoInfo->buf.index;
     } else {
         buff_info->buffer_mem    = mVideoInfo->mem[mVideoInfo->buf.index];
         buff_info->buffer_canvas = mVideoInfo->canvas[mVideoInfo->buf.index];
         buff_info->tv_sec        = mVideoInfo->buf.timestamp.tv_sec;
         buff_info->tv_usec       = mVideoInfo->buf.timestamp.tv_usec;
+        buff_info->index         = mVideoInfo->buf.index;
     }
 
-    ALOGE("%s finish %d ", __FUNCTION__, __LINE__);
+    ALOGE("%s finish %d index =%d", __FUNCTION__, __LINE__, buff_info->index );
     return ret;
 }
 
@@ -984,7 +998,7 @@ int vdin_screen_source::workThread()
     ANativeWindowBuffer* buf;
     if (mState == START) {
         usleep(5000);
-        ret = aquire_buffer(&buff_info);
+        ret = acquire_buffer(&buff_info);
         if (ret != 0 || (buff_info.buffer_mem == 0)) {
             ALOGV("Get V4l2 buffer failed");
             return ret;

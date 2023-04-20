@@ -40,6 +40,7 @@ typedef struct aml_screen_buffer_info {
     int    buffer_canvas;
     long   tv_sec;
     long   tv_usec;
+    int    index;
 } aml_screen_buffer_info_t;
 
 typedef void (*olStateCB)(int state);
@@ -65,6 +66,11 @@ enum aml_screen_mode_e {
     AML_SCREEN_MODE_MAX
 };
 
+enum aml_display_mode_e{
+    AML_SCREEN_CATCH_MODE = 1,
+    AML_SCREEN_RECODE_MODE = 2,
+};
+
 /**
  * set_port_type() parameter description:
  portType is consisted by 32-bit binary.
@@ -86,7 +92,7 @@ typedef struct aml_screen_operations {
     int (*set_crop)(struct aml_screen_device*, int, int, int, int);
     int (*get_amlvideo2_crop)(struct aml_screen_device*, int *, int *, int *, int *);
     int (*set_amlvideo2_crop)(struct aml_screen_device*, int, int, int, int);
-    int (*aquire_buffer)(struct aml_screen_device*, aml_screen_buffer_info_t*);
+    int (*acquire_buffer)(struct aml_screen_device*, aml_screen_buffer_info_t*);
     // int (*set_buffer_refcount)(struct aml_screen_device, int*, int);
     int (*release_buffer)(struct aml_screen_device*, long*);
     // int (*inc_buffer_refcount)(struct aml_screen_device*, int*);
@@ -98,6 +104,7 @@ typedef struct aml_screen_operations {
     int (*get_port_type)(struct aml_screen_device*);
     int (*set_port_type)(struct aml_screen_device*, unsigned int);
     int (*set_mode)(struct aml_screen_device*, int);
+    int (*get_all_ptr)(struct aml_screen_device*, long **);
 } aml_screen_operations_t;
 
 typedef struct aml_screen_device {

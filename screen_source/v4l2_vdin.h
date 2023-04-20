@@ -68,6 +68,7 @@ enum FrameType{
     CALL_BACK_DATA = 0x2,
 };
 
+
 typedef void (*olStateCB)(int state);
 
 typedef void (*app_data_callback)(void *user, aml_screen_buffer_info_t *buff_info);
@@ -98,7 +99,7 @@ class vdin_screen_source {
         int set_crop(int x, int y, int width, int height);
         int get_amlvideo2_crop(int *x, int *y, int *width, int *height);
         int set_amlvideo2_crop(int x, int y, int width, int height);
-        int aquire_buffer(aml_screen_buffer_info_t *buff_info);
+        int acquire_buffer(aml_screen_buffer_info_t *buff_info);
         // int inc_buffer_refcount(int* ptr);
         int release_buffer(long* ptr);
         int set_state_callback(olStateCB callback);
@@ -112,6 +113,7 @@ class vdin_screen_source {
         int get_port_type();
         int set_port_type(unsigned int portType);
         int set_mode(int display_mode);
+        int get_all_ptr(long **buffers);
         int micro_dimming(long* src, unsigned char *dest);
     private:
         int init_native_window();

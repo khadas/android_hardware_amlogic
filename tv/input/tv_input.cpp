@@ -572,8 +572,8 @@ static int tv_input_request_capture(
     tv_input_private_t *priv = (tv_input_private_t *)dev;
     unsigned char *dest = NULL;
     if (priv->mDev) {
-        aml_screen_buffer_info_t buffInfo = { NULL, 0 ,0 ,0 };
-        int ret = priv->mDev->ops.aquire_buffer(priv->mDev, &buffInfo);
+        aml_screen_buffer_info_t buffInfo = { NULL, 0 ,0 ,0 ,0};
+        int ret = priv->mDev->ops.acquire_buffer(priv->mDev, &buffInfo);
         if (ret != 0 || (buffInfo.buffer_mem == nullptr)) {
             ALOGE("Get V4l2 buffer failed");
             notifyCaptureFail(priv,device_id,stream_id,--seq);
