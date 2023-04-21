@@ -100,15 +100,10 @@ int CaptureUseGe2d::getPicture(StreamBuffer b, struct data_in* in, IONInterface 
             memcpy(b.img, vb.addr, length);
             break;
         case V4L2_PIX_FMT_NV21:
-            if (width == b.width && height == b.height && stride == b.stride) {
-                ALOGV("line %d ge2d copy dmabuf_fd %d  w %d stride %d h %d \n", __LINE__, dmabuf_fd, b.width, b.stride, b.height);
-                mGE2D->ge2d_copy(b.share_fd, dmabuf_fd, b.stride, b.height, ge2dTransform::NV12);
-            } else {
-                ALOGV("line %d ge2d scale in w %d stride %d h %d , out w %d stride %d h %d", __LINE__, width, stride, height,
-                          b.width, b.stride, b.height);
-                mGE2D->ge2d_convert_scale(b.share_fd, PIXEL_FORMAT_YCbCr_420_SP_NV12, b.width, b.stride, b.height,
-                                          dmabuf_fd, PIXEL_FORMAT_YCbCr_420_SP_NV12, width, stride, height);
-            }
+            ALOGV("line %d ge2d scale in w %d stride %d h %d , out w %d stride %d h %d", __LINE__, width, stride, height,
+                      b.width, b.stride, b.height);
+            mGE2D->ge2d_convert_scale(b.share_fd, PIXEL_FORMAT_YCbCr_420_SP_NV12, b.width, b.stride, b.height,
+                                      dmabuf_fd, PIXEL_FORMAT_YCbCr_420_SP_NV12, width, stride, height);
 
             if (property_get_bool("vendor.camhal.dump.capture", false)) {
                 char path[256];
