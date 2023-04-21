@@ -229,8 +229,7 @@ status_t EmulatedFakeCamera3::Initialize() {
                   "build-time:    %s\n"
                   "build-name:    %s\n"
                   "uncommitted-file-num:%d\n"
-                  "ssh user@%s, cd %s\n"
-                  "hostname %s\n"
+                  "path:    %s\n"
                   "--------------------------------\n",
                   CAMHAL_BRANCH_NAME,
                   CAMHAL_GIT_VERSION,
@@ -238,7 +237,7 @@ status_t EmulatedFakeCamera3::Initialize() {
                   CAMHAL_BUILD_TIME,
                   CAMHAL_BUILD_NAME,
                   CAMHAL_GIT_UNCOMMIT_FILE_NUM,
-                  CAMHAL_IP, CAMHAL_PATH, CAMHAL_HOSTNAME
+                  CAMHAL_PATH
                   );
 #endif
 

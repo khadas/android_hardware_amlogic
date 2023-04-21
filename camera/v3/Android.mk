@@ -31,8 +31,6 @@ CAMHAL_BUILD_TIME=" $(shell date)"
 CAMHAL_BUILD_NAME=" $(shell echo ${LOGNAME})"
 CAMHAL_BRANCH_NAME="$(shell cd $(LOCAL_PATH);git branch -a | sed -n '/'*'/p')"
 CAMHAL_BUILD_MODE=$(shell echo ${TARGET_BUILD_VARIANT})
-CAMHAL_HOSTNAME="$(shell hostname)"
-CAMHAL_IP="$(shell ifconfig eth0|grep -oE '([0-9]{1,3}\.?){4}'|head -n 1)"
 CAMHAL_PATH="$(shell pwd)/$(LOCAL_PATH)"
 
 LOCAL_CFLAGS+=-DHAVE_VERSION_INFO
@@ -42,8 +40,6 @@ LOCAL_CFLAGS+=-DCAMHAL_LAST_CHANGED=\"${CAMHAL_LAST_CHANGED}\"
 LOCAL_CFLAGS+=-DCAMHAL_BUILD_TIME=\"${CAMHAL_BUILD_TIME}\"
 LOCAL_CFLAGS+=-DCAMHAL_BUILD_NAME=\"${CAMHAL_BUILD_NAME}\"
 LOCAL_CFLAGS+=-DCAMHAL_GIT_UNCOMMIT_FILE_NUM=${CAMHAL_GIT_UNCOMMIT_FILE_NUM}
-LOCAL_CFLAGS+=-DCAMHAL_HOSTNAME=\"${CAMHAL_HOSTNAME}\"
-LOCAL_CFLAGS+=-DCAMHAL_IP=\"${CAMHAL_IP}\"
 LOCAL_CFLAGS+=-DCAMHAL_PATH=\"${CAMHAL_PATH}\"
 ########################################################################################################
 GE2D_ENABLE := true
