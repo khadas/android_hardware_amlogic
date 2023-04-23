@@ -89,12 +89,17 @@ bool HDMIStatus::isStandardHDMICamera() {
 
 int HDMIStatus::getHdmiPlugStatus(int old_status, int new_status, int port) {
     int plug = -1;
-    if ((new_status & port) != (old_status  & port) ) {
-        if ((new_status & port) == port) {
-            plug = 1;
-        } else {
-            plug = 0;
-        }
+    int port_1 = DETECT_BITS[0];
+    int port_2 = DETECT_BITS[1];
+    int port_3 = DETECT_BITS[2];
+    if (((new_status & port_1) != (old_status & port_1))
+        || ((new_status & port_2) != (old_status  & port_2))
+        || ((new_status & port_3) != (old_status  & port_3))) {
+            if ((new_status & port) != 0) {
+                    plug = 1;
+            } else {
+                    plug = 0;
+            }
     }
     return plug;
 }
@@ -158,18 +163,22 @@ status_t HDMIStatus::HDMIHotplugThread::requestExitAndWait() {
 status_t HDMIStatus::HDMIHotplugThread::readyToRun() {
     return OK;
 }
-
+#define port_num 3
 bool HDMIStatus::HDMIHotplugThread::threadLoop() {
     if (exitPending())
         return false;
     int num = ::epoll_wait(epoll_fd, backEvents, 20, -1);
+    int hdmi_detect_bits = 0;
+    for (int i = 0; i < port_num; i++) {
+        hdmi_detect_bits += DETECT_BITS[i];
+    }
     ALOGE("epoll wait %d fds", num);
     for (int i = 0; i < num; ++i) {
         int fd = backEvents[i].data.fd;
         if (backEvents[i].events & EPOLLIN) {
             if (fd == mParent->m_hdmi_fd) {
                 int hdmi_status = mParent->readHdmiStatus();
-                int plug = mParent->getHdmiPlugStatus(m_hdmi_status, hdmi_status, hdmi_detect_bit);
+                int plug = mParent->getHdmiPlugStatus(m_hdmi_status, hdmi_status, hdmi_detect_bits);
                 m_hdmi_status = hdmi_status;
                 if (plug >= 0)
                     gEmulatedCameraFactory.onStatusChanged(HDMI_VDIN_DEV_BEGIN_NUM, plug);
