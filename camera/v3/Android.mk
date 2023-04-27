@@ -23,25 +23,6 @@ LOCAL_CFLAGS += -fno-short-enums -DQEMU_HARDWARE
 LOCAL_CFLAGS += -Wno-unused-parameter -Wno-missing-field-initializers
 LOCAL_CFLAGS += -DPLATFORM_SDK_VERSION=$(PLATFORM_SDK_VERSION)
 
-########################################################################################################
-CAMHAL_GIT_VERSION="$(shell cd $(LOCAL_PATH);git log | grep commit -m 1 | cut -d' ' -f 2)"
-CAMHAL_GIT_UNCOMMIT_FILE_NUM=$(shell cd $(LOCAL_PATH);git diff | grep +++ -c)
-CAMHAL_LAST_CHANGED="$(shell cd $(LOCAL_PATH);git log | grep Date -m 1)"
-CAMHAL_BUILD_TIME=" $(shell date)"
-CAMHAL_BUILD_NAME=" $(shell echo ${LOGNAME})"
-CAMHAL_BRANCH_NAME="$(shell cd $(LOCAL_PATH);git branch -a | sed -n '/'*'/p')"
-CAMHAL_BUILD_MODE=$(shell echo ${TARGET_BUILD_VARIANT})
-CAMHAL_PATH="$(shell pwd)/$(LOCAL_PATH)"
-
-LOCAL_CFLAGS+=-DHAVE_VERSION_INFO
-LOCAL_CFLAGS+=-DCAMHAL_GIT_VERSION=\"${CAMHAL_GIT_VERSION}${CAMHAL_GIT_DIRTY}\"
-LOCAL_CFLAGS+=-DCAMHAL_BRANCH_NAME=\"${CAMHAL_BRANCH_NAME}\"
-LOCAL_CFLAGS+=-DCAMHAL_LAST_CHANGED=\"${CAMHAL_LAST_CHANGED}\"
-LOCAL_CFLAGS+=-DCAMHAL_BUILD_TIME=\"${CAMHAL_BUILD_TIME}\"
-LOCAL_CFLAGS+=-DCAMHAL_BUILD_NAME=\"${CAMHAL_BUILD_NAME}\"
-LOCAL_CFLAGS+=-DCAMHAL_GIT_UNCOMMIT_FILE_NUM=${CAMHAL_GIT_UNCOMMIT_FILE_NUM}
-LOCAL_CFLAGS+=-DCAMHAL_PATH=\"${CAMHAL_PATH}\"
-########################################################################################################
 GE2D_ENABLE := true
 GE2D_VERSION_2 := true
 ISP_ENABLE := false
@@ -239,23 +220,6 @@ endif
 include $(BUILD_SHARED_LIBRARY)
 
 include $(call all-makefiles-under,$(LOCAL_PATH))
-
-$(info ************************************************************)
-
-$(info pdk or not:    $(TARGET_BUILD_PDK))
-$(info target board:  $(TARGET_BOARD_PLATFORM))
-$(info git version:   $(CAMHAL_GIT_VERSION))
-$(info uncomment:     $(CAMHAL_GIT_UNCOMMIT_FILE_NUM) files)
-$(info last changed:  $(CAMHAL_LAST_CHANGED))
-$(info build time:    $(CAMHAL_BUILD_TIME))
-$(info builder name:  $(CAMHAL_BUILD_NAME))
-$(info branch name:   $(CAMHAL_BRANCH_NAME))
-$(info build mode:    $(CAMHAL_BUILD_MODE))
-$(info host name:     $(CAMHAL_HOSTNAME))
-$(info host IP:       $(CAMHAL_IP))
-$(info path:          $(CAMHAL_PATH))
-$(info ************************************************************)
-$(shell sleep 1)
 
 #################################################################
 ifneq (true,true)

@@ -220,28 +220,6 @@ status_t EmulatedFakeCamera3::Initialize() {
     DBG_LOGB("mCameraID=%d,mStatus=%d,ddd\n", mCameraID, mStatus);
     status_t res;
 
-#ifdef HAVE_VERSION_INFO
-    CAMHAL_LOGIB("\n--------------------------------\n"
-                  "author:aml.sh multi-media team\n"
-                  "branch name:   %s\n"
-                  "git version:   %s \n"
-                  "last changed:  %s\n"
-                  "build-time:    %s\n"
-                  "build-name:    %s\n"
-                  "uncommitted-file-num:%d\n"
-                  "path:    %s\n"
-                  "--------------------------------\n",
-                  CAMHAL_BRANCH_NAME,
-                  CAMHAL_GIT_VERSION,
-                  CAMHAL_LAST_CHANGED,
-                  CAMHAL_BUILD_TIME,
-                  CAMHAL_BUILD_NAME,
-                  CAMHAL_GIT_UNCOMMIT_FILE_NUM,
-                  CAMHAL_PATH
-                  );
-#endif
-
-
     if (mStatus != STATUS_ERROR) {
         ALOGE("%s: Already initialized!", __FUNCTION__);
         return INVALID_OPERATION;
