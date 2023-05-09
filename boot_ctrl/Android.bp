@@ -1,5 +1,5 @@
 //
-// Copyright (C) 2018 The Android Open Source Project
+// Copyright (C) 2022 The Android Open Source Project
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -24,71 +24,48 @@ package {
 }
 
 cc_defaults {
-    name: "libboot_control_defaults_droidlogic",
-    vendor: true,
-    recovery_available: true,
+    name: "android.hardware.boot-service_common_droidlogic",
     relative_install_path: "hw",
-
-    cflags: [
-        "-D_FILE_OFFSET_BITS=64",
-        "-Werror",
-        "-Wall",
-        "-Wextra",
-    ],
-
-    shared_libs: [
-        "android.hardware.boot@1.1",
-        "libbase",
-        "liblog",
-    ],
-    static_libs: [
-        "libbootloader_message_vendor",
-        "libfstab",
-    ],
-}
-
-cc_library_static {
-    name: "libboot_control_droidlogic",
     defaults: ["libboot_control_defaults_droidlogic"],
-    export_include_dirs: ["include"],
-
-    srcs: [
-        "libboot_control.cpp",
-        "systemcontrol.cpp",
-    ],
-    static_libs: [
-        "libcutils",
-        "libz",
-    ],
-    whole_static_libs: [
-        "libsystemcontrol_static",
-        "libmeson_display_adapter_local_static",
-    ],
-    product_variables: {
-        platform_sdk_version: {
-            cflags: ["-DPLATFORM_SDK_VERSION=%d"],
-        }
-    },
-
+    vintf_fragments: ["android.hardware.boot-service.droidlogic.xml"],
     shared_libs: [
-        "liblog",
+        "libbase",
+        "libbinder_ndk",
+        "android.hardware.boot@1.1",
+        "android.hardware.boot-V1-ndk",
+
+        "libsystemcontrolservice",
         "libcutils",
         "libutils",
+        "libz",
         "vendor.amlogic.hardware.systemcontrol@1.0",
         "vendor.amlogic.hardware.systemcontrol@1.1",
     ],
-}
-
-cc_library_shared {
-    name: "bootctrl.default_droidlogic",
-    defaults: ["libboot_control_defaults_droidlogic"],
-
-    srcs: ["legacy_boot_control.cpp"],
-
     static_libs: [
         "libboot_control_droidlogic",
+
+
     ],
-    shared_libs: [
-        "libhardware",
-    ],
+    srcs: ["main.cpp", "BootControl.cpp"],
 }
+
+prebuilt_etc {
+    name: "android.hardware.boot-bootloader.rc",
+    src: "android.hardware.boot-bootloader.rc",
+    relative_install_path: "init",
+    vendor: true,
+}
+
+cc_binary {
+    name: "android.hardware.boot-service",
+    defaults: ["android.hardware.boot-service_common_droidlogic"],
+    init_rc: ["android.hardware.boot-service.droidlogic.rc"],
+    vendor: true,
+}
+
+//cc_binary {
+//   name: "android.hardware.boot-service.recovery",
+//   defaults: ["android.hardware.boot-service_common_droidlogic"],
+//    init_rc: ["android.hardware.boot-service.droidlogic_recovery.rc"],
+//    recovery: true,
+//}

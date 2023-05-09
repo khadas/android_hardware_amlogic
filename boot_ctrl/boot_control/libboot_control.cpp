@@ -20,6 +20,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <string.h>
+#include <sys/ioctl.h>
 
 #include <string>
 
@@ -29,6 +30,7 @@
 #include <android-base/stringprintf.h>
 #include <android-base/unique_fd.h>
 #include <bootloader_message/bootloader_message.h>
+#include <cutils/android_reboot.h>
 
 #include "private/boot_control_definition.h"
 
@@ -37,6 +39,7 @@
 #include <errno.h>
 #include <sys/stat.h>
 #include <unistd.h>
+#include "systemcontrol.h"
 #include "ubootenv/Ubootenv.h"
 
 namespace android {
@@ -44,14 +47,19 @@ namespace bootable {
 
 using ::android::hardware::boot::V1_1::MergeStatus;
 
+
 // The number of boot attempts that should be made from a new slot before
 // rolling back to the previous slot.
 constexpr unsigned int kDefaultBootAttempts = 7;
 
 #define EMMC_USER_PARTITION        "bootloader"
+#define EMMC_DEVICE           "/dev/block/by-name/mmcblk0"
 #define BOOTLOADER_MAX_SIZE    (4*1024*1024)
 /*First 512 bytes in bootloader is signed data*/
 #define BOOTLOADER_OFFSET      512
+#define GPT_HEADER_SIGNATURE_UBOOT 0x5452415020494645ULL
+
+#define SYS_BOOT_COMPLETE       "/sys/class/tee_info/sys_boot_complete"
 
 static_assert(kDefaultBootAttempts < 8, "tries_remaining field only has 3 bits");
 
@@ -59,6 +67,8 @@ constexpr unsigned int kMaxNumSlots =
     sizeof(bootloader_control::slot_info) / sizeof(bootloader_control::slot_info[0]);
 constexpr const char* kSlotSuffixes[kMaxNumSlots] = { "_a", "_b", "_c", "_d" };
 constexpr off_t kBootloaderControlOffset = offsetof(bootloader_message_ab, slot_suffix);
+
+static char env_buffer[64];
 
 static uint32_t CRC32(const uint8_t* buf, size_t size) {
   static uint32_t crc_table[256];
@@ -81,6 +91,14 @@ static uint32_t CRC32(const uint8_t* buf, size_t size) {
   }
 
   return ~ret;
+}
+
+static int reboot_device() {
+  if (android_reboot(ANDROID_RB_RESTART2, 0, nullptr) == -1) {
+    LOG(ERROR) << "Failed to reboot.";
+    return -1;
+  }
+  while (true) pause();
 }
 
 // Return the little-endian representation of the CRC-32 of the first fields
@@ -125,7 +143,100 @@ bool UpdateAndSaveBootloaderControl(const std::string& misc_device, bootloader_c
   return true;
 }
 
-bool write_bootloader_img(unsigned int slot)
+int is_valid_gpt_buf(char *buf)
+{
+    gpt_header *gpt_h;
+
+    /* determine start of GPT Header in the buffer */
+    gpt_h = (gpt_header*)(buf + 512);
+
+    LOG(INFO) << "signature: " << GPT_HEADER_SIGNATURE_UBOOT;
+    LOG(INFO) << "gpt header signature: " << gpt_h->signature;
+
+    /* Check the GPT header signature */
+    if (gpt_h->signature != GPT_HEADER_SIGNATURE_UBOOT) {
+        LOG(ERROR) << "gpt header signature " << gpt_h->signature
+            << " != " << GPT_HEADER_SIGNATURE_UBOOT;
+        return -1;
+    }
+
+    return 0;
+}
+
+static int get_gpt_mode(void) {
+    int size = 0;
+    int ret = 0;
+    int fd = open(EMMC_DEVICE, O_RDONLY);
+    if (fd < 0) {
+        LOG(INFO) << "opem mmcblk0 error";
+        return -1;
+    }
+
+    char buffer[1024];
+    size = read(fd, buffer, 1024);
+    if (size != 1024) {
+        LOG(INFO) << "read mmcblk0 error";
+        close(fd);
+        return -1;
+    }
+    close(fd);
+
+    ret = is_valid_gpt_buf(buffer);
+    if (ret == 0) {
+        LOG(INFO) << "device is gpt mode";
+        return 0;
+    } else {
+        LOG(INFO) << "device is dts mode";
+        return 1;
+    }
+}
+
+static int set_sys_boot_complete(void)
+{
+    int fd;
+    int len;
+    char buf[] = "1";
+
+    fd = open(SYS_BOOT_COMPLETE, O_WRONLY);
+    if (fd < 0) {
+        LOG(INFO) << "open " << SYS_BOOT_COMPLETE << " failed";
+        return -1;
+    }
+
+    len = write(fd, buf, sizeof(buf));
+
+    close(fd);
+
+    if (len != sizeof(buf))
+        return -1;
+    else
+        return 0;
+}
+
+static int get_sys_boot_complete(void)
+{
+    int fd;
+    int len;
+    char buf[8] = {0};
+
+    fd = open(SYS_BOOT_COMPLETE, O_RDONLY);
+    if (fd < 0) {
+        LOG(INFO) << "open " << SYS_BOOT_COMPLETE << " failed";
+        return -1;
+    }
+
+    len = read(fd, buf, 8);
+
+    close(fd);
+
+    if (strncmp(buf, "1", 1) == 0)
+        return 0;
+    else
+        return -1;
+}
+
+
+bool write_bootloader_img(unsigned int slot, bool gpt_flag)
 {
     int iRet = 0;
     char emmcPartitionPath[128];
@@ -136,9 +247,15 @@ bool write_bootloader_img(unsigned int slot)
 
     memset(emmcPartitionPath, 0, sizeof(emmcPartitionPath));
     if (slot == 0) {
-        strcpy(emmcPartitionPath, "/dev/block/bootloader0");
+        if (gpt_flag)
+            strcpy(emmcPartitionPath, "/dev/block/by-name/bootloader_a");
+        else
+            strcpy(emmcPartitionPath, "/dev/block/bootloader0");
     } else {
-        strcpy(emmcPartitionPath, "/dev/block/bootloader1");
+        if (gpt_flag)
+            strcpy(emmcPartitionPath, "/dev/block/by-name/bootloader_b");
+        else
+            strcpy(emmcPartitionPath, "/dev/block/bootloader1");
     }
 
     data = (char *)malloc(BOOTLOADER_MAX_SIZE);
@@ -150,10 +267,13 @@ bool write_bootloader_img(unsigned int slot)
 
     LOG(INFO) << "emmcPartitionPath: " << emmcPartitionPath;
     /* read bootloader.img we write in update_engine
-     * /dev/block/platform/soc/fe08c000.mmc/by-name/bootloader --> /dev/block/bootloader
-     * /dev/block/platform/soc/fe08c000.mmc/by-name/bootloader_a --> /dev/block/bootloader0
-     * /dev/block/platform/soc/fe08c000.mmc/by-name/bootloader_b --> /dev/block/bootloader1
-     * for different board, mmcblk0/fe08c000 maybe different
+     *
+     * in dts mode, bootloader_a/_b is link to boot0/boot1
+     * /dev/block/platform/soc/fe08c000.mmc/by-name/bootloader_a --> /dev/block/mmcblk0boot0
+     * /dev/block/platform/soc/fe08c000.mmc/by-name/bootloader_b --> /dev/block/mmcblk0boot1
+     *
+     * for gpt mode, bootloader_a/bootloader_b is real partition table
+     *
      * update_engine will update bootloader_a or bootloader_b according to current slot
     */
     fd = open(emmcPartitionPath, O_RDWR);
@@ -170,11 +290,22 @@ bool write_bootloader_img(unsigned int slot)
         goto done;
     }
 
+    if (!gpt_flag) {
+        LOG(INFO) << "device is null gpt, check bootloader.img";
+        if (is_valid_gpt_buf(data + 0x3DFE00)) {
+            LOG(INFO) << "no gpt partition table\n";
+        } else {
+            LOG(ERROR) << "find gpt partition table, can't update\n";
+            ret = true;
+            goto done;
+        }
+    }
+
     /* We use robust to rollback bootloader.img in uboot
      * bootloader  ---> 0
      * boot0       ---> 1
      * boot1       ---> 2
-     * It alway bootup from 0 first.
+     * It always bootup from 0 first.
      * and will switch bootloader by the order: 0->1->2->0 ...
      * So we write bootloader.img to bootloader here, and set env
      * reboot_status  ---- reboot_next
@@ -186,10 +317,19 @@ bool write_bootloader_img(unsigned int slot)
      * after reboot, if the bootloader index is just expect_index, update env too
      * if the bootloader index isn't expect_index, update error, back to last slot
     */
-    fd2 = open("/dev/block/by-name/bootloader", O_RDWR);
-    if (fd2 < 0) {
-        LOG(ERROR) << "failed to open /dev/block/by-name/bootloader ";
-        goto done;
+    if (gpt_flag) {
+        LOG(INFO) << "gpt mode, write mmcblk0boot0";
+        fd2 = open("/dev/block/mmcblk0boot0", O_RDWR);
+        if (fd2 < 0) {
+            LOG(ERROR) << "failed to open /dev/block/mmcblk0boot0";
+            goto done;
+        }
+    } else {
+        fd2 = open("/dev/block/by-name/bootloader", O_RDWR);
+        if (fd2 < 0) {
+            LOG(ERROR) << "failed to open /dev/block/by-name/bootloader ";
+            goto done;
+        }
     }
     iRet = lseek(fd2, BOOTLOADER_OFFSET, SEEK_SET);
     if (iRet == -1) {
@@ -223,6 +363,18 @@ done:
     return ret;
 }
 
+int is_recovery_mode() {
+    int ret = access("/system/bin/recovery", F_OK);
+    if (ret == 0) {
+        LOG(INFO) << "recovery mode";
+        return 1;
+    } else {
+        LOG(INFO) << "android mode";
+        return 0;
+    }
+}
+
+//just use for recovery mode, android mode need use sc_set_bootenv
 int set_bootloader_env(const char* name, const char* value)
 {
     Ubootenv *ubootenv = new Ubootenv();
@@ -232,19 +384,58 @@ int set_bootloader_env(const char* name, const char* value)
 
     if (ubootenv->updateValue(ubootenv_name, value)) {
         PLOG(ERROR) << "could not set boot env";
+        delete ubootenv;
         return -1;
     }
+    delete ubootenv;
     return 0;
 }
 
+//just use for recovery mode, android mode need use sc_read_bootenv
 char* get_bootloader_env(const char * name)
 {
     Ubootenv *ubootenv = new Ubootenv();
     char ubootenv_name[128] = {0};
     const char *ubootenv_var = "ubootenv.var.";
     sprintf(ubootenv_name, "%s%s", ubootenv_var, name);
-    return (char *)ubootenv->getValue(ubootenv_name);
+
+    char *uboot_env = (char *)ubootenv->getValue(ubootenv_name);
+    if (uboot_env == NULL) {
+        delete ubootenv;
+        return NULL;
+    }
+    memset(env_buffer, 0, 64);
+    strncpy(env_buffer, uboot_env, strlen(uboot_env));
+    delete ubootenv;
+    return env_buffer;
 }
+
+//android mode only can set/get uboot env by systemocontrol service
+//or the uboot env you set will be rewrite by systemcontrol if systemcontrol
+//setenv after bootctrl of update_engine
+void set_bootloader_env_common(const char* name, const char* value) {
+    int mode = is_recovery_mode();
+    if (mode == 1) {
+        set_bootloader_env(name, value);
+    } else {
+        std::string tmp(value);
+        sc_set_bootenv(name, tmp);
+    }
+}
+
+char* get_bootloader_env_common(const char * name) {
+    int mode = is_recovery_mode();
+    if (mode == 1) {
+        return get_bootloader_env(name);
+    } else {
+        std::string tmp;
+        sc_read_bootenv(name, tmp);
+        memset(env_buffer, 0, 64);
+        strncpy(env_buffer, tmp.c_str(), strlen(tmp.c_str()));
+        return env_buffer;
+    }
+}
+
 
 void InitDefaultBootloaderControl(BootControl* control, bootloader_control* boot_ctrl) {
   memset(boot_ctrl, 0, sizeof(*boot_ctrl));
@@ -282,8 +473,8 @@ void InitDefaultBootloaderControl(BootControl* control, bootloader_control* boot
     // the boot partitions up to the number of slots, and no boot partition
     // after that. Not finding any of the boot partitions implies a problem so
     // we just leave the number of slots in the maximum value.
-    if ((last_existing_slot != -1 && last_existing_slot + 1 == first_missing_slot) ||
-        (first_missing_slot == -1 && last_existing_slot + 1 == kMaxNumSlots)) {
+    if ((last_existing_slot != -1 && last_existing_slot == first_missing_slot - 1) ||
+        (first_missing_slot == -1 && last_existing_slot == kMaxNumSlots - 1)) {
       boot_ctrl->nb_slot = last_existing_slot + 1;
       LOG(INFO) << "Found a system with " << last_existing_slot + 1 << " slots.";
     }
@@ -337,10 +528,12 @@ bool BootControl::Init() {
     LOG(ERROR) << "Slot suffix property is not set";
     return false;
   }
-  if ( SlotSuffixToIndex(suffix_prop.c_str()) == -1 )
+  int current_slot_m = SlotSuffixToIndex(suffix_prop.c_str());
+  if (current_slot_m < 0) {
+    LOG(ERROR) << "Fail SlotSuffixToIndex return < 0 (" << current_slot_m << " )";
     return false;
-  else
-    current_slot_ = SlotSuffixToIndex(suffix_prop.c_str());
+  } else
+    current_slot_ = current_slot_m;
 
   std::string err;
   std::string device = get_bootloader_message_blk_device(&err);
@@ -374,6 +567,23 @@ bool BootControl::Init() {
     return false;
   }
 
+  if (boot_ctrl.slot_info[current_slot_].successful_boot == 1) {
+    if (get_sys_boot_complete() != 0) {
+      set_sys_boot_complete();
+      LOG(INFO) << "call set_sys_boot_complete in init";
+    }
+  }
+
+  LOG(INFO) << "boot_ctrl.roll_flag = " << boot_ctrl.roll_flag;
+
+  if (boot_ctrl.roll_flag == 1) {
+    if (unlink("/data/misc/update_engine/prefs/update-state-next-operation") < 0) {
+        LOG(ERROR) << "unlink update-state-next-operation failed.";
+    }
+    boot_ctrl.roll_flag = 0;
+    UpdateAndSaveBootloaderControl(device.c_str(), &boot_ctrl);
+  }
+
   num_slots_ = boot_ctrl.nb_slot;
   return true;
 }
@@ -388,21 +598,54 @@ unsigned int BootControl::GetCurrentSlot() {
 
 bool BootControl::MarkBootSuccessful() {
   bootloader_control bootctrl;
+  bool ret;
+  int flag = 0;
   if (!LoadBootloaderControl(misc_device_, &bootctrl)) return false;
 
+  if (bootctrl.slot_info[current_slot_].successful_boot == 0) {
+    if (get_sys_boot_complete() != 0) {
+      flag = 1;
+      set_sys_boot_complete();
+      LOG(INFO) << "call set_sys_boot_complete in MarkBootSuccessful";
+    }
+  }
   bootctrl.slot_info[current_slot_].successful_boot = 1;
   // tries_remaining == 0 means that the slot is not bootable anymore, make
   // sure we mark the current slot as bootable if it succeeds in the last
   // attempt.
   bootctrl.slot_info[current_slot_].tries_remaining = 1;
-  return UpdateAndSaveBootloaderControl(misc_device_, &bootctrl);
+
+  ret = UpdateAndSaveBootloaderControl(misc_device_, &bootctrl);
+  if (flag ==1) {
+    LOG(INFO) << "reboot for ARB";
+    reboot_device();
+  }
+  return ret;
 }
 
-bool BootControl::SetBootloaderIndex() {
-  set_bootloader_env("reboot_status", "reboot_next");
-  set_bootloader_env("expect_index", "0");
-  set_bootloader_env("update_env", "1");
+bool BootControl::SetBootloaderIndex(const char* boot_num) {
+  set_bootloader_env_common("reboot_status", "reboot_next");
+  set_bootloader_env_common("expect_index", boot_num);
+  set_bootloader_env_common("update_env", "1");
   return true;
+}
+
+unsigned int BootControl::GetActiveBootSlot() {
+  bootloader_control bootctrl;
+  if (!LoadBootloaderControl(misc_device_, &bootctrl)) return false;
+
+  // Use the current slot by default.
+  unsigned int active_boot_slot = current_slot_;
+  unsigned int max_priority = bootctrl.slot_info[current_slot_].priority;
+  // Find the slot with the highest priority.
+  for (unsigned int i = 0; i < num_slots_; ++i) {
+    if (bootctrl.slot_info[i].priority > max_priority) {
+      max_priority = bootctrl.slot_info[i].priority;
+      active_boot_slot = i;
+    }
+  }
+
+  return active_boot_slot;
 }
 
 bool BootControl::SetActiveBootSlot(unsigned int slot) {
@@ -412,32 +655,8 @@ bool BootControl::SetActiveBootSlot(unsigned int slot) {
   }
 
   bootloader_control bootctrl;
-  bool ret;
+  bool ret = true;
   if (!LoadBootloaderControl(misc_device_, &bootctrl)) return false;
-
-  // Set every other slot with a lower priority than the new "active" slot.
-  const unsigned int kActivePriority = 15;
-  const unsigned int kActiveTries = 6;
-  for (unsigned int i = 0; i < num_slots_; ++i) {
-    if (i != slot) {
-      if (bootctrl.slot_info[i].priority >= kActivePriority)
-        bootctrl.slot_info[i].priority = kActivePriority - 1;
-    }
-  }
-
-  // Note that setting a slot as active doesn't change the successful bit.
-  // The successful bit will only be changed by setSlotAsUnbootable().
-  bootctrl.slot_info[slot].priority = kActivePriority;
-  bootctrl.slot_info[slot].tries_remaining = kActiveTries;
-
-  // Setting the current slot as active is a way to revert the operation that
-  // set *another* slot as active at the end of an updater. This is commonly
-  // used to cancel the pending update. We should only reset the verity_corrupted
-  // bit when attempting a new slot, otherwise the verity bit on the current
-  // slot would be flip.
-  if (slot != current_slot_) bootctrl.slot_info[slot].verity_corrupted = 0;
-
-  ret = UpdateAndSaveBootloaderControl(misc_device_, &bootctrl);
 
   if (ret) {
     /* check if called from update_engine or vts test,
@@ -448,12 +667,60 @@ bool BootControl::SetActiveBootSlot(unsigned int slot) {
     LOG(INFO) << "device_prop: " << device_prop;
     LOG(INFO) << "fastbootd_prop: " << fastbootd_prop;
 
+    int gpt_mode = get_gpt_mode();
+    if (gpt_mode < 0) {
+        LOG(INFO) << "get gpt mode failed";
+        return false;
+    }
+
     if (device_prop != "generic" && fastbootd_prop != "running") {
-      ret = write_bootloader_img(slot);
-      if (ret) {
-        ret = SetBootloaderIndex();
+      if (gpt_mode == 0) {
+        LOG(INFO) << "set bootloader index for gpt";
+        char* write_boot = get_bootloader_env_common("write_boot");
+        if (write_boot && (!strcmp(write_boot, "0"))) {
+            LOG(INFO) << "need to set write_boot 1";
+            set_bootloader_env_common("write_boot", "1");
+        } else {
+            LOG(INFO) << "need't to set write_boot, now write_boot is NULL or not equal 0 ";
+        }
+      } else {
+        LOG(INFO) << "write bootloader in dts mode";
+        ret = write_bootloader_img(slot, false);
+        if (ret)
+          ret = SetBootloaderIndex("0");
+        /* when using dts, the dt will be updated in uboot */
+        LOG(INFO) << "update dt in uboot";
+        set_bootloader_env_common("update_dt", "1");
+        char* update_dt = get_bootloader_env_common("update_dt");
+        LOG(INFO) << "update_dt = " << update_dt;
       }
     }
+  }
+
+  // Set every other slot with a lower priority than the new "active" slot.
+  if (ret) {
+    const unsigned int kActivePriority = 15;
+    const unsigned int kActiveTries = 6;
+    for (unsigned int i = 0; i < num_slots_; ++i) {
+      if (i != slot) {
+        if (bootctrl.slot_info[i].priority >= kActivePriority)
+          bootctrl.slot_info[i].priority = kActivePriority - 1;
+      }
+    }
+
+    // Note that setting a slot as active doesn't change the successful bit.
+    // The successful bit will only be changed by setSlotAsUnbootable().
+    bootctrl.slot_info[slot].priority = kActivePriority;
+    bootctrl.slot_info[slot].tries_remaining = kActiveTries;
+
+    // Setting the current slot as active is a way to revert the operation that
+    // set *another* slot as active at the end of an updater. This is commonly
+    // used to cancel the pending update. We should only reset the verity_corrupted
+    // bit when attempting a new slot, otherwise the verity bit on the current
+    // slot would be flip.
+    if (slot != current_slot_) bootctrl.slot_info[slot].verity_corrupted = 0;
+
+    ret = UpdateAndSaveBootloaderControl(misc_device_, &bootctrl);
   }
 
   return ret;

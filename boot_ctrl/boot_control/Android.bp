@@ -13,6 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //
+
 package {
     // See: http://go/android-license-faq
     // A large-scale-change added 'default_applicable_licenses' to import
@@ -23,7 +24,7 @@ package {
 }
 
 cc_defaults {
-    name: "libboot_control_defaults_droidlogic_1.1",
+    name: "libboot_control_defaults_droidlogic",
     vendor: true,
     recovery_available: true,
     relative_install_path: "hw",
@@ -47,11 +48,15 @@ cc_defaults {
 }
 
 cc_library_static {
-    name: "libboot_control_droidlogic_1.1",
-    defaults: ["libboot_control_defaults_droidlogic_1.1"],
+    name: "libboot_control_droidlogic",
+    defaults: ["libboot_control_defaults_droidlogic"],
     export_include_dirs: ["include"],
+    vendor: true,
 
-    srcs: ["libboot_control.cpp"],
+    srcs: [
+        "libboot_control.cpp",
+        "systemcontrol.cpp",
+    ],
     static_libs: [
         "libcutils",
         "libz",
@@ -60,24 +65,39 @@ cc_library_static {
         "libsystemcontrol_static",
         "libmeson_display_adapter_local_static",
     ],
+    product_variables: {
+        platform_sdk_version: {
+            cflags: ["-DPLATFORM_SDK_VERSION=%d"],
+        }
+    },
+
     shared_libs: [
         "liblog",
+        "libcutils",
+        "libutils",
+
+        "libz",
+        "libsystemcontrolservice",
+        "vendor.amlogic.hardware.systemcontrol@1.0",
+        "vendor.amlogic.hardware.systemcontrol@1.1",
+        "android.hardware.boot-V1-ndk",
     ],
+
     include_dirs: [
-        "vendor/amlogic/common/frameworks/services/systemcontrol",
+         "vendor/amlogic/common/frameworks/services/systemcontrol",
     ],
 }
 
-cc_library_shared {
-    name: "bootctrl.default_droidlogic_1.1",
-    defaults: ["libboot_control_defaults_droidlogic_1.1"],
-
-    srcs: ["legacy_boot_control.cpp"],
-
-    static_libs: [
-        "libboot_control_droidlogic_1.1",
-    ],
-    shared_libs: [
-        "libhardware",
-    ],
-}
+//cc_library_shared {
+//    name: "bootctrl.default_droidlogic",
+//    defaults: ["libboot_control_defaults_droidlogic"],
+//
+//    srcs: ["legacy_boot_control.cpp"],
+//
+//    static_libs: [
+//        "libboot_control_droidlogic",
+//    ],
+//    shared_libs: [
+//        "libhardware",
+//    ],
+//}

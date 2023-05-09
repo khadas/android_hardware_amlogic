@@ -20,14 +20,18 @@
 
 #include <android/hardware/boot/1.1/IBootControl.h>
 
+
 namespace android {
 namespace bootable {
 
 // Helper library to implement the IBootControl HAL using the misc partition.
 class BootControl {
-  using MergeStatus = ::android::hardware::boot::V1_1::MergeStatus;
+
+
 
  public:
+  using MergeStatus = ::android::hardware::boot::V1_1::MergeStatus;
+
   bool Init();
   unsigned int GetNumberSlots();
   unsigned int GetCurrentSlot();
