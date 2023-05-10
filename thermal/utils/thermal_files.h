@@ -20,11 +20,14 @@
 #include <string>
 #include <unordered_map>
 
+namespace aidl {
 namespace android {
 namespace hardware {
 namespace thermal {
-namespace V2_0 {
-namespace implementation {
+namespace impl {
+namespace droidlogic {
+
+
 
 class ThermalFiles {
   public:
@@ -46,10 +49,11 @@ class ThermalFiles {
     std::unordered_map<std::string, std::string> thermal_name_to_path_map_;
 };
 
-}  // namespace implementation
-}  // namespace V2_0
+}  // namespace droidlogic
+}  // namespace impl
 }  // namespace thermal
 }  // namespace hardware
 }  // namespace android
+}  //aidl
 
 #endif  // THERMAL_UTILS_THERMAL_FILES_H_

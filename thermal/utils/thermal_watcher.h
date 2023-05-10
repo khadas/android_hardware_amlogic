@@ -31,22 +31,26 @@
 #include <utils/Looper.h>
 #include <utils/Thread.h>
 
+
+namespace aidl {
 namespace android {
 namespace hardware {
 namespace thermal {
-namespace V2_0 {
-namespace implementation {
+namespace impl {
+namespace droidlogic {
 
-using android::base::unique_fd;
+
+using ::android::base::unique_fd;
 using WatcherCallback = std::function<bool(const std::set<std::string> &name)>;
+
 
 // A helper class for monitoring thermal files changes.
 class ThermalWatcher : public ::android::Thread {
   public:
-    ThermalWatcher(const WatcherCallback &cb)
+    explicit ThermalWatcher(const WatcherCallback &cb)
         : Thread(false),
           cb_(cb),
-          looper_(new Looper(true)),
+          looper_(new ::android::Looper(true)),
           thermal_triggered_(false),
           is_polling_(false) {}
     ~ThermalWatcher() = default;
@@ -78,7 +82,7 @@ class ThermalWatcher : public ::android::Thread {
 
     // Maps watcher filer descriptor to watched file path.
     std::unordered_map<int, std::string> watch_to_file_path_map_;
-    std::vector<android::base::unique_fd> fds_;
+    std::vector<::android::base::unique_fd> fds_;
 
     // The callback function. Called whenever thermal uevent is seen.
     // The function passed in should expect a string in the form (type).
@@ -86,10 +90,10 @@ class ThermalWatcher : public ::android::Thread {
     // Callback will return thermal trigger status for next polling decision.
     const WatcherCallback cb_;
 
-    sp<Looper> looper_;
+    ::android::sp<::android::Looper> looper_;
 
     // For uevent socket registration.
-    android::base::unique_fd uevent_fd_;
+    ::android::base::unique_fd uevent_fd_;
     // Sensor list which monitor flag is enabled.
     std::set<std::string> monitored_sensors_;
     // Flag to point out if any sensor across the first threshold.
@@ -98,10 +102,11 @@ class ThermalWatcher : public ::android::Thread {
     bool is_polling_;
 };
 
-}  // namespace implementation
-}  // namespace V2_0
+}  // namespace droidlogic
+}  // namespace impl
 }  // namespace thermal
 }  // namespace hardware
 }  // namespace android
+}  //aidl
 
 #endif  // THERMAL_UTILS_THERMAL_WATCHER_H_

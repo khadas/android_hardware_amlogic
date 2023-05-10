@@ -20,24 +20,34 @@
 #include <map>
 #include <string>
 
-#include <android/hardware/thermal/2.0/IThermal.h>
+//#include <android/hardware/thermal/2.0/IThermal.h>
 
+#include <aidl/android/hardware/thermal/CoolingType.h>
+#include <aidl/android/hardware/thermal/TemperatureType.h>
+#include <aidl/android/hardware/thermal/ThrottlingSeverity.h>
+
+
+namespace aidl {
 namespace android {
 namespace hardware {
 namespace thermal {
-namespace V2_0 {
-namespace implementation {
+namespace impl {
+namespace droidlogic {
 
-using ::android::hardware::hidl_enum_range;
-using ::android::hardware::thermal::V2_0::CoolingType;
-using TemperatureType_2_0 = ::android::hardware::thermal::V2_0::TemperatureType;
-using ::android::hardware::thermal::V2_0::ThrottlingSeverity;
-constexpr size_t kThrottlingSeverityCount = std::distance(
-    hidl_enum_range<ThrottlingSeverity>().begin(), hidl_enum_range<ThrottlingSeverity>().end());
+
+//using ::android::hardware::hidl_enum_range;
+//using ::android::hardware::thermal::V2_0::CoolingType;
+//using TemperatureType_2_0 = ::android::hardware::thermal::V2_0::TemperatureType;
+//using ::android::hardware::thermal::V2_0::ThrottlingSeverity;
+
+constexpr size_t kThrottlingSeverityCount =
+    std::distance(::ndk::enum_range<ThrottlingSeverity>().begin(),
+                    ::ndk::enum_range<ThrottlingSeverity>().end());
+
 using ThrottlingArray = std::array<float, static_cast<size_t>(kThrottlingSeverityCount)>;
 
 struct SensorInfo {
-    TemperatureType_2_0 type;
+    TemperatureType type;
     ThrottlingArray hot_thresholds;
     ThrottlingArray cold_thresholds;
     ThrottlingArray hot_hysteresis;
@@ -50,10 +60,12 @@ struct SensorInfo {
 std::map<std::string, SensorInfo> ParseSensorInfo(std::string_view config_path);
 std::map<std::string, CoolingType> ParseCoolingDevice(std::string_view config_path);
 
-}  // namespace implementation
-}  // namespace V2_0
+}  // namespace droidlogic
+}  // namespace impl
 }  // namespace thermal
 }  // namespace hardware
 }  // namespace android
+}  //aidl
+
 
 #endif  // THERMAL_UTILS_CONFIG_PARSER_H__

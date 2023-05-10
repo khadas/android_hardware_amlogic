@@ -24,11 +24,13 @@
 #include <android-base/strings.h>
 #include "thermal_files.h"
 
+namespace aidl {
 namespace android {
 namespace hardware {
 namespace thermal {
-namespace V2_0 {
-namespace implementation {
+namespace impl {
+namespace droidlogic {
+
 
 std::string ThermalFiles::getThermalFilePath(std::string_view thermal_name) const {
     auto sensor_itr = thermal_name_to_path_map_.find(thermal_name.data());
@@ -60,8 +62,10 @@ bool ThermalFiles::readThermalFile(std::string_view thermal_name, std::string *d
     return true;
 }
 
-}  // namespace implementation
-}  // namespace V2_0
+}  // namespace droidlogic
+}  // namespace impl
 }  // namespace thermal
 }  // namespace hardware
 }  // namespace android
+}  //aidl
+

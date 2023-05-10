@@ -29,11 +29,14 @@
 
 #include "thermal_watcher.h"
 
+namespace aidl {
 namespace android {
 namespace hardware {
 namespace thermal {
-namespace V2_0 {
-namespace implementation {
+namespace impl {
+namespace droidlogic {
+
+
 
 using std::chrono_literals::operator""ms;
 
@@ -43,14 +46,14 @@ void ThermalWatcher::registerFilesToWatch(const std::set<std::string> &sensors_t
     int flags = O_RDONLY | O_CLOEXEC | O_BINARY;
 
     for (const auto &path : cdev_to_watch) {
-        android::base::unique_fd fd(TEMP_FAILURE_RETRY(open(path.c_str(), flags)));
+        ::android::base::unique_fd fd(TEMP_FAILURE_RETRY(open(path.c_str(), flags)));
         if (fd == -1) {
             PLOG(ERROR) << "failed to watch: " << path;
             continue;
         }
         watch_to_file_path_map_.emplace(fd.get(), path);
         fds_.emplace_back(std::move(fd));
-        looper_->addFd(fd.get(), 0, Looper::EVENT_INPUT, nullptr, nullptr);
+        looper_->addFd(fd.get(), 0, ::android::Looper::EVENT_INPUT, nullptr, nullptr);
     }
     monitored_sensors_.insert(sensors_to_watch.begin(), sensors_to_watch.end());
     if (!uevent_monitor) {
@@ -70,15 +73,15 @@ void ThermalWatcher::registerFilesToWatch(const std::set<std::string> &sensors_t
         return ;
     }
 
-    looper_->addFd(uevent_fd_.get(), 0, Looper::EVENT_INPUT, nullptr, nullptr);
+    looper_->addFd(uevent_fd_.get(), 0, ::android::Looper::EVENT_INPUT, nullptr, nullptr);
     is_polling_ = false;
     thermal_triggered_ = true;
 }
 
 bool ThermalWatcher::startWatchingDeviceFiles() {
     if (cb_) {
-        auto ret = this->run("FileWatcherThread", PRIORITY_HIGHEST);
-        if (ret != NO_ERROR) {
+        auto ret = this->run("FileWatcherThread", ::android::PRIORITY_HIGHEST);
+        if (ret != ::android::NO_ERROR) {
             LOG(ERROR) << "ThermalWatcherThread start fail";
             return false;
         } else {
@@ -168,8 +171,10 @@ bool ThermalWatcher::threadLoop() {
     return true;
 }
 
-}  // namespace implementation
-}  // namespace V2_0
+}  // namespace droidlogic
+}  // namespace impl
 }  // namespace thermal
 }  // namespace hardware
 }  // namespace android
+}  //aidl
+

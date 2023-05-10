@@ -27,25 +27,21 @@
 
 #include "config_parser.h"
 
-
+namespace aidl {
 namespace android {
 namespace hardware {
 namespace thermal {
-namespace V2_0 {
-namespace implementation {
-
-using ::android::hardware::hidl_enum_range;
-using ::android::hardware::thermal::V2_0::toString;
-using TemperatureType_2_0 = ::android::hardware::thermal::V2_0::TemperatureType;
+namespace impl {
+namespace droidlogic {
 
 namespace {
 
 template <typename T>
 // Return false when failed parsing
 bool getTypeFromString(std::string_view str, T *out) {
-    auto types = hidl_enum_range<T>();
+    auto types = ::ndk::enum_range<T>();
     for (const auto &type : types) {
-        if (toString(type) == str) {
+        if (::aidl::android::hardware::thermal::toString(type) == str) {
             *out = type;
             return true;
         }
@@ -117,7 +113,7 @@ std::map<std::string, SensorInfo> ParseSensorInfo(std::string_view config_path) 
 
         std::string sensor_type_str = sensors[i]["Type"].asString();
         LOG(INFO) << "Sensor[" << name << "]'s Type: " << sensor_type_str;
-        TemperatureType_2_0 sensor_type;
+        TemperatureType sensor_type;
 
         if (!getTypeFromString(sensor_type_str, &sensor_type)) {
             LOG(ERROR) << "Invalid "
@@ -309,8 +305,10 @@ std::map<std::string, CoolingType> ParseCoolingDevice(std::string_view config_pa
     return cooling_devices_parsed;
 }
 
-}  // namespace implementation
-}  // namespace V2_0
+}  // namespace droidlogic
+}  // namespace impl
 }  // namespace thermal
 }  // namespace hardware
 }  // namespace android
+}  //aidl
+

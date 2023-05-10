@@ -1,0 +1,4 @@
+service vendor.thermal /vendor/bin/hw/android.hardware.thermal-service.droidlogic
+    class hal
+    user root
+    group system

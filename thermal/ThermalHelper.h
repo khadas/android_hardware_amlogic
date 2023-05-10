@@ -40,33 +40,22 @@
 #include <unordered_map>
 #include <vector>
 
-#include <android/hardware/thermal/2.0/IThermal.h>
+#include <aidl/android/hardware/thermal/IThermal.h>
+
 
 #include "utils/config_parser.h"
 #include "utils/thermal_files.h"
 #include "utils/thermal_watcher.h"
 
+namespace aidl {
 namespace android {
 namespace hardware {
 namespace thermal {
-namespace V2_0 {
-namespace implementation {
+namespace impl {
+namespace droidlogic {
 
-using ::android::hardware::hidl_vec;
-using ::android::hardware::thermal::V1_0::CpuUsage;
-using ::android::hardware::thermal::V2_0::CoolingType;
-using ::android::hardware::thermal::V2_0::IThermal;
-using CoolingDevice_1_0 = ::android::hardware::thermal::V1_0::CoolingDevice;
-using CoolingDevice_2_0 = ::android::hardware::thermal::V2_0::CoolingDevice;
-using Temperature_1_0 = ::android::hardware::thermal::V1_0::Temperature;
-using Temperature_2_0 = ::android::hardware::thermal::V2_0::Temperature;
-using TemperatureType_1_0 = ::android::hardware::thermal::V1_0::TemperatureType;
-using TemperatureType_2_0 = ::android::hardware::thermal::V2_0::TemperatureType;
-using ::android::hardware::thermal::V2_0::TemperatureThreshold;
-using ::android::hardware::thermal::V2_0::ThrottlingSeverity;
-
-using NotificationCallback = std::function<void(const std::vector<Temperature_2_0> &temps)>;
-using NotificationTime = std::chrono::time_point<std::chrono::steady_clock>;
+using NotificationCallback = std::function<void(const std::vector<Temperature> &temps)>;
+using ::android::sp;
 
 struct SensorStatus {
     ThrottlingSeverity severity;
@@ -76,17 +65,15 @@ struct SensorStatus {
 
 class ThermalHelper {
   public:
-    ThermalHelper(const NotificationCallback &cb);
+    explicit ThermalHelper(const NotificationCallback &cb);
     ~ThermalHelper() = default;
 
-    bool fillTemperatures(hidl_vec<Temperature_1_0> *temperatures) const;
-    bool fillCurrentTemperatures(bool filterType, TemperatureType_2_0 type,
-                                 hidl_vec<Temperature_2_0> *temperatures) const;
-    bool fillTemperatureThresholds(bool filterType, TemperatureType_2_0 type,
-                                   hidl_vec<TemperatureThreshold> *thresholds) const;
+    bool fillCurrentTemperatures(bool filterType,    TemperatureType type,
+                                   std::vector<Temperature> *temperatures) const;
+    bool fillTemperatureThresholds(bool filterType, TemperatureType type,
+                                   std::vector<TemperatureThreshold> *thresholds) const;
     bool fillCurrentCoolingDevices(bool filterType, CoolingType type,
-                                   hidl_vec<CoolingDevice_2_0> *coolingdevices) const;
-    bool fillCpuUsages(hidl_vec<CpuUsage> *cpu_usages) const;
+                                    std::vector<CoolingDevice> *coolingdevices) const;
 
     // Dissallow copy and assign.
     ThermalHelper(const ThermalHelper &) = delete;
@@ -95,13 +82,17 @@ class ThermalHelper {
     bool isInitializedOk() const { return is_initialized_; }
 
     // Read the temperature of a single sensor.
-    bool readTemperature(std::string_view sensor_name, Temperature_1_0 *out) const;
+
     bool readTemperature(
-            std::string_view sensor_name, Temperature_2_0 *out,
-            std::pair<ThrottlingSeverity, ThrottlingSeverity> *throttling_status = nullptr) const;
+              std::string_view sensor_name, Temperature *out,
+              std::pair<ThrottlingSeverity, ThrottlingSeverity> *trotting_status = nullptr) const;
+
+
     bool readTemperatureThreshold(std::string_view sensor_name, TemperatureThreshold *out) const;
-    // Read the value of a single cooling device.
-    bool readCoolingDevice(std::string_view cooling_device, CoolingDevice_2_0 *out) const;
+
+
+    bool readCoolingDevice(std::string_view cooling_device, CoolingDevice *out) const;
+
     // Get SensorInfo Map
     const std::map<std::string, SensorInfo> &GetSensorInfoMap() const { return sensor_info_map_; }
 
@@ -131,10 +122,12 @@ class ThermalHelper {
     std::map<std::string, SensorStatus> sensor_status_map_;
 };
 
-}  // namespace implementation
-}  // namespace V2_0
+}  // namespace droidlogic
+}  // namespace impl
 }  // namespace thermal
 }  // namespace hardware
 }  // namespace android
+}  //aidl
+
 
 #endif  // THERMAL_THERMAL_HELPER_H__
