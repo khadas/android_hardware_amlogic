@@ -32,8 +32,8 @@ TEEC_Result aml_gatekeeper_connect(TEEC_Context *c, TEEC_Session *s) {
     TEEC_UUID svc_id = TA_GATEKEEPER_UUID;
     TEEC_Operation operation;
     uint32_t err_origin;
-    //struct timespec time;
-    //uint64_t millis = 0;
+    struct timespec time;
+    uint64_t millis = 0;
 
     memset(&operation, 0, sizeof(operation));
 
@@ -56,14 +56,14 @@ TEEC_Result aml_gatekeeper_connect(TEEC_Context *c, TEEC_Session *s) {
         return result;
     }
 
-    /*int res = clock_gettime(CLOCK_BOOTTIME, &time);
+    int res = clock_gettime(CLOCK_BOOTTIME, &time);
     if (res < 0)
         millis = 0;
     else
-        millis = ((uint64_t)time.tv_sec * 1000) + (time.tv_nsec / 1000 / 1000);*/
+        millis = ((uint64_t)time.tv_sec * 1000) + (time.tv_nsec / 1000 / 1000);
 
     /* Init TA */
-    /*operation.paramTypes = TEEC_PARAM_TYPES(
+    operation.paramTypes = TEEC_PARAM_TYPES(
             TEEC_VALUE_INPUT, TEEC_NONE,
             TEEC_NONE, TEEC_NONE);
 
@@ -71,11 +71,11 @@ TEEC_Result aml_gatekeeper_connect(TEEC_Context *c, TEEC_Session *s) {
     operation.params[0].value.b = (millis & 0xffffffff);
 
     result = TEEC_InvokeCommand(s,
-            KM_TA_INIT,
+            GK_TA_INIT,
             &operation,
             NULL);
 
-    ALOGD("create id: %d, ctx: %p, ctx: %p\n", s->session_id, s->ctx, c);*/
+    ALOGD("create id: %d, ctx: %p, ctx: %p\n", s->session_id, s->ctx, c);
     return result;
 }
 
