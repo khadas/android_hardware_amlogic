@@ -18,10 +18,12 @@
 
 #include "include/UsbGadgetCommon.h"
 
+namespace aidl {
 namespace android {
 namespace hardware {
 namespace usb {
 namespace gadget {
+
 
 static volatile bool gadgetPullup;
 
@@ -267,3 +269,4 @@ void MonitorFfs::registerFunctionsAppliedCallback(void (*callback)(bool function
 }  // namespace usb
 }  // namespace hardware
 }  // namespace android
+}

@@ -14,18 +14,19 @@
  * limitations under the License.
  */
 
-#ifndef ANDROID_HARDWARE_USB_GADGET_V1_2_USBGADGET_H
-#define ANDROID_HARDWARE_USB_GADGET_V1_2_USBGADGET_H
+#pragma once
 
-#include <UsbGadgetCommon.h>
 #include <android-base/file.h>
 #include <android-base/properties.h>
-#include <android-base/strings.h>
 #include <android-base/unique_fd.h>
-#include <android/hardware/usb/gadget/1.2/IUsbGadget.h>
-#include <android/hardware/usb/gadget/1.2/types.h>
-#include <hidl/MQDescriptor.h>
-#include <hidl/Status.h>
+#include <android-base/parseint.h>
+#include <android-base/strings.h>
+#include <aidl/android/hardware/usb/gadget/BnUsbGadget.h>
+#include <aidl/android/hardware/usb/gadget/BnUsbGadgetCallback.h>
+#include <aidl/android/hardware/usb/gadget/GadgetFunction.h>
+#include <aidl/android/hardware/usb/gadget/IUsbGadget.h>
+#include <aidl/android/hardware/usb/gadget/IUsbGadgetCallback.h>
+#include <sched.h>
 #include <sys/epoll.h>
 #include <sys/eventfd.h>
 #include <utils/Log.h>
@@ -35,74 +36,88 @@
 #include <string>
 #include <thread>
 
+#include <UsbGadgetCommon.h>
+
+namespace aidl {
 namespace android {
 namespace hardware {
 namespace usb {
 namespace gadget {
-namespace V1_2 {
-namespace implementation {
 
-using ::android::sp;
+using ::aidl::android::hardware::usb::gadget::GadgetFunction;
+using ::aidl::android::hardware::usb::gadget::IUsbGadgetCallback;
+using ::aidl::android::hardware::usb::gadget::IUsbGadget;
+using ::aidl::android::hardware::usb::gadget::Status;
+using ::aidl::android::hardware::usb::gadget::UsbSpeed;
 using ::android::base::GetProperty;
-using ::android::base::ReadFileToString;
 using ::android::base::SetProperty;
-using ::android::base::Trim;
+using ::android::base::ParseUint;
 using ::android::base::unique_fd;
+using ::android::base::ReadFileToString;
+using ::android::base::Trim;
 using ::android::base::WriteStringToFile;
-using ::android::hardware::hidl_array;
-using ::android::hardware::hidl_memory;
-using ::android::hardware::hidl_string;
-using ::android::hardware::hidl_vec;
-using ::android::hardware::Return;
-using ::android::hardware::Void;
-using ::android::hardware::usb::gadget::addAdb;
-using ::android::hardware::usb::gadget::addEpollFd;
-using ::android::hardware::usb::gadget::getVendorFunctions;
-using ::android::hardware::usb::gadget::kDebug;
-using ::android::hardware::usb::gadget::kDisconnectWaitUs;
-using ::android::hardware::usb::gadget::linkFunction;
-using ::android::hardware::usb::gadget::MonitorFfs;
-using ::android::hardware::usb::gadget::resetGadget;
-using ::android::hardware::usb::gadget::setVidPid;
-using ::android::hardware::usb::gadget::unlinkFunctions;
+using ::ndk::ScopedAStatus;
+using ::std::shared_ptr;
 using ::std::string;
 
-//constexpr char kGadgetName[] = "ff400000.dwc2_a";
+
+//constexpr char kGadgetName[] = "11110000.dwc3";
+constexpr char kProcInterruptsPath[] = "/proc/interrupts";
+constexpr char kProcIrqPath[] = "/proc/irq/";
+constexpr char kSmpAffinityList[] = "/smp_affinity_list";
+/*#ifndef UDC_PATH
+#define UDC_PATH "/sys/class/udc/11110000.dwc3/"
+#endif*/
 //static MonitorFfs monitorFfs(kGadgetName);
 
-struct UsbGadget : public IUsbGadget {
+//#define SPEED_PATH UDC_PATH "current_speed"
+
+#define BIG_CORE "6"
+#define MEDIUM_CORE "4"
+
+#define POWER_SUPPLY_PATH	"/sys/class/power_supply/usb/"
+#define USB_PORT0_PATH		"/sys/class/typec/port0/"
+
+#define CURRENT_MAX_PATH			POWER_SUPPLY_PATH	"current_max"
+#define CURRENT_USB_TYPE_PATH			POWER_SUPPLY_PATH	"usb_type"
+#define CURRENT_USB_POWER_OPERATION_MODE_PATH	USB_PORT0_PATH		"power_operation_mode"
+
+struct UsbGadget : public BnUsbGadget {
     UsbGadget();
     ~UsbGadget();
 
     // Makes sure that only one request is processed at a time.
     std::mutex mLockSetCurrentFunction;
-    uint64_t mCurrentUsbFunctions;
+    std::string mGadgetIrqPath;
+    long mCurrentUsbFunctions;
     bool mCurrentUsbFunctionsApplied;
     UsbSpeed mUsbSpeed;
 
-    Return<void> setCurrentUsbFunctions(uint64_t functions,
-                                        const sp<V1_0::IUsbGadgetCallback>& callback,
-                                        uint64_t timeout) override;
+    ScopedAStatus setCurrentUsbFunctions(int64_t functions,
+            const shared_ptr<IUsbGadgetCallback> &callback,
+            int64_t timeoutMs, int64_t in_transactionId) override;
 
-    Return<void> getCurrentUsbFunctions(const sp<V1_0::IUsbGadgetCallback>& callback) override;
+    ScopedAStatus getCurrentUsbFunctions(const shared_ptr<IUsbGadgetCallback> &callback,
+	    int64_t in_transactionId) override;
 
-    Return<Status> reset() override;
+    ScopedAStatus reset(const shared_ptr<IUsbGadgetCallback> &callback,
+            int64_t in_transactionId) override;
 
-    Return<void> getUsbSpeed(const sp<V1_2::IUsbGadgetCallback>& callback) override;
+    ScopedAStatus getUsbSpeed(const shared_ptr<IUsbGadgetCallback> &callback,
+	    int64_t in_transactionId) override;
 
   private:
+    Status tearDownGadget();
+    Status getUsbGadgetIrqPath();
+    Status setupFunctions(long functions, const shared_ptr<IUsbGadgetCallback> &callback,
+            uint64_t timeout, int64_t in_transactionId);
     std::string mUsbControllerName;
     MonitorFfs *pMonitorFfs;
-    V1_0::Status tearDownGadget();
-    V1_0::Status setupFunctions(uint64_t functions, const sp<V1_0::IUsbGadgetCallback>& callback,
-                                uint64_t timeout);
+
 };
 
-}  // namespace implementation
-}  // namespace V1_2
 }  // namespace gadget
 }  // namespace usb
 }  // namespace hardware
 }  // namespace android
-
-#endif  // ANDROID_HARDWARE_USB_V1_2_USBGADGET_H
+}  // aidl

@@ -18,10 +18,12 @@
 
 #include "include/UsbGadgetCommon.h"
 
+namespace aidl {
 namespace android {
 namespace hardware {
 namespace usb {
 namespace gadget {
+
 
 int unlinkFunctions(const char* path) {
     DIR* config = opendir(path);
@@ -199,3 +201,4 @@ Status addAdb(MonitorFfs* monitorFfs, int* functionCount) {
 }  // namespace usb
 }  // namespace hardware
 }  // namespace android
+}

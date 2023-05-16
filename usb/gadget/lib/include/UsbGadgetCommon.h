@@ -21,8 +21,8 @@
 #include <android-base/properties.h>
 #include <android-base/unique_fd.h>
 
-#include <android/hardware/usb/gadget/1.2/IUsbGadget.h>
-#include <android/hardware/usb/gadget/1.2/types.h>
+//#include <android/hardware/usb/gadget/1.2/IUsbGadget.h>
+//#include <android/hardware/usb/gadget/1.2/types.h>
 
 #include <dirent.h>
 #include <fcntl.h>
@@ -41,10 +41,18 @@
 #include <string>
 #include <thread>
 
+#include <aidl/android/hardware/usb/gadget/BnUsbGadget.h>
+#include <aidl/android/hardware/usb/gadget/BnUsbGadgetCallback.h>
+#include <aidl/android/hardware/usb/gadget/GadgetFunction.h>
+#include <aidl/android/hardware/usb/gadget/IUsbGadget.h>
+#include <aidl/android/hardware/usb/gadget/IUsbGadgetCallback.h>
+
+namespace aidl {
 namespace android {
 namespace hardware {
 namespace usb {
 namespace gadget {
+
 
 constexpr int kBufferSize = 512;
 constexpr int kMaxFilePathLength = 256;
@@ -79,8 +87,8 @@ using ::android::base::GetProperty;
 using ::android::base::SetProperty;
 using ::android::base::unique_fd;
 using ::android::base::WriteStringToFile;
-using ::android::hardware::usb::gadget::V1_0::Status;
-using ::android::hardware::usb::gadget::V1_2::GadgetFunction;
+using ::aidl::android::hardware::usb::gadget::GadgetFunction;
+using ::aidl::android::hardware::usb::gadget::Status;
 
 using ::std::lock_guard;
 using ::std::move;
@@ -176,4 +184,5 @@ Status resetGadget();
 }  // namespace usb
 }  // namespace hardware
 }  // namespace android
+}
 #endif
