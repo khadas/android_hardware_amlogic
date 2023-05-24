@@ -180,24 +180,30 @@ int mm_debug_port_get_data(int dev, char *buf, u32 buf_size)
 			struct port_data_packet pkt;
 
 			memcpy(&pkt, buf, sizeof(pkt));
-			/*
-			printf("pkt[%d][%d](%d): 0x%x, size 0x%x\n",
-				pkt.id, pkt.type, sum_pkt[pkt.id][pkt.type], pkt.header, pkt.data_size);
-			*/
-			printf("pkt[%d][%d](%d): size 0x%x\n",
-				pkt.id, pkt.type, sum_pkt[pkt.id][pkt.type], pkt.data_size);
 
 			if ((pkt.data_size > 0) &&
 				((pkt.header != PACKET_HEADER) ||
 				(pkt.id >= MAX_INSTANCE_NUM) ||
-				(pkt.type > TYPE_MAX))) {
+				(pkt.type >= TYPE_MAX))) {
 
 				ret = ioctl(dev, VDBG_IOC_BUF_RESET);
 				if (ret < 0)
 					printf("VDBG_IOC_BUF_RESET failed\n");
 				continue;
 			}
+			/*
+			printf("pkt[%d][%d](%d): 0x%x, size 0x%x\n",
+				pkt.id, pkt.type, sum_pkt[pkt.id][pkt.type], pkt.header, pkt.data_size);
+			*/
+			/* coverity[tainted_data:SUPPRESS] */
+			printf("pkt[%d][%d](%d): size 0x%x\n",
+				pkt.id, pkt.type, sum_pkt[pkt.id][pkt.type], pkt.data_size);
 
+			/*
+			 * if pkt.type > 4, buffer will be reset and
+			 * continue to reread buf.
+			 */
+			/* coverity[OVERRUN:SUPPRESS] */
 			sum_pkt[pkt.id][pkt.type]++;
 
 			if (pkt.type == TYPE_INFO) {
@@ -229,6 +235,7 @@ int mm_debug_port_get_data(int dev, char *buf, u32 buf_size)
 #endif
 				} else if (fd <= 0) {
 					memset(file_name, 0, sizeof(file_name));
+					/* coverity[OVERRUN:SUPPRESS] */
 					snprintf(file_name, sizeof(file_name), "%s/%s.%s",
 						DUMP_FILE_PATH, file_str, file_ext[pkt.type]);
 					memcpy(last_str, file_str, sizeof(file_str));
@@ -238,11 +245,13 @@ int mm_debug_port_get_data(int dev, char *buf, u32 buf_size)
 						printf("create yuv %s failed, err %d\n", file_name, errno);
 						continue;
 					}
+					/* coverity[OVERRUN:SUPPRESS] */
 					dump_fd[pkt.id][pkt.type] = fd;
 
 					printf("create file %s success\n", file_name);
 				}
 
+				/* coverity[tainted_data:SUPPRESS] */
 				debug_port_save_file_append(fd, buf + sizeof(pkt), pkt.data_size);
 			}
 		}

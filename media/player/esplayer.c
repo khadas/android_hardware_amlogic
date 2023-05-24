@@ -24,7 +24,7 @@
 #include <stdbool.h>
 #include <ctype.h>
 #include <unistd.h>
-#include <dec_slt_res.h>
+#include "dec_slt_res.h"
 #include "vcodec.h"
 
 //#define DEBUG_WITH_BLOCK
@@ -43,6 +43,7 @@
 #define TEST_CASE_HEVC_AV1 3
 
 #define RETRY_TIME     3
+#define BUFFER_SIZE (1024*1024*2)
 
 
 #define LPRINT0
@@ -148,6 +149,7 @@ int set_display_axis(int recovery)
                 close(fd);
                 return -1;
             }
+            str[127] = '\0';
             printf("read axis %s, length %zu\n", str, strlen(str));
             count = parse_para(str, 8, axis);
         }
@@ -740,8 +742,9 @@ int parser_frame(
 
 bool is_video_file_type_ivf(FILE *fp, int video_type, char *buffer)
 {
+    int ret;
     if (fp && video_type == VFORMAT_AV1) {
-        fread(buffer, 1, 4, fp);
+        ret = fread(buffer, 1, 4, fp);
         fseek(fp, 0, SEEK_SET);
         if ((buffer[0] == 0x44) &&
             (buffer[1] == 0x4B) &&
@@ -782,6 +785,10 @@ int ivf_write_dat(FILE *src_fp, uint8_t *src_buffer)
     p_size = (unsigned int *)(src_buffer + 24);
     process_count = *p_size;
     printf("frame number = %d\n", process_count);
+    /*
+     * no frame count limit
+     */
+    /* coverity[tainted_data:SUPPRESS] */
     while (frame_count < process_count) {
         if (fread(src_buffer, 1, 12, src_fp) != 12) {
             printf("end of file!\n");
@@ -789,6 +796,8 @@ int ivf_write_dat(FILE *src_fp, uint8_t *src_buffer)
         }
         p_size = (unsigned int *)src_buffer;
         src_frame_size = *p_size;
+        if (src_frame_size > BUFFER_SIZE)
+            src_frame_size = BUFFER_SIZE;
         printf("frame %d, size %d\n", frame_count, src_frame_size);
 
         if (fread(src_buffer, 1, src_frame_size, src_fp) != src_frame_size) {
@@ -976,6 +985,14 @@ static int FindAmlStartCode(unsigned char *Buf)
     return 0;
 }
 
+int fgetc_direct(FILE *fe)
+{
+    int ret;
+
+    ret = fgetc(fe);
+    return (ret != EOF) ? ret : '0';
+}
+
 int GetAnnexbNALU (FILE* fe, NALU_t *nalu, int format)
 {
     int pos = 0;
@@ -986,13 +1003,15 @@ int GetAnnexbNALU (FILE* fe, NALU_t *nalu, int format)
     int prefix_len = 4;
     if (format == VFORMAT_VP9 || format == VFORMAT_AV1)
         prefix_len = 16;
-    if ((Buf = (unsigned char*)calloc (nalu->max_size , sizeof(char))) == NULL)
-        printf ("GetAnnexbNALU: Could not allocate Buf memory\n");
+    if ((Buf = (unsigned char*)calloc (nalu->max_size , sizeof(char))) == NULL) {
+            printf ("GetAnnexbNALU: Could not allocate Buf memory\n");
+            return -1;
+        }
 
     nalu->startcodeprefix_len=0;
     while (!feof(fe)) {
         if (nalu->startcodeprefix_len<prefix_len) {
-            Buf[nalu->startcodeprefix_len++] = fgetc(fe);
+            Buf[nalu->startcodeprefix_len++] = fgetc_direct(fe);
         }
         else{
             if (prefix_len == 4) {
@@ -1003,7 +1022,7 @@ int GetAnnexbNALU (FILE* fe, NALU_t *nalu, int format)
                 for (i = 0; i < prefix_len; i++)
                     Buf[i] = Buf[i+1];
             }
-            Buf[nalu->startcodeprefix_len - 1] = fgetc(fe);
+            Buf[nalu->startcodeprefix_len - 1] = fgetc_direct(fe);
         }
         if (prefix_len == 4) {
             if (nalu->startcodeprefix_len >= 3) {
@@ -1039,7 +1058,7 @@ int GetAnnexbNALU (FILE* fe, NALU_t *nalu, int format)
             rewind = -1;
             goto fill_data;
         }
-        Buf[pos++] = fgetc (fe);
+        Buf[pos++] = fgetc_direct (fe);
         if (prefix_len == 4) {
             info3 = FindStartCode3(&Buf[pos - 4]);
             if (info3 != 1)
@@ -1101,8 +1120,6 @@ static void dump(NALU_t *n)
        */
 
 }
-
-#define BUFFER_SIZE (1024*1024*2)
 
 int av1_frame_mode_write_dat(FILE *fp, vcodec_para_t *vpcodec, char *buffer)
 {
@@ -1375,7 +1392,11 @@ static int do_video_decoder(int tcase)
         }
     };
     int ret = CODEC_ERROR_NONE;
-    char buffer[READ_SIZE];
+    char *buffer = malloc(READ_SIZE);
+    if (!buffer) {
+        printf("malloc stream buffer fail\n");
+        return -1;
+    }
 
     unsigned int read_len, isize, padding_size, rest_size;
     unsigned int wait_cnt = 0;
@@ -1519,12 +1540,14 @@ static int do_video_decoder(int tcase)
     ret = vcodec_get_crc_check_result(vpcodec, id);
 
     vcodec_close(vpcodec);
+    free(buffer);
 
     return ret;
 
 tst_error_1:
     vcodec_close(vpcodec);
 tst_error_0:
+    free(buffer);
     return ((ret < 0)?ret:-1);
 }
 
@@ -1733,8 +1756,9 @@ int main(int argc, char *argv[])
     }
 
     vpcodec->stream_type = STREAM_TYPE_ES_VIDEO;
+    /* coverity[divide_by_zero:SUPPRESS] */
     vpcodec->am_sysinfo.rate =
-        96000 / atoi(argv[ES_FPS]);
+        96000 / (atoi(argv[ES_FPS]) ? atoi(argv[ES_FPS]) : 30);
     vpcodec->am_sysinfo.height =
         atoi(argv[ES_HEIGHT]);
     vpcodec->am_sysinfo.width =
