@@ -63,9 +63,9 @@ cc_binary {
     vendor: true,
 }
 
-//cc_binary {
-//   name: "android.hardware.boot-service.recovery",
-//   defaults: ["android.hardware.boot-service_common_droidlogic"],
-//    init_rc: ["android.hardware.boot-service.droidlogic_recovery.rc"],
-//    recovery: true,
-//}
+cc_binary {
+   name: "android.hardware.boot-service_recovery",
+   defaults: ["android.hardware.boot-service_common_droidlogic"],
+    init_rc: ["android.hardware.boot-service.droidlogic_recovery.rc"],
+    recovery: true,
+}

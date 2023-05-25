@@ -25,8 +25,6 @@ package {
 
 cc_defaults {
     name: "libboot_control_defaults_droidlogic",
-    vendor: true,
-    recovery_available: true,
     relative_install_path: "hw",
 
     cflags: [
@@ -42,7 +40,7 @@ cc_defaults {
         "liblog",
     ],
     static_libs: [
-        "libbootloader_message_vendor",
+        "libbootloader_message",
         "libfstab",
     ],
 }
@@ -51,7 +49,8 @@ cc_library_static {
     name: "libboot_control_droidlogic",
     defaults: ["libboot_control_defaults_droidlogic"],
     export_include_dirs: ["include"],
-    vendor: true,
+    recovery_available: true,
+    vendor_available: true,
 
     srcs: [
         "libboot_control.cpp",

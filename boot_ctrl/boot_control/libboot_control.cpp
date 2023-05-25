@@ -734,6 +734,7 @@ bool BootControl::SetSlotAsUnbootable(unsigned int slot) {
 
   bootloader_control bootctrl;
   if (!LoadBootloaderControl(misc_device_, &bootctrl)) return false;
+
   // The only way to mark a slot as unbootable, regardless of the priority is to
   // set the tries_remaining to 0.
   bootctrl.slot_info[slot].successful_boot = 0;
