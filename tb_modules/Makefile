@@ -16,7 +16,6 @@ else
 #	CROSS_COMPILE ?= aarch64-linux-gnu-
 	tb_detect-objs += 64bit/tbff_fwalg_20190322.o_shipped
 endif
-$(warning $(TEXT))
 KDIR ?=
 
 tb_detect:
