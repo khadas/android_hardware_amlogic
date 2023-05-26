@@ -93,7 +93,7 @@ uint32_t HDMISensor::getStreamUsage(int stream_type)
             | GRALLOC_USAGE_SW_READ_MASK
             | GRALLOC_USAGE_SW_WRITE_MASK
             );
-    usage = usage = GRALLOC1_PRODUCER_USAGE_CAMERA | usage;
+    usage = GRALLOC1_PRODUCER_USAGE_CAMERA | usage;
     ALOGV("%s: usage=0x%x", __FUNCTION__,usage);
     return usage;
 }
@@ -189,9 +189,8 @@ status_t HDMISensor::shutDown() {
     }
     if (mMPlaneCameraIO != NULL) {
         mMPlaneCameraIO->stopCameraIO();
+        mMPlaneCameraIO->closeCamera();
     }
-
-    mMPlaneCameraIO->closeCamera();
 
     mSensorWorkFlag = false;
     ALOGD("%s: Exit", __FUNCTION__);

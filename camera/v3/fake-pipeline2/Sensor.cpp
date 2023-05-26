@@ -189,26 +189,45 @@ void ReSizeNV21(struct VideoInfo *vinfo, uint8_t *src, uint8_t *img, uint32_t wi
 
 Sensor::Sensor():
         Thread(false),
+        mSensorFace(SENSOR_FACE_NONE),
         mGotVSync(false),
         mExposureTime(kFrameDurationRange[0]-kMinVerticalBlank),
         mFrameDuration(kFrameDurationRange[0]),
         mGainFactor(kDefaultSensitivity),
         mNextBuffers(NULL),
+        mKernelBuffer(NULL),
+        mTempFD(-1),
         mFrameNumber(0),
+        mRotateValue(-1),
+        mEV(-1),
         mCapturedBuffers(NULL),
         mListener(NULL),
         mTemp_buffer(NULL),
         mExitSensorThread(false),
+        vinfo(NULL),
+        mFramecount(0),
+        mCurFps(0.0),
+        mSensorType(SENSOR_MMAP),
         mIoctlSupport(0),
+        msupportrotate(0),
         mTimeOutCount(0),
         mWait(false),
         mPre_width(0),
         mPre_height(0),
         mFlushFlag(false),
         mSensorWorkFlag(false),
+        mOpenCameraID(-1),
+        mNextCapturedBuffers(NULL),
         mScene(kResolution[0], kResolution[1], kElectronsPerLuxSecond)
 {
-
+    memset(&mKernelPhysAddr,0,sizeof(mKernelPhysAddr));
+    memset(&mCaptureTime,0,sizeof(nsecs_t));
+    memset(&mStartupTime,0,sizeof(nsecs_t));
+    memset(&mTimeStart,0,sizeof(struct timeval));
+    memset(&mTimeEnd,0,sizeof(struct timeval));
+    memset(&mTestStart,0,sizeof(struct timeval));
+    memset(&mTestEnd,0,sizeof(struct timeval));
+    memset(&mNextCaptureTime,0,sizeof(nsecs_t));
 }
 
 Sensor::~Sensor() {
@@ -1245,7 +1264,7 @@ bool Sensor::threadLoop() {
 
     if (mFramecount == 100) {
         gettimeofday(&mTimeEnd, NULL);
-        int64_t interval = (mTimeEnd.tv_sec - mTimeStart.tv_sec) * 1000000L + (mTimeEnd.tv_usec - mTimeStart.tv_usec);
+        int64_t interval = ((int64_t) (mTimeEnd.tv_sec - mTimeStart.tv_sec)) * 1000000L + (mTimeEnd.tv_usec - mTimeStart.tv_usec);
         mCurFps = mFramecount/(interval/1000000.0f);
         memcpy(&mTimeStart, &mTimeEnd, sizeof(mTimeEnd));
         mFramecount = 0;
@@ -1647,31 +1666,31 @@ int Sensor::getStreamConfigurationDurations(uint32_t picSizes[], int64_t duratio
                 fival.height = picSizes[size-2];
                 if((ret = ioctl(vinfo->fd, VIDIOC_ENUM_FRAMEINTERVALS, &fival)) == 0) {
                     if (fival.type == V4L2_FRMIVAL_TYPE_DISCRETE){
-                        temp_rate = fival.discrete.denominator/fival.discrete.numerator;
+                        if ( fival.discrete.numerator != 0) temp_rate = fival.discrete.denominator/fival.discrete.numerator;
                         if(framerate < temp_rate)
                             framerate = temp_rate;
                         duration[count+0] = (int64_t)(picSizes[size-4]);
                         duration[count+1] = (int64_t)(picSizes[size-3]);
                         duration[count+2] = (int64_t)(picSizes[size-2]);
-                        duration[count+3] = (int64_t)((1.0/framerate) * 1000000000);
+                        if (framerate != 0) duration[count+3] = (int64_t)((1.0/framerate) * 1000000000);
                         j++;
                     } else if (fival.type == V4L2_FRMIVAL_TYPE_CONTINUOUS){
-                        temp_rate = fival.discrete.denominator/fival.discrete.numerator;
+                        if ( fival.discrete.numerator != 0) temp_rate = fival.discrete.denominator/fival.discrete.numerator;
                         if(framerate < temp_rate)
                             framerate = temp_rate;
                         duration[count+0] = (int64_t)picSizes[size-4];
                         duration[count+1] = (int64_t)picSizes[size-3];
                         duration[count+2] = (int64_t)picSizes[size-2];
-                        duration[count+3] = (int64_t)((1.0/framerate) * 1000000000);
+                        if (framerate != 0) duration[count+3] = (int64_t)((1.0/framerate) * 1000000000);
                         j++;
                     } else if (fival.type == V4L2_FRMIVAL_TYPE_STEPWISE){
-                        temp_rate = fival.discrete.denominator/fival.discrete.numerator;
+                        if ( fival.discrete.numerator != 0) temp_rate = fival.discrete.denominator/fival.discrete.numerator;
                         if(framerate < temp_rate)
                             framerate = temp_rate;
                         duration[count+0] = (int64_t)picSizes[size-4];
                         duration[count+1] = (int64_t)picSizes[size-3];
                         duration[count+2] = (int64_t)picSizes[size-2];
-                        duration[count+3] = (int64_t)((1.0/framerate) * 1000000000);
+                        if (framerate != 0) duration[count+3] = (int64_t)((1.0/framerate) * 1000000000);
                         j++;
                     }
                 } else {
@@ -1770,17 +1789,17 @@ int64_t Sensor::getMinFrameDuration()
             while (ioctl(vinfo->fd, VIDIOC_ENUM_FRAMEINTERVALS, &fival) == 0) {
                 if (fival.type == V4L2_FRMIVAL_TYPE_DISCRETE) {
                     tmpDuration =
-                        fival.discrete.numerator * 1000000000L / fival.discrete.denominator;
+                        (int64_t) fival.discrete.numerator * 1000000000L / fival.discrete.denominator;
 
                     if (frameDuration > tmpDuration)
                         frameDuration = tmpDuration;
                 } else if (fival.type == V4L2_FRMIVAL_TYPE_CONTINUOUS) {
                     frameDuration =
-                        fival.stepwise.max.numerator * 1000000000L / fival.stepwise.max.denominator;
+                        (int64_t) fival.stepwise.max.numerator * 1000000000L / fival.stepwise.max.denominator;
                     break;
                 } else if (fival.type == V4L2_FRMIVAL_TYPE_STEPWISE) {
                     frameDuration =
-                        fival.stepwise.max.numerator * 1000000000L / fival.stepwise.max.denominator;
+                        (int64_t) fival.stepwise.max.numerator * 1000000000L / fival.stepwise.max.denominator;
                     break;
                 }
                 fival.index++;
@@ -1819,7 +1838,13 @@ int Sensor::getPictureSizes(int32_t picSizes[], int size, bool preview) {
 
     memset(&frmsize,0,sizeof(frmsize));
     preview_fmt = V4L2_PIX_FMT_NV21;//getOutputFormat();
+    if (preview == true)
+        frmsize.pixel_format = V4L2_PIX_FMT_NV21;
+    else
+        frmsize.pixel_format = V4L2_PIX_FMT_RGB24;
 
+
+/*
     if (preview_fmt == V4L2_PIX_FMT_MJPEG)
         frmsize.pixel_format = V4L2_PIX_FMT_MJPEG;
     else if (preview_fmt == V4L2_PIX_FMT_NV21) {
@@ -1834,7 +1859,7 @@ int Sensor::getPictureSizes(int32_t picSizes[], int size, bool preview) {
             frmsize.pixel_format = V4L2_PIX_FMT_RGB24;
     } else if (preview_fmt == V4L2_PIX_FMT_YUYV)
         frmsize.pixel_format = V4L2_PIX_FMT_YUYV;
-
+*/
     for (i = 0; ; i++) {
         frmsize.index = i;
         res = ioctl(vinfo->fd, VIDIOC_ENUM_FRAMESIZES, &frmsize);
@@ -2323,20 +2348,24 @@ void Sensor::captureNV21(StreamBuffer b, uint32_t gain) {
                  continue;
             }
             ALOGVV("memcpy + %dx%d", b.width, b.height);
-            if ((width == b.width) && (height == b.height)) {
-                memcpy(b.img, mDecoderTask.validBuffer, b.stride * b.height * 3/2);
-                mKernelBuffer = b.img;
-            } else {
-                ReSizeNV21(vinfo, mDecoderTask.validBuffer, b.img, b.width, b.height, b.stride);
-                mKernelBuffer = mDecoderTask.validBuffer;
+            if (mDecoderTask.validBuffer) {
+                if ((width == b.width) && (height == b.height)) {
+                    memcpy(b.img, mDecoderTask.validBuffer, b.stride * b.height * 3/2);
+                    mKernelBuffer = b.img;
+                } else {
+                    ReSizeNV21(vinfo, mDecoderTask.validBuffer, b.img, b.width, b.height, b.stride);
+                    mKernelBuffer = mDecoderTask.validBuffer;
+                }
             }
             ALOGVV("memcpy -");
             ALOGVV("Capture Done");
         }
         mSensorWorkFlag = true;
+        /*
         if (mFlushFlag) {
             break;
         }
+        */
         break;
     }
 
@@ -2367,47 +2396,49 @@ status_t Sensor::decoderThread(void* user) {
         uint32_t outputStride = task.outputStride;
         uint8_t *workingBuffer = task.workingBuffer;
         bool bDecoderFlag = false;
-        do {
-            ALOGVV("Decoder +");
-            _l.unlock();
-            if ((inputWidth == outputWidth) && (inputHeight == outputHeight)) {
-                memset(workingBuffer, 0 , inputWidth * inputHeight * 3/2);
-                if (ConvertToI420(inputBuffer, inputBytesused, workingBuffer, outputStride, self->uBuffer2, (outputStride + 1) / 2,
-                      self->vBuffer2, (outputStride + 1) / 2, 0, 0, inputWidth, inputHeight,
-                      inputWidth, inputHeight, libyuv::kRotate0, libyuv::FOURCC_MJPG) != 0) {
-                    DBG_LOGA("Decode MJPEG frame failed\n");
-                    ALOGE("%s , %d , Decode MJPEG frame failed \n", __FUNCTION__ , __LINE__);
-                    _l.lock();
-                    break;
+        if (workingBuffer != nullptr) {
+            do {
+                ALOGVV("Decoder +");
+                _l.unlock();
+                if ((inputWidth == outputWidth) && (inputHeight == outputHeight)) {
+                    memset(workingBuffer, 0 , inputWidth * inputHeight * 3/2);
+                    if (ConvertToI420(inputBuffer, inputBytesused, workingBuffer, outputStride, self->uBuffer2, (outputStride + 1) / 2,
+                          self->vBuffer2, (outputStride + 1) / 2, 0, 0, inputWidth, inputHeight,
+                          inputWidth, inputHeight, libyuv::kRotate0, libyuv::FOURCC_MJPG) != 0) {
+                        DBG_LOGA("Decode MJPEG frame failed\n");
+                        ALOGE("%s , %d , Decode MJPEG frame failed \n", __FUNCTION__ , __LINE__);
+                        _l.lock();
+                        break;
+                    } else {
+                        bDecoderFlag = true;
+                    }
+                    uint8_t *pUVBuffer = workingBuffer + outputStride * inputHeight;
+                    for (int i = 0; i < (int)(outputStride * inputHeight / 4); i++) {
+                        *pUVBuffer++ = *(self->vBuffer2 + i);
+                        *pUVBuffer++ = *(self->uBuffer2 + i);
+                    }
                 } else {
-                    bDecoderFlag = true;
+                    memset(workingBuffer, 0 , inputWidth * inputHeight * 3/2);
+                    if (ConvertToI420(inputBuffer, inputBytesused, workingBuffer, inputWidth, self->uBuffer2, (inputWidth + 1) / 2,
+                          self->vBuffer2, (inputWidth + 1) / 2, 0, 0, inputWidth, inputHeight,
+                          inputWidth, inputHeight, libyuv::kRotate0, libyuv::FOURCC_MJPG) != 0) {
+                        DBG_LOGA("Decode MJPEG frame failed\n");
+                        ALOGE("%s , %d , Decode MJPEG frame failed \n", __FUNCTION__ , __LINE__);
+                        _l.lock();
+                        break;
+                    } else {
+                        bDecoderFlag = true;
+                    }
+                    uint8_t *pUVBuffer = workingBuffer + inputWidth * inputHeight;
+                    for (int i = 0; i < (int)(inputWidth * inputHeight / 4); i++) {
+                        *pUVBuffer++ = *(self->vBuffer2 + i);
+                        *pUVBuffer++ = *(self->uBuffer2 + i);
+                    }
                 }
-                uint8_t *pUVBuffer = workingBuffer + outputStride * inputHeight;
-                for (int i = 0; i < (int)(outputStride * inputHeight / 4); i++) {
-                    *pUVBuffer++ = *(self->vBuffer2 + i);
-                    *pUVBuffer++ = *(self->uBuffer2 + i);
-                }
-            } else {
-                memset(workingBuffer, 0 , inputWidth * inputHeight * 3/2);
-                if (ConvertToI420(inputBuffer, inputBytesused, workingBuffer, inputWidth, self->uBuffer2, (inputWidth + 1) / 2,
-                      self->vBuffer2, (inputWidth + 1) / 2, 0, 0, inputWidth, inputHeight,
-                      inputWidth, inputHeight, libyuv::kRotate0, libyuv::FOURCC_MJPG) != 0) {
-                    DBG_LOGA("Decode MJPEG frame failed\n");
-                    ALOGE("%s , %d , Decode MJPEG frame failed \n", __FUNCTION__ , __LINE__);
-                    _l.lock();
-                    break;
-                } else {
-                    bDecoderFlag = true;
-                }
-                uint8_t *pUVBuffer = workingBuffer + inputWidth * inputHeight;
-                for (int i = 0; i < (int)(inputWidth * inputHeight / 4); i++) {
-                    *pUVBuffer++ = *(self->vBuffer2 + i);
-                    *pUVBuffer++ = *(self->uBuffer2 + i);
-                }
-            }
-            _l.lock();
-            ALOGVV("Decoder -");
-        } while(0);
+                _l.lock();
+                ALOGVV("Decoder -");
+            } while(0);
+        }
         task.bDecoderFlag = bDecoderFlag;
         task.validBuffer = workingBuffer;
         task.workingBuffer = nullptr;

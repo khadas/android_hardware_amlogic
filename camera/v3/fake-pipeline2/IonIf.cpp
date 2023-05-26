@@ -116,8 +116,9 @@ uint8_t* IONInterface::alloc_buffer(size_t size,int* share_fd) {
 int IONInterface::release_node(IONBufferNode* pBuffer) {
     GraphicBufferAllocator & allocService = GraphicBufferAllocator::get();
     pBuffer->IsUsed = false;
-    int ret = munmap(pBuffer->vaddr, pBuffer->size);
     ALOGD("-----------%s: vaddr = %p", __FUNCTION__, pBuffer->vaddr);
+
+    int ret = munmap(pBuffer->vaddr, pBuffer->size);
     if (ret)
         ALOGD("munmap fail: %s\n", strerror(errno));
 

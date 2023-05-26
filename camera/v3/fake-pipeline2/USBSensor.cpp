@@ -84,6 +84,12 @@ USBSensor::USBSensor(int type)
 #endif
     mSensorOutBuf.img = NULL;
     mSensorOutBuf.share_fd = -1;
+    mSensorOutBuf.streamId = -1;
+    mSensorOutBuf.width = 0;
+    mSensorOutBuf.height = 0;
+    mSensorOutBuf.format = 0;
+    mSensorOutBuf.stride = 0;
+    mSensorOutBuf.buffer = NULL;
 
     mDecoder = NULL;
     mCurrentFormat = 0;
@@ -95,6 +101,7 @@ USBSensor::USBSensor(int type)
     mTempFD = -1;
     mDecodedBuffer = NULL;
     mIsRequestFinished = false;
+    mDecFillBufThreadNeedStop = 0;
     ALOGD("create usbsensor");
 }
 
@@ -628,7 +635,8 @@ void USBSensor::captureNV21UsbSensor(StreamBuffer b, uint32_t gain, bool needSen
                             // here we need mSensorOutBuf has been ready.
                             ALOGE("mSensorOutBuf not allocated.");
                         } else {
-                            ret = MJPEGToNV21(src, mSensorOutBuf);
+                            if (src != NULL)
+                                ret = MJPEGToNV21(src, mSensorOutBuf);
 #ifdef GE2D_ENABLE
                             mGE2D->ge2d_keep_ration_scale(b.share_fd, PIXEL_FORMAT_YCbCr_420_SP_NV12, b.width, b.height,
                                           mSensorOutBuf.share_fd, mSensorOutBuf.width, mSensorOutBuf.height);

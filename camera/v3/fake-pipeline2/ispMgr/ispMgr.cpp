@@ -35,24 +35,28 @@ static int getInterface() {
     if (!ispIF->alg2User) {
         char const* err_str = ::dlerror();
         ALOGE("dlsym: error:%s", (err_str ? err_str : "unknown"));
+        dlclose(lib);
         return -1;
     }
     ispIF->alg2Kernel = (isp_alg2kernel)::dlsym(lib, "aisp_alg2kernel");
     if (!ispIF->alg2Kernel) {
         char const* err_str = ::dlerror();
         ALOGE("dlsym: error:%s", (err_str ? err_str : "unknown"));
+        dlclose(lib);
         return -1;
     }
     ispIF->algEnable = (isp_enable)::dlsym(lib, "aisp_enable");
     if (!ispIF->algEnable) {
         char const* err_str = ::dlerror();
         ALOGE("dlsym: error:%s", (err_str ? err_str : "unknown"));
+        dlclose(lib);
         return -1;
     }
     ispIF->algDisable = (isp_disable)::dlsym(lib, "aisp_disable");
     if (!ispIF->algDisable) {
         char const* err_str = ::dlerror();
         ALOGE("dlsym: error:%s", (err_str ? err_str : "unknown"));
+        dlclose(lib);
         return -1;
     }
     ALOGI("%s success", __FUNCTION__);

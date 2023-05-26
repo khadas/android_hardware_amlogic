@@ -131,11 +131,13 @@ status_t EmulatedCameraHotplugThread::readyToRun() {
         if (mSocketFd == -1) {
             mRunning = false;
             CAMHAL_LOGEB("socket creating failed:%s, disable the hotplug thread\n",strerror(errno));
+            return -1;
         }
 
         if (bind(mSocketFd,(struct sockaddr *)&sa,sizeof(sa)) == -1) {
             mRunning = false;
             CAMHAL_LOGEB("bind error:%s, disable the hotplug thread\n",strerror(errno));
+            return -1;
         }
 
         /**
@@ -305,6 +307,7 @@ bool EmulatedCameraHotplugThread::createFileIfNotExists(int cameraId) const
     if (TEMP_FAILURE_RETRY(write(fd, "1\n", /*count*/2)) == -1) {
         ALOGE("%s: Could not write '1' to file '%s', error: '%s' (%d)",
              __FUNCTION__, filePath.string(), strerror(errno), errno);
+        TEMP_FAILURE_RETRY(close(fd));
         return false;
     }
 

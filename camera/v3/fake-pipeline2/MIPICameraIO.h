@@ -43,6 +43,9 @@ protected:
 #endif
 class MIPIVideoInfo {
 public:
+    MIPIVideoInfo():mWorkMode(0){}
+    ~MIPIVideoInfo(){};
+public:
     int mWorkMode;
 public:
     void set_fds(std::vector<int>& fds);

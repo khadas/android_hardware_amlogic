@@ -68,7 +68,9 @@ void HDMIStatus::putInstance() {
 int HDMIStatus::readHdmiStatus() {
     int status = -1;
     if (m_hdmi_fd > 0) {
-        read(m_hdmi_fd, (void *)(&status), sizeof(int));
+        int ret = read(m_hdmi_fd, (void *)(&status), sizeof(int));
+        if (ret < 0)
+            ALOGE("read failed");
         if (status < 0)
             status = 0;
     }
@@ -116,7 +118,7 @@ HDMIStatus::HDMIHotplugThread::HDMIHotplugThread(HDMIStatus* status_instance)   
     if (epoll_fd > 0) {
         backEvents = new epoll_event[20];
     }
-
+    hdmi_detect_bit = 0;
     if (mParent->m_hdmi_fd < 0) {
         ALOGW("invalid hdmirx0 fd");
     } else {

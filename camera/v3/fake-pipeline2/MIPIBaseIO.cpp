@@ -48,6 +48,7 @@ VideoInfoUseOneFd::VideoInfoUseOneFd(){
     V4LDevicefd = -1;
     tempbuflen = 0;
     dev_status = 0;
+    IO_PREVIEW_BUFFER = 0;
 }
 
 VideoInfoUseOneFd::~VideoInfoUseOneFd() {

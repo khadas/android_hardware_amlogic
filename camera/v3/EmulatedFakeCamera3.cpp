@@ -197,6 +197,26 @@ EmulatedFakeCamera3::EmulatedFakeCamera3(int cameraId, struct hw_module_t* modul
     mFullMode = 0;
     mFlushTag = false;
     mPlugged = false;
+    memset(&info,0,sizeof(struct ExifInfo));
+
+    mControlMode = 0;
+    mFacePriority = 0;
+    mAeState = 0;
+    mAfState = 0;
+    mAwbState = 0;
+    mAeMode = 0;
+    mAfMode = 0;
+    mAwbMode = 0;
+    mAfTriggerId = 0;
+    mZoomMin = 0;
+    mZoomMax = 0;
+    mZoomStep = 0;
+    mFrameDuration = 0;
+
+    mAeCounter = 0;
+    mAeCurrentExposureTime = 0;
+    mAeTargetExposureTime = 0;
+    mAeCurrentSensitivity = 0;
 
 }
 
@@ -1370,6 +1390,7 @@ status_t EmulatedFakeCamera3::processCaptureRequest(
                      ALOGE("%s: Request %d: Buffer %zu: Fence timed out after %d ms",
                                 __FUNCTION__, frameNumber, i, kFenceTimeoutMs);
               }
+
               if (res == OK) {
                      // Lock buffer for writing
                      const Rect rect(am_gralloc_get_width((native_handle_t*)(*srcBuf.buffer)),
@@ -1402,7 +1423,6 @@ status_t EmulatedFakeCamera3::processCaptureRequest(
                                   __FUNCTION__, frameNumber, i);
                      }
               }
-
               if (res != OK) {
                      // Either waiting or locking failed. Unlock locked buffers and bail
                      // out.
@@ -1462,7 +1482,7 @@ status_t EmulatedFakeCamera3::processCaptureRequest(
               } else {
                    info.has_focallen = false;
               }
-              if ((mSensorType != SENSOR_V4L2MEDIA || mSensorType != SENSOR_MIPI)) {
+              if ((mSensorType != SENSOR_V4L2MEDIA && mSensorType != SENSOR_MIPI)) {
                   jpegbuffersize = getJpegBufferSize(info.mainwidth,info.mainheight);
 
                   mJpegCompressor->SetMaxJpegBufferSize(jpegbuffersize);
@@ -1999,17 +2019,12 @@ status_t EmulatedFakeCamera3::constructStaticInfo() {
 
     maxJpegResolution = getMaxJpegResolution(picSizes,count);
     int32_t full_size[4];
-    if (mFacingBack) {
-        full_size[0] = 0;
-        full_size[1] = 0;
-        full_size[2] = maxJpegResolution.width;
-        full_size[3] = maxJpegResolution.height;
-    } else {
-        full_size[0] = 0;
-        full_size[1] = 0;
-        full_size[2] = maxJpegResolution.width;
-        full_size[3] = maxJpegResolution.height;
-    }
+
+    full_size[0] = 0;
+    full_size[1] = 0;
+    full_size[2] = maxJpegResolution.width;
+    full_size[3] = maxJpegResolution.height;
+
     /*activeArray.width <= pixelArraySize.Width && activeArray.height<= pixelArraySize.Height*/
     info.update(ANDROID_SENSOR_INFO_ACTIVE_ARRAY_SIZE,
             (int32_t*)full_size,
@@ -2229,7 +2244,7 @@ status_t EmulatedFakeCamera3::constructStaticInfo() {
             &maxZoom, 1);
     } else {
         if (mZoomMin != 0) {
-            float maxZoom = mZoomMax / mZoomMin;
+            float maxZoom = (float) mZoomMax / (float) mZoomMin;
             info.update(ANDROID_SCALER_AVAILABLE_MAX_DIGITAL_ZOOM,
                 &maxZoom, 1);
         } else {
@@ -2863,6 +2878,8 @@ EmulatedFakeCamera3::ReadoutThread::ReadoutThread(EmulatedFakeCamera3 *parent) :
         mParent(parent), mJpegWaiting(false) {
     mExitReadoutThread = false;
     mFlushFlag = false;
+    mThreadActive = false;
+    memset(&mJpegHalBuffer,0,sizeof(struct camera3_stream_buffer));
 }
 
 EmulatedFakeCamera3::ReadoutThread::~ReadoutThread() {
@@ -3057,7 +3074,7 @@ bool EmulatedFakeCamera3::ReadoutThread::threadLoop() {
     while (buf != mCurrentRequest.buffers->end()) {
         const bool goodBuffer = true;
         if ( buf->stream->format == HAL_PIXEL_FORMAT_BLOB &&
-             (mParent->mSensorType != SENSOR_V4L2MEDIA || mParent->mSensorType != SENSOR_MIPI)) {
+             (mParent->mSensorType != SENSOR_V4L2MEDIA && mParent->mSensorType != SENSOR_MIPI)) {
             Mutex::Autolock jl(mJpegLock);
             needJpeg = true;
             CaptureRequest currentcapture;

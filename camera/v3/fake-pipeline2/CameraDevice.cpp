@@ -71,7 +71,7 @@ struct VirtualDevice CameraVirtualDevice::usbvideoDeviceslists[] = {
 
 #endif
 
-CameraVirtualDevice::CameraVirtualDevice() {
+CameraVirtualDevice::CameraVirtualDevice(): pluggedMipiCameraNum(0) {
     recoverUsbDevicelists();
 }
 
@@ -388,6 +388,10 @@ bool CameraVirtualDevice::isStandardUSBCamera(char * dev_node_name)
         V4L2_PIX_FMT_H264,
     };
     int fd = open(dev_node_name, O_RDWR);
+    if (fd < 0) {
+        ALOGE("%s open USB fd error", __FUNCTION__);
+        return result;
+    }
     for (j = 0; j<(int)(sizeof(jpgSrcfmt)/sizeof(jpgSrcfmt[0])); j++) {
         memset(&frmsize,0,sizeof(frmsize));
         frmsize.pixel_format = jpgSrcfmt[j];

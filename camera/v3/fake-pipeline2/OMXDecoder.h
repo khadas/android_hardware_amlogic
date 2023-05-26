@@ -138,7 +138,7 @@ public:
     }
 private:
     int decoderType;
-    int mWaitVsyncDuration;
+    int64_t mWaitVsyncDuration;
 
     OMX_ERRORTYPE WaitForState(OMX_HANDLETYPE hComponent, OMX_STATETYPE eTestState, OMX_STATETYPE eTestState2);
     OMX_U32 mInWidth;

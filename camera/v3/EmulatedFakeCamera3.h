@@ -360,7 +360,7 @@ private:
     nsecs_t mAeTargetExposureTime;
     int     mAeCurrentSensitivity;
 
-    bool    m4KRec;
+    bool    m4KRec = false;
 };
 
 } // namespace android

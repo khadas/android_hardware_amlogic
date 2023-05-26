@@ -10,6 +10,14 @@
 namespace android {
 
 MPlaneCameraIO::MPlaneCameraIO() {
+    fd = -1;
+    openIdx = -1;
+    memset(&cap, 0, sizeof(struct v4l2_capability));
+    memset(&format, 0, sizeof(struct v4l2_format));
+    memset(&rb, 0, sizeof(struct v4l2_requestbuffers));
+    memset(&buf, 0, sizeof(struct v4l2_buffer));
+    memset(addr, 0, sizeof(addr));
+    buffer_size_allocated = 0;
     isStreaming = false;
     mIon = NULL;
     if (!mIon)

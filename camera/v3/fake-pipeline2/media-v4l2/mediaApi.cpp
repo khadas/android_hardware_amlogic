@@ -261,7 +261,7 @@ int setSdFormat(media_stream_t *stream, stream_configuration_t *cfg)
     mbus_format.width  = cfg->format.width;
     mbus_format.height = cfg->format.height;
     mbus_format.code   = cfg->format.code;
-
+    mbus_format.field = V4L2_FIELD_NONE;
     enum v4l2_subdev_format_whence which = V4L2_SUBDEV_FORMAT_ACTIVE;
 
     ALOGD("%s ++", __FUNCTION__);

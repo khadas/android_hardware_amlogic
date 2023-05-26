@@ -71,6 +71,10 @@ OMXDecoder::OMXDecoder(bool useDMABuffer, bool keepOriginalSize) {
     mFormat = 0;
     mStride = 0;
     memset(&mVideoInputPortParam, 0, sizeof(OMX_PARAM_PORTDEFINITIONTYPE));
+    decoderType = DEC_NONE;
+    mWaitVsyncDuration = 0;
+    mInHeight = 0;
+    mInWidth = 0;
 }
 
 OMXDecoder::~OMXDecoder() {

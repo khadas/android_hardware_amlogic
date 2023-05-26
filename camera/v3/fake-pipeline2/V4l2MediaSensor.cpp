@@ -165,6 +165,19 @@ V4l2MediaSensor::V4l2MediaSensor() {
     mIsGdcInit = false;
 #endif
     memset(&mStreamconfig, 0, sizeof(stream_configuration_t));
+    mMediaDevicefd = -1;
+    mMediaStream = NULL;
+    mImage_buffer = NULL;
+    mSavedDecodedBuffer.vaddr = NULL;
+    mSavedDecodedBuffer.fd = -1;
+    mSavedDecodedBuffer.fmt = 0;
+    mSavedDecodedBuffer.height = 0;
+    mSavedDecodedBuffer.width = 0;
+    mSavedDecodedBuffer.stride = 0;
+
+    mMaxHeight = 0;
+    mMaxWidth = 0;
+
     ALOGD("construct V4l2MediaSensor");
 }
 
@@ -214,13 +227,13 @@ status_t V4l2MediaSensor::streamOff(channel ch) {
     }
     else if (ch == channel_preview) {
 #ifdef GDC_ENABLE
-    if (mIGdc && mIsGdcInit) {
-        mIGdc->gdc_exit();
-        mIsGdcInit = false;
-    }
+        if (mIGdc && mIsGdcInit) {
+            mIGdc->gdc_exit();
+            mIsGdcInit = false;
+        }
 #endif
-    if (mIspMgr)
-        mIspMgr->stop();
+        if (mIspMgr)
+            mIspMgr->stop();
         ret = mVinfo->stop_capturing();
 #if defined(PREVIEW_DEWARP_ENABLE) || defined(PICTURE_DEWARP_ENABLE)
         DeWarp::putInstance();
@@ -263,11 +276,22 @@ int V4l2MediaSensor::SensorInit(int idx) {
     mMediaStream = malloc( sizeof( struct media_stream) );
     if (mMediaStream == NULL) {
         ALOGE("alloc media stream mem fail\n");
+        media_dev->fd = -1;
+        media_dev->refcount = 0;
+        media_dev->debug_handler = NULL;
+        media_dev->debug_priv = NULL;
+        free(media_dev);
         return -1;
     }
     if (0 != mediaStreamInit((media_stream_t *)mMediaStream, media_dev) ) {
         ALOGE("media stream init failed\n");
+        media_dev->fd = -1;
+        media_dev->refcount = 0;
+        media_dev->debug_handler = NULL;
+        media_dev->debug_priv = NULL;
+        free(media_dev);
         return -1;
+
     }
     property_get("vendor.media.camera.dual", property, "false");
     if (strstr(property,"true")) {
@@ -410,7 +434,7 @@ uint32_t V4l2MediaSensor::getStreamUsage(int stream_type){
         usage = GRALLOC_USAGE_HW_VIDEO_ENCODER | GRALLOC_USAGE_AML_DMA_BUFFER;
 #endif
 #endif
-    usage = usage = GRALLOC1_PRODUCER_USAGE_CAMERA | usage;
+    usage = GRALLOC1_PRODUCER_USAGE_CAMERA | usage;
     ALOGV("%s: usage=0x%x", __FUNCTION__,usage);
     return usage;
 }
@@ -508,9 +532,11 @@ void V4l2MediaSensor::captureNV21(StreamBuffer b, uint32_t gain){
         mSensorWorkFlag = true;
         if (ret == NEW_FRAME)
             mVinfo->putback_frame();
+        /*
         if (mFlushFlag) {
             break;
         }
+        */
         break;
     }
 }
@@ -783,6 +809,12 @@ int V4l2MediaSensor::getPictureSizes(int32_t picSizes[], int size, bool preview)
     memset(&frmsize,0,sizeof(frmsize));
     preview_fmt = V4L2_PIX_FMT_NV21;//getOutputFormat();
 
+    if (preview == true)
+        frmsize.pixel_format = V4L2_PIX_FMT_NV21;
+    else
+        frmsize.pixel_format = V4L2_PIX_FMT_RGB24;
+
+/*
     if (preview_fmt == V4L2_PIX_FMT_NV21) {
         if (preview == true)
             frmsize.pixel_format = V4L2_PIX_FMT_NV21;
@@ -795,7 +827,7 @@ int V4l2MediaSensor::getPictureSizes(int32_t picSizes[], int size, bool preview)
             frmsize.pixel_format = V4L2_PIX_FMT_RGB24;
     } else if (preview_fmt == V4L2_PIX_FMT_YUYV)
         frmsize.pixel_format = V4L2_PIX_FMT_YUYV;
-
+*/
     for (i = 0; ; i++) {
         frmsize.index = i;
         res = fakeEnumFrameSize(&frmsize); //ioctl(mVinfo->fd, VIDIOC_ENUM_FRAMESIZES, &frmsize);

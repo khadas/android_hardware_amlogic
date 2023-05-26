@@ -51,6 +51,7 @@ VideoInfoUseTowFd::VideoInfoUseTowFd() {
     mSnapShotFd = -1;
     tempbuflen = 0;
     dev_status = 0;
+    IO_PREVIEW_BUFFER = 0;
 }
 
 int VideoInfoUseTowFd::EnumerateFormat(uint32_t pixelformat){

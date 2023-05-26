@@ -62,6 +62,8 @@ extern bool IsUsbAvailablePictureSize(const usb_frmsize_discrete_t AvailablePict
 HDMIToCSISensor::HDMIToCSISensor() {
     mCameraVirtualDevice = nullptr;
     mVinfo = NULL;
+    mCameraUtil = NULL;
+    mImage_buffer = NULL;
     ALOGD("create MIPISensor");
 }
 
@@ -162,11 +164,10 @@ status_t HDMIToCSISensor::shutDown() {
     if (res != OK) {
         ALOGE("Unable to shut down sensor capture thread: %d", res);
     }
-    if (mVinfo != NULL)
+    if (mVinfo != NULL) {
         mVinfo->stop_capturing();
-
-    camera_close();
-
+        camera_close();
+    }
     if (mImage_buffer) {
         delete [] mImage_buffer;
         mImage_buffer = NULL;
@@ -828,31 +829,31 @@ int HDMIToCSISensor::getStreamConfigurationDurations(uint32_t picSizes[], int64_
                 fival.height = picSizes[size-2];
                 if ((ret = ioctl(mVinfo->fd, VIDIOC_ENUM_FRAMEINTERVALS, &fival)) == 0) {
                     if (fival.type == V4L2_FRMIVAL_TYPE_DISCRETE) {
-                        temp_rate = fival.discrete.denominator/fival.discrete.numerator;
+                        if ( fival.discrete.numerator != 0 ) temp_rate = fival.discrete.denominator/fival.discrete.numerator;
                         if (framerate < temp_rate)
                             framerate = temp_rate;
                         duration[count+0] = (int64_t)(picSizes[size-4]);
                         duration[count+1] = (int64_t)(picSizes[size-3]);
                         duration[count+2] = (int64_t)(picSizes[size-2]);
-                        duration[count+3] = (int64_t)((1.0/framerate) * 1000000000);
+                        if ( framerate != 0 ) duration[count+3] = (int64_t)((1.0/framerate) * 1000000000);
                         j++;
                     } else if (fival.type == V4L2_FRMIVAL_TYPE_CONTINUOUS) {
-                        temp_rate = fival.discrete.denominator/fival.discrete.numerator;
+                        if ( fival.discrete.numerator != 0 ) temp_rate = fival.discrete.denominator/fival.discrete.numerator;
                         if (framerate < temp_rate)
                             framerate = temp_rate;
                         duration[count+0] = (int64_t)picSizes[size-4];
                         duration[count+1] = (int64_t)picSizes[size-3];
                         duration[count+2] = (int64_t)picSizes[size-2];
-                        duration[count+3] = (int64_t)((1.0/framerate) * 1000000000);
+                        if ( framerate != 0 ) duration[count+3] = (int64_t)((1.0/framerate) * 1000000000);
                         j++;
                     } else if (fival.type == V4L2_FRMIVAL_TYPE_STEPWISE) {
-                        temp_rate = fival.discrete.denominator/fival.discrete.numerator;
+                        if ( fival.discrete.numerator != 0 ) temp_rate = fival.discrete.denominator/fival.discrete.numerator;
                         if (framerate < temp_rate)
                             framerate = temp_rate;
                         duration[count+0] = (int64_t)picSizes[size-4];
                         duration[count+1] = (int64_t)picSizes[size-3];
                         duration[count+2] = (int64_t)picSizes[size-2];
-                        duration[count+3] = (int64_t)((1.0/framerate) * 1000000000);
+                        if ( framerate != 0 ) duration[count+3] = (int64_t)((1.0/framerate) * 1000000000);
                         j++;
                     }
                 } else {
@@ -945,17 +946,17 @@ int64_t HDMIToCSISensor::getMinFrameDuration() {
             while (ioctl(mVinfo->fd, VIDIOC_ENUM_FRAMEINTERVALS, &fival) == 0) {
                 if (fival.type == V4L2_FRMIVAL_TYPE_DISCRETE) {
                     tmpDuration =
-                        fival.discrete.numerator * 1000000000L / fival.discrete.denominator;
+                        (int64_t)fival.discrete.numerator * 1000000000L / fival.discrete.denominator;
 
                     if (frameDuration > tmpDuration)
                         frameDuration = tmpDuration;
                 } else if (fival.type == V4L2_FRMIVAL_TYPE_CONTINUOUS) {
                     frameDuration =
-                        fival.stepwise.max.numerator * 1000000000L / fival.stepwise.max.denominator;
+                        (int64_t)fival.stepwise.max.numerator * 1000000000L / fival.stepwise.max.denominator;
                     break;
                 } else if (fival.type == V4L2_FRMIVAL_TYPE_STEPWISE) {
                     frameDuration =
-                        fival.stepwise.max.numerator * 1000000000L / fival.stepwise.max.denominator;
+                        (int64_t)fival.stepwise.max.numerator * 1000000000L / fival.stepwise.max.denominator;
                     break;
                 }
                 fival.index++;
@@ -997,6 +998,13 @@ int HDMIToCSISensor::getPictureSizes(int32_t picSizes[], int size, bool preview)
     memset(&frmsize,0,sizeof(frmsize));
     preview_fmt = V4L2_PIX_FMT_NV21;//getOutputFormat();
 
+    if (preview == true)
+        frmsize.pixel_format = V4L2_PIX_FMT_NV21;
+    else
+        frmsize.pixel_format = V4L2_PIX_FMT_RGB24;
+
+
+/*
     if (preview_fmt == V4L2_PIX_FMT_NV21) {
         if (preview == true)
             frmsize.pixel_format = V4L2_PIX_FMT_NV21;
@@ -1009,7 +1017,7 @@ int HDMIToCSISensor::getPictureSizes(int32_t picSizes[], int size, bool preview)
             frmsize.pixel_format = V4L2_PIX_FMT_RGB24;
     } else if (preview_fmt == V4L2_PIX_FMT_YUYV)
         frmsize.pixel_format = V4L2_PIX_FMT_YUYV;
-
+*/
     for (i = 0; ; i++) {
         frmsize.index = i;
         res = ioctl(mVinfo->fd, VIDIOC_ENUM_FRAMESIZES, &frmsize);

@@ -1560,7 +1560,7 @@ int dynamic_wdr_calibrations_init_imx415(aisp_calib_info_t *calib)
 	calib->calibrations[CALIBRATION_AWB_CTL] = &calibration_awb_ctl;
 	calib->calibrations[CALIBRATION_AWB_CT_POS] = &calibration_awb_ct_pos;
 	calib->calibrations[CALIBRATION_AWB_CT_RG_COMPENSATION] = &calibration_awb_ct_rg_compensate;
-	calib->calibrations[CALIBRATION_AWB_CT_RG_COMPENSATION] = &calibration_awb_ct_bg_compensate;
+	calib->calibrations[CALIBRATION_AWB_CT_BG_COMPENSATION] = &calibration_awb_ct_bg_compensate;
 	calib->calibrations[CALIBRATION_AWB_CT_WGT] = &calibration_awb_ct_wgt;
 	calib->calibrations[CALIBRATION_AWB_CT_DYN_CVRANGE] = &calibration_awb_ct_dyn_cvrange;
 	calib->calibrations[CALIBRATION_AE_CTL] = &calibration_ae_ctl;

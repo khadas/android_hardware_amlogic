@@ -30,6 +30,7 @@ namespace android {
 VideoInfoUsePictureScaler::VideoInfoUsePictureScaler() {
     memset(&cap, 0, sizeof(struct v4l2_capability));
     memset(&preview,0,sizeof(FrameV4L2Info));
+    memset(&record, 0, sizeof(FrameV4L2Info));
     memset(&picture,0,sizeof(FrameV4L2Info));
     memset(&picture_config,0,sizeof(FrameV4L2Info));
     memset(mem_pic,0,sizeof(mem_pic));
@@ -48,6 +49,10 @@ VideoInfoUsePictureScaler::VideoInfoUsePictureScaler() {
     mSnapShotFd = -1;
     tempbuflen = 0;
     dev_status = 0;
+    mIsRecording = false;
+    canvas_mode = false;
+    mRecordFd = -1;
+    IO_PREVIEW_BUFFER = 0;
     //mMuteKeyStatus = EVENT_CAMERA_UNMUTE;
 }
 

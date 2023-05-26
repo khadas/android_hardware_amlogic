@@ -61,7 +61,8 @@ EmulatedCameraFactory::EmulatedCameraFactory()
         : mCameraVirtualDevice(NULL),
           mEmulatedCameraNum(0),
           mConstructedOK(false),
-          mCallbacks(NULL)
+          mCallbacks(NULL),
+          mHDMIStatusInstance(NULL)
 {
     status_t res;
     /* Connect to the factory service in the emulator, and create Qemu cameras. */
@@ -546,8 +547,8 @@ void EmulatedCameraFactory::onStatusChanged(int videoId, int newStatus)
         //video70 plug boot
         return;
     }
-    if (cameraId >=  MAX_USB_CAM_VIDEO_ID && cameraId != HDMI_VDIN_DEV_BEGIN_NUM)
-        return;
+//    if (cameraId >=  MAX_USB_CAM_VIDEO_ID && cameraId != HDMI_VDIN_DEV_BEGIN_NUM)
+//        return;
 
     if (mEmulatedCameraNum == 0)
         mCameraVirtualDevice->recoverUsbDevicelists();
