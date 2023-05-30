@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016 The Android Open Source Project
+ * Copyright (C) 2022 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,28 +17,26 @@
 #ifndef WIFI_STATUS_UTIL_H_
 #define WIFI_STATUS_UTIL_H_
 
-#include <android/hardware/wifi/1.4/IWifi.h>
+#include <aidl/android/hardware/wifi/IWifi.h>
 
 #include "wifi_legacy_hal.h"
 
+namespace aidl {
 namespace android {
 namespace hardware {
 namespace wifi {
-namespace V1_6 {
-namespace implementation {
-using namespace android::hardware::wifi::V1_0;
+using ::aidl::android::hardware::wifi::WifiStatusCode;
 
 std::string legacyErrorToString(legacy_hal::wifi_error error);
-WifiStatus createWifiStatus(WifiStatusCode code, const std::string& description);
-WifiStatus createWifiStatus(WifiStatusCode code);
-WifiStatus createWifiStatusFromLegacyError(legacy_hal::wifi_error error,
-                                           const std::string& description);
-WifiStatus createWifiStatusFromLegacyError(legacy_hal::wifi_error error);
+ndk::ScopedAStatus createWifiStatus(WifiStatusCode code, const std::string& description);
+ndk::ScopedAStatus createWifiStatus(WifiStatusCode code);
+ndk::ScopedAStatus createWifiStatusFromLegacyError(legacy_hal::wifi_error error,
+                                                   const std::string& description);
+ndk::ScopedAStatus createWifiStatusFromLegacyError(legacy_hal::wifi_error error);
 
-}  // namespace implementation
-}  // namespace V1_6
 }  // namespace wifi
 }  // namespace hardware
 }  // namespace android
+}  // namespace aidl
 
 #endif  // WIFI_STATUS_UTIL_H_

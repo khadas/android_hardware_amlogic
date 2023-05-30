@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016 The Android Open Source Project
+ * Copyright (C) 2022 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,89 +17,80 @@
 #ifndef WIFI_H_
 #define WIFI_H_
 
-// HACK: NAN is a macro defined in math.h, which can be included in various
-// headers. This wifi HAL uses an enum called NAN, which does not compile when
-// the macro is defined. Undefine NAN to work around it.
-#undef NAN
-#include <android/hardware/wifi/1.6/IWifi.h>
-
+#include <aidl/android/hardware/wifi/BnWifi.h>
 #include <android-base/macros.h>
 #include <utils/Looper.h>
+
 #include <functional>
 
-#include "hidl_callback_util.h"
+#include "aidl_callback_util.h"
 #include "wifi_chip.h"
 #include "wifi_feature_flags.h"
 #include "wifi_legacy_hal.h"
 #include "wifi_legacy_hal_factory.h"
 #include "wifi_mode_controller.h"
 
+namespace aidl {
 namespace android {
 namespace hardware {
 namespace wifi {
-namespace V1_6 {
-namespace implementation {
 
 /**
- * Root HIDL interface object used to control the Wifi HAL.
+ * Root AIDL interface object used to control the Wifi HAL.
  */
-class Wifi : public V1_6::IWifi {
+class Wifi : public BnWifi {
   public:
-    Wifi(const std::shared_ptr<wifi_system::InterfaceTool> iface_tool,
+    Wifi(const std::shared_ptr<::android::wifi_system::InterfaceTool> iface_tool,
          const std::shared_ptr<legacy_hal::WifiLegacyHalFactory> legacy_hal_factory,
          const std::shared_ptr<mode_controller::WifiModeController> mode_controller,
          const std::shared_ptr<feature_flags::WifiFeatureFlags> feature_flags);
 
     bool isValid();
 
-    // HIDL methods exposed.
-    Return<void> registerEventCallback(const sp<V1_0::IWifiEventCallback>& event_callback,
-                                       registerEventCallback_cb hidl_status_cb) override;
-    Return<void> registerEventCallback_1_5(const sp<V1_5::IWifiEventCallback>& event_callback,
-                                           registerEventCallback_1_5_cb hidl_status_cb) override;
-    Return<bool> isStarted() override;
-    Return<void> start(start_cb hidl_status_cb) override;
-    Return<void> stop(stop_cb hidl_status_cb) override;
-    Return<void> getChipIds(getChipIds_cb hidl_status_cb) override;
-    Return<void> getChip(ChipId chip_id, getChip_cb hidl_status_cb) override;
-    Return<void> debug(const hidl_handle& handle, const hidl_vec<hidl_string>& options) override;
+    // AIDL methods exposed.
+    ndk::ScopedAStatus registerEventCallback(
+            const std::shared_ptr<IWifiEventCallback>& in_callback) override;
+    ndk::ScopedAStatus isStarted(bool* _aidl_return) override;
+    ndk::ScopedAStatus start() override;
+    ndk::ScopedAStatus stop() override;
+    ndk::ScopedAStatus getChipIds(std::vector<int32_t>* _aidl_return) override;
+    ndk::ScopedAStatus getChip(int32_t in_chipId,
+                               std::shared_ptr<IWifiChip>* _aidl_return) override;
+    binder_status_t dump(int fd, const char** args, uint32_t numArgs) override;
 
   private:
     enum class RunState { STOPPED, STARTED, STOPPING };
 
-    // Corresponding worker functions for the HIDL methods.
-    WifiStatus registerEventCallbackInternal(
-            const sp<V1_0::IWifiEventCallback>& event_callback __unused);
-    WifiStatus registerEventCallbackInternal_1_5(
-            const sp<V1_5::IWifiEventCallback>& event_callback);
-    WifiStatus startInternal();
-    WifiStatus stopInternal(std::unique_lock<std::recursive_mutex>* lock);
-    std::pair<WifiStatus, std::vector<ChipId>> getChipIdsInternal();
-    std::pair<WifiStatus, sp<V1_4::IWifiChip>> getChipInternal(ChipId chip_id);
+    // Corresponding worker functions for the AIDL methods.
+    ndk::ScopedAStatus registerEventCallbackInternal(
+            const std::shared_ptr<IWifiEventCallback>& event_callback __unused);
+    ndk::ScopedAStatus startInternal();
+    ndk::ScopedAStatus stopInternal(std::unique_lock<std::recursive_mutex>* lock);
+    std::pair<std::vector<int32_t>, ndk::ScopedAStatus> getChipIdsInternal();
+    std::pair<std::shared_ptr<IWifiChip>, ndk::ScopedAStatus> getChipInternal(int32_t chip_id);
 
-    WifiStatus initializeModeControllerAndLegacyHal();
-    WifiStatus stopLegacyHalAndDeinitializeModeController(
+    ndk::ScopedAStatus initializeModeControllerAndLegacyHal();
+    ndk::ScopedAStatus stopLegacyHalAndDeinitializeModeController(
             std::unique_lock<std::recursive_mutex>* lock);
-    ChipId getChipIdFromWifiChip(sp<WifiChip>& chip);
+    int32_t getChipIdFromWifiChip(std::shared_ptr<WifiChip>& chip);
 
-    // Instance is created in this root level |IWifi| HIDL interface object
-    // and shared with all the child HIDL interface objects.
-    std::shared_ptr<wifi_system::InterfaceTool> iface_tool_;
+    // Instance is created in this root level |IWifi| AIDL interface object
+    // and shared with all the child AIDL interface objects.
+    std::shared_ptr<::android::wifi_system::InterfaceTool> iface_tool_;
     std::shared_ptr<legacy_hal::WifiLegacyHalFactory> legacy_hal_factory_;
     std::shared_ptr<mode_controller::WifiModeController> mode_controller_;
     std::vector<std::shared_ptr<legacy_hal::WifiLegacyHal>> legacy_hals_;
     std::shared_ptr<feature_flags::WifiFeatureFlags> feature_flags_;
     RunState run_state_;
-    std::vector<sp<WifiChip>> chips_;
-    hidl_callback_util::HidlCallbackHandler<V1_5::IWifiEventCallback> event_cb_handler_;
+    std::vector<std::shared_ptr<WifiChip>> chips_;
+    aidl_callback_util::AidlCallbackHandler<IWifiEventCallback> event_cb_handler_;
 
     DISALLOW_COPY_AND_ASSIGN(Wifi);
 };
 
-}  // namespace implementation
-}  // namespace V1_6
 }  // namespace wifi
 }  // namespace hardware
 }  // namespace android
+}  // namespace aidl
 
 #endif  // WIFI_H_

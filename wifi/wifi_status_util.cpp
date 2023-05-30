@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016 The Android Open Source Project
+ * Copyright (C) 2022 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,11 +16,10 @@
 
 #include "wifi_status_util.h"
 
+namespace aidl {
 namespace android {
 namespace hardware {
 namespace wifi {
-namespace V1_6 {
-namespace implementation {
 
 std::string legacyErrorToString(legacy_hal::wifi_error error) {
     switch (error) {
@@ -51,16 +50,21 @@ std::string legacyErrorToString(legacy_hal::wifi_error error) {
     }
 }
 
-WifiStatus createWifiStatus(WifiStatusCode code, const std::string& description) {
-    return {code, description};
+ndk::ScopedAStatus createWifiStatus(WifiStatusCode code, const std::string& description) {
+    return ndk::ScopedAStatus::fromServiceSpecificErrorWithMessage(static_cast<int32_t>(code),
+                                                                   description.c_str());
 }
 
-WifiStatus createWifiStatus(WifiStatusCode code) {
-    return createWifiStatus(code, "");
+ndk::ScopedAStatus createWifiStatus(WifiStatusCode code) {
+    return ndk::ScopedAStatus::fromServiceSpecificError(static_cast<int32_t>(code));
 }
 
-WifiStatus createWifiStatusFromLegacyError(legacy_hal::wifi_error error, const std::string& desc) {
+ndk::ScopedAStatus createWifiStatusFromLegacyError(legacy_hal::wifi_error error,
+                                                   const std::string& desc) {
     switch (error) {
+        case legacy_hal::WIFI_ERROR_NONE:
+            return ndk::ScopedAStatus::ok();
+
         case legacy_hal::WIFI_ERROR_UNINITIALIZED:
         case legacy_hal::WIFI_ERROR_NOT_AVAILABLE:
             return createWifiStatus(WifiStatusCode::ERROR_NOT_AVAILABLE, desc);
@@ -84,9 +88,6 @@ WifiStatus createWifiStatusFromLegacyError(legacy_hal::wifi_error error, const s
         case legacy_hal::WIFI_ERROR_BUSY:
             return createWifiStatus(WifiStatusCode::ERROR_BUSY);
 
-        case legacy_hal::WIFI_ERROR_NONE:
-            return createWifiStatus(WifiStatusCode::SUCCESS, desc);
-
         case legacy_hal::WIFI_ERROR_UNKNOWN:
             return createWifiStatus(WifiStatusCode::ERROR_UNKNOWN, "unknown");
 
@@ -95,12 +96,11 @@ WifiStatus createWifiStatusFromLegacyError(legacy_hal::wifi_error error, const s
     }
 }
 
-WifiStatus createWifiStatusFromLegacyError(legacy_hal::wifi_error error) {
+ndk::ScopedAStatus createWifiStatusFromLegacyError(legacy_hal::wifi_error error) {
     return createWifiStatusFromLegacyError(error, "");
 }
 
-}  // namespace implementation
-}  // namespace V1_6
 }  // namespace wifi
 }  // namespace hardware
 }  // namespace android
+}  // namespace aidl

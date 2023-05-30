@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016 The Android Open Source Project
+ * Copyright (C) 2022 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,192 +17,140 @@
 #ifndef WIFI_NAN_IFACE_H_
 #define WIFI_NAN_IFACE_H_
 
+#include <aidl/android/hardware/wifi/BnWifiNanIface.h>
+#include <aidl/android/hardware/wifi/IWifiNanIfaceEventCallback.h>
 #include <android-base/macros.h>
-#include <android/hardware/wifi/1.6/IWifiNanIface.h>
-#include <android/hardware/wifi/1.6/IWifiNanIfaceEventCallback.h>
 
-#include "hidl_callback_util.h"
+#include "aidl_callback_util.h"
 #include "wifi_iface_util.h"
 #include "wifi_legacy_hal.h"
 
+namespace aidl {
 namespace android {
 namespace hardware {
 namespace wifi {
-namespace V1_6 {
-namespace implementation {
-using namespace android::hardware::wifi::V1_0;
-using namespace android::hardware::wifi::V1_2;
-using namespace android::hardware::wifi::V1_4;
-using namespace android::hardware::wifi::V1_6;
 
 /**
- * HIDL interface object used to control a NAN Iface instance.
+ * AIDL interface object used to control a NAN Iface instance.
  */
-class WifiNanIface : public V1_6::IWifiNanIface {
+class WifiNanIface : public BnWifiNanIface {
   public:
     WifiNanIface(const std::string& ifname, bool is_dedicated_iface,
                  const std::weak_ptr<legacy_hal::WifiLegacyHal> legacy_hal,
                  const std::weak_ptr<iface_util::WifiIfaceUtil> iface_util);
+
+    // Factory method - use instead of default constructor.
+    static std::shared_ptr<WifiNanIface> create(
+            const std::string& ifname, bool is_dedicated_iface,
+            const std::weak_ptr<legacy_hal::WifiLegacyHal> legacy_hal,
+            const std::weak_ptr<iface_util::WifiIfaceUtil> iface_util);
+
     // Refer to |WifiChip::invalidate()|.
     void invalidate();
     bool isValid();
     std::string getName();
 
-    // HIDL methods exposed.
-    Return<void> getName(getName_cb hidl_status_cb) override;
-    Return<void> getType(getType_cb hidl_status_cb) override;
-    Return<void> registerEventCallback(const sp<V1_0::IWifiNanIfaceEventCallback>& callback,
-                                       registerEventCallback_cb hidl_status_cb) override;
-    Return<void> getCapabilitiesRequest(uint16_t cmd_id,
-                                        getCapabilitiesRequest_cb hidl_status_cb) override;
-    Return<void> enableRequest(uint16_t cmd_id, const V1_0::NanEnableRequest& msg,
-                               enableRequest_cb hidl_status_cb) override;
-    Return<void> configRequest(uint16_t cmd_id, const V1_0::NanConfigRequest& msg,
-                               configRequest_cb hidl_status_cb) override;
-    Return<void> disableRequest(uint16_t cmd_id, disableRequest_cb hidl_status_cb) override;
-    Return<void> startPublishRequest(uint16_t cmd_id, const V1_0::NanPublishRequest& msg,
-                                     startPublishRequest_cb hidl_status_cb) override;
-    Return<void> stopPublishRequest(uint16_t cmd_id, uint8_t sessionId,
-                                    stopPublishRequest_cb hidl_status_cb) override;
-    Return<void> startSubscribeRequest(uint16_t cmd_id, const V1_0::NanSubscribeRequest& msg,
-                                       startSubscribeRequest_cb hidl_status_cb) override;
-    Return<void> stopSubscribeRequest(uint16_t cmd_id, uint8_t sessionId,
-                                      stopSubscribeRequest_cb hidl_status_cb) override;
-    Return<void> transmitFollowupRequest(uint16_t cmd_id, const NanTransmitFollowupRequest& msg,
-                                         transmitFollowupRequest_cb hidl_status_cb) override;
-    Return<void> createDataInterfaceRequest(uint16_t cmd_id, const hidl_string& iface_name,
-                                            createDataInterfaceRequest_cb hidl_status_cb) override;
-    Return<void> deleteDataInterfaceRequest(uint16_t cmd_id, const hidl_string& iface_name,
-                                            deleteDataInterfaceRequest_cb hidl_status_cb) override;
-    Return<void> initiateDataPathRequest(uint16_t cmd_id,
-                                         const V1_0::NanInitiateDataPathRequest& msg,
-                                         initiateDataPathRequest_cb hidl_status_cb) override;
-    Return<void> respondToDataPathIndicationRequest(
-            uint16_t cmd_id, const V1_0::NanRespondToDataPathIndicationRequest& msg,
-            respondToDataPathIndicationRequest_cb hidl_status_cb) override;
-    Return<void> terminateDataPathRequest(uint16_t cmd_id, uint32_t ndpInstanceId,
-                                          terminateDataPathRequest_cb hidl_status_cb) override;
+    // AIDL methods exposed.
+    ndk::ScopedAStatus getName(std::string* _aidl_return) override;
+    ndk::ScopedAStatus registerEventCallback(
+            const std::shared_ptr<IWifiNanIfaceEventCallback>& in_callback) override;
+    ndk::ScopedAStatus getCapabilitiesRequest(char16_t in_cmdId) override;
+    ndk::ScopedAStatus enableRequest(char16_t in_cmdId, const NanEnableRequest& in_msg1,
+                                     const NanConfigRequestSupplemental& in_msg2) override;
+    ndk::ScopedAStatus configRequest(char16_t in_cmdId, const NanConfigRequest& in_msg1,
+                                     const NanConfigRequestSupplemental& in_msg2) override;
+    ndk::ScopedAStatus disableRequest(char16_t in_cmdId) override;
+    ndk::ScopedAStatus startPublishRequest(char16_t in_cmdId,
+                                           const NanPublishRequest& in_msg) override;
+    ndk::ScopedAStatus stopPublishRequest(char16_t in_cmdId, int8_t in_sessionId) override;
+    ndk::ScopedAStatus startSubscribeRequest(char16_t in_cmdId,
+                                             const NanSubscribeRequest& in_msg) override;
+    ndk::ScopedAStatus stopSubscribeRequest(char16_t in_cmdId, int8_t in_sessionId) override;
+    ndk::ScopedAStatus transmitFollowupRequest(char16_t in_cmdId,
+                                               const NanTransmitFollowupRequest& in_msg) override;
+    ndk::ScopedAStatus createDataInterfaceRequest(char16_t in_cmdId,
+                                                  const std::string& in_ifaceName) override;
+    ndk::ScopedAStatus deleteDataInterfaceRequest(char16_t in_cmdId,
+                                                  const std::string& in_ifaceName) override;
+    ndk::ScopedAStatus initiateDataPathRequest(char16_t in_cmdId,
+                                               const NanInitiateDataPathRequest& in_msg) override;
+    ndk::ScopedAStatus respondToDataPathIndicationRequest(
+            char16_t in_cmdId, const NanRespondToDataPathIndicationRequest& in_msg) override;
+    ndk::ScopedAStatus terminateDataPathRequest(char16_t in_cmdId,
+                                                int32_t in_ndpInstanceId) override;
+    ndk::ScopedAStatus initiatePairingRequest(char16_t in_cmdId,
+                                              const NanPairingRequest& in_msg) override;
+    ndk::ScopedAStatus respondToPairingIndicationRequest(
+            char16_t in_cmdId, const NanRespondToPairingIndicationRequest& in_msg) override;
+    ndk::ScopedAStatus terminatePairingRequest(char16_t in_cmdId, int32_t in_pairingId) override;
+    ndk::ScopedAStatus initiateBootstrappingRequest(char16_t in_cmdId,
+                                                    const NanBootstrappingRequest& in_msg) override;
+    ndk::ScopedAStatus respondToBootstrappingIndicationRequest(
+            char16_t in_cmdId, const NanBootstrappingResponse& in_msg) override;
+    ndk::ScopedAStatus suspendRequest(char16_t in_cmdId, int8_t sessionId) override;
+    ndk::ScopedAStatus resumeRequest(char16_t in_cmdId, int8_t sessionId) override;
 
-    Return<void> registerEventCallback_1_2(const sp<V1_2::IWifiNanIfaceEventCallback>& callback,
-                                           registerEventCallback_1_2_cb hidl_status_cb) override;
-    Return<void> enableRequest_1_2(uint16_t cmd_id, const V1_0::NanEnableRequest& msg1,
-                                   const V1_2::NanConfigRequestSupplemental& msg2,
-                                   enableRequest_1_2_cb hidl_status_cb) override;
-    Return<void> configRequest_1_2(uint16_t cmd_id, const V1_0::NanConfigRequest& msg1,
-                                   const V1_2::NanConfigRequestSupplemental& msg2,
-                                   configRequest_1_2_cb hidl_status_cb) override;
-    Return<void> enableRequest_1_4(uint16_t cmd_id, const V1_4::NanEnableRequest& msg1,
-                                   const V1_2::NanConfigRequestSupplemental& msg2,
-                                   enableRequest_1_4_cb hidl_status_cb) override;
-    Return<void> configRequest_1_4(uint16_t cmd_id, const V1_4::NanConfigRequest& msg1,
-                                   const V1_2::NanConfigRequestSupplemental& msg2,
-                                   configRequest_1_4_cb hidl_status_cb) override;
-    Return<void> registerEventCallback_1_5(const sp<V1_5::IWifiNanIfaceEventCallback>& callback,
-                                           registerEventCallback_1_5_cb hidl_status_cb) override;
-    Return<void> enableRequest_1_5(uint16_t cmd_id, const V1_4::NanEnableRequest& msg1,
-                                   const V1_5::NanConfigRequestSupplemental& msg2,
-                                   enableRequest_1_5_cb hidl_status_cb) override;
-    Return<void> configRequest_1_5(uint16_t cmd_id, const V1_4::NanConfigRequest& msg1,
-                                   const V1_5::NanConfigRequestSupplemental& msg2,
-                                   configRequest_1_5_cb hidl_status_cb) override;
-    Return<void> getCapabilitiesRequest_1_5(uint16_t cmd_id,
-                                            getCapabilitiesRequest_cb hidl_status_cb) override;
-    Return<void> registerEventCallback_1_6(const sp<V1_6::IWifiNanIfaceEventCallback>& callback,
-                                           registerEventCallback_1_6_cb hidl_status_cb) override;
-    Return<void> initiateDataPathRequest_1_6(
-            uint16_t cmd_id, const V1_6::NanInitiateDataPathRequest& msg,
-            initiateDataPathRequest_1_6_cb hidl_status_cb) override;
-    Return<void> respondToDataPathIndicationRequest_1_6(
-            uint16_t cmd_id, const V1_6::NanRespondToDataPathIndicationRequest& msg,
-            respondToDataPathIndicationRequest_1_6_cb hidl_status_cb) override;
-    Return<void> enableRequest_1_6(uint16_t cmd_id, const V1_4::NanEnableRequest& msg1,
-                                   const V1_6::NanConfigRequestSupplemental& msg2,
-                                   enableRequest_1_6_cb hidl_status_cb) override;
-    Return<void> configRequest_1_6(uint16_t cmd_id, const V1_4::NanConfigRequest& msg1,
-                                   const V1_6::NanConfigRequestSupplemental& msg2,
-                                   configRequest_1_6_cb hidl_status_cb) override;
-    Return<void> startPublishRequest_1_6(uint16_t cmd_id, const V1_6::NanPublishRequest& msg,
-                                         startPublishRequest_cb hidl_status_cb) override;
+  protected:
+    // Accessible to child class in the gTest suite.
+    void setWeakPtr(std::weak_ptr<WifiNanIface> ptr);
+    void registerCallbackHandlers();
 
   private:
-    // Corresponding worker functions for the HIDL methods.
-    std::pair<WifiStatus, std::string> getNameInternal();
-    std::pair<WifiStatus, IfaceType> getTypeInternal();
-    WifiStatus registerEventCallbackInternal(const sp<V1_0::IWifiNanIfaceEventCallback>& callback);
-    WifiStatus getCapabilitiesRequestInternal(uint16_t cmd_id);
-    WifiStatus enableRequestInternal(uint16_t cmd_id, const V1_0::NanEnableRequest& msg);
-    WifiStatus configRequestInternal(uint16_t cmd_id, const V1_0::NanConfigRequest& msg);
-    WifiStatus disableRequestInternal(uint16_t cmd_id);
-    WifiStatus startPublishRequestInternal(uint16_t cmd_id, const V1_0::NanPublishRequest& msg);
-    WifiStatus stopPublishRequestInternal(uint16_t cmd_id, uint8_t sessionId);
-    WifiStatus startSubscribeRequestInternal(uint16_t cmd_id, const V1_0::NanSubscribeRequest& msg);
-    WifiStatus stopSubscribeRequestInternal(uint16_t cmd_id, uint8_t sessionId);
-    WifiStatus transmitFollowupRequestInternal(uint16_t cmd_id,
-                                               const NanTransmitFollowupRequest& msg);
-    WifiStatus createDataInterfaceRequestInternal(uint16_t cmd_id, const std::string& iface_name);
-    WifiStatus deleteDataInterfaceRequestInternal(uint16_t cmd_id, const std::string& iface_name);
-    WifiStatus initiateDataPathRequestInternal(uint16_t cmd_id,
-                                               const V1_0::NanInitiateDataPathRequest& msg);
-    WifiStatus respondToDataPathIndicationRequestInternal(
-            uint16_t cmd_id, const V1_0::NanRespondToDataPathIndicationRequest& msg);
-    WifiStatus terminateDataPathRequestInternal(uint16_t cmd_id, uint32_t ndpInstanceId);
+    // Corresponding worker functions for the AIDL methods.
+    std::pair<std::string, ndk::ScopedAStatus> getNameInternal();
+    ndk::ScopedAStatus registerEventCallbackInternal(
+            const std::shared_ptr<IWifiNanIfaceEventCallback>& callback);
+    ndk::ScopedAStatus getCapabilitiesRequestInternal(char16_t cmd_id);
+    ndk::ScopedAStatus enableRequestInternal(char16_t cmd_id, const NanEnableRequest& msg1,
+                                             const NanConfigRequestSupplemental& msg2);
+    ndk::ScopedAStatus configRequestInternal(char16_t cmd_id, const NanConfigRequest& msg1,
+                                             const NanConfigRequestSupplemental& msg2);
+    ndk::ScopedAStatus disableRequestInternal(char16_t cmd_id);
+    ndk::ScopedAStatus startPublishRequestInternal(char16_t cmd_id, const NanPublishRequest& msg);
+    ndk::ScopedAStatus stopPublishRequestInternal(char16_t cmd_id, int8_t sessionId);
+    ndk::ScopedAStatus startSubscribeRequestInternal(char16_t cmd_id,
+                                                     const NanSubscribeRequest& msg);
+    ndk::ScopedAStatus stopSubscribeRequestInternal(char16_t cmd_id, int8_t sessionId);
+    ndk::ScopedAStatus transmitFollowupRequestInternal(char16_t cmd_id,
+                                                       const NanTransmitFollowupRequest& msg);
+    ndk::ScopedAStatus createDataInterfaceRequestInternal(char16_t cmd_id,
+                                                          const std::string& iface_name);
+    ndk::ScopedAStatus deleteDataInterfaceRequestInternal(char16_t cmd_id,
+                                                          const std::string& iface_name);
+    ndk::ScopedAStatus initiateDataPathRequestInternal(char16_t cmd_id,
+                                                       const NanInitiateDataPathRequest& msg);
+    ndk::ScopedAStatus respondToDataPathIndicationRequestInternal(
+            char16_t cmd_id, const NanRespondToDataPathIndicationRequest& msg);
+    ndk::ScopedAStatus terminateDataPathRequestInternal(char16_t cmd_id, int32_t ndpInstanceId);
+    ndk::ScopedAStatus initiatePairingRequestInternal(char16_t cmd_id,
+                                                      const NanPairingRequest& msg);
+    ndk::ScopedAStatus respondToPairingIndicationRequestInternal(
+            char16_t cmd_id, const NanRespondToPairingIndicationRequest& msg);
+    ndk::ScopedAStatus terminatePairingRequestInternal(char16_t cmd_id, int32_t pairingId);
+    ndk::ScopedAStatus initiateBootstrappingRequestInternal(char16_t cmd_id,
+                                                            const NanBootstrappingRequest& msg);
+    ndk::ScopedAStatus respondToBootstrappingIndicationRequestInternal(
+            char16_t cmd_id, const NanBootstrappingResponse& msg);
+    ndk::ScopedAStatus suspendRequestInternal(char16_t in_cmdId, int8_t sessionId);
+    ndk::ScopedAStatus resumeRequestInternal(char16_t in_cmdId, int8_t sessionId);
 
-    WifiStatus registerEventCallback_1_2Internal(
-            const sp<V1_2::IWifiNanIfaceEventCallback>& callback);
-    WifiStatus enableRequest_1_2Internal(uint16_t cmd_id, const V1_0::NanEnableRequest& msg1,
-                                         const V1_2::NanConfigRequestSupplemental& msg2);
-    WifiStatus configRequest_1_2Internal(uint16_t cmd_id, const V1_0::NanConfigRequest& msg,
-                                         const V1_2::NanConfigRequestSupplemental& msg2);
-    WifiStatus enableRequest_1_4Internal(uint16_t cmd_id, const V1_4::NanEnableRequest& msg1,
-                                         const V1_2::NanConfigRequestSupplemental& msg2);
-    WifiStatus configRequest_1_4Internal(uint16_t cmd_id, const V1_4::NanConfigRequest& msg,
-                                         const V1_2::NanConfigRequestSupplemental& msg2);
-    WifiStatus registerEventCallback_1_5Internal(
-            const sp<V1_5::IWifiNanIfaceEventCallback>& callback);
-    WifiStatus enableRequest_1_5Internal(uint16_t cmd_id, const V1_4::NanEnableRequest& msg1,
-                                         const V1_5::NanConfigRequestSupplemental& msg2);
-    WifiStatus configRequest_1_5Internal(uint16_t cmd_id, const V1_4::NanConfigRequest& msg,
-                                         const V1_5::NanConfigRequestSupplemental& msg2);
-    WifiStatus getCapabilitiesRequest_1_5Internal(uint16_t cmd_id);
-    WifiStatus registerEventCallback_1_6Internal(
-            const sp<V1_6::IWifiNanIfaceEventCallback>& callback);
-
-    WifiStatus enableRequest_1_6Internal(uint16_t cmd_id, const V1_4::NanEnableRequest& msg1,
-                                         const V1_6::NanConfigRequestSupplemental& msg2);
-    WifiStatus configRequest_1_6Internal(uint16_t cmd_id, const V1_4::NanConfigRequest& msg,
-                                         const V1_6::NanConfigRequestSupplemental& msg2);
-    WifiStatus startPublishRequest_1_6Internal(uint16_t cmd_id, const V1_6::NanPublishRequest& msg);
-    WifiStatus initiateDataPathRequest_1_6Internal(uint16_t cmd_id,
-                                                   const V1_6::NanInitiateDataPathRequest& msg);
-    WifiStatus respondToDataPathIndicationRequest_1_6Internal(
-            uint16_t cmd_id, const V1_6::NanRespondToDataPathIndicationRequest& msg);
-
-    // all 1_0 and descendant callbacks
-    std::set<sp<V1_0::IWifiNanIfaceEventCallback>> getEventCallbacks();
-    // all 1_2 and descendant callbacks
-    std::set<sp<V1_2::IWifiNanIfaceEventCallback>> getEventCallbacks_1_2();
-    // all 1_5 and descendant callbacks
-    std::set<sp<V1_5::IWifiNanIfaceEventCallback>> getEventCallbacks_1_5();
-    // all 1_6 and descendant callbacks
-    std::set<sp<V1_6::IWifiNanIfaceEventCallback>> getEventCallbacks_1_6();
+    // Overridden in the gTest suite.
+    virtual std::set<std::shared_ptr<IWifiNanIfaceEventCallback>> getEventCallbacks();
 
     std::string ifname_;
     bool is_dedicated_iface_;
     std::weak_ptr<legacy_hal::WifiLegacyHal> legacy_hal_;
     std::weak_ptr<iface_util::WifiIfaceUtil> iface_util_;
     bool is_valid_;
-    hidl_callback_util::HidlCallbackHandler<V1_0::IWifiNanIfaceEventCallback> event_cb_handler_;
-    hidl_callback_util::HidlCallbackHandler<V1_2::IWifiNanIfaceEventCallback> event_cb_handler_1_2_;
-    hidl_callback_util::HidlCallbackHandler<V1_5::IWifiNanIfaceEventCallback> event_cb_handler_1_5_;
-    hidl_callback_util::HidlCallbackHandler<V1_6::IWifiNanIfaceEventCallback> event_cb_handler_1_6_;
+    std::weak_ptr<WifiNanIface> weak_ptr_this_;
+    aidl_callback_util::AidlCallbackHandler<IWifiNanIfaceEventCallback> event_cb_handler_;
 
     DISALLOW_COPY_AND_ASSIGN(WifiNanIface);
 };
 
-}  // namespace implementation
-}  // namespace V1_6
 }  // namespace wifi
 }  // namespace hardware
 }  // namespace android
+}  // namespace aidl
 
 #endif  // WIFI_NAN_IFACE_H_

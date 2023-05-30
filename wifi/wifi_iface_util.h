@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2019 The Android Open Source Project
+ * Copyright (C) 2022 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,17 +17,15 @@
 #ifndef WIFI_IFACE_UTIL_H_
 #define WIFI_IFACE_UTIL_H_
 
+#include <aidl/android/hardware/wifi/IWifi.h>
 #include <wifi_system/interface_tool.h>
-
-#include <android/hardware/wifi/1.0/IWifi.h>
 
 #include "wifi_legacy_hal.h"
 
+namespace aidl {
 namespace android {
 namespace hardware {
 namespace wifi {
-namespace V1_6 {
-namespace implementation {
 namespace iface_util {
 
 // Iface event handlers.
@@ -42,7 +40,7 @@ struct IfaceEventHandlers {
  */
 class WifiIfaceUtil {
   public:
-    WifiIfaceUtil(const std::weak_ptr<wifi_system::InterfaceTool> iface_tool,
+    WifiIfaceUtil(const std::weak_ptr<::android::wifi_system::InterfaceTool> iface_tool,
                   const std::weak_ptr<legacy_hal::WifiLegacyHal> legacy_hal);
     virtual ~WifiIfaceUtil() = default;
 
@@ -71,17 +69,16 @@ class WifiIfaceUtil {
     virtual std::array<uint8_t, 6> createRandomMacAddress();
 
   private:
-    std::weak_ptr<wifi_system::InterfaceTool> iface_tool_;
+    std::weak_ptr<::android::wifi_system::InterfaceTool> iface_tool_;
     std::weak_ptr<legacy_hal::WifiLegacyHal> legacy_hal_;
     std::unique_ptr<std::array<uint8_t, 6>> random_mac_address_;
     std::map<std::string, IfaceEventHandlers> event_handlers_map_;
 };
 
 }  // namespace iface_util
-}  // namespace implementation
-}  // namespace V1_6
 }  // namespace wifi
 }  // namespace hardware
 }  // namespace android
+}  // namespace aidl
 
 #endif  // WIFI_IFACE_UTIL_H_

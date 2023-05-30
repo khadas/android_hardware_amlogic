@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016 The Android Open Source Project
+ * Copyright (C) 2022 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,24 +17,23 @@
 #ifndef WIFI_FEATURE_FLAGS_H_
 #define WIFI_FEATURE_FLAGS_H_
 
-#include <android/hardware/wifi/1.6/IWifiChip.h>
+#include <aidl/android/hardware/wifi/IWifiChip.h>
 
+namespace aidl {
 namespace android {
 namespace hardware {
 namespace wifi {
-namespace V1_6 {
-namespace implementation {
 namespace feature_flags {
 
 namespace chip_mode_ids {
 // These mode ID's should be unique (even across combo versions). Refer to
-// handleChipConfiguration() for it's usage.
-constexpr V1_0::ChipModeId kInvalid = UINT32_MAX;
+// handleChipConfiguration() for its usage.
+constexpr uint32_t kInvalid = UINT32_MAX;
 // Mode ID's for V1
-constexpr V1_0::ChipModeId kV1Sta = 0;
-constexpr V1_0::ChipModeId kV1Ap = 1;
+constexpr uint32_t kV1Sta = 0;
+constexpr uint32_t kV1Ap = 1;
 // Mode ID for V3
-constexpr V1_0::ChipModeId kV3 = 3;
+constexpr uint32_t kV3 = 3;
 }  // namespace chip_mode_ids
 
 class WifiFeatureFlags {
@@ -42,17 +41,16 @@ class WifiFeatureFlags {
     WifiFeatureFlags();
     virtual ~WifiFeatureFlags() = default;
 
-    virtual std::vector<V1_6::IWifiChip::ChipMode> getChipModes(bool is_primary);
+    virtual std::vector<IWifiChip::ChipMode> getChipModes(bool is_primary);
 
   private:
-    std::vector<V1_6::IWifiChip::ChipMode> getChipModesForPrimary();
+    std::vector<IWifiChip::ChipMode> getChipModesForPrimary();
 };
 
 }  // namespace feature_flags
-}  // namespace implementation
-}  // namespace V1_6
 }  // namespace wifi
 }  // namespace hardware
 }  // namespace android
+}  // namespace aidl
 
 #endif  // WIFI_FEATURE_FLAGS_H_

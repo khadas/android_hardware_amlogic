@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016 The Android Open Source Project
+ * Copyright (C) 2022 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,19 +14,19 @@
  * limitations under the License.
  */
 
+#include "wifi_sta_iface.h"
+
 #include <android-base/logging.h>
 
-#include "hidl_return_util.h"
-#include "hidl_struct_util.h"
-#include "wifi_sta_iface.h"
+#include "aidl_return_util.h"
+#include "aidl_struct_util.h"
 #include "wifi_status_util.h"
 
+namespace aidl {
 namespace android {
 namespace hardware {
 namespace wifi {
-namespace V1_6 {
-namespace implementation {
-using hidl_return_util::validateAndCall;
+using aidl_return_util::validateAndCall;
 
 WifiStaIface::WifiStaIface(const std::string& ifname,
                            const std::weak_ptr<legacy_hal::WifiLegacyHal> legacy_hal,
@@ -39,10 +39,24 @@ WifiStaIface::WifiStaIface(const std::string& ifname,
     }
 }
 
+std::shared_ptr<WifiStaIface> WifiStaIface::create(
+        const std::string& ifname, const std::weak_ptr<legacy_hal::WifiLegacyHal> legacy_hal,
+        const std::weak_ptr<iface_util::WifiIfaceUtil> iface_util) {
+    std::shared_ptr<WifiStaIface> ptr =
+            ndk::SharedRefBase::make<WifiStaIface>(ifname, legacy_hal, iface_util);
+    std::weak_ptr<WifiStaIface> weak_ptr_this(ptr);
+    ptr->setWeakPtr(weak_ptr_this);
+    return ptr;
+}
+
 void WifiStaIface::invalidate() {
     legacy_hal_.reset();
     event_cb_handler_.invalidate();
     is_valid_ = false;
+}
+
+void WifiStaIface::setWeakPtr(std::weak_ptr<WifiStaIface> ptr) {
+    weak_ptr_this_ = ptr;
 }
 
 bool WifiStaIface::isValid() {
@@ -53,299 +67,239 @@ std::string WifiStaIface::getName() {
     return ifname_;
 }
 
-std::set<sp<IWifiStaIfaceEventCallback>> WifiStaIface::getEventCallbacks() {
+std::set<std::shared_ptr<IWifiStaIfaceEventCallback>> WifiStaIface::getEventCallbacks() {
     return event_cb_handler_.getCallbacks();
 }
 
-Return<void> WifiStaIface::getName(getName_cb hidl_status_cb) {
+ndk::ScopedAStatus WifiStaIface::getName(std::string* _aidl_return) {
     return validateAndCall(this, WifiStatusCode::ERROR_WIFI_IFACE_INVALID,
-                           &WifiStaIface::getNameInternal, hidl_status_cb);
+                           &WifiStaIface::getNameInternal, _aidl_return);
 }
 
-Return<void> WifiStaIface::getType(getType_cb hidl_status_cb) {
+ndk::ScopedAStatus WifiStaIface::registerEventCallback(
+        const std::shared_ptr<IWifiStaIfaceEventCallback>& in_callback) {
     return validateAndCall(this, WifiStatusCode::ERROR_WIFI_IFACE_INVALID,
-                           &WifiStaIface::getTypeInternal, hidl_status_cb);
+                           &WifiStaIface::registerEventCallbackInternal, in_callback);
 }
 
-Return<void> WifiStaIface::registerEventCallback(const sp<IWifiStaIfaceEventCallback>& callback,
-                                                 registerEventCallback_cb hidl_status_cb) {
+ndk::ScopedAStatus WifiStaIface::getFeatureSet(int32_t* _aidl_return) {
     return validateAndCall(this, WifiStatusCode::ERROR_WIFI_IFACE_INVALID,
-                           &WifiStaIface::registerEventCallbackInternal, hidl_status_cb, callback);
+                           &WifiStaIface::getFeatureSetInternal, _aidl_return);
 }
 
-Return<void> WifiStaIface::getCapabilities(getCapabilities_cb hidl_status_cb) {
+ndk::ScopedAStatus WifiStaIface::getApfPacketFilterCapabilities(
+        StaApfPacketFilterCapabilities* _aidl_return) {
     return validateAndCall(this, WifiStatusCode::ERROR_WIFI_IFACE_INVALID,
-                           &WifiStaIface::getCapabilitiesInternal, hidl_status_cb);
+                           &WifiStaIface::getApfPacketFilterCapabilitiesInternal, _aidl_return);
 }
 
-Return<void> WifiStaIface::getApfPacketFilterCapabilities(
-        getApfPacketFilterCapabilities_cb hidl_status_cb) {
+ndk::ScopedAStatus WifiStaIface::installApfPacketFilter(const std::vector<uint8_t>& in_program) {
     return validateAndCall(this, WifiStatusCode::ERROR_WIFI_IFACE_INVALID,
-                           &WifiStaIface::getApfPacketFilterCapabilitiesInternal, hidl_status_cb);
+                           &WifiStaIface::installApfPacketFilterInternal, in_program);
 }
 
-Return<void> WifiStaIface::installApfPacketFilter(uint32_t cmd_id, const hidl_vec<uint8_t>& program,
-                                                  installApfPacketFilter_cb hidl_status_cb) {
+ndk::ScopedAStatus WifiStaIface::readApfPacketFilterData(std::vector<uint8_t>* _aidl_return) {
     return validateAndCall(this, WifiStatusCode::ERROR_WIFI_IFACE_INVALID,
-                           &WifiStaIface::installApfPacketFilterInternal, hidl_status_cb, cmd_id,
-                           program);
+                           &WifiStaIface::readApfPacketFilterDataInternal, _aidl_return);
 }
 
-Return<void> WifiStaIface::readApfPacketFilterData(readApfPacketFilterData_cb hidl_status_cb) {
+ndk::ScopedAStatus WifiStaIface::getBackgroundScanCapabilities(
+        StaBackgroundScanCapabilities* _aidl_return) {
     return validateAndCall(this, WifiStatusCode::ERROR_WIFI_IFACE_INVALID,
-                           &WifiStaIface::readApfPacketFilterDataInternal, hidl_status_cb);
+                           &WifiStaIface::getBackgroundScanCapabilitiesInternal, _aidl_return);
 }
 
-Return<void> WifiStaIface::getBackgroundScanCapabilities(
-        getBackgroundScanCapabilities_cb hidl_status_cb) {
+ndk::ScopedAStatus WifiStaIface::startBackgroundScan(int32_t in_cmdId,
+                                                     const StaBackgroundScanParameters& in_params) {
     return validateAndCall(this, WifiStatusCode::ERROR_WIFI_IFACE_INVALID,
-                           &WifiStaIface::getBackgroundScanCapabilitiesInternal, hidl_status_cb);
+                           &WifiStaIface::startBackgroundScanInternal, in_cmdId, in_params);
 }
 
-Return<void> WifiStaIface::getValidFrequenciesForBand(
-        V1_0::WifiBand band, getValidFrequenciesForBand_cb hidl_status_cb) {
+ndk::ScopedAStatus WifiStaIface::stopBackgroundScan(int32_t in_cmdId) {
     return validateAndCall(this, WifiStatusCode::ERROR_WIFI_IFACE_INVALID,
-                           &WifiStaIface::getValidFrequenciesForBandInternal, hidl_status_cb, band);
+                           &WifiStaIface::stopBackgroundScanInternal, in_cmdId);
 }
 
-Return<void> WifiStaIface::startBackgroundScan(uint32_t cmd_id,
-                                               const StaBackgroundScanParameters& params,
-                                               startBackgroundScan_cb hidl_status_cb) {
+ndk::ScopedAStatus WifiStaIface::enableLinkLayerStatsCollection(bool in_debug) {
     return validateAndCall(this, WifiStatusCode::ERROR_WIFI_IFACE_INVALID,
-                           &WifiStaIface::startBackgroundScanInternal, hidl_status_cb, cmd_id,
-                           params);
+                           &WifiStaIface::enableLinkLayerStatsCollectionInternal, in_debug);
 }
 
-Return<void> WifiStaIface::stopBackgroundScan(uint32_t cmd_id,
-                                              stopBackgroundScan_cb hidl_status_cb) {
+ndk::ScopedAStatus WifiStaIface::disableLinkLayerStatsCollection() {
     return validateAndCall(this, WifiStatusCode::ERROR_WIFI_IFACE_INVALID,
-                           &WifiStaIface::stopBackgroundScanInternal, hidl_status_cb, cmd_id);
+                           &WifiStaIface::disableLinkLayerStatsCollectionInternal);
 }
 
-Return<void> WifiStaIface::enableLinkLayerStatsCollection(
-        bool debug, enableLinkLayerStatsCollection_cb hidl_status_cb) {
+ndk::ScopedAStatus WifiStaIface::getLinkLayerStats(StaLinkLayerStats* _aidl_return) {
     return validateAndCall(this, WifiStatusCode::ERROR_WIFI_IFACE_INVALID,
-                           &WifiStaIface::enableLinkLayerStatsCollectionInternal, hidl_status_cb,
-                           debug);
+                           &WifiStaIface::getLinkLayerStatsInternal, _aidl_return);
 }
 
-Return<void> WifiStaIface::disableLinkLayerStatsCollection(
-        disableLinkLayerStatsCollection_cb hidl_status_cb) {
+ndk::ScopedAStatus WifiStaIface::startRssiMonitoring(int32_t in_cmdId, int32_t in_maxRssi,
+                                                     int32_t in_minRssi) {
     return validateAndCall(this, WifiStatusCode::ERROR_WIFI_IFACE_INVALID,
-                           &WifiStaIface::disableLinkLayerStatsCollectionInternal, hidl_status_cb);
+                           &WifiStaIface::startRssiMonitoringInternal, in_cmdId, in_maxRssi,
+                           in_minRssi);
 }
 
-Return<void> WifiStaIface::getLinkLayerStats(getLinkLayerStats_cb hidl_status_cb) {
+ndk::ScopedAStatus WifiStaIface::stopRssiMonitoring(int32_t in_cmdId) {
     return validateAndCall(this, WifiStatusCode::ERROR_WIFI_IFACE_INVALID,
-                           &WifiStaIface::getLinkLayerStatsInternal, hidl_status_cb);
+                           &WifiStaIface::stopRssiMonitoringInternal, in_cmdId);
 }
 
-Return<void> WifiStaIface::getLinkLayerStats_1_3(getLinkLayerStats_1_3_cb hidl_status_cb) {
+ndk::ScopedAStatus WifiStaIface::getRoamingCapabilities(StaRoamingCapabilities* _aidl_return) {
     return validateAndCall(this, WifiStatusCode::ERROR_WIFI_IFACE_INVALID,
-                           &WifiStaIface::getLinkLayerStatsInternal_1_3, hidl_status_cb);
+                           &WifiStaIface::getRoamingCapabilitiesInternal, _aidl_return);
 }
 
-Return<void> WifiStaIface::getLinkLayerStats_1_5(getLinkLayerStats_1_5_cb hidl_status_cb) {
+ndk::ScopedAStatus WifiStaIface::configureRoaming(const StaRoamingConfig& in_config) {
     return validateAndCall(this, WifiStatusCode::ERROR_WIFI_IFACE_INVALID,
-                           &WifiStaIface::getLinkLayerStatsInternal_1_5, hidl_status_cb);
+                           &WifiStaIface::configureRoamingInternal, in_config);
 }
 
-Return<void> WifiStaIface::getLinkLayerStats_1_6(getLinkLayerStats_1_6_cb hidl_status_cb) {
+ndk::ScopedAStatus WifiStaIface::setRoamingState(StaRoamingState in_state) {
     return validateAndCall(this, WifiStatusCode::ERROR_WIFI_IFACE_INVALID,
-                           &WifiStaIface::getLinkLayerStatsInternal_1_6, hidl_status_cb);
+                           &WifiStaIface::setRoamingStateInternal, in_state);
 }
 
-Return<void> WifiStaIface::startRssiMonitoring(uint32_t cmd_id, int32_t max_rssi, int32_t min_rssi,
-                                               startRssiMonitoring_cb hidl_status_cb) {
+ndk::ScopedAStatus WifiStaIface::enableNdOffload(bool in_enable) {
     return validateAndCall(this, WifiStatusCode::ERROR_WIFI_IFACE_INVALID,
-                           &WifiStaIface::startRssiMonitoringInternal, hidl_status_cb, cmd_id,
-                           max_rssi, min_rssi);
+                           &WifiStaIface::enableNdOffloadInternal, in_enable);
 }
 
-Return<void> WifiStaIface::stopRssiMonitoring(uint32_t cmd_id,
-                                              stopRssiMonitoring_cb hidl_status_cb) {
+ndk::ScopedAStatus WifiStaIface::startSendingKeepAlivePackets(
+        int32_t in_cmdId, const std::vector<uint8_t>& in_ipPacketData, char16_t in_etherType,
+        const std::array<uint8_t, 6>& in_srcAddress, const std::array<uint8_t, 6>& in_dstAddress,
+        int32_t in_periodInMs) {
     return validateAndCall(this, WifiStatusCode::ERROR_WIFI_IFACE_INVALID,
-                           &WifiStaIface::stopRssiMonitoringInternal, hidl_status_cb, cmd_id);
+                           &WifiStaIface::startSendingKeepAlivePacketsInternal, in_cmdId,
+                           in_ipPacketData, in_etherType, in_srcAddress, in_dstAddress,
+                           in_periodInMs);
 }
 
-Return<void> WifiStaIface::getRoamingCapabilities(getRoamingCapabilities_cb hidl_status_cb) {
+ndk::ScopedAStatus WifiStaIface::stopSendingKeepAlivePackets(int32_t in_cmdId) {
     return validateAndCall(this, WifiStatusCode::ERROR_WIFI_IFACE_INVALID,
-                           &WifiStaIface::getRoamingCapabilitiesInternal, hidl_status_cb);
+                           &WifiStaIface::stopSendingKeepAlivePacketsInternal, in_cmdId);
 }
 
-Return<void> WifiStaIface::configureRoaming(const StaRoamingConfig& config,
-                                            configureRoaming_cb hidl_status_cb) {
+ndk::ScopedAStatus WifiStaIface::startDebugPacketFateMonitoring() {
     return validateAndCall(this, WifiStatusCode::ERROR_WIFI_IFACE_INVALID,
-                           &WifiStaIface::configureRoamingInternal, hidl_status_cb, config);
+                           &WifiStaIface::startDebugPacketFateMonitoringInternal);
 }
 
-Return<void> WifiStaIface::setRoamingState(StaRoamingState state,
-                                           setRoamingState_cb hidl_status_cb) {
+ndk::ScopedAStatus WifiStaIface::getDebugTxPacketFates(
+        std::vector<WifiDebugTxPacketFateReport>* _aidl_return) {
     return validateAndCall(this, WifiStatusCode::ERROR_WIFI_IFACE_INVALID,
-                           &WifiStaIface::setRoamingStateInternal, hidl_status_cb, state);
+                           &WifiStaIface::getDebugTxPacketFatesInternal, _aidl_return);
 }
 
-Return<void> WifiStaIface::enableNdOffload(bool enable, enableNdOffload_cb hidl_status_cb) {
+ndk::ScopedAStatus WifiStaIface::getDebugRxPacketFates(
+        std::vector<WifiDebugRxPacketFateReport>* _aidl_return) {
     return validateAndCall(this, WifiStatusCode::ERROR_WIFI_IFACE_INVALID,
-                           &WifiStaIface::enableNdOffloadInternal, hidl_status_cb, enable);
+                           &WifiStaIface::getDebugRxPacketFatesInternal, _aidl_return);
 }
 
-Return<void> WifiStaIface::startSendingKeepAlivePackets(
-        uint32_t cmd_id, const hidl_vec<uint8_t>& ip_packet_data, uint16_t ether_type,
-        const hidl_array<uint8_t, 6>& src_address, const hidl_array<uint8_t, 6>& dst_address,
-        uint32_t period_in_ms, startSendingKeepAlivePackets_cb hidl_status_cb) {
+ndk::ScopedAStatus WifiStaIface::setMacAddress(const std::array<uint8_t, 6>& in_mac) {
     return validateAndCall(this, WifiStatusCode::ERROR_WIFI_IFACE_INVALID,
-                           &WifiStaIface::startSendingKeepAlivePacketsInternal, hidl_status_cb,
-                           cmd_id, ip_packet_data, ether_type, src_address, dst_address,
-                           period_in_ms);
+                           &WifiStaIface::setMacAddressInternal, in_mac);
 }
 
-Return<void> WifiStaIface::stopSendingKeepAlivePackets(
-        uint32_t cmd_id, stopSendingKeepAlivePackets_cb hidl_status_cb) {
+ndk::ScopedAStatus WifiStaIface::getFactoryMacAddress(std::array<uint8_t, 6>* _aidl_return) {
     return validateAndCall(this, WifiStatusCode::ERROR_WIFI_IFACE_INVALID,
-                           &WifiStaIface::stopSendingKeepAlivePacketsInternal, hidl_status_cb,
-                           cmd_id);
+                           &WifiStaIface::getFactoryMacAddressInternal, _aidl_return);
 }
 
-Return<void> WifiStaIface::setScanningMacOui(const hidl_array<uint8_t, 3>& oui,
-                                             setScanningMacOui_cb hidl_status_cb) {
+ndk::ScopedAStatus WifiStaIface::setScanMode(bool in_enable) {
     return validateAndCall(this, WifiStatusCode::ERROR_WIFI_IFACE_INVALID,
-                           &WifiStaIface::setScanningMacOuiInternal, hidl_status_cb, oui);
+                           &WifiStaIface::setScanModeInternal, in_enable);
 }
 
-Return<void> WifiStaIface::startDebugPacketFateMonitoring(
-        startDebugPacketFateMonitoring_cb hidl_status_cb) {
+ndk::ScopedAStatus WifiStaIface::setDtimMultiplier(int32_t in_multiplier) {
     return validateAndCall(this, WifiStatusCode::ERROR_WIFI_IFACE_INVALID,
-                           &WifiStaIface::startDebugPacketFateMonitoringInternal, hidl_status_cb);
+                           &WifiStaIface::setDtimMultiplierInternal, in_multiplier);
 }
 
-Return<void> WifiStaIface::getDebugTxPacketFates(getDebugTxPacketFates_cb hidl_status_cb) {
-    return validateAndCall(this, WifiStatusCode::ERROR_WIFI_IFACE_INVALID,
-                           &WifiStaIface::getDebugTxPacketFatesInternal, hidl_status_cb);
+std::pair<std::string, ndk::ScopedAStatus> WifiStaIface::getNameInternal() {
+    return {ifname_, ndk::ScopedAStatus::ok()};
 }
 
-Return<void> WifiStaIface::getDebugRxPacketFates(getDebugRxPacketFates_cb hidl_status_cb) {
-    return validateAndCall(this, WifiStatusCode::ERROR_WIFI_IFACE_INVALID,
-                           &WifiStaIface::getDebugRxPacketFatesInternal, hidl_status_cb);
-}
-
-Return<void> WifiStaIface::setMacAddress(const hidl_array<uint8_t, 6>& mac,
-                                         setMacAddress_cb hidl_status_cb) {
-    return validateAndCall(this, WifiStatusCode::ERROR_WIFI_IFACE_INVALID,
-                           &WifiStaIface::setMacAddressInternal, hidl_status_cb, mac);
-}
-
-Return<void> WifiStaIface::getFactoryMacAddress(getFactoryMacAddress_cb hidl_status_cb) {
-    return validateAndCall(this, WifiStatusCode::ERROR_WIFI_IFACE_INVALID,
-                           &WifiStaIface::getFactoryMacAddressInternal, hidl_status_cb);
-}
-
-Return<void> WifiStaIface::setScanMode(bool enable, setScanMode_cb hidl_status_cb) {
-    return validateAndCall(this, WifiStatusCode::ERROR_WIFI_IFACE_INVALID,
-                           &WifiStaIface::setScanModeInternal, hidl_status_cb, enable);
-}
-
-std::pair<WifiStatus, std::string> WifiStaIface::getNameInternal() {
-    return {createWifiStatus(WifiStatusCode::SUCCESS), ifname_};
-}
-
-std::pair<WifiStatus, IfaceType> WifiStaIface::getTypeInternal() {
-    return {createWifiStatus(WifiStatusCode::SUCCESS), IfaceType::STA};
-}
-
-WifiStatus WifiStaIface::registerEventCallbackInternal(
-        const sp<IWifiStaIfaceEventCallback>& callback) {
+ndk::ScopedAStatus WifiStaIface::registerEventCallbackInternal(
+        const std::shared_ptr<IWifiStaIfaceEventCallback>& callback) {
     if (!event_cb_handler_.addCallback(callback)) {
         return createWifiStatus(WifiStatusCode::ERROR_UNKNOWN);
     }
-    return createWifiStatus(WifiStatusCode::SUCCESS);
+    return ndk::ScopedAStatus::ok();
 }
 
-std::pair<WifiStatus, uint32_t> WifiStaIface::getCapabilitiesInternal() {
+std::pair<int32_t, ndk::ScopedAStatus> WifiStaIface::getFeatureSetInternal() {
     legacy_hal::wifi_error legacy_status;
     uint64_t legacy_feature_set;
     std::tie(legacy_status, legacy_feature_set) =
             legacy_hal_.lock()->getSupportedFeatureSet(ifname_);
     if (legacy_status != legacy_hal::WIFI_SUCCESS) {
-        return {createWifiStatusFromLegacyError(legacy_status), 0};
+        return {0, createWifiStatusFromLegacyError(legacy_status)};
     }
-    uint32_t legacy_logger_feature_set;
-    std::tie(legacy_status, legacy_logger_feature_set) =
-            legacy_hal_.lock()->getLoggerSupportedFeatureSet(ifname_);
-    if (legacy_status != legacy_hal::WIFI_SUCCESS) {
-        // some devices don't support querying logger feature set
-        legacy_logger_feature_set = 0;
+    uint32_t aidl_feature_set;
+    if (!aidl_struct_util::convertLegacyStaIfaceFeaturesToAidl(legacy_feature_set,
+                                                               &aidl_feature_set)) {
+        return {0, createWifiStatus(WifiStatusCode::ERROR_UNKNOWN)};
     }
-    uint32_t hidl_caps;
-    if (!hidl_struct_util::convertLegacyFeaturesToHidlStaCapabilities(
-                legacy_feature_set, legacy_logger_feature_set, &hidl_caps)) {
-        return {createWifiStatus(WifiStatusCode::ERROR_UNKNOWN), 0};
-    }
-    return {createWifiStatus(WifiStatusCode::SUCCESS), hidl_caps};
+    return {aidl_feature_set, ndk::ScopedAStatus::ok()};
 }
 
-std::pair<WifiStatus, StaApfPacketFilterCapabilities>
+std::pair<StaApfPacketFilterCapabilities, ndk::ScopedAStatus>
 WifiStaIface::getApfPacketFilterCapabilitiesInternal() {
     legacy_hal::wifi_error legacy_status;
     legacy_hal::PacketFilterCapabilities legacy_caps;
     std::tie(legacy_status, legacy_caps) = legacy_hal_.lock()->getPacketFilterCapabilities(ifname_);
     if (legacy_status != legacy_hal::WIFI_SUCCESS) {
-        return {createWifiStatusFromLegacyError(legacy_status), {}};
+        return {StaApfPacketFilterCapabilities{}, createWifiStatusFromLegacyError(legacy_status)};
     }
-    StaApfPacketFilterCapabilities hidl_caps;
-    if (!hidl_struct_util::convertLegacyApfCapabilitiesToHidl(legacy_caps, &hidl_caps)) {
-        return {createWifiStatus(WifiStatusCode::ERROR_UNKNOWN), {}};
+    StaApfPacketFilterCapabilities aidl_caps;
+    if (!aidl_struct_util::convertLegacyApfCapabilitiesToAidl(legacy_caps, &aidl_caps)) {
+        return {StaApfPacketFilterCapabilities{}, createWifiStatus(WifiStatusCode::ERROR_UNKNOWN)};
     }
-    return {createWifiStatus(WifiStatusCode::SUCCESS), hidl_caps};
+    return {aidl_caps, ndk::ScopedAStatus::ok()};
 }
 
-WifiStatus WifiStaIface::installApfPacketFilterInternal(uint32_t /* cmd_id */,
-                                                        const std::vector<uint8_t>& program) {
+ndk::ScopedAStatus WifiStaIface::installApfPacketFilterInternal(
+        const std::vector<uint8_t>& program) {
     legacy_hal::wifi_error legacy_status = legacy_hal_.lock()->setPacketFilter(ifname_, program);
     return createWifiStatusFromLegacyError(legacy_status);
 }
 
-std::pair<WifiStatus, std::vector<uint8_t>> WifiStaIface::readApfPacketFilterDataInternal() {
+std::pair<std::vector<uint8_t>, ndk::ScopedAStatus>
+WifiStaIface::readApfPacketFilterDataInternal() {
     const std::pair<legacy_hal::wifi_error, std::vector<uint8_t>> legacy_status_and_data =
             legacy_hal_.lock()->readApfPacketFilterData(ifname_);
-    return {createWifiStatusFromLegacyError(legacy_status_and_data.first),
-            std::move(legacy_status_and_data.second)};
+    return {std::move(legacy_status_and_data.second),
+            createWifiStatusFromLegacyError(legacy_status_and_data.first)};
 }
 
-std::pair<WifiStatus, StaBackgroundScanCapabilities>
+std::pair<StaBackgroundScanCapabilities, ndk::ScopedAStatus>
 WifiStaIface::getBackgroundScanCapabilitiesInternal() {
     legacy_hal::wifi_error legacy_status;
     legacy_hal::wifi_gscan_capabilities legacy_caps;
     std::tie(legacy_status, legacy_caps) = legacy_hal_.lock()->getGscanCapabilities(ifname_);
     if (legacy_status != legacy_hal::WIFI_SUCCESS) {
-        return {createWifiStatusFromLegacyError(legacy_status), {}};
+        return {StaBackgroundScanCapabilities{}, createWifiStatusFromLegacyError(legacy_status)};
     }
-    StaBackgroundScanCapabilities hidl_caps;
-    if (!hidl_struct_util::convertLegacyGscanCapabilitiesToHidl(legacy_caps, &hidl_caps)) {
-        return {createWifiStatus(WifiStatusCode::ERROR_UNKNOWN), {}};
+    StaBackgroundScanCapabilities aidl_caps;
+    if (!aidl_struct_util::convertLegacyGscanCapabilitiesToAidl(legacy_caps, &aidl_caps)) {
+        return {StaBackgroundScanCapabilities{}, createWifiStatus(WifiStatusCode::ERROR_UNKNOWN)};
     }
-    return {createWifiStatus(WifiStatusCode::SUCCESS), hidl_caps};
+    return {aidl_caps, ndk::ScopedAStatus::ok()};
 }
 
-std::pair<WifiStatus, std::vector<WifiChannelInMhz>>
-WifiStaIface::getValidFrequenciesForBandInternal(V1_0::WifiBand band) {
-    static_assert(sizeof(WifiChannelInMhz) == sizeof(uint32_t), "Size mismatch");
-    legacy_hal::wifi_error legacy_status;
-    std::vector<uint32_t> valid_frequencies;
-    std::tie(legacy_status, valid_frequencies) = legacy_hal_.lock()->getValidFrequenciesForBand(
-            ifname_, hidl_struct_util::convertHidlWifiBandToLegacy(band));
-    return {createWifiStatusFromLegacyError(legacy_status), valid_frequencies};
-}
-
-WifiStatus WifiStaIface::startBackgroundScanInternal(uint32_t cmd_id,
-                                                     const StaBackgroundScanParameters& params) {
+ndk::ScopedAStatus WifiStaIface::startBackgroundScanInternal(
+        int32_t cmd_id, const StaBackgroundScanParameters& params) {
     legacy_hal::wifi_scan_cmd_params legacy_params;
-    if (!hidl_struct_util::convertHidlGscanParamsToLegacy(params, &legacy_params)) {
+    if (!aidl_struct_util::convertAidlGscanParamsToLegacy(params, &legacy_params)) {
         return createWifiStatus(WifiStatusCode::ERROR_INVALID_ARGS);
     }
-    android::wp<WifiStaIface> weak_ptr_this(this);
+    std::weak_ptr<WifiStaIface> weak_ptr_this = weak_ptr_this_;
     const auto& on_failure_callback = [weak_ptr_this](legacy_hal::wifi_request_id id) {
-        const auto shared_ptr_this = weak_ptr_this.promote();
+        const auto shared_ptr_this = weak_ptr_this.lock();
         if (!shared_ptr_this.get() || !shared_ptr_this->isValid()) {
             LOG(ERROR) << "Callback invoked on an invalid object";
             return;
@@ -359,19 +313,19 @@ WifiStatus WifiStaIface::startBackgroundScanInternal(uint32_t cmd_id,
     const auto& on_results_callback =
             [weak_ptr_this](legacy_hal::wifi_request_id id,
                             const std::vector<legacy_hal::wifi_cached_scan_results>& results) {
-                const auto shared_ptr_this = weak_ptr_this.promote();
+                const auto shared_ptr_this = weak_ptr_this.lock();
                 if (!shared_ptr_this.get() || !shared_ptr_this->isValid()) {
                     LOG(ERROR) << "Callback invoked on an invalid object";
                     return;
                 }
-                std::vector<StaScanData> hidl_scan_datas;
-                if (!hidl_struct_util::convertLegacyVectorOfCachedGscanResultsToHidl(
-                            results, &hidl_scan_datas)) {
-                    LOG(ERROR) << "Failed to convert scan results to HIDL structs";
+                std::vector<StaScanData> aidl_scan_data;
+                if (!aidl_struct_util::convertLegacyVectorOfCachedGscanResultsToAidl(
+                            results, &aidl_scan_data)) {
+                    LOG(ERROR) << "Failed to convert scan results to AIDL structs";
                     return;
                 }
                 for (const auto& callback : shared_ptr_this->getEventCallbacks()) {
-                    if (!callback->onBackgroundScanResults(id, hidl_scan_datas).isOk()) {
+                    if (!callback->onBackgroundScanResults(id, aidl_scan_data).isOk()) {
                         LOG(ERROR) << "Failed to invoke onBackgroundScanResults callback";
                     }
                 }
@@ -380,18 +334,18 @@ WifiStatus WifiStaIface::startBackgroundScanInternal(uint32_t cmd_id,
                                                   legacy_hal::wifi_request_id id,
                                                   const legacy_hal::wifi_scan_result* result,
                                                   uint32_t buckets_scanned) {
-        const auto shared_ptr_this = weak_ptr_this.promote();
+        const auto shared_ptr_this = weak_ptr_this.lock();
         if (!shared_ptr_this.get() || !shared_ptr_this->isValid()) {
             LOG(ERROR) << "Callback invoked on an invalid object";
             return;
         }
-        StaScanResult hidl_scan_result;
-        if (!hidl_struct_util::convertLegacyGscanResultToHidl(*result, true, &hidl_scan_result)) {
-            LOG(ERROR) << "Failed to convert full scan results to HIDL structs";
+        StaScanResult aidl_scan_result;
+        if (!aidl_struct_util::convertLegacyGscanResultToAidl(*result, true, &aidl_scan_result)) {
+            LOG(ERROR) << "Failed to convert full scan results to AIDL structs";
             return;
         }
         for (const auto& callback : shared_ptr_this->getEventCallbacks()) {
-            if (!callback->onBackgroundFullScanResult(id, buckets_scanned, hidl_scan_result)
+            if (!callback->onBackgroundFullScanResult(id, buckets_scanned, aidl_scan_result)
                          .isOk()) {
                 LOG(ERROR) << "Failed to invoke onBackgroundFullScanResult callback";
             }
@@ -403,91 +357,89 @@ WifiStatus WifiStaIface::startBackgroundScanInternal(uint32_t cmd_id,
     return createWifiStatusFromLegacyError(legacy_status);
 }
 
-WifiStatus WifiStaIface::stopBackgroundScanInternal(uint32_t cmd_id) {
+ndk::ScopedAStatus WifiStaIface::stopBackgroundScanInternal(int32_t cmd_id) {
     legacy_hal::wifi_error legacy_status = legacy_hal_.lock()->stopGscan(ifname_, cmd_id);
     return createWifiStatusFromLegacyError(legacy_status);
 }
 
-WifiStatus WifiStaIface::enableLinkLayerStatsCollectionInternal(bool debug) {
+ndk::ScopedAStatus WifiStaIface::enableLinkLayerStatsCollectionInternal(bool debug) {
     legacy_hal::wifi_error legacy_status = legacy_hal_.lock()->enableLinkLayerStats(ifname_, debug);
     return createWifiStatusFromLegacyError(legacy_status);
 }
 
-WifiStatus WifiStaIface::disableLinkLayerStatsCollectionInternal() {
+ndk::ScopedAStatus WifiStaIface::disableLinkLayerStatsCollectionInternal() {
     legacy_hal::wifi_error legacy_status = legacy_hal_.lock()->disableLinkLayerStats(ifname_);
     return createWifiStatusFromLegacyError(legacy_status);
 }
 
-std::pair<WifiStatus, V1_0::StaLinkLayerStats> WifiStaIface::getLinkLayerStatsInternal() {
-    return {createWifiStatus(WifiStatusCode::ERROR_NOT_SUPPORTED), {}};
-}
-
-std::pair<WifiStatus, V1_3::StaLinkLayerStats> WifiStaIface::getLinkLayerStatsInternal_1_3() {
-    return {createWifiStatus(WifiStatusCode::ERROR_NOT_SUPPORTED), {}};
-}
-
-std::pair<WifiStatus, V1_5::StaLinkLayerStats> WifiStaIface::getLinkLayerStatsInternal_1_5() {
-    return {createWifiStatus(WifiStatusCode::ERROR_NOT_SUPPORTED), {}};
-}
-
-std::pair<WifiStatus, V1_6::StaLinkLayerStats> WifiStaIface::getLinkLayerStatsInternal_1_6() {
+std::pair<StaLinkLayerStats, ndk::ScopedAStatus> WifiStaIface::getLinkLayerStatsInternal() {
     legacy_hal::wifi_error legacy_status;
-    legacy_hal::LinkLayerStats legacy_stats;
-    std::tie(legacy_status, legacy_stats) = legacy_hal_.lock()->getLinkLayerStats(ifname_);
+    legacy_hal::LinkLayerStats legacy_stats{};
+    legacy_hal::LinkLayerMlStats legacy_ml_stats{};
+    legacy_status = legacy_hal_.lock()->getLinkLayerStats(ifname_, legacy_stats, legacy_ml_stats);
     if (legacy_status != legacy_hal::WIFI_SUCCESS) {
-        return {createWifiStatusFromLegacyError(legacy_status), {}};
+        return {StaLinkLayerStats{}, createWifiStatusFromLegacyError(legacy_status)};
     }
-    V1_6::StaLinkLayerStats hidl_stats;
-    if (!hidl_struct_util::convertLegacyLinkLayerStatsToHidl(legacy_stats, &hidl_stats)) {
-        return {createWifiStatus(WifiStatusCode::ERROR_UNKNOWN), {}};
+    StaLinkLayerStats aidl_stats;
+    if (legacy_stats.valid) {
+        if (!aidl_struct_util::convertLegacyLinkLayerStatsToAidl(legacy_stats, &aidl_stats)) {
+            return {StaLinkLayerStats{}, createWifiStatus(WifiStatusCode::ERROR_UNKNOWN)};
+        }
+    } else if (legacy_ml_stats.valid) {
+        if (!aidl_struct_util::convertLegacyLinkLayerMlStatsToAidl(legacy_ml_stats, &aidl_stats)) {
+            return {StaLinkLayerStats{}, createWifiStatus(WifiStatusCode::ERROR_UNKNOWN)};
+        }
+    } else {
+        return {StaLinkLayerStats{}, createWifiStatus(WifiStatusCode::ERROR_UNKNOWN)};
     }
-    return {createWifiStatus(WifiStatusCode::SUCCESS), hidl_stats};
+    return {aidl_stats, ndk::ScopedAStatus::ok()};
 }
 
-WifiStatus WifiStaIface::startRssiMonitoringInternal(uint32_t cmd_id, int32_t max_rssi,
-                                                     int32_t min_rssi) {
-    android::wp<WifiStaIface> weak_ptr_this(this);
-    const auto& on_threshold_breached_callback = [weak_ptr_this](legacy_hal::wifi_request_id id,
-                                                                 std::array<uint8_t, 6> bssid,
-                                                                 int8_t rssi) {
-        const auto shared_ptr_this = weak_ptr_this.promote();
-        if (!shared_ptr_this.get() || !shared_ptr_this->isValid()) {
-            LOG(ERROR) << "Callback invoked on an invalid object";
-            return;
-        }
-        for (const auto& callback : shared_ptr_this->getEventCallbacks()) {
-            if (!callback->onRssiThresholdBreached(id, bssid, rssi).isOk()) {
-                LOG(ERROR) << "Failed to invoke onRssiThresholdBreached callback";
-            }
-        }
-    };
+ndk::ScopedAStatus WifiStaIface::startRssiMonitoringInternal(int32_t cmd_id, int32_t max_rssi,
+                                                             int32_t min_rssi) {
+    std::weak_ptr<WifiStaIface> weak_ptr_this = weak_ptr_this_;
+    const auto& on_threshold_breached_callback =
+            [weak_ptr_this](legacy_hal::wifi_request_id id, std::array<uint8_t, ETH_ALEN> bssid,
+                            int8_t rssi) {
+                const auto shared_ptr_this = weak_ptr_this.lock();
+                if (!shared_ptr_this.get() || !shared_ptr_this->isValid()) {
+                    LOG(ERROR) << "Callback invoked on an invalid object";
+                    return;
+                }
+                for (const auto& callback : shared_ptr_this->getEventCallbacks()) {
+                    if (!callback->onRssiThresholdBreached(id, bssid, rssi).isOk()) {
+                        LOG(ERROR) << "Failed to invoke onRssiThresholdBreached callback";
+                    }
+                }
+            };
     legacy_hal::wifi_error legacy_status = legacy_hal_.lock()->startRssiMonitoring(
             ifname_, cmd_id, max_rssi, min_rssi, on_threshold_breached_callback);
     return createWifiStatusFromLegacyError(legacy_status);
 }
 
-WifiStatus WifiStaIface::stopRssiMonitoringInternal(uint32_t cmd_id) {
+ndk::ScopedAStatus WifiStaIface::stopRssiMonitoringInternal(int32_t cmd_id) {
     legacy_hal::wifi_error legacy_status = legacy_hal_.lock()->stopRssiMonitoring(ifname_, cmd_id);
     return createWifiStatusFromLegacyError(legacy_status);
 }
 
-std::pair<WifiStatus, StaRoamingCapabilities> WifiStaIface::getRoamingCapabilitiesInternal() {
+std::pair<StaRoamingCapabilities, ndk::ScopedAStatus>
+WifiStaIface::getRoamingCapabilitiesInternal() {
     legacy_hal::wifi_error legacy_status;
     legacy_hal::wifi_roaming_capabilities legacy_caps;
     std::tie(legacy_status, legacy_caps) = legacy_hal_.lock()->getRoamingCapabilities(ifname_);
     if (legacy_status != legacy_hal::WIFI_SUCCESS) {
-        return {createWifiStatusFromLegacyError(legacy_status), {}};
+        return {StaRoamingCapabilities{}, createWifiStatusFromLegacyError(legacy_status)};
     }
-    StaRoamingCapabilities hidl_caps;
-    if (!hidl_struct_util::convertLegacyRoamingCapabilitiesToHidl(legacy_caps, &hidl_caps)) {
-        return {createWifiStatus(WifiStatusCode::ERROR_UNKNOWN), {}};
+    StaRoamingCapabilities aidl_caps;
+    if (!aidl_struct_util::convertLegacyRoamingCapabilitiesToAidl(legacy_caps, &aidl_caps)) {
+        return {StaRoamingCapabilities{}, createWifiStatus(WifiStatusCode::ERROR_UNKNOWN)};
     }
-    return {createWifiStatus(WifiStatusCode::SUCCESS), hidl_caps};
+    return {aidl_caps, ndk::ScopedAStatus::ok()};
 }
 
-WifiStatus WifiStaIface::configureRoamingInternal(const StaRoamingConfig& config) {
+ndk::ScopedAStatus WifiStaIface::configureRoamingInternal(const StaRoamingConfig& config) {
     legacy_hal::wifi_roaming_config legacy_config;
-    if (!hidl_struct_util::convertHidlRoamingConfigToLegacy(config, &legacy_config)) {
+    if (!aidl_struct_util::convertAidlRoamingConfigToLegacy(config, &legacy_config)) {
         return createWifiStatus(WifiStatusCode::ERROR_INVALID_ARGS);
     }
     legacy_hal::wifi_error legacy_status =
@@ -495,98 +447,100 @@ WifiStatus WifiStaIface::configureRoamingInternal(const StaRoamingConfig& config
     return createWifiStatusFromLegacyError(legacy_status);
 }
 
-WifiStatus WifiStaIface::setRoamingStateInternal(StaRoamingState state) {
+ndk::ScopedAStatus WifiStaIface::setRoamingStateInternal(StaRoamingState state) {
     legacy_hal::wifi_error legacy_status = legacy_hal_.lock()->enableFirmwareRoaming(
-            ifname_, hidl_struct_util::convertHidlRoamingStateToLegacy(state));
+            ifname_, aidl_struct_util::convertAidlRoamingStateToLegacy(state));
     return createWifiStatusFromLegacyError(legacy_status);
 }
 
-WifiStatus WifiStaIface::enableNdOffloadInternal(bool enable) {
+ndk::ScopedAStatus WifiStaIface::enableNdOffloadInternal(bool enable) {
     legacy_hal::wifi_error legacy_status = legacy_hal_.lock()->configureNdOffload(ifname_, enable);
     return createWifiStatusFromLegacyError(legacy_status);
 }
 
-WifiStatus WifiStaIface::startSendingKeepAlivePacketsInternal(
-        uint32_t cmd_id, const std::vector<uint8_t>& ip_packet_data, uint16_t ether_type,
+ndk::ScopedAStatus WifiStaIface::startSendingKeepAlivePacketsInternal(
+        int32_t cmd_id, const std::vector<uint8_t>& ip_packet_data, char16_t ether_type,
         const std::array<uint8_t, 6>& src_address, const std::array<uint8_t, 6>& dst_address,
-        uint32_t period_in_ms) {
+        int32_t period_in_ms) {
     legacy_hal::wifi_error legacy_status = legacy_hal_.lock()->startSendingOffloadedPacket(
             ifname_, cmd_id, ether_type, ip_packet_data, src_address, dst_address, period_in_ms);
     return createWifiStatusFromLegacyError(legacy_status);
 }
 
-WifiStatus WifiStaIface::stopSendingKeepAlivePacketsInternal(uint32_t cmd_id) {
+ndk::ScopedAStatus WifiStaIface::stopSendingKeepAlivePacketsInternal(int32_t cmd_id) {
     legacy_hal::wifi_error legacy_status =
             legacy_hal_.lock()->stopSendingOffloadedPacket(ifname_, cmd_id);
     return createWifiStatusFromLegacyError(legacy_status);
 }
 
-WifiStatus WifiStaIface::setScanningMacOuiInternal(const std::array<uint8_t, 3>& /* oui */) {
-    // deprecated.
-    return createWifiStatus(WifiStatusCode::ERROR_NOT_SUPPORTED);
-}
-
-WifiStatus WifiStaIface::startDebugPacketFateMonitoringInternal() {
+ndk::ScopedAStatus WifiStaIface::startDebugPacketFateMonitoringInternal() {
     legacy_hal::wifi_error legacy_status = legacy_hal_.lock()->startPktFateMonitoring(ifname_);
     return createWifiStatusFromLegacyError(legacy_status);
 }
 
-std::pair<WifiStatus, std::vector<WifiDebugTxPacketFateReport>>
+std::pair<std::vector<WifiDebugTxPacketFateReport>, ndk::ScopedAStatus>
 WifiStaIface::getDebugTxPacketFatesInternal() {
     legacy_hal::wifi_error legacy_status;
     std::vector<legacy_hal::wifi_tx_report> legacy_fates;
     std::tie(legacy_status, legacy_fates) = legacy_hal_.lock()->getTxPktFates(ifname_);
     if (legacy_status != legacy_hal::WIFI_SUCCESS) {
-        return {createWifiStatusFromLegacyError(legacy_status), {}};
+        return {std::vector<WifiDebugTxPacketFateReport>(),
+                createWifiStatusFromLegacyError(legacy_status)};
     }
-    std::vector<WifiDebugTxPacketFateReport> hidl_fates;
-    if (!hidl_struct_util::convertLegacyVectorOfDebugTxPacketFateToHidl(legacy_fates,
-                                                                        &hidl_fates)) {
-        return {createWifiStatus(WifiStatusCode::ERROR_UNKNOWN), {}};
+    std::vector<WifiDebugTxPacketFateReport> aidl_fates;
+    if (!aidl_struct_util::convertLegacyVectorOfDebugTxPacketFateToAidl(legacy_fates,
+                                                                        &aidl_fates)) {
+        return {std::vector<WifiDebugTxPacketFateReport>(),
+                createWifiStatus(WifiStatusCode::ERROR_UNKNOWN)};
     }
-    return {createWifiStatus(WifiStatusCode::SUCCESS), hidl_fates};
+    return {aidl_fates, ndk::ScopedAStatus::ok()};
 }
 
-std::pair<WifiStatus, std::vector<WifiDebugRxPacketFateReport>>
+std::pair<std::vector<WifiDebugRxPacketFateReport>, ndk::ScopedAStatus>
 WifiStaIface::getDebugRxPacketFatesInternal() {
     legacy_hal::wifi_error legacy_status;
     std::vector<legacy_hal::wifi_rx_report> legacy_fates;
     std::tie(legacy_status, legacy_fates) = legacy_hal_.lock()->getRxPktFates(ifname_);
     if (legacy_status != legacy_hal::WIFI_SUCCESS) {
-        return {createWifiStatusFromLegacyError(legacy_status), {}};
+        return {std::vector<WifiDebugRxPacketFateReport>(),
+                createWifiStatusFromLegacyError(legacy_status)};
     }
-    std::vector<WifiDebugRxPacketFateReport> hidl_fates;
-    if (!hidl_struct_util::convertLegacyVectorOfDebugRxPacketFateToHidl(legacy_fates,
-                                                                        &hidl_fates)) {
-        return {createWifiStatus(WifiStatusCode::ERROR_UNKNOWN), {}};
+    std::vector<WifiDebugRxPacketFateReport> aidl_fates;
+    if (!aidl_struct_util::convertLegacyVectorOfDebugRxPacketFateToAidl(legacy_fates,
+                                                                        &aidl_fates)) {
+        return {std::vector<WifiDebugRxPacketFateReport>(),
+                createWifiStatus(WifiStatusCode::ERROR_UNKNOWN)};
     }
-    return {createWifiStatus(WifiStatusCode::SUCCESS), hidl_fates};
+    return {aidl_fates, ndk::ScopedAStatus::ok()};
 }
 
-WifiStatus WifiStaIface::setMacAddressInternal(const std::array<uint8_t, 6>& mac) {
+ndk::ScopedAStatus WifiStaIface::setMacAddressInternal(const std::array<uint8_t, 6>& mac) {
     bool status = iface_util_.lock()->setMacAddress(ifname_, mac);
     if (!status) {
         return createWifiStatus(WifiStatusCode::ERROR_UNKNOWN);
     }
-    return createWifiStatus(WifiStatusCode::SUCCESS);
+    return ndk::ScopedAStatus::ok();
 }
 
-std::pair<WifiStatus, std::array<uint8_t, 6>> WifiStaIface::getFactoryMacAddressInternal() {
+std::pair<std::array<uint8_t, 6>, ndk::ScopedAStatus> WifiStaIface::getFactoryMacAddressInternal() {
     std::array<uint8_t, 6> mac = iface_util_.lock()->getFactoryMacAddress(ifname_);
     if (mac[0] == 0 && mac[1] == 0 && mac[2] == 0 && mac[3] == 0 && mac[4] == 0 && mac[5] == 0) {
-        return {createWifiStatus(WifiStatusCode::ERROR_UNKNOWN), mac};
+        return {mac, createWifiStatus(WifiStatusCode::ERROR_UNKNOWN)};
     }
-    return {createWifiStatus(WifiStatusCode::SUCCESS), mac};
+    return {mac, ndk::ScopedAStatus::ok()};
 }
 
-WifiStatus WifiStaIface::setScanModeInternal(bool enable) {
-    // OEM's need to implement this on their devices if needed.
-    LOG(WARNING) << "setScanModeInternal(" << enable << ") not supported";
-    return createWifiStatus(WifiStatusCode::ERROR_NOT_SUPPORTED);
+ndk::ScopedAStatus WifiStaIface::setScanModeInternal(bool enable) {
+    legacy_hal::wifi_error legacy_status = legacy_hal_.lock()->setScanMode(ifname_, enable);
+    return createWifiStatusFromLegacyError(legacy_status);
 }
 
-}  // namespace implementation
-}  // namespace V1_6
+ndk::ScopedAStatus WifiStaIface::setDtimMultiplierInternal(const int multiplier) {
+    legacy_hal::wifi_error legacy_status = legacy_hal_.lock()->setDtimConfig(ifname_, multiplier);
+    return createWifiStatusFromLegacyError(legacy_status);
+}
+
 }  // namespace wifi
 }  // namespace hardware
 }  // namespace android
+}  // namespace aidl

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016 The Android Open Source Project
+ * Copyright (C) 2022 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,22 +17,22 @@
 #ifndef WIFI_LEGACY_HAL_H_
 #define WIFI_LEGACY_HAL_H_
 
+#include <hardware_legacy/wifi_hal.h>
+#include <wifi_system/interface_tool.h>
+
 #include <condition_variable>
 #include <functional>
 #include <map>
+#include <mutex>
 #include <thread>
 #include <vector>
 
-#include <hal_legacy/wifi_hal.h>
-#include <wifi_system/interface_tool.h>
-
+namespace aidl {
 namespace android {
 namespace hardware {
 namespace wifi {
-namespace V1_6 {
-namespace implementation {
 // This is in a separate namespace to prevent typename conflicts between
-// the legacy HAL types and the HIDL interface types.
+// the legacy HAL types and the AIDL interface types.
 namespace legacy_hal {
 // Import all the types defined inside the legacy HAL header files into this
 // namespace.
@@ -44,6 +44,8 @@ using ::FRAME_TYPE_ETHERNET_II;
 using ::FRAME_TYPE_UNKNOWN;
 using ::fw_roaming_state_t;
 using ::mac_addr;
+using ::NAN_BOOTSTRAPPING_INITIATOR_RESPONSE;
+using ::NAN_BOOTSTRAPPING_RESPONDER_RESPONSE;
 using ::NAN_CHANNEL_24G_BAND;
 using ::NAN_CHANNEL_5G_BAND_HIGH;
 using ::NAN_CHANNEL_5G_BAND_LOW;
@@ -65,6 +67,11 @@ using ::NAN_GET_CAPABILITIES;
 using ::NAN_MATCH_ALG_MATCH_CONTINUOUS;
 using ::NAN_MATCH_ALG_MATCH_NEVER;
 using ::NAN_MATCH_ALG_MATCH_ONCE;
+using ::NAN_PAIRING_END;
+using ::NAN_PAIRING_INITIATOR_RESPONSE;
+using ::NAN_PAIRING_RESPONDER_RESPONSE;
+using ::NAN_PAIRING_SETUP;
+using ::NAN_PAIRING_VERIFICATION;
 using ::NAN_PUBLISH_TYPE_SOLICITED;
 using ::NAN_PUBLISH_TYPE_UNSOLICITED;
 using ::NAN_PUBLISH_TYPE_UNSOLICITED_SOLICITED;
@@ -84,6 +91,7 @@ using ::NAN_RESPONSE_SUBSCRIBE;
 using ::NAN_RESPONSE_SUBSCRIBE_CANCEL;
 using ::NAN_RESPONSE_TCA;
 using ::NAN_RESPONSE_TRANSMIT_FOLLOWUP;
+using ::NAN_RESUME_REQUEST_RESPONSE;
 using ::NAN_SECURITY_KEY_INPUT_PASSPHRASE;
 using ::NAN_SECURITY_KEY_INPUT_PMK;
 using ::NAN_SERVICE_ACCEPT_POLICY_ALL;
@@ -97,18 +105,24 @@ using ::NAN_SSI_REQUIRED_IN_MATCH_IND;
 using ::NAN_STATUS_ALREADY_ENABLED;
 using ::NAN_STATUS_FOLLOWUP_QUEUE_FULL;
 using ::NAN_STATUS_INTERNAL_FAILURE;
+using ::NAN_STATUS_INVALID_BOOTSTRAPPING_ID;
 using ::NAN_STATUS_INVALID_NDP_ID;
+using ::NAN_STATUS_INVALID_PAIRING_ID;
 using ::NAN_STATUS_INVALID_PARAM;
 using ::NAN_STATUS_INVALID_PUBLISH_SUBSCRIBE_ID;
 using ::NAN_STATUS_INVALID_REQUESTOR_INSTANCE_ID;
 using ::NAN_STATUS_NAN_NOT_ALLOWED;
+using ::NAN_STATUS_NO_CONNECTION;
 using ::NAN_STATUS_NO_OTA_ACK;
 using ::NAN_STATUS_NO_RESOURCE_AVAILABLE;
+using ::NAN_STATUS_NOT_SUPPORTED;
 using ::NAN_STATUS_PROTOCOL_FAILURE;
+using ::NAN_STATUS_REDUNDANT_REQUEST;
 using ::NAN_STATUS_SUCCESS;
 using ::NAN_STATUS_UNSUPPORTED_CONCURRENCY_NAN_DISABLED;
 using ::NAN_SUBSCRIBE_TYPE_ACTIVE;
 using ::NAN_SUBSCRIBE_TYPE_PASSIVE;
+using ::NAN_SUSPEND_REQUEST_RESPONSE;
 using ::NAN_TRANSMIT_IN_DW;
 using ::NAN_TRANSMIT_IN_FAW;
 using ::NAN_TX_PRIORITY_HIGH;
@@ -116,7 +130,14 @@ using ::NAN_TX_PRIORITY_NORMAL;
 using ::NAN_TX_TYPE_BROADCAST;
 using ::NAN_TX_TYPE_UNICAST;
 using ::NAN_USE_SRF;
+using ::NanAkm;
 using ::NanBeaconSdfPayloadInd;
+using ::NanBootstrappingConfirmInd;
+using ::NanBootstrappingIndicationResponse;
+using ::NanBootstrappingRequest;
+using ::NanBootstrappingRequestInd;
+using ::NanBootstrappingRequestResponse;
+using ::NanBootstrappingResponseCode;
 using ::NanCapabilities;
 using ::NanChannelInfo;
 using ::NanConfigRequest;
@@ -131,9 +152,19 @@ using ::NanDisabledInd;
 using ::NanDiscEngEventInd;
 using ::NanEnableRequest;
 using ::NanFollowupInd;
+using ::NanIdentityResolutionAttribute;
 using ::NanMatchAlg;
 using ::NanMatchExpiredInd;
 using ::NanMatchInd;
+using ::NanPairingConfig;
+using ::NanPairingConfirmInd;
+using ::NanPairingEndRequest;
+using ::NanPairingIndicationResponse;
+using ::NanPairingRequest;
+using ::NanPairingRequestInd;
+using ::NanPairingRequestResponse;
+using ::NanPairingRequestType;
+using ::NanPairingResponseCode;
 using ::NanPublishCancelRequest;
 using ::NanPublishRequest;
 using ::NanPublishTerminatedInd;
@@ -141,15 +172,20 @@ using ::NanPublishType;
 using ::NanRangeReportInd;
 using ::NanRangeRequestInd;
 using ::NanResponseMsg;
+using ::NanResumeRequest;
 using ::NanSRFType;
 using ::NanStatusType;
 using ::NanSubscribeCancelRequest;
 using ::NanSubscribeRequest;
 using ::NanSubscribeTerminatedInd;
 using ::NanSubscribeType;
+using ::NanSuspendRequest;
+using ::NanSuspensionModeChangeInd;
 using ::NanTransmitFollowupInd;
 using ::NanTransmitFollowupRequest;
 using ::NanTxType;
+using ::NpkSecurityAssociation;
+using ::PASN;
 using ::ROAMING_DISABLE;
 using ::ROAMING_ENABLE;
 using ::RTT_PEER_AP;
@@ -189,6 +225,7 @@ using ::RX_PKT_FATE_FW_DROP_NOBUFS;
 using ::RX_PKT_FATE_FW_DROP_OTHER;
 using ::RX_PKT_FATE_FW_QUEUED;
 using ::RX_PKT_FATE_SUCCESS;
+using ::SAE;
 using ::ssid_t;
 using ::transaction_id;
 using ::TX_PKT_FATE_ACKED;
@@ -218,6 +255,7 @@ using ::WIFI_BAND_ABG;
 using ::WIFI_BAND_ABG_WITH_DFS;
 using ::WIFI_BAND_BG;
 using ::WIFI_BAND_UNSPECIFIED;
+using ::wifi_cached_scan_report;
 using ::wifi_cached_scan_results;
 using ::WIFI_CHAN_WIDTH_10;
 using ::WIFI_CHAN_WIDTH_160;
@@ -228,11 +266,14 @@ using ::WIFI_CHAN_WIDTH_5;
 using ::WIFI_CHAN_WIDTH_80;
 using ::WIFI_CHAN_WIDTH_80P80;
 using ::WIFI_CHAN_WIDTH_INVALID;
+using ::wifi_channel_category;
 using ::wifi_channel_info;
 using ::wifi_channel_stat;
 using ::wifi_channel_width;
+using ::wifi_chip_capabilities;
 using ::wifi_coex_restriction;
 using ::wifi_coex_unsafe_channel;
+using ::WIFI_DFS_CHANNEL;
 using ::WIFI_DUAL_STA_NON_TRANSIENT_UNBIASED;
 using ::WIFI_DUAL_STA_TRANSIENT_PREFER_PRIMARY;
 using ::wifi_error;
@@ -249,6 +290,8 @@ using ::WIFI_ERROR_UNINITIALIZED;
 using ::WIFI_ERROR_UNKNOWN;
 using ::wifi_gscan_capabilities;
 using ::wifi_hal_fn;
+using ::wifi_iface_concurrency_matrix;
+using ::WIFI_INDOOR_CHANNEL;
 using ::wifi_information_element;
 using ::WIFI_INTERFACE_IBSS;
 using ::WIFI_INTERFACE_MESH;
@@ -276,6 +319,7 @@ using ::WIFI_LOGGER_MEMORY_DUMP_SUPPORTED;
 using ::WIFI_LOGGER_PACKET_FATE_SUPPORTED;
 using ::WIFI_LOGGER_POWER_EVENT_SUPPORTED;
 using ::WIFI_LOGGER_WAKE_LOCK_SUPPORTED;
+using ::wifi_mlo_mode;
 using ::WIFI_MOTION_EXPECTED;
 using ::WIFI_MOTION_NOT_EXPECTED;
 using ::wifi_motion_pattern;
@@ -303,6 +347,7 @@ using ::WIFI_RTT_BW_320;
 using ::WIFI_RTT_BW_40;
 using ::WIFI_RTT_BW_5;
 using ::WIFI_RTT_BW_80;
+using ::WIFI_RTT_BW_UNSPECIFIED;
 using ::wifi_rtt_capabilities;
 using ::wifi_rtt_config;
 using ::wifi_rtt_preamble;
@@ -313,6 +358,7 @@ using ::WIFI_RTT_PREAMBLE_LEGACY;
 using ::WIFI_RTT_PREAMBLE_VHT;
 using ::wifi_rtt_responder;
 using ::wifi_rtt_result;
+using ::wifi_rtt_result_v2;
 using ::wifi_rtt_status;
 using ::wifi_rtt_type;
 using ::wifi_rx_packet_fate;
@@ -361,7 +407,21 @@ struct LinkLayerStats {
     wifi_iface_stat iface;
     std::vector<LinkLayerRadioStats> radios;
     std::vector<WifiPeerInfo> peers;
+    bool valid;
 };
+
+struct LinkStats {
+    wifi_link_stat stat;
+    std::vector<WifiPeerInfo> peers;
+};
+
+struct LinkLayerMlStats {
+    wifi_iface_ml_stat iface;
+    std::vector<LinkStats> links;
+    std::vector<LinkLayerRadioStats> radios;
+    bool valid;
+};
+
 #pragma GCC diagnostic pop
 
 // The |WLAN_DRIVER_WAKE_REASON_CNT.cmd_event_wake_cnt| and
@@ -396,6 +456,11 @@ struct NanCallbackHandlers {
     std::function<void(const NanRangeRequestInd&)> on_event_range_request;
     std::function<void(const NanRangeReportInd&)> on_event_range_report;
     std::function<void(const NanDataPathScheduleUpdateInd&)> on_event_schedule_update;
+    std::function<void(const NanPairingRequestInd&)> on_event_pairing_request;
+    std::function<void(const NanPairingConfirmInd&)> on_event_pairing_confirm;
+    std::function<void(const NanBootstrappingRequestInd&)> on_event_bootstrapping_request;
+    std::function<void(const NanBootstrappingConfirmInd&)> on_event_bootstrapping_confirm;
+    std::function<void(const NanSuspensionModeChangeInd&)> on_event_suspension_mode_change;
 };
 
 // Full scan results contain IE info and are hence passed by reference, to
@@ -410,7 +475,7 @@ using on_gscan_results_callback =
 
 // Invoked when the rssi value breaches the thresholds set.
 using on_rssi_threshold_breached_callback =
-        std::function<void(wifi_request_id, std::array<uint8_t, 6>, int8_t)>;
+        std::function<void(wifi_request_id, std::array<uint8_t, ETH_ALEN>, int8_t)>;
 
 // Callback for RTT range request results.
 // Rtt results contain IE info and are hence passed by reference, to
@@ -418,6 +483,8 @@ using on_rssi_threshold_breached_callback =
 // the pointer.
 using on_rtt_results_callback =
         std::function<void(wifi_request_id, const std::vector<const wifi_rtt_result*>&)>;
+using on_rtt_results_callback_v2 =
+        std::function<void(wifi_request_id, const std::vector<const wifi_rtt_result_v2*>&)>;
 
 // Callback for ring buffer data.
 using on_ring_buffer_data_callback = std::function<void(
@@ -465,6 +532,12 @@ struct ChreCallbackHandlers {
     std::function<void(chre_nan_rtt_state)> on_wifi_chre_nan_rtt_state;
 };
 
+// Cached Scan Results response and event callbacks struct.
+struct CachedScanResultsCallbackHandlers {
+    // Callback for Cached Scan Results
+    std::function<void(wifi_cached_scan_report*)> on_cached_scan_results;
+};
+
 /**
  * Class that encapsulates all legacy HAL interactions.
  * This class manages the lifetime of the event loop thread used by legacy HAL.
@@ -474,8 +547,8 @@ struct ChreCallbackHandlers {
  */
 class WifiLegacyHal {
   public:
-    WifiLegacyHal(const std::weak_ptr<wifi_system::InterfaceTool> iface_tool, const wifi_hal_fn& fn,
-                  bool is_primary);
+    WifiLegacyHal(const std::weak_ptr<::android::wifi_system::InterfaceTool> iface_tool,
+                  const wifi_hal_fn& fn, bool is_primary);
     virtual ~WifiLegacyHal() = default;
 
     // Initialize the legacy HAL function table.
@@ -514,7 +587,7 @@ class WifiLegacyHal {
     //    |on_results_user_callback| on success.
     // b) |WIFI_SCAN_FAILED| scan event or failure to retrieve cached scan
     // results
-    //    triggers the externally provided |on_failure_user_callback|.
+    //    Triggers the externally provided |on_failure_user_callback|.
     // c) Full scan result event triggers the externally provided
     //    |on_full_result_user_callback|.
     wifi_error startGscan(const std::string& iface_name, wifi_request_id id,
@@ -529,7 +602,9 @@ class WifiLegacyHal {
     // Link layer stats functions.
     wifi_error enableLinkLayerStats(const std::string& iface_name, bool debug);
     wifi_error disableLinkLayerStats(const std::string& iface_name);
-    std::pair<wifi_error, LinkLayerStats> getLinkLayerStats(const std::string& iface_name);
+    wifi_error getLinkLayerStats(const std::string& iface_name,
+                                 legacy_hal::LinkLayerStats& legacy_stats,
+                                 legacy_hal::LinkLayerMlStats& legacy_ml_stats);
     // RSSI monitor functions.
     wifi_error startRssiMonitoring(
             const std::string& iface_name, wifi_request_id id, int8_t max_rssi, int8_t min_rssi,
@@ -540,12 +615,12 @@ class WifiLegacyHal {
     wifi_error configureRoaming(const std::string& iface_name, const wifi_roaming_config& config);
     wifi_error enableFirmwareRoaming(const std::string& iface_name, fw_roaming_state_t state);
     wifi_error configureNdOffload(const std::string& iface_name, bool enable);
-    wifi_error startSendingOffloadedPacket(const std::string& iface_name, uint32_t cmd_id,
+    wifi_error startSendingOffloadedPacket(const std::string& iface_name, int32_t cmd_id,
                                            uint16_t ether_type,
                                            const std::vector<uint8_t>& ip_packet_data,
                                            const std::array<uint8_t, 6>& src_address,
                                            const std::array<uint8_t, 6>& dst_address,
-                                           uint32_t period_in_ms);
+                                           int32_t period_in_ms);
     wifi_error stopSendingOffloadedPacket(const std::string& iface_name, uint32_t cmd_id);
     virtual wifi_error selectTxPowerScenario(const std::string& iface_name,
                                              wifi_power_scenario scenario);
@@ -582,9 +657,10 @@ class WifiLegacyHal {
     // RTT functions.
     wifi_error startRttRangeRequest(const std::string& iface_name, wifi_request_id id,
                                     const std::vector<wifi_rtt_config>& rtt_configs,
-                                    const on_rtt_results_callback& on_results_callback);
+                                    const on_rtt_results_callback& on_results_callback,
+                                    const on_rtt_results_callback_v2& on_results_callback_v2);
     wifi_error cancelRttRangeRequest(const std::string& iface_name, wifi_request_id id,
-                                     const std::vector<std::array<uint8_t, 6>>& mac_addrs);
+                                     const std::vector<std::array<uint8_t, ETH_ALEN>>& mac_addrs);
     std::pair<wifi_error, wifi_rtt_capabilities> getRttCapabilities(const std::string& iface_name);
     std::pair<wifi_error, wifi_rtt_responder> getRttResponderInfo(const std::string& iface_name);
     wifi_error enableRttResponder(const std::string& iface_name, wifi_request_id id,
@@ -629,11 +705,24 @@ class WifiLegacyHal {
                                        const NanDataPathInitiatorRequest& msg);
     wifi_error nanDataIndicationResponse(const std::string& iface_name, transaction_id id,
                                          const NanDataPathIndicationResponse& msg);
+    wifi_error nanPairingRequest(const std::string& iface_name, transaction_id id,
+                                 const NanPairingRequest& msg);
+    wifi_error nanPairingIndicationResponse(const std::string& iface_name, transaction_id id,
+                                            const NanPairingIndicationResponse& msg);
+    wifi_error nanBootstrappingRequest(const std::string& iface_name, transaction_id id,
+                                       const NanBootstrappingRequest& msg);
+    wifi_error nanBootstrappingIndicationResponse(const std::string& iface_name, transaction_id id,
+                                                  const NanBootstrappingIndicationResponse& msg);
     wifi_error nanDataEnd(const std::string& iface_name, transaction_id id, uint32_t ndpInstanceId);
+    wifi_error nanPairingEnd(const std::string& iface_name, transaction_id id, uint32_t pairingId);
+    wifi_error nanSuspendRequest(const std::string& iface_name, transaction_id id,
+                                 const NanSuspendRequest& msg);
+    wifi_error nanResumeRequest(const std::string& iface_name, transaction_id id,
+                                const NanResumeRequest& msg);
     // AP functions.
-    wifi_error setCountryCode(const std::string& iface_name, std::array<int8_t, 2> code);
+    wifi_error setCountryCode(const std::string& iface_name, const std::array<uint8_t, 2> code);
 
-    // interface functions.
+    // Interface functions.
     virtual wifi_error createVirtualInterface(const std::string& ifname,
                                               wifi_interface_type iftype);
     virtual wifi_error deleteVirtualInterface(const std::string& ifname);
@@ -664,6 +753,8 @@ class WifiLegacyHal {
 
     wifi_error twtClearStats(const std::string& iface_name, uint8_t configId);
 
+    wifi_error setScanMode(const std::string& iface_name, bool enable);
+
     wifi_error setDtimConfig(const std::string& iface_name, uint32_t multiplier);
 
     // Retrieve the list of usable channels in the requested bands
@@ -683,6 +774,14 @@ class WifiLegacyHal {
     wifi_error chreRegisterHandler(const std::string& iface_name,
                                    const ChreCallbackHandlers& handler);
 
+    wifi_error enableWifiTxPowerLimits(const std::string& iface_name, bool enable);
+    wifi_error getWifiCachedScanResults(const std::string& iface_name,
+                                        const CachedScanResultsCallbackHandlers& handler);
+    std::pair<wifi_error, wifi_chip_capabilities> getWifiChipCapabilities();
+    wifi_error enableStaChannelForPeerNetwork(uint32_t channelCategoryEnableFlag);
+    wifi_error setMloMode(wifi_mlo_mode mode);
+    std::pair<wifi_error, wifi_iface_concurrency_matrix> getSupportedIfaceConcurrencyMatrix();
+
   private:
     // Retrieve interface handles for all the available interfaces.
     wifi_error retrieveIfaceHandles();
@@ -697,6 +796,8 @@ class WifiLegacyHal {
     // Handles wifi (error) status of Virtual interface create/delete
     wifi_error handleVirtualInterfaceCreateOrDeleteStatus(const std::string& ifname,
                                                           wifi_error status);
+    wifi_link_stat* copyLinkStat(wifi_link_stat* stat_ptr, std::vector<LinkStats>& stats);
+    wifi_peer_info* copyPeerInfo(wifi_peer_info* peer_ptr, std::vector<WifiPeerInfo>& peers);
 
     // Global function table of legacy HAL.
     wifi_hal_fn global_func_table_;
@@ -710,8 +811,8 @@ class WifiLegacyHal {
     std::condition_variable_any stop_wait_cv_;
     // Flag to indicate if the legacy HAL has been started.
     bool is_started_;
-    std::weak_ptr<wifi_system::InterfaceTool> iface_tool_;
-    // flag to indicate if this HAL is for the primary chip. This is used
+    std::weak_ptr<::android::wifi_system::InterfaceTool> iface_tool_;
+    // Flag to indicate if this HAL is for the primary chip. This is used
     // in order to avoid some hard-coded behavior used with older HALs,
     // such as bring wlan0 interface up/down on start/stop HAL.
     // it may be removed once vendor HALs are updated.
@@ -719,10 +820,9 @@ class WifiLegacyHal {
 };
 
 }  // namespace legacy_hal
-}  // namespace implementation
-}  // namespace V1_6
 }  // namespace wifi
 }  // namespace hardware
 }  // namespace android
+}  // namespace aidl
 
 #endif  // WIFI_LEGACY_HAL_H_

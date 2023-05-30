@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2020 The Android Open Source Project
+ * Copyright (C) 2022 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,17 +14,17 @@
  * limitations under the License.
  */
 
-#include <dirent.h>
-#include <sys/stat.h>
-#include <sys/types.h>
+#include "wifi_legacy_hal_factory.h"
 
 #include <android-base/logging.h>
+#include <dirent.h>
 #include <dlfcn.h>
 #include <libxml/parser.h>
 #include <libxml/tree.h>
 #include <libxml/xmlmemory.h>
+#include <sys/stat.h>
+#include <sys/types.h>
 
-#include "wifi_legacy_hal_factory.h"
 #include "wifi_legacy_hal_stubs.h"
 
 namespace {
@@ -59,15 +59,14 @@ bool isFileExtension(const char* name, const char* ext) {
 }
 };  // namespace
 
+namespace aidl {
 namespace android {
 namespace hardware {
 namespace wifi {
-namespace V1_6 {
-namespace implementation {
 namespace legacy_hal {
 
 WifiLegacyHalFactory::WifiLegacyHalFactory(
-        const std::weak_ptr<wifi_system::InterfaceTool> iface_tool)
+        const std::weak_ptr<::android::wifi_system::InterfaceTool> iface_tool)
     : iface_tool_(iface_tool) {}
 
 std::vector<std::shared_ptr<WifiLegacyHal>> WifiLegacyHalFactory::getHals() {
@@ -129,7 +128,7 @@ bool WifiLegacyHalFactory::initLinkedHalFunctionTable(wifi_hal_fn* hal_fn) {
 void WifiLegacyHalFactory::initVendorHalsDescriptorList() {
     xmlDocPtr xml;
     xmlNodePtr node, cnode;
-    char* version;
+    char* version = NULL;
     std::string path;
     xmlChar* value;
     wifi_hal_lib_desc desc;
@@ -201,6 +200,10 @@ void WifiLegacyHalFactory::initVendorHalsDescriptorList() {
         }
     skip:
         xmlFreeDoc(xml);
+        if (version) {
+            xmlFree(version);
+            version = NULL;
+        }
     }
     ::closedir(dirPtr);
 }
@@ -247,8 +250,7 @@ out_err:
 }
 
 }  // namespace legacy_hal
-}  // namespace implementation
-}  // namespace V1_6
 }  // namespace wifi
 }  // namespace hardware
 }  // namespace android
+}  // namespace aidl

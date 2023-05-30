@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2020 The Android Open Source Project
+ * Copyright (C) 2022 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,20 +21,19 @@
 
 #include "wifi_legacy_hal.h"
 
+namespace aidl {
 namespace android {
 namespace hardware {
 namespace wifi {
-namespace V1_6 {
-namespace implementation {
 // This is in a separate namespace to prevent typename conflicts between
-// the legacy HAL types and the HIDL interface types.
+// the legacy HAL types and the AIDL interface types.
 namespace legacy_hal {
 /**
  * Class that creates WifiLegacyHal objects for vendor HALs in the system.
  */
 class WifiLegacyHalFactory {
   public:
-    WifiLegacyHalFactory(const std::weak_ptr<wifi_system::InterfaceTool> iface_tool);
+    WifiLegacyHalFactory(const std::weak_ptr<::android::wifi_system::InterfaceTool> iface_tool);
     virtual ~WifiLegacyHalFactory() = default;
 
     std::vector<std::shared_ptr<WifiLegacyHal>> getHals();
@@ -51,16 +50,15 @@ class WifiLegacyHalFactory {
     bool initLinkedHalFunctionTable(wifi_hal_fn* hal_fn);
     bool loadVendorHalLib(const std::string& path, wifi_hal_lib_desc& desc);
 
-    std::weak_ptr<wifi_system::InterfaceTool> iface_tool_;
+    std::weak_ptr<::android::wifi_system::InterfaceTool> iface_tool_;
     std::vector<wifi_hal_lib_desc> descs_;
     std::vector<std::shared_ptr<WifiLegacyHal>> legacy_hals_;
 };
 
 }  // namespace legacy_hal
-}  // namespace implementation
-}  // namespace V1_6
 }  // namespace wifi
 }  // namespace hardware
 }  // namespace android
+}  // namespace aidl
 
 #endif  // WIFI_LEGACY_HAL_FACTORY_H_

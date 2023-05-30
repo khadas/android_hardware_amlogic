@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016 The Android Open Source Project
+ * Copyright (C) 2022 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,26 +14,28 @@
  * limitations under the License.
  */
 
+#include "wifi.h"
+
 #include <android-base/logging.h>
 
-#include "hidl_return_util.h"
-#include "wifi.h"
+#include "aidl_return_util.h"
+#include "aidl_sync_util.h"
 #include "wifi_status_util.h"
 
 namespace {
 // Starting Chip ID, will be assigned to primary chip
-static constexpr android::hardware::wifi::V1_0::ChipId kPrimaryChipId = 0;
+static constexpr int32_t kPrimaryChipId = 0;
 }  // namespace
 
+namespace aidl {
 namespace android {
 namespace hardware {
 namespace wifi {
-namespace V1_6 {
-namespace implementation {
-using hidl_return_util::validateAndCall;
-using hidl_return_util::validateAndCallWithLock;
+using aidl_return_util::validateAndCall;
+using aidl_return_util::validateAndCallWithLock;
+using aidl_sync_util::acquireGlobalLock;
 
-Wifi::Wifi(const std::shared_ptr<wifi_system::InterfaceTool> iface_tool,
+Wifi::Wifi(const std::shared_ptr<::android::wifi_system::InterfaceTool> iface_tool,
            const std::shared_ptr<legacy_hal::WifiLegacyHalFactory> legacy_hal_factory,
            const std::shared_ptr<mode_controller::WifiModeController> mode_controller,
            const std::shared_ptr<feature_flags::WifiFeatureFlags> feature_flags)
@@ -48,86 +50,75 @@ bool Wifi::isValid() {
     return true;
 }
 
-Return<void> Wifi::registerEventCallback(const sp<V1_0::IWifiEventCallback>& event_callback,
-                                         registerEventCallback_cb hidl_status_cb) {
+ndk::ScopedAStatus Wifi::registerEventCallback(
+        const std::shared_ptr<IWifiEventCallback>& in_callback) {
     return validateAndCall(this, WifiStatusCode::ERROR_UNKNOWN,
-                           &Wifi::registerEventCallbackInternal, hidl_status_cb, event_callback);
+                           &Wifi::registerEventCallbackInternal, in_callback);
 }
 
-Return<void> Wifi::registerEventCallback_1_5(const sp<V1_5::IWifiEventCallback>& event_callback,
-                                             registerEventCallback_1_5_cb hidl_status_cb) {
-    return validateAndCall(this, WifiStatusCode::ERROR_UNKNOWN,
-                           &Wifi::registerEventCallbackInternal_1_5, hidl_status_cb,
-                           event_callback);
+ndk::ScopedAStatus Wifi::isStarted(bool* _aidl_return) {
+    *_aidl_return = (run_state_ != RunState::STOPPED);
+    return ndk::ScopedAStatus::ok();
 }
 
-Return<bool> Wifi::isStarted() {
-    return run_state_ != RunState::STOPPED;
+ndk::ScopedAStatus Wifi::start() {
+    return validateAndCall(this, WifiStatusCode::ERROR_UNKNOWN, &Wifi::startInternal);
 }
 
-Return<void> Wifi::start(start_cb hidl_status_cb) {
-    return validateAndCall(this, WifiStatusCode::ERROR_UNKNOWN, &Wifi::startInternal,
-                           hidl_status_cb);
+ndk::ScopedAStatus Wifi::stop() {
+    return validateAndCallWithLock(this, WifiStatusCode::ERROR_UNKNOWN, &Wifi::stopInternal);
 }
 
-Return<void> Wifi::stop(stop_cb hidl_status_cb) {
-    return validateAndCallWithLock(this, WifiStatusCode::ERROR_UNKNOWN, &Wifi::stopInternal,
-                                   hidl_status_cb);
-}
-
-Return<void> Wifi::getChipIds(getChipIds_cb hidl_status_cb) {
+ndk::ScopedAStatus Wifi::getChipIds(std::vector<int32_t>* _aidl_return) {
     return validateAndCall(this, WifiStatusCode::ERROR_UNKNOWN, &Wifi::getChipIdsInternal,
-                           hidl_status_cb);
+                           _aidl_return);
 }
 
-Return<void> Wifi::getChip(ChipId chip_id, getChip_cb hidl_status_cb) {
+ndk::ScopedAStatus Wifi::getChip(int32_t in_chipId, std::shared_ptr<IWifiChip>* _aidl_return) {
     return validateAndCall(this, WifiStatusCode::ERROR_UNKNOWN, &Wifi::getChipInternal,
-                           hidl_status_cb, chip_id);
+                           _aidl_return, in_chipId);
 }
 
-Return<void> Wifi::debug(const hidl_handle& handle, const hidl_vec<hidl_string>&) {
-    LOG(INFO) << "-----------Debug is called----------------";
+binder_status_t Wifi::dump(int fd, const char** args, uint32_t numArgs) {
+    const auto lock = acquireGlobalLock();
+    LOG(INFO) << "-----------Debug was called----------------";
     if (chips_.size() == 0) {
-        return Void();
+        LOG(INFO) << "No chips to display.";
+        return STATUS_OK;
     }
 
-    for (sp<WifiChip> chip : chips_) {
+    for (std::shared_ptr<WifiChip> chip : chips_) {
         if (!chip.get()) continue;
-
-        chip->debug(handle, {});
+        chip->dump(fd, args, numArgs);
     }
-    return Void();
+    return STATUS_OK;
 }
 
-WifiStatus Wifi::registerEventCallbackInternal(
-        const sp<V1_0::IWifiEventCallback>& event_callback __unused) {
-    // Deprecated support for this callback.
-    return createWifiStatus(WifiStatusCode::ERROR_NOT_SUPPORTED);
-}
-
-WifiStatus Wifi::registerEventCallbackInternal_1_5(
-        const sp<V1_5::IWifiEventCallback>& event_callback) {
+ndk::ScopedAStatus Wifi::registerEventCallbackInternal(
+        const std::shared_ptr<IWifiEventCallback>& event_callback) {
     if (!event_cb_handler_.addCallback(event_callback)) {
         return createWifiStatus(WifiStatusCode::ERROR_UNKNOWN);
     }
-    return createWifiStatus(WifiStatusCode::SUCCESS);
+    return ndk::ScopedAStatus::ok();
 }
 
-WifiStatus Wifi::startInternal() {
+ndk::ScopedAStatus Wifi::startInternal() {
     if (run_state_ == RunState::STARTED) {
-        return createWifiStatus(WifiStatusCode::SUCCESS);
+        return ndk::ScopedAStatus::ok();
     } else if (run_state_ == RunState::STOPPING) {
         return createWifiStatus(WifiStatusCode::ERROR_NOT_AVAILABLE, "HAL is stopping");
     }
-    WifiStatus wifi_status = initializeModeControllerAndLegacyHal();
-    if (wifi_status.code == WifiStatusCode::SUCCESS) {
+    ndk::ScopedAStatus wifi_status = initializeModeControllerAndLegacyHal();
+    if (wifi_status.isOk()) {
         // Register the callback for subsystem restart
         const auto& on_subsystem_restart_callback = [this](const std::string& error) {
-            WifiStatus wifi_status = createWifiStatus(WifiStatusCode::ERROR_UNKNOWN, error);
+            ndk::ScopedAStatus wifi_status = createWifiStatus(WifiStatusCode::ERROR_UNKNOWN, error);
             for (const auto& callback : event_cb_handler_.getCallbacks()) {
                 LOG(INFO) << "Attempting to invoke onSubsystemRestart "
                              "callback";
-                if (!callback->onSubsystemRestart(wifi_status).isOk()) {
+                WifiStatusCode errorCode =
+                        static_cast<WifiStatusCode>(wifi_status.getServiceSpecificError());
+                if (!callback->onSubsystemRestart(errorCode).isOk()) {
                     LOG(ERROR) << "Failed to invoke onSubsystemRestart callback";
                 } else {
                     LOG(INFO) << "Succeeded to invoke onSubsystemRestart "
@@ -137,12 +128,12 @@ WifiStatus Wifi::startInternal() {
         };
 
         // Create the chip instance once the HAL is started.
-        android::hardware::wifi::V1_0::ChipId chipId = kPrimaryChipId;
+        int32_t chipId = kPrimaryChipId;
         for (auto& hal : legacy_hals_) {
             chips_.push_back(
-                    new WifiChip(chipId, chipId == kPrimaryChipId, hal, mode_controller_,
-                                 std::make_shared<iface_util::WifiIfaceUtil>(iface_tool_, hal),
-                                 feature_flags_, on_subsystem_restart_callback));
+                    WifiChip::create(chipId, chipId == kPrimaryChipId, hal, mode_controller_,
+                                     std::make_shared<iface_util::WifiIfaceUtil>(iface_tool_, hal),
+                                     feature_flags_, on_subsystem_restart_callback));
             chipId++;
         }
         run_state_ = RunState::STARTED;
@@ -154,7 +145,9 @@ WifiStatus Wifi::startInternal() {
         LOG(INFO) << "Wifi HAL started";
     } else {
         for (const auto& callback : event_cb_handler_.getCallbacks()) {
-            if (!callback->onFailure(wifi_status).isOk()) {
+            WifiStatusCode errorCode =
+                    static_cast<WifiStatusCode>(wifi_status.getServiceSpecificError());
+            if (!callback->onFailure(errorCode).isOk()) {
                 LOG(ERROR) << "Failed to invoke onFailure callback";
             }
         }
@@ -165,10 +158,10 @@ WifiStatus Wifi::startInternal() {
     return wifi_status;
 }
 
-WifiStatus Wifi::stopInternal(
+ndk::ScopedAStatus Wifi::stopInternal(
         /* NONNULL */ std::unique_lock<std::recursive_mutex>* lock) {
     if (run_state_ == RunState::STOPPED) {
-        return createWifiStatus(WifiStatusCode::SUCCESS);
+        return ndk::ScopedAStatus::ok();
     } else if (run_state_ == RunState::STOPPING) {
         return createWifiStatus(WifiStatusCode::ERROR_NOT_AVAILABLE, "HAL is stopping");
     }
@@ -177,12 +170,12 @@ WifiStatus Wifi::stopInternal(
     for (auto& chip : chips_) {
         if (chip.get()) {
             chip->invalidate();
-            chip.clear();
+            chip.reset();
         }
     }
     chips_.clear();
-    WifiStatus wifi_status = stopLegacyHalAndDeinitializeModeController(lock);
-    if (wifi_status.code == WifiStatusCode::SUCCESS) {
+    ndk::ScopedAStatus wifi_status = stopLegacyHalAndDeinitializeModeController(lock);
+    if (wifi_status.isOk()) {
         for (const auto& callback : event_cb_handler_.getCallbacks()) {
             if (!callback->onStop().isOk()) {
                 LOG(ERROR) << "Failed to invoke onStop callback";
@@ -191,7 +184,9 @@ WifiStatus Wifi::stopInternal(
         LOG(INFO) << "Wifi HAL stopped";
     } else {
         for (const auto& callback : event_cb_handler_.getCallbacks()) {
-            if (!callback->onFailure(wifi_status).isOk()) {
+            WifiStatusCode errorCode =
+                    static_cast<WifiStatusCode>(wifi_status.getServiceSpecificError());
+            if (!callback->onFailure(errorCode).isOk()) {
                 LOG(ERROR) << "Failed to invoke onFailure callback";
             }
         }
@@ -202,27 +197,26 @@ WifiStatus Wifi::stopInternal(
     return wifi_status;
 }
 
-std::pair<WifiStatus, std::vector<ChipId>> Wifi::getChipIdsInternal() {
-    std::vector<ChipId> chip_ids;
+std::pair<std::vector<int32_t>, ndk::ScopedAStatus> Wifi::getChipIdsInternal() {
+    std::vector<int32_t> chip_ids;
 
     for (auto& chip : chips_) {
-        ChipId chip_id = getChipIdFromWifiChip(chip);
-        if (chip_id != UINT32_MAX) chip_ids.emplace_back(chip_id);
+        int32_t chip_id = getChipIdFromWifiChip(chip);
+        if (chip_id != INT32_MAX) chip_ids.emplace_back(chip_id);
     }
-    return {createWifiStatus(WifiStatusCode::SUCCESS), std::move(chip_ids)};
+    return {std::move(chip_ids), ndk::ScopedAStatus::ok()};
 }
 
-std::pair<WifiStatus, sp<V1_4::IWifiChip>> Wifi::getChipInternal(ChipId chip_id) {
+std::pair<std::shared_ptr<IWifiChip>, ndk::ScopedAStatus> Wifi::getChipInternal(int32_t chip_id) {
     for (auto& chip : chips_) {
-        ChipId cand_id = getChipIdFromWifiChip(chip);
-        if ((cand_id != UINT32_MAX) && (cand_id == chip_id))
-            return {createWifiStatus(WifiStatusCode::SUCCESS), chip};
+        int32_t cand_id = getChipIdFromWifiChip(chip);
+        if ((cand_id != INT32_MAX) && (cand_id == chip_id)) return {chip, ndk::ScopedAStatus::ok()};
     }
 
-    return {createWifiStatus(WifiStatusCode::ERROR_INVALID_ARGS), nullptr};
+    return {nullptr, createWifiStatus(WifiStatusCode::ERROR_INVALID_ARGS)};
 }
 
-WifiStatus Wifi::initializeModeControllerAndLegacyHal() {
+ndk::ScopedAStatus Wifi::initializeModeControllerAndLegacyHal() {
     if (!mode_controller_->initialize()) {
         LOG(ERROR) << "Failed to initialize firmware mode controller";
         return createWifiStatus(WifiStatusCode::ERROR_UNKNOWN);
@@ -236,7 +230,7 @@ WifiStatus Wifi::initializeModeControllerAndLegacyHal() {
         if (legacy_status != legacy_hal::WIFI_SUCCESS) {
             // Currently WifiLegacyHal::initialize does not allocate extra mem,
             // only initializes the function table. If this changes, need to
-            // implement WifiLegacyHal::deinitialize and deinitialize the
+            // implement WifiLegacyHal::deinitialize and deinitalize the
             // HALs already initialized
             LOG(ERROR) << "Failed to initialize legacy HAL index: " << index
                        << " error: " << legacyErrorToString(legacy_status);
@@ -244,10 +238,10 @@ WifiStatus Wifi::initializeModeControllerAndLegacyHal() {
         }
         index++;
     }
-    return createWifiStatus(WifiStatusCode::SUCCESS);
+    return ndk::ScopedAStatus::ok();
 }
 
-WifiStatus Wifi::stopLegacyHalAndDeinitializeModeController(
+ndk::ScopedAStatus Wifi::stopLegacyHalAndDeinitializeModeController(
         /* NONNULL */ std::unique_lock<std::recursive_mutex>* lock) {
     legacy_hal::wifi_error legacy_status = legacy_hal::WIFI_SUCCESS;
     int index = 0;
@@ -272,23 +266,22 @@ WifiStatus Wifi::stopLegacyHalAndDeinitializeModeController(
         LOG(ERROR) << "Failed to deinitialize firmware mode controller";
         return createWifiStatus(WifiStatusCode::ERROR_UNKNOWN);
     }
-    return createWifiStatus(WifiStatusCode::SUCCESS);
+    return ndk::ScopedAStatus::ok();
 }
 
-ChipId Wifi::getChipIdFromWifiChip(sp<WifiChip>& chip) {
-    ChipId chip_id = UINT32_MAX;
+int32_t Wifi::getChipIdFromWifiChip(std::shared_ptr<WifiChip>& chip) {
+    int32_t chip_id = INT32_MAX;
     if (chip.get()) {
-        chip->getId([&](WifiStatus status, uint32_t id) {
-            if (status.code == WifiStatusCode::SUCCESS) {
-                chip_id = id;
-            }
-        });
+        ndk::ScopedAStatus status = chip->getId(&chip_id);
+        if (!status.isOk()) {
+            // Reset value if operation failed.
+            chip_id = INT32_MAX;
+        }
     }
-
     return chip_id;
 }
-}  // namespace implementation
-}  // namespace V1_6
+
 }  // namespace wifi
 }  // namespace hardware
 }  // namespace android
+}  // namespace aidl

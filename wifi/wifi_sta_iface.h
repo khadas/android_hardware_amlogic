@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016 The Android Open Source Project
+ * Copyright (C) 2022 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,141 +17,135 @@
 #ifndef WIFI_STA_IFACE_H_
 #define WIFI_STA_IFACE_H_
 
+#include <aidl/android/hardware/wifi/BnWifiStaIface.h>
+#include <aidl/android/hardware/wifi/IWifiStaIfaceEventCallback.h>
 #include <android-base/macros.h>
-#include <android/hardware/wifi/1.0/IWifiStaIfaceEventCallback.h>
-#include <android/hardware/wifi/1.6/IWifiStaIface.h>
 
-#include "hidl_callback_util.h"
+#include "aidl_callback_util.h"
 #include "wifi_iface_util.h"
 #include "wifi_legacy_hal.h"
 
+namespace aidl {
 namespace android {
 namespace hardware {
 namespace wifi {
-namespace V1_6 {
-namespace implementation {
-using namespace android::hardware::wifi::V1_0;
 
 /**
- * HIDL interface object used to control a STA Iface instance.
+ * AIDL interface object used to control a STA Iface instance.
  */
-class WifiStaIface : public V1_6::IWifiStaIface {
+class WifiStaIface : public BnWifiStaIface {
   public:
     WifiStaIface(const std::string& ifname,
                  const std::weak_ptr<legacy_hal::WifiLegacyHal> legacy_hal,
                  const std::weak_ptr<iface_util::WifiIfaceUtil> iface_util);
+
+    // Factory method - use instead of default constructor.
+    static std::shared_ptr<WifiStaIface> create(
+            const std::string& ifname, const std::weak_ptr<legacy_hal::WifiLegacyHal> legacy_hal,
+            const std::weak_ptr<iface_util::WifiIfaceUtil> iface_util);
+
     // Refer to |WifiChip::invalidate()|.
     void invalidate();
     bool isValid();
-    std::set<sp<IWifiStaIfaceEventCallback>> getEventCallbacks();
+    std::set<std::shared_ptr<IWifiStaIfaceEventCallback>> getEventCallbacks();
     std::string getName();
 
-    // HIDL methods exposed.
-    Return<void> getName(getName_cb hidl_status_cb) override;
-    Return<void> getType(getType_cb hidl_status_cb) override;
-    Return<void> registerEventCallback(const sp<IWifiStaIfaceEventCallback>& callback,
-                                       registerEventCallback_cb hidl_status_cb) override;
-    Return<void> getCapabilities(getCapabilities_cb hidl_status_cb) override;
-    Return<void> getApfPacketFilterCapabilities(
-            getApfPacketFilterCapabilities_cb hidl_status_cb) override;
-    Return<void> installApfPacketFilter(uint32_t cmd_id, const hidl_vec<uint8_t>& program,
-                                        installApfPacketFilter_cb hidl_status_cb) override;
-    Return<void> readApfPacketFilterData(readApfPacketFilterData_cb hidl_status_cb) override;
-    Return<void> getBackgroundScanCapabilities(
-            getBackgroundScanCapabilities_cb hidl_status_cb) override;
-    Return<void> getValidFrequenciesForBand(V1_0::WifiBand band,
-                                            getValidFrequenciesForBand_cb hidl_status_cb) override;
-    Return<void> startBackgroundScan(uint32_t cmd_id, const StaBackgroundScanParameters& params,
-                                     startBackgroundScan_cb hidl_status_cb) override;
-    Return<void> stopBackgroundScan(uint32_t cmd_id, stopBackgroundScan_cb hidl_status_cb) override;
-    Return<void> enableLinkLayerStatsCollection(
-            bool debug, enableLinkLayerStatsCollection_cb hidl_status_cb) override;
-    Return<void> disableLinkLayerStatsCollection(
-            disableLinkLayerStatsCollection_cb hidl_status_cb) override;
-    Return<void> getLinkLayerStats(getLinkLayerStats_cb hidl_status_cb) override;
-    Return<void> getLinkLayerStats_1_3(getLinkLayerStats_1_3_cb hidl_status_cb) override;
-    Return<void> getLinkLayerStats_1_5(getLinkLayerStats_1_5_cb hidl_status_cb) override;
-    Return<void> getLinkLayerStats_1_6(getLinkLayerStats_1_6_cb hidl_status_cb) override;
-    Return<void> startRssiMonitoring(uint32_t cmd_id, int32_t max_rssi, int32_t min_rssi,
-                                     startRssiMonitoring_cb hidl_status_cb) override;
-    Return<void> stopRssiMonitoring(uint32_t cmd_id, stopRssiMonitoring_cb hidl_status_cb) override;
-    Return<void> getRoamingCapabilities(getRoamingCapabilities_cb hidl_status_cb) override;
-    Return<void> configureRoaming(const StaRoamingConfig& config,
-                                  configureRoaming_cb hidl_status_cb) override;
-    Return<void> setRoamingState(StaRoamingState state, setRoamingState_cb hidl_status_cb) override;
-    Return<void> enableNdOffload(bool enable, enableNdOffload_cb hidl_status_cb) override;
-    Return<void> startSendingKeepAlivePackets(
-            uint32_t cmd_id, const hidl_vec<uint8_t>& ip_packet_data, uint16_t ether_type,
-            const hidl_array<uint8_t, 6>& src_address, const hidl_array<uint8_t, 6>& dst_address,
-            uint32_t period_in_ms, startSendingKeepAlivePackets_cb hidl_status_cb) override;
-    Return<void> stopSendingKeepAlivePackets(
-            uint32_t cmd_id, stopSendingKeepAlivePackets_cb hidl_status_cb) override;
-    Return<void> setScanningMacOui(const hidl_array<uint8_t, 3>& oui,
-                                   setScanningMacOui_cb hidl_status_cb) override;
-    Return<void> startDebugPacketFateMonitoring(
-            startDebugPacketFateMonitoring_cb hidl_status_cb) override;
-    Return<void> getDebugTxPacketFates(getDebugTxPacketFates_cb hidl_status_cb) override;
-    Return<void> getDebugRxPacketFates(getDebugRxPacketFates_cb hidl_status_cb) override;
-    Return<void> setMacAddress(const hidl_array<uint8_t, 6>& mac,
-                               setMacAddress_cb hidl_status_cb) override;
-    Return<void> getFactoryMacAddress(getFactoryMacAddress_cb hidl_status_cb) override;
-    Return<void> setScanMode(bool enable, setScanMode_cb hidl_status_cb) override;
+    // AIDL methods exposed.
+    ndk::ScopedAStatus getName(std::string* _aidl_return) override;
+    ndk::ScopedAStatus registerEventCallback(
+            const std::shared_ptr<IWifiStaIfaceEventCallback>& in_callback) override;
+    ndk::ScopedAStatus getFeatureSet(int32_t* _aidl_return) override;
+    ndk::ScopedAStatus getApfPacketFilterCapabilities(
+            StaApfPacketFilterCapabilities* _aidl_return) override;
+    ndk::ScopedAStatus installApfPacketFilter(const std::vector<uint8_t>& in_program) override;
+    ndk::ScopedAStatus readApfPacketFilterData(std::vector<uint8_t>* _aidl_return) override;
+    ndk::ScopedAStatus getBackgroundScanCapabilities(
+            StaBackgroundScanCapabilities* _aidl_return) override;
+    ndk::ScopedAStatus startBackgroundScan(int32_t in_cmdId,
+                                           const StaBackgroundScanParameters& in_params) override;
+    ndk::ScopedAStatus stopBackgroundScan(int32_t in_cmdId) override;
+    ndk::ScopedAStatus enableLinkLayerStatsCollection(bool in_debug) override;
+    ndk::ScopedAStatus disableLinkLayerStatsCollection() override;
+    ndk::ScopedAStatus getLinkLayerStats(StaLinkLayerStats* _aidl_return) override;
+    ndk::ScopedAStatus startRssiMonitoring(int32_t in_cmdId, int32_t in_maxRssi,
+                                           int32_t in_minRssi) override;
+    ndk::ScopedAStatus stopRssiMonitoring(int32_t in_cmdId) override;
+    ndk::ScopedAStatus getRoamingCapabilities(StaRoamingCapabilities* _aidl_return) override;
+    ndk::ScopedAStatus configureRoaming(const StaRoamingConfig& in_config) override;
+    ndk::ScopedAStatus setRoamingState(StaRoamingState in_state) override;
+    ndk::ScopedAStatus enableNdOffload(bool in_enable) override;
+    ndk::ScopedAStatus startSendingKeepAlivePackets(int32_t in_cmdId,
+                                                    const std::vector<uint8_t>& in_ipPacketData,
+                                                    char16_t in_etherType,
+                                                    const std::array<uint8_t, 6>& in_srcAddress,
+                                                    const std::array<uint8_t, 6>& in_dstAddress,
+                                                    int32_t in_periodInMs) override;
+    ndk::ScopedAStatus stopSendingKeepAlivePackets(int32_t in_cmdId) override;
+    ndk::ScopedAStatus startDebugPacketFateMonitoring() override;
+    ndk::ScopedAStatus getDebugTxPacketFates(
+            std::vector<WifiDebugTxPacketFateReport>* _aidl_return) override;
+    ndk::ScopedAStatus getDebugRxPacketFates(
+            std::vector<WifiDebugRxPacketFateReport>* _aidl_return) override;
+    ndk::ScopedAStatus setMacAddress(const std::array<uint8_t, 6>& in_mac) override;
+    ndk::ScopedAStatus getFactoryMacAddress(std::array<uint8_t, 6>* _aidl_return) override;
+    ndk::ScopedAStatus setScanMode(bool in_enable) override;
+    ndk::ScopedAStatus setDtimMultiplier(int32_t in_multiplier) override;
 
   private:
-    // Corresponding worker functions for the HIDL methods.
-    std::pair<WifiStatus, std::string> getNameInternal();
-    std::pair<WifiStatus, IfaceType> getTypeInternal();
-    WifiStatus registerEventCallbackInternal(const sp<IWifiStaIfaceEventCallback>& callback);
-    std::pair<WifiStatus, uint32_t> getCapabilitiesInternal();
-    std::pair<WifiStatus, StaApfPacketFilterCapabilities> getApfPacketFilterCapabilitiesInternal();
-    WifiStatus installApfPacketFilterInternal(uint32_t cmd_id, const std::vector<uint8_t>& program);
-    std::pair<WifiStatus, std::vector<uint8_t>> readApfPacketFilterDataInternal();
-    std::pair<WifiStatus, StaBackgroundScanCapabilities> getBackgroundScanCapabilitiesInternal();
-    std::pair<WifiStatus, std::vector<WifiChannelInMhz>> getValidFrequenciesForBandInternal(
-            V1_0::WifiBand band);
-    WifiStatus startBackgroundScanInternal(uint32_t cmd_id,
-                                           const StaBackgroundScanParameters& params);
-    WifiStatus stopBackgroundScanInternal(uint32_t cmd_id);
-    WifiStatus enableLinkLayerStatsCollectionInternal(bool debug);
-    WifiStatus disableLinkLayerStatsCollectionInternal();
-    std::pair<WifiStatus, V1_0::StaLinkLayerStats> getLinkLayerStatsInternal();
-    std::pair<WifiStatus, V1_3::StaLinkLayerStats> getLinkLayerStatsInternal_1_3();
-    std::pair<WifiStatus, V1_5::StaLinkLayerStats> getLinkLayerStatsInternal_1_5();
-    std::pair<WifiStatus, V1_6::StaLinkLayerStats> getLinkLayerStatsInternal_1_6();
-    WifiStatus startRssiMonitoringInternal(uint32_t cmd_id, int32_t max_rssi, int32_t min_rssi);
-    WifiStatus stopRssiMonitoringInternal(uint32_t cmd_id);
-    std::pair<WifiStatus, StaRoamingCapabilities> getRoamingCapabilitiesInternal();
-    WifiStatus configureRoamingInternal(const StaRoamingConfig& config);
-    WifiStatus setRoamingStateInternal(StaRoamingState state);
-    WifiStatus enableNdOffloadInternal(bool enable);
-    WifiStatus startSendingKeepAlivePacketsInternal(uint32_t cmd_id,
-                                                    const std::vector<uint8_t>& ip_packet_data,
-                                                    uint16_t ether_type,
-                                                    const std::array<uint8_t, 6>& src_address,
-                                                    const std::array<uint8_t, 6>& dst_address,
-                                                    uint32_t period_in_ms);
-    WifiStatus stopSendingKeepAlivePacketsInternal(uint32_t cmd_id);
-    WifiStatus setScanningMacOuiInternal(const std::array<uint8_t, 3>& oui);
-    WifiStatus startDebugPacketFateMonitoringInternal();
-    std::pair<WifiStatus, std::vector<WifiDebugTxPacketFateReport>> getDebugTxPacketFatesInternal();
-    std::pair<WifiStatus, std::vector<WifiDebugRxPacketFateReport>> getDebugRxPacketFatesInternal();
-    WifiStatus setMacAddressInternal(const std::array<uint8_t, 6>& mac);
-    std::pair<WifiStatus, std::array<uint8_t, 6>> getFactoryMacAddressInternal();
-    WifiStatus setScanModeInternal(bool enable);
+    // Corresponding worker functions for the AIDL methods.
+    std::pair<std::string, ndk::ScopedAStatus> getNameInternal();
+    ndk::ScopedAStatus registerEventCallbackInternal(
+            const std::shared_ptr<IWifiStaIfaceEventCallback>& callback);
+    std::pair<int32_t, ndk::ScopedAStatus> getFeatureSetInternal();
+    std::pair<StaApfPacketFilterCapabilities, ndk::ScopedAStatus>
+    getApfPacketFilterCapabilitiesInternal();
+    ndk::ScopedAStatus installApfPacketFilterInternal(const std::vector<uint8_t>& program);
+    std::pair<std::vector<uint8_t>, ndk::ScopedAStatus> readApfPacketFilterDataInternal();
+    std::pair<StaBackgroundScanCapabilities, ndk::ScopedAStatus>
+    getBackgroundScanCapabilitiesInternal();
+    ndk::ScopedAStatus startBackgroundScanInternal(int32_t cmd_id,
+                                                   const StaBackgroundScanParameters& params);
+    ndk::ScopedAStatus stopBackgroundScanInternal(int32_t cmd_id);
+    ndk::ScopedAStatus enableLinkLayerStatsCollectionInternal(bool debug);
+    ndk::ScopedAStatus disableLinkLayerStatsCollectionInternal();
+    std::pair<StaLinkLayerStats, ndk::ScopedAStatus> getLinkLayerStatsInternal();
+    ndk::ScopedAStatus startRssiMonitoringInternal(int32_t cmd_id, int32_t max_rssi,
+                                                   int32_t min_rssi);
+    ndk::ScopedAStatus stopRssiMonitoringInternal(int32_t cmd_id);
+    std::pair<StaRoamingCapabilities, ndk::ScopedAStatus> getRoamingCapabilitiesInternal();
+    ndk::ScopedAStatus configureRoamingInternal(const StaRoamingConfig& config);
+    ndk::ScopedAStatus setRoamingStateInternal(StaRoamingState state);
+    ndk::ScopedAStatus enableNdOffloadInternal(bool enable);
+    ndk::ScopedAStatus startSendingKeepAlivePacketsInternal(
+            int32_t cmd_id, const std::vector<uint8_t>& ip_packet_data, char16_t ether_type,
+            const std::array<uint8_t, 6>& src_address, const std::array<uint8_t, 6>& dst_address,
+            int32_t period_in_ms);
+    ndk::ScopedAStatus stopSendingKeepAlivePacketsInternal(int32_t cmd_id);
+    ndk::ScopedAStatus startDebugPacketFateMonitoringInternal();
+    std::pair<std::vector<WifiDebugTxPacketFateReport>, ndk::ScopedAStatus>
+    getDebugTxPacketFatesInternal();
+    std::pair<std::vector<WifiDebugRxPacketFateReport>, ndk::ScopedAStatus>
+    getDebugRxPacketFatesInternal();
+    ndk::ScopedAStatus setMacAddressInternal(const std::array<uint8_t, 6>& mac);
+    std::pair<std::array<uint8_t, 6>, ndk::ScopedAStatus> getFactoryMacAddressInternal();
+    ndk::ScopedAStatus setScanModeInternal(bool enable);
+    ndk::ScopedAStatus setDtimMultiplierInternal(const int multiplier);
+
+    void setWeakPtr(std::weak_ptr<WifiStaIface> ptr);
 
     std::string ifname_;
     std::weak_ptr<legacy_hal::WifiLegacyHal> legacy_hal_;
     std::weak_ptr<iface_util::WifiIfaceUtil> iface_util_;
+    std::weak_ptr<WifiStaIface> weak_ptr_this_;
     bool is_valid_;
-    hidl_callback_util::HidlCallbackHandler<IWifiStaIfaceEventCallback> event_cb_handler_;
+    aidl_callback_util::AidlCallbackHandler<IWifiStaIfaceEventCallback> event_cb_handler_;
 
     DISALLOW_COPY_AND_ASSIGN(WifiStaIface);
 };
 
-}  // namespace implementation
-}  // namespace V1_6
 }  // namespace wifi
 }  // namespace hardware
 }  // namespace android
+}  // namespace aidl
 
 #endif  // WIFI_STA_IFACE_H_

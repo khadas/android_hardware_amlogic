@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016 The Android Open Source Project
+ * Copyright (C) 2022 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,22 +17,20 @@
 #ifndef WIFI_P2P_IFACE_H_
 #define WIFI_P2P_IFACE_H_
 
+#include <aidl/android/hardware/wifi/BnWifiP2pIface.h>
 #include <android-base/macros.h>
-#include <android/hardware/wifi/1.0/IWifiP2pIface.h>
 
 #include "wifi_legacy_hal.h"
 
+namespace aidl {
 namespace android {
 namespace hardware {
 namespace wifi {
-namespace V1_6 {
-namespace implementation {
-using namespace android::hardware::wifi::V1_0;
 
 /**
- * HIDL interface object used to control a P2P Iface instance.
+ * AIDL interface object used to control a P2P Iface instance.
  */
-class WifiP2pIface : public V1_0::IWifiP2pIface {
+class WifiP2pIface : public BnWifiP2pIface {
   public:
     WifiP2pIface(const std::string& ifname,
                  const std::weak_ptr<legacy_hal::WifiLegacyHal> legacy_hal);
@@ -41,14 +39,12 @@ class WifiP2pIface : public V1_0::IWifiP2pIface {
     bool isValid();
     std::string getName();
 
-    // HIDL methods exposed.
-    Return<void> getName(getName_cb hidl_status_cb) override;
-    Return<void> getType(getType_cb hidl_status_cb) override;
+    // AIDL methods exposed.
+    ndk::ScopedAStatus getName(std::string* _aidl_return) override;
 
   private:
-    // Corresponding worker functions for the HIDL methods.
-    std::pair<WifiStatus, std::string> getNameInternal();
-    std::pair<WifiStatus, IfaceType> getTypeInternal();
+    // Corresponding worker functions for the AIDL methods.
+    std::pair<std::string, ndk::ScopedAStatus> getNameInternal();
 
     std::string ifname_;
     std::weak_ptr<legacy_hal::WifiLegacyHal> legacy_hal_;
@@ -57,10 +53,9 @@ class WifiP2pIface : public V1_0::IWifiP2pIface {
     DISALLOW_COPY_AND_ASSIGN(WifiP2pIface);
 };
 
-}  // namespace implementation
-}  // namespace V1_6
 }  // namespace wifi
 }  // namespace hardware
 }  // namespace android
+}  // namespace aidl
 
 #endif  // WIFI_P2P_IFACE_H_

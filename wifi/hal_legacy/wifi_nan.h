@@ -22,7 +22,8 @@
 #include "wifi_hal.h"
 
 #ifdef __cplusplus
-extern "C" {
+extern "C"
+{
 #endif /* __cplusplus */
 
 /*****************************************************************************
@@ -31,63 +32,72 @@ extern "C" {
 
 /*
   Definitions
-  All multi-byte fields within all NAN protocol stack messages are assumed to be in Little Endian
-  order.
+  All multi-byte fields within all NAN protocol stack messages are assumed to be in Little Endian order.
 */
 
 typedef int NanVersion;
 typedef u16 transaction_id;
 typedef u32 NanDataPathId;
 
-#define NAN_MAC_ADDR_LEN 6
-#define NAN_MAJOR_VERSION 2
-#define NAN_MINOR_VERSION 0
-#define NAN_MICRO_VERSION 1
-#define NAN_MAX_SOCIAL_CHANNELS 3
+#define NAN_MAC_ADDR_LEN                6
+#define NAN_MAJOR_VERSION               4
+#define NAN_MINOR_VERSION               0
+#define NAN_MICRO_VERSION               0
+#define NAN_MAX_SOCIAL_CHANNELS         3
 
 /* NAN Maximum Lengths */
-#define NAN_MAX_SERVICE_NAME_LEN 255
-#define NAN_MAX_MATCH_FILTER_LEN 255
-#define NAN_MAX_SERVICE_SPECIFIC_INFO_LEN 1024
-#define NAN_MAX_VSA_DATA_LEN 1024
-#define NAN_MAX_MESH_DATA_LEN 32
-#define NAN_MAX_INFRA_DATA_LEN 32
-#define NAN_MAX_CLUSTER_ATTRIBUTE_LEN 255
-#define NAN_MAX_SUBSCRIBE_MAX_ADDRESS 42
-#define NAN_MAX_FAM_CHANNELS 32
-#define NAN_MAX_POSTDISCOVERY_LEN 5
-#define NAN_MAX_FRAME_DATA_LEN 504
-#define NAN_DP_MAX_APP_INFO_LEN 512
-#define NAN_ERROR_STR_LEN 255
-#define NAN_PMK_INFO_LEN 32
-#define NAN_MAX_SCID_BUF_LEN 1024
-#define NAN_MAX_SDEA_SERVICE_SPECIFIC_INFO_LEN 1024
-#define NAN_SECURITY_MIN_PASSPHRASE_LEN 8
-#define NAN_SECURITY_MAX_PASSPHRASE_LEN 63
-#define NAN_MAX_CHANNEL_INFO_SUPPORTED 4
-
+#define NAN_MAX_SERVICE_NAME_LEN                255
+#define NAN_MAX_MATCH_FILTER_LEN                255
+#define NAN_MAX_SERVICE_SPECIFIC_INFO_LEN       1024
+#define NAN_MAX_VSA_DATA_LEN                    1024
+#define NAN_MAX_MESH_DATA_LEN                   32
+#define NAN_MAX_INFRA_DATA_LEN                  32
+#define NAN_MAX_CLUSTER_ATTRIBUTE_LEN           255
+#define NAN_MAX_SUBSCRIBE_MAX_ADDRESS           42
+#define NAN_MAX_FAM_CHANNELS                    32
+#define NAN_MAX_POSTDISCOVERY_LEN               5
+#define NAN_MAX_FRAME_DATA_LEN                  504
+#define NAN_DP_MAX_APP_INFO_LEN                 512
+#define NAN_ERROR_STR_LEN                       255
+#define NAN_PMK_INFO_LEN                        32
+#define NAN_MAX_SCID_BUF_LEN                    1024
+#define NAN_MAX_SDEA_SERVICE_SPECIFIC_INFO_LEN  1024
+#define NAN_SECURITY_MIN_PASSPHRASE_LEN         8
+#define NAN_SECURITY_MAX_PASSPHRASE_LEN         63
+#define NAN_MAX_CHANNEL_INFO_SUPPORTED          4
+#define NAN_IDENTITY_KEY_LEN                    16
+#define NAN_IDENTITY_TAG_LEN                    8
+#define NAN_IDENTITY_NONCE_LEN                  8
+#define NAN_MAX_MATCH_IDENTITY_LEN             1024
 /*
   Definition of various NanResponseType
 */
 typedef enum {
-    NAN_RESPONSE_ENABLED = 0,
-    NAN_RESPONSE_DISABLED = 1,
-    NAN_RESPONSE_PUBLISH = 2,
-    NAN_RESPONSE_PUBLISH_CANCEL = 3,
-    NAN_RESPONSE_TRANSMIT_FOLLOWUP = 4,
-    NAN_RESPONSE_SUBSCRIBE = 5,
-    NAN_RESPONSE_SUBSCRIBE_CANCEL = 6,
-    NAN_RESPONSE_STATS = 7,
-    NAN_RESPONSE_CONFIG = 8,
-    NAN_RESPONSE_TCA = 9,
-    NAN_RESPONSE_ERROR = 10,
-    NAN_RESPONSE_BEACON_SDF_PAYLOAD = 11,
-    NAN_GET_CAPABILITIES = 12,
-    NAN_DP_INTERFACE_CREATE = 13,
-    NAN_DP_INTERFACE_DELETE = 14,
-    NAN_DP_INITIATOR_RESPONSE = 15,
-    NAN_DP_RESPONDER_RESPONSE = 16,
-    NAN_DP_END = 17
+    NAN_RESPONSE_ENABLED                 = 0,
+    NAN_RESPONSE_DISABLED                = 1,
+    NAN_RESPONSE_PUBLISH                 = 2,
+    NAN_RESPONSE_PUBLISH_CANCEL          = 3,
+    NAN_RESPONSE_TRANSMIT_FOLLOWUP       = 4,
+    NAN_RESPONSE_SUBSCRIBE               = 5,
+    NAN_RESPONSE_SUBSCRIBE_CANCEL        = 6,
+    NAN_RESPONSE_STATS                   = 7,
+    NAN_RESPONSE_CONFIG                  = 8,
+    NAN_RESPONSE_TCA                     = 9,
+    NAN_RESPONSE_ERROR                   = 10,
+    NAN_RESPONSE_BEACON_SDF_PAYLOAD      = 11,
+    NAN_GET_CAPABILITIES                 = 12,
+    NAN_DP_INTERFACE_CREATE              = 13,
+    NAN_DP_INTERFACE_DELETE              = 14,
+    NAN_DP_INITIATOR_RESPONSE            = 15,
+    NAN_DP_RESPONDER_RESPONSE            = 16,
+    NAN_DP_END                           = 17,
+    NAN_PAIRING_INITIATOR_RESPONSE       = 18,
+    NAN_PAIRING_RESPONDER_RESPONSE       = 19,
+    NAN_BOOTSTRAPPING_INITIATOR_RESPONSE = 20,
+    NAN_BOOTSTRAPPING_RESPONDER_RESPONSE = 21,
+    NAN_PAIRING_END                      = 22,
+    NAN_SUSPEND_REQUEST_RESPONSE         = 23,
+    NAN_RESUME_REQUEST_RESPONSE          = 24
 } NanResponseType;
 
 /* NAN Publish Types */
@@ -98,7 +108,10 @@ typedef enum {
 } NanPublishType;
 
 /* NAN Transmit Priorities */
-typedef enum { NAN_TX_PRIORITY_NORMAL = 0, NAN_TX_PRIORITY_HIGH } NanTxPriority;
+typedef enum {
+    NAN_TX_PRIORITY_NORMAL = 0,
+    NAN_TX_PRIORITY_HIGH
+} NanTxPriority;
 
 /* NAN Statistics Request ID Codes */
 typedef enum {
@@ -118,13 +131,33 @@ typedef enum {
 } NanDiscEngEventType;
 
 /* NAN Data Path type */
-typedef enum { NAN_DATA_PATH_UNICAST_MSG = 0, NAN_DATA_PATH_MULTICAST_MSG } NdpType;
+typedef enum {
+    NAN_DATA_PATH_UNICAST_MSG = 0,
+    NAN_DATA_PATH_MULTICAST_MSG
+} NdpType;
 
 /* NAN Ranging Configuration */
-typedef enum { NAN_RANGING_DISABLE = 0, NAN_RANGING_ENABLE } NanRangingState;
+typedef enum {
+    NAN_RANGING_DISABLE = 0,
+    NAN_RANGING_ENABLE
+} NanRangingState;
 
 /* TCA Type */
-typedef enum { NAN_TCA_ID_CLUSTER_SIZE = 0 } NanTcaType;
+typedef enum {
+    NAN_TCA_ID_CLUSTER_SIZE = 0
+} NanTcaType;
+
+/* pairing request type*/
+typedef enum {
+    NAN_PAIRING_SETUP = 0,
+    NAN_PAIRING_VERIFICATION = 1
+} NanPairingRequestType;
+
+/* Nan AKM type */
+typedef enum {
+    SAE = 0,
+    PASN = 1
+} NanAkm;
 
 /* NAN Channel Info */
 typedef struct {
@@ -162,20 +195,42 @@ typedef enum {
     /* If followup message internal queue is full */
     NAN_STATUS_FOLLOWUP_QUEUE_FULL = 11,
     /* Unsupported concurrency session enabled, NAN disabled notified */
-    NAN_STATUS_UNSUPPORTED_CONCURRENCY_NAN_DISABLED = 12
+    NAN_STATUS_UNSUPPORTED_CONCURRENCY_NAN_DISABLED = 12,
+    /*  if the pairing id is invalid */
+    NAN_STATUS_INVALID_PAIRING_ID = 13,
+    /*  if the bootstrapping id is invalid */
+    NAN_STATUS_INVALID_BOOTSTRAPPING_ID = 14,
+    /* If same request is received again */
+    NAN_STATUS_REDUNDANT_REQUEST = 15,
+    /* If current request is not supported */
+    NAN_STATUS_NOT_SUPPORTED = 16,
+    /* If no Wifi Aware connection is active */
+    NAN_STATUS_NO_CONNECTION = 17,
 } NanStatusType;
 
 /* NAN Transmit Types */
-typedef enum { NAN_TX_TYPE_BROADCAST = 0, NAN_TX_TYPE_UNICAST } NanTxType;
+typedef enum {
+    NAN_TX_TYPE_BROADCAST = 0,
+    NAN_TX_TYPE_UNICAST
+} NanTxType;
 
 /* NAN Subscribe Type */
-typedef enum { NAN_SUBSCRIBE_TYPE_PASSIVE = 0, NAN_SUBSCRIBE_TYPE_ACTIVE } NanSubscribeType;
+typedef enum {
+    NAN_SUBSCRIBE_TYPE_PASSIVE = 0,
+    NAN_SUBSCRIBE_TYPE_ACTIVE
+} NanSubscribeType;
 
 /* NAN Service Response Filter Attribute Bit */
-typedef enum { NAN_SRF_ATTR_BLOOM_FILTER = 0, NAN_SRF_ATTR_PARTIAL_MAC_ADDR } NanSRFType;
+typedef enum {
+    NAN_SRF_ATTR_BLOOM_FILTER = 0,
+    NAN_SRF_ATTR_PARTIAL_MAC_ADDR
+} NanSRFType;
 
 /* NAN Service Response Filter Include Bit */
-typedef enum { NAN_SRF_INCLUDE_DO_NOT_RESPOND = 0, NAN_SRF_INCLUDE_RESPOND } NanSRFIncludeType;
+typedef enum {
+    NAN_SRF_INCLUDE_DO_NOT_RESPOND = 0,
+    NAN_SRF_INCLUDE_RESPOND
+} NanSRFIncludeType;
 
 /* NAN Match indication type */
 typedef enum {
@@ -185,10 +240,16 @@ typedef enum {
 } NanMatchAlg;
 
 /* NAN Transmit Window Type */
-typedef enum { NAN_TRANSMIT_IN_DW = 0, NAN_TRANSMIT_IN_FAW } NanTransmitWindowType;
+typedef enum {
+    NAN_TRANSMIT_IN_DW = 0,
+    NAN_TRANSMIT_IN_FAW
+} NanTransmitWindowType;
 
 /* NAN SRF State in Subscribe */
-typedef enum { NAN_DO_NOT_USE_SRF = 0, NAN_USE_SRF } NanSRFState;
+typedef enum {
+    NAN_DO_NOT_USE_SRF = 0,
+    NAN_USE_SRF
+} NanSRFState;
 
 /* NAN Include SSI in MatchInd */
 typedef enum {
@@ -197,12 +258,35 @@ typedef enum {
 } NanSsiInMatchInd;
 
 /* NAN DP security Configuration */
-typedef enum { NAN_DP_CONFIG_NO_SECURITY = 0, NAN_DP_CONFIG_SECURITY } NanDataPathSecurityCfgStatus;
+typedef enum {
+    NAN_DP_CONFIG_NO_SECURITY = 0,
+    NAN_DP_CONFIG_SECURITY
+} NanDataPathSecurityCfgStatus;
 
-typedef enum { NAN_QOS_NOT_REQUIRED = 0, NAN_QOS_REQUIRED } NanQosCfgStatus;
+typedef enum {
+    NAN_QOS_NOT_REQUIRED = 0,
+    NAN_QOS_REQUIRED
+} NanQosCfgStatus;
+
 
 /* Data request Responder's response */
-typedef enum { NAN_DP_REQUEST_ACCEPT = 0, NAN_DP_REQUEST_REJECT } NanDataPathResponseCode;
+typedef enum {
+    NAN_DP_REQUEST_ACCEPT = 0,
+    NAN_DP_REQUEST_REJECT
+} NanDataPathResponseCode;
+
+/* Pairing request Responder's response */
+typedef enum {
+    NAN_PAIRING_REQUEST_ACCEPT = 0,
+    NAN_PAIRING_REQUEST_REJECT
+} NanPairingResponseCode;
+
+/* Pairing bootstrapping Responder's response */
+typedef enum {
+    NAN_BOOTSTRAPPING_REQUEST_ACCEPT = 0,
+    NAN_BOOTSTRAPPING_REQUEST_REJECT = 1,
+    NAN_BOOTSTRAPPING_REQUEST_COMEBACK = 2
+} NanBootstrappingResponseCode;
 
 /* NAN DP channel config options */
 typedef enum {
@@ -218,7 +302,10 @@ typedef enum {
 } NanRangingAutoResponse;
 
 /* Enable/Disable NAN service range report */
-typedef enum { NAN_DISABLE_RANGE_REPORT = 1, NAN_ENABLE_RANGE_REPORT } NanRangeReport;
+typedef enum {
+    NAN_DISABLE_RANGE_REPORT = 1,
+    NAN_ENABLE_RANGE_REPORT
+} NanRangeReport;
 
 /* NAN Range Response */
 typedef enum {
@@ -264,20 +351,35 @@ typedef struct {
 } NanSecurityKeyInfo;
 
 /* NAN Security Cipher Suites Mask */
-#define NAN_CIPHER_SUITE_SHARED_KEY_NONE 0x00
-#define NAN_CIPHER_SUITE_SHARED_KEY_128_MASK 0x01
-#define NAN_CIPHER_SUITE_SHARED_KEY_256_MASK 0x02
-#define NAN_CIPHER_SUITE_PUBLIC_KEY_2WDH_128_MASK 0x04
-#define NAN_CIPHER_SUITE_PUBLIC_KEY_2WDH_256_MASK 0x08
+#define NAN_CIPHER_SUITE_SHARED_KEY_NONE               0x00
+#define NAN_CIPHER_SUITE_SHARED_KEY_128_MASK           0x01
+#define NAN_CIPHER_SUITE_SHARED_KEY_256_MASK           0x02
+#define NAN_CIPHER_SUITE_PUBLIC_KEY_2WDH_128_MASK      0x04
+#define NAN_CIPHER_SUITE_PUBLIC_KEY_2WDH_256_MASK      0x08
+#define NAN_CIPHER_SUITE_PUBLIC_KEY_PASN_128_MASK      0x40
+#define NAN_CIPHER_SUITE_PUBLIC_KEY_PASN_256_MASK      0x80
 
 /* NAN ranging indication condition MASKS */
-#define NAN_RANGING_INDICATE_CONTINUOUS_MASK 0x01
-#define NAN_RANGING_INDICATE_INGRESS_MET_MASK 0x02
-#define NAN_RANGING_INDICATE_EGRESS_MET_MASK 0x04
+#define NAN_RANGING_INDICATE_CONTINUOUS_MASK   0x01
+#define NAN_RANGING_INDICATE_INGRESS_MET_MASK  0x02
+#define NAN_RANGING_INDICATE_EGRESS_MET_MASK   0x04
 
 /* NAN schedule update reason MASKS */
-#define NAN_SCHEDULE_UPDATE_NSS_MASK 0x01
-#define NAN_SCHEDULE_UPDATE_CHANNEL_MASK 0x02
+#define NAN_SCHEDULE_UPDATE_NSS_MASK   0x01
+#define NAN_SCHEDULE_UPDATE_CHANNEL_MASK  0x02
+
+/* NAN pairing bootstrapping method */
+#define NAN_PAIRING_BOOTSTRAPPING_OPPORTUNISTIC_MASK       0x01
+#define NAN_PAIRING_BOOTSTRAPPING_PIN_CODE_DISPLAY_MASK    0x02
+#define NAN_PAIRING_BOOTSTRAPPING_PASSPHRASE_DISPLAY_MASK  0x04
+#define NAN_PAIRING_BOOTSTRAPPING_QR_DISPLAY_MASK          0x08
+#define NAN_PAIRING_BOOTSTRAPPING_NFC_TAG_MASK             0x10
+#define NAN_PAIRING_BOOTSTRAPPING_PIN_CODE_KEYPAD_MASK     0x20
+#define NAN_PAIRING_BOOTSTRAPPING_PASSPHRASE_KEYPAD_MASK   0x40
+#define NAN_PAIRING_BOOTSTRAPPING_QR_SCAN_MASK             0x80
+#define NAN_PAIRING_BOOTSTRAPPING_NFC_READER_MASK          0x100
+#define NAN_PAIRING_BOOTSTRAPPING_SERVICE_MANAGED_MASK     0x4000
+#define NAN_PAIRING_BOOTSTRAPPING_HANDSHAKE_SHIP_MASK      0x8000
 
 /*
    Structure to set the Service Descriptor Extension
@@ -312,6 +414,25 @@ typedef struct {
       if QOS is required or not.
     */
     NanQosCfgStatus qos_cfg;
+    /*
+      Config to set FSD with Gas bit
+      in the SDEA Control Field.
+     */
+    u8 config_fsd_gas;
+    u8 enable_fsd_gas;
+
+    /*
+      Config to set FSD Required bit
+      in the SDEA Control Field.
+     */
+    u8 config_fsd_req;
+    u8 enable_fsd_req;
+
+    /*
+      Config to set gtk protection bit
+      in the SDEA Control Field.
+     */
+    u8 gtk_protection;
 } NanSdeaCtrlParams;
 
 /*
@@ -350,6 +471,11 @@ typedef struct {
     u32 max_subscribe_address;
     u32 ndpe_attr_supported;
     bool is_instant_mode_supported;
+    bool is_6g_supported;
+    bool is_he_supported;
+    bool is_pairing_supported;
+    bool is_set_cluster_id_supported;
+    bool is_suspension_supported;
 } NanCapabilities;
 
 /*
@@ -391,13 +517,14 @@ typedef struct {
     u8 vsa[NAN_MAX_VSA_DATA_LEN];
 } NanTransmitVendorSpecificAttribute;
 
+
 /*
   Discovery Engine will forward any Vendor Specific Attributes
   which it received as part of this structure.
 */
 /* Mask to determine on which frames attribute was received */
-#define RX_DISCOVERY_BEACON_MASK 0x01
-#define RX_SYNC_BEACON_MASK 0x02
+#define RX_DISCOVERY_BEACON_MASK  0x01
+#define RX_SYNC_BEACON_MASK       0x02
 #define RX_SERVICE_DISCOVERY_MASK 0x04
 typedef struct {
     /*
@@ -444,14 +571,14 @@ typedef struct {
        NanChannelIndex corresponds to the respective channel
        If time set to 0 then the FW default time will be used.
     */
-    u8 dwell_time[NAN_MAX_SOCIAL_CHANNELS];  // default value 200 msec
+    u8 dwell_time[NAN_MAX_SOCIAL_CHANNELS]; // default value 200 msec
 
     /*
        Scan period of each social channel in seconds
        NanChannelIndex corresponds to the respective channel
        If time set to 0 then the FW default time will be used.
     */
-    u16 scan_period[NAN_MAX_SOCIAL_CHANNELS];  // default value 20 sec
+    u16 scan_period[NAN_MAX_SOCIAL_CHANNELS]; // default value 20 sec
 } NanSocialChannelScanParams;
 
 /*
@@ -639,7 +766,7 @@ typedef struct {
 /* Structure of Post NAN Discovery attribute */
 typedef struct {
     /* Connection type of the host */
-    NanConnectionType type;
+    NanConnectionType  type;
     /*
        Device role of the host based on
        the connection type
@@ -695,7 +822,7 @@ typedef struct {
 */
 typedef struct {
     /* Connection type of the host */
-    NanConnectionType type;
+    NanConnectionType  type;
     /*
        Device role of the host based on
        the connection type
@@ -756,7 +883,7 @@ typedef struct {
        The SDF includes in OTA when enabled. The publish/subscribe period
        values don't override the device level configurations.
     */
-    u32 dw_2dot4g_interval_val;  // default value 1
+    u32 dw_2dot4g_interval_val; // default value 1
     /* Configure 5GHz DW Band */
     u8 config_5g_dw_band;
     /*
@@ -765,7 +892,7 @@ typedef struct {
        any interval. The SDF includes in OTA when enabled. The publish/subscribe
        period values don't override the device level configurations.
     */
-    u32 dw_5g_interval_val;  // default value 1 when 5G is enabled
+    u32 dw_5g_interval_val; // default value 1 when 5G is enabled
 } NanConfigDW;
 
 /*
@@ -774,14 +901,14 @@ typedef struct {
 */
 typedef struct {
     /* Mandatory parameters below */
-    u8 master_pref;  // default value 0x02
+    u8 master_pref; // default value 0x02
     /*
       A cluster_low value matching cluster_high indicates a request to join
       a cluster with that value. If the requested cluster is not found the
       device will start its own cluster.
     */
-    u16 cluster_low;   // default value 0
-    u16 cluster_high;  // default value 0xFFFF
+    u16 cluster_low; // default value 0
+    u16 cluster_high; // default value 0xFFFF
 
     /*
       Optional configuration of Enable request.
@@ -789,7 +916,7 @@ typedef struct {
       determine whether configuration is to be passed or not.
     */
     u8 config_support_5g;
-    u8 support_5g_val;  // default value 0; turned off by default
+    u8 support_5g_val; // default value 0; turned off by default
     /*
        BIT 0 is used to specify to include Service IDs in Sync/Discovery beacons
        0 - Do not include SIDs in any beacons
@@ -799,22 +926,22 @@ typedef struct {
        the maximum allow Beacon frame size
     */
     u8 config_sid_beacon;
-    u8 sid_beacon_val;  // default value 0x01
+    u8 sid_beacon_val; // default value 0x01
     /*
        The rssi values below should be specified without sign.
        For eg: -70dBm should be specified as 70.
     */
     u8 config_2dot4g_rssi_close;
-    u8 rssi_close_2dot4g_val;  // default value -60 dBm
+    u8 rssi_close_2dot4g_val;    // default value -60 dBm
 
     u8 config_2dot4g_rssi_middle;
-    u8 rssi_middle_2dot4g_val;  // default value -70 dBm
+    u8 rssi_middle_2dot4g_val;    // default value -70 dBm
 
     u8 config_2dot4g_rssi_proximity;
-    u8 rssi_proximity_2dot4g_val;  //  default value -60dBm
+    u8 rssi_proximity_2dot4g_val;//  default value -60dBm
 
     u8 config_hop_count_limit;
-    u8 hop_count_limit_val;  //  default value 0x02
+    u8 hop_count_limit_val; //  default value 0x02
 
     /*
        Defines 2.4G channel access support
@@ -822,35 +949,35 @@ typedef struct {
        1 - Supported
     */
     u8 config_2dot4g_support;
-    u8 support_2dot4g_val;  // default value 0x01
+    u8 support_2dot4g_val; // default value 0x01
     /*
        Defines 2.4G channels will be used for sync/discovery beacons
        0 - 2.4G channels not used for beacons
        1 - 2.4G channels used for beacons
     */
     u8 config_2dot4g_beacons;
-    u8 beacon_2dot4g_val;  // default value 1
+    u8 beacon_2dot4g_val; // default value 1
     /*
        Defines 2.4G channels will be used for Service Discovery frames
        0 - 2.4G channels not used for Service Discovery frames
        1 - 2.4G channels used for Service Discovery frames
     */
     u8 config_2dot4g_sdf;
-    u8 sdf_2dot4g_val;  // default value 1
+    u8 sdf_2dot4g_val; // default value 1
     /*
        Defines 5G channels will be used for sync/discovery beacons
        0 - 5G channels not used for beacons
        1 - 5G channels used for beacons
     */
     u8 config_5g_beacons;
-    u8 beacon_5g_val;  // default value 1 when 5G is enabled
+    u8 beacon_5g_val; // default value 1 when 5G is enabled
     /*
        Defines 5G channels will be used for Service Discovery frames
        0 - 5G channels not used for Service Discovery frames
        1 - 5G channels used for Service Discovery frames
     */
     u8 config_5g_sdf;
-    u8 sdf_5g_val;  // default value is 0 when 5G is enabled
+    u8 sdf_5g_val; // default value is 0 when 5G is enabled
     /*
        1 byte value which defines the RSSI in
        dBm for a close by Peer in 5 Ghz channels.
@@ -858,7 +985,7 @@ typedef struct {
        For eg: -70dBm should be specified as 70.
     */
     u8 config_5g_rssi_close;
-    u8 rssi_close_5g_val;  // default value -60dBm when 5G is enabled
+    u8 rssi_close_5g_val; // default value -60dBm when 5G is enabled
     /*
        1 byte value which defines the RSSI value in
        dBm for a close by Peer in 5 Ghz channels.
@@ -866,7 +993,7 @@ typedef struct {
        For eg: -70dBm should be specified as 70.
     */
     u8 config_5g_rssi_middle;
-    u8 rssi_middle_5g_val;  // default value -75dBm when 5G is enabled
+    u8 rssi_middle_5g_val; // default value -75dBm when 5G is enabled
     /*
        1 byte value which defines the RSSI filter
        threshold.  Any Service Descriptors received above this
@@ -875,18 +1002,18 @@ typedef struct {
        For eg: -70dBm should be specified as 70.
     */
     u8 config_5g_rssi_close_proximity;
-    u8 rssi_close_proximity_5g_val;  // default value -60dBm when 5G is enabled
+    u8 rssi_close_proximity_5g_val; // default value -60dBm when 5G is enabled
     /*
        1 byte quantity which defines the window size over
        which the “average RSSI” will be calculated over.
     */
     u8 config_rssi_window_size;
-    u8 rssi_window_size_val;  // default value 0x08
+    u8 rssi_window_size_val; // default value 0x08
     /*
        The 24 bit Organizationally Unique ID + the 8 bit Network Id.
     */
     u8 config_oui;
-    u32 oui_val;  // default value {0x51, 0x6F, 0x9A, 0x01, 0x00, 0x00}
+    u32 oui_val; // default value {0x51, 0x6F, 0x9A, 0x01, 0x00, 0x00}
     /*
        NAN Interface Address, If not configured the Discovery Engine
        will generate a 6 byte Random MAC.
@@ -912,22 +1039,22 @@ typedef struct {
        value for all transmitted Sync/Discovery beacons
     */
     u8 config_random_factor_force;
-    u8 random_factor_force_val;  // default value off and set to 0x00
+    u8 random_factor_force_val; // default value off and set to 0x00
     /*
        1 byte quantity which forces the HC for all transmitted Sync and
        Discovery Beacon NO matter the real HC being received over the
        air.
     */
     u8 config_hop_count_force;
-    u8 hop_count_force_val;  // default value 0x00
+    u8 hop_count_force_val; // default value 0x00
 
     /* channel frequency in MHz to enable Nan on */
     u8 config_24g_channel;
-    wifi_channel channel_24g_val;  // default value channel 0x6
+    wifi_channel channel_24g_val; // default value channel 0x6
 
     u8 config_5g_channel;
-    wifi_channel channel_5g_val;  // default value channel 44 or 149 regulatory
-                                  // domain
+    wifi_channel channel_5g_val; // default value channel 44 or 149 regulatory
+                                 // domain
     /* Configure 2.4/5GHz DW */
     NanConfigDW config_dw;
 
@@ -937,7 +1064,7 @@ typedef struct {
        The value 0 is used to disable MAC addr randomization.
     */
     u8 config_disc_mac_addr_randomization;
-    u32 disc_mac_addr_rand_interval_sec;  // default value 1800 sec
+    u32 disc_mac_addr_rand_interval_sec; // default value 1800 sec
 
     /*
       Set/Enable corresponding bits to disable Discovery indications:
@@ -955,7 +1082,7 @@ typedef struct {
        the maximum allow Beacon frame size
     */
     u8 config_subscribe_sid_beacon;
-    u32 subscribe_sid_beacon_val;  // default value 0x0
+    u32 subscribe_sid_beacon_val; // default value 0x0
     /*
        Discovery Beacon Interval config.
        Default value is 128 msec in 2G DW and 176 msec in 2G/5G DW.
@@ -1011,7 +1138,47 @@ typedef struct {
     */
     u8 config_instant_mode_channel;
     wifi_channel instant_mode_channel;
+
+    /*
+       Enable/Disable unsync service discovery.
+       0 - Disable
+       1 - Enable
+    */
+    u8 config_unsync_srvdsc;
+    u8 enable_unsync_srvdsc;
+
+    /*
+      Configure regulatory information.
+    */
+    u8 config_reg_info;
+    u8 reg_info_val;
 } NanEnableRequest;
+
+/*
+  NAN pairing config.
+*/
+typedef struct {
+
+    /*
+      Enable Nan pairing setup
+    */
+    u32 enable_pairing_setup;
+
+    /*
+      Enable cache NIK/NPK after Nan pairing setup
+    */
+    u32 enable_pairing_cache;
+
+    /*
+      Enable Nan pairing verification with cached NIK/NPK
+    */
+    u32 enable_pairing_verification;
+
+    /*
+      The set of supported bootstrapping methods.
+    */
+    u16 supported_bootstrapping_methods;
+} NanPairingConfig;
 
 /*
   Publish Msg Structure
@@ -1019,8 +1186,8 @@ typedef struct {
   using the parameters passed into the Discovery Window
 */
 typedef struct {
-    u16 publish_id; /* id  0 means new publish, any other id is existing publish */
-    u16 ttl;        /* how many seconds to run for. 0 means forever until canceled */
+    u16 publish_id;/* id  0 means new publish, any other id is existing publish */
+    u16 ttl; /* how many seconds to run for. 0 means forever until canceled */
     /*
        period: Awake DW Interval for publish(service)
        Indicates the interval between two Discovery Windows in which
@@ -1030,11 +1197,11 @@ typedef struct {
        default to 1.
     */
     u16 period;
-    NanPublishType publish_type; /* 0= unsolicited, solicited = 1, 2= both */
-    NanTxType tx_type;           /* 0 = broadcast, 1= unicast  if solicited publish */
-    u8 publish_count;            /* number of OTA Publish, 0 means forever until canceled */
-    u16 service_name_len;        /* length of service name */
-    u8 service_name[NAN_MAX_SERVICE_NAME_LEN]; /* UTF-8 encoded string identifying the service */
+    NanPublishType publish_type;/* 0= unsolicited, solicited = 1, 2= both */
+    NanTxType tx_type; /* 0 = broadcast, 1= unicast  if solicited publish */
+    u8 publish_count; /* number of OTA Publish, 0 means forever until canceled */
+    u16 service_name_len; /* length of service name */
+    u8 service_name[NAN_MAX_SERVICE_NAME_LEN];/* UTF-8 encoded string identifying the service */
     /*
        Field which specifies how the matching indication to host is controlled.
        0 - Match and Indicate Once
@@ -1144,6 +1311,29 @@ typedef struct {
     */
     u16 sdea_service_specific_info_len;
     u8 sdea_service_specific_info[NAN_MAX_SDEA_SERVICE_SPECIFIC_INFO_LEN];
+
+    /*
+       The Identity key for pairing, used to generate NIRA
+    */
+    u8 nan_identity_key[NAN_IDENTITY_KEY_LEN];
+
+    /*
+      The config for Nan pairing
+    */
+    NanPairingConfig nan_pairing_config;
+
+    /*
+      Specifies whether suspension can be possible in this publish session.
+      The request would fail if enable_suspendability is true but
+      is_suspension_supported is false in NanCapabilities.
+    */
+    bool enable_suspendability;
+
+    /* s3 capabilities */
+    u16 s3_capabilities;
+
+    /* cipher capabilities */
+    u8 cipher_capabilities;
 } NanPublishRequest;
 
 /*
@@ -1162,7 +1352,7 @@ typedef struct {
 */
 typedef struct {
     u16 subscribe_id; /* id 0 means new subscribe, non zero is existing subscribe */
-    u16 ttl;          /* how many seconds to run for. 0 means forever until canceled */
+    u16 ttl; /* how many seconds to run for. 0 means forever until canceled */
     /*
        period: Awake DW Interval for subscribe(service)
        Indicates the interval between two Discovery Windows in which
@@ -1176,16 +1366,13 @@ typedef struct {
     /* Flag which specifies how the Subscribe request shall be processed. */
     NanSubscribeType subscribe_type; /* 0 - PASSIVE , 1- ACTIVE */
 
-    /* Flag which specifies on Active Subscribes how the Service Response Filter attribute is
-     * populated.*/
+    /* Flag which specifies on Active Subscribes how the Service Response Filter attribute is populated.*/
     NanSRFType serviceResponseFilter; /* 0 - Bloom Filter, 1 - MAC Addr */
 
     /* Flag which specifies how the Service Response Filter Include bit is populated.*/
-    NanSRFIncludeType
-            serviceResponseInclude; /* 0=Do not respond if in the Address Set, 1= Respond */
+    NanSRFIncludeType serviceResponseInclude; /* 0=Do not respond if in the Address Set, 1= Respond */
 
-    /* Flag which specifies if the Service Response Filter should be used when creating
-     * Subscribes.*/
+    /* Flag which specifies if the Service Response Filter should be used when creating Subscribes.*/
     NanSRFState useServiceResponseFilter; /* 0=Do not send the Service Response Filter,1= send */
 
     /*
@@ -1209,7 +1396,7 @@ typedef struct {
     */
     u8 subscribe_count; /* If this value is 0 this field is not used by the DE.*/
 
-    u16 service_name_len;                      /* length of service name */
+    u16 service_name_len;/* length of service name */
     u8 service_name[NAN_MAX_SERVICE_NAME_LEN]; /* UTF-8 encoded string identifying the service */
 
     /* Sequence of values which further specify the published service beyond the service name*/
@@ -1217,8 +1404,8 @@ typedef struct {
     u8 service_specific_info[NAN_MAX_SERVICE_SPECIFIC_INFO_LEN];
 
     /*
-       Ordered sequence of <length, value> pairs used to filter out received publish discovery
-       messages. This can be sent both for a Passive or an Active Subscribe
+       Ordered sequence of <length, value> pairs used to filter out received publish discovery messages.
+       This can be sent both for a Passive or an Active Subscribe
     */
     u16 rx_match_filter_len;
     u8 rx_match_filter[NAN_MAX_MATCH_FILTER_LEN];
@@ -1310,6 +1497,25 @@ typedef struct {
     */
     u16 sdea_service_specific_info_len;
     u8 sdea_service_specific_info[NAN_MAX_SDEA_SERVICE_SPECIFIC_INFO_LEN];
+    /*
+       The Identity key for pairing, used to generate NIRA
+    */
+    u8 nan_identity_key[NAN_IDENTITY_KEY_LEN];
+
+    /*
+      The config for Nan pairing
+    */
+    NanPairingConfig nan_pairing_config;
+
+    /*
+      Specifies whether suspension can be possible in this subscribe session.
+      The request would fail if enable_suspendability is true but
+      is_suspension_supported is false in NanCapabilities.
+    */
+    bool enable_suspendability;
+
+    /* cipher capabilities */
+    u8 cipher_capabilities;
 } NanSubscribeRequest;
 
 /*
@@ -1322,8 +1528,8 @@ typedef struct {
 
 /*
   Transmit follow up Structure
-  The TransmitFollowupReq message is sent to the DE to allow the sending of the
-  Service_Specific_Info to a particular MAC address.
+  The TransmitFollowupReq message is sent to the DE to allow the sending of the Service_Specific_Info
+  to a particular MAC address.
 */
 typedef struct {
     /* Publish or Subscribe Id of an earlier Publish/Subscribe */
@@ -1334,8 +1540,8 @@ typedef struct {
        part of earlier MatchInd/FollowupInd message.
     */
     u32 requestor_instance_id;
-    u8 addr[NAN_MAC_ADDR_LEN];       /* Unicast address */
-    NanTxPriority priority;          /* priority of the request 2=high */
+    u8 addr[NAN_MAC_ADDR_LEN]; /* Unicast address */
+    NanTxPriority priority; /* priority of the request 2=high */
     NanTransmitWindowType dw_or_faw; /* 0= send in a DW, 1=send in FAW */
 
     /*
@@ -1355,6 +1561,12 @@ typedef struct {
     */
     u16 sdea_service_specific_info_len;
     u8 sdea_service_specific_info[NAN_MAX_SDEA_SERVICE_SPECIFIC_INFO_LEN];
+
+    /*
+       Add shared key descriptor attribute to the Followup request when the
+       flag is set
+    */
+    u8 shared_key_desc_flag;
 } NanTransmitFollowupRequest;
 
 /*
@@ -1364,9 +1576,25 @@ typedef struct {
 */
 typedef struct {
     NanStatsType stats_type; /* NAN Statistics Request Type */
-    u8 clear; /* 0= Do not clear the stats and return the current contents , 1= Clear the associated
-                 stats  */
+    u8 clear; /* 0= Do not clear the stats and return the current contents , 1= Clear the associated stats  */
 } NanStatsRequest;
+
+/*
+  Suspend Request Structure
+  The SuspendRequest message is used to request that the specified session is suspended.
+  The session can be resumed using the NanResumeRequest message.
+*/
+typedef struct {
+    u16 publish_subscribe_id;
+} NanSuspendRequest;
+
+/*
+  Resume Request Structure
+  The ResumeRequest message is used to request that the specified session is resumed.
+*/
+typedef struct {
+    u16 publish_subscribe_id;
+} NanResumeRequest;
 
 /*
   Config Structure
@@ -1377,9 +1605,9 @@ typedef struct {
     u8 config_sid_beacon;
     u8 sid_beacon;
     u8 config_rssi_proximity;
-    u8 rssi_proximity;  // default value -60dBm
+    u8 rssi_proximity; // default value -60dBm
     u8 config_master_pref;
-    u8 master_pref;  // default value 0x02
+    u8 master_pref; // default value 0x02
     /*
        1 byte value which defines the RSSI filter threshold.
        Any Service Descriptors received above this value
@@ -1399,7 +1627,7 @@ typedef struct {
        which the “average RSSI” will be calculated over.
     */
     u8 config_rssi_window_size;
-    u8 rssi_window_size_val;  // default value 0x08
+    u8 rssi_window_size_val; // default value 0x08
     /*
        If set to 1, the Discovery Engine will enclose the Cluster
        Attribute only sent in Beacons in a Vendor Specific Attribute
@@ -1419,14 +1647,14 @@ typedef struct {
        value for all transmitted Sync/Discovery beacons
     */
     u8 config_random_factor_force;
-    u8 random_factor_force_val;  // default value 0x00
+    u8 random_factor_force_val; // default value 0x00
     /*
        1 byte quantity which forces the HC for all transmitted Sync and
        Discovery Beacon NO matter the real HC being received over the
        air.
     */
     u8 config_hop_count_force;
-    u8 hop_count_force_val;  // default value of 0
+    u8 hop_count_force_val; // default value of 0
     /* NAN Post Connectivity Capability */
     u8 config_conn_capability;
     NanTransmitPostConnectivityCapability conn_capability_val;
@@ -1444,7 +1672,7 @@ typedef struct {
        The value 0 is used to disable MAC addr randomization.
     */
     u8 config_disc_mac_addr_randomization;
-    u32 disc_mac_addr_rand_interval_sec;  // default value of 30 minutes
+    u32 disc_mac_addr_rand_interval_sec; // default value of 30 minutes
 
     /*
       Set/Enable corresponding bits to disable Discovery indications:
@@ -1452,7 +1680,7 @@ typedef struct {
       BIT1 - Disable Started Cluster Event.
       BIT2 - Disable Joined Cluster Event.
     */
-    u8 discovery_indication_cfg;  // default value of 0
+    u8 discovery_indication_cfg; // default value of 0
     /*
        BIT 0 is used to specify to include Service IDs in Sync/Discovery beacons
        0 - Do not include SIDs in any beacons
@@ -1462,7 +1690,7 @@ typedef struct {
        the maximum allow Beacon frame size
     */
     u8 config_subscribe_sid_beacon;
-    u32 subscribe_sid_beacon_val;  // default value 0x0
+    u32 subscribe_sid_beacon_val; // default value 0x0
     /*
        Discovery Beacon Interval config.
        Default value is 128 msec in 2G DW and 176 msec in 2G/5G DW.
@@ -1518,6 +1746,11 @@ typedef struct {
     */
     u8 config_instant_mode_channel;
     wifi_channel instant_mode_channel;
+    /*
+       Config cluster ID with the cluster ID selected over NFC/OOB method.
+    */
+    u8 config_cluster_id;
+    u16 cluster_id_val; // default value 0x0
 } NanConfigRequest;
 
 /*
@@ -1532,10 +1765,10 @@ typedef struct {
     u8 rising_direction_evt_flag; /* 0 - no event, 1 - event */
 
     /* flag which control whether or not an event is generated for the Falling direction */
-    u8 falling_direction_evt_flag; /* 0 - no event, 1 - event */
+    u8 falling_direction_evt_flag;/* 0 - no event, 1 - event */
 
     /* flag which requests a previous TCA request to be cleared from the DE */
-    u8 clear; /*0= Do not clear the TCA, 1=Clear the TCA */
+    u8 clear;/*0= Do not clear the TCA, 1=Clear the TCA */
 
     /* 32 bit value which represents the threshold to be used.*/
     u32 threshold;
@@ -1555,7 +1788,8 @@ typedef struct {
 } NanBeaconSdfPayloadRequest;
 
 /* Publish statistics. */
-typedef struct {
+typedef struct
+{
     u32 validPublishServiceReqMsgs;
     u32 validPublishServiceRspMsgs;
     u32 validPublishServiceCancelReqMsgs;
@@ -1576,7 +1810,8 @@ typedef struct {
 } NanPublishStats;
 
 /* Subscribe statistics. */
-typedef struct {
+typedef struct
+{
     u32 validSubscribeServiceReqMsgs;
     u32 validSubscribeServiceRspMsgs;
     u32 validSubscribeServiceCancelReqMsgs;
@@ -1600,7 +1835,8 @@ typedef struct {
 } NanSubscribeStats;
 
 /* NAN DW Statistics*/
-typedef struct {
+typedef struct
+{
     /* RX stats */
     u32 validFrames;
     u32 validActionFrames;
@@ -1628,7 +1864,8 @@ typedef struct {
 } NanDWStats;
 
 /* NAN MAC Statistics. */
-typedef struct {
+typedef struct
+{
     /* RX stats */
     u32 validFrames;
     u32 validActionFrames;
@@ -1662,15 +1899,16 @@ typedef struct {
 } NanMacStats;
 
 /* NAN Sync Statistics*/
-typedef struct {
+typedef struct
+{
     u64 currTsf;
     u64 myRank;
     u64 currAmRank;
     u64 lastAmRank;
     u32 currAmBTT;
     u32 lastAmBTT;
-    u8 currAmHopCount;
-    u8 currRole;
+    u8  currAmHopCount;
+    u8  currRole;
     u16 currClusterId;
 
     u64 timeSpentInCurrRole;
@@ -1708,7 +1946,8 @@ typedef struct {
 } NanSyncStats;
 
 /* NAN Misc DE Statistics */
-typedef struct {
+typedef struct
+{
     u32 validErrorRspMsgs;
     u32 validTransmitFollowupReqMsgs;
     u32 validTransmitFollowupRspMsgs;
@@ -1769,19 +2008,39 @@ typedef struct {
     NanDataPathId ndp_instance_id;
 } NanDataPathRequestResponse;
 
+/* Response returned for Initiators pairing request */
+typedef struct {
+    /*
+      Unique token Id generated on the initiator
+      side used for a pairing session between two NAN devices
+    */
+    u32 paring_instance_id;
+} NanPairingRequestResponse;
+
+/* Response returned for Initiators bootstrapping request */
+typedef struct {
+    /*
+      Unique token Id generated on the initiator
+      side used for a bootstrapping session between two NAN devices
+    */
+    u32 bootstrapping_instance_id;
+} NanBootstrappingRequestResponse;
+
 /*
   NAN Response messages
 */
 typedef struct {
-    NanStatusType status;              /* contains the result code */
+    NanStatusType status; /* contains the result code */
     char nan_error[NAN_ERROR_STR_LEN]; /* Describe the NAN error type */
-    NanResponseType response_type;     /* NanResponseType Definitions */
+    NanResponseType response_type; /* NanResponseType Definitions */
     union {
         NanPublishResponse publish_response;
         NanSubscribeResponse subscribe_response;
         NanStatsResponse stats_response;
         NanDataPathRequestResponse data_request_response;
         NanCapabilities nan_capabilities;
+        NanPairingRequestResponse pairing_request_response;
+        NanBootstrappingRequestResponse bootstrapping_request_response;
     } body;
 } NanResponseMsg;
 
@@ -1822,6 +2081,12 @@ typedef struct {
     char nan_reason[NAN_ERROR_STR_LEN]; /* Describe the NAN reason type */
 } NanPublishTerminatedInd;
 
+/* The NIRA used to identify the pairing devices*/
+typedef struct {
+    u8 nonce[NAN_IDENTITY_NONCE_LEN];
+    u8 tag[NAN_IDENTITY_TAG_LEN];
+} NanIdentityResolutionAttribute;
+
 /*
   Match Indication
   The MatchInd message is sent once per responding MAC address whenever
@@ -1859,7 +2124,7 @@ typedef struct {
          0 - Match occurred in a Service Discovery Frame
          1 - Match occurred in a Beacon Frame
     */
-    u8 match_occurred_flag;
+    u8 match_occured_flag; //not typo
 
     /*
        flag to indicate FW is out of resource and that it can no longer
@@ -1945,6 +2210,16 @@ typedef struct {
     */
     u16 sdea_service_specific_info_len;
     u8 sdea_service_specific_info[NAN_MAX_SDEA_SERVICE_SPECIFIC_INFO_LEN];
+
+    /*
+      The config for Nan pairing set by the peer
+    */
+    NanPairingConfig peer_pairing_config;
+
+    /*
+      The NIRA from peer for Nan pairing verification
+    */
+    NanIdentityResolutionAttribute nira;
 } NanMatchInd;
 
 /*
@@ -2072,7 +2347,7 @@ typedef struct {
     u8 rising_direction_evt_flag; /* 0 - no event, 1 - event */
 
     /* flag which defines if the configured Threshold has fallen below the threshold */
-    u8 falling_direction_evt_flag; /* 0 - no event, 1 - event */
+    u8 falling_direction_evt_flag;/* 0 - no event, 1 - event */
     union {
         /*
            This event in obtained when the cluser size threshold
@@ -2126,15 +2401,15 @@ typedef struct {
   transmit followup in progress
 */
 typedef struct {
-    transaction_id id;
-    /*
-      Following reason codes returned:
-      NAN_STATUS_SUCCESS
-      NAN_STATUS_NO_OTA_ACK
-      NAN_STATUS_PROTOCOL_FAILURE
-    */
-    NanStatusType reason;
-    char nan_reason[NAN_ERROR_STR_LEN]; /* Describe the NAN reason type */
+   transaction_id id;
+   /*
+     Following reason codes returned:
+     NAN_STATUS_SUCCESS
+     NAN_STATUS_NO_OTA_ACK
+     NAN_STATUS_PROTOCOL_FAILURE
+   */
+   NanStatusType reason;
+   char nan_reason[NAN_ERROR_STR_LEN]; /* Describe the NAN reason type */
 } NanTransmitFollowupInd;
 
 /*
@@ -2147,7 +2422,10 @@ typedef struct {
 } NanDataPathAppInfo;
 
 /* QoS configuration */
-typedef enum { NAN_DP_CONFIG_NO_QOS = 0, NAN_DP_CONFIG_QOS } NanDataPathQosCfg;
+typedef enum {
+    NAN_DP_CONFIG_NO_QOS = 0,
+    NAN_DP_CONFIG_QOS
+} NanDataPathQosCfg;
 
 /* Configuration params of Data request Initiator/Responder */
 typedef struct {
@@ -2178,7 +2456,7 @@ typedef struct {
      This will be the same interface name provided during interface
      create.
     */
-    char ndp_iface[IFNAMSIZ + 1];
+    char ndp_iface[IFNAMSIZ+1];
     /* Initiator/Responder Security/QoS configuration */
     NanDataPathCfg ndp_cfg;
     /* App/Service information of the Initiator */
@@ -2211,6 +2489,9 @@ typedef struct {
        for setting up the Secure Data Path.
     */
     u8 scid[NAN_MAX_SCID_BUF_LEN];
+
+    /* Publish or Subscribe Id of an earlier Publish/Subscribe */
+    u16 publish_subscribe_id;
 } NanDataPathInitiatorRequest;
 
 /*
@@ -2228,7 +2509,7 @@ typedef struct {
      This will be the same interface name provided during interface
      create.
     */
-    char ndp_iface[IFNAMSIZ + 1];
+    char ndp_iface[IFNAMSIZ+1];
     /* Initiator/Responder Security/QoS configuration */
     NanDataPathCfg ndp_cfg;
     /* App/Service information of the responder */
@@ -2263,7 +2544,22 @@ typedef struct {
        for setting up the Secure Data Path.
     */
     u8 scid[NAN_MAX_SCID_BUF_LEN];
+
+    /* Publish or Subscribe Id of an earlier Publish/Subscribe */
+    u16 publish_subscribe_id;
+
+    /*
+      Discovery MAC addr of the publisher/peer
+    */
+    u8 peer_disc_mac_addr[NAN_MAC_ADDR_LEN];
 } NanDataPathIndicationResponse;
+
+/* Sub slot parameters */
+typedef struct {
+    u8 entry_control;
+    u16 time_bitmap_control;
+    u32 time_bitmap;
+} NanS3Params;
 
 /* NDP termination info */
 typedef struct {
@@ -2394,7 +2690,7 @@ typedef struct {
   Published side.
 */
 typedef struct {
-    u16 publish_id; /* id is existing publish */
+    u16 publish_id;/* id is existing publish */
     /* Range Requestor's MAC address */
     u8 range_req_intf_addr[NAN_MAC_ADDR_LEN];
 } NanRangeRequestInd;
@@ -2404,7 +2700,7 @@ typedef struct {
   Published side.
 */
 typedef struct {
-    u16 publish_id; /* id is existing publish */
+    u16 publish_id;/* id is existing publish */
     /* Range Requestor's MAC address */
     u8 range_req_intf_addr[NAN_MAC_ADDR_LEN];
     /*
@@ -2414,28 +2710,360 @@ typedef struct {
     u32 range_measurement_mm;
 } NanRangeReportInd;
 
+/*
+  NAN pairing initiator request
+*/
+typedef struct {
+    /*
+       This Id is the Requestor Instance that is passed as
+       part of earlier MatchInd/FollowupInd message.
+    */
+    u32 requestor_instance_id;
+
+    /*
+      Discovery MAC addr of the publisher/peer
+    */
+    u8 peer_disc_mac_addr[NAN_MAC_ADDR_LEN];
+
+    /*
+      Indicate the pairing session is of setup or verification
+    */
+    NanPairingRequestType nan_pairing_request_type;
+
+    /*
+      whether the pairing is opportunistic or password
+    */
+    u8 is_opportunistic;
+
+    /*
+      Security key info used for the pairing setup or verification
+    */
+    NanSecurityKeyInfo key_info;
+    /*
+      AKM used for the pairing verification
+    */
+    NanAkm akm;
+
+    /*
+      Whether should cache the negotiated NIK/NPK for future verification
+    */
+    u8 enable_pairing_cache;
+
+    /*
+      The Identity key for pairing, can be used for pairing verification
+    */
+    u8 nan_identity_key[NAN_IDENTITY_KEY_LEN];
+
+    /*
+      NAN Cipher Suite Type
+    */
+    u32 cipher_type;
+
+} NanPairingRequest;
+
+/*
+  Data struct to initiate a pairing response on the responder side for an indication received with a
+  pairing request
+*/
+typedef struct {
+
+    /*
+      Unique token Id generated on the initiator/responder side
+      used for a pairing session between two NAN devices
+    */
+    u32 pairing_instance_id;
+
+    /*
+      Indicate the pairing session is setup or verification
+    */
+    NanPairingRequestType nan_pairing_request_type;
+
+    /* Response Code indicating ACCEPT/REJECT */
+    NanPairingResponseCode rsp_code;
+
+    /*
+      whether the pairing is opportunistic or password
+    */
+    u8 is_opportunistic;
+
+    /*
+      Security key info used for the pairing setup or verification
+    */
+    NanSecurityKeyInfo key_info;
+
+    /*
+      AKM used for the pairing verification
+    */
+    NanAkm akm;
+
+    /*
+      Whether should cache the negotiated NIK/NPK for future verification
+    */
+    u8 enable_pairing_cache;
+
+    /*
+      The Identity key for pairing, can be used for pairing verification
+    */
+    u8 nan_identity_key[NAN_IDENTITY_KEY_LEN];
+
+    /*
+      NAN Cipher Suite Type
+    */
+    u32 cipher_type;
+} NanPairingIndicationResponse;
+
+typedef struct {
+    /*
+      Unique token Id generated on the initiator/responder side
+      used for a pairing session between two NAN devices
+    */
+    u32 pairing_instance_id;
+} NanPairingEndRequest;
+
+/*
+  Event indication received on the responder side when a Nan pairing session is initiated on the
+  Initiator side
+*/
+typedef struct {
+    /* Publish or Subscribe Id of an earlier Publish/Subscribe */
+    u16 publish_subscribe_id;
+    /*
+      This Id is the Requestor Instance that is passed as
+      part of earlier MatchInd/FollowupInd message.
+    */
+    u32 requestor_instance_id;
+    /*
+      Unique Instance Id corresponding to a service/session.
+      This is similar to the publish_id generated on the
+      publisher side
+    */
+    u32 pairing_instance_id;
+    /* Discovery MAC addr of the peer/initiator */
+    u8 peer_disc_mac_addr[NAN_MAC_ADDR_LEN];
+    /* Indicate the pairing session is setup or verification */
+    NanPairingRequestType nan_pairing_request_type;
+    /* Whether should cache the negotiated NIK/NPK for future verification */
+    u8 enable_pairing_cache;
+    /* The NIRA from peer for Nan pairing verification */
+    NanIdentityResolutionAttribute nira;
+} NanPairingRequestInd;
+
+/*
+  The security info negotiate after the pairing setup for caching
+*/
+typedef struct {
+    /* The inentity key of peer device*/
+    u8 peer_nan_identity_key[NAN_IDENTITY_KEY_LEN];
+    /* The inentity key of local device*/
+    u8 local_nan_identity_key[NAN_IDENTITY_KEY_LEN];
+    /* The PMK exchange between two devices*/
+    NanSecurityPmk npk;
+    /* The AKM used during the key exchange*/
+    NanAkm akm;
+    /* NAN Cipher Suite Type */
+    u32 cipher_type;
+} NpkSecurityAssociation;
+
+/*
+ Event indication of pairing confirm is received on both
+ initiator and responder side confirming a pairing session
+*/
+typedef struct {
+    /*
+      Unique token Id generated on the initiator/responder side
+      used for a pairing session between two NAN devices
+    */
+    u32 pairing_instance_id;
+    /* Response code indicating ACCEPT/REJECT */
+    NanPairingResponseCode rsp_code;
+    /*
+      Reason code indicating the cause for REJECT.
+      NAN_STATUS_SUCCESS and NAN_STATUS_PROTOCOL_FAILURE are
+      expected reason codes.
+    */
+    NanStatusType reason_code;
+    /*
+      Indicate the pairing session is setup or verification
+    */
+    NanPairingRequestType nan_pairing_request_type;
+    /* Whether should cache the negotiated NIK/NPK for future verification */
+    u8 enable_pairing_cache;
+    /*
+      The security association info negotiated in the pairing setup, used for future verification
+    */
+    NpkSecurityAssociation npk_security_association;
+} NanPairingConfirmInd;
+
+/*
+  NAN pairing bootstrapping initiator request
+*/
+typedef struct {
+    /*
+       This Id is the Requestor Instance that is passed as
+       part of earlier MatchInd/FollowupInd message.
+    */
+    u32 requestor_instance_id;
+
+    /*
+      Discovery MAC addr of the publisher/peer
+    */
+    u8 peer_disc_mac_addr[NAN_MAC_ADDR_LEN];
+
+    /* Proposed bootstrapping method */
+    u16 request_bootstrapping_method;
+
+    /*
+       Sequence of values which further specify the published service beyond
+       the service name.
+    */
+    u16 service_specific_info_len;
+    u8 service_specific_info[NAN_MAX_SERVICE_SPECIFIC_INFO_LEN];
+
+    /*
+       Sequence of values indicating the service specific info in SDEA
+       Used for service managed bootstrapping method
+    */
+    u16 sdea_service_specific_info_len;
+    u8 sdea_service_specific_info[NAN_MAX_SDEA_SERVICE_SPECIFIC_INFO_LEN];
+
+    /* The length of cookie. */
+    u32 cookie_length;
+
+    /* Cookie for the follow up request */
+    u8 cookie[];
+
+} NanBootstrappingRequest;
+/*
+ NAN pairing bootstrapping response from responder to a initiate request
+*/
+typedef struct {
+
+    /*
+       This Id is the Requestor Instance that is passed as
+       part of earlier MatchInd/FollowupInd message.
+    */
+    u32 service_instance_id;
+
+    /* Discovery MAC addr of the peer/initiator */
+    u8 peer_disc_mac_addr[NAN_MAC_ADDR_LEN];
+
+    /*
+       Sequence of values which further specify the published service beyond
+       the service name.
+    */
+    u16 service_specific_info_len;
+    u8 service_specific_info[NAN_MAX_SERVICE_SPECIFIC_INFO_LEN];
+
+    /*
+       Sequence of values indicating the service specific info in SDEA
+       Used for service managed bootstrapping method
+    */
+    u16 sdea_service_specific_info_len;
+    u8 sdea_service_specific_info[NAN_MAX_SDEA_SERVICE_SPECIFIC_INFO_LEN];
+
+    /* Response Code indicating ACCEPT/REJECT */
+    NanBootstrappingResponseCode rsp_code;
+
+    /* The delay of bootstrapping in seconds */
+    u32 come_back_delay;
+
+    /* The length of cookie. */
+    u32 cookie_length;
+
+    /* Cookie for the follow up response */
+    u8 cookie[];
+
+} NanBootstrappingIndicationResponse;
+
+/*
+  Event indication received on the responder side when a Nan boostrapping session is initiated on
+  the Initiator side
+*/
+typedef struct {
+    /* Publish or Subscribe Id of an earlier Publish/Subscribe */
+    u16 publish_subscribe_id;
+    /*
+      Unique Instance Id corresponding to a service/session.
+      This is similar to the publish_id generated on the
+      publisher side
+    */
+    u32 bootstrapping_instance_id;
+    /*
+      This Id is the Requestor Instance that is passed as
+      part of earlier MatchInd/FollowupInd message.
+    */
+    u32 requestor_instance_id;
+    /* Discovery MAC addr of the peer/initiator */
+    u8 peer_disc_mac_addr[NAN_MAC_ADDR_LEN];
+    /* Proposed bootstrapping method from peer*/
+    u16 request_bootstrapping_method;
+
+} NanBootstrappingRequestInd;
+
+/*
+ Event indication of bootstapping confirm is received on both
+ initiator side confirming a bootstrapping method
+*/
+typedef struct {
+    /*
+      Unique token Id generated on the initiator/responder side
+      used for a bootstrapping session between two NAN devices
+    */
+    u32 bootstrapping_instance_id;
+    /* Response Code indicating ACCEPT/REJECT */
+    NanBootstrappingResponseCode rsp_code;
+    /*
+      Reason code indicating the cause for REJECT.
+      NAN_STATUS_SUCCESS and NAN_STATUS_PROTOCOL_FAILURE are
+      expected reason codes.
+    */
+    NanStatusType reason_code;
+    /* The delay of bootstrapping in seconds */
+    u32 come_back_delay;
+
+    /* The length of cookie. */
+    u32 cookie_length;
+
+    /* Cookie received from the comeback response */
+    u8 cookie[];
+
+} NanBootstrappingConfirmInd;
+
+/*
+ Event indication the device enter or exist the suspension mode
+*/
+typedef struct {
+    /* Indication the device is suspended or not */
+    bool is_suspended;
+} NanSuspensionModeChangeInd;
+
 /* Response and Event Callbacks */
 typedef struct {
     /* NotifyResponse invoked to notify the status of the Request */
     void (*NotifyResponse)(transaction_id id, NanResponseMsg* rsp_data);
     /* Callbacks for various Events */
-    void (*EventPublishReplied)(NanPublishRepliedInd* event);
+    void (*EventPublishReplied)(NanPublishRepliedInd *event);
     void (*EventPublishTerminated)(NanPublishTerminatedInd* event);
-    void (*EventMatch)(NanMatchInd* event);
-    void (*EventMatchExpired)(NanMatchExpiredInd* event);
-    void (*EventSubscribeTerminated)(NanSubscribeTerminatedInd* event);
-    void (*EventFollowup)(NanFollowupInd* event);
-    void (*EventDiscEngEvent)(NanDiscEngEventInd* event);
-    void (*EventDisabled)(NanDisabledInd* event);
-    void (*EventTca)(NanTCAInd* event);
-    void (*EventBeaconSdfPayload)(NanBeaconSdfPayloadInd* event);
+    void (*EventMatch) (NanMatchInd* event);
+    void (*EventMatchExpired) (NanMatchExpiredInd* event);
+    void (*EventSubscribeTerminated) (NanSubscribeTerminatedInd* event);
+    void (*EventFollowup) (NanFollowupInd* event);
+    void (*EventDiscEngEvent) (NanDiscEngEventInd* event);
+    void (*EventDisabled) (NanDisabledInd* event);
+    void (*EventTca) (NanTCAInd* event);
+    void (*EventBeaconSdfPayload) (NanBeaconSdfPayloadInd* event);
     void (*EventDataRequest)(NanDataPathRequestInd* event);
     void (*EventDataConfirm)(NanDataPathConfirmInd* event);
     void (*EventDataEnd)(NanDataPathEndInd* event);
-    void (*EventTransmitFollowup)(NanTransmitFollowupInd* event);
-    void (*EventRangeRequest)(NanRangeRequestInd* event);
-    void (*EventRangeReport)(NanRangeReportInd* event);
-    void (*EventScheduleUpdate)(NanDataPathScheduleUpdateInd* event);
+    void (*EventTransmitFollowup) (NanTransmitFollowupInd* event);
+    void (*EventRangeRequest) (NanRangeRequestInd* event);
+    void (*EventRangeReport) (NanRangeReportInd* event);
+    void (*EventScheduleUpdate) (NanDataPathScheduleUpdateInd* event);
+    void (*EventPairingRequest) (NanPairingRequestInd* event);
+    void (*EventPairingConfirm) (NanPairingConfirmInd* event);
+    void (*EventBootstrappingRequest) (NanBootstrappingRequestInd* event);
+    void (*EventBootstrappingConfirm) (NanBootstrappingConfirmInd* event);
+    void (*EventSuspensionModeChange) (NanSuspensionModeChangeInd* event);
 } NanCallbackHandler;
 
 /**@brief nan_enable_request
@@ -2453,7 +3081,8 @@ typedef struct {
  *                      NAN_STATUS_PROTOCOL_FAILURE
  *                      NAN_STATUS_NAN_NOT_ALLOWED
  */
-wifi_error nan_enable_request(transaction_id id, wifi_interface_handle iface,
+wifi_error nan_enable_request(transaction_id id,
+                              wifi_interface_handle iface,
                               NanEnableRequest* msg);
 
 /**@brief nan_disbale_request
@@ -2468,7 +3097,8 @@ wifi_error nan_enable_request(transaction_id id, wifi_interface_handle iface,
  *                      NAN_STATUS_PROTOCOL_FAILURE
  *
  */
-wifi_error nan_disable_request(transaction_id id, wifi_interface_handle iface);
+wifi_error nan_disable_request(transaction_id id,
+                               wifi_interface_handle iface);
 
 /**@brief nan_publish_request
  *        Publish request to advertize a service
@@ -2484,7 +3114,8 @@ wifi_error nan_disable_request(transaction_id id, wifi_interface_handle iface);
  *                      NAN_STATUS_NO_RESOURCE_AVAILABLE
  *                      NAN_STATUS_INVALID_PUBLISH_SUBSCRIBE_ID
  */
-wifi_error nan_publish_request(transaction_id id, wifi_interface_handle iface,
+wifi_error nan_publish_request(transaction_id id,
+                               wifi_interface_handle iface,
                                NanPublishRequest* msg);
 
 /**@brief nan_publish_cancel_request
@@ -2499,7 +3130,8 @@ wifi_error nan_publish_request(transaction_id id, wifi_interface_handle iface,
  *                      NAN_STATUS_INVALID_PUBLISH_SUBSCRIBE_ID
  *                      NAN_STATUS_INTERNAL_FAILURE
  */
-wifi_error nan_publish_cancel_request(transaction_id id, wifi_interface_handle iface,
+wifi_error nan_publish_cancel_request(transaction_id id,
+                                      wifi_interface_handle iface,
                                       NanPublishCancelRequest* msg);
 
 /**@brief nan_subscribe_request
@@ -2517,7 +3149,8 @@ wifi_error nan_publish_cancel_request(transaction_id id, wifi_interface_handle i
  *                      NAN_STATUS_NO_SPACE_AVAILABLE
  *                      NAN_STATUS_INVALID_PUBLISH_SUBSCRIBE_ID
  */
-wifi_error nan_subscribe_request(transaction_id id, wifi_interface_handle iface,
+wifi_error nan_subscribe_request(transaction_id id,
+                                 wifi_interface_handle iface,
                                  NanSubscribeRequest* msg);
 
 /**@brief nan_subscribe_cancel_request
@@ -2532,7 +3165,8 @@ wifi_error nan_subscribe_request(transaction_id id, wifi_interface_handle iface,
  *                      NAN_STATUS_INVALID_PUBLISH_SUBSCRIBE_ID
  *                      NAN_STATUS_INTERNAL_FAILURE
  */
-wifi_error nan_subscribe_cancel_request(transaction_id id, wifi_interface_handle iface,
+wifi_error nan_subscribe_cancel_request(transaction_id id,
+                                        wifi_interface_handle iface,
                                         NanSubscribeCancelRequest* msg);
 
 /**@brief nan_transmit_followup_request
@@ -2554,7 +3188,8 @@ wifi_error nan_subscribe_cancel_request(transaction_id id, wifi_interface_handle
  *                      NAN_STATUS_PROTOCOL_FAILURE
  *                      NAN_STATUS_NO_OTA_ACK
  */
-wifi_error nan_transmit_followup_request(transaction_id id, wifi_interface_handle iface,
+wifi_error nan_transmit_followup_request(transaction_id id,
+                                         wifi_interface_handle iface,
                                          NanTransmitFollowupRequest* msg);
 
 /**@brief nan_stats_request
@@ -2569,7 +3204,9 @@ wifi_error nan_transmit_followup_request(transaction_id id, wifi_interface_handl
  *                      NAN_STATUS_INTERNAL_FAILURE
  *                      NAN_STATUS_INVALID_PARAM
  */
-wifi_error nan_stats_request(transaction_id id, wifi_interface_handle iface, NanStatsRequest* msg);
+wifi_error nan_stats_request(transaction_id id,
+                             wifi_interface_handle iface,
+                             NanStatsRequest* msg);
 
 /**@brief nan_config_request
  *        NAN configuration request.
@@ -2584,7 +3221,8 @@ wifi_error nan_stats_request(transaction_id id, wifi_interface_handle iface, Nan
  *                      NAN_STATUS_PROTOCOL_FAILURE
  *                      NAN_STATUS_INTERNAL_FAILURE
  */
-wifi_error nan_config_request(transaction_id id, wifi_interface_handle iface,
+wifi_error nan_config_request(transaction_id id,
+                              wifi_interface_handle iface,
                               NanConfigRequest* msg);
 
 /**@brief nan_tca_request
@@ -2599,7 +3237,9 @@ wifi_error nan_config_request(transaction_id id, wifi_interface_handle iface,
  *                      NAN_STATUS_INVALID_PARAM
  *                      NAN_STATUS_INTERNAL_FAILURE
  */
-wifi_error nan_tca_request(transaction_id id, wifi_interface_handle iface, NanTCARequest* msg);
+wifi_error nan_tca_request(transaction_id id,
+                           wifi_interface_handle iface,
+                           NanTCARequest* msg);
 
 /**@brief nan_beacon_sdf_payload_request
  *        Set NAN Beacon or sdf payload to discovery engine.
@@ -2615,14 +3255,17 @@ wifi_error nan_tca_request(transaction_id id, wifi_interface_handle iface, NanTC
  *                      NAN_STATUS_INVALID_PARAM
  *                      NAN_STATUS_INTERNAL_FAILURE
  */
-wifi_error nan_beacon_sdf_payload_request(transaction_id id, wifi_interface_handle iface,
-                                          NanBeaconSdfPayloadRequest* msg);
+wifi_error nan_beacon_sdf_payload_request(transaction_id id,
+                                         wifi_interface_handle iface,
+                                         NanBeaconSdfPayloadRequest* msg);
 
 /* Register NAN callbacks. */
-wifi_error nan_register_handler(wifi_interface_handle iface, NanCallbackHandler handlers);
+wifi_error nan_register_handler(wifi_interface_handle iface,
+                                NanCallbackHandler handlers);
 
 /*  Get NAN HAL version. */
-wifi_error nan_get_version(wifi_handle handle, NanVersion* version);
+wifi_error nan_get_version(wifi_handle handle,
+                           NanVersion* version);
 
 /**@brief nan_get_capabilities
  *        Get NAN Capabilities
@@ -2634,7 +3277,8 @@ wifi_error nan_get_version(wifi_handle handle, NanVersion* version);
  *                      NAN_STATUS_SUCCESS
  */
 /*  Get NAN capabilities. */
-wifi_error nan_get_capabilities(transaction_id id, wifi_interface_handle iface);
+wifi_error nan_get_capabilities(transaction_id id,
+                                wifi_interface_handle iface);
 
 /* ========== Nan Data Path APIs ================ */
 /**@brief nan_data_interface_create
@@ -2649,7 +3293,8 @@ wifi_error nan_get_capabilities(transaction_id id, wifi_interface_handle iface);
  *                      NAN_STATUS_INVALID_PARAM
  *                      NAN_STATUS_INTERNAL_FAILURE
  */
-wifi_error nan_data_interface_create(transaction_id id, wifi_interface_handle iface,
+wifi_error nan_data_interface_create(transaction_id id,
+                                     wifi_interface_handle iface,
                                      char* iface_name);
 
 /**@brief nan_data_interface_delete
@@ -2664,7 +3309,8 @@ wifi_error nan_data_interface_create(transaction_id id, wifi_interface_handle if
  *                      NAN_STATUS_INVALID_PARAM
  *                      NAN_STATUS_INTERNAL_FAILURE
  */
-wifi_error nan_data_interface_delete(transaction_id id, wifi_interface_handle iface,
+wifi_error nan_data_interface_delete(transaction_id id,
+                                     wifi_interface_handle iface,
                                      char* iface_name);
 
 /**@brief nan_data_request_initiator
@@ -2681,7 +3327,8 @@ wifi_error nan_data_interface_delete(transaction_id id, wifi_interface_handle if
  *                      NAN_STATUS_PROTOCOL_FAILURE
  *                      NAN_STATUS_INVALID_REQUESTOR_INSTANCE_ID
  */
-wifi_error nan_data_request_initiator(transaction_id id, wifi_interface_handle iface,
+wifi_error nan_data_request_initiator(transaction_id id,
+                                      wifi_interface_handle iface,
                                       NanDataPathInitiatorRequest* msg);
 
 /**@brief nan_data_indication_response
@@ -2701,7 +3348,8 @@ wifi_error nan_data_request_initiator(transaction_id id, wifi_interface_handle i
  *                      NAN_STATUS_PROTOCOL_FAILURE
  *                      NAN_STATUS_INVALID_NDP_ID
  */
-wifi_error nan_data_indication_response(transaction_id id, wifi_interface_handle iface,
+wifi_error nan_data_indication_response(transaction_id id,
+                                        wifi_interface_handle iface,
                                         NanDataPathIndicationResponse* msg);
 
 /**@brief nan_data_end
@@ -2718,7 +3366,100 @@ wifi_error nan_data_indication_response(transaction_id id, wifi_interface_handle
  *                      NAN_STATUS_PROTOCOL_FAILURE
  *                      NAN_STATUS_INVALID_NDP_ID
  */
-wifi_error nan_data_end(transaction_id id, wifi_interface_handle iface, NanDataPathEndRequest* msg);
+wifi_error nan_data_end(transaction_id id,
+                        wifi_interface_handle iface,
+                        NanDataPathEndRequest* msg);
+/**@brief nan_pairing_request
+ *        Initiate a NAN Pairingsession.
+ *
+ * @param transaction_id:
+ * @param wifi_interface_handle:
+ * @param NanPairingRequest:
+ * @return Synchronous wifi_error
+ * @return Asynchronous NotifyResponse CB return
+ *                      NAN_STATUS_SUCCESS
+ *                      NAN_STATUS_INVALID_PARAM
+ *                      NAN_STATUS_INTERNAL_FAILURE
+ *                      NAN_STATUS_PROTOCOL_FAILURE
+ *                      NAN_STATUS_INVALID_REQUESTOR_INSTANCE_ID
+ */
+wifi_error nan_pairing_request(transaction_id id, wifi_interface_handle iface,
+                               NanPairingRequest* msg);
+
+/**@brief nan_pairing_indication_response
+ *        Response to a pairing indication received
+ *        corresponding to a pairing session. An indication
+ *        is received with a pairing request and the responder
+ *        will send a pairing response
+ *
+ * @param transaction_id:
+ * @param wifi_interface_handle:
+ * @param NanPairingIndicationResponse:
+ * @return Synchronous wifi_error
+ * @return Asynchronous NotifyResponse CB return
+ *                      NAN_STATUS_SUCCESS
+ *                      NAN_STATUS_INVALID_PARAM
+ *                      NAN_STATUS_INTERNAL_FAILURE
+ *                      NAN_STATUS_PROTOCOL_FAILURE
+ *                      NAN_STATUS_INVALID_PAIRING_ID
+ */
+wifi_error nan_pairing_indication_response(transaction_id id, wifi_interface_handle iface,
+                                           NanPairingIndicationResponse* msg);
+
+/**@brief nan_pairing_end
+ *        Cancel and remove the existing Pairing setups
+ *
+ * @param transaction_id:
+ * @param wifi_interface_handle:
+ * @param NanPairingEndRequest:
+ * @return Synchronous wifi_error
+ * @return Asynchronous NotifyResponse CB return
+ *                      NAN_STATUS_SUCCESS
+ *                      NAN_STATUS_INVALID_PARAM
+ *                      NAN_STATUS_INTERNAL_FAILURE
+ *                      NAN_STATUS_PROTOCOL_FAILURE
+ *                      NAN_STATUS_INVALID_PAIRING_ID
+ */
+wifi_error nan_pairing_end(transaction_id id, wifi_interface_handle iface,
+                                                 NanPairingEndRequest* msg);
+
+/**@brief nan_bootstrapping_request
+ *        Initiate a NAN Bootstrapping session.
+ *
+ * @param transaction_id:
+ * @param wifi_interface_handle:
+ * @param NanBootstrappingRequest:
+ * @return Synchronous wifi_error
+ * @return Asynchronous NotifyResponse CB return
+ *                      NAN_STATUS_SUCCESS
+ *                      NAN_STATUS_INVALID_PARAM
+ *                      NAN_STATUS_INTERNAL_FAILURE
+ *                      NAN_STATUS_PROTOCOL_FAILURE
+ *                      NAN_STATUS_INVALID_REQUESTOR_INSTANCE_ID
+ */
+wifi_error nan_bootstrapping_request(transaction_id id, wifi_interface_handle iface,
+                                     NanBootstrappingRequest* msg);
+
+/**@brief nan_bootstrapping_indication_response
+ *         Response to a pairing indication received
+ *         corresponding to a pairing session. An indication
+ *         is received with a pairing request and the responder
+ *         will send a pairing response
+ *
+ * @param transaction_id:
+ * @param wifi_interface_handle:
+ * @param NanBootstrappingIndicationResponse:
+ * @return Synchronous wifi_error
+ * @return Asynchronous NotifyResponse CB return
+ *                      NAN_STATUS_SUCCESS
+ *                      NAN_STATUS_INVALID_PARAM
+ *                      NAN_STATUS_INTERNAL_FAILURE
+ *                      NAN_STATUS_PROTOCOL_FAILURE
+ *                      NAN_STATUS_INVALID_BOOTSTRAPPING_ID
+ */
+wifi_error nan_bootstrapping_indication_response(transaction_id id, wifi_interface_handle iface,
+                                                 NanBootstrappingIndicationResponse* msg);
+
 #ifdef __cplusplus
 }
 #endif /* __cplusplus */

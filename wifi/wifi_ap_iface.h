@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016 The Android Open Source Project
+ * Copyright (C) 2022 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,23 +17,21 @@
 #ifndef WIFI_AP_IFACE_H_
 #define WIFI_AP_IFACE_H_
 
+#include <aidl/android/hardware/wifi/BnWifiApIface.h>
 #include <android-base/macros.h>
-#include <android/hardware/wifi/1.5/IWifiApIface.h>
 
 #include "wifi_iface_util.h"
 #include "wifi_legacy_hal.h"
 
+namespace aidl {
 namespace android {
 namespace hardware {
 namespace wifi {
-namespace V1_6 {
-namespace implementation {
-using namespace android::hardware::wifi::V1_0;
 
 /**
- * HIDL interface object used to control a AP Iface instance.
+ * AIDL interface object used to control an AP Iface instance.
  */
-class WifiApIface : public V1_5::IWifiApIface {
+class WifiApIface : public BnWifiApIface {
   public:
     WifiApIface(const std::string& ifname, const std::vector<std::string>& instances,
                 const std::weak_ptr<legacy_hal::WifiLegacyHal> legacy_hal,
@@ -44,32 +42,23 @@ class WifiApIface : public V1_5::IWifiApIface {
     std::string getName();
     void removeInstance(std::string instance);
 
-    // HIDL methods exposed.
-    Return<void> getName(getName_cb hidl_status_cb) override;
-    Return<void> getType(getType_cb hidl_status_cb) override;
-    Return<void> setCountryCode(const hidl_array<int8_t, 2>& code,
-                                setCountryCode_cb hidl_status_cb) override;
-    Return<void> getValidFrequenciesForBand(V1_0::WifiBand band,
-                                            getValidFrequenciesForBand_cb hidl_status_cb) override;
-    Return<void> setMacAddress(const hidl_array<uint8_t, 6>& mac,
-                               setMacAddress_cb hidl_status_cb) override;
-    Return<void> getFactoryMacAddress(getFactoryMacAddress_cb hidl_status_cb) override;
-    Return<void> resetToFactoryMacAddress(resetToFactoryMacAddress_cb hidl_status_cb) override;
-
-    Return<void> getBridgedInstances(getBridgedInstances_cb hidl_status_cb) override;
+    // AIDL methods exposed.
+    ndk::ScopedAStatus getName(std::string* _aidl_return) override;
+    ndk::ScopedAStatus setCountryCode(const std::array<uint8_t, 2>& in_code) override;
+    ndk::ScopedAStatus setMacAddress(const std::array<uint8_t, 6>& in_mac) override;
+    ndk::ScopedAStatus getFactoryMacAddress(std::array<uint8_t, 6>* _aidl_return) override;
+    ndk::ScopedAStatus resetToFactoryMacAddress() override;
+    ndk::ScopedAStatus getBridgedInstances(std::vector<std::string>* _aidl_return) override;
 
   private:
-    // Corresponding worker functions for the HIDL methods.
-    std::pair<WifiStatus, std::string> getNameInternal();
-    std::pair<WifiStatus, IfaceType> getTypeInternal();
-    WifiStatus setCountryCodeInternal(const std::array<int8_t, 2>& code);
-    std::pair<WifiStatus, std::vector<WifiChannelInMhz>> getValidFrequenciesForBandInternal(
-            V1_0::WifiBand band);
-    WifiStatus setMacAddressInternal(const std::array<uint8_t, 6>& mac);
-    std::pair<WifiStatus, std::array<uint8_t, 6>> getFactoryMacAddressInternal(
+    // Corresponding worker functions for the AIDL methods.
+    std::pair<std::string, ndk::ScopedAStatus> getNameInternal();
+    ndk::ScopedAStatus setCountryCodeInternal(const std::array<uint8_t, 2>& code);
+    ndk::ScopedAStatus setMacAddressInternal(const std::array<uint8_t, 6>& mac);
+    std::pair<std::array<uint8_t, 6>, ndk::ScopedAStatus> getFactoryMacAddressInternal(
             const std::string& ifaceName);
-    WifiStatus resetToFactoryMacAddressInternal();
-    std::pair<WifiStatus, std::vector<hidl_string>> getBridgedInstancesInternal();
+    ndk::ScopedAStatus resetToFactoryMacAddressInternal();
+    std::pair<std::vector<std::string>, ndk::ScopedAStatus> getBridgedInstancesInternal();
 
     std::string ifname_;
     std::vector<std::string> instances_;
@@ -80,10 +69,9 @@ class WifiApIface : public V1_5::IWifiApIface {
     DISALLOW_COPY_AND_ASSIGN(WifiApIface);
 };
 
-}  // namespace implementation
-}  // namespace V1_6
 }  // namespace wifi
 }  // namespace hardware
 }  // namespace android
+}  // namespace aidl
 
 #endif  // WIFI_AP_IFACE_H_

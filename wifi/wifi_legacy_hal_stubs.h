@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016 The Android Open Source Project
+ * Copyright (C) 2022 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,21 +17,19 @@
 #ifndef WIFI_LEGACY_HAL_STUBS_H_
 #define WIFI_LEGACY_HAL_STUBS_H_
 
-#include <hal_legacy/wifi_hal.h>
+#include <hardware_legacy/wifi_hal.h>
 
+namespace aidl {
 namespace android {
 namespace hardware {
 namespace wifi {
-namespace V1_6 {
-namespace implementation {
 namespace legacy_hal {
 
 bool initHalFuncTableWithStubs(wifi_hal_fn* hal_fn);
 }  // namespace legacy_hal
-}  // namespace implementation
-}  // namespace V1_6
 }  // namespace wifi
 }  // namespace hardware
 }  // namespace android
+}  // namespace aidl
 
 #endif  // WIFI_LEGACY_HAL_STUBS_H_

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016 The Android Open Source Project
+ * Copyright (C) 2022 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,17 +17,14 @@
 #ifndef WIFI_MODE_CONTROLLER_H_
 #define WIFI_MODE_CONTROLLER_H_
 
+#include <aidl/android/hardware/wifi/IWifi.h>
 #include <wifi_hal/driver_tool.h>
 
-#include <android/hardware/wifi/1.0/IWifi.h>
-
+namespace aidl {
 namespace android {
 namespace hardware {
 namespace wifi {
-namespace V1_6 {
-namespace implementation {
 namespace mode_controller {
-using namespace android::hardware::wifi::V1_0;
 
 /**
  * Class that encapsulates all firmware mode configuration.
@@ -50,14 +47,13 @@ class WifiModeController {
     virtual bool deinitialize();
 
   private:
-    std::unique_ptr<wifi_hal::DriverTool> driver_tool_;
+    std::unique_ptr<::android::wifi_hal::DriverTool> driver_tool_;
 };
 
 }  // namespace mode_controller
-}  // namespace implementation
-}  // namespace V1_6
 }  // namespace wifi
 }  // namespace hardware
 }  // namespace android
+}  // namespace aidl
 
 #endif  // WIFI_MODE_CONTROLLER_H_

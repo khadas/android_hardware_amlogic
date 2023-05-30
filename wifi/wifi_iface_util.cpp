@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2019 The Android Open Source Project
+ * Copyright (C) 2022 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,34 +14,32 @@
  * limitations under the License.
  */
 
+#include <android-base/logging.h>
+#include <android-base/macros.h>
 #include <net/if.h>
+#include <private/android_filesystem_config.h>
+#include <cutils/properties.h>
 #include <cstddef>
 #include <iostream>
 #include <limits>
 #include <random>
 
-#include <cutils/properties.h>
-#include <android-base/logging.h>
-#include <android-base/macros.h>
-#include <private/android_filesystem_config.h>
-
-#undef NAN
 #include "wifi_iface_util.h"
 
 namespace {
 // Constants to set the local bit & clear the multicast bit.
 constexpr uint8_t kMacAddressMulticastMask = 0x01;
 constexpr uint8_t kMacAddressLocallyAssignedMask = 0x02;
+
 }  // namespace
 
+namespace aidl {
 namespace android {
 namespace hardware {
 namespace wifi {
-namespace V1_6 {
-namespace implementation {
 namespace iface_util {
 
-WifiIfaceUtil::WifiIfaceUtil(const std::weak_ptr<wifi_system::InterfaceTool> iface_tool,
+WifiIfaceUtil::WifiIfaceUtil(const std::weak_ptr<::android::wifi_system::InterfaceTool> iface_tool,
                              const std::weak_ptr<legacy_hal::WifiLegacyHal> legacy_hal)
     : iface_tool_(iface_tool),
       legacy_hal_(legacy_hal),
@@ -187,8 +185,7 @@ bool WifiIfaceUtil::removeIfaceFromBridge(const std::string& br_name, const std:
 }
 
 }  // namespace iface_util
-}  // namespace implementation
-}  // namespace V1_6
 }  // namespace wifi
 }  // namespace hardware
 }  // namespace android
+}  // namespace aidl

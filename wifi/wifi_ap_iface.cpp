@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016 The Android Open Source Project
+ * Copyright (C) 2022 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,19 +14,19 @@
  * limitations under the License.
  */
 
+#include "wifi_ap_iface.h"
+
 #include <android-base/logging.h>
 
-#include "hidl_return_util.h"
-#include "hidl_struct_util.h"
-#include "wifi_ap_iface.h"
+#include "aidl_return_util.h"
+#include "aidl_struct_util.h"
 #include "wifi_status_util.h"
 
+namespace aidl {
 namespace android {
 namespace hardware {
 namespace wifi {
-namespace V1_6 {
-namespace implementation {
-using hidl_return_util::validateAndCall;
+using aidl_return_util::validateAndCall;
 
 WifiApIface::WifiApIface(const std::string& ifname, const std::vector<std::string>& instances,
                          const std::weak_ptr<legacy_hal::WifiLegacyHal> legacy_hal,
@@ -54,76 +54,48 @@ void WifiApIface::removeInstance(std::string instance) {
     instances_.erase(std::remove(instances_.begin(), instances_.end(), instance), instances_.end());
 }
 
-Return<void> WifiApIface::getName(getName_cb hidl_status_cb) {
+ndk::ScopedAStatus WifiApIface::getName(std::string* _aidl_return) {
     return validateAndCall(this, WifiStatusCode::ERROR_WIFI_IFACE_INVALID,
-                           &WifiApIface::getNameInternal, hidl_status_cb);
+                           &WifiApIface::getNameInternal, _aidl_return);
 }
 
-Return<void> WifiApIface::getType(getType_cb hidl_status_cb) {
+ndk::ScopedAStatus WifiApIface::setCountryCode(const std::array<uint8_t, 2>& in_code) {
     return validateAndCall(this, WifiStatusCode::ERROR_WIFI_IFACE_INVALID,
-                           &WifiApIface::getTypeInternal, hidl_status_cb);
+                           &WifiApIface::setCountryCodeInternal, in_code);
 }
 
-Return<void> WifiApIface::setCountryCode(const hidl_array<int8_t, 2>& code,
-                                         setCountryCode_cb hidl_status_cb) {
+ndk::ScopedAStatus WifiApIface::setMacAddress(const std::array<uint8_t, 6>& in_mac) {
     return validateAndCall(this, WifiStatusCode::ERROR_WIFI_IFACE_INVALID,
-                           &WifiApIface::setCountryCodeInternal, hidl_status_cb, code);
+                           &WifiApIface::setMacAddressInternal, in_mac);
 }
 
-Return<void> WifiApIface::getValidFrequenciesForBand(V1_0::WifiBand band,
-                                                     getValidFrequenciesForBand_cb hidl_status_cb) {
+ndk::ScopedAStatus WifiApIface::getFactoryMacAddress(std::array<uint8_t, 6>* _aidl_return) {
     return validateAndCall(this, WifiStatusCode::ERROR_WIFI_IFACE_INVALID,
-                           &WifiApIface::getValidFrequenciesForBandInternal, hidl_status_cb, band);
-}
-
-Return<void> WifiApIface::setMacAddress(const hidl_array<uint8_t, 6>& mac,
-                                        setMacAddress_cb hidl_status_cb) {
-    return validateAndCall(this, WifiStatusCode::ERROR_WIFI_IFACE_INVALID,
-                           &WifiApIface::setMacAddressInternal, hidl_status_cb, mac);
-}
-
-Return<void> WifiApIface::getFactoryMacAddress(getFactoryMacAddress_cb hidl_status_cb) {
-    return validateAndCall(this, WifiStatusCode::ERROR_WIFI_IFACE_INVALID,
-                           &WifiApIface::getFactoryMacAddressInternal, hidl_status_cb,
+                           &WifiApIface::getFactoryMacAddressInternal, _aidl_return,
                            instances_.size() > 0 ? instances_[0] : ifname_);
 }
 
-Return<void> WifiApIface::resetToFactoryMacAddress(resetToFactoryMacAddress_cb hidl_status_cb) {
+ndk::ScopedAStatus WifiApIface::resetToFactoryMacAddress() {
     return validateAndCall(this, WifiStatusCode::ERROR_WIFI_IFACE_INVALID,
-                           &WifiApIface::resetToFactoryMacAddressInternal, hidl_status_cb);
+                           &WifiApIface::resetToFactoryMacAddressInternal);
 }
 
-Return<void> WifiApIface::getBridgedInstances(getBridgedInstances_cb hidl_status_cb) {
+ndk::ScopedAStatus WifiApIface::getBridgedInstances(std::vector<std::string>* _aidl_return) {
     return validateAndCall(this, WifiStatusCode::ERROR_WIFI_IFACE_INVALID,
-                           &WifiApIface::getBridgedInstancesInternal, hidl_status_cb);
+                           &WifiApIface::getBridgedInstancesInternal, _aidl_return);
 }
 
-std::pair<WifiStatus, std::string> WifiApIface::getNameInternal() {
-    return {createWifiStatus(WifiStatusCode::SUCCESS), ifname_};
+std::pair<std::string, ndk::ScopedAStatus> WifiApIface::getNameInternal() {
+    return {ifname_, ndk::ScopedAStatus::ok()};
 }
 
-std::pair<WifiStatus, IfaceType> WifiApIface::getTypeInternal() {
-    return {createWifiStatus(WifiStatusCode::SUCCESS), IfaceType::AP};
-}
-
-WifiStatus WifiApIface::setCountryCodeInternal(const std::array<int8_t, 2>& code) {
+ndk::ScopedAStatus WifiApIface::setCountryCodeInternal(const std::array<uint8_t, 2>& code) {
     legacy_hal::wifi_error legacy_status = legacy_hal_.lock()->setCountryCode(
             instances_.size() > 0 ? instances_[0] : ifname_, code);
     return createWifiStatusFromLegacyError(legacy_status);
 }
 
-std::pair<WifiStatus, std::vector<WifiChannelInMhz>>
-WifiApIface::getValidFrequenciesForBandInternal(V1_0::WifiBand band) {
-    static_assert(sizeof(WifiChannelInMhz) == sizeof(uint32_t), "Size mismatch");
-    legacy_hal::wifi_error legacy_status;
-    std::vector<uint32_t> valid_frequencies;
-    std::tie(legacy_status, valid_frequencies) = legacy_hal_.lock()->getValidFrequenciesForBand(
-            instances_.size() > 0 ? instances_[0] : ifname_,
-            hidl_struct_util::convertHidlWifiBandToLegacy(band));
-    return {createWifiStatusFromLegacyError(legacy_status), valid_frequencies};
-}
-
-WifiStatus WifiApIface::setMacAddressInternal(const std::array<uint8_t, 6>& mac) {
+ndk::ScopedAStatus WifiApIface::setMacAddressInternal(const std::array<uint8_t, 6>& mac) {
     // Support random MAC up to 2 interfaces
     if (instances_.size() == 2) {
         int rbyte = 1;
@@ -145,35 +117,35 @@ WifiStatus WifiApIface::setMacAddressInternal(const std::array<uint8_t, 6>& mac)
         LOG(ERROR) << "Fail to config MAC for interface " << ifname_;
         return createWifiStatus(WifiStatusCode::ERROR_UNKNOWN);
     }
-    return createWifiStatus(WifiStatusCode::SUCCESS);
+    return ndk::ScopedAStatus::ok();
 }
 
-std::pair<WifiStatus, std::array<uint8_t, 6>> WifiApIface::getFactoryMacAddressInternal(
+std::pair<std::array<uint8_t, 6>, ndk::ScopedAStatus> WifiApIface::getFactoryMacAddressInternal(
         const std::string& ifaceName) {
     std::array<uint8_t, 6> mac = iface_util_.lock()->getFactoryMacAddress(ifaceName);
     if (mac[0] == 0 && mac[1] == 0 && mac[2] == 0 && mac[3] == 0 && mac[4] == 0 && mac[5] == 0) {
-        return {createWifiStatus(WifiStatusCode::ERROR_UNKNOWN), mac};
+        return {mac, createWifiStatus(WifiStatusCode::ERROR_UNKNOWN)};
     }
-    return {createWifiStatus(WifiStatusCode::SUCCESS), mac};
+    return {mac, ndk::ScopedAStatus::ok()};
 }
 
-WifiStatus WifiApIface::resetToFactoryMacAddressInternal() {
-    std::pair<WifiStatus, std::array<uint8_t, 6>> getMacResult;
+ndk::ScopedAStatus WifiApIface::resetToFactoryMacAddressInternal() {
+    std::pair<std::array<uint8_t, 6>, ndk::ScopedAStatus> getMacResult;
     if (instances_.size() == 2) {
         for (auto const& intf : instances_) {
             getMacResult = getFactoryMacAddressInternal(intf);
             LOG(DEBUG) << "Reset MAC to factory MAC on " << intf;
-            if (getMacResult.first.code != WifiStatusCode::SUCCESS ||
-                !iface_util_.lock()->setMacAddress(intf, getMacResult.second)) {
+            if (!getMacResult.second.isOk() ||
+                !iface_util_.lock()->setMacAddress(intf, getMacResult.first)) {
                 return createWifiStatus(WifiStatusCode::ERROR_UNKNOWN);
             }
         }
-        // It needs to set mac address for bridged interface, otherwise the mac
+        // We need to set mac address for bridged interface, otherwise the mac
         // address of the bridged interface will be changed after one of the
-        // instance down. Thus we are generating a random MAC address for the
-        // bridged interface even if we got the request to reset the Factory
-        // MAC. Since the bridged interface is an internal interface for the
-        // operation of bpf and others networking operation.
+        // instances goes down. Thus we are generating a random MAC address for
+        // the bridged interface even if we got the request to reset the Factory
+        // MAC. This is because the bridged interface is an internal interface
+        // for the operation of bpf and other networking operations.
         if (!iface_util_.lock()->setMacAddress(ifname_,
                                                iface_util_.lock()->createRandomMacAddress())) {
             LOG(ERROR) << "Fail to config MAC for bridged interface " << ifname_;
@@ -182,23 +154,19 @@ WifiStatus WifiApIface::resetToFactoryMacAddressInternal() {
     } else {
         getMacResult = getFactoryMacAddressInternal(ifname_);
         LOG(DEBUG) << "Reset MAC to factory MAC on " << ifname_;
-        if (getMacResult.first.code != WifiStatusCode::SUCCESS ||
-            !iface_util_.lock()->setMacAddress(ifname_, getMacResult.second)) {
+        if (!getMacResult.second.isOk() ||
+            !iface_util_.lock()->setMacAddress(ifname_, getMacResult.first)) {
             return createWifiStatus(WifiStatusCode::ERROR_UNKNOWN);
         }
     }
-    return createWifiStatus(WifiStatusCode::SUCCESS);
+    return ndk::ScopedAStatus::ok();
 }
 
-std::pair<WifiStatus, std::vector<hidl_string>> WifiApIface::getBridgedInstancesInternal() {
-    std::vector<hidl_string> instances;
-    for (const auto& instance_name : instances_) {
-        instances.push_back(instance_name);
-    }
-    return {createWifiStatus(WifiStatusCode::SUCCESS), instances};
+std::pair<std::vector<std::string>, ndk::ScopedAStatus> WifiApIface::getBridgedInstancesInternal() {
+    return {instances_, ndk::ScopedAStatus::ok()};
 }
-}  // namespace implementation
-}  // namespace V1_6
+
 }  // namespace wifi
 }  // namespace hardware
 }  // namespace android
+}  // namespace aidl

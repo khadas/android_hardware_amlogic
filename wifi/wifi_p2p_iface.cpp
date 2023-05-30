@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016 The Android Open Source Project
+ * Copyright (C) 2022 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,18 +14,18 @@
  * limitations under the License.
  */
 
+#include "wifi_p2p_iface.h"
+
 #include <android-base/logging.h>
 
-#include "hidl_return_util.h"
-#include "wifi_p2p_iface.h"
+#include "aidl_return_util.h"
 #include "wifi_status_util.h"
 
+namespace aidl {
 namespace android {
 namespace hardware {
 namespace wifi {
-namespace V1_6 {
-namespace implementation {
-using hidl_return_util::validateAndCall;
+using aidl_return_util::validateAndCall;
 
 WifiP2pIface::WifiP2pIface(const std::string& ifname,
                            const std::weak_ptr<legacy_hal::WifiLegacyHal> legacy_hal)
@@ -44,26 +44,16 @@ std::string WifiP2pIface::getName() {
     return ifname_;
 }
 
-Return<void> WifiP2pIface::getName(getName_cb hidl_status_cb) {
+ndk::ScopedAStatus WifiP2pIface::getName(std::string* _aidl_return) {
     return validateAndCall(this, WifiStatusCode::ERROR_WIFI_IFACE_INVALID,
-                           &WifiP2pIface::getNameInternal, hidl_status_cb);
+                           &WifiP2pIface::getNameInternal, _aidl_return);
 }
 
-Return<void> WifiP2pIface::getType(getType_cb hidl_status_cb) {
-    return validateAndCall(this, WifiStatusCode::ERROR_WIFI_IFACE_INVALID,
-                           &WifiP2pIface::getTypeInternal, hidl_status_cb);
+std::pair<std::string, ndk::ScopedAStatus> WifiP2pIface::getNameInternal() {
+    return {ifname_, ndk::ScopedAStatus::ok()};
 }
 
-std::pair<WifiStatus, std::string> WifiP2pIface::getNameInternal() {
-    return {createWifiStatus(WifiStatusCode::SUCCESS), ifname_};
-}
-
-std::pair<WifiStatus, IfaceType> WifiP2pIface::getTypeInternal() {
-    return {createWifiStatus(WifiStatusCode::SUCCESS), IfaceType::P2P};
-}
-
-}  // namespace implementation
-}  // namespace V1_6
 }  // namespace wifi
 }  // namespace hardware
 }  // namespace android
+}  // namespace aidl

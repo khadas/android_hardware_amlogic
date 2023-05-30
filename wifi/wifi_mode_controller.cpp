@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016 The Android Open Source Project
+ * Copyright (C) 2022 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,16 +14,16 @@
  * limitations under the License.
  */
 
+#include "wifi_mode_controller.h"
+
 #include <android-base/logging.h>
 #include <android-base/macros.h>
 #include <private/android_filesystem_config.h>
 
-#include "wifi_mode_controller.h"
-
-using android::hardware::wifi::V1_0::IfaceType;
+namespace {
+using aidl::android::hardware::wifi::IfaceType;
 using android::wifi_hal::DriverTool;
 
-namespace {
 int convertIfaceTypeToFirmwareMode(IfaceType type) {
     int mode;
     switch (type) {
@@ -33,7 +33,7 @@ int convertIfaceTypeToFirmwareMode(IfaceType type) {
         case IfaceType::P2P:
             mode = DriverTool::kFirmwareModeP2p;
             break;
-        case IfaceType::NAN:
+        case IfaceType::NAN_IFACE:
             // NAN is exposed in STA mode currently.
             mode = DriverTool::kFirmwareModeSta;
             break;
@@ -45,11 +45,10 @@ int convertIfaceTypeToFirmwareMode(IfaceType type) {
 }
 }  // namespace
 
+namespace aidl {
 namespace android {
 namespace hardware {
 namespace wifi {
-namespace V1_6 {
-namespace implementation {
 namespace mode_controller {
 
 WifiModeController::WifiModeController() : driver_tool_(new DriverTool) {}
@@ -81,9 +80,9 @@ bool WifiModeController::deinitialize() {
     }
     return true;
 }
+
 }  // namespace mode_controller
-}  // namespace implementation
-}  // namespace V1_6
 }  // namespace wifi
 }  // namespace hardware
 }  // namespace android
+}  // namespace aidl

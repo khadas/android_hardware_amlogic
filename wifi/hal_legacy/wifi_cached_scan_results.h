@@ -19,24 +19,24 @@
 
 #include "wifi_hal.h"
 
-#define WIFI_CACHED_SCAN_RESULT_FLAGS_NONE (0)
+#define WIFI_CACHED_SCAN_RESULT_FLAGS_NONE                         (0)
 /* Element ID 61 (HT Operation) is present (see HT 7.3.2) */
-#define WIFI_CACHED_SCAN_RESULT_FLAGS_HT_OPS_PRESENT (1 << 0)
+#define WIFI_CACHED_SCAN_RESULT_FLAGS_HT_OPS_PRESENT               (1 << 0)
 /* Element ID 192 (VHT Operation) is present (see VHT 8.4.2)  */
-#define WIFI_CACHED_SCAN_RESULT_FLAGS_VHT_OPS_PRESENT (1 << 1)
+#define WIFI_CACHED_SCAN_RESULT_FLAGS_VHT_OPS_PRESENT              (1 << 1)
 /* Element ID 255 + Extension 36 (HE Operation) is present
  * (see 802.11ax 9.4.2.1)
  */
-#define WIFI_CACHED_SCAN_RESULT_FLAGS_HE_OPS_PRESENT (1 << 2)
+#define WIFI_CACHED_SCAN_RESULT_FLAGS_HE_OPS_PRESENT               (1 << 2)
 /* Element ID 255 + Extension 106 (HE Operation) is present
  * (see 802.11be D1.5 9.4.2.1)
  */
-#define WIFI_CACHED_SCAN_RESULT_FLAGS_EHT_OPS_PRESENT (1 << 3)
+#define WIFI_CACHED_SCAN_RESULT_FLAGS_EHT_OPS_PRESENT              (1 << 3)
 /* Element ID 127 (Extended Capabilities) is present, and bit 70
  * (Fine Timing Measurement Responder) is set to 1
  * (see IEEE Std 802.11-2016 9.4.2.27)
  */
-#define WIFI_CACHED_SCAN_RESULT_FLAGS_IS_FTM_RESPONDER (1 << 4)
+#define WIFI_CACHED_SCAN_RESULT_FLAGS_IS_FTM_RESPONDER             (1 << 4)
 
 /**
  * Provides information about a single access point (AP) detected in a scan.
@@ -56,14 +56,14 @@ typedef struct {
     u8 bssid[6];
     /* A set of flags from WIFI_CACHED_SCAN_RESULT_FLAGS_* */
     u8 flags;
-    s8 rssi;
+    s8  rssi;
     wifi_channel_spec chanspec;
-} wifi_cached_scan_result;
+}wifi_cached_scan_result;
 
 /*
  * Data structure sent with events of type WifiCachedScanResult.
  */
-typedef struct {
+typedef struct  {
     /* time since boot (in microsecond) when the result was retrieved */
     wifi_timestamp ts;
     /* If 0, indicates that all frequencies in current regulation were
@@ -76,17 +76,17 @@ typedef struct {
      * channel center frequencies in MHz. May be NULL if scannedFreqListLen is
      * 0.
      */
-    const u32* scanned_freq_list;
+    const u32 *scanned_freq_list;
     /* The total number of cached results returned. */
     u8 result_cnt;
     /* Pointer to an array containing result_cnt entries. May be NULL if
      * result_cnt is 0.
      */
-    const wifi_cached_scan_result* results;
+    const wifi_cached_scan_result *results;
 } wifi_cached_scan_report;
 
 /* callback for reporting cached scan report */
 typedef struct {
-    void (*on_cached_scan_results)(wifi_cached_scan_report* cache_report);
+  void (*on_cached_scan_results) (wifi_cached_scan_report *cache_report);
 } wifi_cached_scan_result_handler;
 #endif

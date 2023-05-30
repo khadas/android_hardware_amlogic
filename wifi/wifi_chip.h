@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016 The Android Open Source Project
+ * Copyright (C) 2022 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,21 +17,15 @@
 #ifndef WIFI_CHIP_H_
 #define WIFI_CHIP_H_
 
-// HACK: NAN is a macro defined in math.h, which can be included in various
-// headers. This wifi HAL uses an enum called NAN, which does not compile when
-// the macro is defined. Undefine NAN to work around it.
-#undef NAN
+#include <aidl/android/hardware/wifi/BnWifiChip.h>
+#include <aidl/android/hardware/wifi/IWifiRttController.h>
+#include <android-base/macros.h>
 
 #include <list>
 #include <map>
 #include <mutex>
 
-#include <android-base/macros.h>
-#include <android/hardware/wifi/1.6/IWifiChip.h>
-#include <android/hardware/wifi/1.6/IWifiRttController.h>
-#include <android/hardware/wifi/1.6/IWifiStaIface.h>
-
-#include "hidl_callback_util.h"
+#include "aidl_callback_util.h"
 #include "ringbuffer.h"
 #include "wifi_ap_iface.h"
 #include "wifi_feature_flags.h"
@@ -42,132 +36,121 @@
 #include "wifi_rtt_controller.h"
 #include "wifi_sta_iface.h"
 
+namespace aidl {
 namespace android {
 namespace hardware {
 namespace wifi {
-namespace V1_6 {
-namespace implementation {
-using namespace android::hardware::wifi::V1_0;
-using V1_5::WifiBand;
 
 /**
- * HIDL interface object used to control a Wifi HAL chip instance.
+ * AIDL interface object used to control a Wifi HAL chip instance.
  * Since there is only a single chip instance used today, there is no
  * identifying handle information stored here.
  */
-class WifiChip : public V1_6::IWifiChip {
+class WifiChip : public BnWifiChip {
   public:
-    WifiChip(ChipId chip_id, bool is_primary,
+    WifiChip(int32_t chip_id, bool is_primary,
              const std::weak_ptr<legacy_hal::WifiLegacyHal> legacy_hal,
              const std::weak_ptr<mode_controller::WifiModeController> mode_controller,
              const std::shared_ptr<iface_util::WifiIfaceUtil> iface_util,
              const std::weak_ptr<feature_flags::WifiFeatureFlags> feature_flags,
              const std::function<void(const std::string&)>& subsystemCallbackHandler);
-    // HIDL does not provide a built-in mechanism to let the server invalidate
-    // a HIDL interface object after creation. If any client process holds onto
+
+    // Factory method - use instead of default constructor.
+    static std::shared_ptr<WifiChip> create(
+            int32_t chip_id, bool is_primary,
+            const std::weak_ptr<legacy_hal::WifiLegacyHal> legacy_hal,
+            const std::weak_ptr<mode_controller::WifiModeController> mode_controller,
+            const std::shared_ptr<iface_util::WifiIfaceUtil> iface_util,
+            const std::weak_ptr<feature_flags::WifiFeatureFlags> feature_flags,
+            const std::function<void(const std::string&)>& subsystemCallbackHandler);
+
+    // AIDL does not provide a built-in mechanism to let the server invalidate
+    // an AIDL interface object after creation. If any client process holds onto
     // a reference to the object in their context, any method calls on that
     // reference will continue to be directed to the server.
     //
     // However Wifi HAL needs to control the lifetime of these objects. So, add
-    // a public |invalidate| method to |WifiChip| and it's child objects. This
+    // a public |invalidate| method to |WifiChip| and its child objects. This
     // will be used to mark an object invalid when either:
     // a) Wifi HAL is stopped, or
     // b) Wifi Chip is reconfigured.
     //
-    // All HIDL method implementations should check if the object is still
+    // All AIDL method implementations should check if the object is still
     // marked valid before processing them.
     void invalidate();
     bool isValid();
-    std::set<sp<V1_4::IWifiChipEventCallback>> getEventCallbacks();
+    std::set<std::shared_ptr<IWifiChipEventCallback>> getEventCallbacks();
 
-    // HIDL methods exposed.
-    Return<void> getId(getId_cb hidl_status_cb) override;
-    // Deprecated support for this callback
-    Return<void> registerEventCallback(const sp<V1_0::IWifiChipEventCallback>& event_callback,
-                                       registerEventCallback_cb hidl_status_cb) override;
-    Return<void> getCapabilities(getCapabilities_cb hidl_status_cb) override;
-    Return<void> getAvailableModes(getAvailableModes_cb hidl_status_cb) override;
-    Return<void> configureChip(ChipModeId mode_id, configureChip_cb hidl_status_cb) override;
-    Return<void> getMode(getMode_cb hidl_status_cb) override;
-    Return<void> requestChipDebugInfo(requestChipDebugInfo_cb hidl_status_cb) override;
-    Return<void> requestDriverDebugDump(requestDriverDebugDump_cb hidl_status_cb) override;
-    Return<void> requestFirmwareDebugDump(requestFirmwareDebugDump_cb hidl_status_cb) override;
-    Return<void> createApIface(createApIface_cb hidl_status_cb) override;
-    Return<void> createBridgedApIface(createBridgedApIface_cb hidl_status_cb) override;
-    Return<void> getApIfaceNames(getApIfaceNames_cb hidl_status_cb) override;
-    Return<void> getApIface(const hidl_string& ifname, getApIface_cb hidl_status_cb) override;
-    Return<void> removeApIface(const hidl_string& ifname, removeApIface_cb hidl_status_cb) override;
-    Return<void> removeIfaceInstanceFromBridgedApIface(
-            const hidl_string& brIfaceName, const hidl_string& ifaceInstanceName,
-            removeIfaceInstanceFromBridgedApIface_cb hidl_status_cb) override;
-    Return<void> createNanIface(createNanIface_cb hidl_status_cb) override;
-    Return<void> getNanIfaceNames(getNanIfaceNames_cb hidl_status_cb) override;
-    Return<void> getNanIface(const hidl_string& ifname, getNanIface_cb hidl_status_cb) override;
-    Return<void> removeNanIface(const hidl_string& ifname,
-                                removeNanIface_cb hidl_status_cb) override;
-    Return<void> createP2pIface(createP2pIface_cb hidl_status_cb) override;
-    Return<void> getP2pIfaceNames(getP2pIfaceNames_cb hidl_status_cb) override;
-    Return<void> getP2pIface(const hidl_string& ifname, getP2pIface_cb hidl_status_cb) override;
-    Return<void> removeP2pIface(const hidl_string& ifname,
-                                removeP2pIface_cb hidl_status_cb) override;
-    Return<void> createStaIface(createStaIface_cb hidl_status_cb) override;
-    Return<void> getStaIfaceNames(getStaIfaceNames_cb hidl_status_cb) override;
-    Return<void> getStaIface(const hidl_string& ifname, getStaIface_cb hidl_status_cb) override;
-    Return<void> removeStaIface(const hidl_string& ifname,
-                                removeStaIface_cb hidl_status_cb) override;
-    Return<void> createRttController(const sp<IWifiIface>& bound_iface,
-                                     createRttController_cb hidl_status_cb) override;
-    Return<void> getDebugRingBuffersStatus(getDebugRingBuffersStatus_cb hidl_status_cb) override;
-    Return<void> startLoggingToDebugRingBuffer(
-            const hidl_string& ring_name, WifiDebugRingBufferVerboseLevel verbose_level,
-            uint32_t max_interval_in_sec, uint32_t min_data_size_in_bytes,
-            startLoggingToDebugRingBuffer_cb hidl_status_cb) override;
-    Return<void> forceDumpToDebugRingBuffer(const hidl_string& ring_name,
-                                            forceDumpToDebugRingBuffer_cb hidl_status_cb) override;
-    Return<void> flushRingBufferToFile(flushRingBufferToFile_cb hidl_status_cb) override;
-    Return<void> stopLoggingToDebugRingBuffer(
-            stopLoggingToDebugRingBuffer_cb hidl_status_cb) override;
-    Return<void> getDebugHostWakeReasonStats(
-            getDebugHostWakeReasonStats_cb hidl_status_cb) override;
-    Return<void> enableDebugErrorAlerts(bool enable,
-                                        enableDebugErrorAlerts_cb hidl_status_cb) override;
-    Return<void> selectTxPowerScenario(V1_1::IWifiChip::TxPowerScenario scenario,
-                                       selectTxPowerScenario_cb hidl_status_cb) override;
-    Return<void> resetTxPowerScenario(resetTxPowerScenario_cb hidl_status_cb) override;
-    Return<void> setLatencyMode(LatencyMode mode, setLatencyMode_cb hidl_status_cb) override;
-    Return<void> registerEventCallback_1_2(const sp<V1_2::IWifiChipEventCallback>& event_callback,
-                                           registerEventCallback_1_2_cb hidl_status_cb) override;
-    Return<void> selectTxPowerScenario_1_2(TxPowerScenario scenario,
-                                           selectTxPowerScenario_cb hidl_status_cb) override;
-    Return<void> getCapabilities_1_3(getCapabilities_cb hidl_status_cb) override;
-    Return<void> getCapabilities_1_5(getCapabilities_1_5_cb hidl_status_cb) override;
-    Return<void> debug(const hidl_handle& handle, const hidl_vec<hidl_string>& options) override;
-    Return<void> createRttController_1_4(const sp<IWifiIface>& bound_iface,
-                                         createRttController_1_4_cb hidl_status_cb) override;
-    Return<void> registerEventCallback_1_4(const sp<V1_4::IWifiChipEventCallback>& event_callback,
-                                           registerEventCallback_1_4_cb hidl_status_cb) override;
-    Return<void> setMultiStaPrimaryConnection(
-            const hidl_string& ifname, setMultiStaPrimaryConnection_cb hidl_status_cb) override;
-    Return<void> setMultiStaUseCase(MultiStaUseCase use_case,
-                                    setMultiStaUseCase_cb hidl_status_cb) override;
-    Return<void> setCoexUnsafeChannels(const hidl_vec<CoexUnsafeChannel>& unsafe_channels,
-                                       hidl_bitfield<IfaceType> restrictions,
-                                       setCoexUnsafeChannels_cb hidl_status_cb) override;
-    Return<void> setCountryCode(const hidl_array<int8_t, 2>& code,
-                                setCountryCode_cb _hidl_cb) override;
-    Return<void> getUsableChannels(WifiBand band, hidl_bitfield<V1_5::WifiIfaceMode> ifaceModeMask,
-                                   hidl_bitfield<V1_5::IWifiChip::UsableChannelFilter> filterMask,
-                                   getUsableChannels_cb _hidl_cb) override;
-    Return<void> triggerSubsystemRestart(triggerSubsystemRestart_cb hidl_status_cb) override;
-    Return<void> createRttController_1_6(const sp<IWifiIface>& bound_iface,
-                                         createRttController_1_6_cb hidl_status_cb) override;
-    Return<void> getUsableChannels_1_6(WifiBand band,
-                                       hidl_bitfield<V1_5::WifiIfaceMode> ifaceModeMask,
-                                       hidl_bitfield<UsableChannelFilter> filterMask,
-                                       getUsableChannels_1_6_cb _hidl_cb) override;
-    Return<void> getSupportedRadioCombinationsMatrix(
-            getSupportedRadioCombinationsMatrix_cb hidl_status_cb) override;
-    Return<void> getAvailableModes_1_6(getAvailableModes_1_6_cb hidl_status_cb) override;
+    // AIDL methods exposed.
+    ndk::ScopedAStatus getId(int32_t* _aidl_return) override;
+    ndk::ScopedAStatus registerEventCallback(
+            const std::shared_ptr<IWifiChipEventCallback>& in_callback) override;
+    ndk::ScopedAStatus getFeatureSet(int32_t* _aidl_return) override;
+    ndk::ScopedAStatus getAvailableModes(std::vector<IWifiChip::ChipMode>* _aidl_return) override;
+    ndk::ScopedAStatus configureChip(int32_t in_modeId) override;
+    ndk::ScopedAStatus getMode(int32_t* _aidl_return) override;
+    ndk::ScopedAStatus requestChipDebugInfo(IWifiChip::ChipDebugInfo* _aidl_return) override;
+    ndk::ScopedAStatus requestDriverDebugDump(std::vector<uint8_t>* _aidl_return) override;
+    ndk::ScopedAStatus requestFirmwareDebugDump(std::vector<uint8_t>* _aidl_return) override;
+    ndk::ScopedAStatus createApIface(std::shared_ptr<IWifiApIface>* _aidl_return) override;
+    ndk::ScopedAStatus createBridgedApIface(std::shared_ptr<IWifiApIface>* _aidl_return) override;
+    ndk::ScopedAStatus getApIfaceNames(std::vector<std::string>* _aidl_return) override;
+    ndk::ScopedAStatus getApIface(const std::string& in_ifname,
+                                  std::shared_ptr<IWifiApIface>* _aidl_return) override;
+    ndk::ScopedAStatus removeApIface(const std::string& in_ifname) override;
+    ndk::ScopedAStatus removeIfaceInstanceFromBridgedApIface(
+            const std::string& in_brIfaceName, const std::string& in_ifaceInstanceName) override;
+    ndk::ScopedAStatus createNanIface(std::shared_ptr<IWifiNanIface>* _aidl_return) override;
+    ndk::ScopedAStatus getNanIfaceNames(std::vector<std::string>* _aidl_return) override;
+    ndk::ScopedAStatus getNanIface(const std::string& in_ifname,
+                                   std::shared_ptr<IWifiNanIface>* _aidl_return) override;
+    ndk::ScopedAStatus removeNanIface(const std::string& in_ifname) override;
+    ndk::ScopedAStatus createP2pIface(std::shared_ptr<IWifiP2pIface>* _aidl_return) override;
+    ndk::ScopedAStatus getP2pIfaceNames(std::vector<std::string>* _aidl_return) override;
+    ndk::ScopedAStatus getP2pIface(const std::string& in_ifname,
+                                   std::shared_ptr<IWifiP2pIface>* _aidl_return) override;
+    ndk::ScopedAStatus removeP2pIface(const std::string& in_ifname) override;
+    ndk::ScopedAStatus createStaIface(std::shared_ptr<IWifiStaIface>* _aidl_return) override;
+    ndk::ScopedAStatus getStaIfaceNames(std::vector<std::string>* _aidl_return) override;
+    ndk::ScopedAStatus getStaIface(const std::string& in_ifname,
+                                   std::shared_ptr<IWifiStaIface>* _aidl_return) override;
+    ndk::ScopedAStatus removeStaIface(const std::string& in_ifname) override;
+    ndk::ScopedAStatus createRttController(
+            const std::shared_ptr<IWifiStaIface>& in_boundIface,
+            std::shared_ptr<IWifiRttController>* _aidl_return) override;
+    ndk::ScopedAStatus getDebugRingBuffersStatus(
+            std::vector<WifiDebugRingBufferStatus>* _aidl_return) override;
+    ndk::ScopedAStatus startLoggingToDebugRingBuffer(
+            const std::string& in_ringName, WifiDebugRingBufferVerboseLevel in_verboseLevel,
+            int32_t in_maxIntervalInSec, int32_t in_minDataSizeInBytes) override;
+    ndk::ScopedAStatus forceDumpToDebugRingBuffer(const std::string& in_ringName) override;
+    ndk::ScopedAStatus flushRingBufferToFile() override;
+    ndk::ScopedAStatus stopLoggingToDebugRingBuffer() override;
+    ndk::ScopedAStatus getDebugHostWakeReasonStats(
+            WifiDebugHostWakeReasonStats* _aidl_return) override;
+    ndk::ScopedAStatus enableDebugErrorAlerts(bool in_enable) override;
+    ndk::ScopedAStatus selectTxPowerScenario(IWifiChip::TxPowerScenario in_scenario) override;
+    ndk::ScopedAStatus resetTxPowerScenario() override;
+    ndk::ScopedAStatus setLatencyMode(IWifiChip::LatencyMode in_mode) override;
+    ndk::ScopedAStatus setMultiStaPrimaryConnection(const std::string& in_ifName) override;
+    ndk::ScopedAStatus setMultiStaUseCase(IWifiChip::MultiStaUseCase in_useCase) override;
+    ndk::ScopedAStatus setCoexUnsafeChannels(
+            const std::vector<IWifiChip::CoexUnsafeChannel>& in_unsafeChannels,
+            int32_t in_restrictions) override;
+    ndk::ScopedAStatus setCountryCode(const std::array<uint8_t, 2>& in_code) override;
+    ndk::ScopedAStatus getUsableChannels(WifiBand in_band, int32_t in_ifaceModeMask,
+                                         int32_t in_filterMask,
+                                         std::vector<WifiUsableChannel>* _aidl_return) override;
+    ndk::ScopedAStatus setAfcChannelAllowance(
+            const AfcChannelAllowance& afcChannelAllowance) override;
+    ndk::ScopedAStatus triggerSubsystemRestart() override;
+    ndk::ScopedAStatus getSupportedRadioCombinations(
+            std::vector<WifiRadioCombination>* _aidl_return) override;
+    ndk::ScopedAStatus getWifiChipCapabilities(WifiChipCapabilities* _aidl_return) override;
+    ndk::ScopedAStatus enableStaChannelForPeerNetwork(
+            int32_t in_channelCategoryEnableFlag) override;
+    binder_status_t dump(int fd, const char** args, uint32_t numArgs) override;
+    ndk::ScopedAStatus setMloMode(const ChipMloMode in_mode) override;
 
   private:
     void invalidateAndRemoveAllIfaces();
@@ -175,81 +158,78 @@ class WifiChip : public V1_6::IWifiChip {
     // invalidated & removed.
     void invalidateAndRemoveDependencies(const std::string& removed_iface_name);
 
-    // Corresponding worker functions for the HIDL methods.
-    std::pair<WifiStatus, ChipId> getIdInternal();
-    // Deprecated support for this callback
-    WifiStatus registerEventCallbackInternal(
-            const sp<V1_0::IWifiChipEventCallback>& event_callback);
-    std::pair<WifiStatus, uint32_t> getCapabilitiesInternal();
-    std::pair<WifiStatus, std::vector<V1_0::IWifiChip::ChipMode>> getAvailableModesInternal();
-    WifiStatus configureChipInternal(std::unique_lock<std::recursive_mutex>* lock,
-                                     ChipModeId mode_id);
-    std::pair<WifiStatus, uint32_t> getModeInternal();
-    std::pair<WifiStatus, IWifiChip::ChipDebugInfo> requestChipDebugInfoInternal();
-    std::pair<WifiStatus, std::vector<uint8_t>> requestDriverDebugDumpInternal();
-    std::pair<WifiStatus, std::vector<uint8_t>> requestFirmwareDebugDumpInternal();
-    sp<WifiApIface> newWifiApIface(std::string& ifname);
-    WifiStatus createVirtualApInterface(const std::string& apVirtIf);
-    std::pair<WifiStatus, sp<V1_5::IWifiApIface>> createApIfaceInternal();
-    std::pair<WifiStatus, sp<V1_5::IWifiApIface>> createBridgedApIfaceInternal();
-    std::pair<WifiStatus, std::vector<hidl_string>> getApIfaceNamesInternal();
-    std::pair<WifiStatus, sp<V1_5::IWifiApIface>> getApIfaceInternal(const std::string& ifname);
-    WifiStatus removeApIfaceInternal(const std::string& ifname);
-    WifiStatus removeIfaceInstanceFromBridgedApIfaceInternal(const std::string& brIfaceName,
-                                                             const std::string& ifInstanceName);
-    std::pair<WifiStatus, sp<V1_4::IWifiNanIface>> createNanIfaceInternal();
-    std::pair<WifiStatus, std::vector<hidl_string>> getNanIfaceNamesInternal();
-    std::pair<WifiStatus, sp<V1_4::IWifiNanIface>> getNanIfaceInternal(const std::string& ifname);
-    WifiStatus removeNanIfaceInternal(const std::string& ifname);
-    std::pair<WifiStatus, sp<IWifiP2pIface>> createP2pIfaceInternal();
-    std::pair<WifiStatus, std::vector<hidl_string>> getP2pIfaceNamesInternal();
-    std::pair<WifiStatus, sp<IWifiP2pIface>> getP2pIfaceInternal(const std::string& ifname);
-    WifiStatus removeP2pIfaceInternal(const std::string& ifname);
-    std::pair<WifiStatus, sp<V1_6::IWifiStaIface>> createStaIfaceInternal();
-    std::pair<WifiStatus, std::vector<hidl_string>> getStaIfaceNamesInternal();
-    std::pair<WifiStatus, sp<V1_6::IWifiStaIface>> getStaIfaceInternal(const std::string& ifname);
-    WifiStatus removeStaIfaceInternal(const std::string& ifname);
-    std::pair<WifiStatus, sp<V1_0::IWifiRttController>> createRttControllerInternal(
-            const sp<IWifiIface>& bound_iface);
-    std::pair<WifiStatus, std::vector<WifiDebugRingBufferStatus>>
+    // Corresponding worker functions for the AIDL methods.
+    std::pair<int32_t, ndk::ScopedAStatus> getIdInternal();
+    ndk::ScopedAStatus registerEventCallbackInternal(
+            const std::shared_ptr<IWifiChipEventCallback>& event_callback);
+    std::pair<int32_t, ndk::ScopedAStatus> getFeatureSetInternal();
+    std::pair<std::vector<IWifiChip::ChipMode>, ndk::ScopedAStatus> getAvailableModesInternal();
+    ndk::ScopedAStatus configureChipInternal(std::unique_lock<std::recursive_mutex>* lock,
+                                             int32_t mode_id);
+    std::pair<int32_t, ndk::ScopedAStatus> getModeInternal();
+    std::pair<IWifiChip::ChipDebugInfo, ndk::ScopedAStatus> requestChipDebugInfoInternal();
+    std::pair<std::vector<uint8_t>, ndk::ScopedAStatus> requestDriverDebugDumpInternal();
+    std::pair<std::vector<uint8_t>, ndk::ScopedAStatus> requestFirmwareDebugDumpInternal();
+    std::shared_ptr<WifiApIface> newWifiApIface(std::string& ifname);
+    ndk::ScopedAStatus createVirtualApInterface(const std::string& apVirtIf);
+    std::pair<std::shared_ptr<IWifiApIface>, ndk::ScopedAStatus> createApIfaceInternal();
+    std::pair<std::shared_ptr<IWifiApIface>, ndk::ScopedAStatus> createBridgedApIfaceInternal();
+    std::pair<std::vector<std::string>, ndk::ScopedAStatus> getApIfaceNamesInternal();
+    std::pair<std::shared_ptr<IWifiApIface>, ndk::ScopedAStatus> getApIfaceInternal(
+            const std::string& ifname);
+    ndk::ScopedAStatus removeApIfaceInternal(const std::string& ifname);
+    ndk::ScopedAStatus removeIfaceInstanceFromBridgedApIfaceInternal(
+            const std::string& brIfaceName, const std::string& ifInstanceName);
+    std::pair<std::shared_ptr<IWifiNanIface>, ndk::ScopedAStatus> createNanIfaceInternal();
+    std::pair<std::vector<std::string>, ndk::ScopedAStatus> getNanIfaceNamesInternal();
+    std::pair<std::shared_ptr<IWifiNanIface>, ndk::ScopedAStatus> getNanIfaceInternal(
+            const std::string& ifname);
+    ndk::ScopedAStatus removeNanIfaceInternal(const std::string& ifname);
+    std::pair<std::shared_ptr<IWifiP2pIface>, ndk::ScopedAStatus> createP2pIfaceInternal();
+    std::pair<std::vector<std::string>, ndk::ScopedAStatus> getP2pIfaceNamesInternal();
+    std::pair<std::shared_ptr<IWifiP2pIface>, ndk::ScopedAStatus> getP2pIfaceInternal(
+            const std::string& ifname);
+    ndk::ScopedAStatus removeP2pIfaceInternal(const std::string& ifname);
+    std::pair<std::shared_ptr<IWifiStaIface>, ndk::ScopedAStatus> createStaIfaceInternal();
+    std::pair<std::vector<std::string>, ndk::ScopedAStatus> getStaIfaceNamesInternal();
+    std::pair<std::shared_ptr<IWifiStaIface>, ndk::ScopedAStatus> getStaIfaceInternal(
+            const std::string& ifname);
+    ndk::ScopedAStatus removeStaIfaceInternal(const std::string& ifname);
+    std::pair<std::shared_ptr<IWifiRttController>, ndk::ScopedAStatus> createRttControllerInternal(
+            const std::shared_ptr<IWifiStaIface>& bound_iface);
+    std::pair<std::vector<WifiDebugRingBufferStatus>, ndk::ScopedAStatus>
     getDebugRingBuffersStatusInternal();
-    WifiStatus startLoggingToDebugRingBufferInternal(const hidl_string& ring_name,
-                                                     WifiDebugRingBufferVerboseLevel verbose_level,
-                                                     uint32_t max_interval_in_sec,
-                                                     uint32_t min_data_size_in_bytes);
-    WifiStatus forceDumpToDebugRingBufferInternal(const hidl_string& ring_name);
-    WifiStatus flushRingBufferToFileInternal();
-    WifiStatus stopLoggingToDebugRingBufferInternal();
-    std::pair<WifiStatus, WifiDebugHostWakeReasonStats> getDebugHostWakeReasonStatsInternal();
-    WifiStatus enableDebugErrorAlertsInternal(bool enable);
-    WifiStatus selectTxPowerScenarioInternal(V1_1::IWifiChip::TxPowerScenario scenario);
-    WifiStatus resetTxPowerScenarioInternal();
-    WifiStatus setLatencyModeInternal(LatencyMode mode);
-    WifiStatus registerEventCallbackInternal_1_2(
-            const sp<V1_2::IWifiChipEventCallback>& event_callback);
-    WifiStatus selectTxPowerScenarioInternal_1_2(TxPowerScenario scenario);
-    std::pair<WifiStatus, uint32_t> getCapabilitiesInternal_1_3();
-    std::pair<WifiStatus, uint32_t> getCapabilitiesInternal_1_5();
-    std::pair<WifiStatus, sp<V1_4::IWifiRttController>> createRttControllerInternal_1_4(
-            const sp<IWifiIface>& bound_iface);
-    WifiStatus registerEventCallbackInternal_1_4(
-            const sp<V1_4::IWifiChipEventCallback>& event_callback);
-    WifiStatus setMultiStaPrimaryConnectionInternal(const std::string& ifname);
-    WifiStatus setMultiStaUseCaseInternal(MultiStaUseCase use_case);
-    WifiStatus setCoexUnsafeChannelsInternal(std::vector<CoexUnsafeChannel> unsafe_channels,
-                                             uint32_t restrictions);
-    WifiStatus setCountryCodeInternal(const std::array<int8_t, 2>& code);
-    std::pair<WifiStatus, std::vector<V1_5::WifiUsableChannel>> getUsableChannelsInternal(
-            WifiBand band, uint32_t ifaceModeMask, uint32_t filterMask);
-    WifiStatus handleChipConfiguration(std::unique_lock<std::recursive_mutex>* lock,
-                                       ChipModeId mode_id);
-    WifiStatus registerDebugRingBufferCallback();
-    WifiStatus registerRadioModeChangeCallback();
-    std::vector<V1_6::IWifiChip::ChipConcurrencyCombination>
-    getCurrentModeConcurrencyCombinations();
+    ndk::ScopedAStatus startLoggingToDebugRingBufferInternal(
+            const std::string& ring_name, WifiDebugRingBufferVerboseLevel verbose_level,
+            uint32_t max_interval_in_sec, uint32_t min_data_size_in_bytes);
+    ndk::ScopedAStatus forceDumpToDebugRingBufferInternal(const std::string& ring_name);
+    ndk::ScopedAStatus flushRingBufferToFileInternal();
+    ndk::ScopedAStatus stopLoggingToDebugRingBufferInternal();
+    std::pair<WifiDebugHostWakeReasonStats, ndk::ScopedAStatus>
+    getDebugHostWakeReasonStatsInternal();
+    ndk::ScopedAStatus enableDebugErrorAlertsInternal(bool enable);
+    ndk::ScopedAStatus selectTxPowerScenarioInternal(IWifiChip::TxPowerScenario scenario);
+    ndk::ScopedAStatus resetTxPowerScenarioInternal();
+    ndk::ScopedAStatus setLatencyModeInternal(IWifiChip::LatencyMode mode);
+    ndk::ScopedAStatus setMultiStaPrimaryConnectionInternal(const std::string& ifname);
+    ndk::ScopedAStatus setMultiStaUseCaseInternal(IWifiChip::MultiStaUseCase use_case);
+    ndk::ScopedAStatus setCoexUnsafeChannelsInternal(
+            std::vector<IWifiChip::CoexUnsafeChannel> unsafe_channels, int32_t restrictions);
+    ndk::ScopedAStatus setCountryCodeInternal(const std::array<uint8_t, 2>& in_code);
+    std::pair<std::vector<WifiUsableChannel>, ndk::ScopedAStatus> getUsableChannelsInternal(
+            WifiBand band, int32_t ifaceModeMask, int32_t filterMask);
+    ndk::ScopedAStatus enableStaChannelForPeerNetworkInternal(int32_t channelCategoryEnableFlag);
+    ndk::ScopedAStatus setAfcChannelAllowanceInternal(
+            const AfcChannelAllowance& afcChannelAllowance);
+    ndk::ScopedAStatus handleChipConfiguration(std::unique_lock<std::recursive_mutex>* lock,
+                                               int32_t mode_id);
+    ndk::ScopedAStatus registerDebugRingBufferCallback();
+    ndk::ScopedAStatus registerRadioModeChangeCallback();
+
+    std::vector<ChipConcurrencyCombination> getCurrentModeConcurrencyCombinations();
     std::map<IfaceConcurrencyType, size_t> getCurrentConcurrencyCombination();
     std::vector<std::map<IfaceConcurrencyType, size_t>> expandConcurrencyCombinations(
-            const V1_6::IWifiChip::ChipConcurrencyCombination& combination);
+            const ChipConcurrencyCombination& combination);
     bool canExpandedConcurrencyComboSupportConcurrencyTypeWithCurrentTypes(
             const std::map<IfaceConcurrencyType, size_t>& expanded_combo,
             IfaceConcurrencyType requested_type);
@@ -260,7 +240,8 @@ class WifiChip : public V1_6::IWifiChip {
     bool canCurrentModeSupportConcurrencyCombo(
             const std::map<IfaceConcurrencyType, size_t>& req_combo);
     bool canCurrentModeSupportConcurrencyType(IfaceConcurrencyType requested_type);
-    bool isValidModeId(ChipModeId mode_id);
+
+    bool isValidModeId(int32_t mode_id);
     bool isStaApConcurrencyAllowedInCurrentMode();
     bool isDualStaConcurrencyAllowedInCurrentMode();
     uint32_t startIdxOfApIface();
@@ -274,44 +255,45 @@ class WifiChip : public V1_6::IWifiChip {
     void invalidateAndClearBridgedApAll();
     void invalidateAndClearBridgedAp(const std::string& br_name);
     bool findUsingNameFromBridgedApInstances(const std::string& name);
-    WifiStatus triggerSubsystemRestartInternal();
-    std::pair<WifiStatus, sp<V1_6::IWifiRttController>> createRttControllerInternal_1_6(
-            const sp<IWifiIface>& bound_iface);
-    std::pair<WifiStatus, std::vector<V1_6::WifiUsableChannel>> getUsableChannelsInternal_1_6(
-            WifiBand band, uint32_t ifaceModeMask, uint32_t filterMask);
-    std::pair<WifiStatus, WifiRadioCombinationMatrix> getSupportedRadioCombinationsMatrixInternal();
-    std::pair<WifiStatus, std::vector<V1_6::IWifiChip::ChipMode>> getAvailableModesInternal_1_6();
+    ndk::ScopedAStatus triggerSubsystemRestartInternal();
+    std::pair<std::vector<WifiRadioCombination>, ndk::ScopedAStatus>
+    getSupportedRadioCombinationsInternal();
+    std::pair<WifiChipCapabilities, ndk::ScopedAStatus> getWifiChipCapabilitiesInternal();
+    ndk::ScopedAStatus setMloModeInternal(const ChipMloMode in_mode);
+    void retrieveDynamicIfaceCombination();
+    void setWeakPtr(std::weak_ptr<WifiChip> ptr);
 
-    ChipId chip_id_;
+    int32_t chip_id_;
     std::weak_ptr<legacy_hal::WifiLegacyHal> legacy_hal_;
     std::weak_ptr<mode_controller::WifiModeController> mode_controller_;
     std::shared_ptr<iface_util::WifiIfaceUtil> iface_util_;
-    std::vector<sp<WifiApIface>> ap_ifaces_;
-    std::vector<sp<WifiNanIface>> nan_ifaces_;
-    std::vector<sp<WifiP2pIface>> p2p_ifaces_;
-    std::vector<sp<WifiStaIface>> sta_ifaces_;
-    std::vector<sp<WifiRttController>> rtt_controllers_;
+    std::vector<std::shared_ptr<WifiApIface>> ap_ifaces_;
+    std::vector<std::shared_ptr<WifiNanIface>> nan_ifaces_;
+    std::vector<std::shared_ptr<WifiP2pIface>> p2p_ifaces_;
+    std::vector<std::shared_ptr<WifiStaIface>> sta_ifaces_;
+    std::vector<std::shared_ptr<WifiRttController>> rtt_controllers_;
     std::map<std::string, Ringbuffer> ringbuffer_map_;
     bool is_valid_;
     // Members pertaining to chip configuration.
-    uint32_t current_mode_id_;
+    int32_t current_mode_id_;
     std::mutex lock_t;
-    std::vector<V1_6::IWifiChip::ChipMode> modes_;
+    std::vector<IWifiChip::ChipMode> modes_;
     // The legacy ring buffer callback API has only a global callback
     // registration mechanism. Use this to check if we have already
     // registered a callback.
     bool debug_ring_buffer_cb_registered_;
-    hidl_callback_util::HidlCallbackHandler<V1_4::IWifiChipEventCallback> event_cb_handler_;
+    bool using_dynamic_iface_combination_;
+    aidl_callback_util::AidlCallbackHandler<IWifiChipEventCallback> event_cb_handler_;
+    std::weak_ptr<WifiChip> weak_ptr_this_;
 
     const std::function<void(const std::string&)> subsystemCallbackHandler_;
     std::map<std::string, std::vector<std::string>> br_ifaces_ap_instances_;
     DISALLOW_COPY_AND_ASSIGN(WifiChip);
 };
 
-}  // namespace implementation
-}  // namespace V1_6
 }  // namespace wifi
 }  // namespace hardware
 }  // namespace android
+}  // namespace aidl
 
 #endif  // WIFI_CHIP_H_

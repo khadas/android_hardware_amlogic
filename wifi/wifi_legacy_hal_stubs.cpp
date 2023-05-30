@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016 The Android Open Source Project
+ * Copyright (C) 2022 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,11 +17,10 @@
 #include "wifi_legacy_hal_stubs.h"
 
 // TODO: Remove these stubs from HalTool in libwifi-system.
+namespace aidl {
 namespace android {
 namespace hardware {
 namespace wifi {
-namespace V1_6 {
-namespace implementation {
 namespace legacy_hal {
 template <typename>
 struct stubFunction;
@@ -127,7 +126,12 @@ bool initHalFuncTableWithStubs(wifi_hal_fn* hal_fn) {
     populateStubFor(&hal_fn->wifi_nan_data_interface_delete);
     populateStubFor(&hal_fn->wifi_nan_data_request_initiator);
     populateStubFor(&hal_fn->wifi_nan_data_indication_response);
+    populateStubFor(&hal_fn->wifi_nan_pairing_request);
+    populateStubFor(&hal_fn->wifi_nan_pairing_indication_response);
+    populateStubFor(&hal_fn->wifi_nan_bootstrapping_request);
+    populateStubFor(&hal_fn->wifi_nan_bootstrapping_indication_response);
     populateStubFor(&hal_fn->wifi_nan_data_end);
+    populateStubFor(&hal_fn->wifi_nan_pairing_end);
     populateStubFor(&hal_fn->wifi_get_packet_filter_capabilities);
     populateStubFor(&hal_fn->wifi_set_packet_filter);
     populateStubFor(&hal_fn->wifi_read_packet_filter);
@@ -166,11 +170,20 @@ bool initHalFuncTableWithStubs(wifi_hal_fn* hal_fn) {
     populateStubFor(&hal_fn->wifi_nan_rtt_chre_enable_request);
     populateStubFor(&hal_fn->wifi_nan_rtt_chre_disable_request);
     populateStubFor(&hal_fn->wifi_chre_register_handler);
+    populateStubFor(&hal_fn->wifi_enable_tx_power_limits);
+    populateStubFor(&hal_fn->wifi_get_cached_scan_results);
+    populateStubFor(&hal_fn->wifi_get_chip_capabilities);
+    populateStubFor(&hal_fn->wifi_enable_sta_channel_for_peer_network);
+    populateStubFor(&hal_fn->wifi_nan_suspend_request);
+    populateStubFor(&hal_fn->wifi_nan_resume_request);
+    populateStubFor(&hal_fn->wifi_set_scan_mode);
+    populateStubFor(&hal_fn->wifi_set_mlo_mode);
+    populateStubFor(&hal_fn->wifi_get_supported_iface_concurrency_matrix);
     return true;
 }
+
 }  // namespace legacy_hal
-}  // namespace implementation
-}  // namespace V1_6
 }  // namespace wifi
 }  // namespace hardware
 }  // namespace android
+}  // namespace aidl

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2018 The Android Open Source Project
+ * Copyright (C) 2022 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,22 +20,29 @@
 #include <list>
 #include <vector>
 
+namespace aidl {
 namespace android {
 namespace hardware {
 namespace wifi {
-namespace V1_6 {
-namespace implementation {
 
 /**
  * Ringbuffer object used to store debug data.
  */
 class Ringbuffer {
   public:
+    // Error codes for the append ring buffer operation
+    enum AppendStatus {
+        SUCCESS,
+        FAIL_GENERIC,
+        FAIL_IP_BUFFER_ZERO,
+        FAIL_IP_BUFFER_EXCEEDED_MAXSIZE,
+        FAIL_RING_BUFFER_CORRUPTED
+    };
     explicit Ringbuffer(size_t maxSize);
 
     // Appends the data buffer and deletes from the front until buffer is
     // within |maxSize_|.
-    void append(const std::vector<uint8_t>& input);
+    enum AppendStatus append(const std::vector<uint8_t>& input);
     const std::list<std::vector<uint8_t>>& getData() const;
     void clear();
 
@@ -45,10 +52,9 @@ class Ringbuffer {
     size_t maxSize_;
 };
 
-}  // namespace implementation
-}  // namespace V1_6
 }  // namespace wifi
 }  // namespace hardware
 }  // namespace android
+}  // namespace aidl
 
 #endif  // RINGBUFFER_H_
