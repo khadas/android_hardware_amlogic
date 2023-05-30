@@ -292,6 +292,7 @@ VerifyAuthorizationResponse AmlogicKeymaster::VerifyAuthorization(
 
 GetVersion2Response AmlogicKeymaster::GetVersion2(const GetVersion2Request& request) {
     GetVersion2Response response(message_version());
+    /* coverity[uninit_use:SUPPRESS] */
     ForwardCommand2(KM_GET_VERSION_2, request, &response);
     return response;
 }
@@ -323,6 +324,7 @@ GetRootOfTrustResponse AmlogicKeymaster::GetRootOfTrust(const GetRootOfTrustRequ
 
 GetHwInfoResponse AmlogicKeymaster::GetHwInfo() {
     GetHwInfoResponse response(message_version());
+    /* coverity[uninit_use:SUPPRESS] */
     ForwardCommand(KM_GET_HW_INFO, GetHwInfoRequest(message_version()), &response);
     return response;
 }
