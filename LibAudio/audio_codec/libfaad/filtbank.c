@@ -122,7 +122,8 @@ static INLINE void imdct_long(fb_info *fb, real_t *in_data, real_t *out_data, ui
         mdct = fb->mdct1024;
         break;
     }
-
+    if (!mdct)
+        return;
     faad_imdct(mdct, in_data, out_data);
 #else
     faad_imdct(fb->mdct2048, in_data, out_data);
@@ -151,7 +152,8 @@ static INLINE void mdct(fb_info *fb, real_t *in_data, real_t *out_data, uint16_t
         break;
 #endif
     }
-
+    if (!mdct)
+        return;
     faad_mdct(mdct, in_data, out_data);
 }
 #endif
@@ -203,6 +205,8 @@ void ifilter_bank(fb_info *fb, uint8_t window_sequence, uint8_t window_shape,
 #if 0
     printf("%d %d\n", window_sequence, window_shape);
 #endif
+    if (!window_short || !window_short_prev)
+        return;
 
     switch (window_sequence) {
     case ONLY_LONG_SEQUENCE:

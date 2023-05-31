@@ -84,17 +84,16 @@ int find_omx_lib(aml_audio_dec_t *audec)
     adec_print("%s %d audec->format=%d \n", __FUNCTION__, __LINE__, audec->format);
 
     if (audec->StageFrightCodecEnableType) {
-        int *fd = NULL;
-        fd = dlopen("libamadec_omx_api.so", RTLD_NOW);
-        if (fd != NULL) {
-            audec->parm_omx_codec_init      = dlsym(fd, "arm_omx_codec_init");
-            audec->parm_omx_codec_read      = dlsym(fd, "arm_omx_codec_read");
-            audec->parm_omx_codec_close     = dlsym(fd, "arm_omx_codec_close");
-            audec->parm_omx_codec_start     = dlsym(fd, "arm_omx_codec_start");
-            audec->parm_omx_codec_pause     = dlsym(fd, "arm_omx_codec_pause");
-            audec->parm_omx_codec_get_declen = dlsym(fd, "arm_omx_codec_get_declen");
-            audec->parm_omx_codec_get_FS    = dlsym(fd, "arm_omx_codec_get_FS");
-            audec->parm_omx_codec_get_Nch   = dlsym(fd, "arm_omx_codec_get_Nch");
+        audec->fd= dlopen("libamadec_omx_api.so", RTLD_NOW);
+        if (audec->fd != NULL) {
+            audec->parm_omx_codec_init      = dlsym(audec->fd, "arm_omx_codec_init");
+            audec->parm_omx_codec_read      = dlsym(audec->fd, "arm_omx_codec_read");
+            audec->parm_omx_codec_close     = dlsym(audec->fd, "arm_omx_codec_close");
+            audec->parm_omx_codec_start     = dlsym(audec->fd, "arm_omx_codec_start");
+            audec->parm_omx_codec_pause     = dlsym(audec->fd, "arm_omx_codec_pause");
+            audec->parm_omx_codec_get_declen = dlsym(audec->fd, "arm_omx_codec_get_declen");
+            audec->parm_omx_codec_get_FS    = dlsym(audec->fd, "arm_omx_codec_get_FS");
+            audec->parm_omx_codec_get_Nch   = dlsym(audec->fd, "arm_omx_codec_get_Nch");
         } else {
             adec_print("[NOTE]can't find libamadec_omx_api.so ,StageFrightCodecEnableType=0\n");
             audec->StageFrightCodecEnableType = 0;
@@ -138,14 +137,24 @@ void *audio_decode_loop_omx(void *args)
     AudioInfo  g_AudioInfo = {0, 0, 0, 0, 0, 0, 0};
     adec_print("\n\naudio_decode_loop_omx start!\n");
 
+    if (args == NULL ) {
+        adec_print("audec or patch is NULL!\n");
+        return 0;
+    }
     audec = (aml_audio_dec_t *)args;
     aout_ops = &audec->aout_ops;
     adec_ops = audec->adec_ops;
     memset(outbuf, 0, AVCODEC_MAX_AUDIO_FRAME_SIZE);
     nAudioFormat = audec->format;
     nNextFrameSize = adec_ops->nInBufSize;
+
     g_bst = audec->g_bst;
     g_bst_raw = audec->g_bst_raw;
+
+    if (g_bst == NULL) {
+        adec_print("audec or patch is NULL!\n");
+        return 0;
+    }
 
     rawoutput_enable = amsysfs_get_sysfs_int("/sys/class/audiodsp/digital_raw");
     adec_print("rawoutput_enable/%d", rawoutput_enable);

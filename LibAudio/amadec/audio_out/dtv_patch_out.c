@@ -395,6 +395,7 @@ int dtv_patch_input_stop(unsigned int handle)
     }
 
     dtv_patch_out *paramout = get_patchout();
+
     pthread_mutex_lock(&patch_out_mutex);
     if (out_patch_initd == 0) {
         pthread_mutex_unlock(&patch_out_mutex);
@@ -406,7 +407,12 @@ int dtv_patch_input_stop(unsigned int handle)
     paramout->state = DTV_PATCH_STATE_STOPED;
     pthread_join(paramout->tid, NULL);
     adec_print("now enter the audio decoder stop now111111!\n");
+    /*
+     * Describe the reason for the coverity ignore.
+     */
+    /* coverity[sleep] */
     audio_decode_stop(paramout->audec);
+    /* coverity[sleep] */
     audio_decode_release((void **) & (paramout->audec));
 
     adec_print("now enter the audio decoder stop now222222!\n");
@@ -447,6 +453,10 @@ int dtv_patch_input_pause(unsigned int handle)
         return -1;
     }
     dtv_patch_out *paramout = get_patchout();
+    /*
+     * Describe the reason for the coverity ignore.
+     */
+    /* coverity[sleep] */
     pthread_mutex_lock(&patch_out_mutex);
     audio_decode_pause(paramout->audec);
     paramout->state = DTV_PATCH_STATE_PAUSE;
@@ -460,6 +470,11 @@ int dtv_patch_input_resume(unsigned int handle)
         return -1;
     }
     dtv_patch_out *paramout = get_patchout();
+
+    /*
+     * Describe the reason for the coverity ignore.
+     */
+    /* coverity[sleep] */
     pthread_mutex_lock(&patch_out_mutex);
     audio_decode_resume(paramout->audec);
     paramout->state = DTV_PATCH_STATE_RUNNING;

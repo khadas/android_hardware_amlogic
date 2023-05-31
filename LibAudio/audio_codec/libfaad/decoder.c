@@ -964,6 +964,8 @@ long NEAACDECAPI NeAACDecInit(NeAACDecHandle hpDecoder,
     NeAACDecStruct* hDecoder = (NeAACDecStruct*)hpDecoder;
     unsigned char* temp_buffer = hDecoder->temp_buffer;
     int temp_size = 0;
+    adts.old_format = -1;
+    ld.error = -1;
     faad_log_info("enter NeAACDecInit \r\n");
 #ifdef NEW_CODE_CHECK_LATM
     int i_frame_size;
@@ -1136,7 +1138,7 @@ nonlatm_check:
 
                 hDecoder->sf_index = adts.sf_index;
                 hDecoder->object_type = adts.profile + 1;
-                if (adts.sf_index >= 0 && adts.sf_index < 12 && adts.channel_configuration > 0 && adts.channel_configuration <= 8) {
+                if (/*adts.sf_index >= 0 && */adts.sf_index < 12 && adts.channel_configuration > 0 && adts.channel_configuration <= 8) {
                     hDecoder->last_sf_index = hDecoder->sf_index;
                     hDecoder->last_ch_configure = adts.channel_configuration;
                 }
@@ -1899,7 +1901,7 @@ start_decode:
         }
         hDecoder->sf_index = adts.sf_index;
         if (adts.sf_index != hDecoder->last_sf_index && adts.channel_configuration != hDecoder->last_ch_configure) {
-            if (adts.sf_index >= 0 && adts.sf_index < 12 && adts.channel_configuration > 0 && adts.channel_configuration <= 8) {
+            if (/*adts.sf_index >= 0 && */adts.sf_index < 12 && adts.channel_configuration > 0 && adts.channel_configuration <= 8) {
                 hInfo->error = 34;
                 audio_codec_print("[%s %d]last_sf_index/%d,Ch/%d,Now %d/%d\n", __FUNCTION__, __LINE__, hDecoder->last_sf_index, hDecoder->last_ch_configure, adts.sf_index, adts.channel_configuration);
                 hDecoder->last_sf_index = hDecoder->sf_index;

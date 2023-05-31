@@ -316,7 +316,7 @@ static void decode_sce_lfe(NeAACDecStruct *hDecoder,
     uint8_t channels = hDecoder->fr_channels;
     uint8_t tag = 0;
 
-    if (channels + 1 > MAX_CHANNELS) {
+    if (channels + 1 >= MAX_CHANNELS) {
         hInfo->error = 12;
         return;
     }
@@ -747,7 +747,7 @@ static uint8_t channel_pair_element(NeAACDecStruct *hDecoder, bitfile *ld,
 static uint8_t ics_info(NeAACDecStruct *hDecoder, ic_stream *ics, bitfile *ld,
                         uint8_t common_window)
 {
-    uint8_t retval = 0;
+    uint8_t retval, ret = 0;
     uint8_t ics_reserved_bit;
 
     ics_reserved_bit = faad_get1bit(ld
@@ -840,7 +840,9 @@ static uint8_t ics_info(NeAACDecStruct *hDecoder, ic_stream *ics, bitfile *ld,
                 if (!common_window && (hDecoder->object_type >= ER_OBJECT_START)) {
                     if ((ics->ltp.data_present = faad_get1bit(ld
                                                  DEBUGVAR(1, 50, "ics_info(): ltp.data_present"))) & 1) {
-                        ltp_data(hDecoder, ics, &(ics->ltp), ld);
+                        if ((ret = ltp_data(hDecoder, ics, &(ics->ltp2), ld)) > 0) {
+                            retval =ret;
+                        }
                     }
                 }
 #endif
@@ -1871,7 +1873,7 @@ static uint8_t scale_factor_data(NeAACDecStruct *hDecoder, ic_stream *ics, bitfi
 /* Table 4.4.27 */
 static void tns_data(ic_stream *ics, tns_info *tns, bitfile *ld)
 {
-    uint8_t w, filt, i, start_coef_bits, coef_bits;
+    uint8_t w, filt, i, start_coef_bits = 0, coef_bits;
     uint8_t n_filt_bits = 2;
     uint8_t length_bits = 6;
     uint8_t order_bits = 5;
@@ -2097,6 +2099,10 @@ static uint16_t extension_payload(bitfile *ld, drc_info *drc, uint16_t count)
                                               DEBUGVAR(1, 88, "extension_payload(): fill_byte")); /* must be �10100101� */
         }
         return count;
+    /*
+     * Describe the reason for the coverity ignore.
+     */
+    /* coverity[unterminated_case] */
     case EXT_DATA_ELEMENT:
         data_element_version = (uint8_t)faad_getbits(ld, 4
                                DEBUGVAR(1, 400, "extension_payload(): data_element_version"));

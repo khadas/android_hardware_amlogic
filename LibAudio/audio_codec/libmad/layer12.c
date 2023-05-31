@@ -105,7 +105,7 @@ int mad_layer_I(struct mad_stream *stream, struct mad_frame *frame)
 {
     struct mad_header *header = &frame->header;
     unsigned int nch, bound, ch, s, sb, nb;
-    unsigned char allocation[2][32], scalefactor[2][32];
+    unsigned char allocation[2][32] = {0}, scalefactor[2][32] = {0};
 
     nch = MAD_NCHANNELS(header);
 

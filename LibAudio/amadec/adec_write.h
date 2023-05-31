@@ -28,7 +28,7 @@
 
 typedef struct buffer_stream_st {
     int buf_length;
-    int buf_level;
+    unsigned long long buf_level;
     unsigned char * data;
     unsigned char * rd_ptr;
     unsigned char * wr_ptr;

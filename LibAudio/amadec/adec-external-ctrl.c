@@ -232,20 +232,19 @@ int audio_decode_release(void **handle)
 {
     int ret;
     adec_cmd_t *cmd;
-    aml_audio_dec_t *audec = (aml_audio_dec_t *) * handle;
 
     if (!handle) {
         adec_print("audio handle is NULL !\n");
         return -1;
     }
 
+    aml_audio_dec_t *audec = (aml_audio_dec_t *) * handle;
     cmd = adec_message_alloc();
     if (cmd) {
         cmd->ctrl_cmd = CMD_RELEASE;
-        ret = adec_send_message(audec, cmd);
+        adec_send_message(audec, cmd);
     } else {
         adec_print("message alloc failed, no memory!");
-        ret = -1;
     }
 
     ret = amthreadpool_pthread_join(audec->thread_pid, NULL);

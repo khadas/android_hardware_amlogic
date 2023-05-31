@@ -165,18 +165,18 @@ int find_audio_lib(aml_audio_dec_t *audec)
     for (i = 0; i < num; i++) {
         f = &audio_lib_list[i];
         if (f->codec_id == audec->format) {
-            void *fd = dlopen(audio_lib_list[i].name, RTLD_NOW);
-            if (fd != 0) {
-                adec_ops->init    = dlsym(fd, "audio_dec_init");
-                adec_ops->decode  = dlsym(fd, "audio_dec_decode");
-                adec_ops->release = dlsym(fd, "audio_dec_release");
-                adec_ops->getinfo = dlsym(fd, "audio_dec_getinfo");
+            audec->fd = dlopen(audio_lib_list[i].name, RTLD_NOW);
+            if (audec->fd != 0) {
+                adec_ops->init    = dlsym(audec->fd, "audio_dec_init");
+                adec_ops->decode  = dlsym(audec->fd, "audio_dec_decode");
+                adec_ops->release = dlsym(audec->fd, "audio_dec_release");
+                adec_ops->getinfo = dlsym(audec->fd, "audio_dec_getinfo");
 
 #ifndef USE_AOUT_IN_ADEC
-                ad_adec_ops->init    = dlsym(fd, "audio_dec_init");
-                ad_adec_ops->decode  = dlsym(fd, "audio_dec_decode");
-                ad_adec_ops->release = dlsym(fd, "audio_dec_release");
-                ad_adec_ops->getinfo = dlsym(fd, "audio_dec_getinfo");
+                ad_adec_ops->init    = dlsym(audec->fd, "audio_dec_init");
+                ad_adec_ops->decode  = dlsym(audec->fd, "audio_dec_decode");
+                ad_adec_ops->release = dlsym(audec->fd, "audio_dec_release");
+                ad_adec_ops->getinfo = dlsym(audec->fd, "audio_dec_getinfo");
 #endif
             } else {
                 adec_print("can't find decoder lib\n");
@@ -280,6 +280,10 @@ static int64_t gettime_ms(void)
 
 int package_list_init(aml_audio_dec_t * audec)
 {
+    /*
+     * Describe the reason for the coverity ignore.
+     */
+    /* coverity[missing_lock] */
     audec->pack_list.first = NULL;
     audec->pack_list.pack_num = 0;
     audec->pack_list.current = NULL;
@@ -350,6 +354,11 @@ int ad_package_list_free(aml_audio_dec_t * audec)
 
 int ad_package_list_init(aml_audio_dec_t * audec)
 {
+
+    /*
+     * Describe the reason for the coverity ignore.
+     */
+    /* coverity[missing_lock] */
     audec->ad_pack_list.first = NULL;
     audec->ad_pack_list.pack_num = 0;
     audec->ad_pack_list.current = NULL;
@@ -424,10 +433,10 @@ int armdec_stream_read_raw(dsp_operations_t *dsp_ops, char *buffer, int size)
 unsigned long  armdec_get_pts(dsp_operations_t *dsp_ops)
 {
     unsigned long val = 0, offset;
-    unsigned long pts;
+    unsigned long pts = 0;
     unsigned long cache_pts;
-    int data_width, channels, samplerate;
-    unsigned long long frame_nums ;
+    unsigned int data_width, channels, samplerate;
+    unsigned long long frame_nums;
     char value[PROPERTY_VALUE_MAX];
     aml_audio_dec_t *audec = (aml_audio_dec_t *)dsp_ops->audec;
     audio_out_operations_t * aout_ops = &audec->aout_ops;
@@ -790,6 +799,10 @@ static int audio_codec_init(aml_audio_dec_t *audec)
     audec->nDecodeErrCount = 0;
     audec->g_bst = NULL;
     audec->g_bst_raw = NULL;
+    /*
+     * Describe the reason for the coverity ignore.
+     */
+    /* coverity[missing_lock] */
     audec->fd_uio = -1;
     audec->last_valid_pts = 0;
     audec->out_len_after_last_valid_pts = 0;
@@ -968,7 +981,8 @@ int audio_codec_release(aml_audio_dec_t *audec)
     audec->adsp_ops.dsp_read = NULL;
     audec->adsp_ops.get_cur_pts = NULL;
     audec->adsp_ops.dsp_file_fd = -1;
-
+    if (audec->fd)
+        dlclose(audec->fd);
     return 0;
 }
 
@@ -1033,6 +1047,7 @@ static int start_adec(aml_audio_dec_t *audec)
     dsp_operations_t *dsp_ops = &audec->adsp_ops;
     unsigned long  vpts, apts;
     int times = 0;
+    int ret;
     char buf[32];
     apts = vpts = 0;
     audec->no_first_apts = 0;
@@ -1056,8 +1071,8 @@ static int start_adec(aml_audio_dec_t *audec)
             }
             times++;
             if (times >= wait_count) {
-                amsysfs_get_sysfs_str(TSYNC_VPTS, buf, sizeof(buf));// read vpts
-                if (sscanf(buf, "0x%lx", &vpts) < 1) {
+                ret = amsysfs_get_sysfs_str(TSYNC_VPTS, buf, sizeof(buf));// read vpts
+                if (sscanf(buf, "0x%lx", &vpts) < 1 || ret < 0) {
                     adec_print("unable to get vpts from: %s", buf);
                     return -1;
                 }
@@ -1384,7 +1399,7 @@ static void check_audio_info_changed(aml_audio_dec_t *audec)
                 }
                 #endif
                 if (!audec->exit_decode_thread) {
-                    adec_print("[%s]Info Changed: src:sample:%d  channel:%d dest sample:%d  channel:%d PCMBufLevel:%d\n",
+                    adec_print("[%s]Info Changed: src:sample:%d  channel:%d dest sample:%d  channel:%d PCMBufLevel:%lld\n",
                                __FUNCTION__, audec->samplerate, audec->channels, g_AudioInfo.samplerate, g_AudioInfo.channels, g_bst->buf_level);
                     g_bst->channels = g_AudioInfo.channels;
                     g_bst->samplerate = g_AudioInfo.samplerate;
@@ -1900,11 +1915,21 @@ void *audio_decode_loop(void *args)
     buffer_stream_t *g_bst;
     //AudioInfo g_AudioInfo;
     adec_print("[%s]adec_armdec_loop start!\n", __FUNCTION__);
+
+    if (args == NULL ) {
+        adec_print("audec or patch is NULL!\n");
+        return 0;
+    }
     audec = (aml_audio_dec_t *)args;
     aout_ops = &audec->aout_ops;
     adec_ops = audec->adec_ops;
     memset(outbuf, 0, AVCODEC_MAX_AUDIO_FRAME_SIZE);
     g_bst = audec->g_bst;
+
+    if (!args || !g_bst || !audec) {
+        adec_print("g_bst (%p) or audec (%p) is NULL", g_bst, audec);
+        return 0;
+    }
 
     nAudioFormat = audec->format;
     g_bst->format = audec->format;

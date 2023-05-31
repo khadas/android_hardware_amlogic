@@ -76,13 +76,16 @@ get vpts when refresh apts,  do not use sys write servie as it is too slow somet
 */
 static int mysysfs_get_sysfs_int16(const char *path)
 {
-    int fd;
+    int fd,ret;
     char valstr[64];
     int val;
     fd = open(path, O_RDONLY);
     if (fd >= 0) {
         memset(valstr, 0, 64);
-        read(fd, valstr, 64 - 1);
+        ret = read(fd, valstr, 64 - 1);
+        if (ret < 0) {
+            adec_print("read failed\n");
+        }
         valstr[strlen(valstr)] = '\0';
         close(fd);
     } else {
@@ -309,6 +312,11 @@ int adec_pts_droppcm(aml_audio_dec_t *audec)
     // drop pcm according to media.amplayer.dropms
     memset(value, 0, sizeof(value));
     if (property_get("vendor.media.amplayer.dropms", value, NULL) > 0) {
+
+        /*
+         * Describe the reason for the coverity ignore.
+         */
+        /* coverity[tainted_data] */
         dropms = atoi(value);
         audec->droppcm_ms = dropms;
         drop_size = dropms * (audec->samplerate / 1000) * audec->channels * 2;
@@ -458,7 +466,7 @@ int adec_pts_droppcm(aml_audio_dec_t *audec)
 					adec_print("## [%s::%d] reset pcr error \n", __FUNCTION__, __LINE__);
 				}
 		}
-		
+
     {
         sysfs_get_int(TSYNC_PCRSCR, &cur_pcr);
         ioctl(audec->adsp_ops.amstream_fd, AMSTREAM_IOC_AB_STATUS, (unsigned long)&am_io);
@@ -540,7 +548,7 @@ int adec_refresh_pts(aml_audio_dec_t *audec)
         }
         // 170 ms  audio hal have  triggered the output hw.
         latency = 0;//audec->aout_ops.latency(audec);
-        if (latency > 0  && ((audec->pcm_bytes_readed * 1000 / (samplerate * channels * 2)) >= wait)) {
+        if (((audec->pcm_bytes_readed * 1000 / (samplerate * channels * 2)) >= wait)) {
             adec_print("unable to getsystime--\n\n [[[%ld,%d,%d,%d,%d]]]\n",
             (long)audec->pcm_bytes_readed
             ,samplerate
@@ -964,7 +972,7 @@ int droppcm_get_refpts(aml_audio_dec_t *audec, unsigned long *refpts)
     char buf[32];
     char tsync_mode_str[10];
     int tsync_mode;
-    int circount = 3000; // default: 3000ms
+    int64_t circount = 3000; // default: 3000ms
     int refmode = TSYNC_MODE_AMASTER;
     int64_t start_time = gettime();
     unsigned long firstvpts = 0;
@@ -1020,7 +1028,7 @@ int droppcm_get_refpts(aml_audio_dec_t *audec, unsigned long *refpts)
     if (property_get("vendor.media.amplayer.dropwaitxms", value, NULL) > 0) {
         circount = atoi(value);
     }
-    adec_print("drop wait max ms = %d \n", circount);
+    adec_print("drop wait max ms = %lld \n", circount);
 
     //media.amplayer.refmode : 0 vpts 1 other case
 #if 0
@@ -1059,12 +1067,12 @@ int droppcm_get_refpts(aml_audio_dec_t *audec, unsigned long *refpts)
         }
 
         if (gettime() - start_time >= (circount * 1000)) {
-            adec_print("## [%s::%d] max time reached! %d ms \n", __FUNCTION__, __LINE__, circount);
+            adec_print("## [%s::%d] max time reached! %lld ms \n", __FUNCTION__, __LINE__, circount);
             break;
         }
         amthreadpool_thread_usleep(10000); // 10ms
     }
-    adec_print("## [%s::%d] firstvpts:0x%lx, use:%ld us, maxtime:%d ms, ---\n", __FUNCTION__, __LINE__, firstvpts, (long)(gettime() - start_time), circount);
+    adec_print("## [%s::%d] firstvpts:0x%lx, use:%ld us, maxtime:%lld ms, ---\n", __FUNCTION__, __LINE__, firstvpts, (long)(gettime() - start_time), circount);
 
     if (sysfs_get_int(TSYNC_VPTS, &cur_vpts) == -1) {
         adec_print("## [%s::%d] unable to get vpts! \n", __FUNCTION__, __LINE__);

@@ -248,6 +248,8 @@ struct aml_audio_dec {
     int audio_loopback;
     int debug_flag;
     int64_t checkin_discontinue_apts;
+    //decoder lib handle
+    void *fd;
 
 };
 

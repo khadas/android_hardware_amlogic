@@ -324,6 +324,10 @@ static int audio_decoder_init(
     in_buf = inbuf;
     inbuf_size = inlen;
     int nReadLen = 0;
+
+    if (!adec_ops || !adec_ops->pdecoder)
+        return 0;
+
     FaadContext *gFaadCxt  = (FaadContext*)adec_ops->pdecoder;
     int islatm = 1;
     int isadts = 0;
@@ -474,6 +478,10 @@ int audio_dec_decode(
     int    dec_bufsize;
     int  inbuf_consumed = 0;
     int ret = 0;
+
+    if (!adec_ops || !adec_ops->pdecoder)
+        return 0;
+
     FaadContext *gFaadCxt = (FaadContext*)adec_ops->pdecoder;
     NeAACDecStruct* hDecoder  = NULL;
     dec_bufsize = inlen;
@@ -540,7 +548,7 @@ int audio_dec_decode(
     }
     sample_buffer = NeAACDecDecode(gFaadCxt->hDecoder, &frameInfo, (unsigned char *)dec_buf, dec_bufsize);
     dec_bufsize -= frameInfo.bytesconsumed;
-    if (frameInfo.channels < 0 || frameInfo.channels > 8) {
+    if (frameInfo.channels > 8) {
         audio_codec_print("[%s %d]ERR__Invalid Nch/%d bytesconsumed/%d error/%d\n",
                            __FUNCTION__,__LINE__,frameInfo.channels,(int)frameInfo.bytesconsumed,frameInfo.error);
         sample_buffer=NULL;
@@ -617,6 +625,9 @@ int audio_dec_release(
 #endif
 )
 {
+    if (!adec_ops || !adec_ops->pdecoder)
+        return 0;
+
     FaadContext *gFaadCxt = (FaadContext*)adec_ops->pdecoder;
     if (gFaadCxt->hDecoder) {
         NeAACDecClose(gFaadCxt->hDecoder);

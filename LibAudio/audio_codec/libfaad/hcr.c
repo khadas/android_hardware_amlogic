@@ -153,7 +153,7 @@ static void concat_bits(bits_t *b, bits_t *a)
     al = a->bufa;
     ah = a->bufb;
 
-    if (b->len > 32) {
+    if (b->len >= 32) {
         /* maskoff superfluous high b bits */
         bl = b->bufa;
         bh = b->bufb & ((1 << (b->len - 32)) - 1);
@@ -370,6 +370,10 @@ uint8_t reordered_spectral_data(NeAACDecStruct *hDecoder, ic_stream *ics,
                 if (!codeword[codeword_idx].decoded && segment[segment_idx].len > 0) {
                     uint8_t tmplen;
 
+                    /*
+                     * Describe the reason for the coverity ignore.
+                     */
+                    /* coverity[uninit_use_in_call] */
                     if (codeword[codeword_idx].bits.len != 0) {
                         concat_bits(&segment[segment_idx], &codeword[codeword_idx].bits);
                     }

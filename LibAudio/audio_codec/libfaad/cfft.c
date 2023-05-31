@@ -972,6 +972,9 @@ cfft_info *cffti(uint16_t n)
 
 void cfftu(cfft_info *cfft)
 {
+    if (cfft == NULL)
+        return;
+
     if (cfft->work) {
         faad_free(cfft->work);
     }
