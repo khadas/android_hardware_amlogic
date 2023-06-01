@@ -1975,8 +1975,10 @@ status_t EmulatedFakeCamera3::constructStaticInfo() {
     info.update(ANDROID_LENS_INFO_FOCUS_DISTANCE_CALIBRATION,&lensCalibration,1);
 
     // android.sensor
-    static const int32_t testAvailablePattern = ANDROID_SENSOR_TEST_PATTERN_MODE_OFF;
-    info.update(ANDROID_SENSOR_AVAILABLE_TEST_PATTERN_MODES, &testAvailablePattern, 1);
+    static const int32_t testAvailablePattern[] = {ANDROID_SENSOR_TEST_PATTERN_MODE_OFF, ANDROID_SENSOR_TEST_PATTERN_MODE_SOLID_COLOR,
+        ANDROID_SENSOR_TEST_PATTERN_MODE_BLACK};
+
+    info.update(ANDROID_SENSOR_AVAILABLE_TEST_PATTERN_MODES, testAvailablePattern, 3);
     static const int32_t testPattern = ANDROID_SENSOR_TEST_PATTERN_MODE_OFF;
     info.update(ANDROID_SENSOR_TEST_PATTERN_MODE, &testPattern, 1);
     info.update(ANDROID_SENSOR_INFO_EXPOSURE_TIME_RANGE,
