@@ -24,7 +24,11 @@
 #include <android-base/logging.h>
 #include <cutils/misc.h>
 #include <cutils/properties.h>
+#include <android-base/file.h>
+
+#include <sys/stat.h>
 #include <sys/syscall.h>
+
 
 extern "C" int init_module(void *, unsigned long, const char *);
 extern "C" int delete_module(const char *, unsigned int);
@@ -36,6 +40,91 @@ typedef int (*WIFI_UNLOAD_DRIVER) ();
 typedef int (*WIFI_CHANGE_FW_PATH) (const char *fwpath);
 typedef const char * (*WIFI_GET_FW_PATH) (int fw_type);
 typedef const char * (*WIFI_GET_VENDOR_NAME) ();
+
+constexpr char kOldP2pIfaceConfPath[] = "/vendor/etc/wifi/p2p_supplicant.conf";
+constexpr char kOldStaIfaceConfPath[] = "/vendor/etc/wifi/unbcm_supplicant.conf";
+constexpr char kNewStaIfaceConfPath[] = "/data/vendor/wifi/wpa/wpa_supplicant.conf";
+constexpr char kNewP2pIfaceConfPath[] = "/data/vendor/wifi/wpa/p2p_supplicant.conf";
+constexpr mode_t kConfigFileMode = S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP;
+int copyFile(
+    const std::string& src_file_path, const std::string& dest_file_path)
+{
+	std::string file_contents;
+	if (!android::base::ReadFileToString(src_file_path, &file_contents)) {
+		PLOG(ERROR) << "Failed to read from" << src_file_path.c_str() << " Errno:" << strerror(errno);
+		return -1;
+	}
+	if (!android::base::WriteStringToFile(
+		file_contents, dest_file_path, kConfigFileMode, getuid(),
+		getgid())) {
+		PLOG(ERROR) << "Failed to write to" << dest_file_path.c_str() << " Errno:" << strerror(errno);
+		return -1;
+	}
+	return 0;
+}
+/**
+ * Copy |src_file_path| to |dest_file_path| if it exists.
+ *
+ * Returns 1 if |src_file_path| does not exist or not accessible,
+ * Returns -1 if the copy fails.
+ * Returns 0 if the copy succeeds.
+ */
+int copyFileIfItExists(
+    const std::string& src_file_path, const std::string& dest_file_path)
+{
+	int ret = access(src_file_path.c_str(), R_OK);
+	// Sepolicy denial (2018+ device) will return EACCESS instead of ENOENT.
+	if ((ret != 0) && ((errno == ENOENT) || (errno == EACCES))) {
+		return 1;
+	}
+	ret = copyFile(src_file_path, dest_file_path);
+	if (ret != 0) {
+		PLOG(ERROR) << "Failed copying" << src_file_path.c_str() << " to " << dest_file_path.c_str();
+		return -1;
+	}
+	return 0;
+}
+
+/**
+ * Ensure that the specified config file pointed by |config_file_path| exists.
+ * a) If the |config_file_path| exists with the correct permissions, return.
+ * b) If the |config_file_path| does not exist, but |old_config_file_path|
+ * exists, copy over the contents of the |old_config_file_path| to
+ * |config_file_path|.
+ * c) If the |config_file_path| & |old_config_file_path|
+ * does not exists, copy over the contents of |template_config_file_path|.
+ */
+int ensureConfigFileExists(
+    const std::string& config_file_path,
+    const std::string& old_config_file_path)
+{
+	int ret = access(config_file_path.c_str(), R_OK | W_OK);
+	if (ret == 0) {
+		return 0;
+	}
+	if (errno == EACCES) {
+		ret = chmod(config_file_path.c_str(), kConfigFileMode);
+		if (ret == 0) {
+			return 0;
+		} else {
+		    PLOG(ERROR) << "Cannot set RW to" << config_file_path.c_str() << " Errno:" << strerror(errno);
+			return -1;
+		}
+	} else if (errno != ENOENT) {
+		PLOG(ERROR) << "Cannot acces" << config_file_path.c_str() << " Errno:" << strerror(errno);
+		return -1;
+	}
+	ret = copyFileIfItExists(old_config_file_path, config_file_path);
+	if (ret == 0) {
+		PLOG(INFO) << "Migrated conf file from " << old_config_file_path.c_str() << " to " << config_file_path.c_str();
+		unlink(old_config_file_path.c_str());
+		return 0;
+	} else if (ret == -1) {
+		unlink(config_file_path.c_str());
+		return -1;
+	}
+	return -1;
+}
 
 void* pHandle = NULL;
 void* init_multi_wifi_handle() {
@@ -277,10 +366,21 @@ int is_wifi_driver_loaded() {
 int wifi_load_driver() {
 #ifdef WIFI_DRIVER_MODULE_PATH
 #ifdef MULTI_WIFI_SUPPORT
+  char wifi_status[PROPERTY_VALUE_MAX] = {'\0'};
+
   if (wifi_load_driver_ext() != 0) {
     return -1;
   } else {
-   return 0;
+    property_get("vendor.wifi_name", wifi_status, NULL);
+    LOG(INFO) << "After driver loaded, wifi_name:" << wifi_status;
+    if (strncmp(wifi_status, "bcm", 3) != 0 && strncmp(wifi_status, "uwe", 3) != 0
+        && ensureConfigFileExists(kNewStaIfaceConfPath, kOldStaIfaceConfPath) == 0
+        && ensureConfigFileExists(kNewP2pIfaceConfPath, kOldP2pIfaceConfPath) == 0) {
+        LOG(INFO) << "no bcm and uwe wifi ,need use p2p0 with p2p interface";
+    } else {
+        LOG(INFO) << "bcm or uwe wifi ,do not need use p2p0 with p2p interface";
+    }
+    return 0;
   }
 #endif
   if (is_wifi_driver_loaded()) {
