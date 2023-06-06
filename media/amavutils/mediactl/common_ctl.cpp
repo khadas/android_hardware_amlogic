@@ -261,6 +261,7 @@ int media_set_vfm_map_str(const char* val)
     struct vfmctl setvfmctl;
     if (val == NULL)
         return -1;
+    memset(&setvfmctl, 0, sizeof(struct vfmctl));
     setvfmctl.name[0] = '\0';
     strncpy(setvfmctl.val, val, sizeof(setvfmctl.val));
     return media_vfm_set_ulong(VFM_IOCTL_CMD_SET, (unsigned long)&setvfmctl);
@@ -289,6 +290,7 @@ int media_rm_vfm_map_str(const char* name,const char* val)
     struct vfmctl setvfmctl;
     if (val == NULL || name == NULL)
         return -1;
+    memset(&setvfmctl, 0, sizeof(struct vfmctl));
     strncpy(setvfmctl.name,name,sizeof(setvfmctl.name));
     strncpy(setvfmctl.val,val,sizeof(setvfmctl.val));
     CTRL_PRINT("rm vfm: cmd=%s,val %s \n",name,val);
@@ -301,6 +303,8 @@ int media_add_vfm_map_str(const char* name,const char* val)
     struct vfmctl setvfmctl;
     if (val == NULL || name == NULL)
         return -1;
+
+    memset(&setvfmctl, 0, sizeof(struct vfmctl));
     strncpy(setvfmctl.name,name,sizeof(setvfmctl.name));
     strncpy(setvfmctl.val,val,sizeof(setvfmctl.val));
 	CTRL_PRINT("add vfm: cmd=%s,val %s \n",name,val);

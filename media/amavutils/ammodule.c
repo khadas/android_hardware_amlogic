@@ -58,8 +58,8 @@ static int amload(const char *path,
                   const struct ammodule_t **pHmi)
 {
     int status;
-    void *handle;
-    struct ammodule_t *hmi;
+    void *handle = NULL;
+    struct ammodule_t *hmi = NULL;
 
     /*
      * load the symbols resolving undefined symbols before
@@ -80,7 +80,7 @@ static int amload(const char *path,
     if (hmi == NULL) {
         LOGE("amload: couldn't find symbol %s", sym);
         status = -EINVAL;
-        goto done;
+        goto close_handle;
     }
 
     hmi->dso = handle;
@@ -94,22 +94,23 @@ static int amload(const char *path,
              hmi->tag, AMPLAYER_MODULE_TAG,
              hmi->version_major, hmi->version_minor,
              AMPLAYER_API_MAIOR, AMPLAYER_API_MINOR);
+        goto close_handle;
     }
+
+    status = 0;
+    LOGV("loaded module path=%s hmi=%p handle=%p", path, *pHmi, handle);
+
 done:
-    if (status != 0) {
-        hmi = NULL;
-        if (handle != NULL) {
-            dlclose(handle);
-            handle = NULL;
-        }
-    } else {
-        LOGV("loaded module path=%s hmi=%p handle=%p",
-             path, *pHmi, handle);
-    }
-
     *pHmi = hmi;
-
     return status;
+
+close_handle:
+    if (handle != NULL) {
+        LOGV("failed status handle=%p", handle);
+        dlclose(handle);
+    }
+    hmi = NULL;
+    goto done;
 }
 
 int ammodule_load_module(const char *modulename, const struct ammodule_t **module)
@@ -117,9 +118,9 @@ int ammodule_load_module(const char *modulename, const struct ammodule_t **modul
     int status = -ENOENT;;
     int i;
     //const struct ammodule_t *hmi = NULL;
-    char prop[PATH_MAX];
-    char path[PATH_MAX];
-    char name[PATH_MAX];
+    char prop[PATH_MAX] = {0};
+    char path[PATH_MAX] = {0};
+    char name[PATH_MAX] = {0};
     const char *prepath = NULL;
 
     snprintf(name, PATH_MAX, "%s",  modulename);
@@ -199,7 +200,7 @@ int ammodule_match_check(const char* filefmtstr, const char* fmtsetting)
             codecstr[psetlen] = '\0';
             psets = &psetend[1]; //skip ";"
         } else {
-            strcpy(codecstr, psets);
+             strncpy(codecstr, psets, sizeof(codecstr) - 1);
             psets = NULL;
         }
         if (strlen(codecstr) > 0) {

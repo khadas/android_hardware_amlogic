@@ -64,6 +64,7 @@ static int set_audiodsp_frelevel(int m1_flag, int coeff)
 int amaudio_utils_set_dsp_freqlevel(audiodsp_freqlevel_t level, int val)
 {
     int m1_cpu_flag = 0;
+    int fd = -1;
 
     LOG_FUNCTION_NAME
 
@@ -72,10 +73,14 @@ int amaudio_utils_set_dsp_freqlevel(audiodsp_freqlevel_t level, int val)
         break;
 
     case AUDIO_DSP_FREQ_NORMAL:
-        if (open(AUDIODSP_CODEC_MIPS_IN, O_RDWR) >= 0) {
+        fd = open(AUDIODSP_CODEC_MIPS_IN, O_RDWR);
+        if (fd >= 0) {
             m1_cpu_flag = 1;
         }
         set_audiodsp_frelevel(m1_cpu_flag, val);
+        if (fd >= 0) {
+            close(fd);
+        }
         break;
 
     case AUDIO_DSP_FREQ_HIGH:

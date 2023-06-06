@@ -753,6 +753,13 @@ int amvideo_utils_set_virtual_position(int32_t x, int32_t y, int32_t w, int32_t 
                         w = right - left + 1;
                         h = bottom - top + 1;
 
+                        if (dev_w == 0) {
+                            dev_w = 1;
+                        }
+
+                        if (dev_h == 0) {
+                            dev_h = 1;
+                        }
                         dst_x = dst_x * w / dev_w + x;
                         dst_y = dst_y * h / dev_h + y;
                         LOGI("after scaled, screen position1: %d %d %d %d", dst_x, dst_y, dst_w, dst_h);
@@ -769,10 +776,8 @@ int amvideo_utils_set_virtual_position(int32_t x, int32_t y, int32_t w, int32_t 
                 /* the returned string should be "a b c" */
                 if (sscanf(val, "ppscaler rect:\nx:%d,y:%d,w:%d,h:%d", &x, &y, &w, &h) == 4) {
                     if ((w > 1) && (h > 1)) {
-                        if (fb_w == 0  || fb_h == 0) {
-                            fb_w = 1280;
-                            fb_h = 720;
-                        }
+                        fb_w = 1280;
+                        fb_h = 720;
                         set_scale(x, y, w - 1, h - 1, &dst_x, &dst_y, &dst_w, &dst_h, fb_w, fb_h);
                         LOGI("after scaled, screen position2: %d %d %d %d", dst_x, dst_y, dst_w, dst_h);
                     }
@@ -789,6 +794,8 @@ int amvideo_utils_set_virtual_position(int32_t x, int32_t y, int32_t w, int32_t 
         int freescale_x = 0, freescale_y = 0, freescale_w = 0, freescale_h = 0;
 
         int mGetWinAxis = 0;
+
+        memset(axis_string, 0, sizeof(axis_string));
         if (hdmi_swith_on_vpp1) {
             mGetWinAxis = amsysfs_get_sysfs_str(WINDOW_AXIS_PATH_FB1, val, sizeof(val));
         } else {
@@ -949,9 +956,20 @@ int amvideo_utils_get_hdmi_authenticate(void)
     char  bcmd[16];
     fd = open(HDMI_AUTHENTICATE_PATH, O_RDONLY);
     if (fd >= 0) {
-        read(fd, bcmd, sizeof(bcmd));
-        val = strtol(bcmd, NULL, 10);
-        close(fd);
+        ssize_t bytes_read = read(fd, bcmd, sizeof(bcmd));
+        if (bytes_read == -1) {
+            // handle read error
+        } else {
+            bcmd[bytes_read] = '\0'; // ensure null-termination
+            char *endptr;
+            val = strtol(bcmd, &endptr, 10);
+            if (endptr == bcmd) {
+                // handle strtol error
+            }
+            close(fd);
+        }
+    } else {
+        // handle open error
     }
     return val;
 }

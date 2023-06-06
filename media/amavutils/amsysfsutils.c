@@ -55,27 +55,39 @@ int amsysfs_set_sysfs_str(const char *path, const char *val)
 }
     else return ret;
 }
-int  amsysfs_get_sysfs_str(const char *path, char *valstr, int size)
-{
-    int fd,ret;
+int amsysfs_get_sysfs_str(const char *path, char *valstr, int size) {
+    int fd, ret;
     ret = mediactl_get_str_func(path, valstr, size);
-    if (ret == UnSupport)
-    {
-    fd = open(path, O_RDONLY);
-    if (fd >= 0) {
-        memset(valstr, 0, size);
-        read(fd, valstr, size - 1);
-        valstr[strlen(valstr)] = '\0';
-        close(fd);
+    if (ret == UnSupport) {
+        if (!path || !valstr || size <= 0) {
+            LOGE("Invalid input parameters");
+            return -1;
+        }
+        fd = open(path, O_RDONLY);
+        if (fd >= 0) {
+            memset(valstr, 0, size);
+            ssize_t n = read(fd, valstr, size - 1);
+            if (n < 0) {
+                LOGE("Error reading file %s: %s", path, strerror(errno));
+                close(fd);
+                return -1;
+            } else if (n == size - 1) {
+                LOGE("File %s is too large to read", path);
+                close(fd);
+                return -1;
+            } else {
+                valstr[n] = '\0';
+                close(fd);
+            }
+        } else {
+            LOGE("Unable to open file %s: %s", path, strerror(errno));
+            strncpy(valstr, "fail", size);
+            return -1;
+        }
+        return 0;
     } else {
-        LOGE("unable to open file %s,err: %s", path, strerror(errno));
-        sprintf(valstr, "%s", "fail");
-        return -1;
-    };
-    //LOGI("get_sysfs_str=%s\n", valstr);
-    return 0;
-}
-    else return ret;
+        return ret;
+    }
 }
 int amsysfs_set_sysfs_int(const char *path, int val)
 {
@@ -98,24 +110,40 @@ int amsysfs_set_sysfs_int(const char *path, int val)
 }
     else return ret;
 }
-int amsysfs_get_sysfs_int(const char *path)
-{
-    int fd,ret;
+int amsysfs_get_sysfs_int(const char *path) {
+    int fd, ret;
     int val = 0;
-    char  bcmd[16];
+    char bcmd[16];
     ret = mediactl_get_int_func(path);
     if (ret == UnSupport) {
-    fd = open(path, O_RDONLY);
-    if (fd >= 0) {
-        read(fd, bcmd, sizeof(bcmd));
-        val = strtol(bcmd, NULL, 10);
-        close(fd);
+        if (!path) {
+            LOGE("Invalid path");
+            return -1;
+        }
+        fd = open(path, O_RDONLY);
+        if (fd >= 0) {
+            ssize_t n = read(fd, bcmd, sizeof(bcmd));
+            if (n < 0) {
+                LOGE("Error reading file %s: %s", path, strerror(errno));
+                close(fd);
+                return -1;
+            } else if (n == sizeof(bcmd)) {
+                LOGE("File %s is too large to read", path);
+                close(fd);
+                return -1;
+            } else {
+                bcmd[n] = '\0';
+                val = strtol(bcmd, NULL, 10);
+                close(fd);
+            }
+        } else {
+            LOGE("Unable to open file %s: %s", path, strerror(errno));
+            return -1;
+        }
+        return val;
     } else {
-        LOGE("unable to open file %s,err: %s", path, strerror(errno));
+        return ret;
     }
-    return val;
-}
-    else return ret;
 }
 int amsysfs_set_sysfs_int16(const char *path, int val)
 {
@@ -140,40 +168,60 @@ int amsysfs_set_sysfs_int16(const char *path, int val)
 }
 int amsysfs_get_sysfs_int16(const char *path)
 {
-    int fd,ret;
+    int fd, ret;
     int val = 0;
-    char  bcmd[16];
+    char bcmd[16];
     ret = mediactl_get_int_func(path);
     if (ret == UnSupport) {
-    fd = open(path, O_RDONLY);
-    if (fd >= 0) {
-        read(fd, bcmd, sizeof(bcmd));
-        val = strtol(bcmd, NULL, 16);
-        close(fd);
+        if (path == NULL) {
+            LOGE("Invalid input parameter: path is NULL");
+            return -1;
+        }
+        fd = open(path, O_RDONLY);
+        if (fd >= 0) {
+            ret = read(fd, bcmd, sizeof(bcmd));
+            if (ret >= 0) {
+                val = strtol(bcmd, NULL, 16);
+            } else {
+                LOGE("Error reading from file %s: %s", path, strerror(errno));
+            }
+            close(fd);
+        } else {
+            LOGE("Error opening file %s: %s", path, strerror(errno));
+        }
     } else {
-        LOGE("unable to open file %s,err: %s", path, strerror(errno));
+        return ret;
     }
     return val;
 }
-    else return ret;
-}
 unsigned long amsysfs_get_sysfs_ulong(const char *path)
 {
-    int fd,ret;
+    int fd, ret;
     char bcmd[24] = "";
     unsigned long num = 0;
     ret = mediactl_get_int_func(path);
     if (ret == UnSupport) {
-    if ((fd = open(path, O_RDONLY)) >= 0) {
-        read(fd, bcmd, sizeof(bcmd));
-        num = strtoul(bcmd, NULL, 0);
-        close(fd);
+        if (path == NULL) {
+            LOGE("Invalid input parameter: path is NULL");
+            return 0;
+        }
+        fd = open(path, O_RDONLY);
+        if (fd >= 0) {
+            ret = read(fd, bcmd, sizeof(bcmd) - 1);
+            if (ret >= 0) {
+                bcmd[ret] = '\0';
+                num = strtoul(bcmd, NULL, 0);
+            } else {
+                LOGE("Error reading from file %s: %s", path, strerror(errno));
+            }
+            close(fd);
+        } else {
+            LOGE("Error opening file %s: %s", path, strerror(errno));
+        }
     } else {
-        LOGE("unable to open file %s,err: %s", path, strerror(errno));
+        return ret;
     }
     return num;
-    }
-    else return ret;
 }
 void amsysfs_write_prop(const char* key, const char* value)
 {
@@ -251,18 +299,27 @@ int amsysfs_set_sysfs_int16(const char *path, int val)
 
 int amsysfs_get_sysfs_int16(const char *path)
 {
-    int ret = 0;
+    int fd, ret;
+    int val = 0;
+    char bcmd[16];
     ret = mediactl_get_int_func(path);
-	if (ret == UnSupport) {
-        LOGD("%s path =%s\n",__FUNCTION__,path);
-        char  bcmd[16] = "";
-        int val = 0;
-        if (amSystemWriteReadSysfs(path, bcmd) == 0) {
-            val = strtol(bcmd, NULL, 16);
+    if (ret == UnSupport) {
+        fd = open(path, O_RDONLY);
+        if (fd >= 0) {
+            ret = read(fd, bcmd, sizeof(bcmd));
+            if (ret >= 0) {
+                val = strtol(bcmd, NULL, 16);
+            } else {
+                LOGE("Error reading from file %s: %s", path, strerror(errno));
+            }
+            close(fd);
+        } else {
+            LOGE("Error opening file %s: %s", path, strerror(errno));
         }
-        return val;
+    } else {
+        return ret;
     }
-    else return ret;
+    return val;
 }
 
 unsigned long amsysfs_get_sysfs_ulong(const char *path)

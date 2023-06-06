@@ -40,33 +40,33 @@ int media_config_close(int fd)
     return 0;
 }
 
-int media_config_set_str(int fd, const char *cmd, const char *val)
-{
+int media_config_set_str(int fd, const char *cmd, const char *val) {
     struct media_config_io_str io;
     int ret;
-    io.subcmd = 0;
-    if (!cmd || !val) {
+    if (fd < 0 || !cmd || !val) {
         return -EIO;
     }
-    strncpy(io.cmd_path, cmd, sizeof(io.cmd_path));
-    strncpy(io.val, val, sizeof(io.val));
+    memset(&io, 0, sizeof(struct media_config_io_str));
+    strlcpy(io.cmd_path, cmd, sizeof(io.cmd_path));
+    strlcpy(io.val, val, sizeof(io.val));
     ret = ioctl(fd, MEDIA_CONFIG_SET_CMD_STR, &io);
     return ret;
 }
 int media_config_get_str(int fd, const char *cmd, char *val, int len)
 {
-    struct media_config_io_str io;
-    int ret;
-    io.subcmd = 0;
-    if (!cmd || !val) {
-        return -EIO;
+    if (fd < 0 || !cmd || !val) {
+        return -EINVAL;
     }
-    strncpy(io.cmd_path, cmd, sizeof(io.cmd_path));
-    io.val[0] = '\0';
-    ret = ioctl(fd, MEDIA_CONFIG_GET_CMD_STR, &io);
+
+    struct media_config_io_str io;
+    io.subcmd = 0;
+    memset(&io, 0, sizeof(struct media_config_io_str));
+    strncpy(io.cmd_path, cmd, sizeof(io.cmd_path) - 1);
+
+    int ret = ioctl(fd, MEDIA_CONFIG_GET_CMD_STR, &io);
     if (ret == 0) {
         int ret_len = io.ret;
-        if (ret_len > len) {
+        if (ret_len > len - 1) {
             ret_len = len - 1;
         }
         strncpy(val, io.val, ret_len);
