@@ -725,7 +725,10 @@ int vdin_screen_source::get_all_ptr(long **buffers)
     ALOGE("%s %d", __FUNCTION__, __LINE__);
     int ret = NO_ERROR;
     for ( int i = 0; i < mBufferCount; i++) {
-        *(buffers + i) = mVideoInfo->mem[i];
+        if (mFrameWidth %32  != 0) {
+            *(buffers + i) = src_temp[i];
+        }else
+            *(buffers + i) = mVideoInfo->mem[i];
     }
     return ret;
 }
