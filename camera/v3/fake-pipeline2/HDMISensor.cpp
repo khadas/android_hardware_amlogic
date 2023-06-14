@@ -2,7 +2,7 @@
 #define LOG_NNDEBUG 0
 
 #define LOG_TAG "HDMISensor"
-
+#define HDMI_PORT_INDEX 1
 #if defined(LOG_NNDEBUG) && LOG_NNDEBUG == 0
 #define ALOGVV ALOGV
 #else
@@ -33,26 +33,6 @@
 #define ARRAY_SIZE(x) (sizeof((x))/sizeof(((x)[0])))
 
 namespace android {
-
-const usb_frmsize_discrete_t kHDMIAvailablePictureSize[] = {
-        {1920, 1080},
-};
-
-static bool IsHDMIAvailablePictureSize(const usb_frmsize_discrete_t AvailablePictureSize[], uint32_t width, uint32_t height)
-{
-    int i;
-    bool ret = false;
-    int count = sizeof(kHDMIAvailablePictureSize)/sizeof(kHDMIAvailablePictureSize[0]);
-    for (i = 0; i < count; i++) {
-        if ((width == AvailablePictureSize[i].width) && (height == AvailablePictureSize[i].height)) {
-            ret = true;
-        } else {
-            continue;
-        }
-    }
-    return ret;
-}
-
 HDMISensor::HDMISensor() {
     mMPlaneCameraIO = NULL;
     mGE2D = new ge2dTransform();
@@ -154,7 +134,8 @@ status_t HDMISensor::startUp(int idx, bool customizationSensor) {
     if (res != OK) {
         ALOGE("Unable to start up sensor capture thread: %d", res);
     }
-
+    if (customizationSensor)
+        return res;
     mMPlaneCameraIO = (MPlaneCameraIO *) calloc(1, sizeof(MPlaneCameraIO));
     mMPlaneCameraIO->openIdx = idx;
 
@@ -163,7 +144,7 @@ status_t HDMISensor::startUp(int idx, bool customizationSensor) {
         ALOGE("Unable to open sensor %d, errno=%d\n", mMPlaneCameraIO->openIdx, res);
     }
 
-    // set input
+    hdmi_port_index = HDMI_PORT_INDEX;
     res = mMPlaneCameraIO->setInputPort(&hdmi_port_index);
     if (res < 0) {
         ALOGE("Unable set input HDMI3_RX3");
@@ -211,329 +192,41 @@ bool HDMISensor::isStableSignal() {
 }
 
 int HDMISensor::getStreamConfigurations(uint32_t picSizes[], const int32_t kAvailableFormats[], int size) {
-    int res;
-    int i, j, k, START;
-    int count = 0;
-    struct v4l2_frmsizeenum frmsize;
-    char property[PROPERTY_VALUE_MAX];
-    unsigned int support_w,support_h;
-
-    support_w = 10000;
-    support_h = 10000;
-    memset(property, 0, sizeof(property));
-    if (property_get("vendor.media.camera_preview.maxsize", property, NULL) > 0) {
-        CAMHAL_LOGDB("support Max Preview Size :%s",property);
-        if (sscanf(property,"%dx%d",&support_w,&support_h) != 2) {
-            support_w = 10000;
-            support_h = 10000;
-        }
-    }
-
-    memset(&frmsize,0,sizeof(frmsize));
-    frmsize.pixel_format = getOutputFormat();
-
-    START = 0;
-    for (i = 0; ; i++) {
-        frmsize.index = i;
-        res = ioctl(mMPlaneCameraIO->fd, VIDIOC_ENUM_FRAMESIZES, &frmsize);
-        if (res < 0) {
-            DBG_LOGB("index=%d, break\n", i);
-            break;
-        }
-
-        if (frmsize.type == V4L2_FRMSIZE_TYPE_DISCRETE)  { //only support this type
-
-            if (0 != (frmsize.discrete.width%16))
-                continue;
-
-            if ((frmsize.discrete.width * frmsize.discrete.height) > (support_w * support_h))
-                continue;
-            if (count >= size)
-                break;
-
-            if (!IsHDMIAvailablePictureSize(kHDMIAvailablePictureSize, frmsize.discrete.width, frmsize.discrete.height))
-                continue;
-
-            picSizes[count+0] = HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED;
-            picSizes[count+1] = frmsize.discrete.width;
-            picSizes[count+2] = frmsize.discrete.height;
-            picSizes[count+3] = ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT;
-
-            DBG_LOGB("get output width=%d, height=%d, format=%d\n",
-                frmsize.discrete.width, frmsize.discrete.height, frmsize.pixel_format);
-            if (0 == i) {
-                count += 4;
-                continue;
-            }
-
-            for (k = count; k > START; k -= 4) {
-                if (frmsize.discrete.width * frmsize.discrete.height >
-                        picSizes[k - 3] * picSizes[k - 2]) {
-                    picSizes[k + 1] = picSizes[k - 3];
-                    picSizes[k + 2] = picSizes[k - 2];
-
-                } else {
-                    break;
-                }
-            }
-            picSizes[k + 1] = frmsize.discrete.width;
-            picSizes[k + 2] = frmsize.discrete.height;
-
-            count += 4;
-        }
-    }
-
-    START = count;
-    for (i = 0; ; i++) {
-        frmsize.index = i;
-        res = ioctl(mMPlaneCameraIO->fd, VIDIOC_ENUM_FRAMESIZES, &frmsize);
-        if (res < 0) {
-            DBG_LOGB("index=%d, break\n", i);
-            break;
-        }
-
-        if (frmsize.type == V4L2_FRMSIZE_TYPE_DISCRETE) { //only support this type
-
-            if (0 != (frmsize.discrete.width%16))
-                continue;
-
-            if ((frmsize.discrete.width * frmsize.discrete.height) > (support_w * support_h))
-                continue;
-            if (count >= size)
-                break;
-            if (!IsHDMIAvailablePictureSize(kHDMIAvailablePictureSize, frmsize.discrete.width, frmsize.discrete.height))
-                continue;
-
-            picSizes[count+0] = HAL_PIXEL_FORMAT_YCbCr_420_888;
-            picSizes[count+1] = frmsize.discrete.width;
-            picSizes[count+2] = frmsize.discrete.height;
-            picSizes[count+3] = ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT;
-
-            DBG_LOGB("get output width=%d, height=%d, format =\
-                HAL_PIXEL_FORMAT_YCbCr_420_888\n", frmsize.discrete.width,
-                                                    frmsize.discrete.height);
-            if (0 == i) {
-                count += 4;
-                continue;
-            }
-
-            for (k = count; k > START; k -= 4) {
-                if (frmsize.discrete.width * frmsize.discrete.height >
-                        picSizes[k - 3] * picSizes[k - 2]) {
-                    picSizes[k + 1] = picSizes[k - 3];
-                    picSizes[k + 2] = picSizes[k - 2];
-
-                } else {
-                    break;
-                }
-            }
-            picSizes[k + 1] = frmsize.discrete.width;
-            picSizes[k + 2] = frmsize.discrete.height;
-
-            count += 4;
-        }
-    }
-
-    uint32_t jpgSrcfmt[] = {
-        V4L2_PIX_FMT_NV21,
-        V4L2_PIX_FMT_RGB24,
-        V4L2_PIX_FMT_MJPEG,
-        V4L2_PIX_FMT_YUYV,
-    };
-
-    START = count;
-    for (j = 0; j<(int)(sizeof(jpgSrcfmt)/sizeof(jpgSrcfmt[0])); j++) {
-        memset(&frmsize,0,sizeof(frmsize));
-        frmsize.pixel_format = jpgSrcfmt[j];
-
-        for (i = 0; ; i++) {
-            frmsize.index = i;
-            res = ioctl(mMPlaneCameraIO->fd, VIDIOC_ENUM_FRAMESIZES, &frmsize);
-            if (res < 0) {
-                DBG_LOGB("index=%d, break\n", i);
-                break;
-            }
-
-            if (frmsize.type == V4L2_FRMSIZE_TYPE_DISCRETE) { //only support this type
-
-                if (0 != (frmsize.discrete.width%16))
-                    continue;
-
-                if ((frmsize.discrete.width > support_w) && (frmsize.discrete.height >support_h))
-                    continue;
-
-                if (count >= size)
-                    break;
-
-                if ((frmsize.pixel_format == V4L2_PIX_FMT_MJPEG) || (frmsize.pixel_format == V4L2_PIX_FMT_YUYV)
-                    || (frmsize.pixel_format == V4L2_PIX_FMT_NV21)) {
-                    if (!IsHDMIAvailablePictureSize(kHDMIAvailablePictureSize, frmsize.discrete.width, frmsize.discrete.height))
-                        continue;
-                }
-
-                picSizes[count+0] = HAL_PIXEL_FORMAT_BLOB;
-                picSizes[count+1] = frmsize.discrete.width;
-                picSizes[count+2] = frmsize.discrete.height;
-                picSizes[count+3] = ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT;
-
-                if (0 == i) {
-                    count += 4;
-                    continue;
-                }
-
-                //TODO insert in descend order
-                for (k = count; k > START; k -= 4) {
-                    if (frmsize.discrete.width * frmsize.discrete.height >
-                            picSizes[k - 3] * picSizes[k - 2]) {
-                        picSizes[k + 1] = picSizes[k - 3];
-                        picSizes[k + 2] = picSizes[k - 2];
-
-                    } else {
-                        break;
-                    }
-                }
-
-                picSizes[k + 1] = frmsize.discrete.width;
-                picSizes[k + 2] = frmsize.discrete.height;
-
-                count += 4;
-            }
-        }
-
-        if (frmsize.index > 0)
-            break;
-    }
-
-    if (frmsize.index == 0)
-        CAMHAL_LOGDA("no support pixel fmt for jpeg");
-
-    return count;
+    uint32_t count = 0;
+    picSizes[count++] = HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED;
+    picSizes[count++] = 1920;
+    picSizes[count++] = 1080;
+    picSizes[count++] = ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT;
+    picSizes[count++] = HAL_PIXEL_FORMAT_YCbCr_420_888;
+    picSizes[count++] = 1920;
+    picSizes[count++] = 1080;
+    picSizes[count++] = ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT;
+    picSizes[count++] = HAL_PIXEL_FORMAT_BLOB;
+    picSizes[count++] = 1920;
+    picSizes[count++] = 1080;
+    picSizes[count++] = ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT;
+    return (int)count;
 }
 
 int HDMISensor::getStreamConfigurationDurations(uint32_t picSizes[], int64_t duration[], int size, bool flag)
 {
-    int ret=0; int framerate=0; int temp_rate=0;
-    struct v4l2_frmivalenum fival;
-    int i,j=0;
-    int count = 0;
-    int tmp_size = size;
-    memset(duration, 0 ,sizeof(int64_t) * size);
-    int pixelfmt_tbl[] = {
-        V4L2_PIX_FMT_MJPEG,
-        V4L2_PIX_FMT_YVU420,
-        V4L2_PIX_FMT_NV21,
-        V4L2_PIX_FMT_RGB24,
-        V4L2_PIX_FMT_YUYV,
-    };
-
-    for ( i = 0; i < (int) ARRAY_SIZE(pixelfmt_tbl); i++)
-    {
-        /* we got all duration for each resolution for prev format*/
-        if (count >= tmp_size)
-            break;
-
-        for ( ; size > 0; size-=4)
-        {
-            memset(&fival, 0, sizeof(fival));
-
-            for (fival.index = 0;;fival.index++)
-            {
-                fival.pixel_format = pixelfmt_tbl[i];
-                fival.width = picSizes[size-3];
-                fival.height = picSizes[size-2];
-                if ((ret = ioctl(mMPlaneCameraIO->fd, VIDIOC_ENUM_FRAMEINTERVALS, &fival)) == 0) {
-                    if (fival.type == V4L2_FRMIVAL_TYPE_DISCRETE) {
-                        if ( fival.discrete.numerator != 0) temp_rate = fival.discrete.denominator/fival.discrete.numerator;
-                        if (framerate < temp_rate)
-                            framerate = temp_rate;
-                        duration[count+0] = (int64_t)(picSizes[size-4]);
-                        duration[count+1] = (int64_t)(picSizes[size-3]);
-                        duration[count+2] = (int64_t)(picSizes[size-2]);
-                        if (framerate != 0) duration[count+3] = (int64_t)((1.0/framerate) * 1000000000);
-                        j++;
-                    } else if (fival.type == V4L2_FRMIVAL_TYPE_CONTINUOUS) {
-                        if ( fival.discrete.numerator != 0) temp_rate = fival.discrete.denominator/fival.discrete.numerator;
-                        if (framerate < temp_rate)
-                            framerate = temp_rate;
-                        duration[count+0] = (int64_t)picSizes[size-4];
-                        duration[count+1] = (int64_t)picSizes[size-3];
-                        duration[count+2] = (int64_t)picSizes[size-2];
-                        if (framerate != 0) duration[count+3] = (int64_t)((1.0/framerate) * 1000000000);
-                        j++;
-                    } else if (fival.type == V4L2_FRMIVAL_TYPE_STEPWISE) {
-                        if ( fival.discrete.numerator != 0) temp_rate = fival.discrete.denominator/fival.discrete.numerator;
-                        if (framerate < temp_rate)
-                            framerate = temp_rate;
-                        duration[count+0] = (int64_t)picSizes[size-4];
-                        duration[count+1] = (int64_t)picSizes[size-3];
-                        duration[count+2] = (int64_t)picSizes[size-2];
-                        if (framerate != 0) duration[count+3] = (int64_t)((1.0/framerate) * 1000000000);
-                        j++;
-                    }
-                } else {
-                    if (j > 0) {
-                        if (count >= tmp_size)
-                            break;
-                        duration[count+0] = (int64_t)(picSizes[size-4]);
-                        duration[count+1] = (int64_t)(picSizes[size-3]);
-                        duration[count+2] = (int64_t)(picSizes[size-2]);
-                        if (framerate == 5) {
-                            if ((!flag) && ((duration[count+0] == HAL_PIXEL_FORMAT_YCbCr_420_888)
-                                || (duration[count+0] == HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED)))
-                                duration[count+3] = 0;
-                            else
-                                duration[count+3] = (int64_t)200000000L;
-                        } else if (framerate == 10) {
-                            if ((!flag) && ((duration[count+0] == HAL_PIXEL_FORMAT_YCbCr_420_888)
-                                || (duration[count+0] == HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED)))
-                                duration[count+3] = 0;
-                            else
-                                duration[count+3] = (int64_t)100000000L;
-                        } else if (framerate == 15) {
-                            if ((!flag) && ((duration[count+0] == HAL_PIXEL_FORMAT_YCbCr_420_888)
-                                || (duration[count+0] == HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED)))
-                                duration[count+3] = 0;
-                            else
-                                duration[count+3] = (int64_t)66666666L;
-                        } else if (framerate == 30) {
-                            if ((!flag) && ((duration[count+0] == HAL_PIXEL_FORMAT_YCbCr_420_888)
-                                || (duration[count+0] == HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED)))
-                                duration[count+3] = 0;
-                            else {
-                                if (fival.width *fival.height >= 1920*1080)
-                                    duration[count+3] = (int64_t)66666666L;
-                                else
-                                    duration[count+3] = (int64_t)33333333L;
-                            }
-                        } else if (framerate == 60) {
-                            if ((!flag) && ((duration[count+0] == HAL_PIXEL_FORMAT_YCbCr_420_888)
-                                || (duration[count+0] == HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED)))
-                                duration[count+3] = 0;
-                            else {
-                                duration[count+3] = (int64_t)16666666L;
-                            }
-                        } else {
-                            if ((!flag) && ((duration[count+0] == HAL_PIXEL_FORMAT_YCbCr_420_888)
-                                || (duration[count+0] == HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED)))
-                                duration[count+3] = 0;
-                            else
-                                duration[count+3] = (int64_t)66666666L;
-                        }
-                        count += 4;
-                        break;
-                    } else {
-                        break;
-                    }
-                }
-            }
-            framerate=0;
-            j=0;
-        }
-        size = tmp_size;
-    }
-
-    return count;
-
+    uint32_t count = 0;
+    duration[count+0] = HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED;
+    duration[count+1] = 1920;
+    duration[count+2] = 1080;
+    duration[count+3] = (int64_t)16666666L;
+    count += 4;
+    duration[count+0] = HAL_PIXEL_FORMAT_YCbCr_420_888;
+    duration[count+1] = 1920;
+    duration[count+2] = 1080;
+    duration[count+3] = (int64_t)16666666L;
+    count += 4;
+    duration[count+0] = HAL_PIXEL_FORMAT_BLOB;
+    duration[count+1] = 1920;
+    duration[count+2] = 1080;
+    duration[count+3] = (int64_t)16666666L;
+    count += 4;
+    return (int)count;
 }
 
 int64_t HDMISensor::getMinFrameDuration() {

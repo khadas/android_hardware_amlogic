@@ -48,8 +48,7 @@ struct VirtualDevice CameraVirtualDevice::usbvideoDeviceslists[] = {
 };
 
 #else
-//#define USB_DEVICE_NUM  (5)
-#define USB_DEVICE_NUM  (4)
+#define USB_DEVICE_NUM  (5)
 #define MIPI_DEVICE_NUM (6)
 
 struct VirtualDevice CameraVirtualDevice::mipivideoDeviceslists[] = {
@@ -67,7 +66,7 @@ struct VirtualDevice CameraVirtualDevice::usbvideoDeviceslists[] = {
     {"/dev/video2",1,{FREED_VIDEO_DEVICE,NONE_DEVICE,NONE_DEVICE},{-1,-1,-1},{-1,-1,-1},1, USB_CAM_DEV},
     {"/dev/video4",1,{FREED_VIDEO_DEVICE,NONE_DEVICE,NONE_DEVICE},{-1,-1,-1},{-1,-1,-1},2, USB_CAM_DEV},
     {"/dev/video6",1,{FREED_VIDEO_DEVICE,NONE_DEVICE,NONE_DEVICE},{-1,-1,-1},{-1,-1,-1},3, USB_CAM_DEV},
-    /*{"/dev/video70",1,{FREED_VIDEO_DEVICE,NONE_DEVICE,NONE_DEVICE},{-1,-1,-1},{-1,-1,-1},4, USB_CAM_DEV}*/
+    {"/dev/video70",1,{FREED_VIDEO_DEVICE,NONE_DEVICE,NONE_DEVICE},{-1,-1,-1},{-1,-1,-1},4, USB_CAM_DEV}
 };
 
 #endif

@@ -203,15 +203,16 @@ enum tvin_aspect_ratio_e {
 };
 
 struct tvin_info_s {
-    enum tvin_trans_fmt trans_fmt;
-    enum tvin_sig_fmt_e fmt;
+    enum tvin_trans_fmt    trans_fmt;
+    enum tvin_sig_fmt_e    fmt;
     enum tvin_sig_status_e status;
-    enum tvin_color_fmt_e cfmt;
-    unsigned int fps;
-    unsigned int is_dvi;
-    unsigned int signal_type;
+    enum tvin_color_fmt_e       cfmt;
+    unsigned int      fps;
+    unsigned int      is_dvi;
+    unsigned int hdr_info;
+    unsigned int input_colorimetry;
     enum tvin_aspect_ratio_e aspect_ratio;
-    unsigned char amldolby_vision;
+    unsigned char amdolby_vision;
     unsigned char low_latency;
 };
 #define TVIN_IOC_MAGIC 'T'
