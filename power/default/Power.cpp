@@ -98,7 +98,15 @@ ndk::ScopedAStatus Power::setBoost(Boost type, int32_t durationMs) {
     ATRACE_INT(toString(type).c_str(), durationMs);
     switch (type) {
         case Boost::INTERACTION:
-                mHintManager->DoHint("INTERACTION");
+            if (durationMs == 0) {
+                /*For DoHint can't sussess until the pre DoHint is timeout.
+                  (default duration is std::chrono::milliseconds::max() Ms)
+                  We need to set INTERACTION/CPUcmdwe in every input event.
+                  So we add timeout as 300ms as default timeout.*/
+                mHintManager->DoHint("INTERACTION",(std::chrono::milliseconds)(durationMs+300));
+            } else {
+                mHintManager->DoHint("INTERACTION", (std::chrono::milliseconds)durationMs);
+            }
             break;
         default:
             LOG(INFO) << "Power setBoost " << toString(type) << " is not supported now";
