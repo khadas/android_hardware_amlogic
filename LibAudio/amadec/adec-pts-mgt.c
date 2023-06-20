@@ -30,6 +30,7 @@
 #include <sys/time.h>
 #include <amthreadpool.h>
 #include <sys/ioctl.h>
+#include <inttypes.h>
 
 #include "Amsysfsutils.h"
 #include "amconfigutils.h"
@@ -1028,7 +1029,7 @@ int droppcm_get_refpts(aml_audio_dec_t *audec, unsigned long *refpts)
     if (property_get("vendor.media.amplayer.dropwaitxms", value, NULL) > 0) {
         circount = atoi(value);
     }
-    adec_print("drop wait max ms = %lld \n", circount);
+    adec_print("drop wait max ms = %"PRIu64" \n", circount);
 
     //media.amplayer.refmode : 0 vpts 1 other case
 #if 0
@@ -1067,12 +1068,12 @@ int droppcm_get_refpts(aml_audio_dec_t *audec, unsigned long *refpts)
         }
 
         if (gettime() - start_time >= (circount * 1000)) {
-            adec_print("## [%s::%d] max time reached! %lld ms \n", __FUNCTION__, __LINE__, circount);
+            adec_print("## [%s::%d] max time reached! %"PRIu64" ms \n", __FUNCTION__, __LINE__, circount);
             break;
         }
         amthreadpool_thread_usleep(10000); // 10ms
     }
-    adec_print("## [%s::%d] firstvpts:0x%lx, use:%ld us, maxtime:%lld ms, ---\n", __FUNCTION__, __LINE__, firstvpts, (long)(gettime() - start_time), circount);
+    adec_print("## [%s::%d] firstvpts:0x%lx, use:%ld us, maxtime:%"PRIu64" ms, ---\n", __FUNCTION__, __LINE__, firstvpts, (long)(gettime() - start_time), circount);
 
     if (sysfs_get_int(TSYNC_VPTS, &cur_vpts) == -1) {
         adec_print("## [%s::%d] unable to get vpts! \n", __FUNCTION__, __LINE__);
