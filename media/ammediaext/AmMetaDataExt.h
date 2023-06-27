@@ -76,7 +76,6 @@ enum {
 
 
     // audio profile
-    kKeyAudioProfile	  = 'aprf',  // int32_t
     kKeyExtraData	  = 'exda',
     kKeyExtraDataSize	  = 'edsz',
     kKeyCodecID 	  = 'cdid',
