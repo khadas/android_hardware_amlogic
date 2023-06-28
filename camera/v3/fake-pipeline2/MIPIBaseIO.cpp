@@ -37,7 +37,7 @@ VideoInfoUseOneFd::VideoInfoUseOneFd(){
     //memset(canvas,0,sizeof(canvas));
     isStreaming = false;
     isPicture = false;
-    //canvas_mode = false;
+    canvas_mode = false;
     width = 0;
     height = 0;
     formatIn = 0;
@@ -48,7 +48,7 @@ VideoInfoUseOneFd::VideoInfoUseOneFd(){
     V4LDevicefd = -1;
     tempbuflen = 0;
     dev_status = 0;
-    IO_PREVIEW_BUFFER = 0;
+    IO_PREVIEW_BUFFER = 4;
 }
 
 VideoInfoUseOneFd::~VideoInfoUseOneFd() {

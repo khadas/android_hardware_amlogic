@@ -28,7 +28,6 @@ static int getInterface() {
     if (!lib) {
         char const* err_str = ::dlerror();
         ALOGE("dlopen: error:%s", (err_str ? err_str : "unknown"));
-        dlclose(lib);
         return -1;
     }
     ispIF->alg2User = (isp_alg2user)::dlsym(lib, "aisp_alg2user");
@@ -59,6 +58,7 @@ static int getInterface() {
         dlclose(lib);
         return -1;
     }
+    dlclose(lib);
     ALOGI("%s success", __FUNCTION__);
     return 0;
 }

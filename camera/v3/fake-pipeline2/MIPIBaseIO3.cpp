@@ -52,7 +52,7 @@ VideoInfoUsePictureScaler::VideoInfoUsePictureScaler() {
     mIsRecording = false;
     canvas_mode = false;
     mRecordFd = -1;
-    IO_PREVIEW_BUFFER = 0;
+    IO_PREVIEW_BUFFER = 4;
     //mMuteKeyStatus = EVENT_CAMERA_UNMUTE;
 }
 

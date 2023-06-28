@@ -39,7 +39,7 @@ VideoInfoUseTowFd::VideoInfoUseTowFd() {
     //memset(canvas,0,sizeof(canvas));
     isStreaming = false;
     mIsPicture = false;
-    //canvas_mode = false;
+    canvas_mode = false;
     width = 0;
     height = 0;
     formatIn = 0;
@@ -51,7 +51,7 @@ VideoInfoUseTowFd::VideoInfoUseTowFd() {
     mSnapShotFd = -1;
     tempbuflen = 0;
     dev_status = 0;
-    IO_PREVIEW_BUFFER = 0;
+    IO_PREVIEW_BUFFER = 4;
 }
 
 int VideoInfoUseTowFd::EnumerateFormat(uint32_t pixelformat){

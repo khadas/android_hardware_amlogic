@@ -218,6 +218,12 @@ EmulatedFakeCamera3::EmulatedFakeCamera3(int cameraId, struct hw_module_t* modul
     mAeTargetExposureTime = 0;
     mAeCurrentSensitivity = 0;
 
+    memset(&KeyInfo_t, 0, sizeof(struct KeyInfo_s));
+    memset(&maxJpegResolution, 0, sizeof(struct jpegsize));
+    mFacingBack = true;
+    mSensorType = SENSOR_MMAP;
+    mInputStream = nullptr;
+
 }
 
 EmulatedFakeCamera3::~EmulatedFakeCamera3() {

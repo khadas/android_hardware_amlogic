@@ -196,6 +196,7 @@ Sensor::Sensor():
         mGainFactor(kDefaultSensitivity),
         mNextBuffers(NULL),
         mKernelBuffer(NULL),
+        mKernelBufferFmt(0),
         mTempFD(-1),
         mFrameNumber(0),
         mRotateValue(-1),

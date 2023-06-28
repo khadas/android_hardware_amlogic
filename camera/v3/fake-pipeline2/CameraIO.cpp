@@ -35,7 +35,7 @@ CVideoInfo::CVideoInfo(){
     //memset(canvas,0,sizeof(canvas));
     isStreaming = false;
     isPicture = false;
-    //canvas_mode = false;
+    canvas_mode = false;
     width = 0;
     height = 0;
     formatIn = 0;
@@ -46,7 +46,7 @@ CVideoInfo::CVideoInfo(){
     fd = -1;
     tempbuflen = 0;
     dev_status = 0;
-    IO_PREVIEW_BUFFER = 0;
+    IO_PREVIEW_BUFFER = 4;
 }
 
 int CVideoInfo::EnumerateFormat(uint32_t pixelformat){

@@ -645,7 +645,8 @@ void USBSensor::captureNV21UsbSensor(StreamBuffer b, uint32_t gain, bool needSen
 #endif
                         }
                     } else {
-                        ret = MJPEGToNV21(src, b);
+                        if (src != NULL)
+                            ret = MJPEGToNV21(src, b);
                     }
                     if (ret == 1) {
                         mVinfo->putback_frame();
