@@ -255,7 +255,7 @@ static int open_cec( const struct hw_module_t* module, char const *name,
 
     aml_cec_hal_t *dev = (aml_cec_hal_t*)malloc(sizeof(*dev));
     memset(dev, 0, sizeof(*dev));
-    dev->cecControl = new HdmiCecControl();
+    dev->cecControl = new HdmiCecControl(HDMI_EVENT_HOT_PLUG | HDMI_EVENT_CEC_MESSAGE);
     dev->cecControl->setEventObserver(new HdmiCecCallback());
     dev->fd = dev->cecControl->openCecDevice();
 

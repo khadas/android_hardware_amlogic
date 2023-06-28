@@ -91,16 +91,18 @@ HdmiCecControl::HdmiCecEventHandler::~HdmiCecEventHandler()
 
 void HdmiCecControl::HdmiCecEventHandler::onCecEvent(int type) {
     //LOGD("onCecEvent type :%d", type);
-    if (HDMI_EVENT_HOT_PLUG == type) {
+    if (HDMI_EVENT_HOT_PLUG == type
+        && ((mControl->mCecEvent & HDMI_EVENT_HOT_PLUG) != 0)) {
         mControl->checkConnectStatus();
-    } else if (HDMI_EVENT_CEC_MESSAGE == type) {
+    } else if (HDMI_EVENT_CEC_MESSAGE == type
+        && ((mControl->mCecEvent & HDMI_EVENT_CEC_MESSAGE) != 0)) {
         mControl->readCecMessage();
     }
 }
 
-HdmiCecControl::HdmiCecControl()
+HdmiCecControl::HdmiCecControl(int event)
 {
-    LOGI("%s start", __FUNCTION__);
+    LOGI("%s event:%d start ", __FUNCTION__, event);
     mCecDevice.is_tv = false;
     mCecDevice.is_playback = false;
     mCecDevice.device_types = NULL;
@@ -115,8 +117,9 @@ HdmiCecControl::HdmiCecControl()
     mCecDevice.port_data = NULL;
     mCecDevice.playback_logical_addr = CEC_ADDR_BROADCAST;
     mCecDevice.is_cec_enabled = true;
-    mCecDevice.is_cec_controled = false;
+    mCecDevice.is_cec_controlled = true;
     mCecDevice.hdmi_cfg_init = false;
+    mCecEvent = event;
     getDeviceTypes();
 
     int index = 0;
@@ -135,9 +138,9 @@ HdmiCecControl::HdmiCecControl()
         LOGE("can't open device. fd < 0");
         return;
     }
-    if (getLogLevel() > LOG_LEVEL_1) {
+    if (getPropertyBoolean(PROPERTY_CEC_DEBUG, false)) {
         LOGD("openCecDevice debug open!");
-        //ioctl(mCecDevice.driver_fd, CEC_IOC_SET_DEBUG_EN, 1);
+        ioctl(mCecDevice.driver_fd, CEC_IOC_SET_DEBUG_EN, 2);
     }
 
     for (index = 0; index < mCecDevice.total_device; index++) {
@@ -217,7 +220,7 @@ int HdmiCecControl::readCecMessage()
     event.cec.destination = cec_logical_address_t((msgBuf[0] >> 0) & 0xf);
     event.cec.length = r - 1;
 
-    if (mCecDevice.is_cec_controled || transferableInSleep((char*)msgBuf)) {
+    if (mCecDevice.is_cec_controlled || transferableInSleep((char*)msgBuf)) {
          event.eventType |= HDMI_EVENT_CEC_MESSAGE;
     }
 
@@ -352,7 +355,7 @@ void HdmiCecControl::setOption(int flag, int value)
             ret = ioctl(mCecDevice.driver_fd, CEC_IOC_SET_OPTION_ENABLE_CEC, value);
             mCecDevice.is_cec_enabled = (value == 1);
             if (mCecDevice.is_cec_enabled) {
-                mCecDevice.is_cec_controled = true;
+                mCecDevice.is_cec_controlled = true;
             }
             break;
 
@@ -362,14 +365,14 @@ void HdmiCecControl::setOption(int flag, int value)
 
         case HDMI_OPTION_SYSTEM_CEC_CONTROL:
             ret = ioctl(mCecDevice.driver_fd, CEC_IOC_SET_OPTION_SYS_CTRL, value);
-            mCecDevice.is_cec_controled = (value == 1);
-            if (!mCecDevice.hdmi_cfg_init && mCecDevice.is_cec_controled) {
+            mCecDevice.is_cec_controlled = (value == 1);
+            if (!mCecDevice.hdmi_cfg_init && mCecDevice.is_cec_controlled) {
                 LOGI("%s boot initialize hdmi cec config!", __FUNCTION__);
                 ioctl(mCecDevice.driver_fd, CEC_IOC_SET_OPTION_ENABLE_CEC, value);
                 mCecDevice.hdmi_cfg_init = true;
             }
             /* removed for the tv compat logic has been moved to driver.
-            if (mCecDevice.is_cec_controled) {
+            if (mCecDevice.is_cec_controlled) {
                 initCecWakeupInfo();
             }
             */
@@ -382,8 +385,8 @@ void HdmiCecControl::setOption(int flag, int value)
         default:
             break;
     }
-    LOGD("%s, flag:0x%x, value:0x%x, ret:%d, is_cec_controled:%x", __FUNCTION__,
-                        flag, value, ret, mCecDevice.is_cec_controled);
+    LOGD("%s, flag:0x%x, value:0x%x, ret:%d, is_cec_controlled:%x", __FUNCTION__,
+                        flag, value, ret, mCecDevice.is_cec_controlled);
 }
 
 void HdmiCecControl::setAudioReturnChannel(int port, bool flag)
@@ -466,12 +469,12 @@ int HdmiCecControl::sendMessage(const cec_message_t* message)
     int retry = 0;
     if (assertHdmiCecDevice()) {
         LOGE("sendMessage not valid cec device!");
-        return -EINVAL;
+        return HDMI_RESULT_FAIL;
     }
 
     if (!mCecDevice.is_cec_enabled) {
         LOGE("sendMessage cec not enabled!");
-        return -EINVAL;
+        return HDMI_RESULT_FAIL;
     }
 
     if (preHandleOfSend(message) < 0) {
@@ -623,7 +626,7 @@ void HdmiCecControl::threadLoop()
         event.cec.destination = cec_logical_address_t((msgBuf[0] >> 0) & 0xf);
         event.cec.length = r - 1;
 
-        if (mCecDevice.is_cec_controled || transferableInSleep((char*)msgBuf)) {
+        if (mCecDevice.is_cec_controlled || transferableInSleep((char*)msgBuf)) {
              event.eventType |= HDMI_EVENT_CEC_MESSAGE;
         }
 
@@ -670,7 +673,7 @@ bool HdmiCecControl::isSourceDevice(int logicalAddress)
 }
 
 /**
- * Check if still transfer it when mCecDevice.is_cec_controled is false
+ * Check if still transfer it when mCecDevice.is_cec_controlled is false
 */
 
 bool HdmiCecControl::transferableInSleep(char *msgBuf)
@@ -881,7 +884,7 @@ void HdmiCecControl::checkConnectStatus()
         if (bit ^ ((connect ? 1 : 0) << port)) {//connect status has changed
             LOGI("Hotplug event port:%x, now:%x, prevStatus:%x\n",
                     mCecDevice.port_data[i].port_id, connect, prevStatus);
-            if (mEventListener != NULL && mCecDevice.is_cec_enabled && mCecDevice.is_cec_controled) {
+            if (mEventListener != NULL && mCecDevice.is_cec_enabled && mCecDevice.is_cec_controlled) {
                 event.eventType = HDMI_EVENT_HOT_PLUG;
                 event.hotplug.connected = connect;
                 event.hotplug.port_id = mCecDevice.port_data[i].port_id;
@@ -932,7 +935,7 @@ int HdmiCecControl::preHandleOfSend(const cec_message_t* message)
         case CEC_MESSAGE_ACTIVE_SOURCE: {
             // The android framework has not taken this senario into consideration, we have to do the supplement
             // filter work in hal. It works when the playback powers down just after it wakes up.
-            if (mCecDevice.is_playback && !mCecDevice.is_cec_controled) {
+            if (mCecDevice.is_playback && !mCecDevice.is_cec_controlled) {
                 LOGD("filter One Touch Play message when playback goes to sleep.");
                 ret = -1;
             }

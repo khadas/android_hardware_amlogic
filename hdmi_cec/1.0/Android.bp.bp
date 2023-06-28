@@ -3,7 +3,7 @@
 //     DEPENDING ON IT IN YOUR PROJECT. ***
 package {
     default_applicable_licenses: [
-        "hardware_amlogic_hdmi_cec_libhdmi_cec_license",
+        "hardware_amlogic_hdmi_cec_license",
     ],
 }
 
@@ -22,7 +22,7 @@ package {
 // used in the current project.
 // See: http://go/android-license-faq
 license {
-    name: "hardware_amlogic_hdmi_cec_libhdmi_cec_license",
+    name: "hardware_amlogic_hdmi_cec_license",
     visibility: [":__subpackages__"],
     license_kinds: [
         "SPDX-license-identifier-Apache-2.0",
@@ -38,30 +38,24 @@ license {
     ],
 }
 
-cc_library{
-    name: "libhdmi_cec",
-    proprietary: true,
+// HAL module implementation, not prelinked and stored in
+// hw/<LIGHTS_HARDWARE_MODULE_ID>.<ro.hardware>.so
 
-    srcs: [
-        "HdmiCecControl.cpp",
-        "CMsgQueue.cpp",
-        "HdmiCecCompat.cpp",
-        "HdmiCecUtils.cpp",
-        "HdmiCecBase.cpp",
-        "HdmiCecBusMonitor.cpp",
-    ],
+cc_library_shared {
+    name: "hdmi_cec.amlogic",
+    srcs: ["hdmi_cec.cpp"],
 
-    header_libs: [
-        "libhardware_headers",
-    ],
-
-    export_include_dirs: ["."],
-
+    relative_install_path: "hw",
     shared_libs: [
-        "libcutils",
-        "libutils",
+        "libbase",
         "liblog",
         "libbinder",
+        "libutils",
+        "libcutils",
+        "libhardware",
+        "libhdmi_cec",
     ],
 
+    proprietary: true,
 }
+

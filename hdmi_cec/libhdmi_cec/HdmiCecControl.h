@@ -16,7 +16,7 @@
 #include "CMsgQueue.h"
 #include "HdmiCecBase.h"
 #include "HdmiCecBusMonitor.h"
-
+#include "HdmiCecUtils.h"
 
 #define CEC_FILE        "/dev/cec"
 #define MAX_PORT        32
@@ -76,6 +76,10 @@
 #define PROPERTY_LOGICAL_ADDRESS        "persist.vendor.sys.cec.logicaladdress"
 
 #define PROPERTY_ARC_PORT               "persist.vendor.sys.arc_port"
+#define PROPERTY_CEC_DEBUG              "persist.vendor.sys.cec_debug"
+
+
+#define PROPERTY_EARC_SUPPORTED         "ro.vendor.media.support_earc"
 
 #define SEND_MESSAGE_RETRY_HAL          2
 
@@ -130,7 +134,7 @@ typedef struct hdmi_device {
     bool                        is_playback;
     bool                        is_audio_system;
     bool                        is_cec_enabled;
-    bool                        is_cec_controled;
+    bool                        is_cec_controlled;
     bool                        hdmi_cfg_init;
     unsigned int                cec_connect_status;
     bool                        run;
@@ -147,7 +151,7 @@ typedef struct hdmi_device {
 
 class HdmiCecControl : public HdmiCecBase {
 public:
-    HdmiCecControl();
+    HdmiCecControl(int eventType);
     ~HdmiCecControl();
 
     virtual int openCecDevice();
@@ -226,6 +230,7 @@ private:
     sp<HdmiCecEventListener> mEventListener;
     sp<MsgHandler> mMsgHandler;
     mutable Mutex mLock;
+    int mCecEvent;
 };
 
 

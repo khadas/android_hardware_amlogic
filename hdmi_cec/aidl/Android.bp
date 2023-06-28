@@ -3,7 +3,7 @@
 //     DEPENDING ON IT IN YOUR PROJECT. ***
 package {
     default_applicable_licenses: [
-        "hardware_amlogic_hdmi_cec_license",
+        "hardware_amlogic_hdmi_cec_aidl_license",
     ],
 }
 
@@ -22,7 +22,7 @@ package {
 // used in the current project.
 // See: http://go/android-license-faq
 license {
-    name: "hardware_amlogic_hdmi_cec_license",
+    name: "hardware_amlogic_hdmi_cec_aidl_license",
     visibility: [":__subpackages__"],
     license_kinds: [
         "SPDX-license-identifier-Apache-2.0",
@@ -38,26 +38,32 @@ license {
     ],
 }
 
-// HAL module implementation, not prelinked and stored in
-// hw/<LIGHTS_HARDWARE_MODULE_ID>.<ro.hardware>.so
-
-cc_library_shared {
-    name: "hdmi_cec.amlogic",
-    srcs: ["hdmi_cec.cpp"],
-
+cc_binary {
+    name: "android.hardware.tv.hdmi.cec-service.droidlogic",
+    vintf_fragments: ["android.hardware.tv.hdmi.cec-service.droidlogic.xml"],
     relative_install_path: "hw",
+    vendor: true,
+    init_rc: ["android.hardware.tv.hdmi.cec-service.droidlogic.rc"],
+    srcs: [
+        "service.cpp",
+        "HdmiCec.cpp",
+    ],
     shared_libs: [
-        "libbase",
+        "libbinder_ndk",
         "liblog",
-        "libbinder",
+        "libbase",
         "libutils",
         "libcutils",
         "libhardware",
+        "libhidlbase",
+        "android.hardware.tv.hdmi.cec-V1-ndk",
+        "libhdmi_cec",
     ],
-
-    static_libs: ["libhdmi_cec_static"],
-
-    proprietary: true,
-
+    cflags: [
+        "-Wno-unused-parameter",
+        "-Wall",
+        "-Wno-unused-function",
+        "-Wno-deprecated-declarations",
+        "-Wno-deprecated-register",
+    ],
 }
-
