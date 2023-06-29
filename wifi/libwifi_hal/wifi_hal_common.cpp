@@ -100,7 +100,8 @@ int ensureConfigFileExists(
 {
 	int ret = access(config_file_path.c_str(), R_OK | W_OK);
 	if (ret == 0) {
-		return 0;
+		LOG(INFO) << "Even " << config_file_path.c_str() << " exists, still overwrite it.";
+		//return 0;
 	}
 	if (errno == EACCES) {
 		ret = chmod(config_file_path.c_str(), kConfigFileMode);
@@ -110,7 +111,7 @@ int ensureConfigFileExists(
 		    PLOG(ERROR) << "Cannot set RW to" << config_file_path.c_str() << " Errno:" << strerror(errno);
 			return -1;
 		}
-	} else if (errno != ENOENT) {
+	} else if ((errno != ENOENT) && (ret != 0)) {
 		PLOG(ERROR) << "Cannot acces" << config_file_path.c_str() << " Errno:" << strerror(errno);
 		return -1;
 	}
