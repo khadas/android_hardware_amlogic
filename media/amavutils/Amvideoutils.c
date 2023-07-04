@@ -734,6 +734,7 @@ int amvideo_utils_set_virtual_position(int32_t x, int32_t y, int32_t w, int32_t 
             int x = 0, y = 0, w = 0, h = 0;
 
             memset(val, 0, sizeof(val));
+            memset(axis_string, 0, sizeof(axis_string));
             if (amsysfs_get_sysfs_str(WINDOW_AXIS_PATH, val, sizeof(val)) == 0
                 && (is_panel_mode() == 0)) {
                 /* the returned string should be "window axis is [a b c d]" */
@@ -956,7 +957,7 @@ int amvideo_utils_get_hdmi_authenticate(void)
     char  bcmd[16];
     fd = open(HDMI_AUTHENTICATE_PATH, O_RDONLY);
     if (fd >= 0) {
-        ssize_t bytes_read = read(fd, bcmd, sizeof(bcmd));
+        ssize_t bytes_read = read(fd, bcmd, sizeof(bcmd)-1);
         if (bytes_read == -1) {
             // handle read error
         } else {
@@ -966,8 +967,8 @@ int amvideo_utils_get_hdmi_authenticate(void)
             if (endptr == bcmd) {
                 // handle strtol error
             }
-            close(fd);
         }
+    close(fd);
     } else {
         // handle open error
     }
