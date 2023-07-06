@@ -78,7 +78,7 @@
 #define ERROR_RESET_COUNT  40
 #define  RSYNC_SKIP_BYTES  1
 #define FRAME_RECORD_NUM   40
-#define FRAME_SIZE_MARGIN  10
+#define FRAME_SIZE_MARGIN  100
 #define PROPERTY_FILTER_HEAAC "vendor.media.filter.heaac"
 #define PROPERTY_FAAD_DETECT_FORMAT_DISABLE "vendor.media.faad.detect.format.disable"
 
@@ -273,7 +273,7 @@ static int AACFindLATMSyncWord(unsigned char *buffer, int nBytes)
             if (i_frame_size > 4608) {
                 audio_codec_print("i_frame_size  exceed  4608 ,%d \n", i_frame_size);
             }
-            if (i_frame_size > 0 && i_frame_size < 4608) {
+            if (i_frame_size > 0 && i_frame_size < 8 * 768) {
                 break;
             }
         }
@@ -395,11 +395,6 @@ retry:
                 audio_codec_print("[%s %d]latm seek sync header cost %d,total %d,left %d \n", __FUNCTION__,__LINE__, nSeekNum, inbuf_size, inbuf_size - nSeekNum);
             }
             inbuf_size = inbuf_size - nSeekNum;
-            if (inbuf_size < (int)(get_frame_size(gFaadCxt) + FRAME_SIZE_MARGIN)/*AAC_INPUTBUF_SIZE/2*/) {
-                audio_codec_print("[%s %d]input size %d at least %d ,need more data \n", __FUNCTION__,__LINE__, inbuf_size, (get_frame_size(gFaadCxt) + FRAME_SIZE_MARGIN));
-                *inbuf_consumed = inlen - inbuf_size;
-                return AAC_ERROR_NO_ENOUGH_DATA;
-            }
         }
     }
 
@@ -439,7 +434,7 @@ retry:
     }
     audio_codec_print("init success cost %d gFaadCxt->success_count %d\n", ret, gFaadCxt->success_count);
     NeAACDecStruct* hDecoder = (NeAACDecStruct*)(gFaadCxt->hDecoder);
-    if (hDecoder->adts_header_present) {
+    if (hDecoder->adts_header_present || hDecoder->latm_header_present) {
        store_frame_size(gFaadCxt, frame_size);
     }
 
@@ -542,9 +537,6 @@ int audio_dec_decode(
             audio_codec_print("%d bytes data not found latm sync header \n", nSeekNum);
         }
         dec_bufsize = dec_bufsize - nSeekNum;
-        if (dec_bufsize < (int)(get_frame_size(gFaadCxt) + FRAME_SIZE_MARGIN)/*AAC_INPUTBUF_SIZE/2*/) {
-            goto exit;
-        }
     }
     sample_buffer = NeAACDecDecode(gFaadCxt->hDecoder, &frameInfo, (unsigned char *)dec_buf, dec_bufsize);
     dec_bufsize -= frameInfo.bytesconsumed;

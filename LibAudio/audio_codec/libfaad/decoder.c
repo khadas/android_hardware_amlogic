@@ -712,7 +712,6 @@ static int LOASParse(uint8_t *p_buffer, int i_buffer, decoder_sys_t *p_sys)
     }
 #endif
     faad_byte_align(&ld);
-
     return i_accumulated;
 }
 
@@ -1022,13 +1021,13 @@ NEXT_CHECK:
         }
         /* Check if frame is valid and get frame info */
         i_frame_size = ((pbuffer[1] & 0x1f) << 8) + pbuffer[2];
-        if (i_frame_size <= 0 || i_frame_size > 6 * 768) {
+        if (i_frame_size <= 0 || i_frame_size > 8 * 768 || i_frame_size > buffer_size) {
             LATM_LOG("i_frame_size/%d  error\n",i_frame_size);
             pbuffer++;
             pbuffer_size--;
             goto NEXT_CHECK;
         }
-        if (pbuffer_size < (LOAS_HEADER_SIZE + i_frame_size)) {
+        if (pbuffer_size < (LOAS_HEADER_SIZE + i_frame_size) + 2) {
             LATM_LOG("[%s %d]buffer size  %d small then frame size %d,\n", __FUNCTION__,__LINE__,pbuffer_size, i_frame_size+LOAS_HEADER_SIZE);
             *skipbytes = buffer_size-pbuffer_size;
             return -1;
@@ -1088,7 +1087,8 @@ exit_check:
                 }
             }
 #endif
-            LATM_LOG("latm init ret %d \n", x);
+            *frame_size = hDecoder->frameLength;
+            LATM_LOG("latm init ret %d  hDecoder->frameLength = %d\n", x,hDecoder->frameLength);
             return x;
         } else
 #else
