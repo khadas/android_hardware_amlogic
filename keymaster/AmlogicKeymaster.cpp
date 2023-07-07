@@ -22,9 +22,17 @@
 #include <amlogic_keymaster/AmlogicKeymaster.h>
 #include <amlogic_keymaster/ipc/amlogic_keymaster_ipc.h>
 
+#include <rkp_factory_extraction_lib.h>
+#include <android/binder_manager.h>
+#include <remote_prov/remote_prov_utils.h>
+
 namespace keymaster {
 
+using aidl::android::hardware::security::keymint::IRemotelyProvisionedComponent;
+using aidl::android::hardware::security::keymint::remote_prov::jsonEncodeCsrWithBuild;
+
 static bool initialize_flag = false;
+void getCsrForInstance(void);
 
 int AmlogicKeymaster::Initialize(KmVersion version) {
     int err;
@@ -84,6 +92,8 @@ int AmlogicKeymaster::Initialize(KmVersion version) {
         ALOGE("Failed to configure keymaster vendor patchlevel: %d", vendor_rsp.error);
         // Don't fail if this message isn't understood.
     }
+
+    getCsrForInstance();
 
     return 0;
 }
@@ -327,6 +337,45 @@ GetHwInfoResponse AmlogicKeymaster::GetHwInfo() {
     /* coverity[uninit_use:SUPPRESS] */
     ForwardCommand(KM_GET_HW_INFO, GetHwInfoRequest(message_version()), &response);
     return response;
+}
+
+void getCsrForInstance(void) {
+    const std::vector<uint8_t> challenge = generateChallenge();
+    constexpr char fullName[] =
+        "android.hardware.security.keymint.IRemotelyProvisionedComponent/default";
+    AIBinder* rkpAiBinder = AServiceManager_getService(fullName);
+    ::ndk::SpAIBinder rkp_binder(rkpAiBinder);
+    auto rkp_service = IRemotelyProvisionedComponent::fromBinder(rkp_binder);
+    if (!rkp_service) {
+        ALOGE("Unable to get binder object for: %s", fullName);
+        return;
+    }
+
+    auto [request, errMsg] = getCsr("default", rkp_service.get(), false);
+    if (!request) {
+        ALOGE("Unable to build CSR for for: %s", fullName);
+        return;
+    }
+
+    auto [json, error] = jsonEncodeCsrWithBuild("default", *request);
+    if (!error.empty()) {
+        ALOGE("Error JSON encoding");
+        return;
+    }
+
+    ALOGD("getCsrForInstance output: %s", json.c_str());
+
+    FILE *file = NULL;
+    file = fopen("/mnt/vendor/factory/csrs.json", "w");
+    if (file == NULL) {
+        ALOGE("open/write /mnt/vendor/factory/csrs.json failed.");
+        return;
+    } else {
+        ALOGD("open/write /mnt/vendor/factory/csrs.json success.");
+    }
+    fprintf(file, "%s",json.c_str());
+    fclose(file);
+    ALOGD("write /mnt/vendor/factory/csrs.json finish.");
 }
 
 }  // namespace keymaster

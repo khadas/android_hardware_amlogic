@@ -73,7 +73,9 @@ TRUSTY_SRC_FILES := ../../../system/core/trusty/keymaster/TrustyKeymaster.cpp \
 TRUSTY_SHARED_LIBRARIES := libtrusty
 TRUSTY_INCLUDES = system/core/trusty/libtrusty/include \
                   system/core/trusty/keymaster/include \
-                  system/core/libutils/include/
+                  system/core/libutils/include/ \
+                  system/security/provisioner/
+
 LOCAL_MODULE_RELATIVE_PATH := hw
 LOCAL_SRC_FILES := keymint/service.cpp \
                     keymint/AmlogicKeyMintDevice.cpp \
@@ -101,7 +103,16 @@ LOCAL_SHARED_LIBRARIES := \
                     libkeymint \
                     liblog \
                     libtrusty \
-                    libteec
+                    libteec \
+                    libtinyxml2 \
+                    libcutils \
+                    libjsoncpp \
+                    libkeymint_remote_prov_support \
+                    libcppbor_external \
+                    libcppcose_rkp \
+                    libcrypto
+
+LOCAL_STATIC_LIBRARIES := librkp_factory_extraction
 
 ifeq ($(shell test $(PLATFORM_SDK_VERSION) -ge 26 && echo OK),OK)
 LOCAL_PROPRIETARY_MODULE := true
