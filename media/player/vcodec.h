@@ -58,8 +58,9 @@ enum vformat_e {
 #define VIDEO_DEC_FORMAT_HEVC		(15)
 #define VIDEO_DEC_FORMAT_VP9		(16)
 #define VIDEO_DEC_FORMAT_AVS2		(17)
-#define VIDEO_DEC_FORMAT_AV1           (18)
-#define VIDEO_DEC_FORMAT_MAX		(19)
+#define VIDEO_DEC_FORMAT_AV1		(18)
+#define VIDEO_DEC_FORMAT_AVS3		(19)
+#define VIDEO_DEC_FORMAT_MAX		(20)
 
 // err status
 #define C_PAE                               (0x01000000)
@@ -186,6 +187,7 @@ struct vdec_status {
     unsigned int fps;
     unsigned int error_count;
     unsigned int status;
+    enum E_ASPECT_RATIO euAspectRatio;
     struct aspect_ratio_info aspect_ratio;
     unsigned long long arg;
     unsigned int size;
