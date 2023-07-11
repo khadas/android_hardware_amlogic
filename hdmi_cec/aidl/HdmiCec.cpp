@@ -33,7 +33,13 @@ namespace cec {
 namespace implementation {
 
 void HdmiCec::serviceDied(void* cookie) {
-    ALOGE("HdmiCec died");
+    ALOGE("HdmiCec client died %p", cookie);
+    HdmiCec* cec = static_cast<HdmiCec*>(cookie);
+    if (cec == nullptr) {
+        ALOGD("cec null");
+        return;
+    }
+    cec->mCallback = nullptr;
 }
 
 ScopedAStatus HdmiCec::addLogicalAddress(CecLogicalAddress addr, Result* _aidl_return) {
@@ -91,7 +97,7 @@ ScopedAStatus HdmiCec::setCallback(const std::shared_ptr<IHdmiCecCallback>& call
     mHdmiCecControl->setEventObserver(new HdmiCecCallback(this));
 
     if (callback != nullptr) {
-        AIBinder_linkToDeath(this->asBinder().get(), mDeathRecipient.get(), 0 /* cookie */);
+        AIBinder_linkToDeath(callback->asBinder().get(), mDeathRecipient.get(), this);
     }
     return ScopedAStatus::ok();
 }

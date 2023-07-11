@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#define LOG_TAG "android.hardware.tv.hdmi.connection"
+#define LOG_TAG "hdmiconnection"
 #include <android-base/logging.h>
 #include <fcntl.h>
 #include <utils/Log.h>
@@ -31,9 +31,12 @@ namespace connection {
 namespace implementation {
 
 void HdmiConnection::serviceDied(void* cookie) {
-    ALOGE("HdmiConnection died");
-    auto hdmi = static_cast<HdmiConnection*>(cookie);
-    hdmi->mHdmiThreadRun = false;
+    ALOGE("HdmiConnection client died %p", cookie);
+    HdmiConnection* hdmi = static_cast<HdmiConnection*>(cookie);
+    if (hdmi == nullptr) {
+        return;
+    }
+    hdmi->mCallback = nullptr;
 }
 
 ScopedAStatus HdmiConnection::getPortInfo(std::vector<HdmiPortInfo>* _aidl_return) {
@@ -48,6 +51,7 @@ ScopedAStatus HdmiConnection::getPortInfo(std::vector<HdmiPortInfo>* _aidl_retur
         return ScopedAStatus::ok();
     }
     mPortInfos.resize(mTotalPorts);
+
     for (int i = 0; i < mTotalPorts; i++) {
         mPortInfos[i] = {.type = static_cast<HdmiPortType>(mHdmiPorts[i].type),
                          .portId = mHdmiPorts[i].port_id,
@@ -55,6 +59,7 @@ ScopedAStatus HdmiConnection::getPortInfo(std::vector<HdmiPortInfo>* _aidl_retur
                          .arcSupported = mHdmiPorts[i].arc_supported == 1,
                          .eArcSupported = mHdmiPorts[i].arc_supported == 1 ? mEarcSupported : false,
                          .physicalAddress = mHdmiPorts[i].physical_address};
+        ALOGD("port id:%d physical:%2x", mHdmiPorts[i].port_id, mHdmiPorts[i].physical_address);
     }
 
     *_aidl_return = mPortInfos;
@@ -82,29 +87,67 @@ ScopedAStatus HdmiConnection::setCallback(
     if (callback != nullptr) {
         mCallback = callback;
         mHdmiCecControl->setEventObserver(new HdmiConnectionCallback(this));
-        AIBinder_linkToDeath(this->asBinder().get(), mDeathRecipient.get(), 0 /* cookie */);
+        AIBinder_linkToDeath(callback->asBinder().get(), mDeathRecipient.get(), this);
     }
     return ScopedAStatus::ok();
 }
 
 ScopedAStatus HdmiConnection::setHpdSignal(HpdSignal signal, int32_t portId) {
-    //todo
-    if (portId > mTotalPorts || portId < 1) {
-        return ScopedAStatus::fromExceptionCode(EX_ILLEGAL_ARGUMENT);
+    ALOGD("%s signal:%d portId:%d", __FUNCTION__, static_cast<int>(signal), portId);
+    if (portId == 0) {
+        // todo support hdmi tx.
+        mTxHpdSignal = signal;
+        return ScopedAStatus::ok();
     }
-    if (!mHdmiThreadRun) {
+    struct HdmiHpdInfo hpdInfo = {signal, portId - 1};
+
+    if (portId > mTotalPorts) {
+        ALOGD("%s, invalid port id:%d port size:%d", __FUNCTION__, portId, mTotalPorts);
+        // binder_auto_utils.h
         return ScopedAStatus::fromServiceSpecificError(
+                static_cast<int32_t>(Result::FAILURE_INVALID_ARGS));
+    }
+    if (mHdmiFd < 0) {
+        mHdmiFd = open(HDMIRX_DEV_PATH, O_RDWR);
+    }
+
+    if (mHdmiFd < 0) {
+          ALOGE("%s, Open file %s error: (%s)!\n", __FUNCTION__, HDMIRX_DEV_PATH, strerror(errno));
+          return ScopedAStatus::fromServiceSpecificError(
                 static_cast<int32_t>(Result::FAILURE_INVALID_STATE));
     }
+    if (ioctl(mHdmiFd, HDMI_IOC_SET_HPD, &hpdInfo) < 0)
+         LOGE("%s, port:%d, error: (%s)!\n", __FUNCTION__, portId, strerror(errno));
     mHpdSignal.at(portId - 1) = signal;
     return ScopedAStatus::ok();
 }
 
 ScopedAStatus HdmiConnection::getHpdSignal(int32_t portId, HpdSignal* _aidl_return) {
-    //todo
-    if (portId > mTotalPorts || portId < 1) {
-        return ScopedAStatus::fromExceptionCode(EX_ILLEGAL_ARGUMENT);
+    ALOGD("%s portId:%d", __FUNCTION__, portId);
+    if (portId == 0) {
+        // todo support hdmi tx.
+        *_aidl_return = mTxHpdSignal;
+        return ScopedAStatus::ok();
     }
+
+    struct HdmiHpdInfo hpdInfo = {HpdSignal::HDMI_HPD_PHYSICAL, portId - 1};
+
+    if (portId > mTotalPorts) {
+        ALOGD("%s, invalid port id:%d port size:%d", __FUNCTION__, portId, mTotalPorts);
+        return ScopedAStatus::fromServiceSpecificError(
+                static_cast<int32_t>(Result::FAILURE_INVALID_ARGS));
+    }
+    if (mHdmiFd < 0) {
+        mHdmiFd = open(HDMIRX_DEV_PATH, O_RDWR);
+    }
+    if (mHdmiFd < 0) {
+          ALOGE("%s, Open file %s error: (%s)!\n", __FUNCTION__, HDMIRX_DEV_PATH, strerror(errno));
+          return ScopedAStatus::fromServiceSpecificError(
+                static_cast<int32_t>(Result::FAILURE_INVALID_STATE));
+    }
+    if (ioctl(mHdmiFd, HDMI_IOC_GET_HPD, &hpdInfo) < 0)
+        LOGE("%s, port:%d, error: (%s)!\n", __FUNCTION__, portId, strerror(errno));
+    mHpdSignal[portId - 1] = hpdInfo.signal;
     *_aidl_return = mHpdSignal.at(portId - 1);
     return ScopedAStatus::ok();
 }
@@ -113,22 +156,27 @@ ScopedAStatus HdmiConnection::getHpdSignal(int32_t portId, HpdSignal* _aidl_retu
 HdmiConnection::HdmiConnection() {
     ALOGI("Opening IHdmi Connection HAL");
     mCallback = nullptr;
-    mPortInfos.resize(mTotalPorts);
-    mPortConnectionStatus.resize(mTotalPorts);
-    mHpdSignal.resize(mTotalPorts);
-    mPortInfos[0] = {.type = HdmiPortType::OUTPUT,
-                     .portId = static_cast<uint32_t>(1),
-                     .cecSupported = true,
-                     .arcSupported = false,
-                     .eArcSupported = false,
-                     .physicalAddress = mPhysicalAddress};
-    mPortConnectionStatus[0] = false;
-    mHpdSignal[0] = HpdSignal::HDMI_HPD_PHYSICAL;
-    mDeathRecipient = ndk::ScopedAIBinder_DeathRecipient(AIBinder_DeathRecipient_new(serviceDied));
     mHdmiCecControl = std::make_shared<HdmiCecControl>(HDMI_EVENT_HOT_PLUG);
+
+    getPortInfo(&mPortInfos);
+
+    mPortConnectionStatus.resize(mTotalPorts, false);
+    mHpdSignal.resize(mTotalPorts, HpdSignal::HDMI_HPD_PHYSICAL);
+    mTxHpdSignal = HpdSignal::HDMI_HPD_PHYSICAL;
+
+    mDeathRecipient = ndk::ScopedAIBinder_DeathRecipient(AIBinder_DeathRecipient_new(serviceDied));
+
     mEarcSupported = android::getPropertyBoolean(PROPERTY_EARC_SUPPORTED, false);
     mHdmiPorts = new hdmi_port_info[mTotalPorts];
 }
+
+HdmiConnection::~HdmiConnection() {
+    ALOGD("quit HdmiConnection fd:%d", mHdmiFd);
+    if (mHdmiFd > 0) {
+        close(mHdmiFd);
+    }
+}
+
 
 HdmiConnection::HdmiConnectionCallback::HdmiConnectionCallback(HdmiConnection* hdmiConnection) {
     mHdmiConnection = hdmiConnection;

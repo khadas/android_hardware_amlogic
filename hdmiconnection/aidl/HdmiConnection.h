@@ -40,9 +40,19 @@ using ::aidl::android::hardware::tv::hdmi::connection::Result;
 
 #define HDMI_MSG_IN_FIFO "/dev/hdmi_in_pipe"
 #define MESSAGE_BODY_MAX_LENGTH 4
+#define HDMIRX_DEV_PATH "/dev/hdmirx0"
+#define HDMI_IOC_SET_HPD 0x14
+#define HDMI_IOC_GET_HPD 0x15
+
+// struct used in hdmi driver
+struct HdmiHpdInfo {
+    HpdSignal signal;
+    int portId;
+};
 
 struct HdmiConnection : public BnHdmiConnection {
     HdmiConnection();
+    virtual ~HdmiConnection();
 
     ::ndk::ScopedAStatus getPortInfo(std::vector<HdmiPortInfo>* _aidl_return) override;
     ::ndk::ScopedAStatus isConnected(int32_t portId, bool* _aidl_return) override;
@@ -76,10 +86,12 @@ struct HdmiConnection : public BnHdmiConnection {
     uint16_t mPhysicalAddress = 0xFFFF;
     int mTotalPorts = 1;
 
+    int mHdmiFd = -1;
+
     // HPD Signal being used
     std::vector<HpdSignal> mHpdSignal;
 
-    bool mHdmiThreadRun = true;
+    HpdSignal mTxHpdSignal;
 
     ::ndk::ScopedAIBinder_DeathRecipient mDeathRecipient;
 
