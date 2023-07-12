@@ -908,10 +908,16 @@ int check_adts_frame_valid(unsigned char *buffer,
     if (adts_frame(&adts, &ld) > 0) {
            return -1;
     }
+
+    faad_log_info("adts.aac_frame_length  %d buffer_size %lu", adts.aac_frame_length, buffer_size);
+
+    if (adts.aac_frame_length == buffer_size) {
+        return 0;
+    }
     if (adts.aac_frame_length + 2 > buffer_size || adts.aac_frame_length == 0) {
         return -1;
     }
-    faad_log_info("adts.aac_frame_length  %d buffer_size %lu", adts.aac_frame_length, buffer_size);
+
     if (((buffer[adts.aac_frame_length + 0] & 0xff) == 0xff) && ((buffer[adts.aac_frame_length + 1] & 0xf6) == 0xf0)) {
         return 0;
     }
@@ -1027,19 +1033,14 @@ NEXT_CHECK:
             pbuffer_size--;
             goto NEXT_CHECK;
         }
-        if (pbuffer_size < (LOAS_HEADER_SIZE + i_frame_size) + 2) {
-            LATM_LOG("[%s %d]buffer size  %d small then frame size %d,\n", __FUNCTION__,__LINE__,pbuffer_size, i_frame_size+LOAS_HEADER_SIZE);
-            *skipbytes = buffer_size-pbuffer_size;
-            return -1;
+        if (pbuffer_size > (LOAS_HEADER_SIZE + i_frame_size) + 2) {
+            if (pbuffer[LOAS_HEADER_SIZE + i_frame_size] != 0x56 || (pbuffer[LOAS_HEADER_SIZE + i_frame_size + 1] & 0xe0) != 0xe0) { // next frame LOAS sync header detected
+                LATM_LOG("emulated sync word no (sync on following frame) \n");
+                pbuffer++;
+                pbuffer_size--;
+                goto NEXT_CHECK;
+            }
         }
-#if 1
-        if (pbuffer[LOAS_HEADER_SIZE + i_frame_size] != 0x56 || (pbuffer[LOAS_HEADER_SIZE + i_frame_size + 1] & 0xe0) != 0xe0) { // next frame LOAS sync header detected
-            LATM_LOG("emulated sync word no (sync on following frame) \n");
-            pbuffer++;
-            pbuffer_size--;
-            goto NEXT_CHECK;
-        }
-#endif
         pbuffer += LOAS_HEADER_SIZE; //skip header
         pbuffer_size = pbuffer_size - LOAS_HEADER_SIZE;
         //parse the playload of one real LOAS aac frame
