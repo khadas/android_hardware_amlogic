@@ -506,6 +506,8 @@ static int tv_input_open_stream(struct tv_input_device *dev, int device_id,
         if (!channelCheckStatus(priv, 0, device_id))
             channelControl(priv, true, device_id, stream->stream_id);
     } else if (stream->stream_id == STREAM_ID_FRAME_CAPTURE) {
+        ALOGE("tv_input_open_stream STREAM_ID_FRAME_CAPTURE is not supported");
+        /*
         aml_screen_module_t* screenModule;
         if (hw_get_module(AML_SCREEN_HARDWARE_MODULE_ID, (const hw_module_t **)&screenModule) < 0) {
             ALOGE("can not get screen source module");
@@ -524,6 +526,7 @@ static int tv_input_open_stream(struct tv_input_device *dev, int device_id,
             priv->mDev->ops.set_port_type(priv->mDev, (int)0x4000); //TVIN_PORT_HDMI0 = 0x4000
             priv->mDev->ops.start_v4l2_device(priv->mDev);
         }
+        */
     }
 
     return 0;
@@ -557,9 +560,11 @@ static int tv_input_close_stream(struct tv_input_device *dev, int device_id,
             channelControl(priv, false, device_id, stream_id);
         return 0;
     } else if (stream_id == STREAM_ID_FRAME_CAPTURE) {
+        ALOGD("tv_input_close_stream STREAM_ID_FRAME_CAPTURE is not supported");
+        /*
         if (priv->mDev) {
             priv->mDev->ops.stop_v4l2_device(priv->mDev);
-        }
+        }*/
         return 0;
     }
     return -EINVAL;
@@ -569,6 +574,10 @@ static int tv_input_request_capture(
     struct tv_input_device *dev, int device_id,
     int stream_id, buffer_handle_t buffer, uint32_t seq)
 {
+ALOGE("tv_input_request_capture dev:%p, device_id:%x, stream_id:%x, buffer:%p, seq:%x",
+        dev, device_id, stream_id, buffer, seq);
+
+/*
     tv_input_private_t *priv = (tv_input_private_t *)dev;
     unsigned char *dest = NULL;
     if (priv->mDev) {
@@ -600,6 +609,8 @@ static int tv_input_request_capture(
         return 0;
     }
     return -EWOULDBLOCK;
+*/
+    return 0;
 }
 
 static int tv_input_cancel_capture(struct tv_input_device *, int, int, uint32_t)
@@ -627,10 +638,11 @@ static int tv_input_device_close(struct hw_device_t *dev)
             priv->mpTv = nullptr;
         }
 
+        /*
         if (priv->mDev) {
             delete priv->mDev;
             priv->mDev = nullptr;
-        }
+        }*/
 
         if (priv->eventCallback) {
             delete priv->eventCallback;
@@ -656,7 +668,7 @@ static int tv_input_device_close(struct hw_device_t *dev)
     return 0;
 }
 
-static int tv_input_device_open(const struct hw_module_t *module,
+int tv_input_device_open(const struct hw_module_t *module,
                                 const char *name, struct hw_device_t **device)
 {
     int status = -EINVAL;

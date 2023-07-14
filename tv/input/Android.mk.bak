@@ -37,6 +37,7 @@ LOCAL_SRC_FILES := \
     TvInputIntf.cpp
 
 LOCAL_MODULE := tv_input.amlogic
+LOCAL_EXPORT_C_INCLUDES := $(LOCAL_PATH)
 LOCAL_LICENSE_KINDS := SPDX-license-identifier-Apache-2.0
 LOCAL_LICENSE_CONDITIONS := notice
 LOCAL_MODULE_TAGS := optional

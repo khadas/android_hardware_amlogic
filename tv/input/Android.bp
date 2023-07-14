@@ -1,0 +1,106 @@
+// *** THIS PACKAGE HAS SPECIAL LICENSING CONDITIONS.  PLEASE
+//     CONSULT THE OWNERS AND opensource-licensing@google.com BEFORE
+//     DEPENDING ON IT IN YOUR PROJECT. ***
+package {
+    default_applicable_licenses: [
+        "hardware_amlogic_tv_input_license",
+    ],
+}
+
+// Added automatically by a large-scale-change that took the approach of
+// 'apply every license found to every target'. While this makes sure we respect
+// every license restriction, it may not be entirely correct.
+//
+// e.g. GPL in an MIT project might only apply to the contrib/ directory.
+//
+// Please consider splitting the single license below into multiple licenses,
+// taking care not to lose any license_kind information, and overriding the
+// default license using the 'licenses: [...]' property on targets as needed.
+//
+// For unused files, consider creating a 'fileGroup' with "//visibility:private"
+// to attach the license to, and including a comment whether the files may be
+// used in the current project.
+// See: http://go/android-license-faq
+license {
+    name: "hardware_amlogic_tv_input_license",
+    visibility: [":__subpackages__"],
+    license_kinds: [
+        "SPDX-license-identifier-Apache-2.0",
+        "SPDX-license-identifier-FTL",
+        "SPDX-license-identifier-GPL",
+        "SPDX-license-identifier-LGPL-2.1",
+        "SPDX-license-identifier-MIT",
+        "legacy_by_exception_only", // by exception only
+        "legacy_notice",
+    ],
+    license_text: [
+        "LICENSE",
+    ],
+}
+
+bootstrap_go_package {
+    name: "soong-tv_input_hal",
+    pkgPath: "android/soong/tv_input_hal",
+    deps: [
+    "blueprint",
+    "blueprint-pathtools",
+    "soong",
+    "soong-android",
+    "soong-cc",
+    "soong-genrule",
+    ],
+    srcs: [
+        "tv_input_hal.go",
+    ],
+    pluginFor: ["soong_build"],
+}
+
+cc_library_shared {
+    name: "tv_input.amlogic",
+
+    shared_libs: [
+        "vendor.amlogic.hardware.tvserver@1.0",
+        "libcutils",
+        "libutils",
+        "libtvbinder",
+        "libbinder",
+        "libui",
+        "liblog",
+        "libhardware",
+        "libamgralloc_ext",
+        "libvideotunnel",
+        "vendor.amlogic.hardware.dtvkitserver@1.0",
+        "libdtvkithidlclient",
+    ],
+    header_libs: ["libhardware_headers"],
+    required: ["libtvbinder"],
+    srcs: [
+        "tv_input.cpp",
+        "TvInputIntf.cpp",
+    ],
+    export_include_dirs: ["."],
+
+    include_dirs: [
+        "external/sqlite/dist",
+        "system/media/audio_effects/include",
+        "system/memory/libion/include",
+        "system/memory/libion/kernel-headers",
+        "hardware/amlogic/gralloc",
+        "hardware/amlogic/screen_source",
+        "hardware/amlogic/hwcomposer/videotunnel/include",
+        "hardware/amlogic/hwcomposer/videotunnel/kernel-headers/linux",
+        //"hardware/amlogic/audio/libTVaudio",
+        "frameworks/native/libs/nativewindow/include",
+        "system/libfmq/include",
+        "hardware/amlogic/gralloc",
+        //"vendor/amlogic/common/external/DTVKit/android-inputsource/app/src/main/client",
+        "external/libcxx/include",
+        "external/jsoncpp/include",
+
+        "hardware/amlogic/tv/libtvbinder/include",
+    ],
+    proprietary: true,
+
+    static_libs: ["libjsoncpp"],
+
+}

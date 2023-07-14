@@ -27,7 +27,9 @@
 #endif
 
 #include "TvInputIntf.h"
-#include "aml_screen.h"
+//#include "aml_screen.h"
+#include <hardware/tv_input.h>
+
 
 #define LOGD(...) \
 { \
@@ -55,7 +57,7 @@ typedef struct tv_input_private {
     tv_input_device_t device;
     const tv_input_callback_ops_t *callback;
     void *callback_data;
-    aml_screen_device_t *mDev;
+    //aml_screen_device_t *mDev;
     TvInputIntf *mpTv;
     EventCallback *eventCallback;
 } tv_input_private_t;
@@ -70,6 +72,9 @@ enum {
 void channelControl(tv_input_private_t *priv, bool opsStart, int device_id, int stream_id);
 int notifyDeviceStatus(tv_input_private_t *priv, tv_source_input_t inputSrc, int type);
 void initTvDevices(tv_input_private_t *priv);
+
+int tv_input_device_open(const struct hw_module_t *module,
+                                const char *name, struct hw_device_t **device);
 
 #ifdef __cplusplus
 //}
