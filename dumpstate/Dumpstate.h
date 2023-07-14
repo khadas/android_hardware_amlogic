@@ -29,6 +29,10 @@ class Dumpstate : public BnDumpstateDevice {
   private:
     bool getVerboseLoggingEnabledImpl();
     ::ndk::ScopedAStatus dumpstateBoardImpl(const int fd, const bool full);
+    void dumpstateBoardOfSystem(int fd, int64_t maxtime);
+    void dumpstateBoardOfAudio(int fd, int64_t maxtime);
+    void dumpstateBoardOfDisplay(int fd, int64_t maxtime);
+    void dumpstateBoardOfMedia(int fd, int64_t maxtime);
 
   public:
     ::ndk::ScopedAStatus dumpstateBoard(const std::vector<::ndk::ScopedFileDescriptor>& in_fds,

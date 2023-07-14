@@ -44,9 +44,16 @@ on property:sys.boot_completed=1
 
     chown root system /sys/class/dmc_monitor/device
     chmod 0664 /sys/class/dmc_monitor/device
+
+    chown root system /sys/class/dec_report/state
+    chmod 0444 /sys/class/dec_report/state
+
+    chown root system /sys/class/resource_mgr/res_report
+    chmod 0444 /sys/class/resource_mgr/res_report
+
 service vendor.dumpstate-default /vendor/bin/hw/android.hardware.dumpstate-service.droidlogic
     class hal
     user system
-    group system
+    group system shell
     interface aidl android.hardware.dumpstate.IDumpstateDevice/default
     oneshot

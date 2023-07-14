@@ -44,3 +44,45 @@ cc_binary {
         "-DLOG_TAG=\"android.hardware.dumpstate-service.droidlogic\"",
     ],
 }
+
+cc_prebuilt_binary {
+    name: "dumpstate_display",
+    compile_multilib: "32",
+    vendor: true,
+    arch: {
+        arm: {
+           srcs: ["dumpstate_display.sh"],
+        },
+        arm64: {
+           srcs: ["dumpstate_display.sh"],
+        },
+        x86: {
+            enabled: false,
+        },
+        x86_64: {
+            enabled: false,
+        },
+    },
+    check_elf_files: false,
+}
+
+cc_prebuilt_binary {
+    name: "drminfo",
+    compile_multilib: "32",
+    vendor: true,
+    arch: {
+        arm: {
+           srcs: ["drminfo"],
+        },
+        arm64: {
+            enabled: false,
+        },
+        x86: {
+            enabled: false,
+        },
+        x86_64: {
+            enabled: false,
+        },
+    },
+    check_elf_files: false,
+}
