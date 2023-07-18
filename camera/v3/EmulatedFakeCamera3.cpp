@@ -1556,12 +1556,14 @@ status_t EmulatedFakeCamera3::processCaptureRequest(
         /**
         * Configure sensor and queue up the request to the readout thread
      */
-        mSensor->setExposureTime(exposureTime);
-        //mSensor->setFrameDuration(frameDuration);
-        mSensor->setFrameDuration(mFrameDuration);
-        mSensor->setSensitivity(sensitivity);
-        mSensor->setDestinationBuffers(sensorBuffers);
-        mSensor->setFrameNumber(request->frame_number);
+        struct requestParameter param = {
+            .requestExposureTime = exposureTime,
+            .requestFrameDuration = mFrameDuration,
+            .requestGain = sensitivity,
+            .requestBuffers = sensorBuffers,
+            .requestFrameNumber = request->frame_number,
+        };
+        mSensor->setRequestParameter(param);
 
         Request r, r_picture;
         r.frameNumber = request->frame_number;

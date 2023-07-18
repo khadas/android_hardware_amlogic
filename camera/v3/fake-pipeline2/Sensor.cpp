@@ -988,31 +988,19 @@ status_t Sensor::setAWB(uint8_t awbMode)
     return ret;
 }
 
-void Sensor::setExposureTime(uint64_t ns) {
-    ATRACE_CALL();
+void Sensor::setRequestParameter(requestParameter &param) {
     Mutex::Autolock lock(mControlMutex);
-    ALOGVV("Exposure set to %f", ns/1000000.f);
-    mExposureTime = ns;
-}
-
-void Sensor::setFrameDuration(uint64_t ns) {
-    ATRACE_CALL();
-    Mutex::Autolock lock(mControlMutex);
-    ALOGVV("Frame duration set to %f", ns/1000000.f);
-    mFrameDuration = ns;
-}
-
-void Sensor::setSensitivity(uint32_t gain) {
-    ATRACE_CALL();
-    Mutex::Autolock lock(mControlMutex);
-    ALOGVV("Gain set to %d", gain);
-    mGainFactor = gain;
-}
-
-void Sensor::setDestinationBuffers(Buffers *buffers) {
-    ATRACE_CALL();
-    Mutex::Autolock lock(mControlMutex);
-    mNextBuffers = buffers;
+    CAMHAL_LOGVB("%s , E  setRequestParameter" , __FUNCTION__);
+    ALOGVV("Exposure set to %f", param.requestExposureTime/1000000.f);
+    mExposureTime = param.requestExposureTime;
+    ALOGVV("Frame duration set to %f", param.requestFrameDuration/1000000.f);
+    mFrameDuration = param.requestFrameDuration;
+    ALOGVV("Gain set to %d", param.requestGain);
+    mGainFactor = param.requestGain;
+    mNextBuffers = param.requestBuffers;
+    mFrameNumber = param.requestFrameNumber;
+    ALOGVV("framenumber: %d",mFrameNumber);
+    CAMHAL_LOGVB("%s , X setSensorParameter" , __FUNCTION__);
 }
 
 void Sensor::setPictureRequest(Request &PicRequest) {
@@ -1023,13 +1011,6 @@ void Sensor::setPictureRequest(Request &PicRequest) {
         mPictureThreadCntler.NextPictureRequest.push_back(PicRequest);
         mPictureThreadCntler.unprocessedRequest.signal();
     }
-}
-
-void Sensor::setFrameNumber(uint32_t frameNumber) {
-    ATRACE_CALL();
-    Mutex::Autolock lock(mControlMutex);
-    mFrameNumber = frameNumber;
-    ATRACE_INT("framenumber:",mFrameNumber);
 }
 
 void Sensor::setFlushFlag(bool flushFlag) {

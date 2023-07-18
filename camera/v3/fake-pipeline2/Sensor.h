@@ -184,6 +184,14 @@ typedef struct usb_frmsize_discrete {
 #define MAX_WIDTH  (1920)
 #define MAX_HEIGHT (1080)
 
+struct requestParameter {
+    nsecs_t requestExposureTime;
+    nsecs_t requestFrameDuration;
+    uint32_t requestGain;
+    Buffers *requestBuffers;
+    uint32_t requestFrameNumber;
+};
+
 class Sensor: public Thread, public virtual RefBase {
   public:
 
@@ -235,14 +243,8 @@ class Sensor: public Thread, public virtual RefBase {
     virtual status_t setAWB(uint8_t awbMode);
     virtual status_t setAutoFocus(uint8_t afMode);
     virtual int getAutoFocus(uint8_t *afMode, uint8_t maxCount);
-    void setExposureTime(uint64_t ns);
-    void setFrameDuration(uint64_t ns);
-    void setSensitivity(uint32_t gain);
-    // Buffer must be at least stride*height*2 bytes in size
-    void setDestinationBuffers(Buffers *buffers);
+    void setRequestParameter(requestParameter &param);
     void setPictureRequest(Request &PicRequest);
-    // To simplify tracking sensor's current frame
-    void setFrameNumber(uint32_t frameNumber);
     void  setFlushFlag(bool flushFlag);
     void setDeviceName(char* name);
     virtual status_t force_reset_sensor();
