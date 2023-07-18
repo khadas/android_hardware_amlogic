@@ -2148,6 +2148,8 @@ start_decode:
     hDecoder->postSeekResetFlag = 0;
 
     hDecoder->frame++;
+//THere will drop the first frame and the PTS will jump which will cause the video stuck a while, so remove it.
+#if 0
 #ifdef LD_DEC
     if (hDecoder->object_type != LD) {
 #endif
@@ -2162,7 +2164,7 @@ start_decode:
         }
     }
 #endif
-
+#endif
     /* cleanup */
 #ifdef ANALYSIS
     fflush(stdout);
