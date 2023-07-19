@@ -366,16 +366,16 @@ void getCsrForInstance(void) {
     ALOGD("getCsrForInstance output: %s", json.c_str());
 
     FILE *file = NULL;
-    file = fopen("/mnt/vendor/factory/csrs.json", "w");
+    file = fopen("/mnt/vendor/factory/csrs/csrs.json", "w");
     if (file == NULL) {
-        ALOGE("open/write /mnt/vendor/factory/csrs.json failed.");
+        ALOGE("open/write /mnt/vendor/factory/csrs/csrs.json failed.");
         return;
     } else {
-        ALOGD("open/write /mnt/vendor/factory/csrs.json success.");
+        ALOGD("open/write /mnt/vendor/factory/csrs/csrs.json success.");
     }
     fprintf(file, "%s",json.c_str());
     fclose(file);
-    ALOGD("write /mnt/vendor/factory/csrs.json finish.");
+    ALOGD("write /mnt/vendor/factory/csrs/csrs.json finish.");
 }
 
 }  // namespace keymaster
