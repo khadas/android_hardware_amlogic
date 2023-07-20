@@ -438,7 +438,15 @@ int HdmiCecControl::getVendorId(uint32_t* vendorId)
     char value[PROPERTY_VALUE_MAX] = {0};
     // "1877008" is decimal value of the amlogic vendor id
     getProperty(PROPERTY_VENDOR_ID, value, "1877008");
-    *vendorId = atoi(value);
+    char *endptr;
+    long int vendorIdValue = strtol(value, &endptr, 10);
+    if (*endptr != '\0') {
+        // Conversion was not successful
+        LOGD("Conversion failed");
+        return -1;
+    }
+    *vendorId = (unsigned int)vendorIdValue;
+    //*vendorId = atoi(value);
     LOGD("%s, vendorId: 0x%X", __FUNCTION__, *vendorId);
     return 0;
 }
@@ -536,14 +544,30 @@ void HdmiCecControl::getDeviceTypes() {
     mCecDevice.device_types = new int[DEV_TYPE_VIDEO_PROCESSOR];
     getProperty(PROPERTY_DEVICE_TYPE, value, "4");
     type = strtok(value, split);
-    mCecDevice.device_types[index] = atoi(type);
+    //mCecDevice.device_types[index] = atoi(type);
+    char *endptr;
+    long int deviceTypeValue = strtol(type, &endptr, 10);
+    if (*endptr != '\0') {
+        // Conversion was not successful
+        LOGD("Conversion failed");
+        return;
+    }
+    mCecDevice.device_types[index] = (unsigned int)deviceTypeValue;
     while (type != NULL) {
         type = strtok(NULL,split);
-        if (type != NULL)
-            mCecDevice.device_types[++index] = atoi(type);
+        if (type != NULL) {
+            //mCecDevice.device_types[++index] = atoi(type);
+            deviceTypeValue = strtol(type, &endptr, 10);
+            if (*endptr != '\0') {
+                // Conversion was not successful
+                LOGD("Conversion failed");
+                return;
+            }
+            mCecDevice.device_types[++index] = (unsigned int)deviceTypeValue;
+        }
     }
     mCecDevice.total_device = index + 1;
-    index = 0;
+    //index = 0;
     for (index = 0; index < mCecDevice.total_device; index++) {
         if (mCecDevice.device_types[index] == DEV_TYPE_TV) {
             mCecDevice.is_tv = true;
@@ -651,23 +675,14 @@ bool HdmiCecControl::isSourceDevice(int logicalAddress)
     bool res = false;
     switch (logicalAddress) {
         case CEC_ADDR_RECORDER_1:
-            [[fallthrough]];
         case CEC_ADDR_RECORDER_2:
-            [[fallthrough]];
         case CEC_ADDR_TUNER_1:
-            [[fallthrough]];
         case CEC_ADDR_PLAYBACK_1:
-            [[fallthrough]];
         case CEC_ADDR_TUNER_2:
-            [[fallthrough]];
         case CEC_ADDR_TUNER_3:
-            [[fallthrough]];
         case CEC_ADDR_PLAYBACK_2:
-            [[fallthrough]];
         case CEC_ADDR_RECORDER_3:
-            [[fallthrough]];
         case CEC_ADDR_TUNER_4:
-            [[fallthrough]];
         case CEC_ADDR_PLAYBACK_3:{
             res = true;
             break;
@@ -686,15 +701,10 @@ bool HdmiCecControl::transferableInSleep(char *msgBuf)
 {
     switch (msgBuf[1]) {
         case CEC_MESSAGE_GIVE_DEVICE_VENDOR_ID:
-            [[fallthrough]];
         case CEC_MESSAGE_GIVE_OSD_NAME:
-            [[fallthrough]];
         case CEC_MESSAGE_GIVE_DEVICE_POWER_STATUS:
-            [[fallthrough]];
         case CEC_MESSAGE_REPORT_POWER_STATUS:
-            [[fallthrough]];
         case CEC_MESSAGE_GIVE_PHYSICAL_ADDRESS:
-            [[fallthrough]];
         case CEC_MESSAGE_REPORT_PHYSICAL_ADDRESS:{
             return true;
         }
@@ -906,7 +916,7 @@ void HdmiCecControl::checkConnectStatus()
 int HdmiCecControl::preHandleOfSend(const cec_message_t* message)
 {
     int ret = 0;
-    int para = 0;
+    //int para = 0;
     int dest = message->destination;
     int opcode = message->body[0] & 0xff;
     switch (opcode) {
@@ -916,7 +926,7 @@ int HdmiCecControl::preHandleOfSend(const cec_message_t* message)
         }
         case CEC_MESSAGE_ROUTING_CHANGE:
         case CEC_MESSAGE_SET_STREAM_PATH: {
-            para = ((message->body[message->length - 2] & 0xff) << 8) + (message->body[message->length - 1] & 0xff);
+            //para = ((message->body[message->length - 2] & 0xff) << 8) + (message->body[message->length - 1] & 0xff);
             /*
             // Filter all routing messages if cec wake up work is not finished.
             if (mCecDevice.cec_wake_status.processed && para != mCecDevice.cec_wake_status.wake_device_phy_addr) {
@@ -935,9 +945,7 @@ int HdmiCecControl::preHandleOfSend(const cec_message_t* message)
             break;
         }
         case CEC_MESSAGE_TEXT_VIEW_ON:
-            [[fallthrough]];
         case CEC_MESSAGE_IMAGE_VIEW_ON:
-            [[fallthrough]];
         case CEC_MESSAGE_ACTIVE_SOURCE: {
             // The android framework has not taken this senario into consideration, we have to do the supplement
             // filter work in hal. It works when the playback powers down just after it wakes up.

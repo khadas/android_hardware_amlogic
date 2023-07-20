@@ -19,7 +19,7 @@
 namespace android {
 
 HdmiCecBusMonitor::HdmiCecBusMonitor(sp<HdmiCecListener> listener) {
-    mListener = listener;
+    mListener = std::move(listener);
 
     //uevent
     mUeventFd = uevent_open_socket(64 * 1024, true);
