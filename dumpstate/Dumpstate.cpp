@@ -341,6 +341,11 @@ void Dumpstate::dumpstateBoardOfDisplay(int fd, int64_t maxtime) {
             CommandOptions::WithTimeout(maxtime).Build());
     }
 
+    //hdmitx
+    DumpFileToFd(fd, "hdmitx_reg", "/sys/class/amhdmitx/amhdmitx0/dump_debug_reg");
+    DumpFileToFd(fd, "hdmitx_config", "/sys/class/amhdmitx/amhdmitx0/hdmitx_basic_config");
+    DumpFileToFd(fd, "hdmitx_pkt", "/sys/class/amhdmitx/amhdmitx0/hdmitx_pkt_dump");
+
     return;
 }
 
