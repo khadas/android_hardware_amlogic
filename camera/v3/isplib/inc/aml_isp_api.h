@@ -101,10 +101,36 @@ typedef struct
 
 } ALG_SENSOR_EXP_FUNC_S;
 
+typedef struct _LENS_PARAM_T {
+    uint16_t lens_type; //lens type which assigns one of the enum type after probing
+    uint16_t min_step;  //lens step resolution
+    uint16_t next_zoom; //next assigned zoom if zoom if available
+    uint16_t curr_zoom; //current zoom positon if zoom if available
+    uint16_t next_pos;  //lens position
+
+    uint32_t minfocus_distance;     // lens minimum focus distance (diopters x 10000)
+    uint32_t hyperfocal_distance;   // lens hyperfocal focus distance (diopters x 10000)
+    uint32_t focal_length;          // focal length of the lens (mm x 10000)
+    uint32_t aperture;              // lens aperture (f-number x 10000)
+} LENS_PARAM_T;
+
+typedef struct {
+    void( *pfn_lens_move )( uint32_t ctx, uint16_t position );
+    void( *pfn_lens_stop )( uint32_t ctx );
+    uint8_t( *pfn_lens_is_moving )( uint32_t ctx );
+    uint16_t( *pfn_lens_get_pos )( uint32_t ctx );
+    int32_t( *pfn_lens_write_register )( void *ctx, uint8_t address, uint16_t data );
+    void( *pfn_lens_read_register )( void *ctx, uint8_t address, uint16_t *data );
+    const LENS_PARAM_T *( *pfn_lens_get_parameters )( uint32_t ctx );
+    void( *pfn_lens_move_zoom )( uint32_t ctx, uint16_t next_zoom );
+    uint8_t( *pfn_lens_is_zooming )( uint32_t ctx );
+} ALG_LENS_FUNC_S;
+
 typedef struct
 {
     ALG_SENSOR_DEFAULT_S   stSnsDft;
     ALG_SENSOR_EXP_FUNC_S  stSnsExp;
+    ALG_LENS_FUNC_S        stLensFunc;
 } AML_ALG_CTX_S;
 
 void aisp_enable(uint32_t ctx_id, void *pstAlgCtx, void *calib);

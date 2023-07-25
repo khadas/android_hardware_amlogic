@@ -37,6 +37,7 @@ typedef void (*isp_enable)(uint32_t ctx, void *pstAlgCtx, void *calib);
 typedef void (*isp_disable)(uint32_t ctx_id);
 
 struct ispIF {
+    void *lib = nullptr;
     isp_alg2user   alg2User   = nullptr;
     isp_alg2kernel alg2Kernel = nullptr;
     isp_enable     algEnable  = nullptr;

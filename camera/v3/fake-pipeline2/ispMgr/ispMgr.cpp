@@ -24,6 +24,10 @@ namespace android {
 
 static int getInterface() {
     auto ispIF = &IspMgr::mIspIF;
+    if (ispIF->lib) {
+        ALOGE("alg lib already open");
+        return 0;
+    }
     auto lib = ::dlopen("libispaml.so", RTLD_NOW);
     if (!lib) {
         char const* err_str = ::dlerror();
@@ -58,7 +62,7 @@ static int getInterface() {
         dlclose(lib);
         return -1;
     }
-    dlclose(lib);
+    ispIF->lib = lib;
     ALOGI("%s success", __FUNCTION__);
     return 0;
 }
@@ -192,6 +196,7 @@ status_t IspMgr::start() {
     char alg_init[kIspParamsHeight * kIspParamsWidth];
     memset(alg_init, 0, sizeof(alg_init));
     (IspMgr::mIspIF.algEnable)(mId, &mPstAlgCtx, &mCalibInfo);
+
     for (int i = 0; i < kIspParamsNbBuffers; i++) {
         (IspMgr::mIspIF.alg2User)(mId, alg_init);
         (IspMgr::mIspIF.alg2Kernel)(mId, mISParams.mem[i].addr);
