@@ -13,6 +13,7 @@
 #include <stdint.h>
 
 #define ISO_NUM_MAX     (10)
+#define RATIO_NUM_MAX   (8)
 
 typedef enum CALIBRATION_TYPE {
     CALIBRATION_TOP_CTL                   ,
@@ -163,6 +164,8 @@ typedef enum CALIBRATION_TYPE {
     CALIBRATION_DECMP1                    ,
     CALIBRATION_DYM_CUSTOM_SETTING        ,
     CALIBRATION_AWB_PRESET                ,
+    CALIBRATION_LENS_OTP_CENTER_OFFSET    ,
+    CALIBRATION_LENS_SHADING_ADP          ,
 
     CALIBRATION_TOTAL_SIZE                ,
 } CALIBRATION_TYPE_E;
