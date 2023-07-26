@@ -428,13 +428,19 @@ int HdmiCecControl::getVendorId(uint32_t* vendorId)
     if (assertHdmiCecDevice())
         return -1;
 
-    int ret = ioctl(mCecDevice.driver_fd, CEC_IOC_GET_VENDOR_ID, vendorId);
+    /*int ret = ioctl(mCecDevice.driver_fd, CEC_IOC_GET_VENDOR_ID, vendorId);
     LOGD("%s, vendorId: %x, ret = %d", __FUNCTION__, *vendorId, ret);
     if (*vendorId == 0 || *vendorId == VENDOR_ID_DEFAULT) {
         LOGD("use amlogic vendor id");
         *vendorId = VENDOR_ID_AML;
     }
-    return ret;
+    return ret;*/
+    char value[PROPERTY_VALUE_MAX] = {0};
+    // "1877008" is decimal value of the amlogic vendor id
+    getProperty(PROPERTY_VENDOR_ID, value, "1877008");
+    *vendorId = atoi(value);
+    LOGD("%s, vendorId: 0x%X", __FUNCTION__, *vendorId);
+    return 0;
 }
 
 int HdmiCecControl::getPhysicalAddress(uint16_t* addr)
