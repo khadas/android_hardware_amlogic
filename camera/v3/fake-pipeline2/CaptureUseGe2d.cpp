@@ -158,9 +158,8 @@ int CaptureUseGe2d::captureYUYVframe(uint8_t *img, struct data_in* in) {
 int CaptureUseGe2d::captureNV21frame(StreamBuffer b, struct data_in* in) {
     ATRACE_CALL();
 
-    uint8_t *src = in->src;
 
-    if (src && in->src_fmt > 0) {
+    if (in->share_fd > 0  && in->src_fmt > 0) {
         switch (in->src_fmt) {
             case V4L2_PIX_FMT_NV21:
                 //  we assume that [in] is always preview stream
@@ -188,7 +187,7 @@ int CaptureUseGe2d::captureNV21frame(StreamBuffer b, struct data_in* in) {
                     } else {
 #ifdef PREVIEW_DEWARP_ENABLE
                         char property[PROPERTY_VALUE_MAX];
-                        property_get("vendor.camhal.use.dewarp.rec", property, "false");
+                        property_get("vendor.camhal.use.dewarp.rec", property, "true");
                         if (strstr(property, "true")) { //dewarp rec
                             DeWarp* GDCObj = nullptr;
                             property_get("vendor.camhal.use.dewarp.linear", property, "true");

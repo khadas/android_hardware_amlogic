@@ -61,7 +61,7 @@ void IONInterface::put_instance() {
     }
 }
 
-uint8_t* IONInterface::alloc_buffer(size_t size,int* share_fd) {
+uint8_t* IONInterface::alloc_buffer(size_t size, int* share_fd, bufferMode mode) {
     ALOGD("%s\n", __FUNCTION__);
     IONBufferNode* pBuffer = nullptr;
     int i = 0;
@@ -82,7 +82,11 @@ uint8_t* IONInterface::alloc_buffer(size_t size,int* share_fd) {
 
     uint32_t stride;
     int format = 33; /* HAL_PIXEL_FORMAT_BLOB */
-    uint64_t usage = GRALLOC1_PRODUCER_USAGE_CAMERA | GRALLOC1_CONSUMER_USAGE_CPU_READ_OFTEN;
+    uint64_t usage = GRALLOC1_PRODUCER_USAGE_CAMERA;
+    if (mode == cache) {
+        ALOGD("ION mode is cache");
+        usage = (usage | GRALLOC1_CONSUMER_USAGE_CPU_READ_OFTEN);
+    }
     GraphicBufferAllocator & allocService = GraphicBufferAllocator::get();
 
     if (NO_ERROR != allocService.allocate(size, 1, format, 1, usage,
@@ -116,9 +120,8 @@ uint8_t* IONInterface::alloc_buffer(size_t size,int* share_fd) {
 int IONInterface::release_node(IONBufferNode* pBuffer) {
     GraphicBufferAllocator & allocService = GraphicBufferAllocator::get();
     pBuffer->IsUsed = false;
-    ALOGD("-----------%s: vaddr = %p", __FUNCTION__, pBuffer->vaddr);
-
     int ret = munmap(pBuffer->vaddr, pBuffer->size);
+    ALOGD("-----------%s: vaddr = %p", __FUNCTION__, pBuffer->vaddr);
     if (ret)
         ALOGD("munmap fail: %s\n", strerror(errno));
 

@@ -94,7 +94,7 @@ const nsecs_t Sensor::kRowReadoutTime =
 const int32_t Sensor::kSensitivityRange[2] = {100, 1600};
 const uint32_t Sensor::kDefaultSensitivity = 100;
 
-const usb_frmsize_discrete_t kUsbAvailablePictureSize[] = {
+static const usb_frmsize_discrete_t kUsbAvailablePictureSize[] = {
         /*{4128, 3096},
         {3264, 2448},
         {2592, 1944},
@@ -235,7 +235,7 @@ Sensor::~Sensor() {
     //shutDown();
 }
 
-status_t Sensor::startUp(int idx) {
+status_t Sensor::startUp(int idx, bool customizationSensor) {
     ATRACE_CALL();
     ALOGV("%s: E", __FUNCTION__);
     DBG_LOGA("ddd");
@@ -275,11 +275,11 @@ sensor_type_e Sensor::getSensorType(void)
 {
     return mSensorType;
 }
-uint32_t Sensor::getStreamUsage(int stream_type)
+uint32_t Sensor::getStreamUsage(camera3_stream_t& stream)
 {
     uint32_t usage = GRALLOC_USAGE_HW_CAMERA_WRITE;
 
-    switch (stream_type) {
+    switch (stream.stream_type) {
         case CAMERA3_STREAM_OUTPUT:
             usage = GRALLOC_USAGE_HW_CAMERA_WRITE;
             break;
@@ -1223,18 +1223,22 @@ bool Sensor::threadLoop() {
         //}
         mFramecount ++;
         ALOGVV("Sensor vertical blanking interval");
-        nsecs_t workDoneRealTime = systemTime();
-        const nsecs_t timeAccuracy = 2e6; // 2 ms of imprecision is ok
-        if (workDoneRealTime < frameEndRealTime - timeAccuracy) {
-            timespec t;
-            t.tv_sec = (frameEndRealTime - workDoneRealTime)  / 1000000000L;
-            t.tv_nsec = (frameEndRealTime - workDoneRealTime) % 1000000000L;
 
-            int ret;
-        do {
-            ret = nanosleep(&t, &t);
-        } while (ret != 0);
-    }
+        if (false == mLowLatencyMode) {
+            nsecs_t workDoneRealTime = systemTime();
+            const nsecs_t timeAccuracy = 2e6; // 2 ms of imprecision is ok
+
+            if (workDoneRealTime < frameEndRealTime - timeAccuracy) {
+                timespec t;
+                t.tv_sec = (frameEndRealTime - workDoneRealTime)  / 1000000000L;
+                t.tv_nsec = (frameEndRealTime - workDoneRealTime) % 1000000000L;
+
+                int ret;
+                do {
+                    ret = nanosleep(&t, &t);
+                } while (ret != 0);
+            }
+        }
 
     } else {
         usleep(12000);

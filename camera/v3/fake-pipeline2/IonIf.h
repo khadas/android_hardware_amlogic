@@ -20,7 +20,12 @@ struct IONBufferNode {
     size_t   IsUsed;
 };
 //#define MAX_BUFFER_NUM (12)
-#define MAX_BUFFER_NUM (25)
+#define MAX_BUFFER_NUM (35)
+
+enum bufferMode {
+    cache,
+    noncache,
+};
 
 class IONInterface {
 private:
@@ -34,7 +39,7 @@ private:
 public:
     static IONInterface* get_instance();
     static void put_instance();
-    uint8_t* alloc_buffer(size_t size, int* share_fd);
+    uint8_t* alloc_buffer(size_t size, int* share_fd, bufferMode mode = noncache);
     void free_buffer(int share_fd);
     int release_node(IONBufferNode* pBuffer);
 };

@@ -38,6 +38,8 @@
 #include "fake-pipeline2/Sensor.h"
 #include "fake-pipeline2/JpegCompressor.h"
 #include "fake-pipeline2/V4l2MediaSensor.h"
+#include "fake-pipeline2/USBSensor.h"
+#include "fake-pipeline2/USBSensorHWDec.h"
 #include "fake-pipeline2/HDMISensor.h"
 #include <cmath>
 #include <binder/IPCThreadState.h>
@@ -283,7 +285,9 @@ status_t EmulatedFakeCamera3::connectCamera(hw_device_t** device) {
         ALOGE(" mSensor startup ret %d, failed ", res);
         return res;
     }
-
+    if (mSensor -> getOutputFormat() == V4L2_PIX_FMT_YUYV) {
+        mUseHWdec = false;
+    }
     mReadoutThread = new ReadoutThread(this);
     if (mJpegCompressor == nullptr ) mJpegCompressor = new JpegCompressor();
 
@@ -297,7 +301,7 @@ status_t EmulatedFakeCamera3::connectCamera(hw_device_t** device) {
         return res;
     }
 
-    res = mReadoutThread->run("EmuCam3::readoutThread");
+    res = mReadoutThread->run("EmuCam3::readoutThread", ANDROID_PRIORITY_URGENT_AUDIO);
     if (res != NO_ERROR) {
         ALOGE(" mReadoutThread run failed, ret %d ", res);
         return res;
@@ -611,15 +615,16 @@ status_t EmulatedFakeCamera3::configureStreams(
                 ALOGI("skip add blob stream for mipi sensor have multi dma port");
                 continue;
             }
-            if (newStream->width >= 3840 && newStream->height >= 2160 && newStream->format != HAL_PIXEL_FORMAT_BLOB) {
-                ALOGI("4k recording mode");
-                UHDWidth = newStream->width;
-                UHDHeight = newStream->height;
-                UHDPixelfmt = (uint32_t)newStream->format;
-                m4KRec = true;
-                continue;
+            if (mSensorType == SENSOR_V4L2MEDIA || mSensorType == SENSOR_MIPI) {
+                if (newStream->width >= 3840 && newStream->height >= 2160 && newStream->format != HAL_PIXEL_FORMAT_BLOB) {
+                    ALOGI("4k recording mode");
+                    UHDWidth = newStream->width;
+                    UHDHeight = newStream->height;
+                    UHDPixelfmt = (uint32_t)newStream->format;
+                    m4KRec = true;
+                    continue;
+                }
             }
-
             if (width < newStream->width)
                     width = newStream->width;
 
@@ -636,8 +641,10 @@ status_t EmulatedFakeCamera3::configureStreams(
     if (isRestart) {
         isRestart = mSensor->isNeedRestart(width, height, pixelfmt, channel_preview);
     }
-    if (mSensorType == SENSOR_V4L2MEDIA || mSensorType == SENSOR_MIPI)
+
+    if ( (mSensorType == SENSOR_V4L2MEDIA || mSensorType == SENSOR_MIPI) ) {
         isRestartRec = mSensor->isNeedRestart(UHDWidth, UHDHeight, UHDPixelfmt, channel_record);
+    }
 
     if (isRestart) {
         mSensor->streamOff(channel_preview);
@@ -689,7 +696,7 @@ status_t EmulatedFakeCamera3::configureStreams(
         // Always update usage and max buffers
         /*for cts CameraDeviceTest -> testPrepare*/
         newStream->max_buffers = kMaxBufferCount;
-        newStream->usage = mSensor->getStreamUsage(newStream->stream_type);
+        newStream->usage = mSensor->getStreamUsage(*newStream);
         DBG_LOGB("%d, newStream=%p, stream_type=%d, usage=%x, priv=%p, w*h=%dx%d\n",
                 (int)i, newStream, newStream->stream_type, newStream->usage, newStream->priv, newStream->width, newStream->height);
     }
@@ -1401,24 +1408,38 @@ status_t EmulatedFakeCamera3::processCaptureRequest(
                      // Lock buffer for writing
                      const Rect rect(am_gralloc_get_width((native_handle_t*)(*srcBuf.buffer)),
                                 am_gralloc_get_height((native_handle_t*)(*srcBuf.buffer)));
-                     if (srcBuf.stream->format == HAL_PIXEL_FORMAT_YCbCr_420_888) {
-                         if (am_gralloc_get_format((native_handle_t*)(*srcBuf.buffer)) ==
-                             HAL_PIXEL_FORMAT_YCbCr_420_888/*HAL_PIXEL_FORMAT_YCrCb_420_SP*/) {
-                                  android_ycbcr ycbcr = android_ycbcr();
-                                  res = GraphicBufferMapper::get().lockYCbCr(
-                                      *(destBuf.buffer),
-                                      GRALLOC_USAGE_SW_READ_MASK | GRALLOC_USAGE_SW_WRITE_MASK,
-                                      rect,
-                                      &ycbcr);
-                                  // This is only valid because we know that emulator's
-                                  // YCbCr_420_888 is really contiguous NV21 under the hood
-                                  destBuf.img = static_cast<uint8_t*>(ycbcr.y);
-                           } else {
-                                  ALOGE("Unexpected private format for flexible YUV: 0x%x",
-                                             am_gralloc_get_format((native_handle_t*)(*srcBuf.buffer)));
-                                  res = INVALID_OPERATION;
-                           }
-                     } else {
+                     if (mSensorType == SENSOR_USB && mUseHWdec == false) {
+                         // Lock buffer for writing
+                         const Rect rect(am_gralloc_get_width((native_handle_t*)(*srcBuf.buffer)),
+                                    am_gralloc_get_height((native_handle_t*)(*srcBuf.buffer)));
+                         if (srcBuf.stream->format == HAL_PIXEL_FORMAT_YCbCr_420_888) {
+                             if (am_gralloc_get_format((native_handle_t*)(*srcBuf.buffer)) ==
+                                 HAL_PIXEL_FORMAT_YCbCr_420_888/*HAL_PIXEL_FORMAT_YCrCb_420_SP*/) {
+                                      android_ycbcr ycbcr = android_ycbcr();
+                                      res = GraphicBufferMapper::get().lockYCbCr(
+                                          *(destBuf.buffer),
+                                          GRALLOC_USAGE_SW_READ_MASK | GRALLOC_USAGE_SW_WRITE_MASK,
+                                          rect,
+                                          &ycbcr);
+                                      // This is only valid because we know that emulator's
+                                      // YCbCr_420_888 is really contiguous NV21 under the hood
+                                      destBuf.img = static_cast<uint8_t*>(ycbcr.y);
+                               } else {
+                                      ALOGE("Unexpected private format for flexible YUV: 0x%x",
+                                                 am_gralloc_get_format((native_handle_t*)(*srcBuf.buffer)));
+                                      res = INVALID_OPERATION;
+                               }
+                         } else {
+                               res = GraphicBufferMapper::get().lock(*(destBuf.buffer),
+                                     GRALLOC_USAGE_SW_READ_MASK | GRALLOC_USAGE_SW_WRITE_MASK,
+                                     rect,
+                                     (void**)&(destBuf.img));
+                         }
+                         if (res != OK) {
+                               ALOGE("%s: Request %d: Buffer %zu: Unable to lock buffer",
+                                      __FUNCTION__, frameNumber, i);
+                         }
+                     }  else if (srcBuf.stream->format == HAL_PIXEL_FORMAT_BLOB) {
                            res = GraphicBufferMapper::get().lock(*(destBuf.buffer),
                                  GRALLOC_USAGE_SW_READ_MASK | GRALLOC_USAGE_SW_WRITE_MASK,
                                  rect,
@@ -1432,9 +1453,18 @@ status_t EmulatedFakeCamera3::processCaptureRequest(
               if (res != OK) {
                      // Either waiting or locking failed. Unlock locked buffers and bail
                      // out.
-                     for (size_t j = 0; j < i; j++) {
-                            GraphicBufferMapper::get().unlock(
-                                     *(request->output_buffers[i].buffer));
+                     if (mSensorType == SENSOR_USB && mUseHWdec == false) {
+                         for (size_t j = 0; j < i; j++) {
+                                GraphicBufferMapper::get().unlock(
+                                         *(request->output_buffers[i].buffer));
+                         }
+                     } else {
+                         for (size_t j = 0; j < i; j++) {
+                            const camera3_stream_buffer &stream_buffer = request->output_buffers[j];
+                            if (srcBuf.stream->format == HAL_PIXEL_FORMAT_BLOB)
+                                GraphicBufferMapper::get().unlock(
+                                         *(stream_buffer.buffer));
+                         }
                      }
                      ALOGE("line:%d, format for this usage: %d x %d, format=%x, returned\n",
                               __LINE__, destBuf.width, destBuf.height,
@@ -1488,7 +1518,7 @@ status_t EmulatedFakeCamera3::processCaptureRequest(
               } else {
                    info.has_focallen = false;
               }
-              if ((mSensorType != SENSOR_V4L2MEDIA && mSensorType != SENSOR_MIPI)) {
+              if ((mSensorType != SENSOR_V4L2MEDIA || mSensorType != SENSOR_MIPI)) {
                   jpegbuffersize = getJpegBufferSize(info.mainwidth,info.mainheight);
 
                   mJpegCompressor->SetMaxJpegBufferSize(jpegbuffersize);
@@ -1772,6 +1802,7 @@ status_t EmulatedFakeCamera3::createSensor() {
             ALOGW("Should not be Here, MIPISensor,mCameraID=%d",mCameraID);
             break;
         } else if (mSensorType == SENSOR_USB) {
+            mUseHWdec = true;
             property_get("ro.vendor.platform.useswmjpeg", property, "false");
             if (strstr(property, "true")) {
                 mSensor = new USBSensor(USBSensor::HW_NONE);
@@ -1779,23 +1810,52 @@ status_t EmulatedFakeCamera3::createSensor() {
             }
             property_get("ro.vendor.platform.usehwmjpeg", property, "false");
             if (strstr(property, "true")) {
-                ALOGD("USBSensor,HW_MJPEG decoder");
-                mSensor = new USBSensor(USBSensor::HW_MJPEG);
+                ALOGD("USBSensorHWDec, HW_MJPEG decoder");
+
+                property_get("vendor.media.camera.dec.mediahalsdk", property, "false");
+                if (strstr(property, "true")) {
+                    mSensor = new USBSensorHWDec(V4L2_PIX_FMT_MJPEG);
+                } else {
+                    mSensor = new USBSensor(USBSensor::HW_MJPEG);
+                }
+
                 break;
             }
             property_get("ro.vendor.platform.usehwh264", property, "false");
             if (strstr(property, "true")) {
-                mSensor = new USBSensor(USBSensor::HW_H264);
+                ALOGD("USBSensorHWDec, HW_H264 decoder");
+                property_get("vendor.media.camera.dec.mediahalsdk", property, "false");
+                if (strstr(property, "true")) {
+                    mSensor = new USBSensorHWDec(V4L2_PIX_FMT_H264);
+                } else {
+                    mSensor = new USBSensor(USBSensor::HW_H264);
+                }
+
                 break;
             }
+            property_get("ro.vendor.platform.usehwh265", property, "false");
+            if (strstr(property, "true")) {
+                ALOGD("USBSensorHWDec, HW_HEVC decoder");
+                property_get("vendor.media.camera.dec.mediahalsdk", property, "false");
+                if (strstr(property, "true")) {
+                    mSensor = new USBSensorHWDec(V4L2_PIX_FMT_HEVC);
+                } else {
+                    mSensor = new USBSensor(USBSensor::HW_HEVC);
+                }
+
+                break;
+            }
+
             ALOGD("Sensor to do CTS");
             mSensor = new Sensor();
+            mUseHWdec = false;
         }else {
             ALOGE("not support this camera:%d",mSensorType);
         }
     }while(0);
-    if (mSensor)
+    if (mSensor) {
         mSensor->setDeviceName(device->name);
+    }
     return OK;
 }
 
@@ -1812,7 +1872,7 @@ status_t EmulatedFakeCamera3::constructStaticInfo() {
     memset(mAvailableJpegSize,0,(sizeof(uint32_t))*availablejpegsize);
     createSensor();
     if (mSensor)
-        mSensor->startUp(mCameraID);
+        mSensor->startUp(mCameraID, ((mSensorType == SENSOR_HDMI) ? true : false));
     else {
         ALOGE("sensor object can not is NULL");
         return BAD_VALUE;
@@ -2027,12 +2087,10 @@ status_t EmulatedFakeCamera3::constructStaticInfo() {
 
     maxJpegResolution = getMaxJpegResolution(picSizes,count);
     int32_t full_size[4];
-
     full_size[0] = 0;
     full_size[1] = 0;
     full_size[2] = maxJpegResolution.width;
     full_size[3] = maxJpegResolution.height;
-
     /*activeArray.width <= pixelArraySize.Width && activeArray.height<= pixelArraySize.Height*/
     info.update(ANDROID_SENSOR_INFO_ACTIVE_ARRAY_SIZE,
             (int32_t*)full_size,
@@ -3082,7 +3140,7 @@ bool EmulatedFakeCamera3::ReadoutThread::threadLoop() {
     while (buf != mCurrentRequest.buffers->end()) {
         const bool goodBuffer = true;
         if ( buf->stream->format == HAL_PIXEL_FORMAT_BLOB &&
-             (mParent->mSensorType != SENSOR_V4L2MEDIA && mParent->mSensorType != SENSOR_MIPI)) {
+             (mParent->mSensorType != SENSOR_V4L2MEDIA || mParent->mSensorType != SENSOR_MIPI)) {
             Mutex::Autolock jl(mJpegLock);
             needJpeg = true;
             CaptureRequest currentcapture;
@@ -3096,7 +3154,9 @@ bool EmulatedFakeCamera3::ReadoutThread::threadLoop() {
             buf = mCurrentRequest.buffers->erase(buf);
             continue;
         }
-        GraphicBufferMapper::get().unlock(*(buf->buffer));
+
+        if (mParent->mSensorType == SENSOR_USB && mParent->mUseHWdec == false)
+            GraphicBufferMapper::get().unlock(*(buf->buffer));
 
         buf->status = goodBuffer ? CAMERA3_BUFFER_STATUS_OK :
                 CAMERA3_BUFFER_STATUS_ERROR;

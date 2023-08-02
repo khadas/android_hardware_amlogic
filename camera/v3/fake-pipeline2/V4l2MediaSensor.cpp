@@ -317,7 +317,7 @@ int V4l2MediaSensor::SensorInit(int idx) {
     return ret;
 }
 
-status_t V4l2MediaSensor::startUp(int idx) {
+status_t V4l2MediaSensor::startUp(int idx, bool customizationSensor) {
     ALOGV("%s: E", __FUNCTION__);
     int res;
     mCapturedBuffers = NULL;
@@ -419,10 +419,9 @@ status_t V4l2MediaSensor::shutDown() {
     return res;
 }
 
-uint32_t V4l2MediaSensor::getStreamUsage(int stream_type){
+uint32_t V4l2MediaSensor::getStreamUsage(camera3_stream_t& stream){
     ATRACE_CALL();
-    uint32_t usage = Sensor::getStreamUsage(stream_type);
-    usage = (GRALLOC_USAGE_HW_TEXTURE
+    uint32_t usage = (GRALLOC_USAGE_HW_TEXTURE
             | GRALLOC_USAGE_HW_RENDER
             | GRALLOC_USAGE_SW_READ_MASK
             | GRALLOC_USAGE_SW_WRITE_MASK

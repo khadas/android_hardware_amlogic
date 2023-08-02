@@ -84,11 +84,10 @@ int HDMISensor::halFormatToSensorFormat(uint32_t pixelfmt)
 }
 
 
-uint32_t HDMISensor::getStreamUsage(int stream_type)
+uint32_t HDMISensor::getStreamUsage(camera3_stream_t& stream)
 {
     ATRACE_CALL();
-    uint32_t usage = Sensor::getStreamUsage(stream_type);
-    usage = (GRALLOC_USAGE_HW_TEXTURE
+    uint32_t usage = (GRALLOC_USAGE_HW_TEXTURE
             | GRALLOC_USAGE_HW_RENDER
             | GRALLOC_USAGE_SW_READ_MASK
             | GRALLOC_USAGE_SW_WRITE_MASK
@@ -141,7 +140,7 @@ bool HDMISensor::isNeedRestart(uint32_t width, uint32_t height, uint32_t pixelfo
 }
 
 
-status_t HDMISensor::startUp(int idx) {
+status_t HDMISensor::startUp(int idx, bool customizationSensor) {
     ATRACE_CALL();
     ALOGV("%s: E", __FUNCTION__);
     DBG_LOGA("ddd");

@@ -254,16 +254,16 @@ status_t JpegCompressor::Create_Exif_Use_Libexif() {
         if (sEb != NULL) {
             if (mJpegRequest.mNeedThumbnail) {
                 uint8_t * mTempJpegBuffer = (uint8_t *)malloc(mMainJpegSize + sEb->size + mThumbJpegSize);
+                memset(mTempJpegBuffer, 0, sizeof(char) * (mMainJpegSize + sEb->size + mThumbJpegSize));
+                memcpy(mTempJpegBuffer, exif_header, exif_header_len);
+                mTempJpegBuffer[exif_header_len] = (sEb->size + mThumbJpegSize + 2) >> 8;
+                mTempJpegBuffer[exif_header_len + 1] = ((sEb->size + mThumbJpegSize + 2) & 0xff);
+                memcpy(mTempJpegBuffer + exif_header_len + 2, sEb->data, sEb->size);
+                memcpy(mTempJpegBuffer + exif_header_len + sEb->size + 2, mDstThumbBuffer, mThumbJpegSize);
+                memcpy(mTempJpegBuffer + exif_header_len + sEb->size + mThumbJpegSize+ 2,
+                    mJpegBuffer.img + image_data_offset, mMainJpegSize - image_data_offset);
+                memcpy(mJpegBuffer.img, mTempJpegBuffer, mMainJpegSize + sEb->size + mThumbJpegSize);
                 if (mTempJpegBuffer != NULL) {
-                    memset(mTempJpegBuffer, 0, sizeof(char) * (mMainJpegSize + sEb->size + mThumbJpegSize));
-                    memcpy(mTempJpegBuffer, exif_header, exif_header_len);
-                    mTempJpegBuffer[exif_header_len] = (sEb->size + mThumbJpegSize + 2) >> 8;
-                    mTempJpegBuffer[exif_header_len + 1] = ((sEb->size + mThumbJpegSize + 2) & 0xff);
-                    memcpy(mTempJpegBuffer + exif_header_len + 2, sEb->data, sEb->size);
-                    memcpy(mTempJpegBuffer + exif_header_len + sEb->size + 2, mDstThumbBuffer, mThumbJpegSize);
-                    memcpy(mTempJpegBuffer + exif_header_len + sEb->size + mThumbJpegSize+ 2,
-                        mJpegBuffer.img + image_data_offset, mMainJpegSize - image_data_offset);
-                    memcpy(mJpegBuffer.img, mTempJpegBuffer, mMainJpegSize + sEb->size + mThumbJpegSize);
                     free(mTempJpegBuffer);
                     mTempJpegBuffer = NULL;
                 }
@@ -1324,17 +1324,14 @@ exif_buffer * JpegCompressor::get_exif_buffer() {
         r3.denominator = 1;
         memset(exifcontent, 0, sizeof(exifcontent));
         if (times != -1) {
-            struct tm* tmp = gmtime(&times);
-            if (tmp != NULL) {
-                tmstruct = *tmp;//convert to standard time
-                strftime(exifcontent, 20, "%Y:%m:%d", &tmstruct);
-                exif_entry_set_gps_coord_ref(pEd, (ExifTag) EXIF_TAG_GPS_DATE_STAMP, exifcontent);
+            tmstruct = *(gmtime(&times));//convert to standard time
+            strftime(exifcontent, 20, "%Y:%m:%d", &tmstruct);
+            exif_entry_set_gps_coord_ref(pEd, (ExifTag) EXIF_TAG_GPS_DATE_STAMP, exifcontent);
 
-                r1.numerator = tmstruct.tm_hour;
-                r2.numerator = tmstruct.tm_min;
-                r3.numerator = tmstruct.tm_sec;
-                exif_entry_set_gps_coord(pEd, (ExifTag) EXIF_TAG_GPS_TIME_STAMP, r1, r2, r3);
-            }
+            r1.numerator = tmstruct.tm_hour;
+            r2.numerator = tmstruct.tm_min;
+            r3.numerator = tmstruct.tm_sec;
+            exif_entry_set_gps_coord(pEd, (ExifTag) EXIF_TAG_GPS_TIME_STAMP, r1, r2, r3);
         }
     }
 

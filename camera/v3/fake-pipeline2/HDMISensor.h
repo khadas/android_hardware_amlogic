@@ -13,7 +13,7 @@ namespace android {
         public:
             HDMISensor();
             ~HDMISensor();
-            status_t startUp(int idx) override;
+            status_t startUp(int idx, bool customizationSensor) override;
             status_t shutDown(void) override;
             int getOutputFormat() override;
             status_t streamOn(channel ch) override;
@@ -40,7 +40,7 @@ namespace android {
             int getAWB(uint8_t *awbMode, uint8_t maxCount) override;
             status_t setAWB(uint8_t awbMode) override;
             void setSensorListener(SensorListener *listener) override;
-            uint32_t getStreamUsage(int stream_type) override;
+            uint32_t getStreamUsage(camera3_stream_t& stream) override;
         private:
             MPlaneCameraIO* mMPlaneCameraIO;
             ge2dTransform* mGE2D = NULL;

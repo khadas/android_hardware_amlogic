@@ -221,6 +221,8 @@ private:
 
     enum sensor_type_e mSensorType;
 
+    bool               mUseHWdec = true;
+
     /**
      * Cache for default templates. Once one is requested, the pointer must be
      * valid at least until close() is called on the device

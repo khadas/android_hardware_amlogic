@@ -53,6 +53,9 @@ public:
         int ge2d_keep_ration_scale(int dst_fd,int dst_fmt, size_t dst_w,
                 size_t dst_h,int src_fd, size_t src_w, size_t src_h);
 
+        int ge2d_keep_ration_scale(int dst_fd,int dst_fmt, size_t dst_w,
+                size_t dst_h,int src_fd, size_t src_w, size_t src_h, size_t format_w, size_t format_h);
+
         int ge2d_fmt_convert(int dst_fd,int dst_fmt, size_t dst_w,size_t dst_h,
                                           int src_fd, int src_fmt, size_t src_w, size_t src_h);
 
@@ -60,7 +63,7 @@ public:
                                                         int degree);
         int ge2d_mirror(int dst_fd,size_t src_w,size_t src_h,int fmt);
         int ge2d_flip(int dst_fd,size_t src_w,size_t src_h,int fmt);
-        int doRotationAndMirror(android::StreamBuffer &b);
+        int doRotationAndMirror(android::StreamBuffer b);
         int ge2d_copy(int dst_fd, int src_fd, size_t width, size_t height, int fmt);
         int ge2d_copy_dma(int dst_fd, int src_fd, size_t width, size_t height,int fmt);
 

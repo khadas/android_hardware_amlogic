@@ -37,7 +37,8 @@ CameraConfig::CameraConfig(int groupId) {
         mGE2DParam.src_width = DEFAULT_WIDTH_GROUP1;
         mGE2DParam.src_height = DEFAULT_HEIGHT_GROUP1;
     }
-
+    mGDCParam.input_width = 0;
+    mGDCParam.input_height = 0;
 }
 
 CameraConfig* CameraConfig::getInstance(int groupId) {
@@ -85,6 +86,34 @@ void CameraConfig::setHeight(uint32_t height) {
 
     mGDCParam.height = height;
     mGE2DParam.src_height = height;
+}
+
+uint32_t CameraConfig::getInputWidth() {
+
+    return mGDCParam.input_width;
+}
+
+void CameraConfig::setInputWidth(uint32_t width) {
+    mGDCParam.input_width = width;
+}
+
+uint32_t CameraConfig::getInputHeight() {
+
+    return mGDCParam.input_height;
+}
+
+void CameraConfig::setInputHeight(uint32_t height) {
+
+    mGDCParam.input_height = height;
+}
+
+void CameraConfig::setCropInfo(CropInfo inputCropInfo) {
+    mGDCParam.mCropInfo = inputCropInfo;
+
+}
+
+CropInfo CameraConfig::getCropInfo(void) {
+    return mGDCParam.mCropInfo;
 }
 
 }

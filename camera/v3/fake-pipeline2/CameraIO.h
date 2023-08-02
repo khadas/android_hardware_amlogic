@@ -61,13 +61,13 @@ struct VideoInfoBuffer {
 class CVideoInfo {
     public:
         CVideoInfo();
-        virtual ~CVideoInfo(){};
+        virtual ~CVideoInfo();
         struct    v4l2_capability cap;
         FrameV4L2Info preview;
         FrameV4L2Info picture;
         std::vector<struct VideoInfoBuffer> mem;
         struct VideoInfoBuffer mem_pic[IO_PICTURE_BUFFER];
-        //unsigned int canvas[IO_PREVIEW_BUFFER];
+
         bool isStreaming;
         bool isPicture;
         bool canvas_mode;
@@ -84,6 +84,7 @@ class CVideoInfo {
         int tempbuflen;
         int dev_status;
         char sensor_type[64];
+
     public:
         int camera_init(void);
         int setBuffersFormat(void);
@@ -103,12 +104,16 @@ class CVideoInfo {
         int EnumerateFormat(uint32_t pixelformat);
         bool IsSupportRotation();
         void set_buffer_numbers(int io_buffer);
+
     private:
         int set_rotate(int camera_fd, int value);
         int get_frame_index(FrameV4L2Info& info);
+        int export_dmabuf_fd(int videofd, int index, int* dmafd);
+
     protected:
         int IO_PREVIEW_BUFFER;
 };
+
 }
 #endif
 

@@ -33,7 +33,7 @@
 
 namespace android {
 
-const usb_frmsize_discrete_t kUsbAvailablePictureSize[] = {
+static const usb_frmsize_discrete_t kUsbAvailablePictureSize[] = {
         {4128, 3096},
         {3840, 2160},
         {3264, 2448},
@@ -191,7 +191,7 @@ int USBSensor::SensorInit(int idx) {
     return ret;
 }
 
-status_t USBSensor::startUp(int idx) {
+status_t USBSensor::startUp(int idx, bool customizationSensor) {
     ALOGV("%s: E", __FUNCTION__);
     DBG_LOGA("ddd");
     int res;
@@ -217,11 +217,10 @@ status_t USBSensor::startUp(int idx) {
     return res;
 }
 
-uint32_t USBSensor::getStreamUsage(int stream_type){
+uint32_t USBSensor::getStreamUsage(camera3_stream_t& stream){
     ATRACE_CALL();
 
-    uint32_t usage = Sensor::getStreamUsage(stream_type);
-    usage = (GRALLOC_USAGE_HW_TEXTURE
+    uint32_t usage = (GRALLOC_USAGE_HW_TEXTURE
             | GRALLOC_USAGE_HW_RENDER
             | GRALLOC_USAGE_SW_READ_MASK
             | GRALLOC_USAGE_SW_WRITE_MASK

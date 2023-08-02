@@ -39,7 +39,9 @@ namespace android {
             free(mGDCContext);
             mGDCContext = nullptr;
         }
-
+        if (mION) {
+            mION->put_instance();
+        }
     }
     void DeWarp::set_input_buffer(int in_fd) {
         ATRACE_CALL();
@@ -64,8 +66,7 @@ namespace android {
         int fw_max_len = 300 * 1024;
 
         //----alloc memory
-        IONInterface* IONDevice = IONInterface::get_instance();
-        fw_buffer = IONDevice->alloc_buffer(fw_max_len, &mFw_fd);
+        fw_buffer = mION->alloc_buffer(fw_max_len, &mFw_fd);
         if (fw_buffer == nullptr) {
             ALOGE("failed to allocate config buffer %d",fw_max_len);
             return false;
@@ -109,16 +110,32 @@ namespace android {
         int width_tmp = width;
         int height_tmp = height;
         mDewarp_params.win_num = 1;
-        in->width = width;
-        in->height = height;
-        in->offset_x = 0;
-        in->offset_y = 0;
+
+        CameraConfig* config = CameraConfig::getInstance(mGroupId);
+        if (config->getInputWidth() > 0 && config->getInputHeight() > 0) {
+            in->width = config->getInputWidth();
+            in->height = config->getInputHeight();
+        } else {
+            in->width = width;
+            in->height = height;
+        }
+        int mirror_value = 0;
+        int origin_width = config->getCropInfo().originWidth;
+        int origin_height = config->getCropInfo().originHeight;
+        int crop_width = config->getCropInfo().width;
+        int crop_height = config->getCropInfo().height;
+        if (origin_width != 0 && origin_height != 0 && crop_width != 0 && crop_height != 0) {
+            in->offset_x = (crop_width - origin_width) / 2 + 1;
+            in->offset_y = (crop_height - origin_height) / 2 + 1;
+        } else {
+            in->offset_x = 0;
+            in->offset_y = 0;
+        }
         in->fov = 120;
         mDewarp_params.color_mode = YUV420_SEMIPLANAR;
         /*ROTATION_90 ROTATION_270 output need exchange width and height,input no need*/
         width = (mRotation == Rotation::ROTATION_0 || mRotation == Rotation::ROTATION_180) ? width_tmp : height_tmp;
         height = (mRotation == Rotation::ROTATION_0 || mRotation == Rotation::ROTATION_180) ? height_tmp : width_tmp;
-
         out->width = width;
         out->height = height;
         property_get("vendor.camhal.use.dewarp.linear", property, "true");
@@ -156,8 +173,16 @@ namespace android {
                 proj[0].zoom = 1.025;
         }
 
-        proj[0].strength_hor = 1.0;
-        proj[0].strength_ver = 1.0;
+        if (origin_width != 0 && origin_height != 0 && crop_width != 0 && crop_height != 0) {
+            proj[0].strength_hor = (float) origin_width / (float) crop_width;
+            proj[0].strength_ver = (float) origin_height / (float) crop_height;
+        } else {
+            proj[0].strength_hor = 1.0;
+            proj[0].strength_ver = 1.0;
+        }
+        property_get("vendor.camhal.use.dewarp.mirror", property, "0");
+        mirror_value = atoi(property);
+        proj[0].mirror = mirror_value;
 
         win[0].win_start_x = 0;
         win[0].win_end_x = width - 1;
@@ -167,9 +192,11 @@ namespace android {
         win[0].img_end_x = width - 1;
         win[0].img_start_y = 0;
         win[0].img_end_y = height - 1;
+        win[0].mesh_x_len = 64;
+        win[0].mesh_y_len = 64;
 
-        mDewarp_params.tile_x_step = 16;
-        mDewarp_params.tile_y_step = 16;
+        mDewarp_params.tile_x_step = 32;
+        mDewarp_params.tile_y_step = 32;
         mDewarp_params.prm_mode = 0;
 #if 0
         memset(property,0,sizeof(property));
@@ -287,7 +314,6 @@ namespace android {
         if (mInstance[groupId][(int)rotation] != nullptr && \
             (mInstance[groupId][(int)rotation]->mProj_mode == proj_mode) && \
             (mInstance[groupId][(int)rotation]->mRotation == rotation)) {
-
             return mInstance[groupId][(int)rotation];
 
         } else {
@@ -310,6 +336,15 @@ namespace android {
         }
     }
 
+    void DeWarp::putInstance(int      groupId) {
+        int i = 0;
+        for (i = 0; i < ROTATION_MAX;i++) {
+            if (mInstance[groupId][i] != nullptr) {
+                delete mInstance[groupId][i];
+                mInstance[groupId][i] = nullptr;
+            }
+        }
+    }
     int DeWarp::dewarp_to_libgdc_format(int dewarp_format)
     {
         int ret = 0;
@@ -349,8 +384,7 @@ namespace android {
         ALOGD("%s: E \n",__FUNCTION__);
         ATRACE_CALL();
         if (mFw_fd != -1) {
-           IONInterface* IONDevice = IONInterface::get_instance();
-           IONDevice->free_buffer(mFw_fd);
+           mION->free_buffer(mFw_fd);
            mFw_fd = -1;
         }
         auto gdc_gs = &mGDCContext->gs_ex;

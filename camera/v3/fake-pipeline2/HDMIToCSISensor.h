@@ -7,7 +7,7 @@ public:
 		~HDMIToCSISensor();
 	public:
 		status_t streamOff(channel ch) override;
-		status_t startUp(int idx) override;
+		status_t startUp(int idx, bool customizationSensor) override;
 		status_t shutDown(void) override;
 		void captureRGB(uint8_t *img, uint32_t gain, uint32_t stride) override;
 		void captureNV21(StreamBuffer b, uint32_t gain) override;
@@ -40,7 +40,7 @@ public:
 		int getAWB(uint8_t *awbMode, uint8_t maxCount) override;
 		status_t setAWB(uint8_t awbMode) override;
 		void setSensorListener(SensorListener *listener) override;
-		uint32_t getStreamUsage(int stream_type) override;
+		uint32_t getStreamUsage(camera3_stream_t& stream) override;
 	private:
 		CameraVirtualDevice* mCameraVirtualDevice;
 		int mDevicefd[3];
