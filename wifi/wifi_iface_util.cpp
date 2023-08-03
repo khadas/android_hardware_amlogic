@@ -55,7 +55,7 @@ bool WifiIfaceUtil::setMacAddress(const std::string& iface_name,
 #ifdef MULTI_WIFI_SUPPORT
     std::array<char, PROPERTY_VALUE_MAX> buffer;
     property_get("vendor.wifi_name", buffer.data(), nullptr);
-    if (strcmp(buffer.data(), "bcm") != 0 && !iface_tool_.lock()->SetUpState(iface_name.c_str(), false)) {
+    if (strncmp(buffer.data(), "bcm", 3) != 0 && !iface_tool_.lock()->SetUpState(iface_name.c_str(), false)) {
         LOG(ERROR) << "SetUpState(false) failed.";
         return false;
      }
@@ -76,7 +76,7 @@ bool WifiIfaceUtil::setMacAddress(const std::string& iface_name,
     bool success = iface_tool_.lock()->SetMacAddress(iface_name.c_str(), mac);
 #ifdef MULTI_WIFI_SUPPORT
     property_get("vendor.wifi_name", buffer.data(), nullptr);
-    if (strcmp(buffer.data(), "bcm") != 0 && !iface_tool_.lock()->SetUpState(iface_name.c_str(), true)) {
+    if (strncmp(buffer.data(), "bcm", 3) != 0 && !iface_tool_.lock()->SetUpState(iface_name.c_str(), true)) {
         LOG(ERROR) << "SetUpState(true) failed.";
         return false;
      }

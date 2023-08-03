@@ -949,7 +949,7 @@ std::pair<std::shared_ptr<IWifiApIface>, ndk::ScopedAStatus> WifiChip::createApI
 
 #ifdef WIFI_HIDL_FEATURE_DUAL_INTERFACE
     property_set("vendor.w1_wifi_type", "ap");
-    if (strcmp(buffer.data(), "bcm") != 0)
+    if (strncmp(buffer.data(), "bcm", 3) != 0 && strncmp(buffer.data(), "uwe", 3) != 0)
         ifname = "ap0";
     else
         ifname = "wlan1";
