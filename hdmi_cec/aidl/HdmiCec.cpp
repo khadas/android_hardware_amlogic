@@ -74,19 +74,15 @@ ScopedAStatus HdmiCec::getVendorId(int32_t* _aidl_return) {
 }
 
 ScopedAStatus HdmiCec::sendMessage(const CecMessage& message, SendMessageResult* _aidl_return) {
-    if (message.body.size() == 0) {
-        *_aidl_return = SendMessageResult::NACK;
-    } else {
-        cec_message_t msg;
-        msg.initiator = (cec_logical_address_t)message.initiator;
-        msg.destination = (cec_logical_address_t)message.destination;
-        msg.length = std::min(static_cast<size_t>(message.body.size()),
-                                 static_cast<size_t>(CEC_MESSAGE_BODY_MAX_LENGTH));
-        for (size_t i = 0; i < msg.length; ++i) {
-            msg.body[i] = static_cast<unsigned char>(message.body[i]);
-        }
-        *_aidl_return = static_cast<SendMessageResult>(mHdmiCecControl->sendMessage(&msg));
+    cec_message_t msg;
+    msg.initiator = (cec_logical_address_t)message.initiator;
+    msg.destination = (cec_logical_address_t)message.destination;
+    msg.length = std::min(static_cast<size_t>(message.body.size()),
+                             static_cast<size_t>(CEC_MESSAGE_BODY_MAX_LENGTH));
+    for (size_t i = 0; i < msg.length; ++i) {
+        msg.body[i] = static_cast<unsigned char>(message.body[i]);
     }
+    *_aidl_return = static_cast<SendMessageResult>(mHdmiCecControl->sendMessage(&msg));
 
     return ScopedAStatus::ok();
 }
@@ -117,14 +113,17 @@ ScopedAStatus HdmiCec::setLanguage(const std::string& language) {
 }
 
 ScopedAStatus HdmiCec::enableWakeupByOtp(bool value) {
+    mHdmiCecControl->setOption(HDMI_OPTION_WAKEUP, value ? 1 : 0);
     return ScopedAStatus::ok();
 }
 
 ScopedAStatus HdmiCec::enableCec(bool value) {
+    mHdmiCecControl->setOption(HDMI_OPTION_ENABLE_CEC, value ? 1 : 0);
     return ScopedAStatus::ok();
 }
 
 ScopedAStatus HdmiCec::enableSystemCecControl(bool value) {
+    mHdmiCecControl->setOption(HDMI_OPTION_SYSTEM_CEC_CONTROL, value ? 1 : 0);
     return ScopedAStatus::ok();
 }
 

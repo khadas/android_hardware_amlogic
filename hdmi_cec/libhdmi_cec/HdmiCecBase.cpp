@@ -56,9 +56,6 @@ void HdmiCecBase::printCecEvent(const hdmi_cec_event_t *event)
 
 void HdmiCecBase::printCecMessage(const cec_message_t* message)
 {
-    if (message->length < 1) {
-        return;
-    }
     char buf[64];
     int i, size = 0;
     memset(buf, 0, sizeof(buf));
@@ -71,16 +68,13 @@ void HdmiCecBase::printCecMessage(const cec_message_t* message)
 
 void HdmiCecBase::printCecMessage(const cec_message_t* message, int result)
 {
-    if (message->length < 1) {
-        return;
-    }
     char buf[64];
     int i, size = 0;
     memset(buf, 0, sizeof(buf));
     for (i = 0; i < message->length; i++) {
         size += sprintf(buf + size, " %02x", message->body[i]);
     }
-    LOGD("%s, [%x -> %x] len: %d, body:%s, result: %s", __FUNCTION__,
+    LOGD("%s, [%x -> %x] len: %d, body:%s, result:%s", __FUNCTION__,
             message->initiator, message->destination, message->length, buf, getResult(result));
 }
 
