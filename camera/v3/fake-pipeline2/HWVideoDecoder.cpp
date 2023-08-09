@@ -141,6 +141,8 @@ public:
 
 private:
     int checkMjpegData(uint8_t* in_src, uint32_t in_size, bool check_mjpeg_wh);
+    bool findSOI(uint8_t* in_src, uint32_t in_size, int& offset);
+    bool findEOI(uint8_t* in_src, uint32_t in_size);
 
     bool checkAndwaitForOutBuf(uint32_t ms);
     int queueInputBufferInternal(int fd, uint8_t * data, int size);
@@ -1114,12 +1116,37 @@ int HWVideoDecoderImpl::queueInputBufferInternal(int fd, uint8_t * data, int siz
 
 // data ok,  return 0;
 // otherwise return -1
+bool HWVideoDecoderImpl::findSOI(uint8_t* in_src, uint32_t in_size, int& offset) {
+    offset = 0;
+    if (in_size != 0) {
+        while (offset < in_size - 1) {
+            if (in_src[offset] == 0xFF && in_src[offset + 1] == 0xD8)
+                return true;
+        offset++;
+        }
+    }
+    ALOGD("%s: not find SOI", __FUNCTION__);
+    return false;
+}
+
+bool HWVideoDecoderImpl::findEOI(uint8_t* in_src, uint32_t in_size) {
+    uint8_t EOI[] = {0xff, 0xd9};
+    if (in_size != 0) {
+        for (size_t i = 0; i <= in_size - sizeof(EOI); i++) {
+            if (memcmp(in_src + i, EOI, sizeof(EOI)) == 0) {
+                return true;
+            }
+        }
+    }
+    ALOGD("%s: not find EOI", __FUNCTION__);
+    return false;
+}
+
 int HWVideoDecoderImpl::checkMjpegData(uint8_t* in_src, uint32_t in_size, bool check_mjpeg_wh)
 {
-    if (in_src[0] == 0xff && in_src[1] == 0xd8 &&
-        in_src[in_size-2] == 0xff && in_src[in_size-1] == 0xd9) {
+    int offset = 0;
+    if (findSOI(in_src, in_size, offset) && findEOI(in_src, in_size)) {
         if (check_mjpeg_wh) {
-            int offset = 0;
             int width = 0;
             int height = 0;
             while (offset < in_size - 1)
