@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#define LOG_TAG "android.hardware.tv.hdmi.cec"
+#define LOG_TAG "hdmicecd"
 #include <android-base/logging.h>
 #include <fcntl.h>
 #include <utils/Log.h>

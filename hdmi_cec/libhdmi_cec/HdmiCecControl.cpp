@@ -495,7 +495,9 @@ int HdmiCecControl::sendMessage(const cec_message_t* message)
     // twice in hal and there could be in total 4 times plus android's retry twice.
     do {
         ret = send(message);
-    } while((ret != HDMI_RESULT_SUCCESS) && (++retry < SEND_MESSAGE_RETRY_HAL));
+    } while(message->length != 0
+            && (ret != HDMI_RESULT_SUCCESS)
+            && (++retry < SEND_MESSAGE_RETRY_HAL));
 
     postHandleOfSend(message, ret);
     return ret;
