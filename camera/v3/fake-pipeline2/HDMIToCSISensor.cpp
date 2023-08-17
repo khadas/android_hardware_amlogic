@@ -202,16 +202,20 @@ void HDMIToCSISensor::captureRGB(uint8_t *img, uint32_t gain, uint32_t stride) {
     int dqTryNum = 3;
 
     rotate = getPictureRotate();
-    width = mVinfo->picture.format.fmt.pix.width;
-    height = mVinfo->picture.format.fmt.pix.height;
+    if (mVinfo != NULL) {
+        width = mVinfo->picture.format.fmt.pix.width;
+        height = mVinfo->picture.format.fmt.pix.height;
 
-    mVinfo->stop_capturing();
-    ret = mVinfo->start_picture(rotate);
-    if (ret < 0)
-    {
+        mVinfo->stop_capturing();
+        ret = mVinfo->start_picture(rotate);
+        if (ret < 0)
+        {
         ALOGD("start picture failed!");
+            return;
+        }
+    } else
         return;
-    }
+
     while (1)
     {
         if (mFlushFlag) {

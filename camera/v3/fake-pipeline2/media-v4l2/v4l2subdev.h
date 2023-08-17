@@ -40,6 +40,7 @@ enum {
 #define V4L2_CID_AML_ROLE            (V4L2_CID_AML_BASE + 0x002)
 #define V4L2_CID_AML_STROBE          (V4L2_CID_AML_BASE + 0x003)
 #define V4L2_CID_AML_MODE            (V4L2_CID_AML_BASE + 0x004)
+#define V4L2_CID_AML_ADDRESS         (V4L2_CID_AML_BASE + 0x005)
 
 /**
  * @brief Open a sub-device.
@@ -275,5 +276,8 @@ int v4l2_subdev_set_ctrls(struct media_entity *entity, struct v4l2_ext_control *
 
 int v4l2_subdev_set_wdr(struct media_entity *entity, uint32_t wdr_mode);
 
+int v4l2_subdev_set_fps(struct media_entity * entity, uint32_t fps);
+
+int v4l2_subdev_get_address(struct media_entity *entity, int32_t* address);
 
 #endif

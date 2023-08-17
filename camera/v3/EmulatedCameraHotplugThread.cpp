@@ -37,11 +37,14 @@ namespace android {
 EmulatedCameraHotplugThread::EmulatedCameraHotplugThread(
     const int* cameraIdArray,
     size_t size) :
-        Thread(/*canCallJava*/false) {
+        Thread(/*canCallJava*/false),
+            mInotifyFd(-1),
+            mSocketFd(-1)
+{
 
     mRunning = true;
     //mInotifyFd = 0;
-
+    memset(&sa, 0, sizeof(struct sockaddr_nl));
     for (size_t i = 0; i < size; ++i) {
         //int id = cameraIdArray[i];
 #if 0

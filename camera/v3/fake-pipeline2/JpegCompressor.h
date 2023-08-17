@@ -39,6 +39,10 @@
 #include <libexif/exif-mem.h>
 #include "IonIf.h"
 
+#ifdef HW_JPEG
+#include "HwJpegEnc.h"
+#endif
+
 extern "C" {
 #include <jpeglib.h>
 }
@@ -138,6 +142,9 @@ class JpegCompressor: public Thread, public virtual RefBase {
     IONInterface* mION;
 #endif
     //jpeg_compress_struct mCInfo;
+#ifdef HW_JPEG
+    HwJpegEnc* mHwEnc;
+#endif
 
     struct JpegError : public jpeg_error_mgr {
         JpegCompressor *parent;

@@ -164,6 +164,7 @@ LOCAL_SRC_FILES := \
     fake-pipeline2/util.c \
     VendorTags.cpp \
     fake-pipeline2/USBSensor.cpp \
+    fake-pipeline2/MIPISensor.cpp \
     fake-pipeline2/OMXDecoder.cpp \
     fake-pipeline2/HWVideoDecoder.cpp \
     fake-pipeline2/USBSensorUtils.cpp \
@@ -187,9 +188,12 @@ LOCAL_SRC_FILES += \
     fake-pipeline2/ispMgr/ispMgr.cpp \
     fake-pipeline2/ispMgr/staticPipe.cpp \
     fake-pipeline2/ispMgr/sensor/sensor_config.cpp \
+    fake-pipeline2/ispMgr/sensor/sensor_otp.cpp \
     fake-pipeline2/ispMgr/sensor/imx290/imx290_config.cpp \
     fake-pipeline2/ispMgr/sensor/imx415/imx415_config.cpp \
     fake-pipeline2/ispMgr/sensor/ov13b10/ov13b10_config.cpp \
+    fake-pipeline2/ispMgr/lens/lens_config.cpp \
+    fake-pipeline2/ispMgr/lens/dw9800w/dw9800w_config.cpp
 
 ifeq ($(GE2D_ENABLE),true)
 LOCAL_SRC_FILES += fake-pipeline2/ge2d_stream.cpp \

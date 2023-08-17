@@ -21,12 +21,14 @@
 #include <unistd.h>
 
 #include <linux/videodev2.h>
-
+#include <linux/v4l2-subdev.h>
 
 #include "mediactl.h"
 #include "tools.h"
 #include "v4l2videodev.h"
 
+#define V4L2_CID_AML_BASE            (V4L2_CID_BASE + 0x1000)
+#define V4L2_CID_AML_USER_FPS        (V4L2_CID_AML_BASE + 0x001)
 
 int v4l2_video_open(struct media_entity *entity)
 {
@@ -50,19 +52,15 @@ int v4l2_video_open(struct media_entity *entity)
     return 0;
 }
 
-
 void v4l2_video_close(struct media_entity *entity)
 {
     close(entity->fd);
     entity->fd = -1;
 }
 
-
-
 int v4l2_video_get_format(struct media_entity *entity,
                       struct v4l2_format *v4l2_fmt)
 {
-
     int ret;
 
     ret = v4l2_video_open(entity);
@@ -90,7 +88,6 @@ int v4l2_video_set_format(struct media_entity *entity,
         return ret;
     }
 
-
     ret = ioctl (entity->fd, VIDIOC_S_FMT, v4l2_fmt);
     if (ret < 0) {
         media_dbg(entity->media,
@@ -104,6 +101,38 @@ int v4l2_video_set_format(struct media_entity *entity,
     return 0;
 }
 
+int v4l2_video_set_ctrls(struct media_entity *entity, struct v4l2_ext_control *ctrls, int count)
+{
+    int ret = 0;
+    struct v4l2_ext_controls ext_ctrls;
+
+    ret = v4l2_video_open(entity);
+    if (ret < 0) {
+        return ret;
+    }
+
+    memset(&ext_ctrls, 0, sizeof(ext_ctrls));
+
+    ext_ctrls.which = V4L2_CTRL_WHICH_CUR_VAL;
+    ext_ctrls.controls = ctrls;
+    ext_ctrls.count = count;
+
+    ret = ioctl(entity->fd, VIDIOC_S_EXT_CTRLS, &ext_ctrls);
+
+    return ret;
+}
+
+int v4l2_video_set_fps(struct media_entity * entity, uint32_t fps){
+    int ret;
+    struct v4l2_ext_control ext_control;
+    ext_control.id = V4L2_CID_AML_USER_FPS;
+    ext_control.value = fps;
+    ret = v4l2_video_set_ctrls(entity, &ext_control, 1);
+    if (ret < 0) {
+        return -errno;
+    }
+    return 0;
+}
 
 int v4l2_video_get_capability(struct media_entity *entity,
                         struct v4l2_capability * v4l2_cap)
@@ -156,7 +185,6 @@ int v4l2_video_query_buf(struct media_entity *entity,
     if (ret < 0)
         return ret;
 
-
     ret= ioctl (entity->fd, VIDIOC_QUERYBUF, v4l2_buf);
     if (ret < 0) {
         media_dbg(entity->media,
@@ -176,7 +204,6 @@ int v4l2_video_q_buf(struct media_entity *entity,
     if (ret < 0)
         return ret;
 
-
     ret = ioctl (entity->fd, VIDIOC_QBUF, v4l2_buf);
     if (ret < 0) {
         media_dbg(entity->media,
@@ -187,7 +214,6 @@ int v4l2_video_q_buf(struct media_entity *entity,
     media_dbg(entity->media,
             "queue buffer success \n");
     return ret;
-
 }
 
 
@@ -200,7 +226,6 @@ int v4l2_video_dq_buf(struct media_entity *entity,
     if (ret < 0)
         return ret;
 
-
     ret = ioctl (entity->fd, VIDIOC_DQBUF, v4l2_buf);
     if (ret < 0) {
         media_dbg(entity->media,
@@ -211,7 +236,6 @@ int v4l2_video_dq_buf(struct media_entity *entity,
     media_dbg(entity->media,
             "dq buffer success \n");
     return ret;
-
 }
 
 
@@ -230,7 +254,6 @@ int v4l2_video_stream_on(struct media_entity *entity, int type)
     media_dbg(entity->media,
             "streamon   success \n");
     return ret;
-
 }
 
 int v4l2_video_stream_off(struct media_entity *entity, int type)
@@ -248,8 +271,32 @@ int v4l2_video_stream_off(struct media_entity *entity, int type)
     media_dbg(entity->media,
             "streamon   success \n");
     return ret;
-
 }
 
+int v4l2_video_crop(struct media_entity *entity, v4l2_rect *rect)
+{
+    struct v4l2_cropcap c_cap;
+    struct v4l2_selection s_crop;
+    int ret = -1;
 
+    memset(&c_cap, 0, sizeof(c_cap));
+    memset(&s_crop, 0, sizeof(s_crop));
+
+    /* default: crop the center of image */
+    s_crop.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+    s_crop.target = 0;
+    s_crop.flags = 0;
+    s_crop.r.left   = rect->left;
+    s_crop.r.top    = rect->top;
+    s_crop.r.width  = rect->width;
+    s_crop.r.height = rect->height;
+    ret = ioctl(entity->fd, VIDIOC_S_SELECTION, &s_crop);
+    if (ret != 0) {
+        media_dbg(entity->media, "Error set crop\n");
+        return ret;
+    }
+
+    media_dbg(entity->media, "v4l2_video_crop ok\n");
+    return ret;
+}
 

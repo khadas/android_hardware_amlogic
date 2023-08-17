@@ -42,18 +42,24 @@ typedef struct
 
 static ISP_SNS_STATE_S sensor;
 
-void cmos_set_sensor_entity_imx290(struct media_entity * sensor_ent, int wdr)
+void cmos_set_sensor_entity_imx290(struct media_entity * sensor_ent, int wdr, int fps)
 {
+    memset(&sensor.snsAlgInfo, 0, sizeof(ALG_SENSOR_DEFAULT_S));
     sensor.sensor_ent = sensor_ent;
     sensor.enWDRMode = wdr;
+    //sensor.snsAlgInfo.fps = fps;
 }
 
-void cmos_get_sensor_calibration_imx290(aisp_calib_info_t * calib)
+void cmos_get_sensor_calibration_imx290(struct media_entity *sensor_ent, aisp_calib_info_t * calib)
 {
     if (sensor.enWDRMode == 1)
         Imx290WdrCalibration::dynamic_wdr_calibrations_init_imx290(calib);
     else
         Imx290SdrCalibration::dynamic_sdr_calibrations_init_imx290(calib);
+}
+
+void cmos_get_sensor_otp_data_imx290(aisp_calib_info_t * otp) {
+
 }
 
 int cmos_get_ae_default_imx290(int ViPipe, ALG_SENSOR_DEFAULT_S *pstAeSnsDft)
@@ -62,18 +68,17 @@ int cmos_get_ae_default_imx290(int ViPipe, ALG_SENSOR_DEFAULT_S *pstAeSnsDft)
 
     sensor.snsAlgInfo.active.width = 1920;
     sensor.snsAlgInfo.active.height = 1080;
-    sensor.snsAlgInfo.fps = 30;
+    sensor.snsAlgInfo.fps = 30*256;
 
     sensor.snsAlgInfo.sensor_gain_number = 1;
-
-    sensor.snsAlgInfo.lines_per_second = sensor.snsAlgInfo.total.height*30;
-    sensor.snsAlgInfo.pixels_per_line = sensor.snsAlgInfo.total.width;
 
     if (sensor.enWDRMode == 1) {
         sensor.snsAlgInfo.sensor_exp_number = 2;
         sensor.snsAlgInfo.bits = 10;
         sensor.snsAlgInfo.total.width = 2028;
         sensor.snsAlgInfo.total.height = 1220;
+        sensor.snsAlgInfo.lines_per_second = sensor.snsAlgInfo.total.height * sensor.snsAlgInfo.fps / 256;
+        sensor.snsAlgInfo.pixels_per_line = sensor.snsAlgInfo.total.width;
         sensor.snsAlgInfo.integration_time_min = 1<<SHUTTER_TIME_SHIFT;
         sensor.snsAlgInfo.integration_time_max = (225 - 3) << SHUTTER_TIME_SHIFT;
         sensor.snsAlgInfo.integration_time_long_max = (sensor.snsAlgInfo.total.height*2 - (225 + 3)) << SHUTTER_TIME_SHIFT;
@@ -81,8 +86,10 @@ int cmos_get_ae_default_imx290(int ViPipe, ALG_SENSOR_DEFAULT_S *pstAeSnsDft)
     } else {
         sensor.snsAlgInfo.sensor_exp_number = 1;
         sensor.snsAlgInfo.bits = 12;
-        sensor.snsAlgInfo.total.width = 0x1130; // should match sensor hmax register
-        sensor.snsAlgInfo.total.height = 0x0475; // should match sensor vmax register
+        sensor.snsAlgInfo.total.width = 4400; // should match sensor hmax register[0x301a-0x3018]
+        sensor.snsAlgInfo.total.height = 1157; // should match sensor vmax register[0x301d-0x301c]
+        sensor.snsAlgInfo.lines_per_second = sensor.snsAlgInfo.total.height * sensor.snsAlgInfo.fps / 256;
+        sensor.snsAlgInfo.pixels_per_line = sensor.snsAlgInfo.total.width;
         sensor.snsAlgInfo.integration_time_min = 1<<SHUTTER_TIME_SHIFT;
         sensor.snsAlgInfo.integration_time_max = sensor.snsAlgInfo.total.height<<SHUTTER_TIME_SHIFT;
         sensor.snsAlgInfo.integration_time_long_max = sensor.snsAlgInfo.total.height<<SHUTTER_TIME_SHIFT;
@@ -185,7 +192,24 @@ void cmos_inttime_calc_table_imx290(int ViPipe, uint32_t pu32ExpL, uint32_t pu32
 
 void cmos_fps_set_imx290(int ViPipe, float f32Fps, ALG_SENSOR_DEFAULT_S *pstAeSnsDft)
 {
-    ALOGD("cmos_fps_set: %f\n", f32Fps);
+    //CAMHAL_LOGD("-imx290- f32Fps = %f, %d\n",f32Fps, (int32_t)(f32Fps / 256));
+
+    struct v4l2_ext_control fpsCtrl;
+
+    fpsCtrl.id = V4L2_CID_AML_ORIG_FPS;
+    fpsCtrl.value = (int32_t)(f32Fps / 256);
+    //CAMHAL_LOGD("-imx290- fpsCtrl.value = %d\n",fpsCtrl.value);
+
+    sensor.snsAlgInfo.total.height = ( 1157 * 30 )/fpsCtrl.value;
+    sensor.snsAlgInfo.fps = fpsCtrl.value*256;
+
+    sensor.snsAlgInfo.integration_time_max = sensor.snsAlgInfo.total.height << SHUTTER_TIME_SHIFT;
+    sensor.snsAlgInfo.integration_time_long_max = sensor.snsAlgInfo.total.height << SHUTTER_TIME_SHIFT;
+    sensor.snsAlgInfo.integration_time_limit = sensor.snsAlgInfo.total.height << SHUTTER_TIME_SHIFT;
+    sensor.snsAlgInfo.lines_per_second = sensor.snsAlgInfo.total.height * fpsCtrl.value;
+    memcpy(pstAeSnsDft, &sensor.snsAlgInfo, sizeof(ALG_SENSOR_DEFAULT_S));
+
+    v4l2_subdev_set_ctrls(sensor.sensor_ent, &fpsCtrl, 1);
 }
 
 void cmos_alg_update_imx290(int ViPipe)

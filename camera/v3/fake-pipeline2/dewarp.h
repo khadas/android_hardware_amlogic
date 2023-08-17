@@ -32,6 +32,13 @@ enum Rotation    {
     ROTATION_270 = 3,
 };
 
+typedef struct GDCInParam {
+    uint32_t width;
+    uint32_t height;
+    uint32_t rotation;
+} GDCInParam_t;
+
+
 namespace android {
     class DeWarp {
         private:

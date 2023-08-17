@@ -75,8 +75,11 @@ int mediaStreamInit(media_stream_t *stream, struct media_device * dev)
             sprintf(stream->adap_ent_name, "%s", ent->info.name);
         } else if (strstr(ent->info.name, "imx")
                 || strstr(ent->info.name, "ov")
-                || strstr(ent->info.name, "os")) {
+                || strstr(ent->info.name, "os")
+                || strstr(ent->info.name, "lt")) {
             sprintf(stream->sensor_ent_name, "%s", ent->info.name);
+        } else if (strstr(ent->info.name, "dw")) {
+            sprintf(stream->lens_ent_name, "%s", ent->info.name);
         } else if (strstr(ent->info.name, "core")) {
             sprintf(stream->isp_ent_name, "%s", ent->info.name);
         } else if (strstr(ent->info.name, "stats")) {
@@ -103,6 +106,8 @@ int mediaStreamInit(media_stream_t *stream, struct media_device * dev)
         ALOGE("get  sensor_ent fail");
         return -1;
     }
+
+    stream->lens_ent = media_get_entity_by_name(stream->media_dev, stream->lens_ent_name, strlen(stream->lens_ent_name));
 
     //mandatory
     stream->csiphy_ent = media_get_entity_by_name(stream->media_dev, stream->csiphy_ent_name, strlen(stream->csiphy_ent_name));
@@ -275,6 +280,14 @@ int setSdFormat(media_stream_t *stream, stream_configuration_t *cfg)
         return rtn;
     }
 
+    if (cfg->vformat[0].fps > 0) {
+        rtn = v4l2_subdev_set_fps(stream->sensor_ent, cfg->vformat[0].fps);
+        if (rtn < 0) {
+            ALOGE("Failed to set sensor fps, use default\n");
+        }
+    }
+
+
     // csiphy source & sink pad fmt
     rtn = v4l2_subdev_set_format(stream->csiphy_ent,
           &mbus_format, 0, which);
@@ -332,10 +345,29 @@ int setImgFormat(media_stream_t *stream, stream_configuration_t *cfg)
 {
     int rtn = -1;
     struct v4l2_format          v4l2_fmt;
+    struct v4l2_rect            v4l2_rct;
 
     ALOGD("%s ++", __FUNCTION__);
 
     memset (&v4l2_fmt, 0, sizeof (struct v4l2_format));
+    memset (&v4l2_rct, 0, sizeof (struct v4l2_rect));
+
+    for (int i = 0; i < 4; i++) {
+        if (cfg->vformat[i].fps > 0) {
+            switch (i) {
+                case 0: rtn = v4l2_video_set_fps(stream->video_ent0, cfg->vformat[i].fps);break;
+                case 1: rtn = v4l2_video_set_fps(stream->video_ent1, cfg->vformat[i].fps);break;
+                case 2: rtn = v4l2_video_set_fps(stream->video_ent2, cfg->vformat[i].fps);break;
+                case 3: rtn = v4l2_video_set_fps(stream->video_ent3, cfg->vformat[i].fps);break;
+                default:
+                    break;
+            }
+            if (rtn < 0) {
+                ALOGE("Failed to set video fps, ret %d", rtn);
+                return rtn;
+            }
+        }
+    }
 
     for (int i = 0; i < 4; ++i) {
         if (cfg->vformat[i].width > 0 && cfg->vformat[i].height > 0) {
@@ -360,6 +392,26 @@ int setImgFormat(media_stream_t *stream, stream_configuration_t *cfg)
             }
             if (rtn < 0) {
                 ALOGE("Failed to set video fmt, ret %d", rtn);
+                return rtn;
+            }
+        }
+        if (cfg->vformat[i].cwidth > 0 && cfg->vformat[i].cheight > 0) {
+            v4l2_rct.left   = cfg->vformat[i].xstart;
+            v4l2_rct.top    = cfg->vformat[i].ystart;
+            v4l2_rct.width  = cfg->vformat[i].cwidth;
+            v4l2_rct.height = cfg->vformat[i].cheight;
+            ALOGD("%s:%d ++ crop [%d, %d, %d, %d]", __FUNCTION__, i,
+                cfg->vformat[i].xstart, cfg->vformat[i].ystart, cfg->vformat[i].cwidth, cfg->vformat[i].cheight);
+            switch (i) {
+                case 0: rtn = v4l2_video_crop( stream->video_ent0, &v4l2_rct); break;
+                case 1: rtn = v4l2_video_crop( stream->video_ent1, &v4l2_rct); break;
+                case 2: rtn = v4l2_video_crop( stream->video_ent2, &v4l2_rct); break;
+                case 3: rtn = v4l2_video_crop( stream->video_ent3, &v4l2_rct); break;
+                default:
+                    break;
+            }
+            if (rtn < 0) {
+                ALOGE("Failed to set video crop, ret %d", rtn);
                 return rtn;
             }
         }

@@ -1,47 +1,46 @@
-#ifndef HW_EMULATOR_CAMERA3_V4L2MEDIASENSOR_H
-#define HW_EMULATOR_CAMERA3_V4L2MEDIASENSOR_H
+#ifndef HW_EMULATOR_CAMERA3_MIPISENSOR_H
+#define HW_EMULATOR_CAMERA3_MIPISENSOR_H
 
 #include "Sensor.h"
 #include "MIPICameraIO.h"
 #include "CameraUtil.h"
-
-#include "CameraDevice.h"
-
+#include "Isp3a.h"
 #include "ICapture.h"
 #include "IonIf.h"
-
 #ifdef GDC_ENABLE
 #include "gdcUseMemcpy.h"
 #include "gdcUseFd.h"
 #include "IGdc.h"
 #endif
+#include <DebugUtils.h>
+#define ISP_V4L2_CID_ISP_V4L2_CLASS     (0x00f00000 | 1)
+#define ISP_V4L2_CID_BASE               (0x00f00000 | 0xf000)
+#define ISP_V4L2_CID_CUSTOM_DCAM_MODE (ISP_V4L2_CID_BASE + 166)
+#define ISP_V4L2_CID_SET_IS_CAPTURING ( (0x00f00000 | 0xf000) + 164 )
 
-#include "ispMgr/ispMgr.h"
+#define FRAME_DURATION (33333333L)
 
-#define FRAME_DURATION (33333333L) // 1/30 s
 namespace android {
 
-    class V4l2MediaSensor:public Sensor {
+    class MIPISensor:public Sensor {
         public:
-            V4l2MediaSensor();
-            ~V4l2MediaSensor();
+            MIPISensor();
+            ~MIPISensor();
         public:
             status_t streamOff(channel ch) override;
             status_t startUp(int idx, bool customizationSensor) override;
             status_t shutDown(void) override;
-            //when take picture we may change image format
             void takePicture(StreamBuffer& b, uint32_t gain, uint32_t stride);
-            void captureRGB(uint8_t *img, uint32_t gain, uint32_t stride) override;
-            void mediaCaptureRGBA(StreamBuffer b, uint32_t gain, uint32_t stride);
+            void captureRGB(uint8_t *img, uint32_t gain, uint32_t stride);
             void captureNV21(StreamBuffer b, uint32_t gain) override;
             void captureYV12(StreamBuffer b, uint32_t gain) override;
             void captureYUYV(uint8_t *img, uint32_t gain, uint32_t stride) override;
             status_t getOutputFormat(void) override;
-            status_t setOutputFormat(int width, int height, int pixelformat, channel ch) override;
+            status_t setOutputFormat(int width, int height, int pixelformat,       channel ch) override;
             int halFormatToSensorFormat(uint32_t pixelfmt) override;
             status_t streamOn(channel chn) override;
             bool isStreaming() override;
-            bool isPicture() {return mVinfo->Picture_status();}
+            bool isPicture();
             bool isNeedRestart(uint32_t width, uint32_t height, uint32_t pixelformat, channel ch) override;
             int getStreamConfigurations(uint32_t picSizes[], const int32_t kAvailableFormats[], int size) override;
             int getStreamConfigurationDurations(uint32_t picSizes[], int64_t duration[], int size, bool flag) override;
@@ -49,7 +48,7 @@ namespace android {
             int getPictureSizes(int32_t picSizes[], int size, bool preview) override;
             status_t force_reset_sensor() override;
             int captureNewImage() override;
-            //-------dummy function-------
+            status_t setdualcam(uint8_t mode);
             int getZoom(int *zoomMin, int *zoomMax, int *zoomStep) override;
             int setZoom(int zoomValue) override;
             status_t setEffect(uint8_t effect) override;
@@ -64,21 +63,14 @@ namespace android {
             status_t setAWB(uint8_t awbMode) override;
             void setSensorListener(SensorListener *listener) override;
             uint32_t getStreamUsage(camera3_stream_t& stream) override;
-
         private:
             CameraVirtualDevice* mCameraVirtualDevice;
-            int mMediaDevicefd;
-            void * mMediaStream;
-            stream_configuration_t mStreamconfig;
-            sp<IspMgr> mIspMgr;
-            //store the v4l2 info
+            std::vector<int> mPortFds;
             MIPIVideoInfo *mVinfo;
-            uint8_t* mImage_buffer;
-
-            uint32_t mFps;
-
+            const int MAX_LEVEL_FOR_EXPOSURE = 16;
+            const int MIN_LEVEL_FOR_EXPOSURE = 3;
+            isp3a* mISP;
             bool enableZsl;
-            int enableHdr;
             ICapture* mCapture;
 
             struct bufInfo {
@@ -92,9 +84,8 @@ namespace android {
 
             bufInfo  mSavedDecodedBuffer;
 
-            uint32_t mMaxWidth;
-            uint32_t mMaxHeight;
-
+            int32_t mMaxWidth;
+            int32_t mMaxHeight;
 #ifdef GE2D_ENABLE
             IONInterface* mION;
             ge2dTransform* mGE2D;
@@ -109,11 +100,11 @@ namespace android {
             void InitVideoInfo(int idx);
             int SensorInit(int idx);
             void setIOBufferNum();
-
-    protected:
+            void dump(int& frame_index, uint8_t* buf, int length, std::string name);
+            void set_notify_3A_is_capturing(int videofd, int isCapturing);
+       protected:
             virtual status_t readyToRun();
     };
+
 }
-
-#endif //HW_EMULATOR_CAMERA3_V4L2MEDIASENSOR_H
-
+#endif

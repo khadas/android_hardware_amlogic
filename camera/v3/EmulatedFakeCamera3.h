@@ -27,6 +27,7 @@
 #include "fake-pipeline2/Base.h"
 #include "fake-pipeline2/Sensor.h"
 #include "fake-pipeline2/USBSensor.h"
+#include "fake-pipeline2/MIPISensor.h"
 #include "fake-pipeline2/HDMIToCSISensor.h"
 #include "fake-pipeline2/JpegCompressor.h"
 #include <CameraMetadata.h>
@@ -188,6 +189,7 @@ private:
     static const uint32_t kMaxJpegStreamCount = 1;
     static const uint32_t kMaxReprocessStreamCount = 2;
     static const uint32_t kMaxBufferCount = 4;
+    static const uint32_t kMaxBufferCount60hz = 12;
     // We need a positive stream ID to distinguish external buffers from
     // sensor-generated buffers which use a nonpositive ID. Otherwise, HAL3 has
     // no concept of a stream id.
@@ -261,6 +263,7 @@ private:
     unsigned int mSupportCap;
     camera_status_t   mCameraStatus;
     bool mFlushTag;
+    int cameraid;
     /** Processing thread for sending out results */
 
     class ReadoutThread : public Thread, private JpegCompressor::JpegListener {

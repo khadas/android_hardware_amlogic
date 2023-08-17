@@ -29,8 +29,11 @@
 
 #include "aml_isp_api.h"
 
-#include "ov13b10_sdr_calibration.h"
-#include "ov13b10_wdr_calibration.h"
+#include "ov13b10x10_sdr_calibration.h"
+#include "ov13b10x10_wdr_calibration.h"
+#include "ov13b10x36_sdr_calibration.h"
+#include "ov13b10x36_wdr_calibration.h"
+
 #include "ov13b10_api.h"
 
 
@@ -44,18 +47,43 @@ typedef struct
 
 static ISP_SNS_STATE_S sensor;
 
-void cmos_set_sensor_entity_ov13b10(struct media_entity * sensor_ent, int wdr)
+void cmos_set_sensor_entity_ov13b10(struct media_entity * sensor_ent, int wdr, int fps)
 {
+    memset(&sensor.snsAlgInfo, 0, sizeof(ALG_SENSOR_DEFAULT_S));
     sensor.sensor_ent = sensor_ent;
     sensor.enWDRMode = wdr;
+    //sensor.snsAlgInfo.fps = fps;
 }
 
-void cmos_get_sensor_calibration_ov13b10(aisp_calib_info_t * calib)
+void cmos_get_sensor_calibration_ov13b10(struct media_entity *sensor_ent, aisp_calib_info_t *calib)
 {
-    if (sensor.enWDRMode == 0)
-        Ov13b10SdrCalibration::dynamic_sdr_calibrations_init_ov13b10(calib);
-    else
-        Ov13b10WdrCalibration::dynamic_wdr_calibrations_init_ov13b10(calib);
+    int32_t address = 0;
+    int ret = v4l2_subdev_get_address(sensor_ent, &address);
+    if (ret != 0) {
+        ALOGE("v4l2_subdev_get_address fail");
+    } else {
+        if (address == 0x10) {
+            ALOGD("sensor address 0x%x", address);
+            if (sensor.enWDRMode == 1)
+                Ov13b10WdrCalibration2::dynamic_wdr_calibrations_init_ov13b10(calib);
+            else
+                Ov13b10SdrCalibration2::dynamic_sdr_calibrations_init_ov13b10(calib);
+        } else if (address == 0x36) {
+            ALOGD("sensor address 0x%x", address);
+            if (sensor.enWDRMode == 1)
+                Ov13b10WdrCalibration::dynamic_wdr_calibrations_init_ov13b10(calib);
+            else
+                Ov13b10SdrCalibration::dynamic_sdr_calibrations_init_ov13b10(calib);
+        } else {
+            ALOGE("invalid sensor address 0x%x", address);
+            if (sensor.enWDRMode == 1)
+                Ov13b10WdrCalibration::dynamic_wdr_calibrations_init_ov13b10(calib);
+            else
+                Ov13b10SdrCalibration::dynamic_sdr_calibrations_init_ov13b10(calib);
+        }
+    }
+
+    return;
 }
 
 int cmos_get_ae_default_ov13b10(int ViPipe, ALG_SENSOR_DEFAULT_S *pstAeSnsDft)
@@ -64,42 +92,44 @@ int cmos_get_ae_default_ov13b10(int ViPipe, ALG_SENSOR_DEFAULT_S *pstAeSnsDft)
 
     sensor.snsAlgInfo.active.width = 4208;
     sensor.snsAlgInfo.active.height = 3120;
-    sensor.snsAlgInfo.fps = 30;
+    sensor.snsAlgInfo.fps = 30 * 256;
     sensor.snsAlgInfo.sensor_exp_number = 1;
     sensor.snsAlgInfo.bits = 10;
 
     //sensor.snsAlgInfo.sensor_gain_number = 1;
-    sensor.snsAlgInfo.total.width = 4208;
-    sensor.snsAlgInfo.total.height = 3120 - 8;
+    sensor.snsAlgInfo.total.width = 0x498;
+    sensor.snsAlgInfo.total.height = 0x0CC0;
 
-    sensor.snsAlgInfo.lines_per_second = sensor.snsAlgInfo.total.height * sensor.snsAlgInfo.fps;
+    sensor.snsAlgInfo.lines_per_second = (sensor.snsAlgInfo.total.height-8 )* sensor.snsAlgInfo.fps/256;
     sensor.snsAlgInfo.pixels_per_line = sensor.snsAlgInfo.total.width;
 
     if (sensor.enWDRMode == 1) {
 
         sensor.snsAlgInfo.integration_time_min = 4 << SHUTTER_TIME_SHIFT;
-        sensor.snsAlgInfo.integration_time_max = sensor.snsAlgInfo.total.height << SHUTTER_TIME_SHIFT;
-        sensor.snsAlgInfo.integration_time_long_max = sensor.snsAlgInfo.total.height << SHUTTER_TIME_SHIFT;
-        sensor.snsAlgInfo.integration_time_limit = sensor.snsAlgInfo.total.height << SHUTTER_TIME_SHIFT;
+        sensor.snsAlgInfo.integration_time_max = (sensor.snsAlgInfo.total.height - 8)<< SHUTTER_TIME_SHIFT;
+        sensor.snsAlgInfo.integration_time_long_max = (sensor.snsAlgInfo.total.height - 8) << SHUTTER_TIME_SHIFT;
+        sensor.snsAlgInfo.integration_time_limit = (sensor.snsAlgInfo.total.height - 8) << SHUTTER_TIME_SHIFT;
 
     } else {
         sensor.snsAlgInfo.integration_time_min = 4 << SHUTTER_TIME_SHIFT;
-        sensor.snsAlgInfo.integration_time_max = sensor.snsAlgInfo.total.height << SHUTTER_TIME_SHIFT;
-        sensor.snsAlgInfo.integration_time_long_max = sensor.snsAlgInfo.total.height << SHUTTER_TIME_SHIFT;
-        sensor.snsAlgInfo.integration_time_limit = sensor.snsAlgInfo.total.height << SHUTTER_TIME_SHIFT;
+        sensor.snsAlgInfo.integration_time_max = (sensor.snsAlgInfo.total.height - 8) << SHUTTER_TIME_SHIFT;
+        sensor.snsAlgInfo.integration_time_long_max = (sensor.snsAlgInfo.total.height - 8) << SHUTTER_TIME_SHIFT;
+        sensor.snsAlgInfo.integration_time_limit = (sensor.snsAlgInfo.total.height - 8) << SHUTTER_TIME_SHIFT;
     }
 
-    sensor.snsAlgInfo.again_log2_max = 3968 << SHUTTER_TIME_SHIFT;
-    sensor.snsAlgInfo.again_high_log2_max = 3968 << SHUTTER_TIME_SHIFT; //15.5x256 = 3968
     sensor.snsAlgInfo.dgain_log2_max = 0;
     sensor.snsAlgInfo.dgain_high_log2_max = 0;
     sensor.snsAlgInfo.dgain_high_accuracy_fmt = 0;
     sensor.snsAlgInfo.dgain_high_accuracy = 1;
     sensor.snsAlgInfo.dgain_accuracy_fmt = 0;
     sensor.snsAlgInfo.dgain_accuracy = 1;
+    sensor.snsAlgInfo.again_log2_max = 16179; //<< LOG2_GAIN_SHIFT;
+    sensor.snsAlgInfo.again_high_log2_max = 16179; //<< LOG2_GAIN_SHIFT; //2^3.95 = 15.45
     sensor.snsAlgInfo.again_high_accuracy_fmt = 1;
     sensor.snsAlgInfo.again_high_accuracy = (1<<(LOG2_GAIN_SHIFT))/20;
     sensor.snsAlgInfo.again_accuracy_fmt = 1;
+    sensor.snsAlgInfo.again_log2 = 0x0<< LOG2_GAIN_SHIFT;
+    sensor.snsAlgInfo.expos_lines = (0x3D2<<(LOG2_GAIN_SHIFT));
     sensor.snsAlgInfo.again_accuracy = (1<<(LOG2_GAIN_SHIFT))/20;
     sensor.snsAlgInfo.expos_accuracy = (1<<(SHUTTER_TIME_SHIFT));
     sensor.snsAlgInfo.sexpos_accuracy = (1<<(SHUTTER_TIME_SHIFT));
@@ -147,21 +177,12 @@ void cmos_again_calc_table_ov13b10(int ViPipe, uint32_t *pu32AgainLin, uint32_t 
 {
     //ALOGD("cmos_again_calc_table: %d, %d\n", *pu32AgainLin, *pu32AgainDb);
     uint32_t again_reg;
-    //uint32_t u32AgainDb;
 
-    //u32AgainDb = *pu32AgainDb;
-    //u32AgainDb = ((u32AgainDb*20)>>LOG2_GAIN_SHIFT);
-    again_reg = aisp_math_exp2( *pu32AgainLin, SHUTTER_TIME_SHIFT, 8 );
+    again_reg = aisp_math_exp2( *pu32AgainLin, SHUTTER_TIME_SHIFT, 7 );
 
-    //again_reg = (uint32_t)(u32AgainDb);
-    ALOGD("again_reg1: %d\n", again_reg);
-    if (again_reg > 3698) {
-        again_reg = 3698;
+    if (again_reg > 0x7fff) {
+        again_reg = 0x7fff;
     }
-    ALOGD("again_reg2: %d\n", again_reg);
-   // ALOGD("cmos_again_calc_table: %d \n",again_reg);
-   // //if (again_reg > 720/3) //72dB, 0.3dB step.
-    //    again_reg = 720/3;
 
 
     if (sensor.snsAlgInfo.u32AGain[0] != again_reg) {
@@ -187,13 +208,11 @@ void cmos_inttime_calc_table_ov13b10(int ViPipe, uint32_t pu32ExpL, uint32_t pu3
         if (shutter_time_lines > sensor.snsAlgInfo.total.height )
             shutter_time_lines = sensor.snsAlgInfo.total.height;
 
-        if (shutter_time_lines < 1)
-            shutter_time_lines = 1;
+        if (shutter_time_lines < 4)
+            shutter_time_lines = 4;
     } else {
-        if (shutter_time_lines_short < 1)
-            shutter_time_lines_short = 1;
-        //shutter_time_lines_short = 201 - shutter_time_lines_short - 1;
-        //shutter_time_lines = shutter_time_line_each_frame * 2  - shutter_time_lines - 1 - 26;
+        if (shutter_time_lines_short < 4)
+            shutter_time_lines_short = 4;
     }
 
     if (sensor.snsAlgInfo.u32Inttime[0][0] != shutter_time_lines || sensor.snsAlgInfo.u32Inttime[1][0] != shutter_time_lines_short) {
@@ -205,7 +224,22 @@ void cmos_inttime_calc_table_ov13b10(int ViPipe, uint32_t pu32ExpL, uint32_t pu3
 
 void cmos_fps_set_ov13b10(int ViPipe, float f32Fps, ALG_SENSOR_DEFAULT_S *pstAeSnsDft)
 {
-    ALOGD("cmos_fps_set: %f\n", f32Fps);
+    //CAMHAL_LOGD("cmos_fps_set: %f\n", f32Fps);
+    struct v4l2_ext_control fpsCtrl;
+
+    fpsCtrl.id = V4L2_CID_AML_ORIG_FPS;
+    fpsCtrl.value = (int32_t)(f32Fps / 256);
+    //CAMHAL_LOGD("--ov13b10-- fpsCtrl.value = %d\n",fpsCtrl.value);
+
+    sensor.snsAlgInfo.total.height = ( 0x0CC0 * 30 )/fpsCtrl.value;
+
+    sensor.snsAlgInfo.integration_time_max = (sensor.snsAlgInfo.total.height - 8 ) << SHUTTER_TIME_SHIFT;
+    sensor.snsAlgInfo.integration_time_long_max = (sensor.snsAlgInfo.total.height - 8 ) << SHUTTER_TIME_SHIFT;
+    sensor.snsAlgInfo.integration_time_limit = (sensor.snsAlgInfo.total.height - 8 ) << SHUTTER_TIME_SHIFT;
+    sensor.snsAlgInfo.lines_per_second = (sensor.snsAlgInfo.total.height -8) * fpsCtrl.value;
+    memcpy(pstAeSnsDft, &sensor.snsAlgInfo, sizeof(ALG_SENSOR_DEFAULT_S));
+
+    v4l2_subdev_set_ctrls(sensor.sensor_ent, &fpsCtrl, 1);
 }
 
 void cmos_alg_update_ov13b10(int ViPipe)
@@ -226,7 +260,8 @@ void cmos_alg_update_ov13b10(int ViPipe)
         // -------- Integration Time ----------
         if ( sensor.snsAlgInfo.u16IntTimeCnt ) {
             sensor.snsAlgInfo.u16IntTimeCnt--;
-            shutter_time_lines = sensor.snsAlgInfo.u32Inttime[0][sensor.snsAlgInfo.integration_time_apply_delay];
+            //shutter_time_lines = sensor.snsAlgInfo.u32Inttime[0][sensor.snsAlgInfo.integration_time_apply_delay];
+            shutter_time_lines = sensor.snsAlgInfo.u32Inttime[0][0];
             if (sensor.enWDRMode == 0) {
                 struct v4l2_ext_control expo;
                 expo.id = V4L2_CID_EXPOSURE;

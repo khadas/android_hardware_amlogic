@@ -149,6 +149,7 @@ class Sensor: public Thread, public virtual RefBase {
      * Controls that can be updated every frame
      */
 
+    bool isUnpluged();
     virtual int getZoom(int *zoomMin, int *zoomMax, int *zoomStep);
     virtual int setZoom(int zoomValue);
     virtual int getExposure(int *mamExp, int *minExp, int *def, camera_metadata_rational *step);
@@ -320,6 +321,7 @@ class Sensor: public Thread, public virtual RefBase {
     unsigned int mIoctlSupport;
     unsigned int msupportrotate;
     uint32_t mTimeOutCount;
+    uint32_t mSelectCount;
     bool mWait;
     uint32_t mPre_width;
     uint32_t mPre_height;
@@ -377,9 +379,10 @@ class Sensor: public Thread, public virtual RefBase {
     Buffers *mNextCapturedBuffers;
 
     Scene mScene;
+    bool mUnpluged;
     virtual int captureNewImage();
     void captureRaw(uint8_t *img, uint32_t gain, uint32_t stride);
-    void captureRGBA(uint8_t *img, uint32_t gain, uint32_t stride);
+    virtual void captureRGBA(uint8_t *img, uint32_t gain, uint32_t stride);
     virtual void captureRGB(uint8_t *img, uint32_t gain, uint32_t stride);
     virtual void captureNV21(StreamBuffer b, uint32_t gain);
     virtual void captureYV12(StreamBuffer b, uint32_t gain);

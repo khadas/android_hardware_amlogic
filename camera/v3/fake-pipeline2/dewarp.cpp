@@ -149,7 +149,9 @@ namespace android {
         proj[0].pan = 0;
         proj[0].tilt = 0;
         proj[0].rotation = (int)mRotation*90;
-        if (height >= 1080)
+        if (height >= 4000)
+            proj[0].zoom = 1.000;
+        else if (height >= 1080)
             proj[0].zoom = 1.005;
         else if(height >= 720)
             proj[0].zoom = 1.006;
@@ -194,6 +196,7 @@ namespace android {
         win[0].img_end_y = height - 1;
         win[0].mesh_x_len = 64;
         win[0].mesh_y_len = 64;
+
 
         mDewarp_params.tile_x_step = 32;
         mDewarp_params.tile_y_step = 32;

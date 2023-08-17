@@ -44,6 +44,7 @@ typedef struct stream_configuration{
 
 typedef struct media_stream {
     char media_dev_name[64];
+    char lens_ent_name[32];
     char sensor_ent_name[32];
     char csiphy_ent_name[32];
     char adap_ent_name[32];
@@ -57,6 +58,7 @@ typedef struct media_stream {
 
     struct media_device  *media_dev;
 
+    struct media_entity  *lens_ent;
     struct media_entity  *sensor_ent;
     struct media_entity  *csiphy_ent;
     struct media_entity  *adap_ent;

@@ -219,7 +219,8 @@ Sensor::Sensor():
         mSensorWorkFlag(false),
         mOpenCameraID(-1),
         mNextCapturedBuffers(NULL),
-        mScene(kResolution[0], kResolution[1], kElectronsPerLuxSecond)
+        mScene(kResolution[0], kResolution[1], kElectronsPerLuxSecond),
+        mUnpluged(false)
 {
     memset(&mKernelPhysAddr,0,sizeof(mKernelPhysAddr));
     memset(&mCaptureTime,0,sizeof(nsecs_t));
@@ -229,6 +230,7 @@ Sensor::Sensor():
     memset(&mTestStart,0,sizeof(struct timeval));
     memset(&mTestEnd,0,sizeof(struct timeval));
     memset(&mNextCaptureTime,0,sizeof(nsecs_t));
+    memset(mDeviceName,0,sizeof(mDeviceName));
 }
 
 Sensor::~Sensor() {
@@ -547,6 +549,10 @@ void Sensor::sendExitSingalToSensor() {
 
 Scene &Sensor::getScene() {
     return mScene;
+}
+
+bool Sensor::isUnpluged() {
+    return mUnpluged;
 }
 
 int Sensor::getZoom(int *zoomMin, int *zoomMax, int *zoomStep)
@@ -1216,11 +1222,12 @@ bool Sensor::threadLoop() {
         mScene.setExposureDuration((float)exposureDuration/1e9);
         mScene.calculateScene(mNextCaptureTime);
 
-        //if ( mSensorType == SENSOR_SHARE_FD) {
-            //captureNewImageWithGe2d();
-        //} else {
-            captureNewImage();
-        //}
+        if (0 != captureNewImage()) {
+            if (listener != NULL) {
+                listener->onSensorEvent(frameNumber, SensorListener::ERROR_CAMERA_DEVICE, mNextCaptureTime);
+            }
+        }
+
         mFramecount ++;
         ALOGVV("Sensor vertical blanking interval");
 
@@ -1708,8 +1715,13 @@ int Sensor::getStreamConfigurationDurations(uint32_t picSizes[], int64_t duratio
                             if ((!flag) && ((duration[count+0] == HAL_PIXEL_FORMAT_YCbCr_420_888)
                                 || (duration[count+0] == HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED)))
                                 duration[count+3] = 0;
-                            else
-                                duration[count+3] = (int64_t)33333333L;
+                            else {
+                                if ((mSensorType == SENSOR_USB)
+                                    && (fival.width *fival.height >= 1920*1080))
+                                    duration[count+3] = (int64_t)66666666L;
+                                else
+                                    duration[count+3] = (int64_t)33333333L;
+                            }
                         } else if (framerate == 60) {
                             if ((!flag) && ((duration[count+0] == HAL_PIXEL_FORMAT_YCbCr_420_888)
                                 || (duration[count+0] == HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED)))
@@ -2236,10 +2248,12 @@ void Sensor::captureNV21(StreamBuffer b, uint32_t gain) {
         if (mExitSensorThread) {
             break;
         }
-
+        if (vinfo->fd <= 0)
+            break;
         src = (uint8_t *)get_frame(vinfo);
         if (NULL == src) {
             if (get_device_status(vinfo)) {
+                camera_close(vinfo);
                 break;
             }
             ALOGVV("get frame NULL, sleep 5ms");

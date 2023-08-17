@@ -66,7 +66,7 @@ const int64_t MSEC = USEC * 1000LL;
 const int32_t EmulatedFakeCamera3::kAvailableFormats[] = {
         //HAL_PIXEL_FORMAT_RAW_SENSOR,
         HAL_PIXEL_FORMAT_BLOB,
-        //HAL_PIXEL_FORMAT_RGBA_8888,
+        HAL_PIXEL_FORMAT_RGBA_8888,
         HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED,
         // These are handled by YCbCr_420_888
         HAL_PIXEL_FORMAT_YV12,
@@ -636,7 +636,22 @@ status_t EmulatedFakeCamera3::configureStreams(
                 pixelfmt =  HAL_PIXEL_FORMAT_YCrCb_420_SP;
         }
     }
-
+    if (width == 0 || height == 0) {
+        if (m4KRec) {
+            m4KRec  = false;
+            width    = UHDWidth;
+            height   = UHDHeight;
+            pixelfmt = UHDPixelfmt;
+            UHDWidth = 0;
+            UHDHeight = 0;
+            UHDPixelfmt = 0;
+        } else {
+            width    = 1920;
+            height   = 1080;
+            pixelfmt = HAL_PIXEL_FORMAT_YCrCb_420_SP;
+        }
+        ALOGD("No preview stream found, reset to preview");
+    }
     //TODO modify this ugly code
     if (isRestart) {
         isRestart = mSensor->isNeedRestart(width, height, pixelfmt, channel_preview);
@@ -683,7 +698,13 @@ status_t EmulatedFakeCamera3::configureStreams(
             privStream->registered = false;
 
             DBG_LOGB("stream_type=%d\n", newStream->stream_type);
-            newStream->max_buffers = kMaxBufferCount;
+            char property[PROPERTY_VALUE_MAX];
+            property_get("ro.vendor.camera_mipi.60hz", property, "false");
+            if (strstr(property,"true")) {
+                newStream->max_buffers = kMaxBufferCount60hz;
+            } else {
+                newStream->max_buffers = kMaxBufferCount;
+            }
             newStream->priv = privStream;
             mStreams.push_back(newStream);
         } else {
@@ -1082,11 +1103,19 @@ const camera_metadata_t* EmulatedFakeCamera3::constructDefaultRequestSettings(
     static const int32_t aeExpCompensation = 0;
     settings.update(ANDROID_CONTROL_AE_EXPOSURE_COMPENSATION, &aeExpCompensation, 1);
 
-    static const int32_t aeTargetFpsRange[2] = {
-        30, 30
-    };
-    settings.update(ANDROID_CONTROL_AE_TARGET_FPS_RANGE, aeTargetFpsRange, 2);
-
+    char property[PROPERTY_VALUE_MAX];
+    property_get("ro.vendor.camera_mipi.60hz", property, "false");
+    if (strstr(property,"true")) {
+        static const int32_t aeTargetFpsRange[2] = {
+            30, 60
+        };
+        settings.update(ANDROID_CONTROL_AE_TARGET_FPS_RANGE, aeTargetFpsRange, 2);
+    } else {
+        static const int32_t aeTargetFpsRange[2] = {
+            30, 30
+        };
+        settings.update(ANDROID_CONTROL_AE_TARGET_FPS_RANGE, aeTargetFpsRange, 2);
+    }
     static const uint8_t aeAntibandingMode =
             ANDROID_CONTROL_AE_ANTIBANDING_MODE_AUTO;
     settings.update(ANDROID_CONTROL_AE_ANTIBANDING_MODE, &aeAntibandingMode, 1);
@@ -2347,8 +2376,15 @@ status_t EmulatedFakeCamera3::constructStaticInfo() {
     info.update(ANDROID_REQUEST_PIPELINE_DEPTH, (uint8_t *)len, 1);
 
     /*for cts BurstCaptureTest ->testYuvBurst */
-    uint8_t maxlen[] = {kMaxBufferCount};
-    info.update(ANDROID_REQUEST_PIPELINE_MAX_DEPTH, (uint8_t *)maxlen, 1);
+    property_get("ro.vendor.camera_mipi.60hz", property, "false");
+    if (strstr(property, "true")) {
+        uint8_t maxlen[] = {kMaxBufferCount60hz};
+        info.update(ANDROID_REQUEST_PIPELINE_MAX_DEPTH, (uint8_t *)maxlen, 1);
+    } else {
+        uint8_t maxlen[] = {kMaxBufferCount};
+        info.update(ANDROID_REQUEST_PIPELINE_MAX_DEPTH, (uint8_t *)maxlen, 1);
+    }
+
     uint8_t cap[] = {
         ANDROID_REQUEST_AVAILABLE_CAPABILITIES_BACKWARD_COMPATIBLE,
     };
@@ -3174,10 +3210,18 @@ bool EmulatedFakeCamera3::ReadoutThread::threadLoop() {
 
     mCurrentRequest.settings.update(ANDROID_SENSOR_TIMESTAMP,
             &captureTime, 1);
+    char property[PROPERTY_VALUE_MAX];
+    property_get("ro.vendor.camera_mipi.60hz", property, "false");
+    if (strstr(property,"true")) {
+        const uint8_t pipelineDepth = needJpeg ? kMaxBufferCount60hz : kMaxBufferCount60hz - 1;
+        mCurrentRequest.settings.update(ANDROID_REQUEST_PIPELINE_DEPTH,
+                &pipelineDepth, 1);
+    } else {
+        const uint8_t pipelineDepth = needJpeg ? kMaxBufferCount : kMaxBufferCount - 1;
+        mCurrentRequest.settings.update(ANDROID_REQUEST_PIPELINE_DEPTH,
+                &pipelineDepth, 1);
 
-    const uint8_t pipelineDepth = needJpeg ? kMaxBufferCount : kMaxBufferCount - 1;
-    mCurrentRequest.settings.update(ANDROID_REQUEST_PIPELINE_DEPTH,
-            &pipelineDepth, 1);
+    }
 
     memset(&result, 0, sizeof(result));
     result.frame_number = mCurrentRequest.frameNumber;
@@ -3202,7 +3246,20 @@ bool EmulatedFakeCamera3::ReadoutThread::threadLoop() {
     // Send it off to the framework
     ALOGVV("%s: ReadoutThread: Send result to framework",
             __FUNCTION__);
-    mParent->sendCaptureResult(&result);
+    if (mParent->mSensor->isUnpluged()) {
+        StreamList::iterator error_stream = mParent->mStreams.begin();
+        while (error_stream != mParent->mStreams.end()) {
+            camera3_notify_msg_t msg;
+            msg.type = CAMERA3_MSG_ERROR;
+            msg.message.error.frame_number = result.frame_number;
+            msg.message.error.error_stream = *error_stream;
+            msg.message.error.error_code = CAMERA3_MSG_ERROR_BUFFER;
+            mParent->sendNotify(&msg);
+            error_stream++;
+        }
+    } else {
+        mParent->sendCaptureResult(&result);
+    }
 
     // Clean up
     mCurrentRequest.settings.unlock(result.result);

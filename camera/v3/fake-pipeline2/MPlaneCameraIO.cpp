@@ -27,7 +27,7 @@ MPlaneCameraIO::MPlaneCameraIO() {
 MPlaneCameraIO::~MPlaneCameraIO() {
     freePlaneBuffers();
     if (mIon) {
-        IONInterface::put_instance();
+        mIon->put_instance();
         mIon = NULL;
     }
 }

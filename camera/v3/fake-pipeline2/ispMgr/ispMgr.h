@@ -19,6 +19,7 @@
 #include "aml_isp_api.h"
 
 #include "sensor/sensor_config.h"
+#include "lens/lens_config.h"
 
 const size_t  kMaxRetryCount   = 100;
 const int64_t kSyncWaitTimeout = 300000000LL; // 300ms
@@ -67,7 +68,7 @@ class IspMgr: public Thread, public virtual RefBase {
     IspMgr(int id);
     ~IspMgr();
   public:
-    status_t configure(struct media_stream *stream, int wdr = 0);
+    status_t configure(struct media_stream *stream, int wdr = 0, aisp_calib_info_t *otp = nullptr, int fps = 30);
     status_t start();
     status_t stop();
   public:
@@ -86,6 +87,7 @@ class IspMgr: public Thread, public virtual RefBase {
     bool                               mStart;
     struct media_stream*               mMediaStream  = nullptr;
     struct sensorConfig*               mSensorConfig = nullptr;
+    struct lensConfig*                 mLensConfig = nullptr;
     int                                mFlushFd[2];
     std::vector<struct media_entity *> mPollingDevices;
     std::vector<struct media_entity *> mActiveDevices;

@@ -67,8 +67,11 @@ int extraSmallImg(unsigned char* SrcImg,int SrcW,int SrcH,
 }
 
 /* start of JPEG image data section */
+#ifdef HW_JPEG
+static const unsigned int image_data_offset = 2;
+#else
 static const unsigned int image_data_offset = 20;
-
+#endif
 /* raw EXIF header data */
 static const unsigned char exif_header[] = {
   0xff, 0xd8, 0xff, 0xe1
@@ -135,6 +138,9 @@ JpegCompressor::JpegCompressor():
 #ifdef GE2D_ENABLE
         mION = IONInterface::get_instance();
 #endif
+#ifdef HW_JPEG
+        mHwEnc = HwJpegEnc::getInstance();
+#endif
 }
 
 JpegCompressor::~JpegCompressor() {
@@ -143,6 +149,9 @@ JpegCompressor::~JpegCompressor() {
     if (mION) {
         mION->put_instance();
     }
+#endif
+#ifdef HW_JPEG
+    mHwEnc->releaseInstance();
 #endif
 }
 
@@ -243,6 +252,10 @@ status_t JpegCompressor::Create_Exif_Use_Libexif() {
     struct camera2_jpeg_blob blob;
     int offset;
     status_t res = 0;
+#ifdef HW_JPEG
+    int i;
+    uint8_t *clear_pointer;
+#endif
     memset(&blob,0,sizeof(struct camera2_jpeg_blob));
     if (mNeedexif) {
         uint32_t realjpegsize = 0;
@@ -253,21 +266,48 @@ status_t JpegCompressor::Create_Exif_Use_Libexif() {
         exif_buffer *sEb = get_exif_buffer();
         if (sEb != NULL) {
             if (mJpegRequest.mNeedThumbnail) {
+#ifdef HW_JPEG
+                uint8_t * mTempJpegBuffer = (uint8_t *)malloc(mMainJpegSize + sEb->size + mThumbJpegSize + 6);
+                if (mTempJpegBuffer != NULL) memset(mTempJpegBuffer, 0, sizeof(char) * (mMainJpegSize + sEb->size + mThumbJpegSize + 6));
+#else
                 uint8_t * mTempJpegBuffer = (uint8_t *)malloc(mMainJpegSize + sEb->size + mThumbJpegSize);
-                memset(mTempJpegBuffer, 0, sizeof(char) * (mMainJpegSize + sEb->size + mThumbJpegSize));
-                memcpy(mTempJpegBuffer, exif_header, exif_header_len);
-                mTempJpegBuffer[exif_header_len] = (sEb->size + mThumbJpegSize + 2) >> 8;
-                mTempJpegBuffer[exif_header_len + 1] = ((sEb->size + mThumbJpegSize + 2) & 0xff);
-                memcpy(mTempJpegBuffer + exif_header_len + 2, sEb->data, sEb->size);
-                memcpy(mTempJpegBuffer + exif_header_len + sEb->size + 2, mDstThumbBuffer, mThumbJpegSize);
-                memcpy(mTempJpegBuffer + exif_header_len + sEb->size + mThumbJpegSize+ 2,
-                    mJpegBuffer.img + image_data_offset, mMainJpegSize - image_data_offset);
-                memcpy(mJpegBuffer.img, mTempJpegBuffer, mMainJpegSize + sEb->size + mThumbJpegSize);
+                if (mTempJpegBuffer != NULL) memset(mTempJpegBuffer, 0, sizeof(char) * (mMainJpegSize + sEb->size + mThumbJpegSize));
+#endif
+                if (mTempJpegBuffer != NULL) {
+                    memcpy(mTempJpegBuffer, exif_header, exif_header_len);
+                    mTempJpegBuffer[exif_header_len] = (sEb->size + mThumbJpegSize + 2) >> 8;
+                    mTempJpegBuffer[exif_header_len + 1] = ((sEb->size + mThumbJpegSize + 2) & 0xff);
+                    memcpy(mTempJpegBuffer + exif_header_len + 2, sEb->data, sEb->size);
+                    memcpy(mTempJpegBuffer + exif_header_len + sEb->size + 2, mDstThumbBuffer, mThumbJpegSize);
+                    memcpy(mTempJpegBuffer + exif_header_len + sEb->size + mThumbJpegSize+ 2,
+                        mJpegBuffer.img + image_data_offset, mMainJpegSize - image_data_offset);
+                }
+#ifdef HW_JPEG
+                if (mTempJpegBuffer != NULL)  {
+                    memcpy(mJpegBuffer.img, mTempJpegBuffer, sEb->size + mThumbJpegSize + 6);
+                    clear_pointer = mTempJpegBuffer + sEb->size + mThumbJpegSize + 6;
+                    for (i = 0; i < 2000; i++ ) {
+                        if ( (*(clear_pointer + i) == 0xff) && (*(clear_pointer + i + 1 ) == 0xff) && (*(clear_pointer + i + 2 ) == 0xff)) {
+                            memcpy(mJpegBuffer.img + sEb->size + mThumbJpegSize + 6, clear_pointer, i);
+                            memcpy(mJpegBuffer.img + sEb->size + mThumbJpegSize + 6 + i, clear_pointer + i + 3, mMainJpegSize - (i) -3 );
+                            break;
+                       }
+                   }
+                }
+               //memcpy(mJpegBuffer.img, mTempJpegBuffer, mMainJpegSize + sEb->size + mThumbJpegSize + 6);
+#else
+                if (mTempJpegBuffer != NULL) memcpy(mJpegBuffer.img, mTempJpegBuffer, mMainJpegSize + sEb->size + mThumbJpegSize);
+#endif
                 if (mTempJpegBuffer != NULL) {
                     free(mTempJpegBuffer);
                     mTempJpegBuffer = NULL;
                 }
-                for (uint32_t size = (mMainJpegSize + sEb->size + mThumbJpegSize); size > 0; size--) {
+#ifdef HW_JPEG
+                for (uint32_t size = (mMainJpegSize + sEb->size + mThumbJpegSize + 6); size > 0; size--)
+#else
+                for (uint32_t size = (mMainJpegSize + sEb->size + mThumbJpegSize); size > 0; size--)
+#endif
+                {
                     if (checkJpegEnd(mJpegBuffer.img + size)) {
                         realjpegsize = (size + MARKER_LENGTH);
                         break;
@@ -287,7 +327,13 @@ status_t JpegCompressor::Create_Exif_Use_Libexif() {
                     CAMHAL_LOGDA("free malloc sEb buffer");
                 }
             } else {
+#ifdef HW_JPEG
+                uint8_t * mTempJpegBuffer = (uint8_t *)malloc(mMainJpegSize + sEb->size + 6);
+                if (mTempJpegBuffer != NULL) memset(mTempJpegBuffer, 0, sizeof(char) * (mMainJpegSize + sEb->size + 6));
+#else
                 uint8_t * mTempJpegBuffer = (uint8_t *)malloc(mMainJpegSize + sEb->size);
+                if (mTempJpegBuffer != NULL) memset(mTempJpegBuffer, 0, sizeof(char) * (mMainJpegSize + sEb->size));
+#endif
                 if (mTempJpegBuffer != NULL) {
                     memset(mTempJpegBuffer, 0, sizeof(char) * (mMainJpegSize + sEb->size));
                     memcpy(mTempJpegBuffer, exif_header, exif_header_len);
@@ -296,12 +342,22 @@ status_t JpegCompressor::Create_Exif_Use_Libexif() {
                     memcpy(mTempJpegBuffer + exif_header_len + 2, sEb->data, sEb->size);
                     memcpy(mTempJpegBuffer + exif_header_len + sEb->size + 2, mJpegBuffer.img + image_data_offset,
                        mMainJpegSize - image_data_offset);
-                    memcpy(mJpegBuffer.img, mTempJpegBuffer, mMainJpegSize + sEb->size);
-
+                }
+#ifdef HW_JPEG
+                if (mTempJpegBuffer != NULL) memcpy(mJpegBuffer.img, mTempJpegBuffer, mMainJpegSize + sEb->size + 6);
+#else
+                if (mTempJpegBuffer != NULL) memcpy(mJpegBuffer.img, mTempJpegBuffer, mMainJpegSize + sEb->size);
+#endif
+                if (mTempJpegBuffer != NULL) {
                     free(mTempJpegBuffer);
                     mTempJpegBuffer = NULL;
                 }
-                for (uint32_t size = (mMainJpegSize + sEb->size); size > 0; size--) {
+#ifdef HW_JPEG
+                for (uint32_t size = (mMainJpegSize + sEb->size + 6); size > 0; size--)
+#else
+                for (uint32_t size = (mMainJpegSize + sEb->size); size > 0; size--)
+#endif
+                {
                     if (checkJpegEnd(mJpegBuffer.img + size)) {
                         realjpegsize = (size + MARKER_LENGTH);
                         break;
@@ -419,9 +475,47 @@ bool JpegCompressor::threadLoop() {
     ALOGV("%s: Starting compression thread", __FUNCTION__);
     gettimeofday(&mTimeStart, NULL);
 
+    bool dump = property_get_bool("camera.debug.dump.jpeg", false);
+    static char path[256];
+    static uint32_t index = 0;
+    if (dump) {
+        // debug. dump
+        FILE* fp = NULL;
+        sprintf(path, "/data/vendor/camera/jpeg-in-%dx%d-%d.yuv", mAuxBuffer.width, mAuxBuffer.height, index);
+        fp = fopen(path, "ab+");
+        if (!fp) {
+            ALOGE("open file fail, error: %s !!!",strerror(errno));
+        } else {
+            fwrite((void*)mAuxBuffer.img, 1, mAuxBuffer.width * mAuxBuffer.height *3/2 ,fp);
+            fclose(fp);
+        }
+    }
+
     res = compress();
 
     Create_Exif_Use_Libexif();
+
+    if (dump) {
+        // debug. dump
+        FILE* fp = NULL;
+        sprintf(path, "/data/vendor/camera/jpeg-out-%dx%d-%d.jpg", mAuxBuffer.width, mAuxBuffer.height, index);
+        fp = fopen(path, "ab+");
+        if (!fp) {
+            ALOGE("open file fail, error: %s !!!",strerror(errno));
+        } else {
+            int offset = mMaxbufsize - sizeof(struct camera2_jpeg_blob);
+            struct camera2_jpeg_blob * jpeg_blob_ptr = (struct camera2_jpeg_blob *)(mJpegBuffer.img + offset);
+
+            if (jpeg_blob_ptr->jpeg_blob_id == 0x00FF) {
+                ALOGD("dump jpeg size: %d", jpeg_blob_ptr->jpeg_size);
+                fwrite((void*)mJpegBuffer.img, 1, jpeg_blob_ptr->jpeg_size, fp);
+            } else {
+                ALOGD("dump jpeg, bad blob id = 0x%x", jpeg_blob_ptr->jpeg_blob_id);
+            }
+            fclose(fp);
+        }
+    }
+    index++;
 
     mListener->onJpegDone(mJpegBuffer, res == OK, mJpegRequest);
 
@@ -805,11 +899,29 @@ status_t JpegCompressor::compress() {
     enc_params.out_height = mJpegBuffer.height;
 
     enc_params.jpeg_size = 0;
-
-    ALOGD("%s in_width=%d, in_height=%d, out_w=%d, out_h=%d", __FUNCTION__,
-           enc_params.in_width, enc_params.in_height, enc_params.out_width, enc_params.out_height);
-
+#ifndef HW_JPEG
     mMainJpegSize = encode(&enc_params);
+#else
+    enum jpegenc_frame_fmt_e format = FMT_NV21;
+    switch (enc_params.format) {
+        case HAL_PIXEL_FORMAT_RGB_888:
+            ALOGD("%s:format is RGB",__FUNCTION__);
+            format = FMT_RGB888;
+            break;
+        case HAL_PIXEL_FORMAT_YCrCb_420_SP:
+            ALOGD("%s:format is NV21",__FUNCTION__);
+            format = FMT_NV21;
+            break;
+        default:
+            ALOGD("not support this format:%d",enc_params.format);
+            break;
+    }
+    mMainJpegSize = mHwEnc->encode(enc_params.in_width, enc_params.in_height,
+                            enc_params.quality,
+                            format,
+                            enc_params.src,
+                            enc_params.dst);
+#endif
     ALOGD("mMainJpegSize = %d",mMainJpegSize);
 
     return OK;
@@ -832,7 +944,30 @@ status_t JpegCompressor::thumbcompress() {
     enc_params.format = mAuxBuffer.format;
     enc_params.jpeg_size = 0;
 
+#if 1
     mThumbJpegSize = encode(&enc_params);
+#else
+    enum jpegenc_frame_fmt_e format = FMT_RGB888;
+    switch (enc_params.format) {
+        case HAL_PIXEL_FORMAT_RGB_888:
+            ALOGD("%s:format is RGB",__FUNCTION__);
+            format = FMT_RGB888;
+            break;
+        case HAL_PIXEL_FORMAT_YCrCb_420_SP:
+            ALOGD("%s:format is NV21",__FUNCTION__);
+            format = FMT_NV21;
+            break;
+        default:
+            ALOGD("not support this format:%d",enc_params.format);
+            break;
+    }
+
+    mThumbJpegSize = mHwEnc->encode(enc_params.in_width,
+                            enc_params.in_height,
+                            30,
+                            format,
+                            enc_params.src,enc_params.dst);
+#endif
     ALOGD("mThumbJpegSize = %d",mThumbJpegSize);
 
     return OK;
@@ -1186,6 +1321,7 @@ exif_buffer * JpegCompressor::get_exif_buffer() {
     time_t times;
     struct tm tmstruct;
     char property[PROPERTY_VALUE_MAX];
+    char UserCommentBuffer[64];
 
     sEb = (exif_buffer *) malloc (sizeof (exif_buffer));
 
@@ -1243,9 +1379,9 @@ exif_buffer * JpegCompressor::get_exif_buffer() {
 
     exif_entry_set_short(pEd, EXIF_IFD_EXIF, EXIF_TAG_FLASH, 0);
 
-    sR.numerator = 3299;
-    sR.denominator = 1000;
-    exif_entry_set_rational(pEd, EXIF_IFD_EXIF, EXIF_TAG_FOCAL_LENGTH, sR);
+    //sR.numerator = 3299;
+    //sR.denominator = 1000;
+    //exif_entry_set_rational(pEd, EXIF_IFD_EXIF, EXIF_TAG_FOCAL_LENGTH, sR);
 
     memset(exifcontent, 0, sizeof(exifcontent));
     snprintf(exifcontent, 20, "%06d", (int) sTv.tv_usec);
@@ -1254,6 +1390,13 @@ exif_buffer * JpegCompressor::get_exif_buffer() {
     exif_entry_set_string (pEd, EXIF_IFD_EXIF, EXIF_TAG_SUB_SEC_TIME_DIGITIZED, exifcontent);
 
     exif_entry_set_short (pEd, EXIF_IFD_EXIF, EXIF_TAG_WHITE_BALANCE, 0);
+
+    if (property_get("vendor.media.camhal.otp.info", property, NULL) > 0) {
+        ALOGD("otp info %s", property);
+        sprintf(UserCommentBuffer, "%s", property);
+        entry = create_tag(pEd, EXIF_IFD_EXIF, EXIF_TAG_USER_COMMENT, 8 + sizeof(UserCommentBuffer));
+        sprintf((char *)entry->data, "ASCII   %s" , UserCommentBuffer);
+    }
 
     if (mInfo.has_latitude) {
         ExifRational r1, r2, r3;
@@ -1271,8 +1414,8 @@ exif_buffer * JpegCompressor::get_exif_buffer() {
         r1.numerator = (uint32_t)latitude;
         float latitudeminuts = (latitude-(float)(r1.numerator))*60;
         r2.numerator = (uint32_t)latitudeminuts;
-        float latitudeSeconds = (latitudeminuts-(float)(r2.numerator))*60+0.5;
-        r3.numerator = (uint32_t)latitudeSeconds;
+        float latituseconds = (latitudeminuts-(float)(r2.numerator))*60+0.5;
+        r3.numerator = (uint32_t)latituseconds;
         exif_entry_set_gps_coord(pEd, (ExifTag) EXIF_TAG_GPS_LATITUDE, r1, r2, r3);
         exif_entry_set_gps_coord_ref(pEd, (ExifTag) EXIF_TAG_GPS_LATITUDE_REF, offset == 1 ? "S":"N");
     }
@@ -1291,9 +1434,9 @@ exif_buffer * JpegCompressor::get_exif_buffer() {
             offset = 1;
         }
         r1.numerator = (uint32_t)longitude;
-        float longitudeMinutes = (longitude-(float)(r1.numerator))*60;
-        r2.numerator = (uint32_t)longitudeMinutes;
-        float longitudeseconds = (longitudeMinutes-(float)(r2.numerator))*60+0.5;
+        float longitudeminuts = (longitude-(float)(r1.numerator))*60;
+        r2.numerator = (uint32_t)longitudeminuts;
+        float longitudeseconds = (longitudeminuts-(float)(r2.numerator))*60+0.5;
         r3.numerator = (uint32_t)longitudeseconds;
         exif_entry_set_gps_coord(pEd, (ExifTag) EXIF_TAG_GPS_LONGITUDE, r1, r2, r3);
         exif_entry_set_gps_coord_ref(pEd, (ExifTag) EXIF_TAG_GPS_LONGITUDE_REF, offset == 1 ? "W":"E");
@@ -1338,7 +1481,7 @@ exif_buffer * JpegCompressor::get_exif_buffer() {
     if (mInfo.has_gpsProcessingMethod) {
         char* processmethod = (char*)mInfo.gpsProcessingMethod;
         if (processmethod != NULL) {
-            const char ExifAsciiPrefix[] = { 0x41, 0x53, 0x43, 0x49, 0x49, 0x0, 0x0, 0x0 };//ascii
+            const char ExifAsciiPrefix[] = { 0x41, 0x53, 0x43, 0x49, 0x49, 0x0, 0x0, 0x0 };//asicii
             unsigned char* data = (unsigned char*)malloc(strlen(processmethod) + sizeof(ExifAsciiPrefix));
             exif_buffer buffer;
             if (data != NULL)
@@ -1374,7 +1517,10 @@ exif_buffer * JpegCompressor::get_exif_buffer() {
     if (mJpegRequest.mNeedThumbnail) {
         entry = init_tag(pEd, EXIF_IFD_1, EXIF_TAG_JPEG_INTERCHANGE_FORMAT);
         exif_set_long(entry->data, FILE_BYTE_ORDER, (long)(sEb->size + 6 - 0x0c));
-
+        if (sEb->data != NULL) {
+            free(sEb->data);
+            sEb->data = NULL;
+        }
         exif_data_save_data(pEd, &sEb->data, &sEb->size);
         assert(sEb->data != NULL);
     }

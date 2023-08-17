@@ -41,20 +41,29 @@ enum sensorType
 };
 struct sensorConfig {
     ALG_SENSOR_EXP_FUNC_S expFunc;
-    void (*cmos_set_sensor_entity)(struct media_entity * sensor_ent, int wdr);
-    void (*cmos_get_sensor_calibration)(aisp_calib_info_t * calib);
+    void (*cmos_set_sensor_entity)(struct media_entity * sensor_ent, int wdr, int fps);
+    void (*cmos_get_sensor_calibration)(struct media_entity *sensor_ent, aisp_calib_info_t *calib);
+    void (*cmos_get_sensor_otp_data)(aisp_calib_info_t * otp);
     int sensorWidth;// max width
     int sensorHeight;// max height
     const char* sensorName;
     uint32_t wdrFormat;
     uint32_t sdrFormat;
-    sensorType type;
+    uint32_t sdrFormat60HZ;
+    sensorType  type;
+    const char* otpDevNum;
+    const int   otpDevAddr;
+    const int   otpDevAddrType;
+    const int   otpDevLscAddr;
+    const int   otpDevWbAddr;
 };
 
+LookupTable *GET_LOOKUP_PTR( aisp_calib_info_t *p_cali, uint32_t idx );
 struct sensorConfig *matchSensorConfig(media_stream_t *stream);
 struct sensorConfig *matchSensorConfig(const char* sensorEntityName);
 void cmos_sensor_control_cb(struct sensorConfig *cfg, ALG_SENSOR_EXP_FUNC_S *stSnsExp);
-void cmos_set_sensor_entity(struct sensorConfig *cfg, struct media_entity * sensor_ent, int wdr);
-void cmos_get_sensor_calibration(struct sensorConfig *cfg, aisp_calib_info_t * calib);
+void cmos_set_sensor_entity(struct sensorConfig *cfg, struct media_entity * sensor_ent, int wdr, int fps);
+void cmos_get_sensor_otp_data(struct sensorConfig *cfg, aisp_calib_info_t *otp);
+void cmos_get_sensor_calibration(struct sensorConfig *cfg, struct media_entity *sensor_ent, aisp_calib_info_t *calib);
 
 #endif

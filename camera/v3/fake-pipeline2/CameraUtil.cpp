@@ -17,6 +17,9 @@
  */
 #include <utils/Log.h>
 #include <string.h>
+#include <string>
+#include <cutils/properties.h>
+#include <errno.h>
 
 #include "CameraUtil.h"
 #include "libyuv.h"
@@ -232,47 +235,47 @@ void CameraUtil::UYVYToNV21(uint8_t *src, uint8_t *dst, int width, int height)
 
 void CameraUtil::YUYVToYV12(uint8_t *src, uint8_t *dst, int width, int height)
 {
-	//width should be an even number.
-	//uv ALIGN 32.
-	int i,j,c_stride,c_size,y_size,cb_offset,cr_offset;
-	unsigned char *dst_copy,*src_copy;
+    //width should be an even number.
+    //uv ALIGN 32.
+    int i,j,c_stride,c_size,y_size,cb_offset,cr_offset;
+    unsigned char *dst_copy,*src_copy;
 
-	dst_copy = dst;
-	src_copy = src;
+    dst_copy = dst;
+    src_copy = src;
 
-	y_size = width*height;
-	c_stride = ALIGN(width/2, 16);
-	c_size = c_stride * height/2;
-	cr_offset = y_size;
-	cb_offset = y_size+c_size;
+    y_size = width*height;
+    c_stride = ALIGN(width/2, 16);
+    c_size = c_stride * height/2;
+    cr_offset = y_size;
+    cb_offset = y_size+c_size;
 
-	for (i=0;i< y_size;i++) {
-		*dst++ = *src;
-		src += 2;
-	}
+    for (i=0;i< y_size;i++) {
+        *dst++ = *src;
+        src += 2;
+    }
 
-	dst = dst_copy;
-	src = src_copy;
+    dst = dst_copy;
+    src = src_copy;
 
-	for (i=0;i<height;i+=2) {
-		for (j=1;j<width*2;j+=4) {//one line has 2*width bytes for yuyv.
-			//ceil(u1+u2)/2
-			*(dst+cr_offset+j/4)= (*(src+j+2) + *(src+j+2+width*2) + 1)/2;
-			*(dst+cb_offset+j/4)= (*(src+j) + *(src+j+width*2) + 1)/2;
-		}
-		dst += c_stride;
-		src += width*4;
-	}
+    for (i=0;i<height;i+=2) {
+        for (j=1;j<width*2;j+=4) {//one line has 2*width bytes for yuyv.
+            //ceil(u1+u2)/2
+            *(dst+cr_offset+j/4)= (*(src+j+2) + *(src+j+2+width*2) + 1)/2;
+            *(dst+cb_offset+j/4)= (*(src+j) + *(src+j+width*2) + 1)/2;
+        }
+        dst += c_stride;
+        src += width*4;
+    }
 }
 
 int CameraUtil::align(int x, int y) {
-	// y must be a power of 2.
-	return (x + y - 1) & ~(y - 1);
+    // y must be a power of 2.
+    return (x + y - 1) & ~(y - 1);
 }
 
 void CameraUtil::ReSizeNV21(uint8_t *src, uint8_t *img,
-				uint32_t width, uint32_t height,
-				uint32_t stride, uint32_t input_width, uint32_t input_height)
+                uint32_t width, uint32_t height,
+                uint32_t stride, uint32_t input_width, uint32_t input_height)
 {
     structConvImage input = {(mmInt32)input_width,
                          (mmInt32)input_height,
@@ -294,8 +297,8 @@ void CameraUtil::ReSizeNV21(uint8_t *src, uint8_t *img,
         ALOGE("Scale NV21 frame down failed!\n");
 }
 int CameraUtil::ScaleYV12(uint8_t* src, int src_width, int src_height,
-	uint8_t* dst, int dst_width, int dst_height) {
-	            ALOGI("Scale YV12 frame down \n");
+    uint8_t* dst, int dst_width, int dst_height) {
+                ALOGI("Scale YV12 frame down \n");
             int ret = libyuv::I420Scale(src, src_width,
                                         src + src_width * src_height, src_width / 2,
                                         src + src_width * src_height + src_width * src_height / 4, src_width / 2,
@@ -307,16 +310,16 @@ int CameraUtil::ScaleYV12(uint8_t* src, int src_width, int src_height,
                                         libyuv::kFilterNone);
             if (ret < 0)
                 ALOGE("Scale YV12 frame down failed!\n");
-			return ret;
+            return ret;
 }
 int CameraUtil::MJPEGToNV21(uint8_t* src, int src_len,int src_width, int src_height,
-				uint8_t* dst, int dst_width, int dst_height, int dst_stride, uint8_t* tmpBuf) {
+                uint8_t* dst, int dst_width, int dst_height, int dst_stride, uint8_t* tmpBuf) {
 
-	#if ANDROID_PLATFORM_SDK_VERSION > 23
+    #if ANDROID_PLATFORM_SDK_VERSION > 23
                 uint8_t *vBuffer = new uint8_t[src_width * src_height / 4];
                 if (vBuffer == NULL) {
                     ALOGE("alloc temporary v buffer failed\n");
-					return -1;
+                    return -1;
                 }
                 uint8_t *uBuffer = new uint8_t[src_width * src_width / 4];
                 if (uBuffer == NULL) {
@@ -324,43 +327,43 @@ int CameraUtil::MJPEGToNV21(uint8_t* src, int src_len,int src_width, int src_hei
                         delete []vBuffer;
                     }
                     ALOGE("alloc temporary u buffer failed\n");
-					return -1;
+                    return -1;
                 }
-				if (src_width == dst_width && src_height == dst_height) {
-					if (ConvertToI420(src, src_len, dst, dst_stride, uBuffer, (dst_stride + 1) / 2,
-					vBuffer, (dst_stride + 1) / 2, 0, 0, src_width, src_height,
-					src_width, src_height, libyuv::kRotate0, libyuv::FOURCC_MJPG) != 0) {
-						ALOGE("Decode MJPEG frame failed\n");
-						delete []vBuffer;
-						delete []uBuffer;
-						return -1;
-					}
-					uint8_t *pUVBuffer = dst + dst_stride * src_height;
-					for (int i = 0; i < (int)(dst_stride * src_height / 4); i++) {
-						*pUVBuffer++ = *(vBuffer + i);
-						*pUVBuffer++ = *(uBuffer + i);
-						}
-					delete []vBuffer;
-					delete []uBuffer;
-				}else{
-	                if (ConvertToI420(src, src_len, tmpBuf, src_width, uBuffer, (src_width + 1) / 2,
-	                      vBuffer, (src_width + 1) / 2, 0, 0, src_width, src_height,
-	                      src_width, src_height, libyuv::kRotate0, libyuv::FOURCC_MJPG) != 0) {
-	                    ALOGE("Decode MJPEG frame failed\n");
-	                    delete []vBuffer;
-	                    delete []uBuffer;
-						return -1;
-	                }
-	                uint8_t *pUVBuffer = tmpBuf + src_width * src_height;
-	                for (int i = 0; i < (int)(src_width * src_height / 4); i++) {
-	                    *pUVBuffer++ = *(vBuffer + i);
-	                    *pUVBuffer++ = *(uBuffer + i);
-	                }
-	                delete []vBuffer;
-	                delete []uBuffer;
-					ReSizeNV21(tmpBuf, dst, dst_width,
-						dst_height, dst_stride,src_width,src_height);
-				}
+                if (src_width == dst_width && src_height == dst_height) {
+                    if (ConvertToI420(src, src_len, dst, dst_stride, uBuffer, (dst_stride + 1) / 2,
+                    vBuffer, (dst_stride + 1) / 2, 0, 0, src_width, src_height,
+                    src_width, src_height, libyuv::kRotate0, libyuv::FOURCC_MJPG) != 0) {
+                        ALOGE("Decode MJPEG frame failed\n");
+                        delete []vBuffer;
+                        delete []uBuffer;
+                        return -1;
+                    }
+                    uint8_t *pUVBuffer = dst + dst_stride * src_height;
+                    for (int i = 0; i < (int)(dst_stride * src_height / 4); i++) {
+                        *pUVBuffer++ = *(vBuffer + i);
+                        *pUVBuffer++ = *(uBuffer + i);
+                        }
+                    delete []vBuffer;
+                    delete []uBuffer;
+                }else{
+                    if (ConvertToI420(src, src_len, tmpBuf, src_width, uBuffer, (src_width + 1) / 2,
+                          vBuffer, (src_width + 1) / 2, 0, 0, src_width, src_height,
+                          src_width, src_height, libyuv::kRotate0, libyuv::FOURCC_MJPG) != 0) {
+                        ALOGE("Decode MJPEG frame failed\n");
+                        delete []vBuffer;
+                        delete []uBuffer;
+                        return -1;
+                    }
+                    uint8_t *pUVBuffer = tmpBuf + src_width * src_height;
+                    for (int i = 0; i < (int)(src_width * src_height / 4); i++) {
+                        *pUVBuffer++ = *(vBuffer + i);
+                        *pUVBuffer++ = *(uBuffer + i);
+                    }
+                    delete []vBuffer;
+                    delete []uBuffer;
+                    ReSizeNV21(tmpBuf, dst, dst_width,
+                        dst_height, dst_stride,src_width,src_height);
+                }
 #else
                 if (ConvertMjpegToNV21(src, src_len, tmpBuf,
                             src_width, tmpBuf + src_width * src_height,
@@ -368,141 +371,163 @@ int CameraUtil::MJPEGToNV21(uint8_t* src, int src_len,int src_width, int src_hei
                             src_height, libyuv::FOURCC_MJPG) != 0) {
                     return -1;
                 }
-				if ((src_width == dst_width) && (src_height == dst_height)) {
-					memcpy(dst, tmpBuf, dst_width * dst_height * 3/2);
-				}else {
-	                if ((dst_height % 2) != 0) {
-	                    ALOGD("%d, b.height = %d", __LINE__, dst_height);
-	                    dst_height = dst_height - 1;
-	                }
-	                ReSizeNV21(tmpBuf, dst, dst_width, dst_height,
-								dst_stride,src_width,src_height);
-				}
+                if ((src_width == dst_width) && (src_height == dst_height)) {
+                    memcpy(dst, tmpBuf, dst_width * dst_height * 3/2);
+                }else {
+                    if ((dst_height % 2) != 0) {
+                        ALOGD("%d, b.height = %d", __LINE__, dst_height);
+                        dst_height = dst_height - 1;
+                    }
+                    ReSizeNV21(tmpBuf, dst, dst_width, dst_height,
+                                dst_stride,src_width,src_height);
+                }
 
 #endif
-	return 0;
+    return 0;
 }
 
 int CameraUtil::MJPEGToRGB(uint8_t* src, int src_len,int src_width, int src_height,
-		uint8_t* dst) {
+        uint8_t* dst) {
 
-		uint8_t *tmpBuf = new uint8_t[src_width * src_height * 3 / 2];
-		if ( tmpBuf == NULL) {
-						ALOGE("new buffer failed!\n");
-						return -1;
-		}
+        uint8_t *tmpBuf = new uint8_t[src_width * src_height * 3 / 2];
+        if ( tmpBuf == NULL) {
+                        ALOGE("new buffer failed!\n");
+                        return -1;
+        }
 
-	#if ANDROID_PLATFORM_SDK_VERSION > 23
-			uint8_t *vBuffer = new uint8_t[src_width * src_height / 4];
-			if (vBuffer == NULL)
-				ALOGE("alloc temporary v buffer failed\n");
-			uint8_t *uBuffer = new uint8_t[src_width * src_height / 4];
-			if (uBuffer == NULL) {
-				 if (vBuffer != NULL) {
-	                    delete []vBuffer;
-	                }
-				ALOGE("alloc temporary u buffer failed\n");
-				return -1;
-			}
+    #if ANDROID_PLATFORM_SDK_VERSION > 23
+            uint8_t *vBuffer = new uint8_t[src_width * src_height / 4];
+            if (vBuffer == NULL)
+                ALOGE("alloc temporary v buffer failed\n");
+            uint8_t *uBuffer = new uint8_t[src_width * src_height / 4];
+            if (uBuffer == NULL) {
+                 if (vBuffer != NULL) {
+                        delete []vBuffer;
+                    }
+                ALOGE("alloc temporary u buffer failed\n");
+                return -1;
+            }
 
-			if (ConvertToI420(src, src_len, tmpBuf, src_width, uBuffer, (src_width + 1) / 2,
-						  vBuffer, (src_width + 1) / 2, 0, 0, src_width, src_height,
-						  src_width, src_height, libyuv::kRotate0, libyuv::FOURCC_MJPG) != 0) {
-				ALOGE("Decode MJPEG frame failed\n");
-				delete []vBuffer;
-				delete []uBuffer;
-				return -1;
-			} else {
+            if (ConvertToI420(src, src_len, tmpBuf, src_width, uBuffer, (src_width + 1) / 2,
+                          vBuffer, (src_width + 1) / 2, 0, 0, src_width, src_height,
+                          src_width, src_height, libyuv::kRotate0, libyuv::FOURCC_MJPG) != 0) {
+                ALOGE("Decode MJPEG frame failed\n");
+                delete []vBuffer;
+                delete []uBuffer;
+                return -1;
+            } else {
 
-				uint8_t *pUVBuffer = tmpBuf + src_width * src_height;
-				for (int i = 0; i < (int)(src_width * src_height / 4); i++) {
-					*pUVBuffer++ = *(vBuffer + i);
-					*pUVBuffer++ = *(uBuffer + i);
-				}
+                uint8_t *pUVBuffer = tmpBuf + src_width * src_height;
+                for (int i = 0; i < (int)(src_width * src_height / 4); i++) {
+                    *pUVBuffer++ = *(vBuffer + i);
+                    *pUVBuffer++ = *(uBuffer + i);
+                }
 
-				delete []vBuffer;
-				delete []uBuffer;
-				nv21_to_rgb24(tmpBuf,dst,src_width,src_height);
-				if (tmpBuf != NULL)
-					delete [] tmpBuf;
-			}
+                delete []vBuffer;
+                delete []uBuffer;
+                nv21_to_rgb24(tmpBuf,dst,src_width,src_height);
+                if (tmpBuf != NULL)
+                    delete [] tmpBuf;
+            }
 #else
-			if (ConvertMjpegToNV21(src, src_len, tmpBuf,
-				src_width, tmpBuf + src_width * src_height, (src_width + 1) / 2, src_width,
-				src_height, src_width, src_height, libyuv::FOURCC_MJPG) != 0) {
-				ALOGE("Decode MJPEG frame failed\n");
-				return -1;
-			} else {
-				nv21_to_rgb24(tmpBuf,dst,src_width,src_height);
-				if (tmpBuf != NULL)
-					delete [] tmpBuf;
-			}
+            if (ConvertMjpegToNV21(src, src_len, tmpBuf,
+                src_width, tmpBuf + src_width * src_height, (src_width + 1) / 2, src_width,
+                src_height, src_width, src_height, libyuv::FOURCC_MJPG) != 0) {
+                ALOGE("Decode MJPEG frame failed\n");
+                return -1;
+            } else {
+                nv21_to_rgb24(tmpBuf,dst,src_width,src_height);
+                if (tmpBuf != NULL)
+                    delete [] tmpBuf;
+            }
 #endif
-	return 0;
+    return 0;
 }
 
 int CameraUtil::YUYVScaleYV12(uint8_t* src, int src_width, int src_height,
-	uint8_t* dst, int dst_width, int dst_height) {
-			int ret = 0;
-			uint8_t *tmp_buffer = new uint8_t[src_width * src_height * 3 / 2];
+    uint8_t* dst, int dst_width, int dst_height) {
+            int ret = 0;
+            uint8_t *tmp_buffer = new uint8_t[src_width * src_height * 3 / 2];
 
-			if ( tmp_buffer == NULL) {
-			    ALOGE("new buffer failed!\n");
-			    return -1;
-			}
+            if ( tmp_buffer == NULL) {
+                ALOGE("new buffer failed!\n");
+                return -1;
+            }
 
-			YUYVToYV12(src, tmp_buffer, src_width, src_height);
-			ret = ScaleYV12(tmp_buffer,src_width, src_height,
-								dst,dst_width,dst_height);
-			if (ret < 0)
-			    ALOGE("Scale YV12 frame down failed!\n");
-			delete [] tmp_buffer;
+            YUYVToYV12(src, tmp_buffer, src_width, src_height);
+            ret = ScaleYV12(tmp_buffer,src_width, src_height,
+                                dst,dst_width,dst_height);
+            if (ret < 0)
+                ALOGE("Scale YV12 frame down failed!\n");
+            delete [] tmp_buffer;
 
-			return ret;
+            return ret;
 }
 
 int CameraUtil::MJPEGScaleYV12(uint8_t* src, int src_len,int src_width, int src_height,
-	uint8_t* dst, int dst_width, int dst_height, bool scale) {
+    uint8_t* dst, int dst_width, int dst_height, bool scale) {
 
-	int ret = 0;
+    int ret = 0;
 
-	if (scale) {
-		uint8_t *tmp_buffer = new uint8_t[src_width * src_height * 3 / 2];
+    if (scale) {
+        uint8_t *tmp_buffer = new uint8_t[src_width * src_height * 3 / 2];
 
-		if ( tmp_buffer == NULL) {
-			ALOGE("new buffer failed!\n");
-			return -1;
-		}
+        if ( tmp_buffer == NULL) {
+            ALOGE("new buffer failed!\n");
+            return -1;
+        }
 
-		if (ConvertToI420(src,src_len, tmp_buffer, src_width,
-		   tmp_buffer + src_width * src_height + src_width * src_height / 4, (src_width + 1) / 2,
-		   tmp_buffer + src_width * src_height, (src_width + 1) / 2, 0, 0, src_width, src_height,
-		   src_width, src_height, libyuv::kRotate0, libyuv::FOURCC_MJPG) != 0) {
-			ALOGE("Decode MJPEG frame failed\n");
-			return -1;
-		}
+        if (ConvertToI420(src,src_len, tmp_buffer, src_width,
+           tmp_buffer + src_width * src_height + src_width * src_height / 4, (src_width + 1) / 2,
+           tmp_buffer + src_width * src_height, (src_width + 1) / 2, 0, 0, src_width, src_height,
+           src_width, src_height, libyuv::kRotate0, libyuv::FOURCC_MJPG) != 0) {
+            ALOGE("Decode MJPEG frame failed\n");
+            return -1;
+        }
 
-		ret = libyuv::I420Scale(tmp_buffer, src_width,
-		                        tmp_buffer + src_width * src_height, src_width / 2,
-		                        tmp_buffer + src_width * src_height + src_width * src_height / 4, src_width / 2,
-		                        src_width, src_height,
-		                        dst, dst_width,
-		                        dst + dst_width * dst_height, dst_width / 2,
-		                        dst + dst_width * dst_height + dst_width * dst_height / 4, dst_width / 2,
-		                        dst_width, dst_height,
-		                        libyuv::kFilterNone);
-		if (ret < 0)
-		ALOGE("Scale YV12 frame down failed!\n");
+        ret = libyuv::I420Scale(tmp_buffer, src_width,
+                                tmp_buffer + src_width * src_height, src_width / 2,
+                                tmp_buffer + src_width * src_height + src_width * src_height / 4, src_width / 2,
+                                src_width, src_height,
+                                dst, dst_width,
+                                dst + dst_width * dst_height, dst_width / 2,
+                                dst + dst_width * dst_height + dst_width * dst_height / 4, dst_width / 2,
+                                dst_width, dst_height,
+                                libyuv::kFilterNone);
+        if (ret < 0)
+            ALOGE("Scale YV12 frame down failed!\n");
 
-		delete [] tmp_buffer;
-		return ret;
-	}else {
-			if (ConvertToI420(src,src_len,dst, src_width, dst + src_width * src_height + src_width * src_height / 4, (src_width + 1) / 2,
-			        dst + src_width * src_height, (src_width + 1) / 2, 0, 0, src_width, src_height,
-			        src_width, src_height, libyuv::kRotate0, libyuv::FOURCC_MJPG) != 0) {
-				ALOGE("Decode MJPEG frame failed\n");
-				return -1;
-			}
-	}
-	return ret;
+        delete [] tmp_buffer;
+        return ret;
+    }else {
+            if (ConvertToI420(src,src_len,dst, src_width, dst + src_width * src_height + src_width * src_height / 4, (src_width + 1) / 2,
+                    dst + src_width * src_height, (src_width + 1) / 2, 0, 0, src_width, src_height,
+                    src_width, src_height, libyuv::kRotate0, libyuv::FOURCC_MJPG) != 0) {
+                ALOGE("Decode MJPEG frame failed\n");
+                return -1;
+            }
+    }
+    return ret;
+}
+
+void CameraUtil::dump(int frame_index, uint8_t* buf, int length, const char* name) {
+    FILE* fp = NULL;
+    if (frame_index % 10 == 0) {
+        if (frame_index == 0) {
+            ALOGD("dump forever, full name: %s", name);
+        }
+        fp = fopen(name, "ab+");
+        if (!fp) {
+            ALOGE("open file %s fail, error: %s !!!", name, strerror(errno));
+            fp = NULL;
+            return;
+        } else {
+            fwrite((void*)buf, 1, length, fp);
+            fclose(fp);
+            fp = NULL;
+            return;
+        }
+    } else {
+        return;
+    }
 }

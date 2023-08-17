@@ -49,10 +49,7 @@
 #endif
 
 #if defined(PREVIEW_DEWARP_ENABLE) || defined(PICTURE_DEWARP_ENABLE)
-typedef size_t UNUSED_VARIABLE;
 #include "dewarp.h"
-#else
-typedef size_t __attribute__((unused)) UNUSED_VARIABLE;
 #endif
 
 #if LOG_VERBOSE_VERBOSE
@@ -1276,7 +1273,9 @@ int HWVideoDecoderImpl::syncDecode(int in_fd, uint8_t*in_src, uint32_t in_size, 
 #ifdef GE2D_ENABLE
             int dec_out_fd = outputBufInfo.fd;
             if (dec_out_fd > 0) {
-                UNUSED_VARIABLE index = 0;
+#if defined(PREVIEW_DEWARP_ENABLE) || defined(PICTURE_DEWARP_ENABLE)
+                int index = 0;
+#endif
                 for (size_t i = 0; i < b.size(); i++) {
                     if (b[i].format == HAL_PIXEL_FORMAT_BLOB) {
                         ALOGE("%s:blob buffer bypass",__FUNCTION__);
@@ -1324,7 +1323,7 @@ int HWVideoDecoderImpl::syncDecode(int in_fd, uint8_t*in_src, uint32_t in_size, 
                                 if (needDestroy) {
                                     DeWarp::putInstance(port);
                                 }
-                                ALOGD("buffer index %zu, dewarp port %d, isNeedDestroyDewarp %d", index, port, needDestroy);
+                                ALOGD("buffer index %d, dewarp port %d, isNeedDestroyDewarp %d", index, port, needDestroy);
                                 CameraConfig* config = CameraConfig::getInstance(port);
                                 config->setCropInfo(inputInfo);
                                 config->setInputWidth(mDqWidth);
@@ -1398,7 +1397,9 @@ int HWVideoDecoderImpl::asyncDecodeDequeueOutput( Vector<StreamBuffer>& b, bool 
 #ifdef GE2D_ENABLE
            int dec_out_fd = outputBufInfo.fd;
            if (dec_out_fd > 0) {
-               UNUSED_VARIABLE index = 0;
+#if defined(PREVIEW_DEWARP_ENABLE) || defined(PICTURE_DEWARP_ENABLE)
+               int index = 0;
+#endif
                for (size_t i = 0; i < b.size(); i++) {
                    if (b[i].format == HAL_PIXEL_FORMAT_BLOB) {
                        ALOGE("%s:blob buffer bypass",__FUNCTION__);
@@ -1446,7 +1447,7 @@ int HWVideoDecoderImpl::asyncDecodeDequeueOutput( Vector<StreamBuffer>& b, bool 
                                 if (needDestroy) {
                                     DeWarp::putInstance(port);
                                 }
-                                ALOGD("buffer index %zu, dewarp port %d, isNeedDestroyDewarp %d", index, port, needDestroy);
+                                ALOGD("buffer index %d, dewarp port %d, isNeedDestroyDewarp %d", index, port, needDestroy);
                                 CameraConfig* config = CameraConfig::getInstance(port);
                                 config->setCropInfo(inputInfo);
                                 config->setInputWidth(mDqWidth);

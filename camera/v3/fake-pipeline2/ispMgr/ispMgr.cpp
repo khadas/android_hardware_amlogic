@@ -87,9 +87,10 @@ IspMgr::~IspMgr() {
     ALOGD("%s", __FUNCTION__);
 }
 
-status_t IspMgr::configure(struct media_stream *stream, int wdr) {
+status_t IspMgr::configure(struct media_stream *stream, int wdr, aisp_calib_info_t *otp, int fps) {
     ALOGD("%s +", __FUNCTION__);
     int rc;
+    char property[PROPERTY_VALUE_MAX];
     Mutex::Autolock _l(mLock);
     mMediaStream = stream;
     mPollingDevices.clear();
@@ -141,14 +142,49 @@ status_t IspMgr::configure(struct media_stream *stream, int wdr) {
         return -1;
     }
 
+    mLensConfig = matchLensConfig(mMediaStream);
+    if (mLensConfig != nullptr) {
+        lens_set_entity(mLensConfig, mMediaStream->lens_ent);
+        lens_control_cb(mLensConfig, &mPstAlgCtx.stLensFunc);
+    }
+
     mSensorConfig = matchSensorConfig(mMediaStream);
     if (mSensorConfig == nullptr) {
         ALOGE("Failed to matchSensorConfig");
         return -1;
     }
-    cmos_set_sensor_entity(mSensorConfig, mMediaStream->sensor_ent, wdr);
+    cmos_set_sensor_entity(mSensorConfig, mMediaStream->sensor_ent, wdr, fps);
     cmos_sensor_control_cb(mSensorConfig, &mPstAlgCtx.stSnsExp);
-    cmos_get_sensor_calibration(mSensorConfig, &mCalibInfo);
+    cmos_get_sensor_calibration(mSensorConfig, mMediaStream->sensor_ent, &mCalibInfo);
+    property_get("vendor.camhal.otp.disable", property, "false");
+    if (otp && strstr(property, "false")) {
+        sprintf(property, "%s-%d otp updated", mSensorConfig->sensorName, mId);
+        property_set("vendor.camhal.otp.info", property);
+
+        for (int i = 0; i < CALIBRATION_TOTAL_SIZE; i++) {
+            LookupTable *src = GET_LOOKUP_PTR(otp, i);
+            LookupTable *dst = GET_LOOKUP_PTR(&mCalibInfo, i);
+            if (src && dst) {
+                memcpy(dst->ptr, src->ptr, src->cols * src->width);
+                if (i == CALIBRATION_AWB_WB_OTP_D50) {
+                    for (int j = 0; j < src->cols*src->width; ++j) {
+                        ALOGD("WB_OTP value 0x%x", ((uint8_t *)(dst->ptr))[j]);
+                    }
+                } else if (i == CALIBRATION_AWB_WB_GOLDEN_D50) {
+                    for (int j = 0; j < src->cols*src->width; ++j) {
+                        ALOGD("WB_GOLDEN value 0x%x", ((uint8_t *)(dst->ptr))[j]);
+                    }
+                } else if (i == CALIBRATION_LENS_OTP_CENTER_OFFSET) {
+                    for (int j = 0; j < src->cols*src->width; ++j) {
+                        ALOGD("LENS_OTP_CENTER_OFFSET value 0x%x", ((uint8_t *)(dst->ptr))[j]);
+                    }
+                }
+            }
+        }
+    } else {
+        sprintf(property, "%s-%d otp not updated", mSensorConfig->sensorName, mId);
+        property_set("vendor.media.camhal.otp.info", property);
+    }
     return rc;
 }
 
@@ -358,6 +394,19 @@ status_t IspMgr::stop() {
             munmap (mISParams.mem[i].addr, mISParams.mem[i].size);
         if (mISParams.mem[i].dma_fd >= 0)
             close(mISParams.mem[i].dma_fd);
+    }
+    {
+        struct v4l2_ext_control gain;
+        gain.id = V4L2_CID_GAIN;
+        gain.value = 0xFFFF;
+        ALOGD("update again  = %d", gain.value);
+        v4l2_subdev_set_ctrls(mMediaStream->sensor_ent, &gain, 1);
+
+        struct v4l2_ext_control expo;
+        expo.id = V4L2_CID_EXPOSURE;
+        expo.value = 0xFFFF;
+        ALOGD("update exposure  = %d", expo.value);
+        v4l2_subdev_set_ctrls(mMediaStream->sensor_ent, &expo, 1);
     }
     ALOGD("stop -");
     return rc;
