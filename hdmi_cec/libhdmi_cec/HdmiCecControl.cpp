@@ -48,6 +48,17 @@ void HdmiCecControl::MsgHandler::handleMessage (CMessage &msg)
                 mControl->send(&message);
             }
             break;
+        case HdmiCecControl::MsgHandler::MSG_REPORT_PHYSICAL_ADDRESS:
+            cec_message_t message;
+            message.initiator = (cec_logical_address_t)(msg.mpPara[0]);;
+            message.destination = CEC_ADDR_BROADCAST;
+            message.body[0] = CEC_MESSAGE_REPORT_PHYSICAL_ADDRESS;
+            message.body[1] = (mControl->mCecDevice.phy_addr >> 8) & 0xFF;
+            message.body[2] = mControl->mCecDevice.phy_addr & 0xFF;
+            message.body[3] = msg.mpPara[1] & 0xFF;;
+            message.length = 4;
+            mControl->send(&message);
+            break;
         case HdmiCecControl::MsgHandler::MSG_USER_CONTROL_PRESSED:
             if (mControl->mCecDevice.is_tv) {
                 cec_message_t message;
@@ -157,6 +168,8 @@ HdmiCecControl::HdmiCecControl(int event)
 
     mMsgHandler = sp<MsgHandler>::make(this);
     mMsgHandler->startMsgQueue();
+    // Boot one touch play logic for aml products.
+    bootOneTouchPlay();
 }
 
 HdmiCecControl::~HdmiCecControl()
@@ -303,6 +316,9 @@ int HdmiCecControl::addLogicalAddress(cec_logical_address_t address)
 
     int res = ioctl(mCecDevice.driver_fd, CEC_IOC_ADD_LOGICAL_ADDR, address);
     LOGI("addr:%x, allocate result:%d\n", mCecDevice.playback_logical_addr, res);
+    char logicalAddress[128];
+    sprintf(logicalAddress, "%x", mCecDevice.playback_logical_addr);
+    setProperty(PROPERTY_LOGICAL_ADDRESS, logicalAddress);
 
     onAddressAllocated(address);
     return res;
@@ -314,25 +330,6 @@ void HdmiCecControl::onAddressAllocated(int logicalAddress)
     #ifdef NO_USE_DROID_PATCH
     getDeviceExtraInfo(1);
     #endif
-
-    // Android has implemented the function of ONE TOUCH PLAY with keyevents Power and Home. In the previous version
-    // like p we use an easy way which is doing this when logical address is allocated. This will make the playback
-    // wake up tv if needed and gain the active source in senarios including boot, wake up without power key, and
-    // hotplug in. This is not accepted by google and most of our customers do not care about it, thus we will disable
-    // it by default from q. If the customer wants to do it, please do it in frameworks/base.
-    // Remove the code from r. Don't produce any messages outside of android framework. Details is in SWPL-26388.
-    /*
-    if (mCecDevice.is_playback && isConnected(CEC_ADDR_TV)) {
-        if (mCecDevice.mAutoOtp && getPropertyBoolean(PROPERTY_ONE_TOUCH_PLAY, true)) {
-            CMessage message;
-            message.mType = HdmiCecControl::MsgHandler::MSG_ONE_TOUCH_PLAY;
-            message.mDelayMs = DELAY_TIMEOUT_MS/5;
-            message.mpPara[0] = logicalAddress;
-            mMsgHandler->removeMsg(message);
-            mMsgHandler->sendMsg(message);
-        }
-    }
-    */
 }
 
 void HdmiCecControl::clearLogicaladdress()
@@ -858,8 +855,70 @@ void HdmiCecControl::getDeviceExtraInfo(int flag)
     mMsgHandler->sendMsg (msg);
 }
 
+void HdmiCecControl::bootOneTouchPlay() {
+    if ((mCecEvent & HDMI_EVENT_CEC_MESSAGE) == 0) {
+        // Hdmi connection hal could also use this cpp.
+        return;
+    }
+    if (!mCecDevice.is_playback || mCecDevice.is_audio_system) {
+        // only do this for a single playback device.
+        return;
+    }
+    if (!getPropertyBoolean(PROPERTY_BOOT_OTP, false)
+            || !getPropertyBoolean(PROPERTY_ONE_TOUCH_PLAY, true)) {
+        LOGD("No need for boot one touch play as switch is disabled");
+        return;
+    }
+    char bootReason[PROPERTY_VALUE_MAX] = {0};
+    memset(bootReason, '\0', PROPERTY_VALUE_MAX);
+    if (property_get(PROPERTY_BOOT_REASON, bootReason, "") > 0) {
+        LOGD("%s with prop:%s boot reason:%s", __FUNCTION__, PROPERTY_BOOT_REASON, bootReason);
+    } else {
+        LOGE("%s failed to get boot reason");
+    }
+
+    if (strcmp(bootReason, BOOT_REASON_COLD) != 0
+        && strcmp(bootReason, BOOT_REASON_SHUTDOWN) != 0) {
+        // Don't do this in any reboot scenarios except cold boot.
+        // It will make sure that no one touch play is started in cts and ota cases.
+        LOGD("It's not cold or shutdown boot");
+        return;
+    }
+
+    mBootOtpCount = 0;
+    getPhysicalAddress(&mCecDevice.phy_addr);
+
+    char address[PROPERTY_VALUE_MAX] = {0};
+    memset(address, '\0', PROPERTY_VALUE_MAX);
+    getProperty(PROPERTY_LOGICAL_ADDRESS, address, "4");
+    int logicalAddress = atoi(address);
+    if (logicalAddress == 0) {
+        logicalAddress = 4;
+    }
+    LOGD("%s with logical address:%x physical address:%x", __FUNCTION__,
+            logicalAddress, mCecDevice.phy_addr);
+    // allocate logical address first.
+    addLogicalAddress(cec_logical_address_t(logicalAddress));
+
+    // report physical address
+    CMessage reportPhysicalAddress;
+    reportPhysicalAddress.mType = HdmiCecControl::MsgHandler::MSG_REPORT_PHYSICAL_ADDRESS;
+    reportPhysicalAddress.mDelayMs = 0;
+    reportPhysicalAddress.mpPara[0] = logicalAddress;
+    reportPhysicalAddress.mpPara[1] = CEC_DEVICE_PLAYBACK;
+    mMsgHandler->sendMsg(reportPhysicalAddress);
+
+
+    CMessage message;
+    message.mType = HdmiCecControl::MsgHandler::MSG_ONE_TOUCH_PLAY;
+    message.mDelayMs = 0;
+    message.mpPara[0] = logicalAddress;
+    mMsgHandler->removeMsg(message);
+    mMsgHandler->sendMsg(message);
+}
+
 void HdmiCecControl::sendOneTouchPlay(int logicalAddress) {
-    LOGD("send one touch play message %x", logicalAddress);
+    LOGD("send one touch play message %x count:%x", logicalAddress, mBootOtpCount);
 
     cec_message_t message;
     message.initiator = (cec_logical_address_t)logicalAddress;
@@ -868,13 +927,28 @@ void HdmiCecControl::sendOneTouchPlay(int logicalAddress) {
     message.body[0] = CEC_MESSAGE_TEXT_VIEW_ON;
     send(&message);
 
+    uint16_t physicalAddress = mCecDevice.phy_addr;
+    if (physicalAddress == INVALID_PHYSICAL_ADDRESS
+        || physicalAddress == 0) {
+        physicalAddress = 0x1000;
+    }
+
     message.destination = CEC_ADDR_BROADCAST;
     message.length = 4;
     message.body[0] = CEC_MESSAGE_ACTIVE_SOURCE;
-    message.body[1] = (mCecDevice.phy_addr >> 8) & 0xff;
-    message.body[2] = mCecDevice.phy_addr & 0xff;
+    message.body[1] = (physicalAddress >> 8) & 0xff;
+    message.body[2] = physicalAddress & 0xff;
     message.body[3] = logicalAddress & 0xff;
     send(&message);
+
+    if (++mBootOtpCount < BOOT_OTP_RETRY_COUNT) {
+        CMessage message;
+        message.mType = HdmiCecControl::MsgHandler::MSG_ONE_TOUCH_PLAY;
+        message.mDelayMs = DELAY_TRANSMISSION_TIMEOUT;
+        message.mpPara[0] = logicalAddress;
+        mMsgHandler->removeMsg(message);
+        mMsgHandler->sendMsg(message);
+    }
 }
 
 void HdmiCecControl::checkConnectStatus()

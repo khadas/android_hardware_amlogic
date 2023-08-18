@@ -60,7 +60,9 @@
 #define VENDOR_ID_DEFAULT               0xFFFFFF
 #define VENDOR_ID_AML                   0x1CA410
 
-#define DELAY_TIMEOUT_MS  5000
+#define DELAY_TIMEOUT_MS                5000
+#define DELAY_TRANSMISSION_TIMEOUT      2000
+#define BOOT_OTP_RETRY_COUNT            5
 
 #define HDMIRX_SYSFS                    "/sys/class/hdmirx/hdmirx0/cec"
 #define CEC_STATE_BOOT_ENABLED          "2"
@@ -70,11 +72,17 @@
 //#define PROPERTY_DEVICE_TYPE            "ro.vendor.platform.hdmi.device_type"
 #define PROPERTY_DEVICE_TYPE            "ro.hdmi.device_type"
 #define PROPERTY_VENDOR_ID              "ro.vendor.platform.hdmi.vendor_id"
-#define PROPERTY_AUTO_OTP               "ro.vendor.hdmi.auto_otp"
+#define PROPERTY_BOOT_OTP               "ro.vendor.hdmi.auto_otp"
 #define PROPERTY_ONE_TOUCH_PLAY         "persist.vendor.sys.cec.onetouchplay"
 #define PROPERTY_SET_MENU_LANGUAGE      "persist.vendor.sys.cec.set_menu_language"
 #define PROPERTY_DEVICE_AUTO_POWEROFF   "persist.vendor.sys.cec.deviceautopoweroff"
 #define PROPERTY_LOGICAL_ADDRESS        "persist.vendor.sys.cec.logicaladdress"
+
+//#define PROPERTY_BOOT_REASON            "sys.boot.reason"
+#define PROPERTY_BOOT_REASON            "sys.boot.reason"
+
+#define BOOT_REASON_COLD                "cold_boot"
+#define BOOT_REASON_SHUTDOWN            "shutdown_reboot"
 
 #define PROPERTY_ARC_PORT               "persist.vendor.sys.arc_port"
 #define PROPERTY_CEC_DEBUG              "persist.vendor.sys.cec_debug"
@@ -175,13 +183,14 @@ public:
 protected:
     class MsgHandler: public CMsgQueueThread {
     public:
-        static const int MSG_GET_MENU_LANGUAGE = 1;
-        static const int MSG_GIVE_OSD_NAME = 2;
-        static const int MSG_GIVE_DEVICE_VENDOR_ID = 3;
-        static const int MSG_GIVE_PHYSICAL_ADDRESS = 4;
-        static const int MSG_ONE_TOUCH_PLAY = 5;
-        static const int MSG_PROCESS_CEC_WAKEUP = 6;
-        static const int MSG_USER_CONTROL_PRESSED = 7;
+        static const int MSG_GET_MENU_LANGUAGE =        1;
+        static const int MSG_GIVE_OSD_NAME =            2;
+        static const int MSG_GIVE_DEVICE_VENDOR_ID =    3;
+        static const int MSG_GIVE_PHYSICAL_ADDRESS =    4;
+        static const int MSG_ONE_TOUCH_PLAY =           5;
+        static const int MSG_PROCESS_CEC_WAKEUP =       6;
+        static const int MSG_USER_CONTROL_PRESSED =     7;
+        static const int MSG_REPORT_PHYSICAL_ADDRESS =  8;
 
         MsgHandler(HdmiCecControl *hdmiControl);
         ~MsgHandler();
@@ -224,6 +233,7 @@ private:
     void processCecWakeup();
     void initCecWakeupInfo();
     bool isSourceDevice(int logicalAddress);
+    void bootOneTouchPlay();
 
     hdmi_device_t mCecDevice;
     sp<HdmiCecBusMonitor> mMonitor;
@@ -232,6 +242,7 @@ private:
     sp<MsgHandler> mMsgHandler;
     mutable Mutex mLock;
     int mCecEvent;
+    int mBootOtpCount;
 };
 
 
