@@ -72,7 +72,7 @@ cc_prebuilt_binary {
     vendor: true,
     arch: {
         arm: {
-           srcs: ["drminfo"],
+           srcs: ["arm/drminfo"],
         },
         arm64: {
             enabled: false,
