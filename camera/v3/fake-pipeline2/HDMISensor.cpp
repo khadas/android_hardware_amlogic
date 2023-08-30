@@ -601,7 +601,7 @@ void HDMISensor::captureNV21(StreamBuffer b, uint32_t gain) {
                 mGE2D->ge2d_scale(b.share_fd, PIXEL_FORMAT_YCbCr_420_SP_NV12, b.width, b.height, output_info.dma_fd, width, height);
             }
         }
-        mGE2D->doRotationAndMirror(b, true);
+        //mGE2D->doRotationAndMirror(b, true);
         mSensorWorkFlag = true;
         break;
     }
