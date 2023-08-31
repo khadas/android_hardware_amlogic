@@ -218,6 +218,7 @@ Sensor::Sensor():
         mFlushFlag(false),
         mSensorWorkFlag(false),
         mOpenCameraID(-1),
+        mNeedCheckMjpeg(false),
         mNextCapturedBuffers(NULL),
         mScene(kResolution[0], kResolution[1], kElectronsPerLuxSecond),
         mUnpluged(false)
@@ -362,6 +363,7 @@ status_t Sensor::setOutputFormat(int width, int height, int pixelformat, channel
 
 status_t Sensor::streamOn(channel ch) {
     ATRACE_CALL();
+    mNeedCheckMjpeg = true;
     return start_capturing(vinfo);
 }
 
@@ -383,6 +385,42 @@ bool Sensor::isNeedRestart(uint32_t width, uint32_t height, uint32_t pixelformat
 
     return false;
 }
+
+static bool checkMjpegData(uint8_t* in_src, uint32_t in_size, uint32_t in_width, uint32_t in_height, bool needCheckMjpeg)
+{
+    if (in_src[0] == 0xff && in_src[1] == 0xd8 &&
+        in_src[in_size-2] == 0xff && in_src[in_size-1] == 0xd9) {
+        if (needCheckMjpeg) {
+            int offset = 0;
+            int width = 0;
+            int height = 0;
+            ALOGD("%s: in_width: %d, in_height: %d", __FUNCTION__, in_width, in_height);
+            while (offset < in_size - 1) {
+                if (in_src[offset] == 0xFF) {
+                    switch (in_src[offset + 1]) {
+                        case 0xC0: // SOF0 (baseline JPEG)
+                        case 0xC1: // SOF1 (extended sequential JPEG)
+                        case 0xC2: // SOF2 (progressive JPEG)
+                        height = in_src[offset + 5] * 256 + in_src[offset + 6];
+                        width = in_src[offset + 7] * 256 + in_src[offset + 8];
+                        if (height != in_height || width != in_width) {
+                            ALOGW("this frame size is error");
+                            return false;
+                        }
+                        return true;;
+                    }
+                }
+                offset++;
+            }
+        }
+        return true;
+    }
+
+    ALOGW("this frame is not standard mjpg data");
+    return false;
+}
+
+
 status_t Sensor::streamOff(channel ch) {
     if (mSensorType == SENSOR_USB) {
         return releasebuf_and_stop_capturing(vinfo);
@@ -2304,6 +2342,20 @@ void Sensor::captureNV21(StreamBuffer b, uint32_t gain) {
             uint32_t width = vinfo->preview.format.fmt.pix.width;
             uint32_t height = vinfo->preview.format.fmt.pix.height;
             uint32_t bytesused = vinfo->preview.buf.bytesused;
+            if (!checkMjpegData(src, bytesused, width, height, mNeedCheckMjpeg)) {
+                ALOGD("%s: nonstandard mjpeg data", __FUNCTION__);
+                putback_frame(vinfo);
+                checkFailCount ++;
+                if (mSensorType == SENSOR_USB) {
+                    if (checkFailCount > 30) {
+                        ALOGD("%s force sensor reset.", __FUNCTION__);
+                        force_reset_sensor();
+                        checkFailCount = 0;
+                    }
+                }
+                continue;
+            }
+            mNeedCheckMjpeg = false;
             std::unique_lock<std::mutex> _l(mDecoderTask.lock);
             if (mDecoderTask.taskRunning == false) {
                 mDecoderTask.inputBuffer = mInputBuffer;

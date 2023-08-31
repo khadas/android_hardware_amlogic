@@ -329,6 +329,9 @@ class Sensor: public Thread, public virtual RefBase {
     bool mSensorWorkFlag;
     int mOpenCameraID;
     char mDeviceName[64];
+    bool mNeedCheckMjpeg;
+    uint32_t checkFailCount;
+
     struct PictureThreadCntler {
         std::thread *PictureThread;
         Vector<Request> NextPictureRequest;
