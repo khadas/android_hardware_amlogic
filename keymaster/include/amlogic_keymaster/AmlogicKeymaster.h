@@ -84,6 +84,10 @@ class AmlogicKeymaster : public TrustyKeymaster {
             KeymasterResponse* rsp);
     void ForwardCommand2(enum keymaster_command command, const KeymasterMessage& req,
           KeymasterResponse* rsp);
+    TEEC_Result ProvisionDevidBox(const uint8_t *key_buff,
+                                        uint32_t key_size,
+                                        bool *is_locked);
+    static keymaster_error_t CreateIdAttestationXml(bool lock_xml);
   private:
     TEEC_Context KM_context;
     TEEC_Session KM_session;

@@ -26,6 +26,19 @@
 #include <android/binder_manager.h>
 #include <remote_prov/remote_prov_utils.h>
 
+#include <android-base/properties.h>
+#include <cutils/properties.h>
+#include <tinyxml2.h>
+#include <iostream>
+#include <fstream>
+#include <sstream>
+#include <string>
+#include <cstring>
+#include <cstdio>
+#include <string.h>
+
+#define KM_PROVISION_DEVID 0xFFFFA004
+
 namespace keymaster {
 
 using aidl::android::hardware::security::keymint::IRemotelyProvisionedComponent;
@@ -33,6 +46,16 @@ using aidl::android::hardware::security::keymint::remote_prov::jsonEncodeCsrWith
 
 static bool initialize_flag = false;
 void getCsrForInstance(void);
+
+//static bool initialize_flag = false;
+
+std::string wait_and_get_property(const char* prop) {
+    std::string prop_value;
+    /*while (!::android::base::WaitForPropertyCreation(prop))
+        ;*/
+    prop_value = ::android::base::GetProperty(prop, "" /* default */);
+    return prop_value;
+}
 
 int AmlogicKeymaster::Initialize(KmVersion version) {
     int err;
@@ -376,6 +399,133 @@ void getCsrForInstance(void) {
     fprintf(file, "%s",json.c_str());
     fclose(file);
     ALOGD("write /mnt/vendor/factory/csrs/csrs.json finish.");
+}
+
+TEEC_Result AmlogicKeymaster::ProvisionDevidBox(
+                                    const uint8_t *key_buff,
+                                    uint32_t key_size,
+                                    bool *is_locked) {
+    TEEC_Result res = TEEC_SUCCESS;
+    TEEC_Operation op;
+    uint32_t ret_orig;
+    uint8_t send_buf[AMLOGIC_KEYMASTER_SEND_BUF_SIZE];
+    int error;
+
+    error = aml_keymaster_connect(&KM_context, &KM_session);
+    if (error) {
+        ALOGE("Failed to connect to amlogic keymaster %d", error);
+        return error;
+    }
+
+    /*if (initialize_flag == false) {
+        initialize_flag = true;
+        error = init_service_later();
+    }*/
+
+    memcpy(send_buf, key_buff, key_size);
+    memset(&op, 0, sizeof(op));
+
+    op.params[1].tmpref.buffer = (void *)send_buf;
+    op.params[1].tmpref.size = key_size;
+
+    op.paramTypes = TEEC_PARAM_TYPES(
+            TEEC_VALUE_OUTPUT,
+            TEEC_MEMREF_TEMP_INPUT,
+            TEEC_NONE,
+            TEEC_NONE);
+
+    res = TEEC_InvokeCommand(&KM_session, KM_PROVISION_DEVID, &op, &ret_orig);
+    if (res != TEEC_SUCCESS) {
+        ALOGE("Invoke cmd: %u failed with res(%x), ret_orig(%x), return(%d)\n",
+                KM_PROVISION_DEVID, res, ret_orig, op.params[0].value.a);
+    } else {
+        *is_locked = op.params[0].value.a;
+        ALOGE("ProvisionDevidBox already locked : %d", *is_locked);
+    }
+    return res;
+}
+
+keymaster_error_t AmlogicKeymaster::CreateIdAttestationXml(bool lock_xml) {
+    AmlogicKeymaster obj;
+    TEEC_Result res = TEEC_SUCCESS;
+    bool is_locked;
+    tinyxml2::XMLDocument doc;
+
+    //root element
+    tinyxml2::XMLElement* rootElement = doc.NewElement("ATTESTATION_ID");
+    doc.InsertEndChild(rootElement);
+
+    //child element SERIAL
+    std::string serialno = wait_and_get_property("ro.serialno");
+    ALOGI("serialno:%s", serialno.c_str());
+    tinyxml2::XMLElement* serialElement = doc.NewElement("SERIAL");
+    rootElement->InsertEndChild(serialElement);
+    tinyxml2::XMLElement* serialValueElement = doc.NewElement("val");
+    serialValueElement->SetText(serialno.c_str());
+    serialElement->InsertEndChild(serialValueElement);
+
+    //child element BRAND
+    std::string brand = wait_and_get_property("ro.product.brand");
+    ALOGI("brand:%s", brand.c_str());
+    tinyxml2::XMLElement* brandElement = doc.NewElement("BRAND");
+    rootElement->InsertEndChild(brandElement);
+    tinyxml2::XMLElement* brandValueElement = doc.NewElement("val");
+    brandValueElement->SetText(brand.c_str());
+    brandElement->InsertEndChild(brandValueElement);
+
+    //child element DEVICE
+    std::string device = wait_and_get_property("ro.product.device");
+    ALOGI("device:%s", device.c_str());
+    tinyxml2::XMLElement* deviceElement = doc.NewElement("DEVICE");
+    rootElement->InsertEndChild(deviceElement);
+    tinyxml2::XMLElement* deviceValueElement = doc.NewElement("val");
+    deviceValueElement->SetText(device.c_str());
+    deviceElement->InsertEndChild(deviceValueElement);
+
+    //child element PRODUCT
+    std::string productname = wait_and_get_property("ro.product.name");
+    ALOGI("productname:%s", productname.c_str());
+    tinyxml2::XMLElement* productElement = doc.NewElement("PRODUCT");
+    rootElement->InsertEndChild(productElement);
+    tinyxml2::XMLElement* productValueElement = doc.NewElement("val");
+    productValueElement->SetText(productname.c_str());
+    productElement->InsertEndChild(productValueElement);
+
+    //child element MANUFACTURER
+    std::string manufacturer = wait_and_get_property("ro.product.manufacturer");
+    ALOGI("manufacturer:%s", manufacturer.c_str());
+    tinyxml2::XMLElement* manufacturerElement = doc.NewElement("MANUFACTURER");
+    rootElement->InsertEndChild(manufacturerElement);
+    tinyxml2::XMLElement* manufacturerValueElement = doc.NewElement("val");
+    manufacturerValueElement->SetText(manufacturer.c_str());
+    manufacturerElement->InsertEndChild(manufacturerValueElement);
+
+    //child element MODEL
+    std::string model = wait_and_get_property("ro.product.model");
+    ALOGI("model:%s", model.c_str());
+    tinyxml2::XMLElement* modelElement = doc.NewElement("MODEL");
+    rootElement->InsertEndChild(modelElement);
+    tinyxml2::XMLElement* modelValueElement = doc.NewElement("val");
+    modelValueElement->SetText(model.c_str());
+    modelElement->InsertEndChild(modelValueElement);
+
+    if (lock_xml) {
+        tinyxml2::XMLElement* lockElement = doc.NewElement("LOCK");
+        rootElement->InsertEndChild(lockElement);
+    }
+
+    // save xml to string
+    tinyxml2::XMLPrinter printer;
+    doc.Print(&printer);
+    std::string xmlString = printer.CStr();
+
+    res = obj.ProvisionDevidBox(
+                reinterpret_cast<const uint8_t*>(xmlString.c_str()),
+                strlen(xmlString.c_str()), &is_locked);
+
+    if (res != TEEC_SUCCESS)
+        return KM_ERROR_ATTESTATION_IDS_NOT_PROVISIONED;
+    return KM_ERROR_OK;
 }
 
 }  // namespace keymaster

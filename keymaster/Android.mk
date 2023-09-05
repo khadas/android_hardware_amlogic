@@ -68,6 +68,72 @@ LOCAL_NOTICE_FILE := $(LOCAL_PATH)/../LICENSE
 include $(BUILD_PREBUILT)
 
 include $(CLEAR_VARS)
+LOCAL_MODULE := provision_devid_demo
+LOCAL_SRC_FILES := provision_devid_demo.cpp \
+                    keymint/AmlogicKeyMintDevice.cpp \
+                    keymint/AmlogicKeyMintOperation.cpp \
+                    keymint/AmlogicRemotelyProvisionedComponentDevice.cpp \
+                    keymint/AmlogicSecureClock.cpp \
+                    keymint/AmlogicSharedSecret.cpp \
+                    ipc/amlogic_keymaster_ipc.cpp \
+                    AmlogicKeymaster.cpp
+
+
+LOCAL_MODULE_CLASS := EXECUTABLES
+LOCAL_MODULE_PATH := $(TARGET_OUT_VENDOR)/bin
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-Apache-2.0
+LOCAL_LICENSE_CONDITIONS := notice
+
+TRUSTY_SRC_FILES := ../../../system/core/trusty/keymaster/TrustyKeymaster.cpp \
+                    ../../../system/core/trusty/keymaster/ipc/trusty_keymaster_ipc.cpp
+TRUSTY_SHARED_LIBRARIES := libtrusty
+TRUSTY_INCLUDES = system/core/trusty/libtrusty/include \
+                  system/core/trusty/keymaster/include \
+                  system/core/libutils/include/ \
+                  system/security/provisioner/
+
+LOCAL_C_INCLUDES := \
+                    $(LOCAL_PATH)/include \
+                    $(PLATFORM_TDK_PATH)/ca_export_arm/include
+
+LOCAL_SHARED_LIBRARIES := \
+                    android.hardware.security.keymint-V3-ndk \
+                    android.hardware.security.rkp-V3-ndk \
+                    lib_android_keymaster_keymint_utils \
+                    android.hardware.security.sharedsecret-V1-ndk \
+                    android.hardware.security.secureclock-V1-ndk \
+                    libbase \
+                    libbinder_ndk \
+                    libhardware \
+                    libkeymaster_messages \
+                    libkeymint \
+                    liblog \
+                    libtrusty \
+                    libteec \
+                    libtinyxml2 \
+                    libcutils \
+                    libjsoncpp \
+                    libkeymint_remote_prov_support \
+                    libcppbor_external \
+                    libcppcose_rkp \
+                    libcrypto
+
+LOCAL_STATIC_LIBRARIES := librkp_factory_extraction
+
+ifeq ($(shell test $(PLATFORM_SDK_VERSION) -ge 26 && echo OK),OK)
+LOCAL_PROPRIETARY_MODULE := true
+endif
+
+LOCAL_CFLAGS += -Wall \
+                -Wextra \
+                -Wno-unused-parameter
+
+LOCAL_SRC_FILES += $(TRUSTY_SRC_FILES)
+LOCAL_SHARED_LIBRARIES += $(TRUSTY_SHARED_LIBRARIES)
+LOCAL_C_INCLUDES += $(TRUSTY_INCLUDES)
+include $(BUILD_EXECUTABLE)
+
+include $(CLEAR_VARS)
 TRUSTY_SRC_FILES := ../../../system/core/trusty/keymaster/TrustyKeymaster.cpp \
                     ../../../system/core/trusty/keymaster/ipc/trusty_keymaster_ipc.cpp
 TRUSTY_SHARED_LIBRARIES := libtrusty
@@ -127,7 +193,8 @@ LOCAL_CFLAGS += -Wall \
 
 LOCAL_REQUIRED_MODULES := $(TA_UUID)
 LOCAL_REQUIRED_MODULES += android.hardware.hardware_keystore.amlogic.xml
-LOCAL_REQUIRED_MODULES += rkp_extract.sh
+LOCAL_REQUIRED_MODULES += provision_devid_demo
+#LOCAL_REQUIRED_MODULES += rkp_extract.sh
 LOCAL_REQUIRED_MODULES += rkp_factory_extraction_tool
 LOCAL_VINTF_FRAGMENTS := keymint/android.hardware.security.keymint-service.amlogic.xml
 LOCAL_MODULE := android.hardware.security.keymint-service.amlogic
