@@ -70,8 +70,8 @@ ScopedAStatus HdmiConnection::isConnected(int32_t portId, bool* _aidl_return) {
     if (portId < 0 || portId > mTotalPorts) {
         ALOGE("isConnected but port:%d is invalid!", portId);
         *_aidl_return = false;
-        return ScopedAStatus::fromServiceSpecificError(
-                static_cast<int32_t>(Result::FAILURE_INVALID_ARGS));
+        return ScopedAStatus::ok();
+
     }
     // Maintain port connection status and update on hotplug event
 
@@ -107,8 +107,7 @@ ScopedAStatus HdmiConnection::setHpdSignal(HpdSignal signal, int32_t portId) {
     if (portId > mTotalPorts) {
         ALOGD("%s, invalid port id:%d port size:%d", __FUNCTION__, portId, mTotalPorts);
         // binder_auto_utils.h
-        return ScopedAStatus::fromServiceSpecificError(
-                static_cast<int32_t>(Result::FAILURE_INVALID_ARGS));
+        return ScopedAStatus::ok();
     }
     if (mHdmiFd < 0) {
         mHdmiFd = open(HDMIRX_DEV_PATH, O_RDWR);
@@ -116,8 +115,7 @@ ScopedAStatus HdmiConnection::setHpdSignal(HpdSignal signal, int32_t portId) {
 
     if (mHdmiFd < 0) {
           ALOGE("%s, Open file %s error: (%s)!\n", __FUNCTION__, HDMIRX_DEV_PATH, strerror(errno));
-          return ScopedAStatus::fromServiceSpecificError(
-                static_cast<int32_t>(Result::FAILURE_INVALID_STATE));
+          return ScopedAStatus::ok();
     }
     if (ioctl(mHdmiFd, HDMI_IOC_SET_HPD, &hpdInfo) < 0)
          LOGE("%s, port:%d, error: (%s)!\n", __FUNCTION__, portId, strerror(errno));
@@ -137,16 +135,14 @@ ScopedAStatus HdmiConnection::getHpdSignal(int32_t portId, HpdSignal* _aidl_retu
 
     if (portId > mTotalPorts) {
         ALOGD("%s, invalid port id:%d port size:%d", __FUNCTION__, portId, mTotalPorts);
-        return ScopedAStatus::fromServiceSpecificError(
-                static_cast<int32_t>(Result::FAILURE_INVALID_ARGS));
+        return ScopedAStatus::ok();
     }
     if (mHdmiFd < 0) {
         mHdmiFd = open(HDMIRX_DEV_PATH, O_RDWR);
     }
     if (mHdmiFd < 0) {
           ALOGE("%s, Open file %s error: (%s)!\n", __FUNCTION__, HDMIRX_DEV_PATH, strerror(errno));
-          return ScopedAStatus::fromServiceSpecificError(
-                static_cast<int32_t>(Result::FAILURE_INVALID_STATE));
+          return ScopedAStatus::ok();
     }
     if (ioctl(mHdmiFd, HDMI_IOC_GET_HPD, &hpdInfo) < 0)
         LOGE("%s, port:%d, error: (%s)!\n", __FUNCTION__, portId, strerror(errno));
@@ -162,7 +158,8 @@ HdmiConnection::HdmiConnection() {
     mHdmiCecControl = std::make_shared<HdmiCecControl>(HDMI_EVENT_HOT_PLUG);
 
     getPortInfo(&mPortInfos);
-
+    mTotalPorts = mPortInfos.size();
+    ALOGI("%s port size:%d", __FUNCTION__, mTotalPorts);
     mPortConnectionStatus.resize(mTotalPorts, false);
     mHpdSignal.resize(mTotalPorts, HpdSignal::HDMI_HPD_PHYSICAL);
     mTxHpdSignal = HpdSignal::HDMI_HPD_PHYSICAL;
