@@ -386,12 +386,37 @@ bool Sensor::isNeedRestart(uint32_t width, uint32_t height, uint32_t pixelformat
     return false;
 }
 
+static bool findSOI(uint8_t* in_src, uint32_t in_size, int& offset) {
+    offset = 0;
+    if (in_size != 0) {
+        while (offset < in_size - 1) {
+            if (in_src[offset] == 0xFF && in_src[offset + 1] == 0xD8)
+                return true;
+        offset++;
+        }
+    }
+    ALOGD("%s: not find SOI", __FUNCTION__);
+    return false;
+}
+
+static bool findEOI(uint8_t* in_src, uint32_t in_size) {
+    uint8_t EOI[] = {0xff, 0xd9};
+    if (in_size != 0) {
+        for (size_t i = 0; i <= in_size - sizeof(EOI); i++) {
+            if (memcmp(in_src + i, EOI, sizeof(EOI)) == 0) {
+                return true;
+            }
+        }
+    }
+    ALOGD("%s: not find EOI", __FUNCTION__);
+    return false;
+}
+
 static bool checkMjpegData(uint8_t* in_src, uint32_t in_size, uint32_t in_width, uint32_t in_height, bool needCheckMjpeg)
 {
-    if (in_src[0] == 0xff && in_src[1] == 0xd8 &&
-        in_src[in_size-2] == 0xff && in_src[in_size-1] == 0xd9) {
+    int offset = 0;
+    if (findSOI(in_src, in_size, offset) && findEOI(in_src, in_size)) {
         if (needCheckMjpeg) {
-            int offset = 0;
             int width = 0;
             int height = 0;
             ALOGD("%s: in_width: %d, in_height: %d", __FUNCTION__, in_width, in_height);
