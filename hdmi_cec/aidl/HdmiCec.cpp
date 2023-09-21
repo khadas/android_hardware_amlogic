@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#define LOG_TAG "hdmicecd"
+#define LOG_TAG "HdmiCec"
 #include <android-base/logging.h>
 #include <fcntl.h>
 #include <utils/Log.h>
@@ -34,12 +34,11 @@ namespace implementation {
 
 void HdmiCec::serviceDied(void* cookie) {
     ALOGE("HdmiCec client died %p", cookie);
-    HdmiCec* cec = static_cast<HdmiCec*>(cookie);
-    if (cec == nullptr) {
-        ALOGD("cec null");
+    if (cookie == nullptr) {
         return;
     }
-    cec->mCallback = nullptr;
+    HdmiCec* hdmicec = static_cast<HdmiCec*>(cookie);
+    hdmicec->handleBinderDied();
 }
 
 ScopedAStatus HdmiCec::addLogicalAddress(CecLogicalAddress addr, Result* _aidl_return) {
@@ -83,18 +82,27 @@ ScopedAStatus HdmiCec::sendMessage(const CecMessage& message, SendMessageResult*
         msg.body[i] = static_cast<unsigned char>(message.body[i]);
     }
     *_aidl_return = static_cast<SendMessageResult>(mHdmiCecControl->sendMessage(&msg));
-
     return ScopedAStatus::ok();
 }
 
 ScopedAStatus HdmiCec::setCallback(const std::shared_ptr<IHdmiCecCallback>& callback) {
-    // If callback is null, mCallback is also set to null so we do not call the old callback.
-    mCallback = callback;
-    mHdmiCecControl->setEventObserver(new HdmiCecCallback(this));
-
-    if (callback != nullptr) {
-        AIBinder_linkToDeath(callback->asBinder().get(), mDeathRecipient.get(), this);
+    if (callback == nullptr) {
+        ALOGE("%s callback is null!", __FUNCTION__);
+        return ScopedAStatus::ok();
     }
+    if (mIsVendorCallback) {
+        ALOGD("%s set the specific vendor callback", __FUNCTION__);
+        mVendorCallback = callback;
+        mHdmiCecControl->setVendorEventObserver(new HdmiCecVendorCallback(this));
+        mIsVendorCallback = false;
+        return ScopedAStatus::ok();
+    }
+    pid_t pid = AIBinder_getCallingPid();
+    ALOGD("%s pid:%d with current callback size:%d", __FUNCTION__, pid, mCallbackSize);
+
+    AIBinder_linkToDeath(callback->asBinder().get(), mDeathRecipient.get(), this);
+    mCallbackSize++;
+    mCallbackMap[pid] = callback;
     return ScopedAStatus::ok();
 }
 
@@ -109,6 +117,11 @@ ScopedAStatus HdmiCec::setLanguage(const std::string& language) {
     int convertedLanguage = ((languageStr[0] & 0xFF) << 16) | ((languageStr[1] & 0xFF) << 8) |
                             (languageStr[2] & 0xFF);
     ALOGI("setLanguage %2x", convertedLanguage);
+
+    if (language == LANG_VENDOR_CALLBACK) {
+        ALOGD("%s going to set vendor callback", __FUNCTION__);
+        mIsVendorCallback = true;
+    }
     return ScopedAStatus::ok();
 }
 
@@ -129,9 +142,28 @@ ScopedAStatus HdmiCec::enableSystemCecControl(bool value) {
 
 HdmiCec::HdmiCec() {
     ALOGI("Initlizing CEC HAL");
-    mCallback = nullptr;
     mDeathRecipient = ndk::ScopedAIBinder_DeathRecipient(AIBinder_DeathRecipient_new(serviceDied));
     mHdmiCecControl = std::make_shared<HdmiCecControl>(HDMI_EVENT_CEC_MESSAGE);
+    mHdmiCecControl->setEventObserver(new HdmiCecCallback(this));
+
+    mCallbackSize = 0;
+
+    mVendorCallback = nullptr;
+    mIsVendorCallback = false;
+}
+
+void HdmiCec::handleBinderDied() {
+    ALOGD("%s callback size:%d", __FUNCTION__, mCallbackSize);
+    for (auto it = mCallbackMap.begin(); it != mCallbackMap.end();) {
+        if (!AIBinder_isAlive(it->second->asBinder().get())) {
+            // Remove the key-value pair if the condition is met
+            it = mCallbackMap.erase(it);
+            mCallbackSize--;
+        } else {
+            // Move to the next element
+            ++it;
+        }
+    }
 }
 
 Result HdmiCec::getReturnValue(int result) {
@@ -141,6 +173,19 @@ Result HdmiCec::getReturnValue(int result) {
     return Result::FAILURE_INVALID_STATE;
 }
 
+void HdmiCec::getAidlCecMessage(const hdmi_cec_event_t* cecEvent, CecMessage& message) {
+    size_t length = std::min(static_cast<size_t>(cecEvent->cec.length),
+                             static_cast<size_t>(CEC_MESSAGE_BODY_MAX_LENGTH));
+    message.body.resize(length);
+
+    for (size_t i = 0; i < length; ++i) {
+        message.body[i] = static_cast<uint8_t>(cecEvent->cec.body[i]);
+    }
+
+    message.initiator = static_cast<CecLogicalAddress>(cecEvent->cec.initiator);
+    message.destination = static_cast<CecLogicalAddress>(cecEvent->cec.destination);
+}
+
 HdmiCec::HdmiCecCallback::HdmiCecCallback(HdmiCec* hdmiCec) {
     mHdmiCec = hdmiCec;
 }
@@ -148,25 +193,41 @@ HdmiCec::HdmiCecCallback::HdmiCecCallback(HdmiCec* hdmiCec) {
 void HdmiCec::HdmiCecCallback::onEventUpdate(const hdmi_cec_event_t* cecEvent)
 {
     if (cecEvent == nullptr) return;
-    if (mHdmiCec->mCallback == nullptr) {
+    if (mHdmiCec->mCallbackSize == 0) {
         ALOGI("no cec callback exists");
         return;
     }
+    //ALOGI("%s event type:%d callback size:%d", __FUNCTION__, cecEvent->eventType,
+    //    mHdmiCec->mCallbackSize);
 
-    if ((cecEvent->eventType & HDMI_EVENT_CEC_MESSAGE) != 0) {
+    if (cecEvent->eventType == HDMI_EVENT_CEC_MESSAGE) {
         CecMessage message;
-        size_t length = std::min(static_cast<size_t>(cecEvent->cec.length),
-                                 static_cast<size_t>(CEC_MESSAGE_BODY_MAX_LENGTH));
-        message.body.resize(length);
+        mHdmiCec->getAidlCecMessage(cecEvent, message);
 
-        for (size_t i = 0; i < length; ++i) {
-            message.body[i] = static_cast<uint8_t>(cecEvent->cec.body[i]);
+        for (const auto& pair : mHdmiCec->mCallbackMap) {
+            if (pair.second != nullptr) {
+                pair.second->onCecMessage(message);
+            }
         }
+    }
+}
 
-        message.initiator = static_cast<CecLogicalAddress>(cecEvent->cec.initiator);
-        message.destination = static_cast<CecLogicalAddress>(cecEvent->cec.destination);
+HdmiCec::HdmiCecVendorCallback::HdmiCecVendorCallback(HdmiCec* hdmiCec) {
+    mHdmiCec = hdmiCec;
+}
 
-        mHdmiCec->mCallback->onCecMessage(message);
+void HdmiCec::HdmiCecVendorCallback::onEventUpdate(const hdmi_cec_event_t* cecEvent)
+{
+    if (cecEvent == nullptr) return;
+    if (mHdmiCec->mVendorCallback == nullptr) {
+        ALOGI("no vendor cec callback exists");
+        return;
+    }
+
+    if (cecEvent->eventType == HDMI_EVENT_VENDOR_MESSAGE) {
+        CecMessage message;
+        mHdmiCec->getAidlCecMessage(cecEvent, message);
+        mHdmiCec->mVendorCallback->onCecMessage(message);
     }
 }
 

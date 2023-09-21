@@ -43,14 +43,12 @@ void HdmiCecBase::printCecMsgBuf(const char *msg_buf, int len)
 void HdmiCecBase::printCecEvent(const hdmi_cec_event_t *event)
 {
     if (((event->eventType & HDMI_EVENT_CEC_MESSAGE) != 0)
-            || ((event->eventType & HDMI_EVENT_RECEIVE_MESSAGE) != 0)) {
+            || ((event->eventType & HDMI_EVENT_VENDOR_MESSAGE) != 0)) {
         LOGD("%s, eventType: %d", __FUNCTION__, event->eventType);
         printCecMessage(&event->cec);
     } else if ((event->eventType & HDMI_EVENT_HOT_PLUG) != 0) {
         LOGD("%s, hotplug, connected:%d, port_id:%d", __FUNCTION__, event->hotplug.connected,
                 event->hotplug.port_id);
-    } else if ((event->eventType & HDMI_EVENT_ADD_LOGICAL_ADDRESS) != 0) {
-        LOGD("%s, add logical address, logicalAddress:%x", __FUNCTION__, event->logicalAddress);
     }
 }
 
@@ -101,11 +99,9 @@ const char* HdmiCecBase::getEventType(int eventType)
             return "cec message";
         case HDMI_EVENT_HOT_PLUG:
             return "hotplug message";
-        case HDMI_EVENT_ADD_LOGICAL_ADDRESS:
-            return "add logical address for extend";
-        case HDMI_EVENT_RECEIVE_MESSAGE:
+        case HDMI_EVENT_VENDOR_MESSAGE:
             return "cec message for extend";
-        case (HDMI_EVENT_CEC_MESSAGE | HDMI_EVENT_RECEIVE_MESSAGE):
+        case (HDMI_EVENT_CEC_MESSAGE | HDMI_EVENT_VENDOR_MESSAGE):
             return "cec message for system and extend";
         default:
             return "unknown message";

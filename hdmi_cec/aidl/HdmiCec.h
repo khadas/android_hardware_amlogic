@@ -17,6 +17,7 @@
 #include <aidl/android/hardware/tv/hdmi/cec/BnHdmiCec.h>
 #include <algorithm>
 #include <vector>
+#include <unordered_map>
 
 #include "HdmiCecControl.h"
 
@@ -65,13 +66,34 @@ struct HdmiCec : public BnHdmiCec {
         HdmiCec* mHdmiCec;
     };
 
+    class HdmiCecVendorCallback : public HdmiCecEventListener {
+    public:
+      HdmiCecVendorCallback(HdmiCec* hdmiCec);
+      ~HdmiCecVendorCallback(){}
+      virtual void onEventUpdate(const hdmi_cec_event_t* event);
+
+    private:
+      HdmiCec* mHdmiCec;
+    };
+
   private:
     static void serviceDied(void* cookie);
+    void handleBinderDied();
     Result getReturnValue(int result);
+    void getAidlCecMessage(const hdmi_cec_event_t* cecEvent, CecMessage& message);
 
     ::ndk::ScopedAIBinder_DeathRecipient mDeathRecipient;
 
-    std::shared_ptr<IHdmiCecCallback> mCallback;
+    int mCallbackSize;
+    // Record the pid of each callback client
+    unordered_map<int, shared_ptr<IHdmiCecCallback>> mCallbackMap;
+
+    // Used to save the callback set by the specific vendor app.
+    shared_ptr<IHdmiCecCallback> mVendorCallback;
+    // As there is no flag used to differentiate from the one set by system_server,
+    // it's used in setOsdName method to be a flag.
+    bool mIsVendorCallback;
+
     std::shared_ptr<android::HdmiCecControl> mHdmiCecControl;
 
 };

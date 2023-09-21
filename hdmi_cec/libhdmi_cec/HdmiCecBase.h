@@ -40,13 +40,9 @@ enum {
 };
 
 enum hdmi_cec_event_type {
-    HDMI_EVENT_ADD_LOGICAL_ADDRESS = 0x04,
-    HDMI_EVENT_RECEIVE_MESSAGE = 0x08,
+    HDMI_EVENT_VENDOR_MESSAGE = 0x04,
 };
 
-enum hdmi_cec_action_type {
-    HDMI_ACTION_SET_MENU_LANGUAGE = 1,
-};
 
 typedef struct hdmi_cec_event {
     int eventType;

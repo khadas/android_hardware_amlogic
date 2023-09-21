@@ -132,6 +132,9 @@ HdmiCecControl::HdmiCecControl(int event)
     mCecDevice.hdmi_cfg_init = false;
     mCecEvent = event;
     getDeviceTypes();
+    mCachedRoutingEvent = NULL;
+    mVendorEventListener = NULL;
+    mWakeEnabled = 1;
 
     int index = 0;
     mCecDevice.added_phy_addr = new int[CEC_ADDR_BROADCAST];
@@ -221,10 +224,6 @@ int HdmiCecControl::readCecMessage()
 
     printCecMsgBuf((const char*)msgBuf, r);
 
-    if (!mCecDevice.is_cec_enabled) {
-        return 0;
-    }
-
     hdmi_cec_event_t event;
     memset(event.cec.body, 0, sizeof(event.cec.body));
     memcpy(event.cec.body, msgBuf + 1, r - 1);
@@ -239,6 +238,11 @@ int HdmiCecControl::readCecMessage()
 
     messageValidateAndHandle(&event);
     handleOTPMsg(&event);
+
+    if (!mCecDevice.is_cec_enabled) {
+        return 0;
+    }
+
     if (mEventListener != NULL && event.eventType != 0) {
         mEventListener->onEventUpdate(&event);
     }
@@ -349,14 +353,18 @@ void HdmiCecControl::setOption(int flag, int value)
     int ret = -1;
     switch (flag) {
         case HDMI_OPTION_ENABLE_CEC:
-            ret = ioctl(mCecDevice.driver_fd, CEC_IOC_SET_OPTION_ENABLE_CEC, value);
             mCecDevice.is_cec_enabled = (value == 1);
             if (mCecDevice.is_cec_enabled) {
                 mCecDevice.is_cec_controlled = true;
             }
+            if (handleCecEnabled(value)) {
+                return;
+            }
+            ret = ioctl(mCecDevice.driver_fd, CEC_IOC_SET_OPTION_ENABLE_CEC, value);
             break;
 
         case HDMI_OPTION_WAKEUP:
+            mWakeEnabled = value;
             ret = ioctl(mCecDevice.driver_fd, CEC_IOC_SET_OPTION_WAKEUP, value);
             break;
 
@@ -523,6 +531,21 @@ bool HdmiCecControl::assertHdmiCecDevice()
 void HdmiCecControl::setEventObserver(const sp<HdmiCecEventListener> &eventListener)
 {
     mEventListener = eventListener;
+}
+
+void HdmiCecControl::setVendorEventObserver(const sp<HdmiCecEventListener> &eventListener)
+{
+    LOGD("%s", __FUNCTION__);
+    mVendorEventListener = eventListener;
+    if (mCachedRoutingEvent != NULL) {
+        LOGD("Send cached routing message");
+        mVendorEventListener->onEventUpdate(mCachedRoutingEvent);
+    }
+    if (!mCecDevice.is_cec_enabled) {
+        handleCecEnabled(0);
+        int ret = ioctl(mCecDevice.driver_fd, CEC_IOC_SET_OPTION_ENABLE_CEC, 1);
+        LOGD("Enable cec driver again with vendor callback is set. ret:%d", ret);
+    }
 }
 
 int HdmiCecControl::sendMessage(int source, int destination, int length, unsigned char body[])
@@ -819,6 +842,9 @@ void HdmiCecControl::handleOTPMsg(hdmi_cec_event_t* event)
         mCecDevice.active_logical_addr = (int)(event->cec.initiator);
         mCecDevice.active_routing_path = ((event->cec.body[1] & 0xff) << 8) + (event->cec.body[2] & 0xff);
     }
+
+    // Update active state in the case of receiving routing messages.
+    updateActiveState(&(event->cec), true);
 }
 
 void HdmiCecControl::handleSetMenuLanguage(hdmi_cec_event_t* event)
@@ -943,6 +969,9 @@ void HdmiCecControl::sendOneTouchPlay(int logicalAddress) {
     message.body[3] = logicalAddress & 0xff;
     send(&message);
 
+    // Update active state in case of boot one touch play.
+    updateActiveState(&message, false);
+
     if (++mBootOtpCount < BOOT_OTP_RETRY_COUNT) {
         CMessage message;
         message.mType = HdmiCecControl::MsgHandler::MSG_ONE_TOUCH_PLAY;
@@ -1023,6 +1052,10 @@ int HdmiCecControl::preHandleOfSend(const cec_message_t* message)
         case CEC_MESSAGE_TEXT_VIEW_ON:
         case CEC_MESSAGE_IMAGE_VIEW_ON:
         case CEC_MESSAGE_ACTIVE_SOURCE: {
+            if (opcode == CEC_MESSAGE_ACTIVE_SOURCE) {
+                // Update active state in case of common one touch play.
+                updateActiveState(message, false);
+            }
             // The android framework has not taken this senario into consideration, we have to do the supplement
             // filter work in hal. It works when the playback powers down just after it wakes up.
             if (mCecDevice.is_playback && !mCecDevice.is_cec_controlled) {
@@ -1115,5 +1148,79 @@ void HdmiCecControl::initCecWakeupInfo()
             mCecDevice.cec_wake_status.wake_device_logical_addr,
             mCecDevice.cec_wake_status.wake_device_phy_addr);
 }
+
+bool HdmiCecControl::handleCecEnabled(int enabled) {
+    if (!mCecDevice.is_playback || mVendorEventListener == NULL) {
+        return false;
+    }
+    if (enabled == 1) {
+        // cec enabled
+        setOption(HDMI_OPTION_WAKEUP, mWakeEnabled);
+        return false;
+    }
+    // cec disabled
+    setOption(HDMI_OPTION_WAKEUP, 0);
+    LOGI("abort notify driver cec disabled");
+    return true;
+}
+
+void HdmiCecControl::updateActiveState(const cec_message_t* message, bool received) {
+    if (!mCecDevice.is_playback) {
+        return;
+    }
+
+    int path = 0;
+    int size = message->length;
+    int opcode = message->body[0];
+    bool updated  = false;
+    int value = 0;
+
+    if (received) {
+        // handle received routing messages
+        switch (opcode) {
+            case CEC_MESSAGE_SET_STREAM_PATH:
+            case CEC_MESSAGE_ROUTING_CHANGE:
+            case CEC_MESSAGE_ACTIVE_SOURCE: {
+                path = ((message->body[size - 2] & 0xff) << 8) + (message->body[size - 1] & 0xff);
+                value = path == mCecDevice.phy_addr ? ACTIVENESS_STATE_ON : ACTIVENESS_STATE_OFF;
+                LOGD("%s received messag:%x active state:%d", __FUNCTION__, opcode, value);
+                updated = true;
+                break;
+            case CEC_MESSAGE_STANDBY:
+                value = ACTIVENESS_STATE_OFF;
+                LOGD("%s received standby message!", __FUNCTION__);
+                updated = true;
+                break;
+            }
+        }
+    } else {
+        switch (opcode) {
+            case CEC_MESSAGE_ACTIVE_SOURCE: {
+                value = ACTIVENESS_STATE_ON;
+                LOGD("%s sending messag:%x active state:%d", __FUNCTION__, opcode, value);
+                updated = true;
+                break;
+            }
+        }
+    }
+
+    if (updated) {
+        hdmi_cec_event_t event;
+        event.eventType = HDMI_EVENT_VENDOR_MESSAGE;
+        event.cec.initiator = CEC_ADDR_RESERVED_1;
+        event.cec.destination = CEC_ADDR_BROADCAST;
+        event.cec.length = 3;
+        event.cec.body[0] = CEC_MESSAGE_VENDOR_COMMAND;
+        event.cec.body[1] = VENDOR_CMD_ACTIVENESS;
+        event.cec.body[2] = value;
+
+        if (mVendorEventListener != NULL) {
+            mVendorEventListener->onEventUpdate(&event);
+        } else {
+            mCachedRoutingEvent = &event;
+        }
+    }
+}
+
 
 };//namespace android

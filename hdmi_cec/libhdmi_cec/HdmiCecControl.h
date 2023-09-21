@@ -92,6 +92,11 @@
 
 #define SEND_MESSAGE_RETRY_HAL          2
 
+#define ACTIVENESS_STATE_ON             1
+#define ACTIVENESS_STATE_OFF            0
+#define VENDOR_CMD_ACTIVENESS           1
+#define LANG_VENDOR_CALLBACK            "aml"
+
 
 namespace android {
 
@@ -179,6 +184,7 @@ public:
     virtual bool isConnected(int port);
 
     void setEventObserver(const sp<HdmiCecEventListener> &eventListener);
+    void setVendorEventObserver(const sp<HdmiCecEventListener> &eventListener);
 
 protected:
     class MsgHandler: public CMsgQueueThread {
@@ -235,14 +241,22 @@ private:
     bool isSourceDevice(int logicalAddress);
     void bootOneTouchPlay();
 
+    bool handleCecEnabled(int enabled);
+        // Return the physical address in routing message or 0.
+    void updateActiveState(const cec_message_t* message, bool received);
+
+
     hdmi_device_t mCecDevice;
     sp<HdmiCecBusMonitor> mMonitor;
     sp<HdmiCecEventHandler> mHdmiCecEventHandler;
     sp<HdmiCecEventListener> mEventListener;
+    sp<HdmiCecEventListener> mVendorEventListener;
     sp<MsgHandler> mMsgHandler;
     mutable Mutex mLock;
     int mCecEvent;
     int mBootOtpCount;
+    int mWakeEnabled;
+    hdmi_cec_event_t* mCachedRoutingEvent;
 };
 
 
