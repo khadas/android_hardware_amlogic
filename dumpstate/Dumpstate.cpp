@@ -356,7 +356,7 @@ void Dumpstate::dumpstateBoardOfMedia(int fd, int64_t maxtime) {
 
     if (fd > 0) {
         RunCommandToFd(fd, "Dump Drm info", { "drminfo" });
-        RunCommandToFd(fd, "Dump Decoder Status", { "cat", "/sys/class/dec_report/status" });
+        DumpFileToFd(fd, "Dump Decoder Status", "/sys/class/dec_report/status");
         DumpFileToFd(fd, "Notify Media Service Event", "/sys/class/resource_mgr/res_report");
         elapsed = Nanotime() / NANOS_PER_SEC - start;
         rest = maxtime - elapsed;
