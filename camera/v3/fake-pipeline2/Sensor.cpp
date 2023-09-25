@@ -1725,6 +1725,8 @@ int Sensor::getStreamConfigurationDurations(uint32_t picSizes[], int64_t duratio
                         if ( fival.discrete.numerator != 0) temp_rate = fival.discrete.denominator/fival.discrete.numerator;
                         if(framerate < temp_rate)
                             framerate = temp_rate;
+                        if (framerate > 30)
+                            framerate = 30;
                         duration[count+0] = (int64_t)(picSizes[size-4]);
                         duration[count+1] = (int64_t)(picSizes[size-3]);
                         duration[count+2] = (int64_t)(picSizes[size-2]);
@@ -1734,6 +1736,8 @@ int Sensor::getStreamConfigurationDurations(uint32_t picSizes[], int64_t duratio
                         if ( fival.discrete.numerator != 0) temp_rate = fival.discrete.denominator/fival.discrete.numerator;
                         if(framerate < temp_rate)
                             framerate = temp_rate;
+                        if (framerate > 30)
+                            framerate = 30;
                         duration[count+0] = (int64_t)picSizes[size-4];
                         duration[count+1] = (int64_t)picSizes[size-3];
                         duration[count+2] = (int64_t)picSizes[size-2];
@@ -1743,6 +1747,8 @@ int Sensor::getStreamConfigurationDurations(uint32_t picSizes[], int64_t duratio
                         if ( fival.discrete.numerator != 0) temp_rate = fival.discrete.denominator/fival.discrete.numerator;
                         if(framerate < temp_rate)
                             framerate = temp_rate;
+                        if (framerate > 30)
+                            framerate = 30;
                         duration[count+0] = (int64_t)picSizes[size-4];
                         duration[count+1] = (int64_t)picSizes[size-3];
                         duration[count+2] = (int64_t)picSizes[size-2];
