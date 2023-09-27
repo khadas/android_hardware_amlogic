@@ -298,18 +298,18 @@ bool EmulatedCameraHotplugThread::createFileIfNotExists(int cameraId) const
     String8 filePath = getFilePath(cameraId);
     // make sure this file exists and we have access to it
     int fd = TEMP_FAILURE_RETRY(
-                open(filePath.string(), O_WRONLY | O_CREAT | O_TRUNC,
+                open(filePath.c_str(), O_WRONLY | O_CREAT | O_TRUNC,
                      /* mode = ug+rwx */ S_IRWXU | S_IRWXG ));
     if (fd == -1) {
         ALOGE("%s: Could not create file '%s', error: '%s' (%d)",
-             __FUNCTION__, filePath.string(), strerror(errno), errno);
+             __FUNCTION__, filePath.c_str(), strerror(errno), errno);
         return false;
     }
 
     // File has '1' by default since we are plugged in by default
     if (TEMP_FAILURE_RETRY(write(fd, "1\n", /*count*/2)) == -1) {
         ALOGE("%s: Could not write '1' to file '%s', error: '%s' (%d)",
-             __FUNCTION__, filePath.string(), strerror(errno), errno);
+             __FUNCTION__, filePath.c_str(), strerror(errno), errno);
         TEMP_FAILURE_RETRY(close(fd));
         return false;
     }
@@ -359,12 +359,12 @@ bool EmulatedCameraHotplugThread::addWatch(int cameraId) {
     int wd = 0;
 #if 0
     int wd = inotify_add_watch(mInotifyFd,
-                               camPath.string(),
+                               camPath.c_str(),
                                IN_CLOSE_WRITE);
 
     if (wd == -1) {
         ALOGE("%s: Could not add watch for '%s', error: '%s' (%d)",
-             __FUNCTION__, camPath.string(), strerror(errno),
+             __FUNCTION__, camPath.c_str(), strerror(errno),
              errno);
 
         mRunning = false;
@@ -414,10 +414,10 @@ bool EmulatedCameraHotplugThread::removeWatch(int cameraId) {
 int EmulatedCameraHotplugThread::readFile(String8 filePath) const {
 
     int fd = TEMP_FAILURE_RETRY(
-                open(filePath.string(), O_RDONLY, /*mode*/0));
+                open(filePath.c_str(), O_RDONLY, /*mode*/0));
     if (fd == -1) {
         ALOGE("%s: Could not open file '%s', error: '%s' (%d)",
-             __FUNCTION__, filePath.string(), strerror(errno), errno);
+             __FUNCTION__, filePath.c_str(), strerror(errno), errno);
         return -1;
     }
 
@@ -430,7 +430,7 @@ int EmulatedCameraHotplugThread::readFile(String8 filePath) const {
     int retval;
 
     ALOGV("%s: Read file '%s', length='%d', buffer='%c'",
-         __FUNCTION__, filePath.string(), length, buffer[0]);
+         __FUNCTION__, filePath.c_str(), length, buffer[0]);
 
     if (length == 0) { // EOF
         retval = 0; // empty file is the same thing as 0

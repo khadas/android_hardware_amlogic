@@ -2848,7 +2848,7 @@ void Sensor::dump(int fd) {
     result.appendFormat("camera preview format: %.4s\n\n",
             (char *) &vinfo->preview.format.fmt.pix.pixelformat);
 
-    write(fd, result.string(), result.size());
+    write(fd, result.c_str(), result.size());
 }
 
 } // namespace android

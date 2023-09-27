@@ -488,10 +488,10 @@ char* EmulatedCamera::getParameters()
         reinterpret_cast<char*>(malloc(sizeof(char) * (params.length()+1)));
     memset(ret_str, 0, params.length()+1);
     if (ret_str != NULL) {
-        strncpy(ret_str, params.string(), params.length()+1);
+        strncpy(ret_str, params.c_str(), params.length()+1);
         return ret_str;
     } else {
-        ALOGE("%s: Unable to allocate string for %s", __FUNCTION__, params.string());
+        ALOGE("%s: Unable to allocate string for %s", __FUNCTION__, params.c_str());
         /* Apparently, we can't return NULL fron this routine. */
         return &lNoParam;
     }

@@ -1678,7 +1678,7 @@ void EmulatedFakeCamera3::dump(int fd) {
         result.appendFormat("!!!!!!!!!camera apk may have no picture out\n");
     }
 
-    write(fd, result.string(), result.size());
+    write(fd, result.c_str(), result.size());
 
     if (mSensor.get() != NULL) {
         mSensor->dump(fd);
