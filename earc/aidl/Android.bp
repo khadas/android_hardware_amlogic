@@ -65,4 +65,8 @@ cc_binary {
         "android.hardware.tv.hdmi.earc-V1-ndk",
         "libamaudioutils",
     ],
+
+    header_libs: [
+        "libamaudioutils_headers",
+    ],
 }
