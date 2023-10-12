@@ -197,6 +197,7 @@ protected:
         static const int MSG_PROCESS_CEC_WAKEUP =       6;
         static const int MSG_USER_CONTROL_PRESSED =     7;
         static const int MSG_REPORT_PHYSICAL_ADDRESS =  8;
+        static const int MSG_MAY_SEND_SET_STREAM_PATH = 9;
 
         MsgHandler(HdmiCecControl *hdmiControl);
         ~MsgHandler();
@@ -245,6 +246,8 @@ private:
         // Return the physical address in routing message or 0.
     void updateActiveState(const cec_message_t* message, bool received);
 
+    void updateActiveStateForFramework();
+    void maySendSetStreamPath();
 
     hdmi_device_t mCecDevice;
     sp<HdmiCecBusMonitor> mMonitor;
@@ -257,6 +260,7 @@ private:
     int mBootOtpCount;
     int mWakeEnabled;
     hdmi_cec_event_t* mCachedRoutingEvent;
+    bool mIsFirstBoot;
 };
 
 

@@ -87,7 +87,10 @@ void HdmiCecControl::MsgHandler::handleMessage (CMessage &msg)
             break;
         case HdmiCecControl::MsgHandler::MSG_PROCESS_CEC_WAKEUP:
             mControl->processCecWakeup();
-        break;
+            break;
+        case HdmiCecControl::MsgHandler::MSG_MAY_SEND_SET_STREAM_PATH:
+            mControl->maySendSetStreamPath();
+            break;
     }
 }
 
@@ -135,6 +138,7 @@ HdmiCecControl::HdmiCecControl(int event)
     mCachedRoutingEvent = NULL;
     mVendorEventListener = NULL;
     mWakeEnabled = 1;
+    mIsFirstBoot = true;
 
     int index = 0;
     mCecDevice.added_phy_addr = new int[CEC_ADDR_BROADCAST];
@@ -381,6 +385,8 @@ void HdmiCecControl::setOption(int flag, int value)
                 initCecWakeupInfo();
             }
             */
+
+            updateActiveStateForFramework();
             break;
 
         case HDMI_OPTION_SET_LANG:
@@ -980,6 +986,10 @@ void HdmiCecControl::sendOneTouchPlay(int logicalAddress) {
         mMsgHandler->removeMsg(message);
         mMsgHandler->sendMsg(message);
     }
+
+    AutoMutex _l(mLock);
+    mCecDevice.active_logical_addr = logicalAddress;
+    mCecDevice.active_routing_path = physicalAddress;
 }
 
 void HdmiCecControl::checkConnectStatus()
@@ -1223,4 +1233,44 @@ void HdmiCecControl::updateActiveState(const cec_message_t* message, bool receiv
 }
 
 
+void HdmiCecControl::updateActiveStateForFramework() {
+    if (mIsFirstBoot) {
+        mIsFirstBoot = false;
+        CMessage message;
+        message.mType = HdmiCecControl::MsgHandler::MSG_MAY_SEND_SET_STREAM_PATH;
+        message.mDelayMs = 0;
+        mMsgHandler->removeMsg(message);
+        mMsgHandler->sendMsg(message);
+    }
+}
+
+
+void HdmiCecControl::maySendSetStreamPath() {
+    if ((mCecEvent & HDMI_EVENT_CEC_MESSAGE) == 0) {
+        // Hdmi connection hal could also use this cpp.
+        return;
+    }
+    if (!mCecDevice.is_playback || mCecDevice.is_audio_system) {
+        // only do this for a single playback device.
+        return;
+    }
+    if (!getPropertyBoolean(PROPERTY_BOOT_OTP, false)
+            || !getPropertyBoolean(PROPERTY_ONE_TOUCH_PLAY, true)) {
+        return;
+    }
+
+    int physicalAddress = mCecDevice.active_routing_path;
+    hdmi_cec_event_t event;
+    event.eventType = HDMI_EVENT_CEC_MESSAGE;
+    event.cec.initiator = CEC_ADDR_TV;
+    event.cec.destination = CEC_ADDR_BROADCAST;
+    event.cec.length = 3;
+    event.cec.body[0] = CEC_MESSAGE_SET_STREAM_PATH;
+    event.cec.body[1] = (physicalAddress >> 8) & 0xff;;
+    event.cec.body[2] = physicalAddress & 0xff;
+    if (mEventListener != NULL) {
+        LOGD("%s send set stream path message to framework from hal.", __FUNCTION__);
+        mEventListener->onEventUpdate(&event);
+    }
+}
 };//namespace android
