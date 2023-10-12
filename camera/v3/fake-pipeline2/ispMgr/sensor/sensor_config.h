@@ -33,17 +33,25 @@
 
 #include "media-v4l2/mediaApi.h"
 
+#if defined(PREVIEW_DEWARP_ENABLE) || defined(PICTURE_DEWARP_ENABLE)
+#include "dewarp.h"
+#endif
+
 enum sensorType
 {
     sensor_raw,
     sensor_yuv,
     sensor_NULL,
 };
+
 struct sensorConfig {
     ALG_SENSOR_EXP_FUNC_S expFunc;
     void (*cmos_set_sensor_entity)(struct media_entity * sensor_ent, int wdr, int fps);
     void (*cmos_get_sensor_calibration)(struct media_entity *sensor_ent, aisp_calib_info_t *calib);
     void (*cmos_get_sensor_otp_data)(aisp_calib_info_t * otp);
+#if defined(PREVIEW_DEWARP_ENABLE) || defined(PICTURE_DEWARP_ENABLE)
+    void (*cmos_get_sensor_gdc_parameter)(struct sensorConfig *cfg, GDCInParam in_params, struct dewarp_params *dewarp_params);
+#endif
     int sensorWidth;// max width
     int sensorHeight;// max height
     const char* sensorName;

@@ -11,6 +11,8 @@
 #include <utils/Log.h>
 #include <android/log.h>
 
+#include "CamHalDebugLog.h"
+
 #include "sensor_otp.h"
 
 static int g_fd = -1;
@@ -28,7 +30,7 @@ int i2c_init(const char *acDevFile, const int slave_addr)
 
     if (g_fd < 0)
     {
-        ALOGD("i2c open fails %d \n", g_fd);
+        CAMHAL_LOGD("i2c open fails %d \n", g_fd);
         return -1;
     }
 
@@ -40,7 +42,7 @@ int i2c_init(const char *acDevFile, const int slave_addr)
         return ret;
     }
 
-    ALOGD("i2c init \n");
+    CAMHAL_LOGD("i2c init \n");
     return g_fd;
 }
 
@@ -82,7 +84,7 @@ int i2c_write(int addr, int addrType, uint8_t data)
     ret = write(g_fd, buf, addrType + 1);
     if (ret < 0)
     {
-        ALOGE("I2C_WRITE error!\n");
+        CAMHAL_LOGE("I2C_WRITE error!\n");
         return -1;
     }
 
@@ -111,14 +113,14 @@ uint8_t i2c_read(int addr, int addrType)
     ret = write(g_fd, buf, addrType);
     if (ret < 0)
     {
-        ALOGE("I2C_WRITE error!\n");
+        CAMHAL_LOGE("I2C_WRITE error!\n");
         return -1;
     }
 
     ret = read(g_fd, buf, 1);
     if (ret < 0)
     {
-        ALOGE("I2C_READ error!\n");
+        CAMHAL_LOGE("I2C_READ error!\n");
         return -1;
     }
 

@@ -30,12 +30,23 @@
 #include <errno.h>
 #include <cutils/properties.h>
 
+#include "CamHalDebugLog.h"
+
+#if defined(PREVIEW_DEWARP_ENABLE) || defined(PICTURE_DEWARP_ENABLE)
+#include "dewarp.h"
+#endif
+
 #include "sensor_config.h"
 #include "sensor_otp.h"
 
 #include "imx290/imx290_api.h"
 #include "imx415/imx415_api.h"
 #include "ov13b10/ov13b10_api.h"
+#include "ov08a10/ov08a10_api.h"
+#include "ov13855/ov13855_api.h"
+#include "imx378/imx378_api.h"
+#include "imx577/imx577_api.h"
+#include "ov16a1q/ov16a1q_api.h"
 
 #define ARRAY_SIZE(array)   (sizeof(array) / sizeof((array)[0]))
 
@@ -49,6 +60,9 @@ struct sensorConfig imx290Cfg = {
     .cmos_set_sensor_entity = cmos_set_sensor_entity_imx290,
     .cmos_get_sensor_calibration = cmos_get_sensor_calibration_imx290,
     .cmos_get_sensor_otp_data = cmos_get_sensor_otp_data_imx290,
+#if defined(PREVIEW_DEWARP_ENABLE) || defined(PICTURE_DEWARP_ENABLE)
+    .cmos_get_sensor_gdc_parameter = cmos_get_sensor_gdc_parameter_imx290,
+#endif
     .sensorWidth      = 1920,
     .sensorHeight     = 1080,
     .sensorName       = "imx290",
@@ -58,6 +72,7 @@ struct sensorConfig imx290Cfg = {
     .type             = sensor_raw,
     .otpDevAddr       = 0x00,
 };
+
 struct sensorConfig imx415Cfg = {
     .expFunc.pfn_cmos_fps_set = cmos_fps_set_imx415,
     .expFunc.pfn_cmos_get_alg_default = cmos_get_ae_default_imx415,
@@ -67,6 +82,9 @@ struct sensorConfig imx415Cfg = {
     .expFunc.pfn_cmos_inttime_calc_table = cmos_inttime_calc_table_imx415,
     .cmos_set_sensor_entity = cmos_set_sensor_entity_imx415,
     .cmos_get_sensor_calibration = cmos_get_sensor_calibration_imx415,
+#if defined(PREVIEW_DEWARP_ENABLE) || defined(PICTURE_DEWARP_ENABLE)
+    .cmos_get_sensor_gdc_parameter = cmos_get_sensor_gdc_parameter_imx415,
+#endif
     .sensorWidth      = 3840,
     .sensorHeight     = 2160,
     .sensorName       = "imx415",
@@ -85,6 +103,9 @@ struct sensorConfig ov13b10Cfg = {
     .expFunc.pfn_cmos_inttime_calc_table = cmos_inttime_calc_table_ov13b10,
     .cmos_set_sensor_entity = cmos_set_sensor_entity_ov13b10,
     .cmos_get_sensor_calibration = cmos_get_sensor_calibration_ov13b10,
+#if defined(PREVIEW_DEWARP_ENABLE) || defined(PICTURE_DEWARP_ENABLE)
+    .cmos_get_sensor_gdc_parameter = cmos_get_sensor_gdc_parameter_ov13b10,
+#endif
     .sensorWidth      = 4208,
     .sensorHeight     = 3120,
     .sensorName       = "ov13b10",
@@ -98,9 +119,73 @@ struct sensorConfig ov13b10Cfg = {
     .otpDevWbAddr     = 0x191b,
 };
 
+struct sensorConfig ov16a1qCfg = {
+    .expFunc.pfn_cmos_fps_set = cmos_fps_set_ov16a1q,
+    .expFunc.pfn_cmos_get_alg_default = cmos_get_ae_default_ov16a1q,
+    .expFunc.pfn_cmos_alg_update = cmos_alg_update_ov16a1q,
+    .expFunc.pfn_cmos_again_calc_table = cmos_again_calc_table_ov16a1q,
+    .expFunc.pfn_cmos_dgain_calc_table = cmos_dgain_calc_table_ov16a1q,
+    .expFunc.pfn_cmos_inttime_calc_table = cmos_inttime_calc_table_ov16a1q,
+    .cmos_set_sensor_entity = cmos_set_sensor_entity_ov16a1q,
+    .cmos_get_sensor_calibration = cmos_get_sensor_calibration_ov16a1q,
+#if defined(PREVIEW_DEWARP_ENABLE) || defined(PICTURE_DEWARP_ENABLE)
+    .cmos_get_sensor_gdc_parameter = cmos_get_sensor_gdc_parameter_ov16a1q,
+#endif
+    .sensorWidth      = 2304,
+    .sensorHeight     = 1748,
+    .sensorName       = "ov16a1q",
+    .wdrFormat        = MEDIA_BUS_FMT_SBGGR10_1X10,
+    .sdrFormat        = MEDIA_BUS_FMT_SBGGR10_1X10,
+    .sdrFormat60HZ        = MEDIA_BUS_FMT_SBGGR10_1X10,
+    .type             = sensor_raw,
+};
+
+
+struct sensorConfig ov08a10Cfg = {
+    .expFunc.pfn_cmos_fps_set = cmos_fps_set_ov08a10,
+    .expFunc.pfn_cmos_get_alg_default = cmos_get_ae_default_ov08a10,
+    .expFunc.pfn_cmos_alg_update = cmos_alg_update_ov08a10,
+    .expFunc.pfn_cmos_again_calc_table = cmos_again_calc_table_ov08a10,
+    .expFunc.pfn_cmos_dgain_calc_table = cmos_dgain_calc_table_ov08a10,
+    .expFunc.pfn_cmos_inttime_calc_table = cmos_inttime_calc_table_ov08a10,
+    .cmos_set_sensor_entity = cmos_set_sensor_entity_ov08a10,
+    .cmos_get_sensor_calibration = cmos_get_sensor_calibration_ov08a10,
+#if defined(PREVIEW_DEWARP_ENABLE) || defined(PICTURE_DEWARP_ENABLE)
+    .cmos_get_sensor_gdc_parameter = cmos_get_sensor_gdc_parameter_ov08a10,
+#endif
+    .sensorWidth      = 3840,
+    .sensorHeight     = 2160,
+    .sensorName       = "ov08a10",
+    .wdrFormat        = MEDIA_BUS_FMT_SBGGR10_1X10,
+    .sdrFormat        = MEDIA_BUS_FMT_SBGGR10_1X10,
+    .type             = sensor_raw,
+    .otpDevAddr       = 0x00,
+};
+
+struct sensorConfig ov13855Cfg = {
+    .expFunc.pfn_cmos_fps_set = cmos_fps_set_ov13855,
+    .expFunc.pfn_cmos_get_alg_default = cmos_get_ae_default_ov13855,
+    .expFunc.pfn_cmos_alg_update = cmos_alg_update_ov13855,
+    .expFunc.pfn_cmos_again_calc_table = cmos_again_calc_table_ov13855,
+    .expFunc.pfn_cmos_dgain_calc_table = cmos_dgain_calc_table_ov13855,
+    .expFunc.pfn_cmos_inttime_calc_table = cmos_inttime_calc_table_ov13855,
+    .cmos_set_sensor_entity = cmos_set_sensor_entity_ov13855,
+    .cmos_get_sensor_calibration = cmos_get_sensor_calibration_ov13855,
+#if defined(PREVIEW_DEWARP_ENABLE) || defined(PICTURE_DEWARP_ENABLE)
+    .cmos_get_sensor_gdc_parameter = cmos_get_sensor_gdc_parameter_ov13855,
+#endif
+    .sensorWidth      = 4224,
+    .sensorHeight     = 3136,
+    .sensorName       = "ov13855",
+    .wdrFormat        = MEDIA_BUS_FMT_SBGGR10_1X10,
+    .sdrFormat        = MEDIA_BUS_FMT_SBGGR10_1X10,
+    .type             = sensor_raw,
+    .otpDevAddr       = 0x00,
+};
+
 struct sensorConfig ov5640Cfg = {
-    .sensorWidth      = 1920,
-    .sensorHeight     = 1080,
+    .sensorWidth      = 2592,
+    .sensorHeight     = 1944,
     .sensorName       = "ov5640",
     .wdrFormat        = MEDIA_BUS_FMT_YUYV8_2X8,
     .sdrFormat        = MEDIA_BUS_FMT_YUYV8_2X8,
@@ -108,11 +193,71 @@ struct sensorConfig ov5640Cfg = {
     .otpDevAddr       = 0x00,
 };
 
+struct sensorConfig lt6911cCfg = {
+    .sensorWidth      = 1920,
+    .sensorHeight     = 1080,
+    .sensorName       = "lt6911c",
+    .wdrFormat        = MEDIA_BUS_FMT_YUYV8_2X8,
+    .sdrFormat        = MEDIA_BUS_FMT_YUYV8_2X8,
+    .type             = sensor_yuv,
+    .otpDevAddr       = 0x00,
+};
+
+struct sensorConfig imx378Cfg = {
+    .expFunc.pfn_cmos_fps_set = cmos_fps_set_imx378,
+    .expFunc.pfn_cmos_get_alg_default = cmos_get_ae_default_imx378,
+    .expFunc.pfn_cmos_alg_update = cmos_alg_update_imx378,
+    .expFunc.pfn_cmos_again_calc_table = cmos_again_calc_table_imx378,
+    .expFunc.pfn_cmos_dgain_calc_table = cmos_dgain_calc_table_imx378,
+    .expFunc.pfn_cmos_inttime_calc_table = cmos_inttime_calc_table_imx378,
+    .cmos_set_sensor_entity = cmos_set_sensor_entity_imx378,
+    .cmos_get_sensor_calibration = cmos_get_sensor_calibration_imx378,
+    .cmos_get_sensor_otp_data = cmos_get_sensor_otp_data_imx378,
+#if defined(PREVIEW_DEWARP_ENABLE) || defined(PICTURE_DEWARP_ENABLE)
+    .cmos_get_sensor_gdc_parameter = cmos_get_sensor_gdc_parameter_imx378,
+#endif
+    .sensorWidth      = 3840,
+    .sensorHeight     = 2160,
+    .sensorName       = "imx378",
+    .wdrFormat        = MEDIA_BUS_FMT_SRGGB10_1X10,
+    .sdrFormat        = MEDIA_BUS_FMT_SRGGB10_1X10,
+    .sdrFormat60HZ    = MEDIA_BUS_FMT_SGBRG10_1X10,
+    .type             = sensor_raw,
+    .otpDevAddr       = 0x00,
+};
+
+
+struct sensorConfig imx577Cfg = {
+    .expFunc.pfn_cmos_fps_set = cmos_fps_set_imx577,
+    .expFunc.pfn_cmos_get_alg_default = cmos_get_ae_default_imx577,
+    .expFunc.pfn_cmos_alg_update = cmos_alg_update_imx577,
+    .expFunc.pfn_cmos_again_calc_table = cmos_again_calc_table_imx577,
+    .expFunc.pfn_cmos_dgain_calc_table = cmos_dgain_calc_table_imx577,
+    .expFunc.pfn_cmos_inttime_calc_table = cmos_inttime_calc_table_imx577,
+    .cmos_set_sensor_entity = cmos_set_sensor_entity_imx577,
+    .cmos_get_sensor_calibration = cmos_get_sensor_calibration_imx577,
+
+    .sensorWidth      = 4048,
+    .sensorHeight     = 3040,
+    .sensorName       = "imx577",
+    .wdrFormat        = MEDIA_BUS_FMT_SBGGR10_1X10,
+    .sdrFormat        = MEDIA_BUS_FMT_SBGGR10_1X10,
+    .sdrFormat60HZ    = MEDIA_BUS_FMT_SBGGR10_1X10,
+    .type             = sensor_raw,
+    .otpDevAddr       = 0x00,
+};
+
 struct sensorConfig *supportedCfgs[] = {
     &imx290Cfg,
     &imx415Cfg,
     &ov13b10Cfg,
+    &ov16a1qCfg,
+    &ov08a10Cfg,
     &ov5640Cfg,
+    &ov13855Cfg,
+    &lt6911cCfg,
+    &imx378Cfg,
+    &imx577Cfg,
 };
 
 static int log2file(const char* name, const char* fmt, ...)
@@ -127,7 +272,7 @@ static int log2file(const char* name, const char* fmt, ...)
 
     auto fp = fopen(name, "ab+");
     if (!fp) {
-        ALOGE("open file %s fail, error: %s !!!", name, strerror(errno));
+        CAMHAL_LOGE("open file %s fail, error: %s !!!", name, strerror(errno));
         return -1;
     }
     fwrite(buf, 1 , ret, fp);
@@ -142,8 +287,29 @@ LookupTable *GET_LOOKUP_PTR( aisp_calib_info_t *p_cali, uint32_t idx )
         result = p_cali->calibrations[idx];
     } else {
         result = NULL;
-        ALOGE("no find current lut\n");
+        CAMHAL_LOGE("no find current lut\n");
     }
+    return result;
+}
+
+uint32_t _GET_SIZE( aisp_calib_info_t *p_cali, uint32_t idx )
+{
+    uint32_t result = 0;
+    LookupTable *lut = GET_LOOKUP_PTR( p_cali, idx );
+    if ( lut != NULL ) {
+        result = lut->cols * lut->rows * lut->width;
+    }
+    return result;
+}
+
+const void *_GET_LUT_PTR( aisp_calib_info_t *p_ctx, uint32_t idx )
+{
+    const void *result = NULL;
+    LookupTable *lut = GET_LOOKUP_PTR( p_ctx, idx );
+    if ( lut != NULL ) {
+        result = lut->ptr;
+    }
+
     return result;
 }
 
@@ -153,7 +319,7 @@ struct sensorConfig *matchSensorConfig(media_stream_t *stream) {
             return supportedCfgs[i];
         }
     }
-    ALOGE("fail to match sensorConfig");
+    CAMHAL_LOGE("fail to match sensorConfig");
     return nullptr;
 }
 
@@ -163,7 +329,7 @@ struct sensorConfig *matchSensorConfig(const char* sensorEntityName) {
             return supportedCfgs[i];
         }
     }
-    ALOGE("fail to match sensorConfig %s", sensorEntityName);
+    CAMHAL_LOGE("fail to match sensorConfig %s", sensorEntityName);
     return nullptr;
 }
 
@@ -179,12 +345,14 @@ void cmos_sensor_control_cb(struct sensorConfig *cfg, ALG_SENSOR_EXP_FUNC_S *stS
 
 void cmos_set_sensor_entity(struct sensorConfig *cfg, struct media_entity *sensor_ent, int wdr, int fps)
 {
-    (cfg->cmos_set_sensor_entity)(sensor_ent, wdr, fps);
+    if (cfg->cmos_set_sensor_entity)
+        (cfg->cmos_set_sensor_entity)(sensor_ent, wdr, fps);
 }
 
 void cmos_get_sensor_calibration(struct sensorConfig *cfg, struct media_entity * sensor_ent, aisp_calib_info_t *calib)
 {
-    (cfg->cmos_get_sensor_calibration)(sensor_ent, calib);
+    if (cfg->cmos_get_sensor_calibration)
+        (cfg->cmos_get_sensor_calibration)(sensor_ent, calib);
 }
 
 void cmos_get_sensor_otp_data(struct sensorConfig *cfg, aisp_calib_info_t *otp)
@@ -206,26 +374,26 @@ void cmos_get_sensor_otp_data(struct sensorConfig *cfg, aisp_calib_info_t *otp)
 
     if (!lib) {
         char const* err_str = ::dlerror();
-        ALOGE("dlopen: error:%s", (err_str ? err_str : "unknown"));
+        CAMHAL_LOGE("dlopen: error:%s", (err_str ? err_str : "unknown"));
         return;
     }
     auto decompress = (fn_aml_mesh_shading_decompress)::dlsym(lib, "aml_mesh_shading_decompress");
     if (!decompress) {
         char const* err_str = ::dlerror();
-        ALOGE("dlsym: error:%s", (err_str ? err_str : "unknown"));
+        CAMHAL_LOGE("dlsym: error:%s", (err_str ? err_str : "unknown"));
         dlclose(lib);
         return;
     }
     auto rad_decompress = (fn_aml_rad_shading_decompress)::dlsym(lib, "aml_rad_shading_decompress");
     if (!rad_decompress) {
         char const* err_str = ::dlerror();
-        ALOGE("dlsym: error:%s", (err_str ? err_str : "unknown"));
+        CAMHAL_LOGE("dlsym: error:%s", (err_str ? err_str : "unknown"));
         dlclose(lib);
         return;
     }
 
     if (i2c_init(cfg->otpDevNum, cfg->otpDevAddr) < 0) {
-        ALOGE("i2c init fail");
+        CAMHAL_LOGE("i2c init fail");
         return;
     }
     {
@@ -274,7 +442,7 @@ void cmos_get_sensor_otp_data(struct sensorConfig *cfg, aisp_calib_info_t *otp)
             log2file(path, "otp center offset-x %d, offset-y %d\n",
                 _CALIBRATION_LENS_OTP_CENTER_OFFSET[0],
                 _CALIBRATION_LENS_OTP_CENTER_OFFSET[1]);
-            ALOGD("otp center offset-x %d, offset-y %d\n",
+            CAMHAL_LOGD("otp center offset-x %d, offset-y %d\n",
                 _CALIBRATION_LENS_OTP_CENTER_OFFSET[0],
                 _CALIBRATION_LENS_OTP_CENTER_OFFSET[1]);
         }

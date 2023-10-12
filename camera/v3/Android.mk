@@ -32,6 +32,7 @@ DEWARP_ENABLE := true
 else ifeq ($(TARGET_PRODUCT), t7_an400_arm64)
 DEWARP_ENABLE := true
 endif
+
 LOCAL_SHARED_LIBRARIES:= \
     libbinder \
     liblog \
@@ -177,7 +178,8 @@ LOCAL_SRC_FILES := \
     fake-pipeline2/CaptureUseMemcpy.cpp \
     fake-pipeline2/HDMIToCSISensor.cpp \
     fake-pipeline2/HDMISensor.cpp \
-    hdmiutils/HDMIStatus.cpp
+    hdmiutils/HDMIStatus.cpp \
+    CamHalDebugLog.cpp
 
 LOCAL_SRC_FILES += \
     fake-pipeline2/V4l2MediaSensor.cpp \
@@ -192,6 +194,11 @@ LOCAL_SRC_FILES += \
     fake-pipeline2/ispMgr/sensor/imx290/imx290_config.cpp \
     fake-pipeline2/ispMgr/sensor/imx415/imx415_config.cpp \
     fake-pipeline2/ispMgr/sensor/ov13b10/ov13b10_config.cpp \
+    fake-pipeline2/ispMgr/sensor/ov08a10/ov08a10_config.cpp \
+    fake-pipeline2/ispMgr/sensor/ov13855/ov13855_config.cpp \
+    fake-pipeline2/ispMgr/sensor/imx378/imx378_config.cpp \
+    fake-pipeline2/ispMgr/sensor/imx577/imx577_config.cpp \
+    fake-pipeline2/ispMgr/sensor/ov16a1q/ov16a1q_config.cpp \
     fake-pipeline2/ispMgr/lens/lens_config.cpp \
     fake-pipeline2/ispMgr/lens/dw9800w/dw9800w_config.cpp
 

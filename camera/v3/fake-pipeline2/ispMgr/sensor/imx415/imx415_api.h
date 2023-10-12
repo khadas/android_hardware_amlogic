@@ -36,6 +36,10 @@
 #include "aml_isp_api.h"
 #include "aml_isp_tuning.h"
 
+#if defined(PREVIEW_DEWARP_ENABLE) || defined(PICTURE_DEWARP_ENABLE)
+#include "dewarp.h"
+#endif
+
 int cmos_get_ae_default_imx415(int ViPipe, ALG_SENSOR_DEFAULT_S *pstAeSnsDft);
 void cmos_again_calc_table_imx415(int ViPipe, uint32_t *pu32AgainLin, uint32_t *pu32AgainDb);
 void cmos_dgain_calc_table_imx415(int ViPipe, uint32_t *pu32DgainLin, uint32_t *pu32DgainDb);
@@ -44,5 +48,9 @@ void cmos_fps_set_imx415(int ViPipe, float f32Fps, ALG_SENSOR_DEFAULT_S *pstAeSn
 void cmos_alg_update_imx415(int ViPipe);
 void cmos_set_sensor_entity_imx415(struct media_entity * sensor_ent, int wdr, int fps);
 void cmos_get_sensor_calibration_imx415(struct media_entity * sensor_ent, aisp_calib_info_t * calib);
+
+#if defined(PREVIEW_DEWARP_ENABLE) || defined(PICTURE_DEWARP_ENABLE)
+void cmos_get_sensor_gdc_parameter_imx415(struct sensorConfig *cfg, GDCInParam in_params, struct dewarp_params *dewarp_params);
+#endif
 
 #endif

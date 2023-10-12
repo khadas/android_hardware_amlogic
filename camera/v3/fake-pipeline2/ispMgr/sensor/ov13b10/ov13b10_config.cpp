@@ -27,6 +27,8 @@
 #include <signal.h>
 #include <semaphore.h>
 
+#include "CamHalDebugLog.h"
+
 #include "aml_isp_api.h"
 
 #include "ov13b10x10_sdr_calibration.h"
@@ -36,14 +38,12 @@
 
 #include "ov13b10_api.h"
 
-
 typedef struct
 {
     int  enWDRMode;
     ALG_SENSOR_DEFAULT_S snsAlgInfo;
     struct media_entity  * sensor_ent;
 } ISP_SNS_STATE_S;
-
 
 static ISP_SNS_STATE_S sensor;
 
@@ -60,22 +60,22 @@ void cmos_get_sensor_calibration_ov13b10(struct media_entity *sensor_ent, aisp_c
     int32_t address = 0;
     int ret = v4l2_subdev_get_address(sensor_ent, &address);
     if (ret != 0) {
-        ALOGE("v4l2_subdev_get_address fail");
+        CAMHAL_LOGE("v4l2_subdev_get_address fail");
     } else {
         if (address == 0x10) {
-            ALOGD("sensor address 0x%x", address);
+            CAMHAL_LOGD("sensor address 0x%x", address);
             if (sensor.enWDRMode == 1)
                 Ov13b10WdrCalibration2::dynamic_wdr_calibrations_init_ov13b10(calib);
             else
                 Ov13b10SdrCalibration2::dynamic_sdr_calibrations_init_ov13b10(calib);
         } else if (address == 0x36) {
-            ALOGD("sensor address 0x%x", address);
+            CAMHAL_LOGD("sensor address 0x%x", address);
             if (sensor.enWDRMode == 1)
                 Ov13b10WdrCalibration::dynamic_wdr_calibrations_init_ov13b10(calib);
             else
                 Ov13b10SdrCalibration::dynamic_sdr_calibrations_init_ov13b10(calib);
         } else {
-            ALOGE("invalid sensor address 0x%x", address);
+            CAMHAL_LOGE("invalid sensor address 0x%x", address);
             if (sensor.enWDRMode == 1)
                 Ov13b10WdrCalibration::dynamic_wdr_calibrations_init_ov13b10(calib);
             else
@@ -86,9 +86,155 @@ void cmos_get_sensor_calibration_ov13b10(struct media_entity *sensor_ent, aisp_c
     return;
 }
 
+#if defined(PREVIEW_DEWARP_ENABLE) || defined(PICTURE_DEWARP_ENABLE)
+void cmos_get_sensor_gdc_parameter_ov13b10(struct sensorConfig *cfg, GDCInParam in_params,
+                                              struct dewarp_params *dewarp_params)
+{
+    //todo remove to sensor files
+    CAMHAL_LOGD("%s: E width %u height %u",__FUNCTION__, in_params.width, in_params.height);
+    struct input_param* in   = &dewarp_params->input_param;
+    struct output_param* out = &dewarp_params->output_param;
+    struct proj_param *proj  = &dewarp_params->proj_param[0];
+    struct win_param *win    = &dewarp_params->win_param[0];
+    struct clb_param *clb    = &dewarp_params->clb_param[0];
+
+    dewarp_params->proc_param.replace_0 = 0;
+    dewarp_params->proc_param.replace_1 = 128;
+    dewarp_params->proc_param.replace_2 = 128;
+
+    dewarp_params->proc_param.edge_0 = 0;
+    dewarp_params->proc_param.edge_1 = 128;
+    dewarp_params->proc_param.edge_2 = 128;
+
+    char property[PROPERTY_VALUE_MAX];
+    int width_tmp = in_params.width;
+    int height_tmp = in_params.height;
+    dewarp_params->win_num = 1;
+    in->width = in_params.width;
+    in->height = in_params.height;
+    in->offset_x = 0;
+    in->offset_y = 0;
+    in->fov = 120;
+
+    dewarp_params->color_mode = YUV420_SEMIPLANAR;
+    /*ROTATION_90 ROTATION_270 output need exchange width and height,input no need*/
+    out->width = (in_params.rotation == Rotation::ROTATION_0 || in_params.rotation == Rotation::ROTATION_180) ? width_tmp : height_tmp;
+    out->height = (in_params.rotation == Rotation::ROTATION_0 || in_params.rotation == Rotation::ROTATION_180) ? height_tmp : width_tmp;
+
+    property_get("vendor.camhal.use.dewarp.linear", property, "true");
+    if (strstr(property, "true")) {
+        proj[0].projection_mode = PROJ_MODE_LINEAR;
+    } else {
+        proj[0].projection_mode = PROJ_MODE_EQUIDISTANCE;
+    }
+    proj[0].pan = 0;
+    proj[0].tilt = 0;
+    proj[0].rotation = (int)in_params.rotation*90;
+    proj[0].zoom = 1.01;
+    proj[0].strength_hor = 1.0;
+    proj[0].strength_ver = 1.0;
+
+    win[0].win_start_x = 0;
+    win[0].win_end_x = in_params.width - 1;
+    win[0].win_start_y = 0;
+    win[0].win_end_y = in_params.height - 1;
+    win[0].img_start_x = 0;
+    win[0].img_end_x = in_params.width - 1;
+    win[0].img_start_y = 0;
+    win[0].img_end_y = in_params.height - 1;
+    win[0].mesh_x_len = 32;
+    win[0].mesh_y_len = 32;
+
+    if (in_params.width * in_params.height >= 4000 * 3000) {
+        clb[0].fx = 2005.21;
+        clb[0].fy = 2003.09;
+        clb[0].cx = 2111.56;
+        clb[0].cy = 1546.96;
+        clb[0].k1 = -0.390926;
+        clb[0].k2 = 0.485256;
+        clb[0].p1 = -5.5352e-5;
+        clb[0].p2 = -0.000159784;
+        clb[0].k3 = 0.273339;
+        clb[0].k4 = -0.317642;
+        clb[0].k5 = 0.25681;
+        clb[0].k6 = 0.433505;
+    } else if (in_params.width * in_params.height >= 3840 * 2160) {
+        clb[0].fx = 1838.88;
+        clb[0].fy = 1837.62;
+        clb[0].cx = 1929.09;
+        clb[0].cy = 1071.01;
+        clb[0].k1 = 0.852712;
+        clb[0].k2 = -1.29004;
+        clb[0].p1 = 0.000272335;
+        clb[0].p2 = -0.000129222;
+        clb[0].k3 = 1.19002;
+        clb[0].k4 = 0.962421;
+        clb[0].k5 = -1.60834;
+        clb[0].k6 = 1.40821;
+    } else if (in_params.width * in_params.height >= 1920 * 1080) {
+        clb[0].fx = 919.098;
+        clb[0].fy = 918.893;
+        clb[0].cx = 964.031;
+        clb[0].cy = 535.15;
+        clb[0].k1 = 0.851741;
+        clb[0].k2 = -1.15605;
+        clb[0].p1 = 0.000277852;
+        clb[0].p2 = -1.54521e-5;
+        clb[0].k3 = 1.11151;
+        clb[0].k4 = 0.962627;
+        clb[0].k5 = -1.48042;
+        clb[0].k6 = 1.33319;
+    } else if (in_params.width * in_params.height >= 1440 * 1080) {
+        clb[0].fx = 695.433;
+        clb[0].fy = 694.781;
+        clb[0].cx = 722.275;
+        clb[0].cy = 535.666;
+        clb[0].k1 = -0.352378;
+        clb[0].k2 = 0.500009;
+        clb[0].p1 = -1.41251e-5;
+        clb[0].p2 = -0.00025844;
+        clb[0].k3 = 0.270799;
+        clb[0].k4 = -0.275094;
+        clb[0].k5 = 0.262535;
+        clb[0].k6 = 0.436324;
+    } else if (in_params.width * in_params.height >= 1280 * 720) {
+        clb[0].fx = 611.879;
+        clb[0].fy = 611.12;
+        clb[0].cx = 643.006;
+        clb[0].cy = 357.604;
+        clb[0].k1 = 0.795054;
+        clb[0].k2 = -1.11909;
+        clb[0].p1 = 0.000304329;
+        clb[0].p2 = -0.000119665;
+        clb[0].k3 = 1.01965;
+        clb[0].k4 = 0.900531;
+        clb[0].k5 = -1.4214;
+        clb[0].k6 = 1.22587;
+    } else {
+        clb[0].fx = 611.879;
+        clb[0].fy = 611.12;
+        clb[0].cx = 643.006;
+        clb[0].cy = 357.604;
+        clb[0].k1 = 0.795054;
+        clb[0].k2 = -1.11909;
+        clb[0].p1 = 0.000304329;
+        clb[0].p2 = -0.000119665;
+        clb[0].k3 = 1.01965;
+        clb[0].k4 = 0.900531;
+        clb[0].k5 = -1.4214;
+        clb[0].k6 = 1.22587;
+    }
+
+    dewarp_params->tile_x_step = 16;
+    dewarp_params->tile_y_step = 16;
+    dewarp_params->prm_mode = 1;
+}
+#endif
+
+
 int cmos_get_ae_default_ov13b10(int ViPipe, ALG_SENSOR_DEFAULT_S *pstAeSnsDft)
 {
-    ALOGD("cmos_get_ae_default\n");
+    CAMHAL_LOGD("cmos_get_ae_default\n");
 
     sensor.snsAlgInfo.active.width = 4208;
     sensor.snsAlgInfo.active.height = 3120;
@@ -138,14 +284,14 @@ int cmos_get_ae_default_ov13b10(int ViPipe, ALG_SENSOR_DEFAULT_S *pstAeSnsDft)
 
     sensor.snsAlgInfo.gain_apply_delay = 0;
     sensor.snsAlgInfo.integration_time_apply_delay = 0;
-    ALOGD("cmos_get_ae_default++++++\n");
+    CAMHAL_LOGD("cmos_get_ae_default++++++\n");
 
     memcpy(pstAeSnsDft, &sensor.snsAlgInfo, sizeof(ALG_SENSOR_DEFAULT_S));
 
     return 0;
 }
 
-int aisp_math_exp2( int64_t val, int32_t shift_in, int32_t shift_out )
+static int aisp_math_exp2( int64_t val, int32_t shift_in, int32_t shift_out )
 {
     uint32_t fract_part = (((uint32_t)val) & ( ( 1 << shift_in ) - 1 ) );
     uint32_t int_part = ((uint32_t)val) >> shift_in;
@@ -175,15 +321,14 @@ int aisp_math_exp2( int64_t val, int32_t shift_in, int32_t shift_out )
 
 void cmos_again_calc_table_ov13b10(int ViPipe, uint32_t *pu32AgainLin, uint32_t *pu32AgainDb)
 {
-    //ALOGD("cmos_again_calc_table: %d, %d\n", *pu32AgainLin, *pu32AgainDb);
+    //CAMHAL_LOGD("cmos_again_calc_table: %d, %d\n", *pu32AgainLin, *pu32AgainDb);
     uint32_t again_reg;
 
-    again_reg = aisp_math_exp2( *pu32AgainLin, SHUTTER_TIME_SHIFT, 7 );
+    again_reg = aisp_math_exp2( *pu32AgainLin, SHUTTER_TIME_SHIFT, 8 );
 
     if (again_reg > 0x7fff) {
         again_reg = 0x7fff;
     }
-
 
     if (sensor.snsAlgInfo.u32AGain[0] != again_reg) {
         sensor.snsAlgInfo.u16GainCnt = sensor.snsAlgInfo.gain_apply_delay + 1;
@@ -194,16 +339,16 @@ void cmos_again_calc_table_ov13b10(int ViPipe, uint32_t *pu32AgainLin, uint32_t 
 
 void cmos_dgain_calc_table_ov13b10(int ViPipe, uint32_t *pu32DgainLin, uint32_t *pu32DgainDb)
 {
-    //ALOGD("cmos_dgain_calc_table: %d, %d\n", *pu32DgainLin, *pu32DgainDb);
+    //CAMHAL_LOGD("cmos_dgain_calc_table: %d, %d\n", *pu32DgainLin, *pu32DgainDb);
 }
 
 void cmos_inttime_calc_table_ov13b10(int ViPipe, uint32_t pu32ExpL, uint32_t pu32ExpS, uint32_t pu32ExpVS, uint32_t pu32ExpVVS)
 {
-    //ALOGD("cmos_inttime_calc_table: %d, %d, %d, %d\n", pu32ExpL, pu32ExpS, pu32ExpVS, pu32ExpVVS);
+    //CAMHAL_LOGD("cmos_inttime_calc_table: %d, %d, %d, %d\n", pu32ExpL, pu32ExpS, pu32ExpVS, pu32ExpVVS);
     uint32_t shutter_time_lines = pu32ExpL >> SHUTTER_TIME_SHIFT;
 
     uint32_t shutter_time_lines_short = pu32ExpS >> SHUTTER_TIME_SHIFT;
-    ALOGD("init times = %d  \n",shutter_time_lines);
+    //CAMHAL_LOGD("init times = %d  \n",shutter_time_lines);
     if (sensor.enWDRMode == 0) {
         if (shutter_time_lines > sensor.snsAlgInfo.total.height )
             shutter_time_lines = sensor.snsAlgInfo.total.height;
@@ -253,7 +398,6 @@ void cmos_alg_update_ov13b10(int ViPipe)
             struct v4l2_ext_control gain;
             gain.id = V4L2_CID_GAIN;
             gain.value = sensor.snsAlgInfo.u32AGain[sensor.snsAlgInfo.gain_apply_delay];
-            ALOGD("update again  = %d  \n",gain.value);
             v4l2_subdev_set_ctrls(sensor.sensor_ent, &gain, 1);
         }
 
@@ -266,7 +410,6 @@ void cmos_alg_update_ov13b10(int ViPipe)
                 struct v4l2_ext_control expo;
                 expo.id = V4L2_CID_EXPOSURE;
                 expo.value = shutter_time_lines;
-                ALOGD("update exposure  = %d  \n",expo.value);
                 v4l2_subdev_set_ctrls(sensor.sensor_ent, &expo, 1);
             }
 
@@ -276,7 +419,7 @@ void cmos_alg_update_ov13b10(int ViPipe)
                 //ov13b10_write_register(ViPipe, 0x3021, (shutter_time_lines_short>>8) & 0xff);
                 //ov13b10_write_register(ViPipe, 0x3024, shutter_time_lines&0xff);
                 //ov13b10_write_register(ViPipe, 0x3025, (shutter_time_lines>>8) & 0xff);
-                //ALOGD("sensor expo: %d, %d\n", shutter_time_lines, shutter_time_lines_short);
+                //CAMHAL_LOGD("sensor expo: %d, %d\n", shutter_time_lines, shutter_time_lines_short);
             }
         }
     }
