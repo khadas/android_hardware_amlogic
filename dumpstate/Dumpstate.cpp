@@ -24,6 +24,7 @@
 
 #include "Dumpstate.h"
 
+using namespace std;
 using android::os::dumpstate::CommandOptions;
 using android::os::dumpstate::DumpFileToFd;
 using android::os::dumpstate::RunCommandToFd;
@@ -42,6 +43,8 @@ namespace dumpstate {
  * Converts milliseconds to seconds.
  */
 #define MSEC_TO_SEC(millisecond) (millisecond / 1000)
+
+#define RESOURCE_MANGER_DEBUG_NODE  "/sys/class/resource_mgr/res_sys_debug"
 
 const uint64_t NANOS_PER_SEC = 1000000000;
 
@@ -270,7 +273,6 @@ ndk::ScopedAStatus Dumpstate::dumpstateBoard(const std::vector<::ndk::ScopedFile
             return ndk::ScopedAStatus::fromExceptionCodeWithMessage(EX_ILLEGAL_ARGUMENT,
                                                                     "Invalid mode");
     }
-
 }
 
 ndk::ScopedAStatus Dumpstate::getVerboseLoggingEnabled(bool* _aidl_return) {
@@ -422,6 +424,40 @@ ndk::ScopedAStatus Dumpstate::dumpstateBoardImpl(const int fd, const bool full) 
     elapsed = Nanotime() / NANOS_PER_SEC;
     ALOGI("DumpstateDevice::dumpstateBoard() elapsed total %" PRId64, elapsed - start);
     return ndk::ScopedAStatus::ok();
+}
+
+void Dumpstate::setSysLoglevel(const char *name, const char *debug) {
+    int debug_fd = open(name, O_RDWR);
+
+    if (debug_fd >= 0) {
+        write(debug_fd, debug, strlen(debug));
+        close(debug_fd);
+    }
+}
+
+binder_status_t Dumpstate::dump(int fd, const char** args,
+                                   uint32_t numArgs) {
+  int debug = 0;
+
+  if (fd < 0) {
+    ALOGE("%s: missing fd for writing", __FUNCTION__);
+    return STATUS_BAD_VALUE;
+  }
+
+  if (numArgs > 0) {
+    for (auto&& str : std::vector<std::string_view>{args, args + numArgs}) {
+      string option = str.data();
+      if (option.find("-debug") != string::npos) {
+        debug = 1;
+      } else {
+        if (debug && option.length() > 0)
+            setSysLoglevel(RESOURCE_MANGER_DEBUG_NODE, option.c_str());
+      }
+    }
+  }
+
+  fsync(fd);
+  return STATUS_OK;
 }
 
 }  // namespace dumpstate

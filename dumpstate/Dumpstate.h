@@ -20,6 +20,7 @@
 #include <aidl/android/hardware/dumpstate/IDumpstateDevice.h>
 #include <android/binder_status.h>
 
+
 namespace aidl {
 namespace android {
 namespace hardware {
@@ -33,6 +34,7 @@ class Dumpstate : public BnDumpstateDevice {
     void dumpstateBoardOfAudio(int fd, int64_t maxtime);
     void dumpstateBoardOfDisplay(int fd, int64_t maxtime);
     void dumpstateBoardOfMedia(int fd, int64_t maxtime);
+    void setSysLoglevel(const char *name, const char *debug);
 
   public:
     ::ndk::ScopedAStatus dumpstateBoard(const std::vector<::ndk::ScopedFileDescriptor>& in_fds,
@@ -42,6 +44,8 @@ class Dumpstate : public BnDumpstateDevice {
     ::ndk::ScopedAStatus getVerboseLoggingEnabled(bool* _aidl_return) override;
 
     ::ndk::ScopedAStatus setVerboseLoggingEnabled(bool in_enable) override;
+
+    binder_status_t dump(int fd, const char** args, uint32_t numArgs) override;
 };
 
 }  // namespace dumpstate
