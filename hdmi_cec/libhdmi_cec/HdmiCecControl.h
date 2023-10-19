@@ -77,6 +77,7 @@
 #define PROPERTY_SET_MENU_LANGUAGE      "persist.vendor.sys.cec.set_menu_language"
 #define PROPERTY_DEVICE_AUTO_POWEROFF   "persist.vendor.sys.cec.deviceautopoweroff"
 #define PROPERTY_LOGICAL_ADDRESS        "persist.vendor.sys.cec.logicaladdress"
+#define PROPERTY_POWER_STATE            "persist.vendor.sys.cec.power_state"
 
 //#define PROPERTY_BOOT_REASON            "sys.boot.reason"
 #define PROPERTY_BOOT_REASON            "sys.boot.reason"

@@ -375,6 +375,9 @@ void HdmiCecControl::setOption(int flag, int value)
         case HDMI_OPTION_SYSTEM_CEC_CONTROL:
             ret = ioctl(mCecDevice.driver_fd, CEC_IOC_SET_OPTION_SYS_CTRL, value);
             mCecDevice.is_cec_controlled = (value == 1);
+            // Save the power state for hdmi connection service
+            setProperty(PROPERTY_POWER_STATE,
+                mCecDevice.is_cec_controlled ? CEC_STATE_ENABLED : CEC_STATE_UNABLED);
             if (!mCecDevice.hdmi_cfg_init && mCecDevice.is_cec_controlled) {
                 LOGI("%s boot initialize hdmi cec config!", __FUNCTION__);
                 ioctl(mCecDevice.driver_fd, CEC_IOC_SET_OPTION_ENABLE_CEC, value);
@@ -1013,9 +1016,10 @@ void HdmiCecControl::checkConnectStatus()
         }
         bit = prevStatus & (1 << port);
         if (bit ^ ((connect ? 1 : 0) << port)) {//connect status has changed
-            LOGI("Hotplug event port:%x, now:%x, prevStatus:%x\n",
-                    mCecDevice.port_data[i].port_id, connect, prevStatus);
-            if (mEventListener != NULL && mCecDevice.is_cec_enabled && mCecDevice.is_cec_controlled) {
+            bool isWake = getPropertyBoolean(PROPERTY_POWER_STATE, true);
+            LOGI("Hotplug event port:%x, now:%x, prevStatus:%x power:%d",
+                    mCecDevice.port_data[i].port_id, connect, prevStatus, isWake);
+            if (mEventListener != NULL && mCecDevice.is_cec_enabled && isWake) {
                 event.eventType = HDMI_EVENT_HOT_PLUG;
                 event.hotplug.connected = connect;
                 event.hotplug.port_id = mCecDevice.port_data[i].port_id;
