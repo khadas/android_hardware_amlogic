@@ -325,8 +325,14 @@ void Dumpstate::dumpstateBoardOfSystem(int fd, int64_t maxtime) {
 }
 
 void Dumpstate::dumpstateBoardOfAudio(int fd, int64_t maxtime) {
-    (void)fd;
     (void)maxtime;
+
+    ALOGI("dumpstateBoardOfAudio() Fd: %d", fd);
+
+    //license decoder efuse check
+    DumpFileToFd(fd, "Efuse dolby_enable", "/sys/class/amaudio/dolby_enable");
+    DumpFileToFd(fd, "Efuse dts_enable", "/sys/class/amaudio/dts_enable");
+
     return;
 }
 

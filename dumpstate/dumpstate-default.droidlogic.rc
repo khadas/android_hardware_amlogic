@@ -51,6 +51,13 @@ on property:sys.boot_completed=1
     chown root system /sys/class/resource_mgr/res_report
     chmod 0444 /sys/class/resource_mgr/res_report
 
+    #audio
+    chown root system /sys/class/amaudio/dolby_enable
+    chmod 0444 /sys/class/amaudio/dolby_enable
+
+    chown root system /sys/class/amaudio/dts_enable
+    chmod 0444 /sys/class/amaudio/dts_enable
+
 service vendor.dumpstate-default /vendor/bin/hw/android.hardware.dumpstate-service.droidlogic
     class hal
     user system
