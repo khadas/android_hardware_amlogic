@@ -708,16 +708,21 @@ void media_device_unref(struct media_device *media)
 
     for (i = 0; i < media->entities_count; ++i) {
         struct media_entity *entity = &media->entities[i];
-
-        free(entity->pads);
-        free(entity->links);
-        if (entity->fd != -1)
-            close(entity->fd);
+        if (entity) {
+            if (entity->pads)
+                free(entity->pads);
+            if (entity->links)
+                free(entity->links);
+            if (entity->fd != -1)
+                close(entity->fd);
+        }
     }
-
-    free(media->entities);
-    free(media->devnode);
-    free(media);
+    if (media->entities)
+        free(media->entities);
+    if (media->devnode)
+        free(media->devnode);
+    if (media)
+        free(media);
 }
 
 int media_device_add_entity(struct media_device *media,

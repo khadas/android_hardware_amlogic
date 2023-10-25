@@ -1,4 +1,5 @@
-
+#define LOG_NDEBUG  0
+#define LOG_NNDEBUG  0
 #define LOG_TAG "V4l2MediaSensor"
 
 #if defined(LOG_NNDEBUG) && LOG_NNDEBUG == 0
@@ -317,6 +318,7 @@ int V4l2MediaSensor::SensorInit(int idx) {
         media_dev->debug_handler = NULL;
         media_dev->debug_priv = NULL;
         free(media_dev);
+        media_dev = NULL;
         return -1;
     }
     if (0 != mediaStreamInit((media_stream_t *)mMediaStream, media_dev) ) {
@@ -326,8 +328,10 @@ int V4l2MediaSensor::SensorInit(int idx) {
         media_dev->debug_handler = NULL;
         media_dev->debug_priv = NULL;
         free(media_dev);
+        media_dev = NULL;
+        free(mMediaStream);
+        mMediaStream = NULL;
         return -1;
-
     }
     property_get("vendor.media.camera.dual", property, "false");
     if (strstr(property,"true")) {
@@ -437,13 +441,15 @@ status_t V4l2MediaSensor::shutDown() {
         mIspMgr->stop();
         mIspMgr.clear();
     }
-
     if (mMediaStream) {
         struct media_stream * stream = (struct media_stream *)mMediaStream;
         if ( stream->media_dev ) {
             media_device_unref( stream->media_dev );
         }
-        free(mMediaStream);
+        if (mMediaStream) {
+            free(mMediaStream);
+            mMediaStream = NULL;
+        }
     }
 
     camera_close();

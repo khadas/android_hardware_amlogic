@@ -1900,9 +1900,15 @@ status_t EmulatedFakeCamera3::constructStaticInfo() {
     availablejpegsize = ARRAY_SIZE(mAvailableJpegSize);
     memset(mAvailableJpegSize,0,(sizeof(uint32_t))*availablejpegsize);
     createSensor();
-    if (mSensor)
-        mSensor->startUp(mCameraID, ((mSensorType == SENSOR_HDMI) ? true : false));
-    else {
+    if (mSensor) {
+        ret = mSensor->startUp(mCameraID, ((mSensorType == SENSOR_HDMI) ? true : false));
+        if (ret != NO_ERROR) {
+            ALOGE("sensor startUp fail");
+            mSensor->shutDown();
+            mSensor.clear();
+            return BAD_VALUE;
+        }
+    } else {
         ALOGE("sensor object can not is NULL");
         return BAD_VALUE;
     }
