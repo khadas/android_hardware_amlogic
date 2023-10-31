@@ -8,7 +8,8 @@
  */
 #define LOG_TAG "lensConfig"
 
-#include <stdint.h>
+#include "CamHalDebugLog.h"
+
 #include "lens_config.h"
 
 #include "dw9800w/dw9800w_api.h"
@@ -34,7 +35,7 @@ struct lensConfig *matchLensConfig(media_stream_t *stream) {
 		}
 	}
 
-	ALOGE("LKK: fail to match lensConfig\n");
+	CAMHAL_LOGE("LKK: fail to match lensConfig\n");
 
 	return nullptr;
 }
@@ -46,7 +47,7 @@ struct lensConfig *matchLensConfig(const char* lensEntityName) {
 		}
 	}
 
-	ALOGE("LKK: fail to match sensorConfig %s", lensEntityName);
+	CAMHAL_LOGE("LKK: fail to match sensorConfig %s", lensEntityName);
 
 	return nullptr;
 }

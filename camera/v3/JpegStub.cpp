@@ -46,12 +46,12 @@ extern "C" int JpegStub_compress(JpegStub* stub, const void* image,
     SkDynamicMemoryWStream* stream =
         (SkDynamicMemoryWStream*)stub->mInternalStream;
     if (encoder->encode(stream, pY, width, height, offsets, quality)) {
-        ALOGV("%s: Compressed JPEG: %d[%dx%d] -> %zu bytes",
+        CAMHAL_LOGV("%s: Compressed JPEG: %d[%dx%d] -> %zu bytes",
               __FUNCTION__, (width * height * 12) / 8,
               width, height, stream->getOffset());
         return 0;
     } else {
-        ALOGE("%s: JPEG compression failed", __FUNCTION__);
+        CAMHAL_LOGE("%s: JPEG compression failed", __FUNCTION__);
         return errno ? errno: EINVAL;
     }
 }

@@ -46,12 +46,6 @@
 #include <amlogic/am_gralloc_ext.h>
 
 
-#if defined(LOG_NNDEBUG) && LOG_NNDEBUG == 0
-#define ALOGVV ALOGV
-#else
-#define ALOGVV(...) ((void)0)
-#endif
-
 namespace android {
 
 /**
@@ -182,7 +176,7 @@ ssize_t EmulatedFakeCamera3::getJpegBufferSize(int width, int height) {
 EmulatedFakeCamera3::EmulatedFakeCamera3(int cameraId, struct hw_module_t* module) :
         EmulatedCamera3(cameraId, module) {
     ATRACE_CALL();
-    ALOGI("Constructing emulated fake camera 3 cameraID:%d", mCameraID);
+    CAMHAL_LOGI("Constructing emulated fake camera 3 cameraID:%d", mCameraID);
 
     for (size_t i = 0; i < CAMERA3_TEMPLATE_COUNT; i++) {
         mDefaultTemplates[i] = NULL;
@@ -236,7 +230,7 @@ EmulatedFakeCamera3::~EmulatedFakeCamera3() {
     }
 
     if (mCameraInfo != NULL) {
-        CAMHAL_LOGIA("free mCameraInfo");
+        CAMHAL_LOGI("free mCameraInfo");
         free_camera_metadata(mCameraInfo);
         mCameraInfo = NULL;
     }
@@ -245,17 +239,17 @@ EmulatedFakeCamera3::~EmulatedFakeCamera3() {
 status_t EmulatedFakeCamera3::Initialize() {
     ATRACE_CALL();
 
-    DBG_LOGB("mCameraID=%d,mStatus=%d,ddd\n", mCameraID, mStatus);
+    CAMHAL_LOGD("mCameraID=%d,mStatus=%d,ddd\n", mCameraID, mStatus);
     status_t res;
 
     if (mStatus != STATUS_ERROR) {
-        ALOGE("%s: Already initialized!", __FUNCTION__);
+        CAMHAL_LOGE("%s: Already initialized!", __FUNCTION__);
         return INVALID_OPERATION;
     }
 
     res = constructStaticInfo();
     if (res != OK) {
-        ALOGE("%s: Unable to allocate static info: %s (%d)",
+        CAMHAL_LOGE("%s: Unable to allocate static info: %s (%d)",
                 __FUNCTION__, strerror(-res), res);
         return res;
     }
@@ -265,14 +259,13 @@ status_t EmulatedFakeCamera3::Initialize() {
 
 status_t EmulatedFakeCamera3::connectCamera(hw_device_t** device) {
     ATRACE_CALL();
-    ALOGV("%s: E", __FUNCTION__);
-    DBG_LOGB("%s, ddd", __FUNCTION__);
+    CAMHAL_LOGD("%s, ddd", __FUNCTION__);
     Mutex::Autolock l(mLock);
     status_t res;
-    DBG_LOGB("%s , mCameraID=%d, mStatus = %d" , __FUNCTION__, mCameraID, mStatus);
+    CAMHAL_LOGD("%s , mCameraID=%d, mStatus = %d" , __FUNCTION__, mCameraID, mStatus);
 
     if ((mStatus != STATUS_CLOSED) || !mPlugged) {
-        ALOGE("%s: Can't connect in state %d, mPlugged=%d",
+        CAMHAL_LOGE("%s: Can't connect in state %d, mPlugged=%d",
                 __FUNCTION__, mStatus, mPlugged);
         return INVALID_OPERATION;
     }
@@ -280,9 +273,9 @@ status_t EmulatedFakeCamera3::connectCamera(hw_device_t** device) {
     mSensor->setSensorListener(this);
 
     res = mSensor->startUp(mCameraID);
-    DBG_LOGB("mSensor after startUp, mCameraID=%d\n", mCameraID);
+    CAMHAL_LOGD("mSensor after startUp, mCameraID=%d\n", mCameraID);
     if (res != NO_ERROR) {
-        ALOGE(" mSensor startup ret %d, failed ", res);
+        CAMHAL_LOGE(" mSensor startup ret %d, failed ", res);
         return res;
     }
     if (mSensor -> getOutputFormat() == V4L2_PIX_FMT_YUYV) {
@@ -297,13 +290,13 @@ status_t EmulatedFakeCamera3::connectCamera(hw_device_t** device) {
     }
     res = mReadoutThread->startJpegCompressor(this);
     if (res != NO_ERROR) {
-        ALOGE(" startJpegCompressor failed, ret %d ", res);
+        CAMHAL_LOGE(" startJpegCompressor failed, ret %d ", res);
         return res;
     }
 
     res = mReadoutThread->run("EmuCam3::readoutThread", ANDROID_PRIORITY_URGENT_AUDIO);
     if (res != NO_ERROR) {
-        ALOGE(" mReadoutThread run failed, ret %d ", res);
+        CAMHAL_LOGE(" mReadoutThread run failed, ret %d ", res);
         return res;
     }
 
@@ -323,10 +316,10 @@ status_t EmulatedFakeCamera3::connectCamera(hw_device_t** device) {
 
     res = EmulatedCamera3::connectCamera(device);
     if (res != NO_ERROR) {
-        ALOGE(" EmulatedCamera3 connectCamera, ret %d ", res);
+        CAMHAL_LOGE(" EmulatedCamera3 connectCamera, ret %d ", res);
         return res;
     }
-    ALOGD("%s, Leave success", __func__);
+    CAMHAL_LOGD("%s, Leave success", __func__);
     return res;
 }
 
@@ -336,7 +329,7 @@ status_t EmulatedFakeCamera3::plugCamera() {
         Mutex::Autolock l(mLock);
 
         if (!mPlugged) {
-            CAMHAL_LOGIB("%s: Plugged back in", __FUNCTION__);
+            CAMHAL_LOGI("%s: Plugged back in", __FUNCTION__);
             mPlugged = true;
         }
     }
@@ -349,7 +342,7 @@ status_t EmulatedFakeCamera3::unplugCamera() {
         Mutex::Autolock l(mLock);
 
         if (mPlugged) {
-            CAMHAL_LOGIB("%s: Unplugged camera", __FUNCTION__);
+            CAMHAL_LOGI("%s: Unplugged camera", __FUNCTION__);
             mPlugged = false;
         }
     }
@@ -366,7 +359,7 @@ camera_device_status_t EmulatedFakeCamera3::getHotplugStatus() {
 bool EmulatedFakeCamera3::getCameraStatus()
 {
     ATRACE_CALL();
-    CAMHAL_LOGVB("%s, mCameraStatus = %d",__FUNCTION__,mCameraStatus);
+    CAMHAL_LOGV("%s, mCameraStatus = %d",__FUNCTION__,mCameraStatus);
     bool ret = false;
     if (mStatus == STATUS_CLOSED) {
         ret = true;
@@ -377,38 +370,38 @@ bool EmulatedFakeCamera3::getCameraStatus()
 }
 
 status_t EmulatedFakeCamera3::closeCamera() {
-    DBG_LOGB("%s, %d\n", __FUNCTION__, __LINE__);
+    CAMHAL_LOGD("%s, %d\n", __FUNCTION__, __LINE__);
     status_t res;
     {
         Mutex::Autolock l(mLock);
         if (mStatus == STATUS_CLOSED) return OK;
     }
 
-    CAMHAL_LOGDB("%s, %d\n", __FUNCTION__, __LINE__);
+    CAMHAL_LOGD("%s, %d\n", __FUNCTION__, __LINE__);
     mReadoutThread->sendFlushSignal();
     mSensor->sendExitSingalToSensor();
     res = mSensor->shutDown();
     if (res != NO_ERROR) {
-        ALOGE("%s: Unable to shut down sensor: %d", __FUNCTION__, res);
+        CAMHAL_LOGE("%s: Unable to shut down sensor: %d", __FUNCTION__, res);
         return res;
     }
     mSensor.clear();
-    CAMHAL_LOGDB("%s, %d\n", __FUNCTION__, __LINE__);
+    CAMHAL_LOGD("%s, %d\n", __FUNCTION__, __LINE__);
 
     {
         Mutex::Autolock l(mLock);
         res = mReadoutThread->shutdownJpegCompressor(this);
         if (res != OK) {
-            ALOGE("%s: Unable to shut down JpegCompressor: %d", __FUNCTION__, res);
+            CAMHAL_LOGE("%s: Unable to shut down JpegCompressor: %d", __FUNCTION__, res);
             return res;
         }
         mReadoutThread->sendExitReadoutThreadSignal();
         mReadoutThread->requestExit();
     }
-    CAMHAL_LOGDB("%s, %d\n", __FUNCTION__, __LINE__);
+    CAMHAL_LOGD("%s, %d\n", __FUNCTION__, __LINE__);
 
     mReadoutThread->join();
-    DBG_LOGA("Success exit ReadOutThread");
+    CAMHAL_LOGD("Success exit ReadOutThread");
     {
         Mutex::Autolock l(mLock);
         // Clear out private stream information
@@ -425,19 +418,19 @@ status_t EmulatedFakeCamera3::closeCamera() {
         mJpegCompressor->join();
         mJpegCompressor = nullptr;
     }
-    CAMHAL_LOGDB("%s, %d\n", __FUNCTION__, __LINE__);
+    CAMHAL_LOGD("%s, %d\n", __FUNCTION__, __LINE__);
     return EmulatedCamera3::closeCamera();
 }
 
 status_t EmulatedFakeCamera3::getCameraInfo(struct camera_info *info) {
     ATRACE_CALL();
-    ALOGV("%s mCameraInfo %p", __FUNCTION__, mCameraInfo);
+    CAMHAL_LOGV("%s mCameraInfo %p", __FUNCTION__, mCameraInfo);
     status_t res;
     camera_metadata_entry_t e;
     res = find_camera_metadata_entry(mCameraInfo,
                                      ANDROID_LENS_FACING, &e);
     if (res != NO_ERROR)
-        ALOGV("%s get facing fail set facing is back", __FUNCTION__);
+        CAMHAL_LOGV("%s get facing fail set facing is back", __FUNCTION__);
     else {
         switch (*e.data.u8) {
             case ANDROID_LENS_FACING_BACK:
@@ -504,11 +497,11 @@ status_t EmulatedFakeCamera3::configureStreams(
     uint32_t UHDWidth = 0, UHDHeight = 0, UHDPixelfmt = 0;
     bool isRestart = false, isRestartRec = false;
     mFlushTag = false;
-    m4KRec = false;
-    DBG_LOGB("%s: %d streams", __FUNCTION__, streamList->num_streams);
+    bool is4KRec = false;
+    CAMHAL_LOGD("%s: %d streams", __FUNCTION__, streamList->num_streams);
 
     if (mStatus != STATUS_OPEN && mStatus != STATUS_READY) {
-        ALOGE("%s: Cannot configure streams in state %d",
+        CAMHAL_LOGE("%s: Cannot configure streams in state %d",
                 __FUNCTION__, mStatus);
         return NO_INIT;
     }
@@ -517,17 +510,17 @@ status_t EmulatedFakeCamera3::configureStreams(
      * Sanity-check input list.
      */
     if (streamList == NULL) {
-        ALOGE("%s: NULL stream configuration", __FUNCTION__);
+        CAMHAL_LOGE("%s: NULL stream configuration", __FUNCTION__);
         return BAD_VALUE;
     }
 
     if (streamList->streams == NULL) {
-        ALOGE("%s: NULL stream list", __FUNCTION__);
+        CAMHAL_LOGE("%s: NULL stream list", __FUNCTION__);
         return BAD_VALUE;
     }
 
     if (streamList->num_streams < 1) {
-        ALOGE("%s: Bad number of streams requested: %d", __FUNCTION__,
+        CAMHAL_LOGE("%s: Bad number of streams requested: %d", __FUNCTION__,
                 streamList->num_streams);
         return BAD_VALUE;
     }
@@ -537,14 +530,14 @@ status_t EmulatedFakeCamera3::configureStreams(
         camera3_stream_t *newStream = streamList->streams[i];
 
         if (newStream == NULL) {
-            ALOGE("%s: Stream index %zu was NULL",
+            CAMHAL_LOGE("%s: Stream index %zu was NULL",
                   __FUNCTION__, i);
             return BAD_VALUE;
         }
 
         if (newStream->max_buffers <= 0) {
             isRestart = true;//mSensor->isNeedRestart(newStream->width, newStream->height, newStream->format);
-            DBG_LOGB("format=%x, w*h=%dx%d, stream_type=%d, max_buffers=%d, isRestart=%d\n",
+            CAMHAL_LOGD("format=%x, w*h=%dx%d, stream_type=%d, max_buffers=%d, isRestart=%d\n",
                     newStream->format, newStream->width, newStream->height,
                     newStream->stream_type, newStream->max_buffers,
                     isRestart);
@@ -552,16 +545,16 @@ status_t EmulatedFakeCamera3::configureStreams(
 
         if ((newStream->width == 0) || (newStream->width == UINT32_MAX) ||
             (newStream->height == 0) || (newStream->height == UINT32_MAX)) {
-            ALOGE("invalid width or height. \n");
+            CAMHAL_LOGE("invalid width or height. \n");
             return -EINVAL;
         }
 
         if ((uint32_t)newStream->rotation == UINT32_MAX) {
-            ALOGE("invalid StreamRotation. \n");
+            CAMHAL_LOGE("invalid StreamRotation. \n");
             return -EINVAL;
         }
 
-        ALOGV("%s: Stream %p (id %zu), type %d, usage 0x%x, format 0x%x",
+        CAMHAL_LOGV("%s: Stream %p (id %zu), type %d, usage 0x%x, format 0x%x",
                 __FUNCTION__, newStream, i, newStream->stream_type,
                 newStream->usage,
                 newStream->format);
@@ -570,7 +563,7 @@ status_t EmulatedFakeCamera3::configureStreams(
             newStream->stream_type == CAMERA3_STREAM_BIDIRECTIONAL) {
             if (inputStream != NULL) {
 
-                ALOGE("%s: Multiple input streams requested!", __FUNCTION__);
+                CAMHAL_LOGE("%s: Multiple input streams requested!", __FUNCTION__);
                 return BAD_VALUE;
             }
             inputStream = newStream;
@@ -588,17 +581,17 @@ status_t EmulatedFakeCamera3::configureStreams(
 
                 break;
             }
-            DBG_LOGB("stream_type=%d\n", newStream->stream_type);
+            CAMHAL_LOGD("stream_type=%d\n", newStream->stream_type);
         }
         if (!validFormat) {
-            ALOGE("%s: Unsupported stream format 0x%x requested",
+            CAMHAL_LOGE("%s: Unsupported stream format 0x%x requested",
                     __FUNCTION__, newStream->format);
             return -EINVAL;
         }
 
         status_t ret = checkValidJpegSize(newStream->width, newStream->height);
         if (ret != OK) {
-            ALOGE("Invalid Jpeg Size. \n");
+            CAMHAL_LOGE("Invalid Jpeg Size. \n");
             return BAD_VALUE;
         }
 
@@ -608,20 +601,20 @@ status_t EmulatedFakeCamera3::configureStreams(
     height = 0;
     for (size_t i = 0; i < streamList->num_streams; i++) {
         camera3_stream_t *newStream = streamList->streams[i];
-        DBG_LOGB("find propert width and height, format=%x, w*h=%dx%d, stream_type=%d, max_buffers=%d\n",
+        CAMHAL_LOGD("find propert width and height, format=%x, w*h=%dx%d, stream_type=%d, max_buffers=%d\n",
                 newStream->format, newStream->width, newStream->height, newStream->stream_type, newStream->max_buffers);
         if (CAMERA3_STREAM_OUTPUT == newStream->stream_type) {
             if (newStream->format == HAL_PIXEL_FORMAT_BLOB && (mSensorType == SENSOR_V4L2MEDIA || mSensorType == SENSOR_MIPI)) {
-                ALOGI("skip add blob stream for mipi sensor have multi dma port");
+                CAMHAL_LOGI("skip add blob stream for mipi sensor have multiple dma ports");
                 continue;
             }
             if (mSensorType == SENSOR_V4L2MEDIA || mSensorType == SENSOR_MIPI) {
-                if (newStream->width >= 3840 && newStream->height >= 2160 && newStream->format != HAL_PIXEL_FORMAT_BLOB) {
-                    ALOGI("4k recording mode");
+                if (!is4KRec && newStream->width >= 3840 && newStream->height >= 2160 && newStream->format != HAL_PIXEL_FORMAT_BLOB) {
+                    CAMHAL_LOGI("4k recording mode");
                     UHDWidth = newStream->width;
                     UHDHeight = newStream->height;
                     UHDPixelfmt = (uint32_t)newStream->format;
-                    m4KRec = true;
+                    is4KRec = true;
                     continue;
                 }
             }
@@ -637,8 +630,8 @@ status_t EmulatedFakeCamera3::configureStreams(
         }
     }
     if (width == 0 || height == 0) {
-        if (m4KRec) {
-            m4KRec  = false;
+        if (is4KRec) {
+            is4KRec  = false;
             width    = UHDWidth;
             height   = UHDHeight;
             pixelfmt = UHDPixelfmt;
@@ -650,7 +643,7 @@ status_t EmulatedFakeCamera3::configureStreams(
             height   = 1080;
             pixelfmt = HAL_PIXEL_FORMAT_YCrCb_420_SP;
         }
-        ALOGD("No preview stream found, reset to preview");
+        CAMHAL_LOGD("No preview stream found, reset to preview");
     }
     //TODO modify this ugly code
     if (isRestart) {
@@ -666,7 +659,7 @@ status_t EmulatedFakeCamera3::configureStreams(
         pixelfmt = mSensor->halFormatToSensorFormat(pixelfmt);
         mSensor->setOutputFormat(width, height, pixelfmt, channel_preview);
         mSensor->streamOn(channel_preview);
-        DBG_LOGB("width=%d, height=%d, pixelfmt=%.4s\n", width, height, (char*)&pixelfmt);
+        CAMHAL_LOGD("width=%d, height=%d, pixelfmt=%.4s\n", width, height, (char*)&pixelfmt);
     }
     if (isRestartRec) {
         mSensor->streamOff(channel_record);
@@ -674,7 +667,7 @@ status_t EmulatedFakeCamera3::configureStreams(
         mSensor->setOutputFormat(UHDWidth, UHDHeight, UHDPixelfmt, channel_record);
         if (UHDWidth * UHDHeight != 0)
             mSensor->streamOn(channel_record);
-        DBG_LOGB("Rec width=%d, height=%d, pixelfmt=%.4s\n", width, height, (char*)&pixelfmt);
+        CAMHAL_LOGD("Rec width=%d, height=%d, pixelfmt=%.4s\n", width, height, (char*)&pixelfmt);
     }
 
     /**
@@ -697,13 +690,13 @@ status_t EmulatedFakeCamera3::configureStreams(
             privStream->alive = true;
             privStream->registered = false;
 
-            DBG_LOGB("stream_type=%d\n", newStream->stream_type);
+            CAMHAL_LOGD("stream_type=%d\n", newStream->stream_type);
             char property[PROPERTY_VALUE_MAX];
             property_get("ro.vendor.camera_mipi.60hz", property, "false");
             if (strstr(property,"true")) {
                 newStream->max_buffers = kMaxBufferCount60hz;
             } else {
-                newStream->max_buffers = kMaxBufferCount;
+                newStream->max_buffers = kMaxBufferCount + 8;
             }
             newStream->priv = privStream;
             mStreams.push_back(newStream);
@@ -711,14 +704,14 @@ status_t EmulatedFakeCamera3::configureStreams(
             // Existing stream, mark as still alive.
             PrivateStreamInfo *privStream =
                     static_cast<PrivateStreamInfo*>(newStream->priv);
-            CAMHAL_LOGDA("Existing stream ?");
+            CAMHAL_LOGD("Existing stream ?");
             privStream->alive = true;
         }
         // Always update usage and max buffers
         /*for cts CameraDeviceTest -> testPrepare*/
-        newStream->max_buffers = kMaxBufferCount;
+        newStream->max_buffers = kMaxBufferCount + 8;
         newStream->usage = mSensor->getStreamUsage(*newStream);
-        DBG_LOGB("%d, newStream=%p, stream_type=%d, usage=%x, priv=%p, w*h=%dx%d\n",
+        CAMHAL_LOGD("%d, newStream=%p, stream_type=%d, usage=%x, priv=%p, w*h=%dx%d\n",
                 (int)i, newStream, newStream->stream_type, newStream->usage, newStream->priv, newStream->width, newStream->height);
     }
 
@@ -729,7 +722,7 @@ status_t EmulatedFakeCamera3::configureStreams(
         PrivateStreamInfo *privStream =
                 static_cast<PrivateStreamInfo*>((*s)->priv);
         if (!privStream->alive) {
-            DBG_LOGA("delete not alive streams");
+            CAMHAL_LOGD("delete not alive streams");
             (*s)->priv = NULL;
             delete privStream;
             s = mStreams.erase(s);
@@ -749,24 +742,24 @@ status_t EmulatedFakeCamera3::configureStreams(
 status_t EmulatedFakeCamera3::registerStreamBuffers(
         const camera3_stream_buffer_set *bufferSet) {
         ATRACE_CALL();
-    DBG_LOGB("%s: E", __FUNCTION__);
+    CAMHAL_LOGD("%s: E", __FUNCTION__);
     Mutex::Autolock l(mLock);
 
     /**
      * Sanity checks
      */
-    DBG_LOGA("==========sanity checks\n");
+    CAMHAL_LOGD("==========sanity checks\n");
 
     // OK: register streams at any time during configure
     // (but only once per stream)
     if (mStatus != STATUS_READY && mStatus != STATUS_ACTIVE) {
-        ALOGE("%s: Cannot register buffers in state %d",
+        CAMHAL_LOGE("%s: Cannot register buffers in state %d",
                 __FUNCTION__, mStatus);
         return NO_INIT;
     }
 
     if (bufferSet == NULL) {
-        ALOGE("%s: NULL buffer set!", __FUNCTION__);
+        CAMHAL_LOGE("%s: NULL buffer set!", __FUNCTION__);
         return BAD_VALUE;
     }
 
@@ -775,7 +768,7 @@ status_t EmulatedFakeCamera3::registerStreamBuffers(
         if (bufferSet->stream == *s) break;
     }
     if (s == mStreams.end()) {
-        ALOGE("%s: Trying to register buffers for a non-configured stream!",
+        CAMHAL_LOGE("%s: Trying to register buffers for a non-configured stream!",
                 __FUNCTION__);
         return BAD_VALUE;
     }
@@ -790,7 +783,7 @@ status_t EmulatedFakeCamera3::registerStreamBuffers(
 
 #if 0
     if (privStream->registered) {
-        ALOGE("%s: Illegal to register buffer more than once", __FUNCTION__);
+        CAMHAL_LOGE("%s: Illegal to register buffer more than once", __FUNCTION__);
         return BAD_VALUE;
     }
 #endif
@@ -803,11 +796,11 @@ status_t EmulatedFakeCamera3::registerStreamBuffers(
 const camera_metadata_t* EmulatedFakeCamera3::constructDefaultRequestSettings(
         int type) {
         ATRACE_CALL();
-    DBG_LOGB("%s: E", __FUNCTION__);
+    CAMHAL_LOGD("%s: E", __FUNCTION__);
     Mutex::Autolock l(mLock);
 
     if (type < 0 || type >= CAMERA3_TEMPLATE_COUNT) {
-        ALOGE("%s: Unknown request settings template: %d",
+        CAMHAL_LOGE("%s: Unknown request settings template: %d",
                 __FUNCTION__, type);
         return NULL;
     }
@@ -1177,7 +1170,7 @@ const camera_metadata_t* EmulatedFakeCamera3::constructDefaultRequestSettings(
 
     mDefaultTemplates[type] = settings.release();
 
-    DBG_LOGB("%s: Leave ", __FUNCTION__);
+    CAMHAL_LOGD("%s: Leave ", __FUNCTION__);
 
     return mDefaultTemplates[type];
 }
@@ -1200,7 +1193,7 @@ status_t EmulatedFakeCamera3::processCaptureRequest(
 
 
     if (mFlushTag) {
-       DBG_LOGA("already flush, but still send Capture Request .\n");
+       CAMHAL_LOGD("already flush, but still send Capture Request .\n");
     }
 
     {
@@ -1209,32 +1202,32 @@ status_t EmulatedFakeCamera3::processCaptureRequest(
     /** Validation */
 
       if (mStatus < STATUS_READY) {
-         ALOGE("%s: Can't submit capture requests in state %d", __FUNCTION__,
+         CAMHAL_LOGE("%s: Can't submit capture requests in state %d", __FUNCTION__,
                            mStatus);
          return INVALID_OPERATION;
       }
 
       if (request == NULL) {
-         ALOGE("%s: NULL request!", __FUNCTION__);
+         CAMHAL_LOGE("%s: NULL request!", __FUNCTION__);
          return BAD_VALUE;
       }
 
       frameNumber = request->frame_number;
 
       if (request->settings == NULL && mPrevSettings.isEmpty()) {
-         ALOGE("%s: Request %d: NULL settings for first request after"
+         CAMHAL_LOGE("%s: Request %d: NULL settings for first request after"
                   "configureStreams()", __FUNCTION__, frameNumber);
          return BAD_VALUE;
       }
 
       if (request->input_buffer != NULL &&
                   request->input_buffer->stream != mInputStream) {
-         DBG_LOGB("%s: Request %d: Input buffer not from input stream!",
+         CAMHAL_LOGD("%s: Request %d: Input buffer not from input stream!",
                   __FUNCTION__, frameNumber);
-         DBG_LOGB("%s: Bad stream %p, expected: %p",
+         CAMHAL_LOGD("%s: Bad stream %p, expected: %p",
                   __FUNCTION__, request->input_buffer->stream,
                   mInputStream);
-         DBG_LOGB("%s: Bad stream type %d, expected stream type %d",
+         CAMHAL_LOGD("%s: Bad stream type %d, expected stream type %d",
                   __FUNCTION__, request->input_buffer->stream->stream_type,
                   mInputStream ? mInputStream->stream_type : -1);
 
@@ -1242,7 +1235,7 @@ status_t EmulatedFakeCamera3::processCaptureRequest(
       }
 
       if (request->num_output_buffers < 1 || request->output_buffers == NULL) {
-         ALOGE("%s: Request %d: No output buffers provided!",
+         CAMHAL_LOGE("%s: Request %d: No output buffers provided!",
                   __FUNCTION__, frameNumber);
          return BAD_VALUE;
       }
@@ -1262,30 +1255,30 @@ status_t EmulatedFakeCamera3::processCaptureRequest(
          PrivateStreamInfo *priv =
                static_cast<PrivateStreamInfo*>(b->stream->priv);
          if (priv == NULL) {
-               ALOGE("%s: Request %d: Buffer %zu: Unconfigured stream!",
+               CAMHAL_LOGE("%s: Request %d: Buffer %zu: Unconfigured stream!",
                __FUNCTION__, frameNumber, idx);
                return BAD_VALUE;
          }
 #if 0
       if (!priv->alive || !priv->registered) {
-         ALOGE("%s: Request %d: Buffer %zu: Unregistered or dead stream! alive=%d, registered=%d\n",
+         CAMHAL_LOGE("%s: Request %d: Buffer %zu: Unregistered or dead stream! alive=%d, registered=%d\n",
                __FUNCTION__, frameNumber, idx,
                priv->alive, priv->registered);
          //return BAD_VALUE;
       }
 #endif
          if (b->status != CAMERA3_BUFFER_STATUS_OK) {
-             ALOGE("%s: Request %d: Buffer %zu: Status not OK!",
+             CAMHAL_LOGE("%s: Request %d: Buffer %zu: Status not OK!",
                    __FUNCTION__, frameNumber, idx);
              return BAD_VALUE;
          }
          if (b->release_fence != -1) {
-            ALOGE("%s: Request %d: Buffer %zu: Has a release fence!",
+            CAMHAL_LOGE("%s: Request %d: Buffer %zu: Has a release fence!",
                   __FUNCTION__, frameNumber, idx);
             return BAD_VALUE;
          }
          if (b->buffer == NULL) {
-            ALOGE("%s: Request %d: Buffer %zu: NULL buffer handle!",
+            CAMHAL_LOGE("%s: Request %d: Buffer %zu: NULL buffer handle!",
                  __FUNCTION__, frameNumber, idx);
             return BAD_VALUE;
          }
@@ -1314,18 +1307,18 @@ status_t EmulatedFakeCamera3::processCaptureRequest(
 
          e = settings.find(ANDROID_CONTROL_AE_TARGET_FPS_RANGE);
          if (e.count == 0) {
-              ALOGE("%s: get ANDROID_CONTROL_AE_TARGET_FPS_RANGE failed!", __FUNCTION__);
+              CAMHAL_LOGE("%s: get ANDROID_CONTROL_AE_TARGET_FPS_RANGE failed!", __FUNCTION__);
               return BAD_VALUE;
          } else {
               previewFpsRange[0] = e.data.i32[0];
               previewFpsRange[1] = e.data.i32[1];
               mFrameDuration =  1000000000 / previewFpsRange[1];
-              ALOGI("set ANDROID_CONTROL_AE_TARGET_FPS_RANGE :%d,%d", previewFpsRange[0], previewFpsRange[1]);
+              CAMHAL_LOGI("set ANDROID_CONTROL_AE_TARGET_FPS_RANGE :%d,%d", previewFpsRange[0], previewFpsRange[1]);
          }
 
          e = settings.find(ANDROID_CONTROL_AE_ANTIBANDING_MODE);
          if (e.count == 0) {
-              ALOGE("%s: No antibanding entry!", __FUNCTION__);
+              CAMHAL_LOGE("%s: No antibanding entry!", __FUNCTION__);
               return BAD_VALUE;
          }
          antiBanding = e.data.u8[0];
@@ -1333,7 +1326,7 @@ status_t EmulatedFakeCamera3::processCaptureRequest(
 
          e = settings.find(ANDROID_CONTROL_EFFECT_MODE);
          if (e.count == 0) {
-              ALOGE("%s: No antibanding entry!", __FUNCTION__);
+              CAMHAL_LOGE("%s: No antibanding entry!", __FUNCTION__);
               return BAD_VALUE;
          }
          effectMode = e.data.u8[0];
@@ -1341,11 +1334,11 @@ status_t EmulatedFakeCamera3::processCaptureRequest(
 
          e = settings.find(ANDROID_CONTROL_AE_EXPOSURE_COMPENSATION);
          if (e.count == 0) {
-              ALOGE("%s: No exposure entry!", __FUNCTION__);
+              CAMHAL_LOGE("%s: No exposure entry!", __FUNCTION__);
               //return BAD_VALUE;
          } else {
               exposureCmp = e.data.i32[0];
-              DBG_LOGB("set expsore compensation %d\n", exposureCmp);
+              CAMHAL_LOGD("set expsore compensation %d\n", exposureCmp);
               mSensor->setExposure(exposureCmp);
          }
 
@@ -1355,7 +1348,7 @@ status_t EmulatedFakeCamera3::processCaptureRequest(
 
          e = settings.find(ANDROID_SCALER_CROP_REGION);
          if (e.count == 0) {
-              ALOGE("%s: No corp region entry!", __FUNCTION__);
+              CAMHAL_LOGE("%s: No corp region entry!", __FUNCTION__);
               //return BAD_VALUE;
          } else {
               cropRegion[0] = e.data.i32[0];
@@ -1369,13 +1362,13 @@ status_t EmulatedFakeCamera3::processCaptureRequest(
                          break;
                    }
               }
-              DBG_LOGB("cropRegion:%d, %d, %d, %d\n", cropRegion[0], cropRegion[1],cropRegion[2],cropRegion[3]);
+              CAMHAL_LOGD("cropRegion:%d, %d, %d, %d\n", cropRegion[0], cropRegion[1],cropRegion[2],cropRegion[3]);
          }
       }
 
       res = process3A(settings);
       if (res != OK) {
-              ALOGVV("%s: process3A failed!", __FUNCTION__);
+              CAMHAL_LOGVV("%s: process3A failed!", __FUNCTION__);
               //return res;
       }
 
@@ -1429,7 +1422,7 @@ status_t EmulatedFakeCamera3::processCaptureRequest(
               sp<Fence> bufferAcquireFence = new Fence(srcBuf.acquire_fence);
               res = bufferAcquireFence->wait(kFenceTimeoutMs);
               if (res == TIMED_OUT) {
-                     ALOGE("%s: Request %d: Buffer %zu: Fence timed out after %d ms",
+                     CAMHAL_LOGE("%s: Request %d: Buffer %zu: Fence timed out after %d ms",
                                 __FUNCTION__, frameNumber, i, kFenceTimeoutMs);
               }
 
@@ -1454,7 +1447,7 @@ status_t EmulatedFakeCamera3::processCaptureRequest(
                                       // YCbCr_420_888 is really contiguous NV21 under the hood
                                       destBuf.img = static_cast<uint8_t*>(ycbcr.y);
                                } else {
-                                      ALOGE("Unexpected private format for flexible YUV: 0x%x",
+                                      CAMHAL_LOGE("Unexpected private format for flexible YUV: 0x%x",
                                                  am_gralloc_get_format((native_handle_t*)(*srcBuf.buffer)));
                                       res = INVALID_OPERATION;
                                }
@@ -1465,7 +1458,7 @@ status_t EmulatedFakeCamera3::processCaptureRequest(
                                      (void**)&(destBuf.img));
                          }
                          if (res != OK) {
-                               ALOGE("%s: Request %d: Buffer %zu: Unable to lock buffer",
+                               CAMHAL_LOGE("%s: Request %d: Buffer %zu: Unable to lock buffer",
                                       __FUNCTION__, frameNumber, i);
                          }
                      }  else if (srcBuf.stream->format == HAL_PIXEL_FORMAT_BLOB) {
@@ -1475,7 +1468,7 @@ status_t EmulatedFakeCamera3::processCaptureRequest(
                                  (void**)&(destBuf.img));
                      }
                      if (res != OK) {
-                           ALOGE("%s: Request %d: Buffer %zu: Unable to lock buffer",
+                           CAMHAL_LOGE("%s: Request %d: Buffer %zu: Unable to lock buffer",
                                   __FUNCTION__, frameNumber, i);
                      }
               }
@@ -1495,7 +1488,7 @@ status_t EmulatedFakeCamera3::processCaptureRequest(
                                          *(stream_buffer.buffer));
                          }
                      }
-                     ALOGE("line:%d, format for this usage: %d x %d, format=%x, returned\n",
+                     CAMHAL_LOGE("line:%d, format for this usage: %d x %d, format=%x, returned\n",
                               __LINE__, destBuf.width, destBuf.height,
                               am_gralloc_get_format((native_handle_t*)(*srcBuf.buffer)));
 
@@ -1557,7 +1550,7 @@ status_t EmulatedFakeCamera3::processCaptureRequest(
               if ((info.thumbwidth > 0) && (info.thumbheight > 0)) {
                    mHaveThumbnail = true;
               }
-              DBG_LOGB("%s::thumbnailSize_width=%d,thumbnailSize_height=%d,mainsize_width=%d,mainsize_height=%d,jpegOrientation=%d",__FUNCTION__,
+              CAMHAL_LOGD("%s::thumbnailSize_width=%d,thumbnailSize_height=%d,mainsize_width=%d,mainsize_height=%d,jpegOrientation=%d",__FUNCTION__,
                                       info.thumbwidth,info.thumbheight,info.mainwidth,info.mainheight,info.orientation);
       }
       /**
@@ -1567,7 +1560,7 @@ status_t EmulatedFakeCamera3::processCaptureRequest(
       if (needJpeg) {
               bool ready = mJpegCompressor->waitForDone(kFenceTimeoutMs);
               if (!ready) {
-                     ALOGE("%s: Timeout waiting for JPEG compression to complete!",
+                     CAMHAL_LOGE("%s: Timeout waiting for JPEG compression to complete!",
                                 __FUNCTION__);
                      return NO_INIT;
               }
@@ -1586,7 +1579,7 @@ status_t EmulatedFakeCamera3::processCaptureRequest(
     */
       res = mReadoutThread->waitForReadout();
       if (res != OK) {
-              ALOGE("%s: Timeout waiting for previous requests to complete!",
+              CAMHAL_LOGE("%s: Timeout waiting for previous requests to complete!",
                             __FUNCTION__);
               return NO_INIT;
       }
@@ -1604,12 +1597,16 @@ status_t EmulatedFakeCamera3::processCaptureRequest(
                     return NO_INIT;
               }
               if (syncTimeoutCount == kMaxSyncTimeoutCount) {
-                    ALOGE("%s: Request %d: Sensor sync timed out after %" PRId64 " ms",
+                    CAMHAL_LOGE("%s: Request %d: Sensor sync timed out after %" PRId64 " ms",
                             __FUNCTION__, frameNumber,
                             kSyncWaitTimeout * kMaxSyncTimeoutCount / 1000000);
                     return NO_INIT;
               }
               syncTimeoutCount++;
+        }
+        if (mSensor->isUnpluged()) {
+            ALOGE("****return error");
+            return INVALID_OPERATION;
         }
 
         /**
@@ -1632,7 +1629,7 @@ status_t EmulatedFakeCamera3::processCaptureRequest(
         r.havethumbnail = mHaveThumbnail;
 
         mReadoutThread->queueCaptureRequest(r);
-        ALOGVV("%s: Queued frame %d", __FUNCTION__, request->frame_number);
+        CAMHAL_LOGVV("%s: Queued frame %d", __FUNCTION__, request->frame_number);
 
         /*picture request*/
         if (!pictureSensorBuffers->empty()) {
@@ -1653,7 +1650,7 @@ status_t EmulatedFakeCamera3::processCaptureRequest(
         // Cache the settings for next time
         mPrevSettings.acquire(settings);
     }
-    CAMHAL_LOGVB("%s ,  X" , __FUNCTION__);
+    CAMHAL_LOGV("%s ,  X" , __FUNCTION__);
     return OK;
 }
 
@@ -1678,7 +1675,7 @@ void EmulatedFakeCamera3::dump(int fd) {
         result.appendFormat("!!!!!!!!!camera apk may have no picture out\n");
     }
 
-    write(fd, result.c_str(), result.size());
+    write(fd, result.string(), result.size());
 
     if (mSensor.get() != NULL) {
         mSensor->dump(fd);
@@ -1689,7 +1686,7 @@ void EmulatedFakeCamera3::dump(int fd) {
 //TODO returned buffers every request held immediately with
 //CAMERA3_BUFFER_STATUS_ERROR flag.
 int EmulatedFakeCamera3::flush_all_requests() {
-    DBG_LOGA("flush all request");
+    CAMHAL_LOGD("flush all request");
     mFlushTag = true;
     mReadoutThread->flushAllRequest(true);
     mReadoutThread->setFlushFlag(false);
@@ -1724,7 +1721,7 @@ camera_metadata_ro_entry_t EmulatedFakeCamera3::staticInfo(const CameraMetadata 
         const char* tagName = get_camera_metadata_tag_name(tag);
         if (tagName == NULL) tagName = "<unknown>";
 
-        ALOGE("Error finding static metadata entry '%s.%s' (%x)",
+        CAMHAL_LOGE("Error finding static metadata entry '%s.%s' (%x)",
                 tagSection, tagName, tag);
     } else if (CC_UNLIKELY(
             (minCount != 0 && entry.count < minCount) ||
@@ -1733,7 +1730,7 @@ camera_metadata_ro_entry_t EmulatedFakeCamera3::staticInfo(const CameraMetadata 
         if (tagSection == NULL) tagSection = "<unknown>";
         const char* tagName = get_camera_metadata_tag_name(tag);
         if (tagName == NULL) tagName = "<unknown>";
-        ALOGE("Malformed static metadata entry '%s.%s' (%x):"
+        CAMHAL_LOGE("Malformed static metadata entry '%s.%s' (%x):"
                 "Expected between %zu and %zu values, but got %zu values",
                 tagSection, tagName, tag, minCount, maxCount, entry.count);
     }
@@ -1751,14 +1748,14 @@ void EmulatedFakeCamera3::getStreamConfigurationp(CameraMetadata *info) {
 
     camera_metadata_ro_entry_t availableStreamConfigs =
                 staticInfo(info, ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS);
-    CAMHAL_LOGDB(" stream, availableStreamConfigs.count=%zu\n", availableStreamConfigs.count);
+    CAMHAL_LOGD(" stream, availableStreamConfigs.count=%zu\n", availableStreamConfigs.count);
 
     for (size_t i=0; i < availableStreamConfigs.count; i+= STREAM_CONFIGURATION_SIZE) {
         int32_t format = availableStreamConfigs.data.i32[i + STREAM_FORMAT_OFFSET];
         int32_t width = availableStreamConfigs.data.i32[i + STREAM_WIDTH_OFFSET];
         int32_t height = availableStreamConfigs.data.i32[i + STREAM_HEIGHT_OFFSET];
         int32_t isInput = availableStreamConfigs.data.i32[i + STREAM_IS_INPUT_OFFSET];
-        CAMHAL_LOGDB("f=%x, w*h=%dx%d, du=%d\n", format, width, height, isInput);
+        CAMHAL_LOGD("f=%x, w*h=%dx%d, du=%d\n", format, width, height, isInput);
     }
 
 }
@@ -1773,14 +1770,14 @@ void EmulatedFakeCamera3::getStreamConfigurationDurations(CameraMetadata *info) 
 
     camera_metadata_ro_entry_t availableStreamConfigs =
                 staticInfo(info, ANDROID_SCALER_AVAILABLE_MIN_FRAME_DURATIONS);
-    CAMHAL_LOGDB("availableStreamConfigs.count=%zu\n", availableStreamConfigs.count);
+    CAMHAL_LOGD("availableStreamConfigs.count=%zu\n", availableStreamConfigs.count);
 
     for (size_t i=0; i < availableStreamConfigs.count; i+= STREAM_CONFIGURATION_SIZE) {
         //availableStreamConfigs.data.i64[i + STREAM_FORMAT_OFFSET];
         //availableStreamConfigs.data.i64[i + STREAM_WIDTH_OFFSET];
         //availableStreamConfigs.data.i64[i + STREAM_HEIGHT_OFFSET];
         //availableStreamConfigs.data.i64[i + STREAM_IS_INPUT_OFFSET];
-        //CAMHAL_LOGDB("f=%lx, w*h=%ldx%ld, du=%ld\n", format, width, height, isInput);
+        //CAMHAL_LOGD("f=%lx, w*h=%ldx%ld, du=%ld\n", format, width, height, isInput);
     }
 }
 
@@ -1791,20 +1788,20 @@ void EmulatedFakeCamera3::updateCameraMetaData(CameraMetadata *info) {
 status_t EmulatedFakeCamera3::createSensor() {
     VirtualDevice * device = CameraVirtualDevice::getInstance()->getVirtualDevice(mCameraID);
     if (device == nullptr) {
-        ALOGE("mCameraID=%d, get device fail",mCameraID);
+        CAMHAL_LOGE("mCameraID=%d, get device fail",mCameraID);
         return INVALID_OPERATION;
     }
-    ALOGD("device %s  type %d", device->name, device->type);
+    CAMHAL_LOGD("device %s  type %d", device->name, device->type);
     if (device->type == V4L2MEDIA_CAM_DEV) {
         mSensorType = SENSOR_V4L2MEDIA;
-        ALOGD("v4l2media sensor, mCameraID=%d",mCameraID);
+        CAMHAL_LOGD("v4l2media sensor, mCameraID=%d",mCameraID);
         mSensor = new V4l2MediaSensor();
         return OK;
     }
 
     if (!strcmp(device->name, "/dev/video70")) {
         mSensorType = SENSOR_HDMI;
-        ALOGD("HDMI vdin sensor, mCameraID=%d",mCameraID);
+        CAMHAL_LOGD("HDMI vdin sensor, mCameraID=%d",mCameraID);
         mSensor = new HDMISensor();
         return OK;
     }
@@ -1813,7 +1810,7 @@ status_t EmulatedFakeCamera3::createSensor() {
     status_t ret = s->startUp(mCameraID);
     if (ret != OK) {
         s.clear();
-        ALOGE("sensor start up failed");
+        CAMHAL_LOGE("sensor start up failed");
         return ret;
     }
     mSensorType = s->getSensorType();
@@ -1828,7 +1825,7 @@ status_t EmulatedFakeCamera3::createSensor() {
             break;
         }
         if (mSensorType == SENSOR_MIPI) {
-            ALOGW("Should not be Here, MIPISensor,mCameraID=%d",mCameraID);
+            CAMHAL_LOGW("Should not be Here, MIPISensor,mCameraID=%d",mCameraID);
             break;
         } else if (mSensorType == SENSOR_USB) {
             mUseHWdec = true;
@@ -1839,7 +1836,7 @@ status_t EmulatedFakeCamera3::createSensor() {
             }
             property_get("ro.vendor.platform.usehwmjpeg", property, "false");
             if (strstr(property, "true")) {
-                ALOGD("USBSensorHWDec, HW_MJPEG decoder");
+                CAMHAL_LOGD("USBSensorHWDec, HW_MJPEG decoder");
 
                 property_get("vendor.media.camera.dec.mediahalsdk", property, "false");
                 if (strstr(property, "true")) {
@@ -1852,7 +1849,7 @@ status_t EmulatedFakeCamera3::createSensor() {
             }
             property_get("ro.vendor.platform.usehwh264", property, "false");
             if (strstr(property, "true")) {
-                ALOGD("USBSensorHWDec, HW_H264 decoder");
+                CAMHAL_LOGD("USBSensorHWDec, HW_H264 decoder");
                 property_get("vendor.media.camera.dec.mediahalsdk", property, "false");
                 if (strstr(property, "true")) {
                     mSensor = new USBSensorHWDec(V4L2_PIX_FMT_H264);
@@ -1864,7 +1861,7 @@ status_t EmulatedFakeCamera3::createSensor() {
             }
             property_get("ro.vendor.platform.usehwh265", property, "false");
             if (strstr(property, "true")) {
-                ALOGD("USBSensorHWDec, HW_HEVC decoder");
+                CAMHAL_LOGD("USBSensorHWDec, HW_HEVC decoder");
                 property_get("vendor.media.camera.dec.mediahalsdk", property, "false");
                 if (strstr(property, "true")) {
                     mSensor = new USBSensorHWDec(V4L2_PIX_FMT_HEVC);
@@ -1875,11 +1872,11 @@ status_t EmulatedFakeCamera3::createSensor() {
                 break;
             }
 
-            ALOGD("Sensor to do CTS");
+            CAMHAL_LOGD("Sensor to do CTS");
             mSensor = new Sensor();
             mUseHWdec = false;
         }else {
-            ALOGE("not support this camera:%d",mSensorType);
+            CAMHAL_LOGE("not support this camera:%d",mSensorType);
         }
     }while(0);
     if (mSensor) {
@@ -1903,13 +1900,13 @@ status_t EmulatedFakeCamera3::constructStaticInfo() {
     if (mSensor) {
         ret = mSensor->startUp(mCameraID, ((mSensorType == SENSOR_HDMI) ? true : false));
         if (ret != NO_ERROR) {
-            ALOGE("sensor startUp fail");
+            CAMHAL_LOGE("sensor startUp fail");
             mSensor->shutDown();
             mSensor.clear();
             return BAD_VALUE;
         }
     } else {
-        ALOGE("sensor object can not is NULL");
+        CAMHAL_LOGE("sensor object can not is NULL");
         return BAD_VALUE;
     }
 
@@ -1917,7 +1914,7 @@ status_t EmulatedFakeCamera3::constructStaticInfo() {
 
     // 5 cm min focus distance for back camera, infinity (fixed focus) for front
     // TODO read this ioctl from camera driver
-    DBG_LOGB("mCameraID=%d,mCameraInfo=%p\n", mCameraID, mCameraInfo);
+    CAMHAL_LOGD("mCameraID=%d,mCameraInfo=%p\n", mCameraID, mCameraInfo);
     const float minFocusDistance = 0.0;
     info.update(ANDROID_LENS_INFO_MINIMUM_FOCUS_DISTANCE,
             &minFocusDistance, 1);
@@ -1984,7 +1981,7 @@ status_t EmulatedFakeCamera3::constructStaticInfo() {
         mFacingBack = 1;
         break;
      default:
-         ALOGE("not support this sensor type!");
+         CAMHAL_LOGE("not support this sensor type!");
          break;
        }
 
@@ -2115,8 +2112,10 @@ status_t EmulatedFakeCamera3::constructStaticInfo() {
     //for version 3.2 ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS
     count = sizeof(picSizes)/sizeof(picSizes[0]);
     count = mSensor->getStreamConfigurations(picSizes, kAvailableFormats, count);
+
     info.update(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS,
            (int32_t*)picSizes, count);
+
     if (count < availablejpegsize) {
         availablejpegsize = count;
     }
@@ -2124,10 +2123,12 @@ status_t EmulatedFakeCamera3::constructStaticInfo() {
 
     maxJpegResolution = getMaxJpegResolution(picSizes,count);
     int32_t full_size[4];
+
     full_size[0] = 0;
     full_size[1] = 0;
     full_size[2] = maxJpegResolution.width;
     full_size[3] = maxJpegResolution.height;
+
     /*activeArray.width <= pixelArraySize.Width && activeArray.height<= pixelArraySize.Height*/
     info.update(ANDROID_SENSOR_INFO_ACTIVE_ARRAY_SIZE,
             (int32_t*)full_size,
@@ -2137,7 +2138,7 @@ status_t EmulatedFakeCamera3::constructStaticInfo() {
 
     duration = new int64_t[count];
     if (duration == NULL) {
-        DBG_LOGA("allocate memory for duration failed");
+        CAMHAL_LOGD("allocate memory for duration failed");
         return NO_MEMORY;
     } else {
         memset(duration,0,sizeof(int64_t)*count);
@@ -2263,7 +2264,7 @@ status_t EmulatedFakeCamera3::constructStaticInfo() {
         info.update(ANDROID_CONTROL_AWB_AVAILABLE_MODES,
                 availableAwbModes, sizeof(availableAwbModes));
     } else {
-        DBG_LOGB("getAWB %d ",count);
+        CAMHAL_LOGD("getAWB %d ",count);
         info.update(ANDROID_CONTROL_AWB_AVAILABLE_MODES,
                 awbModes, count);
     }
@@ -2330,7 +2331,7 @@ status_t EmulatedFakeCamera3::constructStaticInfo() {
                 exposureCompensationRange,
                 sizeof(exposureCompensationRange)/sizeof(int32_t));
     } else {
-        DBG_LOGB("exposure compensation support:(%d, %d)\n", minExp, maxExp);
+        CAMHAL_LOGD("exposure compensation support:(%d, %d)\n", minExp, maxExp);
         int32_t exposureCompensationRange[] = {minExp, maxExp};
         info.update(ANDROID_CONTROL_AE_COMPENSATION_RANGE,
                 exposureCompensationRange,
@@ -2411,10 +2412,10 @@ status_t EmulatedFakeCamera3::constructStaticInfo() {
     getAvailableChKeys(&info, supportedHardwareLevel);
 
     if (mCameraInfo != NULL) {
-        CAMHAL_LOGDA("mCameraInfo is not null, mem leak?");
+        CAMHAL_LOGD("mCameraInfo is not null, mem leak?");
     }
     mCameraInfo = info.release();
-    DBG_LOGB("mCameraID=%d,mCameraInfo=%p\n", mCameraID, mCameraInfo);
+    CAMHAL_LOGD("mCameraID=%d,mCameraInfo=%p\n", mCameraID, mCameraInfo);
 
     if (duration != NULL) {
         delete [] duration;
@@ -2438,14 +2439,14 @@ status_t EmulatedFakeCamera3::process3A(CameraMetadata &settings) {
 
     e = settings.find(ANDROID_CONTROL_MODE);
     if (e.count == 0) {
-        ALOGE("%s: No control mode entry!", __FUNCTION__);
+        CAMHAL_LOGE("%s: No control mode entry!", __FUNCTION__);
         return BAD_VALUE;
     }
     uint8_t controlMode = e.data.u8[0];
 
     e = settings.find(ANDROID_CONTROL_SCENE_MODE);
     if (e.count == 0) {
-        ALOGE("%s: No scene mode entry!", __FUNCTION__);
+        CAMHAL_LOGE("%s: No scene mode entry!", __FUNCTION__);
         return BAD_VALUE;
     }
     uint8_t sceneMode = e.data.u8[0];
@@ -2462,7 +2463,7 @@ status_t EmulatedFakeCamera3::process3A(CameraMetadata &settings) {
                 mFacePriority = true;
                 break;
             default:
-                ALOGE("%s: Emulator doesn't support scene mode %d",
+                CAMHAL_LOGE("%s: Emulator doesn't support scene mode %d",
                         __FUNCTION__, sceneMode);
                 return BAD_VALUE;
         }
@@ -2492,7 +2493,7 @@ status_t EmulatedFakeCamera3::doFakeAE(CameraMetadata &settings) {
 
     e = settings.find(ANDROID_CONTROL_AE_MODE);
     if (e.count == 0) {
-        ALOGE("%s: No AE mode entry!", __FUNCTION__);
+        CAMHAL_LOGE("%s: No AE mode entry!", __FUNCTION__);
         return BAD_VALUE;
     }
     uint8_t aeMode = e.data.u8[0];
@@ -2506,14 +2507,14 @@ status_t EmulatedFakeCamera3::doFakeAE(CameraMetadata &settings) {
             // OK for AUTO modes
             break;
         default:
-            ALOGVV("%s: Emulator doesn't support AE mode %d",
+            CAMHAL_LOGVV("%s: Emulator doesn't support AE mode %d",
                     __FUNCTION__, aeMode);
             return BAD_VALUE;
     }
 
     e = settings.find(ANDROID_CONTROL_AE_LOCK);
     if (e.count == 0) {
-        ALOGE("%s: No AE lock entry!", __FUNCTION__);
+        CAMHAL_LOGE("%s: No AE lock entry!", __FUNCTION__);
         return BAD_VALUE;
     }
     bool aeLocked = (e.data.u8[0] == ANDROID_CONTROL_AE_LOCK_ON);
@@ -2526,9 +2527,9 @@ status_t EmulatedFakeCamera3::doFakeAE(CameraMetadata &settings) {
     }
 
     if (precaptureTrigger) {
-        ALOGVV("%s: Pre capture trigger = %d", __FUNCTION__, precaptureTrigger);
+        CAMHAL_LOGVV("%s: Pre capture trigger = %d", __FUNCTION__, precaptureTrigger);
     } else if (e.count > 0) {
-        ALOGVV("%s: Pre capture trigger was present? %zu",
+        CAMHAL_LOGVV("%s: Pre capture trigger was present? %zu",
               __FUNCTION__,
               e.count);
     }
@@ -2594,7 +2595,7 @@ status_t EmulatedFakeCamera3::doFakeAE(CameraMetadata &settings) {
                 mAeCounter = 0;
                 break;
             default:
-                ALOGE("%s: Emulator in unexpected AE state %d",
+                CAMHAL_LOGE("%s: Emulator in unexpected AE state %d",
                         __FUNCTION__, mAeState);
                 return INVALID_OPERATION;
         }
@@ -2612,7 +2613,7 @@ status_t EmulatedFakeCamera3::doFakeAF(CameraMetadata &settings) {
 
     e = settings.find(ANDROID_CONTROL_AF_MODE);
     if (e.count == 0) {
-        ALOGE("%s: No AF mode entry!", __FUNCTION__);
+        CAMHAL_LOGE("%s: No AF mode entry!", __FUNCTION__);
         return BAD_VALUE;
     }
     uint8_t afMode = e.data.u8[0];
@@ -2627,7 +2628,7 @@ status_t EmulatedFakeCamera3::doFakeAF(CameraMetadata &settings) {
         e = settings.find(ANDROID_CONTROL_AF_TRIGGER_ID);
 
         if (e.count == 0) {
-            ALOGE("%s: When android.control.afTrigger is set "
+            CAMHAL_LOGE("%s: When android.control.afTrigger is set "
                   " in the request, afTriggerId needs to be set as well",
                   __FUNCTION__);
             return BAD_VALUE;
@@ -2635,9 +2636,9 @@ status_t EmulatedFakeCamera3::doFakeAF(CameraMetadata &settings) {
 
         mAfTriggerId = e.data.i32[0];
 
-        ALOGVV("%s: AF trigger set to 0x%x", __FUNCTION__, afTrigger);
-        ALOGVV("%s: AF trigger ID set to 0x%x", __FUNCTION__, mAfTriggerId);
-        ALOGVV("%s: AF mode is 0x%x", __FUNCTION__, afMode);
+        CAMHAL_LOGVV("%s: AF trigger set to 0x%x", __FUNCTION__, afTrigger);
+        CAMHAL_LOGVV("%s: AF trigger ID set to 0x%x", __FUNCTION__, mAfTriggerId);
+        CAMHAL_LOGVV("%s: AF mode is 0x%x", __FUNCTION__, afMode);
     } else {
         afTrigger = ANDROID_CONTROL_AF_TRIGGER_IDLE;
     }
@@ -2654,7 +2655,7 @@ status_t EmulatedFakeCamera3::doFakeAF(CameraMetadata &settings) {
         case ANDROID_CONTROL_AF_MODE_CONTINUOUS_VIDEO:
         case ANDROID_CONTROL_AF_MODE_CONTINUOUS_PICTURE:
             if (!mFacingBack) {
-                ALOGE("%s: Front camera doesn't support AF mode %d",
+                CAMHAL_LOGE("%s: Front camera doesn't support AF mode %d",
                         __FUNCTION__, afMode);
                 return BAD_VALUE;
             }
@@ -2662,14 +2663,14 @@ status_t EmulatedFakeCamera3::doFakeAF(CameraMetadata &settings) {
             // OK, handle transitions lower on
             break;
         default:
-            ALOGE("%s: Emulator doesn't support AF mode %d",
+            CAMHAL_LOGE("%s: Emulator doesn't support AF mode %d",
                     __FUNCTION__, afMode);
             return BAD_VALUE;
     }
 #if 0
     e = settings.find(ANDROID_CONTROL_AF_REGIONS);
     if (e.count == 0) {
-        ALOGE("%s:Get ANDROID_CONTROL_AF_REGIONS failed\n", __FUNCTION__);
+        CAMHAL_LOGE("%s:Get ANDROID_CONTROL_AF_REGIONS failed\n", __FUNCTION__);
         return BAD_VALUE;
     }
     int32_t x0 = e.data.i32[0];
@@ -2677,7 +2678,7 @@ status_t EmulatedFakeCamera3::doFakeAF(CameraMetadata &settings) {
     int32_t x1 = e.data.i32[2];
     int32_t y1 = e.data.i32[3];
     mSensor->setFocusArea(x0, y0, x1, y1);
-    DBG_LOGB(" x0:%d, y0:%d,x1:%d,y1:%d,\n", x0, y0, x1, y1);
+    CAMHAL_LOGD(" x0:%d, y0:%d,x1:%d,y1:%d,\n", x0, y0, x1, y1);
 #endif
 
 
@@ -2702,12 +2703,12 @@ status_t EmulatedFakeCamera3::doFakeAF(CameraMetadata &settings) {
             // Cancel trigger always transitions into INACTIVE
             mAfState = ANDROID_CONTROL_AF_STATE_INACTIVE;
 
-            ALOGV("%s: AF State transition to STATE_INACTIVE", __FUNCTION__);
+            CAMHAL_LOGV("%s: AF State transition to STATE_INACTIVE", __FUNCTION__);
 
             // Stay in 'inactive' until at least next frame
             return OK;
         default:
-            ALOGE("%s: Unknown af trigger value %d", __FUNCTION__, afTrigger);
+            CAMHAL_LOGE("%s: Unknown af trigger value %d", __FUNCTION__, afTrigger);
             return BAD_VALUE;
     }
 
@@ -2824,7 +2825,7 @@ status_t EmulatedFakeCamera3::doFakeAF(CameraMetadata &settings) {
             }
             break;
         default:
-            ALOGE("%s: Bad af state %d", __FUNCTION__, mAfState);
+            CAMHAL_LOGE("%s: Bad af state %d", __FUNCTION__, mAfState);
     }
 
     {
@@ -2839,7 +2840,7 @@ status_t EmulatedFakeCamera3::doFakeAF(CameraMetadata &settings) {
                 mAfState,
                 afNewStateString,
                 sizeof(afNewStateString));
-        ALOGVV("%s: AF state transitioned from %s to %s",
+        CAMHAL_LOGVV("%s: AF state transitioned from %s to %s",
               __FUNCTION__, afStateString, afNewStateString);
     }
 
@@ -2853,11 +2854,11 @@ status_t EmulatedFakeCamera3::doFakeAWB(CameraMetadata &settings) {
 
     e = settings.find(ANDROID_CONTROL_AWB_MODE);
     if (e.count == 0) {
-        ALOGE("%s: No AWB mode entry!", __FUNCTION__);
+        CAMHAL_LOGE("%s: No AWB mode entry!", __FUNCTION__);
         return BAD_VALUE;
     }
     uint8_t awbMode = e.data.u8[0];
-    //DBG_LOGB(" awbMode%d\n", awbMode);
+    //CAMHAL_LOGD(" awbMode%d\n", awbMode);
 
     // TODO: Add white balance simulation
 
@@ -2877,7 +2878,7 @@ status_t EmulatedFakeCamera3::doFakeAWB(CameraMetadata &settings) {
                 return mSensor->setAWB(awbMode);
             break;
         default:
-            ALOGE("%s: Emulator doesn't support AWB mode %d",
+            CAMHAL_LOGE("%s: Emulator doesn't support AWB mode %d",
                     __FUNCTION__, awbMode);
             return BAD_VALUE;
     }
@@ -2911,14 +2912,14 @@ void EmulatedFakeCamera3::update3A(CameraMetadata &settings) {
 void EmulatedFakeCamera3::signalReadoutIdle() {
     ATRACE_CALL();
     Mutex::Autolock l(mLock);
-    CAMHAL_LOGVB("%s ,  E" , __FUNCTION__);
+    CAMHAL_LOGV("%s ,  E" , __FUNCTION__);
     // Need to chek isIdle again because waiting on mLock may have allowed
     // something to be placed in the in-flight queue.
     if (mStatus == STATUS_ACTIVE && mReadoutThread->isIdle()) {
-        ALOGV("Now idle");
+        CAMHAL_LOGV("Now idle");
         mStatus = STATUS_READY;
     }
-    CAMHAL_LOGVB("%s ,  X ,  mStatus = %d " , __FUNCTION__, mStatus);
+    CAMHAL_LOGV("%s ,  X ,  mStatus = %d " , __FUNCTION__, mStatus);
 }
 
 void EmulatedFakeCamera3::onSensorEvent(uint32_t frameNumber, Event e,
@@ -2926,7 +2927,7 @@ void EmulatedFakeCamera3::onSensorEvent(uint32_t frameNumber, Event e,
         ATRACE_CALL();
     switch(e) {
         case Sensor::SensorListener::EXPOSURE_START: {
-            ALOGVV("%s: Frame %d: Sensor started exposure at %lld",
+            CAMHAL_LOGVV("%s: Frame %d: Sensor started exposure at %" PRIu64 "\n",
                     __FUNCTION__, frameNumber, timestamp);
             // Trigger shutter notify to framework
             camera3_notify_msg_t msg;
@@ -2946,7 +2947,7 @@ void EmulatedFakeCamera3::onSensorEvent(uint32_t frameNumber, Event e,
             break;
         }
         default:
-            ALOGW("%s: Unexpected sensor event %d at %" PRId64, __FUNCTION__,
+            CAMHAL_LOGW("%s: Unexpected sensor event %d at %" PRId64, __FUNCTION__,
                     e, timestamp);
             break;
     }
@@ -3005,16 +3006,16 @@ status_t EmulatedFakeCamera3::ReadoutThread::flushAllRequest(bool flag) {
     status_t res;
     mFlushFlag = flag;
     Mutex::Autolock l(mLock);
-    CAMHAL_LOGDB("count = %zu" , mInFlightQueue.size());
+    CAMHAL_LOGD("count = %zu" , mInFlightQueue.size());
     if (mInFlightQueue.size() > 0) {
         mParent->mSensor->setFlushFlag(true);
         res = mFlush.waitRelative(mLock, kSyncWaitTimeout * 15);
         if (res != OK && res != TIMED_OUT) {
-            ALOGE("%s: Error waiting for mFlush signal : %d",
+            CAMHAL_LOGE("%s: Error waiting for mFlush signal : %d",
                   __FUNCTION__, res);
             return INVALID_OPERATION;
         }
-        DBG_LOGA("finish flush all request");
+        CAMHAL_LOGD("finish flush all request");
     }
     return 0;
 }
@@ -3045,21 +3046,21 @@ status_t EmulatedFakeCamera3::ReadoutThread::waitForReadout() {
     ATRACE_CALL();
     status_t res;
     Mutex::Autolock l(mLock);
-    CAMHAL_LOGVB("%s ,  E" , __FUNCTION__);
+    CAMHAL_LOGV("%s ,  E" , __FUNCTION__);
     int loopCount = 0;
     while (mInFlightQueue.size() >= kMaxQueueSize) {
         res = mInFlightSignal.waitRelative(mLock, kWaitPerLoop);
         if (res != OK && res != TIMED_OUT) {
-            ALOGE("%s: Error waiting for in-flight queue to shrink",
+            CAMHAL_LOGE("%s: Error waiting for in-flight queue to shrink",
                     __FUNCTION__);
             return INVALID_OPERATION;
         }
         if (mExitReadoutThread) {
-            ALOGE("%s: Readout Thread is exit", __FUNCTION__);
+            CAMHAL_LOGE("%s: Readout Thread is exit", __FUNCTION__);
             return INVALID_OPERATION;
         }
         if (loopCount == kMaxWaitLoops) {
-            ALOGE("%s: Timed out waiting for in-flight queue to shrink",
+            CAMHAL_LOGE("%s: Timed out waiting for in-flight queue to shrink",
                     __FUNCTION__);
             return TIMED_OUT;
         }
@@ -3072,7 +3073,7 @@ status_t EmulatedFakeCamera3::ReadoutThread::setJpegCompressorListener(EmulatedF
     status_t res;
     res = mParent->mJpegCompressor->setlistener(this);
     if (res != NO_ERROR) {
-        ALOGE("%s: set JpegCompressor Listener failed",__FUNCTION__);
+        CAMHAL_LOGE("%s: set JpegCompressor Listener failed",__FUNCTION__);
     }
     return res;
 }
@@ -3081,7 +3082,7 @@ status_t EmulatedFakeCamera3::ReadoutThread::startJpegCompressor(EmulatedFakeCam
     status_t res;
     res = mParent->mJpegCompressor->start();
     if (res != NO_ERROR) {
-        ALOGE("%s: JpegCompressor start failed",__FUNCTION__);
+        CAMHAL_LOGE("%s: JpegCompressor start failed",__FUNCTION__);
     }
     return res;
 }
@@ -3090,7 +3091,7 @@ status_t EmulatedFakeCamera3::ReadoutThread::shutdownJpegCompressor(EmulatedFake
     status_t res;
     res = mParent->mJpegCompressor->cancel();
     if (res != OK) {
-        ALOGE("%s: JpegCompressor cancel failed",__FUNCTION__);
+        CAMHAL_LOGE("%s: JpegCompressor cancel failed",__FUNCTION__);
     }
     return res;
 }
@@ -3104,7 +3105,7 @@ void EmulatedFakeCamera3::ReadoutThread::sendExitReadoutThreadSignal(void) {
 bool EmulatedFakeCamera3::ReadoutThread::threadLoop() {
     ATRACE_CALL();
     status_t res;
-    ALOGVV("%s: ReadoutThread waiting for request", __FUNCTION__);
+    CAMHAL_LOGVV("%s: ReadoutThread waiting for request", __FUNCTION__);
 
     // First wait for a request from the in-flight queue
     if (mExitReadoutThread) {
@@ -3124,11 +3125,11 @@ bool EmulatedFakeCamera3::ReadoutThread::threadLoop() {
         if (mInFlightQueue.empty()) {
             res = mInFlightSignal.waitRelative(mLock, kWaitPerLoop);
             if (res == TIMED_OUT) {
-                ALOGVV("%s: ReadoutThread: Timed out waiting for request",
+                CAMHAL_LOGVV("%s: ReadoutThread: Timed out waiting for request",
                         __FUNCTION__);
                 return true;
             } else if (res != NO_ERROR) {
-                ALOGE("%s: Error waiting for capture requests: %d",
+                CAMHAL_LOGE("%s: Error waiting for capture requests: %d",
                         __FUNCTION__, res);
                 return false;
             }
@@ -3146,12 +3147,12 @@ bool EmulatedFakeCamera3::ReadoutThread::threadLoop() {
         mInFlightQueue.erase(mInFlightQueue.begin());
         mInFlightSignal.signal();
         mThreadActive = true;
-        ALOGVV("%s: Beginning readout of frame %d", __FUNCTION__,
+        CAMHAL_LOGVV("%s: Beginning readout of frame %d", __FUNCTION__,
                 mCurrentRequest.frameNumber);
     }
 
     // Then wait for it to be delivered from the sensor
-    ALOGVV("%s: ReadoutThread: Wait for frame to be delivered from sensor",
+    CAMHAL_LOGVV("%s: ReadoutThread: Wait for frame to be delivered from sensor",
             __FUNCTION__);
 
     nsecs_t captureTime;
@@ -3159,13 +3160,13 @@ bool EmulatedFakeCamera3::ReadoutThread::threadLoop() {
     status_t gotFrame =
             mParent->mSensor->waitForNewFrame(kWaitPerLoop, &captureTime);
     if (gotFrame == 0) {
-        ALOGVV("%s: ReadoutThread: Timed out waiting for sensor frame",
+        CAMHAL_LOGVV("%s: ReadoutThread: Timed out waiting for sensor frame",
                 __FUNCTION__);
         return true;
     }
 
     if (gotFrame == -1) {
-        DBG_LOGA("Sensor thread had exited , here should exit ReadoutThread Loop");
+        CAMHAL_LOGD("Sensor thread had exited , here should exit ReadoutThread Loop");
         return false;
     }
 
@@ -3174,7 +3175,7 @@ bool EmulatedFakeCamera3::ReadoutThread::threadLoop() {
     if (!workflag)
         return true;
 
-    ALOGVV("Sensor done with readout for frame %d, captured at %lld ",
+    CAMHAL_LOGVV("Sensor done with readout for frame %d, captured at %" PRIu64 "\n",
             mCurrentRequest.frameNumber, captureTime);
 
     // Check if we need to JPEG encode a buffer, and send it for async
@@ -3250,7 +3251,7 @@ bool EmulatedFakeCamera3::ReadoutThread::threadLoop() {
     if (signalIdle) mParent->signalReadoutIdle();
 
     // Send it off to the framework
-    ALOGVV("%s: ReadoutThread: Send result to framework",
+    CAMHAL_LOGVV("%s: ReadoutThread: Send result to framework",
             __FUNCTION__);
     if (mParent->mSensor->isUnpluged()) {
         StreamList::iterator error_stream = mParent->mStreams.begin();
@@ -3278,7 +3279,7 @@ bool EmulatedFakeCamera3::ReadoutThread::threadLoop() {
         mCurrentRequest.sensorBuffers = NULL;
     }
     mCurrentRequest.settings.clear();
-    CAMHAL_LOGVB("%s ,  X  " , __FUNCTION__);
+    CAMHAL_LOGV("%s ,  X  " , __FUNCTION__);
     return true;
 }
 
@@ -3304,10 +3305,10 @@ void EmulatedFakeCamera3::ReadoutThread::onJpegDone(
     result.partial_result = 1;
 
     if (!success) {
-        ALOGE("%s: Compression failure, returning error state buffer to"
+        CAMHAL_LOGE("%s: Compression failure, returning error state buffer to"
                 " framework", __FUNCTION__);
     } else {
-        DBG_LOGB("%s: Compression complete, returning buffer to framework",
+        CAMHAL_LOGD("%s: Compression complete, returning buffer to framework",
                 __FUNCTION__);
     }
 
@@ -3319,7 +3320,7 @@ void EmulatedFakeCamera3::ReadoutThread::onJpegInputDone(
         const StreamBuffer &inputBuffer) {
     // Should never get here, since the input buffer has to be returned
     // by end of processCaptureRequest
-    ALOGE("%s: Unexpected input buffer from JPEG compressor!", __FUNCTION__);
+    CAMHAL_LOGE("%s: Unexpected input buffer from JPEG compressor!", __FUNCTION__);
 }
 
 

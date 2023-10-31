@@ -19,7 +19,7 @@
 
 #include <hardware/camera_common.h>
 #include <utils/Errors.h>
-#include "DebugUtils.h"
+#include "CamHalDebugLog.h"
 
 namespace android {
 

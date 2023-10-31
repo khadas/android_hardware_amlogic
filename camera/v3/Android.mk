@@ -23,14 +23,32 @@ LOCAL_CFLAGS += -fno-short-enums -DQEMU_HARDWARE
 LOCAL_CFLAGS += -Wno-unused-parameter -Wno-missing-field-initializers
 LOCAL_CFLAGS += -DPLATFORM_SDK_VERSION=$(PLATFORM_SDK_VERSION)
 
+CAMHAL_DEBUG_ENABLE := true
 GE2D_ENABLE := true
 GE2D_VERSION_2 := true
 ISP_ENABLE := false
 GDC_ENABLE := false
+HW_JPEG := false
 ifeq ($(TARGET_PRODUCT), t7_an400)
 DEWARP_ENABLE := true
 else ifeq ($(TARGET_PRODUCT), t7_an400_arm64)
 DEWARP_ENABLE := true
+endif
+
+
+ifeq ($(TARGET_PRODUCT), tyson)
+# zhiwei.zhang 2023.11.1 VICP on U not tested yet. disable it for now.
+# if needed, someon can test and enable it.
+VICP_ENABLE := false
+endif
+
+ifeq ($(CAMHAL_DEBUG_ENABLE),true)
+# enable ALOGV
+LOCAL_CFLAGS+=-DLOG_NDEBUG=0
+# enable ALOGD
+LOCAL_CFLAGS+=-DLOG_NDDEBUG=0
+
+LOCAL_CFLAGS+=-DCAMHAL_DEBUG
 endif
 
 LOCAL_SHARED_LIBRARIES:= \
@@ -63,6 +81,17 @@ LOCAL_SHARED_LIBRARIES += libge2d
 endif
 LOCAL_CFLAGS += -DGE2D_ENABLE
 endif
+
+ifeq ($(VICP_ENABLE), true)
+LOCAL_SHARED_LIBRARIES += libvicp
+LOCAL_CFLAGS += -DVICP_ENABLE
+endif
+
+ifeq ($(HW_JPEG),true)
+LOCAL_CFLAGS += -DHW_JPEG
+LOCAL_SHARED_LIBRARIES += libjpegenc_api
+endif
+
 ifeq ($(NEED_ISP),true)
 LOCAL_SHARED_LIBRARIES += libispaaa
 LOCAL_CFLAGS += -DISP_ENABLE
@@ -123,16 +152,25 @@ LOCAL_C_INCLUDES += external/jpeg \
 
 ifeq ($(GE2D_ENABLE),true)
 ifeq ($(GE2D_VERSION_2),true)
-LOCAL_C_INCLUDES += $(TOP)/vendor/common/system/libge2d/v2/include/
+LOCAL_C_INCLUDES += $(TOP)/vendor/amlogic/common/system/libge2d/v2/include/
 else
-LOCAL_C_INCLUDES += $(TOP)/vendor/common/system/libge2d/include/
+LOCAL_C_INCLUDES += $(TOP)/vendor/amlogic/common/system/libge2d/include/
 endif
+endif
+
+ifeq ($(VICP_ENABLE),true)
+LOCAL_C_INCLUDES += $(TOP)/vendor/amlogic/common/system/libvicp/include/
 endif
 
 ifeq ($(GDC_ENABLE),true)
 LOCAL_C_INCLUDES += $(TOP)/vendor/amlogic/common/system/libgdc/include
 else ifeq ($(DEWARP_ENABLE),true)
 LOCAL_C_INCLUDES += $(TOP)/vendor/amlogic/common/system/libgdc/dewarp
+
+endif
+
+ifeq ($(HW_JPEG),true)
+LOCAL_C_INCLUDES += $(TOP)/hardware/amlogic/camera/v3/Jpegenc_hw
 endif
 
 LOCAL_C_INCLUDES += $(TOP)/hardware/amlogic/camera/v3/fake-pipeline2
@@ -155,7 +193,7 @@ LOCAL_SRC_FILES := \
     fake-pipeline2/Scene.cpp \
     fake-pipeline2/Sensor.cpp \
     fake-pipeline2/JpegCompressor.cpp \
-    fake-pipeline2/NV12_resize.c \
+    fake-pipeline2/NV12_resize.cpp \
     fake-pipeline2/CameraUtil.cpp \
     EmulatedCamera3.cpp \
     EmulatedFakeCamera3.cpp \
@@ -209,6 +247,14 @@ LOCAL_SRC_FILES += fake-pipeline2/ge2d_stream.cpp \
                    fake-pipeline2/MIPIBaseIO3.cpp
 endif
 
+ifeq ($(VICP_ENABLE),true)
+LOCAL_SRC_FILES += fake-pipeline2/vicp_stream.cpp
+endif
+
+ifeq ($(HW_JPEG),true)
+LOCAL_SRC_FILES += Jpegenc_hw/HwJpegEnc.cpp
+endif
+
 ifeq ($(GDC_ENABLE),true)
 LOCAL_SRC_FILES += fake-pipeline2/gdcUseFd.cpp
 LOCAL_SRC_FILES += fake-pipeline2/gdcUseMemcpy.cpp
@@ -218,7 +264,9 @@ LOCAL_SRC_FILES += fake-pipeline2/dewarp.cpp
 endif
 
 LOCAL_SRC_FILES += fake-pipeline2/MIPIBaseIO.cpp \
-                   fake-pipeline2/MIPIBaseIO2.cpp
+                   fake-pipeline2/MIPIBaseIO2.cpp \
+                   fake-pipeline2/GlobalResource.cpp \
+                   fake-pipeline2/V4l2Utils.cpp
 ifeq ($(TARGET_PRODUCT),vbox_x86)
 LOCAL_MODULE := camera.vbox_x86
 else

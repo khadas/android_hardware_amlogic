@@ -13,6 +13,10 @@
 #ifdef GE2D_ENABLE
 #include "fake-pipeline2/ge2d_stream.h"
 #endif
+#ifdef VICP_ENABLE
+#include "fake-pipeline2/vicp_stream.h"
+#endif
+
 #ifdef LOG_TAG
 #undef LOG_TAG
 #define LOG_TAG "OMXDecoder"
@@ -40,6 +44,19 @@ OMX_CALLBACKTYPE OMXDecoder::kCallbacks = {
     &OnEvent, &OnEmptyBufferDone, &OnFillBufferDone
 };
 
+#if defined(PREVIEW_DEWARP_ENABLE) || defined(PICTURE_DEWARP_ENABLE)
+static bool isNeedDestroyDewarp (dewarpInfo &info_exist, dewarpInfo &info) {
+    if (info_exist.o_width && info_exist.o_height && info_exist.i_width && info_exist.i_height
+            && info.i_width && info.i_height && info.o_width && info.o_height) {
+        if ((info_exist.o_width != info.o_width) || (info_exist.o_height != info.o_height)
+                || (info_exist.i_width != info.i_width) || (info_exist.i_height != info.i_height)) {
+            return true;
+        }
+    }
+    return false;
+}
+#endif
+
 OMXDecoder::OMXDecoder(bool useDMABuffer, bool keepOriginalSize) {
     LOG_LINE("useDMABuffer=%d", useDMABuffer);
     mUseDMABuffer        = useDMABuffer;
@@ -64,6 +81,9 @@ OMXDecoder::OMXDecoder(bool useDMABuffer, bool keepOriginalSize) {
     mUvmFd = -1;
 #ifdef GE2D_ENABLE
     mGE2D = new ge2dTransform();
+#ifdef VICP_ENABLE
+    mVICP = new vicpTransform();
+#endif
 #endif
     mTimeOut = false;
     mOutWidth = 0;
@@ -75,16 +95,29 @@ OMXDecoder::OMXDecoder(bool useDMABuffer, bool keepOriginalSize) {
     mWaitVsyncDuration = 0;
     mInHeight = 0;
     mInWidth = 0;
+    mEnableDewarp = false;
+    char property[PROPERTY_VALUE_MAX];
+    property_get("vendor.camhal.usbsensor.use.dewarp", property, "false");
+    if (strstr(property, "true")) {
+        mEnableDewarp = true;
+    }
 }
 
 OMXDecoder::~OMXDecoder() {
-    ALOGD("%s\n", __FUNCTION__);
+    CAMHAL_LOGD("%s\n", __FUNCTION__);
 #ifdef GE2D_ENABLE
     if (mGE2D) {
         delete mGE2D;
         mGE2D = nullptr;
     }
+#ifdef VICP_ENABLE
+    if (mVICP) {
+        delete mVICP;
+        mVICP = nullptr;
+    }
 #endif
+#endif
+
 }
 
 //Please don't use saveNativeBufferHdr() again if you want to use setParameters().
@@ -92,7 +125,7 @@ bool OMXDecoder::setParameters(uint32_t in_width, uint32_t in_height,
                                uint32_t out_width, uint32_t out_height,
                                uint32_t out_buffer_count) {
     if (!out_width || !out_height || !out_buffer_count) {
-        ALOGE("Error parameters!!! in_width %u  in_height %u out_height %u  out_height %u  out_buffer_count %u",
+        CAMHAL_LOGE("Error parameters!!! in_width %u  in_height %u out_height %u  out_height %u  out_buffer_count %u",
                 in_width, in_height, out_width, out_height, out_buffer_count);
         return false;
     }
@@ -101,7 +134,7 @@ bool OMXDecoder::setParameters(uint32_t in_width, uint32_t in_height,
     mOutWidth = out_width;
     mOutHeight = out_height;
     mOutBufferCount = out_buffer_count;
-    ALOGD("in_width %u  in_height %u out_height %u  out_height %u  out_buffer_count %u",
+    CAMHAL_LOGD("in_width %u  in_height %u out_height %u  out_height %u  out_buffer_count %u",
                 in_width, in_height, out_width, out_height, out_buffer_count);
     return true;
 }
@@ -121,7 +154,7 @@ bool OMXDecoder::initialize(const char* name) {
         if (mOutWidth != mInWidth || mOutHeight != mInHeight) {
             mOutWidth = mInWidth;
             mOutHeight = mInHeight;
-            ALOGD("dec out size changed to w=%d, h=%d, using ge2d resize output", mOutWidth, mOutHeight);
+            CAMHAL_LOGD("dec out size changed to w=%d, h=%d, using ge2d resize output", mOutWidth, mOutHeight);
         }
     } else if (0 == strcmp(name,"h264")) {
         decoderType = DEC_H264;
@@ -129,10 +162,10 @@ bool OMXDecoder::initialize(const char* name) {
         if (mOutWidth != mInWidth || mOutHeight != mInHeight) {
             mOutWidth = mInWidth;
             mOutHeight = mInHeight;
-            ALOGD("dec out size changed to w=%d, h=%d, using ge2d resize output", mOutWidth, mOutHeight);
+            CAMHAL_LOGD("dec out size changed to w=%d, h=%d, using ge2d resize output", mOutWidth, mOutHeight);
         }
     } else {
-        ALOGE("cannot support this format");
+        CAMHAL_LOGE("cannot support this format");
     }
 
     if (decoderType == DEC_H264)
@@ -147,25 +180,25 @@ bool OMXDecoder::initialize(const char* name) {
         mGetHandle  =     (GetHandleFunc) dlsym(mLibHandle, "OMX_GetHandle");
         mFreeHandle =     (FreeHandleFunc) dlsym(mLibHandle, "OMX_FreeHandle");
     } else {
-        ALOGE("cannot open libOmxCore.so\n");
+        CAMHAL_LOGE("cannot open libOmxCore.so\n");
         return false;
     }
 
 
     if (OMX_ErrorNone != (*mInit)()) {
-        ALOGE("OMX_Init fail!\n");
+        CAMHAL_LOGE("OMX_Init fail!\n");
         return false;
     } else {
-        ALOGD("OMX_Init success!\n");
+        CAMHAL_LOGD("OMX_Init success!\n");
     }
 
     eRet = (*mGetHandle)(&mVDecoderHandle, mDecoderComponentName, this, &kCallbacks);
 
     if (OMX_ErrorNone != eRet) {
-        ALOGE("OMX_GetHandle fail!, eRet = %#x\n", eRet);
+        CAMHAL_LOGE("OMX_GetHandle fail!, eRet = %#x\n", eRet);
         return false;
     } else {
-        ALOGD("OMX_GetHandle success!\n");
+        CAMHAL_LOGD("OMX_GetHandle success!\n");
     }
 
     OMX_UUIDTYPE componentUUID;
@@ -176,9 +209,9 @@ bool OMXDecoder::initialize(const char* name) {
             &componentVersion, &mSpecVersion,
             &componentUUID);
     if (eRet != OMX_ErrorNone)
-        ALOGE("OMX_GetComponentVersion failed!, eRet = %#x\n", eRet);
+        CAMHAL_LOGE("OMX_GetComponentVersion failed!, eRet = %#x\n", eRet);
     else
-        ALOGD("OMX_GetComponentVersion success!\n");
+        CAMHAL_LOGD("OMX_GetComponentVersion success!\n");
 
     OMX_PORT_PARAM_TYPE mPortParam;
     mPortParam.nSize = sizeof(OMX_PORT_PARAM_TYPE);
@@ -187,11 +220,11 @@ bool OMXDecoder::initialize(const char* name) {
     eRet = OMX_GetParameter(mVDecoderHandle, OMX_IndexParamVideoInit,
             &mPortParam);
     if (eRet != OMX_ErrorNone) {
-        ALOGE("OMX_GetParameter failed!\n");
+        CAMHAL_LOGE("OMX_GetParameter failed!\n");
         return false;
     }
     else
-        ALOGD("OMX_GetParameter success!\n");
+        CAMHAL_LOGD("OMX_GetParameter success!\n");
 
     /*configure input port*/
     mVideoInputPortParam.nSize = sizeof(OMX_PARAM_PORTDEFINITIONTYPE);
@@ -200,12 +233,12 @@ bool OMXDecoder::initialize(const char* name) {
     eRet = OMX_GetParameter(mVDecoderHandle, OMX_IndexParamPortDefinition,
             &mVideoInputPortParam);
     if (eRet != OMX_ErrorNone) {
-        ALOGE("[%s:%d]OMX_GetParameter OMX_IndexParamPortDefinition failed!! eRet = %#x\n",
+        CAMHAL_LOGE("[%s:%d]OMX_GetParameter OMX_IndexParamPortDefinition failed!! eRet = %#x\n",
                 __FUNCTION__, __LINE__, eRet);
         return false;
     }
 
-    ALOGD("[%s:%d]OMX_GetParameter mVideoInputPortParam.nBufferSize = %u, mVideoInputPortParam.format.video.eColorFormat =%d\n",
+    CAMHAL_LOGD("[%s:%d]OMX_GetParameter mVideoInputPortParam.nBufferSize = %u, mVideoInputPortParam.format.video.eColorFormat =%d\n",
             __FUNCTION__, __LINE__,
             mVideoInputPortParam.nBufferSize, mVideoInputPortParam.format.video.eColorFormat);
 
@@ -219,23 +252,23 @@ bool OMXDecoder::initialize(const char* name) {
     mVideoInputPortParam.nBufferCountActual = 6;
     eRet = OMX_SetParameter(mVDecoderHandle, OMX_IndexParamPortDefinition, &mVideoInputPortParam);
     if (OMX_ErrorNone != eRet) {
-        ALOGE("[%s:%d]OMX_SetParameter OMX_IndexParamPortDefinition error!! eRet = %#x\n",
+        CAMHAL_LOGE("[%s:%d]OMX_SetParameter OMX_IndexParamPortDefinition error!! eRet = %#x\n",
                 __FUNCTION__, __LINE__, eRet);
         return false;
     }
 
-    ALOGD("[%s:%d]OMX_SetParameter mVideoInputPortParam.nBufferSize = %u\n",
+    CAMHAL_LOGD("[%s:%d]OMX_SetParameter mVideoInputPortParam.nBufferSize = %u\n",
             __FUNCTION__, __LINE__,
             mVideoInputPortParam.nBufferSize);
 
     eRet = OMX_GetParameter(mVDecoderHandle, OMX_IndexParamPortDefinition, &mVideoInputPortParam);
     if (OMX_ErrorNone != eRet) {
-        ALOGE("[%s:%d]OMX_GetParameter OMX_IndexParamPortDefinition error!! eRet = %#x\n",
+        CAMHAL_LOGE("[%s:%d]OMX_GetParameter OMX_IndexParamPortDefinition error!! eRet = %#x\n",
                 __FUNCTION__, __LINE__, eRet);
         return false;
     }
 
-    ALOGD("[%s:%d]mVideoInputPortParam.nBufferCountActual = %u, mVideoInputPortParam.nBufferSize = %u, mVideoInputPortParam.format.video.eColorFormat =%d\n",
+    CAMHAL_LOGD("[%s:%d]mVideoInputPortParam.nBufferCountActual = %u, mVideoInputPortParam.nBufferSize = %u, mVideoInputPortParam.format.video.eColorFormat =%d\n",
             __FUNCTION__, __LINE__,
             mVideoInputPortParam.nBufferCountActual,
             mVideoInputPortParam.nBufferSize,
@@ -247,12 +280,12 @@ bool OMXDecoder::initialize(const char* name) {
         OMX_BOOL keepOriginalSize = OMX_TRUE;
         eRet = OMX_GetExtensionIndex(mVDecoderHandle, (char *)"OMX.amlogic.android.index.KeepOriginalSize", &index);
         if (eRet == OMX_ErrorNone) {
-            ALOGD("OMX_GetExtensionIndex returned %#x", index);
+            CAMHAL_LOGD("OMX_GetExtensionIndex returned %#x", index);
             eRet = OMX_SetParameter(mVDecoderHandle, index, &keepOriginalSize);
             if (eRet != OMX_ErrorNone)
-                ALOGW("setting keeporiginalsize returned error: %#x", eRet);
+                CAMHAL_LOGW("setting keeporiginalsize returned error: %#x", eRet);
         } else
-            ALOGW("OMX_GetExtensionIndex returned error: %#x", eRet);
+            CAMHAL_LOGW("OMX_GetExtensionIndex returned error: %#x", eRet);
     }
 
     if (mUseDMABuffer) {
@@ -261,24 +294,24 @@ bool OMXDecoder::initialize(const char* name) {
         OMX_BOOL useDMABuffers = OMX_TRUE;
         eRet = OMX_GetExtensionIndex(mVDecoderHandle, (char *)"OMX.amlogic.android.index.EnableDMABuffers", &index);
         if (eRet == OMX_ErrorNone) {
-            ALOGD("OMX_GetExtensionIndex returned %#x", index);
+            CAMHAL_LOGD("OMX_GetExtensionIndex returned %#x", index);
             eRet = OMX_SetParameter(mVDecoderHandle, index, &useDMABuffers);
             if (eRet != OMX_ErrorNone)
-                ALOGW("setting enableDMABuffers returned error: %#x", eRet);
+                CAMHAL_LOGW("setting enableDMABuffers returned error: %#x", eRet);
         } else
-            ALOGW("OMX_GetExtensionIndex returned error: %#x", eRet);
+            CAMHAL_LOGW("OMX_GetExtensionIndex returned error: %#x", eRet);
     }
 
     mVideoOutputPortParam.nSize = sizeof(OMX_PARAM_PORTDEFINITIONTYPE);
     mVideoOutputPortParam.nVersion = mSpecVersion;
     mVideoOutputPortParam.nPortIndex = mPortParam.nStartPortNumber + 1;
     eRet = OMX_GetParameter(mVDecoderHandle, OMX_IndexParamPortDefinition, &mVideoOutputPortParam);
-    ALOGD("[%s:%d]mVideoOutputPortParam.format.video.eCompressionFormat = %d\n",
+    CAMHAL_LOGD("[%s:%d]mVideoOutputPortParam.format.video.eCompressionFormat = %d\n",
             __FUNCTION__, __LINE__,
             mVideoOutputPortParam.format.video.eCompressionFormat);
 
     if (OMX_ErrorNone != eRet)
-        ALOGE("[%s:%d]mVDecoderHandle OMX_IndexParamPortDefinition error!! eRet = %#x\n",
+        CAMHAL_LOGE("[%s:%d]mVDecoderHandle OMX_IndexParamPortDefinition error!! eRet = %#x\n",
                 __FUNCTION__, __LINE__, eRet);
 
     mVideoOutputPortParam.nBufferCountActual = mOutBufferCount;
@@ -293,19 +326,19 @@ bool OMXDecoder::initialize(const char* name) {
 
     eRet = OMX_SetParameter(mVDecoderHandle, OMX_IndexParamPortDefinition, &mVideoOutputPortParam);
     if (OMX_ErrorNone != eRet) {
-        ALOGE("[%s:%d]OMX_SetParameter OMX_IndexParamPortDefinition error!! eRet = %#x\n",
+        CAMHAL_LOGE("[%s:%d]OMX_SetParameter OMX_IndexParamPortDefinition error!! eRet = %#x\n",
                 __FUNCTION__, __LINE__, eRet);
         return false;
     }
 
     eRet = OMX_GetParameter(mVDecoderHandle, OMX_IndexParamPortDefinition, &mVideoOutputPortParam);
     if (OMX_ErrorNone != eRet) {
-        ALOGE("[%s:%d]OMX_GetParameter OMX_IndexParamPortDefinition error!! eRet = %#x\n",
+        CAMHAL_LOGE("[%s:%d]OMX_GetParameter OMX_IndexParamPortDefinition error!! eRet = %#x\n",
                 __FUNCTION__, __LINE__, eRet);
         return false;
     }
 
-    ALOGD("[%s:%d]mVideoOutputPortParam.nBufferCountActual = %u, mVideoOutputPortParam.nBufferSize = %u\n",
+    CAMHAL_LOGD("[%s:%d]mVideoOutputPortParam.nBufferCountActual = %u, mVideoOutputPortParam.nBufferSize = %u\n",
             __FUNCTION__, __LINE__, mVideoOutputPortParam.nBufferCountActual, mVideoOutputPortParam.nBufferSize);
 
     OMX_SendCommand(mVDecoderHandle, OMX_CommandStateSet, OMX_StateIdle, NULL);
@@ -347,7 +380,7 @@ void OMXDecoder::deinitialize()
     */
     mNoFreeFlag = 1;
     if (mVDecoderHandle == NULL) {
-        ALOGD("mVDecoderHandle is NULL, alread deinitialized or not initialized at all");
+        CAMHAL_LOGD("mVDecoderHandle is NULL, alread deinitialized or not initialized at all");
         return;
     }
 
@@ -363,15 +396,15 @@ void OMXDecoder::deinitialize()
     } while (OMX_StateIdle != eState1 && OMX_StateInvalid != eState1);
 
     if (eRet != OMX_ErrorNone) {
-        ALOGE("Switch to StateIdle failed");
+        CAMHAL_LOGE("Switch to StateIdle failed");
     }
-    ALOGD("Switch to StateIdle successful");
+    CAMHAL_LOGD("Switch to StateIdle successful");
 
     OMX_SendCommand(mVDecoderHandle, OMX_CommandStateSet, OMX_StateLoaded, NULL);
 
     while (mListOfInputBufferHeader.size() != mVideoInputPortParam.nBufferCountActual
             || mListOfOutputBufferHeader.size() != mVideoOutputPortParam.nBufferCountActual) {
-        ALOGD("Input: %zu/%u  Output: %zu/%u",
+        CAMHAL_LOGD("Input: %zu/%u  Output: %zu/%u",
                 mListOfInputBufferHeader.size(), mVideoInputPortParam.nBufferCountActual,
                 mListOfOutputBufferHeader.size(), mVideoOutputPortParam.nBufferCountActual);
         usleep(5000);
@@ -385,16 +418,16 @@ void OMXDecoder::deinitialize()
     } while (OMX_StateLoaded != eState2 && OMX_StateInvalid != eState2);
 
     if (eRet != OMX_ErrorNone) {
-        ALOGE("Switch to StateLoaded failed");
+        CAMHAL_LOGE("Switch to StateLoaded failed");
     }
-    ALOGD("Switch to StateLoaded successful");
+    CAMHAL_LOGD("Switch to StateLoaded successful");
 
     (*mFreeHandle)(static_cast<OMX_HANDLETYPE *>(mVDecoderHandle));
     (*mDeinit)();
     if (mLibHandle != NULL) {
         dlclose(mLibHandle);
         mLibHandle = NULL;
-        ALOGD("dlclose lib handle at %p and null it", mLibHandle);
+        CAMHAL_LOGD("dlclose lib handle at %p and null it", mLibHandle);
     }
 
 }
@@ -414,14 +447,14 @@ void OMXDecoder::queueInputBuffer(OMX_BUFFERHEADERTYPE* pBufferHdr)
 {
     if (pBufferHdr != NULL) {
         if (mNoFreeFlag) {
-            ALOGD("exiting!! return to input queue.");
+            CAMHAL_LOGD("exiting!! return to input queue.");
             AutoMutex l(mInputBufferLock);
             mListOfInputBufferHeader.push_back(pBufferHdr);
         } else {
             OMX_EmptyThisBuffer(mVDecoderHandle, pBufferHdr);
         }
     } else {
-        ALOGD("queueInputBuffer invalid pBufferHdr(NULL)\n");
+        CAMHAL_LOGD("queueInputBuffer invalid pBufferHdr(NULL)\n");
     }
 }
 
@@ -449,13 +482,13 @@ void OMXDecoder::releaseOutputBuffer(OMX_BUFFERHEADERTYPE* pBufferHdr)
 {
     if (pBufferHdr != NULL)
         if (mNoFreeFlag) {
-            ALOGD("exiting!! return to output queue.");
+            CAMHAL_LOGD("exiting!! return to output queue.");
             AutoMutex l(mOutputBufferLock);
             mListOfOutputBufferHeader.push_back(pBufferHdr);
         } else
             OMX_FillThisBuffer(mVDecoderHandle, pBufferHdr);
         else
-            ALOGD("releaseOutputBuffer can't find pBufferHdr .\n");
+            CAMHAL_LOGD("releaseOutputBuffer can't find pBufferHdr .\n");
 }
 
 bool OMXDecoder::uvm_buffer_init() {
@@ -463,7 +496,7 @@ bool OMXDecoder::uvm_buffer_init() {
     if (mUvmFd <= 0) {
         mUvmFd = amuvm_open();
         if (mUvmFd < 0) {
-            ALOGE("open uvm device fail");
+            CAMHAL_LOGE("open uvm device fail");
             return -1;
         }
     }
@@ -475,20 +508,20 @@ bool OMXDecoder::uvm_buffer_init() {
     width = (width  + (OMX2_OUTPUT_BUFS_ALIGN_64 - 1)) & (~(OMX2_OUTPUT_BUFS_ALIGN_64 - 1));
     height = (height + (OMX2_OUTPUT_BUFS_ALIGN_64 - 1)) & (~(OMX2_OUTPUT_BUFS_ALIGN_64 - 1));
     //}
-    ALOGI("AllocDmaBuffers uvm mDecOutWidth:%d mDecOutHeight:%d, %dx%d", mOutWidth, mOutHeight, width, height);
+    CAMHAL_LOGI("AllocDmaBuffers uvm mDecOutWidth:%d mDecOutHeight:%d, %dx%d", mOutWidth, mOutHeight, width, height);
     while (i < mOutBufferCount) {
         int shared_fd = -1;
         int buffer_size = width * height * 3 / 2;
         int ret =  amuvm_allocate(mUvmFd, buffer_size,
                     width, height, UVM_IMM_ALLOC,&shared_fd);
         if (ret < 0) {
-            ALOGE("uvm device alloc fail");
+            CAMHAL_LOGE("uvm device alloc fail");
             return -1;
         }
 
         /*uint8_t* cpu_ptr = (uint8_t*)mmap(NULL, buffer_size, PROT_READ | PROT_WRITE, MAP_SHARED, shared_fd, 0);
         if (MAP_FAILED == cpu_ptr) {
-            ALOGE("uvm mmap error!\n");
+            CAMHAL_LOGE("uvm mmap error!\n");
             amuvm_free(shared_fd);
             return -1;
         }
@@ -505,7 +538,7 @@ bool OMXDecoder::uvm_buffer_init() {
                     mVideoOutputPortParam.nBufferSize,
                     (OMX_U8*)0xFFFF);//(OMX_U8*)cpu_ptr);
         if (OMX_ErrorNone != eRet) {
-            ALOGE("OMX_UseBuffer on output port failed! eRet = %#x\n", eRet);
+            CAMHAL_LOGE("OMX_UseBuffer on output port failed! eRet = %#x\n", eRet);
             return false;
         }
         bufferHdr->pAppPrivate = (OMX_PTR)NULL;
@@ -523,17 +556,17 @@ bool OMXDecoder::normal_buffer_init(int buffer_size){
             OMX_BUFFERHEADERTYPE* bufferHdr;
             OMX_U8 *ptr = (OMX_U8 *)(malloc(buffer_size * sizeof(OMX_U8)));
             if (!ptr) {
-                ALOGE("out of memory when allocation output buffers");
+                CAMHAL_LOGE("out of memory when allocation output buffers");
                 return false;
             }
             eRet = OMX_UseBuffer(mVDecoderHandle, &bufferHdr,
                     mVideoOutputPortParam.nPortIndex, NULL,
                     buffer_size, ptr);
             if (OMX_ErrorNone != eRet) {
-                ALOGE("OMX_UseBuffer on output port failed! eRet = %#x\n", eRet);
+                CAMHAL_LOGE("OMX_UseBuffer on output port failed! eRet = %#x\n", eRet);
                 return false;
             }
-            ALOGD("OMX_UseBuffer output %p", bufferHdr);
+            CAMHAL_LOGD("OMX_UseBuffer output %p", bufferHdr);
             mListOfOutputBufferHeader.push_back(bufferHdr);
         } else {
             sp<GraphicBuffer> graphicBuffer(new GraphicBuffer(mOutBufferNative[i].handle,
@@ -556,9 +589,9 @@ bool OMXDecoder::normal_buffer_init(int buffer_size){
 
                 err = OMX_SetParameter(mVDecoderHandle, indexEnable, &params);
                 if (err != OMX_ErrorNone)
-                    ALOGE("setParameter error 1.");
+                    CAMHAL_LOGE("setParameter error 1.");
             } else {
-                ALOGE("getExtensionIndex failed 1.");
+                CAMHAL_LOGE("getExtensionIndex failed 1.");
             }
 
             OMX_STRING name = const_cast<OMX_STRING>(
@@ -566,7 +599,7 @@ bool OMXDecoder::normal_buffer_init(int buffer_size){
             OMX_INDEXTYPE index;
             err = OMX_GetExtensionIndex(mVDecoderHandle, name, &index);
             if (err != OMX_ErrorNone) {
-                ALOGE("getExtensionIndex failed 2.");
+                CAMHAL_LOGE("getExtensionIndex failed 2.");
             }
             OMX_BUFFERHEADERTYPE* header;
             OMX_VERSIONTYPE ver;
@@ -581,7 +614,7 @@ bool OMXDecoder::normal_buffer_init(int buffer_size){
 
             err = OMX_SetParameter(mVDecoderHandle, index, &params);
             if (err != OMX_ErrorNone)
-                ALOGE("setParameter error 2.");
+                CAMHAL_LOGE("setParameter error 2.");
 
             mOutBufferNative[i].pBuffer = header;
             if (mOutBufferNative[i].isQueued)
@@ -603,17 +636,17 @@ bool OMXDecoder::ion_buffer_init() {
         OMX_BUFFERHEADERTYPE* bufferHdr;
         OMX_U8 *cpu_ptr;
         if (mUseDMABuffer) {
-            ALOGD("try to allocate dma buffer %d", i);
+            CAMHAL_LOGD("try to allocate dma buffer %d", i);
             cpu_ptr = ion->alloc_buffer(buffer_size, &shared_fd);
             if (!cpu_ptr) {
-                ALOGE("allocate dma buffer %d failed", i);
+                CAMHAL_LOGE("allocate dma buffer %d failed", i);
                 return false;
             }
-            ALOGD("AllocDmaBuffers shared_fd=%d, cpu_ptr=%p\n", shared_fd, cpu_ptr);
+            CAMHAL_LOGD("AllocDmaBuffers shared_fd=%d, cpu_ptr=%p\n", shared_fd, cpu_ptr);
         } else {
             cpu_ptr = (OMX_U8 *)(malloc(uAlignedBytes * sizeof(OMX_U8)));
             if (!cpu_ptr) {
-                ALOGE("out of memory when allocation output buffers");
+                CAMHAL_LOGE("out of memory when allocation output buffers");
                 return false;
             }
         }
@@ -624,7 +657,7 @@ bool OMXDecoder::ion_buffer_init() {
                 mVideoOutputPortParam.nBufferSize,
                 (OMX_U8*)cpu_ptr);
         if (OMX_ErrorNone != eRet) {
-            ALOGE("OMX_UseBuffer on output port failed! eRet = %#x\n", eRet);
+            CAMHAL_LOGE("OMX_UseBuffer on output port failed! eRet = %#x\n", eRet);
             return false;
         }
         bufferHdr->pAppPrivate = (OMX_PTR)0xff; //fake data
@@ -647,12 +680,12 @@ bool OMXDecoder::do_buffer_init() {
                 mVideoOutputPortParam.nBufferSize,
                 (OMX_U8*)cpu_ptr);
         if (OMX_ErrorNone != eRet) {
-            ALOGE("OMX_UseBuffer on output port failed! eRet = %#x\n", eRet);
+            CAMHAL_LOGE("OMX_UseBuffer on output port failed! eRet = %#x\n", eRet);
             return false;
         }
         bufferHdr->pAppPrivate = (OMX_PTR)0xff; //fake data
         mListOfOutputBufferHeader.push_back(bufferHdr);
-        ALOGD("%s: bufferHdr = %p\n", __FUNCTION__, bufferHdr);
+        CAMHAL_LOGD("%s: bufferHdr = %p\n", __FUNCTION__, bufferHdr);
     }
     return true;
 }
@@ -660,7 +693,7 @@ bool OMXDecoder::do_buffer_init() {
 void OMXDecoder::do_buffer_free(void) {
 #if 0
     while (!mListOfOutputBufferHeader.empty()) {
-        ALOGD("do_free_buffer: erase mListOfOutputBufferHeader");
+        CAMHAL_LOGD("do_free_buffer: erase mListOfOutputBufferHeader");
         OMX_BUFFERHEADERTYPE *pBufferHdr = *mListOfOutputBufferHeader.begin();
         pBufferHdr->pPlatformPrivate = NULL;
         OMX_FreeBuffer(mVDecoderHandle, mVideoOutputPortParam.nPortIndex, pBufferHdr);
@@ -685,7 +718,7 @@ void OMXDecoder::do_buffer_free(void) {
 #endif
 
         if (OMX_ErrorNone != eRet) {
-            ALOGE("OMX_FreeBuffer on output port failed! eRet = %#x\n", eRet);
+            CAMHAL_LOGE("OMX_FreeBuffer on output port failed! eRet = %#x\n", eRet);
         }
     }
 #endif
@@ -701,7 +734,7 @@ bool OMXDecoder::prepareBuffers()
         OMX_BUFFERHEADERTYPE* bufferHdr;
         OMX_U8 *ptr = (OMX_U8 *)(malloc(uAlignedBytes * sizeof(OMX_U8)));
         if (!ptr) {
-            ALOGE("out of memory when allocation input buffers");
+            CAMHAL_LOGE("out of memory when allocation input buffers");
             return false;
         }
         eRet = OMX_UseBuffer(mVDecoderHandle, &bufferHdr,
@@ -709,16 +742,16 @@ bool OMXDecoder::prepareBuffers()
                 mVideoInputPortParam.nBufferSize, ptr);
 
         if (OMX_ErrorNone != eRet) {
-            ALOGE("OMX_UseBuffer on input port failed! eRet = %#x\n", eRet);
+            CAMHAL_LOGE("OMX_UseBuffer on input port failed! eRet = %#x\n", eRet);
             return false;
         }
-        ALOGD("OMX_UseBuffer input %p", bufferHdr);
+        CAMHAL_LOGD("OMX_UseBuffer input %p", bufferHdr);
         mListOfInputBufferHeader.push_back(bufferHdr);
     }
 
     OMX_STATETYPE eState1, eState2;
     int buffer_size = mOutWidth * mOutHeight * 3 / 2 ;
-    ALOGD("Allocating %u buffers from a native window of size %u on "
+    CAMHAL_LOGD("Allocating %u buffers from a native window of size %u on "
             "output port", mOutBufferCount, buffer_size);
 
     switch (mem_type) {
@@ -747,7 +780,7 @@ bool OMXDecoder::prepareBuffers()
         OMX_GetState(mVDecoderHandle, &eState1);
         usleep(10*1000);
     } while (OMX_StateIdle != eState1 && OMX_StateInvalid != eState1);
-    ALOGD("STATETRANS FROM LOADED TO IDLE COMPLETED, eRet =%x\n", eRet);
+    CAMHAL_LOGD("STATETRANS FROM LOADED TO IDLE COMPLETED, eRet =%x\n", eRet);
 
     //swith to Excuting state
     OMX_SendCommand(mVDecoderHandle, OMX_CommandStateSet, OMX_StateExecuting, NULL);
@@ -757,7 +790,7 @@ bool OMXDecoder::prepareBuffers()
         usleep(10*1000);
     } while (OMX_StateExecuting != eState2 && OMX_StateInvalid != eState2);
 
-    ALOGD("STATETRANS FROM IDLE TO EXECUTING COMPLETED, eRet =%x\n", eRet);
+    CAMHAL_LOGD("STATETRANS FROM IDLE TO EXECUTING COMPLETED, eRet =%x\n", eRet);
 
     return true;
 }
@@ -772,7 +805,7 @@ void OMXDecoder::free_ion_buffer(void) {
                 ion->free_buffer((int)(long)bufferHdr->pPlatformPrivate);
                 err = OMX_FreeBuffer(mVDecoderHandle,mVideoOutputPortParam.nPortIndex,bufferHdr);
                 if (OMX_ErrorNone != err) {
-                    ALOGE("%d, OutPortIndex: %d\n",__LINE__,mVideoOutputPortParam.nPortIndex);
+                    CAMHAL_LOGE("%d, OutPortIndex: %d\n",__LINE__,mVideoOutputPortParam.nPortIndex);
                 }
             } else if (bufferHdr->pBuffer != NULL)
                 free(bufferHdr->pBuffer);
@@ -787,10 +820,10 @@ void OMXDecoder::free_normal_buffer(void) {
         OMX_BUFFERHEADERTYPE* bufferHdr = *(mListOfOutputBufferHeader.begin());
         if (bufferHdr != NULL) {
             OMX_U8 *pOut = bufferHdr->pBuffer;
-            ALOGD("OMX_FreeBuffer output %p", bufferHdr);
+            CAMHAL_LOGD("OMX_FreeBuffer output %p", bufferHdr);
             err = OMX_FreeBuffer(mVDecoderHandle, mVideoOutputPortParam.nPortIndex, bufferHdr);
             if (OMX_ErrorNone != err) {
-                ALOGE("%d, OutPortIndex: %d\n", __LINE__, mVideoOutputPortParam.nPortIndex);
+                CAMHAL_LOGE("%d, OutPortIndex: %d\n", __LINE__, mVideoOutputPortParam.nPortIndex);
             }
             if (pOut != NULL) {
                 free(pOut);
@@ -813,11 +846,11 @@ void OMXDecoder::free_uvm_buffer() {
 
                    amuvm_free((int)(long)(bufferHdr->pPlatformPrivate));
 
-                   ALOGD("bufferHdr->pAppPrivate: %p", bufferHdr->pAppPrivate);
+                   CAMHAL_LOGD("bufferHdr->pAppPrivate: %p", bufferHdr->pAppPrivate);
 
                    err = OMX_FreeBuffer(mVDecoderHandle,mVideoOutputPortParam.nPortIndex,bufferHdr);
                    if (OMX_ErrorNone != err) {
-                       ALOGE("%d, OutPortIndex: %d\n",__LINE__,mVideoOutputPortParam.nPortIndex);
+                       CAMHAL_LOGE("%d, OutPortIndex: %d\n",__LINE__,mVideoOutputPortParam.nPortIndex);
                    }
                } else if (bufferHdr->pBuffer != NULL)
                    free(bufferHdr->pBuffer);
@@ -836,10 +869,10 @@ void OMXDecoder::freeBuffers() {
         OMX_BUFFERHEADERTYPE* bufferHdr = *(mListOfInputBufferHeader.begin());
         if (bufferHdr != NULL) {
             OMX_U8 *pIn = bufferHdr->pBuffer;
-            ALOGD("OMX_FreeBuffer input %p", bufferHdr);
+            CAMHAL_LOGD("OMX_FreeBuffer input %p", bufferHdr);
             err = OMX_FreeBuffer(mVDecoderHandle, mVideoInputPortParam.nPortIndex, bufferHdr);
             if (OMX_ErrorNone != err) {
-                ALOGE("%d, InPortIndex: %d\n", __LINE__, mVideoInputPortParam.nPortIndex);
+                CAMHAL_LOGE("%d, InPortIndex: %d\n", __LINE__, mVideoInputPortParam.nPortIndex);
             }
             if (pIn != NULL) {
                 free(pIn);
@@ -877,7 +910,7 @@ void OMXDecoder::freeBuffers() {
             if (bufferHdr != NULL) {
                 err = OMX_FreeBuffer(mVDecoderHandle, mVideoOutputPortParam.nPortIndex, bufferHdr);
                 if (OMX_ErrorNone != err) {
-                    ALOGE("%d, OutPortIndex: %d\n", __LINE__, mVideoOutputPortParam.nPortIndex);
+                    CAMHAL_LOGE("%d, OutPortIndex: %d\n", __LINE__, mVideoOutputPortParam.nPortIndex);
                 }
             }
         }
@@ -912,20 +945,20 @@ OMX_ERRORTYPE OMXDecoder::OnEvent(
         OMX_IN OMX_PTR)
 {
     LOG_LINE();
-    ALOGD("data1 = %u, data2 = %u, event = %d\n", nData1, nData2, eEvent);
+    CAMHAL_LOGD("data1 = %u, data2 = %u, event = %d\n", nData1, nData2, eEvent);
 
     if (eEvent == OMX_EventBufferFlag)
     {
-        ALOGD("Got OMX_EventBufferFlag event\n");
+        CAMHAL_LOGD("Got OMX_EventBufferFlag event\n");
     }
     else if (eEvent == OMX_EventError)
     {
-        ALOGD("Got OMX_EventError event\n");
+        CAMHAL_LOGD("Got OMX_EventError event\n");
     }
     else if (eEvent == OMX_EventPortSettingsChanged)
     {
         OMX_ERRORTYPE omx_error_type = OMX_ErrorNone;
-        ALOGD("Got OMX_EventPortSettingsChanged event\n");
+        CAMHAL_LOGD("Got OMX_EventPortSettingsChanged event\n");
         if (OMX_IndexParamPortDefinition == (OMX_INDEXTYPE) nData2)
         {
             mVideoOutputPortParam.nSize = sizeof(OMX_PARAM_PORTDEFINITIONTYPE);
@@ -934,25 +967,25 @@ OMX_ERRORTYPE OMXDecoder::OnEvent(
             omx_error_type = OMX_GetParameter(mVDecoderHandle, OMX_IndexParamPortDefinition, &mVideoOutputPortParam);
             if (omx_error_type != OMX_ErrorNone)
             {
-                ALOGD("OMX_GetParameter FAILED");
+                CAMHAL_LOGD("OMX_GetParameter FAILED");
             }
-            ALOGD("w= %u, h= %u\n", mVideoOutputPortParam.format.video.nFrameWidth, mVideoOutputPortParam.format.video.nFrameHeight);
+            CAMHAL_LOGD("w= %u, h= %u\n", mVideoOutputPortParam.format.video.nFrameWidth, mVideoOutputPortParam.format.video.nFrameHeight);
             if (mOutWidth != mVideoOutputPortParam.format.video.nFrameWidth || mOutHeight != mVideoOutputPortParam.format.video.nFrameHeight)
             {
-                ALOGD("Dynamic resolution changes triggered");
+                CAMHAL_LOGD("Dynamic resolution changes triggered");
             }
         }
     }
     else
     {
-        ALOGD("not support event!\n");
+        CAMHAL_LOGD("not support event!\n");
     }
     return OMX_ErrorNone;
 }
 
 OMX_ERRORTYPE OMXDecoder::emptyBufferDone(OMX_IN OMX_BUFFERHEADERTYPE *pBuffer)
 {
-    //ALOGD("%s ++", __func__);
+    //CAMHAL_LOGD("%s ++", __func__);
     AutoMutex l(mInputBufferLock);
     mListOfInputBufferHeader.push_back(pBuffer);
     return OMX_ErrorNone;
@@ -960,7 +993,7 @@ OMX_ERRORTYPE OMXDecoder::emptyBufferDone(OMX_IN OMX_BUFFERHEADERTYPE *pBuffer)
 
 OMX_ERRORTYPE OMXDecoder::fillBufferDone(OMX_IN OMX_BUFFERHEADERTYPE *pBuffer)
 {
-    //ALOGD("%s ++", __func__);
+    //CAMHAL_LOGD("%s ++", __func__);
     AutoMutex l(mOutputBufferLock);
     mListOfOutputBufferHeader.push_back(pBuffer);
     //send signal
@@ -1005,7 +1038,7 @@ void OMXDecoder::QueueBuffer(uint8_t* src, size_t size) {
     pInPutBufferHdr = dequeueInputBuffer();
 
     if (pInPutBufferHdr && pInPutBufferHdr->pBuffer) {
-        //ALOGD("omx queue input buf %p \n", pInPutBufferHdr);
+        //CAMHAL_LOGD("omx queue input buf %p \n", pInPutBufferHdr);
         memcpy(pInPutBufferHdr->pBuffer, src, size);
         pInPutBufferHdr->nFilledLen = size;
         pInPutBufferHdr->nOffset = 0;
@@ -1014,7 +1047,7 @@ void OMXDecoder::QueueBuffer(uint8_t* src, size_t size) {
         queueInputBuffer(pInPutBufferHdr);
         timeStamp += 33 * 1000; //44
     } else {
-        ALOGE("no more input bufs");
+        CAMHAL_LOGE("no more input bufs");
     }
 }
 
@@ -1028,83 +1061,175 @@ void OMXDecoder::SetOutputBuffer(int share_fd, uint8_t* addr) {
         pBufferHdr->pPlatformPrivate = (void *)(long)share_fd;
         pBufferHdr->pBuffer = addr;
 
-        ALOGV("SetOutputBuffer %p, OMX_FillThisBuffer, share_fd=%d, pAppPrivate=%d, pPlatformPrivate=%d",
+        CAMHAL_LOGV("SetOutputBuffer %p, OMX_FillThisBuffer, share_fd=%d, pAppPrivate=%d, pPlatformPrivate=%d",
                 pBufferHdr,
                 share_fd,
                 (int)(long)(pBufferHdr->pAppPrivate),
                 (int)(long)(pBufferHdr->pPlatformPrivate));
 
         OMX_FillThisBuffer(mVDecoderHandle, pBufferHdr);
-        ALOGV("SetOutputBuffer: erase mListOfOutputBufferHeader");
+        CAMHAL_LOGV("SetOutputBuffer: erase mListOfOutputBufferHeader");
         mListOfOutputBufferHeader.erase(mListOfOutputBufferHeader.begin());
     }
 }
 
-int OMXDecoder::DequeueBuffer(int dst_fd ,uint8_t* dst_buf,
-                              size_t src_w, size_t src_h,
-                              size_t dst_w, size_t dst_h) {
 
+int OMXDecoder::DequeueBufferAndClean(Vector<StreamBuffer>& b , bool isJpegRequest) {
+
+    OMX_BUFFERHEADERTYPE *pOutPutBufferHdr = NULL;
+    {
+        AutoMutex l(mOutputBufferLock);
+        while (mListOfOutputBufferHeader.size() > 1) {
+            pOutPutBufferHdr = *mListOfOutputBufferHeader.begin();
+            mListOfOutputBufferHeader.erase(mListOfOutputBufferHeader.begin());
+            if (pOutPutBufferHdr != NULL) {
+                if (mNoFreeFlag) {
+                    CAMHAL_LOGD("exiting!! return to output queue.");
+                    mListOfOutputBufferHeader.push_back(pOutPutBufferHdr);
+                } else
+                    OMX_FillThisBuffer(mVDecoderHandle, pOutPutBufferHdr);
+            } else
+                CAMHAL_LOGD("releaseOutputBuffer can't find pBufferHdr .\n");
+        }
+    }
+
+    int ret = DequeueBuffer(b, isJpegRequest);
+    return ret;
+}
+int OMXDecoder::DequeueBuffer(Vector<StreamBuffer>& b, bool isJpegRequest) {
         int ret = 0;
-        ALOGD("%s:Enter, src_w=%zu, dst_w=%zu", __FUNCTION__, src_w, dst_w);
 
         OMX_BUFFERHEADERTYPE *pOutPutBufferHdr = NULL;
-        int outputbuffersize = mListOfOutputBufferHeader.size();
-        while (outputbuffersize > 1) {
-            pOutPutBufferHdr = dequeueOutputBuffer();
-            releaseOutputBuffer(pOutPutBufferHdr);
-            outputbuffersize--;
-        }
         pOutPutBufferHdr = dequeueOutputBuffer();
         if (pOutPutBufferHdr == NULL) {
             //dequeue fail
-            ALOGE("%s:dequeue fail",__FUNCTION__);
+            CAMHAL_LOGE("%s:dequeue fail",__FUNCTION__);
             ret = 0;
         } else {
-            //ALOGD("omx pOutPutBufferHdr = %p\n", pOutPutBufferHdr);
-#ifdef GE2D_ENABLE
-           if (dst_fd != -1) {
-                //copy data using ge2d
-                int omx_share_fd = (int)(long)pOutPutBufferHdr->pPlatformPrivate;
-                if (mGE2D) {
-                    if (src_w == dst_w && src_h == dst_h) {
-                        //ALOGD("%s ge2d copy");
-                        mGE2D->ge2d_copy(dst_fd, omx_share_fd, dst_w, dst_h, ge2dTransform::NV12);
-                    } else {
-                        // scale & crop
-                        //ALOGD("%s ge2d scale to dst size", __FUNCTION__);
-                        mGE2D->ge2d_keep_ration_scale(dst_fd, PIXEL_FORMAT_YCbCr_420_SP_NV12, dst_w, dst_h,
-                                          omx_share_fd, src_w, src_h);
-                    }
-                } else {
-                    ALOGE("%s:ge2d object is null",__FUNCTION__);
-                }
-            } else if (src_w == dst_w && src_h == dst_h) {
-                if (mem_type == UVM_BUFFER) {
-                    uint8_t* cpu_ptr = (uint8_t*)mmap(NULL, pOutPutBufferHdr->nFilledLen, PROT_READ | PROT_WRITE, MAP_SHARED, (int)(long)pOutPutBufferHdr->pPlatformPrivate, 0);
-                    memcpy(dst_buf, cpu_ptr, pOutPutBufferHdr->nFilledLen);
-                    munmap(cpu_ptr, pOutPutBufferHdr->nFilledLen);
-                } else {
-                    //ALOGD("%s ge2d. no dst_fd, using sw memcpy");
-                    memcpy(dst_buf, pOutPutBufferHdr->pBuffer, pOutPutBufferHdr->nFilledLen);
-                }
-            } else {
-                ALOGE(" ge2d src w&h not equal dst w&h. hw dec not supported");
-            }
-#else
-            //no ge2d support
-            if (src_w == dst_w && src_h == dst_h) {
-                if (mem_type == UVM_BUFFER) {
-                    uint8_t* cpu_ptr = (uint8_t*)mmap(NULL, pOutPutBufferHdr->nFilledLen, PROT_READ | PROT_WRITE, MAP_SHARED, (int)(long)pOutPutBufferHdr->pPlatformPrivate, 0);
-                    memcpy(dst_buf, cpu_ptr, pOutPutBufferHdr->nFilledLen);
-                    if (munmap(cpu_ptr, pOutPutBufferHdr->nFilledLen) < 0)
-                        ALOGE("%s:%d munmap failed errno=%d", __FUNCTION__,__LINE__,errno);
-                } else {
-                    memcpy(dst_buf, pOutPutBufferHdr->pBuffer, pOutPutBufferHdr->nFilledLen);
-                }
-            } else {
-                ALOGE("src w&h not equal dst w&h. hw dec not supported");
-            }
+            //CAMHAL_LOGD("omx pOutPutBufferHdr = %p\n", pOutPutBufferHdr);
+#if defined(PREVIEW_DEWARP_ENABLE) || defined(PICTURE_DEWARP_ENABLE)
+            int index = 0;
 #endif
+            int omx_share_fd = (int)(long)pOutPutBufferHdr->pPlatformPrivate;
+            for (size_t i = 0; i < b.size(); i++) {
+                uint32_t dst_w = b[i].width;
+                uint32_t dst_h = b[i].height;
+                uint32_t src_w = mInWidth;
+                uint32_t src_h = mInHeight;
+                int dst_fd =  b[i].share_fd;
+                uint8_t *dst_buf = b[i].img;
+
+                if (b[i].format == HAL_PIXEL_FORMAT_BLOB) {
+                    CAMHAL_LOGD("%s:blob buffer bypass",__FUNCTION__);
+                } else {
+#ifdef GE2D_ENABLE
+                    if (dst_fd != -1) {
+                        if (VICPEnable) {
+#ifdef VICP_ENABLE
+                            if (mVICP) {
+                                if (src_w == dst_w && src_h == dst_h) {
+                                    mVICP->vicp_copy(dst_fd, omx_share_fd, dst_w, dst_h, VICP_COLOR_FMT_YCrCb_420_SP_NV21);
+                                } else {
+                                    mVICP->vicp_keep_ration_scale(dst_fd, VICP_COLOR_FMT_YCrCb_420_SP_NV21, dst_w, dst_h,
+                                                  omx_share_fd, src_w, src_h);
+                                }
+                            } else {
+                                 CAMHAL_LOGE("%s:vicp object is null",__FUNCTION__);
+                            }
+#endif
+                        } else if (mEnableDewarp) {
+#if defined(PREVIEW_DEWARP_ENABLE) || defined(PICTURE_DEWARP_ENABLE)
+                            dewarpInfo dewarpInfo;
+                            DeWarp* GDCObj = nullptr;
+                                //  fill dewarp info for check dewarp config
+                                {
+                                    dewarpInfo.i_width = mInWidth;
+                                    dewarpInfo.i_height = mInHeight;
+                                    dewarpInfo.o_width = b[i].width;
+                                    dewarpInfo.o_height = b[i].height;
+                                }
+                                dewarpcam2port port;
+                                switch (index) {
+                                    case 0:
+                                        port = DEWARP_CAM2PORT_PREVIEW;
+                                        break;
+                                    case 1:
+                                        port = DEWARP_CAM2PORT_CAPTURE;
+                                        break;
+                                    case 2:
+                                        port = DEWARP_CAM2PORT_RECORD;
+                                        break;
+                                    default:
+                                        port = DEWARP_CAM2PORT_PREVIEW;
+                                        break;
+                                }
+                                bool needDestroy = isNeedDestroyDewarp(mPreDewarpInfo[port], dewarpInfo);
+                                if (needDestroy) {
+                                    DeWarp::putInstance(port);
+                                }
+                                ALOGD("buffer index %d, dewarp port %d, isNeedDestroyDewarp %d", index, port, needDestroy);
+                                CameraConfig* config = CameraConfig::getInstance(port);
+                                config->setInputWidth(mInWidth);
+                                config->setInputHeight(mInHeight);
+                                config->setWidth(b[i].width);
+                                config->setHeight(b[i].height);
+                                GDCObj = DeWarp::getInstance(port, PROJ_MODE_LINEAR, Rotation::ROTATION_0);
+                                if (GDCObj) {
+                                    GDCObj->mInput_fd = omx_share_fd;
+                                    GDCObj->mOutput_fd = dst_fd;
+                                    GDCObj->gdc_do_fisheye_correction();
+                                }
+                                index++;
+                                mPreDewarpInfo[port].o_width = b[i].width;
+                                mPreDewarpInfo[port].o_height = b[i].height;
+                                mPreDewarpInfo[port].i_width = mInWidth;
+                                mPreDewarpInfo[port].i_height = mInHeight;
+#endif
+                            }else {
+                            if (mGE2D) {
+                                if (src_w == dst_w && src_h == dst_h) {
+                                    //CAMHAL_LOGD("%s ge2d copy");
+                                    mGE2D->ge2d_copy(dst_fd, omx_share_fd, dst_w, dst_h, ge2dTransform::NV12);
+                                } else {
+                                    // scale & crop
+                                    //CAMHAL_LOGD("%s ge2d scale to dst size", __FUNCTION__);
+                                    mGE2D->ge2d_keep_ration_scale(dst_fd, PIXEL_FORMAT_YCbCr_420_SP_NV12, dst_w, dst_h,
+                                                  omx_share_fd, src_w, src_h);
+                                }
+                            } else {
+                                CAMHAL_LOGE("%s:ge2d object is null",__FUNCTION__);
+                            }
+                        }
+                    } else if (src_w == dst_w && src_h == dst_h) {
+                        if (mem_type == UVM_BUFFER) {
+                            uint8_t* cpu_ptr = (uint8_t*)mmap(NULL, pOutPutBufferHdr->nFilledLen, PROT_READ | PROT_WRITE, MAP_SHARED, (int)(long)pOutPutBufferHdr->pPlatformPrivate, 0);
+                            memcpy(dst_buf, cpu_ptr, pOutPutBufferHdr->nFilledLen);
+                            munmap(cpu_ptr, pOutPutBufferHdr->nFilledLen);
+                        } else {
+                            //CAMHAL_LOGD("%s ge2d. no dst_fd, using sw memcpy");
+                            memcpy(dst_buf, pOutPutBufferHdr->pBuffer, pOutPutBufferHdr->nFilledLen);
+                        }
+                    } else {
+                        CAMHAL_LOGE(" ge2d src w&h not equal dst w&h. hw dec not supported");
+                    }
+                    mGE2D->doRotationAndMirror(b[i]);
+#else
+                    //no ge2d support
+                    if (src_w == dst_w && src_h == dst_h) {
+                        if (mem_type == UVM_BUFFER) {
+                            uint8_t* cpu_ptr = (uint8_t*)mmap(NULL, pOutPutBufferHdr->nFilledLen, PROT_READ | PROT_WRITE, MAP_SHARED, (int)(long)pOutPutBufferHdr->pPlatformPrivate, 0);
+                            memcpy(dst_buf, cpu_ptr, pOutPutBufferHdr->nFilledLen);
+                            if (munmap(cpu_ptr, pOutPutBufferHdr->nFilledLen) < 0)
+                                CAMHAL_LOGE("%s:%d munmap failed errno=%d", __FUNCTION__,__LINE__,errno);
+                        } else {
+                            memcpy(dst_buf, pOutPutBufferHdr->pBuffer, pOutPutBufferHdr->nFilledLen);
+                        }
+                    } else {
+                        CAMHAL_LOGE("src w&h not equal dst w&h. hw dec not supported");
+                    }
+#endif
+                }
+            }
             releaseOutputBuffer(pOutPutBufferHdr);
             ret = 1;
         }
@@ -1117,36 +1242,34 @@ bool OMXDecoder::OMXWaitForVSync(nsecs_t reltime) {
     Mutex::Autolock lock(mOMXControlMutex);
     res = mOMXVSync.waitRelative(mOMXControlMutex, reltime);
     if (res != OK) {
-        ALOGE("%s: Error waiting for VSync signal: %d", __FUNCTION__, res);
+        CAMHAL_LOGE("%s: Error waiting for VSync signal: %d", __FUNCTION__, res);
         return false;
     }
     return true;
 }
 
-int OMXDecoder::Decode(uint8_t*src, size_t src_size,
-                          int dst_fd,uint8_t *dst_buf,
-                          size_t src_w, size_t src_h,
-                          size_t dst_w, size_t dst_h) {
+int OMXDecoder::Decode(uint8_t*src, size_t src_size, Vector<StreamBuffer>& b, bool isJpegRequest) {
     int ret = 0;
-    if (dst_buf == NULL) {
-        ALOGE("%s: dst_fd=%d, dst_buf=%p", __FUNCTION__, dst_fd, dst_buf);
-        return ret;
-    }
 
-    if (dst_fd > 0 && mem_type == SHARED_FD) {
-        SetOutputBuffer(dst_fd, dst_buf);
-        QueueBuffer(src, src_size);
-
-        if (OMXWaitForVSync(mWaitVsyncDuration*1000*1000) == false) {
-            mDequeueFailNum ++;
-            ALOGD("Decoderss failed %d", mDequeueFailNum);
-            return ret;
-        }
-
-        ret = 1;
-
-        return ret;
-    }
+//    if (dst_buf == NULL) {
+//        CAMHAL_LOGE("%s: dst_fd=%d, dst_buf=%p", __FUNCTION__, dst_fd, dst_buf);
+//        return ret;
+//    }
+//
+//    if (dst_fd > 0 && mem_type == SHARED_FD) {
+//        SetOutputBuffer(dst_fd, dst_buf);
+//        QueueBuffer(src, src_size);
+//
+//        if (OMXWaitForVSync(mWaitVsyncDuration*1000*1000) == false) {
+//            mDequeueFailNum ++;
+//            CAMHAL_LOGD("decode failed %d", mDequeueFailNum);
+//            return ret;
+//        }
+//
+//        ret = 1;
+//
+//        return ret;
+//    }
 
     QueueBuffer(src, src_size);
 
@@ -1161,29 +1284,26 @@ int OMXDecoder::Decode(uint8_t*src, size_t src_size,
 
     if (state) {
         mContinuousVsyncFailNum = 0;
-        ret = DequeueBuffer(dst_fd, dst_buf, src_w, src_h, dst_w, dst_h);
+        ret = DequeueBuffer(b, isJpegRequest);
         if (!ret) {
             if (mDequeueFailNum ++ > MAX_POLLING_COUNT) {
                 mTimeOut = true;
             }
 
-            ALOGD("%s:Polling number=%d",__FUNCTION__,mDequeueFailNum);
+            CAMHAL_LOGD("%s:Polling number=%d",__FUNCTION__,mDequeueFailNum);
         }
     } else {
         if ( mContinuousVsyncFailNum++ > MAX_CONTINUE_VSYNC_FAIL_COUNT) {
             mTimeOut = true;
         }
-        ALOGD("%s: OMX Vsync error num = %d",__FUNCTION__, mContinuousVsyncFailNum);
+        CAMHAL_LOGD("%s: OMX Vsync error num = %d",__FUNCTION__, mContinuousVsyncFailNum);
         ret = 0;
     }
 
     return ret;
 }
 
-int OMXDecoder::DecodeH264(uint8_t*src, size_t src_size,
-                          int dst_fd,uint8_t *dst_buf,
-                          size_t src_w, size_t src_h,
-                          size_t dst_w, size_t dst_h) {
+int OMXDecoder::DecodeAsync(uint8_t*src, size_t src_size, Vector<StreamBuffer>& b, bool isJpegRequest) {
     int ret = 0;
     bool state = true;
     if ( false == hasReadyOutputBuffer() ) {
@@ -1196,18 +1316,18 @@ int OMXDecoder::DecodeH264(uint8_t*src, size_t src_size,
 
     if (state) {
         mContinuousVsyncFailNum = 0;
-        ret = DequeueBuffer(dst_fd, dst_buf, src_w, src_h, dst_w, dst_h);
+        ret = DequeueBufferAndClean(b, isJpegRequest);
         if (!ret) {
            if (mDequeueFailNum ++ > MAX_POLLING_COUNT) {
                 mTimeOut = true;
             }
-            ALOGD("%s:Polling number=%d",__FUNCTION__,mDequeueFailNum);
+            CAMHAL_LOGD("%s:Polling number=%d",__FUNCTION__,mDequeueFailNum);
         }
     } else {
         if (mContinuousVsyncFailNum++ > MAX_CONTINUE_VSYNC_FAIL_COUNT) {
             mTimeOut = true;
         }
-        ALOGD("%s: OMX Vsync error num = %d",__FUNCTION__, mContinuousVsyncFailNum);
+        CAMHAL_LOGD("%s: OMX Vsync error num = %d",__FUNCTION__, mContinuousVsyncFailNum);
         ret = 0;
     }
     return ret;

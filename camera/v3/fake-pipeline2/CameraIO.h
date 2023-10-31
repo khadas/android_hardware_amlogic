@@ -38,7 +38,7 @@
 #include <stdbool.h>
 
 #include <linux/videodev2.h>
-#include <DebugUtils.h>
+#include <CamHalDebugLog.h>
 #include <vector>
 #define IO_PICTURE_BUFFER 3
 #define CLEAR(x) memset(&(x), 0, sizeof(x))

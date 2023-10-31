@@ -80,7 +80,7 @@ static uint32_t _CALIBRATION_RES_CTL[7] = {
 };
 
 //aisp_awb_t
-static int32_t _CALIBRATION_AWB_CTL[20] = {
+static int32_t _CALIBRATION_AWB_CTL[25] = {
     1,       // u8, AWB auto enable
     1,       // u8, AWB manual mode, 0: manual gain mode, 1: manual temperature mode
     32,      //u8, AWB convergence speed.
@@ -90,17 +90,22 @@ static int32_t _CALIBRATION_AWB_CTL[20] = {
     0,       //u1, color temperature luma weighted calculation enable by luma value of local block
     1,       //u1, color temperature luma weighted calculation enable
     0,       //u1, color temperature adjust enable
+    0,       //u1, local position weight
     1,       //u1, awb delay adjust enable
     10,      //u16, awb delay frame count
     200,     //u16, awb delay adjust tolerance by color temperature
-    8,       //u16, awb low luma ratio
+    0,       //u16, awb low luma ratio
+    0,       //u1, awb Remove reference color
+    256,     //u1, awb color shading range
     256,     //u16, manual awb mode red gain
     256,     //u16, manual awb mode blue gain
     5000,    //u16, manual awb mode temperature
+    0,       //bit[0] color temperature hist, [1] weight table, [2] ct table, [3] log
     0,       //u1, awb stable mode enable
     100,     //u16, awb stable mode ct delta det
     100,     //u16, awb stable mode color delta det
-    0,       //bit[0] color temperature hist, [1] weight table, [2] ct table, [3] log
+    0,      //u1, awb roi enable
+    1,      //u12, awb roi weight init
 };
 
 //_CALIBRATION_AWB_CT_POS
@@ -122,7 +127,7 @@ static int32_t _CALIBRATION_AWB_CT_DYN_CVRANGE[2][20] = {
 };
 
 //aisp_ae_t
-static int32_t _CALIBRATION_AE_CTL[31] = {
+static int32_t _CALIBRATION_AE_CTL[32] = {
     1,  //ae auto enable
     0,  //ae exposure mode, 0: none, 1: spot mode 2:center mode 3: upper part mode 4: lower part mode
     0,  //ae exposure strategy, 0: none mode, 1: outdoor mode, 2:indoor mode
@@ -152,6 +157,7 @@ static int32_t _CALIBRATION_AE_CTL[31] = {
     (1000<<12),     // max shutter time limit, exp:  1000ms = 1000<<12
     (20193),       // max total gain limit, exp:x1024 = log2(1024)<<12 = 10<<12, 54db = (54/6)<<12 = 9<<12
     (16<<6),       // max exposure ratio limit, exp: x128 = 128<<6
+    (200*(1<<10)),  //  Light intensity at full exposure and zero gain , exp: 128lux = 128<<16
     2,       //feedback delay frame numbers of stats info in current system
     0,       //ae debug:bit[0] target, [1] ratio, [2] exposure calculate
 };
@@ -802,21 +808,14 @@ static int32_t _CALIBRATION_LENS_SHADING_CT_CORRECT[4] = {
     3950, 4236
 };
 
-static uint32_t _CALIBRATION_LENS_SHADING_ACTL[18] =
+static uint32_t _CALIBRATION_ADP_LENS_SHADING_CTL[11] =
 {
     0,   //adaptive lens shading en. 1: alsc by lut 2: alsc by stats
-    1,   //adaptive lens shading calibration smooth
-    32,  //adaptive lens shading calibration smooth strength
     128, //adaptive adjust speed
     100, //adaptive adjust range
-    1,   //adaptive radial shading compensate enable
-    256, //adaptive radial shading compensate maximum RG ratio
-    128, //adaptive radial shading compensate speed
     16,  //adaptive stabilize threshold
     16,  //adaptive stabilize maximum threshold >= th
     8,   //delay frame numbers
-    0,   //offset of the color shift value
-    0,   //offset of the color shift value
     200, //red color shift minimum value
     600, //blue color shift minimum value
     800, //red color shift maximum value
@@ -1650,7 +1649,7 @@ static LookupTable calibration_mc_meta2alpha = { .ptr = _CALIBRATION_MC_META2ALP
 static LookupTable calibration_pst_tnr_alp_lut = { .ptr = _CALIBRATION_PST_TNR_ALP_LUT, .rows = sizeof(_CALIBRATION_PST_TNR_ALP_LUT) / sizeof(_CALIBRATION_PST_TNR_ALP_LUT[0]), .cols = sizeof(_CALIBRATION_PST_TNR_ALP_LUT[0]) / sizeof(_CALIBRATION_PST_TNR_ALP_LUT[0][0]), .width = sizeof(_CALIBRATION_PST_TNR_ALP_LUT[0][0] ) };
 static LookupTable calibration_compress_ratio = { .ptr = _CALIBRATION_COMPRESS_RATIO, .rows = 1, .cols = sizeof(_CALIBRATION_COMPRESS_RATIO) / sizeof(_CALIBRATION_COMPRESS_RATIO[0]), .width = sizeof(_CALIBRATION_COMPRESS_RATIO[0] ) };
 static LookupTable calibration_lens_shading_ct_correct = { .ptr = _CALIBRATION_LENS_SHADING_CT_CORRECT, .rows = 1, .cols = sizeof( _CALIBRATION_LENS_SHADING_CT_CORRECT ) / sizeof( _CALIBRATION_LENS_SHADING_CT_CORRECT[0] ), .width = sizeof( _CALIBRATION_LENS_SHADING_CT_CORRECT[0] )};
-static LookupTable calibration_lens_shading_actl = { .ptr = _CALIBRATION_LENS_SHADING_ACTL, .rows = 1, .cols = sizeof(_CALIBRATION_LENS_SHADING_ACTL) / sizeof(_CALIBRATION_LENS_SHADING_ACTL[0]), .width = sizeof(_CALIBRATION_LENS_SHADING_ACTL[0] ) };
+static LookupTable calibration_lens_shading_actl = { .ptr = _CALIBRATION_ADP_LENS_SHADING_CTL, .rows = 1, .cols = sizeof(_CALIBRATION_ADP_LENS_SHADING_CTL) / sizeof(_CALIBRATION_ADP_LENS_SHADING_CTL[0]), .width = sizeof(_CALIBRATION_ADP_LENS_SHADING_CTL[0] ) };
 static LookupTable calibration_lens_shading_adp = { .ptr = _CALIBRATION_LENS_SHADING_ADP, .rows = 1, .cols = sizeof( _CALIBRATION_LENS_SHADING_ADP ) / sizeof( _CALIBRATION_LENS_SHADING_ADP[0] ), .width = sizeof( _CALIBRATION_LENS_SHADING_ADP[0] )};
 static LookupTable calibration_lens_shading_adj = {.ptr = _CALIBRATION_LENS_SHADING_ADJ, .rows = sizeof( _CALIBRATION_LENS_SHADING_ADJ ) / sizeof( _CALIBRATION_LENS_SHADING_ADJ[0] ), .cols = sizeof( _CALIBRATION_LENS_SHADING_ADJ[0] ) / sizeof( _CALIBRATION_LENS_SHADING_ADJ[0][0] ), .width = sizeof( _CALIBRATION_LENS_SHADING_ADJ[0][0] )};
 static LookupTable calibration_dms_adj = {.ptr = _CALIBRATION_DMS_ADJ, .rows = sizeof( _CALIBRATION_DMS_ADJ ) / sizeof( _CALIBRATION_DMS_ADJ[0] ), .cols = sizeof( _CALIBRATION_DMS_ADJ[0] ) / sizeof( _CALIBRATION_DMS_ADJ[0][0] ), .width = sizeof( _CALIBRATION_DMS_ADJ[0][0] )};
@@ -1790,7 +1789,7 @@ int dynamic_wdr_calibrations_init_ov08a10(aisp_calib_info_t *calib)
     calib->calibrations[CALIBRATION_PST_TNR_ALP_LUT] = &calibration_pst_tnr_alp_lut;
     calib->calibrations[CALIBRATION_COMPRESS_RATIO] = &calibration_compress_ratio;
     calib->calibrations[CALIBRATION_LENS_SHADING_CT_CORRECT] = &calibration_lens_shading_ct_correct;
-    calib->calibrations[CALIBRATION_LENS_SHADING_ACTL] = &calibration_lens_shading_actl;
+    calib->calibrations[CALIBRATION_ADP_LENS_SHADING_CTL] = &calibration_lens_shading_actl;
     calib->calibrations[CALIBRATION_LENS_SHADING_ADP] = &calibration_lens_shading_adp;
     calib->calibrations[CALIBRATION_LENS_SHADING_ADJ] = &calibration_lens_shading_adj;
     calib->calibrations[CALIBRATION_DMS_ADJ] = &calibration_dms_adj;

@@ -81,7 +81,7 @@ static uint32_t _CALIBRATION_RES_CTL[7] = {
 };
 
 //aisp_awb_t
-static int32_t _CALIBRATION_AWB_CTL[20] = {
+static int32_t _CALIBRATION_AWB_CTL[25] = {
     1,       // u8, AWB auto enable
     1,       // u8, AWB manual mode, 0: manual gain mode, 1: manual temperature mode
     32,      //u8, AWB convergence speed.
@@ -91,17 +91,22 @@ static int32_t _CALIBRATION_AWB_CTL[20] = {
     0,       //u1, color temperature luma weighted calculation enable by luma value of local block
     1,       //u1, color temperature luma weighted calculation enable
     0,       //u1, color temperature adjust enable
+    0,       //u1, local position weight
     1,       //u1, awb delay adjust enable
     10,      //u16, awb delay frame count
     200,     //u16, awb delay adjust tolerance by color temperature
-    8,       //u16, awb low luma ratio
+    0,       //u16, awb low luma ratio
+    0,       //u1, awb Remove reference color
+    256,     //u1, awb color shading range
     256,     //u16, manual awb mode red gain
     256,     //u16, manual awb mode blue gain
     5000,    //u16, manual awb mode temperature
+    0,       //bit[0] color temperature hist, [1] weight table, [2] ct table, [3] log
     0,       //u1, awb stable mode enable
     100,     //u16, awb stable mode ct delta det
     100,     //u16, awb stable mode color delta det
-    0,       //bit[0] color temperature hist, [1] weight table, [2] ct table, [3] log
+    0,      //u1, awb roi enable
+    1,      //u12, awb roi weight init
 };
 
 //_CALIBRATION_AWB_CT_POS
@@ -123,7 +128,7 @@ static int32_t _CALIBRATION_AWB_CT_DYN_CVRANGE[2][20] = {
 };
 
 //aisp_ae_t
-static int32_t _CALIBRATION_AE_CTL[31] = {
+static int32_t _CALIBRATION_AE_CTL[32] = {
     1,  //ae auto enable
     0,  //ae exposure mode, 0: none, 1: spot mode 2:center mode 3: upper part mode 4: lower part mode
     0,  //ae exposure strategy, 0: none mode, 1: outdoor mode, 2:indoor mode
@@ -153,6 +158,7 @@ static int32_t _CALIBRATION_AE_CTL[31] = {
     (1000<<12),     // max shutter time limit, exp:  1000ms = 1000<<12
     (28672),       // max total gain limit, exp:x1024 = log2(1024)<<12 = 10<<12, 54db = (54/6)<<12 = 9<<12
     (16<<6),       // max exposure ratio limit, exp: x128 = 128<<6
+    (200*(1<<10)),  //  Light intensity at full exposure and zero gain , exp: 128lux = 128<<16
     2,       //feedback delay frame numbers of stats info in current system
     0,       //ae debug:bit[0] target, [1] ratio, [2] exposure calculate
 };

@@ -767,3 +767,91 @@ void cmos_get_sensor_otp_data(struct sensorConfig *cfg, aisp_calib_info_t *otp)
     i2c_exit();
 }
 
+void cmos_get_external_calibration( const char *sensorName, int32_t calibMode, aisp_calib_info_t *c )
+{
+    FILE *fpCalibDy = NULL, *fpCalibSt = NULL;
+    uint8_t *b_buf = NULL;
+    uint32_t fpCalibSizeDy = 0, fpCalibSizeSt = 0;
+    uint32_t idx = 0, total_size = 0, lut_size = 0;
+    uint32_t i = 0, read_count = 0;
+    uint8_t *p_mem = NULL, *lut_ptr = NULL;
+    char calib_name_dy[70] = {'\0'}, calib_name_st[70] = {'\0'};
+
+    for (idx = 0; idx < CALIBRATION_TOTAL_SIZE; idx++) {
+        lut_size = _GET_SIZE(c, idx);
+        if (lut_size)
+             lut_size += 12;//44332211 ID(4byte) FFFFFFFFF
+        total_size += lut_size;
+    }
+
+    if (calibMode) {
+        sprintf(calib_name_dy, "/data/isp_tuning/%s_wdr_dy_ex.bin", sensorName);
+        sprintf(calib_name_st, "/data/isp_tuning/%s_wdr_st_ex.bin", sensorName);
+    } else {
+        sprintf(calib_name_dy, "/data/isp_tuning/%s_linear_dy_ex.bin", sensorName);
+        sprintf(calib_name_st, "/data/isp_tuning/%s_linear_st_ex.bin", sensorName);
+    }
+
+    CAMHAL_LOGE("calib_name is: %s %s\n",calib_name_dy, calib_name_st);
+
+    fpCalibDy = fopen(calib_name_dy, "rb+");
+    fpCalibSt = fopen(calib_name_st, "rb+");
+    if ((NULL == fpCalibDy) && (NULL == fpCalibSt)) {
+        CAMHAL_LOGE("Bin file not find!\n");
+        return;
+    }
+
+    if (fpCalibDy) {
+        fseek(fpCalibDy, 0, SEEK_END);
+        fpCalibSizeDy = ftell(fpCalibDy);
+    }
+
+    if (fpCalibSt) {
+        fseek(fpCalibSt, 0, SEEK_END);
+        fpCalibSizeSt += ftell(fpCalibSt);
+    }
+
+    if ((fpCalibSizeDy + fpCalibSizeSt) > total_size) {
+        CAMHAL_LOGE("Bin size not match: fpCalibSize %u, total_size %u\n", fpCalibSizeDy + fpCalibSizeSt, total_size);
+        return;
+    }
+
+    b_buf =  (unsigned char*)malloc(fpCalibSizeDy + fpCalibSizeSt);
+    memset(b_buf, 0, (fpCalibSizeDy + fpCalibSizeSt));
+
+    if (fpCalibDy) {
+        fseek(fpCalibDy, 0, SEEK_SET);
+        read_count = fread(b_buf, sizeof(uint8_t), fpCalibSizeDy, fpCalibDy);
+    }
+
+    if (fpCalibSt) {
+        fseek(fpCalibSt, 0, SEEK_SET);
+        read_count += fread(b_buf + fpCalibSizeDy, sizeof(uint8_t), fpCalibSizeSt, fpCalibSt);
+    }
+
+    if (read_count > total_size) {
+        CAMHAL_LOGE("Failed to read bin file!\n");
+        return;
+    }
+
+    for (i = 0; i < read_count; i++) {
+        if ( *(uint32_t *)(b_buf + i) == 0x11223344 ) {
+            idx = *(uint16_t *)(b_buf + i + 4);
+            p_mem = b_buf + i + 8;
+            lut_ptr = (uint8_t *)_GET_LUT_PTR(c, idx);
+            lut_size = _GET_SIZE(c, idx);
+            if (lut_size)
+                memcpy(lut_ptr, p_mem, lut_size);
+            else
+                CAMHAL_LOGE("LUT %d size is null\n", idx);
+        }
+    }
+
+    free(b_buf);
+
+    if (fpCalibDy)
+        fclose(fpCalibDy);
+
+    if (fpCalibSt)
+        fclose(fpCalibSt);
+}

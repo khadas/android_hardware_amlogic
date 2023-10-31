@@ -174,7 +174,7 @@ status_t JpegCompressor::start() {
     status_t res;
     res = run("EmulatedFakeCamera2::JpegCompressor");
     if (res != OK) {
-        ALOGE("%s: Unable to start up compression thread: %s (%d)",
+        CAMHAL_LOGE("%s: Unable to start up compression thread: %s (%d)",
                 __FUNCTION__, strerror(-res), res);
     }
     return res;
@@ -183,7 +183,7 @@ status_t JpegCompressor::start() {
 status_t JpegCompressor::setlistener(JpegListener *listener) {
     status_t res = NO_ERROR;
     if (listener == NULL) {
-        ALOGE("%s: NULL listener not allowed!", __FUNCTION__);
+        CAMHAL_LOGE("%s: NULL listener not allowed!", __FUNCTION__);
         return BAD_VALUE;
     }
     Mutex::Autolock lock(mMutex);
@@ -191,7 +191,7 @@ status_t JpegCompressor::setlistener(JpegListener *listener) {
         Mutex::Autolock busyLock(mBusyMutex);
 
         if (mIsBusy) {
-            ALOGE("%s: Already processing a buffer!", __FUNCTION__);
+            CAMHAL_LOGE("%s: Already processing a buffer!", __FUNCTION__);
             return INVALID_OPERATION;
         }
 
@@ -209,7 +209,7 @@ status_t JpegCompressor::compressSynchronous(Buffers *buffers) {
         Mutex::Autolock busyLock(mBusyMutex);
 
         if (mIsBusy) {
-            ALOGE("%s: Already processing a buffer!", __FUNCTION__);
+            CAMHAL_LOGE("%s: Already processing a buffer!", __FUNCTION__);
             return INVALID_OPERATION;
         }
 
@@ -233,7 +233,7 @@ status_t JpegCompressor::cancel() {
     mMutex.unlock();
     int res = requestExitAndWait();
     if (res != OK) {
-        ALOGE("Unable to shut down JpegCompressor thread: %d", res);
+        CAMHAL_LOGE("Unable to shut down JpegCompressor thread: %d", res);
     }
     for (List<CaptureRequest*>::iterator i = mInJpegRequestQueue.begin();
          i != mInJpegRequestQueue.end(); i++) {
@@ -324,7 +324,7 @@ status_t JpegCompressor::Create_Exif_Use_Libexif() {
                     }
                     free(sEb);
                     sEb = NULL;
-                    CAMHAL_LOGDA("free malloc sEb buffer");
+                    CAMHAL_LOGD("free malloc sEb buffer");
                 }
             } else {
 #ifdef HW_JPEG
@@ -374,11 +374,11 @@ status_t JpegCompressor::Create_Exif_Use_Libexif() {
                     }
                     free(sEb);
                     sEb = NULL;
-                    CAMHAL_LOGDA("free malloc sEb buffer");
+                    CAMHAL_LOGD("free malloc sEb buffer");
                 }
             }
         } /*else {
-            DBG_LOGA("get exif buffer failed, so only callback Main JPEG data");
+            CAMHAL_LOGD("get exif buffer failed, so only callback Main JPEG data");
             for (uint32_t size = (mMainJpegSize + sEb->size); size > 0; size--) {
                 if (checkJpegEnd(mJpegBuffer.img + size)) {
                     realjpegsize = (size + MARKER_LENGTH);
@@ -413,7 +413,7 @@ bool JpegCompressor::threadLoop() {
         mMutex.lock();
         if (mExitJpegThread) {
             mMutex.unlock();
-            ALOGE("JpegCompressor Thread : exiting on request0");
+            CAMHAL_LOGE("JpegCompressor Thread : exiting on request0");
             return false;
         }
 
@@ -436,7 +436,7 @@ bool JpegCompressor::threadLoop() {
         }
         if (mExitJpegThread) {
             mMutex.unlock();
-            ALOGE("JpegCompressor Thread : exiting on request1");
+            CAMHAL_LOGE("JpegCompressor Thread : exiting on request1");
             if (mBuffers != NULL) {
                 delete mBuffers;
                 mBuffers = NULL;
@@ -465,14 +465,14 @@ bool JpegCompressor::threadLoop() {
         if (mFoundJpeg && mFoundAux) break;
     }
     if (!mFoundJpeg || !mFoundAux) {
-        ALOGE("%s: Unable to find buffers for JPEG source/destination",
+        CAMHAL_LOGE("%s: Unable to find buffers for JPEG source/destination",
                 __FUNCTION__);
         return BAD_VALUE;
     }
 
     struct timeval mTimeStart,mTimeend;
     int interval;
-    ALOGV("%s: Starting compression thread", __FUNCTION__);
+    CAMHAL_LOGV("%s: Starting compression thread", __FUNCTION__);
     gettimeofday(&mTimeStart, NULL);
 
     bool dump = property_get_bool("camera.debug.dump.jpeg", false);
@@ -484,7 +484,7 @@ bool JpegCompressor::threadLoop() {
         sprintf(path, "/data/vendor/camera/jpeg-in-%dx%d-%d.yuv", mAuxBuffer.width, mAuxBuffer.height, index);
         fp = fopen(path, "ab+");
         if (!fp) {
-            ALOGE("open file fail, error: %s !!!",strerror(errno));
+            CAMHAL_LOGE("open file fail, error: %s !!!",strerror(errno));
         } else {
             fwrite((void*)mAuxBuffer.img, 1, mAuxBuffer.width * mAuxBuffer.height *3/2 ,fp);
             fclose(fp);
@@ -501,16 +501,16 @@ bool JpegCompressor::threadLoop() {
         sprintf(path, "/data/vendor/camera/jpeg-out-%dx%d-%d.jpg", mAuxBuffer.width, mAuxBuffer.height, index);
         fp = fopen(path, "ab+");
         if (!fp) {
-            ALOGE("open file fail, error: %s !!!",strerror(errno));
+            CAMHAL_LOGE("open file fail, error: %s !!!",strerror(errno));
         } else {
             int offset = mMaxbufsize - sizeof(struct camera2_jpeg_blob);
             struct camera2_jpeg_blob * jpeg_blob_ptr = (struct camera2_jpeg_blob *)(mJpegBuffer.img + offset);
 
             if (jpeg_blob_ptr->jpeg_blob_id == 0x00FF) {
-                ALOGD("dump jpeg size: %d", jpeg_blob_ptr->jpeg_size);
+                CAMHAL_LOGD("dump jpeg size: %d", jpeg_blob_ptr->jpeg_size);
                 fwrite((void*)mJpegBuffer.img, 1, jpeg_blob_ptr->jpeg_size, fp);
             } else {
-                ALOGD("dump jpeg, bad blob id = 0x%x", jpeg_blob_ptr->jpeg_blob_id);
+                CAMHAL_LOGD("dump jpeg, bad blob id = 0x%x", jpeg_blob_ptr->jpeg_blob_id);
             }
             fclose(fp);
         }
@@ -531,7 +531,7 @@ bool JpegCompressor::threadLoop() {
     }
     gettimeofday(&mTimeend, NULL);
     interval = (mTimeend.tv_sec - mTimeStart.tv_sec) * 1000 + ((mTimeend.tv_usec - mTimeStart.tv_usec))/1000;
-    ALOGD("jpeg compress cost time =%d ms",interval);
+    CAMHAL_LOGD("jpeg compress cost time =%d ms",interval);
     cleanUp();
 
     return true;
@@ -761,7 +761,7 @@ size_t encode(params* input) {
                 resize_nv12(input, resize_src);
                 if (resize_src) src = resize_src;
             } else {
-                CAMHAL_LOGDA("failed to malloc space to extra thumbnail\n");
+                CAMHAL_LOGD("failed to malloc space to extra thumbnail\n");
                 goto exit;
             }
         }
@@ -775,7 +775,7 @@ size_t encode(params* input) {
                              resize_src, out_width, out_height);
                 src = resize_src;
             } else {
-                CAMHAL_LOGDA("failed to malloc space to extra thumbnail\n");
+                CAMHAL_LOGD("failed to malloc space to extra thumbnail\n");
                 goto exit;
             }
         }
@@ -788,16 +788,16 @@ size_t encode(params* input) {
                 resize_yuyv(input,resize_src);
                 if (resize_src) src = resize_src;
             } else {
-                CAMHAL_LOGDA("failed to malloc space to extra thumbnail\n");
+                CAMHAL_LOGD("failed to malloc space to extra thumbnail\n");
                 goto exit;
             }
         }
     } else if ((in_width != out_width) || (in_height != out_height)) {
-        CAMHAL_LOGEB("Encoder: resizing is not supported for this format: %d", input->format);
+        CAMHAL_LOGE("Encoder: resizing is not supported for this format: %d", input->format);
         goto exit;
     } else if ((input->format != HAL_PIXEL_FORMAT_YCbCr_422_I)) {
         // we currently only support yuv422i and yuv420sp
-        CAMHAL_LOGEB("Encoder: format not supported: %d", input->format);
+        CAMHAL_LOGE("Encoder: format not supported: %d", input->format);
         goto exit;
     }
 
@@ -805,7 +805,7 @@ size_t encode(params* input) {
 
     jpeg_create_compress(&cinfo);
 
-    CAMHAL_LOGDB("software encoding...  \n\t"
+    CAMHAL_LOGD("software encoding...  \n\t"
                  "width: %d    \n\t"
                  "height:%d    \n\t"
                  "dest %p      \n\t"
@@ -905,15 +905,15 @@ status_t JpegCompressor::compress() {
     enum jpegenc_frame_fmt_e format = FMT_NV21;
     switch (enc_params.format) {
         case HAL_PIXEL_FORMAT_RGB_888:
-            ALOGD("%s:format is RGB",__FUNCTION__);
+            CAMHAL_LOGD("%s:format is RGB",__FUNCTION__);
             format = FMT_RGB888;
             break;
         case HAL_PIXEL_FORMAT_YCrCb_420_SP:
-            ALOGD("%s:format is NV21",__FUNCTION__);
+            CAMHAL_LOGD("%s:format is NV21",__FUNCTION__);
             format = FMT_NV21;
             break;
         default:
-            ALOGD("not support this format:%d",enc_params.format);
+            CAMHAL_LOGD("not support this format:%d",enc_params.format);
             break;
     }
     mMainJpegSize = mHwEnc->encode(enc_params.in_width, enc_params.in_height,
@@ -922,7 +922,7 @@ status_t JpegCompressor::compress() {
                             enc_params.src,
                             enc_params.dst);
 #endif
-    ALOGD("mMainJpegSize = %d",mMainJpegSize);
+    CAMHAL_LOGD("mMainJpegSize = %d",mMainJpegSize);
 
     return OK;
 }
@@ -950,15 +950,15 @@ status_t JpegCompressor::thumbcompress() {
     enum jpegenc_frame_fmt_e format = FMT_RGB888;
     switch (enc_params.format) {
         case HAL_PIXEL_FORMAT_RGB_888:
-            ALOGD("%s:format is RGB",__FUNCTION__);
+            CAMHAL_LOGD("%s:format is RGB",__FUNCTION__);
             format = FMT_RGB888;
             break;
         case HAL_PIXEL_FORMAT_YCrCb_420_SP:
-            ALOGD("%s:format is NV21",__FUNCTION__);
+            CAMHAL_LOGD("%s:format is NV21",__FUNCTION__);
             format = FMT_NV21;
             break;
         default:
-            ALOGD("not support this format:%d",enc_params.format);
+            CAMHAL_LOGD("not support this format:%d",enc_params.format);
             break;
     }
 
@@ -968,7 +968,7 @@ status_t JpegCompressor::thumbcompress() {
                             format,
                             enc_params.src,enc_params.dst);
 #endif
-    ALOGD("mThumbJpegSize = %d",mThumbJpegSize);
+    CAMHAL_LOGD("mThumbJpegSize = %d",mThumbJpegSize);
 
     return OK;
 }
@@ -1001,7 +1001,7 @@ bool JpegCompressor::checkError(const char *msg) {
     if (mJpegErrorInfo) {
         char errBuffer[JMSG_LENGTH_MAX];
         mJpegErrorInfo->err->format_message(mJpegErrorInfo, errBuffer);
-        ALOGE("%s: %s: %s",
+        CAMHAL_LOGE("%s: %s: %s",
                 __FUNCTION__, msg, errBuffer);
         mJpegErrorInfo = NULL;
         return true;
@@ -1054,7 +1054,7 @@ ssize_t JpegCompressor::GetMaxJpegBufferSize()
 {
     return mMaxbufsize;
 }
-void JpegCompressor::SetExifInfo(struct ExifInfo info)
+void JpegCompressor::SetExifInfo(struct ExifInfo &info)
 {
     memcpy(&mInfo, &info, sizeof(struct ExifInfo));
 }
@@ -1072,7 +1072,7 @@ void JpegCompressor::exif_entry_set_string (ExifData * pEdata, ExifIfd eEifd, Ex
     pE->size = sizeof (char) * pE->components;
     pE->data = (unsigned char *) malloc (pE->size);
     if (!pE->data) {
-       DBG_LOGB("Cannot allocate %d bytes.\nTerminating.\n", (int) pE->size);
+       CAMHAL_LOGD("Cannot allocate %d bytes.\nTerminating.\n", (int) pE->size);
        exit (1);
     }
     strcpy ((char *) pE->data, (char *) s);
@@ -1092,7 +1092,7 @@ void JpegCompressor::exif_entry_set_short (ExifData * pEdata, ExifIfd eEifd, Exi
     if (pE->data) {
        exif_set_short (pE->data, eO, n);
     } else {
-       DBG_LOGB("ERROR: unallocated e->data Tag %d\n", eEtag);
+       CAMHAL_LOGD("ERROR: unallocated e->data Tag %d\n", eEtag);
     }
     exif_entry_fix (pE);
     exif_entry_unref (pE);
@@ -1110,7 +1110,7 @@ void JpegCompressor::exif_entry_set_long (ExifData * pEdata, ExifIfd eEifd, Exif
     if (pE->data) {
        exif_set_long (pE->data, eO, n);
     } else {
-       DBG_LOGB("ERROR: unallocated e->data Tag %d\n", eEtag);
+       CAMHAL_LOGD("ERROR: unallocated e->data Tag %d\n", eEtag);
     }
     exif_entry_fix (pE);
     exif_entry_unref (pE);
@@ -1128,7 +1128,7 @@ void JpegCompressor::exif_entry_set_rational (ExifData * pEdata, ExifIfd eEifd, 
     if (pE->data) {
        exif_set_rational (pE->data, eO, r);
     } else {
-       DBG_LOGB("ERROR: unallocated e->data Tag %d\n", eEtag);
+       CAMHAL_LOGD("ERROR: unallocated e->data Tag %d\n", eEtag);
     }
     exif_entry_fix (pE);
     exif_entry_unref (pE);
@@ -1147,7 +1147,7 @@ void JpegCompressor::exif_entry_set_undefined (ExifData * pEdata, ExifIfd eEifd,
         pE->size = buf->size;
         pE->data = (unsigned char *) malloc (pE->size);
         if (!pE->data) {
-            DBG_LOGB("Cannot allocate %d bytes.\nTerminating.\n", (int) pE->size);
+            CAMHAL_LOGD("Cannot allocate %d bytes.\nTerminating.\n", (int) pE->size);
             exit (1);
         }
         memcpy ((void *) pE->data, (void *) buf->data, buf->size);
@@ -1247,7 +1247,7 @@ void JpegCompressor::exif_entry_set_gps_coord(ExifData * pEdata, ExifTag eEtag,
         exif_set_rational (pE->data + exif_format_get_size (pE->format), eO, r2);
         exif_set_rational (pE->data + 2 * exif_format_get_size (pE->format), eO, r3);
     } else {
-        DBG_LOGB("ERROR: unallocated e->data Tag %d\n", eEtag);
+        CAMHAL_LOGD("ERROR: unallocated e->data Tag %d\n", eEtag);
     }
 }
 
@@ -1266,7 +1266,7 @@ void JpegCompressor::exif_entry_set_gps_altitude(ExifData * pEdata, ExifTag eEta
     if (pE->data) {
         exif_set_rational (pE->data, eO, r1);
     } else {
-        DBG_LOGB("ERROR: unallocated e->data Tag %d\n", eEtag);
+        CAMHAL_LOGD("ERROR: unallocated e->data Tag %d\n", eEtag);
     }
 }
 
@@ -1285,7 +1285,7 @@ void JpegCompressor::exif_entry_set_gps_coord_ref(ExifData * pEdata, ExifTag eEt
     if (pE->data) {
         strcpy ((char *) pE->data, s);
     } else {
-        DBG_LOGB("ERROR: unallocated e->data Tag %d\n", eEtag);
+        CAMHAL_LOGD("ERROR: unallocated e->data Tag %d\n", eEtag);
     }
 }
 
@@ -1304,7 +1304,7 @@ void JpegCompressor::exif_entry_set_gps_altitude_ref(ExifData * pEdata, ExifTag 
     if (pE->data) {
         *(pE->data) = n;
     } else {
-        DBG_LOGB("ERROR: unallocated e->data Tag %d\n", eEtag);
+        CAMHAL_LOGD("ERROR: unallocated e->data Tag %d\n", eEtag);
     }
 }
 
@@ -1392,7 +1392,7 @@ exif_buffer * JpegCompressor::get_exif_buffer() {
     exif_entry_set_short (pEd, EXIF_IFD_EXIF, EXIF_TAG_WHITE_BALANCE, 0);
 
     if (property_get("vendor.media.camhal.otp.info", property, NULL) > 0) {
-        ALOGD("otp info %s", property);
+        CAMHAL_LOGD("otp info %s", property);
         sprintf(UserCommentBuffer, "%s", property);
         entry = create_tag(pEd, EXIF_IFD_EXIF, EXIF_TAG_USER_COMMENT, 8 + sizeof(UserCommentBuffer));
         sprintf((char *)entry->data, "ASCII   %s" , UserCommentBuffer);
@@ -1524,7 +1524,7 @@ exif_buffer * JpegCompressor::get_exif_buffer() {
         exif_data_save_data(pEd, &sEb->data, &sEb->size);
         assert(sEb->data != NULL);
     }
-    DBG_LOGB("total exif data length = %d\n", sEb->size);
+    CAMHAL_LOGD("total exif data length = %d\n", sEb->size);
     /* destroy exif structure */
     exif_data_unref(pEd);
 

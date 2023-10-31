@@ -20,6 +20,7 @@
 #include <stdlib.h>
 #include <cmath>
 #include "Scene.h"
+#include "CamHalDebugLog.h"
 
 // TODO: This should probably be done host-side in OpenGL for speed and better
 // quality
@@ -133,7 +134,7 @@ void Scene::setColorFilterXYZ(
 }
 
 void Scene::setHour(int hour) {
-    ALOGV("Hour set to: %d", hour);
+    CAMHAL_LOGV("Hour set to: %d", hour);
     mHour = hour % 24;
 }
 
@@ -157,7 +158,7 @@ void Scene::calculateScene(nsecs_t time) {
     float sunLux =
             kSunlight[timeIdx] * (1 - timeFrac) +
             kSunlight[nextTimeIdx] * timeFrac;
-    ALOGV("Sun lux: %f", sunLux);
+    CAMHAL_LOGV("Sun lux: %f", sunLux);
 
     float sunShadeLux = sunLux * (kDaylightShadeIllum / kDirectSunIllum);
 
@@ -193,7 +194,7 @@ void Scene::calculateScene(nsecs_t time) {
     currentShadeXY[1] = prevShadeXY[1] * (1 - timeFrac) +
             nextShadeXY[1] * timeFrac;
 
-    ALOGV("Sun XY: %f, %f, Shade XY: %f, %f",
+    CAMHAL_LOGV("Sun XY: %f, %f, Shade XY: %f, %f",
             currentSunXY[0], currentSunXY[1],
             currentShadeXY[0], currentShadeXY[1]);
 
@@ -213,9 +214,9 @@ void Scene::calculateScene(nsecs_t time) {
         sunShadeLux / currentShadeXY[1] *
         (1 - currentShadeXY[0] - currentShadeXY[1])
     };
-    ALOGV("Sun XYZ: %f, %f, %f",
+    CAMHAL_LOGV("Sun XYZ: %f, %f, %f",
             sunXYZ[0], sunXYZ[1], sunXYZ[2]);
-    ALOGV("Sun shade XYZ: %f, %f, %f",
+    CAMHAL_LOGV("Sun shade XYZ: %f, %f, %f",
             sunShadeXYZ[0], sunShadeXYZ[1], sunShadeXYZ[2]);
 
     // Determine moonlight levels
@@ -272,9 +273,9 @@ void Scene::calculateScene(nsecs_t time) {
     shadeIllumXYZ[2] += (adjHour < adjMoonOverhead) ?
             moonXYZ[2] : moonShadeXYZ[2];
 
-    ALOGV("Direct XYZ: %f, %f, %f",
+    CAMHAL_LOGV("Direct XYZ: %f, %f, %f",
             directIllumXYZ[0],directIllumXYZ[1],directIllumXYZ[2]);
-    ALOGV("Shade XYZ: %f, %f, %f",
+    CAMHAL_LOGV("Shade XYZ: %f, %f, %f",
             shadeIllumXYZ[0], shadeIllumXYZ[1], shadeIllumXYZ[2]);
 
     for (int i = 0; i < NUM_MATERIALS; i++) {
@@ -300,7 +301,7 @@ void Scene::calculateScene(nsecs_t time) {
             matXYZ[2] *= shadeIllumXYZ[2];
         } // else if (kMaterialsFlags[i] * kSelfLit), do nothing
 
-        ALOGV("Mat %d XYZ: %f, %f, %f", i, matXYZ[0], matXYZ[1], matXYZ[2]);
+        CAMHAL_LOGV("Mat %d XYZ: %f, %f, %f", i, matXYZ[0], matXYZ[1], matXYZ[2]);
         float luxToElectrons = mSensorSensitivity * mExposureDuration /
                 (kAperture * kAperture);
         mCurrentColors[i*NUM_CHANNELS + 0] =
@@ -324,7 +325,7 @@ void Scene::calculateScene(nsecs_t time) {
                  mFilterB[2] * matXYZ[2])
                 * luxToElectrons;
 
-        ALOGV("Color %d RGGB: %d, %d, %d, %d", i,
+        CAMHAL_LOGV("Color %d RGGB: %d, %d, %d, %d", i,
                 mCurrentColors[i*NUM_CHANNELS + 0],
                 mCurrentColors[i*NUM_CHANNELS + 1],
                 mCurrentColors[i*NUM_CHANNELS + 2],

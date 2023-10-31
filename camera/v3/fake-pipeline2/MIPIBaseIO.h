@@ -38,7 +38,7 @@
 #include <stdbool.h>
 
 #include <linux/videodev2.h>
-#include <DebugUtils.h>
+#include <CamHalDebugLog.h>
 #include <vector>
 #include "CameraIO.h"
 #define IO_PICTURE_BUFFER 3
@@ -89,7 +89,7 @@ class VideoInfoUseOneFd {
         void *get_frame();
         void *get_picture();
         int get_frame_buffer(struct VideoInfoBuffer* b);
-        int putback_frame();
+        int putback_frame(int idx = -1);
         int putback_picture_frame();
         int EnumerateFormat(uint32_t pixelformat);
         bool IsSupportRotation();

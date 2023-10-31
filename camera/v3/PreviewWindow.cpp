@@ -19,12 +19,13 @@
  * functionality of a preview window set via set_preview_window camera HAL API.
  */
 
-#define LOG_NDEBUG 0
 #define LOG_TAG "EmulatedCamera_Preview"
 #include <android/log.h>
 #include <ui/Rect.h>
 #include <ui/GraphicBufferMapper.h>
+#include "CamHalDebugLog.h"
 #include "EmulatedCameraDevice.h"
+
 #include "PreviewWindow.h"
 
 namespace android {
@@ -50,7 +51,7 @@ PreviewWindow::~PreviewWindow()
 status_t PreviewWindow::setPreviewWindow(struct preview_stream_ops* window,
                                          int preview_fps)
 {
-    ALOGV("%s: current: %p -> new: %p", __FUNCTION__, mPreviewWindow, window);
+    CAMHAL_LOGV("%s: current: %p -> new: %p", __FUNCTION__, mPreviewWindow, window);
 
     status_t res = NO_ERROR;
     Mutex::Autolock locker(&mObjectLock);
@@ -71,7 +72,7 @@ status_t PreviewWindow::setPreviewWindow(struct preview_stream_ops* window,
         } else {
             window = NULL;
             res = -res; // set_usage returns a negative errno.
-            ALOGE("%s: Error setting preview window usage %d -> %s",
+            CAMHAL_LOGE("%s: Error setting preview window usage %d -> %s",
                  __FUNCTION__, res, strerror(res));
         }
     }
@@ -82,7 +83,7 @@ status_t PreviewWindow::setPreviewWindow(struct preview_stream_ops* window,
 
 status_t PreviewWindow::startPreview()
 {
-    ALOGV("%s", __FUNCTION__);
+    CAMHAL_LOGV("%s", __FUNCTION__);
 
     Mutex::Autolock locker(&mObjectLock);
     mPreviewEnabled = true;
@@ -92,7 +93,7 @@ status_t PreviewWindow::startPreview()
 
 void PreviewWindow::stopPreview()
 {
-    ALOGV("%s", __FUNCTION__);
+    CAMHAL_LOGV("%s", __FUNCTION__);
 
     Mutex::Autolock locker(&mObjectLock);
     mPreviewEnabled = false;
@@ -118,7 +119,7 @@ void PreviewWindow::onNextFrameAvailable(const void* frame,
         /* Need to set / adjust buffer geometry for the preview window.
          * Note that in the emulator preview window uses only RGB for pixel
          * formats. */
-        ALOGV("%s: Adjusting preview windows %p geometry to %dx%d",
+        CAMHAL_LOGV("%s: Adjusting preview windows %p geometry to %dx%d",
              __FUNCTION__, mPreviewWindow, mPreviewFrameWidth,
              mPreviewFrameHeight);
         res = mPreviewWindow->set_buffers_geometry(mPreviewWindow,
@@ -126,7 +127,7 @@ void PreviewWindow::onNextFrameAvailable(const void* frame,
                                                    mPreviewFrameHeight,
                                                    HAL_PIXEL_FORMAT_RGBA_8888);
         if (res != NO_ERROR) {
-            ALOGE("%s: Error in set_buffers_geometry %d -> %s",
+            CAMHAL_LOGE("%s: Error in set_buffers_geometry %d -> %s",
                  __FUNCTION__, -res, strerror(-res));
             return;
         }
@@ -141,7 +142,7 @@ void PreviewWindow::onNextFrameAvailable(const void* frame,
     int stride = 0;
     res = mPreviewWindow->dequeue_buffer(mPreviewWindow, &buffer, &stride);
     if (res != NO_ERROR || buffer == NULL) {
-        ALOGE("%s: Unable to dequeue preview window buffer: %d -> %s",
+        CAMHAL_LOGE("%s: Unable to dequeue preview window buffer: %d -> %s",
             __FUNCTION__, -res, strerror(-res));
         return;
     }
@@ -149,7 +150,7 @@ void PreviewWindow::onNextFrameAvailable(const void* frame,
     /* Let the preview window to lock the buffer. */
     res = mPreviewWindow->lock_buffer(mPreviewWindow, buffer);
     if (res != NO_ERROR) {
-        ALOGE("%s: Unable to lock preview window buffer: %d -> %s",
+        CAMHAL_LOGE("%s: Unable to lock preview window buffer: %d -> %s",
              __FUNCTION__, -res, strerror(-res));
         mPreviewWindow->cancel_buffer(mPreviewWindow, buffer);
         return;
@@ -162,7 +163,7 @@ void PreviewWindow::onNextFrameAvailable(const void* frame,
     GraphicBufferMapper& grbuffer_mapper(GraphicBufferMapper::get());
     res = grbuffer_mapper.lock(*buffer, GRALLOC_USAGE_SW_WRITE_OFTEN, rect, &img);
     if (res != NO_ERROR) {
-        ALOGE("%s: grbuffer_mapper.lock failure: %d -> %s",
+        CAMHAL_LOGE("%s: grbuffer_mapper.lock failure: %d -> %s",
              __FUNCTION__, res, strerror(res));
         mPreviewWindow->cancel_buffer(mPreviewWindow, buffer);
         return;
@@ -176,7 +177,7 @@ void PreviewWindow::onNextFrameAvailable(const void* frame,
         mPreviewWindow->set_timestamp(mPreviewWindow, timestamp);
         mPreviewWindow->enqueue_buffer(mPreviewWindow, buffer);
     } else {
-        ALOGE("%s: Unable to obtain preview frame: %d", __FUNCTION__, res);
+        CAMHAL_LOGE("%s: Unable to obtain preview frame: %d", __FUNCTION__, res);
         mPreviewWindow->cancel_buffer(mPreviewWindow, buffer);
     }
     grbuffer_mapper.unlock(*buffer);

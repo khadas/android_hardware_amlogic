@@ -73,5 +73,5 @@ void cmos_sensor_control_cb(struct sensorConfig *cfg, ALG_SENSOR_EXP_FUNC_S *stS
 void cmos_set_sensor_entity(struct sensorConfig *cfg, struct media_entity * sensor_ent, int wdr, int fps);
 void cmos_get_sensor_otp_data(struct sensorConfig *cfg, aisp_calib_info_t *otp);
 void cmos_get_sensor_calibration(struct sensorConfig *cfg, struct media_entity *sensor_ent, aisp_calib_info_t *calib);
-
+void cmos_get_external_calibration( const char *sensorName, int32_t calibMode, aisp_calib_info_t *c );
 #endif

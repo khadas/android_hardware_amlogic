@@ -95,7 +95,7 @@ EmulatedFakeCamera2::EmulatedFakeCamera2(int cameraId,
           mFacingBack(facingBack),
           mIsConnected(false)
 {
-    ALOGD("Constructing emulated fake camera 2 facing %s",
+    CAMHAL_LOGD("Constructing emulated fake camera 2 facing %s",
             facingBack ? "back" : "front");
 }
 
@@ -114,13 +114,13 @@ status_t EmulatedFakeCamera2::Initialize() {
 
     res = constructStaticInfo(&mCameraInfo, true);
     if (res != OK) {
-        ALOGE("%s: Unable to allocate static info: %s (%d)",
+        CAMHAL_LOGE("%s: Unable to allocate static info: %s (%d)",
                 __FUNCTION__, strerror(-res), res);
         return res;
     }
     res = constructStaticInfo(&mCameraInfo, false);
     if (res != OK) {
-        ALOGE("%s: Unable to fill in static info: %s (%d)",
+        CAMHAL_LOGE("%s: Unable to fill in static info: %s (%d)",
                 __FUNCTION__, strerror(-res), res);
         return res;
     }
@@ -142,12 +142,12 @@ status_t EmulatedFakeCamera2::Initialize() {
 
 status_t EmulatedFakeCamera2::connectCamera(hw_device_t** device) {
     status_t res;
-    ALOGV("%s", __FUNCTION__);
+    CAMHAL_LOGV("%s", __FUNCTION__);
 
     {
         Mutex::Autolock l(mMutex);
         if (!mStatusPresent) {
-            ALOGE("%s: Camera ID %d is unplugged", __FUNCTION__,
+            CAMHAL_LOGE("%s: Camera ID %d is unplugged", __FUNCTION__,
                   mCameraID);
             return -ENODEV;
         }
@@ -188,7 +188,7 @@ status_t EmulatedFakeCamera2::plugCamera() {
         Mutex::Autolock l(mMutex);
 
         if (!mStatusPresent) {
-            ALOGI("%s: Plugged back in", __FUNCTION__);
+            CAMHAL_LOGI("%s: Plugged back in", __FUNCTION__);
             mStatusPresent = true;
         }
     }
@@ -201,7 +201,7 @@ status_t EmulatedFakeCamera2::unplugCamera() {
         Mutex::Autolock l(mMutex);
 
         if (mStatusPresent) {
-            ALOGI("%s: Unplugged camera", __FUNCTION__);
+            CAMHAL_LOGI("%s: Unplugged camera", __FUNCTION__);
             mStatusPresent = false;
         }
     }
@@ -223,7 +223,7 @@ status_t EmulatedFakeCamera2::closeCamera() {
         Mutex::Autolock l(mMutex);
 
         status_t res;
-        ALOGV("%s", __FUNCTION__);
+        CAMHAL_LOGV("%s", __FUNCTION__);
 
         if (!mIsConnected) {
             return NO_ERROR;
@@ -231,7 +231,7 @@ status_t EmulatedFakeCamera2::closeCamera() {
 
         res = mSensor->shutDown();
         if (res != NO_ERROR) {
-            ALOGE("%s: Unable to shut down sensor: %d", __FUNCTION__, res);
+            CAMHAL_LOGE("%s: Unable to shut down sensor: %d", __FUNCTION__, res);
             return res;
         }
 
@@ -247,7 +247,7 @@ status_t EmulatedFakeCamera2::closeCamera() {
     mReadoutThread->join();
     mControlThread->join();
 
-    ALOGV("%s exit", __FUNCTION__);
+    CAMHAL_LOGV("%s exit", __FUNCTION__);
 
     {
         Mutex::Autolock l(mMutex);
@@ -270,15 +270,15 @@ status_t EmulatedFakeCamera2::getCameraInfo(struct camera_info *info) {
 /** Request input queue */
 
 int EmulatedFakeCamera2::requestQueueNotify() {
-    ALOGV("Request queue notification received");
+    CAMHAL_LOGV("Request queue notification received");
 
-    ALOG_ASSERT(mRequestQueueSrc != NULL,
+    CAMHAL_LOG_ASSERT(mRequestQueueSrc != NULL,
             "%s: Request queue src not set, but received queue notification!",
             __FUNCTION__);
-    ALOG_ASSERT(mFrameQueueDst != NULL,
+    CAMHAL_LOG_ASSERT(mFrameQueueDst != NULL,
             "%s: Request queue src not set, but received queue notification!",
             __FUNCTION__);
-    ALOG_ASSERT(mStreams.size() != 0,
+    CAMHAL_LOG_ASSERT(mStreams.size() != 0,
             "%s: No streams allocated, but received queue notification!",
             __FUNCTION__);
     return mConfigureThread->newRequestAvailable();
@@ -288,7 +288,7 @@ int EmulatedFakeCamera2::getInProgressCount() {
     Mutex::Autolock l(mMutex);
 
     if (!mStatusPresent) {
-        ALOGW("%s: Camera was physically disconnected", __FUNCTION__);
+        CAMHAL_LOGW("%s: Camera was physically disconnected", __FUNCTION__);
         return ERROR_CAMERA_NOT_PRESENT;
     }
 
@@ -312,7 +312,7 @@ int EmulatedFakeCamera2::constructDefaultRequest(
     {
         Mutex::Autolock l(mMutex);
         if (!mStatusPresent) {
-            ALOGW("%s: Camera was physically disconnected", __FUNCTION__);
+            CAMHAL_LOGW("%s: Camera was physically disconnected", __FUNCTION__);
             return ERROR_CAMERA_NOT_PRESENT;
         }
     }
@@ -330,7 +330,7 @@ int EmulatedFakeCamera2::constructDefaultRequest(
             request,
             false);
     if (res != OK) {
-        ALOGE("Unable to populate new request for template %d",
+        CAMHAL_LOGE("Unable to populate new request for template %d",
                 request_template);
     }
 
@@ -349,7 +349,7 @@ int EmulatedFakeCamera2::allocateStream(
     Mutex::Autolock l(mMutex);
 
     if (!mStatusPresent) {
-        ALOGW("%s: Camera was physically disconnected", __FUNCTION__);
+        CAMHAL_LOGW("%s: Camera was physically disconnected", __FUNCTION__);
         return ERROR_CAMERA_NOT_PRESENT;
     }
 
@@ -366,7 +366,7 @@ int EmulatedFakeCamera2::allocateStream(
             if (format == (int)kAvailableFormats[formatIdx]) break;
         }
         if (formatIdx == numFormats) {
-            ALOGE("%s: Format 0x%x is not supported", __FUNCTION__, format);
+            CAMHAL_LOGE("%s: Format 0x%x is not supported", __FUNCTION__, format);
             return BAD_VALUE;
         }
     }
@@ -396,7 +396,7 @@ int EmulatedFakeCamera2::allocateStream(
                     sizeof(kAvailableProcessedSizesFront)/sizeof(uint32_t);
             break;
         default:
-            ALOGE("%s: Unknown format 0x%x", __FUNCTION__, format);
+            CAMHAL_LOGE("%s: Unknown format 0x%x", __FUNCTION__, format);
             return BAD_VALUE;
     }
 
@@ -406,7 +406,7 @@ int EmulatedFakeCamera2::allocateStream(
                 availableSizes[resIdx * 2 + 1] == height) break;
     }
     if (resIdx == availableSizeCount) {
-        ALOGE("%s: Format 0x%x does not support resolution %d, %d", __FUNCTION__,
+        CAMHAL_LOGE("%s: Format 0x%x does not support resolution %d, %d", __FUNCTION__,
                 format, width, height);
         return BAD_VALUE;
     }
@@ -414,7 +414,7 @@ int EmulatedFakeCamera2::allocateStream(
     switch (format) {
         case HAL_PIXEL_FORMAT_RAW_SENSOR:
             if (mRawStreamCount >= kMaxRawStreamCount) {
-                ALOGE("%s: Cannot allocate another raw stream (%d already allocated)",
+                CAMHAL_LOGE("%s: Cannot allocate another raw stream (%d already allocated)",
                         __FUNCTION__, mRawStreamCount);
                 return INVALID_OPERATION;
             }
@@ -422,7 +422,7 @@ int EmulatedFakeCamera2::allocateStream(
             break;
         case HAL_PIXEL_FORMAT_BLOB:
             if (mJpegStreamCount >= kMaxJpegStreamCount) {
-                ALOGE("%s: Cannot allocate another JPEG stream (%d already allocated)",
+                CAMHAL_LOGE("%s: Cannot allocate another JPEG stream (%d already allocated)",
                         __FUNCTION__, mJpegStreamCount);
                 return INVALID_OPERATION;
             }
@@ -430,7 +430,7 @@ int EmulatedFakeCamera2::allocateStream(
             break;
         default:
             if (mProcessedStreamCount >= kMaxProcessedStreamCount) {
-                ALOGE("%s: Cannot allocate another processed stream (%d already allocated)",
+                CAMHAL_LOGE("%s: Cannot allocate another processed stream (%d already allocated)",
                         __FUNCTION__, mProcessedStreamCount);
                 return INVALID_OPERATION;
             }
@@ -452,7 +452,7 @@ int EmulatedFakeCamera2::allocateStream(
     *usage = GRALLOC_USAGE_HW_CAMERA_WRITE;
     *max_buffers = kMaxBufferCount;
 
-    ALOGV("Stream allocated: %d, %d x %d, 0x%x. U: %x, B: %d",
+    CAMHAL_LOGV("Stream allocated: %d, %d x %d, 0x%x. U: %x, B: %d",
             *stream_id, width, height, format, *usage, *max_buffers);
 
     mNextStreamId++;
@@ -466,16 +466,16 @@ int EmulatedFakeCamera2::registerStreamBuffers(
     Mutex::Autolock l(mMutex);
 
     if (!mStatusPresent) {
-        ALOGW("%s: Camera was physically disconnected", __FUNCTION__);
+        CAMHAL_LOGW("%s: Camera was physically disconnected", __FUNCTION__);
         return ERROR_CAMERA_NOT_PRESENT;
     }
 
-    ALOGV("%s: Stream %d registering %d buffers", __FUNCTION__,
+    CAMHAL_LOGV("%s: Stream %d registering %d buffers", __FUNCTION__,
             stream_id, num_buffers);
     // Need to find out what the final concrete pixel format for our stream is
     // Assumes that all buffers have the same format.
     if (num_buffers < 1) {
-        ALOGE("%s: Stream %d only has %d buffers!",
+        CAMHAL_LOGE("%s: Stream %d only has %d buffers!",
                 __FUNCTION__, stream_id, num_buffers);
         return BAD_VALUE;
     }
@@ -485,7 +485,7 @@ int EmulatedFakeCamera2::registerStreamBuffers(
     int finalFormat = streamBuffer->format;
 
     if (finalFormat == HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED) {
-        ALOGE("%s: Stream %d: Bad final pixel format "
+        CAMHAL_LOGE("%s: Stream %d: Bad final pixel format "
                 "HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED; "
                 "concrete pixel format required!", __FUNCTION__, stream_id);
         return BAD_VALUE;
@@ -493,13 +493,13 @@ int EmulatedFakeCamera2::registerStreamBuffers(
 
     ssize_t streamIndex = mStreams.indexOfKey(stream_id);
     if (streamIndex < 0) {
-        ALOGE("%s: Unknown stream id %d!", __FUNCTION__, stream_id);
+        CAMHAL_LOGE("%s: Unknown stream id %d!", __FUNCTION__, stream_id);
         return BAD_VALUE;
     }
 
     Stream &stream = mStreams.editValueAt(streamIndex);
 
-    ALOGV("%s: Stream %d format set to %x, previously %x",
+    CAMHAL_LOGV("%s: Stream %d format set to %x, previously %x",
             __FUNCTION__, stream_id, finalFormat, stream.format);
 
     stream.format = finalFormat;
@@ -512,12 +512,12 @@ int EmulatedFakeCamera2::releaseStream(uint32_t stream_id) {
 
     ssize_t streamIndex = mStreams.indexOfKey(stream_id);
     if (streamIndex < 0) {
-        ALOGE("%s: Unknown stream id %d!", __FUNCTION__, stream_id);
+        CAMHAL_LOGE("%s: Unknown stream id %d!", __FUNCTION__, stream_id);
         return BAD_VALUE;
     }
 
     if (isStreamInUse(stream_id)) {
-        ALOGE("%s: Cannot release stream %d; in use!", __FUNCTION__,
+        CAMHAL_LOGE("%s: Cannot release stream %d; in use!", __FUNCTION__,
                 stream_id);
         return BAD_VALUE;
     }
@@ -546,13 +546,13 @@ int EmulatedFakeCamera2::allocateReprocessStreamFromStream(
     Mutex::Autolock l(mMutex);
 
     if (!mStatusPresent) {
-        ALOGW("%s: Camera was physically disconnected", __FUNCTION__);
+        CAMHAL_LOGW("%s: Camera was physically disconnected", __FUNCTION__);
         return ERROR_CAMERA_NOT_PRESENT;
     }
 
     ssize_t baseStreamIndex = mStreams.indexOfKey(output_stream_id);
     if (baseStreamIndex < 0) {
-        ALOGE("%s: Unknown output stream id %d!", __FUNCTION__, output_stream_id);
+        CAMHAL_LOGE("%s: Unknown output stream id %d!", __FUNCTION__, output_stream_id);
         return BAD_VALUE;
     }
 
@@ -561,7 +561,7 @@ int EmulatedFakeCamera2::allocateReprocessStreamFromStream(
     // We'll reprocess anything we produced
 
     if (mReprocessStreamCount >= kMaxReprocessStreamCount) {
-        ALOGE("%s: Cannot allocate another reprocess stream (%d already allocated)",
+        CAMHAL_LOGE("%s: Cannot allocate another reprocess stream (%d already allocated)",
                 __FUNCTION__, mReprocessStreamCount);
         return INVALID_OPERATION;
     }
@@ -578,7 +578,7 @@ int EmulatedFakeCamera2::allocateReprocessStreamFromStream(
     *stream_id = mNextReprocessStreamId;
     mReprocessStreams.add(mNextReprocessStreamId, newStream);
 
-    ALOGV("Reprocess stream allocated: %d: %d, %d, 0x%x. Parent stream: %d",
+    CAMHAL_LOGV("Reprocess stream allocated: %d: %d, %d, 0x%x. Parent stream: %d",
             *stream_id, newStream.width, newStream.height, newStream.format,
             output_stream_id);
 
@@ -591,12 +591,12 @@ int EmulatedFakeCamera2::releaseReprocessStream(uint32_t stream_id) {
 
     ssize_t streamIndex = mReprocessStreams.indexOfKey(stream_id);
     if (streamIndex < 0) {
-        ALOGE("%s: Unknown reprocess stream id %d!", __FUNCTION__, stream_id);
+        CAMHAL_LOGE("%s: Unknown reprocess stream id %d!", __FUNCTION__, stream_id);
         return BAD_VALUE;
     }
 
     if (isReprocessStreamInUse(stream_id)) {
-        ALOGE("%s: Cannot release reprocessing stream %d; in use!", __FUNCTION__,
+        CAMHAL_LOGE("%s: Cannot release reprocessing stream %d; in use!", __FUNCTION__,
                 stream_id);
         return BAD_VALUE;
     }
@@ -613,7 +613,7 @@ int EmulatedFakeCamera2::triggerAction(uint32_t trigger_id,
     Mutex::Autolock l(mMutex);
 
     if (trigger_id == CAMERA2_EXT_TRIGGER_TESTING_DISCONNECT) {
-        ALOGI("%s: Disconnect trigger - camera must be closed", __FUNCTION__);
+        CAMHAL_LOGI("%s: Disconnect trigger - camera must be closed", __FUNCTION__);
         mStatusPresent = false;
 
         gEmulatedCameraFactory.onStatusChanged(
@@ -622,7 +622,7 @@ int EmulatedFakeCamera2::triggerAction(uint32_t trigger_id,
     }
 
     if (!mStatusPresent) {
-        ALOGW("%s: Camera was physically disconnected", __FUNCTION__);
+        CAMHAL_LOGW("%s: Camera was physically disconnected", __FUNCTION__);
         return ERROR_CAMERA_NOT_PRESENT;
     }
 
@@ -652,7 +652,7 @@ int EmulatedFakeCamera2::dump(int fd) {
 
 void EmulatedFakeCamera2::signalError() {
     // TODO: Let parent know so we can shut down cleanly
-    ALOGE("Worker thread is signaling a serious error");
+    CAMHAL_LOGE("Worker thread is signaling a serious error");
 }
 
 /** Pipeline control worker thread methods */
@@ -671,7 +671,7 @@ EmulatedFakeCamera2::ConfigureThread::~ConfigureThread() {
 status_t EmulatedFakeCamera2::ConfigureThread::readyToRun() {
     Mutex::Autolock lock(mInputMutex);
 
-    ALOGV("Starting up ConfigureThread");
+    CAMHAL_LOGV("Starting up ConfigureThread");
     mRequest = NULL;
     mActive  = false;
     mRunning = true;
@@ -683,7 +683,7 @@ status_t EmulatedFakeCamera2::ConfigureThread::readyToRun() {
 status_t EmulatedFakeCamera2::ConfigureThread::waitUntilRunning() {
     Mutex::Autolock lock(mInputMutex);
     if (!mRunning) {
-        ALOGV("Waiting for configure thread to start");
+        CAMHAL_LOGV("Waiting for configure thread to start");
         mInputSignal.wait(mInputMutex);
     }
     return OK;
@@ -726,12 +726,12 @@ bool EmulatedFakeCamera2::ConfigureThread::threadLoop() {
             status_t res;
             res = mInputSignal.waitRelative(mInputMutex, kWaitPerLoop);
             if (res != NO_ERROR && res != TIMED_OUT) {
-                ALOGE("%s: Error waiting for input requests: %d",
+                CAMHAL_LOGE("%s: Error waiting for input requests: %d",
                         __FUNCTION__, res);
                 return false;
             }
             if (!mActive) return true;
-            ALOGV("New request available");
+            CAMHAL_LOGV("New request available");
         }
         // Active
     }
@@ -739,17 +739,17 @@ bool EmulatedFakeCamera2::ConfigureThread::threadLoop() {
     if (mRequest == NULL) {
         Mutex::Autolock il(mInternalsMutex);
 
-        ALOGV("Configure: Getting next request");
+        CAMHAL_LOGV("Configure: Getting next request");
         res = mParent->mRequestQueueSrc->dequeue_request(
             mParent->mRequestQueueSrc,
             &mRequest);
         if (res != NO_ERROR) {
-            ALOGE("%s: Error dequeuing next request: %d", __FUNCTION__, res);
+            CAMHAL_LOGE("%s: Error dequeuing next request: %d", __FUNCTION__, res);
             mParent->signalError();
             return false;
         }
         if (mRequest == NULL) {
-            ALOGV("Configure: Request queue empty, going inactive");
+            CAMHAL_LOGV("Configure: Request queue empty, going inactive");
             // No requests available, go into inactive mode
             Mutex::Autolock lock(mInputMutex);
             mActive = false;
@@ -764,7 +764,7 @@ bool EmulatedFakeCamera2::ConfigureThread::threadLoop() {
                 ANDROID_REQUEST_TYPE,
                 &type);
         if (res != NO_ERROR) {
-            ALOGE("%s: error reading request type", __FUNCTION__);
+            CAMHAL_LOGE("%s: error reading request type", __FUNCTION__);
             mParent->signalError();
             return false;
         }
@@ -777,7 +777,7 @@ bool EmulatedFakeCamera2::ConfigureThread::threadLoop() {
                 success = setupReprocess();
                 break;
             default:
-                ALOGE("%s: Unexpected request type %d",
+                CAMHAL_LOGE("%s: Unexpected request type %d",
                         __FUNCTION__, type.data.u8[0]);
                 mParent->signalError();
                 break;
@@ -792,9 +792,9 @@ bool EmulatedFakeCamera2::ConfigureThread::threadLoop() {
         if (!readoutDone) return true;
 
         if (mNextNeedsJpeg) {
-            ALOGV("Configure: Waiting for JPEG compressor");
+            CAMHAL_LOGV("Configure: Waiting for JPEG compressor");
         } else {
-            ALOGV("Configure: Waiting for sensor");
+            CAMHAL_LOGV("Configure: Waiting for sensor");
         }
         mWaitingForReadout = false;
     }
@@ -804,7 +804,7 @@ bool EmulatedFakeCamera2::ConfigureThread::threadLoop() {
         jpegDone = mParent->mJpegCompressor->waitForDone(kWaitPerLoop);
         if (!jpegDone) return true;
 
-        ALOGV("Configure: Waiting for sensor");
+        CAMHAL_LOGV("Configure: Waiting for sensor");
         mNextNeedsJpeg = false;
     }
 
@@ -827,19 +827,19 @@ bool EmulatedFakeCamera2::ConfigureThread::setupCapture() {
             ANDROID_REQUEST_OUTPUT_STREAMS,
             &streams);
     if (res != NO_ERROR) {
-        ALOGE("%s: error reading output stream tag", __FUNCTION__);
+        CAMHAL_LOGE("%s: error reading output stream tag", __FUNCTION__);
         mParent->signalError();
         return false;
     }
 
     mNextBuffers = new Buffers;
     mNextNeedsJpeg = false;
-    ALOGV("Configure: Setting up buffers for capture");
+    CAMHAL_LOGV("Configure: Setting up buffers for capture");
     for (size_t i = 0; i < streams.count; i++) {
         int streamId = streams.data.i32[i];
         const Stream &s = mParent->getStreamInfo(streamId);
         if (s.format == HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED) {
-            ALOGE("%s: Stream %d does not have a concrete pixel format, but "
+            CAMHAL_LOGE("%s: Stream %d does not have a concrete pixel format, but "
                     "is included in a request!", __FUNCTION__, streamId);
             mParent->signalError();
             return false;
@@ -851,7 +851,7 @@ bool EmulatedFakeCamera2::ConfigureThread::setupCapture() {
         b.format = s.format;
         b.stride = s.stride;
         mNextBuffers->push_back(b);
-        ALOGV("Configure:    Buffer %zu: Stream %d, %d x %d, format 0x%x, "
+        CAMHAL_LOGV("Configure:    Buffer %zu: Stream %d, %d x %d, format 0x%x, "
                 "stride %d",
                 i, b.streamId, b.width, b.height, b.format, b.stride);
         if (b.format == HAL_PIXEL_FORMAT_BLOB) {
@@ -864,7 +864,7 @@ bool EmulatedFakeCamera2::ConfigureThread::setupCapture() {
             ANDROID_REQUEST_FRAME_COUNT,
             &e);
     if (res != NO_ERROR) {
-        ALOGE("%s: error reading frame count tag: %s (%d)",
+        CAMHAL_LOGE("%s: error reading frame count tag: %s (%d)",
                 __FUNCTION__, strerror(-res), res);
         mParent->signalError();
         return false;
@@ -875,7 +875,7 @@ bool EmulatedFakeCamera2::ConfigureThread::setupCapture() {
             ANDROID_SENSOR_EXPOSURE_TIME,
             &e);
     if (res != NO_ERROR) {
-        ALOGE("%s: error reading exposure time tag: %s (%d)",
+        CAMHAL_LOGE("%s: error reading exposure time tag: %s (%d)",
                 __FUNCTION__, strerror(-res), res);
         mParent->signalError();
         return false;
@@ -886,7 +886,7 @@ bool EmulatedFakeCamera2::ConfigureThread::setupCapture() {
             ANDROID_SENSOR_FRAME_DURATION,
             &e);
     if (res != NO_ERROR) {
-        ALOGE("%s: error reading frame duration tag", __FUNCTION__);
+        CAMHAL_LOGE("%s: error reading frame duration tag", __FUNCTION__);
         mParent->signalError();
         return false;
     }
@@ -900,7 +900,7 @@ bool EmulatedFakeCamera2::ConfigureThread::setupCapture() {
             ANDROID_SENSOR_SENSITIVITY,
             &e);
     if (res != NO_ERROR) {
-        ALOGE("%s: error reading sensitivity tag", __FUNCTION__);
+        CAMHAL_LOGE("%s: error reading sensitivity tag", __FUNCTION__);
         mParent->signalError();
         return false;
     }
@@ -908,7 +908,7 @@ bool EmulatedFakeCamera2::ConfigureThread::setupCapture() {
 
     // Start waiting on readout thread
     mWaitingForReadout = true;
-    ALOGV("Configure: Waiting for readout thread");
+    CAMHAL_LOGV("Configure: Waiting for readout thread");
 
     return true;
 }
@@ -918,14 +918,14 @@ bool EmulatedFakeCamera2::ConfigureThread::configureNextCapture() {
     if (!vsync) return true;
 
     Mutex::Autolock il(mInternalsMutex);
-    ALOGV("Configure: Configuring sensor for capture %d", mNextFrameNumber);
+    CAMHAL_LOGV("Configure: Configuring sensor for capture %d", mNextFrameNumber);
     mParent->mSensor->setExposureTime(mNextExposureTime);
     mParent->mSensor->setFrameDuration(mNextFrameDuration);
     mParent->mSensor->setSensitivity(mNextSensitivity);
 
     getBuffers();
 
-    ALOGV("Configure: Done configure for capture %d", mNextFrameNumber);
+    CAMHAL_LOGV("Configure: Done configure for capture %d", mNextFrameNumber);
     mParent->mReadoutThread->setNextOperation(true, mRequest, mNextBuffers);
     mParent->mSensor->setDestinationBuffers(mNextBuffers);
 
@@ -949,19 +949,19 @@ bool EmulatedFakeCamera2::ConfigureThread::setupReprocess() {
             ANDROID_REQUEST_INPUT_STREAMS,
             &reprocessStreams);
     if (res != NO_ERROR) {
-        ALOGE("%s: error reading output stream tag", __FUNCTION__);
+        CAMHAL_LOGE("%s: error reading output stream tag", __FUNCTION__);
         mParent->signalError();
         return false;
     }
 
     mNextBuffers = new Buffers;
 
-    ALOGV("Configure: Setting up input buffers for reprocess");
+    CAMHAL_LOGV("Configure: Setting up input buffers for reprocess");
     for (size_t i = 0; i < reprocessStreams.count; i++) {
         int streamId = reprocessStreams.data.i32[i];
         const ReprocessStream &s = mParent->getReprocessStreamInfo(streamId);
         if (s.format != HAL_PIXEL_FORMAT_RGB_888) {
-            ALOGE("%s: Only ZSL reprocessing supported!",
+            CAMHAL_LOGE("%s: Only ZSL reprocessing supported!",
                     __FUNCTION__);
             mParent->signalError();
             return false;
@@ -980,18 +980,18 @@ bool EmulatedFakeCamera2::ConfigureThread::setupReprocess() {
             ANDROID_REQUEST_OUTPUT_STREAMS,
             &streams);
     if (res != NO_ERROR) {
-        ALOGE("%s: error reading output stream tag", __FUNCTION__);
+        CAMHAL_LOGE("%s: error reading output stream tag", __FUNCTION__);
         mParent->signalError();
         return false;
     }
 
-    ALOGV("Configure: Setting up output buffers for reprocess");
+    CAMHAL_LOGV("Configure: Setting up output buffers for reprocess");
     for (size_t i = 0; i < streams.count; i++) {
         int streamId = streams.data.i32[i];
         const Stream &s = mParent->getStreamInfo(streamId);
         if (s.format != HAL_PIXEL_FORMAT_BLOB) {
             // TODO: Support reprocess to YUV
-            ALOGE("%s: Non-JPEG output stream %d for reprocess not supported",
+            CAMHAL_LOGE("%s: Non-JPEG output stream %d for reprocess not supported",
                     __FUNCTION__, streamId);
             mParent->signalError();
             return false;
@@ -1003,7 +1003,7 @@ bool EmulatedFakeCamera2::ConfigureThread::setupReprocess() {
         b.format = s.format;
         b.stride = s.stride;
         mNextBuffers->push_back(b);
-        ALOGV("Configure:    Buffer %zu: Stream %d, %d x %d, format 0x%x, "
+        CAMHAL_LOGV("Configure:    Buffer %zu: Stream %d, %d x %d, format 0x%x, "
                 "stride %d",
                 i, b.streamId, b.width, b.height, b.format, b.stride);
     }
@@ -1013,7 +1013,7 @@ bool EmulatedFakeCamera2::ConfigureThread::setupReprocess() {
             ANDROID_REQUEST_FRAME_COUNT,
             &e);
     if (res != NO_ERROR) {
-        ALOGE("%s: error reading frame count tag: %s (%d)",
+        CAMHAL_LOGE("%s: error reading frame count tag: %s (%d)",
                 __FUNCTION__, strerror(-res), res);
         mParent->signalError();
         return false;
@@ -1028,7 +1028,7 @@ bool EmulatedFakeCamera2::ConfigureThread::configureNextReprocess() {
 
     getBuffers();
 
-    ALOGV("Configure: Done configure for reprocess %d", mNextFrameNumber);
+    CAMHAL_LOGV("Configure: Done configure for reprocess %d", mNextFrameNumber);
     mParent->mReadoutThread->setNextOperation(false, mRequest, mNextBuffers);
 
     mRequest = NULL;
@@ -1048,10 +1048,10 @@ bool EmulatedFakeCamera2::ConfigureThread::getBuffers() {
 
         if (b.streamId > 0) {
             Stream s = mParent->getStreamInfo(b.streamId);
-            ALOGV("Configure: Dequeing buffer from stream %d", b.streamId);
+            CAMHAL_LOGV("Configure: Dequeing buffer from stream %d", b.streamId);
             res = s.ops->dequeue_buffer(s.ops, &(b.buffer) );
             if (res != NO_ERROR || b.buffer == NULL) {
-                ALOGE("%s: Unable to dequeue buffer from stream %d: %s (%d)",
+                CAMHAL_LOGE("%s: Unable to dequeue buffer from stream %d: %s (%d)",
                         __FUNCTION__, b.streamId, strerror(-res), res);
                 mParent->signalError();
                 return false;
@@ -1065,7 +1065,7 @@ bool EmulatedFakeCamera2::ConfigureThread::getBuffers() {
                     rect, (void**)&(b.img) );
 
             if (res != NO_ERROR) {
-                ALOGE("%s: grbuffer_mapper.lock failure: %s (%d)",
+                CAMHAL_LOGE("%s: grbuffer_mapper.lock failure: %s (%d)",
                         __FUNCTION__, strerror(-res), res);
                 s.ops->cancel_buffer(s.ops,
                         b.buffer);
@@ -1074,11 +1074,11 @@ bool EmulatedFakeCamera2::ConfigureThread::getBuffers() {
             }
         } else {
             ReprocessStream s = mParent->getReprocessStreamInfo(-b.streamId);
-            ALOGV("Configure: Acquiring buffer from reprocess stream %d",
+            CAMHAL_LOGV("Configure: Acquiring buffer from reprocess stream %d",
                     -b.streamId);
             res = s.ops->acquire_buffer(s.ops, &(b.buffer) );
             if (res != NO_ERROR || b.buffer == NULL) {
-                ALOGE("%s: Unable to acquire buffer from reprocess stream %d: "
+                CAMHAL_LOGE("%s: Unable to acquire buffer from reprocess stream %d: "
                         "%s (%d)", __FUNCTION__, -b.streamId,
                         strerror(-res), res);
                 mParent->signalError();
@@ -1092,7 +1092,7 @@ bool EmulatedFakeCamera2::ConfigureThread::getBuffers() {
                     GRALLOC_USAGE_HW_CAMERA_READ,
                     rect, (void**)&(b.img) );
             if (res != NO_ERROR) {
-                ALOGE("%s: grbuffer_mapper.lock failure: %s (%d)",
+                CAMHAL_LOGE("%s: grbuffer_mapper.lock failure: %s (%d)",
                         __FUNCTION__, strerror(-res), res);
                 s.ops->release_buffer(s.ops,
                         b.buffer);
@@ -1123,7 +1123,7 @@ EmulatedFakeCamera2::ReadoutThread::~ReadoutThread() {
 
 status_t EmulatedFakeCamera2::ReadoutThread::readyToRun() {
     Mutex::Autolock lock(mInputMutex);
-    ALOGV("Starting up ReadoutThread");
+    CAMHAL_LOGV("Starting up ReadoutThread");
     mRunning = true;
     mInputSignal.signal();
     return NO_ERROR;
@@ -1132,7 +1132,7 @@ status_t EmulatedFakeCamera2::ReadoutThread::readyToRun() {
 status_t EmulatedFakeCamera2::ReadoutThread::waitUntilRunning() {
     Mutex::Autolock lock(mInputMutex);
     if (!mRunning) {
-        ALOGV("Waiting for readout thread to start");
+        CAMHAL_LOGV("Waiting for readout thread to start");
         mInputSignal.wait(mInputMutex);
     }
     return OK;
@@ -1145,7 +1145,7 @@ bool EmulatedFakeCamera2::ReadoutThread::waitForReady(nsecs_t timeout) {
         res = mReadySignal.waitRelative(mInputMutex, timeout);
         if (res == TIMED_OUT) return false;
         if (res != OK) {
-            ALOGE("%s: Error waiting for ready: %s (%d)", __FUNCTION__,
+            CAMHAL_LOGE("%s: Error waiting for ready: %s (%d)", __FUNCTION__,
                     strerror(-res), res);
             return false;
         }
@@ -1163,7 +1163,7 @@ void EmulatedFakeCamera2::ReadoutThread::setNextOperation(
         Buffers *buffers) {
     Mutex::Autolock lock(mInputMutex);
     if ( !readyForNextCapture() ) {
-        ALOGE("In flight queue full, dropping captures");
+        CAMHAL_LOGE("In flight queue full, dropping captures");
         mParent->signalError();
         return;
     }
@@ -1221,7 +1221,7 @@ bool EmulatedFakeCamera2::ReadoutThread::threadLoop() {
             // Inactive, keep waiting until we've been signaled
             res = mInputSignal.waitRelative(mInputMutex, kWaitPerLoop);
             if (res != NO_ERROR && res != TIMED_OUT) {
-                ALOGE("%s: Error waiting for capture requests: %d",
+                CAMHAL_LOGE("%s: Error waiting for capture requests: %d",
                         __FUNCTION__, res);
                 mParent->signalError();
                 return false;
@@ -1232,7 +1232,7 @@ bool EmulatedFakeCamera2::ReadoutThread::threadLoop() {
         if (mRequest == NULL) {
             if (mInFlightHead == mInFlightTail) {
                 // Go inactive
-                ALOGV("Waiting for sensor data");
+                CAMHAL_LOGV("Waiting for sensor data");
                 mActive = false;
                 return true;
             } else {
@@ -1244,7 +1244,7 @@ bool EmulatedFakeCamera2::ReadoutThread::threadLoop() {
                 mInFlightQueue[mInFlightHead].request = NULL;
                 mInFlightQueue[mInFlightHead].buffers = NULL;
                 mInFlightHead = (mInFlightHead + 1) % kInFlightQueueSize;
-                ALOGV("Ready to read out request %p, %zu buffers",
+                CAMHAL_LOGV("Ready to read out request %p, %zu buffers",
                         mRequest, mBuffers->size());
             }
         }
@@ -1270,7 +1270,7 @@ bool EmulatedFakeCamera2::ReadoutThread::threadLoop() {
                 ANDROID_SENSOR_TIMESTAMP,
             &entry);
         if (res != NO_ERROR) {
-            ALOGE("%s: error reading reprocessing timestamp: %s (%d)",
+            CAMHAL_LOGE("%s: error reading reprocessing timestamp: %s (%d)",
                     __FUNCTION__, strerror(-res), res);
             mParent->signalError();
             return false;
@@ -1282,7 +1282,7 @@ bool EmulatedFakeCamera2::ReadoutThread::threadLoop() {
             ANDROID_REQUEST_FRAME_COUNT,
             &entry);
     if (res != NO_ERROR) {
-        ALOGE("%s: error reading frame count tag: %s (%d)",
+        CAMHAL_LOGE("%s: error reading frame count tag: %s (%d)",
                 __FUNCTION__, strerror(-res), res);
         mParent->signalError();
         return false;
@@ -1293,18 +1293,18 @@ bool EmulatedFakeCamera2::ReadoutThread::threadLoop() {
             ANDROID_REQUEST_METADATA_MODE,
             &entry);
     if (res != NO_ERROR) {
-        ALOGE("%s: error reading metadata mode tag: %s (%d)",
+        CAMHAL_LOGE("%s: error reading metadata mode tag: %s (%d)",
                 __FUNCTION__, strerror(-res), res);
         mParent->signalError();
         return false;
     }
 
     // Got sensor data and request, construct frame and send it out
-    ALOGV("Readout: Constructing metadata and frames for request %d",
+    CAMHAL_LOGV("Readout: Constructing metadata and frames for request %d",
             frameNumber);
 
     if (*entry.data.u8 == ANDROID_REQUEST_METADATA_MODE_FULL) {
-        ALOGV("Readout: Metadata requested, constructing");
+        CAMHAL_LOGV("Readout: Metadata requested, constructing");
 
         camera_metadata_t *frame = NULL;
 
@@ -1319,14 +1319,14 @@ bool EmulatedFakeCamera2::ReadoutThread::threadLoop() {
                 frame_entries, frame_data, &frame);
 
         if (res != NO_ERROR || frame == NULL) {
-            ALOGE("%s: Unable to dequeue frame metadata buffer", __FUNCTION__);
+            CAMHAL_LOGE("%s: Unable to dequeue frame metadata buffer", __FUNCTION__);
             mParent->signalError();
             return false;
         }
 
         res = append_camera_metadata(frame, mRequest);
         if (res != NO_ERROR) {
-            ALOGE("Unable to append request metadata");
+            CAMHAL_LOGE("Unable to append request metadata");
         }
 
         if (mIsCapture) {
@@ -1339,14 +1339,14 @@ bool EmulatedFakeCamera2::ReadoutThread::threadLoop() {
             // TODO: Collect all final values used from sensor in addition to timestamp
         }
 
-        ALOGV("Readout: Enqueue frame %d", frameNumber);
+        CAMHAL_LOGV("Readout: Enqueue frame %d", frameNumber);
         mParent->mFrameQueueDst->enqueue_frame(mParent->mFrameQueueDst,
                 frame);
     }
-    ALOGV("Readout: Free request");
+    CAMHAL_LOGV("Readout: Free request");
     res = mParent->mRequestQueueSrc->free_request(mParent->mRequestQueueSrc, mRequest);
     if (res != NO_ERROR) {
-        ALOGE("%s: Unable to return request buffer to queue: %d",
+        CAMHAL_LOGE("%s: Unable to return request buffer to queue: %d",
                 __FUNCTION__, res);
         mParent->signalError();
         return false;
@@ -1354,23 +1354,23 @@ bool EmulatedFakeCamera2::ReadoutThread::threadLoop() {
     mRequest = NULL;
 
     int compressedBufferIndex = -1;
-    ALOGV("Readout: Processing %zu buffers", mBuffers->size());
+    CAMHAL_LOGV("Readout: Processing %zu buffers", mBuffers->size());
     for (size_t i = 0; i < mBuffers->size(); i++) {
         const StreamBuffer &b = (*mBuffers)[i];
-        ALOGV("Readout:    Buffer %zu: Stream %d, %d x %d, format 0x%x, stride %d",
+        CAMHAL_LOGV("Readout:    Buffer %zu: Stream %d, %d x %d, format 0x%x, stride %d",
                 i, b.streamId, b.width, b.height, b.format, b.stride);
         if (b.streamId > 0) {
             if (b.format == HAL_PIXEL_FORMAT_BLOB) {
                 // Assumes only one BLOB buffer type per capture
                 compressedBufferIndex = i;
             } else {
-                ALOGV("Readout:    Sending image buffer %zu (%p) to output stream %d",
+                CAMHAL_LOGV("Readout:    Sending image buffer %zu (%p) to output stream %d",
                         i, (void*)*(b.buffer), b.streamId);
                 GraphicBufferMapper::get().unlock(*(b.buffer));
                 const Stream &s = mParent->getStreamInfo(b.streamId);
                 res = s.ops->enqueue_buffer(s.ops, captureTime, b.buffer);
                 if (res != OK) {
-                    ALOGE("Error enqueuing image buffer %p: %s (%d)", b.buffer,
+                    CAMHAL_LOGE("Error enqueuing image buffer %p: %s (%d)", b.buffer,
                             strerror(-res), res);
                     mParent->signalError();
                 }
@@ -1381,7 +1381,7 @@ bool EmulatedFakeCamera2::ReadoutThread::threadLoop() {
     if (compressedBufferIndex == -1) {
         delete mBuffers;
     } else {
-        ALOGV("Readout:  Starting JPEG compression for buffer %d, stream %d",
+        CAMHAL_LOGV("Readout:  Starting JPEG compression for buffer %d, stream %d",
                 compressedBufferIndex,
                 (*mBuffers)[compressedBufferIndex].streamId);
         mJpegTimestamp = captureTime;
@@ -1392,7 +1392,7 @@ bool EmulatedFakeCamera2::ReadoutThread::threadLoop() {
 
     Mutex::Autolock l(mInputMutex);
     mRequestCount--;
-    ALOGV("Readout: Done with request %d", frameNumber);
+    CAMHAL_LOGV("Readout: Done with request %d", frameNumber);
     return true;
 }
 
@@ -1400,14 +1400,14 @@ void EmulatedFakeCamera2::ReadoutThread::onJpegDone(
     const StreamBuffer &jpegBuffer, bool success, CaptureRequest &r __unused) {
     status_t res;
     if (!success) {
-        ALOGE("%s: Error queueing compressed image buffer %p",
+        CAMHAL_LOGE("%s: Error queueing compressed image buffer %p",
                 __FUNCTION__, jpegBuffer.buffer);
         mParent->signalError();
         return;
     }
 
     // Write to JPEG output stream
-    ALOGV("%s: Compression complete, pushing to stream %d", __FUNCTION__,
+    CAMHAL_LOGV("%s: Compression complete, pushing to stream %d", __FUNCTION__,
             jpegBuffer.streamId);
 
     GraphicBufferMapper::get().unlock(*(jpegBuffer.buffer));
@@ -1423,7 +1423,7 @@ void EmulatedFakeCamera2::ReadoutThread::onJpegInputDone(
             mParent->getReprocessStreamInfo(-inputBuffer.streamId);
     res = s.ops->release_buffer(s.ops, inputBuffer.buffer);
     if (res != OK) {
-        ALOGE("Error releasing reprocess buffer %p: %s (%d)",
+        CAMHAL_LOGE("Error releasing reprocess buffer %p: %s (%d)",
                 inputBuffer.buffer, strerror(-res), res);
         mParent->signalError();
     }
@@ -1432,7 +1432,7 @@ void EmulatedFakeCamera2::ReadoutThread::onJpegInputDone(
 status_t EmulatedFakeCamera2::ReadoutThread::collectStatisticsMetadata(
         camera_metadata_t *frame) {
     // Completely fake face rectangles, don't correspond to real faces in scene
-    ALOGV("Readout:    Collecting statistics metadata");
+    CAMHAL_LOGV("Readout:    Collecting statistics metadata");
 
     status_t res;
     camera_metadata_entry_t entry;
@@ -1440,7 +1440,7 @@ status_t EmulatedFakeCamera2::ReadoutThread::collectStatisticsMetadata(
                 ANDROID_STATISTICS_FACE_DETECT_MODE,
                 &entry);
     if (res != OK) {
-        ALOGE("%s: Unable to find face detect mode!", __FUNCTION__);
+        CAMHAL_LOGE("%s: Unable to find face detect mode!", __FUNCTION__);
         return BAD_VALUE;
     }
 
@@ -1479,14 +1479,14 @@ status_t EmulatedFakeCamera2::ReadoutThread::collectStatisticsMetadata(
     res = add_camera_metadata_entry(frame, ANDROID_STATISTICS_FACE_RECTANGLES,
             rects, numFaces * 4);
     if (res != OK) {
-        ALOGE("%s: Unable to add face rectangles!", __FUNCTION__);
+        CAMHAL_LOGE("%s: Unable to add face rectangles!", __FUNCTION__);
         return BAD_VALUE;
     }
 
     res = add_camera_metadata_entry(frame, ANDROID_STATISTICS_FACE_SCORES,
             scores, numFaces);
     if (res != OK) {
-        ALOGE("%s: Unable to add face scores!", __FUNCTION__);
+        CAMHAL_LOGE("%s: Unable to add face scores!", __FUNCTION__);
         return BAD_VALUE;
     }
 
@@ -1524,14 +1524,14 @@ status_t EmulatedFakeCamera2::ReadoutThread::collectStatisticsMetadata(
     res = add_camera_metadata_entry(frame, ANDROID_STATISTICS_FACE_LANDMARKS,
             features, numFaces * 6);
     if (res != OK) {
-        ALOGE("%s: Unable to add face landmarks!", __FUNCTION__);
+        CAMHAL_LOGE("%s: Unable to add face landmarks!", __FUNCTION__);
         return BAD_VALUE;
     }
 
     res = add_camera_metadata_entry(frame, ANDROID_STATISTICS_FACE_IDS,
             ids, numFaces);
     if (res != OK) {
-        ALOGE("%s: Unable to add face scores!", __FUNCTION__);
+        CAMHAL_LOGE("%s: Unable to add face scores!", __FUNCTION__);
         return BAD_VALUE;
     }
 
@@ -1550,7 +1550,7 @@ EmulatedFakeCamera2::ControlThread::~ControlThread() {
 status_t EmulatedFakeCamera2::ControlThread::readyToRun() {
     Mutex::Autolock lock(mInputMutex);
 
-    ALOGV("Starting up ControlThread");
+    CAMHAL_LOGV("Starting up ControlThread");
     mRunning = true;
     mStartAf = false;
     mCancelAf = false;
@@ -1583,7 +1583,7 @@ status_t EmulatedFakeCamera2::ControlThread::readyToRun() {
 status_t EmulatedFakeCamera2::ControlThread::waitUntilRunning() {
     Mutex::Autolock lock(mInputMutex);
     if (!mRunning) {
-        ALOGV("Waiting for control thread to start");
+        CAMHAL_LOGV("Waiting for control thread to start");
         mInputSignal.wait(mInputMutex);
     }
     return OK;
@@ -1635,7 +1635,7 @@ status_t EmulatedFakeCamera2::ControlThread::processRequest(camera_metadata_t *r
             ANDROID_CONTROL_AF_MODE,
             &mode);
     if (mAfMode != mode.data.u8[0]) {
-        ALOGV("AF new mode: %d, old mode %d", mode.data.u8[0], mAfMode);
+        CAMHAL_LOGV("AF new mode: %d, old mode %d", mode.data.u8[0], mAfMode);
         mAfMode = mode.data.u8[0];
         mAfModeChange = true;
         mStartAf = false;
@@ -1684,7 +1684,7 @@ status_t EmulatedFakeCamera2::ControlThread::processRequest(camera_metadata_t *r
 
 status_t EmulatedFakeCamera2::ControlThread::triggerAction(uint32_t msgType,
         int32_t ext1, int32_t ext2) {
-    ALOGV("%s: Triggering %d (%d, %d)", __FUNCTION__, msgType, ext1, ext2);
+    CAMHAL_LOGV("%s: Triggering %d (%d, %d)", __FUNCTION__, msgType, ext1, ext2);
     Mutex::Autolock lock(mInputMutex);
     switch (msgType) {
         case CAMERA2_TRIGGER_AUTOFOCUS:
@@ -1702,7 +1702,7 @@ status_t EmulatedFakeCamera2::ControlThread::triggerAction(uint32_t msgType,
             mStartPrecapture = true;
             break;
         default:
-            ALOGE("%s: Unknown action triggered: %d (arguments %d %d)",
+            CAMHAL_LOGE("%s: Unknown action triggered: %d (arguments %d %d)",
                     __FUNCTION__, msgType, ext1, ext2);
             return BAD_VALUE;
     }
@@ -1745,11 +1745,11 @@ bool EmulatedFakeCamera2::ControlThread::threadLoop() {
     {
         Mutex::Autolock lock(mInputMutex);
         if (mStartAf) {
-            ALOGD("Starting AF trigger processing");
+            CAMHAL_LOGD("Starting AF trigger processing");
             afTriggered = true;
             mStartAf = false;
         } else if (mCancelAf) {
-            ALOGD("Starting cancel AF trigger processing");
+            CAMHAL_LOGD("Starting cancel AF trigger processing");
             afCancelled = true;
             mCancelAf = false;
         }
@@ -1761,7 +1761,7 @@ bool EmulatedFakeCamera2::ControlThread::threadLoop() {
         afTriggerId = mAfTriggerId;
 
         if(mStartPrecapture) {
-            ALOGD("Starting precapture trigger processing");
+            CAMHAL_LOGD("Starting precapture trigger processing");
             precaptureTriggered = true;
             mStartPrecapture = false;
         }
@@ -1772,7 +1772,7 @@ bool EmulatedFakeCamera2::ControlThread::threadLoop() {
     }
 
     if (afCancelled || afModeChange) {
-        ALOGV("Resetting AF state due to cancel/mode change");
+        CAMHAL_LOGV("Resetting AF state due to cancel/mode change");
         afState = ANDROID_CONTROL_AF_STATE_INACTIVE;
         updateAfState(afState, afTriggerId);
         mAfScanDuration = 0;
@@ -1832,14 +1832,14 @@ int EmulatedFakeCamera2::ControlThread::processAfTrigger(uint8_t afMode,
                     mAfScanDuration =  ((double)rand() / RAND_MAX) *
                         (kMaxAfDuration - kMinAfDuration) + kMinAfDuration;
                     afState = ANDROID_CONTROL_AF_STATE_ACTIVE_SCAN;
-                    ALOGV("%s: AF scan start, duration %" PRId64 " ms",
+                    CAMHAL_LOGV("%s: AF scan start, duration %" PRId64 " ms",
                           __FUNCTION__, mAfScanDuration / 1000000);
                     break;
                 case ANDROID_CONTROL_AF_STATE_ACTIVE_SCAN:
                     // Ignore new request, already scanning
                     break;
                 default:
-                    ALOGE("Unexpected AF state in AUTO/MACRO AF mode: %d",
+                    CAMHAL_LOGE("Unexpected AF state in AUTO/MACRO AF mode: %d",
                           afState);
             }
             break;
@@ -1860,7 +1860,7 @@ int EmulatedFakeCamera2::ControlThread::processAfTrigger(uint8_t afMode,
                     // Must cancel to get out of these states
                     break;
                 default:
-                    ALOGE("Unexpected AF state in CONTINUOUS_PICTURE AF mode: %d",
+                    CAMHAL_LOGE("Unexpected AF state in CONTINUOUS_PICTURE AF mode: %d",
                           afState);
             }
             break;
@@ -1879,7 +1879,7 @@ int EmulatedFakeCamera2::ControlThread::processAfTrigger(uint8_t afMode,
                     // Must cancel to get out of these states
                     break;
                 default:
-                    ALOGE("Unexpected AF state in CONTINUOUS_VIDEO AF mode: %d",
+                    CAMHAL_LOGE("Unexpected AF state in CONTINUOUS_VIDEO AF mode: %d",
                           afState);
             }
             break;
@@ -1902,7 +1902,7 @@ int EmulatedFakeCamera2::ControlThread::maybeStartAfScan(uint8_t afMode,
             mAfScanDuration =  ((double)rand() / RAND_MAX) *
                 (kMaxAfDuration - kMinAfDuration) + kMinAfDuration;
             afState = ANDROID_CONTROL_AF_STATE_PASSIVE_SCAN;
-            ALOGV("%s: AF passive scan start, duration %" PRId64 " ms",
+            CAMHAL_LOGV("%s: AF passive scan start, duration %" PRId64 " ms",
                 __FUNCTION__, mAfScanDuration / 1000000);
         }
     }
@@ -1917,7 +1917,7 @@ int EmulatedFakeCamera2::ControlThread::updateAfScan(uint8_t afMode,
     }
 
     if (mAfScanDuration <= 0) {
-        ALOGV("%s: AF scan done", __FUNCTION__);
+        CAMHAL_LOGV("%s: AF scan done", __FUNCTION__);
         switch (afMode) {
             case ANDROID_CONTROL_AF_MODE_MACRO:
             case ANDROID_CONTROL_AF_MODE_AUTO: {
@@ -1941,7 +1941,7 @@ int EmulatedFakeCamera2::ControlThread::updateAfScan(uint8_t afMode,
                 afState = ANDROID_CONTROL_AF_STATE_PASSIVE_FOCUSED;
                 break;
             default:
-                ALOGE("Unexpected AF mode in scan state");
+                CAMHAL_LOGE("Unexpected AF mode in scan state");
         }
     } else {
         if (mAfScanDuration <= *maxSleep) {
@@ -1955,7 +1955,7 @@ void EmulatedFakeCamera2::ControlThread::updateAfState(uint8_t newState,
         int32_t triggerId) {
     Mutex::Autolock lock(mInputMutex);
     if (mAfState != newState) {
-        ALOGV("%s: Autofocus state now %d, id %d", __FUNCTION__,
+        CAMHAL_LOGV("%s: Autofocus state now %d, id %d", __FUNCTION__,
                 newState, triggerId);
         mAfState = newState;
         mParent->sendNotification(CAMERA2_MSG_AUTOFOCUS,
@@ -1978,7 +1978,7 @@ int EmulatedFakeCamera2::ControlThread::processPrecaptureTrigger(uint8_t aeMode,
             mAeScanDuration = ((double)rand() / RAND_MAX) *
                     (kMaxPrecaptureAeDuration - kMinPrecaptureAeDuration) +
                     kMinPrecaptureAeDuration;
-            ALOGD("%s: AE precapture scan start, duration %" PRId64 " ms",
+            CAMHAL_LOGD("%s: AE precapture scan start, duration %" PRId64 " ms",
                     __FUNCTION__, mAeScanDuration / 1000000);
 
     }
@@ -2004,7 +2004,7 @@ int EmulatedFakeCamera2::ControlThread::maybeStartAeScan(uint8_t aeMode,
                 mAeScanDuration = ((double)rand() / RAND_MAX) *
                 (kMaxAeDuration - kMinAeDuration) + kMinAeDuration;
                 aeState = ANDROID_CONTROL_AE_STATE_SEARCHING;
-                ALOGV("%s: AE scan start, duration %" PRId64 " ms",
+                CAMHAL_LOGV("%s: AE scan start, duration %" PRId64 " ms",
                         __FUNCTION__, mAeScanDuration / 1000000);
             }
         }
@@ -2021,7 +2021,7 @@ int EmulatedFakeCamera2::ControlThread::updateAeScan(uint8_t aeMode,
     } else if ((aeState == ANDROID_CONTROL_AE_STATE_SEARCHING) ||
             (aeState == ANDROID_CONTROL_AE_STATE_PRECAPTURE ) ) {
         if (mAeScanDuration <= 0) {
-            ALOGV("%s: AE scan done", __FUNCTION__);
+            CAMHAL_LOGV("%s: AE scan done", __FUNCTION__);
             aeState = aeLock ?
                     ANDROID_CONTROL_AE_STATE_LOCKED :ANDROID_CONTROL_AE_STATE_CONVERGED;
 
@@ -2049,7 +2049,7 @@ void EmulatedFakeCamera2::ControlThread::updateAeState(uint8_t newState,
         int32_t triggerId) {
     Mutex::Autolock lock(mInputMutex);
     if (mAeState != newState) {
-        ALOGV("%s: Autoexposure state now %d, id %d", __FUNCTION__,
+        CAMHAL_LOGV("%s: Autoexposure state now %d, id %d", __FUNCTION__,
                 newState, triggerId);
         mAeState = newState;
         mParent->sendNotification(CAMERA2_MSG_AUTOEXPOSURE,
@@ -2350,12 +2350,12 @@ status_t EmulatedFakeCamera2::constructStaticInfo(
 #undef ADD_OR_SIZE
     /** Allocate metadata if sizing */
     if (sizeRequest) {
-        ALOGV("Allocating %zu entries, %zu extra bytes for "
+        CAMHAL_LOGV("Allocating %zu entries, %zu extra bytes for "
                 "static camera info",
                 entryCount, dataCount);
         *info = allocate_camera_metadata(entryCount, dataCount);
         if (*info == NULL) {
-            ALOGE("Unable to allocate camera static info"
+            CAMHAL_LOGE("Unable to allocate camera static info"
                     "(%zu entries, %zu bytes extra data)",
                     entryCount, dataCount);
             return NO_MEMORY;
@@ -2656,12 +2656,12 @@ status_t EmulatedFakeCamera2::constructDefaultRequest(
 
     /** Allocate metadata if sizing */
     if (sizeRequest) {
-        ALOGV("Allocating %zu entries, %zu extra bytes for "
+        CAMHAL_LOGV("Allocating %zu entries, %zu extra bytes for "
                 "request template type %d",
                 entryCount, dataCount, request_template);
         *request = allocate_camera_metadata(entryCount, dataCount);
         if (*request == NULL) {
-            ALOGE("Unable to allocate new request template type %d "
+            CAMHAL_LOGE("Unable to allocate new request template type %d "
                     "(%zu entries, %zu bytes extra data)", request_template,
                     entryCount, dataCount);
             return NO_MEMORY;
@@ -2700,7 +2700,7 @@ bool EmulatedFakeCamera2::isStreamInUse(uint32_t id) {
     if (mConfigureThread->isStreamInUse(id) ||
             mReadoutThread->isStreamInUse(id) ||
             mJpegCompressor->isStreamInUse(id) ) {
-        ALOGE("%s: Stream %d is in use in active requests!",
+        CAMHAL_LOGE("%s: Stream %d is in use in active requests!",
                 __FUNCTION__, id);
         return true;
     }

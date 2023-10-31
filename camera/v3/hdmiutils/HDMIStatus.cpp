@@ -31,7 +31,7 @@ int HDMIStatus::m_hdmi_fd = -1;
 HDMIStatus::HDMIStatus() {
     m_hdmi_fd = open(HDMI_DETECT_PATH, O_RDWR);
     if (m_hdmi_fd < 0 )
-        ALOGW("open file(%s) fail: %s", HDMI_DETECT_PATH, strerror(errno));
+        CAMHAL_LOGW("open file(%s) fail: %s", HDMI_DETECT_PATH, strerror(errno));
     threadRunning = false;
 }
 
@@ -47,17 +47,17 @@ HDMIStatus::~HDMIStatus() {
 }
 
 HDMIStatus* HDMIStatus::getInstance() {
-    ALOGD("%s\n", __FUNCTION__);
+    CAMHAL_LOGD("%s\n", __FUNCTION__);
     Mutex::Autolock lock(&mLock);
     if (mInstance != nullptr)
         return mInstance;
-    ALOGD("%s: create new ion object \n", __FUNCTION__);
+    CAMHAL_LOGD("%s: create new ion object \n", __FUNCTION__);
     mInstance = new HDMIStatus;
     return mInstance;
 }
 
 void HDMIStatus::putInstance() {
-    ALOGD("%s\n", __FUNCTION__);
+    CAMHAL_LOGD("%s\n", __FUNCTION__);
     Mutex::Autolock lock(&mLock);
     if (mInstance != nullptr) {
         delete mInstance;
@@ -70,7 +70,7 @@ int HDMIStatus::readHdmiStatus() {
     if (m_hdmi_fd > 0) {
         int ret = read(m_hdmi_fd, (void *)(&status), sizeof(int));
         if (ret < 0)
-            ALOGE("read failed");
+            CAMHAL_LOGE("read failed");
         if (status < 0)
             status = 0;
     }
@@ -120,7 +120,7 @@ HDMIStatus::HDMIHotplugThread::HDMIHotplugThread(HDMIStatus* status_instance)   
     }
     hdmi_detect_bit = 0;
     if (mParent->m_hdmi_fd < 0) {
-        ALOGW("invalid hdmirx0 fd");
+        CAMHAL_LOGW("invalid hdmirx0 fd");
     } else {
         epoll_event event;
         event.data.fd = mParent->m_hdmi_fd;
@@ -130,7 +130,7 @@ HDMIStatus::HDMIHotplugThread::HDMIHotplugThread(HDMIStatus* status_instance)   
         property_get("vendor.media.hdmi.vdin.port", property, "1");
         int detect_index = atoi(property) - 1;
         if (detect_index < 0 || detect_index > 2) {
-            ALOGE("invalid index set default detect bit rx1");
+            CAMHAL_LOGE("invalid index set default detect bit rx1");
             hdmi_detect_bit = DETECT_BITS[0];
         } else {
             hdmi_detect_bit = DETECT_BITS[detect_index];
@@ -152,11 +152,11 @@ HDMIStatus::HDMIHotplugThread::~HDMIHotplugThread() {
 
 void HDMIStatus::HDMIHotplugThread::requestExit() {
 
-    ALOGV("%s: Requesting thread exit", __FUNCTION__);
+    CAMHAL_LOGV("%s: Requesting thread exit", __FUNCTION__);
 }
 
 status_t HDMIStatus::HDMIHotplugThread::requestExitAndWait() {
-    ALOGE("%s: Not implemented. Use requestExit + join instead",
+    CAMHAL_LOGE("%s: Not implemented. Use requestExit + join instead",
           __FUNCTION__);
     return INVALID_OPERATION;
 }
@@ -174,7 +174,7 @@ bool HDMIStatus::HDMIHotplugThread::threadLoop() {
     for (int i = 0; i < port_num; i++) {
         hdmi_detect_bits += DETECT_BITS[i];
     }
-    ALOGE("epoll wait %d fds", num);
+    CAMHAL_LOGE("epoll wait %d fds", num);
     for (int i = 0; i < num; ++i) {
         int fd = backEvents[i].data.fd;
         if (backEvents[i].events & EPOLLIN) {

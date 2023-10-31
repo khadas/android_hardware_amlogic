@@ -10,14 +10,14 @@
 #define GE2D_SCALER
 
 static void dump2File(const char* name, void* src, int length) {
-    ALOGD("dump2File full_name:%s", name);
+    CAMHAL_LOGD("dump2File full_name:%s", name);
     auto fp = fopen(name, "ab+");
     if (!fp) {
-        ALOGE("open file %s fail, error: %s !!!", name, strerror(errno));
+        CAMHAL_LOGE("open file %s fail, error: %s !!!", name, strerror(errno));
         return;
     }
     if (src == nullptr || length <= 0) {
-        ALOGE("invalid parameter %p %d !!!", src, length);
+        CAMHAL_LOGE("invalid parameter %p %d !!!", src, length);
         fclose(fp);
         return;
     }
@@ -54,7 +54,7 @@ int CaptureUseGe2d::getPicture(StreamBuffer b, struct data_in* in, IONInterface 
     ret = mInfo->get_picture_buffer(&vb);
     int dmabuf_fd = vb.dma_fd;
     if (-1 == ret || -1 == dmabuf_fd) {
-        ALOGE("%s:get frame fd fail!, sleep 5ms",__FUNCTION__);
+        CAMHAL_LOGE("%s:get frame fd fail!, sleep 5ms",__FUNCTION__);
         usleep(5000);
         return ERROR_FRAME; // no frame data
     }
@@ -62,7 +62,6 @@ int CaptureUseGe2d::getPicture(StreamBuffer b, struct data_in* in, IONInterface 
     uint32_t format = mInfo->get_picture_pixelformat();
     uint32_t width = mInfo->get_picture_width();
     uint32_t height = mInfo->get_picture_height();
-    uint32_t stride = mInfo->get_picture_stride();
 
 #ifdef PICTURE_DEWARP_ENABLE
     int outbuf_fd = -1;
@@ -75,13 +74,14 @@ int CaptureUseGe2d::getPicture(StreamBuffer b, struct data_in* in, IONInterface 
             CameraConfig* config = CameraConfig::getInstance(DEWARP_CAM2PORT_CAPTURE);
             config->setWidth(width);
             config->setHeight(height);
+            config->setStride(b.stride);
             ion->alloc_buffer(width  * height * 3/2, &outbuf_fd);
-            ALOGV("%s-%d b.width:%d b.height:%d width:%d,height:%d",__FUNCTION__,__LINE__,b.width,b.height,\
+            CAMHAL_LOGV("%s-%d b.width:%d b.height:%d width:%d,height:%d",__FUNCTION__,__LINE__,b.width,b.height,\
                 config->getWidth(),config->getHeight());
             if (strstr(property, "true")) {
                 GDCObj = DeWarp::getInstance(DEWARP_CAM2PORT_CAPTURE,PROJ_MODE_LINEAR,Rotation::ROTATION_0);
             } else {
-                GDCObj = DeWarp::getInstance(DEWARP_CAM2PORT_CAPTURE,PROJ_MODE_EQUISOLID,Rotation::ROTATION_0);
+                GDCObj = DeWarp::getInstance(DEWARP_CAM2PORT_CAPTURE,PROJ_MODE_EQUIDISTANCE,Rotation::ROTATION_0);
             }
             if (GDCObj) {
                 GDCObj->mInput_fd = dmabuf_fd;
@@ -95,16 +95,14 @@ int CaptureUseGe2d::getPicture(StreamBuffer b, struct data_in* in, IONInterface 
 
     switch (format) {
         case V4L2_PIX_FMT_RGB24:
-            ALOGE("%s:config format is RGB888 ",__FUNCTION__);
+            CAMHAL_LOGE("%s:config format is RGB888 ",__FUNCTION__);
             length = width * height * 3;
             memcpy(b.img, vb.addr, length);
             break;
         case V4L2_PIX_FMT_NV21:
-            ALOGV("line %d ge2d scale in w %d stride %d h %d , out w %d stride %d h %d", __LINE__, width, stride, height,
-                      b.width, b.stride, b.height);
-            mGE2D->ge2d_convert_scale(b.share_fd, PIXEL_FORMAT_YCbCr_420_SP_NV12, b.width, b.stride, b.height,
-                                      dmabuf_fd, PIXEL_FORMAT_YCbCr_420_SP_NV12, width, stride, height);
-
+            CAMHAL_LOGD("%s:width=%d,height=%d,size=%d",__FUNCTION__,b.width,b.height,vb.size);
+            mGE2D->ge2d_keep_ration_scale(b.share_fd, PIXEL_FORMAT_YCbCr_420_SP_NV12,
+                b.width, b.height, dmabuf_fd, width, height);
             if (property_get_bool("vendor.camhal.dump.capture", false)) {
                 char path[256];
                 static int index = 0;
@@ -116,7 +114,7 @@ int CaptureUseGe2d::getPicture(StreamBuffer b, struct data_in* in, IONInterface 
             }
             break;
         default:
-            ALOGE("%s:not support this format",__FUNCTION__);
+            CAMHAL_LOGE("%s:not support this format",__FUNCTION__);
             break;
     }
 
@@ -136,7 +134,7 @@ int CaptureUseGe2d::captureYUYVframe(uint8_t *img, struct data_in* in) {
             case V4L2_PIX_FMT_YUYV:
                 break;
             default:
-                ALOGE("Unable known sensor format: %d", format);
+                CAMHAL_LOGE("Unable known sensor format: %d", format);
                 break;
         }
         return 0;
@@ -144,7 +142,7 @@ int CaptureUseGe2d::captureYUYVframe(uint8_t *img, struct data_in* in) {
 
     src = (uint8_t *)mInfo->get_frame();
     if (nullptr == src) {
-        ALOGV("get frame NULL, sleep 5ms");
+        CAMHAL_LOGV("get frame NULL, sleep 5ms");
         usleep(5000);
         return -1;
     }
@@ -174,13 +172,13 @@ int CaptureUseGe2d::captureNV21frame(StreamBuffer b, struct data_in* in) {
                     auto ret = mInfo->get_record_buffer(&vb_rec);
                     int dmabuf_fd_rec = vb_rec.dma_fd;
                     if (-1 == ret || -1 == dmabuf_fd_rec) {
-                        ALOGE("%s:get frame fd fail!, sleep 5ms",__FUNCTION__);
+                        CAMHAL_LOGE("%s:get frame fd fail!, sleep 5ms",__FUNCTION__);
                         usleep(5000);
                         return ERROR_FRAME; // no frame data
                     }
                     if (mInfo->get_record_width() != b.width || mInfo->get_record_height() != b.height) {
                         //  this is snapshot capture case
-                        ALOGW("%s:config miss match src: %dx%d, dst: %dx%d", __FUNCTION__,
+                        CAMHAL_LOGW("%s:config miss match src: %dx%d, dst: %dx%d", __FUNCTION__,
                             mInfo->get_record_width(), mInfo->get_record_height(), b.width, b.height);
                         mGE2D->ge2d_scale(b.share_fd, PIXEL_FORMAT_YCbCr_420_SP_NV12, b.width, b.height,
                                           dmabuf_fd_rec, mInfo->get_record_width(), mInfo->get_record_height());
@@ -194,7 +192,8 @@ int CaptureUseGe2d::captureNV21frame(StreamBuffer b, struct data_in* in) {
                             CameraConfig* config = CameraConfig::getInstance(DEWARP_CAM2PORT_CAPTURE);
                             config->setWidth(b.width);
                             config->setHeight(b.height);
-                            ALOGV("%s-%d b.width:%d b.height:%d b.fd:%d width:%d height:%d fd:%d",
+                            config->setStride(b.stride);
+                            CAMHAL_LOGV("%s-%d b.width:%d b.height:%d b.fd:%d width:%d height:%d fd:%d",
                                   __FUNCTION__, __LINE__, b.width, b.height, b.share_fd,
                                   config->getWidth(), config->getHeight(), dmabuf_fd_rec);
                             if (strstr(property, "true")) {
@@ -229,7 +228,7 @@ int CaptureUseGe2d::captureNV21frame(StreamBuffer b, struct data_in* in) {
                 }
                 break;
             default:
-                ALOGE("Unable known sensor format: %d", mInfo->get_preview_pixelformat());
+                CAMHAL_LOGE("Unable known sensor format: %d", mInfo->get_preview_pixelformat());
                 break;
         }
         return NO_NEW_FRAME;
@@ -245,7 +244,7 @@ int CaptureUseGe2d::captureNV21frame(StreamBuffer b, struct data_in* in) {
     int ret = mInfo->get_frame_buffer(&vb);
     dmabuf_fd = vb.dma_fd;
     if (-1 == ret || -1 == dmabuf_fd) {
-        ALOGV("%s:get frame fd fail!, sleep 5ms",__FUNCTION__);
+        CAMHAL_LOGV("%s:get frame fd fail!, sleep 5ms",__FUNCTION__);
         usleep(5000);
         return ERROR_FRAME;
     }
@@ -258,7 +257,8 @@ int CaptureUseGe2d::captureNV21frame(StreamBuffer b, struct data_in* in) {
             CameraConfig* config = CameraConfig::getInstance(DEWARP_CAM2PORT_PREVIEW);
             config->setWidth(b.width);
             config->setHeight(b.height);
-            ALOGV("%s-%d b.width:%d b.height:%d b.fd:%d width:%d height:%d fd:%d",
+            config->setStride(b.stride);
+            CAMHAL_LOGV("%s-%d b.width:%d b.height:%d b.fd:%d width:%d height:%d fd:%d",
                   __FUNCTION__, __LINE__, b.width, b.height, b.share_fd,
                   config->getWidth(), config->getHeight(), dmabuf_fd);
             if (strstr(property, "true")) {
@@ -276,10 +276,10 @@ int CaptureUseGe2d::captureNV21frame(StreamBuffer b, struct data_in* in) {
             switch (format) {
                 case V4L2_PIX_FMT_NV21:
                     if (width == b.width && height == b.height && stride == b.stride) {
-                        ALOGV("line %d ge2d copy dmabuf_fd %d  w %d stride %d h %d \n", __LINE__, dmabuf_fd, b.width, b.stride, b.height);
+                        CAMHAL_LOGV("line %d ge2d copy dmabuf_fd %d  w %d stride %d h %d \n", __LINE__, dmabuf_fd, b.width, b.stride, b.height);
                         mGE2D->ge2d_copy(b.share_fd, dmabuf_fd, b.stride,b.height, ge2dTransform::NV12);
                     } else {
-                        ALOGV("line %d ge2d scale in w %d stride %d h %d , out w %d stride %d h %d", __LINE__, width, stride, height,
+                        CAMHAL_LOGV("line %d ge2d scale in w %d stride %d h %d , out w %d stride %d h %d", __LINE__, width, stride, height,
                                   b.width, b.stride, b.height);
                         mGE2D->ge2d_convert_scale(b.share_fd, PIXEL_FORMAT_YCbCr_420_SP_NV12, b.width, b.stride, b.height,
                                                   dmabuf_fd, PIXEL_FORMAT_YCbCr_420_SP_NV12, width, stride, height);
@@ -310,10 +310,10 @@ int CaptureUseGe2d::captureNV21frame(StreamBuffer b, struct data_in* in) {
     switch (format) {
         case V4L2_PIX_FMT_NV21:
             if (width == b.width && height == b.height && stride == b.stride) {
-                ALOGV("line %d ge2d copy dmabuf_fd %d  w %d stride %d h %d \n", __LINE__, dmabuf_fd, b.width, b.stride, b.height);
+                CAMHAL_LOGV("line %d ge2d copy dmabuf_fd %d  w %d stride %d h %d \n", __LINE__, dmabuf_fd, b.width, b.stride, b.height);
                 mGE2D->ge2d_copy(b.share_fd, dmabuf_fd, b.stride,b.height, ge2dTransform::NV12);
             } else {
-                ALOGV("line %d ge2d scale in w %d stride %d h %d , out w %d stride %d h %d", __LINE__, width, stride, height,
+                CAMHAL_LOGV("line %d ge2d scale in w %d stride %d h %d , out w %d stride %d h %d", __LINE__, width, stride, height,
                           b.width, b.stride, b.height);
                 mGE2D->ge2d_convert_scale(b.share_fd, PIXEL_FORMAT_YCbCr_420_SP_NV12, b.width, b.stride, b.height,
                                           dmabuf_fd, PIXEL_FORMAT_YCbCr_420_SP_NV12, width, stride, height);
@@ -339,7 +339,7 @@ int CaptureUseGe2d::captureYV12frame(StreamBuffer b, struct data_in* in) {
         struct VideoInfoBuffer vb;
         int ret = mInfo->get_frame_buffer(&vb);
         if (-1 == ret) {
-            ALOGV("get frame NULL, sleep 5ms");
+            CAMHAL_LOGV("get frame NULL, sleep 5ms");
             usleep(5000);
             return -1;
         }
@@ -369,7 +369,7 @@ int CaptureUseGe2d::captureRGBAframe(StreamBuffer b, struct data_in* in){
             case V4L2_PIX_FMT_NV21:
                 break;
                 default:
-                    ALOGE("Unable known sensor format: %d", mInfo->get_preview_pixelformat());
+                    CAMHAL_LOGE("Unable known sensor format: %d", mInfo->get_preview_pixelformat());
                     break;
         }
         return NO_NEW_FRAME;
@@ -377,7 +377,7 @@ int CaptureUseGe2d::captureRGBAframe(StreamBuffer b, struct data_in* in){
     struct VideoInfoBuffer vb;
     int ret = mInfo->get_frame_buffer(&vb);
     if (-1 == ret) {
-        ALOGV("get frame NULL, sleep 5ms");
+        CAMHAL_LOGV("get frame NULL, sleep 5ms");
         usleep(5000);
         return -1;
     }
@@ -388,7 +388,7 @@ int CaptureUseGe2d::captureRGBAframe(StreamBuffer b, struct data_in* in){
                                                   dmabuf_fd,  PIXEL_FORMAT_YCrCb_420_SP, width, height);
             break;
         default:
-            ALOGE("error: only support NV21 -> RGBA");
+            CAMHAL_LOGE("error: only support NV21 -> RGBA");
             break;
     }
     return NEW_FRAME;

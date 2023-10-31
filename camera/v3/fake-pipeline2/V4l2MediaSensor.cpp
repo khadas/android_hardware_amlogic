@@ -2,12 +2,6 @@
 #define LOG_NNDEBUG  0
 #define LOG_TAG "V4l2MediaSensor"
 
-#if defined(LOG_NNDEBUG) && LOG_NNDEBUG == 0
-#define ALOGVV ALOGV
-#else
-#define ALOGVV(...) ((void)0)
-#endif
-
 #define ATRACE_TAG (ATRACE_TAG_CAMERA | ATRACE_TAG_HAL | ATRACE_TAG_ALWAYS)
 #include <utils/Log.h>
 #include <utils/Trace.h>
@@ -96,7 +90,7 @@ static void calculateRegion(int src_width, int src_height, int dst_width, int ds
             crop_height = src_width * dst_height / dst_width;
         }
     }
-    ALOGD("src[%d, %d] dst[%d, %d], region[%d, %d, %d, %d]", src_width, src_height, dst_width, dst_height, xstart, ystart, crop_width, crop_height);
+    CAMHAL_LOGD("src[%d, %d] dst[%d, %d], region[%d, %d, %d, %d]", src_width, src_height, dst_width, dst_height, xstart, ystart, crop_width, crop_height);
 }
 
 std::once_flag flag[8];
@@ -138,7 +132,7 @@ V4l2MediaSensor::V4l2MediaSensor() {
                     bool isTakePictureDone = false;
                     for (size_t i = 0; i < pictureBuffers->size(); i++) {
                         const StreamBuffer &b = (*pictureBuffers)[i];
-                        CAMHAL_LOGDB("Sensor capturing buffer %zu: stream %d,"
+                        CAMHAL_LOGD("Sensor capturing buffer %zu: stream %d,"
                             " %d x %d, format %x, stride %d, buf %p, img %p",
                             i, b.streamId, b.width, b.height, b.format, b.stride,
                             b.buffer, b.img);
@@ -151,8 +145,8 @@ V4l2MediaSensor::V4l2MediaSensor() {
                             uint32_t stride;
                             int ION_try = 0;
                             orientation = getPictureRotate();
-                            CAMHAL_LOGDB("bAux orientation=%d",orientation);
-                            CAMHAL_LOGDB("%s: the picture width=%d, height=%d\n",__FUNCTION__,b.width,b.height);
+                            CAMHAL_LOGD("bAux orientation=%d",orientation);
+                            CAMHAL_LOGD("%s: the picture width=%d, height=%d\n",__FUNCTION__,b.width,b.height);
                             StreamBuffer bAux;
 
                             bAux.streamId = 0;
@@ -175,7 +169,7 @@ V4l2MediaSensor::V4l2MediaSensor() {
                             bAux.img = new uint8_t[len];
 #endif
                             if (bAux.img == NULL) {//don't capture
-                                ALOGE("%s:%d fatal: no buffer to capture,skip ...",__FUNCTION__,__LINE__);
+                                CAMHAL_LOGE("%s:%d fatal: no buffer to capture,skip ...",__FUNCTION__,__LINE__);
                                 //return -1;
                             } else {
                                 takePicture(bAux, mGainFactor, b.stride);
@@ -215,11 +209,11 @@ V4l2MediaSensor::V4l2MediaSensor() {
     mMaxHeight = 0;
     mMaxWidth = 0;
 
-    ALOGD("construct V4l2MediaSensor");
+    CAMHAL_LOGD("construct V4l2MediaSensor");
 }
 
 V4l2MediaSensor::~V4l2MediaSensor() {
-    ALOGD("destruct V4l2MediaSensor");
+    CAMHAL_LOGD("destruct V4l2MediaSensor");
     if (mCapture) {
         delete(mCapture);
         mCapture = NULL;
@@ -253,7 +247,7 @@ V4l2MediaSensor::~V4l2MediaSensor() {
 }
 
 status_t V4l2MediaSensor::streamOff(channel ch) {
-    ALOGV("%s: E ch %d", __FUNCTION__, ch);
+    CAMHAL_LOGV("%s: E ch %d", __FUNCTION__, ch);
     status_t ret = 0;
 
     if (ch == channel_capture) {
@@ -283,12 +277,12 @@ status_t V4l2MediaSensor::streamOff(channel ch) {
 }
 
 int V4l2MediaSensor::SensorInit(int idx) {
-    ALOGV("%s: E", __FUNCTION__);
+    CAMHAL_LOGV("%s: E", __FUNCTION__);
     int ret = 0;
 
     ret = camera_open(idx);
     if (ret < 0) {
-        ALOGE("Unable to open sensor %d, ALOGE no=%d\n", mVinfo->get_index(), ret);
+        CAMHAL_LOGE("Unable to open sensor %d, CAMHAL_LOGE no=%d\n", mVinfo->get_index(), ret);
         return ret;
     }
     // =========== vinfo init ============
@@ -299,20 +293,20 @@ int V4l2MediaSensor::SensorInit(int idx) {
     // ======== pipe match & stream init ==============
     struct media_device * media_dev = media_device_new_with_fd(mMediaDevicefd);
     if (media_dev == NULL) {
-        ALOGE("new media device failed \n");
+        CAMHAL_LOGE("new media device failed \n");
         return -1;
     }
     char property[PROPERTY_VALUE_MAX];
     property_get("vendor.media.isp.enable", property, "true");
     if (strstr(property, "true")) {
         mIspMgr = new IspMgr(idx);
-        ALOGD("an ispDev found");
+        CAMHAL_LOGD("an ispDev found");
     } else {
-        ALOGD("not an ispDev");
+        CAMHAL_LOGD("not an ispDev");
     }
     mMediaStream = malloc( sizeof( struct media_stream) );
     if (mMediaStream == NULL) {
-        ALOGE("alloc media stream mem fail\n");
+        CAMHAL_LOGE("alloc media stream mem fail\n");
         media_dev->fd = -1;
         media_dev->refcount = 0;
         media_dev->debug_handler = NULL;
@@ -322,7 +316,7 @@ int V4l2MediaSensor::SensorInit(int idx) {
         return -1;
     }
     if (0 != mediaStreamInit((media_stream_t *)mMediaStream, media_dev) ) {
-        ALOGE("media stream init failed\n");
+        CAMHAL_LOGE("media stream init failed\n");
         media_dev->fd = -1;
         media_dev->refcount = 0;
         media_dev->debug_handler = NULL;
@@ -353,14 +347,14 @@ int V4l2MediaSensor::SensorInit(int idx) {
     mSensorType = SENSOR_V4L2MEDIA;
     staticPipe::fetchPipeMaxResolution((media_stream_t*) mMediaStream, mMaxWidth, mMaxHeight);
     std::call_once(flag[idx], [&](){staticPipe::fetchSensorOTP((media_stream_t*)mMediaStream, &mOtpData[idx]);});
-    ALOGI("max width %d, max height %d", mMaxWidth, mMaxHeight);
+    CAMHAL_LOGI("max width %d, max height %d", mMaxWidth, mMaxHeight);
     setOutputFormat(mMaxWidth, mMaxHeight, V4L2_PIX_FMT_NV21, channel_capture);
 
     return ret;
 }
 
 status_t V4l2MediaSensor::startUp(int idx, bool customizationSensor) {
-    ALOGV("%s: E", __FUNCTION__);
+    CAMHAL_LOGV("%s: E", __FUNCTION__);
     int res;
 
     char property[PROPERTY_VALUE_MAX];
@@ -369,7 +363,7 @@ status_t V4l2MediaSensor::startUp(int idx, bool customizationSensor) {
     res = run("EmulatedFakeCamera3::Sensor",ANDROID_PRIORITY_URGENT_DISPLAY);
 
     if (res != OK) {
-       ALOGE("Unable to start up sensor capture thread: %d", res);
+       CAMHAL_LOGE("Unable to start up sensor capture thread: %d", res);
     }
     res = SensorInit(idx);
 #ifdef GDC_ENABLE
@@ -380,7 +374,7 @@ status_t V4l2MediaSensor::startUp(int idx, bool customizationSensor) {
 
     property_get("vendor.media.camera.low_latency_mode", property, "false");
     if (strstr(property,"true")) {
-        ALOGD("running in low latency mode");
+        CAMHAL_LOGD("running in low latency mode");
         mLowLatencyMode = true;
     }
 
@@ -401,7 +395,7 @@ int V4l2MediaSensor::camera_open(int idx) {
 }
 
 void V4l2MediaSensor::camera_close(void) {
-    ALOGV("%s: E", __FUNCTION__);
+    CAMHAL_LOGV("%s: E", __FUNCTION__);
     if (mMediaDevicefd < 0)
         return;
     if (mCameraVirtualDevice == nullptr)
@@ -424,12 +418,12 @@ void V4l2MediaSensor::InitVideoInfo(int idx) {
 }
 
 status_t V4l2MediaSensor::shutDown() {
-    ALOGV("%s: E", __FUNCTION__);
+    CAMHAL_LOGV("%s: E", __FUNCTION__);
     int res;
     mTimeOutCount = 0;
     res = requestExitAndWait();
     if (res != OK) {
-        ALOGE("Unable to shut down sensor capture thread: %d", res);
+        CAMHAL_LOGE("Unable to shut down sensor capture thread: %d", res);
     }
     if (mVinfo != NULL) {
         mVinfo->stop_capturing();
@@ -469,7 +463,7 @@ status_t V4l2MediaSensor::shutDown() {
     }
 #endif
     mSensorWorkFlag = false;
-    ALOGD("%s: Exit", __FUNCTION__);
+    CAMHAL_LOGD("%s: Exit", __FUNCTION__);
     return res;
 }
 
@@ -488,12 +482,12 @@ uint32_t V4l2MediaSensor::getStreamUsage(camera3_stream_t& stream){
 #endif
 #endif
     usage = GRALLOC1_PRODUCER_USAGE_CAMERA | usage;
-    ALOGV("%s: usage=0x%x", __FUNCTION__,usage);
+    CAMHAL_LOGV("%s: usage=0x%x", __FUNCTION__,usage);
     return usage;
 }
 
 void V4l2MediaSensor::captureRGB(uint8_t *img, uint32_t gain, uint32_t stride) {
-    ALOGE("capture RGB not supported");
+    CAMHAL_LOGE("capture RGB not supported");
 }
 
 void V4l2MediaSensor::mediaCaptureRGBA(StreamBuffer b, uint32_t gain, uint32_t stride){
@@ -529,7 +523,7 @@ void V4l2MediaSensor::takePicture(StreamBuffer& b, uint32_t gain, uint32_t strid
     struct data_in in;
     in.src = mKernelBuffer;
     in.share_fd = mTempFD;
-    ALOGD("%s: E",__FUNCTION__);
+    CAMHAL_LOGD("%s: E",__FUNCTION__);
     if (!isPicture()) {
         mVinfo->start_picture(0);
         enableZsl = false;
@@ -558,12 +552,12 @@ void V4l2MediaSensor::takePicture(StreamBuffer& b, uint32_t gain, uint32_t strid
 
     if (stop == true)
         mVinfo->stop_picture();
-    ALOGD("get picture success !");
+    CAMHAL_LOGD("get picture success !");
 }
 
 void V4l2MediaSensor::captureNV21(StreamBuffer b, uint32_t gain){
     ATRACE_CALL();
-    //ALOGVV("MIPI NV21 sensor image captured");
+    //CAMHAL_LOGVV("MIPI NV21 sensor image captured");
     // todo: captureNewImage with >=2 out bufs with different pixel fmt.
     //       simply using mKernelBuffer & mTempFd cause green image
     //       due to pixel format difference.
@@ -576,7 +570,7 @@ void V4l2MediaSensor::captureNV21(StreamBuffer b, uint32_t gain){
     in.src_stride = mSavedDecodedBuffer.stride;
     in.src_height = mSavedDecodedBuffer.height;
 
-    ALOGVV("%s:mTempFD = %d",__FUNCTION__,mTempFD);
+    CAMHAL_LOGVV("%s:mTempFD = %d",__FUNCTION__,mTempFD);
     while (1) {
         if (mExitSensorThread) {
             break;
@@ -612,22 +606,20 @@ void V4l2MediaSensor::captureNV21(StreamBuffer b, uint32_t gain){
         mSensorWorkFlag = true;
         if (ret == NEW_FRAME)
             mVinfo->putback_frame();
-        /*
         if (mFlushFlag) {
             break;
         }
-        */
         break;
     }
 }
 
 void V4l2MediaSensor::captureYV12(StreamBuffer b, uint32_t gain) {
-    ALOGE("capture YV12, not supported yet!");
+    CAMHAL_LOGE("capture YV12, not supported yet!");
 }
 
 
 void V4l2MediaSensor::captureYUYV(uint8_t *img, uint32_t gain, uint32_t stride) {
-    ALOGE("capture YUYV, not supported yet!");
+    CAMHAL_LOGE("capture YUYV, not supported yet!");
 }
 
 
@@ -637,10 +629,10 @@ void V4l2MediaSensor::setIOBufferNum()
     int tmp = 6;
     if (property_get("ro.vendor.mipicamera.iobuffer", buffer_number, NULL) > 0) {
         sscanf(buffer_number, "%d", &tmp);
-        ALOGD(" get buffer number is %d from property \n",tmp);
+        CAMHAL_LOGD(" get buffer number is %d from property \n",tmp);
     }
 
-    ALOGD("default buffer number is %d\n",tmp);
+    CAMHAL_LOGD("default buffer number is %d\n",tmp);
     mVinfo->set_buffer_numbers(tmp);
 }
 
@@ -650,13 +642,13 @@ status_t V4l2MediaSensor::getOutputFormat(void) {
     char property[PROPERTY_VALUE_MAX];
     property_get("vendor.media.isp.enable", property, "true");
     if (strstr(property, "false")) {
-        ALOGD("%s: isp not enable", __FUNCTION__);
+        CAMHAL_LOGD("%s: isp not enable", __FUNCTION__);
         if (mMediaStream != NULL) {
             if ((staticPipe::fetchSensorType((media_stream_t *) mMediaStream)) == sensor_yuv) {
                 return V4L2_PIX_FMT_NV21;
             }
         } else {
-            ALOGE("%s: mMediaStream == NULL", __FUNCTION__);
+            CAMHAL_LOGE("%s: mMediaStream == NULL", __FUNCTION__);
         }
         return V4L2_PIX_FMT_UYVY;
     }
@@ -665,14 +657,14 @@ status_t V4l2MediaSensor::getOutputFormat(void) {
 }
 
 status_t V4l2MediaSensor::setOutputFormat(int width, int height, int pixelformat, channel ch) {
-    ALOGV("%s: E", __FUNCTION__);
+    CAMHAL_LOGV("%s: E", __FUNCTION__);
     mFramecount = 0;
     mCurFps = 0;
 
     int xstart = 0, ystart = 0, crop_width = 0, crop_height = 0;
     calculateRegion(mMaxWidth, mMaxHeight, width, height, xstart, ystart, crop_width, crop_height);
 
-    ALOGD("%s: channel=%d %dx%d\n",__FUNCTION__, ch, width, height);
+    CAMHAL_LOGD("%s: channel=%d %dx%d\n",__FUNCTION__, ch, width, height);
     if (ch == channel_capture) {
         //----set snap shot pixel format
         mVinfo->set_picture_format(width, height, pixelformat);
@@ -731,7 +723,7 @@ status_t V4l2MediaSensor::setOutputFormat(int width, int height, int pixelformat
         }
         int rc = mediaStreamConfig((media_stream_t*) mMediaStream, &mStreamconfig);
         if (rc < 0) {
-            ALOGE("config stream failed\n");
+            CAMHAL_LOGE("config stream failed\n");
             return rc;
         }
 #ifdef GDC_ENABLE
@@ -749,7 +741,7 @@ int V4l2MediaSensor::halFormatToSensorFormat(uint32_t pixelfmt) {
 }
 
 status_t V4l2MediaSensor::streamOn(channel ch) {
-    ALOGV("%s: channel %d E", __FUNCTION__, ch);
+    CAMHAL_LOGV("%s: channel %d E", __FUNCTION__, ch);
     int rc;
     if (ch == channel_capture)
         return mVinfo->start_picture(0);
@@ -803,7 +795,7 @@ int V4l2MediaSensor::getStreamConfigurations(uint32_t picSizes[], const int32_t 
     staticPipe::fetchPipeMaxResolution(
         (media_stream_t*) mMediaStream, frmsizeMax.discrete.width, frmsizeMax.discrete.height);
 
-    DBG_LOGB("get max output width=%d, height=%d, format=%d\n",
+    CAMHAL_LOGD("get max output width=%d, height=%d, format=%d\n",
         frmsizeMax.discrete.width, frmsizeMax.discrete.height, frmsizeMax.pixel_format);
     for (uint32_t i = size_start; i < length; i++) {//preview
         if (kUsbAvailablePictureSize[i].width > frmsizeMax.discrete.width ||
@@ -859,7 +851,7 @@ int V4l2MediaSensor::getStreamConfigurationDurations(uint32_t picSizes[], int64_
     staticPipe::fetchPipeMaxResolution(
         (media_stream_t*) mMediaStream, frmsizeMax.discrete.width, frmsizeMax.discrete.height);
 
-    DBG_LOGB("get max output width=%d, height=%d, format=%d\n",
+    CAMHAL_LOGD("get max output width=%d, height=%d, format=%d\n",
         frmsizeMax.discrete.width, frmsizeMax.discrete.height, frmsizeMax.pixel_format);
     for (uint32_t i = size_start; i < ARRAY_SIZE(kUsbAvailablePictureSize); i++) {
             if (kUsbAvailablePictureSize[i].width > frmsizeMax.discrete.width ||
@@ -912,7 +904,7 @@ int V4l2MediaSensor::getStreamConfigurationDurations(uint32_t picSizes[], int64_
 
 int64_t V4l2MediaSensor::getMinFrameDuration() {
     int64_t minFrameDuration =  1000000000L/30L ; // 30fps
-    ALOGW("%s to be implemented, minframeduration  %" PRId64 "\n", __func__, minFrameDuration);
+    CAMHAL_LOGW("%s to be implemented, minframeduration  %" PRId64 "\n", __func__, minFrameDuration);
     return minFrameDuration;
 }
 
@@ -927,7 +919,7 @@ int V4l2MediaSensor::getPictureSizes(int32_t picSizes[], int size, bool preview)
     support_w = kUsbAvailablePictureSize[0].width;
     support_h = kUsbAvailablePictureSize[0].height;
 
-    ALOGI("%s:support_w=%d, support_h=%d\n",__FUNCTION__,support_w,support_h);
+    CAMHAL_LOGI("%s:support_w=%d, support_h=%d\n",__FUNCTION__,support_w,support_h);
     memset(&frmsize,0,sizeof(frmsize));
     preview_fmt = V4L2_PIX_FMT_NV21;//getOutputFormat();
 
@@ -954,7 +946,7 @@ int V4l2MediaSensor::getPictureSizes(int32_t picSizes[], int size, bool preview)
         frmsize.index = i;
         res = fakeEnumFrameSize(&frmsize); //ioctl(mVinfo->fd, VIDIOC_ENUM_FRAMESIZES, &frmsize);
         if (res < 0) {
-            DBG_LOGB("index=%d, break\n", i);
+            CAMHAL_LOGD("index=%d, break\n", i);
             break;
         }
 
@@ -995,14 +987,14 @@ int V4l2MediaSensor::getPictureSizes(int32_t picSizes[], int size, bool preview)
 }
 
 status_t V4l2MediaSensor::force_reset_sensor() {
-    DBG_LOGA("force_reset_sensor");
+    CAMHAL_LOGD("force_reset_sensor");
     // todo: reset pipeline
     status_t ret;
     mTimeOutCount = 0;
     ret = streamOff(channel_preview);
     ret = mVinfo->setBuffersFormat();
     ret = streamOn(channel_preview);
-    DBG_LOGB("%s , ret = %d", __FUNCTION__, ret);
+    CAMHAL_LOGD("%s , ret = %d", __FUNCTION__, ret);
     return ret;
 }
 
@@ -1013,7 +1005,7 @@ int V4l2MediaSensor::captureNewImage() {
     mSavedDecodedBuffer.fd = -1;
 
     // Might be adding more buffers, so size isn't constant
-    ALOGVV("%s:buffer size=%zu\n",__FUNCTION__,mNextCapturedBuffers->size());
+    CAMHAL_LOGVV("%s:buffer size=%zu\n",__FUNCTION__,mNextCapturedBuffers->size());
     bool is4KRequest = false;
     for (size_t i = 0; i < mNextCapturedBuffers->size(); i++) {
         const StreamBuffer &b = (*mNextCapturedBuffers)[i];
@@ -1028,7 +1020,7 @@ int V4l2MediaSensor::captureNewImage() {
 
     for (size_t i = 0; i < mNextCapturedBuffers->size(); i++) {
         const StreamBuffer &b = (*mNextCapturedBuffers)[i];
-        ALOGVV("Sensor capturing buffer %zu: stream %d,"
+        CAMHAL_LOGVV("Sensor capturing buffer %zu: stream %d,"
                 " %d x %d, format %x, stride %d, buf %p, img %p",
                 i, b.streamId, b.width, b.height, b.format, b.stride,
                 b.buffer, b.img);
@@ -1040,7 +1032,7 @@ int V4l2MediaSensor::captureNewImage() {
                 StreamBuffer bAux;
                 int orientation;
                 orientation = getPictureRotate();
-                ALOGD("bAux orientation=%d",orientation);
+                CAMHAL_LOGD("bAux orientation=%d",orientation);
 
                 bAux.streamId = 0;
                 bAux.width = b.width;
@@ -1069,7 +1061,7 @@ int V4l2MediaSensor::captureNewImage() {
                 mediaCaptureRGBA(b, gain, b.stride);
                 break;
             default:
-                ALOGE("%s: Unknown format %x, no output", __FUNCTION__,
+                CAMHAL_LOGE("%s: Unknown format %x, no output", __FUNCTION__,
                         b.format);
                 break;
         }
@@ -1080,14 +1072,14 @@ int V4l2MediaSensor::captureNewImage() {
 
 int V4l2MediaSensor::getZoom(int *zoomMin, int *zoomMax, int *zoomStep) {
     int ret = 0;
-    ALOGVV("%s not implemented yet!", __func__);
+    CAMHAL_LOGVV("%s not implemented yet!", __func__);
 
     return ret ;
 }
 
 int V4l2MediaSensor::setZoom(int zoomValue) {
     int ret = 0;
-    ALOGVV("%s not implemented yet!", __func__);
+    CAMHAL_LOGVV("%s not implemented yet!", __func__);
 
     return ret ;
 }
@@ -1095,62 +1087,62 @@ int V4l2MediaSensor::setZoom(int zoomValue) {
 
 status_t V4l2MediaSensor::setEffect(uint8_t effect) {
     int ret = 0;
-    ALOGVV("%s not implemented yet!", __func__);
+    CAMHAL_LOGVV("%s not implemented yet!", __func__);
     return ret ;
 }
 
 int V4l2MediaSensor::getExposure(int *maxExp, int *minExp, int *def, camera_metadata_rational *step) {
    int ret=0;
-   ALOGVV("%s not implemented yet!", __func__);
+   CAMHAL_LOGVV("%s not implemented yet!", __func__);
    return ret;
 }
 
 status_t V4l2MediaSensor::setExposure(int expCmp) {
     int ret = 0;
-    ALOGVV("%s not implemented yet!", __func__);
+    CAMHAL_LOGVV("%s not implemented yet!", __func__);
     return ret ;
 }
 
 int V4l2MediaSensor::getAntiBanding(uint8_t *antiBanding, uint8_t maxCont) {
 
     int mode_count = -1;
-    ALOGVV("%s not implemented yet!", __func__);
+    CAMHAL_LOGVV("%s not implemented yet!", __func__);
 
     return mode_count;
 }
 
 status_t V4l2MediaSensor::setAntiBanding(uint8_t antiBanding) {
     int ret = 0;
-    ALOGVV("%s not implemented yet!", __func__);
+    CAMHAL_LOGVV("%s not implemented yet!", __func__);
     return ret;
 }
 
 status_t V4l2MediaSensor::setFocusArea(int32_t x0, int32_t y0, int32_t x1, int32_t y1) {
     int ret = 0;
-    ALOGVV("%s not implemented yet!", __func__);
+    CAMHAL_LOGVV("%s not implemented yet!", __func__);
     return ret;
 }
 
 int V4l2MediaSensor::getAutoFocus(uint8_t *afMode, uint8_t maxCount) {
     int mode_count = -1;
-    ALOGVV("%s not implemented yet!", __func__);
+    CAMHAL_LOGVV("%s not implemented yet!", __func__);
 
     return mode_count;
 }
 
 status_t V4l2MediaSensor::setAutoFocus(uint8_t afMode) {
-    ALOGVV("%s not implemented yet!", __func__);
+    CAMHAL_LOGVV("%s not implemented yet!", __func__);
     return 0;
 }
 
 int V4l2MediaSensor::getAWB(uint8_t *awbMode, uint8_t maxCount) {
     int mode_count = -1;
-    ALOGVV("%s not implemented yet!", __func__);
+    CAMHAL_LOGVV("%s not implemented yet!", __func__);
     return mode_count;
 }
 
 status_t V4l2MediaSensor::setAWB(uint8_t awbMode) {
-    ALOGVV("%s not implemented yet!", __func__);
+    CAMHAL_LOGVV("%s not implemented yet!", __func__);
     return 0;
 }
 
@@ -1161,11 +1153,11 @@ void V4l2MediaSensor::setSensorListener(SensorListener *listener) {
 status_t V4l2MediaSensor::readyToRun() {
     //int res;
     ATRACE_CALL();
-    ALOGV("Starting up mipi sensor thread");
+    CAMHAL_LOGV("Starting up mipi sensor thread");
     mStartupTime = systemTime();
     mNextCaptureTime = 0;
     mNextCapturedBuffers = NULL;
-    DBG_LOGA("");
+    CAMHAL_LOGD("");
 
     return OK;
 }

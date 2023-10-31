@@ -16,19 +16,10 @@
  * Description:
  */
 
-//uncomment following line to enable ALOGV print
+//uncomment following line to enable CAMHAL_LOGV print
 //#undef NDEBUG
 
 #define LOG_TAG "Camera_IO"
-
-// define  LOG_VERBOSE_VERBOSE  to enable ALOGVV in this file.
-//#define LOG_VERBOSE_VERBOSE  1
-
-#if LOG_VERBOSE_VERBOSE
-#define ALOGVV ALOGV
-#else
-#define ALOGVV(...) ((void)0)
-#endif
 
 #include <errno.h>
 #include <cutils/properties.h>
@@ -81,10 +72,10 @@ int CVideoInfo::export_dmabuf_fd(int videofd, int index, int* dmafd)
     ex_buf.fd = -1;
 
     if (ioctl(videofd, VIDIOC_EXPBUF, &ex_buf) == -1) {
-        ALOGE("export buffer fail:%s",strerror(errno));
+        CAMHAL_LOGE("export buffer fail:%s",strerror(errno));
         return -1;
     } else {
-        ALOGD("dma buffer fd = %d \n",ex_buf.fd);
+        CAMHAL_LOGD("dma buffer fd = %d \n",ex_buf.fd);
         *dmafd = ex_buf.fd;
     }
     return 0;
@@ -94,10 +85,10 @@ int CVideoInfo::EnumerateFormat(uint32_t pixelformat)
 {
     struct v4l2_fmtdesc fmt;
     int ret;
-    ALOGV("%s: E", __FUNCTION__);
+    CAMHAL_LOGV("%s: E", __FUNCTION__);
 
     if (fd < 0) {
-        ALOGE("camera not be init!");
+        CAMHAL_LOGE("camera not be init!");
         return -1;
     }
     memset(&fmt,0,sizeof(fmt));
@@ -130,22 +121,22 @@ bool CVideoInfo::IsSupportRotation()
 int CVideoInfo::set_rotate(int camera_fd, int value)
 {
     int ret = 0;
-    ALOGV("%s: E", __FUNCTION__);
+    CAMHAL_LOGV("%s: E", __FUNCTION__);
 
     struct v4l2_control ctl;
     if (camera_fd < 0)
         return -1;
     if ((value != 0) && (value != 90) && (value != 180) && (value != 270)) {
-        CAMHAL_LOGDB("Set rotate value invalid: %d.", value);
+        CAMHAL_LOGD("Set rotate value invalid: %d.", value);
         return -1;
     }
     memset( &ctl, 0, sizeof(ctl));
     ctl.value=value;
     ctl.id = V4L2_CID_ROTATE;
-    ALOGD("set_rotate:: id =%x , value=%d",ctl.id,ctl.value);
+    CAMHAL_LOGD("set_rotate:: id =%x , value=%d",ctl.id,ctl.value);
     ret = ioctl(camera_fd, VIDIOC_S_CTRL, &ctl);
     if (ret<0) {
-        CAMHAL_LOGDB("Set rotate value fail: %s,errno=%d. ret=%d", strerror(errno),errno,ret);
+        CAMHAL_LOGD("Set rotate value fail: %s,errno=%d. ret=%d", strerror(errno),errno,ret);
     }
     return ret ;
 }
@@ -162,25 +153,25 @@ int CVideoInfo::get_device_status(void)
 
 int CVideoInfo::camera_init(void)
 {
-    ALOGV("%s: E", __FUNCTION__);
+    CAMHAL_LOGV("%s: E", __FUNCTION__);
     int ret =0 ;
     if (fd < 0) {
-          ALOGE("open /dev/video%d failed, errno=%s\n", idx, strerror(errno));
+          CAMHAL_LOGE("open /dev/video%d failed, errno=%s\n", idx, strerror(errno));
           return -ENOTTY;
     }
 
     ret = ioctl(fd, VIDIOC_QUERYCAP, &cap);
     if (ret < 0) {
-        ALOGE("VIDIOC_QUERYCAP, errno=%s", strerror(errno));
+        CAMHAL_LOGE("VIDIOC_QUERYCAP, errno=%s", strerror(errno));
         return ret;
     }
 
     if (!(cap.capabilities & V4L2_CAP_VIDEO_CAPTURE))
-        ALOGV( "/dev/video%d is not video capture device\n",idx);
+        CAMHAL_LOGV( "/dev/video%d is not video capture device\n",idx);
 
 
     if (!(cap.capabilities & V4L2_CAP_STREAMING))
-        ALOGV( "video%d does not support streaming i/o\n",idx);
+        CAMHAL_LOGV( "video%d does not support streaming i/o\n",idx);
 
     if (strstr((const char*)cap.driver,"ARM-camera-isp"))
         sprintf(sensor_type,"%s","mipi");
@@ -194,10 +185,10 @@ int CVideoInfo::camera_init(void)
 int CVideoInfo::setBuffersFormat(void)
 {
     int ret = 0;
-    ALOGV("%s: E, preview fmt 0x%x ", __FUNCTION__, preview.format.fmt.pix.pixelformat);
+    CAMHAL_LOGV("%s: E, preview fmt 0x%x ", __FUNCTION__, preview.format.fmt.pix.pixelformat);
 
     if (fd < 0) {
-        ALOGE("camera not be init!");
+        CAMHAL_LOGE("camera not be init!");
         return -1;
     }
     if ((preview.format.fmt.pix.width != 0) && (preview.format.fmt.pix.height != 0)) {
@@ -205,10 +196,10 @@ int CVideoInfo::setBuffersFormat(void)
 
     ret = ioctl(fd, VIDIOC_S_FMT, &preview.format);
     if (ret < 0) {
-            DBG_LOGB("Open: VIDIOC_S_FMT Failed: %s, ret=%d\n", strerror(errno), ret);
+            CAMHAL_LOGD("Open: VIDIOC_S_FMT Failed: %s, ret=%d\n", strerror(errno), ret);
     }
 
-    CAMHAL_LOGIB("Width * Height %d x %d expect pixelfmt:%.4s, get:%.4s\n",
+    CAMHAL_LOGI("Width * Height %d x %d expect pixelfmt:%.4s, get:%.4s\n",
                     preview.format.fmt.pix.width,
                     preview.format.fmt.pix.height,
                     (char*)&pixelformat,
@@ -229,15 +220,15 @@ int CVideoInfo::start_capturing(void)
     enum v4l2_buf_type type;
     struct  v4l2_buffer buf;
 
-    ALOGV("%s: E, for preview, reqbufs & querybuf & qbuf & streamon", __FUNCTION__);
+    CAMHAL_LOGV("%s: E, for preview, reqbufs & querybuf & qbuf & streamon", __FUNCTION__);
 
     if (fd < 0) {
-        ALOGE("camera not be init!");
+        CAMHAL_LOGE("camera not be init!");
         return -1;
     }
 
     if (isStreaming) {
-            DBG_LOGA("already stream on\n");
+            CAMHAL_LOGD("already stream on\n");
     }
     CLEAR(preview.rb);
     mem.resize(IO_PREVIEW_BUFFER);
@@ -247,11 +238,11 @@ int CVideoInfo::start_capturing(void)
     preview.rb.memory = V4L2_MEMORY_MMAP;
     ret = ioctl(fd, VIDIOC_REQBUFS, &preview.rb);
     if (ret < 0) {
-            DBG_LOGB("camera idx:%d does not support "
+            CAMHAL_LOGD("camera idx:%d does not support "
                             "memory mapping, errno=%d\n", idx, errno);
     }
     if (preview.rb.count < 2) {
-            DBG_LOGB( "Insufficient buffer memory on /dev/video%d, errno=%d\n",
+            CAMHAL_LOGD( "Insufficient buffer memory on /dev/video%d, errno=%d\n",
                             idx, errno);
             return -EINVAL;
     }
@@ -264,7 +255,7 @@ int CVideoInfo::start_capturing(void)
         preview.buf.index       = i;
 
         if (ioctl(fd, VIDIOC_QUERYBUF, &preview.buf) < 0) {
-                DBG_LOGB("VIDIOC_QUERYBUF, errno=%d", errno);
+                CAMHAL_LOGD("VIDIOC_QUERYBUF, errno=%d", errno);
         }
         /*pluge usb camera when preview, vinfo->preview.buf.length value will equal to 0, so save this value*/
         mem[i].size = preview.buf.length;
@@ -276,16 +267,16 @@ int CVideoInfo::start_capturing(void)
                                 preview.buf.m.offset);
 
         if (MAP_FAILED == mem[i].addr) {
-                DBG_LOGB("mmap failed, errno=%d\n", errno);
+                CAMHAL_LOGD("mmap failed, errno=%d\n", errno);
         }
 
         int dma_fd = -1;
         int ret = export_dmabuf_fd(fd,i, &dma_fd);
         if (ret) {
-            ALOGE("export dma fd failed,%s\n", strerror(errno));
+            CAMHAL_LOGE("export dma fd failed,%s\n", strerror(errno));
         } else {
             mem[i].dma_fd = dma_fd;
-            ALOGD("index = %d, dma_fd = %d \n",i,mem[i].dma_fd);
+            CAMHAL_LOGD("index = %d, dma_fd = %d \n",i,mem[i].dma_fd);
         }
 
     }
@@ -298,17 +289,23 @@ int CVideoInfo::start_capturing(void)
             buf.index = i;
 
             if (ioctl(fd, VIDIOC_QBUF, &buf) < 0)
-                    DBG_LOGB("VIDIOC_QBUF failed, errno=%d\n", errno);
+                    CAMHAL_LOGD("VIDIOC_QBUF failed, errno=%d\n", errno);
     }
 
     type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
     if ((preview.format.fmt.pix.width != 0) &&
            (preview.format.fmt.pix.height != 0)) {
-         if (ioctl(fd, VIDIOC_STREAMON, &type) < 0)
-              DBG_LOGB("VIDIOC_STREAMON, errno=%d\n", errno);
+         isStreaming = true;
+         if (ioctl(fd, VIDIOC_STREAMON, &type) < 0) {
+              CAMHAL_LOGD("VIDIOC_STREAMON, errno=%d\n", errno);
+              set_device_status();
+              releasebuf_and_stop_capturing();
+              close(fd);
+              fd = -1;
+         } else {
+              isStreaming = true;
+         }
     }
-
-    isStreaming = true;
     return 0;
 }
 
@@ -317,10 +314,10 @@ int CVideoInfo::stop_capturing(void)
     enum v4l2_buf_type type;
     int res = 0;
     int i;
-    ALOGV("%s: E streamoff & unmap", __FUNCTION__);
+    CAMHAL_LOGV("%s: E streamoff & unmap", __FUNCTION__);
 
     if (fd < 0) {
-        ALOGE("camera not be init!");
+        CAMHAL_LOGE("camera not be init!");
         return -1;
     }
 
@@ -330,7 +327,7 @@ int CVideoInfo::stop_capturing(void)
 
     type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
     if (ioctl(fd, VIDIOC_STREAMOFF, &type) < 0) {
-        DBG_LOGB("VIDIOC_STREAMOFF, errno=%d", errno);
+        CAMHAL_LOGD("VIDIOC_STREAMOFF, errno=%d", errno);
         res = -1;
     }
 
@@ -340,7 +337,7 @@ int CVideoInfo::stop_capturing(void)
 
     for (i = 0; i < (int)preview.rb.count; ++i) {
         if (munmap(mem[i].addr, mem[i].size) < 0) {
-                DBG_LOGB("munmap failed errno=%d", errno);
+                CAMHAL_LOGD("munmap failed errno=%d", errno);
                 res = -1;
         }
 
@@ -358,9 +355,9 @@ int CVideoInfo::stop_capturing(void)
 
         res = ioctl(fd, VIDIOC_REQBUFS, &preview.rb);
         if (res < 0) {
-            DBG_LOGB("VIDIOC_REQBUFS failed: %s", strerror(errno));
+            CAMHAL_LOGD("VIDIOC_REQBUFS failed: %s", strerror(errno));
         }else{
-            DBG_LOGA("VIDIOC_REQBUFS delete buffer success\n");
+            CAMHAL_LOGD("VIDIOC_REQBUFS delete buffer success\n");
         }
     }
 
@@ -373,10 +370,10 @@ int CVideoInfo::releasebuf_and_stop_capturing(void)
     enum v4l2_buf_type type;
     int res = 0 ,ret;
     int i;
-    ALOGV("%s: E streamoff & unmap", __FUNCTION__);
+    CAMHAL_LOGV("%s: E streamoff & unmap", __FUNCTION__);
 
     if (fd < 0) {
-        ALOGE("camera not be init!");
+        CAMHAL_LOGE("camera not be init!");
         return -1;
     }
     if (!isStreaming) {
@@ -387,7 +384,7 @@ int CVideoInfo::releasebuf_and_stop_capturing(void)
     if ((preview.format.fmt.pix.width != 0) &&
            (preview.format.fmt.pix.height != 0)) {
         if (ioctl(fd, VIDIOC_STREAMOFF, &type) < 0) {
-            DBG_LOGB("VIDIOC_STREAMOFF, errno=%d", errno);
+            CAMHAL_LOGD("VIDIOC_STREAMOFF, errno=%d", errno);
             res = -1;
         }
     }
@@ -396,7 +393,7 @@ int CVideoInfo::releasebuf_and_stop_capturing(void)
     }
     for (i = 0; i < (int)preview.rb.count; ++i) {
         if (munmap(mem[i].addr, mem[i].size) < 0) {
-            DBG_LOGB("munmap failed errno=%d", errno);
+            CAMHAL_LOGD("munmap failed errno=%d", errno);
             res = -1;
         }
 
@@ -414,10 +411,10 @@ int CVideoInfo::releasebuf_and_stop_capturing(void)
 
     ret = ioctl(fd, VIDIOC_REQBUFS, &preview.rb);
     if (ret < 0) {
-       DBG_LOGB("VIDIOC_REQBUFS failed: %s", strerror(errno));
+       CAMHAL_LOGD("VIDIOC_REQBUFS failed: %s", strerror(errno));
        //return ret;
     }else{
-       DBG_LOGA("VIDIOC_REQBUFS delete buffer success\n");
+       CAMHAL_LOGD("VIDIOC_REQBUFS delete buffer success\n");
     }
     return res;
 }
@@ -426,7 +423,7 @@ int CVideoInfo::releasebuf_and_stop_capturing(void)
 uintptr_t CVideoInfo::get_frame_phys(void)
 {
     if (fd < 0) {
-        ALOGE("camera not be init!");
+        CAMHAL_LOGE("camera not be init!");
         return -1;
     }
     CLEAR(preview.buf);
@@ -445,10 +442,10 @@ uintptr_t CVideoInfo::get_frame_phys(void)
                     /* fall through */
 
             default:
-                    DBG_LOGB("VIDIOC_DQBUF failed, errno=%d\n", errno);
+                    CAMHAL_LOGD("VIDIOC_DQBUF failed, errno=%d\n", errno);
                     exit(1);
         }
-        DBG_LOGB("VIDIOC_DQBUF failed, errno=%d\n", errno);
+        CAMHAL_LOGD("VIDIOC_DQBUF failed, errno=%d\n", errno);
     }
 
     return (uintptr_t)preview.buf.m.userptr;
@@ -457,7 +454,7 @@ uintptr_t CVideoInfo::get_frame_phys(void)
 int CVideoInfo::get_frame_index(FrameV4L2Info& info)
 {
     if (fd < 0) {
-        ALOGE("camera not be init!");
+        CAMHAL_LOGE("camera not be init!");
         return -1;
     }
     CLEAR(info.buf);
@@ -475,10 +472,10 @@ int CVideoInfo::get_frame_index(FrameV4L2Info& info)
             /* fall through */
 
             default:
-                CAMHAL_LOGDB("VIDIOC_DQBUF failed, errno=%d\n", errno); //CAMHAL_LOGDB
+                CAMHAL_LOGD("VIDIOC_DQBUF failed, errno=%d\n", errno); //CAMHAL_LOGD
                 //exit(1); /*here will generate crash, so delete.  when ocour error, should break while() loop*/
                 if (errno == ENODEV) {
-                    ALOGE("camera USBSensor device is not exist!");
+                    CAMHAL_LOGE("camera USBSensor device is not exist!");
                     set_device_status();
                     stop_capturing();
                     close(fd);
@@ -492,7 +489,7 @@ int CVideoInfo::get_frame_index(FrameV4L2Info& info)
 
 void* CVideoInfo::get_frame()
 {
-    ALOGVV("%s: E, preview", __FUNCTION__);
+    CAMHAL_LOGVV("%s: E, preview", __FUNCTION__);
 
     int index = get_frame_index(preview);
     if (index < 0) {
@@ -503,7 +500,7 @@ void* CVideoInfo::get_frame()
 
 int CVideoInfo::putback_frame()
 {
-    ALOGVV("%s: E, preview", __FUNCTION__);
+    CAMHAL_LOGVV("%s: E, preview", __FUNCTION__);
 
     if (dev_status == -1) {
         return 0;
@@ -513,12 +510,12 @@ int CVideoInfo::putback_frame()
         preview.buf.length = tempbuflen;
     }
     if (fd < 0) {
-        ALOGE("camera not be init!");
+        CAMHAL_LOGE("camera not be init!");
         return -1;
     }
-    ALOGVV("preview qbuf back");
+    CAMHAL_LOGVV("preview qbuf back");
     if (ioctl(fd, VIDIOC_QBUF, &preview.buf) < 0) {
-        DBG_LOGB("QBUF failed :%s\n", strerror(errno));
+        CAMHAL_LOGD("QBUF failed :%s\n", strerror(errno));
         if (errno == ENODEV) {
             set_device_status();
         }
@@ -529,17 +526,17 @@ int CVideoInfo::putback_frame()
 
 int CVideoInfo::putback_picture_frame()
 {
-    ALOGVV("%s: E, picture", __FUNCTION__);
+    CAMHAL_LOGVV("%s: E, picture", __FUNCTION__);
 
     if (fd < 0) {
-        ALOGE("camera not be init!");
+        CAMHAL_LOGE("camera not be init!");
         return -1;
     }
 
-    ALOGVV("picture qbuf back");
+    CAMHAL_LOGVV("picture qbuf back");
 
     if (ioctl(fd, VIDIOC_QBUF, &picture.buf) < 0) {
-        DBG_LOGB("QBUF failed error=%d\n", errno);
+        CAMHAL_LOGD("QBUF failed error=%d\n", errno);
     }
 
     return 0;
@@ -553,11 +550,11 @@ int CVideoInfo::start_picture(int rotate)
     struct  v4l2_buffer buf;
     bool usbcamera = false;
 
-    ALOGV("%s: E, setfmt, reqbuf, querybuf, qbuf, streamon", __FUNCTION__);
+    CAMHAL_LOGV("%s: E, setfmt, reqbuf, querybuf, qbuf, streamon", __FUNCTION__);
 
     CLEAR(picture.rb);
     if (fd < 0) {
-        ALOGE("camera not be init!");
+        CAMHAL_LOGE("camera not be init!");
         return -1;
     }
 
@@ -571,7 +568,7 @@ int CVideoInfo::start_picture(int rotate)
                     usleep(3000); //3ms
                     continue;
                 default:
-                    DBG_LOGB("Open: VIDIOC_S_FMT Failed: %s, errno=%d\n", strerror(errno), ret);
+                    CAMHAL_LOGD("Open: VIDIOC_S_FMT Failed: %s, errno=%d\n", strerror(errno), ret);
                     return ret;
             }
         } else {
@@ -586,12 +583,12 @@ int CVideoInfo::start_picture(int rotate)
 
     ret = ioctl(fd, VIDIOC_REQBUFS, &picture.rb);
     if (ret < 0 ) {
-        DBG_LOGB("camera idx:%d does not support "
+        CAMHAL_LOGD("camera idx:%d does not support "
                         "memory mapping, errno=%d\n", idx, errno);
     }
 
     if (picture.rb.count < 1) {
-        DBG_LOGB( "Insufficient buffer memory on /dev/video%d, errno=%d\n",
+        CAMHAL_LOGD( "Insufficient buffer memory on /dev/video%d, errno=%d\n",
                         idx, errno);
         return -EINVAL;
     }
@@ -606,7 +603,7 @@ int CVideoInfo::start_picture(int rotate)
         picture.buf.index       = i;
 
         if (ioctl(fd, VIDIOC_QUERYBUF, &picture.buf) < 0) {
-            DBG_LOGB("VIDIOC_QUERYBUF, errno=%d", errno);
+            CAMHAL_LOGD("VIDIOC_QUERYBUF, errno=%d", errno);
         }
         mem_pic[i].size = picture.buf.length;
         mem_pic[i].addr = mmap(NULL /* start anywhere */,
@@ -617,13 +614,13 @@ int CVideoInfo::start_picture(int rotate)
                                 picture.buf.m.offset);
 
         if (MAP_FAILED == mem_pic[i].addr) {
-            DBG_LOGB("mmap failed, errno=%d\n", errno);
+            CAMHAL_LOGD("mmap failed, errno=%d\n", errno);
         }
 
         int dma_fd = -1;
         int ret = export_dmabuf_fd(fd,i, &dma_fd);
         if (ret) {
-            ALOGE("export dma fd failed,%s\n", strerror(errno));
+            CAMHAL_LOGE("export dma fd failed,%s\n", strerror(errno));
         } else {
             mem_pic[i].dma_fd = dma_fd;
         }
@@ -640,11 +637,11 @@ int CVideoInfo::start_picture(int rotate)
         buf.index = i;
 
         if (ioctl(fd, VIDIOC_QBUF, &buf) < 0)
-                DBG_LOGB("VIDIOC_QBUF failed, errno=%d\n", errno);
+                CAMHAL_LOGD("VIDIOC_QBUF failed, errno=%d\n", errno);
     }
 
     if (isPicture) {
-        DBG_LOGA("already stream on\n");
+        CAMHAL_LOGD("already stream on\n");
     }
 
     if (strstr((const char *)cap.driver, "uvcvideo")) {
@@ -656,7 +653,7 @@ int CVideoInfo::start_picture(int rotate)
     //step 5: Stream ON
     type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
     if (ioctl(fd, VIDIOC_STREAMON, &type) < 0) {
-        DBG_LOGB("VIDIOC_STREAMON, errno=%d\n", errno);
+        CAMHAL_LOGD("VIDIOC_STREAMON, errno=%d\n", errno);
     }
     isPicture = true;
 
@@ -665,7 +662,7 @@ int CVideoInfo::start_picture(int rotate)
 
 void* CVideoInfo::get_picture()
 {
-    ALOGVV("%s, picture\n", __FUNCTION__);
+    CAMHAL_LOGVV("%s, picture\n", __FUNCTION__);
     int index = get_frame_index(picture);
     if (index < 0) {
         return nullptr;
@@ -680,10 +677,10 @@ void CVideoInfo::stop_picture()
     int i;
     int ret;
 
-    ALOGV("%s, E, qbuf, streamoff, unmap, setPreviewFmt, startPreview", __FUNCTION__);
+    CAMHAL_LOGV("%s, E, qbuf, streamoff, unmap, setPreviewFmt, startPreview", __FUNCTION__);
 
     if (fd < 0) {
-        ALOGE("camera not be init!");
+        CAMHAL_LOGE("camera not be init!");
         return ;
     }
 
@@ -697,18 +694,18 @@ void CVideoInfo::stop_picture()
     buf.memory = V4L2_MEMORY_MMAP;
     buf.index = picture.buf.index;
     if (ioctl(fd, VIDIOC_QBUF, &buf) < 0) {
-        DBG_LOGB("VIDIOC_QBUF failed, errno=%d\n", errno);
+        CAMHAL_LOGD("VIDIOC_QBUF failed, errno=%d\n", errno);
     }
 
     //stream off and unmap buffer
     type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
     if (ioctl(fd, VIDIOC_STREAMOFF, &type) < 0)
-            DBG_LOGB("VIDIOC_STREAMOFF, errno=%d", errno);
+            CAMHAL_LOGD("VIDIOC_STREAMOFF, errno=%d", errno);
 
     for (i = 0; i < (int)picture.rb.count; i++)
     {
         if (munmap(mem_pic[i].addr, mem_pic[i].size) < 0) {
-            DBG_LOGB("munmap failed errno=%d", errno);
+            CAMHAL_LOGD("munmap failed errno=%d", errno);
         } else {
             if (mem_pic[i].dma_fd != -1) {
                 close(mem_pic[i].dma_fd);
@@ -724,9 +721,9 @@ void CVideoInfo::stop_picture()
 
         ret = ioctl(fd, VIDIOC_REQBUFS, &picture.rb);
         if (ret < 0) {
-            DBG_LOGB("VIDIOC_REQBUFS failed: %s", strerror(errno));
+            CAMHAL_LOGD("VIDIOC_REQBUFS failed: %s", strerror(errno));
         } else {
-            DBG_LOGA("VIDIOC_REQBUFS delete buffer success\n");
+            CAMHAL_LOGD("VIDIOC_REQBUFS delete buffer success\n");
         }
     }
 
@@ -742,10 +739,10 @@ void CVideoInfo::releasebuf_and_stop_picture()
     struct  v4l2_buffer buf;
     int i,ret;
 
-    ALOGV("%s, E, qbuf, streamoff, unmap, setPreviewFmt, startPreview", __FUNCTION__);
+    CAMHAL_LOGV("%s, E, qbuf, streamoff, unmap, setPreviewFmt, startPreview", __FUNCTION__);
 
     if (fd < 0) {
-        ALOGE("camera not be init!");
+        CAMHAL_LOGE("camera not be init!");
         return;
     }
 
@@ -759,19 +756,19 @@ void CVideoInfo::releasebuf_and_stop_picture()
     buf.memory = V4L2_MEMORY_MMAP;
     buf.index = picture.buf.index;
     if (ioctl(fd, VIDIOC_QBUF, &buf) < 0) {
-        DBG_LOGB("VIDIOC_QBUF failed, errno=%d\n", errno);
+        CAMHAL_LOGD("VIDIOC_QBUF failed, errno=%d\n", errno);
     }
 
     //stream off and unmap buffer
     type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
     if (ioctl(fd, VIDIOC_STREAMOFF, &type) < 0) {
-        DBG_LOGB("VIDIOC_STREAMOFF, errno=%d", errno);
+        CAMHAL_LOGD("VIDIOC_STREAMOFF, errno=%d", errno);
     }
 
     for (i = 0; i < (int)picture.rb.count; i++)
     {
         if (munmap(mem_pic[i].addr, mem_pic[i].size) < 0) {
-            DBG_LOGB("munmap failed errno=%d", errno);
+            CAMHAL_LOGD("munmap failed errno=%d", errno);
         } else {
             if (mem_pic[i].dma_fd != -1) {
                 close(mem_pic[i].dma_fd);
@@ -789,10 +786,10 @@ void CVideoInfo::releasebuf_and_stop_picture()
     picture.rb.count = 0;
     ret = ioctl(fd, VIDIOC_REQBUFS, &picture.rb);
     if (ret < 0) {
-      DBG_LOGB("VIDIOC_REQBUFS failed: %s", strerror(errno));
+      CAMHAL_LOGD("VIDIOC_REQBUFS failed: %s", strerror(errno));
       //return ret;
     }else{
-      DBG_LOGA("VIDIOC_REQBUFS delete buffer success\n");
+      CAMHAL_LOGD("VIDIOC_REQBUFS delete buffer success\n");
     }
     setBuffersFormat();
     start_capturing();

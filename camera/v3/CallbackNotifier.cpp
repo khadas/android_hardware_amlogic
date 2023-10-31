@@ -26,6 +26,7 @@
 #include "EmulatedCameraDevice.h"
 #include "CallbackNotifier.h"
 #include "JpegCompressor.h"
+#include "CamHalDebugLog.h"
 
 namespace android {
 
@@ -80,7 +81,7 @@ static void PrintMessages(uint32_t msg)
     const char* strs[lCameraMessagesNum];
     const int translated = GetMessageStrings(msg, strs, lCameraMessagesNum);
     for (int n = 0; n < translated; n++) {
-        ALOGV("    %s", strs[n]);
+        CAMHAL_LOGV("    %s", strs[n]);
     }
 }
 
@@ -113,7 +114,7 @@ void CallbackNotifier::setCallbacks(camera_notify_callback notify_cb,
                                     camera_request_memory get_memory,
                                     void* user)
 {
-    ALOGV("%s: %p, %p, %p, %p (%p)",
+    CAMHAL_LOGV("%s: %p, %p, %p, %p (%p)",
          __FUNCTION__, notify_cb, data_cb, data_cb_timestamp, get_memory, user);
 
     Mutex::Autolock locker(&mObjectLock);
@@ -126,29 +127,29 @@ void CallbackNotifier::setCallbacks(camera_notify_callback notify_cb,
 
 void CallbackNotifier::enableMessage(uint msg_type)
 {
-    ALOGV("%s: msg_type = 0x%x", __FUNCTION__, msg_type);
+    CAMHAL_LOGV("%s: msg_type = 0x%x", __FUNCTION__, msg_type);
     PrintMessages(msg_type);
 
     Mutex::Autolock locker(&mObjectLock);
     mMessageEnabler |= msg_type;
-    ALOGV("**** Currently enabled messages:");
+    CAMHAL_LOGV("**** Currently enabled messages:");
     PrintMessages(mMessageEnabler);
 }
 
 void CallbackNotifier::disableMessage(uint msg_type)
 {
-    ALOGV("%s: msg_type = 0x%x", __FUNCTION__, msg_type);
+    CAMHAL_LOGV("%s: msg_type = 0x%x", __FUNCTION__, msg_type);
     PrintMessages(msg_type);
 
     Mutex::Autolock locker(&mObjectLock);
     mMessageEnabler &= ~msg_type;
-    ALOGV("**** Currently enabled messages:");
+    CAMHAL_LOGV("**** Currently enabled messages:");
     PrintMessages(mMessageEnabler);
 }
 
 status_t CallbackNotifier::enableVideoRecording(int fps)
 {
-    ALOGV("%s: FPS = %d", __FUNCTION__, fps);
+    CAMHAL_LOGV("%s: FPS = %d", __FUNCTION__, fps);
 
     Mutex::Autolock locker(&mObjectLock);
     mVideoRecEnabled = true;
@@ -160,7 +161,7 @@ status_t CallbackNotifier::enableVideoRecording(int fps)
 
 void CallbackNotifier::disableVideoRecording()
 {
-    ALOGV("%s:", __FUNCTION__);
+    CAMHAL_LOGV("%s:", __FUNCTION__);
 
     Mutex::Autolock locker(&mObjectLock);
     mVideoRecEnabled = false;
@@ -223,7 +224,7 @@ void CallbackNotifier::onNextFrameAvailable(const void* frame,
 
             mCameraMemoryTs.push_back( cam_buff );
         } else {
-            ALOGE("%s: Memory failure in CAMERA_MSG_VIDEO_FRAME", __FUNCTION__);
+            CAMHAL_LOGE("%s: Memory failure in CAMERA_MSG_VIDEO_FRAME", __FUNCTION__);
         }
     }
 
@@ -235,7 +236,7 @@ void CallbackNotifier::onNextFrameAvailable(const void* frame,
             mDataCB(CAMERA_MSG_PREVIEW_FRAME, cam_buff, 0, NULL, mCBOpaque);
             cam_buff->release(cam_buff);
         } else {
-            ALOGE("%s: Memory failure in CAMERA_MSG_PREVIEW_FRAME", __FUNCTION__);
+            CAMHAL_LOGE("%s: Memory failure in CAMERA_MSG_PREVIEW_FRAME", __FUNCTION__);
         }
     }
 
@@ -269,10 +270,10 @@ void CallbackNotifier::onNextFrameAvailable(const void* frame,
                     mDataCB(CAMERA_MSG_COMPRESSED_IMAGE, jpeg_buff, 0, NULL, mCBOpaque);
                     jpeg_buff->release(jpeg_buff);
                 } else {
-                    ALOGE("%s: Memory failure in CAMERA_MSG_VIDEO_FRAME", __FUNCTION__);
+                    CAMHAL_LOGE("%s: Memory failure in CAMERA_MSG_VIDEO_FRAME", __FUNCTION__);
                 }
             } else {
-                ALOGE("%s: Compression failure in CAMERA_MSG_VIDEO_FRAME", __FUNCTION__);
+                CAMHAL_LOGE("%s: Compression failure in CAMERA_MSG_VIDEO_FRAME", __FUNCTION__);
             }
         }
     }

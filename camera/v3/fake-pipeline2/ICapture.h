@@ -8,7 +8,9 @@ namespace android {
     struct data_in {
         /*in*/
         uint8_t* src;
+        /*in*/
         int src_fmt;
+        /*in*/
         int share_fd;
         int src_width;
         int src_stride;

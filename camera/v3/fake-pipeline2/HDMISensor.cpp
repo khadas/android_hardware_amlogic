@@ -1,13 +1,7 @@
-#define LOG_NDEBUG  0
-#define LOG_NNDEBUG 0
 
 #define LOG_TAG "HDMISensor"
+
 #define HDMI_PORT_INDEX 1
-#if defined(LOG_NNDEBUG) && LOG_NNDEBUG == 0
-#define ALOGVV ALOGV
-#else
-#define ALOGVV(...) ((void)0)
-#endif
 
 #define ATRACE_TAG (ATRACE_TAG_CAMERA | ATRACE_TAG_HAL | ATRACE_TAG_ALWAYS)
 #include <utils/Log.h>
@@ -42,7 +36,7 @@ HDMISensor::HDMISensor() {
     property_get("vendor.media.hdmi.vdin.port", property, "1");
     hdmi_port_index = atoi(property);
     if (hdmi_port_index > 3 || hdmi_port_index <= 0) {
-        ALOGE("invalid port set default port1");
+        CAMHAL_LOGE("invalid port set default port1");
         hdmi_port_index = 1;
     }
 }
@@ -59,7 +53,7 @@ HDMISensor::~HDMISensor() {
 
 int HDMISensor::halFormatToSensorFormat(uint32_t pixelfmt)
 {
-    ALOGD("get sensor output format");
+    CAMHAL_LOGD("get sensor output format");
     return V4L2_PIX_FMT_NV21;
 }
 
@@ -73,7 +67,7 @@ uint32_t HDMISensor::getStreamUsage(camera3_stream_t& stream)
             | GRALLOC_USAGE_SW_WRITE_MASK
             );
     usage = GRALLOC1_PRODUCER_USAGE_CAMERA | usage;
-    ALOGV("%s: usage=0x%x", __FUNCTION__,usage);
+    CAMHAL_LOGV("%s: usage=0x%x", __FUNCTION__,usage);
     return usage;
 }
 
@@ -96,7 +90,7 @@ int HDMISensor::streamOn(channel ch) {
             successStreamOn = false;
             return -1;
     } else {
-        ALOGE("HDMI success streamOn");
+        CAMHAL_LOGE("HDMI success streamOn");
         successStreamOn = true;
         return 0;
     }
@@ -122,8 +116,8 @@ bool HDMISensor::isNeedRestart(uint32_t width, uint32_t height, uint32_t pixelfo
 
 status_t HDMISensor::startUp(int idx, bool customizationSensor) {
     ATRACE_CALL();
-    ALOGV("%s: E", __FUNCTION__);
-    DBG_LOGA("ddd");
+    CAMHAL_LOGV("%s: E", __FUNCTION__);
+    CAMHAL_LOGD("ddd");
 
     int res;
     mCapturedBuffers = NULL;
@@ -132,7 +126,7 @@ status_t HDMISensor::startUp(int idx, bool customizationSensor) {
             ANDROID_PRIORITY_URGENT_DISPLAY);
 
     if (res != OK) {
-        ALOGE("Unable to start up sensor capture thread: %d", res);
+        CAMHAL_LOGE("Unable to start up sensor capture thread: %d", res);
     }
     if (customizationSensor)
         return res;
@@ -141,18 +135,18 @@ status_t HDMISensor::startUp(int idx, bool customizationSensor) {
 
     res = mMPlaneCameraIO->openCamera();
     if (res < 0) {
-        ALOGE("Unable to open sensor %d, errno=%d\n", mMPlaneCameraIO->openIdx, res);
+        CAMHAL_LOGE("Unable to open sensor %d, errno=%d\n", mMPlaneCameraIO->openIdx, res);
     }
 
     hdmi_port_index = HDMI_PORT_INDEX;
     res = mMPlaneCameraIO->setInputPort(&hdmi_port_index);
     if (res < 0) {
-        ALOGE("Unable set input HDMI3_RX3");
+        CAMHAL_LOGE("Unable set input HDMI3_RX3");
     }
 
     vdin_fd = open("/dev/vdin0", O_RDWR | O_NONBLOCK);
     if (vdin_fd < 0) {
-        ALOGE("HDMISensor open vdin0 fail %s", strerror(errno));
+        CAMHAL_LOGE("HDMISensor open vdin0 fail %s", strerror(errno));
     }
 
     return res;
@@ -160,12 +154,12 @@ status_t HDMISensor::startUp(int idx, bool customizationSensor) {
 }
 
 status_t HDMISensor::shutDown() {
-    ALOGV("%s: E", __FUNCTION__);
+    CAMHAL_LOGV("%s: E", __FUNCTION__);
     int res;
     mTimeOutCount = 0;
     res = requestExitAndWait();
     if (res != OK) {
-        ALOGE("Unable to shut down sensor capture thread: %d", res);
+        CAMHAL_LOGE("Unable to shut down sensor capture thread: %d", res);
     }
     if (mMPlaneCameraIO != NULL) {
         mMPlaneCameraIO->stopCameraIO();
@@ -173,7 +167,7 @@ status_t HDMISensor::shutDown() {
     }
 
     mSensorWorkFlag = false;
-    ALOGD("%s: Exit", __FUNCTION__);
+    CAMHAL_LOGD("%s: Exit", __FUNCTION__);
     return res;
 }
 
@@ -183,7 +177,7 @@ bool HDMISensor::isStableSignal() {
     memset(&signal_info, 0, sizeof(tvin_info_s));
     int ret = ioctl(vdin_fd, TVIN_IOC_G_SIG_INFO, &signal_info);
     if (ret < 0) {
-        ALOGE("TVIN_IOC_G_SIG_INFO is not stable %d",ret);
+        CAMHAL_LOGE("TVIN_IOC_G_SIG_INFO is not stable %d",ret);
         tvin_stable = false;
     } else {
         tvin_stable = (signal_info.status == TVIN_SIG_STATUS_STABLE);
@@ -191,7 +185,8 @@ bool HDMISensor::isStableSignal() {
     return tvin_stable;
 }
 
-int HDMISensor::getStreamConfigurations(uint32_t picSizes[], const int32_t kAvailableFormats[], int size) {
+int HDMISensor::getStreamConfigurations(uint32_t picSizes[], const int32_t kAvailableFormats[], int size)
+{
     uint32_t count = 0;
     picSizes[count++] = HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED;
     picSizes[count++] = 1920;
@@ -231,7 +226,7 @@ int HDMISensor::getStreamConfigurationDurations(uint32_t picSizes[], int64_t dur
 
 int64_t HDMISensor::getMinFrameDuration() {
     int64_t minFrameDuration =  1000000000L/60L ; // 30fps
-    ALOGW("%s to be implemented, minframeduration  %" PRId64 "\n", __func__, minFrameDuration);
+    CAMHAL_LOGW("%s to be implemented, minframeduration  %" PRId64 "\n", __func__, minFrameDuration);
     return minFrameDuration;
 }
 
@@ -247,7 +242,7 @@ status_t HDMISensor::setOutputFormat(int width, int height, int pixelformat, cha
 
     res = mMPlaneCameraIO->setOutputFormat();
     if (res < 0) {
-        ALOGE("set buffer failed\n");
+        CAMHAL_LOGE("set buffer failed\n");
     }
     return res;
 }
@@ -280,11 +275,11 @@ void HDMISensor::captureNV21(StreamBuffer b, uint32_t gain) {
         memset(&output_info, 0 , sizeof(output_info));
         int ret = mMPlaneCameraIO->getFrame(output_info);
         if (ret < 0) {
-            ALOGE("get frame NULL, sleep 5ms");
+            CAMHAL_LOGE("get frame NULL, sleep 5ms");
             usleep(5000);
             mTimeOutCount++;
             if (mTimeOutCount > 600) {
-                ALOGE("retry deque frame");
+                CAMHAL_LOGE("retry deque frame");
             }
             continue;
         }
@@ -303,7 +298,7 @@ void HDMISensor::captureNV21(StreamBuffer b, uint32_t gain) {
     }
     if (dequeSuccess)
         mMPlaneCameraIO->pushbackFrame(output_info.buf_idx);
-    ALOGVV("NV21 sensor image captured");
+    CAMHAL_LOGVV("NV21 sensor image captured");
 }
 
 int HDMISensor::captureNewImage() {
@@ -312,10 +307,10 @@ int HDMISensor::captureNewImage() {
     mKernelBufferFmt = 0;
     mTempFD = -1;
     kernel_dma_fd = -1;
-    ALOGVV("%s:buffer size=%zu\n",__FUNCTION__,mNextCapturedBuffers->size());
+    CAMHAL_LOGVV("%s:buffer size=%zu\n",__FUNCTION__,mNextCapturedBuffers->size());
     for (size_t i = 0; i < mNextCapturedBuffers->size(); i++) {
         const StreamBuffer &b = (*mNextCapturedBuffers)[i];
-        ALOGVV("Sensor capturing buffer %zu: stream %d,"
+        CAMHAL_LOGVV("Sensor capturing buffer %zu: stream %d,"
                 " %d x %d, format %x, stride %d, buf %p, img %p",
                 i, b.streamId, b.width, b.height, b.format, b.stride,
                 b.buffer, b.img);
@@ -327,7 +322,7 @@ int HDMISensor::captureNewImage() {
                 StreamBuffer bAux;
                 int orientation;
                 orientation = getPictureRotate();
-                ALOGD("bAux orientation=%d",orientation);
+                CAMHAL_LOGD("bAux orientation=%d",orientation);
 
                 bAux.streamId = 0;
                 bAux.width = b.width;
@@ -343,7 +338,7 @@ int HDMISensor::captureNewImage() {
                 captureNV21(b, gain);
                 break;
             default:
-                ALOGE("%s: Unknown format %x, no output", __FUNCTION__,
+                CAMHAL_LOGE("%s: Unknown format %x, no output", __FUNCTION__,
                         b.format);
                 break;
         }
@@ -354,14 +349,14 @@ int HDMISensor::captureNewImage() {
 
 int HDMISensor::getZoom(int *zoomMin, int *zoomMax, int *zoomStep) {
     int ret = 0;
-    ALOGVV("%s not implemented yet!", __func__);
+    CAMHAL_LOGVV("%s not implemented yet!", __func__);
 
     return ret ;
 }
 
 int HDMISensor::setZoom(int zoomValue) {
     int ret = 0;
-    ALOGVV("%s not implemented yet!", __func__);
+    CAMHAL_LOGVV("%s not implemented yet!", __func__);
 
     return ret ;
 }
@@ -369,62 +364,62 @@ int HDMISensor::setZoom(int zoomValue) {
 
 status_t HDMISensor::setEffect(uint8_t effect) {
     int ret = 0;
-    ALOGVV("%s not implemented yet!", __func__);
+    CAMHAL_LOGVV("%s not implemented yet!", __func__);
     return ret ;
 }
 
 int HDMISensor::getExposure(int *maxExp, int *minExp, int *def, camera_metadata_rational *step) {
    int ret=0;
-   ALOGVV("%s not implemented yet!", __func__);
+   CAMHAL_LOGVV("%s not implemented yet!", __func__);
    return ret;
 }
 
 status_t HDMISensor::setExposure(int expCmp) {
     int ret = 0;
-    ALOGVV("%s not implemented yet!", __func__);
+    CAMHAL_LOGVV("%s not implemented yet!", __func__);
     return ret ;
 }
 
 int HDMISensor::getAntiBanding(uint8_t *antiBanding, uint8_t maxCont) {
 
     int mode_count = -1;
-    ALOGVV("%s not implemented yet!", __func__);
+    CAMHAL_LOGVV("%s not implemented yet!", __func__);
 
     return mode_count;
 }
 
 status_t HDMISensor::setAntiBanding(uint8_t antiBanding) {
     int ret = 0;
-    ALOGVV("%s not implemented yet!", __func__);
+    CAMHAL_LOGVV("%s not implemented yet!", __func__);
     return ret;
 }
 
 status_t HDMISensor::setFocusArea(int32_t x0, int32_t y0, int32_t x1, int32_t y1) {
     int ret = 0;
-    ALOGVV("%s not implemented yet!", __func__);
+    CAMHAL_LOGVV("%s not implemented yet!", __func__);
     return ret;
 }
 
 int HDMISensor::getAutoFocus(uint8_t *afMode, uint8_t maxCount) {
     int mode_count = -1;
-    ALOGVV("%s not implemented yet!", __func__);
+    CAMHAL_LOGVV("%s not implemented yet!", __func__);
 
     return mode_count;
 }
 
 status_t HDMISensor::setAutoFocus(uint8_t afMode) {
-    ALOGVV("%s not implemented yet!", __func__);
+    CAMHAL_LOGVV("%s not implemented yet!", __func__);
     return 0;
 }
 
 int HDMISensor::getAWB(uint8_t *awbMode, uint8_t maxCount) {
     int mode_count = -1;
-    ALOGVV("%s not implemented yet!", __func__);
+    CAMHAL_LOGVV("%s not implemented yet!", __func__);
     return mode_count;
 }
 
 status_t HDMISensor::setAWB(uint8_t awbMode) {
-    ALOGVV("%s not implemented yet!", __func__);
+    CAMHAL_LOGVV("%s not implemented yet!", __func__);
     return 0;
 }
 
@@ -435,11 +430,11 @@ void HDMISensor::setSensorListener(SensorListener *listener) {
 status_t HDMISensor::readyToRun() {
     //int res;
     ATRACE_CALL();
-    ALOGV("Starting up hdmi sensor thread");
+    CAMHAL_LOGV("Starting up hdmi sensor thread");
     mStartupTime = systemTime();
     mNextCaptureTime = 0;
     mNextCapturedBuffers = NULL;
-    DBG_LOGA("");
+    CAMHAL_LOGD("");
 
     return OK;
 }

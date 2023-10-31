@@ -27,6 +27,7 @@
 //#include "ge2d_stream.h"
 
 #include "NV12_resize.h"
+#include "CamHalDebugLog.h"
 
 #ifndef ALIGN
 #define ALIGN(b,w) (((b)+((w)-1))/(w)*(w))
@@ -294,11 +295,11 @@ void CameraUtil::ReSizeNV21(uint8_t *src, uint8_t *img,
                               0};
 
     if (!VT_resizeFrame_Video_opt2_lp(&input, &output, NULL, 0))
-        ALOGE("Scale NV21 frame down failed!\n");
+        CAMHAL_LOGE("Scale NV21 frame down failed!\n");
 }
 int CameraUtil::ScaleYV12(uint8_t* src, int src_width, int src_height,
     uint8_t* dst, int dst_width, int dst_height) {
-                ALOGI("Scale YV12 frame down \n");
+                CAMHAL_LOGI("Scale YV12 frame down \n");
             int ret = libyuv::I420Scale(src, src_width,
                                         src + src_width * src_height, src_width / 2,
                                         src + src_width * src_height + src_width * src_height / 4, src_width / 2,
@@ -309,7 +310,7 @@ int CameraUtil::ScaleYV12(uint8_t* src, int src_width, int src_height,
                                         dst_width, dst_height,
                                         libyuv::kFilterNone);
             if (ret < 0)
-                ALOGE("Scale YV12 frame down failed!\n");
+                CAMHAL_LOGE("Scale YV12 frame down failed!\n");
             return ret;
 }
 int CameraUtil::MJPEGToNV21(uint8_t* src, int src_len,int src_width, int src_height,
@@ -318,7 +319,7 @@ int CameraUtil::MJPEGToNV21(uint8_t* src, int src_len,int src_width, int src_hei
     #if ANDROID_PLATFORM_SDK_VERSION > 23
                 uint8_t *vBuffer = new uint8_t[src_width * src_height / 4];
                 if (vBuffer == NULL) {
-                    ALOGE("alloc temporary v buffer failed\n");
+                    CAMHAL_LOGE("alloc temporary v buffer failed\n");
                     return -1;
                 }
                 uint8_t *uBuffer = new uint8_t[src_width * src_width / 4];
@@ -326,14 +327,14 @@ int CameraUtil::MJPEGToNV21(uint8_t* src, int src_len,int src_width, int src_hei
                     if (vBuffer != NULL) {
                         delete []vBuffer;
                     }
-                    ALOGE("alloc temporary u buffer failed\n");
+                    CAMHAL_LOGE("alloc temporary u buffer failed\n");
                     return -1;
                 }
                 if (src_width == dst_width && src_height == dst_height) {
                     if (ConvertToI420(src, src_len, dst, dst_stride, uBuffer, (dst_stride + 1) / 2,
                     vBuffer, (dst_stride + 1) / 2, 0, 0, src_width, src_height,
                     src_width, src_height, libyuv::kRotate0, libyuv::FOURCC_MJPG) != 0) {
-                        ALOGE("Decode MJPEG frame failed\n");
+                        CAMHAL_LOGE("Decode MJPEG frame failed\n");
                         delete []vBuffer;
                         delete []uBuffer;
                         return -1;
@@ -349,7 +350,7 @@ int CameraUtil::MJPEGToNV21(uint8_t* src, int src_len,int src_width, int src_hei
                     if (ConvertToI420(src, src_len, tmpBuf, src_width, uBuffer, (src_width + 1) / 2,
                           vBuffer, (src_width + 1) / 2, 0, 0, src_width, src_height,
                           src_width, src_height, libyuv::kRotate0, libyuv::FOURCC_MJPG) != 0) {
-                        ALOGE("Decode MJPEG frame failed\n");
+                        CAMHAL_LOGE("Decode MJPEG frame failed\n");
                         delete []vBuffer;
                         delete []uBuffer;
                         return -1;
@@ -375,7 +376,7 @@ int CameraUtil::MJPEGToNV21(uint8_t* src, int src_len,int src_width, int src_hei
                     memcpy(dst, tmpBuf, dst_width * dst_height * 3/2);
                 }else {
                     if ((dst_height % 2) != 0) {
-                        ALOGD("%d, b.height = %d", __LINE__, dst_height);
+                        CAMHAL_LOGD("%d, b.height = %d", __LINE__, dst_height);
                         dst_height = dst_height - 1;
                     }
                     ReSizeNV21(tmpBuf, dst, dst_width, dst_height,
@@ -391,27 +392,27 @@ int CameraUtil::MJPEGToRGB(uint8_t* src, int src_len,int src_width, int src_heig
 
         uint8_t *tmpBuf = new uint8_t[src_width * src_height * 3 / 2];
         if ( tmpBuf == NULL) {
-                        ALOGE("new buffer failed!\n");
+                        CAMHAL_LOGE("new buffer failed!\n");
                         return -1;
         }
 
     #if ANDROID_PLATFORM_SDK_VERSION > 23
             uint8_t *vBuffer = new uint8_t[src_width * src_height / 4];
             if (vBuffer == NULL)
-                ALOGE("alloc temporary v buffer failed\n");
+                CAMHAL_LOGE("alloc temporary v buffer failed\n");
             uint8_t *uBuffer = new uint8_t[src_width * src_height / 4];
             if (uBuffer == NULL) {
                  if (vBuffer != NULL) {
                         delete []vBuffer;
                     }
-                ALOGE("alloc temporary u buffer failed\n");
+                CAMHAL_LOGE("alloc temporary u buffer failed\n");
                 return -1;
             }
 
             if (ConvertToI420(src, src_len, tmpBuf, src_width, uBuffer, (src_width + 1) / 2,
                           vBuffer, (src_width + 1) / 2, 0, 0, src_width, src_height,
                           src_width, src_height, libyuv::kRotate0, libyuv::FOURCC_MJPG) != 0) {
-                ALOGE("Decode MJPEG frame failed\n");
+                CAMHAL_LOGE("Decode MJPEG frame failed\n");
                 delete []vBuffer;
                 delete []uBuffer;
                 return -1;
@@ -433,7 +434,7 @@ int CameraUtil::MJPEGToRGB(uint8_t* src, int src_len,int src_width, int src_heig
             if (ConvertMjpegToNV21(src, src_len, tmpBuf,
                 src_width, tmpBuf + src_width * src_height, (src_width + 1) / 2, src_width,
                 src_height, src_width, src_height, libyuv::FOURCC_MJPG) != 0) {
-                ALOGE("Decode MJPEG frame failed\n");
+                CAMHAL_LOGE("Decode MJPEG frame failed\n");
                 return -1;
             } else {
                 nv21_to_rgb24(tmpBuf,dst,src_width,src_height);
@@ -450,7 +451,7 @@ int CameraUtil::YUYVScaleYV12(uint8_t* src, int src_width, int src_height,
             uint8_t *tmp_buffer = new uint8_t[src_width * src_height * 3 / 2];
 
             if ( tmp_buffer == NULL) {
-                ALOGE("new buffer failed!\n");
+                CAMHAL_LOGE("new buffer failed!\n");
                 return -1;
             }
 
@@ -458,7 +459,7 @@ int CameraUtil::YUYVScaleYV12(uint8_t* src, int src_width, int src_height,
             ret = ScaleYV12(tmp_buffer,src_width, src_height,
                                 dst,dst_width,dst_height);
             if (ret < 0)
-                ALOGE("Scale YV12 frame down failed!\n");
+                CAMHAL_LOGE("Scale YV12 frame down failed!\n");
             delete [] tmp_buffer;
 
             return ret;
@@ -473,7 +474,7 @@ int CameraUtil::MJPEGScaleYV12(uint8_t* src, int src_len,int src_width, int src_
         uint8_t *tmp_buffer = new uint8_t[src_width * src_height * 3 / 2];
 
         if ( tmp_buffer == NULL) {
-            ALOGE("new buffer failed!\n");
+            CAMHAL_LOGE("new buffer failed!\n");
             return -1;
         }
 
@@ -481,7 +482,7 @@ int CameraUtil::MJPEGScaleYV12(uint8_t* src, int src_len,int src_width, int src_
            tmp_buffer + src_width * src_height + src_width * src_height / 4, (src_width + 1) / 2,
            tmp_buffer + src_width * src_height, (src_width + 1) / 2, 0, 0, src_width, src_height,
            src_width, src_height, libyuv::kRotate0, libyuv::FOURCC_MJPG) != 0) {
-            ALOGE("Decode MJPEG frame failed\n");
+            CAMHAL_LOGE("Decode MJPEG frame failed\n");
             return -1;
         }
 
@@ -495,7 +496,7 @@ int CameraUtil::MJPEGScaleYV12(uint8_t* src, int src_len,int src_width, int src_
                                 dst_width, dst_height,
                                 libyuv::kFilterNone);
         if (ret < 0)
-            ALOGE("Scale YV12 frame down failed!\n");
+            CAMHAL_LOGE("Scale YV12 frame down failed!\n");
 
         delete [] tmp_buffer;
         return ret;
@@ -503,7 +504,7 @@ int CameraUtil::MJPEGScaleYV12(uint8_t* src, int src_len,int src_width, int src_
             if (ConvertToI420(src,src_len,dst, src_width, dst + src_width * src_height + src_width * src_height / 4, (src_width + 1) / 2,
                     dst + src_width * src_height, (src_width + 1) / 2, 0, 0, src_width, src_height,
                     src_width, src_height, libyuv::kRotate0, libyuv::FOURCC_MJPG) != 0) {
-                ALOGE("Decode MJPEG frame failed\n");
+                CAMHAL_LOGE("Decode MJPEG frame failed\n");
                 return -1;
             }
     }
@@ -514,11 +515,11 @@ void CameraUtil::dump(int frame_index, uint8_t* buf, int length, const char* nam
     FILE* fp = NULL;
     if (frame_index % 10 == 0) {
         if (frame_index == 0) {
-            ALOGD("dump forever, full name: %s", name);
+            CAMHAL_LOGD("dump forever, full name: %s", name);
         }
         fp = fopen(name, "ab+");
         if (!fp) {
-            ALOGE("open file %s fail, error: %s !!!", name, strerror(errno));
+            CAMHAL_LOGE("open file %s fail, error: %s !!!", name, strerror(errno));
             fp = NULL;
             return;
         } else {

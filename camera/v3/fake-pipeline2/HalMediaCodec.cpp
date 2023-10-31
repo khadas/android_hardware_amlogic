@@ -4,9 +4,9 @@
 #define LOG_TAG "HalMediaCodec"
 
 #if defined(LOG_NNDEBUG) && LOG_NNDEBUG == 0
-#define ALOGVV ALOGV
+#define CAMHAL_LOGVV CAMHAL_LOGV
 #else
-#define ALOGVV(...) ((void)0)
+#define CAMHAL_LOGVV(...) ((void)0)
 #endif
 
 #define ATRACE_TAG (ATRACE_TAG_CAMERA | ATRACE_TAG_HAL | ATRACE_TAG_ALWAYS)
@@ -40,7 +40,7 @@ int HalMediaCodec::init(int width, int height,const char* name)
     mMediaCodec = AMediaCodec_createDecoderByType(mime);
     if (NULL == mMediaCodec)
     {
-        ALOGD("%s: init mediacodec fail.",__FUNCTION__);
+        CAMHAL_LOGD("%s: init mediacodec fail.",__FUNCTION__);
         return 0;
     }
 
@@ -130,7 +130,7 @@ int HalMediaCodec::decode(uint8_t*bufData, size_t bufSize, uint8_t*outBuf)
         for (i = 0 ; i < 3; i++) {
             int value = DequeueBuffer(mTempOutBuffer[i]);
             if (value) { //decode success
-                ALOGD("%s: read cached data.FailNumber=%d",__FUNCTION__,mDecoderFailNumber);
+                CAMHAL_LOGD("%s: read cached data.FailNumber=%d",__FUNCTION__,mDecoderFailNumber);
                 mDecoderFailNumber -= 1;
                 IsCached = true;
                 continue;
@@ -158,9 +158,9 @@ void HalMediaCodec::QueueBuffer(uint8_t*bufData,size_t bufSize) {
             memcpy(inputBuf, bufData, bufSize);
             unsigned int curTime = timeGetTime();
             AMediaCodec_queueInputBuffer(mMediaCodec, bufidx, 0, bufSize,  curTime , 0);
-            //ALOGD("%s: queue input buf success.",__FUNCTION__);
+            //CAMHAL_LOGD("%s: queue input buf success.",__FUNCTION__);
         }else {
-            ALOGD("%s: obtained InputBuffer, but no address.",__FUNCTION__);
+            CAMHAL_LOGD("%s: obtained InputBuffer, but no address.",__FUNCTION__);
         }
     }
 }
@@ -186,7 +186,7 @@ int HalMediaCodec::DequeueBuffer(uint8_t*outBuf) {
                 AMediaFormat_delete(format);
             }else{
                 AMediaCodec_releaseOutputBuffer(mMediaCodec, outbufidx, info.size != 0);
-                ALOGE("%s: format null.",__FUNCTION__);
+                CAMHAL_LOGE("%s: format null.",__FUNCTION__);
                 return 0;
             }
             if (width != 0 && height != 0 && color == 21) {
@@ -197,16 +197,16 @@ int HalMediaCodec::DequeueBuffer(uint8_t*outBuf) {
                         outputBuf + MIN(mOriFrameSize, mFrameSize),
                         MIN(mOriFrameSize, mFrameSize)>>1);
                 AMediaCodec_releaseOutputBuffer(mMediaCodec, outbufidx, info.size != 0);
-                //ALOGD("%s: get data success.",__FUNCTION__);
+                //CAMHAL_LOGD("%s: get data success.",__FUNCTION__);
                 return 1;
             }else{
                 AMediaCodec_releaseOutputBuffer(mMediaCodec, outbufidx, info.size != 0);
-                ALOGE("%s: format unknown.",__FUNCTION__);
+                CAMHAL_LOGE("%s: format unknown.",__FUNCTION__);
                 return 0;
             }
         }else{
             AMediaCodec_releaseOutputBuffer(mMediaCodec, outbufidx, info.size != 0);
-            ALOGE("%s: no data return.",__FUNCTION__);
+            CAMHAL_LOGE("%s: no data return.",__FUNCTION__);
             return 0;
         }
     }

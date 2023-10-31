@@ -57,18 +57,15 @@ EmulatedBaseCamera::~EmulatedBaseCamera()
 
 bool EmulatedBaseCamera::getCameraStatus()
 {
-    ALOGE("%s: do nothing", __FUNCTION__);
+    CAMHAL_LOGE("%s: do nothing", __FUNCTION__);
     return false;
 }
 
 status_t EmulatedBaseCamera::getCameraInfo(struct camera_info* info)
 {
-    ALOGV("%s", __FUNCTION__);
+    CAMHAL_LOGV("%s", __FUNCTION__);
 
     info->device_version = mCameraDeviceVersion;
-    info->resource_cost = 33;  //sum of cost should less than 100,now support 3 devices.
-    info->conflicting_devices_length = 0;
-    info->conflicting_devices = NULL;
     if (mCameraDeviceVersion >= HARDWARE_DEVICE_API_VERSION(2, 0)) {
         info->static_camera_characteristics = mCameraInfo;
     } else {
@@ -79,12 +76,12 @@ status_t EmulatedBaseCamera::getCameraInfo(struct camera_info* info)
 }
 
 status_t EmulatedBaseCamera::plugCamera() {
-    ALOGE("%s: not supported", __FUNCTION__);
+    CAMHAL_LOGE("%s: not supported", __FUNCTION__);
     return INVALID_OPERATION;
 }
 
 status_t EmulatedBaseCamera::unplugCamera() {
-    ALOGE("%s: not supported", __FUNCTION__);
+    CAMHAL_LOGE("%s: not supported", __FUNCTION__);
     return INVALID_OPERATION;
 }
 

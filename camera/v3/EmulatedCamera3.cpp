@@ -74,7 +74,7 @@ EmulatedCamera3::~EmulatedCamera3() {
  ***************************************************************************/
 
 status_t EmulatedCamera3::Initialize() {
-    ALOGV("%s", __FUNCTION__);
+    CAMHAL_LOGV("%s", __FUNCTION__);
 
     mStatus = STATUS_CLOSED;
     return NO_ERROR;
@@ -82,7 +82,7 @@ status_t EmulatedCamera3::Initialize() {
 
 bool EmulatedCamera3::getCameraStatus()
 {
-    DBG_LOGB("%s : do nothing", __FUNCTION__);
+    CAMHAL_LOGD("%s : do nothing", __FUNCTION__);
     return false;
 }
 
@@ -91,11 +91,11 @@ bool EmulatedCamera3::getCameraStatus()
  ***************************************************************************/
 
 status_t EmulatedCamera3::connectCamera(hw_device_t** device) {
-    ALOGV("%s", __FUNCTION__);
+    CAMHAL_LOGV("%s", __FUNCTION__);
     if (device == NULL) return BAD_VALUE;
 
     if (mStatus != STATUS_CLOSED) {
-        ALOGE("%s: Trying to open a camera in state %d!",
+        CAMHAL_LOGE("%s: Trying to open a camera in state %d!",
                 __FUNCTION__, mStatus);
         return INVALID_OPERATION;
     }
@@ -122,13 +122,13 @@ status_t EmulatedCamera3::getCameraInfo(struct camera_info* info) {
 status_t EmulatedCamera3::initializeDevice(
         const camera3_callback_ops *callbackOps) {
     if (callbackOps == NULL) {
-        ALOGE("%s: NULL callback ops provided to HAL!",
+        CAMHAL_LOGE("%s: NULL callback ops provided to HAL!",
                 __FUNCTION__);
         return BAD_VALUE;
     }
 
     if (mStatus != STATUS_OPEN) {
-        ALOGE("%s: Trying to initialize a camera in state %d!",
+        CAMHAL_LOGE("%s: Trying to initialize a camera in state %d!",
                 __FUNCTION__, mStatus);
         return INVALID_OPERATION;
     }
@@ -141,54 +141,54 @@ status_t EmulatedCamera3::initializeDevice(
 
 status_t EmulatedCamera3::configureStreams(
         camera3_stream_configuration *streamList) {
-    ALOGE("%s: Not implemented", __FUNCTION__);
+    CAMHAL_LOGE("%s: Not implemented", __FUNCTION__);
     return INVALID_OPERATION;
 }
 
 status_t EmulatedCamera3::registerStreamBuffers(
         const camera3_stream_buffer_set *bufferSet) {
-    ALOGE("%s: Not implemented", __FUNCTION__);
+    CAMHAL_LOGE("%s: Not implemented", __FUNCTION__);
     return INVALID_OPERATION;
 }
 
 const camera_metadata_t* EmulatedCamera3::constructDefaultRequestSettings(
         int type) {
-    ALOGE("%s: Not implemented", __FUNCTION__);
+    CAMHAL_LOGE("%s: Not implemented", __FUNCTION__);
     return NULL;
 }
 
 status_t EmulatedCamera3::processCaptureRequest(
         camera3_capture_request *request) {
-    ALOGE("%s: Not implemented", __FUNCTION__);
+    CAMHAL_LOGE("%s: Not implemented", __FUNCTION__);
     return INVALID_OPERATION;
 }
 
 /** Custom tag query methods */
 
 const char* EmulatedCamera3::getVendorSectionName(uint32_t tag) {
-    ALOGE("%s: Not implemented", __FUNCTION__);
+    CAMHAL_LOGE("%s: Not implemented", __FUNCTION__);
     return NULL;
 }
 
 const char* EmulatedCamera3::getVendorTagName(uint32_t tag) {
-    ALOGE("%s: Not implemented", __FUNCTION__);
+    CAMHAL_LOGE("%s: Not implemented", __FUNCTION__);
     return NULL;
 }
 
 int EmulatedCamera3::getVendorTagType(uint32_t tag) {
-    ALOGE("%s: Not implemented", __FUNCTION__);
+    CAMHAL_LOGE("%s: Not implemented", __FUNCTION__);
     return -1;
 }
 
 /** Debug methods */
 
 void EmulatedCamera3::dump(int fd) {
-    ALOGE("%s: Not implemented", __FUNCTION__);
+    CAMHAL_LOGE("%s: Not implemented", __FUNCTION__);
     return;
 }
 
 int EmulatedCamera3::flush_all_requests() {
-    ALOGE("%s: Not implemented", __FUNCTION__);
+    CAMHAL_LOGE("%s: Not implemented", __FUNCTION__);
     return -1;
 }
 
@@ -297,7 +297,7 @@ int EmulatedCamera3::close(struct hw_device_t* device) {
             static_cast<EmulatedCamera3*>(
                 reinterpret_cast<camera3_device_t*>(device) );
     if (ec == NULL) {
-        ALOGE("%s: Unexpected NULL camera3 device", __FUNCTION__);
+        CAMHAL_LOGE("%s: Unexpected NULL camera3 device", __FUNCTION__);
         return BAD_VALUE;
     }
     return ec->closeCamera();

@@ -59,7 +59,7 @@ EmulatedCameraHotplugThread::~EmulatedCameraHotplugThread() {
 }
 
 status_t EmulatedCameraHotplugThread::requestExitAndWait() {
-    ALOGE("%s: Not implemented. Use requestExit + join instead",
+    CAMHAL_LOGE("%s: Not implemented. Use requestExit + join instead",
           __FUNCTION__);
     return INVALID_OPERATION;
 }
@@ -67,24 +67,24 @@ status_t EmulatedCameraHotplugThread::requestExitAndWait() {
 void EmulatedCameraHotplugThread::requestExit() {
     Mutex::Autolock al(mMutex);
 
-    ALOGV("%s: Requesting thread exit", __FUNCTION__);
+    CAMHAL_LOGV("%s: Requesting thread exit", __FUNCTION__);
     mRunning = false;
 
-    bool rmWatchFailed = false;
+    const bool rmWatchFailed = false;
     Vector<SubscriberInfo>::iterator it;
     for (it = mSubscribers.begin(); it != mSubscribers.end(); ++it) {
 
 #if 0
         if (inotify_rm_watch(mInotifyFd, it->WatchID) == -1) {
 
-            ALOGE("%s: Could not remove watch for camID '%d',"
+            CAMHAL_LOGE("%s: Could not remove watch for camID '%d',"
                   " error: '%s' (%d)",
                  __FUNCTION__, it->CameraID, strerror(errno),
                  errno);
 
             rmWatchFailed = true ;
         } else {
-            ALOGV("%s: Removed watch for camID '%d'",
+            CAMHAL_LOGV("%s: Removed watch for camID '%d'",
                 __FUNCTION__, it->CameraID);
         }
 #endif
@@ -94,18 +94,18 @@ void EmulatedCameraHotplugThread::requestExit() {
         // Give the thread a fighting chance to error out on the next
         // read
         if (TEMP_FAILURE_RETRY(close(mInotifyFd)) == -1) {
-            ALOGE("%s: close failure error: '%s' (%d)",
+            CAMHAL_LOGE("%s: close failure error: '%s' (%d)",
                  __FUNCTION__, strerror(errno), errno);
         }
     }
     if (shutdown(mSocketFd, SHUT_RD) < 0) {
-        CAMHAL_LOGDB("shutdown socket failed errno=%s", strerror(errno));
+        CAMHAL_LOGD("shutdown socket failed errno=%s", strerror(errno));
     }
     if (close(mSocketFd) < 0) {
-        CAMHAL_LOGDB("close socket failed errno=%s", strerror(errno));
+        CAMHAL_LOGD("close socket failed errno=%s", strerror(errno));
     }
 
-    ALOGV("%s: Request exit complete.", __FUNCTION__);
+    CAMHAL_LOGV("%s: Request exit complete.", __FUNCTION__);
 }
 
 status_t EmulatedCameraHotplugThread::readyToRun() {
@@ -114,12 +114,12 @@ status_t EmulatedCameraHotplugThread::readyToRun() {
     mInotifyFd = -1;
 
     do {
-        ALOGV("%s: Initializing inotify", __FUNCTION__);
+        CAMHAL_LOGV("%s: Initializing inotify", __FUNCTION__);
 
 #if 0
         mInotifyFd = inotify_init();
         if (mInotifyFd == -1) {
-            ALOGE("%s: inotify_init failure error: '%s' (%d)",
+            CAMHAL_LOGE("%s: inotify_init failure error: '%s' (%d)",
                  __FUNCTION__, strerror(errno), errno);
             mRunning = false;
             break;
@@ -131,16 +131,14 @@ status_t EmulatedCameraHotplugThread::readyToRun() {
         sa.nl_pid = 0;//getpid(); both is ok
 
         mSocketFd = socket(AF_NETLINK,SOCK_RAW,NETLINK_KOBJECT_UEVENT);
-        if (mSocketFd == -1) {
+        if (mSocketFd >= 0) {
+            if (bind(mSocketFd,(struct sockaddr *)&sa,sizeof(sa)) == -1) {
+                mRunning = false;
+                CAMHAL_LOGE("bind error:%s, disable the hotplug thread\n",strerror(errno));
+            }
+        } else {
             mRunning = false;
-            CAMHAL_LOGEB("socket creating failed:%s, disable the hotplug thread\n",strerror(errno));
-            return -1;
-        }
-
-        if (bind(mSocketFd,(struct sockaddr *)&sa,sizeof(sa)) == -1) {
-            mRunning = false;
-            CAMHAL_LOGEB("bind error:%s, disable the hotplug thread\n",strerror(errno));
-            return -1;
+            CAMHAL_LOGE("socket creating failed:%s, disable the hotplug thread\n",strerror(errno));
         }
 
         /**
@@ -204,7 +202,7 @@ bool EmulatedCameraHotplugThread::threadLoop() {
         if (len < 0) {
             break;
         } else if ((len<32) || (len > (int)sizeof(buf))) {
-            CAMHAL_LOGDA("invalid message");
+            CAMHAL_LOGD("invalid message");
             break;
         }
         if (len < 4096)
@@ -215,27 +213,27 @@ bool EmulatedCameraHotplugThread::threadLoop() {
         //                  add@/devices/platform/camera0/video4linux/video50 ACTION=add DEVPATH=/devices/platform/camera0/video4linux/video50...
         //                  add@/devices/platform/camera0/video4linux/video60 ACTION=add DEVPATH=/devices/platform/camera0/video4linux/video60 ...
         //                  add@/devices/platform/camera0/media0  ACTION=add
-        CAMHAL_LOGDB("buf=%s\n", buf);
+        CAMHAL_LOGD("buf=%s\n", buf);
         video4linux_string = strstr(buf, "video4linux");
         camera0_string = strstr(buf, "camera0");
         camera1_string = strstr(buf, "camera1");
 
         if (video4linux_string == NULL && camera0_string == NULL && camera1_string == NULL) {
-            CAMHAL_LOGDA("not video or camera0 or camera1 event\n");
+            CAMHAL_LOGD("not video or camera0 or camera1 event\n");
             break;
         }
         if (NULL != video4linux_string) {
-            CAMHAL_LOGVB("video=%s\n", video4linux_string);
+            CAMHAL_LOGV("video=%s\n", video4linux_string);
             action_string = strchr(video4linux_string, '\0');
             action_string ++;
-            CAMHAL_LOGDB("action string=%s\n", action_string);
+            CAMHAL_LOGD("action string=%s\n", action_string);
 
             if (strstr(action_string, "ACTION=add") != NULL) {
                 halStatus = CAMERA_DEVICE_STATUS_PRESENT;
             } else if (strstr(action_string, "ACTION=remove") != NULL) {
                 halStatus = CAMERA_DEVICE_STATUS_NOT_PRESENT;
             } else {
-                CAMHAL_LOGDA("no find add or remove\n");
+                CAMHAL_LOGD("no find add or remove\n");
                 break;
             }
 
@@ -255,7 +253,7 @@ bool EmulatedCameraHotplugThread::threadLoop() {
                     halStatus);
                 }
             } else {
-                CAMHAL_LOGDB(" %s is not v4l2 video device.\n",v4l2_dev_name_string );
+                CAMHAL_LOGD(" %s is not v4l2 video device.\n",v4l2_dev_name_string );
                 break;
             }
         } else {
@@ -274,7 +272,7 @@ bool EmulatedCameraHotplugThread::threadLoop() {
 
                     char dev_name[64];
                     sprintf(dev_name, "%s%d", "/dev/media", cameraId);
-                    CAMHAL_LOGDB("camera: %s ready. notify\n", dev_name);
+                    CAMHAL_LOGD("camera: %s ready. notify\n", dev_name);
                     gEmulatedCameraFactory.onStatusReady(dev_name);
                 }
             }
@@ -298,19 +296,19 @@ bool EmulatedCameraHotplugThread::createFileIfNotExists(int cameraId) const
     String8 filePath = getFilePath(cameraId);
     // make sure this file exists and we have access to it
     int fd = TEMP_FAILURE_RETRY(
-                open(filePath.c_str(), O_WRONLY | O_CREAT | O_TRUNC,
+                open(filePath.string(), O_WRONLY | O_CREAT | O_TRUNC,
                      /* mode = ug+rwx */ S_IRWXU | S_IRWXG ));
     if (fd == -1) {
-        ALOGE("%s: Could not create file '%s', error: '%s' (%d)",
-             __FUNCTION__, filePath.c_str(), strerror(errno), errno);
+        CAMHAL_LOGE("%s: Could not create file '%s', error: '%s' (%d)",
+             __FUNCTION__, filePath.string(), strerror(errno), errno);
         return false;
     }
 
     // File has '1' by default since we are plugged in by default
     if (TEMP_FAILURE_RETRY(write(fd, "1\n", /*count*/2)) == -1) {
-        ALOGE("%s: Could not write '1' to file '%s', error: '%s' (%d)",
-             __FUNCTION__, filePath.c_str(), strerror(errno), errno);
-        TEMP_FAILURE_RETRY(close(fd));
+        CAMHAL_LOGE("%s: Could not write '1' to file '%s', error: '%s' (%d)",
+             __FUNCTION__, filePath.string(), strerror(errno), errno);
+        close(fd);
         return false;
     }
 
@@ -359,12 +357,12 @@ bool EmulatedCameraHotplugThread::addWatch(int cameraId) {
     int wd = 0;
 #if 0
     int wd = inotify_add_watch(mInotifyFd,
-                               camPath.c_str(),
+                               camPath.string(),
                                IN_CLOSE_WRITE);
 
     if (wd == -1) {
-        ALOGE("%s: Could not add watch for '%s', error: '%s' (%d)",
-             __FUNCTION__, camPath.c_str(), strerror(errno),
+        CAMHAL_LOGE("%s: Could not add watch for '%s', error: '%s' (%d)",
+             __FUNCTION__, camPath.string(), strerror(errno),
              errno);
 
         mRunning = false;
@@ -372,7 +370,7 @@ bool EmulatedCameraHotplugThread::addWatch(int cameraId) {
     }
 #endif
 
-    ALOGV("%s: Watch added for camID='%d', wd='%d'",
+    CAMHAL_LOGV("%s: Watch added for camID='%d', wd='%d'",
           __FUNCTION__, cameraId, wd);
 
     SubscriberInfo si = { cameraId, wd };
@@ -389,7 +387,7 @@ bool EmulatedCameraHotplugThread::removeWatch(int cameraId) {
 #if 0
     if (inotify_rm_watch(mInotifyFd, si->WatchID) == -1) {
 
-        ALOGE("%s: Could not remove watch for camID '%d', error: '%s' (%d)",
+        CAMHAL_LOGE("%s: Could not remove watch for camID '%d', error: '%s' (%d)",
              __FUNCTION__, cameraId, strerror(errno),
              errno);
 
@@ -414,10 +412,10 @@ bool EmulatedCameraHotplugThread::removeWatch(int cameraId) {
 int EmulatedCameraHotplugThread::readFile(String8 filePath) const {
 
     int fd = TEMP_FAILURE_RETRY(
-                open(filePath.c_str(), O_RDONLY, /*mode*/0));
+                open(filePath.string(), O_RDONLY, /*mode*/0));
     if (fd == -1) {
-        ALOGE("%s: Could not open file '%s', error: '%s' (%d)",
-             __FUNCTION__, filePath.c_str(), strerror(errno), errno);
+        CAMHAL_LOGE("%s: Could not open file '%s', error: '%s' (%d)",
+             __FUNCTION__, filePath.string(), strerror(errno), errno);
         return -1;
     }
 
@@ -429,8 +427,8 @@ int EmulatedCameraHotplugThread::readFile(String8 filePath) const {
 
     int retval;
 
-    ALOGV("%s: Read file '%s', length='%d', buffer='%c'",
-         __FUNCTION__, filePath.c_str(), length, buffer[0]);
+    CAMHAL_LOGV("%s: Read file '%s', length='%d', buffer='%c'",
+         __FUNCTION__, filePath.string(), length, buffer[0]);
 
     if (length == 0) { // EOF
         retval = 0; // empty file is the same thing as 0

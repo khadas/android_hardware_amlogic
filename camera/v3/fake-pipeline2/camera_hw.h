@@ -38,7 +38,7 @@
 #include <stdbool.h>
 
 #include <linux/videodev2.h>
-#include <DebugUtils.h>
+#include <CamHalDebugLog.h>
 
 #define NB_BUFFER 6
 #define NB_PIC_BUFFER 2

@@ -4,6 +4,7 @@
  * PROPRIETARY/CONFIDENTIAL.  USE IS SUBJECT TO LICENSE TERMS.
 */
 #include "CameraConfig.h"
+#include "ispMgr/staticPipe.h"
 
 
 #define DEFAULT_WIDTH_GROUP0 (1440)
@@ -37,8 +38,11 @@ CameraConfig::CameraConfig(int groupId) {
         mGE2DParam.src_width = DEFAULT_WIDTH_GROUP1;
         mGE2DParam.src_height = DEFAULT_HEIGHT_GROUP1;
     }
+    memset(&mSensorParam, 0, sizeof(struct media_stream));
     mGDCParam.input_width = 0;
     mGDCParam.input_height = 0;
+    mGDCParam.stride = 0;
+    mGDCParam.input_stride = 0;
 }
 
 CameraConfig* CameraConfig::getInstance(int groupId) {
@@ -86,6 +90,26 @@ void CameraConfig::setHeight(uint32_t height) {
 
     mGDCParam.height = height;
     mGE2DParam.src_height = height;
+}
+
+uint32_t CameraConfig::getStride() {
+    return mGDCParam.stride;
+}
+
+void CameraConfig::setStride(uint32_t stride) {
+    mGDCParam.stride = stride;
+}
+
+uint32_t CameraConfig::getInputStride() {
+    return 0;
+}
+
+void CameraConfig::setInputStride(uint32_t stride) {
+
+}
+
+void CameraConfig::setSensorCfg(media_stream_t& stream) {
+    mSensorParam = stream;
 }
 
 uint32_t CameraConfig::getInputWidth() {

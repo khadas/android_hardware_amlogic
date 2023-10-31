@@ -1,0 +1,75 @@
+Running product configuration...
+device/amlogic/t7_an400/t7_an400_arm64.mk:613: warning: Params: is_reference_project=[false],need_tv_feature=[true], is_android_tv=[false];  Patch Finish.
+device/amlogic/common/media.mk:46: warning: TARGET_WITH_MEDIA_EXT_LEVEL 4
+mkdir: Needs 1 argument (see "mkdir --help")
+/bin/bash: VENDOR-PATH-PH: command not found
+/bin/bash: /usr/icu/: No such file or directory
+device/amlogic/common/products/tv/t7/t7.mk:101: warning: warning for parse error in an unevaluated line: *** commands commence before first target.
+============================================
+PLATFORM_VERSION_CODENAME=REL
+PLATFORM_VERSION=14
+PRODUCT_INCLUDE_TAGS=com.android.mainline
+TARGET_PRODUCT=t7_an400_arm64
+TARGET_BUILD_VARIANT=userdebug
+TARGET_ARCH=arm64
+TARGET_ARCH_VARIANT=armv8-a
+TARGET_CPU_VARIANT=generic
+TARGET_2ND_ARCH=arm
+TARGET_2ND_ARCH_VARIANT=armv7-a-neon
+TARGET_2ND_CPU_VARIANT=cortex-a9
+HOST_OS=linux
+HOST_OS_EXTRA=Linux-5.4.0-125-generic-x86_64-Ubuntu-20.04.5-LTS
+HOST_CROSS_OS=windows
+BUILD_ID=UP1A.231005.007.A1
+OUT_DIR=out
+============================================
+[ 50% 1/2] regenerate globs shard 986 of 1024
+do_ypcall: clnt_call: RPC: Unable to receive; errno = Connection refused
+[100% 2/2] analyzing Android.bp files and generating ninja file at out/soong/build.ninja
+do_ypcall: clnt_call: RPC: Unable to receive; errno = Connection refused
+PlatformVndkVersion: 34
+ASPlayer sdkVersion: 34
+ASPlayer versionFile:  /mnt/fileroot2/zhiwei.zhang/u-aosp/vendor/amlogic/common/ASPlayer/version/VERSION
+JNI-ASPlayer sdkVersion: 34
+c2 PlatformVndkVersion: -DANDROID_PLATFORM_SDK_VERSION=34
+JNI-ASPlayer majorVersion: do_ypcall: clnt_call: RPC: Unable to receive; errno = Connection refused1
+ASPlayer copy: /mnt/fileroot2/zhiwei.zhang/u-aosp/vendor/amlogic/common/ASPlayer/libs/ASPlayer-library/BuildConfiguration.java.in => /mnt/fileroot2/zhiwei.zhang/u-aosp/vendor/amlogic/common/ASPlayer/libs/ASPlayer-library/src/main/java/com/amlogic/asplayer/BuildConfiguration.java
+JNI-ASPlayer subVersion: do_ypcall: clnt_call: RPC: Unable to receive; errno = Connection refused1
+ASPlayer majorVersion: do_ypcall: clnt_call: RPC: Unable to receive; errno = Connection refused1
+ASPlayer subVersion: do_ypcall: clnt_call: RPC: Unable to receive; errno = Connection refused1
+ASPlayer get git uncommit file num failed exit status 1
+ASPlayer get uncommit file number failed exit status 1
+JNI-ASPlayer -DHAVE_VERSION_INFO
+JNI-ASPlayer -DBRANCH_NAME="do_ypcall: clnt_call: RPC: Unable to receive; errno = Connection refused* (no branch)"
+JNI-ASPlayer -DLAST_CHANGED="do_ypcall: clnt_call: RPC: Unable to receive; errno = Connection refusedDate: Wed Oct 11 06:47:28 2023 +0000"
+JNI-ASPlayer -DBUILD_TIME="do_ypcall: clnt_call: RPC: Unable to receive; errno = Connection refusedWed Nov  1 09:20:41 CST 2023"
+JNI-ASPlayer -DBUILD_NAME="zhiwei.zhang"
+JNI-ASPlayer -DGIT_UNCOMMIT_FILE_NUM="do_ypcall: clnt_call: RPC: Unable to receive; errno = Connection refused0"
+JNI-ASPlayer -DCOMMIT_PD="do_ypcall: clnt_call: RPC: Unable to receive; errno = Connection refusedPD#SWPL-140719"
+JNI-ASPlayer -DCOMMIT_CHANGEID="do_ypcall: clnt_call: RPC: Unable to receive; errno = Connection refusedChange-Id: I0db14d25225201914e236dd68e02ed3bc1b1f983"
+JNI-ASPlayer -DANDROID_PLATFORM_SDK_VERSION=34
+JNI-ASPlayer -DMAJORV=do_ypcall: clnt_call: RPC: Unable to receive; errno = Connection refused1
+JNI-ASPlayer -DMINORV=do_ypcall: clnt_call: RPC: Unable to receive; errno = Connection refused1
+JNI-ASPlayer -DASPLAYER_VERSION="Vdo_ypcall: clnt_call: RPC: Unable to receive; errno = Connection refused1.do_ypcall: clnt_call: RPC: Unable to receive; errno = Connection refused1.do_ypcall: clnt_call: RPC: Unable to receive; errno = Connection refusedgrep: clnt_call:: No such file or directorygrep: RPC:: No such file or directorygrep: Unable: No such file or directorygrep: to: No such file or directorygrep: receive: No such file or directory/bin/bash: errno: command not found-gdo_ypcall: clnt_call: RPC: Unable to receive; errno = Connection refused9cafb95"
+ASPlayer update field "VERSION_NAME" failed exit status 1
+PlatformVndkVersion: 34
+IntPlatformVndkVersion: 34
+No need to regenerate ninja file
+No need to regenerate ninja file
+No need to regenerate ninja file
+Starting ninja...
+[ 21% 3/14] target thumb C++: camera.amlogic_32 <= hardware/amlogic/camera/v3/fake-pipeline2/USBSensorHWDec.cpp
+[ 28% 4/14] target  C++: camera.amlogic <= hardware/amlogic/camera/v3/fake-pipeline2/USBSensorHWDec.cpp
+[ 35% 5/14] target SharedLib: camera.amlogic_32 (out/target/product/t7_an400/obj_arm/SHARED_LIBRARIES/camera.amlogic_intermediates/LINKED/camera.amlogic.so)
+[ 42% 6/14] target SharedLib: camera.amlogic (out/target/product/t7_an400/obj/SHARED_LIBRARIES/camera.amlogic_intermediates/LINKED/camera.amlogic.so)
+[ 50% 7/14] Copy symbols with mapping: out/target/product/t7_an400/symbols/vendor/lib/hw/camera.amlogic.so
+[ 57% 8/14] Copy symbols with mapping: out/target/product/t7_an400/symbols/vendor/lib64/hw/camera.amlogic.so
+[ 64% 9/14] target Strip: camera.amlogic (out/target/product/t7_an400/obj/SHARED_LIBRARIES/camera.amlogic_intermediates/camera.amlogic.so)
+[ 71% 10/14] target Strip: camera.amlogic_32 (out/target/product/t7_an400/obj_arm/SHARED_LIBRARIES/camera.amlogic_intermediates/camera.amlogic.so)
+[ 78% 11/14] Install: out/target/product/t7_an400/vendor/lib64/hw/camera.amlogic.so
+[ 85% 12/14] Install: out/target/product/t7_an400/vendor/lib/hw/camera.amlogic.so
+[ 92% 13/14] build out/target/product/t7_an400/obj/SHARED_LIBRARIES/camera.amlogic_intermediates/camera.amlogic.so.toc
+[100% 14/14] build out/target/product/t7_an400/obj_arm/SHARED_LIBRARIES/camera.amlogic_intermediates/camera.amlogic.so.toc
+
+[0;32m#### build completed successfully (02:46 (mm:ss)) ####[00m
+

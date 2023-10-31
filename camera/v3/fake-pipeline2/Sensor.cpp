@@ -14,15 +14,9 @@
  * limitations under the License.
  */
 
-//#define LOG_NDEBUG 0
-//#define LOG_NNDEBUG 0
+
 #define LOG_TAG "EmulatedCamera3_Sensor"
 
-#ifdef LOG_NNDEBUG
-#define ALOGVV(...) ALOGV(__VA_ARGS__)
-#else
-#define ALOGVV(...) ((void)0)
-#endif
 #define ATRACE_TAG (ATRACE_TAG_CAMERA | ATRACE_TAG_HAL | ATRACE_TAG_ALWAYS)
 #include <utils/Log.h>
 #include <utils/Trace.h>
@@ -184,7 +178,7 @@ void ReSizeNV21(struct VideoInfo *vinfo, uint8_t *src, uint8_t *img, uint32_t wi
                               0};
 
     if (!VT_resizeFrame_Video_opt2_lp(&input, &output, NULL, 0))
-        ALOGE("Scale NV21 frame down failed!\n");
+        CAMHAL_LOGE("scale NV21 frame down failed!\n");
 }
 
 Sensor::Sensor():
@@ -210,8 +204,8 @@ Sensor::Sensor():
         mCurFps(0.0),
         mSensorType(SENSOR_MMAP),
         mIoctlSupport(0),
-        msupportrotate(0),
         mTimeOutCount(0),
+        mSelectCount(0),
         mWait(false),
         mPre_width(0),
         mPre_height(0),
@@ -223,15 +217,15 @@ Sensor::Sensor():
         mScene(kResolution[0], kResolution[1], kElectronsPerLuxSecond),
         mUnpluged(false)
 {
-    memset(&mKernelPhysAddr,0,sizeof(mKernelPhysAddr));
-    memset(&mCaptureTime,0,sizeof(nsecs_t));
-    memset(&mStartupTime,0,sizeof(nsecs_t));
-    memset(&mTimeStart,0,sizeof(struct timeval));
-    memset(&mTimeEnd,0,sizeof(struct timeval));
-    memset(&mTestStart,0,sizeof(struct timeval));
-    memset(&mTestEnd,0,sizeof(struct timeval));
-    memset(&mNextCaptureTime,0,sizeof(nsecs_t));
-    memset(mDeviceName,0,sizeof(mDeviceName));
+        memset(&mKernelPhysAddr,0,sizeof(mKernelPhysAddr));
+        memset(&mCaptureTime,0,sizeof(nsecs_t));
+        memset(&mStartupTime,0,sizeof(nsecs_t));
+        memset(&mTimeStart,0,sizeof(struct timeval));
+        memset(&mTimeEnd,0,sizeof(struct timeval));
+        memset(&mTestStart,0,sizeof(struct timeval));
+        memset(&mTestEnd,0,sizeof(struct timeval));
+        memset(&mNextCaptureTime,0,sizeof(nsecs_t));
+        memset(mDeviceName,0,sizeof(mDeviceName));
 }
 
 Sensor::~Sensor() {
@@ -240,16 +234,17 @@ Sensor::~Sensor() {
 
 status_t Sensor::startUp(int idx, bool customizationSensor) {
     ATRACE_CALL();
-    ALOGV("%s: E", __FUNCTION__);
-    DBG_LOGA("ddd");
+    CAMHAL_LOGV("%s: E", __FUNCTION__);
+    CAMHAL_LOGD("ddd");
 
     int res;
     mCapturedBuffers = NULL;
+    mOpenCameraID = idx;
     res = run("EmulatedFakeCamera3::Sensor",
             ANDROID_PRIORITY_URGENT_AUDIO);
 
     if (res != OK) {
-        ALOGE("Unable to start up sensor capture thread: %d", res);
+        CAMHAL_LOGE("Unable to start up sensor capture thread: %d", res);
     }
 
     vinfo = (struct VideoInfo *) calloc(1, sizeof(*vinfo));
@@ -257,7 +252,7 @@ status_t Sensor::startUp(int idx, bool customizationSensor) {
 
     res = camera_open(vinfo);
     if (res < 0) {
-            ALOGE("Unable to open sensor %d, errno=%d\n", vinfo->idx, res);
+            CAMHAL_LOGE("Unable to open sensor %d, errno=%d\n", vinfo->idx, res);
     }
 
     mSensorType = SENSOR_USB;
@@ -327,7 +322,7 @@ status_t Sensor::setOutputFormat(int width, int height, int pixelformat, channel
 
         res = setBuffersFormat(vinfo);
         if (res < 0) {
-            ALOGE("set buffer failed\n");
+            CAMHAL_LOGE("set buffer failed\n");
             return res;
         }
     }
@@ -335,10 +330,10 @@ status_t Sensor::setOutputFormat(int width, int height, int pixelformat, channel
     if (NULL == mTemp_buffer) {
         mPre_width = vinfo->preview.format.fmt.pix.width;
         mPre_height = vinfo->preview.format.fmt.pix.height;
-        DBG_LOGB("setOutputFormat :: pre_width = %d, pre_height = %d \n" , mPre_width , mPre_height);
+        CAMHAL_LOGD("setOutputFormat :: pre_width = %d, pre_height = %d \n" , mPre_width , mPre_height);
         mTemp_buffer = new uint8_t[mPre_width * mPre_height * 3 / 2];
         if (mTemp_buffer == NULL) {
-            ALOGE("first time allocate mTemp_buffer failed !");
+            CAMHAL_LOGE("first time allocate mTemp_buffer failed !");
             return -1;
         }
     }
@@ -352,7 +347,7 @@ status_t Sensor::setOutputFormat(int width, int height, int pixelformat, channel
         mPre_height = vinfo->preview.format.fmt.pix.height;
         mTemp_buffer = new uint8_t[mPre_width * mPre_height * 3 / 2];
         if (mTemp_buffer == NULL) {
-            ALOGE("allocate mTemp_buffer failed !");
+            CAMHAL_LOGE("allocate mTemp_buffer failed !");
             return -1;
         }
     }
@@ -395,7 +390,7 @@ static bool findSOI(uint8_t* in_src, uint32_t in_size, int& offset) {
         offset++;
         }
     }
-    ALOGD("%s: not find SOI", __FUNCTION__);
+    CAMHAL_LOGD("%s: not find SOI", __FUNCTION__);
     return false;
 }
 
@@ -408,7 +403,7 @@ static bool findEOI(uint8_t* in_src, uint32_t in_size) {
             }
         }
     }
-    ALOGD("%s: not find EOI", __FUNCTION__);
+    CAMHAL_LOGD("%s: not find EOI", __FUNCTION__);
     return false;
 }
 
@@ -419,7 +414,7 @@ static bool checkMjpegData(uint8_t* in_src, uint32_t in_size, uint32_t in_width,
         if (needCheckMjpeg) {
             int width = 0;
             int height = 0;
-            ALOGD("%s: in_width: %d, in_height: %d", __FUNCTION__, in_width, in_height);
+            CAMHAL_LOGD("%s: in_width: %d, in_height: %d", __FUNCTION__, in_width, in_height);
             while (offset < in_size - 1) {
                 if (in_src[offset] == 0xFF) {
                     switch (in_src[offset + 1]) {
@@ -429,7 +424,7 @@ static bool checkMjpegData(uint8_t* in_src, uint32_t in_size, uint32_t in_width,
                         height = in_src[offset + 5] * 256 + in_src[offset + 6];
                         width = in_src[offset + 7] * 256 + in_src[offset + 8];
                         if (height != in_height || width != in_width) {
-                            ALOGW("this frame size is error");
+                            CAMHAL_LOGW("this frame size is error");
                             return false;
                         }
                         return true;;
@@ -441,7 +436,7 @@ static bool checkMjpegData(uint8_t* in_src, uint32_t in_size, uint32_t in_width,
         return true;
     }
 
-    ALOGW("this frame is not standard mjpg data");
+    CAMHAL_LOGW("this frame is not standard mjpg data");
     return false;
 }
 
@@ -482,7 +477,7 @@ int Sensor::getOutputFormat()
         fmt.index++;
     }
 
-    ALOGE("Unable to find a supported sensor format!");
+    CAMHAL_LOGE("Unable to find a supported sensor format!");
     return BAD_VALUE;
 }
 
@@ -528,7 +523,7 @@ int Sensor::halFormatToSensorFormat(uint32_t pixelfmt)
             return V4L2_PIX_FMT_YUYV;
         fmt.index++;
     }
-    ALOGE("%s, Unable to find a supported sensor format!", __FUNCTION__);
+    CAMHAL_LOGE("%s, Unable to find a supported sensor format!", __FUNCTION__);
     return BAD_VALUE;
 }
 
@@ -541,7 +536,7 @@ int Sensor::getPictureRotate()
     return mRotateValue;
 }
 status_t Sensor::shutDown() {
-    ALOGV("%s: E", __FUNCTION__);
+    CAMHAL_LOGV("%s: E", __FUNCTION__);
 
     int res;
 
@@ -549,17 +544,9 @@ status_t Sensor::shutDown() {
 
     res = requestExitAndWait();
     if (res != OK) {
-        ALOGE("Unable to shut down sensor capture thread: %d", res);
+        CAMHAL_LOGE("Unable to shut down sensor capture thread: %d", res);
     }
 
-    {
-        std::unique_lock<std::mutex> _l(mDecoderTask.lock);
-        mDecoderTask.exitThread = true;
-        mDecoderTask.condition.notify_one();
-    }
-    if (mDecoderThread.joinable()) {
-        mDecoderThread.join();
-    }
     if (vinfo != NULL) {
         if (mSensorType == SENSOR_USB) {
             releasebuf_and_stop_capturing(vinfo);
@@ -582,7 +569,7 @@ status_t Sensor::shutDown() {
 
     mSensorWorkFlag = false;
 
-    ALOGD("%s: Exit", __FUNCTION__);
+    CAMHAL_LOGD("%s: Exit", __FUNCTION__);
     return res;
 }
 
@@ -601,12 +588,6 @@ void Sensor::sendExitSingalToSensor() {
     {
         Mutex::Autolock lock(mReadoutMutex);
         mReadoutAvailable.signal();
-    }
-
-    {
-        std::unique_lock<std::mutex> _l(mDecoderTask.lock);
-        mDecoderTask.exitThread = true;
-        mDecoderTask.condition.notify_one();
     }
 }
 
@@ -633,17 +614,17 @@ int Sensor::getZoom(int *zoomMin, int *zoomMax, int *zoomStep)
         *zoomMin = 0;
         *zoomMax = 0;
         *zoomStep = 1;
-        CAMHAL_LOGDB("%s: Can't get zoom level!\n", __FUNCTION__);
+        CAMHAL_LOGD("%s: Can't get zoom level!\n", __FUNCTION__);
     } else {
         if ((qc.step != 0) && (qc.minimum != 0) &&
             ((qc.minimum/qc.step) > (qc.maximum/qc.minimum))) {
-            DBG_LOGA("adjust zoom step. \n");
+            CAMHAL_LOGD("adjust zoom step. \n");
             qc.step = (qc.minimum * qc.step);
         }
         *zoomMin = qc.minimum;
         *zoomMax = qc.maximum;
         *zoomStep = qc.step;
-        DBG_LOGB("zoomMin:%dzoomMax:%dzoomStep:%d\n", *zoomMin, *zoomMax, *zoomStep);
+        CAMHAL_LOGD("zoomMin:%dzoomMax:%dzoomStep:%d\n", *zoomMin, *zoomMax, *zoomStep);
     }
 
     return ret ;
@@ -659,7 +640,7 @@ int Sensor::setZoom(int zoomValue)
     ctl.id = V4L2_CID_ZOOM_ABSOLUTE;
     ret = ioctl(vinfo->fd, VIDIOC_S_CTRL, &ctl);
     if (ret < 0) {
-        ALOGE("%s: Set zoom level failed!\n", __FUNCTION__);
+        CAMHAL_LOGE("%s: Set zoom level failed!\n", __FUNCTION__);
     }
     return ret ;
 }
@@ -681,15 +662,15 @@ status_t Sensor::setEffect(uint8_t effect)
         ctl.value= CAM_EFFECT_ENC_SEPIA;
         break;
     default:
-        ALOGE("%s: Doesn't support effect mode %d",
+        CAMHAL_LOGE("%s: Doesn't support effect mode %d",
                     __FUNCTION__, effect);
         return BAD_VALUE;
     }
 
-    DBG_LOGB("set effect mode:%d", effect);
+    CAMHAL_LOGD("set effect mode:%d", effect);
     ret = ioctl(vinfo->fd, VIDIOC_S_CTRL, &ctl);
     if (ret < 0) {
-        CAMHAL_LOGDB("Set effect fail: %s. ret=%d", strerror(errno),ret);
+        CAMHAL_LOGD("Set effect fail: %s. ret=%d", strerror(errno),ret);
     }
     return ret ;
 }
@@ -707,11 +688,11 @@ int Sensor::getExposure(int *maxExp, int *minExp, int *def, camera_metadata_rati
 
     memset( &qc, 0, sizeof(qc));
 
-        DBG_LOGA("getExposure\n");
+        CAMHAL_LOGD("getExposure\n");
     qc.id = V4L2_CID_EXPOSURE;
     ret = ioctl(vinfo->fd, VIDIOC_QUERYCTRL, &qc);
     if(ret < 0) {
-        CAMHAL_LOGDB("QUERYCTRL failed, errno=%d\n", errno);
+        CAMHAL_LOGD("QUERYCTRL failed, errno=%d\n", errno);
         *minExp = -4;
         *maxExp = 4;
         *def = 0;
@@ -730,7 +711,7 @@ int Sensor::getExposure(int *maxExp, int *minExp, int *def, camera_metadata_rati
         *def = 0;
         step->numerator = 1;
         step->denominator = 1;
-        DBG_LOGB("not in[min,max], min=%d, max=%d, def=%d\n",
+        CAMHAL_LOGD("not in[min,max], min=%d, max=%d, def=%d\n",
                                         *minExp, *maxExp, *def);
         return true;
     }
@@ -741,7 +722,7 @@ int Sensor::getExposure(int *maxExp, int *minExp, int *def, camera_metadata_rati
     *def = qc.default_value - middle;
     step->numerator = 1;
     step->denominator = 2;//qc.step;
-        DBG_LOGB("min=%d, max=%d, step=%d\n", qc.minimum, qc.maximum, qc.step);
+        CAMHAL_LOGD("min=%d, max=%d, step=%d\n", qc.minimum, qc.maximum, qc.step);
     return ret;
 }
 
@@ -764,7 +745,7 @@ status_t Sensor::setExposure(int expCmp)
 
     ret = ioctl(vinfo->fd, VIDIOC_QUERYCTRL, &qc);
     if (ret < 0) {
-        CAMHAL_LOGDB("AMLOGIC CAMERA get Exposure fail: %s. ret=%d", strerror(errno),ret);
+        CAMHAL_LOGD("AMLOGIC CAMERA get Exposure fail: %s. ret=%d", strerror(errno),ret);
     }
 
     ctl.id = V4L2_CID_EXPOSURE;
@@ -772,9 +753,9 @@ status_t Sensor::setExposure(int expCmp)
 
     ret = ioctl(vinfo->fd, VIDIOC_S_CTRL, &ctl);
     if (ret < 0) {
-        CAMHAL_LOGDB("AMLOGIC CAMERA Set Exposure fail: %s. ret=%d", strerror(errno),ret);
+        CAMHAL_LOGD("AMLOGIC CAMERA Set Exposure fail: %s. ret=%d", strerror(errno),ret);
     }
-        DBG_LOGB("setExposure value%d mEVmin%d mEVmax%d\n",ctl.value, qc.minimum, qc.maximum);
+        CAMHAL_LOGD("setExposure value%d mEVmin%d mEVmax%d\n",ctl.value, qc.minimum, qc.maximum);
     return ret ;
 }
 
@@ -790,9 +771,9 @@ int Sensor::getAntiBanding(uint8_t *antiBanding, uint8_t maxCont)
     qc.id = V4L2_CID_POWER_LINE_FREQUENCY;
     ret = ioctl (vinfo->fd, VIDIOC_QUERYCTRL, &qc);
     if ( (ret<0) || (qc.flags == V4L2_CTRL_FLAG_DISABLED)){
-        DBG_LOGB("camera handle %d can't support this ctrl",vinfo->fd);
+        CAMHAL_LOGD("camera handle %d can't support this ctrl",vinfo->fd);
     } else if ( qc.type != V4L2_CTRL_TYPE_INTEGER) {
-        DBG_LOGB("this ctrl of camera handle %d can't support menu type",vinfo->fd);
+        CAMHAL_LOGD("this ctrl of camera handle %d can't support menu type",vinfo->fd);
     } else {
         memset(&qm, 0, sizeof(qm));
 
@@ -849,15 +830,15 @@ status_t Sensor::setAntiBanding(uint8_t antiBanding)
         ctl.value= CAM_ANTIBANDING_AUTO;
         break;
     default:
-            ALOGE("%s: Doesn't support ANTIBANDING mode %d",
+            CAMHAL_LOGE("%s: Doesn't support ANTIBANDING mode %d",
                     __FUNCTION__, antiBanding);
             return BAD_VALUE;
     }
 
-    DBG_LOGB("anti banding mode:%d", antiBanding);
+    CAMHAL_LOGD("anti banding mode:%d", antiBanding);
     ret = ioctl(vinfo->fd, VIDIOC_S_CTRL, &ctl);
     if ( ret < 0) {
-        CAMHAL_LOGDA("failed to set anti banding mode!\n");
+        CAMHAL_LOGD("failed to set anti banding mode!\n");
         return BAD_VALUE;
     }
     return ret;
@@ -889,9 +870,9 @@ int Sensor::getAutoFocus(uint8_t *afMode, uint8_t maxCount)
     qc.id = V4L2_CID_FOCUS_AUTO;
     ret = ioctl (vinfo->fd, VIDIOC_QUERYCTRL, &qc);
     if( (ret<0) || (qc.flags == V4L2_CTRL_FLAG_DISABLED)){
-        DBG_LOGB("camera handle %d can't support this ctrl",vinfo->fd);
+        CAMHAL_LOGD("camera handle %d can't support this ctrl",vinfo->fd);
     }else if( qc.type != V4L2_CTRL_TYPE_MENU) {
-        DBG_LOGB("this ctrl of camera handle %d can't support menu type",vinfo->fd);
+        CAMHAL_LOGD("this ctrl of camera handle %d can't support menu type",vinfo->fd);
     }else{
         memset(&qm, 0, sizeof(qm));
 
@@ -947,13 +928,13 @@ status_t Sensor::setAutoFocus(uint8_t afMode)
             ctl.value = CAM_FOCUS_MODE_CONTI_PIC;
             break;
         default:
-            ALOGE("%s: Emulator doesn't support AF mode %d",
+            CAMHAL_LOGE("%s: Emulator doesn't support AF mode %d",
                     __FUNCTION__, afMode);
             return BAD_VALUE;
     }
 
     if (ioctl(vinfo->fd, VIDIOC_S_CTRL, &ctl) < 0) {
-        CAMHAL_LOGDA("failed to set camera focus mode!\n");
+        CAMHAL_LOGD("failed to set camera focus mode!\n");
         return BAD_VALUE;
     }
 
@@ -972,9 +953,9 @@ int Sensor::getAWB(uint8_t *awbMode, uint8_t maxCount)
     qc.id = V4L2_CID_DO_WHITE_BALANCE;
     ret = ioctl (vinfo->fd, VIDIOC_QUERYCTRL, &qc);
     if( (ret<0) || (qc.flags == V4L2_CTRL_FLAG_DISABLED)){
-        DBG_LOGB("camera handle %d can't support this ctrl",vinfo->fd);
+        CAMHAL_LOGD("camera handle %d can't support this ctrl",vinfo->fd);
     }else if( qc.type != V4L2_CTRL_TYPE_MENU) {
-        DBG_LOGB("this ctrl of camera handle %d can't support menu type",vinfo->fd);
+        CAMHAL_LOGD("this ctrl of camera handle %d can't support menu type",vinfo->fd);
     }else{
         memset(&qm, 0, sizeof(qm));
 
@@ -1049,7 +1030,7 @@ status_t Sensor::setAWB(uint8_t awbMode)
             ctl.value = CAM_WB_SHADE;
             break;
         default:
-            ALOGE("%s: Emulator doesn't support AWB mode %d",
+            CAMHAL_LOGE("%s: Emulator doesn't support AWB mode %d",
                     __FUNCTION__, awbMode);
             return BAD_VALUE;
     }
@@ -1059,17 +1040,17 @@ status_t Sensor::setAWB(uint8_t awbMode)
 
 void Sensor::setRequestParameter(requestParameter &param) {
     Mutex::Autolock lock(mControlMutex);
-    CAMHAL_LOGVB("%s , E  setRequestParameter" , __FUNCTION__);
-    ALOGVV("Exposure set to %f", param.requestExposureTime/1000000.f);
+    CAMHAL_LOGD("%s , E  setRequestParameter" , __FUNCTION__);
+    CAMHAL_LOGVV("Exposure set to %f", param.requestExposureTime/1000000.f);
     mExposureTime = param.requestExposureTime;
-    ALOGVV("Frame duration set to %f", param.requestFrameDuration/1000000.f);
+    CAMHAL_LOGVV("Frame duration set to %f", param.requestFrameDuration/1000000.f);
     mFrameDuration = param.requestFrameDuration;
-    ALOGVV("Gain set to %d", param.requestGain);
+    CAMHAL_LOGVV("Gain set to %d", param.requestGain);
     mGainFactor = param.requestGain;
     mNextBuffers = param.requestBuffers;
     mFrameNumber = param.requestFrameNumber;
-    ALOGVV("framenumber: %d",mFrameNumber);
-    CAMHAL_LOGVB("%s , X setSensorParameter" , __FUNCTION__);
+    CAMHAL_LOGVV("framenumber: %d",mFrameNumber);
+    CAMHAL_LOGD("%s , X setSensorParameter" , __FUNCTION__);
 }
 
 void Sensor::setPictureRequest(Request &PicRequest) {
@@ -1087,7 +1068,7 @@ void Sensor::setFlushFlag(bool flushFlag) {
 }
 
 void Sensor::setDeviceName(char* name) {
-    ALOGVV("setDeviceName %s", name);
+    CAMHAL_LOGVV("setDeviceName %s", name);
     sprintf(mDeviceName,"%s",name);
 }
 
@@ -1095,7 +1076,7 @@ status_t Sensor::waitForVSync(nsecs_t reltime) {
     ATRACE_CALL();
     int res;
     Mutex::Autolock lock(mControlMutex);
-    CAMHAL_LOGVB("%s , E  mControlMutex" , __FUNCTION__);
+    CAMHAL_LOGV("%s , E  mControlMutex" , __FUNCTION__);
     if (mExitSensorThread) {
         return -1;
     }
@@ -1103,10 +1084,10 @@ status_t Sensor::waitForVSync(nsecs_t reltime) {
     mGotVSync = false;
     res = mVSync.waitRelative(mControlMutex, reltime);
     if (res != OK && res != TIMED_OUT) {
-        ALOGE("%s: Error waiting for VSync signal: %d", __FUNCTION__, res);
+        CAMHAL_LOGE("%s: Error waiting for VSync signal: %d", __FUNCTION__, res);
         return false;
     }
-    CAMHAL_LOGVB("%s , X  mControlMutex , mGotVSync = %d " , __FUNCTION__ , mGotVSync);
+    CAMHAL_LOGV("%s , X  mControlMutex , mGotVSync = %d " , __FUNCTION__ , mGotVSync);
     return mGotVSync;
 }
 
@@ -1120,13 +1101,13 @@ status_t Sensor::waitForNewFrame(nsecs_t reltime,
 
     if (mCapturedBuffers == NULL) {
         int res;
-        CAMHAL_LOGVB("%s , E  mReadoutMutex , reltime (%" PRId64 ")" , __FUNCTION__, reltime);
+        CAMHAL_LOGV("%s , E  mReadoutMutex , reltime (%" PRId64 ")" , __FUNCTION__, reltime);
         res = mReadoutAvailable.waitRelative(mReadoutMutex, reltime);
         if (res == TIMED_OUT) {
             return false;
         } else if (res != OK || mCapturedBuffers == NULL) {
             if (mFlushFlag) {
-                ALOGE("%s , return immediately , mWait = %d", __FUNCTION__, mWait);
+                CAMHAL_LOGE("%s , return immediately , mWait = %d", __FUNCTION__, mWait);
                 if (mWait) {
                     mWait = false;
                     *captureTime = mCaptureTime;
@@ -1138,7 +1119,7 @@ status_t Sensor::waitForNewFrame(nsecs_t reltime,
                 }
                 return -2;
             } else {
-                ALOGE("Error waiting for sensor readout signal: %d", res);
+                CAMHAL_LOGE("Error waiting for sensor readout signal: %d", res);
                 return false;
             }
         }
@@ -1152,7 +1133,7 @@ status_t Sensor::waitForNewFrame(nsecs_t reltime,
         *captureTime = mCaptureTime;
         mCapturedBuffers = NULL;
     }
-    CAMHAL_LOGVB("%s ,  X" , __FUNCTION__);
+    CAMHAL_LOGV("%s ,  X" , __FUNCTION__);
     return true;
 }
 
@@ -1167,12 +1148,12 @@ void Sensor::setSensorListener(SensorListener *listener) {
 status_t Sensor::readyToRun() {
     //int res;
     ATRACE_CALL();
-    ALOGV("Starting up sensor thread");
+    CAMHAL_LOGV("Starting up sensor thread");
     mStartupTime = systemTime();
     mNextCaptureTime = 0;
     mNextCapturedBuffers = NULL;
-    mDecoderThread = std::thread(decoderThread, this);
-    DBG_LOGA("");
+
+    CAMHAL_LOGD("");
 
     return OK;
 }
@@ -1202,7 +1183,7 @@ bool Sensor::threadLoop() {
     SensorListener *listener = NULL;
     {
         Mutex::Autolock lock(mControlMutex);
-        CAMHAL_LOGVB("%s , E  mControlMutex" , __FUNCTION__);
+        CAMHAL_LOGV("%s , E  mControlMutex" , __FUNCTION__);
         exposureDuration = mExposureTime;
         frameDuration    = mFrameDuration;
         gain             = mGainFactor;
@@ -1213,7 +1194,7 @@ bool Sensor::threadLoop() {
         mNextBuffers = NULL;
 
         // Signal VSync for start of readout
-        ALOGVV("Sensor VSync");
+        CAMHAL_LOGVV("Sensor VSync");
         mGotVSync = true;
         mVSync.signal();
     }
@@ -1234,7 +1215,7 @@ bool Sensor::threadLoop() {
     //        kRowReadoutTime * kResolution[1];
 
     if (mNextCapturedBuffers != NULL) {
-        ALOGVV("Sensor starting readout");
+        CAMHAL_LOGVV("Sensor starting readout");
         // Pretend we're doing readout now; will signal once enough time has elapsed
         capturedBuffers = mNextCapturedBuffers;
         captureTime    = mNextCaptureTime;
@@ -1244,11 +1225,11 @@ bool Sensor::threadLoop() {
     // TODO: Move this signal to another thread to simulate readout
     // time properly
     if (capturedBuffers != NULL) {
-        ALOGVV("Sensor readout complete");
+        CAMHAL_LOGVV("Sensor readout complete");
         Mutex::Autolock lock(mReadoutMutex);
-        CAMHAL_LOGVB("%s , E  mReadoutMutex" , __FUNCTION__);
+        CAMHAL_LOGV("%s , E  mReadoutMutex" , __FUNCTION__);
         if (mCapturedBuffers != NULL) {
-            ALOGE("Waiting for readout thread to catch up!");
+            CAMHAL_LOGE("Waiting for readout thread to catch up!");
             mWait = true;
             mReadoutComplete.wait(mReadoutMutex);
         }
@@ -1258,7 +1239,7 @@ bool Sensor::threadLoop() {
         mReadoutAvailable.signal();
         capturedBuffers = NULL;
     }
-    CAMHAL_LOGVB("%s , X  mReadoutMutex" , __FUNCTION__);
+    CAMHAL_LOGV("%s , X  mReadoutMutex" , __FUNCTION__);
 
     if (mExitSensorThread) {
         return false;
@@ -1280,7 +1261,7 @@ bool Sensor::threadLoop() {
                     mNextCaptureTime);
         }
 
-        ALOGVV("Starting next capture: Exposure: %f ms, gain: %d",
+        CAMHAL_LOGVV("Starting next capture: Exposure: %f ms, gain: %d",
                 (float)exposureDuration/1e6, gain);
         mScene.setExposureDuration((float)exposureDuration/1e9);
         mScene.calculateScene(mNextCaptureTime);
@@ -1292,7 +1273,7 @@ bool Sensor::threadLoop() {
         }
 
         mFramecount ++;
-        ALOGVV("Sensor vertical blanking interval");
+        CAMHAL_LOGVV("Sensor vertical blanking interval");
 
         if (false == mLowLatencyMode) {
             nsecs_t workDoneRealTime = systemTime();
@@ -1320,51 +1301,29 @@ bool Sensor::threadLoop() {
 
     if (mFramecount == 100) {
         gettimeofday(&mTimeEnd, NULL);
-        int64_t interval = ((int64_t) (mTimeEnd.tv_sec - mTimeStart.tv_sec)) * 1000000L + (mTimeEnd.tv_usec - mTimeStart.tv_usec);
+        int64_t interval = ( int64_t )(mTimeEnd.tv_sec - mTimeStart.tv_sec) * 1000000L + (mTimeEnd.tv_usec - mTimeStart.tv_usec);
         mCurFps = mFramecount/(interval/1000000.0f);
         memcpy(&mTimeStart, &mTimeEnd, sizeof(mTimeEnd));
         mFramecount = 0;
-        CAMHAL_LOGIB("interval(%" PRId64"), interval=%f, fps=%f\n", interval, interval/1000000.0f, mCurFps);
+        CAMHAL_LOGI("openid %d, interval(%" PRId64"), interval=%f, fps=%f\n", mOpenCameraID, interval, interval/1000000.0f, mCurFps);
     }
 
     return true;
 };
 
-/*int Sensor::captureNewImageWithGe2d() {
-
-    //uint32_t gain = mGainFactor;
-    mKernelPhysAddr = 0;
-
-
-    while ((mKernelPhysAddr = get_frame_phys(vinfo)) == 0) {
-        usleep(5000);
-    }
-
-    // Might be adding more buffers, so size isn't constant
-    for (size_t i = 0; i < mNextCapturedBuffers->size(); i++) {
-        const StreamBuffer &b = (*mNextCapturedBuffers)[i];
-        fillStream(vinfo, mKernelPhysAddr, b);
-    }
-    putback_frame(vinfo);
-    mKernelPhysAddr = 0;
-
-    return 0;
-
-}*/
-
 int Sensor::captureNewImage() {
     ATRACE_CALL();
-    bool isjpeg = false;
+
     uint32_t gain = mGainFactor;
     mKernelBuffer = NULL;
     mTempFD = -1;
     // Might be adding more buffers, so size isn't constant
-    ALOGVV("size=%d\n", mNextCapturedBuffers->size());
+    CAMHAL_LOGVV("size=%zu\n", mNextCapturedBuffers->size());
     for (size_t i = 0; i < mNextCapturedBuffers->size(); i++) {
         const StreamBuffer &b = (*mNextCapturedBuffers)[i];
-        ALOGVV("Sensor capturing buffer %d: stream %d,"
+        CAMHAL_LOGVV("Sensor capturing buffer %d: stream %d,"
                 " %d x %d, format %x, stride %d, buf %p, img %p",
-                i, b.streamId, b.width, b.height, b.format, b.stride,
+                (int)i, b.streamId, b.width, b.height, b.format, b.stride,
                 b.buffer, b.img);
         switch (b.format) {
 #if PLATFORM_SDK_VERSION <= 22
@@ -1372,9 +1331,6 @@ int Sensor::captureNewImage() {
                 captureRaw(b.img, gain, b.stride);
                 break;
 #endif
-            case HAL_PIXEL_FORMAT_RGB_888:
-                captureRGB(b.img, gain, b.stride);
-                break;
             case HAL_PIXEL_FORMAT_RGBA_8888:
                 captureRGBA(b.img, gain, b.stride);
                 break;
@@ -1385,9 +1341,8 @@ int Sensor::captureNewImage() {
                 StreamBuffer bAux;
                 int orientation;
                 orientation = getPictureRotate();
-                ALOGD("bAux orientation=%d",orientation);
+                CAMHAL_LOGD("bAux orientation=%d",orientation);
                 uint32_t pixelfmt;
-                // Force to set go here to avoid re-config usb camera
                 if (1) {
                     pixelfmt = getOutputFormat();
                     if (pixelfmt == V4L2_PIX_FMT_YVU420) {
@@ -1399,9 +1354,6 @@ int Sensor::captureNewImage() {
                     } else {
                         pixelfmt = HAL_PIXEL_FORMAT_YCrCb_420_SP;
                     }
-                } else {
-                    isjpeg = true;
-                    pixelfmt = HAL_PIXEL_FORMAT_RGB_888;
                 }
 
                 bAux.streamId = 0;
@@ -1425,17 +1377,11 @@ int Sensor::captureNewImage() {
                 captureYUYV(b.img, gain, b.stride);
                 break;
             default:
-                ALOGE("%s: Unknown format %x, no output", __FUNCTION__,
+                CAMHAL_LOGE("%s: Unknown format %x, no output", __FUNCTION__,
                         b.format);
                 break;
         }
     }
-    if ((!isjpeg) && (mKernelBuffer)) { //jpeg buffer that is rgb888 has been  save in the different buffer struct;
-        // whose buffer putback separately.
-        putback_frame(vinfo);
-    }
-    mKernelBuffer = NULL;
-
     return 0;
 }
 
@@ -1452,7 +1398,7 @@ int Sensor::getStreamConfigurations(uint32_t picSizes[], const int32_t kAvailabl
     support_h = 10000;
     memset(property, 0, sizeof(property));
     if (property_get("vendor.media.camera_preview.maxsize", property, NULL) > 0) {
-        CAMHAL_LOGDB("support Max Preview Size :%s",property);
+        CAMHAL_LOGD("support Max Preview Size :%s",property);
         if(sscanf(property,"%dx%d",&support_w,&support_h)!=2){
             support_w = 10000;
             support_h = 10000;
@@ -1467,7 +1413,7 @@ int Sensor::getStreamConfigurations(uint32_t picSizes[], const int32_t kAvailabl
         frmsize.index = i;
         res = ioctl(vinfo->fd, VIDIOC_ENUM_FRAMESIZES, &frmsize);
         if (res < 0){
-            DBG_LOGB("index=%d, break\n", i);
+            CAMHAL_LOGD("index=%d, break\n", i);
             break;
         }
 
@@ -1486,7 +1432,7 @@ int Sensor::getStreamConfigurations(uint32_t picSizes[], const int32_t kAvailabl
             picSizes[count+2] = frmsize.discrete.height;
             picSizes[count+3] = ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT;
 
-            DBG_LOGB("get output width=%d, height=%d, format=%d\n",
+            CAMHAL_LOGD("get output width=%d, height=%d, format=%d\n",
                 frmsize.discrete.width, frmsize.discrete.height, frmsize.pixel_format);
             if (0 == i) {
                 count += 4;
@@ -1515,7 +1461,7 @@ int Sensor::getStreamConfigurations(uint32_t picSizes[], const int32_t kAvailabl
         frmsize.index = i;
         res = ioctl(vinfo->fd, VIDIOC_ENUM_FRAMESIZES, &frmsize);
         if (res < 0){
-            DBG_LOGB("index=%d, break\n", i);
+            CAMHAL_LOGD("index=%d, break\n", i);
             break;
         }
 
@@ -1534,7 +1480,7 @@ int Sensor::getStreamConfigurations(uint32_t picSizes[], const int32_t kAvailabl
             picSizes[count+2] = frmsize.discrete.height;
             picSizes[count+3] = ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT;
 
-            DBG_LOGB("get output width=%d, height=%d, format =\
+            CAMHAL_LOGD("get output width=%d, height=%d, format =\
                 HAL_PIXEL_FORMAT_YCbCr_420_888\n", frmsize.discrete.width,
                                                     frmsize.discrete.height);
             if (0 == i) {
@@ -1566,7 +1512,7 @@ int Sensor::getStreamConfigurations(uint32_t picSizes[], const int32_t kAvailabl
             frmsize.index = i;
             res = ioctl(vinfo->fd, VIDIOC_ENUM_FRAMESIZES, &frmsize);
             if (res < 0){
-                DBG_LOGB("index=%d, break\n", i);
+                CAMHAL_LOGD("index=%d, break\n", i);
                 break;
             }
 
@@ -1586,7 +1532,7 @@ int Sensor::getStreamConfigurations(uint32_t picSizes[], const int32_t kAvailabl
                 picSizes[count+2] = frmsize.discrete.height;
                 picSizes[count+3] = ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT;
 
-                DBG_LOGB("get output width=%d, height=%d, format =\
+                CAMHAL_LOGD("get output width=%d, height=%d, format =\
                     HAL_PIXEL_FORMAT_YCbCr_420_888\n", frmsize.discrete.width,
                                                         frmsize.discrete.height);
                 if (0 == i) {
@@ -1628,11 +1574,11 @@ int Sensor::getStreamConfigurations(uint32_t picSizes[], const int32_t kAvailabl
             frmsize.index = i;
             res = ioctl(vinfo->fd, VIDIOC_ENUM_FRAMESIZES, &frmsize);
             if (res < 0){
-                DBG_LOGB("index=%d, break\n", i);
+                CAMHAL_LOGD("index=%d, break\n", i);
                 break;
             }
 
-            if(frmsize.type == V4L2_FRMSIZE_TYPE_DISCRETE){ //only support this type
+            if (frmsize.type == V4L2_FRMSIZE_TYPE_DISCRETE) { //only support this type
 
                 if (0 != (frmsize.discrete.width%16))
                     continue;
@@ -1682,7 +1628,7 @@ int Sensor::getStreamConfigurations(uint32_t picSizes[], const int32_t kAvailabl
     }
 
     if (frmsize.index == 0)
-        CAMHAL_LOGDA("no support pixel fmt for jpeg");
+        CAMHAL_LOGD("no support pixel fmt for jpeg");
 
     return count;
 
@@ -1878,7 +1824,7 @@ int64_t Sensor::getMinFrameDuration()
         }
     }
 
-    //CAMHAL_LOGDB("enum frameDuration=%lld\n", frameDuration);
+    //CAMHAL_LOGD("enum frameDuration=%lld\n", frameDuration);
     return frameDuration;
 }
 
@@ -1895,7 +1841,7 @@ int Sensor::getPictureSizes(int32_t picSizes[], int size, bool preview) {
     support_h = 10000;
     memset(property, 0, sizeof(property));
     if (property_get("vendor.media.camera_preview.maxsize", property, NULL) > 0) {
-        CAMHAL_LOGDB("support Max Preview Size :%s",property);
+        CAMHAL_LOGD("support Max Preview Size :%s",property);
         if(sscanf(property,"%dx%d",&support_w,&support_h)!=2){
             support_w = 10000;
             support_h = 10000;
@@ -1931,7 +1877,7 @@ int Sensor::getPictureSizes(int32_t picSizes[], int size, bool preview) {
         frmsize.index = i;
         res = ioctl(vinfo->fd, VIDIOC_ENUM_FRAMESIZES, &frmsize);
         if (res < 0){
-            DBG_LOGB("index=%d, break\n", i);
+            CAMHAL_LOGD("index=%d, break\n", i);
             break;
         }
 
@@ -2014,7 +1960,7 @@ void Sensor::captureRaw(uint8_t *img, uint32_t gain, uint32_t stride) {
         // TODO: Handle this better
         //simulatedTime += kRowReadoutTime;
     }
-    ALOGVV("Raw sensor image captured");
+    CAMHAL_LOGVV("Raw sensor image captured");
 }
 
 void Sensor::captureRGBA(uint8_t *img, uint32_t gain, uint32_t stride) {
@@ -2044,169 +1990,14 @@ void Sensor::captureRGBA(uint8_t *img, uint32_t gain, uint32_t stride) {
         // TODO: Handle this better
         //simulatedTime += kRowReadoutTime;
     }
-    ALOGVV("RGBA sensor image captured");
+    CAMHAL_LOGVV("RGBA sensor image captured");
 }
 
+// preview with RGB
 void Sensor::captureRGB(uint8_t *img, uint32_t gain, uint32_t stride) {
-#if 0
-    float totalGain = gain/100.0 * kBaseGainFactor;
-    // In fixed-point math, calculate total scaling from electrons to 8bpp
-    int scale64x = 64 * totalGain * 255 / kMaxRawValue;
-    uint32_t inc = kResolution[0] / stride;
-
-    for (unsigned int y = 0, outY = 0; y < kResolution[1]; y += inc, outY++ ) {
-        mScene.setReadoutPixel(0, y);
-        uint8_t *px = img + outY * stride * 3;
-        for (unsigned int x = 0; x < kResolution[0]; x += inc) {
-            uint32_t rCount, gCount, bCount;
-            // TODO: Perfect demosaicing is a cheat
-            const uint32_t *pixel = mScene.getPixelElectrons();
-            rCount = pixel[Scene::R]  * scale64x;
-            gCount = pixel[Scene::Gr] * scale64x;
-            bCount = pixel[Scene::B]  * scale64x;
-
-            *px++ = rCount < 255*64 ? rCount / 64 : 255;
-            *px++ = gCount < 255*64 ? gCount / 64 : 255;
-            *px++ = bCount < 255*64 ? bCount / 64 : 255;
-            for (unsigned int j = 1; j < inc; j++)
-                mScene.getPixelElectrons();
-        }
-        // TODO: Handle this better
-        //simulatedTime += kRowReadoutTime;
-    }
-#else
-    uint8_t *src = NULL;
-    int ret = 0, rotate = 0;
-    uint32_t width = 0, height = 0;
-    int dqTryNum = 3;
-
-    rotate = getPictureRotate();
-    width = vinfo->picture.format.fmt.pix.width;
-    height = vinfo->picture.format.fmt.pix.height;
-
-    if (mSensorType == SENSOR_USB) {
-        releasebuf_and_stop_capturing(vinfo);
-    } else {
-        stop_capturing(vinfo);
-    }
-
-    ret = start_picture(vinfo,rotate);
-    if (ret < 0)
-    {
-        ALOGD("start picture failed!");
-        return;
-    }
-    while(1)
-    {
-        if (mFlushFlag) {
-            break;
-        }
-
-        if (mExitSensorThread) {
-            break;
-        }
-
-        src = (uint8_t *)get_picture(vinfo);
-        if (get_device_status(vinfo)) {
-            break;
-        }
-        if (NULL == src) {
-            usleep(10000);
-            continue;
-        }
-        if ((NULL != src) && ((vinfo->picture.format.fmt.pix.pixelformat == V4L2_PIX_FMT_YUYV) ||
-            (vinfo->picture.format.fmt.pix.pixelformat == V4L2_PIX_FMT_RGB24))) {
-
-            while (dqTryNum > 0) {
-                if (NULL != src) {
-                    putback_picture_frame(vinfo);
-                }
-                usleep(10000);
-                dqTryNum --;
-                src = (uint8_t *)get_picture(vinfo);
-                while (src == NULL) {
-                    usleep(10000);
-                    src = (uint8_t *)get_picture(vinfo);
-                }
-            }
-        }
-
-        if (NULL != src) {
-            mSensorWorkFlag = true;
-            if (vinfo->picture.format.fmt.pix.pixelformat == V4L2_PIX_FMT_MJPEG) {
-                uint8_t *tmp_buffer = new uint8_t[width * height * 3 / 2];
-                if ( tmp_buffer == NULL) {
-                    ALOGE("new buffer failed!\n");
-                    return;
-                }
-#if ANDROID_PLATFORM_SDK_VERSION > 23
-               if (ConvertToI420(src, vinfo->picture.buf.bytesused, tmp_buffer, width, uBuffer, (width + 1) / 2,
-                                     vBuffer, (width + 1) / 2, 0, 0, width, height,
-                                     width, height, libyuv::kRotate0, libyuv::FOURCC_MJPG) != 0) {
-                   DBG_LOGA("Decode MJPEG frame Capture failed\n");
-                   if (tmp_buffer != NULL)
-                       delete [] tmp_buffer;
-                   putback_picture_frame(vinfo);
-                   usleep(5000);
-               } else {
-                   uint8_t *pUVBuffer = tmp_buffer + width * height;
-                   for (int i = 0; i < (int)(width * height / 4); i++) {
-                       *pUVBuffer++ = *(vBuffer + i);
-                       *pUVBuffer++ = *(uBuffer + i);
-                   }
-
-                   nv21_to_rgb24(tmp_buffer,img,width,height);
-                   if (tmp_buffer != NULL)
-                       delete [] tmp_buffer;
-                   break;
-               }
-#else
-               if (ConvertMjpegToNV21(src, vinfo->picture.buf.bytesused, tmp_buffer,
-                           width, tmp_buffer + width * height, (width + 1) / 2, width,
-                           height, width, height, libyuv::FOURCC_MJPG) != 0) {
-                   DBG_LOGA("Decode MJPEG frame Capture failed\n");
-                   if (tmp_buffer != NULL)
-                       delete [] tmp_buffer;
-                   putback_picture_frame(vinfo);
-                   usleep(5000);
-               } else {
-                   nv21_to_rgb24(tmp_buffer,img,width,height);
-                   if (tmp_buffer != NULL)
-                       delete [] tmp_buffer;
-                   break;
-               }
-#endif
-           } else if (vinfo->picture.format.fmt.pix.pixelformat == V4L2_PIX_FMT_YUYV) {
-                if (vinfo->picture.buf.length == vinfo->picture.buf.bytesused) {
-                    yuyv422_to_rgb24(src,img,width,height);
-                    break;
-                } else {
-                    putback_picture_frame(vinfo);
-                    usleep(5000);
-                }
-            } else if (vinfo->picture.format.fmt.pix.pixelformat == V4L2_PIX_FMT_RGB24) {
-                if (vinfo->picture.buf.length == width * height * 3) {
-                    memcpy(img, src, vinfo->picture.buf.length);
-                } else {
-                    rgb24_memcpy(img, src, width, height);
-                }
-                break;
-            } else if (vinfo->picture.format.fmt.pix.pixelformat == V4L2_PIX_FMT_NV21) {
-                memcpy(img, src, vinfo->picture.buf.length);
-                break;
-            }
-        }
-    }
-    ALOGD("get picture success !");
-
-    if (mSensorType == SENSOR_USB) {
-        releasebuf_and_stop_picture(vinfo);
-    } else {
-        stop_picture(vinfo);
-    }
-
-#endif
+    CAMHAL_LOGE("preview with rgb, not supported yet!");
 }
+
 
 void Sensor::YUYVToNV21(uint8_t *src, uint8_t *dst, int width, int height)
 {
@@ -2265,18 +2056,18 @@ void Sensor::YUYVToYV12(uint8_t *src, uint8_t *dst, int width, int height)
 }
 
 status_t Sensor::force_reset_sensor() {
-    DBG_LOGA("force_reset_sensor");
+    CAMHAL_LOGD("force_reset_sensor");
     status_t ret;
     mTimeOutCount = 0;
     ret = streamOff(channel_preview);
     ret = setBuffersFormat(vinfo);
     ret = streamOn(channel_preview);
-    DBG_LOGB("%s , ret = %d", __FUNCTION__, ret);
+    CAMHAL_LOGD("%s , ret = %d", __FUNCTION__, ret);
     return ret;
 }
 
-
 void Sensor::captureNV21(StreamBuffer b, uint32_t gain) {
+    ATRACE_CALL();
     uint8_t *src;
 
     if (mKernelBuffer) {
@@ -2301,14 +2092,19 @@ void Sensor::captureNV21(StreamBuffer b, uint32_t gain) {
         } else if (vinfo->preview.format.fmt.pix.pixelformat == V4L2_PIX_FMT_MJPEG) {
             uint32_t width = vinfo->preview.format.fmt.pix.width;
             uint32_t height = vinfo->preview.format.fmt.pix.height;
-            std::unique_lock<std::mutex> _l(mDecoderTask.lock);
+
             if ((width == b.width) && (height == b.height)) {
-                memcpy(b.img, mDecoderTask.validBuffer, b.stride * b.height * 3/2);
+                memcpy(b.img, src, b.stride * b.height);
+                uint8_t *pUVBuffer = b.img + b.stride * height;
+                for (int i = 0; i < (int)(b.stride * height / 4); i++) {
+                    *pUVBuffer++ = *(vBuffer + i);
+                    *pUVBuffer++ = *(uBuffer + i);
+                }
             } else {
-                ReSizeNV21(vinfo, mDecoderTask.validBuffer, b.img, b.width, b.height, b.stride);
+                ReSizeNV21(vinfo, src, b.img, b.width, b.height, b.stride);
             }
         } else {
-            ALOGE("Unable known sensor format: %d", vinfo->preview.format.fmt.pix.pixelformat);
+            CAMHAL_LOGE("Unable known sensor format: %d", vinfo->preview.format.fmt.pix.pixelformat);
         }
         return ;
     }
@@ -2325,12 +2121,12 @@ void Sensor::captureNV21(StreamBuffer b, uint32_t gain) {
                 camera_close(vinfo);
                 break;
             }
-            ALOGVV("get frame NULL, sleep 5ms");
+            CAMHAL_LOGVV("get frame NULL, sleep 5ms");
             usleep(5000);
             if (mSensorType == SENSOR_USB) {
                 mTimeOutCount++;
                 if (mTimeOutCount > 600) {
-                    DBG_LOGA("force sensor reset.\n");
+                    CAMHAL_LOGD("force sensor reset.\n");
                     force_reset_sensor();
                 }
             }
@@ -2340,7 +2136,7 @@ void Sensor::captureNV21(StreamBuffer b, uint32_t gain) {
         if (mSensorType == SENSOR_USB) {
             if (vinfo->preview.format.fmt.pix.pixelformat != V4L2_PIX_FMT_MJPEG) {
                 if (vinfo->preview.buf.length != vinfo->preview.buf.bytesused) {
-                        DBG_LOGB("length=%d, bytesused=%d \n", vinfo->preview.buf.length, vinfo->preview.buf.bytesused);
+                        CAMHAL_LOGD("length=%d, bytesused=%d \n", vinfo->preview.buf.length, vinfo->preview.buf.bytesused);
                         putback_frame(vinfo);
                         continue;
                 }
@@ -2363,7 +2159,7 @@ void Sensor::captureNV21(StreamBuffer b, uint32_t gain) {
                 mKernelBuffer = b.img;
             } else {
                 if ((b.height % 2) != 0) {
-                    DBG_LOGB("%d , b.height = %d", __LINE__, b.height);
+                    CAMHAL_LOGD("%d , b.height = %d", __LINE__, b.height);
                     b.height = b.height - 1;
                 }
                 ReSizeNV21(vinfo, mTemp_buffer, b.img, b.width, b.height, b.stride);
@@ -2374,12 +2170,12 @@ void Sensor::captureNV21(StreamBuffer b, uint32_t gain) {
             uint32_t height = vinfo->preview.format.fmt.pix.height;
             uint32_t bytesused = vinfo->preview.buf.bytesused;
             if (!checkMjpegData(src, bytesused, width, height, mNeedCheckMjpeg)) {
-                ALOGD("%s: nonstandard mjpeg data", __FUNCTION__);
+                CAMHAL_LOGD("%s: nonstandard mjpeg data", __FUNCTION__);
                 putback_frame(vinfo);
                 checkFailCount ++;
                 if (mSensorType == SENSOR_USB) {
                     if (checkFailCount > 30) {
-                        ALOGD("%s force sensor reset.", __FUNCTION__);
+                        CAMHAL_LOGD("%s force sensor reset.", __FUNCTION__);
                         force_reset_sensor();
                         checkFailCount = 0;
                     }
@@ -2387,209 +2183,86 @@ void Sensor::captureNV21(StreamBuffer b, uint32_t gain) {
                 continue;
             }
             mNeedCheckMjpeg = false;
-            std::unique_lock<std::mutex> _l(mDecoderTask.lock);
-            if (mDecoderTask.taskRunning == false) {
-                mDecoderTask.inputBuffer = mInputBuffer;
-                memcpy(mInputBuffer, src, bytesused);
-                mDecoderTask.inputWidth = width;
-                mDecoderTask.inputHeight = height;
-                mDecoderTask.inputBytesused = bytesused;
-                mDecoderTask.outputWidth = b.width;
-                mDecoderTask.outputHeight = b.height;
-                mDecoderTask.outputStride = b.stride;
-                if (mDecoderTask.validBuffer == mRingBuffer1) {
-                    ALOGV("use buffer2 for working buffer %p", mRingBuffer2);
-                    mDecoderTask.workingBuffer = mRingBuffer2;
+#if ANDROID_PLATFORM_SDK_VERSION > 23
+            if ((width == b.width) && (height == b.height)) {
+                if (ConvertToI420(src, vinfo->preview.buf.bytesused, b.img, b.stride, uBuffer, (b.stride + 1) / 2,
+                      vBuffer, (b.stride + 1) / 2, 0, 0, width, height,
+                      width, height, libyuv::kRotate0, libyuv::FOURCC_MJPG) != 0) {
+                    CAMHAL_LOGD("Decode MJPEG frame failed\n");
+                    putback_frame(vinfo);
+                    CAMHAL_LOGE("%s , %d , Decode MJPEG frame failed \n", __FUNCTION__ , __LINE__);
+                    continue;
                 }
-                else if (mDecoderTask.validBuffer == mRingBuffer2) {
-                    ALOGV("use buffer1 for working buffer %p", mRingBuffer1);
-                    mDecoderTask.workingBuffer = mRingBuffer1;
+                uint8_t *pUVBuffer = b.img + b.stride * height;
+                for (int i = 0; i < (int)(b.stride * height / 4); i++) {
+                    *pUVBuffer++ = *(vBuffer + i);
+                    *pUVBuffer++ = *(uBuffer + i);
                 }
-                else {
-                    ALOGV("no valid buffer now, just use buffer1 %p", mRingBuffer1);
-                    mDecoderTask.workingBuffer = mRingBuffer1;
-                }
-                mDecoderTask.condition.notify_one();
+                mKernelBuffer = b.img;
             } else {
-                ALOGV("Task is busy, do not post anymore");
-            }
-            // wait first frame valid
-            uint32_t count = 0;
-            while (!mDecoderTask.validBuffer) {
-                 _l.unlock();
-                ALOGV("sleep+");
-                usleep(1000);
-                ALOGV("sleep-");
-                _l.lock();
-                if (count++ >= 100 || !mDecoderTask.bDecoderFlag) {
-                    ALOGV("timeout wait for validBuffer");
-                    break;
+                memset(mTemp_buffer, 0 , width * height * 3/2);
+                if (ConvertToI420(src, vinfo->preview.buf.bytesused, mTemp_buffer, width, uBuffer, (width + 1) / 2,
+                      vBuffer, (width + 1) / 2, 0, 0, width, height,
+                      width, height, libyuv::kRotate0, libyuv::FOURCC_MJPG) != 0) {
+                    CAMHAL_LOGD("Decode MJPEG frame failed\n");
+                    putback_frame(vinfo);
+                    CAMHAL_LOGE("%s , %d , Decode MJPEG frame failed \n", __FUNCTION__ , __LINE__);
+                    continue;
                 }
-            }
-            if (!mDecoderTask.bDecoderFlag) {
-                 putback_frame(vinfo);
-                 continue;
-            }
-            ALOGVV("memcpy + %dx%d", b.width, b.height);
-            if (mDecoderTask.validBuffer) {
-                if ((width == b.width) && (height == b.height)) {
-                    memcpy(b.img, mDecoderTask.validBuffer, b.stride * b.height * 3/2);
-                    mKernelBuffer = b.img;
-                } else {
-                    ReSizeNV21(vinfo, mDecoderTask.validBuffer, b.img, b.width, b.height, b.stride);
-                    mKernelBuffer = mDecoderTask.validBuffer;
+                uint8_t *pUVBuffer = mTemp_buffer + width * height;
+                for (int i = 0; i < (int)(width * height / 4); i++) {
+                    *pUVBuffer++ = *(vBuffer + i);
+                    *pUVBuffer++ = *(uBuffer + i);
                 }
+                ReSizeNV21(vinfo, mTemp_buffer, b.img, b.width, b.height, b.stride);
+                mKernelBuffer = mTemp_buffer;
+          }
+#else
+            if ((width == b.width) && (height == b.height)) {
+                if (ConvertMjpegToNV21(src, vinfo->preview.buf.bytesused, b.img,
+                            b.stride, b.img + b.stride * height, (b.stride + 1) / 2, width,
+                            height, width, height, libyuv::FOURCC_MJPG) != 0) {
+                    putback_frame(vinfo);
+                    CAMHAL_LOGE("%s , %d , Decode MJPEG frame failed \n", __FUNCTION__ , __LINE__);
+                    continue;
+                }
+                mKernelBuffer = b.img;
+            } else {
+                memset(mTemp_buffer, 0 , width * height * 3/2);
+                if (ConvertMjpegToNV21(src, vinfo->preview.buf.bytesused, mTemp_buffer,
+                            width, mTemp_buffer + width * height, (width + 1) / 2, width,
+                            height, width, height, libyuv::FOURCC_MJPG) != 0) {
+                    putback_frame(vinfo);
+                    CAMHAL_LOGE("%s , %d , Decode MJPEG frame failed \n", __FUNCTION__ , __LINE__);
+                    continue;
+                }
+                if ((b.height % 2) != 0) {
+                    CAMHAL_LOGD("%d, b.height = %d", __LINE__, b.height);
+                    b.height = b.height - 1;
+                }
+                ReSizeNV21(vinfo, mTemp_buffer, b.img, b.width, b.height, b.stride);
+                mKernelBuffer = mTemp_buffer;
             }
-            ALOGVV("memcpy -");
-            ALOGVV("Capture Done");
+#endif
         }
         mSensorWorkFlag = true;
         /*
         if (mFlushFlag) {
             break;
-        }
-        */
+        }*/
         break;
     }
-
-    ALOGVV("NV21 sensor image captured");
-}
-
-status_t Sensor::decoderThread(void* user) {
-    Sensor* const self = static_cast<Sensor*>(user);
-    auto& task = self->mDecoderTask;
-    ALOGV("decoderThread +");
-    while (1) {
-        std::unique_lock<std::mutex> _l(task.lock);
-        task.condition.wait(_l, [&] {
-            return (task.workingBuffer != nullptr) || (task.exitThread);
-        });
-        if (task.exitThread) {
-            ALOGV("decoderThread exit");
-            return 0;
-        }
-        ALOGV("Decoder wakeup +");
-        task.taskRunning = true;
-        uint8_t *inputBuffer = task.inputBuffer;
-        uint32_t inputWidth = task.inputWidth;
-        uint32_t inputHeight = task.inputHeight;
-        uint32_t inputBytesused = task.inputBytesused;
-        uint32_t outputWidth = task.outputWidth;
-        uint32_t outputHeight = task.outputHeight;
-        uint32_t outputStride = task.outputStride;
-        uint8_t *workingBuffer = task.workingBuffer;
-        bool bDecoderFlag = false;
-        if (workingBuffer != nullptr) {
-            do {
-                ALOGVV("Decoder +");
-                _l.unlock();
-                if ((inputWidth == outputWidth) && (inputHeight == outputHeight)) {
-                    memset(workingBuffer, 0 , inputWidth * inputHeight * 3/2);
-                    if (ConvertToI420(inputBuffer, inputBytesused, workingBuffer, outputStride, self->uBuffer2, (outputStride + 1) / 2,
-                          self->vBuffer2, (outputStride + 1) / 2, 0, 0, inputWidth, inputHeight,
-                          inputWidth, inputHeight, libyuv::kRotate0, libyuv::FOURCC_MJPG) != 0) {
-                        DBG_LOGA("Decode MJPEG frame failed\n");
-                        ALOGE("%s , %d , Decode MJPEG frame failed \n", __FUNCTION__ , __LINE__);
-                        _l.lock();
-                        break;
-                    } else {
-                        bDecoderFlag = true;
-                    }
-                    uint8_t *pUVBuffer = workingBuffer + outputStride * inputHeight;
-                    for (int i = 0; i < (int)(outputStride * inputHeight / 4); i++) {
-                        *pUVBuffer++ = *(self->vBuffer2 + i);
-                        *pUVBuffer++ = *(self->uBuffer2 + i);
-                    }
-                } else {
-                    memset(workingBuffer, 0 , inputWidth * inputHeight * 3/2);
-                    if (ConvertToI420(inputBuffer, inputBytesused, workingBuffer, inputWidth, self->uBuffer2, (inputWidth + 1) / 2,
-                          self->vBuffer2, (inputWidth + 1) / 2, 0, 0, inputWidth, inputHeight,
-                          inputWidth, inputHeight, libyuv::kRotate0, libyuv::FOURCC_MJPG) != 0) {
-                        DBG_LOGA("Decode MJPEG frame failed\n");
-                        ALOGE("%s , %d , Decode MJPEG frame failed \n", __FUNCTION__ , __LINE__);
-                        _l.lock();
-                        break;
-                    } else {
-                        bDecoderFlag = true;
-                    }
-                    uint8_t *pUVBuffer = workingBuffer + inputWidth * inputHeight;
-                    for (int i = 0; i < (int)(inputWidth * inputHeight / 4); i++) {
-                        *pUVBuffer++ = *(self->vBuffer2 + i);
-                        *pUVBuffer++ = *(self->uBuffer2 + i);
-                    }
-                }
-                _l.lock();
-                ALOGVV("Decoder -");
-            } while(0);
-        }
-        task.bDecoderFlag = bDecoderFlag;
-        task.validBuffer = workingBuffer;
-        task.workingBuffer = nullptr;
-        task.taskRunning = false;
-        ALOGV("Decoder Done validBuffer changed %p", task.validBuffer);
-    }
+    putback_frame(vinfo);
+    CAMHAL_LOGVV("NV21 sensor image captured");
 }
 
 void Sensor::captureYV12(StreamBuffer b, uint32_t gain) {
-#if 0
-    float totalGain = gain/100.0 * kBaseGainFactor;
-    // Using fixed-point math with 6 bits of fractional precision.
-    // In fixed-point math, calculate total scaling from electrons to 8bpp
-    const int scale64x = 64 * totalGain * 255 / kMaxRawValue;
-    // In fixed-point math, saturation point of sensor after gain
-    const int saturationPoint = 64 * 255;
-    // Fixed-point coefficients for RGB-YUV transform
-    // Based on JFIF RGB->YUV transform.
-    // Cb/Cr offset scaled by 64x twice since they're applied post-multiply
-    const int rgbToY[]  = {19, 37, 7};
-    const int rgbToCb[] = {-10,-21, 32, 524288};
-    const int rgbToCr[] = {32,-26, -5, 524288};
-    // Scale back to 8bpp non-fixed-point
-    const int scaleOut = 64;
-    const int scaleOutSq = scaleOut * scaleOut; // after multiplies
-
-    uint32_t inc = kResolution[0] / stride;
-    uint32_t outH = kResolution[1] / inc;
-    for (unsigned int y = 0, outY = 0;
-         y < kResolution[1]; y+=inc, outY++) {
-        uint8_t *pxY = img + outY * stride;
-        uint8_t *pxVU = img + (outH + outY / 2) * stride;
-        mScene.setReadoutPixel(0,y);
-        for (unsigned int outX = 0; outX < stride; outX++) {
-            int32_t rCount, gCount, bCount;
-            // TODO: Perfect demosaicing is a cheat
-            const uint32_t *pixel = mScene.getPixelElectrons();
-            rCount = pixel[Scene::R]  * scale64x;
-            rCount = rCount < saturationPoint ? rCount : saturationPoint;
-            gCount = pixel[Scene::Gr] * scale64x;
-            gCount = gCount < saturationPoint ? gCount : saturationPoint;
-            bCount = pixel[Scene::B]  * scale64x;
-            bCount = bCount < saturationPoint ? bCount : saturationPoint;
-
-            *pxY++ = (rgbToY[0] * rCount +
-                    rgbToY[1] * gCount +
-                    rgbToY[2] * bCount) / scaleOutSq;
-            if (outY % 2 == 0 && outX % 2 == 0) {
-                *pxVU++ = (rgbToCr[0] * rCount +
-                        rgbToCr[1] * gCount +
-                        rgbToCr[2] * bCount +
-                        rgbToCr[3]) / scaleOutSq;
-                *pxVU++ = (rgbToCb[0] * rCount +
-                        rgbToCb[1] * gCount +
-                        rgbToCb[2] * bCount +
-                        rgbToCb[3]) / scaleOutSq;
-            }
-            for (unsigned int j = 1; j < inc; j++)
-                mScene.getPixelElectrons();
-        }
-    }
-#else
     uint8_t *src;
     if (mKernelBuffer) {
         src = mKernelBuffer;
         if (vinfo->preview.format.fmt.pix.pixelformat == V4L2_PIX_FMT_YVU420) {
             //memcpy(b.img, src, 200 * 100 * 3 / 2 /*vinfo->preview.buf.length*/);
-                ALOGI("Scale YV12 frame down \n");
+                CAMHAL_LOGI("scale YV12 frame down \n");
 
             int width = vinfo->preview.format.fmt.pix.width;
             int height = vinfo->preview.format.fmt.pix.height;
@@ -2603,14 +2276,14 @@ void Sensor::captureYV12(StreamBuffer b, uint32_t gain) {
                                         b.width, b.height,
                                         libyuv::kFilterNone);
             if (ret < 0)
-                ALOGE("Scale YV12 frame down failed!\n");
+                CAMHAL_LOGE("scale YV12 frame down failed!\n");
         } else if (vinfo->preview.format.fmt.pix.pixelformat == V4L2_PIX_FMT_YUYV) {
             int width = vinfo->preview.format.fmt.pix.width;
             int height = vinfo->preview.format.fmt.pix.height;
             uint8_t *tmp_buffer = new uint8_t[width * height * 3 / 2];
 
             if ( tmp_buffer == NULL) {
-                ALOGE("new buffer failed!\n");
+                CAMHAL_LOGE("new buffer failed!\n");
                 return;
             }
 
@@ -2626,7 +2299,7 @@ void Sensor::captureYV12(StreamBuffer b, uint32_t gain) {
                                         b.width, b.height,
                                         libyuv::kFilterNone);
             if (ret < 0)
-                ALOGE("Scale YV12 frame down failed!\n");
+                CAMHAL_LOGE("scale YV12 frame down failed!\n");
             delete [] tmp_buffer;
         } else if (vinfo->preview.format.fmt.pix.pixelformat == V4L2_PIX_FMT_MJPEG) {
             int width = vinfo->preview.format.fmt.pix.width;
@@ -2634,14 +2307,14 @@ void Sensor::captureYV12(StreamBuffer b, uint32_t gain) {
             uint8_t *tmp_buffer = new uint8_t[width * height * 3 / 2];
 
             if ( tmp_buffer == NULL) {
-                ALOGE("new buffer failed!\n");
+                CAMHAL_LOGE("new buffer failed!\n");
                 return;
             }
 
             if (ConvertToI420(src, vinfo->preview.buf.bytesused, tmp_buffer, width, tmp_buffer + width * height + width * height / 4, (width + 1) / 2,
                    tmp_buffer + width * height, (width + 1) / 2, 0, 0, width, height,
                    width, height, libyuv::kRotate0, libyuv::FOURCC_MJPG) != 0) {
-                DBG_LOGA("Decode MJPEG frame failed\n");
+                CAMHAL_LOGD("Decode MJPEG frame failed\n");
             }
 
             int ret = libyuv::I420Scale(tmp_buffer, width,
@@ -2654,15 +2327,16 @@ void Sensor::captureYV12(StreamBuffer b, uint32_t gain) {
                                         b.width, b.height,
                                         libyuv::kFilterNone);
             if (ret < 0)
-                ALOGE("Scale YV12 frame down failed!\n");
+                CAMHAL_LOGE("scale YV12 frame down failed!\n");
 
             delete [] tmp_buffer;
         } else {
-            ALOGE("Unable known sensor format: %d", vinfo->preview.format.fmt.pix.pixelformat);
+            CAMHAL_LOGE("Unable known sensor format: %d", vinfo->preview.format.fmt.pix.pixelformat);
         }
         return ;
     }
     while(1){
+
         if (mFlushFlag) {
             break;
         }
@@ -2675,7 +2349,7 @@ void Sensor::captureYV12(StreamBuffer b, uint32_t gain) {
             if (get_device_status(vinfo)) {
                 break;
             }
-            ALOGVV("get frame NULL, sleep 5ms");
+            CAMHAL_LOGVV("get frame NULL, sleep 5ms");
             usleep(5000);
             mTimeOutCount++;
             if (mTimeOutCount > 600) {
@@ -2687,7 +2361,7 @@ void Sensor::captureYV12(StreamBuffer b, uint32_t gain) {
         if (mSensorType == SENSOR_USB) {
             if (vinfo->preview.format.fmt.pix.pixelformat != V4L2_PIX_FMT_MJPEG) {
                 if (vinfo->preview.buf.length != vinfo->preview.buf.bytesused) {
-                        CAMHAL_LOGDB("length=%d, bytesused=%d \n", vinfo->preview.buf.length, vinfo->preview.buf.bytesused);
+                        CAMHAL_LOGD("length=%d, bytesused=%d \n", vinfo->preview.buf.length, vinfo->preview.buf.bytesused);
                         putback_frame(vinfo);
                         continue;
                 }
@@ -2712,75 +2386,23 @@ void Sensor::captureYV12(StreamBuffer b, uint32_t gain) {
                         b.img + width * height, (width + 1) / 2, 0, 0, width, height,
                         width, height, libyuv::kRotate0, libyuv::FOURCC_MJPG) != 0) {
                 putback_frame(vinfo);
-                DBG_LOGA("Decode MJPEG frame failed\n");
+                CAMHAL_LOGD("Decode MJPEG frame failed\n");
                 continue;
             }
             mKernelBuffer = b.img;
         } else {
-            ALOGE("Unable known sensor format: %d", vinfo->preview.format.fmt.pix.pixelformat);
+            CAMHAL_LOGE("Unable known sensor format: %d", vinfo->preview.format.fmt.pix.pixelformat);
         }
         mSensorWorkFlag = true;
         break;
     }
-#endif
+    putback_frame(vinfo);
     //mKernelBuffer = src;
-    ALOGVV("YV12 sensor image captured");
+    CAMHAL_LOGVV("YV12 sensor image captured");
 }
 
 void Sensor::captureYUYV(uint8_t *img, uint32_t gain, uint32_t stride) {
-#if 0
-    float totalGain = gain/100.0 * kBaseGainFactor;
-    // Using fixed-point math with 6 bits of fractional precision.
-    // In fixed-point math, calculate total scaling from electrons to 8bpp
-    const int scale64x = 64 * totalGain * 255 / kMaxRawValue;
-    // In fixed-point math, saturation point of sensor after gain
-    const int saturationPoint = 64 * 255;
-    // Fixed-point coefficients for RGB-YUV transform
-    // Based on JFIF RGB->YUV transform.
-    // Cb/Cr offset scaled by 64x twice since they're applied post-multiply
-    const int rgbToY[]  = {19, 37, 7};
-    const int rgbToCb[] = {-10,-21, 32, 524288};
-    const int rgbToCr[] = {32,-26, -5, 524288};
-    // Scale back to 8bpp non-fixed-point
-    const int scaleOut = 64;
-    const int scaleOutSq = scaleOut * scaleOut; // after multiplies
 
-    uint32_t inc = kResolution[0] / stride;
-    uint32_t outH = kResolution[1] / inc;
-    for (unsigned int y = 0, outY = 0;
-         y < kResolution[1]; y+=inc, outY++) {
-        uint8_t *pxY = img + outY * stride;
-        uint8_t *pxVU = img + (outH + outY / 2) * stride;
-        mScene.setReadoutPixel(0,y);
-        for (unsigned int outX = 0; outX < stride; outX++) {
-            int32_t rCount, gCount, bCount;
-            // TODO: Perfect demosaicing is a cheat
-            const uint32_t *pixel = mScene.getPixelElectrons();
-            rCount = pixel[Scene::R]  * scale64x;
-            rCount = rCount < saturationPoint ? rCount : saturationPoint;
-            gCount = pixel[Scene::Gr] * scale64x;
-            gCount = gCount < saturationPoint ? gCount : saturationPoint;
-            bCount = pixel[Scene::B]  * scale64x;
-            bCount = bCount < saturationPoint ? bCount : saturationPoint;
-
-            *pxY++ = (rgbToY[0] * rCount +
-                    rgbToY[1] * gCount +
-                    rgbToY[2] * bCount) / scaleOutSq;
-            if (outY % 2 == 0 && outX % 2 == 0) {
-                *pxVU++ = (rgbToCr[0] * rCount +
-                        rgbToCr[1] * gCount +
-                        rgbToCr[2] * bCount +
-                        rgbToCr[3]) / scaleOutSq;
-                *pxVU++ = (rgbToCb[0] * rCount +
-                        rgbToCb[1] * gCount +
-                        rgbToCb[2] * bCount +
-                        rgbToCb[3]) / scaleOutSq;
-            }
-            for (unsigned int j = 1; j < inc; j++)
-                mScene.getPixelElectrons();
-        }
-    }
-#else
     uint8_t *src;
     if (mKernelBuffer) {
         src = mKernelBuffer;
@@ -2789,7 +2411,7 @@ void Sensor::captureYUYV(uint8_t *img, uint32_t gain, uint32_t stride) {
             //memcpy(img, src, vinfo->preview.buf.length);
 
         } else
-            ALOGE("Unable known sensor format: %d", vinfo->preview.format.fmt.pix.pixelformat);
+            CAMHAL_LOGE("Unable known sensor format: %d", vinfo->preview.format.fmt.pix.pixelformat);
 
         return ;
     }
@@ -2806,7 +2428,7 @@ void Sensor::captureYUYV(uint8_t *img, uint32_t gain, uint32_t stride) {
             if (get_device_status(vinfo)) {
                 break;
             }
-            ALOGVV("get frame NULL, sleep 5ms");
+            CAMHAL_LOGVV("get frame NULL, sleep 5ms");
             usleep(5000);
             mTimeOutCount++;
             if (mTimeOutCount > 600) {
@@ -2818,7 +2440,7 @@ void Sensor::captureYUYV(uint8_t *img, uint32_t gain, uint32_t stride) {
         if (mSensorType == SENSOR_USB) {
             if (vinfo->preview.format.fmt.pix.pixelformat != V4L2_PIX_FMT_MJPEG) {
                 if (vinfo->preview.buf.length != vinfo->preview.buf.bytesused) {
-                        CAMHAL_LOGDB("length=%d, bytesused=%d \n", vinfo->preview.buf.length, vinfo->preview.buf.bytesused);
+                        CAMHAL_LOGD("length=%d, bytesused=%d \n", vinfo->preview.buf.length, vinfo->preview.buf.bytesused);
                         putback_frame(vinfo);
                         continue;
                 }
@@ -2828,14 +2450,14 @@ void Sensor::captureYUYV(uint8_t *img, uint32_t gain, uint32_t stride) {
             memcpy(img, src, vinfo->preview.buf.length);
             mKernelBuffer = src;
         } else {
-            ALOGE("Unable known sensor format: %d", vinfo->preview.format.fmt.pix.pixelformat);
+            CAMHAL_LOGE("Unable known sensor format: %d", vinfo->preview.format.fmt.pix.pixelformat);
         }
         mSensorWorkFlag = true;
         break;
     }
-#endif
+    putback_frame(vinfo);
     //mKernelBuffer = src;
-    ALOGVV("YUYV sensor image captured");
+    CAMHAL_LOGVV("YUYV sensor image captured");
 }
 
 void Sensor::dump(int fd) {
@@ -2848,7 +2470,7 @@ void Sensor::dump(int fd) {
     result.appendFormat("camera preview format: %.4s\n\n",
             (char *) &vinfo->preview.format.fmt.pix.pixelformat);
 
-    write(fd, result.c_str(), result.size());
+    write(fd, result.string(), result.size());
 }
 
 } // namespace android

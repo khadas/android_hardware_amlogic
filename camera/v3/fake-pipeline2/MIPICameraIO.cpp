@@ -16,13 +16,13 @@ namespace android {
 #if 0
 
 MIPIVideoInfo::MIPIVideoInfo(int preview , int snapshot) {
-    ALOGD("mipi video info constructer!");
+    CAMHAL_LOGD("mipi video info constructer!");
     mPreviewFd = preview;
     mSnapFd = snapshot;
 }
 
 MIPIVideoInfo::~MIPIVideoInfo() {
-    ALOGD("mipi video info destructer!");
+    CAMHAL_LOGD("mipi video info destructer!");
     mPreviewFd = -1;
     mSnapFd = -1;
     for (uint32_t i = 0; i < mem.size(); i++) {
@@ -41,10 +41,10 @@ int MIPIVideoInfo::export_dmabuf_fd(int v4lfd, int index, int* dmafd)
     expbuf.flags = 0;
     expbuf.fd = -1;
     if (ioctl(v4lfd,VIDIOC_EXPBUF,&expbuf) == -1) {
-        ALOGE("export buffer fail:%s",strerror(errno));
+        CAMHAL_LOGE("export buffer fail:%s",strerror(errno));
         return -1;
     } else {
-        ALOGD("dma buffer fd = %d \n",expbuf.fd);
+        CAMHAL_LOGD("dma buffer fd = %d \n",expbuf.fd);
         *dmafd = expbuf.fd;
     }
     return 0;
@@ -59,12 +59,12 @@ int MIPIVideoInfo::start_capturing(void)
         struct  v4l2_buffer buf;
 
         if (mPreviewFd < 0) {
-            ALOGE("camera not be init!");
+            CAMHAL_LOGE("camera not be init!");
             return -1;
         }
 
         if (isStreaming)
-            ALOGD("already stream on\n");
+            CAMHAL_LOGD("already stream on\n");
 
         //----allocate memory
         CLEAR(preview.rb);
@@ -74,11 +74,11 @@ int MIPIVideoInfo::start_capturing(void)
         preview.rb.memory = V4L2_MEMORY_MMAP;
         ret = ioctl(mPreviewFd, VIDIOC_REQBUFS, &preview.rb);
         if (ret < 0) {
-            DBG_LOGB("camera idx:%d does not support "
+            CAMHAL_LOGD("camera idx:%d does not support "
                       "memory mapping, errno=%d\n", idx, errno);
         }
         if (preview.rb.count < 2) {
-            DBG_LOGB( "Insufficient buffer memory on /dev/video%d, errno=%d\n",
+            CAMHAL_LOGD( "Insufficient buffer memory on /dev/video%d, errno=%d\n",
                             idx, errno);
             return -EINVAL;
         }
@@ -91,7 +91,7 @@ int MIPIVideoInfo::start_capturing(void)
             preview.buf.index       = i;
 
             if (ioctl(mPreviewFd, VIDIOC_QUERYBUF, &preview.buf) < 0) {
-                    DBG_LOGB("VIDIOC_QUERYBUF, errno=%d", errno);
+                    CAMHAL_LOGD("VIDIOC_QUERYBUF, errno=%d", errno);
             }
 
             mem[i].size = preview.buf.length;
@@ -103,15 +103,15 @@ int MIPIVideoInfo::start_capturing(void)
                                 preview.buf.m.offset);
 
             if (MAP_FAILED == mem[i].addr) {
-                ALOGE("mmap failed,%s\n", strerror(errno));
+                CAMHAL_LOGE("mmap failed,%s\n", strerror(errno));
             }
             int dma_fd = -1;
             int ret = export_dmabuf_fd(mPreviewFd,i, &dma_fd);
             if (ret) {
-                ALOGE("export dma fd failed,%s\n", strerror(errno));
+                CAMHAL_LOGE("export dma fd failed,%s\n", strerror(errno));
             } else {
                 mem[i].dma_fd = dma_fd;
-                ALOGD("index = %d, dma_fd = %d \n",i,mem[i].dma_fd);
+                CAMHAL_LOGD("index = %d, dma_fd = %d \n",i,mem[i].dma_fd);
             }
         }
         //----queue buffer to driver's video buffer queue
@@ -123,14 +123,14 @@ int MIPIVideoInfo::start_capturing(void)
                 buf.index = i;
 
                 if (ioctl(mPreviewFd, VIDIOC_QBUF, &buf) < 0)
-                        DBG_LOGB("VIDIOC_QBUF failed, errno=%d\n", errno);
+                        CAMHAL_LOGD("VIDIOC_QBUF failed, errno=%d\n", errno);
         }
         //----stream on----
         type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
         if ((preview.format.fmt.pix.width != 0) &&
                (preview.format.fmt.pix.height != 0)) {
              if (ioctl(mPreviewFd, VIDIOC_STREAMON, &type) < 0)
-                  DBG_LOGB("VIDIOC_STREAMON, errno=%d\n", errno);
+                  CAMHAL_LOGD("VIDIOC_STREAMON, errno=%d\n", errno);
         }
 
         isStreaming = true;
@@ -143,7 +143,7 @@ int MIPIVideoInfo::stop_capturing(void)
         int res = 0;
         int i;
         if (mPreviewFd < 0) {
-            ALOGE("camera not be init!");
+            CAMHAL_LOGE("camera not be init!");
             return -1;
         }
 
@@ -152,7 +152,7 @@ int MIPIVideoInfo::stop_capturing(void)
 
         type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
         if (ioctl(mPreviewFd, VIDIOC_STREAMOFF, &type) < 0) {
-                DBG_LOGB("VIDIOC_STREAMOFF, errno=%d", errno);
+                CAMHAL_LOGD("VIDIOC_STREAMOFF, errno=%d", errno);
                 res = -1;
         }
 
@@ -162,7 +162,7 @@ int MIPIVideoInfo::stop_capturing(void)
 
         for (i = 0; i < (int)preview.rb.count; ++i) {
                 if (munmap(mem[i].addr, mem[i].size) < 0) {
-                        DBG_LOGB("munmap failed errno=%d", errno);
+                        CAMHAL_LOGD("munmap failed errno=%d", errno);
                         res = -1;
                 }
         }
@@ -174,9 +174,9 @@ int MIPIVideoInfo::stop_capturing(void)
 
             res = ioctl(mPreviewFd, VIDIOC_REQBUFS, &preview.rb);
             if (res < 0) {
-                DBG_LOGB("VIDIOC_REQBUFS failed: %s", strerror(errno));
+                CAMHAL_LOGD("VIDIOC_REQBUFS failed: %s", strerror(errno));
             }else{
-                DBG_LOGA("VIDIOC_REQBUFS delete buffer success\n");
+                CAMHAL_LOGD("VIDIOC_REQBUFS delete buffer success\n");
             }
         }
 
@@ -191,7 +191,7 @@ int MIPIVideoInfo::releasebuf_and_stop_capturing(void)
         int i;
 
         if (mPreviewFd < 0) {
-            ALOGE("camera not be init!");
+            CAMHAL_LOGE("camera not be init!");
             return -1;
         }
         if (!isStreaming)
@@ -201,7 +201,7 @@ int MIPIVideoInfo::releasebuf_and_stop_capturing(void)
         if ((preview.format.fmt.pix.width != 0) &&
                (preview.format.fmt.pix.height != 0)) {
             if (ioctl(mPreviewFd, VIDIOC_STREAMOFF, &type) < 0) {
-                 DBG_LOGB("VIDIOC_STREAMOFF, errno=%d", errno);
+                 CAMHAL_LOGD("VIDIOC_STREAMOFF, errno=%d", errno);
                  res = -1;
             }
         }
@@ -210,7 +210,7 @@ int MIPIVideoInfo::releasebuf_and_stop_capturing(void)
         }
         for (i = 0; i < (int)preview.rb.count; ++i) {
                 if (munmap(mem[i].addr, mem[i].size) < 0) {
-                        DBG_LOGB("munmap failed errno=%d", errno);
+                        CAMHAL_LOGD("munmap failed errno=%d", errno);
                         res = -1;
                 }
         }
@@ -222,10 +222,10 @@ int MIPIVideoInfo::releasebuf_and_stop_capturing(void)
 
         ret = ioctl(mPreviewFd, VIDIOC_REQBUFS, &preview.rb);
         if (ret < 0) {
-           DBG_LOGB("VIDIOC_REQBUFS failed: %s", strerror(errno));
+           CAMHAL_LOGD("VIDIOC_REQBUFS failed: %s", strerror(errno));
            //return ret;
         }else{
-           DBG_LOGA("VIDIOC_REQBUFS delete buffer success\n");
+           CAMHAL_LOGD("VIDIOC_REQBUFS delete buffer success\n");
         }
         return res;
 }
@@ -234,7 +234,7 @@ int MIPIVideoInfo::releasebuf_and_stop_capturing(void)
 uintptr_t MIPIVideoInfo::get_frame_phys(void)
 {
         if (mPreviewFd < 0) {
-            ALOGE("camera not be init!");
+            CAMHAL_LOGE("camera not be init!");
             return -1;
         }
         CLEAR(preview.buf);
@@ -248,10 +248,10 @@ uintptr_t MIPIVideoInfo::get_frame_phys(void)
                                 return 0;
                         case EIO:
                         default:
-                                DBG_LOGB("VIDIOC_DQBUF failed, errno=%d\n", errno);
+                                CAMHAL_LOGD("VIDIOC_DQBUF failed, errno=%d\n", errno);
                                 exit(1);
                 }
-        DBG_LOGB("VIDIOC_DQBUF failed, errno=%d\n", errno);
+        CAMHAL_LOGD("VIDIOC_DQBUF failed, errno=%d\n", errno);
         }
 
         return (uintptr_t)preview.buf.m.userptr;
@@ -259,7 +259,7 @@ uintptr_t MIPIVideoInfo::get_frame_phys(void)
 
 int MIPIVideoInfo::get_frame_index_by_fd(FrameV4L2Info& info,int fd) {
        if (fd < 0) {
-            ALOGE("camera not be init!");
+            CAMHAL_LOGE("camera not be init!");
             return -1;
         }
         CLEAR(info.buf);
@@ -273,11 +273,11 @@ int MIPIVideoInfo::get_frame_index_by_fd(FrameV4L2Info& info,int fd) {
 
                 case EIO:
                 default:
-                    CAMHAL_LOGDB("VIDIOC_DQBUF failed, errno=%d\n", errno);
+                    CAMHAL_LOGD("VIDIOC_DQBUF failed, errno=%d\n", errno);
                     //here will generate crash, so delete.  when ocour error, should break while() loop
                     //exit(1);
                     if (errno == ENODEV) {
-                        ALOGE("camera device is not exist!");
+                        CAMHAL_LOGE("camera device is not exist!");
                         set_device_status();
                         close(fd);
                         fd = -1;
@@ -291,12 +291,12 @@ int MIPIVideoInfo::get_frame_index_by_fd(FrameV4L2Info& info,int fd) {
 int MIPIVideoInfo::get_frame_buffer(struct VideoInfoBuffer* b)
 {
     int index = get_frame_index_by_fd(preview,mPreviewFd);
-    ALOGD("%s:index = %d \n",__FUNCTION__,index);
+    CAMHAL_LOGD("%s:index = %d \n",__FUNCTION__,index);
     if (index < 0)
         return -1;
     else {
         index = index % IO_PREVIEW_BUFFER;
-        ALOGD("%s: index=%d,dma_fd=%d\n",__FUNCTION__,index,mem[index].dma_fd);
+        CAMHAL_LOGD("%s: index=%d,dma_fd=%d\n",__FUNCTION__,index,mem[index].dma_fd);
         b->addr = mem[index].addr;
         b->size = mem[index].size;
         b->dma_fd = mem[index].dma_fd;
@@ -313,17 +313,17 @@ int MIPIVideoInfo::putback_frame()
             preview.buf.length = tempbuflen;
         }
         if (mPreviewFd < 0) {
-            ALOGE("camera not be init!");
+            CAMHAL_LOGE("camera not be init!");
             return -1;
         }
 
         if (ioctl(mPreviewFd, VIDIOC_QBUF, &preview.buf) < 0) {
-            DBG_LOGB("QBUF failed :%s\n", strerror(errno));
+            CAMHAL_LOGD("QBUF failed :%s\n", strerror(errno));
             if (errno == ENODEV) {
                 set_device_status();
             }
         }
-        ALOGD("%s:\n",__FUNCTION__);
+        CAMHAL_LOGD("%s:\n",__FUNCTION__);
 
         return 0;
 }
@@ -331,11 +331,11 @@ int MIPIVideoInfo::putback_frame()
 int MIPIVideoInfo::putback_picture_frame()
 {
         if (mSnapFd < 0) {
-            ALOGE("camera not be init!");
+            CAMHAL_LOGE("camera not be init!");
             return -1;
         }
         if (ioctl(mSnapFd, VIDIOC_QBUF, &picture.buf) < 0)
-                DBG_LOGB("QBUF failed error=%d\n", errno);
+                CAMHAL_LOGD("QBUF failed error=%d\n", errno);
 
         return 0;
 }
@@ -350,7 +350,7 @@ int MIPIVideoInfo::start_picture(int rotate)
 
         CLEAR(picture.rb);
         if (mSnapFd < 0) {
-            ALOGE("camera not be init!");
+            CAMHAL_LOGE("camera not be init!");
             return -1;
         }
 
@@ -364,7 +364,7 @@ int MIPIVideoInfo::start_picture(int rotate)
                     usleep(3000); //3ms
                     continue;
                     default:
-                    DBG_LOGB("Open: VIDIOC_S_FMT Failed: %s, errno=%d\n", strerror(errno), ret);
+                    CAMHAL_LOGD("Open: VIDIOC_S_FMT Failed: %s, errno=%d\n", strerror(errno), ret);
                  return ret;
              }
             }else
@@ -377,12 +377,12 @@ int MIPIVideoInfo::start_picture(int rotate)
 
         ret = ioctl(mSnapFd, VIDIOC_REQBUFS, &picture.rb);
         if (ret < 0 ) {
-                DBG_LOGB("camera idx:%d does not support "
+                CAMHAL_LOGD("camera idx:%d does not support "
                                 "memory mapping, errno=%d\n", idx, errno);
         }
 
         if (picture.rb.count < 1) {
-                DBG_LOGB( "Insufficient buffer memory on /dev/video%d, errno=%d\n",
+                CAMHAL_LOGD( "Insufficient buffer memory on /dev/video%d, errno=%d\n",
                                 idx, errno);
                 return -EINVAL;
         }
@@ -395,7 +395,7 @@ int MIPIVideoInfo::start_picture(int rotate)
             picture.buf.index       = i;
 
             if (ioctl(mSnapFd, VIDIOC_QUERYBUF, &picture.buf) < 0) {
-                    ALOGE("VIDIOC_QUERYBUF, errno=%d", errno);
+                    CAMHAL_LOGE("VIDIOC_QUERYBUF, errno=%d", errno);
             }
             mem_pic[i].size = picture.buf.length;
             mem_pic[i].addr = mmap(NULL, // start anywhere
@@ -406,12 +406,12 @@ int MIPIVideoInfo::start_picture(int rotate)
                                     picture.buf.m.offset);
 
             if (MAP_FAILED == mem_pic[i].addr) {
-                    ALOGE("mmap failed, errno=%d\n", errno);
+                    CAMHAL_LOGE("mmap failed, errno=%d\n", errno);
             }
             int dma_fd = -1;
             int ret = export_dmabuf_fd(mSnapFd,i, &dma_fd);
             if (ret) {
-                ALOGE("export dma fd failed,%s\n", strerror(errno));
+                CAMHAL_LOGE("export dma fd failed,%s\n", strerror(errno));
             } else {
                 mem_pic[i].dma_fd = dma_fd;
             }
@@ -426,11 +426,11 @@ int MIPIVideoInfo::start_picture(int rotate)
                 buf.index = i;
 
                 if (ioctl(mSnapFd, VIDIOC_QBUF, &buf) < 0)
-                        DBG_LOGB("VIDIOC_QBUF failed, errno=%d\n", errno);
+                        CAMHAL_LOGD("VIDIOC_QBUF failed, errno=%d\n", errno);
         }
 
         if (isPicture) {
-                DBG_LOGA("already stream on\n");
+                CAMHAL_LOGD("already stream on\n");
         }
 
         if (strstr((const char *)cap.driver, "uvcvideo")) {
@@ -440,7 +440,7 @@ int MIPIVideoInfo::start_picture(int rotate)
         //step 5: Stream ON
         type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
         if (ioctl(mSnapFd, VIDIOC_STREAMON, &type) < 0)
-                DBG_LOGB("VIDIOC_STREAMON, errno=%d\n", errno);
+                CAMHAL_LOGD("VIDIOC_STREAMON, errno=%d\n", errno);
         isPicture = true;
 
         return 0;
@@ -448,7 +448,7 @@ int MIPIVideoInfo::start_picture(int rotate)
 
 int MIPIVideoInfo::get_picture_fd()
 {
-    DBG_LOGA("get picture\n");
+    CAMHAL_LOGD("get picture\n");
     int index = get_frame_index_by_fd(picture,mSnapFd);
     if (index < 0)
         return -1;
@@ -462,7 +462,7 @@ void MIPIVideoInfo::stop_picture()
         int i;
         int ret;
         if (mSnapFd < 0) {
-            ALOGE("camera not be init!");
+            CAMHAL_LOGE("camera not be init!");
             return ;
         }
 
@@ -475,17 +475,17 @@ void MIPIVideoInfo::stop_picture()
         buf.memory = V4L2_MEMORY_MMAP;
         buf.index = picture.buf.index;
         if (ioctl(mSnapFd, VIDIOC_QBUF, &buf) < 0)
-            DBG_LOGB("VIDIOC_QBUF failed, errno=%d\n", errno);
+            CAMHAL_LOGD("VIDIOC_QBUF failed, errno=%d\n", errno);
 
         //stream off and unmap buffer
         type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
         if (ioctl(mSnapFd, VIDIOC_STREAMOFF, &type) < 0)
-                DBG_LOGB("VIDIOC_STREAMOFF, errno=%d", errno);
+                CAMHAL_LOGD("VIDIOC_STREAMOFF, errno=%d", errno);
 
         for (i = 0; i < (int)picture.rb.count; i++)
         {
             if (munmap(mem_pic[i].addr, mem_pic[i].size) < 0)
-                DBG_LOGB("munmap failed errno=%d", errno);
+                CAMHAL_LOGD("munmap failed errno=%d", errno);
         }
         picture.format.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
         picture.rb.memory = V4L2_MEMORY_MMAP;
@@ -493,9 +493,9 @@ void MIPIVideoInfo::stop_picture()
 
         ret = ioctl(mSnapFd, VIDIOC_REQBUFS, &picture.rb);
         if (ret < 0) {
-            DBG_LOGB("VIDIOC_REQBUFS failed: %s", strerror(errno));
+            CAMHAL_LOGD("VIDIOC_REQBUFS failed: %s", strerror(errno));
         } else {
-            DBG_LOGA("VIDIOC_REQBUFS delete buffer success\n");
+            CAMHAL_LOGD("VIDIOC_REQBUFS delete buffer success\n");
         }
         isPicture = false;
         setBuffersFormat();
@@ -508,7 +508,7 @@ void MIPIVideoInfo::releasebuf_and_stop_picture()
         struct  v4l2_buffer buf;
         int i,ret;
         if (mSnapFd < 0) {
-            ALOGE("camera not be init!");
+            CAMHAL_LOGE("camera not be init!");
             return;
         }
 
@@ -521,17 +521,17 @@ void MIPIVideoInfo::releasebuf_and_stop_picture()
         buf.memory = V4L2_MEMORY_MMAP;
         buf.index = picture.buf.index;
         if (ioctl(mSnapFd, VIDIOC_QBUF, &buf) < 0)
-            DBG_LOGB("VIDIOC_QBUF failed, errno=%d\n", errno);
+            CAMHAL_LOGD("VIDIOC_QBUF failed, errno=%d\n", errno);
 
         //stream off and unmap buffer
         type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
         if (ioctl(mSnapFd, VIDIOC_STREAMOFF, &type) < 0)
-                DBG_LOGB("VIDIOC_STREAMOFF, errno=%d", errno);
+                CAMHAL_LOGD("VIDIOC_STREAMOFF, errno=%d", errno);
 
         for (i = 0; i < (int)picture.rb.count; i++)
         {
             if (munmap(mem_pic[i].addr, mem_pic[i].size) < 0)
-                DBG_LOGB("munmap failed errno=%d", errno);
+                CAMHAL_LOGD("munmap failed errno=%d", errno);
         }
 
         isPicture = false;
@@ -541,10 +541,10 @@ void MIPIVideoInfo::releasebuf_and_stop_picture()
         picture.rb.count = 0;
         ret = ioctl(mSnapFd, VIDIOC_REQBUFS, &picture.rb);
         if (ret < 0) {
-          DBG_LOGB("VIDIOC_REQBUFS failed: %s", strerror(errno));
+          CAMHAL_LOGD("VIDIOC_REQBUFS failed: %s", strerror(errno));
           //return ret;
         }else{
-          DBG_LOGA("VIDIOC_REQBUFS delete buffer success\n");
+          CAMHAL_LOGD("VIDIOC_REQBUFS delete buffer success\n");
         }
         setBuffersFormat();
         start_capturing();
@@ -612,7 +612,7 @@ void MIPIVideoInfo::releasebuf_and_stop_picture()
         case PIC_SCALER:
             return mPicScaler.mPreviewFd;
          default:
-            ALOGE("%s: work mode error",__FUNCTION__);
+            CAMHAL_LOGE("%s: work mode error",__FUNCTION__);
             return -1;
         }
     }
@@ -626,7 +626,7 @@ void MIPIVideoInfo::releasebuf_and_stop_picture()
             case PIC_SCALER:
                 return mPicScaler.camera_init();
             default:
-                ALOGE("%s: work mode error",__FUNCTION__);
+                CAMHAL_LOGE("%s: work mode error",__FUNCTION__);
                  return -1;
         }
     }
@@ -641,7 +641,7 @@ void MIPIVideoInfo::releasebuf_and_stop_picture()
             case PIC_SCALER:
                 return mPicScaler.setBuffersFormat();
             default:
-                ALOGE("%s: work mode error",__FUNCTION__);
+                CAMHAL_LOGE("%s: work mode error",__FUNCTION__);
                  return -1;
         }
     }
@@ -655,7 +655,7 @@ void MIPIVideoInfo::releasebuf_and_stop_picture()
             case PIC_SCALER:
                 return mPicScaler.start_capturing();
             default:
-            ALOGE("%s: work mode error",__FUNCTION__);
+            CAMHAL_LOGE("%s: work mode error",__FUNCTION__);
              return -1;
         }
     }
@@ -665,7 +665,7 @@ void MIPIVideoInfo::releasebuf_and_stop_picture()
             case PIC_SCALER:
                 return mPicScaler.start_recording();
             default:
-            ALOGE("%s: work mode error",__FUNCTION__);
+            CAMHAL_LOGE("%s: work mode error",__FUNCTION__);
              return -1;
         }
     }
@@ -679,7 +679,7 @@ void MIPIVideoInfo::releasebuf_and_stop_picture()
             case PIC_SCALER:
                 return mPicScaler.start_picture(0);
             default:
-                ALOGE("%s: work mode error",__FUNCTION__);
+                CAMHAL_LOGE("%s: work mode error",__FUNCTION__);
                  return -1;
         }
     }
@@ -696,7 +696,7 @@ void MIPIVideoInfo::releasebuf_and_stop_picture()
                 mPicScaler.stop_picture();
                 break;
             default:
-                ALOGE("%s: work mode error",__FUNCTION__);
+                CAMHAL_LOGE("%s: work mode error",__FUNCTION__);
                  break;
         }
     }
@@ -713,7 +713,7 @@ void MIPIVideoInfo::releasebuf_and_stop_picture()
                 mPicScaler.releasebuf_and_stop_capturing();
                 break;
             default:
-                ALOGE("%s: work mode error",__FUNCTION__);
+                CAMHAL_LOGE("%s: work mode error",__FUNCTION__);
                  break;
         }
     }
@@ -727,7 +727,7 @@ void MIPIVideoInfo::releasebuf_and_stop_picture()
             case PIC_SCALER:
                 return mPicScaler.stop_capturing();
             default:
-                ALOGE("%s: work mode error",__FUNCTION__);
+                CAMHAL_LOGE("%s: work mode error",__FUNCTION__);
                  return -1;
         }
     }
@@ -737,7 +737,7 @@ void MIPIVideoInfo::releasebuf_and_stop_picture()
             case PIC_SCALER:
                 return mPicScaler.stop_recording();
             default:
-                ALOGE("%s: work mode error",__FUNCTION__);
+                CAMHAL_LOGE("%s: work mode error",__FUNCTION__);
                  return -1;
         }
     }
@@ -749,7 +749,7 @@ void MIPIVideoInfo::releasebuf_and_stop_picture()
                 mPicScaler.setMuteKeyStatus(keyStatus);
                 return 0;
             default:
-                ALOGE("%s: work mode error",__FUNCTION__);
+                CAMHAL_LOGE("%s: work mode error",__FUNCTION__);
                  return -1;
         }
     }
@@ -763,7 +763,7 @@ void MIPIVideoInfo::releasebuf_and_stop_picture()
             case PIC_SCALER:
                 return mPicScaler.releasebuf_and_stop_capturing();
             default:
-                ALOGE("%s: work mode error",__FUNCTION__);
+                CAMHAL_LOGE("%s: work mode error",__FUNCTION__);
                  return -1;
         }
     }
@@ -778,7 +778,7 @@ void MIPIVideoInfo::releasebuf_and_stop_picture()
             case PIC_SCALER:
                 return mPicScaler.get_frame_phys();
             default:
-                ALOGE("%s: work mode error",__FUNCTION__);
+                CAMHAL_LOGE("%s: work mode error",__FUNCTION__);
                  return -1;
         }
     }
@@ -795,7 +795,7 @@ void MIPIVideoInfo::releasebuf_and_stop_picture()
                 mPicScaler.set_device_status();
                 break;
             default:
-                ALOGE("%s: work mode error",__FUNCTION__);
+                CAMHAL_LOGE("%s: work mode error",__FUNCTION__);
                  break;
         }
     }
@@ -809,7 +809,7 @@ void MIPIVideoInfo::releasebuf_and_stop_picture()
             case PIC_SCALER:
                 return mPicScaler.get_device_status();
             default:
-                ALOGE("%s: work mode error",__FUNCTION__);
+                CAMHAL_LOGE("%s: work mode error",__FUNCTION__);
                  return -1;
         }
     }
@@ -823,7 +823,7 @@ void MIPIVideoInfo::releasebuf_and_stop_picture()
             case PIC_SCALER:
                 return mPicScaler.get_frame();
             default:
-                ALOGE("%s: work mode error",__FUNCTION__);
+                CAMHAL_LOGE("%s: work mode error",__FUNCTION__);
                  return nullptr;
         }
     }
@@ -835,10 +835,10 @@ void MIPIVideoInfo::releasebuf_and_stop_picture()
             case TWO_FD:
                 return mTwoFd.get_picture();
             case PIC_SCALER:
-                ALOGE("%s: not support this function",__FUNCTION__);
+                CAMHAL_LOGE("%s: not support this function",__FUNCTION__);
                 return nullptr;
             default:
-                ALOGE("%s: work mode error",__FUNCTION__);
+                CAMHAL_LOGE("%s: work mode error",__FUNCTION__);
                 return nullptr;
         }
     }
@@ -853,7 +853,7 @@ void MIPIVideoInfo::releasebuf_and_stop_picture()
             case PIC_SCALER:
                 return mPicScaler.get_frame_buffer(b);
             default:
-                ALOGE("%s: work mode error",__FUNCTION__);
+                CAMHAL_LOGE("%s: work mode error",__FUNCTION__);
                 return -1;
         }
     }
@@ -864,21 +864,21 @@ void MIPIVideoInfo::releasebuf_and_stop_picture()
             case PIC_SCALER:
                 return mPicScaler.get_record_buffer(b);
             default:
-                ALOGE("%s: work mode error",__FUNCTION__);
+                CAMHAL_LOGE("%s: work mode error",__FUNCTION__);
                 return -1;
         }
     }
 
-    int MIPIVideoInfo::putback_frame() {
+    int MIPIVideoInfo::putback_frame(int idx) {
         switch (mWorkMode) {
             case ONE_FD:
-                return mOneFd.putback_frame();
+                return mOneFd.putback_frame(idx);
             case TWO_FD:
                 return mTwoFd.putback_frame();
             case PIC_SCALER:
                 return mPicScaler.putback_frame();
             default:
-                ALOGE("%s: work mode error",__FUNCTION__);
+                CAMHAL_LOGE("%s: work mode error",__FUNCTION__);
                 return -1;
         }
     }
@@ -888,7 +888,7 @@ void MIPIVideoInfo::releasebuf_and_stop_picture()
             case PIC_SCALER:
                 return mPicScaler.putback_record_frame();
             default:
-                ALOGE("%s: work mode error",__FUNCTION__);
+                CAMHAL_LOGE("%s: work mode error",__FUNCTION__);
                 return -1;
         }
     }
@@ -902,7 +902,7 @@ void MIPIVideoInfo::releasebuf_and_stop_picture()
             case PIC_SCALER:
                 return mPicScaler.putback_picture_frame();
             default:
-                ALOGE("%s: work mode error",__FUNCTION__);
+                CAMHAL_LOGE("%s: work mode error",__FUNCTION__);
                  return -1;
         }
     }
@@ -916,7 +916,7 @@ void MIPIVideoInfo::releasebuf_and_stop_picture()
             case PIC_SCALER:
                 return mPicScaler.EnumerateFormat(pixelformat);
             default:
-                ALOGE("%s: work mode error",__FUNCTION__);
+                CAMHAL_LOGE("%s: work mode error",__FUNCTION__);
                  return -1;
         }
     }
@@ -930,7 +930,7 @@ void MIPIVideoInfo::releasebuf_and_stop_picture()
             case PIC_SCALER:
                 return mPicScaler.IsSupportRotation();
             default:
-                ALOGE("%s: work mode error",__FUNCTION__);
+                CAMHAL_LOGE("%s: work mode error",__FUNCTION__);
                  return false;
         }
     }
@@ -947,7 +947,7 @@ void MIPIVideoInfo::releasebuf_and_stop_picture()
                  mPicScaler.set_buffer_numbers(io_buffer);
                  break;
             default:
-                ALOGE("%s: work mode error",__FUNCTION__);
+                CAMHAL_LOGE("%s: work mode error",__FUNCTION__);
                  break;
         }
     }
@@ -961,7 +961,7 @@ void MIPIVideoInfo::releasebuf_and_stop_picture()
             case PIC_SCALER:
                 return mPicScaler.preview.format.fmt.pix.pixelformat;
             default:
-                ALOGE("%s: work mode error",__FUNCTION__);
+                CAMHAL_LOGE("%s: work mode error",__FUNCTION__);
                  return 0;
         }
     }
@@ -975,7 +975,7 @@ void MIPIVideoInfo::releasebuf_and_stop_picture()
             case PIC_SCALER:
                 return mPicScaler.preview.format.fmt.pix.width;
             default:
-                ALOGE("%s: work mode error",__FUNCTION__);
+                CAMHAL_LOGE("%s: work mode error",__FUNCTION__);
                  return 0;
         }
     }
@@ -989,7 +989,7 @@ void MIPIVideoInfo::releasebuf_and_stop_picture()
             case PIC_SCALER:
                 return mPicScaler.preview.format.fmt.pix.bytesperline?mPicScaler.preview.format.fmt.pix.bytesperline:mPicScaler.preview.format.fmt.pix.width;
             default:
-                ALOGE("%s: work mode error",__FUNCTION__);
+                CAMHAL_LOGE("%s: work mode error",__FUNCTION__);
                  return 0;
         }
     }
@@ -1003,7 +1003,7 @@ void MIPIVideoInfo::releasebuf_and_stop_picture()
             case PIC_SCALER:
                 return mPicScaler.preview.format.fmt.pix.height;
             default:
-                ALOGE("%s: work mode error",__FUNCTION__);
+                CAMHAL_LOGE("%s: work mode error",__FUNCTION__);
                  return 0;
         }
 
@@ -1030,7 +1030,7 @@ void MIPIVideoInfo::releasebuf_and_stop_picture()
                 mPicScaler.preview.format.fmt.pix.height = height;
                 break;
             default:
-                ALOGE("%s: work mode error",__FUNCTION__);
+                CAMHAL_LOGE("%s: work mode error",__FUNCTION__);
                  break;
         }
     }
@@ -1044,7 +1044,7 @@ void MIPIVideoInfo::releasebuf_and_stop_picture()
             case PIC_SCALER:
                 return mPicScaler.preview.buf.length;
             default:
-                ALOGE("%s: work mode error",__FUNCTION__);
+                CAMHAL_LOGE("%s: work mode error",__FUNCTION__);
                  return 0;
         }
     }
@@ -1058,7 +1058,7 @@ void MIPIVideoInfo::releasebuf_and_stop_picture()
             case PIC_SCALER:
                 return mPicScaler.preview.buf.bytesused;
             default:
-                ALOGE("%s: work mode error",__FUNCTION__);
+                CAMHAL_LOGE("%s: work mode error",__FUNCTION__);
                  return 0;
         }
 
@@ -1069,7 +1069,7 @@ void MIPIVideoInfo::releasebuf_and_stop_picture()
             case PIC_SCALER:
                 return mPicScaler.record.format.fmt.pix.pixelformat;
             default:
-                ALOGE("%s: work mode error",__FUNCTION__);
+                CAMHAL_LOGE("%s: work mode error",__FUNCTION__);
                  return 0;
         }
     }
@@ -1079,7 +1079,7 @@ void MIPIVideoInfo::releasebuf_and_stop_picture()
             case PIC_SCALER:
                 return mPicScaler.record.format.fmt.pix.width;
             default:
-                ALOGE("%s: work mode error",__FUNCTION__);
+                CAMHAL_LOGE("%s: work mode error",__FUNCTION__);
                  return 0;
         }
     }
@@ -1089,7 +1089,7 @@ void MIPIVideoInfo::releasebuf_and_stop_picture()
             case PIC_SCALER:
                 return mPicScaler.record.format.fmt.pix.bytesperline?mPicScaler.record.format.fmt.pix.bytesperline:mPicScaler.record.format.fmt.pix.width;
             default:
-                ALOGE("%s: work mode error",__FUNCTION__);
+                CAMHAL_LOGE("%s: work mode error",__FUNCTION__);
                  return 0;
         }
     }
@@ -1100,7 +1100,7 @@ void MIPIVideoInfo::releasebuf_and_stop_picture()
             case PIC_SCALER:
                 return mPicScaler.record.format.fmt.pix.height;
             default:
-                ALOGE("%s: work mode error",__FUNCTION__);
+                CAMHAL_LOGE("%s: work mode error",__FUNCTION__);
                  return 0;
         }
 
@@ -1115,7 +1115,7 @@ void MIPIVideoInfo::releasebuf_and_stop_picture()
                 mPicScaler.record.format.fmt.pix.height = height;
                 break;
             default:
-                ALOGE("%s: work mode error",__FUNCTION__);
+                CAMHAL_LOGE("%s: work mode error",__FUNCTION__);
                  break;
         }
     }
@@ -1125,7 +1125,7 @@ void MIPIVideoInfo::releasebuf_and_stop_picture()
             case PIC_SCALER:
                 return mPicScaler.record.buf.length;
             default:
-                ALOGE("%s: work mode error",__FUNCTION__);
+                CAMHAL_LOGE("%s: work mode error",__FUNCTION__);
                  return 0;
         }
     }
@@ -1135,7 +1135,7 @@ void MIPIVideoInfo::releasebuf_and_stop_picture()
             case PIC_SCALER:
                 return mPicScaler.record.buf.bytesused;
             default:
-                ALOGE("%s: work mode error",__FUNCTION__);
+                CAMHAL_LOGE("%s: work mode error",__FUNCTION__);
                  return 0;
         }
 
@@ -1151,7 +1151,7 @@ void MIPIVideoInfo::releasebuf_and_stop_picture()
             case PIC_SCALER:
                 return mPicScaler.picture_config.format.fmt.pix.pixelformat;
             default:
-                ALOGE("%s: work mode error",__FUNCTION__);
+                CAMHAL_LOGE("%s: work mode error",__FUNCTION__);
                  return 0;
         }
 
@@ -1166,7 +1166,7 @@ void MIPIVideoInfo::releasebuf_and_stop_picture()
             case PIC_SCALER:
                 return mPicScaler.picture_config.format.fmt.pix.width;
             default:
-                ALOGE("%s: work mode error",__FUNCTION__);
+                CAMHAL_LOGE("%s: work mode error",__FUNCTION__);
                  return 0;
         }
 
@@ -1182,7 +1182,7 @@ void MIPIVideoInfo::releasebuf_and_stop_picture()
             case PIC_SCALER:
                 return mPicScaler.picture_config.format.fmt.pix.bytesperline?mPicScaler.picture_config.format.fmt.pix.bytesperline:mPicScaler.picture_config.format.fmt.pix.width;
             default:
-                ALOGE("%s: work mode error",__FUNCTION__);
+                CAMHAL_LOGE("%s: work mode error",__FUNCTION__);
                  return 0;
         }
     }
@@ -1196,7 +1196,7 @@ void MIPIVideoInfo::releasebuf_and_stop_picture()
             case PIC_SCALER:
                 return mPicScaler.picture_config.format.fmt.pix.height;
             default:
-                ALOGE("%s: work mode error",__FUNCTION__);
+                CAMHAL_LOGE("%s: work mode error",__FUNCTION__);
                  return 0;
         }
 
@@ -1211,14 +1211,14 @@ void MIPIVideoInfo::releasebuf_and_stop_picture()
                 mOneFd.picture.format.fmt.pix.height = height;
             break;
             case TWO_FD:
-                CAMHAL_LOGDB("%s: E w %d h %d",__FUNCTION__, width, height);
+                CAMHAL_LOGD("%s: E w %d h %d",__FUNCTION__, width, height);
                 mTwoFd.picture.format.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
                 mTwoFd.picture.format.fmt.pix.pixelformat = V4L2_PIX_FMT_NV21;
                 mTwoFd.picture.format.fmt.pix.width = width;
                 mTwoFd.picture.format.fmt.pix.height = height;
                 break;
             case PIC_SCALER:
-                CAMHAL_LOGDB("%s: E w %d h %d",__FUNCTION__, width, height);
+                CAMHAL_LOGD("%s: E w %d h %d",__FUNCTION__, width, height);
                 mPicScaler.picture.format.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
                 mPicScaler.picture.format.fmt.pix.pixelformat = V4L2_PIX_FMT_NV21;
                 mPicScaler.picture.format.fmt.pix.width = width/*2592*/;
@@ -1230,7 +1230,7 @@ void MIPIVideoInfo::releasebuf_and_stop_picture()
                 mPicScaler.picture_config.format.fmt.pix.height = height;
                 break;
             default:
-                ALOGE("%s: work mode error",__FUNCTION__);
+                CAMHAL_LOGE("%s: work mode error",__FUNCTION__);
                  break;
         }
    }
@@ -1242,10 +1242,10 @@ void MIPIVideoInfo::releasebuf_and_stop_picture()
             case TWO_FD:
                 return mTwoFd.picture.buf.length;
             case PIC_SCALER:
-                ALOGE("%s: not support this value",__FUNCTION__);
+                CAMHAL_LOGE("%s: not support this value",__FUNCTION__);
                 return  0;
             default:
-                ALOGE("%s: work mode error",__FUNCTION__);
+                CAMHAL_LOGE("%s: work mode error",__FUNCTION__);
                 return 0;
         }
     }
@@ -1257,10 +1257,10 @@ void MIPIVideoInfo::releasebuf_and_stop_picture()
             case TWO_FD:
                 return mTwoFd.picture.buf.bytesused;
             case PIC_SCALER:
-                ALOGE("%s: not support this value",__FUNCTION__);
+                CAMHAL_LOGE("%s: not support this value",__FUNCTION__);
                 return 0;
             default:
-                ALOGE("%s: work mode error",__FUNCTION__);
+                CAMHAL_LOGE("%s: work mode error",__FUNCTION__);
                 return 0;
         }
     }
@@ -1274,7 +1274,7 @@ void MIPIVideoInfo::releasebuf_and_stop_picture()
             case PIC_SCALER:
             return mPicScaler.isStreaming;
             default:
-            ALOGE("%s: work mode error",__FUNCTION__);
+            CAMHAL_LOGE("%s: work mode error",__FUNCTION__);
             return false;
          }
     }
@@ -1284,7 +1284,7 @@ void MIPIVideoInfo::releasebuf_and_stop_picture()
             case PIC_SCALER:
             return mPicScaler.mIsRecording;
             default:
-            ALOGE("%s: work mode error",__FUNCTION__);
+            CAMHAL_LOGE("%s: work mode error",__FUNCTION__);
             return false;
          }
     }
@@ -1298,7 +1298,7 @@ void MIPIVideoInfo::releasebuf_and_stop_picture()
             case PIC_SCALER:
             return mPicScaler.mIsPicture;
             default:
-            ALOGE("%s: work mode error",__FUNCTION__);
+            CAMHAL_LOGE("%s: work mode error",__FUNCTION__);
             return false;
          }
     }
@@ -1306,15 +1306,15 @@ void MIPIVideoInfo::releasebuf_and_stop_picture()
     int MIPIVideoInfo::get_picture_buffer(struct VideoInfoBuffer* b) {
         switch (mWorkMode) {
             case ONE_FD:
-                ALOGE("%s: not support this function",__FUNCTION__);
+                CAMHAL_LOGE("%s: not support this function",__FUNCTION__);
                 return -1;
             case TWO_FD:
-                ALOGE("%s: not support this function",__FUNCTION__);
+                CAMHAL_LOGE("%s: not support this function",__FUNCTION__);
                 return -1;
             case PIC_SCALER:
                 return mPicScaler.get_picture_buffer(b);
             default:
-                ALOGE("%s: work mode error",__FUNCTION__);
+                CAMHAL_LOGE("%s: work mode error",__FUNCTION__);
                 return -1;
         }
     }

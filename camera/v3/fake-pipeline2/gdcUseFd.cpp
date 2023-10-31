@@ -12,7 +12,7 @@
 #include "IGdc.h"
 
 gdcUseFd:: ~gdcUseFd() {
-    ALOGD("%s: E \n",__FUNCTION__);
+    CAMHAL_LOGD("%s: E \n",__FUNCTION__);
     if (mGDCContext) {
         free(mGDCContext);
         mGDCContext = nullptr;
@@ -20,8 +20,8 @@ gdcUseFd:: ~gdcUseFd() {
 }
 
 gdcUseFd::gdcUseFd() {
-    ALOGD("%s: E \n",__FUNCTION__);
-	ATRACE_CALL();
+    CAMHAL_LOGD("%s: E \n",__FUNCTION__);
+    ATRACE_CALL();
     mGDCContext = nullptr;
     mConfig.addr = nullptr;
     mConfig.share_fd = -1;
@@ -30,15 +30,15 @@ gdcUseFd::gdcUseFd() {
     if (!mGDCContext) {
         mGDCContext = (struct gdc_usr_ctx_s*)malloc(sizeof(struct gdc_usr_ctx_s));
         if (gdc_create_ctx(mGDCContext) < 0) {
-            ALOGE("failed to gdc_create_ctx");
+            CAMHAL_LOGE("failed to gdc_create_ctx");
             return ;
         }
     }
 }
 
 int gdcUseFd::gdc_init(uint32_t width, uint32_t height, int format,int plane_number) {
-	ATRACE_CALL();
-    ALOGD("%s: E \n",__FUNCTION__);
+    ATRACE_CALL();
+    CAMHAL_LOGD("%s: E \n",__FUNCTION__);
     uint32_t i_c_stride;
     uint32_t o_c_stride;
     uint32_t i_y_stride = AXI_WORD_ALIGN(width);
@@ -66,14 +66,14 @@ int gdcUseFd::gdc_init(uint32_t width, uint32_t height, int format,int plane_num
 
     //-----load gdc config
     if (!load_config_file(width, height,plane_number)) {
-        ALOGE("failed to load gdc config");
+        CAMHAL_LOGE("failed to load gdc config");
         return -1;
     }
     return 0;
 }
 
 void gdcUseFd::set_input_buffer(int in_fd) {
-	ATRACE_CALL();
+    ATRACE_CALL();
     struct gdc_settings_ex *gdc_gs = &mGDCContext->gs_ex;
     gdc_gs->input_buffer.plane_number = 1;
     gdc_gs->input_buffer.shared_fd = in_fd;
@@ -81,7 +81,7 @@ void gdcUseFd::set_input_buffer(int in_fd) {
 }
 
 void gdcUseFd::set_output_buffer(int out_fd) {
-	ATRACE_CALL();
+    ATRACE_CALL();
     struct gdc_settings_ex *gdc_gs = &mGDCContext->gs_ex;
     gdc_gs->output_buffer.plane_number = 1;
     gdc_gs->output_buffer.shared_fd = out_fd;
@@ -89,8 +89,8 @@ void gdcUseFd::set_output_buffer(int out_fd) {
 }
 
 void gdcUseFd::gdc_exit() {
-    ALOGD("%s: E \n",__FUNCTION__);
-	ATRACE_CALL();
+    CAMHAL_LOGD("%s: E \n",__FUNCTION__);
+    ATRACE_CALL();
     if (mConfig.addr) {
         munmap(mConfig.addr,mConfig.size);
         mConfig.addr = nullptr;
@@ -107,8 +107,8 @@ void gdcUseFd::gdc_exit() {
 
 //------loading config file for gdc
 bool gdcUseFd::load_config_file(size_t width, size_t height,int plane_number) {
-    ALOGD("%s: E \n",__FUNCTION__);
-	ATRACE_CALL();
+    CAMHAL_LOGD("%s: E \n",__FUNCTION__);
+    ATRACE_CALL();
     struct gdc_settings_ex *gdc_gs = &mGDCContext->gs_ex;
     std::string fileName;
 
@@ -125,7 +125,7 @@ bool gdcUseFd::load_config_file(size_t width, size_t height,int plane_number) {
 
      FILE* fp = fopen(fileName.c_str(), "rb");
     if (fp == nullptr) {
-        ALOGE ("failed to open gdc config file");
+        CAMHAL_LOGE ("failed to open gdc config file");
         return false;
     }
     //---get file length
@@ -133,21 +133,21 @@ bool gdcUseFd::load_config_file(size_t width, size_t height,int plane_number) {
     int filelen = ftell(fp);
     fseek(fp, 0L, SEEK_SET);
     mConfig.size = filelen;
-    ALOGI("config file size is %d",filelen);
+    CAMHAL_LOGI("config file size is %d",filelen);
     if (mConfig.addr == nullptr) {
         IONMEM_AllocParams ion_alloc_params;
         //----alloc uncached memory
         bool cache_flag = false;
         int ret = gdc_ion_mem_alloc(filelen, &ion_alloc_params, cache_flag);
         if (ret < 0) {
-          ALOGE("failed to allocate config buffer %d",filelen);
+          CAMHAL_LOGE("failed to allocate config buffer %d",filelen);
           fclose(fp);
           return false;
         }
         mConfig.share_fd = ion_alloc_params.mImageFd;
         mConfig.addr = (uint8_t*)mmap(NULL,filelen,PROT_READ|PROT_WRITE,MAP_SHARED,mConfig.share_fd,0);
         int r_size = fread(mConfig.addr,1,filelen,fp);
-        ALOGI("file size is %d , read size is %d \n",filelen, r_size);
+        CAMHAL_LOGI("file size is %d , read size is %d \n",filelen, r_size);
         fclose(fp);
     }
   //-----set config file content in
@@ -160,14 +160,14 @@ bool gdcUseFd::load_config_file(size_t width, size_t height,int plane_number) {
 }
 
 void gdcUseFd::gdc_do_fisheye_correction(struct param* p) {
-	ATRACE_CALL();
+    ATRACE_CALL();
     do {
-        ALOGD("gdc process \n");
+        CAMHAL_LOGD("gdc process \n");
         set_input_buffer(p->input_fd);
         set_output_buffer(p->output_fd);
         int ret = gdc_process(mGDCContext);
         if (ret < 0) {
-            ALOGE("gdc ioctl failed\n");
+            CAMHAL_LOGE("gdc ioctl failed\n");
             gdc_exit();
             break;
         }

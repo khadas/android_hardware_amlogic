@@ -19,7 +19,7 @@
 //#define LOG_NDEBUG 0
 #define LOG_TAG "CAMHAL_NV12_resize"
 #include "NV12_resize.h"
-#include "DebugUtils.h"
+#include "CamHalDebugLog.h"
 
 #define STRIDE 4096
 #include <utils/Log.h>
@@ -38,6 +38,7 @@
 *            Not tested for crop functionality.
 *            faster version.
 ============================================================================*/
+extern "C"
 mmBool
 VT_resizeFrame_Video_opt2_lp
 (
@@ -47,7 +48,7 @@ VT_resizeFrame_Video_opt2_lp
  mmUint16 dummy                         /* Transparent pixel value              */
  )
 {
-  CAMHAL_LOGVA("VT_resizeFrame_Video_opt2_lp+");
+  CAMHAL_LOGV("VT_resizeFrame_Video_opt2_lp+");
 
   mmUint16 row,col;
   mmUint32 resizeFactorX;
@@ -70,21 +71,21 @@ VT_resizeFrame_Video_opt2_lp
   if (!i_img_ptr || !i_img_ptr->imgPtr ||
     !o_img_ptr || !o_img_ptr->imgPtr)
   {
-    CAMHAL_LOGEA("Image Point NULL");
+    CAMHAL_LOGE("Image Point NULL");
     return FALSE;
   }
 
   if (i_img_ptr->uWidth == o_img_ptr->uWidth)
-  {
-    if (i_img_ptr->uHeight == o_img_ptr->uHeight)
     {
-      CAMHAL_LOGVB("(i_img_ptr->uHeight == o_img_ptr->uHeight)\n"
-          "i_img_ptr->width = %d,i_img_ptr->uHeight = %d\n"
-          "o_img_ptr->width = %d,o_img_ptr->uHeight = %d\n",
-          i_img_ptr->uWidth, i_img_ptr->uHeight,
-          o_img_ptr->uWidth, o_img_ptr->uHeight);
+        if (i_img_ptr->uHeight == o_img_ptr->uHeight)
+            {
+                CAMHAL_LOGV("(i_img_ptr->uHeight == o_img_ptr->uHeight)\n"
+                        "i_img_ptr->width = %d,i_img_ptr->uHeight = %d\n"
+                        "o_img_ptr->width = %d,o_img_ptr->uHeight = %d\n",
+                                        i_img_ptr->uWidth, i_img_ptr->uHeight,
+                                        o_img_ptr->uWidth, o_img_ptr->uHeight);
+            }
     }
-  }
 
   inImgPtrY = (mmUchar *) i_img_ptr->imgPtr + i_img_ptr->uOffset;
   inImgPtrU = (mmUchar *) i_img_ptr->clrPtr + i_img_ptr->uOffset/2;
@@ -109,10 +110,10 @@ VT_resizeFrame_Video_opt2_lp
 
   /* make sure valid input size */
   if (idx < 1 || idy < 1 || i_img_ptr->uStride < 1)
-	{
-	CAMHAL_LOGEB("idx or idy less then 1 idx = %d idy = %d stride = %d", idx, idy, i_img_ptr->uStride);
-	return FALSE;
-	}
+    {
+    CAMHAL_LOGE("idx or idy less then 1 idx = %d idy = %d stride = %d", idx, idy, i_img_ptr->uStride);
+    return FALSE;
+    }
 
   resizeFactorX = ((idx-1)<<9) / codx;
   resizeFactorY = ((idy-1)<<9) / cody;
@@ -240,7 +241,7 @@ VT_resizeFrame_Video_opt2_lp
 
             pu8Cbc1 = pu8Cbr1 + (x*2);
             pu8Cbc2 = pu8Cbr2 + (x*2);
-	    pu8Crc1 = pu8Crr1 + (x*2);
+        pu8Crc1 = pu8Crr1 + (x*2);
             pu8Crc2 = pu8Crr2 + (x*2);
 
 
@@ -252,7 +253,7 @@ VT_resizeFrame_Video_opt2_lp
             accum_1Cb = (w * in11);
             //    accum_WCb += (w);
 
-			in11 = *(pu8Crc1);
+            in11 = *(pu8Crc1);
             accum_1Cr = (w * in11);
             //accum_WCr += (w);
 
@@ -274,7 +275,7 @@ VT_resizeFrame_Video_opt2_lp
             accum_1Cb += (w * in21);
             //accum_WCb += (w);
 
-			in21 = *(pu8Crc2);
+            in21 = *(pu8Crc2);
             accum_1Cr += (w * in21);
             //accum_WCr += (w);
 
@@ -311,8 +312,8 @@ VT_resizeFrame_Video_opt2_lp
   }
   else
   {
-	CAMHAL_LOGEA("eFormat not supported");
-	return FALSE;
+    CAMHAL_LOGE("eFormat not supported");
+    return FALSE;
   }
   return TRUE;
 }

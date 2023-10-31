@@ -29,6 +29,13 @@
 #ifdef GE2D_ENABLE
 #include "ge2d_stream.h"
 #endif
+#ifdef VICP_ENABLE
+#include "vicp_stream.h"
+#endif
+#if defined(PREVIEW_DEWARP_ENABLE) || defined(PICTURE_DEWARP_ENABLE)
+#include "dewarp.h"
+#endif
+
 #include <nativebase/nativebase.h>
 //#include <android/native_window.h>
 //#include <gui/Surface.h>
@@ -44,7 +51,7 @@ using namespace android;
 #define YUV_SIZE(W, H)   ((W) * (H) * 3 >> 1)
 #define ZTE_BUF_ADDR_ALIGNMENT_VALUE 512
 #define OMX_IndexVendorZteOmxDecNormalYUVMode 0x7F10000C
-#define LOG_LINE(fmt, ...) ALOGD("[%s:%d] " fmt, __FUNCTION__, __LINE__, ##__VA_ARGS__)
+#define LOG_LINE(fmt, ...) CAMHAL_LOGD("[%s:%d] " fmt, __FUNCTION__, __LINE__, ##__VA_ARGS__)
 typedef OMX_ERRORTYPE (*InitFunc)();
 typedef OMX_ERRORTYPE (*DeinitFunc)();
 typedef OMX_ERRORTYPE (*GetHandleFunc)(OMX_HANDLETYPE *, OMX_STRING, OMX_PTR, OMX_CALLBACKTYPE *);
@@ -55,6 +62,14 @@ struct GrallocBufInfo {
     uint32_t height;
     int format;
     uint32_t stride;
+};
+
+struct dewarpInfo {
+    int o_width;
+    int o_height;
+    int i_width;
+    int i_height;
+    dewarpInfo() : o_width(0), o_height(0), i_width(0), i_height(0) {}
 };
 
 class OMXDecoder
@@ -68,6 +83,12 @@ public:
 
 public:
     bool mTimeOut;
+    bool VICPEnable;
+    bool mEnableDewarp;
+#if defined(PREVIEW_DEWARP_ENABLE) || defined(PICTURE_DEWARP_ENABLE)
+    dewarpInfo mPreDewarpInfo[ISP_PORT_NUM];
+#endif
+
 public:
     OMXDecoder();
     OMXDecoder(bool useDMABuffer, bool keepOriginalSize);
@@ -121,14 +142,8 @@ public:
             OMX_IN OMX_BUFFERHEADERTYPE *pBuffer);
 
     static OMX_CALLBACKTYPE kCallbacks;
-    int Decode(uint8_t*src, size_t src_size,
-            int dst_fd,uint8_t *dst_buf,
-            size_t src_w, size_t src_h,
-            size_t dst_w, size_t dst_h);
-    int DecodeH264(uint8_t*src, size_t src_size,
-            int dst_fd,uint8_t *dst_buf,
-            size_t src_w, size_t src_h,
-            size_t dst_w, size_t dst_h);
+    int Decode(uint8_t*src, size_t src_size, Vector<StreamBuffer>& b, bool isJpegRequest);
+    int DecodeAsync(uint8_t*src, size_t src_size, Vector<StreamBuffer>& b, bool isJpegRequest);
     void PutInBuffer(uint8_t* src, size_t size);
     size_t outputWidth() {
         return mOutWidth;
@@ -200,14 +215,15 @@ private:
 
 #ifdef GE2D_ENABLE
     ge2dTransform* mGE2D;
+#ifdef VICP_ENABLE
+    vicpTransform* mVICP;
+#endif
 #endif
 
 private:
     void QueueBuffer(uint8_t* src, size_t size);
-    int DequeueBuffer(int dst_fd ,uint8_t* dst_buf,
-                      size_t src_w, size_t src_h,
-                      size_t dst_w, size_t dst_h);
-
+    int DequeueBuffer(Vector<StreamBuffer>& b , bool isJpegRequest);
+    int DequeueBufferAndClean(Vector<StreamBuffer>& b , bool isJpegRequest);
     bool normal_buffer_init(int buffer_size);
     bool ion_buffer_init();
     bool uvm_buffer_init();

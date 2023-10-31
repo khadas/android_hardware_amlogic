@@ -1,13 +1,5 @@
-#define LOG_NDEBUG  0
-#define LOG_NNDEBUG 0
 
 #define LOG_TAG "HDMIToCSISensor"
-
-#if defined(LOG_NNDEBUG) && LOG_NNDEBUG == 0
-#define ALOGVV ALOGV
-#else
-#define ALOGVV(...) ((void)0)
-#endif
 
 #define ATRACE_TAG (ATRACE_TAG_CAMERA | ATRACE_TAG_HAL | ATRACE_TAG_ALWAYS)
 #include <utils/Log.h>
@@ -64,11 +56,11 @@ HDMIToCSISensor::HDMIToCSISensor() {
     mVinfo = NULL;
     mCameraUtil = NULL;
     mImage_buffer = NULL;
-    ALOGD("create MIPISensor");
+    CAMHAL_LOGD("create MIPISensor");
 }
 
 HDMIToCSISensor::~HDMIToCSISensor() {
-    ALOGD("delete MIPISensor");
+    CAMHAL_LOGD("delete MIPISensor");
      if (mVinfo) {
         delete(mVinfo);
         mVinfo = NULL;
@@ -80,18 +72,18 @@ HDMIToCSISensor::~HDMIToCSISensor() {
 }
 
 status_t HDMIToCSISensor::streamOff(channel ch) {
-    ALOGV("%s: E", __FUNCTION__);
+    CAMHAL_LOGV("%s: E", __FUNCTION__);
     return mVinfo->stop_capturing();
 }
 
 int HDMIToCSISensor::SensorInit(int idx) {
-    ALOGV("%s: E", __FUNCTION__);
+    CAMHAL_LOGV("%s: E", __FUNCTION__);
     int ret = 0;
     if (mVinfo == NULL)
         mVinfo =  new CVideoInfo();
     ret = camera_open(idx);
     if (ret < 0) {
-        ALOGE("Unable to open sensor %d, errno=%d\n", mVinfo->idx, ret);
+        CAMHAL_LOGE("Unable to open sensor %d, errno=%d\n", mVinfo->idx, ret);
         return ret;
     }
     InitVideoInfo(idx);
@@ -108,13 +100,13 @@ int HDMIToCSISensor::SensorInit(int idx) {
 }
 
 status_t HDMIToCSISensor::startUp(int idx, bool customizationSensor) {
-    ALOGV("%s: E", __FUNCTION__);
+    CAMHAL_LOGV("%s: E", __FUNCTION__);
     int res;
     mCapturedBuffers = NULL;
     res = run("EmulatedFakeCamera3::Sensor",ANDROID_PRIORITY_URGENT_DISPLAY);
 
     if (res != OK) {
-       ALOGE("Unable to start up sensor capture thread: %d", res);
+       CAMHAL_LOGE("Unable to start up sensor capture thread: %d", res);
     }
     res = SensorInit(idx);
     if (!mCameraUtil)
@@ -130,22 +122,23 @@ int HDMIToCSISensor::camera_open(int idx) {
         mCameraVirtualDevice = CameraVirtualDevice::getInstance();
     mDevicefd[0] = mCameraVirtualDevice->openVirtualDevice(idx);
     if (mDevicefd[0] < 0) {
-        ALOGE("open %s failed, %s\n", dev_name, strerror(errno));
+        CAMHAL_LOGE("open %s failed, %s\n", dev_name, strerror(errno));
         ret = -ENOTTY;
     }
-    ALOGD("open %s ok !", dev_name);
-    mVinfo->fd = mDevicefd[0];
+    CAMHAL_LOGD("open %s ok !", dev_name);
+    if (mVinfo != NULL)
+        mVinfo->fd = mDevicefd[0];
     return ret;
 }
 
 void HDMIToCSISensor::camera_close(void) {
-    ALOGV("%s: E", __FUNCTION__);
+    CAMHAL_LOGV("%s: E", __FUNCTION__);
     if (mDevicefd[0] < 0)
         return;
     if (mCameraVirtualDevice == nullptr)
         mCameraVirtualDevice = CameraVirtualDevice::getInstance();
-
-    mCameraVirtualDevice->releaseVirtualDevice(mVinfo->idx,mDevicefd[0]);
+    if (mVinfo != NULL)
+        mCameraVirtualDevice->releaseVirtualDevice(mVinfo->idx,mDevicefd[0]);
     mDevicefd[0] = -1;
 }
 
@@ -157,23 +150,24 @@ void HDMIToCSISensor::InitVideoInfo(int idx) {
 }
 
 status_t HDMIToCSISensor::shutDown() {
-    ALOGV("%s: E", __FUNCTION__);
+    CAMHAL_LOGV("%s: E", __FUNCTION__);
     int res;
     mTimeOutCount = 0;
     res = requestExitAndWait();
     if (res != OK) {
-        ALOGE("Unable to shut down sensor capture thread: %d", res);
+        CAMHAL_LOGE("Unable to shut down sensor capture thread: %d", res);
     }
-    if (mVinfo != NULL) {
+    if (mVinfo != NULL)
         mVinfo->stop_capturing();
-        camera_close();
-    }
+
+    camera_close();
+
     if (mImage_buffer) {
         delete [] mImage_buffer;
         mImage_buffer = NULL;
     }
     mSensorWorkFlag = false;
-    ALOGD("%s: Exit", __FUNCTION__);
+    CAMHAL_LOGD("%s: Exit", __FUNCTION__);
     return res;
 }
 
@@ -191,7 +185,7 @@ uint32_t HDMIToCSISensor::getStreamUsage(camera3_stream_t& stream){
         usage = GRALLOC_USAGE_HW_VIDEO_ENCODER | GRALLOC_USAGE_AML_DMA_BUFFER;
 #endif
 
-    ALOGV("%s: usage=0x%x", __FUNCTION__,usage);
+    CAMHAL_LOGV("%s: usage=0x%x", __FUNCTION__,usage);
     return usage;
 }
 
@@ -210,7 +204,7 @@ void HDMIToCSISensor::captureRGB(uint8_t *img, uint32_t gain, uint32_t stride) {
         ret = mVinfo->start_picture(rotate);
         if (ret < 0)
         {
-        ALOGD("start picture failed!");
+            CAMHAL_LOGD("start picture failed!");
             return;
         }
     } else
@@ -271,7 +265,7 @@ void HDMIToCSISensor::captureRGB(uint8_t *img, uint32_t gain, uint32_t stride) {
             }
         }
     }
-    ALOGVV("get picture success !");
+    CAMHAL_LOGVV("get picture success !");
     mVinfo->stop_picture();
 
 }
@@ -279,7 +273,7 @@ void HDMIToCSISensor::captureRGB(uint8_t *img, uint32_t gain, uint32_t stride) {
 void HDMIToCSISensor::captureNV21(StreamBuffer b, uint32_t gain){
     ATRACE_CALL();
     uint8_t *src;
-    //ALOGVV("%s E",__FUNCTION__);
+    //CAMHAL_LOGVV("%s E",__FUNCTION__);
 
     if (mKernelBuffer) {
         src = mKernelBuffer;
@@ -301,7 +295,7 @@ void HDMIToCSISensor::captureNV21(StreamBuffer b, uint32_t gain){
                 mCameraUtil->ReSizeNV21(src, b.img, b.width, b.height, b.stride,width,height);
             }
         } else {
-            ALOGE("Unable known sensor format: %d", mVinfo->preview.format.fmt.pix.pixelformat);
+            CAMHAL_LOGE("Unable known sensor format: %d", mVinfo->preview.format.fmt.pix.pixelformat);
         }
         return ;
     }
@@ -316,13 +310,13 @@ void HDMIToCSISensor::captureNV21(StreamBuffer b, uint32_t gain){
 
         src = (uint8_t *)mVinfo->get_frame();
         if (NULL == src) {
-            //ALOGVV("get frame NULL, sleep 5ms");
+            //CAMHAL_LOGVV("get frame NULL, sleep 5ms");
             usleep(5000);
             continue;
         }
         mTimeOutCount = 0;
         if (mVinfo->preview.format.fmt.pix.pixelformat == V4L2_PIX_FMT_NV21) {
-            ALOGD("V4L2_PIX_FMT_NV21 \n");
+            CAMHAL_LOGD("V4L2_PIX_FMT_NV21 \n");
             if (mVinfo->preview.buf.length == b.width * b.height * 3/2) {
                 memcpy(b.img, src, mVinfo->preview.buf.length);
             } else {
@@ -330,7 +324,7 @@ void HDMIToCSISensor::captureNV21(StreamBuffer b, uint32_t gain){
             }
             mKernelBuffer = b.img;
         } else if (mVinfo->preview.format.fmt.pix.pixelformat == V4L2_PIX_FMT_YUYV) {
-            ALOGD("V4L2_PIX_FMT_YUYV \n");
+            CAMHAL_LOGD("V4L2_PIX_FMT_YUYV \n");
             uint32_t width = mVinfo->preview.format.fmt.pix.width;
             uint32_t height = mVinfo->preview.format.fmt.pix.height;
             memset(mImage_buffer, 0 , width * height * 3/2);
@@ -340,14 +334,14 @@ void HDMIToCSISensor::captureNV21(StreamBuffer b, uint32_t gain){
                 mKernelBuffer = b.img;
             } else {
                 if ((b.height % 2) != 0) {
-                    DBG_LOGB("%d , b.height = %d", __LINE__, b.height);
+                    CAMHAL_LOGD("%d , b.height = %d", __LINE__, b.height);
                     b.height = b.height - 1;
                 }
                 mCameraUtil->ReSizeNV21(mImage_buffer, b.img, b.width, b.height, b.stride,width,height);
                 mKernelBuffer = mImage_buffer;
             }
         } else if (mVinfo->preview.format.fmt.pix.pixelformat == V4L2_PIX_FMT_RGB24) {
-            //ALOGD("V4L2_PIX_FMT_RGB24 \n");
+            //CAMHAL_LOGD("V4L2_PIX_FMT_RGB24 \n");
             uint32_t width = mVinfo->preview.format.fmt.pix.width;
             uint32_t height = mVinfo->preview.format.fmt.pix.height;
             memset(mImage_buffer, 0 , width * height * 3/2);
@@ -377,7 +371,7 @@ void HDMIToCSISensor::captureYV12(StreamBuffer b, uint32_t gain){
             int height = mVinfo->preview.format.fmt.pix.height;
             mCameraUtil->YUYVScaleYV12(src,width,height,b.img,b.width,b.height);
         } else {
-            ALOGE("Unable known sensor format: %d",
+            CAMHAL_LOGE("Unable known sensor format: %d",
                 mVinfo->preview.format.fmt.pix.pixelformat);
         }
         return ;
@@ -392,7 +386,7 @@ void HDMIToCSISensor::captureYV12(StreamBuffer b, uint32_t gain){
         src = (uint8_t *)mVinfo->get_frame();
 
         if (NULL == src) {
-            ALOGVV("get frame NULL, sleep 5ms");
+            CAMHAL_LOGVV("get frame NULL, sleep 5ms");
             usleep(5000);
             mTimeOutCount++;
             if (mTimeOutCount > 600) {
@@ -414,14 +408,14 @@ void HDMIToCSISensor::captureYV12(StreamBuffer b, uint32_t gain){
             mCameraUtil->YUYVToYV12(src, b.img, width, height);
             mKernelBuffer = b.img;
         } else {
-            ALOGE("Unable known sensor format: %d",
+            CAMHAL_LOGE("Unable known sensor format: %d",
                 mVinfo->preview.format.fmt.pix.pixelformat);
         }
         mSensorWorkFlag = true;
         mVinfo->putback_frame();
         break;
     }
-    ALOGVV("YV12 sensor image captured");
+    CAMHAL_LOGVV("YV12 sensor image captured");
 }
 void HDMIToCSISensor::captureYUYV(uint8_t *img, uint32_t gain, uint32_t stride){
     uint8_t *src;
@@ -432,7 +426,7 @@ void HDMIToCSISensor::captureYUYV(uint8_t *img, uint32_t gain, uint32_t stride){
             //memcpy(img, src, vinfo->preview.buf.length);
 
         } else
-            ALOGE("Unable known sensor format: %d", mVinfo->preview.format.fmt.pix.pixelformat);
+            CAMHAL_LOGE("Unable known sensor format: %d", mVinfo->preview.format.fmt.pix.pixelformat);
 
         return ;
     }
@@ -446,7 +440,7 @@ void HDMIToCSISensor::captureYUYV(uint8_t *img, uint32_t gain, uint32_t stride){
         }
         src = (uint8_t *)mVinfo->get_frame();
         if (NULL == src) {
-            ALOGVV("get frame NULL, sleep 5ms");
+            CAMHAL_LOGVV("get frame NULL, sleep 5ms");
             usleep(5000);
             mTimeOutCount++;
             if (mTimeOutCount > 600) {
@@ -459,13 +453,13 @@ void HDMIToCSISensor::captureYUYV(uint8_t *img, uint32_t gain, uint32_t stride){
             memcpy(img, src, mVinfo->preview.buf.length);
             mKernelBuffer = src;
         } else {
-            ALOGE("Unable known sensor format: %d", mVinfo->preview.format.fmt.pix.pixelformat);
+            CAMHAL_LOGE("Unable known sensor format: %d", mVinfo->preview.format.fmt.pix.pixelformat);
         }
         mSensorWorkFlag = true;
         mVinfo->putback_frame();
         break;
     }
-    ALOGVV("YUYV sensor image captured");
+    CAMHAL_LOGVV("YUYV sensor image captured");
 }
 
 status_t HDMIToCSISensor::getOutputFormat(void) {
@@ -473,21 +467,21 @@ status_t HDMIToCSISensor::getOutputFormat(void) {
     /*firstly check rgb888 pixel format*/
     ret = mVinfo->EnumerateFormat(V4L2_PIX_FMT_RGB24);
     if (ret) {
-        ALOGVV("camera support rgb888");
+        CAMHAL_LOGVV("camera support rgb888");
         return ret;
     }
 
     ret = mVinfo->EnumerateFormat(V4L2_PIX_FMT_NV21);
     if (ret) {
-        ALOGVV("camera support nv21");
+        CAMHAL_LOGVV("camera support nv21");
         return ret;
     }
     ret = mVinfo->EnumerateFormat(V4L2_PIX_FMT_YUYV);
     if (ret) {
-        ALOGVV("camera support yuyv");
+        CAMHAL_LOGVV("camera support yuyv");
         return ret;
     }
-    ALOGE("Unable to find a supported sensor format!");
+    CAMHAL_LOGE("Unable to find a supported sensor format!");
     return BAD_VALUE;
 }
 
@@ -509,36 +503,36 @@ status_t HDMIToCSISensor::setOutputFormat(int width, int height, int pixelformat
         mVinfo->preview.format.fmt.pix.pixelformat = pixelformat;
         res = mVinfo->setBuffersFormat();
         if (res < 0) {
-            ALOGE("set buffer failed\n");
+            CAMHAL_LOGE("set buffer failed\n");
             return res;
-            }
+        }
     }
     if (NULL == mImage_buffer) {
         mPre_width = mVinfo->preview.format.fmt.pix.width;
         mPre_height = mVinfo->preview.format.fmt.pix.height;
-        DBG_LOGB("setOutputFormat :: pre_width = %d, pre_height = %d \n",
+        CAMHAL_LOGD("setOutputFormat :: pre_width = %d, pre_height = %d \n",
             mPre_width , mPre_height);
         mImage_buffer = new uint8_t[mPre_width * mPre_height * 3 / 2];
         if (mImage_buffer == NULL) {
-            ALOGE("first time allocate mTemp_buffer failed !");
+            CAMHAL_LOGE("first time allocate mTemp_buffer failed !");
             return -1;
-            }
         }
+    }
     if ((mPre_width != mVinfo->preview.format.fmt.pix.width)
         && (mPre_height != mVinfo->preview.format.fmt.pix.height)) {
-            if (mImage_buffer) {
-                delete [] mImage_buffer;
-                mImage_buffer = NULL;
-            }
-            mPre_width = mVinfo->preview.format.fmt.pix.width;
-            mPre_height = mVinfo->preview.format.fmt.pix.height;
-            mImage_buffer = new uint8_t[mPre_width * mPre_height * 3 / 2];
-            if (mImage_buffer == NULL) {
-                ALOGE("allocate mTemp_buffer failed !");
-                return -1;
-            }
+        if (mImage_buffer) {
+            delete [] mImage_buffer;
+            mImage_buffer = NULL;
         }
-        return OK;
+        mPre_width = mVinfo->preview.format.fmt.pix.width;
+        mPre_height = mVinfo->preview.format.fmt.pix.height;
+        mImage_buffer = new uint8_t[mPre_width * mPre_height * 3 / 2];
+        if (mImage_buffer == NULL) {
+            CAMHAL_LOGE("allocate mTemp_buffer failed !");
+            return -1;
+        }
+    }
+    return OK;
 }
 
 int HDMIToCSISensor::halFormatToSensorFormat(uint32_t pixelfmt) {
@@ -548,7 +542,7 @@ int HDMIToCSISensor::halFormatToSensorFormat(uint32_t pixelfmt) {
     /*firstly return RGB format, because the hdmi to csi only support rgb format*/
     ret = mVinfo->EnumerateFormat(V4L2_PIX_FMT_RGB24);
     if (ret) {
-        ALOGVV("camera support rgb888");
+        CAMHAL_LOGVV("camera support rgb888");
         return ret;
     }
 
@@ -575,7 +569,7 @@ int HDMIToCSISensor::halFormatToSensorFormat(uint32_t pixelfmt) {
     if (ret)
         return ret;
 
-    ALOGE("%s, Unable to find a supported sensor format!", __FUNCTION__);
+    CAMHAL_LOGE("%s, Unable to find a supported sensor format!", __FUNCTION__);
     return BAD_VALUE;
 }
 
@@ -583,7 +577,7 @@ int HDMIToCSISensor::halFormatToSensorFormat(uint32_t pixelfmt) {
 status_t HDMIToCSISensor::IoctlStateProbe(void) {
     if (mVinfo->IsSupportRotation()) {
             msupportrotate = true;
-            DBG_LOGA("camera support capture rotate");
+            CAMHAL_LOGD("camera support capture rotate");
             mIoctlSupport |= IOCTL_MASK_ROTATE;
     }
     return mIoctlSupport;
@@ -618,7 +612,7 @@ int HDMIToCSISensor::getStreamConfigurations(uint32_t picSizes[], const int32_t 
     support_h = 10000;
     memset(property, 0, sizeof(property));
     if (property_get("ro.media.camera_preview.maxsize", property, NULL) > 0) {
-        CAMHAL_LOGDB("support Max Preview Size :%s",property);
+        CAMHAL_LOGD("support Max Preview Size :%s",property);
         if (sscanf(property,"%dx%d",&support_w,&support_h) != 2) {
             support_w = 10000;
             support_h = 10000;
@@ -627,7 +621,7 @@ int HDMIToCSISensor::getStreamConfigurations(uint32_t picSizes[], const int32_t 
         support_w = 1920;
         support_h = 1080;
     }
-    ALOGI("%s:support_w=%d, support_h=%d\n",__FUNCTION__,support_w,support_h);
+    CAMHAL_LOGI("%s:support_w=%d, support_h=%d\n",__FUNCTION__,support_w,support_h);
     memset(&frmsize,0,sizeof(frmsize));
     frmsize.pixel_format = getOutputFormat();
 
@@ -636,7 +630,7 @@ int HDMIToCSISensor::getStreamConfigurations(uint32_t picSizes[], const int32_t 
         frmsize.index = i;
         res = ioctl(mVinfo->fd, VIDIOC_ENUM_FRAMESIZES, &frmsize);
         if (res < 0) {
-            DBG_LOGB("index=%d, break\n", i);
+            CAMHAL_LOGD("index=%d, break\n", i);
             break;
         }
 
@@ -655,7 +649,7 @@ int HDMIToCSISensor::getStreamConfigurations(uint32_t picSizes[], const int32_t 
             picSizes[count+2] = frmsize.discrete.height;
             picSizes[count+3] = ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT;
 
-            DBG_LOGB("get output width=%d, height=%d, format=%d\n",
+            CAMHAL_LOGD("get output width=%d, height=%d, format=%d\n",
                 frmsize.discrete.width, frmsize.discrete.height, frmsize.pixel_format);
             if (0 == i) {
                 count += 4;
@@ -684,7 +678,7 @@ int HDMIToCSISensor::getStreamConfigurations(uint32_t picSizes[], const int32_t 
         frmsize.index = i;
         res = ioctl(mVinfo->fd, VIDIOC_ENUM_FRAMESIZES, &frmsize);
         if (res < 0) {
-            DBG_LOGB("index=%d, break\n", i);
+            CAMHAL_LOGD("index=%d, break\n", i);
             break;
         }
 
@@ -703,7 +697,7 @@ int HDMIToCSISensor::getStreamConfigurations(uint32_t picSizes[], const int32_t 
             picSizes[count+2] = frmsize.discrete.height;
             picSizes[count+3] = ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT;
 
-            DBG_LOGB("get output width=%d, height=%d, format =\
+            CAMHAL_LOGD("get output width=%d, height=%d, format =\
                 HAL_PIXEL_FORMAT_YCbCr_420_888\n", frmsize.discrete.width,
                                                     frmsize.discrete.height);
             if (0 == i) {
@@ -742,7 +736,7 @@ int HDMIToCSISensor::getStreamConfigurations(uint32_t picSizes[], const int32_t 
             frmsize.index = i;
             res = ioctl(mVinfo->fd, VIDIOC_ENUM_FRAMESIZES, &frmsize);
             if (res < 0) {
-                DBG_LOGB("index=%d, break\n", i);
+                CAMHAL_LOGD("index=%d, break\n", i);
                 break;
             }
 
@@ -796,7 +790,7 @@ int HDMIToCSISensor::getStreamConfigurations(uint32_t picSizes[], const int32_t 
     }
 
     if (frmsize.index == 0)
-        CAMHAL_LOGDA("no support pixel fmt for jpeg");
+        CAMHAL_LOGD("no support pixel fmt for jpeg");
 
     return count;
 }
@@ -847,7 +841,7 @@ int HDMIToCSISensor::getStreamConfigurationDurations(uint32_t picSizes[], int64_
                         duration[count+0] = (int64_t)picSizes[size-4];
                         duration[count+1] = (int64_t)picSizes[size-3];
                         duration[count+2] = (int64_t)picSizes[size-2];
-                        if ( framerate != 0 ) duration[count+3] = (int64_t)((1.0/framerate) * 1000000000);
+                        if ( framerate != 0) duration[count+3] = (int64_t)((1.0/framerate) * 1000000000);
                         j++;
                     } else if (fival.type == V4L2_FRMIVAL_TYPE_STEPWISE) {
                         if ( fival.discrete.numerator != 0 ) temp_rate = fival.discrete.denominator/fival.discrete.numerator;
@@ -959,7 +953,7 @@ int64_t HDMIToCSISensor::getMinFrameDuration() {
                     break;
                 } else if (fival.type == V4L2_FRMIVAL_TYPE_STEPWISE) {
                     frameDuration =
-                        (int64_t)fival.stepwise.max.numerator * 1000000000L / fival.stepwise.max.denominator;
+                        (int64_t) fival.stepwise.max.numerator * 1000000000L / fival.stepwise.max.denominator;
                     break;
                 }
                 fival.index++;
@@ -971,7 +965,7 @@ int64_t HDMIToCSISensor::getMinFrameDuration() {
         }
     }
 
-    //CAMHAL_LOGDB("enum frameDuration=%lld\n", frameDuration);
+    //CAMHAL_LOGD("enum frameDuration=%lld\n", frameDuration);
     return frameDuration;
 }
 
@@ -988,7 +982,7 @@ int HDMIToCSISensor::getPictureSizes(int32_t picSizes[], int size, bool preview)
     support_h = 10000;
     memset(property, 0, sizeof(property));
     if (property_get("ro.media.camera_preview.maxsize", property, NULL) > 0) {
-        CAMHAL_LOGDB("support Max Preview Size :%s",property);
+        CAMHAL_LOGD("support Max Preview Size :%s",property);
         if (sscanf(property,"%dx%d",&support_w,&support_h) !=2 ) {
             support_w = 10000;
             support_h = 10000;
@@ -997,16 +991,13 @@ int HDMIToCSISensor::getPictureSizes(int32_t picSizes[], int size, bool preview)
             support_w = 1920;
             support_h = 1080;
     }
-    ALOGI("%s:support_w=%d, support_h=%d\n",__FUNCTION__,support_w,support_h);
+    CAMHAL_LOGI("%s:support_w=%d, support_h=%d\n",__FUNCTION__,support_w,support_h);
     memset(&frmsize,0,sizeof(frmsize));
     preview_fmt = V4L2_PIX_FMT_NV21;//getOutputFormat();
-
     if (preview == true)
         frmsize.pixel_format = V4L2_PIX_FMT_NV21;
     else
         frmsize.pixel_format = V4L2_PIX_FMT_RGB24;
-
-
 /*
     if (preview_fmt == V4L2_PIX_FMT_NV21) {
         if (preview == true)
@@ -1025,7 +1016,7 @@ int HDMIToCSISensor::getPictureSizes(int32_t picSizes[], int size, bool preview)
         frmsize.index = i;
         res = ioctl(mVinfo->fd, VIDIOC_ENUM_FRAMESIZES, &frmsize);
         if (res < 0) {
-            DBG_LOGB("index=%d, break\n", i);
+            CAMHAL_LOGD("index=%d, break\n", i);
             break;
         }
 
@@ -1066,13 +1057,13 @@ int HDMIToCSISensor::getPictureSizes(int32_t picSizes[], int size, bool preview)
 }
 
 status_t HDMIToCSISensor::force_reset_sensor() {
-    DBG_LOGA("force_reset_sensor");
+    CAMHAL_LOGD("force_reset_sensor");
     status_t ret;
     mTimeOutCount = 0;
     ret = streamOff(channel_preview);
     ret = mVinfo->setBuffersFormat();
     ret = streamOn(channel_preview);
-    DBG_LOGB("%s , ret = %d", __FUNCTION__, ret);
+    CAMHAL_LOGD("%s , ret = %d", __FUNCTION__, ret);
     return ret;
 }
 
@@ -1082,11 +1073,11 @@ int HDMIToCSISensor::captureNewImage() {
     mKernelBuffer = NULL;
 
     // Might be adding more buffers, so size isn't constant
-    /*ALOGVV("%s:buffer size=%d\n",__FUNCTION__,
+    /*CAMHAL_LOGVV("%s:buffer size=%d\n",__FUNCTION__,
                         mNextCapturedBuffers->size());*/
     for (size_t i = 0; i < mNextCapturedBuffers->size(); i++) {
         const StreamBuffer &b = (*mNextCapturedBuffers)[i];
-        /*ALOGVV("Sensor capturing buffer %d: stream %d,"
+        /*CAMHAL_LOGVV("Sensor capturing buffer %d: stream %d,"
                 " %d x %d, format %x, stride %d, buf %p, img %p",
                 i, b.streamId, b.width, b.height, b.format, b.stride,
                 b.buffer, b.img);*/
@@ -1109,7 +1100,7 @@ int HDMIToCSISensor::captureNewImage() {
                     StreamBuffer bAux;
                     int orientation;
                     orientation = getPictureRotate();
-                    ALOGD("bAux orientation=%d",orientation);
+                    CAMHAL_LOGD("bAux orientation=%d",orientation);
                     uint32_t pixelfmt;
                     if ((b.width == mVinfo->preview.format.fmt.pix.width
                     && b.height == mVinfo->preview.format.fmt.pix.height)
@@ -1169,7 +1160,7 @@ int HDMIToCSISensor::captureNewImage() {
                 captureYUYV(b.img, gain, b.stride);
                 break;
             default:
-                ALOGE("%s: Unknown format %x, no output", __FUNCTION__,
+                CAMHAL_LOGE("%s: Unknown format %x, no output", __FUNCTION__,
                         b.format);
                 break;
         }
@@ -1190,17 +1181,17 @@ int HDMIToCSISensor::getZoom(int *zoomMin, int *zoomMax, int *zoomStep) {
         *zoomMin = 0;
         *zoomMax = 0;
         *zoomStep = 1;
-        CAMHAL_LOGDB("%s: Can't get zoom level!\n", __FUNCTION__);
+        CAMHAL_LOGD("%s: Can't get zoom level!\n", __FUNCTION__);
     } else {
         if ((qc.step != 0) && (qc.minimum != 0) &&
             ((qc.minimum/qc.step) > (qc.maximum/qc.minimum))) {
-                DBG_LOGA("adjust zoom step. \n");
+                CAMHAL_LOGD("adjust zoom step. \n");
                 qc.step = (qc.minimum * qc.step);
             }
         *zoomMin = qc.minimum;
         *zoomMax = qc.maximum;
         *zoomStep = qc.step;
-        DBG_LOGB("zoomMin:%dzoomMax:%dzoomStep:%d\n", *zoomMin, *zoomMax, *zoomStep);
+        CAMHAL_LOGD("zoomMin:%dzoomMax:%dzoomStep:%d\n", *zoomMin, *zoomMax, *zoomStep);
     }
     return ret ;
 }
@@ -1213,7 +1204,7 @@ int HDMIToCSISensor::setZoom(int zoomValue) {
     ctl.id = V4L2_CID_ZOOM_ABSOLUTE;
     ret = ioctl(mVinfo->fd, VIDIOC_S_CTRL, &ctl);
     if (ret < 0) {
-        ALOGE("%s: Set zoom level failed!\n", __FUNCTION__);
+        CAMHAL_LOGE("%s: Set zoom level failed!\n", __FUNCTION__);
         }
     return ret ;
 }
@@ -1232,14 +1223,14 @@ status_t HDMIToCSISensor::setEffect(uint8_t effect) {
         ctl.value= CAM_EFFECT_ENC_SEPIA;
         break;
         default:
-        ALOGE("%s: Doesn't support effect mode %d",
+        CAMHAL_LOGE("%s: Doesn't support effect mode %d",
         __FUNCTION__, effect);
         return BAD_VALUE;
     }
-    DBG_LOGB("set effect mode:%d", effect);
+    CAMHAL_LOGD("set effect mode:%d", effect);
     ret = ioctl(mVinfo->fd, VIDIOC_S_CTRL, &ctl);
     if (ret < 0)
-        CAMHAL_LOGDB("Set effect fail: %s. ret=%d", strerror(errno),ret);
+        CAMHAL_LOGD("Set effect fail: %s. ret=%d", strerror(errno),ret);
     return ret ;
 }
 
@@ -1251,11 +1242,11 @@ int HDMIToCSISensor::getExposure(int *maxExp, int *minExp, int *def, camera_meta
 
        memset( &qc, 0, sizeof(qc));
 
-           DBG_LOGA("getExposure\n");
+           CAMHAL_LOGD("getExposure\n");
        qc.id = V4L2_CID_EXPOSURE;
        ret = ioctl(mVinfo->fd, VIDIOC_QUERYCTRL, &qc);
        if (ret < 0) {
-           CAMHAL_LOGDB("QUERYCTRL failed, errno=%d\n", errno);
+           CAMHAL_LOGD("QUERYCTRL failed, errno=%d\n", errno);
            *minExp = -4;
            *maxExp = 4;
            *def = 0;
@@ -1274,7 +1265,7 @@ int HDMIToCSISensor::getExposure(int *maxExp, int *minExp, int *def, camera_meta
            *def = 0;
            step->numerator = 1;
            step->denominator = 1;
-           DBG_LOGB("not in[min,max], min=%d, max=%d, def=%d\n",
+           CAMHAL_LOGD("not in[min,max], min=%d, max=%d, def=%d\n",
                                            *minExp, *maxExp, *def);
            return true;
        }
@@ -1285,7 +1276,7 @@ int HDMIToCSISensor::getExposure(int *maxExp, int *minExp, int *def, camera_meta
        *def = qc.default_value - middle;
        step->numerator = 1;
        step->denominator = 2;//qc.step;
-           DBG_LOGB("min=%d, max=%d, step=%d\n", qc.minimum, qc.maximum, qc.step);
+           CAMHAL_LOGD("min=%d, max=%d, step=%d\n", qc.minimum, qc.maximum, qc.step);
        return ret;
 }
 
@@ -1306,7 +1297,7 @@ status_t HDMIToCSISensor::setExposure(int expCmp) {
 
     ret = ioctl(mVinfo->fd, VIDIOC_QUERYCTRL, &qc);
     if (ret < 0) {
-        CAMHAL_LOGDB("AMLOGIC CAMERA get Exposure fail: %s. ret=%d", strerror(errno),ret);
+        CAMHAL_LOGD("AMLOGIC CAMERA get Exposure fail: %s. ret=%d", strerror(errno),ret);
     }
 
     ctl.id = V4L2_CID_EXPOSURE;
@@ -1314,9 +1305,9 @@ status_t HDMIToCSISensor::setExposure(int expCmp) {
 
     ret = ioctl(mVinfo->fd, VIDIOC_S_CTRL, &ctl);
     if (ret < 0) {
-        CAMHAL_LOGDB("AMLOGIC CAMERA Set Exposure fail: %s. ret=%d", strerror(errno),ret);
+        CAMHAL_LOGD("AMLOGIC CAMERA Set Exposure fail: %s. ret=%d", strerror(errno),ret);
     }
-        DBG_LOGB("setExposure value%d mEVmin%d mEVmax%d\n",ctl.value, qc.minimum, qc.maximum);
+        CAMHAL_LOGD("setExposure value%d mEVmin%d mEVmax%d\n",ctl.value, qc.minimum, qc.maximum);
     return ret ;
 }
 
@@ -1330,9 +1321,9 @@ int HDMIToCSISensor::getAntiBanding(uint8_t *antiBanding, uint8_t maxCont) {
     qc.id = V4L2_CID_POWER_LINE_FREQUENCY;
     ret = ioctl (mVinfo->fd, VIDIOC_QUERYCTRL, &qc);
     if ( (ret<0) || (qc.flags == V4L2_CTRL_FLAG_DISABLED)) {
-        DBG_LOGB("camera handle %d can't support this ctrl",mVinfo->fd);
+        CAMHAL_LOGD("camera handle %d can't support this ctrl",mVinfo->fd);
     } else if ( qc.type != V4L2_CTRL_TYPE_INTEGER) {
-        DBG_LOGB("this ctrl of camera handle %d can't support menu type",mVinfo->fd);
+        CAMHAL_LOGD("this ctrl of camera handle %d can't support menu type",mVinfo->fd);
     } else {
         memset(&qm, 0, sizeof(qm));
 
@@ -1386,15 +1377,15 @@ status_t HDMIToCSISensor::setAntiBanding(uint8_t antiBanding) {
         ctl.value= CAM_ANTIBANDING_AUTO;
         break;
     default:
-            ALOGE("%s: Doesn't support ANTIBANDING mode %d",
+            CAMHAL_LOGE("%s: Doesn't support ANTIBANDING mode %d",
                     __FUNCTION__, antiBanding);
             return BAD_VALUE;
     }
 
-    DBG_LOGB("anti banding mode:%d", antiBanding);
+    CAMHAL_LOGD("anti banding mode:%d", antiBanding);
     ret = ioctl(mVinfo->fd, VIDIOC_S_CTRL, &ctl);
     if ( ret < 0) {
-        CAMHAL_LOGDA("failed to set anti banding mode!\n");
+        CAMHAL_LOGD("failed to set anti banding mode!\n");
         return BAD_VALUE;
     }
     return ret;
@@ -1421,9 +1412,9 @@ int HDMIToCSISensor::getAutoFocus(uint8_t *afMode, uint8_t maxCount) {
     qc.id = V4L2_CID_FOCUS_AUTO;
     ret = ioctl (mVinfo->fd, VIDIOC_QUERYCTRL, &qc);
     if ( (ret<0) || (qc.flags == V4L2_CTRL_FLAG_DISABLED)) {
-        DBG_LOGB("camera handle %d can't support this ctrl",mVinfo->fd);
+        CAMHAL_LOGD("camera handle %d can't support this ctrl",mVinfo->fd);
     } else if ( qc.type != V4L2_CTRL_TYPE_MENU) {
-        DBG_LOGB("this ctrl of camera handle %d can't support menu type",mVinfo->fd);
+        CAMHAL_LOGD("this ctrl of camera handle %d can't support menu type",mVinfo->fd);
     } else {
         memset(&qm, 0, sizeof(qm));
 
@@ -1476,13 +1467,13 @@ status_t HDMIToCSISensor::setAutoFocus(uint8_t afMode) {
             ctl.value = CAM_FOCUS_MODE_CONTI_PIC;
             break;
         default:
-            ALOGE("%s: Emulator doesn't support AF mode %d",
+            CAMHAL_LOGE("%s: Emulator doesn't support AF mode %d",
                     __FUNCTION__, afMode);
             return BAD_VALUE;
     }
 
     if (ioctl(mVinfo->fd, VIDIOC_S_CTRL, &ctl) < 0) {
-        CAMHAL_LOGDA("failed to set camera focus mode!\n");
+        CAMHAL_LOGD("failed to set camera focus mode!\n");
         return BAD_VALUE;
     }
 
@@ -1498,9 +1489,9 @@ int HDMIToCSISensor::getAWB(uint8_t *awbMode, uint8_t maxCount) {
     qc.id = V4L2_CID_DO_WHITE_BALANCE;
     ret = ioctl (mVinfo->fd, VIDIOC_QUERYCTRL, &qc);
     if ( (ret<0) || (qc.flags == V4L2_CTRL_FLAG_DISABLED)) {
-        DBG_LOGB("camera handle %d can't support this ctrl",mVinfo->fd);
+        CAMHAL_LOGD("camera handle %d can't support this ctrl",mVinfo->fd);
     } else if ( qc.type != V4L2_CTRL_TYPE_MENU) {
-        DBG_LOGB("this ctrl of camera handle %d can't support menu type",mVinfo->fd);
+        CAMHAL_LOGD("this ctrl of camera handle %d can't support menu type",mVinfo->fd);
     } else {
         memset(&qm, 0, sizeof(qm));
 
@@ -1572,7 +1563,7 @@ status_t HDMIToCSISensor::setAWB(uint8_t awbMode) {
             ctl.value = CAM_WB_SHADE;
             break;
         default:
-            ALOGE("%s: Emulator doesn't support AWB mode %d",
+            CAMHAL_LOGE("%s: Emulator doesn't support AWB mode %d",
                     __FUNCTION__, awbMode);
             return BAD_VALUE;
     }
@@ -1586,7 +1577,7 @@ void HDMIToCSISensor::setSensorListener(SensorListener *listener) {
 void HDMIToCSISensor::dump(int& frame_index, uint8_t* buf,
                             int length, std::string name) {
 
-    ALOGD("%s:frame_index= %d",__FUNCTION__,frame_index);
+    CAMHAL_LOGD("%s:frame_index= %d",__FUNCTION__,frame_index);
     const int frame_num = 10;
     static FILE* fp = NULL;
     if (frame_index > frame_num)
@@ -1594,11 +1585,11 @@ void HDMIToCSISensor::dump(int& frame_index, uint8_t* buf,
     else if (frame_index == 0) {
         std::string path("/data/vendor/camera/");
         path.append(name);
-        ALOGD("full_name:%s",path.c_str());
+        CAMHAL_LOGD("full_name:%s",path.c_str());
 
         fp = fopen(path.c_str(),"ab+");
         if (!fp) {
-            ALOGE("open file %s fail, error: %s !!!",
+            CAMHAL_LOGE("open file %s fail, error: %s !!!",
                     path.c_str(),strerror(errno));
             return;
         }
@@ -1610,7 +1601,7 @@ void HDMIToCSISensor::dump(int& frame_index, uint8_t* buf,
         close(fd);
         return ;
     }else {
-        ALOGE("write frame %d ",frame_index);
+        CAMHAL_LOGE("write frame %d ",frame_index);
         fwrite((void*)buf,1,length,fp);
     }
 }

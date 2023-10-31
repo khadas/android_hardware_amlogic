@@ -25,6 +25,11 @@ class staticPipe {
     static sensorType fetchSensorType(media_stream_t *stream);
     static int fetchSensorOTP(media_stream_t * stream, aisp_calib_info_t *otp);
 
+#if defined(PREVIEW_DEWARP_ENABLE) || defined(PICTURE_DEWARP_ENABLE)
+    static int fetchSensorGdcParameter(media_stream_t * stream, GDCInParam in_params,
+                                               struct dewarp_params *dewarp_params);
+#endif
+
 };
 }
 #endif

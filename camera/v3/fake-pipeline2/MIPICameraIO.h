@@ -43,7 +43,7 @@ public:
     void *get_picture();
     int get_frame_buffer(struct VideoInfoBuffer* b);
     int get_record_buffer(struct VideoInfoBuffer* b);
-    int putback_frame();
+    int putback_frame(int idx = -1);
     int putback_record_frame();
     int putback_picture_frame();
     int EnumerateFormat(uint32_t pixelformat);

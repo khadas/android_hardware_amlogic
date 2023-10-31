@@ -20,7 +20,6 @@
 
 #define FRAME_DURATION (33333333L) // 1/30 s
 namespace android {
-
     class V4l2MediaSensor:public Sensor {
         public:
             V4l2MediaSensor();
@@ -73,6 +72,7 @@ namespace android {
             sp<IspMgr> mIspMgr;
             //store the v4l2 info
             MIPIVideoInfo *mVinfo;
+            MIPIVideoInfo *mExtVinfo;
             uint8_t* mImage_buffer;
 
             uint32_t mFps;
@@ -94,7 +94,6 @@ namespace android {
 
             uint32_t mMaxWidth;
             uint32_t mMaxHeight;
-
 #ifdef GE2D_ENABLE
             IONInterface* mION;
             ge2dTransform* mGE2D;
@@ -109,6 +108,7 @@ namespace android {
             void InitVideoInfo(int idx);
             int SensorInit(int idx);
             void setIOBufferNum();
+            void captureRAW();
 
     protected:
             virtual status_t readyToRun();

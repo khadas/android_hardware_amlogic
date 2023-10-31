@@ -38,7 +38,7 @@
 #include <stdbool.h>
 
 #include <linux/videodev2.h>
-#include <DebugUtils.h>
+#include <CamHalDebugLog.h>
 #include <vector>
 #include "CameraIO.h"
 

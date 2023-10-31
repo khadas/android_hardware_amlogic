@@ -1,10 +1,5 @@
 #define LOG_TAG "MIPISensor"
 
-#if defined(LOG_NNDEBUG) && LOG_NNDEBUG == 0
-#define ALOGVV ALOGV
-#else
-#define ALOGVV(...) ((void)0)
-#endif
 
 #define ATRACE_TAG (ATRACE_TAG_CAMERA | ATRACE_TAG_HAL | ATRACE_TAG_ALWAYS)
 #include <utils/Log.h>
@@ -17,6 +12,7 @@
 #include "MIPISensor.h"
 #include "CaptureUseMemcpy.h"
 #include "CaptureUseGe2d.h"
+#include "V4l2Utils.h"
 #if defined(PREVIEW_DEWARP_ENABLE) || defined(PICTURE_DEWARP_ENABLE)
 #include "dewarp.h"
 #endif
@@ -83,18 +79,21 @@ MIPISensor::MIPISensor() {
                     }
                     for (size_t i = 0; i < pictureBuffers->size(); i++) {
                         const StreamBuffer &b = (*pictureBuffers)[i];
-                        ALOGD("Sensor capturing buffer %zu: stream %d,"
+                        CAMHAL_LOGD("Sensor capturing buffer %zu: stream %d,"
                             " %d x %d, format %x, stride %d, buf %p, img %p",
                             i, b.streamId, b.width, b.height, b.format, b.stride,
                             b.buffer, b.img);
                         if (b.format == HAL_PIXEL_FORMAT_BLOB) {
+                            // Add auxiliary buffer of the right size
+                            // Assumes only one BLOB (JPEG) buffer in
+                            // mNextCapturedBuffers
                             size_t len;
                             int orientation;
                             uint32_t stride;
                             int ION_try = 0;
                             orientation = getPictureRotate();
-                            ALOGD("bAux orientation=%d",orientation);
-                            ALOGD("%s: the picture width=%d, height=%d\n",__FUNCTION__,b.width,b.height);
+                            CAMHAL_LOGD("bAux orientation=%d",orientation);
+                            CAMHAL_LOGD("%s: the picture width=%d, height=%d\n",__FUNCTION__,b.width,b.height);
                             StreamBuffer bAux;
 
                             bAux.streamId = 0;
@@ -117,7 +116,7 @@ MIPISensor::MIPISensor() {
                             bAux.img = new uint8_t[len];
 #endif
                             if (bAux.img == NULL) {
-                                ALOGE("%s:%d fatal: no buffer to capture,skip ...",__FUNCTION__,__LINE__);
+                                CAMHAL_LOGE("%s:%d fatal: no buffer to capture,skip ...",__FUNCTION__,__LINE__);
                             } else {
                                 takePicture(bAux, mGainFactor, b.stride);
                                 pictureBuffers->push_back(bAux);
@@ -133,7 +132,10 @@ MIPISensor::MIPISensor() {
             return false;
          });
         }
+
     mISP = isp3a::get_instance();
+
+    mResource = GlobalResource::getInstance();
 #ifdef GE2D_ENABLE
     mION = IONInterface::get_instance();
     mGE2D = new ge2dTransform();
@@ -143,11 +145,11 @@ MIPISensor::MIPISensor() {
     mIsGdcInit = false;
 #endif
     mPortFds.resize(3,-1);
-    ALOGD("create MIPISensor");
+    CAMHAL_LOGD("create MIPISensor");
 }
 
 MIPISensor::~MIPISensor() {
-    ALOGD("delete MIPISensor");
+    CAMHAL_LOGD("delete MIPISensor");
     if (mCapture) {
         delete(mCapture);
         mCapture = NULL;
@@ -181,7 +183,7 @@ MIPISensor::~MIPISensor() {
 }
 
 status_t MIPISensor::streamOff(channel ch) {
-    ALOGV("%s: E", __FUNCTION__);
+    CAMHAL_LOGV("%s: E", __FUNCTION__);
     status_t ret = 0;
 
     if (ch == channel_capture) {
@@ -199,7 +201,7 @@ status_t MIPISensor::streamOff(channel ch) {
 #endif
         ret = mVinfo->stop_capturing();
 #if defined(PREVIEW_DEWARP_ENABLE) || defined(PICTURE_DEWARP_ENABLE)
-        DeWarp::putInstance();
+        //DeWarp::putInstance();
 #endif
     }
     else
@@ -209,15 +211,16 @@ status_t MIPISensor::streamOff(channel ch) {
 }
 
 int MIPISensor::SensorInit(int idx) {
-    ALOGV("%s: E", __FUNCTION__);
+    CAMHAL_LOGV("%s: E", __FUNCTION__);
     int ret = 0;
     if (mVinfo == NULL)
         mVinfo =  new MIPIVideoInfo();
     ret = camera_open(idx);
     if (ret < 0) {
-        ALOGE("Unable to open sensor %d, errno=%d\n", mVinfo->get_index(), ret);
+        CAMHAL_LOGE("Unable to open sensor %d, errno=%d\n", mVinfo->get_index(), ret);
         return ret;
     }
+    //InitVideoInfo(idx);
     mVinfo->camera_init();
     if (!mCapture) {
 #ifdef GE2D_ENABLE
@@ -226,14 +229,16 @@ int MIPISensor::SensorInit(int idx) {
         mCapture = new CaptureUseMemcpy(mVinfo);
 #endif
     }
+    //----set buffer number using to get image from video device
     setIOBufferNum();
+    //----set camera type
     mSensorType = SENSOR_MIPI;
 
     return ret;
 }
 
 status_t MIPISensor::startUp(int idx, bool customizationSensor) {
-    ALOGV("%s: E", __FUNCTION__);
+    CAMHAL_LOGV("%s: E", __FUNCTION__);
     int res;
     char property[PROPERTY_VALUE_MAX];
 
@@ -243,17 +248,18 @@ status_t MIPISensor::startUp(int idx, bool customizationSensor) {
     res = run("EmulatedFakeCamera3::Sensor",ANDROID_PRIORITY_URGENT_DISPLAY);
 
     if (res != OK) {
-       ALOGE("Unable to start up sensor capture thread: %d", res);
+       CAMHAL_LOGE("Unable to start up sensor capture thread: %d", res);
     }
     res = SensorInit(idx);
 #ifdef GDC_ENABLE
     if (!mIGdc)
         mIGdc = new gdcUseFd();
+        //mIGdc = new gdcUseMemcpy();
 #endif
 
     property_get("vendor.media.camera.low_latency_mode", property, "false");
     if (strstr(property,"true")) {
-        ALOGD("running in low latency mode");
+        CAMHAL_LOGD("running in low latency mode");
         mLowLatencyMode = true;
     }
 
@@ -262,7 +268,7 @@ status_t MIPISensor::startUp(int idx, bool customizationSensor) {
 
 int MIPISensor::camera_open(int idx) {
     int ret = 0;
-    int counter = 1;
+    int counter = 2;
     char property[PROPERTY_VALUE_MAX];
     memset(property, 0, sizeof(property));
     if (property_get("vendor.media.camera.count",property,NULL) > 0) {
@@ -281,9 +287,9 @@ int MIPISensor::camera_open(int idx) {
         for (int i = 0; i < 3; i++)
             portFd[i] = open(mDeviceName, O_RDWR);
 
-        mPortFds[channel_preview] = portFd[1];
-        mPortFds[channel_capture] = portFd[0];
-        mPortFds[channel_record] = portFd[2];
+        mPortFds[channel_preview] = portFd[1];// sc0
+        mPortFds[channel_capture] = portFd[0];// sc3 no resize
+        mPortFds[channel_record] = portFd[2];// sc1
         mVinfo->set_fds(mPortFds);
         mVinfo->set_index(idx);
 
@@ -307,17 +313,17 @@ int MIPISensor::camera_open(int idx) {
 
         int ret = ioctl(mPortFds[channel_capture], VIDIOC_S_FMT, &format);
         if (ret < 0) {
-            ALOGD("Open: VIDIOC_S_FMT Failed: %s, fd=%d\n",
+            CAMHAL_LOGD("Open: VIDIOC_S_FMT Failed: %s, fd=%d\n",
                 strerror(errno), mPortFds[channel_capture]);
             return -1;
         }
-        ALOGD("max width %d, max height %d", mMaxWidth, mMaxHeight);
+        CAMHAL_LOGI("max width %d, max height %d", mMaxWidth, mMaxHeight);
      }
     return ret;
 }
 
 void MIPISensor::camera_close(void) {
-    ALOGV("%s: E", __FUNCTION__);
+    CAMHAL_LOGV("%s: E", __FUNCTION__);
     mISP->close_isp3a_library();
     mISP->print_status();
     for (int i = 0;i < mPortFds.size();i++)
@@ -326,12 +332,12 @@ void MIPISensor::camera_close(void) {
 }
 
 status_t MIPISensor::shutDown() {
-    ALOGV("%s: E", __FUNCTION__);
+    CAMHAL_LOGV("%s: E", __FUNCTION__);
     int res;
     mTimeOutCount = 0;
     res = requestExitAndWait();
     if (res != OK) {
-        ALOGE("Unable to shut down sensor capture thread: %d", res);
+        CAMHAL_LOGE("Unable to shut down sensor capture thread: %d", res);
     }
     if (mVinfo != NULL) {
         mVinfo->stop_picture();
@@ -353,10 +359,10 @@ status_t MIPISensor::shutDown() {
 #endif
 
 #if defined(PREVIEW_DEWARP_ENABLE) || defined(PICTURE_DEWARP_ENABLE)
-    DeWarp::putInstance();
+    //DeWarp::putInstance();
 #endif
     mSensorWorkFlag = false;
-    ALOGD("%s: Exit", __FUNCTION__);
+    CAMHAL_LOGD("%s: Exit", __FUNCTION__);
     return res;
 }
 
@@ -368,7 +374,7 @@ uint32_t MIPISensor::getStreamUsage(camera3_stream_t& stream){
             | GRALLOC_USAGE_SW_WRITE_MASK
             );
     usage = GRALLOC1_PRODUCER_USAGE_CAMERA | usage;
-    ALOGV("%s: usage=0x%x", __FUNCTION__,usage);
+    CAMHAL_LOGV("%s: usage=0x%x", __FUNCTION__,usage);
     return usage;
 }
 
@@ -382,8 +388,8 @@ void MIPISensor::takePicture(StreamBuffer& b, uint32_t gain, uint32_t stride) {
     struct data_in in;
     in.src = mKernelBuffer;
     in.share_fd = mTempFD;
-    ALOGD("%s: E",__FUNCTION__);
-    set_notify_3A_is_capturing(mVinfo->get_fd(), 1);
+    CAMHAL_LOGD("%s: E",__FUNCTION__);
+    V4l2Utils::set_notify_3A_is_capturing(mVinfo->get_fd(), DO_CAPTURING);
     if (!isPicture()) {
         mVinfo->start_picture(0);
         enableZsl = false;
@@ -402,6 +408,7 @@ void MIPISensor::takePicture(StreamBuffer& b, uint32_t gain, uint32_t stride) {
         if (ret == ERROR_FRAME)
             break;
 #ifdef GE2D_ENABLE
+        //----do rotation
         mGE2D->doRotationAndMirror(b);
 #endif
         mVinfo->putback_picture_frame();
@@ -411,12 +418,13 @@ void MIPISensor::takePicture(StreamBuffer& b, uint32_t gain, uint32_t stride) {
 
     if (stop == true)
         mVinfo->stop_picture();
-    set_notify_3A_is_capturing(mVinfo->get_fd(), 0);
-    ALOGD("get picture success !");
+    V4l2Utils::set_notify_3A_is_capturing(mVinfo->get_fd(), NOT_CAPTURING);
+    CAMHAL_LOGD("get picture success !");
 }
 
 void MIPISensor::captureNV21(StreamBuffer b, uint32_t gain) {
     ATRACE_CALL();
+    //CAMHAL_LOGVV("MIPI NV21 sensor image captured");
     struct data_in in;
 
     in.src = mSavedDecodedBuffer.vaddr;
@@ -426,23 +434,31 @@ void MIPISensor::captureNV21(StreamBuffer b, uint32_t gain) {
     in.src_stride = mSavedDecodedBuffer.stride;
     in.src_height = mSavedDecodedBuffer.height;
 
-    ALOGVV("%s:mTempFD = %d",__FUNCTION__,mTempFD);
+    CAMHAL_LOGVV("%s:mTempFD = %d",__FUNCTION__,mTempFD);
     while (1) {
         if (mExitSensorThread) {
             break;
         }
-        int ret = mCapture->captureNV21frame(b,&in);
+        //----get one frame
+        int ret = mCapture->captureNV21frame(b, &in);
         if (ret == ERROR_FRAME) {
-            break;
-        }
+          break;
+       }
 #ifdef GE2D_ENABLE
-        mGE2D->doRotationAndMirror(b);
+        //----do rotation
+        if (mTempFD < 0) {
+            CAMHAL_LOGVV("%s:doRotationAndMirror",__FUNCTION__);
+            mGE2D->doRotationAndMirror(b);
+        }
 #endif
 
 #ifdef GDC_ENABLE
+        //----do fisheye corrected
         struct param p;
         p.img = b.img;
+        //----get kernel dmabuf fd
         p.input_fd = in.dmabuf_fd;
+        //----set output buffer fd
         p.output_fd = b.share_fd;
         mIGdc->gdc_do_fisheye_correction(&p);
 #endif
@@ -486,7 +502,7 @@ void MIPISensor::captureYV12(StreamBuffer b, uint32_t gain) {
         }
         break;
     }
-    ALOGVV("YV12 sensor image captured");
+    CAMHAL_LOGVV("YV12 sensor image captured");
 }
 void MIPISensor::captureYUYV(uint8_t *img, uint32_t gain, uint32_t stride) {
     struct data_in in;
@@ -509,7 +525,7 @@ void MIPISensor::captureYUYV(uint8_t *img, uint32_t gain, uint32_t stride) {
         mVinfo->putback_frame();
         break;
     }
-    ALOGVV("YUYV sensor image captured");
+    CAMHAL_LOGVV("YUYV sensor image captured");
 }
 void MIPISensor::setIOBufferNum()
 {
@@ -517,10 +533,10 @@ void MIPISensor::setIOBufferNum()
     int tmp = 6;
     if (property_get("ro.vendor.mipicamera.iobuffer", buffer_number, NULL) > 0) {
         sscanf(buffer_number, "%d", &tmp);
-        ALOGD(" get buffer number is %d from property \n",tmp);
+        CAMHAL_LOGD(" get buffer number is %d from property \n",tmp);
     }
 
-    ALOGD("default buffer number is %d\n",tmp);
+    CAMHAL_LOGD("default buffer number is %d\n",tmp);
     mVinfo->set_buffer_numbers(tmp);
 }
 
@@ -533,7 +549,7 @@ status_t MIPISensor::getOutputFormat(void) {
     ret = mVinfo->EnumerateFormat(V4L2_PIX_FMT_YUYV);
     if (ret)
         return ret;
-    ALOGE("Unable to find a supported sensor format!");
+    CAMHAL_LOGE("Unable to find a supported sensor format!");
     return BAD_VALUE;
 }
 
@@ -542,17 +558,28 @@ status_t MIPISensor::setOutputFormat(int width, int height, int pixelformat, cha
     mFramecount = 0;
     mCurFps = 0;
 
-    ALOGD("%s: channel=%d \n",__FUNCTION__, ch);
+    CAMHAL_LOGD("%s: channel=%d \n",__FUNCTION__, ch);
 
     if (ch == channel_capture) {
+        //setCrop(width, height);
+        //----set snap shot pixel format
         mVinfo->set_picture_format(width, height, pixelformat);
     } else if (ch == channel_record) {
+        //setCrop(width, height);
+        //----set record pixel format
         mVinfo->set_record_format(width, height, pixelformat);
     } else if (ch == channel_preview) {
+        //----set preview pixel format
         mVinfo->set_preview_format(width, height, pixelformat);
+        /*
+        mVinfo->preview.format.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+        mVinfo->preview.format.fmt.pix.width = width;
+        mVinfo->preview.format.fmt.pix.height = height;
+        mVinfo->preview.format.fmt.pix.pixelformat = pixelformat;
+        */
         res = mVinfo->setBuffersFormat();
         if (res < 0) {
-            ALOGE("set preview format failed\n");
+            CAMHAL_LOGE("set preview format failed\n");
             return res;
         }
 #ifdef GDC_ENABLE
@@ -591,7 +618,7 @@ int MIPISensor::halFormatToSensorFormat(uint32_t pixelfmt) {
     if (ret)
         return ret;
 
-    ALOGE("%s, Unable to find a supported sensor format!", __FUNCTION__);
+    CAMHAL_LOGE("%s, Unable to find a supported sensor format!", __FUNCTION__);
     return BAD_VALUE;
 }
 
@@ -599,6 +626,7 @@ status_t MIPISensor::streamOn(channel channel) {
     char property[PROPERTY_VALUE_MAX];
     property_get("vendor.media.camera.dual",property,"false");
 
+    /* enable dualcamera support, but make sure hardware ready before */
     if (strstr(property,"true")) {
         setdualcam(1);
     }
@@ -650,7 +678,7 @@ int MIPISensor::getStreamConfigurations(uint32_t picSizes[], const int32_t kAvai
         frmsize.index = i;
         auto res = ioctl(mVinfo->get_fd(), VIDIOC_ENUM_FRAMESIZES, &frmsize);
         if (res < 0) {
-            ALOGD("index=%d, break\n", i);
+            CAMHAL_LOGD("index=%d, break\n", i);
             break;
         }
         if (frmsize.type == V4L2_FRMSIZE_TYPE_DISCRETE) { //only support this type
@@ -661,7 +689,7 @@ int MIPISensor::getStreamConfigurations(uint32_t picSizes[], const int32_t kAvai
                 frmsizeMax = frmsize;
         }
     }
-    ALOGD("get max output width=%d, height=%d, format=%d\n",
+    CAMHAL_LOGD("get max output width=%d, height=%d, format=%d\n",
         frmsizeMax.discrete.width, frmsizeMax.discrete.height, frmsizeMax.pixel_format);
     for (uint32_t i = size_start; i < length; i++) {//preview
         if (kUsbAvailablePictureSize[i].width > frmsizeMax.discrete.width ||
@@ -718,7 +746,7 @@ getStreamConfigurationDurations(uint32_t picSizes[], int64_t duration[], int siz
         frmsize.index = i;
         auto res = ioctl(mVinfo->get_fd(), VIDIOC_ENUM_FRAMESIZES, &frmsize);
         if (res < 0) {
-            ALOGD("index=%d, break\n", i);
+            CAMHAL_LOGD("index=%d, break\n", i);
             break;
         }
         if (frmsize.type == V4L2_FRMSIZE_TYPE_DISCRETE) { //only support this type
@@ -729,7 +757,7 @@ getStreamConfigurationDurations(uint32_t picSizes[], int64_t duration[], int siz
                 frmsizeMax = frmsize;
         }
     }
-    ALOGD("get max output width=%d, height=%d, format=%d\n",
+    CAMHAL_LOGD("get max output width=%d, height=%d, format=%d\n",
         frmsizeMax.discrete.width, frmsizeMax.discrete.height, frmsizeMax.pixel_format);
 
     for (uint32_t i = size_start; i < ARRAY_SIZE(kUsbAvailablePictureSize); i++) {
@@ -788,7 +816,7 @@ int MIPISensor::getPictureSizes(int32_t picSizes[], int size, bool preview) {
 
     support_w = kUsbAvailablePictureSize[0].width;
     support_h = kUsbAvailablePictureSize[0].height;
-    ALOGD("%s:support_w=%d, support_h=%d\n",__FUNCTION__,support_w,support_h);
+    CAMHAL_LOGI("%s:support_w=%d, support_h=%d\n",__FUNCTION__,support_w,support_h);
     memset(&frmsize,0,sizeof(frmsize));
     preview_fmt = V4L2_PIX_FMT_NV21;//getOutputFormat();
 
@@ -801,7 +829,7 @@ int MIPISensor::getPictureSizes(int32_t picSizes[], int size, bool preview) {
         frmsize.index = i;
         res = ioctl(mVinfo->get_fd(), VIDIOC_ENUM_FRAMESIZES, &frmsize);
         if (res < 0) {
-            ALOGD("index=%d, break\n", i);
+            CAMHAL_LOGD("index=%d, break\n", i);
             break;
         }
 
@@ -824,6 +852,7 @@ int MIPISensor::getPictureSizes(int32_t picSizes[], int size, bool preview) {
                 continue;
             }
 
+            //TODO insert in descend order
             if (picSizes[count + 0] * picSizes[count + 1] > picSizes[count - 1] * picSizes[count - 2]) {
                 picSizes[count + 0] = picSizes[count - 2];
                 picSizes[count + 1] = picSizes[count - 1];
@@ -840,13 +869,13 @@ int MIPISensor::getPictureSizes(int32_t picSizes[], int size, bool preview) {
 }
 
 status_t MIPISensor::force_reset_sensor() {
-    ALOGD("force_reset_sensor");
+    CAMHAL_LOGD("force_reset_sensor");
     status_t ret;
     mTimeOutCount = 0;
     ret = streamOff(channel_preview);
     ret = mVinfo->setBuffersFormat();
     ret = streamOn(channel_preview);
-    ALOGD("%s , ret = %d", __FUNCTION__, ret);
+    CAMHAL_LOGD("%s , ret = %d", __FUNCTION__, ret);
     return ret;
 }
 
@@ -857,19 +886,22 @@ int MIPISensor::captureNewImage() {
     mSavedDecodedBuffer.fd = -1;
 
     // Might be adding more buffers, so size isn't constant
-    ALOGVV("%s:buffer size=%zu\n",__FUNCTION__,mNextCapturedBuffers->size());
+    CAMHAL_LOGVV("%s:buffer size=%zu\n",__FUNCTION__,mNextCapturedBuffers->size());
     for (size_t i = 0; i < mNextCapturedBuffers->size(); i++) {
         const StreamBuffer &b = (*mNextCapturedBuffers)[i];
-        ALOGVV("Sensor capturing buffer %zu: stream %d,"
+        CAMHAL_LOGVV("Sensor capturing buffer %zu: stream %d,"
                 " %d x %d, format %x, stride %d, buf %p, img %p",
                 i, b.streamId, b.width, b.height, b.format, b.stride,
                 b.buffer, b.img);
         switch (b.format) {
             case HAL_PIXEL_FORMAT_BLOB:
+                // Add auxiliary buffer of the right size
+                // Assumes only one BLOB (JPEG) buffer in
+                // mNextCapturedBuffers
                 StreamBuffer bAux;
                 int orientation;
                 orientation = getPictureRotate();
-                ALOGD("bAux orientation=%d",orientation);
+                CAMHAL_LOGD("bAux orientation=%d",orientation);
 
                 bAux.streamId = 0;
                 bAux.width = b.width;
@@ -878,7 +910,7 @@ int MIPISensor::captureNewImage() {
                 bAux.stride = b.width;
                 bAux.buffer = NULL;
 #ifdef GE2D_ENABLE
-                bAux.img = mION->alloc_buffer(b.width * b.height * 3,&bAux.share_fd);
+                bAux.img = mION->alloc_buffer(b.width * b.height * 3, &bAux.share_fd);
 #else
                 bAux.img = new uint8_t[b.width * b.height * 3];
 #endif
@@ -895,7 +927,7 @@ int MIPISensor::captureNewImage() {
                 captureYUYV(b.img, gain, b.stride);
                 break;
             default:
-                ALOGE("%s: Unknown format %x, no output", __FUNCTION__,
+                CAMHAL_LOGE("%s: Unknown format %x, no output", __FUNCTION__,
                         b.format);
                 break;
         }
@@ -926,17 +958,17 @@ int MIPISensor::getZoom(int *zoomMin, int *zoomMax, int *zoomStep) {
         *zoomMin = 0;
         *zoomMax = 0;
         *zoomStep = 1;
-        ALOGD("%s: Can't get zoom level!\n", __FUNCTION__);
+        CAMHAL_LOGD("%s: Can't get zoom level!\n", __FUNCTION__);
     } else {
         if ((qc.step != 0) && (qc.minimum != 0) &&
             ((qc.minimum/qc.step) > (qc.maximum/qc.minimum))) {
-                ALOGD("adjust zoom step. \n");
+                CAMHAL_LOGD("adjust zoom step. \n");
                 qc.step = (qc.minimum * qc.step);
             }
         *zoomMin = qc.minimum;
         *zoomMax = qc.maximum;
         *zoomStep = qc.step;
-        ALOGD("zoomMin:%dzoomMax:%dzoomStep:%d\n", *zoomMin, *zoomMax, *zoomStep);
+        CAMHAL_LOGD("zoomMin:%dzoomMax:%dzoomStep:%d\n", *zoomMin, *zoomMax, *zoomStep);
     }
     return ret ;
 }
@@ -949,7 +981,7 @@ int MIPISensor::setZoom(int zoomValue) {
     ctl.id = V4L2_CID_ZOOM_ABSOLUTE;
     ret = ioctl(mVinfo->get_fd(), VIDIOC_S_CTRL, &ctl);
     if (ret < 0) {
-        ALOGE("%s: Set zoom level failed!\n", __FUNCTION__);
+        CAMHAL_LOGE("%s: Set zoom level failed!\n", __FUNCTION__);
         }
     return ret ;
 }
@@ -968,14 +1000,14 @@ status_t MIPISensor::setEffect(uint8_t effect) {
         ctl.value= CAM_EFFECT_ENC_SEPIA;
         break;
         default:
-        ALOGE("%s: Doesn't support effect mode %d",
+        CAMHAL_LOGE("%s: Doesn't support effect mode %d",
         __FUNCTION__, effect);
         return BAD_VALUE;
     }
-    ALOGD("set effect mode:%d", effect);
+    CAMHAL_LOGD("set effect mode:%d", effect);
     ret = ioctl(mVinfo->get_fd(), VIDIOC_S_CTRL, &ctl);
     if (ret < 0)
-        ALOGD("Set effect fail: %s. ret=%d", strerror(errno),ret);
+        CAMHAL_LOGD("Set effect fail: %s. ret=%d", strerror(errno),ret);
     return ret ;
 }
 
@@ -987,11 +1019,11 @@ int MIPISensor::getExposure(int *maxExp, int *minExp, int *def, camera_metadata_
 
        memset( &qc, 0, sizeof(qc));
 
-           ALOGD("getExposure\n");
+           CAMHAL_LOGD("getExposure\n");
        qc.id = V4L2_CID_EXPOSURE;
        ret = ioctl(mVinfo->get_fd(), VIDIOC_QUERYCTRL, &qc);
        if (ret < 0) {
-           ALOGD("QUERYCTRL failed, errno=%d\n", errno);
+           CAMHAL_LOGD("QUERYCTRL failed, errno=%d\n", errno);
            *minExp = -4;
            *maxExp = 4;
            *def = 0;
@@ -1010,7 +1042,7 @@ int MIPISensor::getExposure(int *maxExp, int *minExp, int *def, camera_metadata_
            *def = 0;
            step->numerator = 1;
            step->denominator = 1;
-           ALOGD("not in[min,max], min=%d, max=%d, def=%d\n",
+           CAMHAL_LOGD("not in[min,max], min=%d, max=%d, def=%d\n",
                                            *minExp, *maxExp, *def);
            return true;
        }
@@ -1021,7 +1053,7 @@ int MIPISensor::getExposure(int *maxExp, int *minExp, int *def, camera_metadata_
        *def = qc.default_value - middle;
        step->numerator = 1;
        step->denominator = 2;//qc.step;
-           ALOGD("min=%d, max=%d, step=%d\n", qc.minimum, qc.maximum, qc.step);
+           CAMHAL_LOGD("min=%d, max=%d, step=%d\n", qc.minimum, qc.maximum, qc.step);
        return ret;
 }
 
@@ -1042,7 +1074,7 @@ status_t MIPISensor::setExposure(int expCmp) {
 
     ret = ioctl(mVinfo->get_fd(), VIDIOC_QUERYCTRL, &qc);
     if (ret < 0) {
-        ALOGD("AMLOGIC CAMERA get Exposure fail: %s. ret=%d", strerror(errno),ret);
+        CAMHAL_LOGD("AMLOGIC CAMERA get Exposure fail: %s. ret=%d", strerror(errno),ret);
     }
 
     ctl.id = V4L2_CID_EXPOSURE;
@@ -1050,9 +1082,9 @@ status_t MIPISensor::setExposure(int expCmp) {
 
     ret = ioctl(mVinfo->get_fd(), VIDIOC_S_CTRL, &ctl);
     if (ret < 0) {
-        ALOGD("AMLOGIC CAMERA Set Exposure fail: %s. ret=%d", strerror(errno),ret);
+        CAMHAL_LOGD("AMLOGIC CAMERA Set Exposure fail: %s. ret=%d", strerror(errno),ret);
     }
-        ALOGD("setExposure value%d mEVmin%d mEVmax%d\n",ctl.value, qc.minimum, qc.maximum);
+        CAMHAL_LOGD("setExposure value%d mEVmin%d mEVmax%d\n",ctl.value, qc.minimum, qc.maximum);
     return ret ;
 }
 
@@ -1066,9 +1098,9 @@ int MIPISensor::getAntiBanding(uint8_t *antiBanding, uint8_t maxCont) {
     qc.id = V4L2_CID_POWER_LINE_FREQUENCY;
     ret = ioctl (mVinfo->get_fd(), VIDIOC_QUERYCTRL, &qc);
     if ( (ret<0) || (qc.flags == V4L2_CTRL_FLAG_DISABLED)) {
-        ALOGD("camera handle %d can't support this ctrl",mVinfo->get_fd());
+        CAMHAL_LOGD("camera handle %d can't support this ctrl",mVinfo->get_fd());
     } else if ( qc.type != V4L2_CTRL_TYPE_INTEGER) {
-        ALOGD("this ctrl of camera handle %d can't support menu type",mVinfo->get_fd());
+        CAMHAL_LOGD("this ctrl of camera handle %d can't support menu type",mVinfo->get_fd());
     } else {
         memset(&qm, 0, sizeof(qm));
 
@@ -1121,15 +1153,15 @@ status_t MIPISensor::setAntiBanding(uint8_t antiBanding) {
         ctl.value= CAM_ANTIBANDING_AUTO;
         break;
     default:
-            ALOGE("%s: Doesn't support ANTIBANDING mode %d",
+            CAMHAL_LOGE("%s: Doesn't support ANTIBANDING mode %d",
                     __FUNCTION__, antiBanding);
             return BAD_VALUE;
     }
 
-    ALOGD("anti banding mode:%d", antiBanding);
+    CAMHAL_LOGD("anti banding mode:%d", antiBanding);
     ret = ioctl(mVinfo->get_fd(), VIDIOC_S_CTRL, &ctl);
     if ( ret < 0) {
-        ALOGD("failed to set anti banding mode!\n");
+        CAMHAL_LOGD("failed to set anti banding mode!\n");
         return BAD_VALUE;
     }
     return ret;
@@ -1156,9 +1188,9 @@ int MIPISensor::getAutoFocus(uint8_t *afMode, uint8_t maxCount) {
     qc.id = V4L2_CID_FOCUS_AUTO;
     ret = ioctl (mVinfo->get_fd(), VIDIOC_QUERYCTRL, &qc);
     if ( (ret<0) || (qc.flags == V4L2_CTRL_FLAG_DISABLED)) {
-        ALOGD("camera handle %d can't support this ctrl",mVinfo->get_fd());
+        CAMHAL_LOGD("camera handle %d can't support this ctrl",mVinfo->get_fd());
     } else if ( qc.type != V4L2_CTRL_TYPE_MENU) {
-        ALOGD("this ctrl of camera handle %d can't support menu type",mVinfo->get_fd());
+        CAMHAL_LOGD("this ctrl of camera handle %d can't support menu type",mVinfo->get_fd());
     } else {
         memset(&qm, 0, sizeof(qm));
 
@@ -1211,13 +1243,13 @@ status_t MIPISensor::setAutoFocus(uint8_t afMode) {
             ctl.value = CAM_FOCUS_MODE_CONTI_PIC;
             break;
         default:
-            ALOGE("%s: Emulator doesn't support AF mode %d",
+            CAMHAL_LOGE("%s: Emulator doesn't support AF mode %d",
                     __FUNCTION__, afMode);
             return BAD_VALUE;
     }
 
     if (ioctl(mVinfo->get_fd(), VIDIOC_S_CTRL, &ctl) < 0) {
-        ALOGD("failed to set camera focus mode!\n");
+        CAMHAL_LOGD("failed to set camera focus mode!\n");
         return BAD_VALUE;
     }
 
@@ -1233,9 +1265,9 @@ int MIPISensor::getAWB(uint8_t *awbMode, uint8_t maxCount) {
     qc.id = V4L2_CID_DO_WHITE_BALANCE;
     ret = ioctl (mVinfo->get_fd(), VIDIOC_QUERYCTRL, &qc);
     if ( (ret<0) || (qc.flags == V4L2_CTRL_FLAG_DISABLED)) {
-        ALOGD("camera handle %d can't support this ctrl",mVinfo->get_fd());
+        CAMHAL_LOGD("camera handle %d can't support this ctrl",mVinfo->get_fd());
     } else if ( qc.type != V4L2_CTRL_TYPE_MENU) {
-        ALOGD("this ctrl of camera handle %d can't support menu type",mVinfo->get_fd());
+        CAMHAL_LOGD("this ctrl of camera handle %d can't support menu type",mVinfo->get_fd());
     } else {
         memset(&qm, 0, sizeof(qm));
 
@@ -1307,7 +1339,7 @@ status_t MIPISensor::setAWB(uint8_t awbMode) {
             ctl.value = CAM_WB_SHADE;
             break;
         default:
-            ALOGE("%s: Emulator doesn't support AWB mode %d",
+            CAMHAL_LOGE("%s: Emulator doesn't support AWB mode %d",
                     __FUNCTION__, awbMode);
             return BAD_VALUE;
     }
@@ -1321,7 +1353,7 @@ void MIPISensor::setSensorListener(SensorListener *listener) {
 void MIPISensor::dump(int& frame_index, uint8_t* buf,
                             int length, std::string name) {
 
-    ALOGD("%s:frame_index= %d",__FUNCTION__,frame_index);
+    CAMHAL_LOGD("%s:frame_index= %d",__FUNCTION__,frame_index);
     const int frame_num = 10;
     static FILE* fp = NULL;
     if (frame_index > frame_num)
@@ -1329,11 +1361,11 @@ void MIPISensor::dump(int& frame_index, uint8_t* buf,
     else if (frame_index == 0) {
         std::string path("/data/vendor/camera/");
         path.append(name);
-        ALOGD("full_name:%s",path.c_str());
+        CAMHAL_LOGD("full_name:%s",path.c_str());
 
         fp = fopen(path.c_str(),"ab+");
         if (!fp) {
-            ALOGE("open file %s fail, error: %s !!!",
+            CAMHAL_LOGE("open file %s fail, error: %s !!!",
                     path.c_str(),strerror(errno));
             return;
         }
@@ -1345,29 +1377,18 @@ void MIPISensor::dump(int& frame_index, uint8_t* buf,
         close(fd);
         return ;
     }else {
-        ALOGE("write frame %d ",frame_index);
+        CAMHAL_LOGE("write frame %d ",frame_index);
         fwrite((void*)buf,1,length,fp);
-    }
-}
-
-void MIPISensor::set_notify_3A_is_capturing(int videofd, int isCapturing) {
-    struct v4l2_control ctrl;
-    int ret = 0;
-    ctrl.id = ISP_V4L2_CID_SET_IS_CAPTURING;
-    ctrl.value = isCapturing;
-    ret = ioctl (videofd, VIDIOC_S_CTRL, &ctrl);
-    if (ret < 0 ) {
-        ALOGE("notify to 3A capture status failed: %s\n",strerror(errno));
     }
 }
 
 status_t MIPISensor::readyToRun() {
     ATRACE_CALL();
-    ALOGV("Starting up mipi sensor thread");
+    CAMHAL_LOGV("Starting up mipi sensor thread");
     mStartupTime = systemTime();
     mNextCaptureTime = 0;
     mNextCapturedBuffers = NULL;
-    DBG_LOGA("");
+    CAMHAL_LOGD("");
 
     return OK;
 }

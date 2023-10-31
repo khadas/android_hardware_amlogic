@@ -14,19 +14,14 @@
  * limitations under the License.
  */
 
-#define LOG_NDEBUG 0
 
 #define LOG_TAG "ge2d_stream"
 #define ATRACE_TAG (ATRACE_TAG_CAMERA | ATRACE_TAG_HAL | ATRACE_TAG_ALWAYS)
 #include <utils/Trace.h>
-#if defined(LOG_NNDEBUG) && LOG_NNDEBUG == 0
-#define ALOGVV ALOGV
-#else
-#define ALOGVV(...) ((void)0)
-#endif
+
 #define RATIO_SCALE
 #include <hardware/camera3.h>
-#include <DebugUtils.h>
+#include <CamHalDebugLog.h>
 #include "ge2d_stream.h"
 
 
@@ -43,7 +38,7 @@ ge2dTransform::ge2dTransform() {
     int ret = aml_ge2d_init(&m_amlge2d);
     if (ret < 0) {
         aml_ge2d_exit(&m_amlge2d);
-        ALOGE("%s: %s", __FUNCTION__,strerror(errno));
+        CAMHAL_LOGE("%s: %s", __FUNCTION__,strerror(errno));
     }
     mFirst = false;
     mION = IONInterface::get_instance();
@@ -60,7 +55,7 @@ ge2dTransform::~ge2dTransform() {
 
 int ge2dTransform::ge2d_copy(int dst_fd, int src_fd, size_t width, size_t height,int fmt)
 {
-    ALOGVV("%s: E", __FUNCTION__);
+    CAMHAL_LOGVV("%s: E", __FUNCTION__);
     ATRACE_CALL();
     int ret = 0;
     ret = ge2d_copy_internal(dst_fd, AML_GE2D_MEM_ION,src_fd,
@@ -70,7 +65,7 @@ int ge2dTransform::ge2d_copy(int dst_fd, int src_fd, size_t width, size_t height
 
 int ge2dTransform::ge2d_copy_dma(int dst_fd, int src_fd, size_t width, size_t height,int fmt)
 {
-    ALOGVV("%s: E", __FUNCTION__);
+    CAMHAL_LOGVV("%s: E", __FUNCTION__);
     int ret = 0;
     ret = ge2d_copy_internal(dst_fd, AML_GE2D_MEM_ION,src_fd,
                                 AML_GE2D_MEM_DMABUF, width, height,fmt);
@@ -88,7 +83,7 @@ int ge2dTransform::ge2d_copy_internal(int dst_fd, int dst_alloc_type,int src_fd,
                                 int src_alloc_type, size_t width, size_t height,int fmt)
 {
     ATRACE_CALL();
-    ALOGVV("%s: E", __FUNCTION__);
+    CAMHAL_LOGVV("%s: E", __FUNCTION__);
 
     switch (fmt) {
         case NV12:
@@ -155,7 +150,7 @@ int ge2dTransform::ge2d_copy_internal(int dst_fd, int dst_alloc_type,int src_fd,
     int ret = aml_ge2d_process(&m_amlge2d.ge2dinfo);
     if (ret < 0) {
         aml_ge2d_exit(&m_amlge2d);
-        ALOGE("%s: %s", __FUNCTION__,strerror(errno));
+        CAMHAL_LOGE("%s: %s", __FUNCTION__,strerror(errno));
         return ret;
     }
     //aml_ge2d_exit(&amlge2d);
@@ -166,7 +161,7 @@ int ge2dTransform::ge2d_copy_internal(int dst_fd, int dst_alloc_type,int src_fd,
 int ge2dTransform::ge2d_mirror(int dst_fd,size_t src_w,
                 size_t src_h,int fmt) {
    ATRACE_CALL();
-   ALOGD("%s: src_w=%zu, src_h=%zu share_fd=%dE", __FUNCTION__, src_w, src_h, m_share_fd);
+   CAMHAL_LOGD("%s: src_w=%zu, src_h=%zu share_fd=%dE", __FUNCTION__, src_w, src_h, m_share_fd);
    int ret = 0;
    switch (fmt) {
        case NV12:
@@ -247,7 +242,7 @@ int ge2dTransform::ge2d_mirror(int dst_fd,size_t src_w,
     ret = aml_ge2d_process(&m_amlge2d.ge2dinfo);
     if (ret < 0) {
         aml_ge2d_exit(&m_amlge2d);
-        ALOGVV("%s: %s", __FUNCTION__,strerror(errno));
+        CAMHAL_LOGVV("%s: %s", __FUNCTION__,strerror(errno));
         return ret;
     }
    return 0;
@@ -257,7 +252,7 @@ int ge2dTransform::ge2d_flip(int dst_fd,size_t src_w,
                               size_t src_h,int fmt)
 {
     ATRACE_CALL();
-    ALOGVV("%s: src_w=%zu, src_h=%zu share_fd = %d E", __FUNCTION__, src_w, src_h, m_share_fd);
+    CAMHAL_LOGVV("%s: src_w=%zu, src_h=%zu share_fd = %d E", __FUNCTION__, src_w, src_h, m_share_fd);
     switch (fmt) {
         case NV12:
             m_amlge2d.ge2dinfo.src_info[0].format = PIXEL_FORMAT_YCbCr_420_SP_NV12;
@@ -335,7 +330,7 @@ int ge2dTransform::ge2d_flip(int dst_fd,size_t src_w,
     int ret = aml_ge2d_process(&m_amlge2d.ge2dinfo);
     if (ret < 0) {
         aml_ge2d_exit(&m_amlge2d);
-        ALOGVV("%s: %s", __FUNCTION__,strerror(errno));
+        CAMHAL_LOGVV("%s: %s", __FUNCTION__,strerror(errno));
         return ret;
     }
     return 0;
@@ -405,7 +400,7 @@ int ge2dTransform::ge2d_convert_scale(int dst_fd, int dst_fmt, int dst_w, int ds
 
     int ret = aml_ge2d_init(&amlge2d);
     if (ret < 0) {
-        ALOGE("%s: %s", __FUNCTION__,strerror(errno));
+        CAMHAL_LOGE("%s: %s", __FUNCTION__,strerror(errno));
         goto exit_init;
     }
 
@@ -430,7 +425,7 @@ int ge2dTransform::ge2d_convert_scale(int dst_fd, int dst_fmt, int dst_w, int ds
 
     ret = aml_ge2d_process(&amlge2d.ge2dinfo);
     if (ret < 0) {
-        ALOGE("%s: %s", __FUNCTION__,strerror(errno));
+        CAMHAL_LOGE("%s: %s", __FUNCTION__,strerror(errno));
         goto exit_free;
     }
     ret = 0;
@@ -447,7 +442,7 @@ int ge2dTransform::ge2d_scale(int dst_fd,int dst_fmt, size_t dst_w,
                 size_t dst_h,int src_fd, size_t src_w, size_t src_h) {
 
     //ATRACE_CALL();
-    //ALOGD("%s: w=%d, h=%d, src %d %d", __FUNCTION__,dst_w,dst_h,src_w,src_h);
+    //CAMHAL_LOGD("%s: w=%d, h=%d, src %d %d", __FUNCTION__,dst_w,dst_h,src_w,src_h);
     aml_ge2d_t amlge2d;
     int src_width = src_w;
     int src_height = src_h;
@@ -491,7 +486,7 @@ int ge2dTransform::ge2d_scale(int dst_fd,int dst_fmt, size_t dst_w,
     int ret = aml_ge2d_init(&amlge2d);
     if (ret < 0) {
         aml_ge2d_exit(&amlge2d);
-        ALOGE("%s: %s", __FUNCTION__,strerror(errno));
+        CAMHAL_LOGE("%s: %s", __FUNCTION__,strerror(errno));
         return ret;
     }
 
@@ -503,7 +498,6 @@ int ge2dTransform::ge2d_scale(int dst_fd,int dst_fmt, size_t dst_w,
     amlge2d.ge2dinfo.src_info[0].layer_mode = 0;
     amlge2d.ge2dinfo.src_info[0].plane_number = 1;
     amlge2d.ge2dinfo.src_info[0].plane_alpha = 0xff;
-
 
     amlge2d.ge2dinfo.dst_info.rect.x = 0;
     amlge2d.ge2dinfo.dst_info.rect.y = 0;
@@ -527,7 +521,7 @@ int ge2dTransform::ge2d_scale(int dst_fd,int dst_fmt, size_t dst_w,
     ret = aml_ge2d_process(&amlge2d.ge2dinfo);
     if (ret < 0) {
         aml_ge2d_exit(&amlge2d);
-        ALOGE("%s: %s", __FUNCTION__,strerror(errno));
+        CAMHAL_LOGE("%s: %s", __FUNCTION__,strerror(errno));
         return ret;
     }
     aml_ge2d_exit(&amlge2d);
@@ -586,7 +580,7 @@ int ge2dTransform::ge2d_keep_ration_scale(int dst_fd,int dst_fmt, size_t dst_w,
                 size_t dst_h,int src_fd, size_t src_w, size_t src_h) {
 
     //ATRACE_CALL();
-    //ALOGD("%s: w=%d, h=%d, src %d %d", __FUNCTION__,dst_w,dst_h,src_w,src_h);
+    //CAMHAL_LOGD("%s: w=%d, h=%d, src %d %d", __FUNCTION__,dst_w,dst_h,src_w,src_h);
     aml_ge2d_t amlge2d;
     int src_rect_start_row = 0;
     int src_rect_start_col = 0;
@@ -646,7 +640,7 @@ int ge2dTransform::ge2d_keep_ration_scale(int dst_fd,int dst_fmt, size_t dst_w,
     int ret = aml_ge2d_init(&amlge2d);
     if (ret < 0) {
         aml_ge2d_exit(&amlge2d);
-        ALOGE("%s: %s", __FUNCTION__,strerror(errno));
+        CAMHAL_LOGE("%s: %s", __FUNCTION__,strerror(errno));
         return ret;
     }
 
@@ -658,7 +652,6 @@ int ge2dTransform::ge2d_keep_ration_scale(int dst_fd,int dst_fmt, size_t dst_w,
     amlge2d.ge2dinfo.src_info[0].layer_mode = 0;
     amlge2d.ge2dinfo.src_info[0].plane_number = 1;
     amlge2d.ge2dinfo.src_info[0].plane_alpha = 0xff;
-
 
     amlge2d.ge2dinfo.dst_info.rect.x = 0;
     amlge2d.ge2dinfo.dst_info.rect.y = 0;
@@ -682,7 +675,7 @@ int ge2dTransform::ge2d_keep_ration_scale(int dst_fd,int dst_fmt, size_t dst_w,
     ret = aml_ge2d_process(&amlge2d.ge2dinfo);
     if (ret < 0) {
         aml_ge2d_exit(&amlge2d);
-        ALOGE("%s: %s", __FUNCTION__,strerror(errno));
+        CAMHAL_LOGE("%s: %s", __FUNCTION__,strerror(errno));
         return ret;
     }
     aml_ge2d_exit(&amlge2d);
@@ -694,7 +687,7 @@ int ge2dTransform::ge2d_keep_ration_scale(int dst_fd,int dst_fmt, size_t dst_w,
                 size_t dst_h,int src_fd, size_t src_w, size_t src_h, size_t format_w, size_t format_h) {
 
     //ATRACE_CALL();
-    //ALOGD("%s: w=%d, h=%d, src %d %d", __FUNCTION__,dst_w,dst_h,src_w,src_h);
+    //CAMHAL_LOGD("%s: w=%d, h=%d, src %d %d", __FUNCTION__,dst_w,dst_h,src_w,src_h);
     aml_ge2d_t amlge2d;
     int src_rect_start_row = 0;
     int src_rect_start_col = 0;
@@ -754,7 +747,7 @@ int ge2dTransform::ge2d_keep_ration_scale(int dst_fd,int dst_fmt, size_t dst_w,
     int ret = aml_ge2d_init(&amlge2d);
     if (ret < 0) {
         aml_ge2d_exit(&amlge2d);
-        ALOGE("%s: %s", __FUNCTION__,strerror(errno));
+        CAMHAL_LOGE("%s: %s", __FUNCTION__,strerror(errno));
         return ret;
     }
 
@@ -790,7 +783,7 @@ int ge2dTransform::ge2d_keep_ration_scale(int dst_fd,int dst_fmt, size_t dst_w,
     ret = aml_ge2d_process(&amlge2d.ge2dinfo);
     if (ret < 0) {
         aml_ge2d_exit(&amlge2d);
-        ALOGE("%s: %s", __FUNCTION__,strerror(errno));
+        CAMHAL_LOGE("%s: %s", __FUNCTION__,strerror(errno));
         return ret;
     }
     aml_ge2d_exit(&amlge2d);
@@ -810,7 +803,7 @@ int ge2dTransform::ge2d_keep_ration_scale(int dst_fd,int dst_fmt, size_t dst_w,
 int ge2dTransform::ge2d_rotation(int dst_fd,size_t src_w,
                 size_t src_h,int fmt, int degree) {
 
-    ALOGVV("%s: src_w=%zu, src_h=%zu share_fd =%d E", __FUNCTION__, src_w, src_h, m_share_fd);
+    CAMHAL_LOGVV("%s: src_w=%zu, src_h=%zu share_fd =%d E", __FUNCTION__, src_w, src_h, m_share_fd);
 
     switch (fmt) {
         case NV12:
@@ -901,7 +894,7 @@ int ge2dTransform::ge2d_rotation(int dst_fd,size_t src_w,
     int ret = aml_ge2d_process(&m_amlge2d.ge2dinfo);
     if (ret < 0) {
         aml_ge2d_exit(&m_amlge2d);
-        ALOGVV("%s: %s", __FUNCTION__,strerror(errno));
+        CAMHAL_LOGVV("%s: %s", __FUNCTION__,strerror(errno));
         return ret;
     }
 
@@ -965,7 +958,7 @@ int ge2dTransform::ge2d_rotation(int dst_fd,size_t src_w,
     ret = aml_ge2d_process(&m_amlge2d.ge2dinfo);
     if (ret < 0) {
         aml_ge2d_exit(&m_amlge2d);
-        ALOGVV("%s: %s", __FUNCTION__,strerror(errno));
+        CAMHAL_LOGVV("%s: %s", __FUNCTION__,strerror(errno));
         return ret;
     }
     return 0;

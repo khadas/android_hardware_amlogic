@@ -366,7 +366,8 @@ protected:
                 : Thread(true),   // Callbacks may involve Java calls.
                   mCameraDevice(camera_dev),
                   mThreadControl(-1),
-                  mControlFD(-1)
+                  mControlFD(-1),
+                  mOneBurst(0)
             {
             }
 

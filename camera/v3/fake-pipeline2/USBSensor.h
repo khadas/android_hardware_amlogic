@@ -10,7 +10,11 @@
 #ifdef GE2D_ENABLE
 #include "ge2d_stream.h"
 #endif
+#ifdef VICP_ENABLE
+#include "vicp_stream.h"
+#endif
 #include "IonIf.h"
+#include <atomic>
 
 #define FRAME_DURATION (33333333L)
 
@@ -63,7 +67,6 @@ namespace android {
         private:
             CameraVirtualDevice* mCameraVirtualDevice;
             int mUSBDevicefd;
-            FILE *fp;
             enum Decode_Method{
                 DECODE_SOFTWARE,
                 DECODE_OMX,
@@ -82,12 +85,19 @@ namespace android {
             uint8_t* mImage_buffer;
             uint8_t* mDecodedBuffer;
             bool mIsRequestFinished;
+            FILE* fp;
 #ifdef GE2D_ENABLE
             IONInterface* mION;
             ge2dTransform* mGE2D;
+#ifdef VICP_ENABLE
+            vicpTransform* mVICP;
 #endif
+#endif
+            bool mVICPEnable;
+            bool mAsyncEnable;
+            bool mHwDecoderSensor;
             StreamBuffer mSensorOutBuf;
-            int mDecFillBufThreadNeedStop;
+            std::atomic<bool> mDecFillBufThreadNeedStop;
             Mutex mDecFillThreadResetLock;
             bool mDecFillThreadNeedReset = false;
             Mutex mDecFillThreadWaitLock;
@@ -100,7 +110,6 @@ namespace android {
             void initDecoder(int in_width, int in_height,
                                         int out_width, int out_height, int out_bufferCount);
             int MJPEGToNV21(uint8_t* src, StreamBuffer b);
-            int H264ToNV21(uint8_t* src, StreamBuffer b);
             int SensorInit(int idx);
             void InitVideoInfo(int idx);
             int camera_open(int idx);
@@ -108,12 +117,13 @@ namespace android {
             const char* getformt(int id);
             void setIOBufferNum();
             void captureNV21UsbSensor(StreamBuffer b, uint32_t gain, bool needSensorOutBuf);
+            void captureNV21UsbSensor(Vector<StreamBuffer> &b, uint32_t gain, bool isJpegRequest);
+            int OMXToNV21(uint8_t* src, Vector<StreamBuffer>& b, bool isJpegRequest);
             static void *DecFillBufThread(void *sensor);
             int DecFillBufThreadStart();
             void DecFillBufThreadStop();
-
+            int ResetSensorAndDecoder();
     };
 }
 #endif
-
 

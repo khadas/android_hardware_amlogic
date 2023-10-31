@@ -13,6 +13,7 @@
 
 #include "SensorTypes.h"
 
+#include "CamHalDebugLog.h"
 
 namespace android {
 
@@ -32,17 +33,17 @@ int USBSensorUtils::getZoom(int *zoomMin, int *zoomMax, int *zoomStep) {
         *zoomMin = 0;
         *zoomMax = 0;
         *zoomStep = 1;
-        CAMHAL_LOGDB("%s: Can't get zoom level!\n", __FUNCTION__);
+        CAMHAL_LOGD("%s: Can't get zoom level!\n", __FUNCTION__);
     } else {
         if ((qc.step != 0) && (qc.minimum != 0) &&
             ((qc.minimum/qc.step) > (qc.maximum/qc.minimum))) {
-                DBG_LOGA("adjust zoom step. \n");
+                CAMHAL_LOGD("adjust zoom step. \n");
                 qc.step = (qc.minimum * qc.step);
             }
         *zoomMin = qc.minimum;
         *zoomMax = qc.maximum;
         *zoomStep = qc.step;
-        DBG_LOGB("zoomMin:%dzoomMax:%dzoomStep:%d\n", *zoomMin, *zoomMax, *zoomStep);
+        CAMHAL_LOGD("zoomMin:%dzoomMax:%dzoomStep:%d\n", *zoomMin, *zoomMax, *zoomStep);
     }
     return ret ;
 }
@@ -55,7 +56,7 @@ int USBSensorUtils::setZoom(int zoomValue) {
     ctl.id = V4L2_CID_ZOOM_ABSOLUTE;
     ret = ioctl(mVinfo->fd, VIDIOC_S_CTRL, &ctl);
     if (ret < 0) {
-        ALOGE("%s: Set zoom level failed!\n", __FUNCTION__);
+        CAMHAL_LOGE("%s: Set zoom level failed!\n", __FUNCTION__);
         }
     return ret ;
 }
@@ -75,14 +76,14 @@ status_t USBSensorUtils::setEffect(uint8_t effect) {
        ctl.value= CAM_EFFECT_ENC_SEPIA;
        break;
        default:
-       ALOGE("%s: Doesn't support effect mode %d",
+       CAMHAL_LOGE("%s: Doesn't support effect mode %d",
        __FUNCTION__, effect);
        return BAD_VALUE;
    }
-   DBG_LOGB("set effect mode:%d", effect);
+   CAMHAL_LOGD("set effect mode:%d", effect);
    ret = ioctl(mVinfo->fd, VIDIOC_S_CTRL, &ctl);
    if (ret < 0)
-       CAMHAL_LOGDB("Set effect fail: %s. ret=%d", strerror(errno),ret);
+       CAMHAL_LOGD("Set effect fail: %s. ret=%d", strerror(errno),ret);
    return ret ;
 }
 
@@ -97,11 +98,11 @@ int USBSensorUtils::getExposure(int *maxExp, int *minExp, int *def, camera_metad
 
     memset( &qc, 0, sizeof(qc));
 
-    DBG_LOGA("getExposure\n");
+    CAMHAL_LOGD("getExposure\n");
     qc.id = V4L2_CID_EXPOSURE;
     ret = ioctl(mVinfo->fd, VIDIOC_QUERYCTRL, &qc);
     if (ret < 0) {
-        CAMHAL_LOGDB("QUERYCTRL failed, errno=%d\n", errno);
+        CAMHAL_LOGD("QUERYCTRL failed, errno=%d\n", errno);
         *minExp = -4;
         *maxExp = 4;
         *def = 0;
@@ -120,7 +121,7 @@ int USBSensorUtils::getExposure(int *maxExp, int *minExp, int *def, camera_metad
         *def = 0;
         step->numerator = 1;
         step->denominator = 1;
-        DBG_LOGB("not in[min,max], min=%d, max=%d, def=%d\n",
+        CAMHAL_LOGD("not in[min,max], min=%d, max=%d, def=%d\n",
                                         *minExp, *maxExp, *def);
         return true;
     }
@@ -131,7 +132,7 @@ int USBSensorUtils::getExposure(int *maxExp, int *minExp, int *def, camera_metad
     *def = qc.default_value - middle;
     step->numerator = 1;
     step->denominator = 2;//qc.step;
-    DBG_LOGB("min=%d, max=%d, step=%d\n", qc.minimum, qc.maximum, qc.step);
+    CAMHAL_LOGD("min=%d, max=%d, step=%d\n", qc.minimum, qc.maximum, qc.step);
     return ret;
 }
 
@@ -153,7 +154,7 @@ status_t USBSensorUtils::setExposure(int expCmp)
 
     ret = ioctl(mVinfo->fd, VIDIOC_QUERYCTRL, &qc);
     if (ret < 0) {
-        CAMHAL_LOGDB("AMLOGIC CAMERA get Exposure fail: %s. ret=%d", strerror(errno),ret);
+        CAMHAL_LOGD("AMLOGIC CAMERA get Exposure fail: %s. ret=%d", strerror(errno),ret);
     }
 
     ctl.id = V4L2_CID_EXPOSURE;
@@ -161,9 +162,9 @@ status_t USBSensorUtils::setExposure(int expCmp)
 
     ret = ioctl(mVinfo->fd, VIDIOC_S_CTRL, &ctl);
     if (ret < 0) {
-        CAMHAL_LOGDB("AMLOGIC CAMERA Set Exposure fail: %s. ret=%d", strerror(errno),ret);
+        CAMHAL_LOGD("AMLOGIC CAMERA Set Exposure fail: %s. ret=%d", strerror(errno),ret);
     }
-    DBG_LOGB("setExposure value%d mEVmin%d mEVmax%d\n",ctl.value, qc.minimum, qc.maximum);
+    CAMHAL_LOGD("setExposure value%d mEVmin%d mEVmax%d\n",ctl.value, qc.minimum, qc.maximum);
     return ret ;
 }
 
@@ -178,9 +179,9 @@ int USBSensorUtils::getAntiBanding(uint8_t *antiBanding, uint8_t maxCont)
     qc.id = V4L2_CID_POWER_LINE_FREQUENCY;
     ret = ioctl (mVinfo->fd, VIDIOC_QUERYCTRL, &qc);
     if ( (ret<0) || (qc.flags == V4L2_CTRL_FLAG_DISABLED)) {
-        DBG_LOGB("camera handle %d can't support this ctrl",mVinfo->fd);
+        CAMHAL_LOGD("camera handle %d can't support this ctrl",mVinfo->fd);
     } else if ( qc.type != V4L2_CTRL_TYPE_INTEGER) {
-        DBG_LOGB("this ctrl of camera handle %d can't support menu type",mVinfo->fd);
+        CAMHAL_LOGD("this ctrl of camera handle %d can't support menu type",mVinfo->fd);
     } else {
         memset(&qm, 0, sizeof(qm));
 
@@ -236,15 +237,15 @@ status_t USBSensorUtils::setAntiBanding(uint8_t antiBanding)
         ctl.value= CAM_ANTIBANDING_AUTO;
         break;
     default:
-            ALOGE("%s: Doesn't support ANTIBANDING mode %d",
+            CAMHAL_LOGE("%s: Doesn't support ANTIBANDING mode %d",
                     __FUNCTION__, antiBanding);
             return BAD_VALUE;
     }
 
-    DBG_LOGB("anti banding mode:%d", antiBanding);
+    CAMHAL_LOGD("anti banding mode:%d", antiBanding);
     ret = ioctl(mVinfo->fd, VIDIOC_S_CTRL, &ctl);
     if ( ret < 0) {
-        CAMHAL_LOGDA("failed to set anti banding mode!\n");
+        CAMHAL_LOGD("failed to set anti banding mode!\n");
         return BAD_VALUE;
     }
     return ret;
@@ -274,9 +275,9 @@ int USBSensorUtils::getAutoFocus(uint8_t *afMode, uint8_t maxCount)
     qc.id = V4L2_CID_FOCUS_AUTO;
     ret = ioctl (mVinfo->fd, VIDIOC_QUERYCTRL, &qc);
     if ( (ret<0) || (qc.flags == V4L2_CTRL_FLAG_DISABLED)) {
-        DBG_LOGB("camera handle %d can't support this ctrl",mVinfo->fd);
+        CAMHAL_LOGD("camera handle %d can't support this ctrl",mVinfo->fd);
     }else if( qc.type != V4L2_CTRL_TYPE_MENU) {
-        DBG_LOGB("this ctrl of camera handle %d can't support menu type",mVinfo->fd);
+        CAMHAL_LOGD("this ctrl of camera handle %d can't support menu type",mVinfo->fd);
     }else{
         memset(&qm, 0, sizeof(qm));
 
@@ -331,13 +332,13 @@ status_t USBSensorUtils::setAutoFocus(uint8_t afMode)
             ctl.value = CAM_FOCUS_MODE_CONTI_PIC;
             break;
         default:
-            ALOGE("%s: Emulator doesn't support AF mode %d",
+            CAMHAL_LOGE("%s: Emulator doesn't support AF mode %d",
                     __FUNCTION__, afMode);
             return BAD_VALUE;
     }
 
     if (ioctl(mVinfo->fd, VIDIOC_S_CTRL, &ctl) < 0) {
-        CAMHAL_LOGDA("failed to set camera focus mode!\n");
+        CAMHAL_LOGD("failed to set camera focus mode!\n");
         return BAD_VALUE;
     }
 
@@ -355,9 +356,9 @@ int USBSensorUtils::getAWB(uint8_t *awbMode, uint8_t maxCount)
     qc.id = V4L2_CID_DO_WHITE_BALANCE;
     ret = ioctl (mVinfo->fd, VIDIOC_QUERYCTRL, &qc);
     if ( (ret<0) || (qc.flags == V4L2_CTRL_FLAG_DISABLED)) {
-        DBG_LOGB("camera handle %d can't support this ctrl",mVinfo->fd);
+        CAMHAL_LOGD("camera handle %d can't support this ctrl",mVinfo->fd);
     } else if( qc.type != V4L2_CTRL_TYPE_MENU) {
-        DBG_LOGB("this ctrl of camera handle %d can't support menu type",mVinfo->fd);
+        CAMHAL_LOGD("this ctrl of camera handle %d can't support menu type",mVinfo->fd);
     } else {
         memset(&qm, 0, sizeof(qm));
 
@@ -431,7 +432,7 @@ status_t USBSensorUtils::setAWB(uint8_t awbMode)
             ctl.value = CAM_WB_SHADE;
             break;
         default:
-            ALOGE("%s: Emulator doesn't support AWB mode %d",
+            CAMHAL_LOGE("%s: Emulator doesn't support AWB mode %d",
                     __FUNCTION__, awbMode);
             return BAD_VALUE;
     }

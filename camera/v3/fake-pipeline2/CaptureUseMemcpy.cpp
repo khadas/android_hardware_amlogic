@@ -22,9 +22,9 @@ int CaptureUseMemcpy::getPicture(StreamBuffer b, struct data_in* in, IONInterfac
         uint32_t height = mInfo->get_picture_height();
         uint32_t format = mInfo->get_picture_pixelformat();
 
-        ALOGD("%s:  width=%d, height=%d img %p",__FUNCTION__,width,height,b.img);
+        CAMHAL_LOGD("%s:  width=%d, height=%d img %p",__FUNCTION__,width,height,b.img);
         src = (uint8_t *)mInfo->get_picture();
-        ALOGD("%s:src=%p",__FUNCTION__,src);
+        CAMHAL_LOGD("%s:src=%p",__FUNCTION__,src);
         if (nullptr == src)
             return ERROR_FRAME;
 
@@ -34,7 +34,7 @@ int CaptureUseMemcpy::getPicture(StreamBuffer b, struct data_in* in, IONInterfac
                     mCameraUtil->yuyv422_to_rgb24(src,b.img,width,height);
                 break;
             case V4L2_PIX_FMT_RGB24:
-                ALOGD("%s: picture format is RGB",__FUNCTION__);
+                CAMHAL_LOGD("%s: picture format is RGB",__FUNCTION__);
                 if (mInfo->get_picture_buf_length() == width * height * 3) {
                     memcpy(b.img, src, mInfo->get_picture_buf_length());
                 } else {
@@ -64,7 +64,7 @@ int CaptureUseMemcpy::captureYUYVframe(uint8_t *img, struct data_in* in) {
                 case V4L2_PIX_FMT_YUYV:
                     break;
                 default:
-                    ALOGE("Unable known sensor format: %d", format);
+                    CAMHAL_LOGE("Unable known sensor format: %d", format);
                     break;
             }
             return 0;
@@ -72,7 +72,7 @@ int CaptureUseMemcpy::captureYUYVframe(uint8_t *img, struct data_in* in) {
 
         src = (uint8_t *)mInfo->get_frame();
         if (nullptr == src) {
-            ALOGV("get frame NULL, sleep 5ms");
+            CAMHAL_LOGV("get frame NULL, sleep 5ms");
             usleep(5000);
             return -1;
         }
@@ -85,7 +85,7 @@ int CaptureUseMemcpy::captureYUYVframe(uint8_t *img, struct data_in* in) {
 
 int CaptureUseMemcpy::captureNV21frame(StreamBuffer b, struct data_in* in) {
         ATRACE_CALL();
-        ALOGV("%s ", __FUNCTION__);
+        CAMHAL_LOGV("%s ", __FUNCTION__);
         uint8_t *temp_buffer = nullptr;
         uint32_t width = mInfo->get_preview_width();
         uint32_t height = mInfo->get_preview_height();
@@ -109,7 +109,7 @@ int CaptureUseMemcpy::captureNV21frame(StreamBuffer b, struct data_in* in) {
                     }
                     break;
                 default:
-                    ALOGE("Unable known sensor format: %d", mInfo->get_preview_pixelformat());
+                    CAMHAL_LOGE("Unable known sensor format: %d", mInfo->get_preview_pixelformat());
                     break;
             }
             return NO_NEW_FRAME;
@@ -117,7 +117,7 @@ int CaptureUseMemcpy::captureNV21frame(StreamBuffer b, struct data_in* in) {
         struct VideoInfoBuffer vb;
         int ret = mInfo->get_frame_buffer(&vb);
         if (-1 == ret) {
-            ALOGE("get frame NULL, sleep 5ms");
+            CAMHAL_LOGE("get frame NULL, sleep 5ms");
             usleep(5000);
             return ERROR_FRAME;
         }
@@ -158,7 +158,7 @@ int CaptureUseMemcpy::captureYV12frame(StreamBuffer b, struct data_in* in) {
                     mCameraUtil->YUYVScaleYV12(src,width,height,b.img,b.width,b.height);
                     break;
                 default:
-                    ALOGE("Unable known sensor format: %d",format);
+                    CAMHAL_LOGE("Unable known sensor format: %d",format);
                     break;
             }
             return 0;
@@ -166,7 +166,7 @@ int CaptureUseMemcpy::captureYV12frame(StreamBuffer b, struct data_in* in) {
 
          src = (uint8_t *)mInfo->get_frame();
         if (nullptr == src) {
-            ALOGV("get frame NULL, sleep 5ms");
+            CAMHAL_LOGV("get frame NULL, sleep 5ms");
             usleep(5000);
             return -1;
         }

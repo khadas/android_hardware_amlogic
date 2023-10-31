@@ -2,12 +2,6 @@
 
 #define LOG_TAG "HWVideoDecoder"
 
-// undef NDEBUG to enable ALOGV
-//#undef NDEBUG
-
-// define  LOG_VERBOSE_VERBOSE  to enable ALOGVV in this file.
-//#define LOG_VERBOSE_VERBOSE  1
-
 // std c libs
 #include <string>
 #include <vector>
@@ -50,12 +44,6 @@
 
 #if defined(PREVIEW_DEWARP_ENABLE) || defined(PICTURE_DEWARP_ENABLE)
 #include "dewarp.h"
-#endif
-
-#if LOG_VERBOSE_VERBOSE
-#define ALOGVV ALOGV
-#else
-#define ALOGVV(...) ((void)0)
 #endif
 
 #ifndef UNUSED
@@ -266,7 +254,7 @@ static bool loadMediaHalLibrary(void)
     if (NULL == mediaHalLibHandle_g) {
         mediaHalLibHandle_g = dlopen("libmediahal_videodec.so", RTLD_NOW);
         if (NULL == mediaHalLibHandle_g) {
-            ALOGE("unable to dlopen libmediahal_videodec.so: %s", dlerror());
+            CAMHAL_LOGE("unable to dlopen libmediahal_videodec.so: %s", dlerror());
             return false;
         }
     }
@@ -282,7 +270,7 @@ static void releaseMediaHalLibrary(void)
         dlclose(mediaHalLibHandle_g);
         mediaHalLibHandle_g = NULL;
     } else {
-        ALOGE("mediaHalLibHandle_g is already closed" );
+        CAMHAL_LOGE("mediaHalLibHandle_g is already closed" );
     }
 }
 
@@ -291,7 +279,7 @@ void * getMediaHalLibrary(void)
     std::lock_guard<std::mutex> lock(mediaHalLibHandleLock);
 
     if (nullptr == mediaHalLibHandle_g) {
-        ALOGE("mediaHalLibHandle_g is invalid. please loadMediaHalLibrary first" );
+        CAMHAL_LOGE("mediaHalLibHandle_g is invalid. please loadMediaHalLibrary first" );
     }
     return mediaHalLibHandle_g;
 }
@@ -305,7 +293,7 @@ static AmVideoDecBase*  getAmVideoDec(AmVideoDecCallback * callback)
         return nullptr;
     }
 
-    ALOGI("open libmediahal_videodec.so ok\n");
+    CAMHAL_LOGI("open libmediahal_videodec.so ok\n");
 
     typedef uint32_t (*getVersionFunc)(uint32_t* versionM, uint32_t* versionL);
     typedef AmVideoDecBase *(*createAmVideoDecFunc)(AmVideoDecCallback* callback);
@@ -313,7 +301,7 @@ static AmVideoDecBase*  getAmVideoDec(AmVideoDecCallback * callback)
     getVersionFunc getVersion = (getVersionFunc)dlsym(getMediaHalLibrary(), "AmVideoDec_getVersion");
     if (NULL == getVersion) {
         releaseMediaHalLibrary();
-        ALOGE("can not find function AmVideoDec_getVersion in library\n");
+        CAMHAL_LOGE("can not find function AmVideoDec_getVersion in library\n");
         return nullptr;
     }
 
@@ -322,27 +310,27 @@ static AmVideoDecBase*  getAmVideoDec(AmVideoDecCallback * callback)
     createAmVideoDecFunc AmVideoDec_create = nullptr;
 
     if ((versionM == 1) && (versionL == 0)) {
-        ALOGI("version 1.0 use create AmMediaHal\n");
+        CAMHAL_LOGI("version 1.0 use create AmMediaHal\n");
         AmVideoDec_create =
             (createAmVideoDecFunc)dlsym(getMediaHalLibrary(), "createAmMediaHal");
     } else if ((versionM == 1) && (versionL == 1)){
-        ALOGI( "version 1.1 use create AmVideoDec_create\n");
+        CAMHAL_LOGI( "version 1.1 use create AmVideoDec_create\n");
         AmVideoDec_create =
             (createAmVideoDecFunc)dlsym(getMediaHalLibrary(), "AmVideoDec_create");
     } else {
-        ALOGE("Mediahal version do not right\n");
+        CAMHAL_LOGE("Mediahal version do not right\n");
         releaseMediaHalLibrary();
         return nullptr;
     }
 
     if (NULL == AmVideoDec_create) {
         releaseMediaHalLibrary();
-        ALOGE("can not find function AmVideoDec_create in library\n");
+        CAMHAL_LOGE("can not find function AmVideoDec_create in library\n");
         return nullptr;
     }
 
     AmVideoDecBase* halHanle = AmVideoDec_create(callback);
-    ALOGI("AmVideoDec_create ok\n");
+    CAMHAL_LOGI("AmVideoDec_create ok\n");
     return halHanle;
 }
 
@@ -560,7 +548,7 @@ static int init_input_buffer_queue()
     if (0 == input_buffer_start) {
         input_buffer_start = (uint8_t*) malloc( total_frame_bytes );
         if (NULL == input_buffer_start) {
-            ALOGE("frame buffers malloc failed\n");
+            CAMHAL_LOGE("frame buffers malloc failed\n");
             return -1;
         }
     }
@@ -589,7 +577,7 @@ static int init_input_buffer_queue()
         auto ion = IONInterface::get_instance();
         vaddr = ion->alloc_buffer(INPUT_BUFFER_SIZE, &fd);
         if (!vaddr) {
-            ALOGE("alloc ion input buffer fail, free already allocated input buffers.");
+            CAMHAL_LOGE("alloc ion input buffer fail, free already allocated input buffers.");
             for (int jj = i; jj >= 0; jj--) {
                 if (input_buffers[jj].fd > 0 )
                     ion->free_buffer(input_buffers[jj].fd);
@@ -611,7 +599,7 @@ static int init_input_buffer_queue()
         input_buffers[i].fd = fd;
         free_input_buffer_list.push_back(&input_buffers[i]);
 
-        ALOGI("input frame buffer %d, obj %p, buffer %p", i, &input_buffers[i], input_buffers[i].buffer );
+        CAMHAL_LOGI("input frame buffer %d, obj %p, buffer %p", i, &input_buffers[i], input_buffers[i].buffer );
 
     }
     return ret;
@@ -648,7 +636,7 @@ static int try_request_input_buffer(buffer_item_t** item)
 {
 
     if (free_input_buffer_list.empty()) {
-        ALOGE("line %d, no free buffers", __LINE__);
+        CAMHAL_LOGE("line %d, no free buffers", __LINE__);
         return -1;
     }
 
@@ -664,7 +652,7 @@ static int try_request_input_buffer(buffer_item_t** item)
 // return -1 on fail.
 static int release_input_buffer(buffer_item_t* item) {
     if (item->state != IN_USE) {
-        ALOGE("line %d, item %p , bad state, not in-use", __LINE__, item);
+        CAMHAL_LOGE("line %d, item %p , bad state, not in-use", __LINE__, item);
     }
 
     // push_back on free_input_buffer_list has not contains this pointer
@@ -677,7 +665,7 @@ static int release_input_buffer(buffer_item_t* item) {
     if (it == free_input_buffer_list.end() ) {
         free_input_buffer_list.push_back(item);
     } else {
-        ALOGE("item %p was in free_input_buffer_list", item);
+        CAMHAL_LOGE("item %p was in free_input_buffer_list", item);
     }
 
     return 0;
@@ -844,7 +832,7 @@ bool HWVideoDecoderImpl::initialize(uint32_t streamType, uint32_t bitstream_widt
     mVideoDecConfig.vFmt = vFmt;
     mime = vformat_to_mime(mVideoDecConfig.vFmt);
 
-    ALOGI("%s in, vFmt %d, mime: %s ", __func__, vFmt, mime);
+    CAMHAL_LOGI("%s in, vFmt %d, mime: %s ", __func__, vFmt, mime);
 
 
     mAmVideoDecCallback = new videoDecCallbackImpl(this);
@@ -854,13 +842,13 @@ bool HWVideoDecoderImpl::initialize(uint32_t streamType, uint32_t bitstream_widt
     }
 
     if (nullptr == mAmVideoDec) {
-        ALOGE("line %d mAmVideoDec is NULL, getAmVideoDec  failed", __LINE__);
+        CAMHAL_LOGE("line %d mAmVideoDec is NULL, getAmVideoDec  failed", __LINE__);
         return false;
     }
 
     ret = mAmVideoDec->setQueueCount(mDefaultInputQueueCount);
     if (ret) {
-        ALOGE("setQueueCount failed!, ret=%d\n", ret);
+        CAMHAL_LOGE("setQueueCount failed!, ret=%d\n", ret);
         delete mAmVideoDec;
         mAmVideoDec = NULL;
         return false;
@@ -872,7 +860,7 @@ bool HWVideoDecoderImpl::initialize(uint32_t streamType, uint32_t bitstream_widt
                                AM_VIDEO_DEC_INIT_FLAG_DEFAULT /*flags*/);
 
     if (ret) {
-        ALOGE("init failed!, ret=%d\n", ret);
+        CAMHAL_LOGE("init failed!, ret=%d\n", ret);
         delete mAmVideoDec;
         mAmVideoDec = NULL;
         return false;
@@ -899,11 +887,11 @@ bool HWVideoDecoderImpl::initialize(uint32_t streamType, uint32_t bitstream_widt
         }
 
         if (nullptr == mInputDumpFile) {
-            ALOGW("open input dump file %s failed", inputDumpFilename);
+            CAMHAL_LOGW("open input dump file %s failed", inputDumpFilename);
         }
     }
 
-    ALOGI("init success!, useV4L2, inputQueueCount %d, outputQueueCount %d\n", mDefaultInputQueueCount, mDefaultOutputQueueCount);
+    CAMHAL_LOGI("init success!, useV4L2, inputQueueCount %d, outputQueueCount %d\n", mDefaultInputQueueCount, mDefaultOutputQueueCount);
 
     // ======== end just for debug dump input ==================================
     if (1) {
@@ -911,7 +899,7 @@ bool HWVideoDecoderImpl::initialize(uint32_t streamType, uint32_t bitstream_widt
         std::lock_guard<std::mutex> lock(mOutputLock);
         preAllocOutputBufferLocked(mDefaultOutputQueueCount, bitstream_width, bitstream_height);
 
-        ALOGI("alloc outputbuf  success ");
+        CAMHAL_LOGI("alloc outputbuf  success ");
     }
 
     mStatus = HWVideoDecoder::INITED;
@@ -923,10 +911,10 @@ bool HWVideoDecoderImpl::initialize(uint32_t streamType, uint32_t bitstream_widt
 
 void HWVideoDecoderImpl::deinitialize()
 {
-    ALOGI("%s in", __func__);
+    CAMHAL_LOGI("%s in", __func__);
 
     if (nullptr == mAmVideoDec) {
-        ALOGE("%d mAmVideoDec is null", __LINE__);
+        CAMHAL_LOGE("%d mAmVideoDec is null", __LINE__);
         return ;
     }
 
@@ -938,7 +926,7 @@ void HWVideoDecoderImpl::deinitialize()
             int outputBufIdx = mReadyOutBufQueue.front();
             mReadyOutBufQueue.pop();
             mAmVideoDec->queueOutputBuffer(outputBufIdx);
-            ALOGD("return back outBufferIdx %d", outputBufIdx);
+            CAMHAL_LOGD("return back outBufferIdx %d", outputBufIdx);
         }
     }
 
@@ -946,22 +934,22 @@ void HWVideoDecoderImpl::deinitialize()
 
     if (mStatus == HWVideoDecoder::DECODE_FAIL_AND_INPUT_FULL) {
         usleep(50*1000);
-        ALOGE("bad status. do not wait flush done signal");
+        CAMHAL_LOGE("bad status. do not wait flush done signal");
     } else {
         std::unique_lock <std::mutex> lck(mFlushedLock);
         while (!mFlushed) {
             if (std::cv_status::timeout == mFlushedCondition.wait_for(lck, std::chrono::milliseconds(1000) ) ) {
-                ALOGE("flush mediahal timeout");
+                CAMHAL_LOGE("flush mediahal timeout");
                 break;
             }
         }
     }
 
-    ALOGI("flush success, sleep 50ms, let decoder internal thread finish\n" );
+    CAMHAL_LOGI("flush success, sleep 50ms, let decoder internal thread finish\n" );
     usleep(50*1000);
 
     if (mOutputBufferNum > 0) {
-        ALOGI("free all buffer, mOutputBufferNum %d\n", mOutputBufferNum);
+        CAMHAL_LOGI("free all buffer, mOutputBufferNum %d\n", mOutputBufferNum);
         for (int i = 0; i < mOutputBufs.size(); i++) {
             if (mOutputBufs[i].fd > 0)
                 mION->free_buffer(mOutputBufs[i].fd);
@@ -969,11 +957,11 @@ void HWVideoDecoderImpl::deinitialize()
         mOutputBufferNum = 0;
     }
 
-    ALOGI("before destroy " );
+    CAMHAL_LOGI("before destroy " );
 
     mAmVideoDec->destroy();
 
-    ALOGI("destroy success" );
+    CAMHAL_LOGI("destroy success" );
 
     std::map<int32_t, uint8_t*>::iterator iter;
     iter = mInputBuffer.begin();
@@ -993,7 +981,7 @@ void HWVideoDecoderImpl::deinitialize()
 
     mStatus = HWVideoDecoder::CONSTRUCTED;
     mCheckMjpegWH = false;
-    ALOGI("%s leave", __func__);
+    CAMHAL_LOGI("%s leave", __func__);
 }
 
 HWVideoDecoder::DecoderStatus HWVideoDecoderImpl::getDecoderStatus()
@@ -1007,11 +995,11 @@ void HWVideoDecoderImpl::dumpInputTofile(uint8_t* in_src, uint32_t in_size)
     // ====== begin debug dump ========================================================
     if (nullptr != mInputDumpFile) {
         dumped_frames++;
-        ALOGI("line %d, write to dump file, dump frames %d ", __LINE__, dumped_frames);
+        CAMHAL_LOGI("line %d, write to dump file, dump frames %d ", __LINE__, dumped_frames);
         int written_bytes = fwrite(in_src, 1, in_size, mInputDumpFile);
         if (in_size != written_bytes ) {
             // todo: try again ?. now just log error and skip.
-            ALOGE("line %d, write dump file ret %d, expected %d bytes", __LINE__, written_bytes, in_size);
+            CAMHAL_LOGE("line %d, write dump file ret %d, expected %d bytes", __LINE__, written_bytes, in_size);
         }
 
         // for mjpeg, padding to size w*h
@@ -1031,12 +1019,12 @@ void HWVideoDecoderImpl::dumpInputTofile(uint8_t* in_src, uint32_t in_size)
 bool HWVideoDecoderImpl::isIDR(uint8_t* in_src, uint32_t in_size)
 {
     if (in_size < 8) {
-        ALOGE("%s leave, bad len %d", __FUNCTION__, in_size );
+        CAMHAL_LOGE("%s leave, bad len %d", __FUNCTION__, in_size );
         return false;
     }
 
     if ( in_src[0] != 0x00 ||  in_src[1] != 0x00 ||  in_src[2] != 0x00 || in_src[3] != 0x01) {
-        ALOGE("%s leave, not start with 00 00 00 01", __FUNCTION__ );
+        CAMHAL_LOGE("%s leave, not start with 00 00 00 01", __FUNCTION__ );
         return false;
     }
 
@@ -1061,7 +1049,7 @@ int HWVideoDecoderImpl::asyncDecodeQueueInput(int in_fd, uint8_t* in_src, uint32
     int ret = 0;
 
     if (HWVideoDecoder::ASYNC_DECODE_MODE != mWorkMode ) {
-        ALOGE("line %d not in async decode mode", __LINE__);
+        CAMHAL_LOGE("line %d not in async decode mode", __LINE__);
         return -1;
     }
 
@@ -1076,7 +1064,7 @@ int HWVideoDecoderImpl::asyncDecodeQueueInput(int in_fd, uint8_t* in_src, uint32
     }
 
     if (in_size >= INPUT_BUFFER_SIZE) {
-        ALOGE("%s leave, src_len %d, too big. should be less than %d", __FUNCTION__, in_size, INPUT_BUFFER_SIZE);
+        CAMHAL_LOGE("%s leave, src_len %d, too big. should be less than %d", __FUNCTION__, in_size, INPUT_BUFFER_SIZE);
         return -1;
     }
 
@@ -1110,7 +1098,7 @@ int HWVideoDecoderImpl::queueInputBufferInternal(int fd, uint8_t * data, int siz
             return mAmVideoDec->queueInputBuffer(mBitStreamId, fd, 0 /*offset*/, size /*bytesUsed*/, 0 /*timestamp*/ );
     }
 
-    ALOGE("bad status %d, skip queue", mStatus);
+    CAMHAL_LOGE("bad status %d, skip queue", mStatus);
     return -1;
 }
 
@@ -1125,7 +1113,7 @@ bool HWVideoDecoderImpl::findSOI(uint8_t* in_src, uint32_t in_size, int& offset)
         offset++;
         }
     }
-    ALOGD("%s: not find SOI", __FUNCTION__);
+    CAMHAL_LOGD("%s: not find SOI", __FUNCTION__);
     return false;
 }
 
@@ -1138,7 +1126,7 @@ bool HWVideoDecoderImpl::findEOI(uint8_t* in_src, uint32_t in_size) {
             }
         }
     }
-    ALOGD("%s: not find EOI", __FUNCTION__);
+    CAMHAL_LOGD("%s: not find EOI", __FUNCTION__);
     return false;
 }
 
@@ -1161,7 +1149,7 @@ int HWVideoDecoderImpl::checkMjpegData(uint8_t* in_src, uint32_t in_size, bool c
                         height = in_src[offset + 5] * 256 + in_src[offset + 6];
                         width = in_src[offset + 7] * 256 + in_src[offset + 8];
                         if (height != mFormatHeight || width != mFormatWidth) {
-                            ALOGW("this frame size is error");
+                            CAMHAL_LOGW("this frame size is error");
                             return -1;
                         }
                         return 0;
@@ -1173,7 +1161,7 @@ int HWVideoDecoderImpl::checkMjpegData(uint8_t* in_src, uint32_t in_size, bool c
         return 0;
     }
 
-    ALOGW("this frame is not standard mjpg data");
+    CAMHAL_LOGW("this frame is not standard mjpg data");
     return -1;
 }
 
@@ -1182,12 +1170,12 @@ int HWVideoDecoderImpl::queueInputBufferNoBlock(int in_fd, uint8_t* in_src, uint
 {
     int32_t err = 0;
 
-    ALOGVV("%s E, fd %d, src %p, src_len %d", __FUNCTION__, in_fd, in_src, in_size);
+    CAMHAL_LOGVV("%s E, fd %d, src %p, src_len %d", __FUNCTION__, in_fd, in_src, in_size);
 
 
 
     if (in_size >= INPUT_BUFFER_SIZE) {
-        ALOGE("%s leave, src_len %d, too big. should be less than %d", __FUNCTION__, in_size, INPUT_BUFFER_SIZE);
+        CAMHAL_LOGE("%s leave, src_len %d, too big. should be less than %d", __FUNCTION__, in_size, INPUT_BUFFER_SIZE);
         return -1;
     }
 
@@ -1196,7 +1184,7 @@ int HWVideoDecoderImpl::queueInputBufferNoBlock(int in_fd, uint8_t* in_src, uint
     // h264 stream. near input buffer full, if not IDR, drop it;
     if ((mVideoDecConfig.vFmt == VFORMAT_H264 || mVideoDecConfig.vFmt == VFORMAT_HEVC) &&
         (mInputBuffer.size() > INPUT_QUEUE_BUFFER_NUM - 2) && false == isIDR( in_src, in_size)) {
-        ALOGW("%s leave, not IDR & input buffer queue near full. drop it", __FUNCTION__);
+        CAMHAL_LOGW("%s leave, not IDR & input buffer queue near full. drop it", __FUNCTION__);
         return -1;
     }
 
@@ -1205,7 +1193,7 @@ int HWVideoDecoderImpl::queueInputBufferNoBlock(int in_fd, uint8_t* in_src, uint
     if (mVideoDecConfig.vFmt == VFORMAT_MJPEG) {
         if ( 0 != checkMjpegData(in_src, in_size, mCheckMjpegWH) ) {
             // check fail.
-            ALOGW("nonstandard mjpg data do not queue decoder");
+            CAMHAL_LOGW("nonstandard mjpg data do not queue decoder");
             return -1;
         }
         mCheckMjpegWH = false;
@@ -1215,7 +1203,7 @@ int HWVideoDecoderImpl::queueInputBufferNoBlock(int in_fd, uint8_t* in_src, uint
 
     // case 1: no more free input buffers. should not happen
     if ( 0 != try_request_input_buffer(&buf_item) ) {
-        ALOGE("%s %d leave, request input buffer fail", __FUNCTION__, __LINE__);
+        CAMHAL_LOGE("%s %d leave, request input buffer fail", __FUNCTION__, __LINE__);
         return -1;
     }
 
@@ -1230,7 +1218,7 @@ int HWVideoDecoderImpl::queueInputBufferNoBlock(int in_fd, uint8_t* in_src, uint
 
         err = queueInputBufferInternal(buf_item->fd, buf_item->buffer, in_size);
 
-        ALOGD("%s %d leave, err %d  bitstreamId %" PRId64 ", obj %p, buffer %p, buffer_size %d", __FUNCTION__, __LINE__,
+        CAMHAL_LOGD("%s %d leave, err %d  bitstreamId %" PRId64 ", obj %p, buffer %p, buffer_size %d", __FUNCTION__, __LINE__,
                            err, mBitStreamId, buf_item, buf_item->buffer, in_size);
 
         mBitStreamId++;
@@ -1250,7 +1238,7 @@ bool HWVideoDecoderImpl::checkAndwaitForOutBuf(uint32_t ms) {
     while (mReadyOutBufQueue.size() == 0) {
         auto ret = mOutBufReadyCondition.wait_for(lck, std::chrono::milliseconds(ms));
         if (ret == std::cv_status::timeout) {
-            ALOGE("%s: Error waiting timeout %d ms for output buf", __FUNCTION__, ms);
+            CAMHAL_LOGE("%s: Error waiting timeout %d ms for output buf", __FUNCTION__, ms);
             return false;
         }
     }
@@ -1266,7 +1254,7 @@ int HWVideoDecoderImpl::syncDecode(int in_fd, uint8_t*in_src, uint32_t in_size, 
     bool outputBufReady = false;
 
     if (mStatus < HWVideoDecoder::INITED) {
-        ALOGE("not initialized yet, status %d", mStatus);
+        CAMHAL_LOGE("not initialized yet, status %d", mStatus);
         return -1;
     }
 
@@ -1274,7 +1262,7 @@ int HWVideoDecoderImpl::syncDecode(int in_fd, uint8_t*in_src, uint32_t in_size, 
     // then, queue input buffer to decoder.
     queue_input_ret = queueInputBufferNoBlock(in_fd, in_src, in_size);
     if (0 != queue_input_ret) {
-        ALOGE("line %d, queueInputBuffer failed, ret %d", __LINE__, queue_input_ret);
+        CAMHAL_LOGE("line %d, queueInputBuffer failed, ret %d", __LINE__, queue_input_ret);
         return ret;
     }
 
@@ -1289,7 +1277,7 @@ int HWVideoDecoderImpl::syncDecode(int in_fd, uint8_t*in_src, uint32_t in_size, 
             int outputBufIdx = mReadyOutBufQueue.front();
             mReadyOutBufQueue.pop();
             mAmVideoDec->queueOutputBuffer(outputBufIdx);
-            ALOGVV("return back outBufferIdx %d", outputBufIdx);
+            CAMHAL_LOGVV("return back outBufferIdx %d", outputBufIdx);
         }
 
         int outputBufIdx = mReadyOutBufQueue.front();
@@ -1305,7 +1293,7 @@ int HWVideoDecoderImpl::syncDecode(int in_fd, uint8_t*in_src, uint32_t in_size, 
 #endif
                 for (size_t i = 0; i < b.size(); i++) {
                     if (b[i].format == HAL_PIXEL_FORMAT_BLOB) {
-                        ALOGE("%s:blob buffer bypass",__FUNCTION__);
+                        CAMHAL_LOGE("%s:blob buffer bypass",__FUNCTION__);
                     } else {
                         if (b[i].share_fd != -1) {
                             if (isJpegRequest || !mEnableDewarp) {
@@ -1350,7 +1338,7 @@ int HWVideoDecoderImpl::syncDecode(int in_fd, uint8_t*in_src, uint32_t in_size, 
                                 if (needDestroy) {
                                     DeWarp::putInstance(port);
                                 }
-                                ALOGD("buffer index %d, dewarp port %d, isNeedDestroyDewarp %d", index, port, needDestroy);
+                                CAMHAL_LOGD("buffer index %d, dewarp port %d, isNeedDestroyDewarp %d", index, port, needDestroy);
                                 CameraConfig* config = CameraConfig::getInstance(port);
                                 config->setCropInfo(inputInfo);
                                 config->setInputWidth(mDqWidth);
@@ -1372,16 +1360,16 @@ int HWVideoDecoderImpl::syncDecode(int in_fd, uint8_t*in_src, uint32_t in_size, 
                             }
                             ret = 0;
                        } else
-                           ALOGE("%s:request buffer invalid fd",__FUNCTION__);
+                           CAMHAL_LOGE("%s:request buffer invalid fd",__FUNCTION__);
                    }
                }
            } else
-               ALOGE("invalid decode out fd");
+               CAMHAL_LOGE("invalid decode out fd");
 #endif
             mAmVideoDec->queueOutputBuffer(outputBufIdx);
-            ALOGVV("return back outBufferIdx %d", outputBufIdx);
+            CAMHAL_LOGVV("return back outBufferIdx %d", outputBufIdx);
         } else {
-            ALOGE("abnormal outputBufIdx %d", outputBufIdx);
+            CAMHAL_LOGE("abnormal outputBufIdx %d", outputBufIdx);
         }
     } else {
          //dumpInputTofile(in_src, in_size);
@@ -1398,7 +1386,7 @@ int HWVideoDecoderImpl::asyncDecodeDequeueOutput( Vector<StreamBuffer>& b, bool 
     bool outputBufReady = false;
 
     if (mStatus < HWVideoDecoder::INITED) {
-        ALOGE("not initialized yet, status %d", mStatus);
+        CAMHAL_LOGE("not initialized yet, status %d", mStatus);
         return -1;
     }
 
@@ -1413,7 +1401,7 @@ int HWVideoDecoderImpl::asyncDecodeDequeueOutput( Vector<StreamBuffer>& b, bool 
             int outputBufIdx = mReadyOutBufQueue.front();
             mReadyOutBufQueue.pop();
             mAmVideoDec->queueOutputBuffer(outputBufIdx);
-            ALOGVV("return back outBufferIdx %d", outputBufIdx);
+            CAMHAL_LOGVV("return back outBufferIdx %d", outputBufIdx);
         }
 
         int outputBufIdx = mReadyOutBufQueue.front();
@@ -1429,7 +1417,7 @@ int HWVideoDecoderImpl::asyncDecodeDequeueOutput( Vector<StreamBuffer>& b, bool 
 #endif
                for (size_t i = 0; i < b.size(); i++) {
                    if (b[i].format == HAL_PIXEL_FORMAT_BLOB) {
-                       ALOGE("%s:blob buffer bypass",__FUNCTION__);
+                       CAMHAL_LOGE("%s:blob buffer bypass",__FUNCTION__);
                    } else {
                        if (b[i].share_fd != -1) {
                            if (isJpegRequest || !mEnableDewarp) {
@@ -1474,7 +1462,7 @@ int HWVideoDecoderImpl::asyncDecodeDequeueOutput( Vector<StreamBuffer>& b, bool 
                                 if (needDestroy) {
                                     DeWarp::putInstance(port);
                                 }
-                                ALOGD("buffer index %d, dewarp port %d, isNeedDestroyDewarp %d", index, port, needDestroy);
+                                CAMHAL_LOGD("buffer index %d, dewarp port %d, isNeedDestroyDewarp %d", index, port, needDestroy);
                                 CameraConfig* config = CameraConfig::getInstance(port);
                                 config->setCropInfo(inputInfo);
                                 config->setInputWidth(mDqWidth);
@@ -1496,17 +1484,17 @@ int HWVideoDecoderImpl::asyncDecodeDequeueOutput( Vector<StreamBuffer>& b, bool 
                            }
                            ret = 0;
                        } else
-                           ALOGE("%s:request buffer invalid fd",__FUNCTION__);
+                           CAMHAL_LOGE("%s:request buffer invalid fd",__FUNCTION__);
                    }
                }
            } else
-               ALOGE("invalid decode out fd");
+               CAMHAL_LOGE("invalid decode out fd");
 #endif
             mAmVideoDec->queueOutputBuffer(outputBufIdx);
-            ALOGVV("return back outBufferIdx %d", outputBufIdx);
+            CAMHAL_LOGVV("return back outBufferIdx %d", outputBufIdx);
 
         } else {
-            ALOGE("abnormal outputBufIdx %d", outputBufIdx);
+            CAMHAL_LOGE("abnormal outputBufIdx %d", outputBufIdx);
         }
 
     } else {
@@ -1541,12 +1529,12 @@ int HWVideoDecoderImpl::preAllocOutputBufferLocked(uint32_t requestedNumOfBuffer
         if (!vaddr) {
             mStatus = HWVideoDecoder::RUNTIME_ERROR;
             ret = -1;
-            ALOGE("alloc buffer fail");
+            CAMHAL_LOGE("alloc buffer fail");
         }
 
         if (ret) {
             mStatus = HWVideoDecoder::RUNTIME_ERROR;
-            ALOGE("alloc %d output Buffer fail", i);
+            CAMHAL_LOGE("alloc %d output Buffer fail", i);
             if (i > 0) {
                 // free allocated output buffers
                 for (int i = 0; i < mOutputBufs.size(); i++) {
@@ -1555,7 +1543,7 @@ int HWVideoDecoderImpl::preAllocOutputBufferLocked(uint32_t requestedNumOfBuffer
                 }
 
 
-                ALOGE("free all allocated output buffers.");
+                CAMHAL_LOGE("free all allocated output buffers.");
 
             }
             return -1;
@@ -1569,7 +1557,7 @@ int HWVideoDecoderImpl::preAllocOutputBufferLocked(uint32_t requestedNumOfBuffer
 
         mOutputBufs[i] = (outputBufInfo);
 
-        ALOGD("alloc output Buffer idx %d, fd %d, size = %d, vaddr 0x%p \n", i, fd, imagesize, vaddr);
+        CAMHAL_LOGD("alloc output Buffer idx %d, fd %d, size = %d, vaddr 0x%p \n", i, fd, imagesize, vaddr);
     }
 
     return 0;
@@ -1582,12 +1570,12 @@ int HWVideoDecoderImpl::queueOutputBuffersLocked()
 
     mOutputBufferNum = mOutputBufs.size();
     if (mOutputBufferNum <= 0) {
-        ALOGE("%s line %d error, output buffer num %d is invalid", __FUNCTION__, __LINE__, mOutputBufferNum);
+        CAMHAL_LOGE("%s line %d error, output buffer num %d is invalid", __FUNCTION__, __LINE__, mOutputBufferNum);
         return -1;
     }
 
     if (0 != mAmVideoDec->setupOutputBufferNum(mOutputBufferNum) ) {
-        ALOGE("setupOutputBufferNum %d, failed, ret %d", mOutputBufferNum, ret);
+        CAMHAL_LOGE("setupOutputBufferNum %d, failed, ret %d", mOutputBufferNum, ret);
         return ret;
     }
 
@@ -1598,17 +1586,17 @@ int HWVideoDecoderImpl::queueOutputBuffersLocked()
 
                 if (0 == ret) {
                     mOutputBufs[ii].fdHasSetToPictureId = 1;
-                    ALOGI(" createOutputBuffer index %d, pictureid %d, fd %d success", ii, mOutputBufs[ii].pictureId, mOutputBufs[ii].fd);
+                    CAMHAL_LOGI(" createOutputBuffer index %d, pictureid %d, fd %d success", ii, mOutputBufs[ii].pictureId, mOutputBufs[ii].fd);
                 } else {
                     // exit on create fail.
-                    ALOGE("createOutputBuffer fail, with pictureid %d, fd %d",  mOutputBufs[ii].pictureId, mOutputBufs[ii].fd);
+                    CAMHAL_LOGE("createOutputBuffer fail, with pictureid %d, fd %d",  mOutputBufs[ii].pictureId, mOutputBufs[ii].fd);
                     ret = -1;
                     break;
                 }
 
             } else {
                 // exit on invalid picture or fd.
-                ALOGE("invalid pictureid %d or fd %d", mOutputBufs[ii].pictureId, mOutputBufs[ii].fd);
+                CAMHAL_LOGE("invalid pictureid %d or fd %d", mOutputBufs[ii].pictureId, mOutputBufs[ii].fd);
                 ret = -1;
                 break;
             }
@@ -1623,8 +1611,8 @@ int HWVideoDecoderImpl::reconfigOutputBuffersLocked(uint32_t requestedMinNumOfBu
     int ret = 0;
     if (width_t != mFormatWidth || height_t != mFormatHeight) {
         //size_not_match
-        ALOGE("initialize size %dx%d not match size from bitstream %dx%d", mFormatWidth, mFormatHeight, width_t, height_t);
-        ALOGE("release pre-allocated output buffers and re-allocate");
+        CAMHAL_LOGE("initialize size %dx%d not match size from bitstream %dx%d", mFormatWidth, mFormatHeight, width_t, height_t);
+        CAMHAL_LOGE("release pre-allocated output buffers and re-allocate");
 
         // clear all pre-allocated.
         for (int i = 0; i < mOutputBufs.size(); i++) {
@@ -1639,7 +1627,7 @@ int HWVideoDecoderImpl::reconfigOutputBuffersLocked(uint32_t requestedMinNumOfBu
             return -1;
         }
 
-        ALOGI("success allocated output buffers.");
+        CAMHAL_LOGI("success allocated output buffers.");
         return 0;
     }
 
@@ -1655,7 +1643,7 @@ int HWVideoDecoderImpl::reconfigOutputBuffersLocked(uint32_t requestedMinNumOfBu
         // resize will keep old elements.
         mOutputBufs.resize(mOutputBufferNum);
 
-        ALOGI("%d buffers, append %d buffers. total %d output buffers", hasOutputBufCount, appendOutputBufCount, requestedMinNumOfBuffers_t);
+        CAMHAL_LOGI("%d buffers, append %d buffers. total %d output buffers", hasOutputBufCount, appendOutputBufCount, requestedMinNumOfBuffers_t);
 
 
         for (uint32_t i = hasOutputBufCount; i < requestedMinNumOfBuffers_t; i++) {
@@ -1666,12 +1654,12 @@ int HWVideoDecoderImpl::reconfigOutputBuffersLocked(uint32_t requestedMinNumOfBu
             if (!vaddr) {
                 mStatus = HWVideoDecoder::RUNTIME_ERROR;
                 ret = -1;
-                ALOGE("alloc buffer fail");
+                CAMHAL_LOGE("alloc buffer fail");
             }
 
             if (ret) {
                 mStatus = HWVideoDecoder::RUNTIME_ERROR;
-                ALOGE("alloc %d output Buffer fail", i);
+                CAMHAL_LOGE("alloc %d output Buffer fail", i);
                 if (i > 0) {
                     // free allocated output buffers
 
@@ -1684,7 +1672,7 @@ int HWVideoDecoderImpl::reconfigOutputBuffersLocked(uint32_t requestedMinNumOfBu
                         }
                     }
 
-                    ALOGE("free all allocated output buffers.");
+                    CAMHAL_LOGE("free all allocated output buffers.");
 
                 }
                 // free objs stored in mOutputBufs.
@@ -1700,10 +1688,10 @@ int HWVideoDecoderImpl::reconfigOutputBuffersLocked(uint32_t requestedMinNumOfBu
 
             mOutputBufs[i] = (outputBufInfo);
 
-            ALOGD("alloc output Buffer idx %d, fd %d, size = %d, vaddr 0x%p \n", i, fd, imagesize, vaddr);
+            CAMHAL_LOGD("alloc output Buffer idx %d, fd %d, size = %d, vaddr 0x%p \n", i, fd, imagesize, vaddr);
         }
     } else {
-        ALOGI("use pre allocated output buffers.");
+        CAMHAL_LOGI("use pre allocated output buffers.");
     }
 
     return 0;
@@ -1713,7 +1701,7 @@ void HWVideoDecoderImpl::onOutputFormatChanged(uint32_t requestedNumOfBuffers,
             int32_t width, uint32_t height)
 {
 
-    ALOGD("onOutputFormatChanged bufnum %d, width %d, height %d\n",
+    CAMHAL_LOGD("onOutputFormatChanged bufnum %d, width %d, height %d\n",
                 requestedNumOfBuffers,
                 width,
                 height);
@@ -1726,14 +1714,14 @@ void HWVideoDecoderImpl::onOutputFormatChanged(uint32_t requestedNumOfBuffers,
 
 
     if ( 0 != queueOutputBuffersLocked() ) {
-        ALOGE("queue(create) output buffers failed");
+        CAMHAL_LOGE("queue(create) output buffers failed");
         return ;
     }
 
     if (mStatus == HWVideoDecoder::OUTPUT_FORMAT_CHANGED) {
         mStatus = HWVideoDecoder::OUTPUT_BUFFER_CREATED;
     }
-    ALOGI("onOutputFormatChanged out timeUs %" PRId64 "\n", getTimeUs() );
+    CAMHAL_LOGI("onOutputFormatChanged out timeUs %" PRId64 "\n", getTimeUs() );
 }
 
 
@@ -1748,7 +1736,7 @@ void HWVideoDecoderImpl::onOutputBufferDone(int32_t outBufferIdx, int64_t bitstr
         uint32_t width, uint32_t height)
 {
 
-    ALOGD("onOutputBufferDone this %p, outBufferIdx %d, bitstreamId %" PRId64 ", output done %d\n",
+    CAMHAL_LOGD("onOutputBufferDone this %p, outBufferIdx %d, bitstreamId %" PRId64 ", output done %d\n",
                         this, outBufferIdx, bitstreamId, mOutputDoneCount);
 
     mStatus = HWVideoDecoder::OUTPUT_BUFFER_DONE;
@@ -1757,7 +1745,7 @@ void HWVideoDecoderImpl::onOutputBufferDone(int32_t outBufferIdx, int64_t bitstr
 
     if (mDropOutBuf) {
         mAmVideoDec->queueOutputBuffer(outBufferIdx);
-        ALOGD("directly queue back output buffer %d", outBufferIdx);
+        CAMHAL_LOGD("directly queue back output buffer %d", outBufferIdx);
         return ;
     }
     // both sync & async decode using this mReadyOutBufQueue
@@ -1774,7 +1762,7 @@ void HWVideoDecoderImpl::onInputBufferDone(int32_t bitstreamId)
     if (mInputBuffer.size() > 0) {
 
         buffer_item_t* item = (buffer_item_t*)mInputBuffer[bitstreamId];
-        ALOGD("%s line %d, bitstreamId:%d, obj %p, buffer  %p, input done %d\n", __FUNCTION__, __LINE__, bitstreamId, item, item->buffer, mInputDoneCount);
+        CAMHAL_LOGD("%s line %d, bitstreamId:%d, obj %p, buffer  %p, input done %d\n", __FUNCTION__, __LINE__, bitstreamId, item, item->buffer, mInputDoneCount);
         release_input_buffer(item);
 
         mInputBuffer.erase(bitstreamId);
@@ -1784,13 +1772,13 @@ void HWVideoDecoderImpl::onInputBufferDone(int32_t bitstreamId)
 
 void HWVideoDecoderImpl::onUpdateDecInfo(const uint8_t* info, uint32_t isize)
 {
-    ALOGI("%s info:%s isize:%d\n", __func__, info, isize);
+    CAMHAL_LOGI("%s info:%s isize:%d\n", __func__, info, isize);
 }
 
 
 void HWVideoDecoderImpl::onFlushDone()
 {
-    ALOGI("onFlushDone\n");
+    CAMHAL_LOGI("onFlushDone\n");
     std::unique_lock <std::mutex> lck(mFlushedLock);
     mFlushed = true;
     mFlushedCondition.notify_all();
@@ -1799,13 +1787,13 @@ void HWVideoDecoderImpl::onFlushDone()
 
 void HWVideoDecoderImpl::onResetDone()
 {
-    ALOGI("onResetDone\n");
+    CAMHAL_LOGI("onResetDone\n");
 }
 
 
 void HWVideoDecoderImpl::onError(int32_t error)
 {
-    ALOGW("%s error %d\n", __func__, error);
+    CAMHAL_LOGW("%s error %d\n", __func__, error);
     mStatus = HWVideoDecoder::RUNTIME_ERROR;
 }
 
@@ -1814,7 +1802,7 @@ void HWVideoDecoderImpl::onEvent(uint32_t event, void* param, uint32_t paramSize
 {
     UNUSED(param);
     UNUSED(paramSize);
-    ALOGI("%s event:%x, %s %d\n", __func__, event, (char*)param, paramSize);
+    CAMHAL_LOGI("%s event:%x, %s %d\n", __func__, event, (char*)param, paramSize);
 }
 
 // --------- end   HWVideoDecoderImpl ---------------

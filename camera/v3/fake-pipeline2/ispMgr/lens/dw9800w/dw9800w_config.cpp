@@ -8,9 +8,8 @@
  */
 #define LOG_TAG "dw9800wCfg"
 
-#include <stdint.h>
+#include "CamHalDebugLog.h"
 #include "dw9800w_api.h"
-
 
 #define MIN_STEP 16
 

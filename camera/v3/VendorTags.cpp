@@ -17,7 +17,7 @@
 #include <system/camera_metadata.h>
 //#include "Metadata.h"
 
-//#define LOG_NDEBUG 0
+
 #define LOG_TAG "VendorTags"
 #include <android/log.h>
 
@@ -25,6 +25,7 @@
 #include <utils/Log.h>
 
 #include "VendorTags.h"
+#include "CamHalDebugLog.h"
 
 namespace default_camera_hal {
 
@@ -47,7 +48,7 @@ struct Section {
 
 enum vendor_section {
     ANDROID_LENS = VENDOR_SECTION,
-	ANDROID_LENS_INFO,
+    ANDROID_LENS_INFO,
     ANDROID_SECTION_END
 };
 
@@ -55,7 +56,7 @@ const int FAKEVENDOR_SECTION_COUNT = ANDROID_SECTION_END - VENDOR_SECTION;
 
 enum vendor_section_ranges {
     ANDROID_LENS_START          = ANDROID_LENS << 16,
-	ANDROID_LENS_INFO_START          = ANDROID_LENS_INFO << 16
+    ANDROID_LENS_INFO_START          = ANDROID_LENS_INFO << 16
 };
 
 
@@ -91,13 +92,12 @@ enum vendor_info_tags {
 
 
 const static char *fakevendor_section_names[FAKEVENDOR_SECTION_COUNT] = {
-	"android.lens",
-	"android.lens.info"
+    "android.lens",
+    "android.lens.info"
 };
 
 static uint32_t fakevendor_section_bounds[FAKEVENDOR_SECTION_COUNT][2] = {
-	
-	{ (uint32_t) ANDROID_LENS_START,        (uint32_t) ANDROID_LENS_END },
+    { (uint32_t) ANDROID_LENS_START,        (uint32_t) ANDROID_LENS_END },
     { (uint32_t) ANDROID_LENS_INFO_START,        (uint32_t) ANDROID_LENS_INFO_END },
     
 };
@@ -152,17 +152,17 @@ vendor_tag_info_t fakevendor_lens_info[ANDROID_LENS_INFO_END -
 
 vendor_tag_info_t *fakevendor_tag_info[FAKEVENDOR_SECTION_COUNT] = {
     fakevendor_lens,
-	fakevendor_lens_info
+    fakevendor_lens_info
 };
 
 } // namespace
 
 VendorTags::VendorTags()
   : mTagCount(0)
-{	
-	int section;
+{
+    int section;
     unsigned int start, end;
-	for (section = 0; section < FAKEVENDOR_SECTION_COUNT; section++) {
+    for (section = 0; section < FAKEVENDOR_SECTION_COUNT; section++) {
         start = fakevendor_section_bounds[section][0];
         end = fakevendor_section_bounds[section][1];
         mTagCount += end - start;
@@ -175,20 +175,20 @@ VendorTags::~VendorTags()
 
 int VendorTags::getTagCount(const vendor_tag_ops_t* ops)
 {
-	ALOGV("%s ,mTagCount =%d",__func__,mTagCount);
+    CAMHAL_LOGV("%s ,mTagCount =%d",__func__,mTagCount);
     return mTagCount;
 }
 
 void VendorTags::getAllTags(const vendor_tag_ops_t* ops, uint32_t* tag_array)
 {
-	ALOGV("%s",__func__);
+    CAMHAL_LOGV("%s",__func__);
     if (tag_array == NULL) {
-        ALOGE("%s: NULL tag_array", __func__);
+        CAMHAL_LOGE("%s: NULL tag_array", __func__);
         return;
     }
-	int section;
+    int section;
     unsigned int start, end, tag;
-	for (section = 0; section < FAKEVENDOR_SECTION_COUNT; section++) {
+    for (section = 0; section < FAKEVENDOR_SECTION_COUNT; section++) {
         start = fakevendor_section_bounds[section][0];
         end = fakevendor_section_bounds[section][1];
         for (tag = start; tag < end; tag++) {
@@ -199,9 +199,9 @@ void VendorTags::getAllTags(const vendor_tag_ops_t* ops, uint32_t* tag_array)
 
 const char* VendorTags::getSectionName(const vendor_tag_ops_t* ops, uint32_t tag)
 {
-	ALOGV("%s",__func__);
-	
-	int tag_section = (tag >> 16) - VENDOR_SECTION;
+    CAMHAL_LOGV("%s",__func__);
+
+    int tag_section = (tag >> 16) - VENDOR_SECTION;
     if (tag_section < 0 ||
             tag_section >= FAKEVENDOR_SECTION_COUNT) return NULL;
 
@@ -210,9 +210,9 @@ const char* VendorTags::getSectionName(const vendor_tag_ops_t* ops, uint32_t tag
 
 const char* VendorTags::getTagName(const vendor_tag_ops_t* ops, uint32_t tag)
 {
-	ALOGV("%s",__func__);
+    CAMHAL_LOGV("%s",__func__);
 
-	int tag_section = (tag >> 16) - VENDOR_SECTION;
+    int tag_section = (tag >> 16) - VENDOR_SECTION;
     if (tag_section < 0
             || tag_section >= FAKEVENDOR_SECTION_COUNT
             || tag >= fakevendor_section_bounds[tag_section][1]) return NULL;
@@ -222,9 +222,9 @@ const char* VendorTags::getTagName(const vendor_tag_ops_t* ops, uint32_t tag)
 
 int VendorTags::getTagType(const vendor_tag_ops_t* ops, uint32_t tag)
 {
-	ALOGV("%s",__func__);
+    CAMHAL_LOGV("%s",__func__);
 
-	int tag_section = (tag >> 16) - VENDOR_SECTION;
+    int tag_section = (tag >> 16) - VENDOR_SECTION;
     if (tag_section < 0
             || tag_section >= FAKEVENDOR_SECTION_COUNT
             || tag >= fakevendor_section_bounds[tag_section][1]) return -1;

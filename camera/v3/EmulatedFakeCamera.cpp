@@ -48,7 +48,7 @@ EmulatedFakeCamera::~EmulatedFakeCamera()
 status_t EmulatedFakeCamera::Initialize()
 {
     status_t res = mFakeCameraDevice.Initialize();
-    DBG_LOGA("attention should not go into this func");
+    CAMHAL_LOGD("attention should not go into this func");
     if (res != NO_ERROR) {
         return res;
     }
@@ -57,7 +57,7 @@ status_t EmulatedFakeCamera::Initialize()
                                        EmulatedCamera::FACING_FRONT;
 
     mParameters.set(EmulatedCamera::FACING_KEY, facing);
-    ALOGD("%s: Fake camera is facing %s", __FUNCTION__, facing);
+    CAMHAL_LOGD("%s: Fake camera is facing %s", __FUNCTION__, facing);
 
     mParameters.set(EmulatedCamera::ORIENTATION_KEY,
                     gEmulatedCameraFactory.getFakeCameraOrientation());
@@ -85,7 +85,7 @@ status_t EmulatedFakeCamera::Initialize()
 
 EmulatedCameraDevice* EmulatedFakeCamera::getCameraDevice()
 {
-    DBG_LOGA("attention should not go into this func");
+    CAMHAL_LOGD("attention should not go into this func");
     return &mFakeCameraDevice;
 }
 

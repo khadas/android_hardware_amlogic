@@ -21,7 +21,7 @@
 
 #define LOG_TAG "EmulatedCamera_FakeCamera3Info"
 #include "EmulatedFakeCamera3.h"
-#include "inc/DebugUtils.h"
+#include "CamHalDebugLog.h"
 
 namespace android {
 
@@ -182,13 +182,13 @@ int EmulatedFakeCamera3::getAvailableChKeys(CameraMetadata *info, uint8_t level)
 
     e = info->find(ANDROID_REQUEST_AVAILABLE_CAPABILITIES);
     if (e.count <= 0) {
-        CAMHAL_LOGDA("uncertained capabilities!!!\n");
+        CAMHAL_LOGD("uncertained capabilities!!!\n");
         availCapMask = BC;
     }
     for (size_t i=0; i < e.count; i++) {
         availCapMask |= (1 << e.data.u8[i]);
     }
-    CAMHAL_LOGDB("availCapMask=%x\n", availCapMask);
+    CAMHAL_LOGD("availCapMask=%x\n", availCapMask);
 
     switch (level) {
         case ANDROID_INFO_SUPPORTED_HARDWARE_LEVEL_LIMITED:
@@ -203,7 +203,7 @@ int EmulatedFakeCamera3::getAvailableChKeys(CameraMetadata *info, uint8_t level)
             actualHwLevel = LEGACY;
             break;
         default:
-            CAMHAL_LOGDA("!!!!uncertain hardware level\n");
+            CAMHAL_LOGD("!!!!uncertain hardware level\n");
             break;
     }
 
@@ -228,7 +228,7 @@ int EmulatedFakeCamera3::getAvailableChKeys(CameraMetadata *info, uint8_t level)
     info->update(ANDROID_REQUEST_AVAILABLE_CHARACTERISTICS_KEYS,
             (int32_t *)available_keys, availCount);
 
-    CAMHAL_LOGVB("availableKeySize=%d\n", availCount);
+    CAMHAL_LOGV("availableKeySize=%d\n", availCount);
 
     keyInfo = &EmulatedFakeCamera3::sKeyInfoReq[0];
     for (int i = 0; i < sizeReq; i ++) {
@@ -273,7 +273,7 @@ int EmulatedFakeCamera3::getAvailableChKeys(CameraMetadata *info, uint8_t level)
 
     info->update(ANDROID_REQUEST_AVAILABLE_RESULT_KEYS,
             (int32_t *)available_keys, availCount);
-    CAMHAL_LOGVB("availableKeySize=%d\n", availCount);
+    CAMHAL_LOGV("availableKeySize=%d\n", availCount);
     return 0;
 }
 

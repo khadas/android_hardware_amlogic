@@ -370,7 +370,7 @@ int EmulatedCamera2::close(struct hw_device_t* device) {
             static_cast<EmulatedCamera2*>(
                 reinterpret_cast<camera2_device_t*>(device) );
     if (ec == NULL) {
-        ALOGE("%s: Unexpected NULL camera2 device", __FUNCTION__);
+        CAMHAL_LOGE("%s: Unexpected NULL camera2 device", __FUNCTION__);
         return -EINVAL;
     }
     return ec->closeCamera();

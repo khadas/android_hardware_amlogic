@@ -296,30 +296,8 @@ class Sensor: public Thread, public virtual RefBase {
     float mCurFps;
     bool mLowLatencyMode;
 
-    struct DecoderTask {
-        mutable std::mutex lock;
-        std::condition_variable condition;
-        uint8_t *inputBuffer = nullptr;
-        uint32_t inputWidth, inputHeight, inputBytesused;
-        uint32_t outputWidth, outputHeight, outputStride;
-        uint8_t *workingBuffer = nullptr;
-        uint8_t *validBuffer = nullptr;
-        bool taskRunning = false;
-        bool exitThread = false;
-        bool bDecoderFlag;
-    };
-    struct DecoderTask mDecoderTask;
-    std::thread mDecoderThread;
-    uint8_t mInputBuffer[1920*1080*3/2];
-    uint8_t mRingBuffer1[1920*1080*3/2];
-    uint8_t mRingBuffer2[1920*1080*3/2];
-    uint8_t vBuffer2[1920*1080/4];
-    uint8_t uBuffer2[1920*1080/4];
-    bool needReturnVinfo = true;
-
     enum sensor_type_e mSensorType;
     unsigned int mIoctlSupport;
-    unsigned int msupportrotate;
     uint32_t mTimeOutCount;
     uint32_t mSelectCount;
     bool mWait;
@@ -375,8 +353,6 @@ class Sensor: public Thread, public virtual RefBase {
     virtual status_t readyToRun();
 
     virtual bool threadLoop();
-
-    static status_t decoderThread(void* user);
 
     nsecs_t mNextCaptureTime;
     Buffers *mNextCapturedBuffers;

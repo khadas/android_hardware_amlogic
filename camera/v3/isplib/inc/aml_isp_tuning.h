@@ -24,6 +24,8 @@ typedef enum CALIBRATION_TYPE {
     CALIBRATION_AWB_CT_BG_COMPENSATE      ,
     CALIBRATION_AWB_CT_WGT                ,
     CALIBRATION_AWB_CT_DYN_CVRANGE        ,
+    CALIBRATION_AWB_WEIGHT_H              ,
+    CALIBRATION_AWB_WEIGHT_V              ,
     CALIBRATION_AE_CTL                    ,
     CALIBRATION_AE_CORR_LUT               ,
     CALIBRATION_AE_CORR_POS_LUT           ,
@@ -73,7 +75,7 @@ typedef enum CALIBRATION_TYPE {
     CALIBRATION_PST_TNR_ALP_LUT           ,
     CALIBRATION_COMPRESS_RATIO            ,
     CALIBRATION_LENS_SHADING_ADJ          ,
-    CALIBRATION_LENS_SHADING_ACTL         ,
+    CALIBRATION_ADP_LENS_SHADING_CTL      ,
     CALIBRATION_LENS_SHADING_CT_CORRECT   ,
     CALIBRATION_LENS_SHADING_ADP          ,
     CALIBRATION_DMS_ADJ                   ,
@@ -149,6 +151,7 @@ typedef enum CALIBRATION_TYPE {
     CALIBRATION_AWB_CT_BG_CURVE           ,
     CALIBRATION_AWB_WB_GOLDEN_D50         ,
     CALIBRATION_AWB_WB_OTP_D50            ,
+    CALIBRATION_AWB_REF_REMOVE_LUT        ,
     CALIBRATION_NOISE_PROFILE             ,
     CALIBRATION_FPNR                      ,
     CALIBRATION_SQRT0                     ,
@@ -168,13 +171,15 @@ typedef enum CALIBRATION_TYPE {
     CALIBRATION_DECMP1                    ,
     CALIBRATION_DYM_CUSTOM_SETTING        ,
     CALIBRATION_AWB_PRESET                ,
+    CALIBRATION_CSC_COEF                  ,
+    CALIBRATION_VERSION                   ,
 
     CALIBRATION_TOTAL_SIZE                ,
 } CALIBRATION_TYPE_E;
 
 typedef enum
 {
-    AML_MBI_ISP_BaseAttr= 0x0,
+    AML_MBI_ISP_BaseAttr = 0x0,
     AML_MBI_ISP_CSCAttr,
     AML_MBI_ISP_ModuleCtrlAttr,
     AML_MBI_ISP_HLCAttr,
@@ -184,7 +189,7 @@ typedef enum
     AML_MBI_ISP_RadialShadingLut,
     AML_MBI_ISP_FPNRLut,
     AML_MBI_ISP_DrcAttr,
-    AISP_BASE_MAX,
+    AISP_BASE_MAX = 20,
 
     AML_MBI_ISP_ExposureAttr,
     AML_MBI_ISP_WDRExposureAttr,
@@ -199,14 +204,15 @@ typedef enum
     AML_MBI_ISP_QueryEXPinfo,
     AML_MBI_ISP_IRAttr,
     AML_MBI_ISP_AERoiAttr,
-    AISP_3A_MAX,
+    AML_MBI_ISP_AWBRegionAttr,
+    AISP_3A_MAX = 40,
 
     AML_MBI_ISP_SaturationAttr,
     AML_MBI_ISP_ShadingAttr,
     AML_MBI_ISP_RadialShadingAttr,
     AML_MBI_ISP_BlackLevelAttr,
     AML_MBI_ISP_ColorMatrixAttr,
-    AISP_CORRECTION_MAX,
+    AISP_CORRECTION_MAX = 60,
 
     AML_MBI_ISP_IspSharpenAttr,
     AML_MBI_ISP_FSWDRAttr,
@@ -217,7 +223,7 @@ typedef enum
     AML_MBI_ISP_LdcLutAttr,
     AML_MBI_ISP_DNLPAttr,
     AML_MBI_ISP_CM2Attr,
-    AISP_ENHANCE_MAX,
+    AISP_ENHANCE_MAX = 80,
 
     AML_MBI_ISP_RAWCNRAttr,
     AML_MBI_ISP_SNRAttr,
@@ -229,7 +235,7 @@ typedef enum
     AML_MBI_ISP_CrAttr,
     AML_MBI_ISP_FPNRAttr,
     AML_MBI_ISP_DPCAttr,
-    AISP_RESTORATION_MAX,
+    AISP_RESTORATION_MAX = 100,
 
     AML_MBI_ISP_FMWAttr,
     AML_MBI_ISP_RotAttr,

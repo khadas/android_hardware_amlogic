@@ -28,7 +28,7 @@
 #include "hardware/camera3.h"
 #include "system/camera_metadata.h"
 #include "EmulatedBaseCamera.h"
-#include "DebugUtils.h"
+#include "CamHalDebugLog.h"
 
 namespace android {
 

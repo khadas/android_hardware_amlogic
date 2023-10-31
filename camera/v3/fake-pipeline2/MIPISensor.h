@@ -12,13 +12,16 @@
 #include "gdcUseFd.h"
 #include "IGdc.h"
 #endif
-#include <DebugUtils.h>
+#include <CamHalDebugLog.h>
+
+#include "GlobalResource.h"
+
+/* custom v4l2 controls */
 #define ISP_V4L2_CID_ISP_V4L2_CLASS     (0x00f00000 | 1)
 #define ISP_V4L2_CID_BASE               (0x00f00000 | 0xf000)
 #define ISP_V4L2_CID_CUSTOM_DCAM_MODE (ISP_V4L2_CID_BASE + 166)
-#define ISP_V4L2_CID_SET_IS_CAPTURING ( (0x00f00000 | 0xf000) + 164 )
 
-#define FRAME_DURATION (33333333L)
+#define FRAME_DURATION (33333333L) // 1/30 s
 
 namespace android {
 
@@ -72,7 +75,7 @@ namespace android {
             isp3a* mISP;
             bool enableZsl;
             ICapture* mCapture;
-
+            GlobalResource* mResource;
             struct bufInfo {
                 uint8_t*   vaddr;
                 uint32_t   width;
@@ -101,7 +104,6 @@ namespace android {
             int SensorInit(int idx);
             void setIOBufferNum();
             void dump(int& frame_index, uint8_t* buf, int length, std::string name);
-            void set_notify_3A_is_capturing(int videofd, int isCapturing);
        protected:
             virtual status_t readyToRun();
     };

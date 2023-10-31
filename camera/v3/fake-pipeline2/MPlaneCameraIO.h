@@ -20,7 +20,7 @@
 #include <sys/ioctl.h>
 #include <stdbool.h>
 
-#include <DebugUtils.h>
+#include <CamHalDebugLog.h>
 #include <vector>
 #include "CameraDevice.h"
 #include "IonIf.h"

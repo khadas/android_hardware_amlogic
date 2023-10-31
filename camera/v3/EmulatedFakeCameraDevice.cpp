@@ -68,15 +68,15 @@ EmulatedFakeCameraDevice::~EmulatedFakeCameraDevice()
 
 status_t EmulatedFakeCameraDevice::connectDevice()
 {
-    ALOGV("%s", __FUNCTION__);
+    CAMHAL_LOGV("%s", __FUNCTION__);
 
     Mutex::Autolock locker(&mObjectLock);
     if (!isInitialized()) {
-        ALOGE("%s: Fake camera device is not initialized.", __FUNCTION__);
+        CAMHAL_LOGE("%s: Fake camera device is not initialized.", __FUNCTION__);
         return EINVAL;
     }
     if (isConnected()) {
-        ALOGW("%s: Fake camera device is already connected.", __FUNCTION__);
+        CAMHAL_LOGW("%s: Fake camera device is already connected.", __FUNCTION__);
         return NO_ERROR;
     }
 
@@ -88,15 +88,15 @@ status_t EmulatedFakeCameraDevice::connectDevice()
 
 status_t EmulatedFakeCameraDevice::disconnectDevice()
 {
-    ALOGV("%s", __FUNCTION__);
+    CAMHAL_LOGV("%s", __FUNCTION__);
 
     Mutex::Autolock locker(&mObjectLock);
     if (!isConnected()) {
-        ALOGW("%s: Fake camera device is already disconnected.", __FUNCTION__);
+        CAMHAL_LOGW("%s: Fake camera device is already disconnected.", __FUNCTION__);
         return NO_ERROR;
     }
     if (isStarted()) {
-        ALOGE("%s: Cannot disconnect from the started device.", __FUNCTION__);
+        CAMHAL_LOGE("%s: Cannot disconnect from the started device.", __FUNCTION__);
         return EINVAL;
     }
 
@@ -110,15 +110,15 @@ status_t EmulatedFakeCameraDevice::startDevice(int width,
                                                int height,
                                                uint32_t pix_fmt)
 {
-    ALOGV("%s", __FUNCTION__);
+    CAMHAL_LOGV("%s", __FUNCTION__);
 
     Mutex::Autolock locker(&mObjectLock);
     if (!isConnected()) {
-        ALOGE("%s: Fake camera device is not connected.", __FUNCTION__);
+        CAMHAL_LOGE("%s: Fake camera device is not connected.", __FUNCTION__);
         return EINVAL;
     }
     if (isStarted()) {
-        ALOGE("%s: Fake camera device is already started.", __FUNCTION__);
+        CAMHAL_LOGE("%s: Fake camera device is already started.", __FUNCTION__);
         return EINVAL;
     }
 
@@ -159,7 +159,7 @@ status_t EmulatedFakeCameraDevice::startDevice(int width,
                 break;
 
             default:
-                ALOGE("%s: Unknown pixel format %.4s", __FUNCTION__,
+                CAMHAL_LOGE("%s: Unknown pixel format %.4s", __FUNCTION__,
                      reinterpret_cast<const char*>(&mPixelFormat));
                 return EINVAL;
         }
@@ -167,7 +167,7 @@ status_t EmulatedFakeCameraDevice::startDevice(int width,
         mUVInRow = (width / 2) * mUVStep;
         mState = ECDS_STARTED;
     } else {
-        ALOGE("%s: commonStartDevice failed", __FUNCTION__);
+        CAMHAL_LOGE("%s: commonStartDevice failed", __FUNCTION__);
     }
 
     return res;
@@ -175,11 +175,11 @@ status_t EmulatedFakeCameraDevice::startDevice(int width,
 
 status_t EmulatedFakeCameraDevice::stopDevice()
 {
-    ALOGV("%s", __FUNCTION__);
+    CAMHAL_LOGV("%s", __FUNCTION__);
 
     Mutex::Autolock locker(&mObjectLock);
     if (!isStarted()) {
-        ALOGW("%s: Fake camera device is not started.", __FUNCTION__);
+        CAMHAL_LOGW("%s: Fake camera device is not started.", __FUNCTION__);
         return NO_ERROR;
     }
 
@@ -200,7 +200,7 @@ bool EmulatedFakeCameraDevice::inWorkerThread()
     WorkerThread::SelectRes res =
         getWorkerThread()->Select(-1, 1000000 / mEmulatedFPS);
     if (res == WorkerThread::EXIT_THREAD) {
-        ALOGV("%s: Worker thread has been terminated.", __FUNCTION__);
+        CAMHAL_LOGV("%s: Worker thread has been terminated.", __FUNCTION__);
         return false;
     }
 
@@ -411,26 +411,26 @@ int EmulatedFakeCameraDevice::rotateFrame()
             mCurrentFrameType = 0;
         }
         if (mCurrentFrameType == 2) {
-            ALOGD("********** Rotated to the SOLID COLOR frame **********");
+            CAMHAL_LOGD("********** Rotated to the SOLID COLOR frame **********");
             /* Solid color: lets rotate color too. */
             if (mCurrentColor == &mWhiteYUV) {
-                ALOGD("----- Painting a solid RED frame -----");
+                CAMHAL_LOGD("----- Painting a solid RED frame -----");
                 mCurrentColor = &mRedYUV;
             } else if (mCurrentColor == &mRedYUV) {
-                ALOGD("----- Painting a solid GREEN frame -----");
+                CAMHAL_LOGD("----- Painting a solid GREEN frame -----");
                 mCurrentColor = &mGreenYUV;
             } else if (mCurrentColor == &mGreenYUV) {
-                ALOGD("----- Painting a solid BLUE frame -----");
+                CAMHAL_LOGD("----- Painting a solid BLUE frame -----");
                 mCurrentColor = &mBlueYUV;
             } else {
                 /* Back to white. */
-                ALOGD("----- Painting a solid WHITE frame -----");
+                CAMHAL_LOGD("----- Painting a solid WHITE frame -----");
                 mCurrentColor = &mWhiteYUV;
             }
         } else if (mCurrentFrameType == 0) {
-            ALOGD("********** Rotated to the CHECKERBOARD frame **********");
+            CAMHAL_LOGD("********** Rotated to the CHECKERBOARD frame **********");
         } else if (mCurrentFrameType == 1) {
-            ALOGD("********** Rotated to the STRIPED frame **********");
+            CAMHAL_LOGD("********** Rotated to the STRIPED frame **********");
         }
     }
 

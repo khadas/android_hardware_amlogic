@@ -18,7 +18,7 @@
 #define LOG_TAG "CameraProperties       "
 #include <utils/threads.h>
 
-#include "DebugUtils.h"
+#include "CamHalDebugLog.h"
 #include "CameraProperties.h"
 
 #define CAMERA_ROOT         "CameraRoot"
@@ -59,7 +59,7 @@ status_t CameraProperties::initialize(int cameraid)
 
     Mutex::Autolock lock(mLock);
 
-    CAMHAL_LOGDB("%s, mCamerasSupported=%d\n",
+    CAMHAL_LOGD("%s, mCamerasSupported=%d\n",
             mInitialized?"initialized":"no initialize", mCamerasSupported);
 
     if( !mInitialized ){
@@ -76,10 +76,10 @@ status_t CameraProperties::initialize(int cameraid)
     }else{
 
         if(!strcmp( mCameraProps[cameraid].get(CameraProperties::RELOAD_WHEN_OPEN), "1")){
-            CAMHAL_LOGDB("cameraid %d reload\n", cameraid);
+            CAMHAL_LOGD("cameraid %d reload\n", cameraid);
             loadCaps(cameraid, &mCameraProps[cameraid]);
         }else{
-            CAMHAL_LOGDA("device don't need reload\n"); 
+            CAMHAL_LOGD("device don't need reload\n");
         }
 
     }
@@ -95,7 +95,7 @@ status_t CameraProperties::loadProperties()
     LOG_FUNCTION_NAME;
 
     status_t ret = NO_ERROR;
-    CAMHAL_LOGDA("this func delete!!!\n"); 
+    CAMHAL_LOGD("this func delete!!!\n");
     return ret;
 }
 
@@ -159,7 +159,7 @@ void CameraProperties::Properties::dump()
 {
     for (size_t i = 0; i < mProperties->size(); i++)
     {
-        CAMHAL_LOGVB("%s = %s\n",
+        CAMHAL_LOGV("%s = %s\n",
                         mProperties->keyAt(i).string(),
                         mProperties->valueAt(i).string());
     }

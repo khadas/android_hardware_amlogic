@@ -3,6 +3,7 @@
 #include "Isp3a.h"
 #include <utils/Log.h>
 #include "ispaaalib.h"
+#include "CamHalDebugLog.h"
 
 namespace android{
 
@@ -18,33 +19,33 @@ isp3a* isp3a::get_instance(void) {
 }
 
 isp3a::isp3a() {
-    ALOGD("%s:create isp3a object",__FUNCTION__);
+    CAMHAL_LOGD("%s:create isp3a object",__FUNCTION__);
     mIsOpened = false;
     mOpenCount = 0;
 }
 isp3a::~isp3a() {
-    ALOGD("%s:release isp3a object",__FUNCTION__);
+    CAMHAL_LOGD("%s:release isp3a object",__FUNCTION__);
 }
 void isp3a::open_isp3a_library(int num) {
-    ALOGD("%s:E",__FUNCTION__);
+    CAMHAL_LOGD("%s:E",__FUNCTION__);
 #ifdef ISP_ENABLE
     if (mIsOpened == false && mOpenCount == 0) {
-        ALOGD("%s:enable isp lib",__FUNCTION__);
+        CAMHAL_LOGD("%s:enable isp lib",__FUNCTION__);
         isp_lib_enable(num);
         mIsOpened = true;
     } else {
-        ALOGD("%s:isp lib has been opened",__FUNCTION__);
+        CAMHAL_LOGD("%s:isp lib has been opened",__FUNCTION__);
     }
     mOpenCount += 1;
 #endif
 }
 
 void isp3a::close_isp3a_library() {
-     ALOGD("%s:E",__FUNCTION__);
+     CAMHAL_LOGD("%s:E",__FUNCTION__);
 #ifdef ISP_ENABLE
     mOpenCount -= 1;
     if (mIsOpened && mOpenCount == 0) {
-        ALOGD("%s:disable isp lib",__FUNCTION__);
+        CAMHAL_LOGD("%s:disable isp lib",__FUNCTION__);
         isp_lib_disable();
         mIsOpened = false;
     }
@@ -53,11 +54,11 @@ void isp3a::close_isp3a_library() {
 
 void isp3a::print_status() {
     if (mIsOpened == false) {
-        ALOGD("isp lib is closed");
-        ALOGD("current open count is %d",mOpenCount);
+        CAMHAL_LOGD("isp lib is closed");
+        CAMHAL_LOGD("current open count is %d",mOpenCount);
     } else {
-        ALOGD("isp lib has opend");
-        ALOGD("current open count is %d",mOpenCount);
+        CAMHAL_LOGD("isp lib has opend");
+        CAMHAL_LOGD("current open count is %d",mOpenCount);
     }
 }
 }
