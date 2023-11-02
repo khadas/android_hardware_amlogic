@@ -750,6 +750,20 @@ HWVideoDecoderImpl::HWVideoDecoderImpl(HWVideoDecoder * interfaceObj)
     if (strstr(property, "true")) {
         mEnableDewarp = true;
     }
+    mWorkMode = HWVideoDecoder::SYNC_DECODE_MODE;
+    mAmVideoDec = nullptr;
+    mBitStreamId = 0;
+    mOutputBufferNum = 0;
+    mDqWidth = 0;
+    mDqHeight = 0;
+    mFormatWidth = 0;
+    mFormatHeight = 0;
+    mQueuedInputBufCountBeforeOutBufDone = 0;
+    mInputDoneCount = 0;
+    mOutputDoneCount = 0;
+    mDropOutBuf = false;
+    mGE2D = nullptr;
+    mION = nullptr;
 }
 
 
@@ -1006,7 +1020,9 @@ void HWVideoDecoderImpl::dumpInputTofile(uint8_t* in_src, uint32_t in_size)
         if (VFORMAT_MJPEG == mVideoDecConfig.vFmt) {
             if (written_bytes < INPUT_BUFFER_SIZE) {
                 int pad_bytes = INPUT_BUFFER_SIZE - written_bytes;
-                fseek(mInputDumpFile, pad_bytes, SEEK_CUR);
+                int ret = fseek(mInputDumpFile, pad_bytes, SEEK_CUR);
+                if (!ret)
+                    CAMHAL_LOGE("fseek error");
             }
         }
         fflush(mInputDumpFile);

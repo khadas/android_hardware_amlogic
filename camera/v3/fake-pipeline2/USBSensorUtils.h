@@ -15,7 +15,7 @@ class CVideoInfo;
 class USBSensorUtils final {
 
 public:
-	USBSensorUtils(CVideoInfo *vinfo) {mVinfo = vinfo;}
+	USBSensorUtils(CVideoInfo *vinfo) {mVinfo = vinfo;mEV = 0;}
 	~USBSensorUtils(){}
 
 	int getZoom(int *zoomMin, int *zoomMax, int *zoomStep);

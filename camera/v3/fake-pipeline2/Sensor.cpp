@@ -202,6 +202,7 @@ Sensor::Sensor():
         vinfo(NULL),
         mFramecount(0),
         mCurFps(0.0),
+        mLowLatencyMode(false),
         mSensorType(SENSOR_MMAP),
         mIoctlSupport(0),
         mTimeOutCount(0),
@@ -213,6 +214,7 @@ Sensor::Sensor():
         mSensorWorkFlag(false),
         mOpenCameraID(-1),
         mNeedCheckMjpeg(false),
+        checkFailCount(0),
         mNextCapturedBuffers(NULL),
         mScene(kResolution[0], kResolution[1], kElectronsPerLuxSecond),
         mUnpluged(false)

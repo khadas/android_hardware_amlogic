@@ -42,6 +42,8 @@ ge2dTransform::ge2dTransform() {
     }
     mFirst = false;
     mION = IONInterface::get_instance();
+    m_share_fd = -1;
+    degree = 0;
 }
 
 ge2dTransform::~ge2dTransform() {

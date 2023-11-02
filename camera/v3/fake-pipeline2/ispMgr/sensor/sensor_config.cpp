@@ -394,6 +394,7 @@ void cmos_get_sensor_otp_data(struct sensorConfig *cfg, aisp_calib_info_t *otp)
 
     if (i2c_init(cfg->otpDevNum, cfg->otpDevAddr) < 0) {
         CAMHAL_LOGE("i2c init fail");
+        dlclose(lib);
         return;
     }
     {
@@ -722,17 +723,17 @@ void cmos_get_sensor_otp_data(struct sensorConfig *cfg, aisp_calib_info_t *otp)
         }
     } while(0);
 
-    addr_offset = cfg->otpDevWbAddr;
-    for (int i = 0; i < 1; ++i, ++addr_offset) {
-        flag = i2c_read(addr_offset, cfg->otpDevAddrType);
+    int addr_offset1 = cfg->otpDevWbAddr;
+    for (int i = 0; i < 1; ++i, ++addr_offset1) {
+        flag = i2c_read(addr_offset1, cfg->otpDevAddrType);
         log2file(path, "otp wb valid, addr:0x%x value:0x%x\n", i, flag);
     }
     if (flag == 0x01) {
         //AWB_WB
         {
-            for (int i = 0; i < 8; ++i, ++addr_offset) {
-                buffer[i] = i2c_read(addr_offset, cfg->otpDevAddrType);
-                log2file(path, "otp wb data, addr:0x%x value:0x%x\n", addr_offset, buffer[i]);
+            for (int i = 0; i < 8; ++i, ++addr_offset1) {
+                buffer[i] = i2c_read(addr_offset1, cfg->otpDevAddrType);
+                log2file(path, "otp wb data, addr:0x%x value:0x%x\n", addr_offset1, buffer[i]);
             }
             static int16_t _CALIBRATION_AWB_WB_GOLDEN_D50[2];
             static int16_t _CALIBRATION_AWB_WB_OTP_D50[2];

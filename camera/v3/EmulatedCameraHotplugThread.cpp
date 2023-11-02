@@ -70,11 +70,13 @@ void EmulatedCameraHotplugThread::requestExit() {
     CAMHAL_LOGV("%s: Requesting thread exit", __FUNCTION__);
     mRunning = false;
 
+#if 0
     const bool rmWatchFailed = false;
+
     Vector<SubscriberInfo>::iterator it;
     for (it = mSubscribers.begin(); it != mSubscribers.end(); ++it) {
 
-#if 0
+
         if (inotify_rm_watch(mInotifyFd, it->WatchID) == -1) {
 
             CAMHAL_LOGE("%s: Could not remove watch for camID '%d',"
@@ -87,7 +89,7 @@ void EmulatedCameraHotplugThread::requestExit() {
             CAMHAL_LOGV("%s: Removed watch for camID '%d'",
                 __FUNCTION__, it->CameraID);
         }
-#endif
+
     }
 
     if (rmWatchFailed) { // unlikely
@@ -98,6 +100,8 @@ void EmulatedCameraHotplugThread::requestExit() {
                  __FUNCTION__, strerror(errno), errno);
         }
     }
+#endif
+
     if (shutdown(mSocketFd, SHUT_RD) < 0) {
         CAMHAL_LOGD("shutdown socket failed errno=%s", strerror(errno));
     }

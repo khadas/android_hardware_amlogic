@@ -56,6 +56,9 @@ MIPISensor::MIPISensor() {
     mCapture = NULL;
     mFrameDuration = FRAME_DURATION;
     enableZsl = false;
+    memset(&mSavedDecodedBuffer, 0, sizeof(struct bufInfo));
+    mMaxHeight = 0;
+    mMaxWidth = 0;
     PictureThreadCntler::resetAndInit(mPictureThreadCntler);
     char property[PROPERTY_VALUE_MAX];
     property_get("vendor.camera.zsl.enable", property, "false");
@@ -473,9 +476,6 @@ void MIPISensor::captureNV21(StreamBuffer b, uint32_t gain) {
         mSensorWorkFlag = true;
         if (ret == NEW_FRAME)
             mVinfo->putback_frame();
-        if (mFlushFlag) {
-            break;
-        }
         break;
     }
 }
@@ -497,9 +497,6 @@ void MIPISensor::captureYV12(StreamBuffer b, uint32_t gain) {
         mTempFD = b.share_fd;
         mSensorWorkFlag = true;
         mVinfo->putback_frame();
-        if (mFlushFlag) {
-            break;
-        }
         break;
     }
     CAMHAL_LOGVV("YV12 sensor image captured");

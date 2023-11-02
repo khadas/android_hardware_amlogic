@@ -681,9 +681,11 @@ void USBSensor::captureNV21UsbSensor(StreamBuffer b, uint32_t gain, bool needSen
         switch (pixelformat) {
             case V4L2_PIX_FMT_NV21:
                 if (mVinfo->preview.buf.length == b.width * b.height * 3/2) {
-                    memcpy(b.img, src, mVinfo->preview.buf.length);
+                    if (src != nullptr)
+                        memcpy(b.img, src, mVinfo->preview.buf.length);
                 } else {
-                    mCameraUtil->nv21_memcpy_align32 (b.img, src, b.width, b.height);
+                    if (src != nullptr)
+                        mCameraUtil->nv21_memcpy_align32 (b.img, src, b.width, b.height);
                 }
 #ifdef GE2D_ENABLE
                 mGE2D->doRotationAndMirror(b);
@@ -698,7 +700,10 @@ void USBSensor::captureNV21UsbSensor(StreamBuffer b, uint32_t gain, bool needSen
                     uint32_t height = mVinfo->preview.format.fmt.pix.height;
 
                     memset(mImage_buffer, 0 , width * height * 3/2);
-                    mCameraUtil->YUYVToNV21(src, mImage_buffer, width, height);
+
+                    if (src != nullptr)
+                        mCameraUtil->YUYVToNV21(src, mImage_buffer, width, height);
+
                     if ((width == b.width) && (height == b.height)) {
                         memcpy(b.img, mImage_buffer, b.width * b.height * 3/2);
                     } else {

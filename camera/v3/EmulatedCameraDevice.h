@@ -367,7 +367,7 @@ protected:
                   mCameraDevice(camera_dev),
                   mThreadControl(-1),
                   mControlFD(-1),
-                  mOneBurst(0)
+                  mOneBurst(false)
             {
             }
 

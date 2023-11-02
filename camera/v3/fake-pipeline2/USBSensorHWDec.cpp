@@ -96,7 +96,12 @@ USBSensorHWDec::USBSensorHWDec(int expectedV4l2OutPixFmt)
 
     // decoder can access streambuf vector. for loop to fill streambufs.
     mUseStreamBufVecForDecoder = true;
-
+    mDecoderStreamType = MJPEG_STREAM;
+    mHWDecoderWorkMode = ASYNC_DECODE_MODE;
+    mUsbSensorUtils = nullptr;
+    memset(&mSensorOutBuf, 0, sizeof(mSensorOutBuf));
+    memset(&mDecoderOutBuf, 0, sizeof(mDecoderOutBuf));
+    mNeedStopDecodeFillThread = false;
     CAMHAL_LOGD("create usbsensorHWDec");
 }
 
@@ -951,12 +956,14 @@ void USBSensorHWDec::captureNV21UsbSensor(Vector<StreamBuffer>& b, uint32_t gain
                     if (b[i].format == HAL_PIXEL_FORMAT_BLOB) {
                         CAMHAL_LOGE("%s:blob buffer bypass",__FUNCTION__);
                     } else {
-                        if (width == b[i].width && height == b[i].height) {
-                            mCameraUtil->YUYVToNV21(src, b[i].img, width, height);
-                        } else {
-                            // ge2d does not support yuyv. use software.
-                            mCameraUtil->YUYVToNV21(src, mSensorOutBuf.img, width, height);
-                            mCameraUtil->ReSizeNV21(mSensorOutBuf.img, b[i].img, b[i].width, b[i].height, b[i].stride, width, height);
+                        if (src != nullptr) {
+                            if (width == b[i].width && height == b[i].height) {
+                                mCameraUtil->YUYVToNV21(src, b[i].img, width, height);
+                            } else {
+                                // ge2d does not support yuyv. use software.
+                                mCameraUtil->YUYVToNV21(src, mSensorOutBuf.img, width, height);
+                                mCameraUtil->ReSizeNV21(mSensorOutBuf.img, b[i].img, b[i].width, b[i].height, b[i].stride, width, height);
+                            }
                         }
                     }
 #ifdef GE2D_ENABLE

@@ -48,6 +48,8 @@ CVideoInfo::CVideoInfo()
     fd = -1;
     tempbuflen = 0;
     dev_status = 0;
+    canvas_mode = false;
+    IO_PREVIEW_BUFFER = 0;
 }
 
 CVideoInfo::~CVideoInfo()

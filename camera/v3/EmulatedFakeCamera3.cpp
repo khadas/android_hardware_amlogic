@@ -219,7 +219,7 @@ EmulatedFakeCamera3::EmulatedFakeCamera3(int cameraId, struct hw_module_t* modul
     mFacingBack = true;
     mSensorType = SENSOR_MMAP;
     mInputStream = nullptr;
-
+    cameraid = -1;
 }
 
 EmulatedFakeCamera3::~EmulatedFakeCamera3() {
@@ -1540,7 +1540,7 @@ status_t EmulatedFakeCamera3::processCaptureRequest(
               } else {
                    info.has_focallen = false;
               }
-              if ((mSensorType != SENSOR_V4L2MEDIA || mSensorType != SENSOR_MIPI)) {
+              if ((mSensorType != SENSOR_V4L2MEDIA && mSensorType != SENSOR_MIPI)) {
                   jpegbuffersize = getJpegBufferSize(info.mainwidth,info.mainheight);
 
                   mJpegCompressor->SetMaxJpegBufferSize(jpegbuffersize);
@@ -3185,7 +3185,7 @@ bool EmulatedFakeCamera3::ReadoutThread::threadLoop() {
     while (buf != mCurrentRequest.buffers->end()) {
         const bool goodBuffer = true;
         if ( buf->stream->format == HAL_PIXEL_FORMAT_BLOB &&
-             (mParent->mSensorType != SENSOR_V4L2MEDIA || mParent->mSensorType != SENSOR_MIPI)) {
+             (mParent->mSensorType != SENSOR_V4L2MEDIA && mParent->mSensorType != SENSOR_MIPI)) {
             Mutex::Autolock jl(mJpegLock);
             needJpeg = true;
             CaptureRequest currentcapture;

@@ -510,9 +510,6 @@ void V4l2MediaSensor::mediaCaptureRGBA(StreamBuffer b, uint32_t gain, uint32_t s
             mVinfo->putback_frame();
             //CAMHAL_LOGW("putback frame");
         }
-        if (mFlushFlag) {
-            break;
-        }
         break;
      }
 }

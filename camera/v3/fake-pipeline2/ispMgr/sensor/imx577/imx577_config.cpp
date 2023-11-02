@@ -49,9 +49,10 @@ void cmos_set_sensor_entity_imx577(struct media_entity * sensor_ent, int wdr, in
 void cmos_get_sensor_calibration_imx577(struct media_entity *sensor_ent, aisp_calib_info_t * calib)
 {
     ALOGI("tnr global adj 128  custom 0719-1412\n");
-    if (sensor.enWDRMode == 1)
+    if (sensor.enWDRMode == 1) {
+        ALOGE("imx577 don't have wdr mode");
         Imx577SdrCalibration::dynamic_sdr_calibrations_init_imx577(calib);
-    else
+    } else
         Imx577SdrCalibration::dynamic_sdr_calibrations_init_imx577(calib);
 }
 
@@ -145,7 +146,7 @@ static uint32_t aisp_math_exp2( int64_t val, int32_t shift_in, int32_t shift_out
 void cmos_again_calc_table_imx577(int ViPipe, uint32_t *pu32AgainLin, uint32_t *pu32AgainDb)
 {
     ALOGD("cmos_again_calc_table: %d, %d\n", *pu32AgainLin, *pu32AgainDb);
-    uint32_t again_reg;
+    int again_reg;
     const int32_t  shift_out  = 8;
     float    again_float = 0.0f;
 

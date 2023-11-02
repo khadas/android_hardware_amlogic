@@ -25,7 +25,11 @@
 #include "../EmulatedFakeCamera3.h"
 #include <stdlib.h>
 #include <math.h>
+#if defined(__LP64__)
 #include <sys/time.h>
+#else
+#include <time64.h>
+#endif
 #include <cutils/properties.h>
 #include "NV12_resize.h"
 
@@ -1458,7 +1462,11 @@ exif_buffer * JpegCompressor::get_exif_buffer() {
 
     if (mInfo.has_gpsTimestamp) {
         ExifRational r1, r2, r3;
+#if defined(__LP64__)
         time_t times;
+#else
+        time64_t times;
+#endif
         struct tm tmstruct;
         times = mInfo.gpsTimestamp;
 
@@ -1467,7 +1475,11 @@ exif_buffer * JpegCompressor::get_exif_buffer() {
         r3.denominator = 1;
         memset(exifcontent, 0, sizeof(exifcontent));
         if (times != -1) {
+#if defined(__LP64__)
             tmstruct = *(gmtime(&times));//convert to standard time
+#else
+            tmstruct = *(gmtime64(&times));
+#endif
             strftime(exifcontent, 20, "%Y:%m:%d", &tmstruct);
             exif_entry_set_gps_coord_ref(pEd, (ExifTag) EXIF_TAG_GPS_DATE_STAMP, exifcontent);
 
