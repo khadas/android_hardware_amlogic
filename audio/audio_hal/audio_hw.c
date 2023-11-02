@@ -3518,6 +3518,7 @@ static int aml_audio_output_routing(struct audio_hw_device *dev,
         case OUTPORT_A2DP:
         case OUTPORT_BT_SCO:
         case OUTPORT_BT_SCO_HEADSET:
+            close_btSCO_device(aml_dev);
             break;
         default:
             ALOGW("%s: cur outport:%d unsupport", __func__, outport);
