@@ -78,7 +78,7 @@ class Lights : public BnLights {
     }
 
    int writeLedArray(const char* path, int const& ordinal, int color) {
-        LOG(ERROR) << "writeLedArray,id: " << ordinal << ",color:" << color;
+        //LOG(ERROR) << "writeLedArray,id: " << ordinal << ",color:" << color;
         int const fd = open(path, O_RDWR);
         if (fd < 0) {
             LOG(ERROR) << "COULD NOT OPEN ARRAY_LED_DEVICE " << path;
@@ -89,13 +89,13 @@ class Lights : public BnLights {
         char cmd[60]="";
         char ordinal_str[8] = "";
         sprintf(ordinal_str, "%d", ordinal);
-        LOG(ERROR) << "    ordinal_str :" << ordinal_str;
+        //LOG(ERROR) << "    ordinal_str :" << ordinal_str;
         sprintf(color_str, "0x%06x", color & 0x00FFFFFF);
-        LOG(ERROR) << "    color :" << color_str;
+        //LOG(ERROR) << "    color :" << color_str;
         strcat(cmd, ordinal_str);
         strcat(cmd, " ");
         strcat(cmd, color_str);
-        LOG(ERROR) << "    cmd :" << cmd;
+        //LOG(ERROR) << "    cmd :" << cmd;
         int len = write(fd, cmd, strlen(cmd));
         if (len <= 0) {
             LOG(ERROR) << "   Unable to write:" << path << ",error:" << errno;
@@ -107,10 +107,10 @@ class Lights : public BnLights {
     }
 
     void writeLed(const char* path, int color) {
-        LOG(ERROR) << "writeLed test:" << path << ",color:"<< color;
+        //LOG(ERROR) << "writeLed test:" << path << ",color:"<< color;
         int fd = open(path, O_WRONLY);
         if (fd < 0) {
-            LOG(ERROR) << "COULD NOT OPEN LED_DEVICE " << path;
+            //LOG(ERROR) << "COULD NOT OPEN LED_DEVICE " << path;
             return;
         }
         sys_write_int(fd, color);
@@ -137,7 +137,7 @@ class Lights : public BnLights {
 
     ScopedAStatus setLightState(int id, const HwLightState& state) override {
         if (!(0 <= id && id < availableLights.size())) {
-            LOG(ERROR) << "Light id " << (int32_t)id << " does not exist.";
+            //LOG(ERROR) << "Light id " << (int32_t)id << " does not exist.";
             return ScopedAStatus::fromExceptionCode(EX_UNSUPPORTED_OPERATION);
         }
 
@@ -145,14 +145,14 @@ class Lights : public BnLights {
         int ret = 0;
         switch (light.type) {
             case LightType::MICROPHONE:
-                LOG(ERROR) << "setLightState, light:" << light.ordinal << ", color:" << state.color ;
+                //LOG(ERROR) << "setLightState, light:" << light.ordinal << ", color:" << state.color ;
                 ret = writeLedArray(ARRAY_LED_DEVICE, light.ordinal, state.color);
                 break;
             case LightType::BATTERY:
-                LOG(ERROR) << "Light BATTERY is not supported by now.";
+                //LOG(ERROR) << "Light BATTERY is not supported by now.";
                 break;
             case LightType::BLUETOOTH:
-                LOG(ERROR) <<  "Light BLUETOOTH is not supported by now.";
+                //LOG(ERROR) <<  "Light BLUETOOTH is not supported by now.";
                 break;
             default:
                 break;
