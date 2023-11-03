@@ -305,7 +305,7 @@ status_t EmulatedFakeCamera3::connectCamera(hw_device_t** device) {
     mControlMode  = ANDROID_CONTROL_MODE_AUTO;
     mFacePriority = false;
     mAeMode       = ANDROID_CONTROL_AE_MODE_ON;
-    mAfMode       = ANDROID_CONTROL_AF_MODE_AUTO;
+    mAfMode       = ANDROID_CONTROL_AF_MODE_OFF;
     mAwbMode      = ANDROID_CONTROL_AWB_MODE_AUTO;
     mAeState      = ANDROID_CONTROL_AE_STATE_CONVERGED;//ANDROID_CONTROL_AE_STATE_INACTIVE;
     mAfState      = ANDROID_CONTROL_AF_STATE_INACTIVE;
@@ -2659,7 +2659,12 @@ status_t EmulatedFakeCamera3::doFakeAF(CameraMetadata &settings) {
                         __FUNCTION__, afMode);
                 return BAD_VALUE;
             }
-            mSensor->setAutoFocus(afMode);
+            if (mAfMode != afMode) {
+                mSensor->setAutoFocus(afMode);
+                mAfMode = afMode;
+            } else {
+                CAMHAL_LOGVV("AF mode have not changed");
+            }
             // OK, handle transitions lower on
             break;
         default:
