@@ -176,6 +176,7 @@ HdmiCecControl::HdmiCecControl(int event)
     mMsgHandler = sp<MsgHandler>::make(this);
     mMsgHandler->startMsgQueue();
     // Boot one touch play logic for aml products.
+    /* coverity[uninit_member] */
     bootOneTouchPlay();
 }
 
@@ -577,6 +578,9 @@ void HdmiCecControl::getDeviceTypes() {
     type = strtok(value, split);
     //mCecDevice.device_types[index] = atoi(type);
     char *endptr;
+    if (type == NULL) {
+        return;
+    }
     long int deviceTypeValue = strtol(type, &endptr, 10);
     if (*endptr != '\0') {
         // Conversion was not successful
@@ -911,7 +915,7 @@ void HdmiCecControl::bootOneTouchPlay() {
     if (property_get(PROPERTY_BOOT_REASON, bootReason, "") > 0) {
         LOGD("%s with prop:%s boot reason:%s", __FUNCTION__, PROPERTY_BOOT_REASON, bootReason);
     } else {
-        LOGE("%s failed to get boot reason");
+        LOGE("%s failed to get boot reason", __FUNCTION__);
     }
 
     if (strcmp(bootReason, BOOT_REASON_COLD) != 0

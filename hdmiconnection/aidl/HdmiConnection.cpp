@@ -53,6 +53,7 @@ ScopedAStatus HdmiConnection::getPortInfo(std::vector<HdmiPortInfo>* _aidl_retur
     mPortInfos.resize(mTotalPorts);
 
     for (int i = 0; i < mTotalPorts; i++) {
+        /* coverity[uninit_use] */
         mPortInfos[i] = {.type = static_cast<HdmiPortType>(mHdmiPorts[i].type),
                          .portId = mHdmiPorts[i].port_id,
                          .cecSupported = mHdmiPorts[i].cec_supported == 1,
