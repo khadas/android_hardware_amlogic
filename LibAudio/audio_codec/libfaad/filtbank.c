@@ -370,6 +370,8 @@ void filter_bank_ltp(fb_info *fb, uint8_t window_sequence, uint8_t window_shape,
 #ifdef LD_DEC
     }
 #endif
+    if (!window_short_prev || !window_short || !window_long_prev || !window_long)
+        return;
 
     switch (window_sequence) {
     case ONLY_LONG_SEQUENCE:

@@ -2086,10 +2086,20 @@ static uint16_t extension_payload(bitfile *ld, drc_info *drc, uint16_t count)
                              DEBUGVAR(1, 87, "extension_payload(): extension_type"));
 
     switch (extension_type) {
+
+    /*
+     * Describe the reason for the coverity ignore.
+     */
+    /* coverity[event_tag:unterminated_case] */
     case EXT_DYNAMIC_RANGE:
         drc->present = 1;
         n = dynamic_range_info(ld, drc);
         return n;
+
+    /*
+     * Describe the reason for the coverity ignore.
+     */
+    /* coverity[event_tag:unterminated_case] */
     case EXT_FILL_DATA:
         /* fill_nibble = */
         faad_getbits(ld, 4
@@ -2107,6 +2117,11 @@ static uint16_t extension_payload(bitfile *ld, drc_info *drc, uint16_t count)
         data_element_version = (uint8_t)faad_getbits(ld, 4
                                DEBUGVAR(1, 400, "extension_payload(): data_element_version"));
         switch (data_element_version) {
+
+        /*
+         * Describe the reason for the coverity ignore.
+         */
+        /* coverity[event_tag:unterminated_case] */
         case ANC_DATA:
             loopCounter = 0;
             dataElementLength = 0;
@@ -2124,7 +2139,12 @@ static uint16_t extension_payload(bitfile *ld, drc_info *drc, uint16_t count)
             }
         default:
             align = 0;
+            break;
         }
+    /*
+     * Describe the reason for the coverity ignore.
+     */
+    /* coverity[event_tag:unterminated_case] */
     case EXT_FIL:
     default:
         faad_getbits(ld, align

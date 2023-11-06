@@ -334,6 +334,7 @@ static int audio_decoder_init(
 
     if (!in_buf || !inbuf_size || !outbuf) {
         audio_codec_print(" input/output buffer null or input len is 0 \n");
+        return 0;
     }
 
 
@@ -586,6 +587,10 @@ int audio_dec_decode(
         gFaadCxt->error_num++;
         //err 34,means aac profile changed , PS.SBR,LC ....,normally happens when switch audio source
         if (gFaadCxt->error_count  >= ERROR_RESET_COUNT || frameInfo.error == 34) {
+            /*
+             * Describe the reason for the coverity ignore.
+             */
+            /* coverity[event_tag:check_after_deref] */
             if (gFaadCxt->hDecoder) {
                 NeAACDecClose(gFaadCxt->hDecoder);
                 gFaadCxt->hDecoder = NULL;

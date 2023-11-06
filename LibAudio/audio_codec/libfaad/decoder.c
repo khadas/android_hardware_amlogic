@@ -903,7 +903,7 @@ static int latmCheck(latm_header *latm, bitfile *ld)
 int check_adts_frame_valid(unsigned char *buffer,
                               unsigned long buffer_size) {
     bitfile ld;
-    adts_header adts;
+    adts_header adts = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
     faad_initbits(&ld, buffer, buffer_size);
     if (adts_frame(&adts, &ld) > 0) {
            return -1;
@@ -1170,7 +1170,7 @@ nonlatm_check:
                         hDecoder->sf_index = adts.sf_index;
                         hDecoder->object_type = adts.profile + 1;
                         faad_log_info("sf index %d,object type %d \n", hDecoder->sf_index, hDecoder->object_type);
-                        if (adts.sf_index >= 0 && adts.sf_index < 12 && adts.channel_configuration > 0 && adts.channel_configuration <= 8) {
+                        if (adts.sf_index < 12 && adts.channel_configuration > 0 && adts.channel_configuration <= 8) {
                             hDecoder->last_sf_index = hDecoder->sf_index;
                             hDecoder->last_ch_configure = adts.channel_configuration;
                         }
