@@ -44,6 +44,7 @@ void EArc::serviceDied(void* cookie) {
 
 ScopedAStatus EArc::setEArcEnabled(bool in_enabled) {
     if (in_enabled == mEArcEnabled) {
+        getEArcPort();
         ALOGI("%s in_enabled:%d but it's unchanged", __FUNCTION__, in_enabled);
         return ScopedAStatus::ok();
     }
@@ -144,9 +145,6 @@ EArc::EArc() {
     open_mixer_handle(&mAlsaMixer);
 
     mEArcSupported = android::base::GetProperty(PROPERTY_EARC_SUPPORTED, "false") == "true";
-    mEArcPort =  getPropertyInt(PROPERTY_EARC_PORT, EARC_PORT_DEFAULT, EARC_PORT_STR_DEFAULT);
-
-    ALOGI("EArc is supported?:%d arc port:%d", mEArcSupported, mEArcPort);
 
     if (!mEArcSupported) {
         return;
@@ -209,6 +207,14 @@ int EArc::getPropertyInt(const char* key, int def, const char* defValue) {
         ALOGE("Conversion failed. Non-numeric characters found: %s\n", endptr);
     }
     return def;
+}
+
+void EArc::getEArcPort() {
+    if (mFirstSetEArcEnabled == 1) {
+        mFirstSetEArcEnabled = -1;
+        mEArcPort = getPropertyInt(PROPERTY_ARC_PORT, EARC_PORT_DEFAULT, EARC_PORT_STR_DEFAULT);
+        ALOGI("EArc is supported?:%d arc port:%d", mEArcSupported, mEArcPort);
+    }
 }
 
 EArc::EArcStateListener::EArcStateListener(EArc *eArc) {
