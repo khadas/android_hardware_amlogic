@@ -408,10 +408,15 @@ void V4l2MediaSensor::camera_close(void) {
 void V4l2MediaSensor::InitVideoInfo(int idx) {
      if (mVinfo) {
         std::vector<int> fds;
-        mVinfo->mWorkMode = PIC_SCALER;
+        mVinfo->mWorkMode = ONE_FD;
         fds.push_back(((media_stream_t *)mMediaStream)->video_ent0->fd);
-        fds.push_back(((media_stream_t *)mMediaStream)->video_ent1->fd);
-        fds.push_back(((media_stream_t *)mMediaStream)->video_ent2->fd);
+
+        if (mIspMgr) {
+            mVinfo->mWorkMode = PIC_SCALER;
+            fds.push_back(((media_stream_t *)mMediaStream)->video_ent1->fd);
+            fds.push_back(((media_stream_t *)mMediaStream)->video_ent2->fd);
+        }
+
         mVinfo->set_fds(fds);
         mVinfo->set_index(idx);
     }
@@ -640,13 +645,8 @@ status_t V4l2MediaSensor::getOutputFormat(void) {
     property_get("vendor.media.isp.enable", property, "true");
     if (strstr(property, "false")) {
         CAMHAL_LOGD("%s: isp not enable", __FUNCTION__);
-        if (mMediaStream != NULL) {
-            if ((staticPipe::fetchSensorType((media_stream_t *) mMediaStream)) == sensor_yuv) {
-                return V4L2_PIX_FMT_NV21;
-            }
-        } else {
-            CAMHAL_LOGE("%s: mMediaStream == NULL", __FUNCTION__);
-        }
+        // no isp ( camera-yuv) driver always output UYVY format.
+        // if sensor output is not UYVY, using fe gen_ctrl1 to convert to UYVY.
         return V4L2_PIX_FMT_UYVY;
     }
     else
@@ -711,7 +711,7 @@ status_t V4l2MediaSensor::setOutputFormat(int width, int height, int pixelformat
             mStreamconfig.format.width  = mMaxWidth;
             mStreamconfig.format.height = mMaxHeight;
             mStreamconfig.format.fourcc = pixelformat;
-            mStreamconfig.format.code   = MEDIA_BUS_FMT_YUYV8_2X8;//MEDIA_BUS_FMT_YUYV8_2X8
+            mStreamconfig.format.code   = staticPipe::fetchSensorFormat((media_stream_t *) mMediaStream, 0, 30);
         } else {
             mStreamconfig.format.width  = width;
             mStreamconfig.format.height = height;

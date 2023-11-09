@@ -187,8 +187,8 @@ struct sensorConfig ov5640Cfg = {
     .sensorWidth      = 2592,
     .sensorHeight     = 1944,
     .sensorName       = "ov5640",
-    .wdrFormat        = MEDIA_BUS_FMT_YUYV8_2X8,
-    .sdrFormat        = MEDIA_BUS_FMT_YUYV8_2X8,
+    .wdrFormat        = MEDIA_BUS_FMT_UYVY8_2X8,
+    .sdrFormat        = MEDIA_BUS_FMT_UYVY8_2X8,
     .type             = sensor_yuv,
     .otpDevAddr       = 0x00,
 };
@@ -197,8 +197,8 @@ struct sensorConfig lt6911cCfg = {
     .sensorWidth      = 1920,
     .sensorHeight     = 1080,
     .sensorName       = "lt6911c",
-    .wdrFormat        = MEDIA_BUS_FMT_YUYV8_2X8,
-    .sdrFormat        = MEDIA_BUS_FMT_YUYV8_2X8,
+    .wdrFormat        = MEDIA_BUS_FMT_UYVY8_2X8,
+    .sdrFormat        = MEDIA_BUS_FMT_UYVY8_2X8,
     .type             = sensor_yuv,
     .otpDevAddr       = 0x00,
 };

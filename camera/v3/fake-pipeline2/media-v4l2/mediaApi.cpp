@@ -66,7 +66,7 @@ int mediaStreamInit(media_stream_t *stream, struct media_device * dev)
     for (int i = 0, j = 0; i < node_num; ++i) {
         struct media_entity *ent = media_get_entity(stream->media_dev, i);
         CAMHAL_LOGI("ent %d, name %s ", i, ent->info.name);
-        if (strstr(ent->info.name, "csiphy")) {
+        if (strstr(ent->info.name, "csiphy") || strstr(ent->info.name, "csi2phy")) {
             sprintf(stream->csiphy_ent_name, "%s", ent->info.name);
         } else if (strstr(ent->info.name, "adapter")) {
             sprintf(stream->adap_ent_name, "%s", ent->info.name);
@@ -83,7 +83,7 @@ int mediaStreamInit(media_stream_t *stream, struct media_device * dev)
             sprintf(stream->video_stats_name, "%s", ent->info.name);
         } else if (strstr(ent->info.name, "param")) {
             sprintf(stream->video_param_name, "%s", ent->info.name);
-        } else if (strstr(ent->info.name, "output")) {
+        } else if (strstr(ent->info.name, "output") || strstr(ent->info.name, "video")) {
             if (j == 0)
                 sprintf(stream->video_ent_name0, "%s", ent->info.name);
             else if (j == 1)
@@ -138,7 +138,7 @@ int mediaStreamInit(media_stream_t *stream, struct media_device * dev)
 
     stream->video_ent2 = media_get_entity_by_name(stream->media_dev, stream->video_ent_name2, strlen(stream->video_ent_name2));
     if (NULL == stream->video_ent2) {
-        CAMHAL_LOGE("get video_ent22 fail");
+        CAMHAL_LOGE("get video_ent2 fail");
     }
 
     stream->video_ent3 = media_get_entity_by_name(stream->media_dev, stream->video_ent_name3, strlen(stream->video_ent_name3));
@@ -276,6 +276,7 @@ int setSdFormat(media_stream_t *stream, stream_configuration_t *cfg)
         CAMHAL_LOGE("Failed to set sensor format");
         return rtn;
     }
+    CAMHAL_LOGD("%s fmt code after sensor 0x%x", __FUNCTION__, mbus_format.code);
 
     if (cfg->vformat[0].fps > 0) {
         rtn = v4l2_subdev_set_fps(stream->sensor_ent, cfg->vformat[0].fps);
@@ -299,6 +300,7 @@ int setSdFormat(media_stream_t *stream, stream_configuration_t *cfg)
         CAMHAL_LOGE("Failed to set csiphy pad[1] format");
         return rtn;
     }
+    CAMHAL_LOGD("%s fmt code after csiphy 0x%x", __FUNCTION__, mbus_format.code);
 
     // adap source & sink pad fmt
     rtn = v4l2_subdev_set_format(stream->adap_ent,
@@ -315,6 +317,7 @@ int setSdFormat(media_stream_t *stream, stream_configuration_t *cfg)
         CAMHAL_LOGE("Failed to set adap pad[1] format");
         return rtn;
     }
+    CAMHAL_LOGD("%s fmt code after adap 0x%x", __FUNCTION__, mbus_format.code);
 
     if (stream->isp_ent) {
         // isp source & sink pad fmt
