@@ -271,7 +271,6 @@ ndk::ScopedAStatus Dumpstate::dumpstateBoard(const std::vector<::ndk::ScopedFile
                                                                     "Invalid mode");
     }
 
-    return ndk::ScopedAStatus::ok();
 }
 
 ndk::ScopedAStatus Dumpstate::getVerboseLoggingEnabled(bool* _aidl_return) {
@@ -339,12 +338,16 @@ void Dumpstate::dumpstateBoardOfAudio(int fd, int64_t maxtime) {
 void Dumpstate::dumpstateBoardOfDisplay(int fd, int64_t maxtime) {
     char buf[PATH_MAX] = { 0 };
     char path[PATH_MAX] = { 0 };
+    int len = 0;
 
-    snprintf(buf, PATH_MAX, "/proc/self/fd/%d", fd);
-    if (readlink(buf, path, PATH_MAX - 1) != -1) {
-        ALOGI("dumpstateBoardOfDisplay file %s", path);
-        RunCommandToFd(fd, "Display", {"/vendor/bin/dumpstate_display", path},
-            CommandOptions::WithTimeout(maxtime).Build());
+    if (snprintf(buf, PATH_MAX, "/proc/self/fd/%d", fd) > 0) {
+        len = readlink(buf, path, PATH_MAX - 1);
+        if (len > 0) {
+            path[len] = 0;
+            ALOGI("dumpstateBoardOfDisplay file %s", path);
+            RunCommandToFd(fd, "Display", {"/vendor/bin/dumpstate_display", path},
+                CommandOptions::WithTimeout(maxtime).Build());
+        }
     }
 
     //hdmitx
