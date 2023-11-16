@@ -354,6 +354,13 @@ void Dumpstate::dumpstateBoardOfDisplay(int fd, int64_t maxtime) {
     DumpFileToFd(fd, "hdmitx_reg", "/sys/class/amhdmitx/amhdmitx0/dump_debug_reg");
     DumpFileToFd(fd, "hdmitx_config", "/sys/class/amhdmitx/amhdmitx0/hdmitx_basic_config");
     DumpFileToFd(fd, "hdmitx_pkt", "/sys/class/amhdmitx/amhdmitx0/hdmitx_pkt_dump");
+    DumpFileToFd(fd, "hdmitx_cur_status", "/sys/class/amhdmitx/amhdmitx0/hdmitx_cur_status");
+    DumpFileToFd(fd, "hdmirx_info", "/sys/class/amhdmitx/amhdmitx0/hdmirx_info");
+    DumpFileToFd(fd, "clkmsr", "/sys/class/amhdmitx/amhdmitx0/clkmsr");
+
+    //videotunnel
+    DumpFileToFd(fd, "vt_instance", "/sys/class/videotunnel/instance");
+    DumpFileToFd(fd, "vt_state", "/sys/class/videotunnel/state");
 
     //drm
     DumpFileToFd(fd, "state", "/sys/class/drm/card0/state");
