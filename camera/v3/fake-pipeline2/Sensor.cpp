@@ -355,7 +355,13 @@ status_t Sensor::setOutputFormat(int width, int height, int pixelformat, channel
     }
 
     return OK;
+}
 
+status_t Sensor::getSupportChannels(std::vector<channel> &chs)
+{
+    chs.clear();
+    chs.push_back(channel_preview);
+    return OK;
 }
 
 status_t Sensor::streamOn(channel ch) {

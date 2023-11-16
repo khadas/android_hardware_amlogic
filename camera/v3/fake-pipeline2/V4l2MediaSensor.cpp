@@ -111,6 +111,7 @@ V4l2MediaSensor::V4l2MediaSensor() {
     }
     enableZsl = false;
     enableHdr = 0;
+    mStreamState = STREAM_NOT_CREATED;
     PictureThreadCntler::resetAndInit(mPictureThreadCntler);
     //char property[PROPERTY_VALUE_MAX];
     property_get("vendor.camera.zsl.enable", property, "false");
@@ -247,7 +248,7 @@ V4l2MediaSensor::~V4l2MediaSensor() {
 }
 
 status_t V4l2MediaSensor::streamOff(channel ch) {
-    CAMHAL_LOGV("%s: E ch %d", __FUNCTION__, ch);
+    CAMHAL_LOGD("%s: E ch %d", __FUNCTION__, ch);
     status_t ret = 0;
 
     if (ch == channel_capture) {
@@ -277,7 +278,7 @@ status_t V4l2MediaSensor::streamOff(channel ch) {
 }
 
 int V4l2MediaSensor::SensorInit(int idx) {
-    CAMHAL_LOGV("%s: E", __FUNCTION__);
+    CAMHAL_LOGD("%s: E", __FUNCTION__);
     int ret = 0;
 
     ret = camera_open(idx);
@@ -315,6 +316,7 @@ int V4l2MediaSensor::SensorInit(int idx) {
         media_dev = NULL;
         return -1;
     }
+    mStreamState = STREAM_CREATED;
     if (0 != mediaStreamInit((media_stream_t *)mMediaStream, media_dev) ) {
         CAMHAL_LOGE("media stream init failed\n");
         media_dev->fd = -1;
@@ -327,6 +329,8 @@ int V4l2MediaSensor::SensorInit(int idx) {
         mMediaStream = NULL;
         return -1;
     }
+    mStreamState = STREAM_INITED;
+
     property_get("vendor.media.camera.dual", property, "false");
     if (strstr(property,"true")) {
         media_set_wdrMode((media_stream_t *)mMediaStream, ISP_SDR_DCAM_MODE);
@@ -347,8 +351,14 @@ int V4l2MediaSensor::SensorInit(int idx) {
     mSensorType = SENSOR_V4L2MEDIA;
     staticPipe::fetchPipeMaxResolution((media_stream_t*) mMediaStream, mMaxWidth, mMaxHeight);
     std::call_once(flag[idx], [&](){staticPipe::fetchSensorOTP((media_stream_t*)mMediaStream, &mOtpData[idx]);});
-    CAMHAL_LOGI("max width %d, max height %d", mMaxWidth, mMaxHeight);
-    setOutputFormat(mMaxWidth, mMaxHeight, V4L2_PIX_FMT_NV21, channel_capture);
+
+
+#ifdef GDC_ENABLE
+    if (mIGdc && !mIsGdcInit) {
+        mIGdc->gdc_init(width,height,NV12,1);
+        mIsGdcInit = true;
+    }
+#endif
 
     return ret;
 }
@@ -423,7 +433,7 @@ void V4l2MediaSensor::InitVideoInfo(int idx) {
 }
 
 status_t V4l2MediaSensor::shutDown() {
-    CAMHAL_LOGV("%s: E", __FUNCTION__);
+    CAMHAL_LOGD("%s: E", __FUNCTION__);
     int res;
     mTimeOutCount = 0;
     res = requestExitAndWait();
@@ -572,7 +582,7 @@ void V4l2MediaSensor::captureNV21(StreamBuffer b, uint32_t gain){
     in.src_stride = mSavedDecodedBuffer.stride;
     in.src_height = mSavedDecodedBuffer.height;
 
-    CAMHAL_LOGVV("%s:mTempFD = %d",__FUNCTION__,mTempFD);
+    CAMHAL_LOGVV("%s:in.share_fd = %d",__FUNCTION__, in.share_fd);
     while (1) {
         if (mExitSensorThread) {
             break;
@@ -658,6 +668,30 @@ status_t V4l2MediaSensor::setOutputFormat(int width, int height, int pixelformat
     mFramecount = 0;
     mCurFps = 0;
 
+    if (mStreamState == STREAM_INITED) {
+        mStreamconfig.format.width  = mMaxWidth;
+        mStreamconfig.format.height = mMaxHeight;
+        mStreamconfig.format.code   = staticPipe::fetchSensorFormat((media_stream_t *) mMediaStream, enableHdr, mFps);
+
+        if (mIspMgr) {
+            if (enableHdr) {
+                media_set_wdrMode((media_stream_t*) mMediaStream, 1);
+            }
+        }
+        int rc = mediaStreamConfig((media_stream_t*) mMediaStream, &mStreamconfig);
+        if (rc < 0) {
+            CAMHAL_LOGE("config stream failed\n");
+            return rc;
+        }
+        // must set STREAM_CONFIGURED before call setOutputFormat
+        mStreamState = STREAM_CONFIGURED;
+
+        if (mIspMgr) {
+            CAMHAL_LOGI("max width %d, max height %d", mMaxWidth, mMaxHeight);
+            setOutputFormat(mMaxWidth, mMaxHeight, V4L2_PIX_FMT_NV21, channel_capture);
+        }
+    }
+
     int xstart = 0, ystart = 0, crop_width = 0, crop_height = 0;
     calculateRegion(mMaxWidth, mMaxHeight, width, height, xstart, ystart, crop_width, crop_height);
 
@@ -672,6 +706,13 @@ status_t V4l2MediaSensor::setOutputFormat(int width, int height, int pixelformat
         mStreamconfig.vformat[channel_capture].ystart = ystart;
         mStreamconfig.vformat[channel_capture].cwidth = crop_width;
         mStreamconfig.vformat[channel_capture].cheight = crop_height;
+        {
+            stream_configuration_t cfg_cap;
+            memset(&cfg_cap, 0, sizeof(stream_configuration_t));
+            cfg_cap.vformat[channel_capture] = mStreamconfig.vformat[channel_capture];
+            setImgFormat((media_stream_t*) mMediaStream, &cfg_cap);
+        }
+
     } else if (ch == channel_record) {
         mVinfo->set_record_format(width, height, pixelformat);
         mStreamconfig.vformat[channel_record].width  = mVinfo->get_record_width();
@@ -698,37 +739,12 @@ status_t V4l2MediaSensor::setOutputFormat(int width, int height, int pixelformat
         mStreamconfig.vformat[channel_preview].cwidth = crop_width;
         mStreamconfig.vformat[channel_preview].cheight = crop_height;
         mStreamconfig.vformat[channel_preview].fps    = mFps;
-        /* config & set format */
-        if (mIspMgr) {
-            mStreamconfig.format.width  = mMaxWidth;
-            mStreamconfig.format.height = mMaxHeight;
-            mStreamconfig.format.fourcc = pixelformat;
-            if (enableHdr) {
-                media_set_wdrMode((media_stream_t*) mMediaStream, 1);
-            }
-            mStreamconfig.format.code   = staticPipe::fetchSensorFormat((media_stream_t *) mMediaStream, enableHdr, mFps);
-        } else if ((staticPipe::fetchSensorType((media_stream_t *) mMediaStream)) == sensor_yuv) {
-            mStreamconfig.format.width  = mMaxWidth;
-            mStreamconfig.format.height = mMaxHeight;
-            mStreamconfig.format.fourcc = pixelformat;
-            mStreamconfig.format.code   = staticPipe::fetchSensorFormat((media_stream_t *) mMediaStream, 0, 30);
-        } else {
-            mStreamconfig.format.width  = width;
-            mStreamconfig.format.height = height;
-            mStreamconfig.format.fourcc = pixelformat;
-            mStreamconfig.format.code   = MEDIA_BUS_FMT_UYVY8_2X8;
+        {
+            stream_configuration_t cfg_prev;
+            memset(&cfg_prev, 0, sizeof(stream_configuration_t));
+            cfg_prev.vformat[channel_preview] = mStreamconfig.vformat[channel_preview];
+            setImgFormat((media_stream_t*) mMediaStream, &cfg_prev);
         }
-        int rc = mediaStreamConfig((media_stream_t*) mMediaStream, &mStreamconfig);
-        if (rc < 0) {
-            CAMHAL_LOGE("config stream failed\n");
-            return rc;
-        }
-#ifdef GDC_ENABLE
-        if (mIGdc && !mIsGdcInit) {
-            mIGdc->gdc_init(width,height,NV12,1);
-            mIsGdcInit = true;
-        }
-#endif
     }
     return OK;
 }
@@ -737,8 +753,20 @@ int V4l2MediaSensor::halFormatToSensorFormat(uint32_t pixelfmt) {
     return getOutputFormat();
 }
 
+status_t V4l2MediaSensor::getSupportChannels(std::vector<channel> &chs)
+{
+    chs.clear();
+    chs.push_back(channel_preview);
+    if (mIspMgr ) {
+        // use isp, can support separated channels
+        chs.push_back(channel_capture);
+        chs.push_back(channel_record);
+    }
+    return OK;
+}
+
 status_t V4l2MediaSensor::streamOn(channel ch) {
-    CAMHAL_LOGV("%s: channel %d E", __FUNCTION__, ch);
+    CAMHAL_LOGD("%s: channel %d E", __FUNCTION__, ch);
     int rc;
     if (ch == channel_capture)
         return mVinfo->start_picture(0);
@@ -1022,12 +1050,13 @@ int V4l2MediaSensor::captureNewImage() {
                 i, b.streamId, b.width, b.height, b.format, b.stride,
                 b.buffer, b.img);
         switch (b.format) {
-            case HAL_PIXEL_FORMAT_BLOB:
+            case HAL_PIXEL_FORMAT_BLOB: {
                 // Add auxiliary buffer of the right size
                 // Assumes only one BLOB (JPEG) buffer in
                 // mNextCapturedBuffers
                 StreamBuffer bAux;
                 int orientation;
+                auto nextBufIdx = i; nextBufIdx++;
                 orientation = getPictureRotate();
                 CAMHAL_LOGD("bAux orientation=%d",orientation);
 
@@ -1038,12 +1067,15 @@ int V4l2MediaSensor::captureNewImage() {
                 bAux.stride = b.width;
                 bAux.buffer = NULL;
 #ifdef GE2D_ENABLE
-                bAux.img = mION->alloc_buffer(b.width * b.height * 3,&bAux.share_fd);
+                bAux.img = mION->alloc_buffer(b.width * b.height * 3, &bAux.share_fd);
 #else
                 bAux.img = new uint8_t[b.width * b.height * 3];
 #endif
-                mNextCapturedBuffers->push_back(bAux);
-                break;
+                // 1280x720 preview & 1920x1080 blob;
+                // should insert one 1920x1080 bAux before 1280x720 buf;
+                mNextCapturedBuffers->insertAt(nextBufIdx);
+                mNextCapturedBuffers->replaceAt(bAux, nextBufIdx);
+            } break;
             case HAL_PIXEL_FORMAT_YCrCb_420_SP:
             case HAL_PIXEL_FORMAT_YCbCr_420_888:
                 captureNV21(b, gain);

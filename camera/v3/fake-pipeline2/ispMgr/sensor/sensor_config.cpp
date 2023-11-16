@@ -184,8 +184,8 @@ struct sensorConfig ov13855Cfg = {
 };
 
 struct sensorConfig ov5640Cfg = {
-    .sensorWidth      = 2592,
-    .sensorHeight     = 1944,
+    .sensorWidth      = 1920,
+    .sensorHeight     = 1080,
     .sensorName       = "ov5640",
     .wdrFormat        = MEDIA_BUS_FMT_UYVY8_2X8,
     .sdrFormat        = MEDIA_BUS_FMT_UYVY8_2X8,

@@ -90,6 +90,7 @@
 #include <mutex>
 #include <thread>
 #include <utility>
+#include <vector>
 
 #include <utils/Errors.h>
 
@@ -129,7 +130,7 @@ class Sensor: public Thread, public virtual RefBase {
     void setPictureRotate(int rotate);
     int getPictureRotate();
     virtual uint32_t getStreamUsage(camera3_stream_t& stream);
-
+    virtual status_t getSupportChannels(std::vector<channel> &chs);
     virtual status_t streamOn(channel ch);
     virtual status_t streamOff(channel ch);
 

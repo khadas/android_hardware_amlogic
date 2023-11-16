@@ -619,6 +619,15 @@ int MIPISensor::halFormatToSensorFormat(uint32_t pixelfmt) {
     return BAD_VALUE;
 }
 
+status_t MIPISensor::getSupportChannels(std::vector<channel> &chs)
+{
+    chs.clear();
+    chs.push_back(channel_preview);
+    chs.push_back(channel_capture);
+    chs.push_back(channel_record);
+    return OK;
+}
+
 status_t MIPISensor::streamOn(channel channel) {
     char property[PROPERTY_VALUE_MAX];
     property_get("vendor.media.camera.dual",property,"false");

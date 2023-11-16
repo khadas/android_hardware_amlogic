@@ -515,13 +515,13 @@ int mediaStreamConfig(media_stream_t * stream, stream_configuration_t *cfg)
         CAMHAL_LOGE("Failed to set subdev format");
         return rtn;
     }
-
+#if 0
     rtn = setImgFormat(stream, cfg);
     if (rtn < 0) {
         CAMHAL_LOGE("Failed to set image format");
         return rtn;
     }
-
+#endif
     rtn = createLinks(stream);
     if (rtn) {
         CAMHAL_LOGE( "Failed to create links");

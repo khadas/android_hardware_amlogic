@@ -41,6 +41,7 @@ namespace android {
             status_t getOutputFormat(void) override;
             status_t setOutputFormat(int width, int height, int pixelformat,       channel ch) override;
             int halFormatToSensorFormat(uint32_t pixelfmt) override;
+            status_t getSupportChannels(std::vector<channel> &chs) override;
             status_t streamOn(channel chn) override;
             bool isStreaming() override;
             bool isPicture();

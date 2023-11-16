@@ -224,6 +224,7 @@ private:
     enum sensor_type_e mSensorType;
 
     bool               mUseHWdec = true;
+    std::vector<channel> mSensorSupportChns;
 
     /**
      * Cache for default templates. Once one is requested, the pointer must be

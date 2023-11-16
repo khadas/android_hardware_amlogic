@@ -164,7 +164,11 @@ int CaptureUseGe2d::captureNV21frame(StreamBuffer b, struct data_in* in) {
                 if (b.width < 3840 && b.height < 2160) {
                     if ((in->src_width == b.width) && (in->src_height == b.height)) {
                         mGE2D->ge2d_copy(b.share_fd, in->share_fd, b.stride, b.height, V4L2_PIX_FMT_NV21);
-                    } else if (in->src_width >= b.width && in->src_height >= b.height) {
+                    } else {
+                        if (in->src_width < b.width || in->src_height < b.height) {
+                            CAMHAL_LOGW("ge2d scale from small to big; nv21 src w %d h %d fd %d, dst w %d h %d fd %d",
+                                   in->src_width, in->src_height, in->share_fd, b.width, b.height, b.share_fd);
+                        }
                         mGE2D->ge2d_scale(b.share_fd, PIXEL_FORMAT_YCbCr_420_SP_NV12, b.width, b.height, in->share_fd, in->src_width, in->src_height);
                     }
                 } else {
@@ -287,8 +291,12 @@ int CaptureUseGe2d::captureNV21frame(StreamBuffer b, struct data_in* in) {
 
                     break;
                 case V4L2_PIX_FMT_UYVY:
-                    mGE2D->ge2d_fmt_convert(b.share_fd, PIXEL_FORMAT_YCrCb_420_SP, b.stride, b.height,
-                                           dmabuf_fd, PIXEL_FORMAT_YCbCr_422_UYVY, width, height);
+                    CAMHAL_LOGV("line %d ge2d_convert_scale b fd %d w %d h %d; src fd %d w %d h %d \n", __LINE__,
+                                   b.share_fd, b.width, b.height, dmabuf_fd, width, height);
+
+                    mGE2D->ge2d_convert_scale(b.share_fd, PIXEL_FORMAT_YCrCb_420_SP, b.width, b.stride, b.height,
+                                               dmabuf_fd, PIXEL_FORMAT_YCbCr_422_UYVY, width, width * 2, height);
+
                     break;
                 default:
                     break;
@@ -320,6 +328,9 @@ int CaptureUseGe2d::captureNV21frame(StreamBuffer b, struct data_in* in) {
             }
             break;
         case V4L2_PIX_FMT_UYVY:
+            CAMHAL_LOGV("line %d ge2d_convert_scale b fd %d w %d h %d; src fd %d w %d h %d \n", __LINE__,
+                           b.share_fd, b.width, b.height, dmabuf_fd, width, height);
+
             mGE2D->ge2d_convert_scale(b.share_fd, PIXEL_FORMAT_YCrCb_420_SP, b.width, b.stride, b.height,
                                        dmabuf_fd, PIXEL_FORMAT_YCbCr_422_UYVY, width, width * 2, height);
             break;

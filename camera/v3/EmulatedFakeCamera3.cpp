@@ -281,6 +281,7 @@ status_t EmulatedFakeCamera3::connectCamera(hw_device_t** device) {
     if (mSensor -> getOutputFormat() == V4L2_PIX_FMT_YUYV) {
         mUseHWdec = false;
     }
+    mSensor->getSupportChannels(mSensorSupportChns);
     mReadoutThread = new ReadoutThread(this);
     if (mJpegCompressor == nullptr ) mJpegCompressor = new JpegCompressor();
 
@@ -599,12 +600,13 @@ status_t EmulatedFakeCamera3::configureStreams(
     mInputStream = inputStream;
     width = 0;
     height = 0;
+
     for (size_t i = 0; i < streamList->num_streams; i++) {
         camera3_stream_t *newStream = streamList->streams[i];
         CAMHAL_LOGD("find propert width and height, format=%x, w*h=%dx%d, stream_type=%d, max_buffers=%d\n",
                 newStream->format, newStream->width, newStream->height, newStream->stream_type, newStream->max_buffers);
         if (CAMERA3_STREAM_OUTPUT == newStream->stream_type) {
-            if (newStream->format == HAL_PIXEL_FORMAT_BLOB && (mSensorType == SENSOR_V4L2MEDIA || mSensorType == SENSOR_MIPI)) {
+            if (newStream->format == HAL_PIXEL_FORMAT_BLOB && mSensorSupportChns.size() > 1) {
                 CAMHAL_LOGI("skip add blob stream for mipi sensor have multiple dma ports");
                 continue;
             }
@@ -1380,7 +1382,6 @@ status_t EmulatedFakeCamera3::processCaptureRequest(
 
       bool     needJpeg = false;
       ssize_t jpegbuffersize;
-      uint32_t jpegpixelfmt;
 
       exposureTime = settings.find(ANDROID_SENSOR_EXPOSURE_TIME).data.i64[0];
       //frameDuration = settings.find(ANDROID_SENSOR_FRAME_DURATION).data.i64[0];
@@ -1412,7 +1413,6 @@ status_t EmulatedFakeCamera3::processCaptureRequest(
                      needJpeg = true;
                      memset(&info,0,sizeof(struct ExifInfo));
                      info.orientation = settings.find(ANDROID_JPEG_ORIENTATION).data.i32[0];
-                     jpegpixelfmt = mSensor->getOutputFormat();
 
                      info.mainwidth = srcBuf.stream->width;
                      info.mainheight = srcBuf.stream->height;
@@ -1494,8 +1494,8 @@ status_t EmulatedFakeCamera3::processCaptureRequest(
 
                      return NO_INIT;
               }
-              if ((mSensorType == SENSOR_V4L2MEDIA || mSensorType == SENSOR_MIPI)
-                  && destBuf.format == HAL_PIXEL_FORMAT_BLOB) {// picture buffer
+
+              if (mSensorSupportChns.size() > 1 && destBuf.format == HAL_PIXEL_FORMAT_BLOB) {// picture buffer
                   pictureSensorBuffers->push_back(destBuf);
                   pictureHalBuffers->push_back(srcBuf);
               } else {// preview buffer
@@ -1540,7 +1540,7 @@ status_t EmulatedFakeCamera3::processCaptureRequest(
               } else {
                    info.has_focallen = false;
               }
-              if ((mSensorType != SENSOR_V4L2MEDIA && mSensorType != SENSOR_MIPI)) {
+              if ( mSensorSupportChns.size() == 1) {
                   jpegbuffersize = getJpegBufferSize(info.mainwidth,info.mainheight);
 
                   mJpegCompressor->SetMaxJpegBufferSize(jpegbuffersize);
@@ -3186,11 +3186,11 @@ bool EmulatedFakeCamera3::ReadoutThread::threadLoop() {
     // Check if we need to JPEG encode a buffer, and send it for async
     // compression if so. Otherwise prepare the buffer for return.
     bool needJpeg = false;
+
     HalBufferVector::iterator buf = mCurrentRequest.buffers->begin();
     while (buf != mCurrentRequest.buffers->end()) {
         const bool goodBuffer = true;
-        if ( buf->stream->format == HAL_PIXEL_FORMAT_BLOB &&
-             (mParent->mSensorType != SENSOR_V4L2MEDIA && mParent->mSensorType != SENSOR_MIPI)) {
+        if ( mParent->mSensorSupportChns.size() == 1 && buf->stream->format == HAL_PIXEL_FORMAT_BLOB) {
             Mutex::Autolock jl(mJpegLock);
             needJpeg = true;
             CaptureRequest currentcapture;
