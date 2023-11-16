@@ -93,11 +93,11 @@ std::string getVendorFunctions() {
     std::string ret = "";
 
     if (vendorFunctions != "") {
-        ret = vendorFunctions;
+        ret = std::move(vendorFunctions);
     } else if (bootMode == "usbradio" || bootMode == "factory" || bootMode == "ffbm-00" ||
                bootMode == "ffbm-01") {
         if (persistVendorFunctions != "")
-            ret = persistVendorFunctions;
+            ret = std::move(persistVendorFunctions);
         else
             ret = "diag";
         // vendor.usb.config will reflect the current configured functions

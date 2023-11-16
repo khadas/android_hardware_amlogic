@@ -655,7 +655,9 @@ void *work(void *param) {
     payload.uevent_fd = uevent_fd;
     payload.usb = (::aidl::android::hardware::usb::Usb *)param;
 
-    fcntl(uevent_fd, F_SETFL, O_NONBLOCK);
+    int ret = fcntl(uevent_fd, F_SETFL, O_NONBLOCK);
+    if (ret  == -1)
+        ALOGE("fcntl(..,O_NONBLOCK) failed;");
 
     ev.events = EPOLLIN;
     ev.data.ptr = (void *)uevent_event;

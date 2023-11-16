@@ -89,9 +89,9 @@ struct UsbGadget : public BnUsbGadget {
     // Makes sure that only one request is processed at a time.
     std::mutex mLockSetCurrentFunction;
     std::string mGadgetIrqPath;
-    long mCurrentUsbFunctions;
-    bool mCurrentUsbFunctionsApplied;
-    UsbSpeed mUsbSpeed;
+    long mCurrentUsbFunctions = 0;
+    bool mCurrentUsbFunctionsApplied = false;
+    UsbSpeed mUsbSpeed = UsbSpeed::UNKNOWN;
 
     ScopedAStatus setCurrentUsbFunctions(int64_t functions,
             const shared_ptr<IUsbGadgetCallback> &callback,

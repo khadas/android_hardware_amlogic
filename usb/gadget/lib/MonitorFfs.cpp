@@ -177,8 +177,8 @@ void* MonitorFfs::startMonitorFd(void* param) {
                 }
             } else {
                 uint64_t flag;
-                read(monitorFfs->mEventFd, &flag, sizeof(flag));
-                if (flag == 100) {
+                int numRead = read(monitorFfs->mEventFd, &flag, sizeof(flag));
+                if (numRead > 0 && flag == 100) {
                     stopMonitor = true;
                     break;
                 }
@@ -191,7 +191,7 @@ void* MonitorFfs::startMonitorFd(void* param) {
 void MonitorFfs::reset() {
     lock_guard<mutex> lock(mLockFd);
     uint64_t flag = 100;
-    unsigned long ret;
+    int ret;
 
     if (mMonitorRunning) {
         // Stop the monitor thread by writing into signal fd.
