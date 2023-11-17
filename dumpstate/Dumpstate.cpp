@@ -359,6 +359,12 @@ void Dumpstate::dumpstateBoardOfDisplay(int fd, int64_t maxtime) {
     DumpFileToFd(fd, "state", "/sys/class/drm/card0/state");
     DumpFileToFd(fd, "reg_dump", "/sys/class/drm/card0/reg_dump");
 
+    //GPU
+    DumpFileToFd(fd, "gpu_kmd_version", "/sys/module/mali_kbase/version");
+    DumpFileToFd(fd, "gpu_used_pages", "/sys/class/misc/mali0/device/gpu_memory");
+    DumpFileToFd(fd, "gpu_device_cached_pages", "/sys/class/misc/mali0/device/mem_pool_size");
+    DumpFileToFd(fd, "gpu_ctx_cached_pages", "/sys/class/misc/mali0/device/ctx_mem_pool_size");
+
     return;
 }
 
