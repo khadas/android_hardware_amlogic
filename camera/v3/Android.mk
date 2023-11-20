@@ -33,6 +33,8 @@ ifeq ($(TARGET_PRODUCT), t7_an400)
 DEWARP_ENABLE := true
 else ifeq ($(TARGET_PRODUCT), t7_an400_arm64)
 DEWARP_ENABLE := true
+else ifeq ($(TARGET_PRODUCT), bluebell_arm64)
+DEWARP_ENABLE := true
 endif
 
 
