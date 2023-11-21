@@ -68,7 +68,7 @@ ScopedAStatus HdmiConnection::getPortInfo(std::vector<HdmiPortInfo>* _aidl_retur
 }
 
 ScopedAStatus HdmiConnection::isConnected(int32_t portId, bool* _aidl_return) {
-    if (portId < 0 || portId > mTotalPorts) {
+    if (portId < 0 || portId >= mTotalPorts) {
         ALOGE("isConnected but port:%d is invalid!", portId);
         *_aidl_return = false;
         return ScopedAStatus::ok();
@@ -161,7 +161,7 @@ HdmiConnection::HdmiConnection() {
     getPortInfo(&mPortInfos);
     mTotalPorts = mPortInfos.size();
     ALOGI("%s port size:%d", __FUNCTION__, mTotalPorts);
-    mPortConnectionStatus.resize(mTotalPorts, false);
+    mPortConnectionStatus.resize(mTotalPorts + 1, false);
     mHpdSignal.resize(mTotalPorts, HpdSignal::HDMI_HPD_PHYSICAL);
     mTxHpdSignal = HpdSignal::HDMI_HPD_PHYSICAL;
 
@@ -200,6 +200,7 @@ void HdmiConnection::HdmiConnectionCallback::onEventUpdate(const hdmi_cec_event_
             return;
         }
 
+        // For tv devices, the port id could be equal with port list size.
         mHdmiConnection->mPortConnectionStatus.at(portId) = connected;
         ALOGI("hot plug port id %x, is connected %x", portId, connected);
 
