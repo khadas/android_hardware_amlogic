@@ -16,6 +16,7 @@
 #include "IonIf.h"
 #include <atomic>
 
+#include "USBSensorUtils.h"
 #define FRAME_DURATION (33333333L)
 
 namespace android {
@@ -82,6 +83,7 @@ namespace android {
             bool mIsDecoderInit;
             //store the v4l2 info
             CVideoInfo *mVinfo;
+            USBSensorUtils *mUsbSensorUtils;
             uint8_t* mImage_buffer;
             uint8_t* mDecodedBuffer;
             bool mIsRequestFinished;
