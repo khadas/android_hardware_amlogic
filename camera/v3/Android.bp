@@ -49,3 +49,24 @@ cc_prebuilt_library_shared {
 
     },
 }
+
+cc_prebuilt_library_shared {
+    name: "libnn_face",
+    vendor: true,
+    compile_multilib: "both",
+    check_elf_files: false,
+    arch: {
+        arm64: {
+            srcs: ["isplib/lib64/libnn_face.so"],
+        },
+        arm: {
+            srcs: ["isplib/lib/libnn_face.so"],
+        },
+        x86: {
+            enabled:false,
+        },
+        x86_64: {
+            enabled:false,
+        },
+    },
+}

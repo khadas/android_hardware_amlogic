@@ -10,17 +10,18 @@
 
 #include "media-v4l2/mediaApi.h"
 
-#define ISP_PORT_NUM 6
+#define ISP_PORT_NUM 7
 
 namespace android {
     struct CropInfo {
-        uint32_t originWidth;
-        uint32_t originHeight;
+        uint32_t srcWidth;
+        uint32_t srcHeight;
         uint32_t width;
         uint32_t height;
-        CropInfo() : originWidth(0), originHeight(0), width(0), height(0) {}
+        uint32_t offset_x;
+        uint32_t offset_y;
+        CropInfo() : srcWidth(0), srcHeight(0), width(0), height(0), offset_x(0), offset_y(0) {}
     };
-
     class CameraConfig {
         public:
             static CameraConfig* mInstance[ISP_PORT_NUM];

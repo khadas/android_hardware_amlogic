@@ -266,6 +266,7 @@ private:
     camera_status_t   mCameraStatus;
     bool mFlushTag;
     int cameraid;
+    bool dptz_enable;
     /** Processing thread for sending out results */
 
     class ReadoutThread : public Thread, private JpegCompressor::JpegListener {
@@ -366,6 +367,7 @@ private:
     nsecs_t mAeCurrentExposureTime;
     nsecs_t mAeTargetExposureTime;
     int     mAeCurrentSensitivity;
+
 };
 
 } // namespace android

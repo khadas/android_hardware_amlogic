@@ -4,6 +4,7 @@
 #include "ICapture.h"
 #include "MIPICameraIO.h"
 #include "CameraUtil.h"
+#include <centerface_5.16/centerface_network.h>
 #ifdef GE2D_ENABLE
 #include "ge2d_stream.h"
 #endif
@@ -19,6 +20,15 @@ namespace android {
 #ifdef GE2D_ENABLE
             ge2dTransform* mGE2D;
 #endif
+            ssize_t  mPrevCenter_x    = -1, mPrevCenter_y    = -1;
+            ssize_t  mPrevCenter_dstx = -1, mPrevCenter_dsty = -1;
+            ssize_t  mSmoothing_x     = -1, mSmoothing_y     = -1;
+            ssize_t  mPrevCrop_x      = -1, mPrevCrop_y      = -1;
+            ssize_t  mPrevCrop_w      = -1, mPrevCrop_h      = -1;
+            size_t   mDectNum = 0;
+            bool     mSmoothing = false;
+            int      mRGBIonFd  = -1;
+            uint8_t* mRGBIonVa  = NULL;
 
 #if defined(PREVIEW_DEWARP_ENABLE) || defined(PICTURE_DEWARP_ENABLE)
             dewarpInfo mPreDewarpInfo[ISP_PORT_NUM];
@@ -31,6 +41,7 @@ namespace android {
             int captureNV21frame(StreamBuffer b, struct data_in* in) override;
             int captureYV12frame(StreamBuffer b, struct data_in* in) override;
             int captureRGBAframe(StreamBuffer b, struct data_in * in) override;
+            int captureDPTZframe(StreamBuffer b, struct data_in * in) override;
     };
 }
 #endif

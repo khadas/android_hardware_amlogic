@@ -63,17 +63,16 @@ namespace android {
         ATRACE_CALL();
         CameraConfig* config = CameraConfig::getInstance(mGroupId);
         struct gdc_settings_ex *gdc_gs = &mGDCContext->gs_ex;
-        uint8_t* fw_buffer = nullptr;
         int fw_max_len = 300 * 1024;
 
         //----alloc memory
-        fw_buffer = mION->alloc_buffer(fw_max_len, &mFw_fd);
-        if (fw_buffer == nullptr) {
+        mFw_buffer = mION->alloc_buffer(fw_max_len, &mFw_fd);
+        if (mFw_buffer == nullptr) {
             CAMHAL_LOGE("failed to allocate config buffer %d",fw_max_len);
             return false;
         }
         //generate firmware
-        dewarp_gen_config(&mDewarp_params, (int*)fw_buffer);
+        dewarp_gen_config(&mDewarp_params, (int*)mFw_buffer);
 
         gdc_gs->config_buffer.plane_number = config->mGDCParam.planeNum;
         gdc_gs->config_buffer.mem_alloc_type = mGDCContext->mem_type;
@@ -90,7 +89,7 @@ namespace android {
         } else {
             mProj_mode = PROJ_MODE_EQUIDISTANCE;
         }
-        if (mGroupId <= DEWARP_CAM2PORT_RECORD) {
+        if (mGroupId <= DEWARP_CAM2PORT_DPTZ_PREVIEW) {
             // mipi sensor use dewarp
             int ret = 0;
             GDCInParam in_params;
@@ -134,15 +133,15 @@ namespace android {
             in->width = (config->getInputWidth() > 0) ? config->getInputWidth() : config->getOutputWidth();
             in->height = (config->getInputHeight() > 0) ? config->getInputHeight() : config->getOutputHeight();
             in->fov = 120;
-            int origin_width = config->getCropInfo().originWidth;
-            int origin_height = config->getCropInfo().originHeight;
-            int crop_width = config->getCropInfo().width;
-            int crop_height = config->getCropInfo().height;
+            int src_width     = config->getCropInfo().srcWidth;
+            int src_height    = config->getCropInfo().srcHeight;
+            int crop_width    = config->getCropInfo().width;
+            int crop_height   = config->getCropInfo().height;
             mDewarp_params.color_mode = YUV420_SEMIPLANAR;
             /*ROTATION_90 ROTATION_270 output need exchange width and height,input no need*/
             uint32_t width = (mRotation == Rotation::ROTATION_0 || mRotation == Rotation::ROTATION_180) ? width_tmp : height_tmp;
             uint32_t height = (mRotation == Rotation::ROTATION_0 || mRotation == Rotation::ROTATION_180) ? height_tmp : width_tmp;
-            if (origin_width != 0 && origin_height != 0 && crop_width != 0 && crop_height != 0) {
+            if (src_width != 0 && src_height != 0 && crop_width != 0 && crop_height != 0) {
                 if (crop_width * height != crop_height * width) {
                     if (width * crop_height < height * crop_width) {
                         // eg: src 16:9  dst 4:3.
@@ -152,8 +151,8 @@ namespace android {
                     }
                     CAMHAL_LOGD("using dewarp crop, crop_width %d, crop_height %d", crop_width, crop_height);
                 }
-                in->offset_x = (crop_width - origin_width) / 2 + 1;
-                in->offset_y = (crop_height - origin_height) / 2 + 1;
+                in->offset_x = (crop_width - src_width) / 2 + 1;
+                in->offset_y = (crop_height - src_height) / 2 + 1;
             } else {
                 in->offset_x = 0;
                 in->offset_y = 0;
@@ -194,9 +193,9 @@ namespace android {
                     proj[0].zoom = 1.025;
             }
 
-            if (origin_width != 0 && origin_height != 0 && crop_width != 0 && crop_height != 0) {
-                proj[0].strength_hor = (float) origin_width / (float) crop_width;
-                proj[0].strength_ver = (float) origin_height / (float) crop_height;
+            if (src_width != 0 && src_height != 0 && crop_width != 0 && crop_height != 0) {
+                proj[0].strength_hor = (float) src_width / (float) crop_width;
+                proj[0].strength_ver = (float) src_height / (float) crop_height;
             } else {
                 proj[0].strength_hor = 1.0;
                 proj[0].strength_ver = 1.0;
@@ -287,8 +286,8 @@ namespace android {
         gdc_gs->gdc_config.output_c_stride = o_c_stride;
         gdc_gs->gdc_config.format = YUV420_SEMIPLANAR;
         gdc_gs->magic = sizeof(*gdc_gs);
-        //CAMHAL_LOGE("%s-%d         i_width:%d i_height:%d,i_y_stride:%d i_c_stride:%d o_width:%d o_height:%d o_y_stride:%d o_c_stride:%d \n",__func__,__LINE__,\
-        //                       i_width,  i_height,   i_y_stride,   i_c_stride,   o_width,   o_height,   o_y_stride,   o_c_stride);
+        CAMHAL_LOGE("%s-%d         i_width:%d i_height:%d,i_y_stride:%d i_c_stride:%d o_width:%d o_height:%d o_y_stride:%d o_c_stride:%d \n",__func__,__LINE__,\
+                               i_width,  i_height,   i_y_stride,   i_c_stride,   o_width,   o_height,   o_y_stride,   o_c_stride);
 
         //-----load gdc config
         if (!load_config_file()) {
@@ -401,6 +400,30 @@ namespace android {
         dptz_CropY      = y;
         dptz_CropWidth  = w;
         dptz_CropHeight = h;
+    }
+
+    void DeWarp::setCrop() {
+        struct input_param *in       = &mDewarp_params.input_param;
+        struct proj_param  *proj     = &mDewarp_params.proj_param[0];
+        CameraConfig       *config   = CameraConfig::getInstance(mGroupId);
+        int src_width     = config->getCropInfo().srcWidth;
+        int src_height    = config->getCropInfo().srcHeight;
+        int crop_width    = config->getCropInfo().width;
+        int crop_height   = config->getCropInfo().height;
+        int crop_offset_x = config->getCropInfo().offset_x;
+        int crop_offset_y = config->getCropInfo().offset_y;
+        if (src_width != 0 && src_height != 0 && crop_width != 0 && crop_height != 0) {
+            in->offset_x = crop_offset_x;
+            in->offset_y = crop_offset_y;
+            proj->strength_hor = (float) src_width / (float) crop_width;
+            proj->strength_ver = (float) src_height / (float) crop_height;
+            ALOGV("%s %d %d offset_x %d offset_y %d strength_hor %f strength_ver %f",
+              __FUNCTION__, in->width , in->height, crop_offset_x, crop_offset_y, proj->strength_hor, proj->strength_ver);
+        } else {
+            ALOGE("%s Invalid params", __FUNCTION__);
+        }
+        //generate firmware
+        dewarp_gen_config(&mDewarp_params, (int*)mFw_buffer);
     }
 
 }

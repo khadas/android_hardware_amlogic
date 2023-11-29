@@ -71,6 +71,7 @@ namespace android {
                 STREAM_INITED,
                 STREAM_CONFIGURED
             };
+            status_t checkAndRestartStream(uint32_t width, uint32_t height, uint32_t pixelfmt, channel ch) override;
         private:
             CameraVirtualDevice* mCameraVirtualDevice;
             int mMediaDevicefd;
@@ -84,7 +85,6 @@ namespace android {
             uint8_t* mImage_buffer;
 
             uint32_t mFps;
-
             bool enableZsl;
             int enableHdr;
             ICapture* mCapture;

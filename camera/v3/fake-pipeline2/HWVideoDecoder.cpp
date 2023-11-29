@@ -1322,8 +1322,8 @@ int HWVideoDecoderImpl::syncDecode(int in_fd, uint8_t*in_src, uint32_t in_size, 
                                 }
                                 //  fill crop info for crop
                                 {
-                                    inputInfo.originWidth = mDqWidth;
-                                    inputInfo.originHeight = mDqHeight;
+                                    inputInfo.srcWidth = mDqWidth;
+                                    inputInfo.srcHeight = mDqHeight;
                                     inputInfo.width = mFormatWidth;
                                     inputInfo.height = mFormatHeight;
                                 }
@@ -1447,8 +1447,8 @@ int HWVideoDecoderImpl::asyncDecodeDequeueOutput( Vector<StreamBuffer>& b, bool 
                                 }
                                 //  fill crop info for crop
                                 {
-                                    inputInfo.originWidth = mDqWidth;
-                                    inputInfo.originHeight = mDqHeight;
+                                    inputInfo.srcWidth = mDqWidth;
+                                    inputInfo.srcHeight = mDqHeight;
                                     inputInfo.width = mFormatWidth;
                                     inputInfo.height = mFormatHeight;
                                 }

@@ -177,6 +177,9 @@ class Sensor: public Thread, public virtual RefBase {
     void setDeviceName(char* name);
     virtual status_t force_reset_sensor();
     bool get_sensor_status();
+    virtual status_t checkAndRestartStream(
+            uint32_t width, uint32_t height,
+            uint32_t pixelfmt, channel ch) { return -1; }
     /*
      * Controls that cause reconfiguration delay
      */
@@ -337,6 +340,7 @@ class Sensor: public Thread, public virtual RefBase {
     int mOpenCameraID;
     char mDeviceName[64];
     bool mNeedCheckMjpeg;
+    bool mDPTZEnable;
     uint32_t checkFailCount;
 
     struct PictureThreadCntler {

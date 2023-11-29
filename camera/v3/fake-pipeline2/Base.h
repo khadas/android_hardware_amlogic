@@ -114,6 +114,9 @@ struct dewarpInfo {
     dewarpInfo() : o_width(0), o_height(0), i_width(0), i_height(0) {}
     };
 
+#define NN_RGB_WIDTH  512
+#define NN_RGB_HEIGHT 288
+
 } // namespace android;
 
 #endif

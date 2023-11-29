@@ -52,8 +52,9 @@ const usb_frmsize_discrete_t kUsbAvailablePictureSize[] = {
         {1280, 720},
         {1024, 768},
         {960, 720},
+        {960, 540},
         {640, 480},
-        {352, 288},
+        {480, 270},
         {320, 240},
 };
 
@@ -335,16 +336,6 @@ int V4l2MediaSensor::SensorInit(int idx) {
         media_set_wdrMode((media_stream_t *)mMediaStream, ISP_SDR_DCAM_MODE);
     }
 
-#if defined(PREVIEW_DEWARP_ENABLE) || defined(PICTURE_DEWARP_ENABLE)
-    CameraConfig* config = CameraConfig::getInstance(DEWARP_CAM2PORT_PREVIEW);
-    auto &media = *(media_stream_t *)mMediaStream;
-    config->setSensorCfg(media);
-    config = CameraConfig::getInstance(DEWARP_CAM2PORT_RECORD);
-    config->setSensorCfg(media);
-    config = CameraConfig::getInstance(DEWARP_CAM2PORT_CAPTURE);
-    config->setSensorCfg(media);
-#endif
-
     InitVideoInfo(idx);
     mVinfo->camera_init();
     if (!mCapture) {
@@ -361,6 +352,13 @@ int V4l2MediaSensor::SensorInit(int idx) {
     staticPipe::fetchPipeMaxResolution((media_stream_t*) mMediaStream, mMaxWidth, mMaxHeight);
     std::call_once(flag[idx], [&](){staticPipe::fetchSensorOTP((media_stream_t*)mMediaStream, &mOtpData[idx]);});
 
+#if defined(PREVIEW_DEWARP_ENABLE) || defined(PICTURE_DEWARP_ENABLE)
+    auto &media = *(media_stream_t *)mMediaStream;
+    for (int i = 0; i < ISP_PORT_NUM; ++i) {
+        CameraConfig* config = CameraConfig::getInstance(i);
+        config->setSensorCfg(media);
+    }
+#endif
 
 #ifdef GDC_ENABLE
     if (mIGdc && !mIsGdcInit) {
@@ -445,6 +443,8 @@ status_t V4l2MediaSensor::shutDown() {
         mVinfo->stop_capturing();
         if (mVinfo->Picture_status())
             mVinfo->stop_picture();
+        if (mVinfo->Stream_record_status())
+            mVinfo->stop_recording();
     }
 
     if (mIspMgr) {
@@ -593,8 +593,13 @@ void V4l2MediaSensor::captureNV21(StreamBuffer b, uint32_t gain){
             break;
         }
         //----get one frame
-        int ret = mCapture->captureNV21frame(b,&in);
-         if (ret == ERROR_FRAME) {
+        int ret = 0;
+        if (property_get_bool("vendor.camera.dptz.enable", false)) {
+            ret = mCapture->captureDPTZframe(b, &in);
+        } else {
+            ret = mCapture->captureNV21frame(b,&in);
+        }
+        if (ret == ERROR_FRAME) {
            break;
         }
 #ifdef GE2D_ENABLE
@@ -641,7 +646,11 @@ void V4l2MediaSensor::captureNV21(Vector<StreamBuffer>& b) {
                 break;
             }
             //----get one frame
-            ret = mCapture->captureNV21frame(b[i], &in);
+            if (property_get_bool("vendor.camera.dptz.enable", false)) {
+                ret = mCapture->captureDPTZframe(b[i], &in);
+            } else {
+                ret = mCapture->captureNV21frame(b[i], &in);
+            }
             if (ret == ERROR_FRAME) {
                 break;
             }
@@ -698,7 +707,7 @@ status_t V4l2MediaSensor::getOutputFormat(void) {
 }
 
 status_t V4l2MediaSensor::setOutputFormat(int width, int height, int pixelformat, channel ch) {
-    CAMHAL_LOGV("%s: E", __FUNCTION__);
+    CAMHAL_LOGD("%s+: E width %d, height %d", __FUNCTION__, width, height);
     mFramecount = 0;
     mCurFps = 0;
 
@@ -728,6 +737,7 @@ status_t V4l2MediaSensor::setOutputFormat(int width, int height, int pixelformat
     if (NULL == mIspMgr) {
         width = mMaxWidth; height = mMaxHeight;
     }
+
     int xstart = 0, ystart = 0, crop_width = 0, crop_height = 0;
     calculateRegion(mMaxWidth, mMaxHeight, width, height, xstart, ystart, crop_width, crop_height);
 
@@ -850,6 +860,7 @@ int V4l2MediaSensor::getStreamConfigurations(uint32_t picSizes[], const int32_t 
         fullsize_preview = TRUE;
     }
     if (fullsize_preview == FALSE ) size_start = 1;
+    bool dptz = property_get_bool("vendor.camera.dptz.enable", false);
     struct v4l2_frmsizeenum frmsizeMax;
     memset(&frmsizeMax, 0, sizeof(frmsizeMax));
     frmsizeMax.pixel_format = getOutputFormat();
@@ -862,6 +873,16 @@ int V4l2MediaSensor::getStreamConfigurations(uint32_t picSizes[], const int32_t 
         if (kUsbAvailablePictureSize[i].width > frmsizeMax.discrete.width ||
             kUsbAvailablePictureSize[i].height > frmsizeMax.discrete.height)
             continue;
+        if (dptz) {
+            if (kUsbAvailablePictureSize[i].width > frmsizeMax.discrete.width/4)
+                continue;
+#if 1
+            if (((float)NN_RGB_WIDTH/NN_RGB_HEIGHT) !=
+                ((float)kUsbAvailablePictureSize[i].width/kUsbAvailablePictureSize[i].height))
+                continue;
+#endif
+        }
+
         picSizes[count++] = HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED;
         picSizes[count++] = kUsbAvailablePictureSize[i].width;
         picSizes[count++] = kUsbAvailablePictureSize[i].height;
@@ -871,6 +892,17 @@ int V4l2MediaSensor::getStreamConfigurations(uint32_t picSizes[], const int32_t 
         if (kUsbAvailablePictureSize[i].width > frmsizeMax.discrete.width ||
             kUsbAvailablePictureSize[i].height > frmsizeMax.discrete.height)
             continue;
+        if (dptz) {
+            if (kUsbAvailablePictureSize[i].width > frmsizeMax.discrete.width/4)
+                continue;
+#if 1
+            if (((float)NN_RGB_WIDTH/NN_RGB_HEIGHT) !=
+                ((float)kUsbAvailablePictureSize[i].width/kUsbAvailablePictureSize[i].height))
+                continue;
+#endif
+
+        }
+
         picSizes[count++] = HAL_PIXEL_FORMAT_YCbCr_420_888;
         picSizes[count++] = kUsbAvailablePictureSize[i].width;
         picSizes[count++] = kUsbAvailablePictureSize[i].height;
@@ -889,6 +921,16 @@ int V4l2MediaSensor::getStreamConfigurations(uint32_t picSizes[], const int32_t 
         if (kUsbAvailablePictureSize[i].width > frmsizeMax.discrete.width ||
             kUsbAvailablePictureSize[i].height > frmsizeMax.discrete.height)
             continue;
+        if (dptz) {
+            if (kUsbAvailablePictureSize[i].width > frmsizeMax.discrete.width/4)
+                continue;
+#if 1
+            if (((float)NN_RGB_WIDTH/NN_RGB_HEIGHT) !=
+                ((float)kUsbAvailablePictureSize[i].width/kUsbAvailablePictureSize[i].height))
+                continue;
+#endif
+        }
+
         picSizes[count++] = HAL_PIXEL_FORMAT_RGBA_8888;
         picSizes[count++] = kUsbAvailablePictureSize[i].width;
         picSizes[count++] = kUsbAvailablePictureSize[i].height;
@@ -906,6 +948,7 @@ int V4l2MediaSensor::getStreamConfigurationDurations(uint32_t picSizes[], int64_
         fullsize_preview = TRUE;
     }
     if (fullsize_preview == FALSE ) size_start = 1;
+    bool dptz = property_get_bool("vendor.camera.dptz.enable", false);
     struct v4l2_frmsizeenum frmsizeMax;
     memset(&frmsizeMax, 0, sizeof(frmsizeMax));
     frmsizeMax.pixel_format = getOutputFormat();
@@ -918,6 +961,17 @@ int V4l2MediaSensor::getStreamConfigurationDurations(uint32_t picSizes[], int64_
             if (kUsbAvailablePictureSize[i].width > frmsizeMax.discrete.width ||
                 kUsbAvailablePictureSize[i].height > frmsizeMax.discrete.height)
                 continue;
+            if (dptz) {
+                if (kUsbAvailablePictureSize[i].width > frmsizeMax.discrete.width/4)
+                    continue;
+#if 1
+                if (((float)NN_RGB_WIDTH/NN_RGB_HEIGHT) !=
+                    ((float)kUsbAvailablePictureSize[i].width/kUsbAvailablePictureSize[i].height))
+                    continue;
+#endif
+
+            }
+
             duration[count+0] = HAL_PIXEL_FORMAT_YCbCr_420_888;
             duration[count+1] = kUsbAvailablePictureSize[i].width;
             duration[count+2] = kUsbAvailablePictureSize[i].height;
@@ -931,6 +985,17 @@ int V4l2MediaSensor::getStreamConfigurationDurations(uint32_t picSizes[], int64_
             if (kUsbAvailablePictureSize[i].width > frmsizeMax.discrete.width ||
                 kUsbAvailablePictureSize[i].height > frmsizeMax.discrete.height)
                 continue;
+            if (dptz) {
+                if (kUsbAvailablePictureSize[i].width > frmsizeMax.discrete.width/4)
+                    continue;
+#if 1
+                if (((float)NN_RGB_WIDTH/NN_RGB_HEIGHT) !=
+                    ((float)kUsbAvailablePictureSize[i].width/kUsbAvailablePictureSize[i].height))
+                    continue;
+#endif
+
+            }
+
             duration[count+0] = HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED;
             duration[count+1] = kUsbAvailablePictureSize[i].width;
             duration[count+2] = kUsbAvailablePictureSize[i].height;
@@ -954,6 +1019,16 @@ int V4l2MediaSensor::getStreamConfigurationDurations(uint32_t picSizes[], int64_
             if (kUsbAvailablePictureSize[i].width > frmsizeMax.discrete.width ||
                 kUsbAvailablePictureSize[i].height > frmsizeMax.discrete.height)
                 continue;
+            if (dptz) {
+                if (kUsbAvailablePictureSize[i].width > frmsizeMax.discrete.width/4)
+                    continue;
+#if 1
+                if (((float)NN_RGB_WIDTH/NN_RGB_HEIGHT) !=
+                    ((float)kUsbAvailablePictureSize[i].width/kUsbAvailablePictureSize[i].height))
+                    continue;
+#endif
+            }
+
             duration[count+0] = HAL_PIXEL_FORMAT_RGBA_8888;
             duration[count+1] = kUsbAvailablePictureSize[i].width;
             duration[count+2] = kUsbAvailablePictureSize[i].height;
@@ -1204,6 +1279,22 @@ status_t V4l2MediaSensor::readyToRun() {
     CAMHAL_LOGD("");
 
     return OK;
+}
+
+status_t V4l2MediaSensor::checkAndRestartStream(
+                          uint32_t width, uint32_t height,
+                          uint32_t pixelfmt, channel ch) {
+    CAMHAL_LOGD("%s", __FUNCTION__);
+    bool isNeedRes = isNeedRestart(width, height, pixelfmt, ch);
+    status_t ret = 0;
+    if (isNeedRes) {
+        ret = streamOff(ch);
+        uint32_t fmt = halFormatToSensorFormat(pixelfmt);
+        ret = setOutputFormat(width, height, fmt, ch);
+        ret = streamOn(ch);
+        CAMHAL_LOGD("width=%d, height=%d, pixelfmt=%.4s\n", width, height, (char*)&pixelfmt);
+    }
+    return ret;
 }
 
 }

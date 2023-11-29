@@ -16,11 +16,12 @@ ROTATION_MAX represent supported rotation angle.
 [0,90,180,270]
 */
 #define ROTATION_MAX 4
-#define ISP_PORT_NUM 6
+#define ISP_PORT_NUM 7
 enum dewarpcam2port {
     DEWARP_CAM2PORT_PREVIEW = 0,
     DEWARP_CAM2PORT_CAPTURE,
     DEWARP_CAM2PORT_RECORD,
+    DEWARP_CAM2PORT_DPTZ_PREVIEW,
     DEWARP_CAM2PORT_USB_PREVIEW,
     DEWARP_CAM2PORT_USB_RECORD,
     DEWARP_CAM2PORT_USB_CAPTURE,
@@ -41,7 +42,6 @@ typedef struct GDCInParam {
     uint32_t rotation;
 } GDCInParam_t;
 
-
 namespace android {
     class DeWarp {
         private:
@@ -61,6 +61,7 @@ namespace android {
             struct gdc_usr_ctx_s *mGDCContext = nullptr;
             struct dewarp_params mDewarp_params;
             int mFw_fd = -1;
+            uint8_t* mFw_buffer = nullptr;
             IONInterface* mION;
         public:
             static DeWarp* getInstance(int groupId,int proj_mode,Rotation rotation);
@@ -68,6 +69,7 @@ namespace android {
             static void putInstance(int groupId);
             void gdc_do_fisheye_correction() ;
             static void set_src_ROI(int x, int y, int w, int h);
+            void setCrop();
         public:
             int mInput_fd = -1;
             int mOutput_fd = -1;

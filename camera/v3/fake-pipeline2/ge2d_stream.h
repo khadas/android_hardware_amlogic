@@ -46,6 +46,11 @@ public:
         int ge2d_scale(int dst_fd,int dst_fmt, size_t dst_w, size_t dst_h,
                        int src_fd, size_t src_w, size_t src_h);
 
+        int ge2d_scale2(int dst_fd,int dst_fmt, size_t dst_w, size_t dst_h,
+                       int src_fd, size_t src_w, size_t src_h,
+                       size_t src_x, size_t src_y, size_t crop_w,
+                       size_t crop_h);
+
         int ge2d_keep_ration_scale(int dst_fd,int dst_fmt, size_t dst_w,
                 size_t dst_h,int src_fd, size_t src_w, size_t src_h);
 

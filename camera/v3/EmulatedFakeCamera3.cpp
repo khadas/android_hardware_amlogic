@@ -219,6 +219,7 @@ EmulatedFakeCamera3::EmulatedFakeCamera3(int cameraId, struct hw_module_t* modul
     mSensorType = SENSOR_MMAP;
     mInputStream = nullptr;
     cameraid = -1;
+    dptz_enable = true;
 }
 
 EmulatedFakeCamera3::~EmulatedFakeCamera3() {
@@ -252,7 +253,6 @@ status_t EmulatedFakeCamera3::Initialize() {
                 __FUNCTION__, strerror(-res), res);
         return res;
     }
-
     return EmulatedCamera3::Initialize();
 }
 
@@ -270,7 +270,6 @@ status_t EmulatedFakeCamera3::connectCamera(hw_device_t** device) {
     }
     createSensor();
     mSensor->setSensorListener(this);
-
     res = mSensor->startUp(mCameraID);
     CAMHAL_LOGD("mSensor after startUp, mCameraID=%d\n", mCameraID);
     if (res != NO_ERROR) {
@@ -646,31 +645,41 @@ status_t EmulatedFakeCamera3::configureStreams(
         }
         CAMHAL_LOGD("No preview stream found, reset to preview");
     }
-    //TODO modify this ugly code
-    if (isRestart) {
-        isRestart = mSensor->isNeedRestart(width, height, pixelfmt, channel_preview);
-    }
+    bool dptz_enable = property_get_bool("vendor.camera.dptz.enable", false);
+    if (dptz_enable) {
+        uint32_t width_ext = 0, height_ext = 0;
+        width_ext = (uint32_t)(property_get_int32("vendor.camera.dptz.detect.width", 512));
+        height_ext = (uint32_t)(property_get_int32("vendor.camera.dptz.detect.height", 288));
+        CAMHAL_LOGI("detect stream (%ux%u)", width_ext, height_ext);
+        mSensor->checkAndRestartStream(
+          maxJpegResolution.width, maxJpegResolution.height, pixelfmt, channel_preview);
+        mSensor->checkAndRestartStream(width_ext, height_ext, pixelfmt, channel_record);
+    } else {
+         //TODO modify this ugly code
+        if (isRestart) {
+            isRestart = mSensor->isNeedRestart(width, height, pixelfmt, channel_preview);
+        }
 
-    if ( (mSensorType == SENSOR_V4L2MEDIA || mSensorType == SENSOR_MIPI) ) {
-        isRestartRec = mSensor->isNeedRestart(UHDWidth, UHDHeight, UHDPixelfmt, channel_record);
-    }
+        if ( (mSensorType == SENSOR_V4L2MEDIA || mSensorType == SENSOR_MIPI) ) {
+            isRestartRec = mSensor->isNeedRestart(UHDWidth, UHDHeight, UHDPixelfmt, channel_record);
+        }
+        if (isRestart) {
+            mSensor->streamOff(channel_preview);
+            pixelfmt = mSensor->halFormatToSensorFormat(pixelfmt);
+            mSensor->setOutputFormat(width, height, pixelfmt, channel_preview);
+            mSensor->streamOn(channel_preview);
+            CAMHAL_LOGD("width=%d, height=%d, pixelfmt=%.4s\n", width, height, (char*)&pixelfmt);
+        }
 
-    if (isRestart) {
-        mSensor->streamOff(channel_preview);
-        pixelfmt = mSensor->halFormatToSensorFormat(pixelfmt);
-        mSensor->setOutputFormat(width, height, pixelfmt, channel_preview);
-        mSensor->streamOn(channel_preview);
-        CAMHAL_LOGD("width=%d, height=%d, pixelfmt=%.4s\n", width, height, (char*)&pixelfmt);
+        if (isRestartRec) {
+            mSensor->streamOff(channel_record);
+            UHDPixelfmt = mSensor->halFormatToSensorFormat(UHDPixelfmt);
+            mSensor->setOutputFormat(UHDWidth, UHDHeight, UHDPixelfmt, channel_record);
+            if (UHDWidth * UHDHeight != 0)
+                mSensor->streamOn(channel_record);
+            CAMHAL_LOGD("Rec width=%d, height=%d, pixelfmt=%.4s\n", width, height, (char*)&pixelfmt);
+        }
     }
-    if (isRestartRec) {
-        mSensor->streamOff(channel_record);
-        UHDPixelfmt = mSensor->halFormatToSensorFormat(UHDPixelfmt);
-        mSensor->setOutputFormat(UHDWidth, UHDHeight, UHDPixelfmt, channel_record);
-        if (UHDWidth * UHDHeight != 0)
-            mSensor->streamOn(channel_record);
-        CAMHAL_LOGD("Rec width=%d, height=%d, pixelfmt=%.4s\n", width, height, (char*)&pixelfmt);
-    }
-
     /**
      * Initially mark all existing streams as not alive
      */
@@ -3001,6 +3010,7 @@ void EmulatedFakeCamera3::onSensorPicJpeg(Request &r) {
        }
   }
 }
+
 EmulatedFakeCamera3::ReadoutThread::ReadoutThread(EmulatedFakeCamera3 *parent) :
         mParent(parent), mJpegWaiting(false) {
     mExitReadoutThread = false;

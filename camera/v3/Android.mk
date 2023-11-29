@@ -106,6 +106,8 @@ LOCAL_STATIC_LIBRARIES := \
     libyuv_static \
     android.hardware.camera.common@1.0-helper
 
+LOCAL_SHARED_LIBRARIES += libnn_face
+LOCAL_SHARED_LIBRARIES += libnnsdk
 LOCAL_CFLAGS += -DANDROID_PLATFORM_SDK_VERSION=$(PLATFORM_SDK_VERSION)
 
 LOCAL_KK=0
@@ -149,6 +151,9 @@ LOCAL_C_INCLUDES += external/jpeg \
                     $(TOP)/hardware/libhardware/include/hardware/ \
                     $(LOCAL_PATH)/ \
                     $(TOP)/vendor/amlogic/common/frameworks/services/camerahalserver/aidl/device/
+
+LOCAL_C_INCLUDES += $(LOCAL_PATH)/isplib/inc/linux_nn_sdk_V2.6.0
+LOCAL_C_INCLUDES += $(LOCAL_PATH)/isplib/inc/common
 
 ifeq ($(GE2D_ENABLE),true)
 ifeq ($(GE2D_VERSION_2),true)
