@@ -24,8 +24,7 @@
  * of the EmulatedCameraFactory instance.  This class serves as an entry point
  * for all camera API calls that defined by camera3_device_ops_t API.
  */
-
-#include "hardware/camera3.h"
+#include "amlogic_camera.h"
 #include "system/camera_metadata.h"
 #include "EmulatedBaseCamera.h"
 #include "CamHalDebugLog.h"
@@ -41,7 +40,7 @@ namespace android {
  * connectDevice(), and closeCamera() methods of this class that are invoked in
  * response to hw_module_methods_t::open, and camera_device::close callbacks.
  */
-class EmulatedCamera3 : public camera3_device, public EmulatedBaseCamera {
+class EmulatedCamera3 : public aml_camera_device, public EmulatedBaseCamera {
 public:
     /* Constructs EmulatedCamera3 instance.
      * Param:
@@ -88,18 +87,18 @@ public:
 protected:
 
     virtual status_t initializeDevice(
-        const camera3_callback_ops *callbackOps);
+        const aml_camera_callback_ops *callbackOps);
 
     virtual status_t configureStreams(
-        camera3_stream_configuration *streamList);
+        aml_camera_stream_configuration *streamList);
 
     virtual status_t registerStreamBuffers(
-        const camera3_stream_buffer_set *bufferSet) ;
+        const aml_camera_stream_buffer_set *bufferSet) ;
 
     virtual const camera_metadata_t* constructDefaultRequestSettings(
         int type);
 
-    virtual status_t processCaptureRequest(camera3_capture_request *request);
+    virtual status_t processCaptureRequest(aml_camera_capture_request *request);
 
     /** Debug methods */
 
@@ -124,29 +123,29 @@ protected:
 private:
 
     /** Startup */
-    static int initialize(const struct camera3_device *,
-            const camera3_callback_ops_t *callback_ops);
+    static int initialize(const struct aml_camera_device *,
+            const aml_camera_callback_ops_t *callback_ops);
 
     /** Stream configuration and buffer registration */
 
-    static int configure_streams(const struct camera3_device *,
-            camera3_stream_configuration_t *stream_list);
+    static int configure_streams(const struct aml_camera_device *,
+            aml_camera_stream_configuration_t *stream_list);
 
-    static int register_stream_buffers(const struct camera3_device *,
-            const camera3_stream_buffer_set_t *buffer_set);
+    static int register_stream_buffers(const struct aml_camera_device *,
+            const aml_camera_stream_buffer_set_t *buffer_set);
 
     /** Template request settings provision */
 
     static const camera_metadata_t* construct_default_request_settings(
-            const struct camera3_device *, int type);
+            const struct aml_camera_device *, int type);
 
     /** Submission of capture requests to HAL */
 
-    static int process_capture_request(const struct camera3_device *,
-            camera3_capture_request_t *request);
+    static int process_capture_request(const struct aml_camera_device *,
+            aml_camera_capture_request_t *request);
 
     /** Vendor metadata registration */
-    static void get_metadata_vendor_tag_ops(const camera3_device_t *,
+    static void get_metadata_vendor_tag_ops(const aml_camera_device_t *,
             vendor_tag_query_ops_t *ops);
     // for get_metadata_vendor_tag_ops
     static const char* get_camera_vendor_section_name(
@@ -159,8 +158,8 @@ private:
             const vendor_tag_query_ops_t *,
             uint32_t tag);
 
-    static void dump(const camera3_device_t *, int fd);
-    static int flush(const struct camera3_device *d);
+    static void dump(const aml_camera_device_t *, int fd);
+    static int flush(const struct aml_camera_device *d);
 
     /** For hw_device_t ops */
     static int close(struct hw_device_t* device);
@@ -193,15 +192,15 @@ private:
      * Callbacks back to the framework
      */
 
-    void sendCaptureResult(camera3_capture_result_t *result);
-    void sendNotify(camera3_notify_msg_t *msg);
+    void sendCaptureResult(aml_camera_capture_result_t *result);
+    void sendNotify(aml_notify_message *msg);
 
     /****************************************************************************
      * Data members
      ***************************************************************************/
   private:
-    static camera3_device_ops_t   sDeviceOps;
-    const camera3_callback_ops_t *mCallbackOps;
+    static aml_camera_device_ops_t sDeviceOps;
+    const aml_camera_callback_ops_t *mCallbackOps;
 };
 
 }; /* namespace android */

@@ -52,6 +52,7 @@ struct jpegsize {
     uint32_t height;
 };
 
+
 class EmulatedFakeCamera3 : public EmulatedCamera3,
         private Sensor::SensorListener {
 public:
@@ -91,15 +92,15 @@ public:
 protected:
 
     virtual status_t configureStreams(
-        camera3_stream_configuration *streamList);
+        aml_camera_stream_configuration *streamList);
 
     virtual status_t registerStreamBuffers(
-        const camera3_stream_buffer_set *bufferSet) ;
+        const aml_camera_stream_buffer_set *bufferSet) ;
 
     virtual const camera_metadata_t* constructDefaultRequestSettings(
         int type);
 
-    virtual status_t processCaptureRequest(camera3_capture_request *request);
+    virtual status_t processCaptureRequest(aml_camera_capture_request *request);
 
     /** Debug methods */
 
@@ -177,7 +178,7 @@ private:
     void     signalReadoutIdle();
 
     /** Handle interrupt events from the sensor */
-    void     onSensorEvent(uint32_t frameNumber, Event e, nsecs_t timestamp);
+    void     onSensorEvent(uint32_t frameNumber, Event e, nsecs_t timestamp, nsecs_t readoutTimestamp);
     void     onSensorPicJpeg(Request &r);
 
     /****************************************************************************
@@ -230,7 +231,7 @@ private:
      * Cache for default templates. Once one is requested, the pointer must be
      * valid at least until close() is called on the device
      */
-    camera_metadata_t *mDefaultTemplates[CAMERA3_TEMPLATE_COUNT];
+    camera_metadata_t *mDefaultTemplates[AML_CAMERA_TEMPLATE_COUNT];
 
     /**
      * Private stream information, stored in camera3_stream_t->priv.
@@ -241,11 +242,11 @@ private:
     };
 
     // Shortcut to the input stream
-    camera3_stream_t*  mInputStream;
+    aml_camera_stream_t*  mInputStream;
 
-    typedef List<camera3_stream_t*>           StreamList;
-    typedef List<camera3_stream_t*>::iterator StreamIterator;
-    typedef Vector<camera3_stream_buffer>     HalBufferVector;
+    typedef List<aml_camera_stream_t*>           StreamList;
+    typedef List<aml_camera_stream_t*>::iterator StreamIterator;
+    typedef Vector<aml_camera_stream_buffer>     HalBufferVector;
 
     uint32_t mAvailableJpegSize[64 * 8];
 
@@ -314,7 +315,7 @@ private:
         bool                  mExitReadoutThread;
 
         bool                  mJpegWaiting;
-        camera3_stream_buffer mJpegHalBuffer;
+        aml_camera_stream_buffer mJpegHalBuffer;
         //uint32_t              mJpegFrameNumber;
         bool mFlushFlag;
         Condition mFlush;

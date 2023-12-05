@@ -146,7 +146,9 @@ LOCAL_C_INCLUDES += external/jpeg \
                     $(LOCAL_PATH)/isplib/inc \
                     $(TOP)/frameworks/av/media/ndk/include \
                     $(TOP)/frameworks/av/media/libstagefright/include/media/ \
-                    $(TOP)/hardware/libhardware/include/hardware/
+                    $(TOP)/hardware/libhardware/include/hardware/ \
+                    $(LOCAL_PATH)/ \
+                    $(TOP)/vendor/amlogic/common/frameworks/services/camerahalserver/aidl/device/
 
 ifeq ($(GE2D_ENABLE),true)
 ifeq ($(GE2D_VERSION_2),true)

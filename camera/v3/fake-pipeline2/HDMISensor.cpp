@@ -58,7 +58,7 @@ int HDMISensor::halFormatToSensorFormat(uint32_t pixelfmt)
 }
 
 
-uint32_t HDMISensor::getStreamUsage(camera3_stream_t& stream)
+uint32_t HDMISensor::getStreamUsage(aml_camera_stream_t& stream)
 {
     ATRACE_CALL();
     uint32_t usage = (GRALLOC_USAGE_HW_TEXTURE

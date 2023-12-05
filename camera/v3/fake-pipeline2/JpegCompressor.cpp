@@ -1,3 +1,4 @@
+
 /*
  * Copyright (C) 2012 The Android Open Source Project
  *
@@ -163,8 +164,8 @@ void JpegCompressor::queueRequest(CaptureRequest &r) {
     Mutex::Autolock lock(mMutex);
 
     CaptureRequest* ri = new CaptureRequest();
-    ri->buf = new camera3_stream_buffer();
-    memcpy(ri->buf,r.buf,sizeof(camera3_stream_buffer_t));
+    ri->buf = new aml_camera_stream_buffer();
+    memcpy(ri->buf,r.buf,sizeof(aml_camera_stream_buffer_t));
     ri->frameNumber = r.frameNumber;
     ri->sensorBuffers = r.sensorBuffers;
     ri->mNeedThumbnail = r.mNeedThumbnail;
@@ -1507,7 +1508,11 @@ exif_buffer * JpegCompressor::get_exif_buffer() {
             }
         }
     }
-
+    if (mInfo.has_focallen) {
+        sR.numerator = (int)(mInfo.focallen*1000);
+        sR.denominator = 1000;
+        exif_entry_set_rational(pEd, EXIF_IFD_EXIF, EXIF_TAG_FOCAL_LENGTH, sR);
+    }
     //write IDF1 for thumbnail
     if (mJpegRequest.mNeedThumbnail) {
         exif_entry_set_short(pEd, EXIF_IFD_1, EXIF_TAG_IMAGE_WIDTH, mInfo.thumbwidth);

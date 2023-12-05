@@ -40,7 +40,7 @@ namespace android {
             int getAWB(uint8_t *awbMode, uint8_t maxCount) override;
             status_t setAWB(uint8_t awbMode) override;
             void setSensorListener(SensorListener *listener) override;
-            uint32_t getStreamUsage(camera3_stream_t& stream) override;
+            uint32_t getStreamUsage(aml_camera_stream_t& stream) override;
         private:
             MPlaneCameraIO* mMPlaneCameraIO;
             ge2dTransform* mGE2D = NULL;

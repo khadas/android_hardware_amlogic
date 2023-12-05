@@ -26,7 +26,7 @@
 #include "Sensor.h"
 #include <cmath>
 #include <cstdlib>
-#include <hardware/camera3.h>
+#include "amlogic_camera.h"
 #include "system/camera_metadata.h"
 #include "libyuv.h"
 #include "NV12_resize.h"
@@ -275,18 +275,18 @@ sensor_type_e Sensor::getSensorType(void)
 {
     return mSensorType;
 }
-uint32_t Sensor::getStreamUsage(camera3_stream_t& stream)
+uint32_t Sensor::getStreamUsage(aml_camera_stream_t& stream)
 {
     uint32_t usage = GRALLOC_USAGE_HW_CAMERA_WRITE;
 
     switch (stream.stream_type) {
-        case CAMERA3_STREAM_OUTPUT:
+        case AML_CAMERA_STREAM_OUTPUT:
             usage = GRALLOC_USAGE_HW_CAMERA_WRITE;
             break;
-        case CAMERA3_STREAM_INPUT:
+        case AML_CAMERA_STREAM_INPUT:
             usage = GRALLOC_USAGE_HW_CAMERA_READ;
             break;
-        case CAMERA3_STREAM_BIDIRECTIONAL:
+        case AML_CAMERA_STREAM_BIDIRECTIONAL:
             usage = GRALLOC_USAGE_HW_CAMERA_READ |
                 GRALLOC_USAGE_HW_CAMERA_WRITE;
             break;
@@ -555,6 +555,14 @@ status_t Sensor::shutDown() {
         CAMHAL_LOGE("Unable to shut down sensor capture thread: %d", res);
     }
 
+    {
+        std::unique_lock<std::mutex> _l(mDecoderTask.lock);
+        mDecoderTask.exitThread = true;
+        mDecoderTask.condition.notify_one();
+    }
+    if (mDecoderThread.joinable()) {
+        mDecoderThread.join();
+    }
     if (vinfo != NULL) {
         if (mSensorType == SENSOR_USB) {
             releasebuf_and_stop_capturing(vinfo);
@@ -596,6 +604,11 @@ void Sensor::sendExitSingalToSensor() {
     {
         Mutex::Autolock lock(mReadoutMutex);
         mReadoutAvailable.signal();
+    }
+    {
+        std::unique_lock<std::mutex> _l(mDecoderTask.lock);
+        mDecoderTask.exitThread = true;
+        mDecoderTask.condition.notify_one();
     }
 }
 
@@ -1160,7 +1173,7 @@ status_t Sensor::readyToRun() {
     mStartupTime = systemTime();
     mNextCaptureTime = 0;
     mNextCapturedBuffers = NULL;
-
+    mDecoderThread = std::thread(decoderThread, this);
     CAMHAL_LOGD("");
 
     return OK;
@@ -1266,7 +1279,7 @@ bool Sensor::threadLoop() {
             }
 #endif
             listener->onSensorEvent(frameNumber, SensorListener::EXPOSURE_START,
-                    mNextCaptureTime);
+                    mNextCaptureTime, mNextCaptureTime + mExposureTime);
         }
 
         CAMHAL_LOGVV("Starting next capture: Exposure: %f ms, gain: %d",
@@ -1276,7 +1289,7 @@ bool Sensor::threadLoop() {
 
         if (0 != captureNewImage()) {
             if (listener != NULL) {
-                listener->onSensorEvent(frameNumber, SensorListener::ERROR_CAMERA_DEVICE, mNextCaptureTime);
+                listener->onSensorEvent(frameNumber, SensorListener::ERROR_CAMERA_DEVICE, mNextCaptureTime,mNextCaptureTime + mExposureTime);
             }
         }
 
@@ -1321,7 +1334,6 @@ bool Sensor::threadLoop() {
 
 int Sensor::captureNewImage() {
     ATRACE_CALL();
-
     uint32_t gain = mGainFactor;
     mKernelBuffer = NULL;
     mTempFD = -1;
@@ -1339,6 +1351,9 @@ int Sensor::captureNewImage() {
                 captureRaw(b.img, gain, b.stride);
                 break;
 #endif
+            case HAL_PIXEL_FORMAT_RGB_888:
+                captureRGB(b.img, gain, b.stride);
+                break;
             case HAL_PIXEL_FORMAT_RGBA_8888:
                 captureRGBA(b.img, gain, b.stride);
                 break;
@@ -1390,6 +1405,7 @@ int Sensor::captureNewImage() {
                 break;
         }
     }
+
     return 0;
 }
 
@@ -1998,14 +2014,13 @@ void Sensor::captureRGBA(uint8_t *img, uint32_t gain, uint32_t stride) {
         // TODO: Handle this better
         //simulatedTime += kRowReadoutTime;
     }
-    CAMHAL_LOGVV("RGBA sensor image captured");
+    CAMHAL_LOGV("RGBA sensor image captured");
 }
 
 // preview with RGB
 void Sensor::captureRGB(uint8_t *img, uint32_t gain, uint32_t stride) {
     CAMHAL_LOGE("preview with rgb, not supported yet!");
 }
-
 
 void Sensor::YUYVToNV21(uint8_t *src, uint8_t *dst, int width, int height)
 {
@@ -2100,23 +2115,18 @@ void Sensor::captureNV21(StreamBuffer b, uint32_t gain) {
         } else if (vinfo->preview.format.fmt.pix.pixelformat == V4L2_PIX_FMT_MJPEG) {
             uint32_t width = vinfo->preview.format.fmt.pix.width;
             uint32_t height = vinfo->preview.format.fmt.pix.height;
-
+            std::unique_lock<std::mutex> _l(mDecoderTask.lock);
             if ((width == b.width) && (height == b.height)) {
-                memcpy(b.img, src, b.stride * b.height);
-                uint8_t *pUVBuffer = b.img + b.stride * height;
-                for (int i = 0; i < (int)(b.stride * height / 4); i++) {
-                    *pUVBuffer++ = *(vBuffer + i);
-                    *pUVBuffer++ = *(uBuffer + i);
-                }
+                memcpy(b.img, mDecoderTask.validBuffer, b.stride * b.height * 3/2);
             } else {
-                ReSizeNV21(vinfo, src, b.img, b.width, b.height, b.stride);
+                ReSizeNV21(vinfo, mDecoderTask.validBuffer, b.img, b.width, b.height, b.stride);
             }
         } else {
             CAMHAL_LOGE("Unable known sensor format: %d", vinfo->preview.format.fmt.pix.pixelformat);
         }
         return ;
     }
-    while(1){
+    while (1) {
 
         if (mExitSensorThread) {
             break;
@@ -2191,67 +2201,67 @@ void Sensor::captureNV21(StreamBuffer b, uint32_t gain) {
                 continue;
             }
             mNeedCheckMjpeg = false;
-#if ANDROID_PLATFORM_SDK_VERSION > 23
-            if ((width == b.width) && (height == b.height)) {
-                if (ConvertToI420(src, vinfo->preview.buf.bytesused, b.img, b.stride, uBuffer, (b.stride + 1) / 2,
-                      vBuffer, (b.stride + 1) / 2, 0, 0, width, height,
-                      width, height, libyuv::kRotate0, libyuv::FOURCC_MJPG) != 0) {
-                    CAMHAL_LOGD("Decode MJPEG frame failed\n");
-                    putback_frame(vinfo);
-                    CAMHAL_LOGE("%s , %d , Decode MJPEG frame failed \n", __FUNCTION__ , __LINE__);
-                    continue;
+            std::unique_lock<std::mutex> _l(mDecoderTask.lock);
+            if (mDecoderTask.taskRunning == false) {
+                mDecoderTask.inputBuffer = mInputBuffer;
+                memcpy(mInputBuffer, src, bytesused);
+                mDecoderTask.inputWidth = width;
+                mDecoderTask.inputHeight = height;
+                mDecoderTask.inputBytesused = bytesused;
+                mDecoderTask.outputWidth = b.width;
+                mDecoderTask.outputHeight = b.height;
+                mDecoderTask.outputStride = b.stride;
+                if (mDecoderTask.validBuffer == mRingBuffer1) {
+                    CAMHAL_LOGV("use buffer2 for working buffer %p", mRingBuffer2);
+                    mDecoderTask.workingBuffer = mRingBuffer2;
                 }
-                uint8_t *pUVBuffer = b.img + b.stride * height;
-                for (int i = 0; i < (int)(b.stride * height / 4); i++) {
-                    *pUVBuffer++ = *(vBuffer + i);
-                    *pUVBuffer++ = *(uBuffer + i);
+                else if (mDecoderTask.validBuffer == mRingBuffer2) {
+                    CAMHAL_LOGV("use buffer1 for working buffer %p", mRingBuffer1);
+                    mDecoderTask.workingBuffer = mRingBuffer1;
                 }
-                mKernelBuffer = b.img;
+                else {
+                    CAMHAL_LOGV("no valid buffer now, just use buffer1 %p", mRingBuffer1);
+                    mDecoderTask.workingBuffer = mRingBuffer1;
+                }
+                mDecoderTask.condition.notify_one();
             } else {
-                memset(mTemp_buffer, 0 , width * height * 3/2);
-                if (ConvertToI420(src, vinfo->preview.buf.bytesused, mTemp_buffer, width, uBuffer, (width + 1) / 2,
-                      vBuffer, (width + 1) / 2, 0, 0, width, height,
-                      width, height, libyuv::kRotate0, libyuv::FOURCC_MJPG) != 0) {
-                    CAMHAL_LOGD("Decode MJPEG frame failed\n");
-                    putback_frame(vinfo);
-                    CAMHAL_LOGE("%s , %d , Decode MJPEG frame failed \n", __FUNCTION__ , __LINE__);
-                    continue;
-                }
-                uint8_t *pUVBuffer = mTemp_buffer + width * height;
-                for (int i = 0; i < (int)(width * height / 4); i++) {
-                    *pUVBuffer++ = *(vBuffer + i);
-                    *pUVBuffer++ = *(uBuffer + i);
-                }
-                ReSizeNV21(vinfo, mTemp_buffer, b.img, b.width, b.height, b.stride);
-                mKernelBuffer = mTemp_buffer;
-          }
-#else
-            if ((width == b.width) && (height == b.height)) {
-                if (ConvertMjpegToNV21(src, vinfo->preview.buf.bytesused, b.img,
-                            b.stride, b.img + b.stride * height, (b.stride + 1) / 2, width,
-                            height, width, height, libyuv::FOURCC_MJPG) != 0) {
-                    putback_frame(vinfo);
-                    CAMHAL_LOGE("%s , %d , Decode MJPEG frame failed \n", __FUNCTION__ , __LINE__);
-                    continue;
-                }
-                mKernelBuffer = b.img;
-            } else {
-                memset(mTemp_buffer, 0 , width * height * 3/2);
-                if (ConvertMjpegToNV21(src, vinfo->preview.buf.bytesused, mTemp_buffer,
-                            width, mTemp_buffer + width * height, (width + 1) / 2, width,
-                            height, width, height, libyuv::FOURCC_MJPG) != 0) {
-                    putback_frame(vinfo);
-                    CAMHAL_LOGE("%s , %d , Decode MJPEG frame failed \n", __FUNCTION__ , __LINE__);
-                    continue;
-                }
-                if ((b.height % 2) != 0) {
-                    CAMHAL_LOGD("%d, b.height = %d", __LINE__, b.height);
-                    b.height = b.height - 1;
-                }
-                ReSizeNV21(vinfo, mTemp_buffer, b.img, b.width, b.height, b.stride);
-                mKernelBuffer = mTemp_buffer;
+                CAMHAL_LOGV("Task is busy, do not post anymore");
             }
-#endif
+            // wait first frame valid
+            uint32_t count = 0;
+            while (!mDecoderTask.validBuffer) {
+                 _l.unlock();
+                ALOGV("sleep+");
+                usleep(1000);
+                ALOGV("sleep-");
+                _l.lock();
+                if (mDecoderTask.bDecoderFlag) {
+                    CAMHAL_LOGE("flag = true");
+                } else {
+                    CAMHAL_LOGE("flag = flase");
+                }
+                if (count++ >= 100 || !mDecoderTask.bDecoderFlag) {
+                    ALOGV("timeout wait for validBuffer");
+                    break;
+                }
+            }
+            if (!mDecoderTask.bDecoderFlag) {
+                    putback_frame(vinfo);
+                    CAMHAL_LOGE("%s , %d , Decode MJPEG frame failed \n", __FUNCTION__ , __LINE__);
+                    continue;
+            }
+            CAMHAL_LOGV("memcpy + %dx%d", b.width, b.height);
+            if (mDecoderTask.validBuffer) {
+                if ((width == b.width) && (height == b.height)) {
+                    memcpy(b.img, mDecoderTask.validBuffer, b.stride * b.height * 3/2);
+                    mKernelBuffer = b.img;
+                } else {
+                    ReSizeNV21(vinfo, mDecoderTask.validBuffer, b.img, b.width, b.height, b.stride);
+                    mKernelBuffer = mDecoderTask.validBuffer;
+                }
+            }
+            CAMHAL_LOGV("memcpy -");
+            CAMHAL_LOGV("Capture Done");
         }
         mSensorWorkFlag = true;
         /*
@@ -2260,10 +2270,85 @@ void Sensor::captureNV21(StreamBuffer b, uint32_t gain) {
         }*/
         break;
     }
+
     putback_frame(vinfo);
-    CAMHAL_LOGVV("NV21 sensor image captured");
+    CAMHAL_LOGV("NV21 sensor image captured");
 }
 
+status_t Sensor::decoderThread(void* user) {
+    Sensor* const self = static_cast<Sensor*>(user);
+    auto& task = self->mDecoderTask;
+    ALOGV("decoderThread +");
+    while (1) {
+        std::unique_lock<std::mutex> _l(task.lock);
+        task.condition.wait(_l, [&] {
+            return (task.workingBuffer != nullptr) || (task.exitThread);
+        });
+        if (task.exitThread) {
+            ALOGV("decoderThread exit");
+            return 0;
+        }
+        CAMHAL_LOGV("Decoder wakeup +");
+        task.taskRunning = true;
+        uint8_t *inputBuffer = task.inputBuffer;
+        uint32_t inputWidth = task.inputWidth;
+        uint32_t inputHeight = task.inputHeight;
+        uint32_t inputBytesused = task.inputBytesused;
+        uint32_t outputWidth = task.outputWidth;
+        uint32_t outputHeight = task.outputHeight;
+        uint32_t outputStride = task.outputStride;
+        uint8_t *workingBuffer = task.workingBuffer;
+        bool bDecoderFlag = false;
+        if (workingBuffer != nullptr) {
+            do {
+                CAMHAL_LOGV("Decoder +");
+                _l.unlock();
+                if ((inputWidth == outputWidth) && (inputHeight == outputHeight)) {
+                    memset(workingBuffer, 0 , inputWidth * inputHeight * 3/2);
+                    if (ConvertToI420(inputBuffer, inputBytesused, workingBuffer, outputStride, self->uBuffer2, (outputStride + 1) / 2,
+                          self->vBuffer2, (outputStride + 1) / 2, 0, 0, inputWidth, inputHeight,
+                          inputWidth, inputHeight, libyuv::kRotate0, libyuv::FOURCC_MJPG) != 0) {
+                        CAMHAL_LOGV("Decode MJPEG frame failed\n");
+                        CAMHAL_LOGE("%s , %d , Decode MJPEG frame failed \n", __FUNCTION__ , __LINE__);
+                        _l.lock();
+                        break;
+                    } else {
+                        bDecoderFlag = true;
+                    }
+                    uint8_t *pUVBuffer = workingBuffer + outputStride * inputHeight;
+                    for (int i = 0; i < (int)(outputStride * inputHeight / 4); i++) {
+                        *pUVBuffer++ = *(self->vBuffer2 + i);
+                        *pUVBuffer++ = *(self->uBuffer2 + i);
+                    }
+                } else {
+                    memset(workingBuffer, 0 , inputWidth * inputHeight * 3/2);
+                    if (ConvertToI420(inputBuffer, inputBytesused, workingBuffer, inputWidth, self->uBuffer2, (inputWidth + 1) / 2,
+                          self->vBuffer2, (inputWidth + 1) / 2, 0, 0, inputWidth, inputHeight,
+                          inputWidth, inputHeight, libyuv::kRotate0, libyuv::FOURCC_MJPG) != 0) {
+                        CAMHAL_LOGV("Decode MJPEG frame failed\n");
+                        CAMHAL_LOGE("%s , %d , Decode MJPEG frame failed \n", __FUNCTION__ , __LINE__);
+                        _l.lock();
+                        break;
+                    } else {
+                        bDecoderFlag = true;
+                    }
+                    uint8_t *pUVBuffer = workingBuffer + inputWidth * inputHeight;
+                    for (int i = 0; i < (int)(inputWidth * inputHeight / 4); i++) {
+                        *pUVBuffer++ = *(self->vBuffer2 + i);
+                        *pUVBuffer++ = *(self->uBuffer2 + i);
+                    }
+                }
+                _l.lock();
+                CAMHAL_LOGV("Decoder -");
+            } while(0);
+        }
+        task.bDecoderFlag = bDecoderFlag;
+        task.validBuffer = workingBuffer;
+        task.workingBuffer = nullptr;
+        task.taskRunning = false;
+        ALOGV("Decoder Done validBuffer changed %p", task.validBuffer);
+    }
+}
 void Sensor::captureYV12(StreamBuffer b, uint32_t gain) {
     uint8_t *src;
     if (mKernelBuffer) {

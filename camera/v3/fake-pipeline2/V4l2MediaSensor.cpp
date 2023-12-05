@@ -482,7 +482,7 @@ status_t V4l2MediaSensor::shutDown() {
     return res;
 }
 
-uint32_t V4l2MediaSensor::getStreamUsage(camera3_stream_t& stream){
+uint32_t V4l2MediaSensor::getStreamUsage(aml_camera_stream_t& stream){
     ATRACE_CALL();
     uint32_t usage = (GRALLOC_USAGE_HW_TEXTURE
             | GRALLOC_USAGE_HW_RENDER

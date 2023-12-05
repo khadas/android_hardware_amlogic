@@ -171,7 +171,7 @@ status_t HDMIToCSISensor::shutDown() {
     return res;
 }
 
-uint32_t HDMIToCSISensor::getStreamUsage(camera3_stream_t& stream){
+uint32_t HDMIToCSISensor::getStreamUsage(aml_camera_stream_t& stream){
     ATRACE_CALL();
     uint32_t usage = (GRALLOC_USAGE_HW_TEXTURE
             | GRALLOC_USAGE_HW_RENDER

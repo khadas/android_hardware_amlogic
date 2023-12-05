@@ -120,7 +120,7 @@ status_t EmulatedCamera3::getCameraInfo(struct camera_info* info) {
  ***************************************************************************/
 
 status_t EmulatedCamera3::initializeDevice(
-        const camera3_callback_ops *callbackOps) {
+        const aml_camera_callback_ops *callbackOps) {
     if (callbackOps == NULL) {
         CAMHAL_LOGE("%s: NULL callback ops provided to HAL!",
                 __FUNCTION__);
@@ -140,13 +140,13 @@ status_t EmulatedCamera3::initializeDevice(
 }
 
 status_t EmulatedCamera3::configureStreams(
-        camera3_stream_configuration *streamList) {
+        aml_camera_stream_configuration *streamList) {
     CAMHAL_LOGE("%s: Not implemented", __FUNCTION__);
     return INVALID_OPERATION;
 }
 
 status_t EmulatedCamera3::registerStreamBuffers(
-        const camera3_stream_buffer_set *bufferSet) {
+        const aml_camera_stream_buffer_set *bufferSet) {
     CAMHAL_LOGE("%s: Not implemented", __FUNCTION__);
     return INVALID_OPERATION;
 }
@@ -158,7 +158,7 @@ const camera_metadata_t* EmulatedCamera3::constructDefaultRequestSettings(
 }
 
 status_t EmulatedCamera3::processCaptureRequest(
-        camera3_capture_request *request) {
+        aml_camera_capture_request *request) {
     CAMHAL_LOGE("%s: Not implemented", __FUNCTION__);
     return INVALID_OPERATION;
 }
@@ -196,11 +196,11 @@ int EmulatedCamera3::flush_all_requests() {
  * Protected API. Callbacks to the framework.
  ***************************************************************************/
 
-void EmulatedCamera3::sendCaptureResult(camera3_capture_result_t *result) {
+void EmulatedCamera3::sendCaptureResult(aml_camera_capture_result_t *result) {
     mCallbackOps->process_capture_result(mCallbackOps, result);
 }
 
-void EmulatedCamera3::sendNotify(camera3_notify_msg_t *msg) {
+void EmulatedCamera3::sendNotify(aml_notify_message_t *msg) {
     if (mCallbackOps && mCallbackOps->notify)
         mCallbackOps->notify(mCallbackOps, msg);
 }
@@ -217,44 +217,44 @@ void EmulatedCamera3::sendNotify(camera3_notify_msg_t *msg) {
  * 'camera_device3' parameter, or set a member value in the same.
  ***************************************************************************/
 
-EmulatedCamera3* getInstance(const camera3_device_t *d) {
+EmulatedCamera3* getInstance(const aml_camera_device_t *d) {
     const EmulatedCamera3* cec = static_cast<const EmulatedCamera3*>(d);
     return const_cast<EmulatedCamera3*>(cec);
 }
 
-int EmulatedCamera3::initialize(const struct camera3_device *d,
-        const camera3_callback_ops_t *callback_ops) {
+int EmulatedCamera3::initialize(const struct aml_camera_device *d,
+        const aml_camera_callback_ops_t *callback_ops) {
     EmulatedCamera3* ec = getInstance(d);
     return ec->initializeDevice(callback_ops);
 }
 
-int EmulatedCamera3::configure_streams(const struct camera3_device *d,
-        camera3_stream_configuration_t *stream_list) {
+int EmulatedCamera3::configure_streams(const struct aml_camera_device *d,
+        aml_camera_stream_configuration_t *stream_list) {
     EmulatedCamera3* ec = getInstance(d);
     return ec->configureStreams(stream_list);
 }
 
 int EmulatedCamera3::register_stream_buffers(
-        const struct camera3_device *d,
-        const camera3_stream_buffer_set_t *buffer_set) {
+        const struct aml_camera_device *d,
+        const aml_camera_stream_buffer_set_t *buffer_set) {
     EmulatedCamera3* ec = getInstance(d);
     return ec->registerStreamBuffers(buffer_set);
 }
 
 int EmulatedCamera3::process_capture_request(
-        const struct camera3_device *d,
-        camera3_capture_request_t *request) {
+        const struct aml_camera_device *d,
+        aml_camera_capture_request_t *request) {
     EmulatedCamera3* ec = getInstance(d);
     return ec->processCaptureRequest(request);
 }
 
 const camera_metadata_t* EmulatedCamera3::construct_default_request_settings(
-        const camera3_device_t *d, int type) {
+        const aml_camera_device_t *d, int type) {
     EmulatedCamera3* ec = getInstance(d);
     return ec->constructDefaultRequestSettings(type);
 }
 
-void EmulatedCamera3::get_metadata_vendor_tag_ops(const camera3_device_t *d,
+void EmulatedCamera3::get_metadata_vendor_tag_ops(const aml_camera_device_t *d,
         vendor_tag_query_ops_t *ops) {
     ops->get_camera_vendor_section_name = get_camera_vendor_section_name;
     ops->get_camera_vendor_tag_name = get_camera_vendor_tag_name;
@@ -282,12 +282,12 @@ int EmulatedCamera3::get_camera_vendor_tag_type(
     return ec->getVendorTagType(tag);
 }
 
-void EmulatedCamera3::dump(const camera3_device_t *d, int fd) {
+void EmulatedCamera3::dump(const aml_camera_device_t *d, int fd) {
     EmulatedCamera3* ec = getInstance(d);
     ec->dump(fd);
 }
 
-int EmulatedCamera3::flush(const struct camera3_device *d) {
+int EmulatedCamera3::flush(const struct aml_camera_device *d) {
     EmulatedCamera3* ec = getInstance(d);
     return ec->flush_all_requests();
 }
@@ -295,7 +295,7 @@ int EmulatedCamera3::flush(const struct camera3_device *d) {
 int EmulatedCamera3::close(struct hw_device_t* device) {
     EmulatedCamera3* ec =
             static_cast<EmulatedCamera3*>(
-                reinterpret_cast<camera3_device_t*>(device) );
+                reinterpret_cast<aml_camera_device_t*>(device) );
     if (ec == NULL) {
         CAMHAL_LOGE("%s: Unexpected NULL camera3 device", __FUNCTION__);
         return BAD_VALUE;
@@ -303,7 +303,7 @@ int EmulatedCamera3::close(struct hw_device_t* device) {
     return ec->closeCamera();
 }
 
-camera3_device_ops_t EmulatedCamera3::sDeviceOps = {
+aml_camera_device_ops_t EmulatedCamera3::sDeviceOps = {
     EmulatedCamera3::initialize,
     EmulatedCamera3::configure_streams,
     NULL,//EmulatedCamera3::register_stream_buffers,

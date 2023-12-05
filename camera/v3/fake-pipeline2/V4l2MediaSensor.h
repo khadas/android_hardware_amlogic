@@ -63,7 +63,7 @@ namespace android {
             int getAWB(uint8_t *awbMode, uint8_t maxCount) override;
             status_t setAWB(uint8_t awbMode) override;
             void setSensorListener(SensorListener *listener) override;
-            uint32_t getStreamUsage(camera3_stream_t& stream) override;
+            uint32_t getStreamUsage(aml_camera_stream_t& stream) override;
             enum StreamState {
                 STREAM_NOT_CREATED = 0,
                 STREAM_CREATED,

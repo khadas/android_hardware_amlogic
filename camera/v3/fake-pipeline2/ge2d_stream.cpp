@@ -20,7 +20,7 @@
 #include <utils/Trace.h>
 
 #define RATIO_SCALE
-#include <hardware/camera3.h>
+#include "amlogic_camera.h"
 #include <CamHalDebugLog.h>
 #include "ge2d_stream.h"
 

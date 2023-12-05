@@ -313,7 +313,7 @@ status_t USBSensorHWDec::startUp(int idx, bool customizationSensor) {
     return res;
 }
 
-uint32_t USBSensorHWDec::getStreamUsage(camera3_stream_t& stream){
+uint32_t USBSensorHWDec::getStreamUsage(aml_camera_stream_t& stream){
     ATRACE_CALL();
 
     uint32_t usage = (GRALLOC_USAGE_HW_TEXTURE | GRALLOC_USAGE_HW_RENDER);
