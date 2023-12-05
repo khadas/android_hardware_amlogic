@@ -667,13 +667,16 @@ bool BootControl::SetActiveBootSlot(unsigned int slot) {
     LOG(INFO) << "device_prop: " << device_prop;
     LOG(INFO) << "fastbootd_prop: " << fastbootd_prop;
 
+    std::string usb_prop = android::base::GetProperty("sys.usb.config", "");
+    LOG(INFO) << "usb_prop: " << usb_prop;
+
     int gpt_mode = get_gpt_mode();
     if (gpt_mode < 0) {
         LOG(INFO) << "get gpt mode failed";
         return false;
     }
 
-    if (device_prop != "generic" && fastbootd_prop != "running") {
+    if (device_prop != "generic" && fastbootd_prop != "running" && usb_prop != "fastboot") {
       if (gpt_mode == 0) {
         LOG(INFO) << "set bootloader index for gpt";
         char* write_boot = get_bootloader_env_common("write_boot");
