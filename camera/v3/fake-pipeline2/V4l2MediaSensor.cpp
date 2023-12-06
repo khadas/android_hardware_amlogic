@@ -691,7 +691,9 @@ status_t V4l2MediaSensor::setOutputFormat(int width, int height, int pixelformat
             setOutputFormat(mMaxWidth, mMaxHeight, V4L2_PIX_FMT_NV21, channel_capture);
         }
     }
-
+    if (NULL == mIspMgr) {
+        width = mMaxWidth; height = mMaxHeight;
+    }
     int xstart = 0, ystart = 0, crop_width = 0, crop_height = 0;
     calculateRegion(mMaxWidth, mMaxHeight, width, height, xstart, ystart, crop_width, crop_height);
 

@@ -291,10 +291,10 @@ int CaptureUseGe2d::captureNV21frame(StreamBuffer b, struct data_in* in) {
 
                     break;
                 case V4L2_PIX_FMT_UYVY:
-                    CAMHAL_LOGV("line %d ge2d_convert_scale b fd %d w %d h %d; src fd %d w %d h %d \n", __LINE__,
-                                   b.share_fd, b.width, b.height, dmabuf_fd, width, height);
+                    CAMHAL_LOGV("line %d ge2d_convert_scale b fd %d w %d stride %d h %d; src fd %d w %d h %d \n", __LINE__,
+                                   b.share_fd, b.width, b.stride, b.height, dmabuf_fd, width, height);
 
-                    mGE2D->ge2d_convert_scale(b.share_fd, PIXEL_FORMAT_YCrCb_420_SP, b.width, b.stride, b.height,
+                    mGE2D->ge2d_convert_scale(b.share_fd, PIXEL_FORMAT_YCrCb_420_SP, b.width, b.width, b.height,
                                                dmabuf_fd, PIXEL_FORMAT_YCbCr_422_UYVY, width, width * 2, height);
 
                     break;
@@ -310,7 +310,7 @@ int CaptureUseGe2d::captureNV21frame(StreamBuffer b, struct data_in* in) {
                     mInfo->get_preview_width(), mInfo->get_preview_height(), index2);
                 dump2File(path, vb.addr, mInfo->get_preview_buf_length());
                 sprintf(path, "/data/vendor/camera/preview-out-%dx%d-%d.yuv", b.width, b.height, index2);
-                dump2File(path, b.img, b.stride *  b.height * 3/2);
+                dump2File(path, b.img, b.width *  b.height * 3/2);
             }
             index2++;
         }
@@ -328,10 +328,10 @@ int CaptureUseGe2d::captureNV21frame(StreamBuffer b, struct data_in* in) {
             }
             break;
         case V4L2_PIX_FMT_UYVY:
-            CAMHAL_LOGV("line %d ge2d_convert_scale b fd %d w %d h %d; src fd %d w %d h %d \n", __LINE__,
-                           b.share_fd, b.width, b.height, dmabuf_fd, width, height);
+            CAMHAL_LOGV("line %d ge2d_convert_scale b fd %d w %d stride %d h %d; src fd %d w %d h %d \n", __LINE__,
+                           b.share_fd, b.width, b.stride, b.height, dmabuf_fd, width, height);
 
-            mGE2D->ge2d_convert_scale(b.share_fd, PIXEL_FORMAT_YCrCb_420_SP, b.width, b.stride, b.height,
+            mGE2D->ge2d_convert_scale(b.share_fd, PIXEL_FORMAT_YCrCb_420_SP, b.width, b.width, b.height,
                                        dmabuf_fd, PIXEL_FORMAT_YCbCr_422_UYVY, width, width * 2, height);
             break;
         default:
