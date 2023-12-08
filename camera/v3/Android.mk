@@ -29,21 +29,15 @@ GE2D_VERSION_2 := true
 ISP_ENABLE := false
 GDC_ENABLE := false
 HW_JPEG := false
-ifeq ($(TARGET_PRODUCT), t7_an400)
-DEWARP_ENABLE := true
-else ifeq ($(TARGET_PRODUCT), t7_an400_arm64)
-DEWARP_ENABLE := true
-else ifeq ($(TARGET_PRODUCT), bluebell_arm64)
+
+ifeq ($(CAMERA_DEWARP_ENABLE), true)
 DEWARP_ENABLE := true
 else ifeq ($(TARGET_PRODUCT), mercury_arm64)
 DEWARP_ENABLE := true
 endif
 
-
-ifeq ($(TARGET_PRODUCT), tyson)
-# zhiwei.zhang 2023.11.1 VICP on U not tested yet. disable it for now.
-# if needed, someon can test and enable it.
-VICP_ENABLE := false
+ifeq ($(CAMERA_VICP_ENABLE), true)
+VICP_ENABLE := true
 endif
 
 ifeq ($(CAMHAL_DEBUG_ENABLE),true)
