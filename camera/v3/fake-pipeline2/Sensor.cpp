@@ -1465,26 +1465,36 @@ int Sensor::getStreamConfigurations(uint32_t picSizes[], const int32_t kAvailabl
             picSizes[count+2] = frmsize.discrete.height;
             picSizes[count+3] = ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT;
 
-            CAMHAL_LOGD("get output width=%d, height=%d, format=%d\n",
+            CAMHAL_LOGI("get output width=%d, height=%d, format=%d\n",
                 frmsize.discrete.width, frmsize.discrete.height, frmsize.pixel_format);
             if (0 == i) {
                 count += 4;
                 continue;
             }
 
+            bool skip = false;
+            for (int j = count; j > START; j -= 4) {
+                if (frmsize.discrete.width * frmsize.discrete.height ==
+                                             picSizes[j - 3] * picSizes[j - 2]) {
+                    ALOGI("skip width=%d, height=%d", frmsize.discrete.width, frmsize.discrete.height);
+                    skip = true;
+                    break;
+                }
+            }
+            if (skip) continue;
+
             for (k = count; k > START; k -= 4) {
                 if (frmsize.discrete.width * frmsize.discrete.height >
                         picSizes[k - 3] * picSizes[k - 2]) {
                     picSizes[k + 1] = picSizes[k - 3];
                     picSizes[k + 2] = picSizes[k - 2];
-
                 } else {
                     break;
                 }
             }
+
             picSizes[k + 1] = frmsize.discrete.width;
             picSizes[k + 2] = frmsize.discrete.height;
-
             count += 4;
         }
     }
@@ -1513,84 +1523,39 @@ int Sensor::getStreamConfigurations(uint32_t picSizes[], const int32_t kAvailabl
             picSizes[count+2] = frmsize.discrete.height;
             picSizes[count+3] = ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT;
 
-            CAMHAL_LOGD("get output width=%d, height=%d, format =\
-                HAL_PIXEL_FORMAT_YCbCr_420_888\n", frmsize.discrete.width,
-                                                    frmsize.discrete.height);
+            CAMHAL_LOGI("get output width=%d, height=%d, format = HAL_PIXEL_FORMAT_YCbCr_420_888",
+                frmsize.discrete.width, frmsize.discrete.height);
             if (0 == i) {
                 count += 4;
                 continue;
             }
+
+            bool skip = false;
+            for (int j = count; j > START; j -= 4) {
+                if (frmsize.discrete.width * frmsize.discrete.height ==
+                                             picSizes[j - 3] * picSizes[j - 2]) {
+                    ALOGI("skip width=%d, height=%d", frmsize.discrete.width, frmsize.discrete.height);
+                    skip = true;
+                    break;
+                }
+            }
+            if (skip) continue;
 
             for (k = count; k > START; k -= 4) {
                 if (frmsize.discrete.width * frmsize.discrete.height >
                         picSizes[k - 3] * picSizes[k - 2]) {
                     picSizes[k + 1] = picSizes[k - 3];
                     picSizes[k + 2] = picSizes[k - 2];
-
                 } else {
                     break;
                 }
             }
+
             picSizes[k + 1] = frmsize.discrete.width;
             picSizes[k + 2] = frmsize.discrete.height;
-
             count += 4;
         }
     }
-
-#if 0
-    if (frmsize.pixel_format == V4L2_PIX_FMT_YUYV) {
-        START = count;
-        for (i = 0; ; i++) {
-            frmsize.index = i;
-            res = ioctl(vinfo->fd, VIDIOC_ENUM_FRAMESIZES, &frmsize);
-            if (res < 0){
-                CAMHAL_LOGD("index=%d, break\n", i);
-                break;
-            }
-
-            if(frmsize.type == V4L2_FRMSIZE_TYPE_DISCRETE){ //only support this type
-
-                if (0 != (frmsize.discrete.width%16))
-                    continue;
-
-                if((frmsize.discrete.width > support_w) && (frmsize.discrete.height >support_h))
-                    continue;
-
-                if (count >= size)
-                    break;
-
-                picSizes[count+0] = HAL_PIXEL_FORMAT_YCbCr_422_I;
-                picSizes[count+1] = frmsize.discrete.width;
-                picSizes[count+2] = frmsize.discrete.height;
-                picSizes[count+3] = ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT;
-
-                CAMHAL_LOGD("get output width=%d, height=%d, format =\
-                    HAL_PIXEL_FORMAT_YCbCr_420_888\n", frmsize.discrete.width,
-                                                        frmsize.discrete.height);
-                if (0 == i) {
-                    count += 4;
-                    continue;
-                }
-
-                for (k = count; k > START; k -= 4) {
-                    if (frmsize.discrete.width * frmsize.discrete.height >
-                            picSizes[k - 3] * picSizes[k - 2]) {
-                        picSizes[k + 1] = picSizes[k - 3];
-                        picSizes[k + 2] = picSizes[k - 2];
-
-                    } else {
-                        break;
-                    }
-                }
-                picSizes[k + 1] = frmsize.discrete.width;
-                picSizes[k + 2] = frmsize.discrete.height;
-
-                count += 4;
-            }
-        }
-    }
-#endif
 
     uint32_t jpgSrcfmt[] = {
         V4L2_PIX_FMT_RGB24,
@@ -1632,10 +1597,23 @@ int Sensor::getStreamConfigurations(uint32_t picSizes[], const int32_t kAvailabl
                 picSizes[count+2] = frmsize.discrete.height;
                 picSizes[count+3] = ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT;
 
+                CAMHAL_LOGI("get output width=%d, height=%d, format = HAL_PIXEL_FORMAT_BLOB",
+                    frmsize.discrete.width, frmsize.discrete.height);
+
                 if (0 == i) {
                     count += 4;
                     continue;
                 }
+                bool skip = false;
+                for (int j = count; j > START; j -= 4) {
+                    if (frmsize.discrete.width * frmsize.discrete.height ==
+                                                 picSizes[j - 3] * picSizes[j - 2]) {
+                        ALOGI("skip width=%d, height=%d", frmsize.discrete.width, frmsize.discrete.height);
+                        skip = true;
+                        break;
+                    }
+                }
+                if (skip) continue;
 
                 //TODO insert in descend order
                 for (k = count; k > START; k -= 4) {
@@ -1643,7 +1621,6 @@ int Sensor::getStreamConfigurations(uint32_t picSizes[], const int32_t kAvailabl
                             picSizes[k - 3] * picSizes[k - 2]) {
                         picSizes[k + 1] = picSizes[k - 3];
                         picSizes[k + 2] = picSizes[k - 2];
-
                     } else {
                         break;
                     }
@@ -1651,7 +1628,6 @@ int Sensor::getStreamConfigurations(uint32_t picSizes[], const int32_t kAvailabl
 
                 picSizes[k + 1] = frmsize.discrete.width;
                 picSizes[k + 2] = frmsize.discrete.height;
-
                 count += 4;
             }
         }

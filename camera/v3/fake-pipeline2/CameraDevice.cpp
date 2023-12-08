@@ -368,30 +368,38 @@ CameraVirtualDevice* CameraVirtualDevice::getInstance() {
 bool CameraVirtualDevice::isStandardUSBCamera(char * dev_node_name)
 {
     int ret = -1;
-    int j;
-    bool result = false;
+    bool result   = false;
+    bool skipH264 = true;
+    int  loopSize = 2;
     struct v4l2_frmsizeenum frmsize;
-    uint32_t jpgSrcfmt[] = {
-        V4L2_PIX_FMT_RGB24,
+    uint32_t srcfmt[] = {
         V4L2_PIX_FMT_MJPEG,
         V4L2_PIX_FMT_YUYV,
         V4L2_PIX_FMT_H264,
     };
+    if (property_get_bool("ro.vendor.platform.usehwh264", false) ||
+        property_get_bool("vendor.media.camera.dec.mediahalsdk", false)) {
+        skipH264 = false;
+        loopSize = 3;
+        ALOGI("H264 is enabled, do not skip check");
+    }
     int fd = open(dev_node_name, O_RDWR);
     if (fd < 0) {
         CAMHAL_LOGE("%s open USB fd error", __FUNCTION__);
         return result;
     }
-    for (j = 0; j<(int)(sizeof(jpgSrcfmt)/sizeof(jpgSrcfmt[0])); j++) {
-        memset(&frmsize,0,sizeof(frmsize));
-        frmsize.pixel_format = jpgSrcfmt[j];
+    for (int j = 0; j < loopSize; j++) {
+        memset(&frmsize, 0, sizeof(frmsize));
+        frmsize.pixel_format = srcfmt[j];
         frmsize.index = 0;
+        frmsize.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
         ret = ioctl(fd, VIDIOC_ENUM_FRAMESIZES, &frmsize);
-        if (ret >= 0) {
-           result = true;
-           break;
-        }
+         if (ret >= 0) {
+             result = true;
+             break;
+         }
     }
+
     close(fd);
     return result;
 }
