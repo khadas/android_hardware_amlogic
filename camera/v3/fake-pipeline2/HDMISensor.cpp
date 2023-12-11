@@ -130,6 +130,26 @@ status_t HDMISensor::startUp(int idx, bool customizationSensor) {
     }
     if (customizationSensor)
         return res;
+
+    bool waitPortAvailable = true;
+    int waitCount = 0;
+    char property[PROPERTY_VALUE_MAX];
+    while (property_get("vendor.tv.vdin.opened", property, NULL) > 0) {
+        if (atoi(property) > 0) {
+            if (waitCount++ >= 400) {
+                waitPortAvailable = false;
+                break;
+            }
+            usleep(5000);
+        } else
+            break;
+    }
+
+    if (!waitPortAvailable) {
+        CAMHAL_LOGE("Unable to start up sensor port");
+        return res;
+    }
+
     mMPlaneCameraIO = (MPlaneCameraIO *) calloc(1, sizeof(MPlaneCameraIO));
     mMPlaneCameraIO->openIdx = idx;
 
@@ -149,6 +169,11 @@ status_t HDMISensor::startUp(int idx, bool customizationSensor) {
         CAMHAL_LOGE("HDMISensor open vdin0 fail %s", strerror(errno));
     }
 
+    if (property_set("vendor.tv.camera.opened", "1") != 0) {
+        CAMHAL_LOGE( "%s, set vendor.tv.camera.opened [1], error", __FUNCTION__);
+    } else {
+        CAMHAL_LOGE( "%s, set vendor.tv.camera.opened [1], success", __FUNCTION__);
+    }
     return res;
 
 }
@@ -168,6 +193,11 @@ status_t HDMISensor::shutDown() {
 
     mSensorWorkFlag = false;
     CAMHAL_LOGD("%s: Exit", __FUNCTION__);
+    if (property_set("vendor.tv.camera.opened", "0") != 0) {
+        CAMHAL_LOGE( "%s, set vendor.tv.camera.opened [0], error", __FUNCTION__);
+    } else {
+        CAMHAL_LOGE( "%s, set vendor.tv.camera.opened [0], success", __FUNCTION__);
+    }
     return res;
 }
 

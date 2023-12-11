@@ -1070,7 +1070,6 @@ status_t Sensor::setAWB(uint8_t awbMode)
 
 void Sensor::setRequestParameter(requestParameter &param) {
     Mutex::Autolock lock(mControlMutex);
-    CAMHAL_LOGD("%s , E  setRequestParameter" , __FUNCTION__);
     CAMHAL_LOGVV("Exposure set to %f", param.requestExposureTime/1000000.f);
     mExposureTime = param.requestExposureTime;
     CAMHAL_LOGVV("Frame duration set to %f", param.requestFrameDuration/1000000.f);
@@ -1080,7 +1079,6 @@ void Sensor::setRequestParameter(requestParameter &param) {
     mNextBuffers = param.requestBuffers;
     mFrameNumber = param.requestFrameNumber;
     CAMHAL_LOGVV("framenumber: %d",mFrameNumber);
-    CAMHAL_LOGD("%s , X setSensorParameter" , __FUNCTION__);
 }
 
 void Sensor::setPictureRequest(Request &PicRequest) {
