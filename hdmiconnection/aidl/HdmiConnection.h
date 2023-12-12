@@ -41,14 +41,16 @@ using ::aidl::android::hardware::tv::hdmi::connection::Result;
 #define HDMI_MSG_IN_FIFO "/dev/hdmi_in_pipe"
 #define MESSAGE_BODY_MAX_LENGTH 4
 #define HDMIRX_DEV_PATH "/dev/hdmirx0"
-#define HDMI_IOC_SET_HPD 0x14
-#define HDMI_IOC_GET_HPD 0x15
 
 // struct used in hdmi driver
-struct HdmiHpdInfo {
-    HpdSignal signal;
-    int portId;
+struct hdmirx_hpd_info {
+    int signal;
+    int port;
 };
+
+#define HDMI_IOC_MAGIC 'H'
+#define HDMI_IOC_SET_HPD   _IOW(HDMI_IOC_MAGIC, 0x15, struct hdmirx_hpd_info)
+#define HDMI_IOC_GET_HPD   _IOR(HDMI_IOC_MAGIC, 0x16, struct hdmirx_hpd_info)
 
 struct HdmiConnection : public BnHdmiConnection {
     HdmiConnection();

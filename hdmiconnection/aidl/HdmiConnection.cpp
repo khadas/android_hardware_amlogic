@@ -17,6 +17,7 @@
 #define LOG_TAG "hdmiconnection"
 #include <android-base/logging.h>
 #include <fcntl.h>
+#include <sys/ioctl.h>
 #include <utils/Log.h>
 
 #include "HdmiConnection.h"
@@ -103,7 +104,7 @@ ScopedAStatus HdmiConnection::setHpdSignal(HpdSignal signal, int32_t portId) {
         mTxHpdSignal = signal;
         return ScopedAStatus::ok();
     }
-    struct HdmiHpdInfo hpdInfo = {signal, portId - 1};
+    struct hdmirx_hpd_info hpdInfo = {static_cast<int>(signal), portId - 1};
 
     if (portId > mTotalPorts) {
         ALOGD("%s, invalid port id:%d port size:%d", __FUNCTION__, portId, mTotalPorts);
@@ -132,7 +133,7 @@ ScopedAStatus HdmiConnection::getHpdSignal(int32_t portId, HpdSignal* _aidl_retu
         return ScopedAStatus::ok();
     }
 
-    struct HdmiHpdInfo hpdInfo = {HpdSignal::HDMI_HPD_PHYSICAL, portId - 1};
+    struct hdmirx_hpd_info hpdInfo = {static_cast<int>(HpdSignal::HDMI_HPD_PHYSICAL), portId - 1};
 
     if (portId > mTotalPorts) {
         ALOGD("%s, invalid port id:%d port size:%d", __FUNCTION__, portId, mTotalPorts);
@@ -147,7 +148,7 @@ ScopedAStatus HdmiConnection::getHpdSignal(int32_t portId, HpdSignal* _aidl_retu
     }
     if (ioctl(mHdmiFd, HDMI_IOC_GET_HPD, &hpdInfo) < 0)
         LOGE("%s, port:%d, error: (%s)!\n", __FUNCTION__, portId, strerror(errno));
-    mHpdSignal[portId - 1] = hpdInfo.signal;
+    mHpdSignal[portId - 1] = static_cast<HpdSignal>(hpdInfo.signal);
     *_aidl_return = mHpdSignal.at(portId - 1);
     return ScopedAStatus::ok();
 }
