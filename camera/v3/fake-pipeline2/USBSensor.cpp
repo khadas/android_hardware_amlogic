@@ -809,6 +809,8 @@ void USBSensor::captureNV21UsbSensor(Vector<StreamBuffer> &b, uint32_t gain, boo
             int r;
             if (mVinfo->fd <= 0)
                 break;
+
+read_queue:
             FD_ZERO(&fds);
             FD_SET(mVinfo->fd, &fds);
             /*2s Timeout*/
@@ -844,6 +846,23 @@ void USBSensor::captureNV21UsbSensor(Vector<StreamBuffer> &b, uint32_t gain, boo
 
                 continue;
             }
+            // here. src is valid.
+            // check if this src is the latest src.
+            FD_ZERO(&fds);
+            FD_SET(mVinfo->fd, &fds);
+            /*no block select, just check if there are more filled buffers*/
+            tv.tv_sec = 0;
+            tv.tv_usec = 0;
+            r = select(mVinfo->fd + 1, &fds, NULL, NULL, &tv);
+            if (r > 0) {
+                // yes, there are more filled buffers. queue this one, dq next;
+                if ( 0 > mVinfo->putback_frame() ) {
+                    CAMHAL_LOGE("%s: VIDIOC_QBUF/flush failed, errno=%d\n", __func__, errno);
+                    break;
+                }
+                goto read_queue;
+            }
+
             mTimeOutCount = 0;
         }
         pixelformat = mVinfo->preview.format.fmt.pix.pixelformat;

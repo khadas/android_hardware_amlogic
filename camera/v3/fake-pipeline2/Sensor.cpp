@@ -219,6 +219,8 @@ Sensor::Sensor():
         mScene(kResolution[0], kResolution[1], kElectronsPerLuxSecond),
         mUnpluged(false)
 {
+        char property[PROPERTY_VALUE_MAX];
+
         memset(&mKernelPhysAddr,0,sizeof(mKernelPhysAddr));
         memset(&mCaptureTime,0,sizeof(nsecs_t));
         memset(&mStartupTime,0,sizeof(nsecs_t));
@@ -228,6 +230,13 @@ Sensor::Sensor():
         memset(&mTestEnd,0,sizeof(struct timeval));
         memset(&mNextCaptureTime,0,sizeof(nsecs_t));
         memset(mDeviceName,0,sizeof(mDeviceName));
+
+        property_get("vendor.media.camera.low_latency_mode", property, "false");
+        if (strstr(property,"true")) {
+            CAMHAL_LOGD("running in low latency mode");
+            mLowLatencyMode = true;
+        }
+
 }
 
 Sensor::~Sensor() {

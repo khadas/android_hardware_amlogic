@@ -367,8 +367,6 @@ status_t V4l2MediaSensor::startUp(int idx, bool customizationSensor) {
     CAMHAL_LOGV("%s: E", __FUNCTION__);
     int res;
 
-    char property[PROPERTY_VALUE_MAX];
-
     mCapturedBuffers = NULL;
     res = run("EmulatedFakeCamera3::Sensor",ANDROID_PRIORITY_URGENT_DISPLAY);
 
@@ -381,12 +379,6 @@ status_t V4l2MediaSensor::startUp(int idx, bool customizationSensor) {
         mIGdc = new gdcUseFd();
         //mIGdc = new gdcUseMemcpy();
 #endif
-
-    property_get("vendor.media.camera.low_latency_mode", property, "false");
-    if (strstr(property,"true")) {
-        CAMHAL_LOGD("running in low latency mode");
-        mLowLatencyMode = true;
-    }
 
     return res;
 }
