@@ -49,12 +49,6 @@ cc_defaults {
     srcs: ["main.cpp", "BootControl.cpp"],
 }
 
-prebuilt_etc {
-    name: "android.hardware.boot-bootloader.rc",
-    src: "android.hardware.boot-bootloader.rc",
-    relative_install_path: "init",
-    vendor: true,
-}
 
 cc_binary {
     name: "android.hardware.boot-service",
