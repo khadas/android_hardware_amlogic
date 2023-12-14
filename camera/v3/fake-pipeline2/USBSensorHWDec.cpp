@@ -64,6 +64,20 @@ static bool IsAvailablePictureSize(const usb_frmsize_discrete_t AvailablePicture
     return false;
 }
 
+static bool determineUseH264(const uint32_t width, const uint32_t height)
+{
+    uint32_t base_w = property_get_int32("vendor.media.camera.h264.width", 3840);
+    uint32_t base_h = property_get_int32("vendor.media.camera.h264.height", 2160);
+    CAMHAL_LOGD("base width %d, base height %d", base_w, base_h);
+    if (property_get_bool("vendor.media.camera.force.h264", false)) {
+        CAMHAL_LOGD("default choose h264");
+        return true;
+    } else if ((width >= base_w) && (height >= base_h)) {
+        return true;
+    }
+    return false;
+}
+
 USBSensorHWDec::USBSensorHWDec(int expectedV4l2OutPixFmt)
 {
     mExpectedV4l2OutPixFmt = expectedV4l2OutPixFmt;
@@ -103,6 +117,7 @@ USBSensorHWDec::USBSensorHWDec(int expectedV4l2OutPixFmt)
     memset(&mDecoderOutBuf, 0, sizeof(mDecoderOutBuf));
     mNeedStopDecodeFillThread = false;
     mDecodeOutBufIsFresh = false;
+    isUseH264 = false;
     CAMHAL_LOGD("create usbsensorHWDec");
 }
 
@@ -278,6 +293,7 @@ int USBSensorHWDec::SensorInit(int idx)
     setIOBufferNum();
     determineDecoderStreamType();
     determineDecoderWorkMode();
+    getStreamInfo(mStreamInfos);
     mSensorType = SENSOR_USB;
     return ret;
 }
@@ -356,15 +372,76 @@ int USBSensorHWDec::reAllocSoftwareBuffer(int width, int height)
     return ret;
 }
 
+status_t USBSensorHWDec::getOutputFormat(int width, int height, int pixelformat) {
+    int ret = 0;
+    for (auto& mStreamInfo : mStreamInfos) {
+        if (mStreamInfo.pixelformat == pixelformat && width == mStreamInfo.width && height == mStreamInfo.height) {
+            return pixelformat;
+        }
+    }
+    return ret;
+}
+
 status_t USBSensorHWDec::setOutputFormat(int width, int height,
                                    int pixelformat, channel ch)
 {
-    int res;
+    int res, ret;
     mFramecount = 0;
     mCurFps = 0;
 
+    do {
+        if (isUseH264) {
+            ret = getOutputFormat(width, height, V4L2_PIX_FMT_H264);
+            if (ret) {
+                pixelformat = ret;
+                mDecoderStreamType = H264_STREAM;
+                mHWDecoderWorkMode = ASYNC_DECODE_MODE;
+                CAMHAL_LOGW("%s support 4k, set H264 %dx%d", __FUNCTION__, width, height);
+                break;
+            }
+        }
+        ret = getOutputFormat(width, height, V4L2_PIX_FMT_MJPEG);
+        if (ret) {
+            pixelformat = ret;
+            mDecoderStreamType = MJPEG_STREAM;
+            mHWDecoderWorkMode = ASYNC_DECODE_MODE;
+            CAMHAL_LOGW("%s set mjpeg %dx%d", __FUNCTION__, width, height);
+            break;
+        }
+        ret = getOutputFormat(width, height, V4L2_PIX_FMT_H264);
+        if (ret) {
+            pixelformat = ret;
+            mDecoderStreamType = H264_STREAM;
+            mHWDecoderWorkMode = ASYNC_DECODE_MODE;
+            CAMHAL_LOGW("%s set H264 %dx%d", __FUNCTION__, width, height);
+            break;
+        }
+        ret = getOutputFormat(width, height, V4L2_PIX_FMT_HEVC);
+        if (ret) {
+            pixelformat = ret;
+            mDecoderStreamType = HEVC_STREAM;
+            mHWDecoderWorkMode = ASYNC_DECODE_MODE;
+            CAMHAL_LOGW("%s set H265 %dx%d", __FUNCTION__, width, height);
+            break;
+        }
+        ret = getOutputFormat(width, height, V4L2_PIX_FMT_YUYV);
+        if (ret) {
+            pixelformat = ret;
+            mHWDecoderWorkMode = SYNC_DECODE_MODE;
+            CAMHAL_LOGW("%s set yuyv %dx%d", __FUNCTION__, width, height);
+            break;
+        }
+        ret = getOutputFormat(width, height, V4L2_PIX_FMT_NV21);
+        if (ret) {
+            pixelformat = ret;
+            mHWDecoderWorkMode = SYNC_DECODE_MODE;
+            CAMHAL_LOGW("%s set nv21 %dx%d", __FUNCTION__, width, height);
+            break;
+        }
+    } while (0);
+
     gettimeofday(&mTimeStart, NULL);
-    if (pixelformat != V4L2_PIX_FMT_YUYV)
+    if (pixelformat != V4L2_PIX_FMT_YUYV || pixelformat != V4L2_PIX_FMT_NV21)
         initDecoder(width, height, width, height, 4);
 
     if (ch == channel_capture) {
@@ -1103,205 +1180,239 @@ const char* USBSensorHWDec::getformt(int id) {
     return mUsbSensorUtils->getformtStr(id);
 }
 
-int USBSensorHWDec::getStreamConfigurations(uint32_t picSizes[], const int32_t kAvailableFormats[], int size) {
-    int res;
-    int i, k, START;
-    int count = 0;
-    //int pixelfmt;
+void USBSensorHWDec::getStreamInfo(std::vector<streamInfo> &streamInfos) {
+    int i, j, res, ret;
+    int temp_rate, framerate, framerate_min;
+    struct v4l2_frmivalenum fival;
     struct v4l2_frmsizeenum frmsize;
-    unsigned int support_w,support_h;
+    streamInfo streamInfo;
+    streamInfos.clear();
+    framerate_min = property_get_int32("vendor.camera.frame.rate.min", 20);
+    uint32_t jpgSrcfmt[] = {
+        V4L2_PIX_FMT_MJPEG,
+        V4L2_PIX_FMT_H264,
+        V4L2_PIX_FMT_YUYV,
+        V4L2_PIX_FMT_HEVC,
+    };
+
+    for (j = 0; j < (int)(sizeof(jpgSrcfmt) / sizeof(jpgSrcfmt[0])); j++)
+    {
+        memset(&frmsize, 0, sizeof(frmsize));
+        frmsize.pixel_format = jpgSrcfmt[j];
+        for (i = 0;; i++)
+        {
+            frmsize.index = i;
+
+            res = ioctl(mVinfo->fd, VIDIOC_ENUM_FRAMESIZES, &frmsize);
+            if (res < 0)
+            {
+                CAMHAL_LOGD("index=%d, break\n", i);
+                break;
+            }
+
+            if (frmsize.type == V4L2_FRMSIZE_TYPE_DISCRETE)
+            { // only support this type
+
+                memset(&fival, 0, sizeof(fival));
+                fival.pixel_format = jpgSrcfmt[j];
+                fival.width = frmsize.discrete.width;
+                fival.height = frmsize.discrete.height;
+                fival.index = 0;
+                fival.type = V4L2_FRMIVAL_TYPE_DISCRETE;
+                temp_rate=0;
+                framerate=0;
+                while ((ret = ioctl(mVinfo->fd, VIDIOC_ENUM_FRAMEINTERVALS, &fival)) == 0) {
+                    if ( fival.discrete.numerator != 0)
+                        temp_rate = fival.discrete.denominator / fival.discrete.numerator;
+
+                    if (framerate < temp_rate)
+                        framerate = temp_rate;
+
+                    fival.index++;
+                }
+
+                if (framerate < framerate_min)
+                    continue;
+
+                if (!IsAvailablePictureSize(kUsbAvailablePictureSize, frmsize.discrete.width, frmsize.discrete.height))
+                    continue;
+
+                streamInfo.pixelformat = jpgSrcfmt[j];
+                streamInfo.width = frmsize.discrete.width;
+                streamInfo.height = frmsize.discrete.height;
+                streamInfos.push_back(streamInfo);
+                if ((jpgSrcfmt[j] == V4L2_PIX_FMT_H264) && determineUseH264(frmsize.discrete.width, frmsize.discrete.height)) {
+                    isUseH264 = true;
+                 }
+            }
+        }
+    }
+}
+
+int USBSensorHWDec::getStreamConfigurations(uint32_t picSizes[], const int32_t kAvailableFormats[], int size)
+{
+    int res, ret;
+    int i, j, k, START;
+    int count = 0;
+    int temp_rate, framerate, framerate_min;
+    struct v4l2_frmsizeenum frmsize;
+    struct v4l2_frmivalenum fival;
+    unsigned int support_w, support_h;
+    bool isSameSize = false;
 
     support_w = 10000;
     support_h = 10000;
     memset(property, 0, sizeof(property));
-    if (property_get("vendor.media.camera_preview.maxsize", property, NULL) > 0) {
-        CAMHAL_LOGD("support Max Preview Size :%s",property);
-        if (sscanf(property,"%dx%d",&support_w,&support_h) != 2) {
+    if (property_get("vendor.media.camera_preview.maxsize", property, NULL) > 0)
+    {
+        CAMHAL_LOGD("support Max Preview Size :%s", property);
+        if (sscanf(property, "%dx%d", &support_w, &support_h) != 2)
+        {
             support_w = 10000;
             support_h = 10000;
         }
     }
 
-    memset(&frmsize,0,sizeof(frmsize));
-    frmsize.pixel_format = getOutputFormat();
+    framerate_min = property_get_int32("vendor.camera.frame.rate.min", 20);
+
+    uint32_t jpgSrcfmt[] = {
+        V4L2_PIX_FMT_MJPEG,
+        V4L2_PIX_FMT_H264,
+        V4L2_PIX_FMT_YUYV,
+        V4L2_PIX_FMT_HEVC,
+    };
+    uint32_t halPixelFormat[] = {
+        HAL_PIXEL_FORMAT_YCbCr_420_888,
+        HAL_PIXEL_FORMAT_BLOB,
+    };
 
     START = 0;
-    for (i = 0; ; i++) {
-        frmsize.index = i;
-        res = ioctl(mVinfo->fd, VIDIOC_ENUM_FRAMESIZES, &frmsize);
-        if (res < 0) {
-            CAMHAL_LOGD("index=%d, break\n", i);
-            break;
-        }
+    for (j = 0; j < (int)(sizeof(jpgSrcfmt) / sizeof(jpgSrcfmt[0])); j++)
+    {
+        memset(&frmsize, 0, sizeof(frmsize));
+        frmsize.pixel_format = jpgSrcfmt[j];
+        for (i = 0;; i++)
+        {
+            frmsize.index = i;
 
-        if (frmsize.type == V4L2_FRMSIZE_TYPE_DISCRETE) { //only support this type
-
-            if (0 != (frmsize.discrete.width%16))
-                continue;
-
-            if (frmsize.pixel_format != V4L2_PIX_FMT_H264 && frmsize.pixel_format != V4L2_PIX_FMT_HEVC) {
-                if ((frmsize.discrete.width * frmsize.discrete.height) > (support_w * support_h))
-                    continue;
-            }
-
-            if (!IsAvailablePictureSize(kUsbAvailablePictureSize, frmsize.discrete.width, frmsize.discrete.height))
-                continue;
-
-            if (count >= size)
+            res = ioctl(mVinfo->fd, VIDIOC_ENUM_FRAMESIZES, &frmsize);
+            if (res < 0)
+            {
+                CAMHAL_LOGD("index=%d, break\n", i);
                 break;
-
-            picSizes[count+0] = HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED;
-            picSizes[count+1] = frmsize.discrete.width;
-            picSizes[count+2] = frmsize.discrete.height;
-            picSizes[count+3] = ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT;
-
-            CAMHAL_LOGD("get output width=%d, height=%d, format=%s\n",
-                                    frmsize.discrete.width,
-                                    frmsize.discrete.height,
-                                    getformt(frmsize.pixel_format));
-
-            if (0 == i) {
-                count += 4;
-                continue;
             }
 
-            for (k = count; k > START; k -= 4) {
-                if (frmsize.discrete.width * frmsize.discrete.height >
-                        picSizes[k - 3] * picSizes[k - 2]) {
-                    picSizes[k + 1] = picSizes[k - 3];
-                    picSizes[k + 2] = picSizes[k - 2];
+            if (frmsize.type == V4L2_FRMSIZE_TYPE_DISCRETE)
+            { // only support this type
 
-                } else {
-                    break;
+                if (0 != (frmsize.discrete.width % 16))
+                    continue;
+
+                if (frmsize.pixel_format != V4L2_PIX_FMT_H264 && frmsize.pixel_format != V4L2_PIX_FMT_HEVC)
+                {
+                    if ((frmsize.discrete.width > support_w) && (frmsize.discrete.height > support_h))
+                        continue;
                 }
-            }
-            picSizes[k + 1] = frmsize.discrete.width;
-            picSizes[k + 2] = frmsize.discrete.height;
 
-            count += 4;
+                memset(&fival, 0, sizeof(fival));
+                fival.pixel_format = jpgSrcfmt[j];
+                fival.width = frmsize.discrete.width;
+                fival.height = frmsize.discrete.height;
+                fival.index = 0;
+                fival.type = V4L2_FRMIVAL_TYPE_DISCRETE;
+                temp_rate=0;
+                framerate=0;
+                while ((ret = ioctl(mVinfo->fd, VIDIOC_ENUM_FRAMEINTERVALS, &fival)) == 0) {
+                    if ( fival.discrete.numerator != 0)
+                        temp_rate = fival.discrete.denominator / fival.discrete.numerator;
+
+                    if (framerate < temp_rate)
+                        framerate = temp_rate;
+
+                    fival.index++;
+                }
+
+                if (framerate < framerate_min)
+                    continue;
+
+                if (count >= size)
+                    break;
+
+                if (!IsAvailablePictureSize(kUsbAvailablePictureSize, frmsize.discrete.width, frmsize.discrete.height))
+                    continue;
+
+                picSizes[count + 0] = HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED;
+                picSizes[count + 1] = frmsize.discrete.width;
+                picSizes[count + 2] = frmsize.discrete.height;
+                picSizes[count + 3] = ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT;
+
+                if ((j != 0) || (i != 0))
+                {
+                    for (int m = count; m > START; m -= 4)
+                    {
+                        if ((frmsize.discrete.width == picSizes[m - 3]) && (frmsize.discrete.height == picSizes[m - 2]))
+                        {
+                            isSameSize = true;
+                        }
+                    }
+                    if (isSameSize)
+                    {
+                        isSameSize = false;
+                        continue;
+                    }
+                }
+
+                if (0 == i)
+                {
+                    count += 4;
+                    continue;
+                }
+
+                // TODO insert in descend order
+                for (k = count; k > START; k -= 4)
+                {
+                    if (frmsize.discrete.width * frmsize.discrete.height >
+                        picSizes[k - 3] * picSizes[k - 2])
+                    {
+                        picSizes[k + 1] = picSizes[k - 3];
+                        picSizes[k + 2] = picSizes[k - 2];
+                    }
+                    else
+                    {
+                        break;
+                    }
+                }
+
+                picSizes[k + 1] = frmsize.discrete.width;
+                picSizes[k + 2] = frmsize.discrete.height;
+                CAMHAL_LOGD("get output width=%d, height=%d, format=%s\n",
+                                        frmsize.discrete.width,
+                                        frmsize.discrete.height,
+                                        getformt(frmsize.pixel_format));
+
+                count += 4;
+            }
         }
     }
-
-    START = count;
-    for (i = 0; ; i++) {
-        frmsize.index = i;
-        res = ioctl(mVinfo->fd, VIDIOC_ENUM_FRAMESIZES, &frmsize);
-        if (res < 0) {
-            CAMHAL_LOGD("index=%d, break\n", i);
-            break;
-        }
-
-        if (frmsize.type == V4L2_FRMSIZE_TYPE_DISCRETE) { //only support this type
-
-            if (0 != (frmsize.discrete.width%16))
-                continue;
-
-            if (frmsize.pixel_format != V4L2_PIX_FMT_H264 && frmsize.pixel_format != V4L2_PIX_FMT_HEVC) {
-                if ((frmsize.discrete.width * frmsize.discrete.height) > (support_w * support_h))
-                    continue;
-            }
-
-            if (!IsAvailablePictureSize(kUsbAvailablePictureSize, frmsize.discrete.width, frmsize.discrete.height))
-                continue;
-
-
-            if (count >= size)
-                break;
-
-            picSizes[count+0] = HAL_PIXEL_FORMAT_YCbCr_420_888;
-            picSizes[count+1] = frmsize.discrete.width;
-            picSizes[count+2] = frmsize.discrete.height;
-            picSizes[count+3] = ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT;
-
-            CAMHAL_LOGD("get output width=%d, height=%d, format=HAL_PIXEL_FORMAT_YCbCr_420_888\n",
-                                                    frmsize.discrete.width,
-                                                    frmsize.discrete.height);
-            if (0 == i) {
+    if (count != 0) {
+        START = count;
+        for (j = 0; j < (int)(sizeof(halPixelFormat) / sizeof(halPixelFormat[0])); j++) {
+            for (i = 0; i < START; i += 4) {
+                picSizes[count + 0] = halPixelFormat[j];
+                picSizes[count + 1] = picSizes[i+1];
+                picSizes[count + 2] = picSizes[i+2];
+                picSizes[count + 3] = ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT;
+                CAMHAL_LOGD("get output width=%d, height=%d, hal pixel format=%d\n",
+                                        picSizes[count + 1],
+                                        picSizes[count + 2],
+                                        halPixelFormat[j]);
                 count += 4;
-                continue;
             }
-
-            for (k = count; k > START; k -= 4) {
-                if (frmsize.discrete.width * frmsize.discrete.height >
-                        picSizes[k - 3] * picSizes[k - 2]) {
-                    picSizes[k + 1] = picSizes[k - 3];
-                    picSizes[k + 2] = picSizes[k - 2];
-
-                } else {
-                    break;
-                }
-            }
-            picSizes[k + 1] = frmsize.discrete.width;
-            picSizes[k + 2] = frmsize.discrete.height;
-
-            count += 4;
         }
+    } else {
+        CAMHAL_LOGD("no support pixel fmt");
     }
-
-    START = count;
-    for (i = 0; ; i++) {
-        frmsize.index = i;
-        res = ioctl(mVinfo->fd, VIDIOC_ENUM_FRAMESIZES, &frmsize);
-        if (res < 0) {
-            CAMHAL_LOGD("index=%d, break\n", i);
-            break;
-        }
-        if (frmsize.type == V4L2_FRMSIZE_TYPE_DISCRETE) { //only support this type
-
-            if (0 != (frmsize.discrete.width%16))
-                continue;
-
-            if (frmsize.pixel_format != V4L2_PIX_FMT_H264 && frmsize.pixel_format != V4L2_PIX_FMT_HEVC) {
-                if ((frmsize.discrete.width > support_w) && (frmsize.discrete.height >support_h))
-                    continue;
-            }
-
-            if (count >= size)
-                break;
-
-            if (!IsAvailablePictureSize(kUsbAvailablePictureSize, frmsize.discrete.width, frmsize.discrete.height))
-                continue;
-
-            picSizes[count+0] = HAL_PIXEL_FORMAT_BLOB;
-            picSizes[count+1] = frmsize.discrete.width;
-            picSizes[count+2] = frmsize.discrete.height;
-            picSizes[count+3] = ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT;
-
-            CAMHAL_LOGD("get output width=%d, height=%d, format=HAL_PIXEL_FORMAT_BLOB \n",
-                                                    frmsize.discrete.width,
-                                                    frmsize.discrete.height);
-
-            if (0 == i) {
-                count += 4;
-                continue;
-            }
-
-
-            //TODO insert in descend order
-            for (k = count; k > START; k -= 4) {
-                if (frmsize.discrete.width * frmsize.discrete.height >
-                        picSizes[k - 3] * picSizes[k - 2]) {
-                    picSizes[k + 1] = picSizes[k - 3];
-                    picSizes[k + 2] = picSizes[k - 2];
-
-                } else {
-                    break;
-                }
-            }
-
-            picSizes[k + 1] = frmsize.discrete.width;
-            picSizes[k + 2] = frmsize.discrete.height;
-
-            count += 4;
-        }
-    }
-
-
-    if (frmsize.index == 0)
-        CAMHAL_LOGD("no support pixel fmt for jpeg");
-
     return count;
-
 }
 
 int USBSensorHWDec::getStreamConfigurationDurations(uint32_t picSizes[], int64_t duration[], int size, bool flag)

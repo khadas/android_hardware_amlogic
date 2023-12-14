@@ -47,6 +47,7 @@ namespace android {
             status_t shutDown(void) override;
 
             status_t getOutputFormat(void) override;
+            status_t getOutputFormat(int width, int height, int pixelformat);
             status_t setOutputFormat(int width, int height, int pixelformat, channel ch) override;
             int halFormatToSensorFormat(uint32_t pixelfmt) override;
 
@@ -148,6 +149,7 @@ namespace android {
             void captureNV21UsbSensor(StreamBuffer b, uint32_t gain, bool needSensorOutBuf);
             void captureNV21UsbSensor(Vector<StreamBuffer>& b, uint32_t gain, bool isJpegRequest);
             int captureNV21UseSavedBuf(StreamBuffer &b, bufInfo * savedBuf);
+            void getStreamInfo(std::vector<streamInfo> &streamInfos);
             // ====== begin async decode. used for h264 =========
 public:
             void onDecodeOutBufReady(int out_fd, uint8_t* out_buf, uint32_t out_width, uint32_t out_height, uint64_t timestamp);
@@ -170,6 +172,8 @@ private:
 
             int  mDecodeFillThreadState;
             pthread_t mDecodeFillThreadId;
+            std::vector<streamInfo> mStreamInfos;
+            bool isUseH264;
 
             int startDecodeFillThread();
             int stopDecodeFillThread();

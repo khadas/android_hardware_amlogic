@@ -111,6 +111,13 @@ struct requestParameter {
     uint32_t requestFrameNumber;
 };
 
+struct streamInfo {
+    uint32_t pixelformat;
+    uint32_t width;
+    uint32_t height;
+    streamInfo() : pixelformat(0), width(0), height(0) {}
+};
+
 class Sensor: public Thread, public virtual RefBase {
   public:
 
