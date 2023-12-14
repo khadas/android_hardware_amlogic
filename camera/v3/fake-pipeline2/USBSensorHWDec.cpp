@@ -228,7 +228,7 @@ void USBSensorHWDec::determineDecoderWorkMode()
 
     // if prop is set. follow prop.
     property_get("vendor.media.camera.usb.asyncdec", property, "false");
-    if (strstr(property, "true")) {
+    if (strstr(property, "true") && v4l2OutPixFmt != V4L2_PIX_FMT_YUYV) {
         CAMHAL_LOGI("%s: got prop, decoder work mode async", __FUNCTION__);
         mHWDecoderWorkMode = ASYNC_DECODE_MODE;
         return ;
