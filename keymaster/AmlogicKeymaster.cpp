@@ -366,6 +366,8 @@ void getCsrForInstance(void) {
     const std::vector<uint8_t> challenge = generateChallenge();
     constexpr char fullName[] =
         "android.hardware.security.keymint.IRemotelyProvisionedComponent/default";
+    const std::string kSerialNoProp = "ro.serialno";
+
     AIBinder* rkpAiBinder = AServiceManager_getService(fullName);
     ::ndk::SpAIBinder rkp_binder(rkpAiBinder);
     auto rkp_service = IRemotelyProvisionedComponent::fromBinder(rkp_binder);
@@ -380,7 +382,7 @@ void getCsrForInstance(void) {
         return;
     }
 
-    auto [json, error] = jsonEncodeCsrWithBuild("default", *request);
+    auto [json, error] = jsonEncodeCsrWithBuild("default", *request, kSerialNoProp);
     if (!error.empty()) {
         ALOGE("Error JSON encoding");
         return;
