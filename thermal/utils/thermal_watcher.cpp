@@ -52,8 +52,8 @@ void ThermalWatcher::registerFilesToWatch(const std::set<std::string> &sensors_t
             continue;
         }
         watch_to_file_path_map_.emplace(fd.get(), path);
-        fds_.emplace_back(std::move(fd));
         looper_->addFd(fd.get(), 0, ::android::Looper::EVENT_INPUT, nullptr, nullptr);
+        fds_.emplace_back(std::move(fd));
     }
     monitored_sensors_.insert(sensors_to_watch.begin(), sensors_to_watch.end());
     if (!uevent_monitor) {
@@ -153,7 +153,7 @@ bool ThermalWatcher::threadLoop() {
     static constexpr int kMinPollIntervalMs = 2000;
     // Max uevent timeout 5mins
     static constexpr int kUeventPollTimeoutMs = 300000;
-    int fd;
+    int fd = -1;
     std::set<std::string> sensors;
 
     int timeout = (thermal_triggered_ || is_polling_) ? kMinPollIntervalMs : kUeventPollTimeoutMs;

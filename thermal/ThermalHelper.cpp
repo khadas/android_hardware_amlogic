@@ -326,7 +326,6 @@ bool ThermalHelper::initializeCoolingDevices(const std::map<std::string, std::st
                 kCoolingDeviceCurStateSuffix.data());
         if (!cooling_devices_.addThermalFile(cooling_device_name, path)) {
             LOG(ERROR) << "Could not add " << cooling_device_name << "to cooling device map";
-            continue;
         }
     }
 
