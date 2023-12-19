@@ -644,6 +644,7 @@ ndk::ScopedAStatus WifiChip::resetTxPowerScenario() {
 }
 
 ndk::ScopedAStatus WifiChip::setLatencyMode(IWifiChip::LatencyMode in_mode) {
+    LOG(DEBUG) << "in hardware wifi hal interface call wifi chip hal to change Latency mode ";
     return validateAndCall(this, WifiStatusCode::ERROR_WIFI_CHIP_INVALID,
                            &WifiChip::setLatencyModeInternal, in_mode);
 }

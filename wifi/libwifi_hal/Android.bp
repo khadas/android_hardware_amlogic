@@ -209,6 +209,10 @@ wifi_cc_defaults_droidlogic {
             qcwcn: {
                 shared_libs: ["libcld80211", "libcrypto"],
             },
+            mediaTek: {
+                shared_libs: ["libcrypto"],
+                defaults: ["google_wifi_config_lib_defaults"],
+            },
         },
     },
 }
@@ -232,6 +236,7 @@ cc_library_shared {
         "liblog",
         "libnl",
         "libutils",
+        "libcrypto",
     ],
     srcs: [
         "driver_tool.cpp",

@@ -133,6 +133,7 @@ cc_library_static {
         "libbinder_ndk",
         "libcutils",
         "liblog",
+        "libcrypto",
         "libnl",
         "libutils",
         "libwifi-hal-aml",
@@ -163,6 +164,7 @@ cc_binary {
         "libnl",
         "libutils",
         "libwifi-hal-aml",
+        "libcrypto",
         "libwifi-system-iface",
         "libxml2",
         "android.hardware.wifi-V1-ndk",
@@ -187,6 +189,7 @@ cc_binary {
     shared_libs: [
         "libbase",
         "libbinder_ndk",
+        "libcrypto",
         "libcutils",
         "liblog",
         "libnl",
