@@ -130,7 +130,7 @@ HdmiCecControl::HdmiCecControl(int event)
     mCecDevice.cec_connect_status = 0;
     mCecDevice.port_data = NULL;
     mCecDevice.playback_logical_addr = CEC_ADDR_BROADCAST;
-    mCecDevice.is_cec_enabled = true;
+    mCecDevice.is_cec_enabled = getPropertyBoolean(PROPERTY_CEC_ENABLED, true);
     mCecDevice.is_cec_controlled = true;
     mCecDevice.hdmi_cfg_init = false;
     mCecEvent = event;
@@ -175,9 +175,12 @@ HdmiCecControl::HdmiCecControl(int event)
 
     mMsgHandler = sp<MsgHandler>::make(this);
     mMsgHandler->startMsgQueue();
-    // Boot one touch play logic for aml products.
-    /* coverity[uninit_member] */
-    bootOneTouchPlay();
+    if (mCecDevice.is_cec_enabled) {
+        ioctl(mCecDevice.driver_fd, CEC_IOC_SET_OPTION_ENABLE_CEC, 1);
+        // Boot one touch play logic for aml products.
+        /* coverity[uninit_member] */
+        bootOneTouchPlay();
+    }
 }
 
 HdmiCecControl::~HdmiCecControl()
@@ -362,6 +365,8 @@ void HdmiCecControl::setOption(int flag, int value)
             if (mCecDevice.is_cec_enabled) {
                 mCecDevice.is_cec_controlled = true;
             }
+            setProperty(PROPERTY_CEC_ENABLED,
+                mCecDevice.is_cec_enabled ? CEC_STATE_ENABLED : CEC_STATE_UNABLED);
             if (handleCecEnabled(value)) {
                 return;
             }
@@ -381,7 +386,8 @@ void HdmiCecControl::setOption(int flag, int value)
                 mCecDevice.is_cec_controlled ? CEC_STATE_ENABLED : CEC_STATE_UNABLED);
             if (!mCecDevice.hdmi_cfg_init && mCecDevice.is_cec_controlled) {
                 LOGI("%s boot initialize hdmi cec config!", __FUNCTION__);
-                ioctl(mCecDevice.driver_fd, CEC_IOC_SET_OPTION_ENABLE_CEC, value);
+                bool isCecEnabled = getPropertyBoolean(PROPERTY_CEC_ENABLED, true);
+                ioctl(mCecDevice.driver_fd, CEC_IOC_SET_OPTION_ENABLE_CEC, isCecEnabled ? 1 : 0);
                 mCecDevice.hdmi_cfg_init = true;
             }
             /* removed for the tv compat logic has been moved to driver.
@@ -918,8 +924,8 @@ void HdmiCecControl::bootOneTouchPlay() {
         LOGE("%s failed to get boot reason", __FUNCTION__);
     }
 
-    if (strcmp(bootReason, BOOT_REASON_COLD) != 0
-        && strcmp(bootReason, BOOT_REASON_SHUTDOWN) != 0) {
+    if (strstr(bootReason, BOOT_REASON_COLD) != nullptr
+        && strstr(bootReason, BOOT_REASON_SHUTDOWN) != nullptr) {
         // Don't do this in any reboot scenarios except cold boot.
         // It will make sure that no one touch play is started in cts and ota cases.
         LOGD("It's not cold or shutdown boot");

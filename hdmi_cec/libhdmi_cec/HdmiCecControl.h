@@ -78,12 +78,13 @@
 #define PROPERTY_DEVICE_AUTO_POWEROFF   "persist.vendor.sys.cec.deviceautopoweroff"
 #define PROPERTY_LOGICAL_ADDRESS        "persist.vendor.sys.cec.logicaladdress"
 #define PROPERTY_POWER_STATE            "persist.vendor.sys.cec.power_state"
+#define PROPERTY_CEC_ENABLED            "persist.vendor.sys.cec.cec_enabled"
 
 //#define PROPERTY_BOOT_REASON            "sys.boot.reason"
 #define PROPERTY_BOOT_REASON            "sys.boot.reason"
 
-#define BOOT_REASON_COLD                "cold_boot"
-#define BOOT_REASON_SHUTDOWN            "shutdown_reboot"
+#define BOOT_REASON_COLD                "cold"
+#define BOOT_REASON_SHUTDOWN            "shutdown"
 
 #define PROPERTY_ARC_PORT               "persist.vendor.sys.arc_port"
 #define PROPERTY_CEC_DEBUG              "persist.vendor.sys.cec_debug"
