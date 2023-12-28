@@ -1479,6 +1479,8 @@ void USBSensorHWDec::force_reset_v4l2_capture()
 
 int USBSensorHWDec::captureNewImage() {
     uint32_t gain = mGainFactor;
+    uint8_t* solidBuffer = nullptr;
+    int solidBufferFd = -1;
     if (mUseStreamBufVecForDecoder) {
         bool isJpegRequest = false;
         for (size_t i = 0; i < mNextCapturedBuffers->size(); i++) {
@@ -1487,6 +1489,26 @@ int USBSensorHWDec::captureNewImage() {
                 " %d x %d, format %x, stride %d, buf %p, img %p",
                 i, b.streamId, b.width, b.height, b.format, b.stride,
                 b.buffer, b.img);
+            if (mTestPatternMode == ANDROID_SENSOR_TEST_PATTERN_MODE_SOLID_COLOR) {
+                mSensorWorkFlag = true;
+                if (mFlushFlag)
+                    break;
+                if (mExitSensorThread)
+                    break;
+                if (b.img != NULL) {
+                    memset(b.img, 0, b.width * b.height);
+                    memset(b.img + b.width * b.height, 128, b.width * b.height / 2);
+                } else {
+                    solidBuffer = mION->alloc_buffer(b.width * b.height * 3 / 2, &solidBufferFd, cache);
+                    memset(solidBuffer, 0, b.width * b.height);
+                    memset(solidBuffer + b.width * b.height, 128, b.width * b.height / 2);
+                    mGE2D->ge2d_copy(b.share_fd, solidBufferFd, b.width, b.height, V4L2_PIX_FMT_NV21);
+                    mION->free_buffer(solidBufferFd);
+                    solidBuffer = nullptr;
+                    solidBufferFd = -1;
+                }
+                continue;
+            }
             if  (b.format == HAL_PIXEL_FORMAT_BLOB) {
                 StreamBuffer bAux;
                 int orientation;
@@ -1522,7 +1544,10 @@ int USBSensorHWDec::captureNewImage() {
                 isJpegRequest = true;
             }
         }
-        captureNV21UsbSensor(*mNextCapturedBuffers, gain, isJpegRequest);
+        if (mTestPatternMode != ANDROID_SENSOR_TEST_PATTERN_MODE_SOLID_COLOR) {
+            CAMHAL_LOGVV("%s capture NV21", __FUNCTION__);
+            captureNV21UsbSensor(*mNextCapturedBuffers, gain, isJpegRequest);
+        }
         return 0;
     }
 

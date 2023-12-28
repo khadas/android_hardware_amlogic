@@ -165,6 +165,7 @@ class Sensor: public Thread, public virtual RefBase {
     virtual int getAutoFocus(uint8_t *afMode, uint8_t maxCount);
     void setRequestParameter(requestParameter &param);
     void setPictureRequest(Request &PicRequest);
+    void setTestPatternMode(int32_t testPatternMode);
     void  setFlushFlag(bool flushFlag);
     void setDeviceName(char* name);
     virtual status_t force_reset_sensor();
@@ -381,6 +382,7 @@ class Sensor: public Thread, public virtual RefBase {
 
     Scene mScene;
     bool mUnpluged;
+    int32_t mTestPatternMode;
     virtual int captureNewImage();
     void captureRaw(uint8_t *img, uint32_t gain, uint32_t stride);
     virtual void captureRGBA(uint8_t *img, uint32_t gain, uint32_t stride);

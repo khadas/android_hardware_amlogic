@@ -1190,9 +1190,6 @@ status_t EmulatedFakeCamera3::processCaptureRequest(
     HalBufferVector *buffers = NULL;
     Buffers *pictureSensorBuffers = NULL;
     HalBufferVector *pictureHalBuffers = NULL;
-
-
-
     if (mFlushTag) {
        CAMHAL_LOGD("already flush, but still send Capture Request .\n");
     }
@@ -1385,6 +1382,16 @@ status_t EmulatedFakeCamera3::processCaptureRequest(
       exposureTime = settings.find(ANDROID_SENSOR_EXPOSURE_TIME).data.i64[0];
       //frameDuration = settings.find(ANDROID_SENSOR_FRAME_DURATION).data.i64[0];
       sensitivity = settings.find(ANDROID_SENSOR_SENSITIVITY).data.i32[0];
+      auto testPatternMode = settings.find(ANDROID_SENSOR_TEST_PATTERN_MODE);
+      if (testPatternMode.count == 1) {
+        if (testPatternMode.data.i32[0] != ANDROID_SENSOR_TEST_PATTERN_MODE_OFF) {
+            mSensor->setTestPatternMode(ANDROID_SENSOR_TEST_PATTERN_MODE_SOLID_COLOR);
+            CAMHAL_LOGVV("%s patter mode is solid color", __FUNCTION__);
+        }
+      } else {
+        mSensor->setTestPatternMode(ANDROID_SENSOR_TEST_PATTERN_MODE_OFF);
+        CAMHAL_LOGVV("%s find none test pattern mode", __FUNCTION__);
+      }
 
       // preview
       sensorBuffers = new Buffers();

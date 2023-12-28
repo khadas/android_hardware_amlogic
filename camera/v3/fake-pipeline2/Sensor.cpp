@@ -217,7 +217,8 @@ Sensor::Sensor():
         checkFailCount(0),
         mNextCapturedBuffers(NULL),
         mScene(kResolution[0], kResolution[1], kElectronsPerLuxSecond),
-        mUnpluged(false)
+        mUnpluged(false),
+        mTestPatternMode(ANDROID_SENSOR_TEST_PATTERN_MODE_OFF)
 {
         char property[PROPERTY_VALUE_MAX];
 
@@ -1079,6 +1080,10 @@ void Sensor::setRequestParameter(requestParameter &param) {
     mNextBuffers = param.requestBuffers;
     mFrameNumber = param.requestFrameNumber;
     CAMHAL_LOGVV("framenumber: %d",mFrameNumber);
+}
+
+void Sensor::setTestPatternMode(int32_t testPatternMode) {
+    mTestPatternMode = testPatternMode;
 }
 
 void Sensor::setPictureRequest(Request &PicRequest) {
