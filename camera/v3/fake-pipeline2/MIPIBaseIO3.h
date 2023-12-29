@@ -25,7 +25,7 @@
 #include "CameraIO.h"
 //#include "KeyEvent.h"
 
-#define NUM_PICTURE_BUFFER (4)
+#define NUM_PICTURE_BUFFER (3)
 #define CLEAR(x) memset(&(x), 0, sizeof(x))
 
 #define V4L2_ROTATE_ID 0x980922  //V4L2_CID_ROTATE

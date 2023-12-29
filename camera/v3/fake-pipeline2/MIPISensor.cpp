@@ -519,7 +519,7 @@ void MIPISensor::captureYUYV(uint8_t *img, uint32_t gain, uint32_t stride) {
 void MIPISensor::setIOBufferNum()
 {
     char buffer_number[128];
-    int tmp = 6;
+    int tmp = 4;
     if (property_get("ro.vendor.mipicamera.iobuffer", buffer_number, NULL) > 0) {
         sscanf(buffer_number, "%d", &tmp);
         CAMHAL_LOGD(" get buffer number is %d from property \n",tmp);
