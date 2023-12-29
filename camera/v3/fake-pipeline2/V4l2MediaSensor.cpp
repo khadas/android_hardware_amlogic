@@ -209,7 +209,7 @@ V4l2MediaSensor::V4l2MediaSensor() {
 
     mMaxHeight = 0;
     mMaxWidth = 0;
-
+    mExtVinfo = NULL;
     CAMHAL_LOGD("construct V4l2MediaSensor");
 }
 
@@ -610,9 +610,6 @@ void V4l2MediaSensor::captureNV21(StreamBuffer b, uint32_t gain){
         mSensorWorkFlag = true;
         if (ret == NEW_FRAME)
             mVinfo->putback_frame();
-        if (mFlushFlag) {
-            break;
-        }
         break;
     }
 }

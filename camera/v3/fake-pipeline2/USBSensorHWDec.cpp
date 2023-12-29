@@ -102,6 +102,7 @@ USBSensorHWDec::USBSensorHWDec(int expectedV4l2OutPixFmt)
     memset(&mSensorOutBuf, 0, sizeof(mSensorOutBuf));
     memset(&mDecoderOutBuf, 0, sizeof(mDecoderOutBuf));
     mNeedStopDecodeFillThread = false;
+    mDecodeOutBufIsFresh = false;
     CAMHAL_LOGD("create usbsensorHWDec");
 }
 

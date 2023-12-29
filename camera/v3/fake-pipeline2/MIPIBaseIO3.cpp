@@ -53,6 +53,7 @@ VideoInfoUsePictureScaler::VideoInfoUsePictureScaler() {
     mRecordFd = -1;
     IO_PREVIEW_BUFFER = 4;
     //mMuteKeyStatus = EVENT_CAMERA_UNMUTE;
+    canvas_mode = false;
 }
 
 int VideoInfoUsePictureScaler::EnumerateFormat(uint32_t pixelformat){

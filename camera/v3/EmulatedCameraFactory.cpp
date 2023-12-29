@@ -533,7 +533,7 @@ void EmulatedCameraFactory::onStatusChanged(int videoId, int newStatus)
     /*
      * exception for hdmi camera hotpug. hdmi camera uses video70
      */
-    if (cameraId >=  MAX_USB_CAM_VIDEO_ID && cameraId != HDMI_VDIN_DEV_BEGIN_NUM)
+    if (videoId >=  MAX_USB_CAM_VIDEO_ID && videoId != HDMI_VDIN_DEV_BEGIN_NUM)
         return;
 
      // no existed cameras, ignore plug-out events;

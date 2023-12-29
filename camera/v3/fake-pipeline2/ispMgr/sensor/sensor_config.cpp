@@ -814,6 +814,12 @@ void cmos_get_external_calibration( const char *sensorName, int32_t calibMode, a
 
     if ((fpCalibSizeDy + fpCalibSizeSt) > total_size) {
         CAMHAL_LOGE("Bin size not match: fpCalibSize %u, total_size %u\n", fpCalibSizeDy + fpCalibSizeSt, total_size);
+
+        if (fpCalibDy)
+            fclose(fpCalibDy);
+
+        if (fpCalibSt)
+            fclose(fpCalibSt);
         return;
     }
 
@@ -831,6 +837,12 @@ void cmos_get_external_calibration( const char *sensorName, int32_t calibMode, a
     }
 
     if (read_count > total_size) {
+        if (fpCalibDy)
+            fclose(fpCalibDy);
+
+        if (fpCalibSt)
+            fclose(fpCalibSt);
+        free(b_buf);
         CAMHAL_LOGE("Failed to read bin file!\n");
         return;
     }

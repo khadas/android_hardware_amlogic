@@ -49,6 +49,7 @@ VideoInfoUseOneFd::VideoInfoUseOneFd(){
     tempbuflen = 0;
     dev_status = 0;
     IO_PREVIEW_BUFFER = 4;
+    canvas_mode = false;
 }
 
 VideoInfoUseOneFd::~VideoInfoUseOneFd() {

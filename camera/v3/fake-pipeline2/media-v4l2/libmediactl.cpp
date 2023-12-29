@@ -701,7 +701,9 @@ struct media_device *media_device_ref(struct media_device *media)
 void media_device_unref(struct media_device *media)
 {
     unsigned int i;
-
+    if (media == NULL) {
+        return;
+    }
     media->refcount--;
     if (media->refcount > 0)
         return;

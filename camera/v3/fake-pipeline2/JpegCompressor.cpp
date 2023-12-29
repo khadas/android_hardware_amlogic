@@ -1323,7 +1323,11 @@ exif_buffer * JpegCompressor::get_exif_buffer() {
     int res;
     int orientation;
     struct timeval sTv;
+#if defined(__LP64__)
     time_t times;
+#else
+    time64_t times;
+#endif
     struct tm tmstruct;
     char property[PROPERTY_VALUE_MAX];
     char UserCommentBuffer[64];
@@ -1370,8 +1374,16 @@ exif_buffer * JpegCompressor::get_exif_buffer() {
 
     /* time */
     /* this sould be last resort */
+#if defined(__LP64__)
     time(&times);
     tmstruct = *(localtime(&times)); //convert to local time
+
+#else
+    timeval tv_tmp;
+    res = gettimeofday(&tv_tmp, nullptr);
+    times = tv_tmp.tv_sec;
+    tmstruct = *(localtime64(&times));
+#endif
     res = gettimeofday (&sTv, NULL);
     strftime(exifcontent, 20, "%Y:%m:%d %H:%M:%S", &tmstruct);
     exif_entry_set_string (pEd, EXIF_IFD_0, EXIF_TAG_DATE_TIME, exifcontent);

@@ -26,7 +26,7 @@ class GlobalResource {
             static Mutex mLock;
             isp3a* mISP;
         private:
-            GlobalResource() {};
+            GlobalResource():mISP(NULL) {};
             ~GlobalResource(){};
 };
 }

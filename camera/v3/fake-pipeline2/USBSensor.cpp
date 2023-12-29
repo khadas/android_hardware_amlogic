@@ -129,6 +129,8 @@ USBSensor::USBSensor(int type)
     mAsyncEnable = false;
     mDecFillThreadNeedReset=false;
     mHwDecoderSensor = false;
+    mUsbSensorUtils = NULL;
+    memset(&mSensorOutBuf, 0, sizeof(struct StreamBuffer));
     CAMHAL_LOGD("create usbsensor");
 }
 
@@ -228,8 +230,12 @@ int USBSensor::SensorInit(int idx) {
     mVinfo->camera_init();
     setIOBufferNum();
     mSensorType = SENSOR_USB;
+    ret = getOutputFormat();
+    if (ret < 0) {
+        CAMHAL_LOGE("get format fail, errno=%d\n", ret);
+        return ret;
+    }
 
-    getOutputFormat();
     if (mUseHwType == HW_H264 && mDecodeMethod == DECODE_OMX) {
         mAsyncEnable = true;
         mHwDecoderSensor = true;

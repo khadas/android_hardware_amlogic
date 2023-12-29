@@ -101,6 +101,7 @@ OMXDecoder::OMXDecoder(bool useDMABuffer, bool keepOriginalSize) {
     if (strstr(property, "true")) {
         mEnableDewarp = true;
     }
+    VICPEnable = false;
 }
 
 OMXDecoder::~OMXDecoder() {
@@ -1212,7 +1213,9 @@ int OMXDecoder::DequeueBuffer(Vector<StreamBuffer>& b, bool isJpegRequest) {
                     } else {
                         CAMHAL_LOGE(" ge2d src w&h not equal dst w&h. hw dec not supported");
                     }
-                    mGE2D->doRotationAndMirror(b[i]);
+                    if (mGE2D) {
+                        mGE2D->doRotationAndMirror(b[i]);
+                    }
 #else
                     //no ge2d support
                     if (src_w == dst_w && src_h == dst_h) {
