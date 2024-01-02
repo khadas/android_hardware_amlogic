@@ -42,7 +42,6 @@ const usb_frmsize_discrete_t kUsbAvailablePictureSize[] = {
         {1280, 720},
         {1024, 768},
         {960, 720},
-        {720, 480},
         {640, 480},
         {352, 288},
         {320, 240},
