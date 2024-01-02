@@ -296,7 +296,7 @@ _III_imdct_l:
 
     @----
 
-    ldmia   sp, { r2, r3, r4, r5 }      @ r2..r3 = ct06, r4..r5 = ct04 (dont update sp)
+    ldmia   sp, { r2, r3, r4, r5 }      @ r2..r3 = ct06, r4..r5 = ct04 (don't update sp)
 
     @ r2..r3 = ct06
     @ r4..r5 = ct04
@@ -339,7 +339,7 @@ _III_imdct_l:
 
     @----
 
-    ldmia   sp, { r2, r3, r4, r5 }      @ r2..r3 = ct06, r4..r5 = ct04 (dont update sp)
+    ldmia   sp, { r2, r3, r4, r5 }      @ r2..r3 = ct06, r4..r5 = ct04 (don't update sp)
 
     @ r2..r3 = ct06
     @ r4..r5 = ct04
@@ -929,7 +929,7 @@ start_block_x18_to_x35:
 
     add     r1, r1, #(24*4)             @ r1 = &x[24]
 
-    ldmia   r1, { r0, r2, r3 }          @ load 3 words from x24, dont update pointer
+    ldmia   r1, { r0, r2, r3 }          @ load 3 words from x24, don't update pointer
 
     @ r0     = x24
     @ r1     = &x[24]

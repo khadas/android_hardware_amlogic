@@ -113,7 +113,6 @@ ifneq ($(BOARD_DISABLE_DVB_AUDIO), true)
     LOCAL_SHARED_LIBRARIES += libdvbaudioutils
 endif
 
-
 LOCAL_PRELINK_MODULE := false
 LOCAL_MODULE_TAGS := optional
 include $(BUILD_SHARED_LIBRARY)
