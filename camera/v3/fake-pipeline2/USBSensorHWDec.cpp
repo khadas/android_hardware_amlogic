@@ -1507,6 +1507,8 @@ int USBSensorHWDec::captureNewImage() {
                 bAux.format = pixelfmt;
                 bAux.stride = b.width;
                 bAux.buffer = NULL;
+                bAux.img = NULL;
+                bAux.share_fd = -1;
 #ifdef GE2D_ENABLE
                 if (getOutputFormat() == V4L2_PIX_FMT_YUYV) {
                     bAux.img = mION->alloc_buffer(b.width * b.height * 3,&bAux.share_fd, cache);

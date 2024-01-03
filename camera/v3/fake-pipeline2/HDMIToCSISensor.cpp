@@ -1128,6 +1128,8 @@ int HDMIToCSISensor::captureNewImage() {
                     bAux.format = pixelfmt;
                     bAux.stride = b.width;
                     bAux.buffer = NULL;
+                    bAux.img = NULL;
+                    bAux.share_fd = -1;
                 } else {
                     if ((orientation == 90) || (orientation == 270)) {
                         bAux.streamId = 0;
@@ -1136,6 +1138,8 @@ int HDMIToCSISensor::captureNewImage() {
                         bAux.format = pixelfmt;
                         bAux.stride = b.height;
                         bAux.buffer = NULL;
+                        bAux.img = NULL;
+                        bAux.share_fd = -1;
                     } else {
                         bAux.streamId = 0;
                         bAux.width = b.width;
@@ -1143,6 +1147,8 @@ int HDMIToCSISensor::captureNewImage() {
                         bAux.format = pixelfmt;
                         bAux.stride = b.width;
                         bAux.buffer = NULL;
+                        bAux.img = NULL;
+                        bAux.share_fd = -1;
                     }
                 }
                 // TODO: Reuse these

@@ -1706,6 +1706,8 @@ int USBSensor::captureNewImage() {
                 bAux.format = pixelfmt;
                 bAux.stride = b.width;
                 bAux.buffer = NULL;
+                bAux.share_fd = -1;
+                bAux.img = NULL;
 #ifdef GE2D_ENABLE
                 bAux.img = mION->alloc_buffer(b.width * b.height * 3,&bAux.share_fd);
 #else

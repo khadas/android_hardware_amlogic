@@ -1392,6 +1392,8 @@ int Sensor::captureNewImage() {
                 bAux.format = pixelfmt;
                 bAux.stride = b.width;
                 bAux.buffer = NULL;
+                bAux.img = NULL;
+                bAux.share_fd = -1;
                 // TODO: Reuse these
                 bAux.img = new uint8_t[b.width * b.height * 3];
                 mNextCapturedBuffers->push_back(bAux);

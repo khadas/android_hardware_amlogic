@@ -1029,11 +1029,17 @@ void JpegCompressor::cleanUp() {
     if (mFoundAux) {
         if (mAuxBuffer.streamId == 0) {
             //size_t size = mAuxBuffer.width * mAuxBuffer.height * 3;
-#ifdef GE2D_ENABLE
-            mION->free_buffer(mAuxBuffer.share_fd);
-#else
-            delete[] mAuxBuffer.img;
-#endif
+            if (mAuxBuffer.share_fd < 0 && mAuxBuffer.img) {
+                // no fd, has img; allocated by new;
+                delete[] mAuxBuffer.img;
+                mAuxBuffer.img = NULL;
+            } else if (mAuxBuffer.share_fd >= 0) {
+                // has fd. allocated by ion.
+                mION->free_buffer(mAuxBuffer.share_fd);
+                mAuxBuffer.share_fd = -1;
+            } else {
+                CAMHAL_LOGE("mAuxbuffer has not been allocated");
+            }
         } else if (!mSynchronous) {
             mListener->onJpegInputDone(mAuxBuffer);
         }

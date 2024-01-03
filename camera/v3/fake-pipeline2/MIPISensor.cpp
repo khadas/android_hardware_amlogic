@@ -907,6 +907,8 @@ int MIPISensor::captureNewImage() {
                 bAux.format = HAL_PIXEL_FORMAT_YCrCb_420_SP;
                 bAux.stride = b.width;
                 bAux.buffer = NULL;
+                bAux.img = NULL;
+                bAux.share_fd = -1;
 #ifdef GE2D_ENABLE
                 bAux.img = mION->alloc_buffer(b.width * b.height * 3, &bAux.share_fd);
 #else
