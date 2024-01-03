@@ -37,7 +37,7 @@
  * This file descriptor can be used as a standard pipe/socket descriptor.
  *
  * 'pipeName' is the name of the emulator service you want to connect to.
- * E.g. 'opengles' or 'camera'.
+ * E.G. 'opengles' or 'camera'.
  *
  * On success, return a valid file descriptor
  * Returns -1 on error, and errno gives the error code, e.g.:

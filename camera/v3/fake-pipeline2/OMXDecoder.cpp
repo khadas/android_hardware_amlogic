@@ -1004,7 +1004,7 @@ OMX_ERRORTYPE OMXDecoder::fillBufferDone(OMX_IN OMX_BUFFERHEADERTYPE *pBuffer)
 }
 
 OMX_ERRORTYPE OMXDecoder::OnEvent(
-        OMX_IN OMX_HANDLETYPE,/*ommit hComponent to avoid unused variable warning*/
+        OMX_IN OMX_HANDLETYPE,/*omit hComponent to avoid unused variable warning*/
         OMX_IN OMX_PTR pAppData,
         OMX_IN OMX_EVENTTYPE eEvent,
         OMX_IN OMX_U32 nData1,

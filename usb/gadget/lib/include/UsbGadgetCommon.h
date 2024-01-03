@@ -21,9 +21,6 @@
 #include <android-base/properties.h>
 #include <android-base/unique_fd.h>
 
-//#include <android/hardware/usb/gadget/1.2/IUsbGadget.h>
-//#include <android/hardware/usb/gadget/1.2/types.h>
-
 #include <dirent.h>
 #include <fcntl.h>
 #include <stdio.h>

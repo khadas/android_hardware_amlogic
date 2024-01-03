@@ -105,7 +105,8 @@ Return<void> Fastboot::doOemCommand(const hidl_string& /* oemCmd */, doOemComman
 }
 
 Return<void> Fastboot::getVariant(getVariant_cb _hidl_cb) {
-    _hidl_cb("cortex-a9", {Status::SUCCESS, ""});
+    std::string device = android::base::GetProperty("ro.product.device", "");
+    _hidl_cb(device, {Status::SUCCESS, ""});
     return Void();
 }
 

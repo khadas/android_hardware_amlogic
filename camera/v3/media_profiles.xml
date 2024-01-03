@@ -394,7 +394,7 @@
     <!--
         The VideoEditor Export codec profile and level values
         correspond to the values in OMX_Video.h.
-        E.g. for h264, profile value 1 means OMX_VIDEO_AVCProfileBaseline
+        E.G. for h264, profile value 1 means OMX_VIDEO_AVCProfileBaseline
         and  level 4096 means OMX_VIDEO_AVCLevel41.
         Please note that the values are in decimal.
         These values are for video encoder.
