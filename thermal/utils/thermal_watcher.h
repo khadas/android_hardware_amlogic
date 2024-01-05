@@ -82,7 +82,6 @@ class ThermalWatcher : public ::android::Thread {
 
     // Maps watcher filer descriptor to watched file path.
     std::unordered_map<int, std::string> watch_to_file_path_map_;
-    std::vector<::android::base::unique_fd> fds_;
 
     // The callback function. Called whenever thermal uevent is seen.
     // The function passed in should expect a string in the form (type).

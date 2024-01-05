@@ -53,7 +53,6 @@ void ThermalWatcher::registerFilesToWatch(const std::set<std::string> &sensors_t
         }
         watch_to_file_path_map_.emplace(fd.get(), path);
         looper_->addFd(fd.get(), 0, ::android::Looper::EVENT_INPUT, nullptr, nullptr);
-        fds_.emplace_back(std::move(fd));
     }
     monitored_sensors_.insert(sensors_to_watch.begin(), sensors_to_watch.end());
     if (!uevent_monitor) {
