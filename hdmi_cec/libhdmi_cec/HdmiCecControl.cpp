@@ -924,8 +924,8 @@ void HdmiCecControl::bootOneTouchPlay() {
         LOGE("%s failed to get boot reason", __FUNCTION__);
     }
 
-    if (strstr(bootReason, BOOT_REASON_COLD) != nullptr
-        && strstr(bootReason, BOOT_REASON_SHUTDOWN) != nullptr) {
+    if (strstr(bootReason, BOOT_REASON_COLD) == nullptr
+        && strstr(bootReason, BOOT_REASON_SHUTDOWN) == nullptr) {
         // Don't do this in any reboot scenarios except cold boot.
         // It will make sure that no one touch play is started in cts and ota cases.
         LOGD("It's not cold or shutdown boot");
