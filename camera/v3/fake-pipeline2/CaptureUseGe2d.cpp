@@ -84,6 +84,9 @@ namespace android {
 			ATRACE_CALL();
             //uint32_t width = mInfo->preview.format.fmt.pix.width;
             //uint32_t height = mInfo->preview.format.fmt.pix.height;
+            ATRACE_CALL();
+            uint32_t width = mInfo->preview.format.fmt.pix.width;
+            uint32_t height = mInfo->preview.format.fmt.pix.height;
             uint32_t format = mInfo->preview.format.fmt.pix.pixelformat;
 
             int dmabuf_fd = -1;
@@ -114,6 +117,9 @@ namespace android {
                     if (mInfo->preview.buf.length == b.width * b.height * 3/2) {
                         ALOGV("%s:dma buffer fd = %d \n",__FUNCTION__,dmabuf_fd);
                         ge2dDevice::ge2d_copy(b.share_fd,dmabuf_fd,b.stride,b.height,ge2dDevice::NV12);
+                    } else {
+                        ge2dDevice::ge2d_scale(b.share_fd, PIXEL_FORMAT_YCbCr_420_SP_NV12, b.stride, b.height,
+                                         dmabuf_fd, PIXEL_FORMAT_YCbCr_420_SP_NV12, width, height);
                     }
                     break;
                 default:

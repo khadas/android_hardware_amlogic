@@ -46,8 +46,8 @@ LOCAL_CFLAGS+=-DCAMHAL_HOSTNAME=\"${CAMHAL_HOSTNAME}\"
 LOCAL_CFLAGS+=-DCAMHAL_IP=\"${CAMHAL_IP}\"
 LOCAL_CFLAGS+=-DCAMHAL_PATH=\"${CAMHAL_PATH}\"
 ########################################################################################################
-GE2D_ENABLE := false
-GE2D_VERSION_2 := false
+GE2D_ENABLE := true
+GE2D_VERSION_2 := true
 ISP_ENABLE := false
 GDC_ENABLE := false
 LOCAL_SHARED_LIBRARIES:= \

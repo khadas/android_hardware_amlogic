@@ -37,6 +37,8 @@ public:
     static int imageScaler();
     static int ge2d_rotation(int dst_fd,size_t src_w, size_t src_h, int fmt,
                                                             int degree,aml_ge2d_t& amlge2d);
+    static int ge2d_scale(int dst_fd,int dst_fmt, size_t dst_w,size_t dst_h,
+                                          int src_fd, int src_fmt, size_t src_w, size_t src_h);
     static char* ge2d_alloc(size_t width, size_t height,int* share_fd,int fmt,aml_ge2d_t& amlge2d);
     static int ge2d_free(aml_ge2d_t& amlge2d);
     static int ge2d_copy_dma(int dst_fd, int src_fd, size_t width, size_t height,int fmt);
