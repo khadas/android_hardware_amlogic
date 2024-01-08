@@ -14,13 +14,11 @@
  * limitations under the License.
  */
 
-
 #define LOG_TAG "ge2d_stream"
 #define ATRACE_TAG (ATRACE_TAG_CAMERA | ATRACE_TAG_HAL | ATRACE_TAG_ALWAYS)
 #include <utils/Trace.h>
-
 #define RATIO_SCALE
-#include "amlogic_camera.h"
+#include <hardware/camera3.h>
 #include <CamHalDebugLog.h>
 #include "ge2d_stream.h"
 
@@ -30,29 +28,9 @@ namespace android {
 // ge2d transform
 //==================================================================================================
 ge2dTransform::ge2dTransform() {
-    memset(&m_amlge2d,0,sizeof(aml_ge2d_t));
-    memset(&(m_amlge2d.ge2dinfo.src_info[0]), 0, sizeof(buffer_info_t));
-    memset(&(m_amlge2d.ge2dinfo.src_info[1]), 0, sizeof(buffer_info_t));
-    memset(&(m_amlge2d.ge2dinfo.dst_info), 0, sizeof(buffer_info_t));
-
-    int ret = aml_ge2d_init(&m_amlge2d);
-    if (ret < 0) {
-        aml_ge2d_exit(&m_amlge2d);
-        CAMHAL_LOGE("%s: %s", __FUNCTION__,strerror(errno));
-    }
-    mFirst = false;
-    mION = IONInterface::get_instance();
-    m_share_fd = -1;
-    degree = 0;
 }
 
 ge2dTransform::~ge2dTransform() {
-    m_amlge2d.ge2dinfo.dst_info.memtype = GE2D_CANVAS_TYPE_INVALID;
-    m_amlge2d.ge2dinfo.dst_info.mem_alloc_type = AML_GE2D_MEM_INVALID;
-    m_amlge2d.ge2dinfo.dst_info.plane_number = 0;
-    m_amlge2d.ge2dinfo.dst_info.shared_fd[0] = -1;
-    aml_ge2d_mem_free(&m_amlge2d);
-    aml_ge2d_exit(&m_amlge2d);
 }
 
 int ge2dTransform::ge2d_copy(int dst_fd, int src_fd, size_t width, size_t height,int fmt)
@@ -86,257 +64,473 @@ int ge2dTransform::ge2d_copy_internal(int dst_fd, int dst_alloc_type,int src_fd,
 {
     ATRACE_CALL();
     CAMHAL_LOGVV("%s: E", __FUNCTION__);
+    aml_ge2d_t amlge2d;
+    memset(&amlge2d,0,sizeof(aml_ge2d_t));
+    memset(&(amlge2d.ge2dinfo.src_info[0]), 0, sizeof(buffer_info_t));
+    memset(&(amlge2d.ge2dinfo.src_info[1]), 0, sizeof(buffer_info_t));
+    memset(&(amlge2d.ge2dinfo.dst_info), 0, sizeof(buffer_info_t));
 
-    switch (fmt) {
-        case NV12:
-            m_amlge2d.ge2dinfo.src_info[0].format = PIXEL_FORMAT_YCbCr_420_SP_NV12;
-            m_amlge2d.ge2dinfo.src_info[1].format = PIXEL_FORMAT_YCbCr_420_SP_NV12;
-            m_amlge2d.ge2dinfo.dst_info.format = PIXEL_FORMAT_YCbCr_420_SP_NV12;
-            break;
-        case RGB:
-            m_amlge2d.ge2dinfo.src_info[0].format = PIXEL_FORMAT_RGB_888;
-            m_amlge2d.ge2dinfo.src_info[1].format = PIXEL_FORMAT_RGB_888;
-            m_amlge2d.ge2dinfo.dst_info.format = PIXEL_FORMAT_RGB_888;
-            break;
-        default:
-            m_amlge2d.ge2dinfo.src_info[0].format = PIXEL_FORMAT_YCbCr_420_SP_NV12;
-            m_amlge2d.ge2dinfo.src_info[1].format = PIXEL_FORMAT_YCbCr_420_SP_NV12;
-            m_amlge2d.ge2dinfo.dst_info.format = PIXEL_FORMAT_YCbCr_420_SP_NV12;
-            break;
-    }
-
-    m_amlge2d.ge2dinfo.src_info[0].canvas_w = width;
-    m_amlge2d.ge2dinfo.src_info[0].canvas_h = height;
-    m_amlge2d.ge2dinfo.src_info[0].plane_number = 1;
-    m_amlge2d.ge2dinfo.src_info[0].shared_fd[0] = src_fd;
-
-    m_amlge2d.ge2dinfo.src_info[1].canvas_w = width;
-    m_amlge2d.ge2dinfo.src_info[1].canvas_h = height;
-    m_amlge2d.ge2dinfo.src_info[1].plane_number = 1;
-    m_amlge2d.ge2dinfo.src_info[1].shared_fd[0] = -1;
-
-    m_amlge2d.ge2dinfo.dst_info.canvas_w = width;
-    m_amlge2d.ge2dinfo.dst_info.canvas_h = height;
-    m_amlge2d.ge2dinfo.dst_info.plane_number = 1;
-    m_amlge2d.ge2dinfo.dst_info.shared_fd[0] = dst_fd;
-
-    m_amlge2d.ge2dinfo.dst_info.rotation = GE2D_ROTATION_0;
-    m_amlge2d.ge2dinfo.offset = 0;
-    m_amlge2d.ge2dinfo.ge2d_op = AML_GE2D_STRETCHBLIT;
-    m_amlge2d.ge2dinfo.blend_mode = BLEND_MODE_PREMULTIPLIED;
-
-    m_amlge2d.ge2dinfo.src_info[0].memtype = GE2D_CANVAS_ALLOC;
-    m_amlge2d.ge2dinfo.src_info[0].mem_alloc_type = src_alloc_type;
-    m_amlge2d.ge2dinfo.src_info[1].memtype = /*GE2D_CANVAS_ALLOC;//*/GE2D_CANVAS_TYPE_INVALID;
-    m_amlge2d.ge2dinfo.src_info[1].mem_alloc_type = /*AML_GE2D_MEM_ION;//*/AML_GE2D_MEM_INVALID;
-    m_amlge2d.ge2dinfo.dst_info.memtype = GE2D_CANVAS_ALLOC;
-    m_amlge2d.ge2dinfo.dst_info.mem_alloc_type = dst_alloc_type;
-
-    m_amlge2d.ge2dinfo.src_info[0].rect.x = 0;
-    m_amlge2d.ge2dinfo.src_info[0].rect.y = 0;
-    m_amlge2d.ge2dinfo.src_info[0].rect.w = width;
-    m_amlge2d.ge2dinfo.src_info[0].rect.h = height;
-    //m_amlge2d.ge2dinfo.src_info[0].shared_fd[0] = src_fd;
-    m_amlge2d.ge2dinfo.src_info[0].layer_mode = 0;
-    //m_amlge2d.ge2dinfo.src_info[0].plane_number = 1;
-    m_amlge2d.ge2dinfo.src_info[0].plane_alpha = 0xff;
-
-    m_amlge2d.ge2dinfo.dst_info.rect.x = 0;
-    m_amlge2d.ge2dinfo.dst_info.rect.y = 0;
-    m_amlge2d.ge2dinfo.dst_info.rect.w = width;
-    m_amlge2d.ge2dinfo.dst_info.rect.h = height;
-    m_amlge2d.ge2dinfo.dst_info.rotation = GE2D_ROTATION_0;
-    //m_amlge2d.ge2dinfo.dst_info.shared_fd[0] = dst_fd;
-    //m_amlge2d.ge2dinfo.dst_info.plane_number = 1;
-
-    int ret = aml_ge2d_process(&m_amlge2d.ge2dinfo);
+    int ret = aml_ge2d_init(&amlge2d);
     if (ret < 0) {
-        aml_ge2d_exit(&m_amlge2d);
+        aml_ge2d_exit(&amlge2d);
         CAMHAL_LOGE("%s: %s", __FUNCTION__,strerror(errno));
         return ret;
     }
-    //aml_ge2d_exit(&amlge2d);
+
+    switch (fmt) {
+        case NV12:
+            amlge2d.ge2dinfo.src_info[0].format = PIXEL_FORMAT_YCbCr_420_SP_NV12;
+            amlge2d.ge2dinfo.src_info[1].format = PIXEL_FORMAT_YCbCr_420_SP_NV12;
+            amlge2d.ge2dinfo.dst_info.format = PIXEL_FORMAT_YCbCr_420_SP_NV12;
+            break;
+        case RGB:
+            amlge2d.ge2dinfo.src_info[0].format = PIXEL_FORMAT_RGB_888;
+            amlge2d.ge2dinfo.src_info[1].format = PIXEL_FORMAT_RGB_888;
+            amlge2d.ge2dinfo.dst_info.format = PIXEL_FORMAT_RGB_888;
+            break;
+        default:
+            amlge2d.ge2dinfo.src_info[0].format = PIXEL_FORMAT_YCbCr_420_SP_NV12;
+            amlge2d.ge2dinfo.src_info[1].format = PIXEL_FORMAT_YCbCr_420_SP_NV12;
+            amlge2d.ge2dinfo.dst_info.format = PIXEL_FORMAT_YCbCr_420_SP_NV12;
+            break;
+    }
+
+    amlge2d.ge2dinfo.src_info[0].canvas_w = width;
+    amlge2d.ge2dinfo.src_info[0].canvas_h = height;
+    amlge2d.ge2dinfo.src_info[0].plane_number = 1;
+    amlge2d.ge2dinfo.src_info[0].shared_fd[0] = src_fd;
+
+    amlge2d.ge2dinfo.src_info[1].canvas_w = width;
+    amlge2d.ge2dinfo.src_info[1].canvas_h = height;
+    amlge2d.ge2dinfo.src_info[1].plane_number = 1;
+    amlge2d.ge2dinfo.src_info[1].shared_fd[0] = -1;
+
+    amlge2d.ge2dinfo.dst_info.canvas_w = width;
+    amlge2d.ge2dinfo.dst_info.canvas_h = height;
+    amlge2d.ge2dinfo.dst_info.plane_number = 1;
+    amlge2d.ge2dinfo.dst_info.shared_fd[0] = dst_fd;
+
+    amlge2d.ge2dinfo.dst_info.rotation = GE2D_ROTATION_0;
+    amlge2d.ge2dinfo.offset = 0;
+    amlge2d.ge2dinfo.ge2d_op = AML_GE2D_STRETCHBLIT;
+    amlge2d.ge2dinfo.blend_mode = BLEND_MODE_PREMULTIPLIED;
+
+    amlge2d.ge2dinfo.src_info[0].memtype = GE2D_CANVAS_ALLOC;
+    amlge2d.ge2dinfo.src_info[0].mem_alloc_type = src_alloc_type;
+    amlge2d.ge2dinfo.src_info[1].memtype = /*GE2D_CANVAS_ALLOC;//*/GE2D_CANVAS_TYPE_INVALID;
+    amlge2d.ge2dinfo.src_info[1].mem_alloc_type = /*AML_GE2D_MEM_ION;//*/AML_GE2D_MEM_INVALID;
+    amlge2d.ge2dinfo.dst_info.memtype = GE2D_CANVAS_ALLOC;
+    amlge2d.ge2dinfo.dst_info.mem_alloc_type = dst_alloc_type;
+
+    amlge2d.ge2dinfo.src_info[0].rect.x = 0;
+    amlge2d.ge2dinfo.src_info[0].rect.y = 0;
+    amlge2d.ge2dinfo.src_info[0].rect.w = width;
+    amlge2d.ge2dinfo.src_info[0].rect.h = height;
+    //m_amlge2d.ge2dinfo.src_info[0].shared_fd[0] = src_fd;
+    amlge2d.ge2dinfo.src_info[0].layer_mode = 0;
+    //m_amlge2d.ge2dinfo.src_info[0].plane_number = 1;
+    amlge2d.ge2dinfo.src_info[0].plane_alpha = 0xff;
+
+    amlge2d.ge2dinfo.dst_info.rect.x = 0;
+    amlge2d.ge2dinfo.dst_info.rect.y = 0;
+    amlge2d.ge2dinfo.dst_info.rect.w = width;
+    amlge2d.ge2dinfo.dst_info.rect.h = height;
+    amlge2d.ge2dinfo.dst_info.rotation = GE2D_ROTATION_0;
+    //m_amlge2d.ge2dinfo.dst_info.shared_fd[0] = dst_fd;
+    //m_amlge2d.ge2dinfo.dst_info.plane_number = 1;
+
+    ret = aml_ge2d_process(&amlge2d.ge2dinfo);
+    if (ret < 0) {
+        aml_ge2d_exit(&amlge2d);
+        CAMHAL_LOGE("%s: %s", __FUNCTION__,strerror(errno));
+        return ret;
+    }
+    aml_ge2d_exit(&amlge2d);
     return 0;
 
 }
 
-int ge2dTransform::ge2d_mirror(int dst_fd,size_t src_w,
+int ge2dTransform::ge2d_mirror(int src_fd, int dst_fd,size_t src_w,
                 size_t src_h,int fmt) {
    ATRACE_CALL();
-   CAMHAL_LOGD("%s: src_w=%zu, src_h=%zu share_fd=%dE", __FUNCTION__, src_w, src_h, m_share_fd);
+   CAMHAL_LOGD("%s: src_w=%zu, src_h=%zu share_fd=%dE", __FUNCTION__, src_w, src_h, src_fd);
    int ret = 0;
-   switch (fmt) {
-       case NV12:
-              m_amlge2d.ge2dinfo.src_info[0].format = PIXEL_FORMAT_YCbCr_420_SP_NV12;
-           m_amlge2d.ge2dinfo.src_info[1].format = PIXEL_FORMAT_YCbCr_420_SP_NV12;
-           m_amlge2d.ge2dinfo.dst_info.format = PIXEL_FORMAT_YCbCr_420_SP_NV12;
-           break;
-       case RGB:
-           m_amlge2d.ge2dinfo.src_info[0].format = PIXEL_FORMAT_RGB_888;
-           m_amlge2d.ge2dinfo.src_info[1].format = PIXEL_FORMAT_RGB_888;
-           m_amlge2d.ge2dinfo.dst_info.format = PIXEL_FORMAT_RGB_888;
-           break;
-       default:
-            m_amlge2d.ge2dinfo.src_info[0].format = PIXEL_FORMAT_YCbCr_420_SP_NV12;
-            m_amlge2d.ge2dinfo.src_info[1].format = PIXEL_FORMAT_YCbCr_420_SP_NV12;
-            m_amlge2d.ge2dinfo.dst_info.format = PIXEL_FORMAT_YCbCr_420_SP_NV12;
-           break;
+
+   aml_ge2d_t amlge2d;
+   memset(&amlge2d,0,sizeof(aml_ge2d_t));
+   memset(&(amlge2d.ge2dinfo.src_info[0]), 0, sizeof(buffer_info_t));
+   memset(&(amlge2d.ge2dinfo.src_info[1]), 0, sizeof(buffer_info_t));
+   memset(&(amlge2d.ge2dinfo.dst_info), 0, sizeof(buffer_info_t));
+
+   ret = aml_ge2d_init(&amlge2d);
+   if (ret < 0) {
+       aml_ge2d_exit(&amlge2d);
+       CAMHAL_LOGE("%s: %s", __FUNCTION__,strerror(errno));
+       return ret;
    }
 
-    m_amlge2d.ge2dinfo.src_info[0].canvas_w = src_w;
-    m_amlge2d.ge2dinfo.src_info[0].canvas_h = src_h;
-    m_amlge2d.ge2dinfo.src_info[0].plane_number = 1;
-    m_amlge2d.ge2dinfo.src_info[0].shared_fd[0] = m_share_fd;
-
-    m_amlge2d.ge2dinfo.src_info[1].canvas_w = src_w;
-    m_amlge2d.ge2dinfo.src_info[1].canvas_h = src_h;
-    m_amlge2d.ge2dinfo.src_info[1].plane_number = 1;
-    m_amlge2d.ge2dinfo.src_info[1].shared_fd[0] = -1;
-
-   m_amlge2d.ge2dinfo.dst_info.canvas_w = src_w;
-   m_amlge2d.ge2dinfo.dst_info.canvas_h = src_h;
-   m_amlge2d.ge2dinfo.dst_info.plane_number = 1;
-   m_amlge2d.ge2dinfo.dst_info.shared_fd[0] = dst_fd;
-   m_amlge2d.ge2dinfo.dst_info.rotation = GE2D_ROTATION_0;
-   m_amlge2d.ge2dinfo.offset = 0;
-
-   m_amlge2d.ge2dinfo.blend_mode = BLEND_MODE_PREMULTIPLIED;
-
-   m_amlge2d.ge2dinfo.src_info[0].memtype = GE2D_CANVAS_ALLOC;
-   m_amlge2d.ge2dinfo.src_info[0].mem_alloc_type = AML_GE2D_MEM_ION;
-   m_amlge2d.ge2dinfo.src_info[1].memtype = GE2D_CANVAS_TYPE_INVALID;
-   m_amlge2d.ge2dinfo.src_info[1].mem_alloc_type = AML_GE2D_MEM_INVALID;
-   m_amlge2d.ge2dinfo.dst_info.memtype = GE2D_CANVAS_ALLOC;
-   m_amlge2d.ge2dinfo.dst_info.mem_alloc_type = AML_GE2D_MEM_ION;
-
-   m_amlge2d.ge2dinfo.src_info[0].rect.x = 0;
-   m_amlge2d.ge2dinfo.src_info[0].rect.y = 0;
-   m_amlge2d.ge2dinfo.src_info[0].rect.w = src_w;
-   m_amlge2d.ge2dinfo.src_info[0].rect.h = src_h;
-   m_amlge2d.ge2dinfo.src_info[0].layer_mode = 0;
-   //m_amlge2d.ge2dinfo.src_info[0].plane_number = 1;
-   m_amlge2d.ge2dinfo.src_info[0].plane_alpha = 0xff;
-
-
-   m_amlge2d.ge2dinfo.dst_info.rect.x = 0;
-   m_amlge2d.ge2dinfo.dst_info.rect.y = 0;
-   m_amlge2d.ge2dinfo.dst_info.rect.w = src_w;
-   m_amlge2d.ge2dinfo.dst_info.rect.h = src_h;
-   //m_amlge2d.ge2dinfo.dst_info.rotation = GE2D_ROTATION_0;
-   //m_amlge2d.ge2dinfo.dst_info.shared_fd[0] = dst_fd;
-   //m_amlge2d.ge2dinfo.dst_info.plane_number = 1;
-
-   switch (fmt) {
+    switch (fmt) {
        case NV12:
-           m_amlge2d.ge2dinfo.color = 0x008080ff;
-           break;
+            amlge2d.ge2dinfo.src_info[0].format = PIXEL_FORMAT_YCbCr_420_SP_NV12;
+            amlge2d.ge2dinfo.src_info[1].format = PIXEL_FORMAT_YCbCr_420_SP_NV12;
+            amlge2d.ge2dinfo.dst_info.format = PIXEL_FORMAT_YCbCr_420_SP_NV12;
+            break;
        case RGB:
-           m_amlge2d.ge2dinfo.color = 0;
-           break;
+            amlge2d.ge2dinfo.src_info[0].format = PIXEL_FORMAT_RGB_888;
+            amlge2d.ge2dinfo.src_info[1].format = PIXEL_FORMAT_RGB_888;
+            amlge2d.ge2dinfo.dst_info.format = PIXEL_FORMAT_RGB_888;
+            break;
        default:
-           m_amlge2d.ge2dinfo.color = 0x008080ff;
-           break;
-   }
-    m_amlge2d.ge2dinfo.ge2d_op = AML_GE2D_STRETCHBLIT;
+            amlge2d.ge2dinfo.src_info[0].format = PIXEL_FORMAT_YCbCr_420_SP_NV12;
+            amlge2d.ge2dinfo.src_info[1].format = PIXEL_FORMAT_YCbCr_420_SP_NV12;
+            amlge2d.ge2dinfo.dst_info.format = PIXEL_FORMAT_YCbCr_420_SP_NV12;
+            break;
+    }
 
-    m_amlge2d.ge2dinfo.dst_info.rotation = GE2D_MIRROR_X;
+    amlge2d.ge2dinfo.src_info[0].canvas_w = src_w;
+    amlge2d.ge2dinfo.src_info[0].canvas_h = src_h;
+    amlge2d.ge2dinfo.src_info[0].plane_number = 1;
+    amlge2d.ge2dinfo.src_info[0].shared_fd[0] = src_fd;
 
-    ret = aml_ge2d_process(&m_amlge2d.ge2dinfo);
+    amlge2d.ge2dinfo.src_info[1].canvas_w = src_w;
+    amlge2d.ge2dinfo.src_info[1].canvas_h = src_h;
+    amlge2d.ge2dinfo.src_info[1].plane_number = 1;
+    amlge2d.ge2dinfo.src_info[1].shared_fd[0] = -1;
+
+    amlge2d.ge2dinfo.dst_info.canvas_w = src_w;
+    amlge2d.ge2dinfo.dst_info.canvas_h = src_h;
+    amlge2d.ge2dinfo.dst_info.plane_number = 1;
+    amlge2d.ge2dinfo.dst_info.shared_fd[0] = dst_fd;
+    amlge2d.ge2dinfo.dst_info.rotation = GE2D_ROTATION_0;
+    amlge2d.ge2dinfo.offset = 0;
+
+    amlge2d.ge2dinfo.blend_mode = BLEND_MODE_PREMULTIPLIED;
+
+    amlge2d.ge2dinfo.src_info[0].memtype = GE2D_CANVAS_ALLOC;
+    amlge2d.ge2dinfo.src_info[0].mem_alloc_type = AML_GE2D_MEM_ION;
+    amlge2d.ge2dinfo.src_info[1].memtype = GE2D_CANVAS_TYPE_INVALID;
+    amlge2d.ge2dinfo.src_info[1].mem_alloc_type = AML_GE2D_MEM_INVALID;
+    amlge2d.ge2dinfo.dst_info.memtype = GE2D_CANVAS_ALLOC;
+    amlge2d.ge2dinfo.dst_info.mem_alloc_type = AML_GE2D_MEM_ION;
+
+    amlge2d.ge2dinfo.src_info[0].rect.x = 0;
+    amlge2d.ge2dinfo.src_info[0].rect.y = 0;
+    amlge2d.ge2dinfo.src_info[0].rect.w = src_w;
+    amlge2d.ge2dinfo.src_info[0].rect.h = src_h;
+    amlge2d.ge2dinfo.src_info[0].layer_mode = 0;
+    //m_amlge2d.ge2dinfo.src_info[0].plane_number = 1;
+    amlge2d.ge2dinfo.src_info[0].plane_alpha = 0xff;
+
+
+    amlge2d.ge2dinfo.dst_info.rect.x = 0;
+    amlge2d.ge2dinfo.dst_info.rect.y = 0;
+    amlge2d.ge2dinfo.dst_info.rect.w = src_w;
+    amlge2d.ge2dinfo.dst_info.rect.h = src_h;
+    //m_amlge2d.ge2dinfo.dst_info.rotation = GE2D_ROTATION_0;
+    //m_amlge2d.ge2dinfo.dst_info.shared_fd[0] = dst_fd;
+    //m_amlge2d.ge2dinfo.dst_info.plane_number = 1;
+
+    switch (fmt) {
+        case NV12:
+            amlge2d.ge2dinfo.color = 0x008080ff;
+            break;
+        case RGB:
+            amlge2d.ge2dinfo.color = 0;
+            break;
+        default:
+            amlge2d.ge2dinfo.color = 0x008080ff;
+            break;
+    }
+    amlge2d.ge2dinfo.ge2d_op = AML_GE2D_STRETCHBLIT;
+
+    amlge2d.ge2dinfo.dst_info.rotation = GE2D_MIRROR_X;
+
+    ret = aml_ge2d_process(&amlge2d.ge2dinfo);
     if (ret < 0) {
-        aml_ge2d_exit(&m_amlge2d);
+        aml_ge2d_exit(&amlge2d);
         CAMHAL_LOGVV("%s: %s", __FUNCTION__,strerror(errno));
         return ret;
     }
-   return 0;
+    aml_ge2d_exit(&amlge2d);
+    return 0;
 }
 
-int ge2dTransform::ge2d_flip(int dst_fd,size_t src_w,
+int ge2dTransform::ge2d_flip(int src_fd, int dst_fd,size_t src_w,
                               size_t src_h,int fmt)
 {
     ATRACE_CALL();
-    CAMHAL_LOGVV("%s: src_w=%zu, src_h=%zu share_fd = %d E", __FUNCTION__, src_w, src_h, m_share_fd);
+    CAMHAL_LOGVV("%s: src_w=%zu, src_h=%zu share_fd = %d E", __FUNCTION__, src_w, src_h, src_fd);
+    aml_ge2d_t amlge2d;
+    memset(&amlge2d,0,sizeof(aml_ge2d_t));
+    memset(&(amlge2d.ge2dinfo.src_info[0]), 0, sizeof(buffer_info_t));
+    memset(&(amlge2d.ge2dinfo.src_info[1]), 0, sizeof(buffer_info_t));
+    memset(&(amlge2d.ge2dinfo.dst_info), 0, sizeof(buffer_info_t));
+
+    int ret = aml_ge2d_init(&amlge2d);
+    if (ret < 0) {
+        aml_ge2d_exit(&amlge2d);
+        CAMHAL_LOGE("%s: %s", __FUNCTION__,strerror(errno));
+        return ret;
+    }
     switch (fmt) {
         case NV12:
-            m_amlge2d.ge2dinfo.src_info[0].format = PIXEL_FORMAT_YCbCr_420_SP_NV12;
-            m_amlge2d.ge2dinfo.src_info[1].format = PIXEL_FORMAT_YCbCr_420_SP_NV12;
-            m_amlge2d.ge2dinfo.dst_info.format = PIXEL_FORMAT_YCbCr_420_SP_NV12;
+            amlge2d.ge2dinfo.src_info[0].format = PIXEL_FORMAT_YCbCr_420_SP_NV12;
+            amlge2d.ge2dinfo.src_info[1].format = PIXEL_FORMAT_YCbCr_420_SP_NV12;
+            amlge2d.ge2dinfo.dst_info.format = PIXEL_FORMAT_YCbCr_420_SP_NV12;
             break;
         case RGB:
-            m_amlge2d.ge2dinfo.src_info[0].format = PIXEL_FORMAT_RGB_888;
-            m_amlge2d.ge2dinfo.src_info[1].format = PIXEL_FORMAT_RGB_888;
-            m_amlge2d.ge2dinfo.dst_info.format = PIXEL_FORMAT_RGB_888;
+            amlge2d.ge2dinfo.src_info[0].format = PIXEL_FORMAT_RGB_888;
+            amlge2d.ge2dinfo.src_info[1].format = PIXEL_FORMAT_RGB_888;
+            amlge2d.ge2dinfo.dst_info.format = PIXEL_FORMAT_RGB_888;
             break;
         default:
-            m_amlge2d.ge2dinfo.src_info[0].format = PIXEL_FORMAT_YCbCr_420_SP_NV12;
-            m_amlge2d.ge2dinfo.src_info[1].format = PIXEL_FORMAT_YCbCr_420_SP_NV12;
-            m_amlge2d.ge2dinfo.dst_info.format = PIXEL_FORMAT_YCbCr_420_SP_NV12;
+            amlge2d.ge2dinfo.src_info[0].format = PIXEL_FORMAT_YCbCr_420_SP_NV12;
+            amlge2d.ge2dinfo.src_info[1].format = PIXEL_FORMAT_YCbCr_420_SP_NV12;
+            amlge2d.ge2dinfo.dst_info.format = PIXEL_FORMAT_YCbCr_420_SP_NV12;
             break;
     }
 
+    amlge2d.ge2dinfo.src_info[0].canvas_w = src_w;
+    amlge2d.ge2dinfo.src_info[0].canvas_h = src_h;
+    amlge2d.ge2dinfo.src_info[0].plane_number = 1;
+    amlge2d.ge2dinfo.src_info[0].shared_fd[0] = src_fd;
 
-    m_amlge2d.ge2dinfo.src_info[0].canvas_w = src_w;
-    m_amlge2d.ge2dinfo.src_info[0].canvas_h = src_h;
-    m_amlge2d.ge2dinfo.src_info[0].plane_number = 1;
-    m_amlge2d.ge2dinfo.src_info[0].shared_fd[0] = m_share_fd;
+    amlge2d.ge2dinfo.src_info[1].canvas_w = src_h;
+    amlge2d.ge2dinfo.src_info[1].canvas_h = src_h;
+    amlge2d.ge2dinfo.src_info[1].plane_number = 1;
+    amlge2d.ge2dinfo.src_info[1].shared_fd[0] = -1;
 
-    m_amlge2d.ge2dinfo.src_info[1].canvas_w = src_h;
-    m_amlge2d.ge2dinfo.src_info[1].canvas_h = src_h;
-    m_amlge2d.ge2dinfo.src_info[1].plane_number = 1;
-    m_amlge2d.ge2dinfo.src_info[1].shared_fd[0] = -1;
+    amlge2d.ge2dinfo.dst_info.canvas_w = src_w;
+    amlge2d.ge2dinfo.dst_info.canvas_h = src_h;
+    amlge2d.ge2dinfo.dst_info.plane_number = 1;
+    amlge2d.ge2dinfo.dst_info.shared_fd[0] = dst_fd;
+    amlge2d.ge2dinfo.offset = 0;
 
-    m_amlge2d.ge2dinfo.dst_info.canvas_w = src_w;
-    m_amlge2d.ge2dinfo.dst_info.canvas_h = src_h;
-    m_amlge2d.ge2dinfo.dst_info.plane_number = 1;
-    m_amlge2d.ge2dinfo.dst_info.shared_fd[0] = dst_fd;
-    m_amlge2d.ge2dinfo.offset = 0;
+    amlge2d.ge2dinfo.blend_mode = BLEND_MODE_PREMULTIPLIED;
 
-    m_amlge2d.ge2dinfo.blend_mode = BLEND_MODE_PREMULTIPLIED;
+    amlge2d.ge2dinfo.src_info[0].memtype = GE2D_CANVAS_ALLOC;
+    amlge2d.ge2dinfo.src_info[0].mem_alloc_type = AML_GE2D_MEM_ION;
+    amlge2d.ge2dinfo.src_info[1].memtype = GE2D_CANVAS_TYPE_INVALID;
+    amlge2d.ge2dinfo.src_info[1].mem_alloc_type = AML_GE2D_MEM_INVALID;
+    amlge2d.ge2dinfo.dst_info.memtype = GE2D_CANVAS_ALLOC;
+    amlge2d.ge2dinfo.dst_info.mem_alloc_type = AML_GE2D_MEM_ION;
 
-    m_amlge2d.ge2dinfo.src_info[0].memtype = GE2D_CANVAS_ALLOC;
-    m_amlge2d.ge2dinfo.src_info[0].mem_alloc_type = AML_GE2D_MEM_ION;
-    m_amlge2d.ge2dinfo.src_info[1].memtype = GE2D_CANVAS_TYPE_INVALID;
-    m_amlge2d.ge2dinfo.src_info[1].mem_alloc_type = AML_GE2D_MEM_INVALID;
-    m_amlge2d.ge2dinfo.dst_info.memtype = GE2D_CANVAS_ALLOC;
-    m_amlge2d.ge2dinfo.dst_info.mem_alloc_type = AML_GE2D_MEM_ION;
-
-    m_amlge2d.ge2dinfo.src_info[0].rect.x = 0;
-    m_amlge2d.ge2dinfo.src_info[0].rect.y = 0;
-    m_amlge2d.ge2dinfo.src_info[0].rect.w = src_w;
-    m_amlge2d.ge2dinfo.src_info[0].rect.h = src_h;
-    m_amlge2d.ge2dinfo.src_info[0].layer_mode = 0;
+    amlge2d.ge2dinfo.src_info[0].rect.x = 0;
+    amlge2d.ge2dinfo.src_info[0].rect.y = 0;
+    amlge2d.ge2dinfo.src_info[0].rect.w = src_w;
+    amlge2d.ge2dinfo.src_info[0].rect.h = src_h;
+    amlge2d.ge2dinfo.src_info[0].layer_mode = 0;
     //m_amlge2d.ge2dinfo.src_info[0].plane_number = 1;
-    m_amlge2d.ge2dinfo.src_info[0].plane_alpha = 0xff;
+    amlge2d.ge2dinfo.src_info[0].plane_alpha = 0xff;
 
     //m_amlge2d.ge2dinfo.dst_info.shared_fd[0] = dst_fd;
     //m_amlge2d.ge2dinfo.dst_info.plane_number = 1;
 
-    m_amlge2d.ge2dinfo.dst_info.rect.x = 0;
-    m_amlge2d.ge2dinfo.dst_info.rect.y = 0;
-    m_amlge2d.ge2dinfo.dst_info.rect.w = src_w;
-    m_amlge2d.ge2dinfo.dst_info.rect.h = src_h;
-    m_amlge2d.ge2dinfo.dst_info.rotation = GE2D_ROTATION_0;
+    amlge2d.ge2dinfo.dst_info.rect.x = 0;
+    amlge2d.ge2dinfo.dst_info.rect.y = 0;
+    amlge2d.ge2dinfo.dst_info.rect.w = src_w;
+    amlge2d.ge2dinfo.dst_info.rect.h = src_h;
+    amlge2d.ge2dinfo.dst_info.rotation = GE2D_ROTATION_0;
     switch (fmt) {
         case NV12:
-            m_amlge2d.ge2dinfo.color = 0x008080ff;
+            amlge2d.ge2dinfo.color = 0x008080ff;
             break;
         case RGB:
-            m_amlge2d.ge2dinfo.color = 0;
+            amlge2d.ge2dinfo.color = 0;
             break;
         default:
-            m_amlge2d.ge2dinfo.color = 0x008080ff;
+            amlge2d.ge2dinfo.color = 0x008080ff;
             break;
     }
-    m_amlge2d.ge2dinfo.ge2d_op = AML_GE2D_STRETCHBLIT;
-    m_amlge2d.ge2dinfo.dst_info.rotation = GE2D_MIRROR_Y;
+    amlge2d.ge2dinfo.ge2d_op = AML_GE2D_STRETCHBLIT;
+    amlge2d.ge2dinfo.dst_info.rotation = GE2D_MIRROR_Y;
 
-    int ret = aml_ge2d_process(&m_amlge2d.ge2dinfo);
+    ret = aml_ge2d_process(&amlge2d.ge2dinfo);
     if (ret < 0) {
-        aml_ge2d_exit(&m_amlge2d);
+        aml_ge2d_exit(&amlge2d);
         CAMHAL_LOGVV("%s: %s", __FUNCTION__,strerror(errno));
         return ret;
     }
+    aml_ge2d_exit(&amlge2d);
     return 0;
 }
+
+int ge2dTransform::ge2d_rotation(int src_fd, int dst_fd,size_t src_w,
+                size_t src_h,int fmt, int degree) {
+    CAMHAL_LOGVV("%s: src_w=%zu, src_h=%zu share_fd =%d E", __FUNCTION__, src_w, src_h, src_fd);
+    aml_ge2d_t amlge2d;
+    memset(&amlge2d,0,sizeof(aml_ge2d_t));
+    memset(&(amlge2d.ge2dinfo.src_info[0]), 0, sizeof(buffer_info_t));
+    memset(&(amlge2d.ge2dinfo.src_info[1]), 0, sizeof(buffer_info_t));
+    memset(&(amlge2d.ge2dinfo.dst_info), 0, sizeof(buffer_info_t));
+
+    int ret = aml_ge2d_init(&amlge2d);
+    if (ret < 0) {
+        aml_ge2d_exit(&amlge2d);
+        CAMHAL_LOGE("%s: %s", __FUNCTION__,strerror(errno));
+        return ret;
+    }
+
+    switch (fmt) {
+        case NV12:
+            amlge2d.ge2dinfo.src_info[0].format = PIXEL_FORMAT_YCbCr_420_SP_NV12;
+            amlge2d.ge2dinfo.src_info[1].format = PIXEL_FORMAT_YCbCr_420_SP_NV12;
+            amlge2d.ge2dinfo.dst_info.format = PIXEL_FORMAT_YCbCr_420_SP_NV12;
+            break;
+        case RGB:
+            amlge2d.ge2dinfo.src_info[0].format = PIXEL_FORMAT_RGB_888;
+            amlge2d.ge2dinfo.src_info[1].format = PIXEL_FORMAT_RGB_888;
+            amlge2d.ge2dinfo.dst_info.format = PIXEL_FORMAT_RGB_888;
+            break;
+        default:
+            amlge2d.ge2dinfo.src_info[0].format = PIXEL_FORMAT_YCbCr_420_SP_NV12;
+            amlge2d.ge2dinfo.src_info[1].format = PIXEL_FORMAT_YCbCr_420_SP_NV12;
+            amlge2d.ge2dinfo.dst_info.format = PIXEL_FORMAT_YCbCr_420_SP_NV12;
+            break;
+    }
+    amlge2d.ge2dinfo.src_info[0].canvas_w = src_w;
+    amlge2d.ge2dinfo.src_info[0].canvas_h = src_h;
+    amlge2d.ge2dinfo.src_info[0].plane_number = 1;
+    amlge2d.ge2dinfo.src_info[0].shared_fd[0] = src_fd;
+
+    amlge2d.ge2dinfo.src_info[1].canvas_w = src_w;
+    amlge2d.ge2dinfo.src_info[1].canvas_h = src_h;
+    amlge2d.ge2dinfo.src_info[1].plane_number = 1;
+    amlge2d.ge2dinfo.src_info[1].shared_fd[0] = -1;
+
+    amlge2d.ge2dinfo.dst_info.canvas_w = src_w;
+    amlge2d.ge2dinfo.dst_info.canvas_h = src_h;
+    amlge2d.ge2dinfo.dst_info.plane_number = 1;
+    amlge2d.ge2dinfo.dst_info.shared_fd[0] = dst_fd;
+    switch (degree) {
+        case 0:
+            amlge2d.ge2dinfo.dst_info.rotation = GE2D_ROTATION_0;
+            break;
+        case 90:
+            amlge2d.ge2dinfo.dst_info.rotation = GE2D_ROTATION_90;
+            break;
+        case 180:
+            amlge2d.ge2dinfo.dst_info.rotation = GE2D_ROTATION_180;
+            break;
+        case 270:
+            amlge2d.ge2dinfo.dst_info.rotation = GE2D_ROTATION_270;
+            break;
+        default:
+            break;
+    }
+    amlge2d.ge2dinfo.offset = 0;
+
+    amlge2d.ge2dinfo.blend_mode = BLEND_MODE_PREMULTIPLIED;
+
+    amlge2d.ge2dinfo.src_info[0].memtype = GE2D_CANVAS_ALLOC;
+    amlge2d.ge2dinfo.src_info[0].mem_alloc_type = AML_GE2D_MEM_ION;
+    amlge2d.ge2dinfo.src_info[1].memtype = GE2D_CANVAS_TYPE_INVALID;
+    amlge2d.ge2dinfo.src_info[1].mem_alloc_type = AML_GE2D_MEM_INVALID;
+    amlge2d.ge2dinfo.dst_info.memtype = GE2D_CANVAS_ALLOC;
+    amlge2d.ge2dinfo.dst_info.mem_alloc_type = AML_GE2D_MEM_ION;
+
+    amlge2d.ge2dinfo.src_info[0].rect.x = 0;
+    amlge2d.ge2dinfo.src_info[0].rect.y = 0;
+    amlge2d.ge2dinfo.src_info[0].rect.w = src_w;
+    amlge2d.ge2dinfo.src_info[0].rect.h = src_h;
+    amlge2d.ge2dinfo.src_info[0].layer_mode = 0;
+    //m_amlge2d.ge2dinfo.src_info[0].plane_number = 1;
+    amlge2d.ge2dinfo.src_info[0].plane_alpha = 0xff;
+
+    //m_amlge2d.ge2dinfo.dst_info.shared_fd[0] = dst_fd;
+    //m_amlge2d.ge2dinfo.dst_info.plane_number = 1;
+
+    amlge2d.ge2dinfo.dst_info.rect.x = 0;
+    amlge2d.ge2dinfo.dst_info.rect.y = 0;
+    amlge2d.ge2dinfo.dst_info.rect.w = src_w;
+    amlge2d.ge2dinfo.dst_info.rect.h = src_h;
+    amlge2d.ge2dinfo.dst_info.rotation = GE2D_ROTATION_0;
+    switch (fmt) {
+        case NV12:
+            amlge2d.ge2dinfo.color = 0x008080ff;
+            break;
+        case RGB:
+            amlge2d.ge2dinfo.color = 0;
+            break;
+        default:
+            amlge2d.ge2dinfo.color = 0x008080ff;
+            break;
+    }
+    amlge2d.ge2dinfo.ge2d_op = AML_GE2D_FILLRECTANGLE;
+    ret = aml_ge2d_process(&amlge2d.ge2dinfo);
+    if (ret < 0) {
+        aml_ge2d_exit(&amlge2d);
+        CAMHAL_LOGVV("%s: %s", __FUNCTION__,strerror(errno));
+        return ret;
+    }
+
+    amlge2d.ge2dinfo.ge2d_op = AML_GE2D_STRETCHBLIT;
+#ifdef RATIO_SCALE
+    float ratio = (src_h*1.0)/(src_w*1.0);
+    switch (degree) {
+        case 0:
+            amlge2d.ge2dinfo.dst_info.rect.x = 0;
+            amlge2d.ge2dinfo.dst_info.rect.y = 0;
+            amlge2d.ge2dinfo.dst_info.rect.w = src_w;
+            amlge2d.ge2dinfo.dst_info.rect.h = src_h;
+            amlge2d.ge2dinfo.dst_info.rotation = GE2D_ROTATION_0;
+            break;
+        case 90:
+            amlge2d.ge2dinfo.dst_info.rect.x = (src_w - (ratio*src_h))/2;
+            amlge2d.ge2dinfo.dst_info.rect.y = 0;
+            amlge2d.ge2dinfo.dst_info.rect.w = ratio*src_h;
+            amlge2d.ge2dinfo.dst_info.rect.h = src_h;
+            amlge2d.ge2dinfo.dst_info.rotation = GE2D_ROTATION_90;
+            break;
+        case 180:
+            amlge2d.ge2dinfo.dst_info.rect.x = 0;
+            amlge2d.ge2dinfo.dst_info.rect.y = 0;
+            amlge2d.ge2dinfo.dst_info.rect.w = src_w;
+            amlge2d.ge2dinfo.dst_info.rect.h = src_h;
+            amlge2d.ge2dinfo.dst_info.rotation = GE2D_ROTATION_180;
+            break;
+        case 270:
+            amlge2d.ge2dinfo.dst_info.rect.x = (src_w - (ratio*src_h))/2;
+            amlge2d.ge2dinfo.dst_info.rect.y = 0;
+            amlge2d.ge2dinfo.dst_info.rect.w = ratio*src_h;
+            amlge2d.ge2dinfo.dst_info.rect.h = src_h;
+            amlge2d.ge2dinfo.dst_info.rotation = GE2D_ROTATION_270;
+            break;
+        default:
+            break;
+    }
+#else
+    amlge2d.ge2dinfo.dst_info.rect.x = 0;
+    amlge2d.ge2dinfo.dst_info.rect.y = 0;
+    amlge2d.ge2dinfo.dst_info.rect.w = src_w;
+    amlge2d.ge2dinfo.dst_info.rect.h = src_h;
+    switch (degree) {
+        case 0:
+            amlge2d.ge2dinfo.dst_info.rotation = GE2D_ROTATION_0;
+            break;
+        case 90:
+            amlge2d.ge2dinfo.dst_info.rotation = GE2D_ROTATION_90;
+            break;
+        case 180:
+            amlge2d.ge2dinfo.dst_info.rotation = GE2D_ROTATION_180;
+            break;
+        case 270:
+            amlge2d.ge2dinfo.dst_info.rotation = GE2D_ROTATION_270;
+            break;
+        default:
+            break;
+    };
+#endif
+    ret = aml_ge2d_process(&amlge2d.ge2dinfo);
+    if (ret < 0) {
+        aml_ge2d_exit(&amlge2d);
+        CAMHAL_LOGVV("%s: %s", __FUNCTION__,strerror(errno));
+        return ret;
+    }
+    aml_ge2d_exit(&amlge2d);
+    return 0;
+}
+
 
 int ge2dTransform::ge2d_convert_scale(int dst_fd, int dst_fmt, int dst_w, int dst_stride, int dst_h,
                                       int src_fd, int src_fmt, int src_w, int src_stride, int src_h)
@@ -501,6 +695,7 @@ int ge2dTransform::ge2d_scale(int dst_fd,int dst_fmt, size_t dst_w,
     amlge2d.ge2dinfo.src_info[0].plane_number = 1;
     amlge2d.ge2dinfo.src_info[0].plane_alpha = 0xff;
 
+
     amlge2d.ge2dinfo.dst_info.rect.x = 0;
     amlge2d.ge2dinfo.dst_info.rect.y = 0;
     amlge2d.ge2dinfo.dst_info.rect.w = dst_w;
@@ -531,51 +726,64 @@ int ge2dTransform::ge2d_scale(int dst_fd,int dst_fmt, size_t dst_w,
     return 0;
 }
 
-//format convert. eg. UYVY->NV12
 int ge2dTransform::ge2d_fmt_convert(int dst_fd,int dst_fmt, size_t dst_w,size_t dst_h,
                                     int src_fd, int src_fmt, size_t src_w, size_t src_h) {
 
-    m_amlge2d.ge2dinfo.src_info[0].shared_fd[0] = src_fd;
-    m_amlge2d.ge2dinfo.src_info[0].memtype = GE2D_CANVAS_ALLOC;
-    m_amlge2d.ge2dinfo.src_info[0].mem_alloc_type = AML_GE2D_MEM_ION;
-    m_amlge2d.ge2dinfo.src_info[1].memtype = GE2D_CANVAS_TYPE_INVALID;
-    m_amlge2d.ge2dinfo.src_info[1].mem_alloc_type = AML_GE2D_MEM_INVALID;
+    aml_ge2d_t amlge2d;
+    memset(&amlge2d,0,sizeof(aml_ge2d_t));
+    memset(&(amlge2d.ge2dinfo.src_info[0]), 0, sizeof(buffer_info_t));
+    memset(&(amlge2d.ge2dinfo.src_info[1]), 0, sizeof(buffer_info_t));
+    memset(&(amlge2d.ge2dinfo.dst_info), 0, sizeof(buffer_info_t));
 
-    m_amlge2d.ge2dinfo.src_info[0].plane_number = 1;
-    m_amlge2d.ge2dinfo.src_info[0].canvas_w = src_w;
-    m_amlge2d.ge2dinfo.src_info[0].canvas_h = src_h;
-    m_amlge2d.ge2dinfo.src_info[0].rect.x = 0;
-    m_amlge2d.ge2dinfo.src_info[0].rect.y = 0;
-    m_amlge2d.ge2dinfo.src_info[0].rect.w = src_w;
-    m_amlge2d.ge2dinfo.src_info[0].rect.h = src_h;
-
-    m_amlge2d.ge2dinfo.src_info[0].format = src_fmt ; //PIXEL_FORMAT_YCbCr_422_UYVY; //PIXEL_FORMAT_YCbCr_420_SP_NV12
-    m_amlge2d.ge2dinfo.src_info[0].plane_alpha = 0xFF; /* global plane alpha*/
-
-    m_amlge2d.ge2dinfo.dst_info.shared_fd[0] = dst_fd;
-    m_amlge2d.ge2dinfo.dst_info.memtype = GE2D_CANVAS_ALLOC;
-    m_amlge2d.ge2dinfo.dst_info.mem_alloc_type = AML_GE2D_MEM_ION;
-    m_amlge2d.ge2dinfo.dst_info.plane_number = 1;
-    m_amlge2d.ge2dinfo.dst_info.canvas_w = dst_w;
-    m_amlge2d.ge2dinfo.dst_info.canvas_h = dst_h;
-    m_amlge2d.ge2dinfo.dst_info.rect.x = 0;
-    m_amlge2d.ge2dinfo.dst_info.rect.y = 0;
-    m_amlge2d.ge2dinfo.dst_info.rect.w = dst_w;
-    m_amlge2d.ge2dinfo.dst_info.rect.h = dst_h;
-    m_amlge2d.ge2dinfo.dst_info.rotation = GE2D_ROTATION_0;
-    m_amlge2d.ge2dinfo.dst_info.format =  dst_fmt ; //PIXEL_FORMAT_YCbCr_420_SP_NV12; //PIXEL_FORMAT_RGBA_8888;
-    m_amlge2d.ge2dinfo.dst_info.plane_alpha = 0xFF; /* global plane alpha*/
-
-    m_amlge2d.ge2dinfo.ge2d_op = AML_GE2D_STRETCHBLIT;
-
-    int ret = aml_ge2d_process(&m_amlge2d.ge2dinfo);
+    int ret = aml_ge2d_init(&amlge2d);
     if (ret < 0) {
-        printf("ge2d process failed, %s (%d)\n", __func__, __LINE__);
+        aml_ge2d_exit(&amlge2d);
+        CAMHAL_LOGE("%s: %s", __FUNCTION__,strerror(errno));
         return ret;
     }
+
+    amlge2d.ge2dinfo.src_info[0].shared_fd[0] = src_fd;
+    amlge2d.ge2dinfo.src_info[0].memtype = GE2D_CANVAS_ALLOC;
+    amlge2d.ge2dinfo.src_info[0].mem_alloc_type = AML_GE2D_MEM_ION;
+    amlge2d.ge2dinfo.src_info[1].memtype = GE2D_CANVAS_TYPE_INVALID;
+    amlge2d.ge2dinfo.src_info[1].mem_alloc_type = AML_GE2D_MEM_INVALID;
+
+    amlge2d.ge2dinfo.src_info[0].plane_number = 1;
+    amlge2d.ge2dinfo.src_info[0].canvas_w = src_w;
+    amlge2d.ge2dinfo.src_info[0].canvas_h = src_h;
+    amlge2d.ge2dinfo.src_info[0].rect.x = 0;
+    amlge2d.ge2dinfo.src_info[0].rect.y = 0;
+    amlge2d.ge2dinfo.src_info[0].rect.w = src_w;
+    amlge2d.ge2dinfo.src_info[0].rect.h = src_h;
+
+    amlge2d.ge2dinfo.src_info[0].format = src_fmt ; //PIXEL_FORMAT_YCbCr_422_UYVY; //PIXEL_FORMAT_YCbCr_420_SP_NV12
+    amlge2d.ge2dinfo.src_info[0].plane_alpha = 0xFF; /* global plane alpha*/
+
+    amlge2d.ge2dinfo.dst_info.shared_fd[0] = dst_fd;
+    amlge2d.ge2dinfo.dst_info.memtype = GE2D_CANVAS_ALLOC;
+    amlge2d.ge2dinfo.dst_info.mem_alloc_type = AML_GE2D_MEM_ION;
+    amlge2d.ge2dinfo.dst_info.plane_number = 1;
+    amlge2d.ge2dinfo.dst_info.canvas_w = dst_w;
+    amlge2d.ge2dinfo.dst_info.canvas_h = dst_h;
+    amlge2d.ge2dinfo.dst_info.rect.x = 0;
+    amlge2d.ge2dinfo.dst_info.rect.y = 0;
+    amlge2d.ge2dinfo.dst_info.rect.w = dst_w;
+    amlge2d.ge2dinfo.dst_info.rect.h = dst_h;
+    amlge2d.ge2dinfo.dst_info.rotation = GE2D_ROTATION_0;
+    amlge2d.ge2dinfo.dst_info.format =  dst_fmt ; //PIXEL_FORMAT_YCbCr_420_SP_NV12; //PIXEL_FORMAT_RGBA_8888;
+    amlge2d.ge2dinfo.dst_info.plane_alpha = 0xFF; /* global plane alpha*/
+
+    amlge2d.ge2dinfo.ge2d_op = AML_GE2D_STRETCHBLIT;
+
+    ret = aml_ge2d_process(&amlge2d.ge2dinfo);
+    if (ret < 0) {
+        aml_ge2d_exit(&amlge2d);
+        CAMHAL_LOGE("ge2d process failed, %s (%d)\n", __func__, __LINE__);
+        return ret;
+    }
+    aml_ge2d_exit(&amlge2d);
     return ret;
 }
-
 
 //scale nv21 to other format
 int ge2dTransform::ge2d_keep_ration_scale(int dst_fd,int dst_fmt, size_t dst_w,
@@ -654,6 +862,7 @@ int ge2dTransform::ge2d_keep_ration_scale(int dst_fd,int dst_fmt, size_t dst_w,
     amlge2d.ge2dinfo.src_info[0].layer_mode = 0;
     amlge2d.ge2dinfo.src_info[0].plane_number = 1;
     amlge2d.ge2dinfo.src_info[0].plane_alpha = 0xff;
+
 
     amlge2d.ge2dinfo.dst_info.rect.x = 0;
     amlge2d.ge2dinfo.dst_info.rect.y = 0;
@@ -793,179 +1002,6 @@ int ge2dTransform::ge2d_keep_ration_scale(int dst_fd,int dst_fmt, size_t dst_w,
     return 0;
 }
 
-
-/*function: make image rotation some degree using ge2d device
-  dst_fd : the share fd of destination buffer.
-  src_w  : the width of source image.
-  src_h  : the height of source image
-  fmt    : the pixel format of source image
-  degree : the rotation degree
-  amlge2d: the ge2d device object which has allocate buffer for source image.
-*/
-int ge2dTransform::ge2d_rotation(int dst_fd,size_t src_w,
-                size_t src_h,int fmt, int degree) {
-
-    CAMHAL_LOGVV("%s: src_w=%zu, src_h=%zu share_fd =%d E", __FUNCTION__, src_w, src_h, m_share_fd);
-
-    switch (fmt) {
-        case NV12:
-            m_amlge2d.ge2dinfo.src_info[0].format = PIXEL_FORMAT_YCbCr_420_SP_NV12;
-            m_amlge2d.ge2dinfo.src_info[1].format = PIXEL_FORMAT_YCbCr_420_SP_NV12;
-            m_amlge2d.ge2dinfo.dst_info.format = PIXEL_FORMAT_YCbCr_420_SP_NV12;
-            break;
-        case RGB:
-            m_amlge2d.ge2dinfo.src_info[0].format = PIXEL_FORMAT_RGB_888;
-            m_amlge2d.ge2dinfo.src_info[1].format = PIXEL_FORMAT_RGB_888;
-            m_amlge2d.ge2dinfo.dst_info.format = PIXEL_FORMAT_RGB_888;
-            break;
-        default:
-            m_amlge2d.ge2dinfo.src_info[0].format = PIXEL_FORMAT_YCbCr_420_SP_NV12;
-            m_amlge2d.ge2dinfo.src_info[1].format = PIXEL_FORMAT_YCbCr_420_SP_NV12;
-            m_amlge2d.ge2dinfo.dst_info.format = PIXEL_FORMAT_YCbCr_420_SP_NV12;
-            break;
-    }
-    m_amlge2d.ge2dinfo.src_info[0].canvas_w = src_w;
-    m_amlge2d.ge2dinfo.src_info[0].canvas_h = src_h;
-    m_amlge2d.ge2dinfo.src_info[0].plane_number = 1;
-    m_amlge2d.ge2dinfo.src_info[0].shared_fd[0] = m_share_fd;
-
-    m_amlge2d.ge2dinfo.src_info[1].canvas_w = src_w;
-    m_amlge2d.ge2dinfo.src_info[1].canvas_h = src_h;
-    m_amlge2d.ge2dinfo.src_info[1].plane_number = 1;
-    m_amlge2d.ge2dinfo.src_info[1].shared_fd[0] = -1;
-
-    m_amlge2d.ge2dinfo.dst_info.canvas_w = src_w;
-    m_amlge2d.ge2dinfo.dst_info.canvas_h = src_h;
-    m_amlge2d.ge2dinfo.dst_info.plane_number = 1;
-    m_amlge2d.ge2dinfo.dst_info.shared_fd[0] = dst_fd;
-    switch (degree) {
-        case 0:
-            m_amlge2d.ge2dinfo.dst_info.rotation = GE2D_ROTATION_0;
-            break;
-        case 90:
-            m_amlge2d.ge2dinfo.dst_info.rotation = GE2D_ROTATION_90;
-            break;
-        case 180:
-            m_amlge2d.ge2dinfo.dst_info.rotation = GE2D_ROTATION_180;
-            break;
-        case 270:
-            m_amlge2d.ge2dinfo.dst_info.rotation = GE2D_ROTATION_270;
-            break;
-        default:
-            break;
-    }
-    m_amlge2d.ge2dinfo.offset = 0;
-
-    m_amlge2d.ge2dinfo.blend_mode = BLEND_MODE_PREMULTIPLIED;
-
-    m_amlge2d.ge2dinfo.src_info[0].memtype = GE2D_CANVAS_ALLOC;
-    m_amlge2d.ge2dinfo.src_info[0].mem_alloc_type = AML_GE2D_MEM_ION;
-    m_amlge2d.ge2dinfo.src_info[1].memtype = GE2D_CANVAS_TYPE_INVALID;
-    m_amlge2d.ge2dinfo.src_info[1].mem_alloc_type = AML_GE2D_MEM_INVALID;
-    m_amlge2d.ge2dinfo.dst_info.memtype = GE2D_CANVAS_ALLOC;
-    m_amlge2d.ge2dinfo.dst_info.mem_alloc_type = AML_GE2D_MEM_ION;
-
-    m_amlge2d.ge2dinfo.src_info[0].rect.x = 0;
-    m_amlge2d.ge2dinfo.src_info[0].rect.y = 0;
-    m_amlge2d.ge2dinfo.src_info[0].rect.w = src_w;
-    m_amlge2d.ge2dinfo.src_info[0].rect.h = src_h;
-    m_amlge2d.ge2dinfo.src_info[0].layer_mode = 0;
-    //m_amlge2d.ge2dinfo.src_info[0].plane_number = 1;
-    m_amlge2d.ge2dinfo.src_info[0].plane_alpha = 0xff;
-
-    //m_amlge2d.ge2dinfo.dst_info.shared_fd[0] = dst_fd;
-    //m_amlge2d.ge2dinfo.dst_info.plane_number = 1;
-
-    m_amlge2d.ge2dinfo.dst_info.rect.x = 0;
-    m_amlge2d.ge2dinfo.dst_info.rect.y = 0;
-    m_amlge2d.ge2dinfo.dst_info.rect.w = src_w;
-    m_amlge2d.ge2dinfo.dst_info.rect.h = src_h;
-    m_amlge2d.ge2dinfo.dst_info.rotation = GE2D_ROTATION_0;
-    switch (fmt) {
-        case NV12:
-            m_amlge2d.ge2dinfo.color = 0x008080ff;
-            break;
-        case RGB:
-            m_amlge2d.ge2dinfo.color = 0;
-            break;
-        default:
-            m_amlge2d.ge2dinfo.color = 0x008080ff;
-            break;
-    }
-    m_amlge2d.ge2dinfo.ge2d_op = AML_GE2D_FILLRECTANGLE;
-    int ret = aml_ge2d_process(&m_amlge2d.ge2dinfo);
-    if (ret < 0) {
-        aml_ge2d_exit(&m_amlge2d);
-        CAMHAL_LOGVV("%s: %s", __FUNCTION__,strerror(errno));
-        return ret;
-    }
-
-    m_amlge2d.ge2dinfo.ge2d_op = AML_GE2D_STRETCHBLIT;
-#ifdef RATIO_SCALE
-    float ratio = (src_h*1.0)/(src_w*1.0);
-    switch (degree) {
-        case 0:
-            m_amlge2d.ge2dinfo.dst_info.rect.x = 0;
-            m_amlge2d.ge2dinfo.dst_info.rect.y = 0;
-            m_amlge2d.ge2dinfo.dst_info.rect.w = src_w;
-            m_amlge2d.ge2dinfo.dst_info.rect.h = src_h;
-            m_amlge2d.ge2dinfo.dst_info.rotation = GE2D_ROTATION_0;
-            break;
-        case 90:
-            m_amlge2d.ge2dinfo.dst_info.rect.x = (src_w - (ratio*src_h))/2;
-            m_amlge2d.ge2dinfo.dst_info.rect.y = 0;
-            m_amlge2d.ge2dinfo.dst_info.rect.w = ratio*src_h;
-            m_amlge2d.ge2dinfo.dst_info.rect.h = src_h;
-            m_amlge2d.ge2dinfo.dst_info.rotation = GE2D_ROTATION_90;
-            break;
-        case 180:
-            m_amlge2d.ge2dinfo.dst_info.rect.x = 0;
-            m_amlge2d.ge2dinfo.dst_info.rect.y = 0;
-            m_amlge2d.ge2dinfo.dst_info.rect.w = src_w;
-            m_amlge2d.ge2dinfo.dst_info.rect.h = src_h;
-            m_amlge2d.ge2dinfo.dst_info.rotation = GE2D_ROTATION_180;
-            break;
-        case 270:
-            m_amlge2d.ge2dinfo.dst_info.rect.x = (src_w - (ratio*src_h))/2;
-            m_amlge2d.ge2dinfo.dst_info.rect.y = 0;
-            m_amlge2d.ge2dinfo.dst_info.rect.w = ratio*src_h;
-            m_amlge2d.ge2dinfo.dst_info.rect.h = src_h;
-            m_amlge2d.ge2dinfo.dst_info.rotation = GE2D_ROTATION_270;
-            break;
-        default:
-            break;
-    }
-#else
-    m_amlge2d.ge2dinfo.dst_info.rect.x = 0;
-    m_amlge2d.ge2dinfo.dst_info.rect.y = 0;
-    m_amlge2d.ge2dinfo.dst_info.rect.w = src_w;
-    m_amlge2d.ge2dinfo.dst_info.rect.h = src_h;
-    switch (degree) {
-        case 0:
-            m_amlge2d.ge2dinfo.dst_info.rotation = GE2D_ROTATION_0;
-            break;
-        case 90:
-            m_amlge2d.ge2dinfo.dst_info.rotation = GE2D_ROTATION_90;
-            break;
-        case 180:
-            m_amlge2d.ge2dinfo.dst_info.rotation = GE2D_ROTATION_180;
-            break;
-        case 270:
-            m_amlge2d.ge2dinfo.dst_info.rotation = GE2D_ROTATION_270;
-            break;
-        default:
-            break;
-    };
-#endif
-    ret = aml_ge2d_process(&m_amlge2d.ge2dinfo);
-    if (ret < 0) {
-        aml_ge2d_exit(&m_amlge2d);
-        CAMHAL_LOGVV("%s: %s", __FUNCTION__,strerror(errno));
-        return ret;
-    }
-    return 0;
-}
-
 int ge2dTransform::doRotationAndMirror(StreamBuffer b, bool forceMirror) {
     ATRACE_CALL();
     char property[PROPERTY_VALUE_MAX];
@@ -1020,33 +1056,38 @@ int ge2dTransform::doRotationAndMirror(StreamBuffer b, bool forceMirror) {
             size = width * height * 3/2;
             break;
     }
+    IONInterface* __ION;
+    int __shard_fd;
     if (mirror ||flip|| !!degree) {
-        mION->alloc_buffer(size,&m_share_fd);
+        __ION = IONInterface::get_instance();
+        __ION->alloc_buffer(size,&__shard_fd);
     }
     if (mirror) {
         //ge2d_alloc(width,height,&share_fd,GE2D_FORMAT,m_Amlge2d);
         /*copy image to memory allocated by ge2d*/
-        ge2d_copy(m_share_fd,b.share_fd,width,height,GE2D_FORMAT);
+        ge2d_copy(__shard_fd,b.share_fd,width,height,GE2D_FORMAT);
         /*if decode ok, then mirror the image*/
-        ge2d_mirror(b.share_fd,width,height,GE2D_FORMAT);
+        ge2d_mirror(__shard_fd, b.share_fd,width,height,GE2D_FORMAT);
     }
     if (flip) {
         //ge2d_alloc(width,height,&share_fd,GE2D_FORMAT,m_Amlge2d);
-        ge2d_copy(m_share_fd,b.share_fd,width,height,GE2D_FORMAT);
+        ge2d_copy(__shard_fd,b.share_fd,width,height,GE2D_FORMAT);
         /*if decode ok, then mirror the image*/
-        ge2d_flip(b.share_fd,width,height,GE2D_FORMAT);
+        ge2d_flip(__shard_fd, b.share_fd,width,height,GE2D_FORMAT);
     }
     if (!!degree) {
         //ge2d_alloc(width,height,&share_fd,GE2D_FORMAT,m_Amlge2d);
         /*copy image to memory allocated by ge2d*/
-        ge2d_copy(m_share_fd,b.share_fd,width,height,GE2D_FORMAT);
+        ge2d_copy(__shard_fd, b.share_fd,width,height,GE2D_FORMAT);
         /*if decode ok, then rotate the image*/
-        ge2d_rotation(b.share_fd,width,height,GE2D_FORMAT,degree);
+        ge2d_rotation(__shard_fd, b.share_fd,width,height,GE2D_FORMAT,degree);
     }
     if (mirror ||flip|| !!degree) {
-        mION->free_buffer(m_share_fd);
+        __ION->free_buffer(__shard_fd);
+        __ION->put_instance();
     }
     return 0;
 }
+
 
 }// namespace android
