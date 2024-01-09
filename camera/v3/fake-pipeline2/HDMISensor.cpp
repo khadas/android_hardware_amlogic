@@ -30,6 +30,7 @@
 #if ANDROID_PLATFORM_SDK_VERSION >= 28
 #include <amlogic/am_gralloc_ext.h>
 #endif
+#include "dewarp.h"
 
 #define ARRAY_SIZE(x) (sizeof((x))/sizeof(((x)[0])))
 
@@ -408,132 +409,28 @@ int HDMISensor::getStreamConfigurations(uint32_t picSizes[], const int32_t kAvai
 
 int HDMISensor::getStreamConfigurationDurations(uint32_t picSizes[], int64_t duration[], int size, bool flag)
 {
-    int ret=0; int framerate=0; int temp_rate=0;
-    struct v4l2_frmivalenum fival;
-    int i,j=0;
-    int count = 0;
-    int tmp_size = size;
-    memset(duration, 0 ,sizeof(int64_t) * size);
-    int pixelfmt_tbl[] = {
-        V4L2_PIX_FMT_MJPEG,
-        V4L2_PIX_FMT_YVU420,
-        V4L2_PIX_FMT_NV21,
-        V4L2_PIX_FMT_RGB24,
-        V4L2_PIX_FMT_YUYV,
-    };
-
-    for ( i = 0; i < (int) ARRAY_SIZE(pixelfmt_tbl); i++)
-    {
-        /* we got all duration for each resolution for prev format*/
-        if (count >= tmp_size)
-            break;
-
-        for ( ; size > 0; size-=4)
-        {
-            memset(&fival, 0, sizeof(fival));
-
-            for (fival.index = 0;;fival.index++)
-            {
-                fival.pixel_format = pixelfmt_tbl[i];
-                fival.width = picSizes[size-3];
-                fival.height = picSizes[size-2];
-                if ((ret = ioctl(mMPlaneCameraIO->fd, VIDIOC_ENUM_FRAMEINTERVALS, &fival)) == 0) {
-                    if (fival.type == V4L2_FRMIVAL_TYPE_DISCRETE) {
-                        if ( fival.discrete.numerator != 0) temp_rate = fival.discrete.denominator/fival.discrete.numerator;
-                        if (framerate < temp_rate)
-                            framerate = temp_rate;
-                        duration[count+0] = (int64_t)(picSizes[size-4]);
-                        duration[count+1] = (int64_t)(picSizes[size-3]);
-                        duration[count+2] = (int64_t)(picSizes[size-2]);
-                        if (framerate != 0) duration[count+3] = (int64_t)((1.0/framerate) * 1000000000);
-                        j++;
-                    } else if (fival.type == V4L2_FRMIVAL_TYPE_CONTINUOUS) {
-                        if ( fival.discrete.numerator != 0) temp_rate = fival.discrete.denominator/fival.discrete.numerator;
-                        if (framerate < temp_rate)
-                            framerate = temp_rate;
-                        duration[count+0] = (int64_t)picSizes[size-4];
-                        duration[count+1] = (int64_t)picSizes[size-3];
-                        duration[count+2] = (int64_t)picSizes[size-2];
-                        if (framerate != 0) duration[count+3] = (int64_t)((1.0/framerate) * 1000000000);
-                        j++;
-                    } else if (fival.type == V4L2_FRMIVAL_TYPE_STEPWISE) {
-                        if ( fival.discrete.numerator != 0) temp_rate = fival.discrete.denominator/fival.discrete.numerator;
-                        if (framerate < temp_rate)
-                            framerate = temp_rate;
-                        duration[count+0] = (int64_t)picSizes[size-4];
-                        duration[count+1] = (int64_t)picSizes[size-3];
-                        duration[count+2] = (int64_t)picSizes[size-2];
-                        if (framerate != 0) duration[count+3] = (int64_t)((1.0/framerate) * 1000000000);
-                        j++;
-                    }
-                } else {
-                    if (j > 0) {
-                        if (count >= tmp_size)
-                            break;
-                        duration[count+0] = (int64_t)(picSizes[size-4]);
-                        duration[count+1] = (int64_t)(picSizes[size-3]);
-                        duration[count+2] = (int64_t)(picSizes[size-2]);
-                        if (framerate == 5) {
-                            if ((!flag) && ((duration[count+0] == HAL_PIXEL_FORMAT_YCbCr_420_888)
-                                || (duration[count+0] == HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED)))
-                                duration[count+3] = 0;
-                            else
-                                duration[count+3] = (int64_t)200000000L;
-                        } else if (framerate == 10) {
-                            if ((!flag) && ((duration[count+0] == HAL_PIXEL_FORMAT_YCbCr_420_888)
-                                || (duration[count+0] == HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED)))
-                                duration[count+3] = 0;
-                            else
-                                duration[count+3] = (int64_t)100000000L;
-                        } else if (framerate == 15) {
-                            if ((!flag) && ((duration[count+0] == HAL_PIXEL_FORMAT_YCbCr_420_888)
-                                || (duration[count+0] == HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED)))
-                                duration[count+3] = 0;
-                            else
-                                duration[count+3] = (int64_t)66666666L;
-                        } else if (framerate == 30) {
-                            if ((!flag) && ((duration[count+0] == HAL_PIXEL_FORMAT_YCbCr_420_888)
-                                || (duration[count+0] == HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED)))
-                                duration[count+3] = 0;
-                            else {
-                                if (fival.width *fival.height >= 1920*1080)
-                                    duration[count+3] = (int64_t)66666666L;
-                                else
-                                    duration[count+3] = (int64_t)33333333L;
-                            }
-                        } else if (framerate == 60) {
-                            if ((!flag) && ((duration[count+0] == HAL_PIXEL_FORMAT_YCbCr_420_888)
-                                || (duration[count+0] == HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED)))
-                                duration[count+3] = 0;
-                            else {
-                                duration[count+3] = (int64_t)16666666L;
-                            }
-                        } else {
-                            if ((!flag) && ((duration[count+0] == HAL_PIXEL_FORMAT_YCbCr_420_888)
-                                || (duration[count+0] == HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED)))
-                                duration[count+3] = 0;
-                            else
-                                duration[count+3] = (int64_t)66666666L;
-                        }
-                        count += 4;
-                        break;
-                    } else {
-                        break;
-                    }
-                }
-            }
-            framerate=0;
-            j=0;
-        }
-        size = tmp_size;
-    }
-
-    return count;
-
+    uint32_t count = 0;
+    duration[count+0] = HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED;
+    duration[count+1] = 1920;
+    duration[count+2] = 1080;
+    duration[count+3] = (int64_t)16666666L;
+    count += 4;
+    duration[count+0] = HAL_PIXEL_FORMAT_YCbCr_420_888;
+    duration[count+1] = 1920;
+    duration[count+2] = 1080;
+    duration[count+3] = (int64_t)16666666L;
+    count += 4;
+    duration[count+0] = HAL_PIXEL_FORMAT_BLOB;
+    duration[count+1] = 1920;
+    duration[count+2] = 1080;
+    duration[count+3] = (int64_t)16666666L;
+    count += 4;
+    
+    return (int)count;
 }
 
 int64_t HDMISensor::getMinFrameDuration() {
-    int64_t minFrameDuration =  1000000000L/60L ; // 30fps
+    int64_t minFrameDuration =  1000000000L/60L ; // 60fps
     ALOGW("%s to be implemented, minframeduration  %" PRId64 "\n", __func__, minFrameDuration);
     return minFrameDuration;
 }
@@ -563,7 +460,27 @@ void HDMISensor::captureNV21(StreamBuffer b, uint32_t gain) {
     if (kernel_dma_fd != -1) {
         if (mMPlaneCameraIO->format.fmt.pix.pixelformat == V4L2_PIX_FMT_NV21) {
             if ((width == b.width) && (height == b.height)) {
-                mGE2D->ge2d_copy(b.share_fd, kernel_dma_fd, b.stride,b.height, ge2dTransform::NV12);
+                //mGE2D->ge2d_copy(b.share_fd, kernel_dma_fd, b.stride,b.height, ge2dTransform::NV12);
+                        //mGE2D->ge2d_copy(dst_fd, omx_share_fd, dst_w, dst_h, ge2dTransform::NV12);
+                        		char property[PROPERTY_VALUE_MAX];
+        property_get("vendor.camhal.use.dewarp", property, "false");
+        if (strstr(property, "true")) {//dewarp
+        DeWarp* GDCObj = nullptr;
+        property_get("vendor.camhal.use.dewarp.linear", property, "false");
+        CameraConfig* config = CameraConfig::getInstance(DEWARP_CAM2PORT_CAPTURE);
+        config->setWidth(b.stride);
+        config->setHeight(b.height);
+        if (strstr(property, "true")) {
+            GDCObj = DeWarp::getInstance(DEWARP_CAM2PORT_CAPTURE,PROJ_MODE_LINEAR,ROTATION_0);
+        } else {
+            GDCObj = DeWarp::getInstance(DEWARP_CAM2PORT_CAPTURE,PROJ_MODE_EQUISOLID,ROTATION_0);
+        }
+        if (GDCObj) {
+            GDCObj->mInput_fd = kernel_dma_fd;
+            GDCObj->mOutput_fd = b.share_fd;
+            GDCObj->gdc_do_fisheye_correction();
+           }       
+       }
             } else {
                 mGE2D->ge2d_scale(b.share_fd, PIXEL_FORMAT_YCbCr_420_SP_NV12, b.width, b.height, kernel_dma_fd, width, height);
             }
@@ -596,7 +513,26 @@ void HDMISensor::captureNV21(StreamBuffer b, uint32_t gain) {
         mTimeOutCount = 0;
         if (mMPlaneCameraIO->format.fmt.pix.pixelformat == V4L2_PIX_FMT_NV21) {
             if (width == b.width && height == b.height) {
-                mGE2D->ge2d_copy(b.share_fd, output_info.dma_fd, b.stride,b.height, ge2dTransform::NV12);
+                //mGE2D->ge2d_copy(b.share_fd, output_info.dma_fd, b.stride,b.height, ge2dTransform::NV12);
+        char property[PROPERTY_VALUE_MAX];
+        property_get("vendor.camhal.use.dewarp", property, "false");
+        if (strstr(property, "true")) {//dewarp
+        DeWarp* GDCObj = nullptr;
+        property_get("vendor.camhal.use.dewarp.linear", property, "false");
+        CameraConfig* config = CameraConfig::getInstance(DEWARP_CAM2PORT_CAPTURE);
+        config->setWidth(b.stride);
+        config->setHeight(b.height);
+        if (strstr(property, "true")) {
+            GDCObj = DeWarp::getInstance(DEWARP_CAM2PORT_CAPTURE,PROJ_MODE_LINEAR,ROTATION_0);
+        } else {
+            GDCObj = DeWarp::getInstance(DEWARP_CAM2PORT_CAPTURE,PROJ_MODE_EQUISOLID,ROTATION_0);
+        }
+        if (GDCObj) {
+            GDCObj->mInput_fd = output_info.dma_fd;
+            GDCObj->mOutput_fd = b.share_fd;
+            GDCObj->gdc_do_fisheye_correction();
+           }       
+       }
             } else {
                 mGE2D->ge2d_scale(b.share_fd, PIXEL_FORMAT_YCbCr_420_SP_NV12, b.width, b.height, output_info.dma_fd, width, height);
             }

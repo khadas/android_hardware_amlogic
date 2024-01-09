@@ -1090,7 +1090,7 @@ const camera_metadata_t* EmulatedFakeCamera3::constructDefaultRequestSettings(
     settings.update(ANDROID_CONTROL_AE_EXPOSURE_COMPENSATION, &aeExpCompensation, 1);
 
     static const int32_t aeTargetFpsRange[2] = {
-        30, 30
+        30, 60
     };
     settings.update(ANDROID_CONTROL_AE_TARGET_FPS_RANGE, aeTargetFpsRange, 2);
 
