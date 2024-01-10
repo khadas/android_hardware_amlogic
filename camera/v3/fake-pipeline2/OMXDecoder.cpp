@@ -1172,8 +1172,8 @@ int OMXDecoder::DequeueBuffer(Vector<StreamBuffer>& b, bool isJpegRequest) {
                                 CameraConfig* config = CameraConfig::getInstance(port);
                                 config->setInputWidth(mInWidth);
                                 config->setInputHeight(mInHeight);
-                                config->setWidth(b[i].width);
-                                config->setHeight(b[i].height);
+                                config->setOutputWidth(b[i].width);
+                                config->setOutputHeight(b[i].height);
                                 GDCObj = DeWarp::getInstance(port, PROJ_MODE_LINEAR, Rotation::ROTATION_0);
                                 if (GDCObj) {
                                     GDCObj->mInput_fd = omx_share_fd;

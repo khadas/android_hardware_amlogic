@@ -45,8 +45,11 @@ struct StreamBuffer {
     buffer_handle_t *buffer;
     uint8_t *img;
     int     share_fd;
-    static bool comp (const StreamBuffer &a, const StreamBuffer &b) {
+    static bool comp_greater (const StreamBuffer &a, const StreamBuffer &b) {
         return a.width > b.width;
+    };
+    static bool comp_less (const StreamBuffer &a, const StreamBuffer &b) {
+        return a.width < b.width;
     };
 };
 typedef Vector<StreamBuffer> Buffers;
@@ -102,6 +105,14 @@ typedef enum channel {
     channel_record  = 2,
     channel_all     = 3,
 } channel_t;
+
+struct dewarpInfo {
+    int o_width;
+    int o_height;
+    int i_width;
+    int i_height;
+    dewarpInfo() : o_width(0), o_height(0), i_width(0), i_height(0) {}
+    };
 
 } // namespace android;
 

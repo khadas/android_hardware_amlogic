@@ -64,14 +64,6 @@ struct GrallocBufInfo {
     uint32_t stride;
 };
 
-struct dewarpInfo {
-    int o_width;
-    int o_height;
-    int i_width;
-    int i_height;
-    dewarpInfo() : o_width(0), o_height(0), i_width(0), i_height(0) {}
-};
-
 class OMXDecoder
 {
 public:

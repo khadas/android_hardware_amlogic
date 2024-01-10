@@ -25,13 +25,13 @@ namespace android {
         public:
             static CameraConfig* mInstance[ISP_PORT_NUM];
             struct GDCParam {
-                uint32_t width;
-                uint32_t height;
-                uint32_t stride;
-                uint32_t input_stride;
+                uint32_t o_width;
+                uint32_t o_height;
+                uint32_t o_stride;
+                uint32_t i_stride;
                 uint32_t planeNum;
-                uint32_t input_width;
-                uint32_t input_height;
+                uint32_t i_width;
+                uint32_t i_height;
                 CropInfo mCropInfo;
             };
             struct GDCParam mGDCParam;
@@ -41,12 +41,12 @@ namespace android {
             };
             struct GE2DParam mGE2DParam;
             media_stream_t mSensorParam;
-            uint32_t getWidth(void);
-            void setWidth(uint32_t width);
-            uint32_t getHeight(void);
-            void setHeight(uint32_t height);
-            uint32_t getStride(void);
-            void setStride(uint32_t stride);
+            uint32_t getOutputWidth(void);
+            void setOutputWidth(uint32_t width);
+            uint32_t getOutputHeight(void);
+            void setOutputHeight(uint32_t height);
+            uint32_t getOutputStride(void);
+            void setOutputStride(uint32_t stride);
             uint32_t getInputStride(void);
             void setInputStride(uint32_t stride);
             void setSensorCfg(media_stream_t& stream);

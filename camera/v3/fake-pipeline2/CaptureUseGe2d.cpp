@@ -4,9 +4,6 @@
 #include <utils/Trace.h>
 #include "CaptureUseGe2d.h"
 #include "ge2d_stream.h"
-#if defined(PREVIEW_DEWARP_ENABLE) || defined(PICTURE_DEWARP_ENABLE)
-#include "dewarp.h"
-#endif
 #define GE2D_SCALER
 
 static void dump2File(const char* name, void* src, int length) {
@@ -72,12 +69,14 @@ int CaptureUseGe2d::getPicture(StreamBuffer b, struct data_in* in, IONInterface 
             DeWarp* GDCObj = nullptr;
             property_get("vendor.camhal.use.dewarp.linear", property, "false");
             CameraConfig* config = CameraConfig::getInstance(DEWARP_CAM2PORT_CAPTURE);
-            config->setWidth(width);
-            config->setHeight(height);
-            config->setStride(b.stride);
+            config->setOutputWidth(width);
+            config->setOutputHeight(height);
+            config->setOutputStride(width);
+            config->setInputWidth(width);
+            config->setInputHeight(height);
             ion->alloc_buffer(width  * height * 3/2, &outbuf_fd);
             CAMHAL_LOGV("%s-%d b.width:%d b.height:%d width:%d,height:%d",__FUNCTION__,__LINE__,b.width,b.height,\
-                config->getWidth(),config->getHeight());
+                config->getOutputWidth(),config->getOutputHeight());
             if (strstr(property, "true")) {
                 GDCObj = DeWarp::getInstance(DEWARP_CAM2PORT_CAPTURE,PROJ_MODE_LINEAR,Rotation::ROTATION_0);
             } else {
@@ -153,23 +152,45 @@ int CaptureUseGe2d::captureYUYVframe(uint8_t *img, struct data_in* in) {
     return 0;
 }
 
+#if defined(PREVIEW_DEWARP_ENABLE) || defined(PICTURE_DEWARP_ENABLE)
+static bool isNeedDestroyDewarp (dewarpInfo &info_exist, dewarpInfo &info) {
+    if (info_exist.o_width && info_exist.o_height && info_exist.i_width && info_exist.i_height
+            && info.i_width && info.i_height && info.o_width && info.o_height) {
+        if ((info_exist.o_width != info.o_width) || (info_exist.o_height != info.o_height)
+                || (info_exist.i_width != info.i_width) || (info_exist.i_height != info.i_height)) {
+            return true;
+        }
+    }
+    return false;
+}
+#endif
+
 int CaptureUseGe2d::captureNV21frame(StreamBuffer b, struct data_in* in) {
     ATRACE_CALL();
-
-
-    if (in->share_fd > 0  && in->src_fmt > 0) {
+    uint32_t width = mInfo->get_preview_width();
+    uint32_t height = mInfo->get_preview_height();
+    uint32_t stride = mInfo->get_preview_stride();
+    uint32_t format = mInfo->get_preview_pixelformat();
+    int dmabuf_fd = -1;
+    if (in->src) {
         switch (in->src_fmt) {
             case V4L2_PIX_FMT_NV21:
                 //  we assume that [in] is always preview stream
-                if (b.width < 3840 && b.height < 2160) {
-                    if ((in->src_width == b.width) && (in->src_height == b.height)) {
-                        mGE2D->ge2d_copy(b.share_fd, in->share_fd, b.stride, b.height, V4L2_PIX_FMT_NV21);
-                    } else {
-                        if (in->src_width < b.width || in->src_height < b.height) {
-                            CAMHAL_LOGW("ge2d scale from small to big; nv21 src w %d h %d fd %d, dst w %d h %d fd %d",
-                                   in->src_width, in->src_height, in->share_fd, b.width, b.height, b.share_fd);
+                if (width >= b.width && height >= b.height) {
+                    mGE2D->ge2d_scale(b.share_fd, PIXEL_FORMAT_YCbCr_420_SP_NV12, b.width, b.height, in->dmabuf_fd, width, height);
+                    CAMHAL_LOGD("ge2d-rec %d b.width:%d b.height:%d b.fd:%d width:%d height:%d fd:%d",
+                           __LINE__, b.width, b.height, b.share_fd, width, height, in->dmabuf_fd);
+                    if (property_get_bool("vendor.camhal.dump", false)) {
+                        char path[256];
+                        static int index = 0;
+                        if (index % 10 == 0) {
+                            sprintf(path, "/data/vendor/camera/video-in-%dx%d-%d.yuv",
+                                width, height, index);
+                            dump2File(path, in->src, width*height*3/2);
+                            sprintf(path, "/data/vendor/camera/video-out-%dx%d-%d.yuv", b.width, b.height, index);
+                            dump2File(path, b.img, b.width * b.height * 3/2);
                         }
-                        mGE2D->ge2d_scale(b.share_fd, PIXEL_FORMAT_YCbCr_420_SP_NV12, b.width, b.height, in->share_fd, in->src_width, in->src_height);
+                        index++;
                     }
                 } else {
                     struct VideoInfoBuffer vb_rec;
@@ -188,28 +209,44 @@ int CaptureUseGe2d::captureNV21frame(StreamBuffer b, struct data_in* in) {
                                           dmabuf_fd_rec, mInfo->get_record_width(), mInfo->get_record_height());
                     } else {
 #ifdef PREVIEW_DEWARP_ENABLE
-                        char property[PROPERTY_VALUE_MAX];
-                        property_get("vendor.camhal.use.dewarp.rec", property, "true");
-                        if (strstr(property, "true")) { //dewarp rec
+                        if (property_get_bool("vendor.camhal.use.dewarp.rec", true)) { //dewarp rec
                             DeWarp* GDCObj = nullptr;
-                            property_get("vendor.camhal.use.dewarp.linear", property, "true");
-                            CameraConfig* config = CameraConfig::getInstance(DEWARP_CAM2PORT_CAPTURE);
-                            config->setWidth(b.width);
-                            config->setHeight(b.height);
-                            config->setStride(b.stride);
-                            CAMHAL_LOGV("%s-%d b.width:%d b.height:%d b.fd:%d width:%d height:%d fd:%d",
-                                  __FUNCTION__, __LINE__, b.width, b.height, b.share_fd,
-                                  config->getWidth(), config->getHeight(), dmabuf_fd_rec);
-                            if (strstr(property, "true")) {
-                                GDCObj = DeWarp::getInstance(DEWARP_CAM2PORT_CAPTURE, PROJ_MODE_LINEAR, Rotation::ROTATION_0);
+                            dewarpInfo dewarpInfo;
+                            dewarpcam2port port = DEWARP_CAM2PORT_RECORD;
+                            //  fill dewarp info for check dewarp config
+                            {
+                                dewarpInfo.i_width  = mInfo->get_record_width();
+                                dewarpInfo.i_height = mInfo->get_record_height();
+                                dewarpInfo.o_width  = b.width;
+                                dewarpInfo.o_height = b.height;
+                            }
+                            bool needDestroy = isNeedDestroyDewarp(mPreDewarpInfo[port], dewarpInfo);
+                            if (needDestroy) {
+                                DeWarp::putInstance(port);
+                            }
+                            CameraConfig* config = CameraConfig::getInstance(port);
+                            config->setOutputWidth(b.width);
+                            config->setOutputHeight(b.height);
+                            config->setOutputStride(b.stride);
+                            config->setInputWidth(mInfo->get_record_width());
+                            config->setInputHeight(mInfo->get_record_height());
+                            CAMHAL_LOGD("dewarp-rec %d b.width:%d b.height:%d b.fd:%d width:%d height:%d fd:%d",
+                                  __LINE__, b.width, b.height, b.share_fd, config->getInputWidth(),
+                                  config->getInputHeight(), dmabuf_fd_rec);
+                            if (property_get_bool("vendor.camhal.use.dewarp.linear", true)) {
+                                GDCObj = DeWarp::getInstance(port, PROJ_MODE_LINEAR, Rotation::ROTATION_0);
                             } else {
-                                GDCObj = DeWarp::getInstance(DEWARP_CAM2PORT_CAPTURE, PROJ_MODE_EQUISOLID, Rotation::ROTATION_0);
+                                GDCObj = DeWarp::getInstance(port, PROJ_MODE_EQUISOLID, Rotation::ROTATION_0);
                             }
                             if (GDCObj) {
                                 GDCObj->mInput_fd = dmabuf_fd_rec;
                                 GDCObj->mOutput_fd = b.share_fd;
                                 GDCObj->gdc_do_fisheye_correction();
                             }
+                            mPreDewarpInfo[port].o_width  = b.width;
+                            mPreDewarpInfo[port].o_height = b.height;
+                            mPreDewarpInfo[port].i_width  = mInfo->get_record_width();
+                            mPreDewarpInfo[port].i_height = mInfo->get_record_height();
                         }
 #else
                         mGE2D->ge2d_scale(b.share_fd, PIXEL_FORMAT_YCbCr_420_SP_NV12, b.width, b.height,
@@ -238,12 +275,6 @@ int CaptureUseGe2d::captureNV21frame(StreamBuffer b, struct data_in* in) {
         return NO_NEW_FRAME;
     }
 
-    int dmabuf_fd = -1;
-    uint32_t width = mInfo->get_preview_width();
-    uint32_t height = mInfo->get_preview_height();
-    uint32_t format = mInfo->get_preview_pixelformat();
-    uint32_t stride = mInfo->get_preview_stride();
-
     struct VideoInfoBuffer vb;
     int ret = mInfo->get_frame_buffer(&vb);
     dmabuf_fd = vb.dma_fd;
@@ -253,35 +284,51 @@ int CaptureUseGe2d::captureNV21frame(StreamBuffer b, struct data_in* in) {
         return ERROR_FRAME;
     }
 #ifdef PREVIEW_DEWARP_ENABLE
-        char property[PROPERTY_VALUE_MAX];
-        property_get("vendor.camhal.use.dewarp", property, "false");
-        if (strstr(property, "true")) {//dewarp
+        if (property_get_bool("vendor.camhal.use.dewarp", false)) {//dewarp
             DeWarp* GDCObj = nullptr;
-            property_get("vendor.camhal.use.dewarp.linear", property, "true");
-            CameraConfig* config = CameraConfig::getInstance(DEWARP_CAM2PORT_PREVIEW);
-            config->setWidth(b.width);
-            config->setHeight(b.height);
-            config->setStride(b.stride);
-            CAMHAL_LOGV("%s-%d b.width:%d b.height:%d b.fd:%d width:%d height:%d fd:%d",
-                  __FUNCTION__, __LINE__, b.width, b.height, b.share_fd,
-                  config->getWidth(), config->getHeight(), dmabuf_fd);
-            if (strstr(property, "true")) {
-                GDCObj = DeWarp::getInstance(DEWARP_CAM2PORT_PREVIEW, PROJ_MODE_LINEAR, Rotation::ROTATION_0);
+            dewarpInfo dewarpInfo;
+            dewarpcam2port port = DEWARP_CAM2PORT_PREVIEW;
+            //  fill dewarp info for check dewarp config
+            {
+                dewarpInfo.i_width  = width;
+                dewarpInfo.i_height = height;
+                dewarpInfo.o_width  = b.width;
+                dewarpInfo.o_height = b.height;
+            }
+            bool needDestroy = isNeedDestroyDewarp(mPreDewarpInfo[port], dewarpInfo);
+            if (needDestroy) {
+                DeWarp::putInstance(port);
+            }
+            CameraConfig* config = CameraConfig::getInstance(port);
+            config->setOutputWidth(b.width);
+            config->setOutputHeight(b.height);
+            config->setOutputStride(b.stride);
+            config->setInputWidth(width);
+            config->setInputHeight(height);
+            CAMHAL_LOGD("dewarp-prev %d b.width:%d b.height:%d b.fd:%d width:%d height:%d fd:%d",
+                __LINE__, b.width, b.height, b.share_fd, config->getInputWidth(),
+                    config->getInputHeight(), dmabuf_fd);
+            if (property_get_bool("vendor.camhal.use.dewarp.linear", true)) {
+                GDCObj = DeWarp::getInstance(port, PROJ_MODE_LINEAR, Rotation::ROTATION_0);
             } else {
-                GDCObj = DeWarp::getInstance(DEWARP_CAM2PORT_PREVIEW, PROJ_MODE_EQUISOLID, Rotation::ROTATION_0);
+                GDCObj = DeWarp::getInstance(port, PROJ_MODE_EQUISOLID, Rotation::ROTATION_0);
             }
             if (GDCObj) {
                 GDCObj->mInput_fd = dmabuf_fd;
                 GDCObj->mOutput_fd = b.share_fd;
                 GDCObj->gdc_do_fisheye_correction();
             }
+            mPreDewarpInfo[port].o_width  = b.width;
+            mPreDewarpInfo[port].o_height = b.height;
+            mPreDewarpInfo[port].i_width  = width;
+            mPreDewarpInfo[port].i_height = height;
         }
         else {
             switch (format) {
                 case V4L2_PIX_FMT_NV21:
                     if (width == b.width && height == b.height && stride == b.stride) {
                         CAMHAL_LOGV("line %d ge2d copy dmabuf_fd %d  w %d stride %d h %d \n", __LINE__, dmabuf_fd, b.width, b.stride, b.height);
-                        mGE2D->ge2d_copy(b.share_fd, dmabuf_fd, b.stride,b.height, ge2dTransform::NV12);
+                        mGE2D->ge2d_copy(b.share_fd, dmabuf_fd, b.stride, b.height, ge2dTransform::NV12);
                     } else {
                         CAMHAL_LOGV("line %d ge2d scale in w %d stride %d h %d , out w %d stride %d h %d", __LINE__, width, stride, height,
                                   b.width, b.stride, b.height);
@@ -338,7 +385,9 @@ int CaptureUseGe2d::captureNV21frame(StreamBuffer b, struct data_in* in) {
             break;
     }
 #endif
+    in->src = (uint8_t *)vb.addr;
     in->dmabuf_fd = dmabuf_fd;
+    in->src_fmt = V4L2_PIX_FMT_NV21;
     return NEW_FRAME;
 }
 

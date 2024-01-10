@@ -22,8 +22,8 @@ CameraConfig::CameraConfig(int groupId) {
 
     if (groupId == 0) {
 
-        mGDCParam.width = DEFAULT_WIDTH_GROUP0;
-        mGDCParam.height = DEFAULT_HEIGHT_GROUP0;
+        mGDCParam.o_width = DEFAULT_WIDTH_GROUP0;
+        mGDCParam.o_height = DEFAULT_HEIGHT_GROUP0;
         mGDCParam.planeNum = 1;
 
         mGE2DParam.src_width = DEFAULT_WIDTH_GROUP0;
@@ -31,18 +31,18 @@ CameraConfig::CameraConfig(int groupId) {
 
     } else { //
 
-        mGDCParam.width = DEFAULT_WIDTH_GROUP1;
-        mGDCParam.height = DEFAULT_HEIGHT_GROUP1;
+        mGDCParam.o_width = DEFAULT_WIDTH_GROUP1;
+        mGDCParam.o_height = DEFAULT_HEIGHT_GROUP1;
         mGDCParam.planeNum = 1;
 
         mGE2DParam.src_width = DEFAULT_WIDTH_GROUP1;
         mGE2DParam.src_height = DEFAULT_HEIGHT_GROUP1;
     }
     memset(&mSensorParam, 0, sizeof(struct media_stream));
-    mGDCParam.input_width = 0;
-    mGDCParam.input_height = 0;
-    mGDCParam.stride = 0;
-    mGDCParam.input_stride = 0;
+    mGDCParam.i_width = 0;
+    mGDCParam.i_height = 0;
+    mGDCParam.o_stride = 0;
+    mGDCParam.i_stride = 0;
 }
 
 CameraConfig* CameraConfig::getInstance(int groupId) {
@@ -70,34 +70,34 @@ void CameraConfig::deleteInstance() {
         }
     }
 }
-uint32_t CameraConfig::getWidth() {
+uint32_t CameraConfig::getOutputWidth() {
 
-    return mGDCParam.width;
+    return mGDCParam.o_width;
 }
 
-void CameraConfig::setWidth(uint32_t width) {
+void CameraConfig::setOutputWidth(uint32_t width) {
 
-    mGDCParam.width = width;
+    mGDCParam.o_width = width;
     mGE2DParam.src_width = width;
 }
 
-uint32_t CameraConfig::getHeight() {
+uint32_t CameraConfig::getOutputHeight() {
 
-    return mGDCParam.height;
+    return mGDCParam.o_height;
 }
 
-void CameraConfig::setHeight(uint32_t height) {
+void CameraConfig::setOutputHeight(uint32_t height) {
 
-    mGDCParam.height = height;
+    mGDCParam.o_height = height;
     mGE2DParam.src_height = height;
 }
 
-uint32_t CameraConfig::getStride() {
-    return mGDCParam.stride;
+uint32_t CameraConfig::getOutputStride() {
+    return mGDCParam.o_stride;
 }
 
-void CameraConfig::setStride(uint32_t stride) {
-    mGDCParam.stride = stride;
+void CameraConfig::setOutputStride(uint32_t stride) {
+    mGDCParam.o_stride = stride;
 }
 
 uint32_t CameraConfig::getInputStride() {
@@ -114,21 +114,21 @@ void CameraConfig::setSensorCfg(media_stream_t& stream) {
 
 uint32_t CameraConfig::getInputWidth() {
 
-    return mGDCParam.input_width;
+    return mGDCParam.i_width;
 }
 
 void CameraConfig::setInputWidth(uint32_t width) {
-    mGDCParam.input_width = width;
+    mGDCParam.i_width = width;
 }
 
 uint32_t CameraConfig::getInputHeight() {
 
-    return mGDCParam.input_height;
+    return mGDCParam.i_height;
 }
 
 void CameraConfig::setInputHeight(uint32_t height) {
 
-    mGDCParam.input_height = height;
+    mGDCParam.i_height = height;
 }
 
 void CameraConfig::setCropInfo(CropInfo inputCropInfo) {

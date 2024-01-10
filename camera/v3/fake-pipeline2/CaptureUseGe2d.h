@@ -7,6 +7,10 @@
 #ifdef GE2D_ENABLE
 #include "ge2d_stream.h"
 #endif
+#if defined(PREVIEW_DEWARP_ENABLE) || defined(PICTURE_DEWARP_ENABLE)
+#include "dewarp.h"
+#endif
+
 namespace android {
     class CaptureUseGe2d:public ICapture {
         protected:
@@ -16,7 +20,9 @@ namespace android {
             ge2dTransform* mGE2D;
 #endif
 
-
+#if defined(PREVIEW_DEWARP_ENABLE) || defined(PICTURE_DEWARP_ENABLE)
+            dewarpInfo mPreDewarpInfo[ISP_PORT_NUM];
+#endif
         public:
             CaptureUseGe2d(MIPIVideoInfo* info);
             virtual ~CaptureUseGe2d();

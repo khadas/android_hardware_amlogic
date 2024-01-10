@@ -85,14 +85,6 @@ typedef enum {
     VFORMAT_MAX
 } vformat_t;
 
-struct dewarpInfo {
-        int o_width;
-        int o_height;
-        int i_width;
-        int i_height;
-        dewarpInfo() : o_width(0), o_height(0), i_width(0), i_height(0) {}
-};
-
 class HWVideoDecoderImpl final {
     // construction & destruction
 public:
@@ -1359,8 +1351,9 @@ int HWVideoDecoderImpl::syncDecode(int in_fd, uint8_t*in_src, uint32_t in_size, 
                                 config->setCropInfo(inputInfo);
                                 config->setInputWidth(mDqWidth);
                                 config->setInputHeight(mDqHeight);
-                                config->setWidth(b[i].width);
-                                config->setHeight(b[i].height);
+                                config->setOutputWidth(b[i].width);
+                                config->setOutputHeight(b[i].height);
+                                config->setOutputStride(b[i].stride);
                                 GDCObj = DeWarp::getInstance(port, PROJ_MODE_LINEAR, Rotation::ROTATION_0);
                                 if (GDCObj) {
                                     GDCObj->mInput_fd = dec_out_fd;
@@ -1483,8 +1476,9 @@ int HWVideoDecoderImpl::asyncDecodeDequeueOutput( Vector<StreamBuffer>& b, bool 
                                 config->setCropInfo(inputInfo);
                                 config->setInputWidth(mDqWidth);
                                 config->setInputHeight(mDqHeight);
-                                config->setWidth(b[i].width);
-                                config->setHeight(b[i].height);
+                                config->setOutputWidth(b[i].width);
+                                config->setOutputHeight(b[i].height);
+                                config->setOutputStride(b[i].stride);
                                 GDCObj = DeWarp::getInstance(port, PROJ_MODE_LINEAR, Rotation::ROTATION_0);
                                 if (GDCObj) {
                                     GDCObj->mInput_fd = dec_out_fd;

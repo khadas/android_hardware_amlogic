@@ -34,8 +34,10 @@ enum Rotation    {
 };
 
 typedef struct GDCInParam {
-    uint32_t width;
-    uint32_t height;
+    uint32_t i_width;
+    uint32_t i_height;
+    uint32_t o_width;
+    uint32_t o_height;
     uint32_t rotation;
 } GDCInParam_t;
 
@@ -47,9 +49,9 @@ namespace android {
             ~DeWarp();
             void set_input_buffer(int in_fd);
             void set_output_buffer(int out_fd);
-            bool load_config_file(size_t width, size_t height,int plane_number);
-            int dewarp_init(size_t width, size_t height, int gdc_format) ;
-            int gdc_init(size_t width, size_t height, int gdc_format , int plane_number);
+            bool load_config_file();
+            int dewarp_init() ;
+            int gdc_init();
             void gdc_exit();
             int dewarp_to_libgdc_format(int dewarp_format);
         private:

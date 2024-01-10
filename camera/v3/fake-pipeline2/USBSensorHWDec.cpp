@@ -547,6 +547,7 @@ status_t USBSensorHWDec::shutDown() {
 
 #if defined(PREVIEW_DEWARP_ENABLE) || defined(PICTURE_DEWARP_ENABLE)
     DeWarp::putInstance();
+    CameraConfig::deleteInstance();
 #endif
 
     if (mHWDecoder && mIsDecoderInit == true) {

@@ -335,6 +335,16 @@ int V4l2MediaSensor::SensorInit(int idx) {
         media_set_wdrMode((media_stream_t *)mMediaStream, ISP_SDR_DCAM_MODE);
     }
 
+#if defined(PREVIEW_DEWARP_ENABLE) || defined(PICTURE_DEWARP_ENABLE)
+    CameraConfig* config = CameraConfig::getInstance(DEWARP_CAM2PORT_PREVIEW);
+    auto &media = *(media_stream_t *)mMediaStream;
+    config->setSensorCfg(media);
+    config = CameraConfig::getInstance(DEWARP_CAM2PORT_RECORD);
+    config->setSensorCfg(media);
+    config = CameraConfig::getInstance(DEWARP_CAM2PORT_CAPTURE);
+    config->setSensorCfg(media);
+#endif
+
     InitVideoInfo(idx);
     mVinfo->camera_init();
     if (!mCapture) {
@@ -468,6 +478,10 @@ status_t V4l2MediaSensor::shutDown() {
         mIGdc = NULL;
     }
 #endif
+#if defined(PREVIEW_DEWARP_ENABLE) || defined(PICTURE_DEWARP_ENABLE)
+    CameraConfig::deleteInstance();
+#endif
+
     mSensorWorkFlag = false;
     CAMHAL_LOGD("%s: Exit", __FUNCTION__);
     return res;
@@ -611,6 +625,38 @@ void V4l2MediaSensor::captureNV21(StreamBuffer b, uint32_t gain){
             mVinfo->putback_frame();
         break;
     }
+}
+
+void V4l2MediaSensor::captureNV21(Vector<StreamBuffer>& b) {
+    ATRACE_CALL();
+    //CAMHAL_LOGVV("MIPI NV21 sensor image captured");
+    // todo: captureNewImage with >=2 out bufs with different pixel fmt.
+    //       simply using mKernelBuffer & mTempFd cause green image
+    //       due to pixel format difference.
+    int ret = 0;
+    struct data_in in;
+    for (size_t i = 0; i < b.size(); i++) {
+        while (1) {
+            if (mExitSensorThread) {
+                break;
+            }
+            //----get one frame
+            ret = mCapture->captureNV21frame(b[i], &in);
+            if (ret == ERROR_FRAME) {
+                break;
+            }
+#ifdef GE2D_ENABLE
+            //----do rotation
+            mGE2D->doRotationAndMirror(b[i]);
+#endif
+            mSensorWorkFlag = true;
+            if (mFlushFlag) {
+                break;
+            }
+            break;
+        }
+    }
+    mVinfo->putback_frame();
 }
 
 void V4l2MediaSensor::captureYV12(StreamBuffer b, uint32_t gain) {
@@ -1014,8 +1060,6 @@ status_t V4l2MediaSensor::force_reset_sensor() {
 }
 
 int V4l2MediaSensor::captureNewImage() {
-    uint32_t gain = mGainFactor;
-
     memset(&mSavedDecodedBuffer, 0, sizeof (mSavedDecodedBuffer) );
     mSavedDecodedBuffer.fd = -1;
 
@@ -1029,10 +1073,7 @@ int V4l2MediaSensor::captureNewImage() {
             break;
         }
     }
-    if (mNextCapturedBuffers->size() >= 2 && !is4KRequest) {
-        std::sort(mNextCapturedBuffers->begin(),mNextCapturedBuffers->end(),StreamBuffer::comp);
-    }
-
+    std::sort(mNextCapturedBuffers->begin(), mNextCapturedBuffers->end(), StreamBuffer::comp_less);
     for (size_t i = 0; i < mNextCapturedBuffers->size(); i++) {
         const StreamBuffer &b = (*mNextCapturedBuffers)[i];
         CAMHAL_LOGVV("Sensor capturing buffer %zu: stream %d,"
@@ -1063,30 +1104,12 @@ int V4l2MediaSensor::captureNewImage() {
 #else
                 bAux.img = new uint8_t[b.width * b.height * 3];
 #endif
-                // 1280x720 preview & 1920x1080 blob;
-                // should insert one 1920x1080 bAux before 1280x720 buf;
-                mNextCapturedBuffers->insertAt(nextBufIdx);
-                mNextCapturedBuffers->replaceAt(bAux, nextBufIdx);
-            } break;
-            case HAL_PIXEL_FORMAT_YCrCb_420_SP:
-            case HAL_PIXEL_FORMAT_YCbCr_420_888:
-                captureNV21(b, gain);
-                break;
-            case HAL_PIXEL_FORMAT_YV12:
-                captureYV12(b, gain);
-                break;
-            case HAL_PIXEL_FORMAT_YCbCr_422_I:
-                captureYUYV(b.img, gain, b.stride);
-                break;
-            case HAL_PIXEL_FORMAT_RGBA_8888:
-                mediaCaptureRGBA(b, gain, b.stride);
-                break;
-            default:
-                CAMHAL_LOGE("%s: Unknown format %x, no output", __FUNCTION__,
-                        b.format);
-                break;
+                mNextCapturedBuffers->push_back(bAux);
+
+            }
         }
     }
+    captureNV21(*mNextCapturedBuffers);
     return 0;
 }
 

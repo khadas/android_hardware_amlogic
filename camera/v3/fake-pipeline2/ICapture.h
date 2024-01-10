@@ -7,16 +7,16 @@
 namespace android {
     struct data_in {
         /*in*/
-        uint8_t* src;
+        uint8_t* src = NULL;
         /*in*/
-        int src_fmt;
+        int src_fmt = -1;
         /*in*/
-        int share_fd;
+        int share_fd = -1;
         int src_width;
         int src_stride;
         int src_height;
         /*out*/
-        int dmabuf_fd;
+        int dmabuf_fd = -1;
     };
 
     enum capture_status {

@@ -33,6 +33,7 @@ namespace android {
             void captureRGB(uint8_t *img, uint32_t gain, uint32_t stride) override;
             void mediaCaptureRGBA(StreamBuffer b, uint32_t gain, uint32_t stride);
             void captureNV21(StreamBuffer b, uint32_t gain) override;
+            void captureNV21(Vector<StreamBuffer>& b);
             void captureYV12(StreamBuffer b, uint32_t gain) override;
             void captureYUYV(uint8_t *img, uint32_t gain, uint32_t stride) override;
             status_t getOutputFormat(void) override;

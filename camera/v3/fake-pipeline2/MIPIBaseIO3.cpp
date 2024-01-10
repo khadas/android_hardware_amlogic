@@ -1036,7 +1036,7 @@ read_queue:
             goto read_queue;
         }
 
-        CAMHAL_LOGD("%s: index=%d,dma_fd=%d\n",__FUNCTION__,
+        CAMHAL_LOGV("%s: index=%d,dma_fd=%d\n",__FUNCTION__,
                     preview.buf.index, mem[preview.buf.index].dma_fd);
         b->addr = mem[preview.buf.index].addr;
         b->size = mem[preview.buf.index].size;
