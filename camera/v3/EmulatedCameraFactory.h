@@ -61,7 +61,15 @@ class EmulatedCameraHotplugThread;
  */
 
 #ifndef MAX_CAMERA_NUM
+#if BUILD_KERNEL_4_9 == true
+#define USB_DEVICE_NUM  4
+#define MIPI_DEVICE_NUM 2
 #define MAX_CAMERA_NUM 6
+#else
+#define USB_DEVICE_NUM  5
+#define MIPI_DEVICE_NUM 6
+#define MAX_CAMERA_NUM 11
+#endif
 #endif
 class EmulatedCameraFactory {
 public:
@@ -158,6 +166,7 @@ public:
     }
 
     void onStatusChanged(int cameraId, int newStatus);
+    void searchExternalSensor();
 
     void onStatusReady(char * dev_name);
 
