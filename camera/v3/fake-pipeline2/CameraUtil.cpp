@@ -17,6 +17,9 @@
  */
 #include <utils/Log.h>
 #include <string.h>
+#include <string>
+#include <cutils/properties.h>
+#include <errno.h>
 
 #include "CameraUtil.h"
 #include "libyuv.h"
@@ -485,3 +488,26 @@ int CameraUtil::MJPEGScaleYV12(uint8_t* src, int src_len,int src_width, int src_
 	}
 	return ret;
 }
+
+void CameraUtil::dump(int frame_index, uint8_t* buf, int length, const char* name) {
+	FILE* fp = NULL;
+	if (frame_index % 10 == 0) {
+		if (frame_index == 0) {
+			ALOGD("dump forever, full name: %s", name);
+		}
+		fp = fopen(name, "ab+");
+		if (!fp) {
+			ALOGE("open file %s fail, error: %s !!!", name, strerror(errno));
+			fp = NULL;
+			return;
+		} else {
+			fwrite((void*)buf, 1, length, fp);
+			fclose(fp);
+			fp = NULL;
+			return;
+		}
+	} else {
+		return;
+	}
+}
+

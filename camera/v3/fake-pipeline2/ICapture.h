@@ -5,13 +5,22 @@
 
 namespace android {
     struct data_in {
-		/*in*/
+        /*in*/
         uint8_t* src;
-		/*in*/
+        /*in*/
+        int src_fmt;
+        /*in*/
         int share_fd;
-		/*out*/
+        /*out*/
         int dmabuf_fd;
     };
+
+    enum capture_status {
+        ERROR_FRAME = -1,
+        NEW_FRAME = 0,
+        NO_NEW_FRAME = 1, //only used in video record
+    };
+
     class ICapture {
         public:
              ICapture(){};

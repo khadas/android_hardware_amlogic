@@ -67,6 +67,7 @@ MIPISensor::MIPISensor() {
     mVinfo = NULL;
     mCapture = NULL;
     mISP = isp3a::get_instance();
+    mCameraUtil = NULL;
 
 #ifdef GE2D_ENABLE
     mION = IONInterface::get_instance();
@@ -87,6 +88,10 @@ MIPISensor::~MIPISensor() {
     if (mVinfo) {
         delete(mVinfo);
         mVinfo = NULL;
+    }
+    if (mCameraUtil) {
+        delete mCameraUtil;
+        mCameraUtil = NULL;
     }
 
 #ifdef GDC_ENABLE
@@ -159,6 +164,8 @@ status_t MIPISensor::startUp(int idx) {
         mIGdc = new gdcUseFd();
         //mIGdc = new gdcUseMemcpy();
 #endif
+    if (!mCameraUtil)
+        mCameraUtil = new CameraUtil();
     return res;
 }
 
@@ -287,6 +294,7 @@ void MIPISensor::captureNV21(StreamBuffer b, uint32_t gain){
     struct data_in in;
     in.src = mKernelBuffer;
     in.share_fd = mTempFD;
+    in.src_fmt = mKernelBufferFmt;
     ALOGVV("%s:mTempFD = %d",__FUNCTION__,mTempFD);
     while (1) {
         if (mExitSensorThread) {
@@ -294,11 +302,14 @@ void MIPISensor::captureNV21(StreamBuffer b, uint32_t gain){
         }
         //----get one frame
         int ret = mCapture->captureNV21frame(b,&in);
-        if (ret == -1)
+        if (ret == ERROR_FRAME) {
             continue;
+       }
 #ifdef GE2D_ENABLE
         //----do rotation
-        ge2dDevice::doRotationAndMirror(b);
+        if (mTempFD < 0) {
+            ge2dDevice::doRotationAndMirror(b);
+        }
 #endif
 
 #ifdef GDC_ENABLE
@@ -311,10 +322,15 @@ void MIPISensor::captureNV21(StreamBuffer b, uint32_t gain){
         p.output_fd = b.share_fd;
         mIGdc->gdc_do_fisheye_correction(&p);
 #endif
-        mKernelBuffer = b.img;
-        mTempFD = b.share_fd;
+        if (ret == NEW_FRAME) {
+            mKernelBuffer = b.img;
+            mTempFD = b.share_fd;
+            mKernelBufferFmt = V4L2_PIX_FMT_NV21;
+        }
         mSensorWorkFlag = true;
-        mVinfo->putback_frame();
+        if (ret == NEW_FRAME) {
+            mVinfo->putback_frame();
+        }
         if (mFlushFlag) {
             break;
         }
@@ -539,6 +555,9 @@ int MIPISensor::getStreamConfigurations(uint32_t picSizes[], const int32_t kAvai
 
             if (0 != (frmsize.discrete.width%16))
                 continue;
+
+            DBG_LOGB("get all output width=%d, height=%d, format=%.4s\n",
+                frmsize.discrete.width, frmsize.discrete.height, (char *)&frmsize.pixel_format);
 
             if ((frmsize.discrete.width * frmsize.discrete.height) > (support_w * support_h))
                 continue;
@@ -972,6 +991,7 @@ int MIPISensor::captureNewImage() {
     uint32_t gain = mGainFactor;
     mKernelBuffer = NULL;
     mTempFD = -1;
+    mKernelBufferFmt = 0;
     // Might be adding more buffers, so size isn't constant
     ALOGVV("%s:buffer size=%d\n",__FUNCTION__,mNextCapturedBuffers->size());
     for (size_t i = 0; i < mNextCapturedBuffers->size(); i++) {

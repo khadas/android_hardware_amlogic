@@ -64,6 +64,7 @@ namespace android {
             const int MIN_LEVEL_FOR_EXPOSURE = 3;
             isp3a* mISP;
             ICapture* mCapture;
+            CameraUtil* mCameraUtil;
 #ifdef GE2D_ENABLE
             IONInterface* mION;
 #endif

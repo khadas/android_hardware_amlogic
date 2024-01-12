@@ -46,9 +46,9 @@ LOCAL_CFLAGS+=-DCAMHAL_HOSTNAME=\"${CAMHAL_HOSTNAME}\"
 LOCAL_CFLAGS+=-DCAMHAL_IP=\"${CAMHAL_IP}\"
 LOCAL_CFLAGS+=-DCAMHAL_PATH=\"${CAMHAL_PATH}\"
 ########################################################################################################
-GE2D_ENABLE := true
-GE2D_VERSION_2 := true
-ISP_ENABLE := false
+GE2D_ENABLE := false
+GE2D_VERSION_2 := false
+ISP_ENABLE := true
 GDC_ENABLE := false
 LOCAL_SHARED_LIBRARIES:= \
     libbinder \
@@ -80,10 +80,12 @@ LOCAL_SHARED_LIBRARIES += libge2d
 endif
 LOCAL_CFLAGS += -DGE2D_ENABLE
 endif
+
 ifeq ($(ISP_ENABLE),true)
 LOCAL_SHARED_LIBRARIES += libispaaa
 LOCAL_CFLAGS += -DISP_ENABLE
 endif
+
 ifeq ($(GDC_ENABLE),true)
 LOCAL_SHARED_LIBRARIES += libgdc
 LOCAL_CFLAGS += -DGDC_ENABLE
@@ -204,24 +206,32 @@ endif
 
 include $(BUILD_SHARED_LIBRARY)
 
-#include $(CLEAR_VARS)
-#
-#LOCAL_MODULE := libispaaa
-#ifeq ($(KERNEL_A32_SUPPORT),true)
-#LOCAL_SRC_FILES := isplib/lib/libispaaa.so
-#else
-#LOCAL_SRC_FILES := isplib/lib64/libispaaa.so
-#endif
-#LOCAL_MODULE_SUFFIX := $(TARGET_SHLIB_SUFFIX)
-#LOCAL_MODULE_TAGS := optional
-#LOCAL_MODULE_CLASS := SHARED_LIBRARIES
-#ifneq ($(ANDROID_BUILD_TYPE),64)
-#LOCAL_MODULE_PATH := $(TARGET_OUT_VENDOR)/lib/
-#else
-#LOCAL_MODULE_PATH := $(TARGET_OUT_VENDOR)/lib64/
-#endif
-#
-#include $(BUILD_PREBUILT)
+include $(CLEAR_VARS)
+
+LOCAL_CHECK_ELF_FILES := false
+
+LOCAL_MODULE := libispaaa
+
+
+ifneq ($(ANDROID_BUILD_TYPE),64)
+LOCAL_SRC_FILES := isplib/lib/libispaaa.so
+else
+LOCAL_SRC_FILES := isplib/lib64/libispaaa.so
+endif
+
+LOCAL_MODULE_SUFFIX := $(TARGET_SHLIB_SUFFIX)
+LOCAL_MODULE_TAGS := optional
+LOCAL_MODULE_CLASS := SHARED_LIBRARIES
+
+LOCAL_SHARED_LIBRARIES := libc++ libc libdl liblog libm
+
+ifneq ($(ANDROID_BUILD_TYPE),64)
+LOCAL_MODULE_PATH := $(TARGET_OUT_VENDOR)/lib/
+else
+LOCAL_MODULE_PATH := $(TARGET_OUT_VENDOR)/lib64/
+endif
+
+include $(BUILD_PREBUILT)
 
 include $(call all-makefiles-under,$(LOCAL_PATH))
 

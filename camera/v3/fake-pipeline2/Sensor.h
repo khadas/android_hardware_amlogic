@@ -324,6 +324,7 @@ class Sensor: public Thread, public virtual RefBase {
     uint32_t  mGainFactor;
     Buffers  *mNextBuffers;
     uint8_t  *mKernelBuffer;
+    int mKernelBufferFmt;
     int mTempFD;
     uintptr_t mKernelPhysAddr;
     uint32_t  mFrameNumber;

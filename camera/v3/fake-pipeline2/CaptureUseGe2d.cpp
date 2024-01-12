@@ -81,35 +81,41 @@ namespace android {
     }
 
     int CaptureUseGe2d::captureNV21frame(StreamBuffer b, struct data_in* in) {
-			ATRACE_CALL();
-            //uint32_t width = mInfo->preview.format.fmt.pix.width;
-            //uint32_t height = mInfo->preview.format.fmt.pix.height;
             ATRACE_CALL();
             uint32_t width = mInfo->preview.format.fmt.pix.width;
             uint32_t height = mInfo->preview.format.fmt.pix.height;
             uint32_t format = mInfo->preview.format.fmt.pix.pixelformat;
+            uint8_t *src = nullptr;
+            src = in->src;
 
             int dmabuf_fd = -1;
-            //int tempfd = in->share_fd;
-            /*if (tempfd != -1) {
-                switch (format) {
+            int tempfd = in->share_fd;
+            if (tempfd != -1 && in->src_fmt > 0) {
+                switch (in->src_fmt) {
                     case V4L2_PIX_FMT_NV21:
-                        if ((width == b.width) && (height == b.height))
-                            ge2dDevice::ge2d_copy(b.share_fd,tempfd,b.stride,b.height);
-                        break;
+                        if ((width == b.width) && (height == b.height)) {
+                            ge2dDevice::ge2d_copy(b.share_fd, tempfd, b.stride, b.height, ge2dDevice::NV12);
+                            //memcpy(b.img, src, b.stride * b.height * 3/2);
+                        } else {
+                            ge2dDevice::ge2d_scale(b.share_fd, PIXEL_FORMAT_YCbCr_420_SP_NV12, b.stride, b.height,
+                                         dmabuf_fd, PIXEL_FORMAT_YCbCr_420_SP_NV12, width, height);
+                        }
+                    break;
+
                     default:
                         ALOGE("Unable known sensor format: %d", format);
-                        break;
+                    break;
                 }
-                return 0;
-            }*/
+                return NO_NEW_FRAME;
+            }
+
             struct VideoInfoBuffer vb;
             int ret = mInfo->get_frame_buffer(&vb);
             dmabuf_fd = vb.dma_fd;
             if (-1 == ret || -1 == dmabuf_fd) {
                 ALOGV("%s:get frame fd fail!, sleep 5ms",__FUNCTION__);
                 usleep(5000);
-                return -1;
+                return ERROR_FRAME;
             }
 
             switch (format) {
@@ -126,7 +132,7 @@ namespace android {
                     break;
             }
             in->dmabuf_fd = dmabuf_fd;
-            return 0;
+            return NEW_FRAME;
     }
 
     int CaptureUseGe2d::captureYV12frame(StreamBuffer b, struct data_in* in) {
