@@ -47,6 +47,17 @@ void MPlaneCameraIO::freePlaneBuffers() {
     }
 }
 
+
+void MPlaneCameraIO::set_device_status(void)
+{
+    dev_status = -1;
+}
+
+int MPlaneCameraIO::get_device_status(void)
+{
+    return dev_status;
+}
+
 int MPlaneCameraIO::openCamera() {
     int ret;
     fd = CameraVirtualDevice::getInstance()->openVirtualDevice(openIdx);
@@ -66,6 +77,8 @@ int MPlaneCameraIO::openCamera() {
 }
 
 void MPlaneCameraIO::closeCamera() {
+    if (fd < 0)
+        return;
     CameraVirtualDevice::getInstance()->releaseVirtualDevice(openIdx, fd);
     fd = -1;
 }
@@ -215,6 +228,13 @@ int MPlaneCameraIO::getFrame(VideoInfo& info) {
 
             case EIO:
             default:
+                if (errno == ENODEV) {
+                    CAMHAL_LOGE("camera HDMISensor device is not exist!");
+                    set_device_status();
+                    stopCameraIO();
+                    close(fd);
+                    fd = -1;
+                }
                 CAMHAL_LOGD("VIDIOC_DQBUF failed, errno=%d\n", errno);
                 return -1;
         }

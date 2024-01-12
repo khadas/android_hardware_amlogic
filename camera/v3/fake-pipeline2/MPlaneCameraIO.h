@@ -51,6 +51,8 @@ namespace android {
             int setOutputFormat();
             int getFrame(VideoInfo& info);
             int pushbackFrame(unsigned int index);
+            void set_device_status();
+            int get_device_status();
         public:
             int fd;
             int openIdx;
@@ -65,6 +67,7 @@ namespace android {
             int dma_fd[MAX_V4L2_BUFFER_COUNT] = {-1,-1,-1,-1,-1};
             IONInterface* mIon = NULL;
             uint32_t buffer_size_allocated;
+            int dev_status;
             void allocatePlaneBuffers();
             void freePlaneBuffers();
     };

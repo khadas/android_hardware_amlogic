@@ -305,10 +305,15 @@ void HDMISensor::captureNV21(StreamBuffer b, uint32_t gain) {
         memset(&output_info, 0 , sizeof(output_info));
         int ret = mMPlaneCameraIO->getFrame(output_info);
         if (ret < 0) {
+            if (mMPlaneCameraIO->get_device_status()) {
+                mMPlaneCameraIO->closeCamera();
+                mUnpluged = true;
+                return;
+            }
             CAMHAL_LOGE("get frame NULL, sleep 5ms");
             usleep(5000);
             mTimeOutCount++;
-            if (mTimeOutCount > 600) {
+            if (mTimeOutCount > 2000) {
                 CAMHAL_LOGE("retry deque frame");
             }
             continue;
