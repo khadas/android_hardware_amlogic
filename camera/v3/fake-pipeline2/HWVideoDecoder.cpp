@@ -43,6 +43,9 @@
 #ifdef GE2D_ENABLE
 #include "fake-pipeline2/ge2d_stream.h"
 #endif
+#ifdef VICP_ENABLE
+#include "fake-pipeline2/vicp_stream.h"
+#endif
 
 #if defined(PREVIEW_DEWARP_ENABLE) || defined(PICTURE_DEWARP_ENABLE)
 #include "dewarp.h"
@@ -199,7 +202,10 @@ private:
     bool mFlushed;
     bool mCheckMjpegWH;
 #ifdef GE2D_ENABLE
-        ge2dTransform* mGE2D;
+    ge2dTransform* mGE2D;
+#endif
+#ifdef VICP_ENABLE
+    vicpTransform* mVICP;
 #endif
     IONInterface* mION;
     int mWaitOutBufDurationMs;
@@ -781,6 +787,12 @@ HWVideoDecoderImpl::~HWVideoDecoderImpl()
         delete mGE2D;
         mGE2D = nullptr;
     }
+#ifdef VICP_ENABLE
+    if (mVICP) {
+        delete mVICP;
+        mVICP = nullptr;
+    }
+#endif
 #endif
     if (mION) {
         mION->put_instance();
@@ -802,6 +814,10 @@ bool HWVideoDecoderImpl::initialize(uint32_t streamType, uint32_t bitstream_widt
 
 #ifdef GE2D_ENABLE
     mGE2D = new ge2dTransform();
+#ifdef VICP_ENABLE
+    mVICP = new vicpTransform();
+    CAMHAL_LOGI("vicp enabled in camera");
+#endif
 #endif
     mION = IONInterface::get_instance();
 
@@ -1314,9 +1330,14 @@ int HWVideoDecoderImpl::syncDecode(int in_fd, uint8_t*in_src, uint32_t in_size, 
                     } else {
                         if (b[i].share_fd != -1) {
                             if (isJpegRequest || !mEnableDewarp) {
-                                mGE2D->ge2d_keep_ration_scale(b[i].share_fd, PIXEL_FORMAT_YCbCr_420_SP_NV12, b[i].width, b[i].height,
-                                                       dec_out_fd, mDqWidth, mDqHeight, mFormatWidth, mFormatHeight);
-                                mGE2D->doRotationAndMirror(b[i]);
+#ifdef VICP_ENABLE
+                            mVICP->vicp_keep_ration_scale(b[i].share_fd, VICP_COLOR_FMT_YCrCb_420_SP_NV21, b[i].width, b[i].height,
+                                                   dec_out_fd, mDqWidth, mDqHeight, mFormatWidth, mFormatHeight);
+#else
+                            mGE2D->ge2d_keep_ration_scale(b[i].share_fd, PIXEL_FORMAT_YCbCr_420_SP_NV12, b[i].width, b[i].height,
+                                                   dec_out_fd, mDqWidth, mDqHeight, mFormatWidth, mFormatHeight);
+                            mGE2D->doRotationAndMirror(b[i]);
+#endif
                             } else {
 #if defined(PREVIEW_DEWARP_ENABLE) || defined(PICTURE_DEWARP_ENABLE)
                                 dewarpInfo dewarpInfo;
@@ -1454,9 +1475,14 @@ int HWVideoDecoderImpl::asyncDecodeDequeueOutput( Vector<StreamBuffer>& b, bool 
                    } else {
                        if (b[i].share_fd != -1) {
                            if (isJpegRequest || !mEnableDewarp) {
+#ifdef VICP_ENABLE
+                                mVICP->vicp_keep_ration_scale(b[i].share_fd, VICP_COLOR_FMT_YCrCb_420_SP_NV21, b[i].width, b[i].height,
+                                                       dec_out_fd, mDqWidth, mDqHeight, mFormatWidth, mFormatHeight);
+#else
                                 mGE2D->ge2d_keep_ration_scale(b[i].share_fd, PIXEL_FORMAT_YCbCr_420_SP_NV12, b[i].width, b[i].height,
                                                        dec_out_fd, mDqWidth, mDqHeight, mFormatWidth, mFormatHeight);
                                 mGE2D->doRotationAndMirror(b[i]);
+#endif
                            } else {
 #if defined(PREVIEW_DEWARP_ENABLE) || defined(PICTURE_DEWARP_ENABLE)
                                 dewarpInfo dewarpInfo;
