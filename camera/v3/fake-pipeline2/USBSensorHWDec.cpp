@@ -371,7 +371,7 @@ int USBSensorHWDec::reAllocSoftwareBuffer(int width, int height)
 status_t USBSensorHWDec::getOutputFormat(int width, int height, int pixelformat) {
     int ret = 0;
     for (auto& mStreamInfo : mStreamInfos) {
-        if (mStreamInfo.pixelformat == pixelformat && width == mStreamInfo.width && height == mStreamInfo.height) {
+        if (mStreamInfo.mPixelformat == pixelformat && width == mStreamInfo.mWidth && height == mStreamInfo.mHeight) {
             return pixelformat;
         }
     }
@@ -1180,22 +1180,34 @@ const char* USBSensorHWDec::getformt(int id) {
 void USBSensorHWDec::getStreamInfo(std::vector<streamInfo> &streamInfos) {
     int i, j, res, ret;
     int temp_rate, framerate, framerate_min;
+    unsigned int support_w, support_h;
     struct v4l2_frmivalenum fival;
     struct v4l2_frmsizeenum frmsize;
-    streamInfo streamInfo;
     streamInfos.clear();
+    support_w = 10000;
+    support_h = 10000;
+    memset(property, 0, sizeof(property));
+    if (property_get("vendor.media.camera_preview.maxsize", property, NULL) > 0)
+    {
+        CAMHAL_LOGD("support Max Preview Size :%s", property);
+        if (sscanf(property, "%dx%d", &support_w, &support_h) != 2)
+        {
+            support_w = 10000;
+            support_h = 10000;
+        }
+    }
     framerate_min = property_get_int32("vendor.camera.frame.rate.min", 20);
-    uint32_t jpgSrcfmt[] = {
+    uint32_t srcfmt[] = {
         V4L2_PIX_FMT_MJPEG,
         V4L2_PIX_FMT_H264,
         V4L2_PIX_FMT_YUYV,
         V4L2_PIX_FMT_HEVC,
     };
 
-    for (j = 0; j < (int)(sizeof(jpgSrcfmt) / sizeof(jpgSrcfmt[0])); j++)
+    for (j = 0; j < (int)(sizeof(srcfmt) / sizeof(srcfmt[0])); j++)
     {
         memset(&frmsize, 0, sizeof(frmsize));
-        frmsize.pixel_format = jpgSrcfmt[j];
+        frmsize.pixel_format = srcfmt[j];
         for (i = 0;; i++)
         {
             frmsize.index = i;
@@ -1211,7 +1223,7 @@ void USBSensorHWDec::getStreamInfo(std::vector<streamInfo> &streamInfos) {
             { // only support this type
 
                 memset(&fival, 0, sizeof(fival));
-                fival.pixel_format = jpgSrcfmt[j];
+                fival.pixel_format = srcfmt[j];
                 fival.width = frmsize.discrete.width;
                 fival.height = frmsize.discrete.height;
                 fival.index = 0;
@@ -1231,14 +1243,14 @@ void USBSensorHWDec::getStreamInfo(std::vector<streamInfo> &streamInfos) {
                 if (framerate < framerate_min)
                     continue;
 
+                if ((frmsize.discrete.width > support_w) && (frmsize.discrete.height > support_h))
+                    continue;
+
                 if (!IsAvailablePictureSize(kUsbAvailablePictureSize, frmsize.discrete.width, frmsize.discrete.height))
                     continue;
 
-                streamInfo.pixelformat = jpgSrcfmt[j];
-                streamInfo.width = frmsize.discrete.width;
-                streamInfo.height = frmsize.discrete.height;
-                streamInfos.push_back(streamInfo);
-                if ((jpgSrcfmt[j] == V4L2_PIX_FMT_H264) && determineUseH264(frmsize.discrete.width, frmsize.discrete.height)) {
+                streamInfos.emplace_back(srcfmt[j], frmsize.discrete.width, frmsize.discrete.height);
+                if ((srcfmt[j] == V4L2_PIX_FMT_H264) && determineUseH264(frmsize.discrete.width, frmsize.discrete.height)) {
                     isUseH264 = true;
                  }
             }
@@ -1272,7 +1284,7 @@ int USBSensorHWDec::getStreamConfigurations(uint32_t picSizes[], const int32_t k
 
     framerate_min = property_get_int32("vendor.camera.frame.rate.min", 20);
 
-    uint32_t jpgSrcfmt[] = {
+    uint32_t srcfmt[] = {
         V4L2_PIX_FMT_MJPEG,
         V4L2_PIX_FMT_H264,
         V4L2_PIX_FMT_YUYV,
@@ -1284,10 +1296,10 @@ int USBSensorHWDec::getStreamConfigurations(uint32_t picSizes[], const int32_t k
     };
 
     START = 0;
-    for (j = 0; j < (int)(sizeof(jpgSrcfmt) / sizeof(jpgSrcfmt[0])); j++)
+    for (j = 0; j < (int)(sizeof(srcfmt) / sizeof(srcfmt[0])); j++)
     {
         memset(&frmsize, 0, sizeof(frmsize));
-        frmsize.pixel_format = jpgSrcfmt[j];
+        frmsize.pixel_format = srcfmt[j];
         for (i = 0;; i++)
         {
             frmsize.index = i;
@@ -1305,14 +1317,12 @@ int USBSensorHWDec::getStreamConfigurations(uint32_t picSizes[], const int32_t k
                 if (0 != (frmsize.discrete.width % 16))
                     continue;
 
-                if (frmsize.pixel_format != V4L2_PIX_FMT_H264 && frmsize.pixel_format != V4L2_PIX_FMT_HEVC)
-                {
-                    if ((frmsize.discrete.width > support_w) && (frmsize.discrete.height > support_h))
-                        continue;
-                }
+                if ((frmsize.discrete.width > support_w) && (frmsize.discrete.height > support_h))
+                    continue;
+
 
                 memset(&fival, 0, sizeof(fival));
-                fival.pixel_format = jpgSrcfmt[j];
+                fival.pixel_format = srcfmt[j];
                 fival.width = frmsize.discrete.width;
                 fival.height = frmsize.discrete.height;
                 fival.index = 0;

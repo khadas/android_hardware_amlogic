@@ -112,10 +112,10 @@ struct requestParameter {
 };
 
 struct streamInfo {
-    uint32_t pixelformat;
-    uint32_t width;
-    uint32_t height;
-    streamInfo() : pixelformat(0), width(0), height(0) {}
+    uint32_t mPixelformat;
+    uint32_t mWidth;
+    uint32_t mHeight;
+    streamInfo(uint32_t pixelformat, uint32_t width, uint32_t height) : mPixelformat(pixelformat), mWidth(width), mHeight(height) {}
 };
 
 class Sensor: public Thread, public virtual RefBase {
