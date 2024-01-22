@@ -200,6 +200,7 @@ namespace android {
                 proj[0].strength_hor = 1.0;
                 proj[0].strength_ver = 1.0;
             }
+
             proj[0].mirror = property_get_int32("vendor.camhal.use.dewarp.mirror", 0);
 
             win[0].win_start_x = 0;

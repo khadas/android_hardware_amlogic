@@ -5,6 +5,9 @@
 #include "CameraDevice.h"
 #include "MPlaneCameraIO.h"
 #include "ge2d_stream.h"
+#if defined(PREVIEW_DEWARP_ENABLE) || defined(PICTURE_DEWARP_ENABLE)
+#include "dewarp.h"
+#endif
 #include "tvinType.h"
 
 namespace android {
@@ -44,11 +47,16 @@ namespace android {
         private:
             MPlaneCameraIO* mMPlaneCameraIO;
             ge2dTransform* mGE2D = NULL;
+            bool mEnableDewarp;
+#if defined(PREVIEW_DEWARP_ENABLE) || defined(PICTURE_DEWARP_ENABLE)
+            dewarpInfo mPreDewarpInfo[ISP_PORT_NUM];
+#endif
             int kernel_dma_fd = -1;
             int vdin_fd = -1;
             int hdmi_port_index;
             bool successStreamOn;
             bool isStableSignal();
+            void captureNV21(Vector<StreamBuffer>& b, uint32_t gain);
         protected:
             virtual status_t readyToRun();
     };

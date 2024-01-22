@@ -34,6 +34,7 @@ namespace android {
                 uint32_t i_width;
                 uint32_t i_height;
                 CropInfo mCropInfo;
+                bool facingback;
             };
             struct GDCParam mGDCParam;
             struct GE2DParam {
@@ -57,6 +58,8 @@ namespace android {
             void setInputHeight(uint32_t height);
             CropInfo getCropInfo(void);
             void setCropInfo(CropInfo      inputCropInfo);
+            inline bool getFacing(void) { return mGDCParam.facingback;}
+            inline void setFacing(bool __facing) { mGDCParam.facingback = __facing; }
         private:
             CameraConfig(int groupId);
             ~CameraConfig();
