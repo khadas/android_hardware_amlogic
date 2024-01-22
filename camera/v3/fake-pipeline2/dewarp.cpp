@@ -160,6 +160,11 @@ namespace android {
             }
             out->width = width;
             out->height = height;
+            if (property_get_bool("vendor.camhal.use.dewarp.linear", true)) {
+                proj[0].projection_mode = PROJ_MODE_LINEAR;
+            } else {
+                proj[0].projection_mode = PROJ_MODE_EQUISOLID;
+            }
             proj[0].pan = 0;
             proj[0].tilt = 0;
             proj[0].rotation = (int)mRotation*90;

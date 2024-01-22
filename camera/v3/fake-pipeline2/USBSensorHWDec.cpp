@@ -1804,7 +1804,7 @@ void *USBSensorHWDec::decodeFillThreadProc(void *data){
             }
         }
 
-        CAMHAL_LOGW("h264, queue input src %p size %d", src, src_len);
+        CAMHAL_LOGW("%d, queue input src %p size %d", sensor->mDecoderStreamType, src, src_len);
         decoder->asyncDecodeQueueInput(-1, src, src_len);
         vinfo->putback_frame();
     }
