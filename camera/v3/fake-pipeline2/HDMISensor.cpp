@@ -27,6 +27,20 @@
 #define ARRAY_SIZE(x) (sizeof((x))/sizeof(((x)[0])))
 
 namespace android {
+
+#if defined(PREVIEW_DEWARP_ENABLE) || defined(PICTURE_DEWARP_ENABLE)
+static bool isNeedDestroyDewarp (dewarpInfo &info_exist, dewarpInfo &info) {
+    if (info_exist.o_width && info_exist.o_height && info_exist.i_width && info_exist.i_height
+            && info.i_width && info.i_height && info.o_width && info.o_height) {
+        if ((info_exist.o_width != info.o_width) || (info_exist.o_height != info.o_height)
+                || (info_exist.i_width != info.i_width) || (info_exist.i_height != info.i_height)) {
+            return true;
+        }
+    }
+    return false;
+}
+#endif
+
 HDMISensor::HDMISensor() {
     mMPlaneCameraIO = NULL;
     mGE2D = new ge2dTransform();
@@ -39,6 +53,14 @@ HDMISensor::HDMISensor() {
         CAMHAL_LOGE("invalid port set default port1");
         hdmi_port_index = 1;
     }
+#if defined(PREVIEW_DEWARP_ENABLE) || defined(PICTURE_DEWARP_ENABLE)
+    property_get("vendor.camhal.hdmisensor.use.dewarp", property, "true");
+    if (strstr(property, "true")) {
+        mEnableDewarp = true;
+    }
+#else
+    mEnableDewarp = false;
+#endif
 }
 HDMISensor::~HDMISensor() {
     if (mMPlaneCameraIO) {
@@ -61,13 +83,10 @@ int HDMISensor::halFormatToSensorFormat(uint32_t pixelfmt)
 uint32_t HDMISensor::getStreamUsage(aml_camera_stream_t& stream)
 {
     ATRACE_CALL();
-    uint32_t usage = (GRALLOC_USAGE_HW_TEXTURE
-            | GRALLOC_USAGE_HW_RENDER
-            | GRALLOC_USAGE_SW_READ_MASK
-            | GRALLOC_USAGE_SW_WRITE_MASK
-            );
+    uint32_t usage = (GRALLOC_USAGE_HW_TEXTURE | GRALLOC_USAGE_HW_RENDER);
+    if (stream.format == HAL_PIXEL_FORMAT_BLOB)
+        usage = (usage | GRALLOC_USAGE_SW_READ_MASK | GRALLOC_USAGE_SW_WRITE_MASK);
     usage = GRALLOC1_PRODUCER_USAGE_CAMERA | usage;
-    CAMHAL_LOGV("%s: usage=0x%x", __FUNCTION__,usage);
     return usage;
 }
 
@@ -278,20 +297,12 @@ status_t HDMISensor::setOutputFormat(int width, int height, int pixelformat, cha
 }
 
 void HDMISensor::captureNV21(StreamBuffer b, uint32_t gain) {
-    ATRACE_CALL();
+    Sensor::captureNV21(b, gain);
+}
+
+void HDMISensor::captureNV21(Vector<StreamBuffer>& b, uint32_t gain) {
     uint32_t width = mMPlaneCameraIO->format.fmt.pix_mp.width;
     uint32_t height = mMPlaneCameraIO->format.fmt.pix_mp.height;
-
-    if (kernel_dma_fd != -1) {
-        if (mMPlaneCameraIO->format.fmt.pix.pixelformat == V4L2_PIX_FMT_NV21) {
-            if ((width == b.width) && (height == b.height)) {
-                mGE2D->ge2d_copy(b.share_fd, kernel_dma_fd, b.stride,b.height, ge2dTransform::NV12);
-            } else {
-                mGE2D->ge2d_scale(b.share_fd, PIXEL_FORMAT_YCbCr_420_SP_NV12, b.width, b.height, kernel_dma_fd, width, height);
-            }
-        }
-        return;
-    }
     VideoInfo output_info;
     bool dequeSuccess = false;
     while (1) {
@@ -319,14 +330,79 @@ void HDMISensor::captureNV21(StreamBuffer b, uint32_t gain) {
             continue;
         }
         dequeSuccess = true;
-        kernel_dma_fd = output_info.dma_fd;
         mTimeOutCount = 0;
         if (mMPlaneCameraIO->format.fmt.pix.pixelformat == V4L2_PIX_FMT_NV21) {
-            if (width == b.width && height == b.height) {
-                mGE2D->ge2d_copy(b.share_fd, output_info.dma_fd, b.stride,b.height, ge2dTransform::NV12);
-            } else {
-                mGE2D->ge2d_scale(b.share_fd, PIXEL_FORMAT_YCbCr_420_SP_NV12, b.width, b.height, output_info.dma_fd, width, height);
+#ifdef GE2D_ENABLE
+#if defined(PREVIEW_DEWARP_ENABLE) || defined(PICTURE_DEWARP_ENABLE)
+            int index = 0;
+#endif
+            for (size_t i = 0;i < b.size(); i++) {
+                if (b[i].format == HAL_PIXEL_FORMAT_BLOB)
+                    continue;
+                if (mEnableDewarp) {
+#if defined(PREVIEW_DEWARP_ENABLE) || defined(PICTURE_DEWARP_ENABLE)
+                    dewarpInfo dewarpInfo;
+                    DeWarp* GDCObj = nullptr;
+                    CropInfo inputInfo;
+                    //  fill dewarp info for check dewarp config
+                    {
+                        dewarpInfo.i_width = width;
+                        dewarpInfo.i_height = height;
+                        dewarpInfo.o_width = b[i].width;
+                        dewarpInfo.o_height = b[i].height;
+                    }
+                    //  fill crop info for crop
+                    {
+                        inputInfo.srcWidth = width;
+                        inputInfo.srcHeight = height;
+                        inputInfo.width = width;
+                        inputInfo.height = height;
+                    }
+                    dewarpcam2port port;
+                    switch (index) {
+                        case 0:
+                            port = DEWARP_CAM2PORT_USB_PREVIEW;
+                            break;
+                        case 1:
+                            port = DEWARP_CAM2PORT_USB_RECORD;
+                            break;
+                        case 2:
+                            port = DEWARP_CAM2PORT_USB_CAPTURE;
+                            break;
+                        default:
+                            port = DEWARP_CAM2PORT_USB_PREVIEW;
+                            break;
+                    }
+                    bool needDestroy = isNeedDestroyDewarp(mPreDewarpInfo[port], dewarpInfo);
+                    if (needDestroy) {
+                        DeWarp::putInstance(port);
+                    }
+                    CAMHAL_LOGD("buffer index %d, dewarp port %d, isNeedDestroyDewarp %d", index, port, needDestroy);
+                    CameraConfig* config = CameraConfig::getInstance(port);
+                    config->setCropInfo(inputInfo);
+                    config->setInputWidth(width);
+                    config->setInputHeight(height);
+                    config->setOutputWidth(b[i].width);
+                    config->setOutputHeight(b[i].height);
+                    config->setOutputStride(b[i].stride);
+                    GDCObj = DeWarp::getInstance(port, PROJ_MODE_LINEAR, Rotation::ROTATION_0);
+                    if (GDCObj) {
+                        GDCObj->mInput_fd = output_info.dma_fd;
+                        GDCObj->mOutput_fd = b[i].share_fd;
+                        GDCObj->gdc_do_fisheye_correction();
+                    }
+                    index++;
+                    mPreDewarpInfo[port].o_width = b[i].width;
+                    mPreDewarpInfo[port].o_height = b[i].height;
+                    mPreDewarpInfo[port].i_width = width;
+                    mPreDewarpInfo[port].i_height = height;
+#endif
+                }else {
+                    mGE2D->ge2d_keep_ration_scale(b[i].share_fd, PIXEL_FORMAT_YCbCr_420_SP_NV12, b[i].width, b[i].height,
+                                                  output_info.dma_fd, width, height);
+                }
             }
+#endif
         }
         mSensorWorkFlag = true;
         break;
@@ -338,52 +414,31 @@ void HDMISensor::captureNV21(StreamBuffer b, uint32_t gain) {
 
 int HDMISensor::captureNewImage() {
     uint32_t gain = mGainFactor;
-    mKernelBuffer = NULL;
-    mKernelBufferFmt = 0;
-    mTempFD = -1;
-    kernel_dma_fd = -1;
-    CAMHAL_LOGVV("%s:buffer size=%zu\n",__FUNCTION__,mNextCapturedBuffers->size());
     for (size_t i = 0; i < mNextCapturedBuffers->size(); i++) {
         const StreamBuffer &b = (*mNextCapturedBuffers)[i];
-        CAMHAL_LOGVV("Sensor capturing buffer %zu: stream %d,"
-                " %d x %d, format %x, stride %d, buf %p, img %p",
-                i, b.streamId, b.width, b.height, b.format, b.stride,
-                b.buffer, b.img);
-        switch (b.format) {
-            case HAL_PIXEL_FORMAT_BLOB:
-                // Add auxiliary buffer of the right size
-                // Assumes only one BLOB (JPEG) buffer in
-                // mNextCapturedBuffers
-                StreamBuffer bAux;
-                int orientation;
-                orientation = getPictureRotate();
-                CAMHAL_LOGD("bAux orientation=%d",orientation);
+        if (b.format == HAL_PIXEL_FORMAT_BLOB) {
+            StreamBuffer bAux;
+            int orientation;
+            orientation = getPictureRotate();
+            CAMHAL_LOGD("bAux orientation=%d",orientation);
 
-                bAux.streamId = 0;
-                bAux.width = b.width;
-                bAux.height = b.height;
-                bAux.format = HAL_PIXEL_FORMAT_YCrCb_420_SP;
-                bAux.stride = b.width;
-                bAux.buffer = NULL;
-                bAux.img = NULL;
-                bAux.share_fd = -1;
+            bAux.streamId = 0;
+            bAux.width = b.width;
+            bAux.height = b.height;
+            bAux.format = HAL_PIXEL_FORMAT_YCrCb_420_SP;
+            bAux.stride = b.width;
+            bAux.buffer = NULL;
+            bAux.img = NULL;
+            bAux.share_fd = -1;
 #ifdef GE2D_ENABLE
-                bAux.img = IONInterface::get_instance()->alloc_buffer(b.width * b.height * 3, &bAux.share_fd);
+            bAux.img = IONInterface::get_instance()->alloc_buffer(b.width * b.height * 3, &bAux.share_fd);
 #else
-                bAux.img = new uint8_t[b.width * b.height * 3];
+            bAux.img = new uint8_t[b.width * b.height * 3];
 #endif
-                mNextCapturedBuffers->push_back(bAux);
-                break;
-            case HAL_PIXEL_FORMAT_YCrCb_420_SP:
-            case HAL_PIXEL_FORMAT_YCbCr_420_888:
-                captureNV21(b, gain);
-                break;
-            default:
-                CAMHAL_LOGE("%s: Unknown format %x, no output", __FUNCTION__,
-                        b.format);
-                break;
+            mNextCapturedBuffers->push_back(bAux);
         }
     }
+    captureNV21(*mNextCapturedBuffers, gain);
     return 0;
 
 }

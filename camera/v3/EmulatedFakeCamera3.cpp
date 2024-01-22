@@ -276,6 +276,8 @@ status_t EmulatedFakeCamera3::connectCamera(hw_device_t** device) {
         CAMHAL_LOGE(" mSensor startup ret %d, failed ", res);
         return res;
     }
+    mSensor->setFacing(mFacingBack);
+    CAMHAL_LOGD("mSensor setFacing=%d\n", mFacingBack);
     if (mSensor -> getOutputFormat() == V4L2_PIX_FMT_YUYV) {
         mUseHWdec = false;
     }
@@ -1992,8 +1994,14 @@ status_t EmulatedFakeCamera3::constructStaticInfo() {
         }
         break;
      case SENSOR_HDMI:
-        lensFacing =  ANDROID_LENS_FACING_BACK;
-        mFacingBack = 1;
+        property_get("vendor.media.hdmi.camera.faceback", property, NULL);
+        if (strstr(property, "true")) {
+            lensFacing =  ANDROID_LENS_FACING_BACK;
+            mFacingBack = 1;
+        } else {
+            lensFacing =  ANDROID_LENS_FACING_FRONT;
+            mFacingBack = 0;
+        }
         break;
      default:
          CAMHAL_LOGE("not support this sensor type!");

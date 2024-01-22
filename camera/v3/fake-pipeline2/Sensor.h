@@ -135,6 +135,7 @@ class Sensor: public Thread, public virtual RefBase {
     virtual int halFormatToSensorFormat(uint32_t pixelfmt);
     virtual status_t setOutputFormat(int width, int height, int pixelformat, channel ch);
     void setPictureRotate(int rotate);
+    inline void setFacing(bool __facingback) {     mFacingBack = __facingback; }
     int getPictureRotate();
     virtual uint32_t getStreamUsage(aml_camera_stream_t& stream);
     virtual status_t getSupportChannels(std::vector<channel> &chs);
@@ -393,6 +394,7 @@ class Sensor: public Thread, public virtual RefBase {
 
     Scene mScene;
     bool mUnpluged;
+    bool mFacingBack;
     int32_t mTestPatternMode;
     virtual int captureNewImage();
     void captureRaw(uint8_t *img, uint32_t gain, uint32_t stride);
