@@ -33,8 +33,6 @@ CAM_DPTZ := false
 
 ifeq ($(CAMERA_DEWARP_ENABLE), true)
 DEWARP_ENABLE := true
-else ifeq ($(TARGET_PRODUCT), mercury_arm64)
-DEWARP_ENABLE := true
 endif
 
 ifeq ($(CAMERA_VICP_ENABLE), true)
