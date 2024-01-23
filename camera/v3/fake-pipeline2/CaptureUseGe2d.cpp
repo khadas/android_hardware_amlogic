@@ -710,7 +710,8 @@ int CaptureUseGe2d::captureDPTZframe(StreamBuffer b, struct data_in * in) {
                 crop_w = mPrevCrop_w;
                 crop_h = mPrevCrop_h;
                 keep_crop = true;
-            } else if (fabs(mPrevCrop_x - crop_x) > face_width || fabs(mPrevCrop_y - crop_y) > face_height) {
+            } else if ((face_width > 0 && fabs(mPrevCrop_x - crop_x) > face_width) ||
+                       (face_height > 0 && fabs(mPrevCrop_y - crop_y) > face_height)) {
                 CAMHAL_LOGV("AICam[%zu] smooth invalid cropinfo (%zd %zd %zd %zd), recover cropinfo (%zd %zd %zd %zd)",
                     mDectNum, crop_x, crop_y, crop_w, crop_h, mPrevCrop_x, mPrevCrop_y, mPrevCrop_w, mPrevCrop_h);
                 crop_x = mPrevCrop_x;
