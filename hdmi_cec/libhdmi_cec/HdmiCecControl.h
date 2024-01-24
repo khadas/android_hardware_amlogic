@@ -62,7 +62,7 @@
 
 #define DELAY_TIMEOUT_MS                5000
 #define DELAY_TRANSMISSION_TIMEOUT      2000
-#define BOOT_OTP_RETRY_COUNT            5
+#define BOOT_OTP_RETRY_COUNT            7
 
 #define HDMIRX_SYSFS                    "/sys/class/hdmirx/hdmirx0/cec"
 #define CEC_STATE_BOOT_ENABLED          "2"
