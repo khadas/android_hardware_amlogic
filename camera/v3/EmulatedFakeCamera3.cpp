@@ -278,7 +278,7 @@ status_t EmulatedFakeCamera3::connectCamera(hw_device_t** device) {
     }
     mSensor->setFacing(mFacingBack);
     CAMHAL_LOGD("mSensor setFacing=%d\n", mFacingBack);
-    if (mSensor -> getOutputFormat() == V4L2_PIX_FMT_YUYV) {
+    if (mSensor -> getOutputFormat() == V4L2_PIX_FMT_YUYV || mSensor -> isNeedDump()) {
         mUseHWdec = false;
     }
     mSensor->getSupportChannels(mSensorSupportChns);

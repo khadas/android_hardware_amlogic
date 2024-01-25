@@ -38,6 +38,8 @@
 
 #include "HWVideoDecoder.h"
 
+#include "CameraUtil.h"
+
 #ifdef GE2D_ENABLE
 #include "fake-pipeline2/ge2d_stream.h"
 #endif
@@ -54,7 +56,6 @@
 //#define  USE_ION_INPUT_BUFFER          1
 
 #define ALIGN(x, align) ((x) + (align -1) & (~(align -1)))
-
 
 using namespace android;
 
@@ -155,6 +156,8 @@ private:
     uint32_t mDefaultOutputQueueCount;
 
     init_param_t mVideoDecConfig;
+    CameraUtil* mDump = NULL;
+    int dumpIndex[4] = {0};
     bool mEnableDewarp;
 #if defined(PREVIEW_DEWARP_ENABLE) || defined(PICTURE_DEWARP_ENABLE)
     dewarpInfo mPreDewarpInfo[ISP_PORT_NUM];
@@ -737,10 +740,13 @@ HWVideoDecoderImpl::HWVideoDecoderImpl(HWVideoDecoder * interfaceObj)
 
     mInputDumpFile = nullptr;
     mStatus = HWVideoDecoder::CONSTRUCTED;
-    char property[PROPERTY_VALUE_MAX];
-    property_get("vendor.camhal.usbsensor.use.dewarp", property, "false");
-    if (strstr(property, "true")) {
+    if (property_get_bool("vendor.camhal.usbsensor.use.dewarp", false)) {
         mEnableDewarp = true;
+    }
+    if (property_get_bool("camera.debug.dump.decoder", false)) {
+        if (nullptr == mDump) {
+            mDump = new CameraUtil();
+        }
     }
     mWorkMode = HWVideoDecoder::SYNC_DECODE_MODE;
     mAmVideoDec = nullptr;
@@ -779,6 +785,12 @@ HWVideoDecoderImpl::~HWVideoDecoderImpl()
     if (mION) {
         mION->put_instance();
     }
+    if (property_get_bool("camera.debug.dump.decoder", false)) {
+        if (mDump) {
+            delete mDump;
+            mDump = NULL;
+        }
+    }
 }
 
 
@@ -795,10 +807,7 @@ bool HWVideoDecoderImpl::initialize(uint32_t streamType, uint32_t bitstream_widt
 
     mBitStreamId = 0;
     mWorkMode = workMode;
-
-    char property[PROPERTY_VALUE_MAX];
-    property_get("vendor.media.camera.dec.checkmjpegwh", property, "true");
-    if (strstr(property, "true"))
+    if (property_get_bool("vendor.media.camera.dec.checkmjpegwh", true))
         mCheckMjpegWH = true;
 
     mInputDoneCount = 0;
@@ -1368,6 +1377,21 @@ int HWVideoDecoderImpl::syncDecode(int in_fd, uint8_t*in_src, uint32_t in_size, 
 #endif
                             }
                             ret = 0;
+                            if (property_get_bool("camera.debug.dump.decoder", false)) {
+                                char dumpOutPath[256];
+                                char dumpDecodePath[256];
+
+                                /*=== dump yuv data after dewarp or ge2d ===*/
+                                memset(&dumpOutPath[0], 0, sizeof(dumpOutPath));
+                                snprintf(dumpOutPath, 256, "/data/vendor/camera/dst_%zu_%dx%d.yuv", i, b[i].width, b[i].height);
+                                mDump -> dump(dumpIndex[i], b[i].img, (b[i].width * b[i].height * 3 / 2), dumpOutPath);
+
+                                /*=== dump yuv data after decode ===*/
+                                memset(&dumpDecodePath[0], 0, sizeof(dumpDecodePath));
+                                snprintf(dumpDecodePath, 256, "/data/vendor/camera/decode/dst_%dx%d.yuv", mDqWidth, mDqHeight);
+                                mDump -> dump(dumpIndex[i], outputBufInfo.vaddr, (mDqWidth * mDqHeight * 3 / 2), dumpDecodePath);
+                                dumpIndex[i]++;
+                            }
                        } else
                            CAMHAL_LOGE("%s:request buffer invalid fd",__FUNCTION__);
                    }
@@ -1493,6 +1517,21 @@ int HWVideoDecoderImpl::asyncDecodeDequeueOutput( Vector<StreamBuffer>& b, bool 
 #endif
                            }
                            ret = 0;
+                           if (property_get_bool("camera.debug.dump.decoder", false)) {
+                                char dumpOutPath[256];
+                                char dumpDecodePath[256];
+
+                                /*=== dump yuv data after dewarp or ge2d ===*/
+                                memset(&dumpOutPath[0], 0, sizeof(dumpOutPath));
+                                snprintf(dumpOutPath, 256, "/data/vendor/camera/dst_%zu_%dx%d.yuv", i, b[i].width, b[i].height);
+                                mDump -> dump(dumpIndex[i], b[i].img, (b[i].width * b[i].height * 3 / 2), dumpOutPath);
+
+                                /*=== dump yuv data after decode ===*/
+                                memset(&dumpDecodePath[0], 0, sizeof(dumpDecodePath));
+                                snprintf(dumpDecodePath, 256, "/data/vendor/camera/decode/dst_%dx%d.yuv", mDqWidth, mDqHeight);
+                                mDump -> dump(dumpIndex[i], outputBufInfo.vaddr, (mDqWidth * mDqHeight * 3 / 2), dumpDecodePath);
+                                dumpIndex[i]++;
+                            }
                        } else
                            CAMHAL_LOGE("%s:request buffer invalid fd",__FUNCTION__);
                    }

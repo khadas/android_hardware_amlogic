@@ -2543,6 +2543,10 @@ void Sensor::captureYUYV(uint8_t *img, uint32_t gain, uint32_t stride) {
     CAMHAL_LOGVV("YUYV sensor image captured");
 }
 
+bool Sensor::isNeedDump() {
+    return false;
+}
+
 void Sensor::dump(int fd) {
     String8 result;
     result = String8::format("%s, sensor preview information: \n", __FILE__);

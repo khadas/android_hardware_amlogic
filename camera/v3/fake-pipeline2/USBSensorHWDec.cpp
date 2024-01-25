@@ -14,6 +14,7 @@
 #if defined(PREVIEW_DEWARP_ENABLE) || defined(PICTURE_DEWARP_ENABLE)
 #include "dewarp.h"
 #endif
+#include <string>
 
 #define ARRAY_SIZE(x) (sizeof((x))/sizeof(((x)[0])))
 #define ALIGN(x, align) ((x) + (align -1) & (~(align -1)))
@@ -239,13 +240,11 @@ void USBSensorHWDec::determineDecoderWorkMode()
     int v4l2OutPixFmt = getOutputFormat();
 
     // if prop is set. follow prop.
-    property_get("vendor.media.camera.usb.asyncdec", property, "false");
-    if (strstr(property, "true") && v4l2OutPixFmt != V4L2_PIX_FMT_YUYV) {
+    if (property_get_bool("vendor.media.camera.usb.asyncdec", false) && v4l2OutPixFmt != V4L2_PIX_FMT_YUYV) {
         CAMHAL_LOGI("%s: got prop, decoder work mode async", __FUNCTION__);
         mHWDecoderWorkMode = ASYNC_DECODE_MODE;
         return ;
     }
-
 
     // default behavior: h264 use async mode; mjpeg use sync mode;
     if (V4L2_PIX_FMT_H264 == v4l2OutPixFmt || V4L2_PIX_FMT_HEVC == v4l2OutPixFmt) {
@@ -330,7 +329,7 @@ uint32_t USBSensorHWDec::getStreamUsage(aml_camera_stream_t& stream){
     ATRACE_CALL();
 
     uint32_t usage = (GRALLOC_USAGE_HW_TEXTURE | GRALLOC_USAGE_HW_RENDER);
-    if (stream.format == HAL_PIXEL_FORMAT_BLOB || (this -> getOutputFormat() == V4L2_PIX_FMT_YUYV))
+    if (stream.format == HAL_PIXEL_FORMAT_BLOB || (this -> getOutputFormat() == V4L2_PIX_FMT_YUYV) || this -> isNeedDump())
         usage = (usage | GRALLOC_USAGE_SW_READ_MASK | GRALLOC_USAGE_SW_WRITE_MASK);
     usage = GRALLOC1_PRODUCER_USAGE_CAMERA | usage;
     CAMHAL_LOGV("%s: usage=0x%x", __FUNCTION__,usage);
@@ -592,15 +591,7 @@ status_t USBSensorHWDec::streamOff(channel ch) {
 
 void USBSensorHWDec::setIOBufferNum()
 {
-    char buffer_number[128];
-    int tmp = 4;
-    if (property_get("ro.vendor.usbcamera.iobuffer", buffer_number, NULL) > 0) {
-        sscanf(buffer_number, "%d", &tmp);
-        CAMHAL_LOGD("get property value is %d\n",tmp);
-    } else {
-        CAMHAL_LOGD("default buffer number is %d\n",tmp);
-    }
-    mVinfo->set_buffer_numbers(tmp);
+    mVinfo->set_buffer_numbers(property_get_int32("ro.vendor.usbcamera.iobuffer", 4));
 }
 
 status_t USBSensorHWDec::getOutputFormat(void)
@@ -1824,7 +1815,6 @@ void *USBSensorHWDec::decodeFillThreadProc(void *data){
     return((void *)0);
 }
 
-
 int USBSensorHWDec::startDecodeFillThread()
 {
     int ret = 0;
@@ -1845,7 +1835,6 @@ int USBSensorHWDec::startDecodeFillThread()
     return ret;
 }
 
-
 int USBSensorHWDec::stopDecodeFillThread()
 {
     int ret = 0;
@@ -1860,6 +1849,12 @@ int USBSensorHWDec::stopDecodeFillThread()
     return ret;
 }
 
+bool USBSensorHWDec::isNeedDump() {
+    if (property_get_bool("camera.debug.dump.decoder", false)) {
+        return true;
+    }
+    return false;
+}
 
 }
 

@@ -59,6 +59,7 @@ namespace android {
             int getPictureSizes(int32_t picSizes[], int size, bool preview) override;
             status_t force_reset_sensor() override;
             int captureNewImage() override;
+            bool isNeedDump() override;
 
             //-------dummy function-------
             int getZoom(int *zoomMin, int *zoomMax, int *zoomStep) override;
