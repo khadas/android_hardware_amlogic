@@ -178,6 +178,7 @@ class Sensor: public Thread, public virtual RefBase {
     void setDeviceName(char* name);
     virtual status_t force_reset_sensor();
     bool get_sensor_status();
+    virtual bool isNeedDump();
     virtual status_t checkAndRestartStream(
             uint32_t width, uint32_t height,
             uint32_t pixelfmt, channel ch) { return -1; }
