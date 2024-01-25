@@ -575,9 +575,6 @@ void V4l2MediaSensor::takePicture(StreamBuffer& b, uint32_t gain, uint32_t strid
 void V4l2MediaSensor::captureNV21(StreamBuffer b, uint32_t gain){
     ATRACE_CALL();
     //CAMHAL_LOGVV("MIPI NV21 sensor image captured");
-    // todo: captureNewImage with >=2 out bufs with different pixel fmt.
-    //       simply using mKernelBuffer & mTempFd cause green image
-    //       due to pixel format difference.
     struct data_in in;
 
     in.src = mSavedDecodedBuffer.vaddr;
@@ -634,13 +631,17 @@ void V4l2MediaSensor::captureNV21(StreamBuffer b, uint32_t gain){
 
 void V4l2MediaSensor::captureNV21(Vector<StreamBuffer>& b) {
     ATRACE_CALL();
-    //CAMHAL_LOGVV("MIPI NV21 sensor image captured");
-    // todo: captureNewImage with >=2 out bufs with different pixel fmt.
-    //       simply using mKernelBuffer & mTempFd cause green image
-    //       due to pixel format difference.
+    //CAMHAL_LOGVV("MIPI NV21 capture vec b");
+
     int ret = 0;
     struct data_in in;
     for (size_t i = 0; i < b.size(); i++) {
+
+        if (b[i].format == HAL_PIXEL_FORMAT_BLOB) {
+            CAMHAL_LOGD("%s:blob buffer bypass",__FUNCTION__);
+            continue;
+        }
+
         while (1) {
             if (mExitSensorThread) {
                 break;
@@ -691,19 +692,11 @@ void V4l2MediaSensor::setIOBufferNum()
     mVinfo->set_buffer_numbers(tmp);
 }
 
-status_t V4l2MediaSensor::getOutputFormat(void) {
-
-    // todo: output format from sensor subdev
-    char property[PROPERTY_VALUE_MAX];
-    property_get("vendor.media.isp.enable", property, "true");
-    if (strstr(property, "false")) {
-        CAMHAL_LOGD("%s: isp not enable", __FUNCTION__);
-        // no isp ( camera-yuv) driver always output UYVY format.
-        // if sensor output is not UYVY, using fe gen_ctrl1 to convert to UYVY.
-        return V4L2_PIX_FMT_UYVY;
-    }
-    else
-        return V4L2_PIX_FMT_NV21;
+status_t V4l2MediaSensor::getOutputFormat(void)
+{
+    // amlcam.ko , with isp, output nv21;
+    // amlogic-camera-yuv.ko, without isp, using ge2d, output nv21.
+    return V4L2_PIX_FMT_NV21;
 }
 
 status_t V4l2MediaSensor::setOutputFormat(int width, int height, int pixelformat, channel ch) {
