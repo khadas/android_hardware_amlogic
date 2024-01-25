@@ -173,6 +173,7 @@ typedef enum CALIBRATION_TYPE {
     CALIBRATION_AWB_PRESET                ,
     CALIBRATION_CSC_COEF                  ,
     CALIBRATION_VERSION                   ,
+    CALIBRATION_HIGHLIGHT_DETECT          ,
 
     CALIBRATION_TOTAL_SIZE                ,
 } CALIBRATION_TYPE_E;
@@ -205,6 +206,7 @@ typedef enum
     AML_MBI_ISP_IRAttr,
     AML_MBI_ISP_AERoiAttr,
     AML_MBI_ISP_AWBRegionAttr,
+    AML_MBI_ISP_QueryWBStats,
     AISP_3A_MAX = 40,
 
     AML_MBI_ISP_SaturationAttr,
