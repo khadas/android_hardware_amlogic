@@ -303,6 +303,12 @@ void HdmiCecControl::getPortInfos(hdmi_port_info_t* list[], int* total)
                 mCecDevice.port_data[i].cec_supported,
                 mCecDevice.port_data[i].arc_supported,
                 mCecDevice.port_data[i].physical_address);
+        if (mCecDevice.is_tv
+            && mCecDevice.port_data[i].port_id == 0
+            && mCecDevice.port_data[i].physical_address != 0) {
+            mCecDevice.port_data[i].port_id = (mCecDevice.port_data[i].physical_address & 0xFFFF) >> 12;
+            LOGI("update port id %d with physical address",  mCecDevice.port_data[i].port_id);
+        }
 
         if (mCecDevice.port_data[i].arc_supported) {
             mCecDevice.arc_port = mCecDevice.port_data[i].port_id;
