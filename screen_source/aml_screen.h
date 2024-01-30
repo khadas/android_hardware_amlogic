@@ -48,6 +48,9 @@ typedef void (*olStateCB)(int state);
 typedef void (*app_data_callback)(void* user,
         aml_screen_buffer_info_t *buff_info);
 
+typedef void (*envent_callback)(void *user,
+        int event_type);
+
 struct aml_screen_device;
 
 typedef struct aml_screen_module {
@@ -71,6 +74,11 @@ enum aml_display_mode_e{
     AML_SCREEN_RECODE_MODE = 2,
 };
 
+enum aml_event_type{
+    AML_ENEVENT_HDCP_LIMIT          = 1,
+};
+
+
 /**
  * set_port_type() parameter description:
  portType is consisted by 32-bit binary.
@@ -84,6 +92,7 @@ typedef struct aml_screen_operations {
     int (*stop)(struct aml_screen_device*);
     int (*pause)(struct aml_screen_device*);
     int (*setStateCallBack)(struct aml_screen_device*, olStateCB);
+    int (*setEventCallBack)(struct aml_screen_device*, envent_callback);
     //int (*setPreviewWindow)(struct aml_screen_device*, ANativeWindow*);
     int (*setDataCallBack)(struct aml_screen_device*,app_data_callback, void*);
     int (*get_format)(struct aml_screen_device*);

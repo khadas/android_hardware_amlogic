@@ -177,6 +177,11 @@ int screen_source_set_state_callback(struct aml_screen_device* dev, olStateCB ca
 {
        return gScreenHals[dev->device_id]->set_state_callback(callback);
 }
+
+int screen_source_set_event_callback(struct aml_screen_device* dev, envent_callback callback)
+{
+       return gScreenHals[dev->device_id]->set_event_callback(callback);
+}
 /*
 int screen_source_set_preview_window(struct aml_screen_device* dev, ANativeWindow* window)
 {
@@ -315,6 +320,7 @@ static int aml_screen_device_open(const struct hw_module_t* module, const char* 
         dev->ops.acquire_buffer = screen_source_acquire_buffer;
         dev->ops.release_buffer = screen_source_release_buffer;
         dev->ops.setStateCallBack = screen_source_set_state_callback;
+        dev->ops.setEventCallBack = screen_source_set_event_callback;
         //dev->ops.setPreviewWindow = screen_source_set_preview_window;
         dev->ops.setDataCallBack = screen_source_set_data_callback;
         dev->ops.set_frame_rate = screen_source_set_frame_rate;

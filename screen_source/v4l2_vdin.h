@@ -56,12 +56,15 @@ struct VideoInfo {
     int displaymode;
     int dimming_flag;
 };
+
+
 enum State{
     START,
     PAUSE,
     STOPPING,
     STOP,
 };
+
 
 enum FrameType{
     NATIVE_WINDOW_DATA = 0x1,
@@ -70,6 +73,8 @@ enum FrameType{
 
 
 typedef void (*olStateCB)(int state);
+
+typedef void (*envent_callback)(void *user, int event_type);
 
 typedef void (*app_data_callback)(void *user, aml_screen_buffer_info_t *buff_info);
 
@@ -103,6 +108,7 @@ class vdin_screen_source {
         // int inc_buffer_refcount(int* ptr);
         int release_buffer(long* ptr);
         int set_state_callback(olStateCB callback);
+        int set_event_callback(envent_callback callback);
         int set_data_callback(app_data_callback callback, void* user);
         int set_preview_window(ANativeWindow* window);
         int set_frame_rate(int frameRate);
@@ -118,6 +124,7 @@ class vdin_screen_source {
     private:
         int init_native_window();
         int workThread();
+        void onDqEvent();
     private:
         class WorkThread : public Thread {
             vdin_screen_source* mSource;
@@ -150,6 +157,7 @@ class vdin_screen_source {
         int m_displaymode;
         volatile int mState;
         olStateCB mSetStateCB;
+        envent_callback mEventCB;
         int mPixelFormat;
         int mNativeWindowPixelFormat;
         sp<ANativeWindow> mANativeWindow;

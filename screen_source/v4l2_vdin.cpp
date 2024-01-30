@@ -57,6 +57,8 @@ namespace android {
 #define ALIGN_32(x) ((x + (boundary) - 1)& ~((boundary) - 1))
 #define ALIGN(b,w) (((b)+((w)-1))/(w)*(w))
 
+#define V4L_EVENT_ERROR_REPORT 0x08002001
+
 static size_t getBufSize(int format, int width, int height)
 {
     size_t buf_size = 0;
@@ -234,6 +236,15 @@ int vdin_screen_source::init(int id) {
                 return -1;
             }
     }
+    struct v4l2_event_subscription sub;
+    sub.type = V4L_EVENT_ERROR_REPORT;
+    sub.id = 0;
+    int ret = ioctl(mCameraHandle,VIDIOC_SUBSCRIBE_EVENT,&sub);
+    if (ret < 0) {
+        printf("VIDIOC_SUBSCRIBE_EVENT fail");
+        return -1;
+    }
+
     mVideoInfo = (struct VideoInfo *) calloc (1, sizeof (struct VideoInfo));
     if (mVideoInfo == NULL)
     {
@@ -448,6 +459,17 @@ int vdin_screen_source::set_state_callback(olStateCB callback)
     }
     mSetStateCB = callback;
     return NO_ERROR;
+}
+
+int vdin_screen_source::set_event_callback(envent_callback callback)
+{
+    if (!callback) {
+        ALOGE("NULL state callback pointer");
+        return BAD_VALUE;
+    }
+    mEventCB = callback;
+    return NO_ERROR;
+
 }
 
 int vdin_screen_source::set_preview_window(ANativeWindow* window)
@@ -989,6 +1011,22 @@ int vdin_screen_source::micro_dimming(long* src, unsigned char *dest)
     memset(dest+(mFrameWidth * mFrameHeight * flex_original * flex_original), 0x80, (mFrameWidth * mFrameHeight * flex_original * flex_original) / 2);
     return 0;
 }
+void vdin_screen_source::onDqEvent() {
+    struct v4l2_event ev;
+    memset(&ev, 0, sizeof(ev));
+    ALOGV("%s %d", __FUNCTION__, __LINE__);
+    int ret = ioctl(mCameraHandle, VIDIOC_DQEVENT, &ev);
+    if (ret < 0) {
+        ALOGV("Open: VIDIOC_DQEVENT Failed: %s", strerror(errno));
+        return;
+    }
+    ALOGD("envent type:0x%x,data:0x%x",ev.type,ev.u.data[0]);
+    if (mEventCB == NULL || mUser == NULL)
+        return;
+    if (ev.type == V4L_EVENT_ERROR_REPORT && ev.u.data[0] == AML_ENEVENT_HDCP_LIMIT) {
+        mEventCB(mUser, AML_ENEVENT_HDCP_LIMIT);
+    }
+}
 int vdin_screen_source::workThread()
 {
     //bool buff_keep = false;
@@ -1001,6 +1039,7 @@ int vdin_screen_source::workThread()
     ANativeWindowBuffer* buf;
     if (mState == START) {
         usleep(5000);
+        onDqEvent();
         ret = acquire_buffer(&buff_info);
         if (ret != 0 || (buff_info.buffer_mem == 0)) {
             ALOGV("Get V4l2 buffer failed");
