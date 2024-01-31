@@ -30,7 +30,9 @@ static void dump2File(const char* name, void* src, int length) {
 }
 
 namespace android {
+#ifdef CAM_DPTZ
     center_face_network_t* centerface_network = NULL;
+#endif
     CaptureUseGe2d::CaptureUseGe2d(MIPIVideoInfo* info) {
         smooth_step   = property_get_int32("vendor.camera.dptz.smooth.step", 6);
         smooth_enable = property_get_bool("vendor.camera.dptz.smooth", true);
@@ -38,9 +40,11 @@ namespace android {
         mInfo = info;
         mCameraUtil = new CameraUtil();
         mGE2D = new ge2dTransform();
+#ifdef CAM_DPTZ
         if (!centerface_network && property_get_bool("vendor.camera.dptz.enable", false)) {
             centerface_network = center_face_network_init_aml(NEU_IVA_CENTER_FACE, MODEL_PATH);
         }
+#endif
     }
 
     CaptureUseGe2d::~CaptureUseGe2d() {
@@ -476,6 +480,7 @@ int CaptureUseGe2d::captureRGBAframe(StreamBuffer b, struct data_in* in){
 int CaptureUseGe2d::captureDPTZframe(StreamBuffer b, struct data_in * in) {
     CAMHAL_LOGVV("%s", __FUNCTION__);
     ATRACE_CALL();
+#ifdef CAM_DPTZ
 
     uint32_t width_dptz = mInfo->get_preview_width();
     uint32_t height_dptz = mInfo->get_preview_height();
@@ -778,6 +783,10 @@ int CaptureUseGe2d::captureDPTZframe(StreamBuffer b, struct data_in * in) {
                             dmabuf_fd_dptz, width_dptz, height_dptz, crop_x, crop_y, crop_w, crop_h);
     }
     return ret;
+#else
+    ALOGD("CAM_DPTZ not enable");
+    return 0;
+#endif
 }
 
 }

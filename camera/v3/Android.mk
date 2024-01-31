@@ -29,6 +29,7 @@ GE2D_VERSION_2 := true
 ISP_ENABLE := false
 GDC_ENABLE := false
 HW_JPEG := false
+CAM_DPTZ := false
 
 ifeq ($(CAMERA_DEWARP_ENABLE), true)
 DEWARP_ENABLE := true
@@ -106,8 +107,11 @@ LOCAL_STATIC_LIBRARIES := \
     libyuv_static \
     android.hardware.camera.common@1.0-helper
 
+ifeq ($(CAM_DPTZ),true)
+LOCAL_CFLAGS += -DCAM_DPTZ
 LOCAL_SHARED_LIBRARIES += libnn_face
 LOCAL_SHARED_LIBRARIES += libnnsdk
+endif
 LOCAL_CFLAGS += -DANDROID_PLATFORM_SDK_VERSION=$(PLATFORM_SDK_VERSION)
 
 LOCAL_KK=0
