@@ -41,6 +41,10 @@ ifeq ($(CAMERA_VICP_ENABLE), true)
 VICP_ENABLE := true
 endif
 
+ifeq ($(CAMERA_DPTZ), true)
+CAM_DPTZ := true
+endif
+
 ifeq ($(CAMHAL_DEBUG_ENABLE),true)
 # enable ALOGV
 LOCAL_CFLAGS+=-DLOG_NDEBUG=0
