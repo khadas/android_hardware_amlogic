@@ -65,7 +65,7 @@ static bool determineUseH264(const uint32_t width, const uint32_t height)
 {
     uint32_t base_w = property_get_int32("vendor.media.camera.h264.width", 3840);
     uint32_t base_h = property_get_int32("vendor.media.camera.h264.height", 2160);
-    CAMHAL_LOGD("base width %d, base height %d", base_w, base_h);
+    CAMHAL_LOGV("base width %d, base height %d", base_w, base_h);
     if (property_get_bool("vendor.media.camera.force.h264", false)) {
         CAMHAL_LOGD("default choose h264");
         return true;
@@ -1180,12 +1180,18 @@ void USBSensorHWDec::getStreamInfo(std::vector<streamInfo> &streamInfos) {
     memset(property, 0, sizeof(property));
     if (property_get("vendor.media.camera_preview.maxsize", property, NULL) > 0)
     {
-        CAMHAL_LOGD("support Max Preview Size :%s", property);
+        CAMHAL_LOGV("support Max Preview Size :%s", property);
         if (sscanf(property, "%dx%d", &support_w, &support_h) != 2)
         {
             support_w = 10000;
             support_h = 10000;
         }
+    } else {
+#if defined(CAMERA_MAX_PREVIEW_WIDTH) && defined(CAMERA_MAX_PREVIEW_HEIGHT)
+        support_w = atoi(CAMERA_MAX_PREVIEW_WIDTH);
+        support_h = atoi(CAMERA_MAX_PREVIEW_HEIGHT);
+#endif
+        CAMHAL_LOGV("the configured max preview size :%dx%d", support_w, support_h);
     }
     framerate_min = property_get_int32("vendor.camera.frame.rate.min", 20);
     uint32_t srcfmt[] = {
@@ -1206,7 +1212,7 @@ void USBSensorHWDec::getStreamInfo(std::vector<streamInfo> &streamInfos) {
             res = ioctl(mVinfo->fd, VIDIOC_ENUM_FRAMESIZES, &frmsize);
             if (res < 0)
             {
-                CAMHAL_LOGD("index=%d, break\n", i);
+                CAMHAL_LOGV("index=%d, break\n", i);
                 break;
             }
 
@@ -1271,6 +1277,12 @@ int USBSensorHWDec::getStreamConfigurations(uint32_t picSizes[], const int32_t k
             support_w = 10000;
             support_h = 10000;
         }
+    } else {
+#if defined(CAMERA_MAX_PREVIEW_WIDTH) && defined(CAMERA_MAX_PREVIEW_HEIGHT)
+        support_w = atoi(CAMERA_MAX_PREVIEW_WIDTH);
+        support_h = atoi(CAMERA_MAX_PREVIEW_HEIGHT);
+#endif
+        CAMHAL_LOGD("the configured max preview size :%dx%d", support_w, support_h);
     }
 
     framerate_min = property_get_int32("vendor.camera.frame.rate.min", 20);
@@ -1339,12 +1351,7 @@ int USBSensorHWDec::getStreamConfigurations(uint32_t picSizes[], const int32_t k
                 if (!IsAvailablePictureSize(kUsbAvailablePictureSize, frmsize.discrete.width, frmsize.discrete.height))
                     continue;
 
-                picSizes[count + 0] = HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED;
-                picSizes[count + 1] = frmsize.discrete.width;
-                picSizes[count + 2] = frmsize.discrete.height;
-                picSizes[count + 3] = ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT;
-
-                if ((j != 0) || (i != 0))
+                if (((j != 0) || (i != 0)) && (count >= 4))
                 {
                     for (int m = count; m > START; m -= 4)
                     {
@@ -1360,7 +1367,12 @@ int USBSensorHWDec::getStreamConfigurations(uint32_t picSizes[], const int32_t k
                     }
                 }
 
-                if (0 == i)
+                picSizes[count + 0] = HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED;
+                picSizes[count + 1] = frmsize.discrete.width;
+                picSizes[count + 2] = frmsize.discrete.height;
+                picSizes[count + 3] = ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT;
+
+                if (0 == i && count == 0)
                 {
                     count += 4;
                     continue;
