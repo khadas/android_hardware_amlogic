@@ -380,6 +380,7 @@ status_t V4l2MediaSensor::startUp(int idx, bool customizationSensor) {
     if (res != OK) {
        CAMHAL_LOGE("Unable to start up sensor capture thread: %d", res);
     }
+    mOpenCameraID = idx;
     res = SensorInit(idx);
 #ifdef GDC_ENABLE
     if (!mIGdc)
