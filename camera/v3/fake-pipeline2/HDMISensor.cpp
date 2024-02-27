@@ -113,12 +113,15 @@ int HDMISensor::streamOn(channel ch) {
             return -1;
     } else {
         ALOGE("HDMI success streamOn");
+	property_set("vendor.media.hdmi.camera", "1");
         successStreamOn = true;
         return 0;
     }
 }
 
 int HDMISensor::streamOff(channel ch) {
+    ALOGE("HDMISensor::streamOff");
+    property_set("vendor.media.hdmi.camera", "0");
     return mMPlaneCameraIO->stopCameraIO();
 }
 
