@@ -35,7 +35,7 @@
 extern "C" {
 #endif
 
-#define DRC_REF_LEVEL 20*4 /* -20 dB */
+#define DRC_REF_LEVEL 92 /* -23.0 dB */
 
 
     drc_info *drc_init(real_t cut, real_t boost);
