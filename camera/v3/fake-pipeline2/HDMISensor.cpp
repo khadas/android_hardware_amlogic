@@ -129,6 +129,7 @@ int HDMISensor::streamOn(channel ch) {
                     return -1;
                 }
             } else {
+				property_set("vendor.media.hdmi.camera", "1");
                 successStreamOn = true;
                 return 0;
             }
@@ -141,6 +142,7 @@ int HDMISensor::streamOn(channel ch) {
 
 int HDMISensor::streamOff(channel ch) {
     int ret;
+	property_set("vendor.media.hdmi.camera", "0");
     ret = mMPlaneCameraIO->stopCameraIO();
 #if defined(PREVIEW_DEWARP_ENABLE) || defined(PICTURE_DEWARP_ENABLE)
     auto dewarpPortRange = std::make_pair(DEWARP_CAM2PORT_VDIN_PREVIEW, DEWARP_CAM2PORT_VDIN_CAPTURE);
