@@ -712,7 +712,8 @@ status_t V4l2MediaSensor::setOutputFormat(int width, int height, int pixelformat
 
         if (mIspMgr) {
             if (enableHdr) {
-                media_set_wdrMode((media_stream_t*) mMediaStream, 1);
+                int wdr_type = staticPipe::fetchSensorWdrType((media_stream_t *) mMediaStream, enableHdr);
+                media_set_wdrMode((media_stream_t*) mMediaStream, wdr_type);
             }
         }
         int rc = mediaStreamConfig((media_stream_t*) mMediaStream, &mStreamconfig);
