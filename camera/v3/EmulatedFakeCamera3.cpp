@@ -991,10 +991,12 @@ const camera_metadata_t* EmulatedFakeCamera3::constructDefaultRequestSettings(
     static const uint8_t croppingType = ANDROID_SCALER_CROPPING_TYPE_CENTER_ONLY;
     settings.update(ANDROID_SCALER_CROPPING_TYPE, &croppingType, 1);
 
+
     static const int32_t cropRegion[] = {
         0, 0, (int32_t)Sensor::kResolution[0], (int32_t)Sensor::kResolution[1],
     };
     settings.update(ANDROID_SCALER_CROP_REGION, cropRegion, 4);
+
 
     /** android.jpeg */
     static const uint8_t jpegQuality = 80;
@@ -1364,12 +1366,16 @@ status_t EmulatedFakeCamera3::processCaptureRequest(
               cropRegion[1] = e.data.i32[1];
               cropWidth = cropRegion[2] = e.data.i32[2];
               cropRegion[3] = e.data.i32[3];
-              for (int i = mZoomMin; i <= mZoomMax; i += mZoomStep) {
-                   //if ( (float) i / mZoomMin >= (float) outputWidth / cropWidth) {
-                   if ( i * cropWidth >= outputWidth * mZoomMin ) {
-                         mSensor->setZoom(i);
-                         break;
-                   }
+              if (mSensorType == SENSOR_USB) {
+                  mSensor->setZoom(mZoomMin);
+              } else {
+                  for (int i = mZoomMin; i <= mZoomMax; i += mZoomStep) {
+                       //if ( (float) i / mZoomMin >= (float) outputWidth / cropWidth) {
+                       if ( i * cropWidth >= outputWidth * mZoomMin ) {
+                             mSensor->setZoom(i);
+                             break;
+                       }
+                  }
               }
               CAMHAL_LOGD("cropRegion:%d, %d, %d, %d\n", cropRegion[0], cropRegion[1],cropRegion[2],cropRegion[3]);
          }
