@@ -54,6 +54,7 @@ class CameraVirtualDevice {
         int checkUsbDeviceExist(char* name);
         int returnUsbDeviceId(char* name);
         void recoverUsbDevicelists(void);
+        void closeVideoDeviceFd(char* dev_name);
     private:
         CameraVirtualDevice();
         struct VirtualDevice* findVideoDevice(int cam_id);
@@ -63,10 +64,12 @@ class CameraVirtualDevice {
         int checkDeviceStatus(struct VirtualDevice* pDev);
         int OpenVideoDevice(struct VirtualDevice* pDev);
         int CloseVideoDevice(struct VirtualDevice* pDev);
+        int CloseVideoDeviceWoFd(struct VirtualDevice* pDev);
 
         int findUsbCameraID(int cam_id);
-        bool isAmlMediaCamera (char *dev_node_name);
-        bool isStandardUSBCamera (char *dev_node_name);
+        bool isAmlMediaCamera (char* dev_node_name);
+        bool isStandardUSBCamera (char* dev_node_name);
+        int getVideoDeviceFd(char* dev_node_name);
     private:
         static struct VirtualDevice usbvideoDevices[5];
 

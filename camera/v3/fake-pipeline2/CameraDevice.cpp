@@ -110,6 +110,7 @@ struct VirtualDevice* CameraVirtualDevice::findMipiVideoDevice(int cam_id) {
         if (pDev->type == V4L2MEDIA_CAM_DEV) {
             // for media device. skip usb cameras' media dev node.
             if ( false == isAmlMediaCamera(pDev->name) ) {
+                closeVideoDeviceFd(pDev->name);
                 // skip
                 continue;
             }
@@ -153,13 +154,17 @@ struct VirtualDevice* CameraVirtualDevice::findUsbVideoDevice(int cam_id) {
         if (pDev->type == USB_CAM_DEV) {
             bool bypass = false;
             if (!strcmp(pDev->name, HDMI_VDIN_VIDEO_PATH)) {
-                if (!(HDMIStatus::getInstance()->isStandardHDMICamera()))
+                if (!(HDMIStatus::getInstance()->isStandardHDMICamera())) {
                     bypass = true;
+                }
             } else {
                 if (!isStandardUSBCamera(pDev->name))
                     bypass = true;
             }
             if (bypass) {
+                if (strcmp(pDev->name, HDMI_VDIN_VIDEO_PATH) != 0) {
+                    closeVideoDeviceFd(pDev->name);
+                }
                 CAMHAL_LOGD("%s is not a valid usb camera", pDev->name);
                 continue;
             }
@@ -179,6 +184,7 @@ struct VirtualDevice* CameraVirtualDevice::findUsbVideoDevice(int cam_id) {
                         memcpy(tmp, usbvideoDevices[preferred_usb_device_idx].name, 64);
                         memcpy(usbvideoDevices[preferred_usb_device_idx].name, usbvideoDevices[i].name, 64);
                         memcpy(usbvideoDevices[i].name, tmp, 64);
+                        std::swap(usbvideoDevices[preferred_usb_device_idx].fileDesc[0], usbvideoDevices[i].fileDesc[0]);
                     }
                     usbvideoDevices[preferred_usb_device_idx].cameraId[stream_idx] = cam_id;
                     return &usbvideoDevices[preferred_usb_device_idx];
@@ -213,7 +219,6 @@ int CameraVirtualDevice::checkDeviceStatus(struct VirtualDevice* pDev) {
     for (int i = 0; i < pDev->streamNum; i++) {
         if (pDev->status[i] == USED_VIDEO_DEVICE
             && pDev->cameraId[i] != -1) {
-
             CAMHAL_LOGD("%s: device is busy!", __FUNCTION__);
             ret = 1;  //busy
             break;
@@ -224,14 +229,14 @@ int CameraVirtualDevice::checkDeviceStatus(struct VirtualDevice* pDev) {
 
 // open all streams of given device.
 int CameraVirtualDevice::OpenVideoDevice(struct VirtualDevice* pDev) {
-    CAMHAL_LOGD("%s: E", __FUNCTION__);
+    int fd = -1;
+    CAMHAL_LOGD("%s: camera id %d E", __FUNCTION__, pDev->cameraId[0]);
     if (pDev == nullptr) {
         CAMHAL_LOGD("%s: device is null!", __FUNCTION__);
         return -1;
     }
     for (int i = 0; i < pDev->streamNum; i++) {
-
-        int fd = open(pDev->name,O_RDWR | O_NONBLOCK);
+        fd = getVideoDeviceFd(pDev->name);
         if (fd < 0) {
             CAMHAL_LOGE("open device %s , the %dth stream fail!",pDev->name,i);
             CAMHAL_LOGE("the reason is %s",strerror(errno));
@@ -257,7 +262,7 @@ int CameraVirtualDevice::CloseVideoDevice(struct VirtualDevice* pDev) {
     }
     for (int i = 0; i < pDev->streamNum; i++) {
         if (pDev->fileDesc[i] >= 0) {
-            close(pDev->fileDesc[i]);
+            closeVideoDeviceFd(pDev->name);
         } else {
             CAMHAL_LOGE("close fd is invalid. has been closed before !!?");
         }
@@ -265,7 +270,21 @@ int CameraVirtualDevice::CloseVideoDevice(struct VirtualDevice* pDev) {
             // only transfer USED to FREED. do nothing to NONE_DEVICE
             pDev->status[i] = FREED_VIDEO_DEVICE ;
         }
-        pDev->fileDesc[i] = -1;
+    }
+    return 0;
+}
+
+int CameraVirtualDevice::CloseVideoDeviceWoFd(struct VirtualDevice* pDev) {
+    CAMHAL_LOGD("%s: E", __FUNCTION__);
+    if (pDev == nullptr) {
+        CAMHAL_LOGD("%s: device is null!", __FUNCTION__);
+        return -1;
+    }
+    for (int i = 0; i < pDev->streamNum; i++) {
+        if (pDev->status[i] == USED_VIDEO_DEVICE) {
+            // only transfer USED to FREED. do nothing to NONE_DEVICE
+            pDev->status[i] = FREED_VIDEO_DEVICE ;
+        }
     }
     return 0;
 }
@@ -315,7 +334,7 @@ for multi stream device. we close all streams
 when all streams are in FREED state.
 */
 int CameraVirtualDevice::releaseVirtualDevice(int cam_id, int fd) {
-    CAMHAL_LOGD("%s: id =%d, fd = %d", __FUNCTION__, cam_id, fd);
+    CAMHAL_LOGD("%s: id = %d, fd = %d", __FUNCTION__, cam_id, fd);
     struct VirtualDevice* pDevice = NULL;
 
     if (cam_id >= pluggedMipiCameraNum) {
@@ -335,7 +354,7 @@ int CameraVirtualDevice::releaseVirtualDevice(int cam_id, int fd) {
     CAMHAL_LOGD("%s: device name %s", __FUNCTION__, pDevice->name);
     /*set correspond stream to free*/
     for (int i = 0; i < pDevice->streamNum; i++) {
-        if (pDevice->cameraId[i] == cam_id && pDevice->fileDesc[i] == fd) {
+        if (pDevice->cameraId[i] == cam_id) {
             switch (pDevice->status[i]) {
                 case USED_VIDEO_DEVICE:
                     pDevice->status[i] = FREED_VIDEO_DEVICE;
@@ -352,7 +371,11 @@ int CameraVirtualDevice::releaseVirtualDevice(int cam_id, int fd) {
     int DeviceStatus = checkDeviceStatus(pDevice);
     if (0 == DeviceStatus) {
         // all streams are FREED. close all streams.
-        CloseVideoDevice(pDevice);
+        if (!strcmp(pDevice->name, HDMI_VDIN_VIDEO_PATH)) {
+            CloseVideoDevice(pDevice);
+        } else {
+            CloseVideoDeviceWoFd(pDevice);
+        }
     }
     return 0;
 }
@@ -365,7 +388,7 @@ CameraVirtualDevice* CameraVirtualDevice::getInstance() {
         return mInstance;
     }
 }
-bool CameraVirtualDevice::isStandardUSBCamera(char * dev_node_name)
+bool CameraVirtualDevice::isStandardUSBCamera(char* dev_node_name)
 {
     int ret = -1;
     bool result   = false;
@@ -383,7 +406,7 @@ bool CameraVirtualDevice::isStandardUSBCamera(char * dev_node_name)
         loopSize = 3;
         ALOGI("H264 is enabled, do not skip check");
     }
-    int fd = open(dev_node_name, O_RDWR);
+    int fd = getVideoDeviceFd(dev_node_name);
     if (fd < 0) {
         CAMHAL_LOGE("%s open USB fd error", __FUNCTION__);
         return result;
@@ -399,18 +422,16 @@ bool CameraVirtualDevice::isStandardUSBCamera(char * dev_node_name)
              break;
          }
     }
-
-    close(fd);
     return result;
 }
 
-bool CameraVirtualDevice::isAmlMediaCamera (char *dev_node_name)
+bool CameraVirtualDevice::isAmlMediaCamera (char* dev_node_name)
 {
     int ret = -1;
     bool result = false;
     struct media_device_info mdi;
     /* Open Media device and keep it open */
-    int fd = open(dev_node_name, O_RDWR);
+    int fd = getVideoDeviceFd(dev_node_name);
     if (fd == -1) {
         CAMHAL_LOGE("Media Device open errno %s\n", strerror(errno));
         return false;
@@ -451,9 +472,73 @@ bool CameraVirtualDevice::isAmlMediaCamera (char *dev_node_name)
                 }
             }
         }
-        close(fd);
     }
     return result;
+}
+
+int CameraVirtualDevice::getVideoDeviceFd(char* dev_node_name) {
+    CAMHAL_LOGD("get %s node fd", dev_node_name);
+    int fd = -1;
+    if (strcmp(dev_node_name, HDMI_VDIN_VIDEO_PATH) == 0) {
+        fd = open(dev_node_name, O_RDWR | O_NONBLOCK);
+        CAMHAL_LOGD("line: %d open hdmi node, fd = %d", __LINE__, fd);
+    } else {
+        auto it = std::find_if(std::begin(mipivideoDeviceslists), std::end(mipivideoDeviceslists),
+            [&dev_node_name](const VirtualDevice mipi_dev) {
+                if (strcmp(dev_node_name, mipi_dev.name) == 0)
+                    return true; else return false;});
+        if (it != std::end(mipivideoDeviceslists)) {
+            if (it->fileDesc[0] == -1) {
+                it->fileDesc[0] = open(dev_node_name, O_RDWR);
+                CAMHAL_LOGD("line: %d open %s node, fd = %d", __LINE__, dev_node_name, fd);
+            }
+            fd = it->fileDesc[0];
+        } else {
+            auto it = std::find_if(std::begin(usbvideoDevices), std::end(usbvideoDevices),
+                [&dev_node_name](const VirtualDevice usb_dev) {
+                    if (strcmp(dev_node_name, usb_dev.name) == 0)
+                        return true; else return false;});
+            if (it != std::end(usbvideoDevices)) {
+                if (it->fileDesc[0] == -1) {
+                    it->fileDesc[0] = open(dev_node_name, O_RDWR);
+                    CAMHAL_LOGD("line: %d open %s node, fd = %d", __LINE__, dev_node_name, fd);
+                }
+                fd = it->fileDesc[0];
+            } else {
+                CAMHAL_LOGD("line: %d invalid dev name", __LINE__);
+            }
+        }
+    }
+    return fd;
+}
+
+void CameraVirtualDevice::closeVideoDeviceFd(char* dev_name) {
+    CAMHAL_LOGD("delete %s node", dev_name);
+    /*close mipi fd*/
+    auto it = std::find_if(std::begin(mipivideoDeviceslists), std::end(mipivideoDeviceslists),
+        [&dev_name](const VirtualDevice mipi_dev) {
+        if (strcmp(dev_name, mipi_dev.name) == 0)
+            return true; else return false;});
+    if (it != std::end(mipivideoDeviceslists)) {
+        CAMHAL_LOGD("line %d close %s node fd", __LINE__, dev_name);
+        close(it->fileDesc[0]);
+        it->fileDesc[0] = -1;
+        return;
+    } else {
+        /*close usb fd*/
+        auto it = std::find_if(std::begin(usbvideoDevices), std::end(usbvideoDevices),
+            [&dev_name](const VirtualDevice usb_dev) {
+            if (strcmp(dev_name, usb_dev.name) == 0)
+                return true; else return false;});
+        if (it != std::end(usbvideoDevices)) {
+            CAMHAL_LOGD("line: %d close %s node fd", __LINE__, dev_name);
+            close(it->fileDesc[0]);
+            it->fileDesc[0] = -1;
+            return;
+        } else {
+            CAMHAL_LOGD("line: %d invalid dev name", __LINE__);
+        }
+    }
 }
 
 // scan the videoDevices array.
@@ -472,6 +557,7 @@ int CameraVirtualDevice::getCameraNum() {
             if (pDev->type == V4L2MEDIA_CAM_DEV) {
                 // for media device. skip usb cameras' media dev node.
                 if ( false == isAmlMediaCamera(pDev->name) ) {
+                    closeVideoDeviceFd(pDev->name);
                     // skip
                     continue;
                 }
@@ -506,6 +592,9 @@ int CameraVirtualDevice::getCameraNum() {
                         bypass = true;
                 }
                 if (bypass) {
+                    if (strcmp(pDev->name, HDMI_VDIN_VIDEO_PATH) != 0) {
+                        closeVideoDeviceFd(pDev->name);
+                    }
                     CAMHAL_LOGD("%s is not a valid usb camera", pDev->name);
                     continue;
                 }
