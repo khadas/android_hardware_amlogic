@@ -536,12 +536,17 @@ void EmulatedCameraFactory::onStatusChanged(int videoId, int newStatus)
     if (videoId >=  MAX_USB_CAM_VIDEO_ID && videoId != HDMI_VDIN_DEV_BEGIN_NUM)
         return;
 
-     // no existed cameras, ignore plug-out events;
-     if ((mEmulatedCameraNum == 0)  &&  (newStatus == CAMERA_DEVICE_STATUS_NOT_PRESENT)) {
+    // no existed cameras, ignore plug-out events;
+    if ((mEmulatedCameraNum == 0)  &&  (newStatus == CAMERA_DEVICE_STATUS_NOT_PRESENT)) {
         //video70 plug boot
         return;
     }
 
+    if (newStatus == CAMERA_DEVICE_STATUS_NOT_PRESENT && mCameraVirtualDevice->checkUsbDeviceExist(dev_name) == 0) {
+        if (videoId < HDMI_VDIN_DEV_BEGIN_NUM) {
+            mCameraVirtualDevice->closeVideoDeviceFd(dev_name);
+        }
+    }
 
     if (mEmulatedCameraNum == 0)
         mCameraVirtualDevice->recoverUsbDevicelists();
@@ -554,8 +559,7 @@ void EmulatedCameraFactory::onStatusChanged(int videoId, int newStatus)
     if (cameraId < 0) {
         CAMHAL_LOGD("Prepare StatusChanged %s, Id %d", dev_name, cameraId);
         return;
-    }
-    else {
+    } else {
         CAMHAL_LOGD("Prepare StatusChanged %s, Id %d, num %d", dev_name, cameraId, mEmulatedCameraNum);
         if ((newStatus == CAMERA_DEVICE_STATUS_PRESENT) && (cameraId > mEmulatedCameraNum))
             cameraId = mEmulatedCameraNum;
