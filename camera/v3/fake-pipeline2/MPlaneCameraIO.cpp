@@ -22,6 +22,7 @@ MPlaneCameraIO::MPlaneCameraIO() {
     mIon = NULL;
     if (!mIon)
         mIon = IONInterface::get_instance();
+    dev_status = 0;
 }
 
 MPlaneCameraIO::~MPlaneCameraIO() {

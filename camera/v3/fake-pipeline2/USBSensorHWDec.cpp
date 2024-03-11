@@ -436,7 +436,7 @@ status_t USBSensorHWDec::setOutputFormat(int width, int height,
     } while (0);
 
     gettimeofday(&mTimeStart, NULL);
-    if (pixelformat != V4L2_PIX_FMT_YUYV || pixelformat != V4L2_PIX_FMT_NV21)
+    if (pixelformat != V4L2_PIX_FMT_YUYV && pixelformat != V4L2_PIX_FMT_NV21)
         initDecoder(width, height, width, height, 4);
 
     if (ch == channel_capture) {

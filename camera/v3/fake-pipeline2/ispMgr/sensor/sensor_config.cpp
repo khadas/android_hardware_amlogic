@@ -772,7 +772,7 @@ void cmos_get_external_calibration( const char *sensorName, int32_t calibMode, a
 {
     FILE *fpCalibDy = NULL, *fpCalibSt = NULL;
     uint8_t *b_buf = NULL;
-    uint32_t fpCalibSizeDy = 0, fpCalibSizeSt = 0;
+    int32_t fpCalibSizeDy = 0, fpCalibSizeSt = 0;
     uint32_t idx = 0, total_size = 0, lut_size = 0;
     uint32_t i = 0, read_count = 0;
     uint8_t *p_mem = NULL, *lut_ptr = NULL;
@@ -805,15 +805,33 @@ void cmos_get_external_calibration( const char *sensorName, int32_t calibMode, a
     if (fpCalibDy) {
         fseek(fpCalibDy, 0, SEEK_END);
         fpCalibSizeDy = ftell(fpCalibDy);
+        if (fpCalibSizeDy < 0) {
+            CAMHAL_LOGE("file address get fail");
+            if (fpCalibDy)
+                fclose(fpCalibDy);
+
+            if (fpCalibSt)
+                fclose(fpCalibSt);
+            return;
+        }
     }
 
     if (fpCalibSt) {
         fseek(fpCalibSt, 0, SEEK_END);
         fpCalibSizeSt += ftell(fpCalibSt);
+        if (fpCalibSizeSt < 0) {
+            CAMHAL_LOGE("file address get fail");
+            if (fpCalibDy)
+                fclose(fpCalibDy);
+
+            if (fpCalibSt)
+                fclose(fpCalibSt);
+            return;
+        }
     }
 
-    if ((fpCalibSizeDy + fpCalibSizeSt) > total_size) {
-        CAMHAL_LOGE("Bin size not match: fpCalibSize %u, total_size %u\n", fpCalibSizeDy + fpCalibSizeSt, total_size);
+    if ((uint32_t)(fpCalibSizeDy + fpCalibSizeSt) > total_size) {
+        CAMHAL_LOGE("Bin size not match: fpCalibSize %u, total_size %u\n", (uint32_t)(fpCalibSizeDy + fpCalibSizeSt), total_size);
 
         if (fpCalibDy)
             fclose(fpCalibDy);
@@ -823,17 +841,17 @@ void cmos_get_external_calibration( const char *sensorName, int32_t calibMode, a
         return;
     }
 
-    b_buf =  (unsigned char*)malloc(fpCalibSizeDy + fpCalibSizeSt);
-    memset(b_buf, 0, (fpCalibSizeDy + fpCalibSizeSt));
+    b_buf =  (unsigned char*)malloc((uint32_t)(fpCalibSizeDy + fpCalibSizeSt));
+    memset(b_buf, 0, (uint32_t)(fpCalibSizeDy + fpCalibSizeSt));
 
     if (fpCalibDy) {
         fseek(fpCalibDy, 0, SEEK_SET);
-        read_count = fread(b_buf, sizeof(uint8_t), fpCalibSizeDy, fpCalibDy);
+        read_count = fread(b_buf, sizeof(uint8_t), (uint32_t)fpCalibSizeDy, fpCalibDy);
     }
 
     if (fpCalibSt) {
         fseek(fpCalibSt, 0, SEEK_SET);
-        read_count += fread(b_buf + fpCalibSizeDy, sizeof(uint8_t), fpCalibSizeSt, fpCalibSt);
+        read_count += fread(b_buf + (uint32_t)fpCalibSizeDy, sizeof(uint8_t), (uint32_t)fpCalibSizeSt, fpCalibSt);
     }
 
     if (read_count > total_size) {
