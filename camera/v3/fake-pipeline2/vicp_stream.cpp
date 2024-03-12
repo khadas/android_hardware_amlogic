@@ -160,7 +160,7 @@ int vicpTransform::vicp_keep_ration_scale(int dst_fd, vicp_color_format_t dst_fm
 int vicpTransform::vicp_copy(int dst_fd, int src_fd, size_t width, size_t height, vicp_color_format_t fmt) {
     CAMHAL_LOGVV("%s: E", __FUNCTION__);
     ATRACE_CALL();
-    CAMHAL_LOGV("vicp copy begin width %d, height %d\n", width, height);
+    CAMHAL_LOGV("vicp copy begin width %zu, height %zu\n", width, height);
     m_amlvicpinfo.dst_data_info.buf_fd = dst_fd;
     m_amlvicpinfo.dst_data_info.buf_width = width;
     m_amlvicpinfo.dst_data_info.buf_height = height;
