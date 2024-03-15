@@ -73,12 +73,12 @@ static void sinusoidal_coding(bitfile *ld, sbr_info *sbr, uint8_t ch);
 static void sbr_reset(sbr_info *sbr)
 {
 #if 0
-    printf("%d\n", sbr->bs_start_freq_prev);
-    printf("%d\n", sbr->bs_stop_freq_prev);
-    printf("%d\n", sbr->bs_freq_scale_prev);
-    printf("%d\n", sbr->bs_alter_scale_prev);
-    printf("%d\n", sbr->bs_xover_band_prev);
-    printf("%d\n\n", sbr->bs_noise_bands_prev);
+		printf("%d\n", sbr->bs_start_freq_prev);
+		printf("%d\n", sbr->bs_stop_freq_prev);
+		printf("%d\n", sbr->bs_freq_scale_prev);
+		printf("%d\n", sbr->bs_alter_scale_prev);
+		printf("%d\n", sbr->bs_xover_band_prev);
+		printf("%d\n\n", sbr->bs_noise_bands_prev);
 #endif
 
     /* if these are different from the previous frame: Reset = 1 */
@@ -146,6 +146,8 @@ uint8_t sbr_extension_data(bitfile *ld, sbr_info *sbr, uint16_t cnt,
     uint8_t result = 0;
     uint16_t num_align_bits = 0;
     uint16_t num_sbr_bits1 = (uint16_t)faad_get_processed_bits(ld);
+    sbr->bit_process_base = num_sbr_bits1;
+    sbr->bits_count = 8 * cnt;
     uint16_t num_sbr_bits2;
 
     uint8_t saved_start_freq, saved_samplerate_mode;
@@ -199,9 +201,9 @@ uint8_t sbr_extension_data(bitfile *ld, sbr_info *sbr, uint16_t cnt,
 
             /* if an error occurred with the new header values revert to the old ones */
             if (rt > 0) {
-                calc_sbr_tables(sbr, saved_start_freq, saved_stop_freq,
-                                saved_samplerate_mode, saved_freq_scale,
-                                saved_alter_scale, saved_xover_band);
+                result += calc_sbr_tables(sbr, saved_start_freq, saved_stop_freq,
+                    saved_samplerate_mode, saved_freq_scale,
+                    saved_alter_scale, saved_xover_band);
             }
         }
 
@@ -216,9 +218,9 @@ uint8_t sbr_extension_data(bitfile *ld, sbr_info *sbr, uint16_t cnt,
             /* to be on the safe side, calculate old sbr tables in case of error */
             if ((result > 0) &&
                 (sbr->Reset || (sbr->bs_header_flag && sbr->just_seeked))) {
-                calc_sbr_tables(sbr, saved_start_freq, saved_stop_freq,
-                                saved_samplerate_mode, saved_freq_scale,
-                                saved_alter_scale, saved_xover_band);
+                result += calc_sbr_tables(sbr, saved_start_freq, saved_stop_freq,
+                    saved_samplerate_mode, saved_freq_scale,
+                    saved_alter_scale, saved_xover_band);
             }
 
             /* we should be able to safely set result to 0 now, */
@@ -232,6 +234,7 @@ uint8_t sbr_extension_data(bitfile *ld, sbr_info *sbr, uint16_t cnt,
 
     /* check if we read more bits then were available for sbr */
     if (8 * cnt < num_sbr_bits2) {
+        audio_codec_print("sbr_extension_data 8 * cnt %d num_sbr_bits2 %d", 8 * cnt, num_sbr_bits2);
         faad_resetbits(ld, num_sbr_bits1 + 8 * cnt);
         num_sbr_bits2 = 8 * cnt;
 
@@ -251,14 +254,15 @@ uint8_t sbr_extension_data(bitfile *ld, sbr_info *sbr, uint16_t cnt,
     {
         /* -4 does not apply, bs_extension_type is re-read in this function */
         num_align_bits = 8 * cnt /*- 4*/ - num_sbr_bits2;
-
-        while (num_align_bits > 7) {
-            faad_getbits(ld, 8
+        if (num_align_bits > 0) {
+            while (num_align_bits > 7) {
+                faad_getbits(ld, 8
+                             DEBUGVAR(1, 999, "sbr_bitstream(): num_align_bits"));
+                num_align_bits -= 8;
+            }
+            faad_getbits(ld, num_align_bits
                          DEBUGVAR(1, 999, "sbr_bitstream(): num_align_bits"));
-            num_align_bits -= 8;
         }
-        faad_getbits(ld, num_align_bits
-                     DEBUGVAR(1, 999, "sbr_bitstream(): num_align_bits"));
     }
 
     return result;
@@ -423,6 +427,15 @@ static uint8_t sbr_single_channel_element(bitfile *ld, sbr_info *sbr)
         }
 
         nr_bits_left = 8 * cnt;
+        int sbr_bit_left = sbr->bits_count - (faad_get_processed_bits(ld) - sbr->bit_process_base);
+        if (sbr_bit_left < nr_bits_left) {
+            audio_codec_print("nr_bits_left %d sbr_bit_left %d sbr->sbr_valid_flag %d", nr_bits_left, sbr_bit_left, sbr->sbr_valid_flag);
+            nr_bits_left = 0;
+            if (sbr->sbr_valid_flag == 0) {
+                sbrReset(sbr);
+            }
+            sbr->sbr_valid_flag = 1;
+        }
         while (nr_bits_left > 7) {
             uint16_t tmp_nr_bits = 0;
 
@@ -850,7 +863,8 @@ static uint16_t sbr_extension(bitfile *ld, sbr_info *sbr,
         if (sbr->psResetFlag) {
             sbr->ps->header_read = 0;
         }
-        ret = ps_data(sbr->ps, ld, &header);
+        int sbr_bit_left = sbr->bits_count - (faad_get_processed_bits(ld) - sbr->bit_process_base);
+        ret = ps_data(sbr->ps, ld, &header, sbr_bit_left);
 
         /* enable PS if and only if: a header has been decoded */
         if (sbr->ps_used == 0 && header == 1) {

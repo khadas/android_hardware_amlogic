@@ -77,6 +77,7 @@ sbr_info *sbrDecodeInit(uint16_t framelength, uint8_t id_aac,
     sbr->prevEnvIsShort[1] = -1;
     sbr->header_count = 0;
     sbr->Reset = 1;
+    sbr->sbr_valid_flag = 0;
 
 #ifdef DRM
     sbr->Is_DRM_SBR = IsDRM;

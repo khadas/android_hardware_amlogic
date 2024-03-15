@@ -157,10 +157,13 @@ extern "C" {
         uint8_t bsco_prev;
         uint8_t M_prev;
         uint16_t frame_len;
+        uint8_t sbr_valid_flag;
 
         uint8_t Reset;
         uint32_t frame;
         uint32_t header_count;
+        uint32_t bits_count;
+        uint32_t bit_process_base;
 
         uint8_t id_aac;
         qmfa_info *qmfa[2];
