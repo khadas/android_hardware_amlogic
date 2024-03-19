@@ -20,12 +20,16 @@
 #include <android/binder_process.h>
 
 #include <amlogic_keymaster/AmlogicKeyMintDevice.h>
+#ifndef NO_RKP
 #include <amlogic_keymaster/AmlogicRemotelyProvisionedComponentDevice.h>
+#endif
 #include <amlogic_keymaster/AmlogicSecureClock.h>
 #include <amlogic_keymaster/AmlogicSharedSecret.h>
 
 using aidl::android::hardware::security::keymint::AmlogicKeyMintDevice;
+#ifndef NO_RKP
 using aidl::android::hardware::security::keymint::AmlogicRemotelyProvisionedComponentDevice;
+#endif
 using aidl::android::hardware::security::secureclock::AmlogicSecureClock;
 using aidl::android::hardware::security::sharedsecret::AmlogicSharedSecret;
 
@@ -72,8 +76,10 @@ int main() {
     auto keyMint = addService<AmlogicKeyMintDevice>(amlKeymaster);
     auto secureClock = addService<AmlogicSecureClock>(amlKeymaster);
     auto sharedSecret = addService<AmlogicSharedSecret>(amlKeymaster);
+#ifndef NO_RKP
     auto remotelyProvisionedComponent =
             addService<AmlogicRemotelyProvisionedComponentDevice>(amlKeymaster);
+#endif
     ABinderProcess_joinThreadPool();
     return EXIT_FAILURE;  // should not reach
 

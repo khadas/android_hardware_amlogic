@@ -50,9 +50,11 @@ class AmlogicKeymaster : public TrustyKeymaster {
     void AddRngEntropy(const AddEntropyRequest& request, AddEntropyResponse* response);
     void Configure(const ConfigureRequest& request, ConfigureResponse* response);
     void GenerateKey(const GenerateKeyRequest& request, GenerateKeyResponse* response);
+#ifndef NO_RKP
     void GenerateRkpKey(const GenerateRkpKeyRequest& request, GenerateRkpKeyResponse* response);
     void GenerateCsr(const GenerateCsrRequest& request, GenerateCsrResponse* response);
     void GenerateCsrV2(const GenerateCsrV2Request& request, GenerateCsrV2Response* response);
+#endif
     void GetKeyCharacteristics(const GetKeyCharacteristicsRequest& request,
                                GetKeyCharacteristicsResponse* response);
     void ImportKey(const ImportKeyRequest& request, ImportKeyResponse* response);
