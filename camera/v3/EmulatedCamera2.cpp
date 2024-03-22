@@ -97,6 +97,10 @@ status_t EmulatedCamera2::getCameraInfo(struct camera_info* info) {
     return EmulatedBaseCamera::getCameraInfo(info);
 }
 
+status_t EmulatedCamera2::isStreamCombinationSupported(const camera_stream_combination_t *streams) {
+    return -EINVAL;
+}
+
 /****************************************************************************
  * Camera Device API implementation.
  * These methods are called from the camera API callback routines.

@@ -78,7 +78,7 @@ public:
     virtual status_t closeCamera();
 
     virtual status_t getCameraInfo(struct camera_info* info);
-
+    virtual status_t isStreamCombinationSupported(const camera_stream_combination_t *streams);
     /****************************************************************************
      * Camera API implementation.
      * These methods are called from the camera API callback routines.

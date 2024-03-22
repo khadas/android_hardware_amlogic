@@ -263,6 +263,10 @@ status_t EmulatedFakeCamera2::getCameraInfo(struct camera_info *info) {
     return EmulatedCamera2::getCameraInfo(info);
 }
 
+status_t EmulatedFakeCamera2::isStreamCombinationSupported(const camera_stream_combination_t *streams) {
+    return -EINVAL;
+}
+
 /****************************************************************************
  * Camera device API overrides
  ***************************************************************************/

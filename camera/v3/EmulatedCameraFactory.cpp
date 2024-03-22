@@ -242,6 +242,15 @@ int EmulatedCameraFactory::setTorchMode(const char* camera_id, bool enabled)
     return -ENOSYS;
 }
 
+int EmulatedCameraFactory::isStreamCombinationSupported(int camera_id, const camera_stream_combination_t *streams) {
+    if (camera_id < 0 || camera_id > MAX_CAMERA_NUM)
+        return -ENOSYS;
+    if (mEmulatedCameras[camera_id] == nullptr)
+        return -ENOSYS;
+    return mEmulatedCameras[camera_id]->isStreamCombinationSupported(streams);
+
+}
+
 /****************************************************************************
  * Camera HAL API callbacks.
  ***************************************************************************/
@@ -337,6 +346,10 @@ void EmulatedCameraFactory::get_vendor_tag_ops(vendor_tag_ops_t* ops)
 int EmulatedCameraFactory::set_torch_mode(const char* camera_id, bool enabled)
 {
     return gEmulatedCameraFactory.setTorchMode(camera_id, enabled);
+}
+
+int EmulatedCameraFactory::is_stream_combination_supported(int camera_id, const camera_stream_combination_t *streams) {
+    return gEmulatedCameraFactory.isStreamCombinationSupported(camera_id, streams);
 }
 
 /********************************************************************************

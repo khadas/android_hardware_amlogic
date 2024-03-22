@@ -75,6 +75,11 @@ status_t EmulatedBaseCamera::getCameraInfo(struct camera_info* info)
     return NO_ERROR;
 }
 
+
+int EmulatedBaseCamera::isStreamCombinationSupported(const camera_stream_combination_t *streams) {
+    return -EINVAL;
+}
+
 status_t EmulatedBaseCamera::plugCamera() {
     CAMHAL_LOGE("%s: not supported", __FUNCTION__);
     return INVALID_OPERATION;

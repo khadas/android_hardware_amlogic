@@ -100,7 +100,7 @@ public:
      * This method is called in response to camera_module_t::get_camera_info callback.
      */
     int getCameraInfo(int camera_id, struct camera_info *info);
-
+    int isStreamCombinationSupported(int camera_id, const camera_stream_combination_t *streams);
     /* Sets emulated camera callbacks.
      * This method is called in response to camera_module_t::set_callbacks callback.
      */
@@ -122,7 +122,7 @@ public:
 
     /* camera_module_t::get_camera_info callback entry point. */
     static int get_camera_info(int camera_id, struct camera_info *info);
-
+    static int is_stream_combination_supported(int camera_id, const camera_stream_combination_t *streams);
     /* camera_module_t::set_callbacks callback entry point. */
     static int set_callbacks(const camera_module_callbacks_t *callbacks);
 	/* camera_module_t::get_vendor_tag_ops callback entry point. */

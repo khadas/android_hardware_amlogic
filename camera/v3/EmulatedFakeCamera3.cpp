@@ -451,6 +451,63 @@ status_t EmulatedFakeCamera3::getCameraInfo(struct camera_info *info) {
     return EmulatedCamera3::getCameraInfo(info);
 }
 
+status_t EmulatedFakeCamera3::isStreamCombinationSupported(const camera_stream_combination_t *streamList) {
+    int inputStreamNum = 0;
+    int outputStreamNum = 0;
+    CAMHAL_LOGV("%s streamList %p", __FUNCTION__, streamList);
+    if (streamList->operation_mode != AML_CAMERA_STREAM_CONFIGURATION_NORMAL_MODE)
+        return -EINVAL;
+    camera_stream_t *stream = nullptr;
+    for (int i = 0; i < streamList->num_streams; i++) {
+        /**1. stream type*/
+        camera_stream_t *stream = streamList->streams;
+        if (stream->stream_type == AML_CAMERA_STREAM_OUTPUT)
+            outputStreamNum ++;
+        else if (stream->stream_type == AML_CAMERA_STREAM_INPUT)
+            inputStreamNum ++;
+        else
+            return -EINVAL;
+
+        /**2. width and height*/
+        if ((stream->width == 0) || (stream->width == UINT32_MAX) ||
+            (stream->height == 0) || (stream->height == UINT32_MAX)) {
+                CAMHAL_LOGE("%s width or height is error", __FUNCTION__);
+                return -EINVAL;
+        }
+
+        /**3. format*/
+        bool find = false;
+        for (size_t f = 0; f < sizeof(kAvailableFormats)/sizeof(kAvailableFormats[0]); f++) {
+            if (stream->format == kAvailableFormats[f]) {
+                find = true;
+                break;
+            }
+        }
+        if (!find) {
+            CAMHAL_LOGE("%s format is error ", __FUNCTION__);
+            return -EINVAL;
+        }
+
+        /**4. rotation*/
+        if (stream->rotation == UINT32_MAX) {
+            CAMHAL_LOGE("%s rotation is error", __FUNCTION__);
+            return -EINVAL;
+        }
+
+        /**5. physical_camera_id*/
+        if (stream->physical_camera_id == nullptr) {
+            CAMHAL_LOGE("%s phy id is error", __FUNCTION__);
+            return  -EINVAL;
+        }
+
+        stream ++;
+    }
+    stream = nullptr;
+    if (inputStreamNum > 1 || outputStreamNum < 1)
+        return -EINVAL;
+    return OK;
+}
+
 /**
  * Camera3 interface methods
  */
@@ -527,6 +584,7 @@ status_t EmulatedFakeCamera3::configureStreams(
                 streamList->num_streams);
         return BAD_VALUE;
     }
+
 
     aml_camera_stream_t *inputStream = NULL;
     for (size_t i = 0; i < streamList->num_streams; i++) {
@@ -888,8 +946,8 @@ const camera_metadata_t* EmulatedFakeCamera3::constructDefaultRequestSettings(
     static const int32_t sensitivity = 100;
     settings.update(ANDROID_SENSOR_SENSITIVITY, &sensitivity, 1);
 
-    static const int64_t rollingShutterSkew = 0;
-    settings.update(ANDROID_SENSOR_ROLLING_SHUTTER_SKEW, &rollingShutterSkew, 1);
+    // static const int64_t rollingShutterSkew = 1;
+    // settings.update(ANDROID_SENSOR_ROLLING_SHUTTER_SKEW, &rollingShutterSkew, 1);
     // TIMESTAMP set only in frame
 
     /** android.flash */
@@ -1636,7 +1694,7 @@ status_t EmulatedFakeCamera3::processCaptureRequest(
 
         /**
         * Configure sensor and queue up the request to the readout thread
-     */
+        */
         struct requestParameter param = {
             .requestExposureTime = exposureTime,
             .requestFrameDuration = mFrameDuration,
@@ -2102,8 +2160,8 @@ status_t EmulatedFakeCamera3::constructStaticInfo() {
         }
     }
 
-    static const int64_t rollingShutterSkew = 0;
-    info.update(ANDROID_SENSOR_ROLLING_SHUTTER_SKEW, &rollingShutterSkew, 1);
+    // static const int64_t rollingShutterSkew = 1;
+    // info.update(ANDROID_SENSOR_ROLLING_SHUTTER_SKEW, &rollingShutterSkew, 1);
 
     static const uint8_t readtimestamp = ANDROID_SENSOR_READOUT_TIMESTAMP_NOT_SUPPORTED;
     info.update(ANDROID_SENSOR_READOUT_TIMESTAMP, &readtimestamp, 1);
@@ -2530,6 +2588,7 @@ status_t EmulatedFakeCamera3::process3A(CameraMetadata &settings) {
     update3A(settings);
     return OK;
 }
+
 
 status_t EmulatedFakeCamera3::doFakeAE(CameraMetadata &settings) {
     ATRACE_CALL();

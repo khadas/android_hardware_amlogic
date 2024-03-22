@@ -67,7 +67,7 @@ public:
     virtual status_t closeCamera();
 
     virtual status_t getCameraInfo(struct camera_info *info);
-
+    virtual status_t isStreamCombinationSupported(const camera_stream_combination_t *streams);
     /****************************************************************************
      * EmulatedCamera2 abstract API implementation.
      ***************************************************************************/
