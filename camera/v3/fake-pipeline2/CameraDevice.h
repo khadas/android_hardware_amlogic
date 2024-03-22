@@ -50,8 +50,6 @@ class CameraVirtualDevice {
 
         static CameraVirtualDevice* getInstance();
         int getLegacyCameraNum();
-        int getCameraNum();
-        int getPluggedMipiCameraNum();
         int checkUsbDeviceExist(char* name);
         int returnUsbDeviceId(char* name);
         void closeVideoDeviceFd(char* dev_name);
@@ -72,7 +70,6 @@ class CameraVirtualDevice {
         int CloseVideoDevice(struct VirtualDevice* pDev);
         int CloseVideoDeviceWoFd(struct VirtualDevice* pDev);
 
-        int findUsbCameraID(int cam_id);
         bool isAmlMediaCamera (char* dev_node_name);
         bool isStandardUSBCamera (char* dev_node_name);
         int getVideoDeviceFd(char* dev_node_name);

@@ -135,8 +135,6 @@ void EmulatedCameraFactory::searchExternalSensor()
 
     if (!mCameraVirtualDevice)
         mCameraVirtualDevice = CameraVirtualDevice::getInstance();
-    //int legacyCameraNum = mCameraVirtualDevice->getPluggedMipiCameraNum();
-    //cameraId = legacyCameraNum;
     for (int i = 0; i < USB_DEVICE_NUM; i++ ) {
         CAMHAL_LOGD("search external camera id %d", i);
         if (mCameraVirtualDevice->isNormalExternalCameraByIndex(i)) {
@@ -145,7 +143,6 @@ void EmulatedCameraFactory::searchExternalSensor()
                 usleep(1000*20);
             }
             onStatusChanged(name_id, CAMERA_DEVICE_STATUS_PRESENT);
-            //cameraId++;
         }
     }
 }
@@ -553,13 +550,12 @@ void EmulatedCameraFactory::onStatusChanged(int videoId, int newStatus)
     ATRACE_CALL();
     status_t res;
     char dev_name[128];
-    int i = 0 , j = 0;
+    int j = 0;
 
     int cameraId = -1;
     //EmulatedBaseCamera *cam = mEmulatedCameras[cameraId];
     const camera_module_callbacks_t* cb = mCallbacks;
     sprintf(dev_name, "%s%d", "/dev/video", videoId);
-
     /* ignore cameraid >= MAX_USB_CAMERA_NUM to avoid overflow, we now have
      * ion device with device like /dev/video13
      */
@@ -574,15 +570,6 @@ void EmulatedCameraFactory::onStatusChanged(int videoId, int newStatus)
         //video70 plug boot
         return;
     }
-
-    if (newStatus == CAMERA_DEVICE_STATUS_NOT_PRESENT && mCameraVirtualDevice->checkUsbDeviceExist(dev_name) == 0) {
-        if (videoId < HDMI_VDIN_DEV_BEGIN_NUM) {
-            mCameraVirtualDevice->closeVideoDeviceFd(dev_name);
-        }
-    }
-
-    if (mEmulatedCameraNum == 0)
-        mCameraVirtualDevice->recoverUsbDevicelists();
 
     if (mCameraVirtualDevice->checkUsbDeviceExist(dev_name)) {
         CAMHAL_LOGD("%s device name is error", dev_name);
@@ -624,16 +611,6 @@ void EmulatedCameraFactory::onStatusChanged(int videoId, int newStatus)
      */
     if (mEmulatedCameras[cameraId] != NULL && (!mEmulatedCameras[cameraId]->getHotplugStatus())) {
         if (newStatus == CAMERA_DEVICE_STATUS_PRESENT) {
-            while (i < 20) {
-                if (0 == access(dev_name, F_OK | R_OK | W_OK)) {
-                    CAMHAL_LOGD("access %s success\n", dev_name);
-                    break;
-                } else {
-                    CAMHAL_LOGD("access %s fail , i = %d .\n", dev_name,i);
-                    usleep(50000);
-                    i++;
-                }
-            }
             res = cam->Initialize();
             if (res != NO_ERROR) {
                 ALOGE("%s: Unable to initialize camera %d: %s (%d)",
@@ -648,8 +625,8 @@ void EmulatedCameraFactory::onStatusChanged(int videoId, int newStatus)
             if (cb != NULL && cb->camera_device_status_change != NULL) {
                 cb->camera_device_status_change(cb, cameraId, newStatus);
             }
-        }else {
-            ALOGE("camera id %d has been unplugged", cameraId);
+        } else {
+            CAMHAL_LOGE("camera id %d has been unplugged", cameraId);
         }
         return;
     }
@@ -663,18 +640,6 @@ void EmulatedCameraFactory::onStatusChanged(int videoId, int newStatus)
         if (cam != NULL) {
             CAMHAL_LOGD("%s: new camera device version is %d", __FUNCTION__,
                     getFakeCameraHalVersion(cameraId));
-            //sleep 10ms for /dev/video* create
-            usleep(50000);
-            while (i < 20) {
-                if (0 == access(dev_name, F_OK | R_OK | W_OK)) {
-                    CAMHAL_LOGD("access %s success\n", dev_name);
-                    break;
-                } else {
-                    CAMHAL_LOGD("access %s fail , i = %d .\n", dev_name,i);
-                    usleep(50000);
-                    i++;
-                }
-            }
             res = cam->Initialize();
             if (res != NO_ERROR) {
                 CAMHAL_LOGE("%s: Unable to initialize camera %d: %s (%d)",
