@@ -907,7 +907,7 @@ status_t JpegCompressor::compress() {
 #ifndef HW_JPEG
     mMainJpegSize = encode(&enc_params);
 #else
-    enum jpegenc_frame_fmt_e format = FMT_NV21;
+    jpegenc_frame_fmt_e format = FMT_NV21;
     switch (enc_params.format) {
         case HAL_PIXEL_FORMAT_RGB_888:
             CAMHAL_LOGD("%s:format is RGB",__FUNCTION__);
@@ -921,11 +921,11 @@ status_t JpegCompressor::compress() {
             CAMHAL_LOGD("not support this format:%d",enc_params.format);
             break;
     }
-    mMainJpegSize = mHwEnc->encode(enc_params.in_width, enc_params.in_height,
+    mHwEnc->encode(enc_params.in_width, enc_params.in_height,
                             enc_params.quality,
                             format,
                             enc_params.src,
-                            enc_params.dst);
+                            enc_params.dst, &mMainJpegSize);
 #endif
     CAMHAL_LOGD("mMainJpegSize = %d",mMainJpegSize);
 
@@ -952,7 +952,7 @@ status_t JpegCompressor::thumbcompress() {
 #if 1
     mThumbJpegSize = encode(&enc_params);
 #else
-    enum jpegenc_frame_fmt_e format = FMT_RGB888;
+    jpegenc_frame_fmt_e format = FMT_RGB888;
     switch (enc_params.format) {
         case HAL_PIXEL_FORMAT_RGB_888:
             CAMHAL_LOGD("%s:format is RGB",__FUNCTION__);

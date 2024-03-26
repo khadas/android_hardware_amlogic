@@ -48,8 +48,8 @@ namespace android {
     }
 
     int HwJpegEnc::encode(int in_width, int in_height, int quality,
-                            enum jpegenc_frame_fmt_e format,
-                            uint8_t*src, uint8_t*dst) {
+                            jpegenc_frame_fmt_e format,
+                            uint8_t*src, uint8_t*dst, int* p_len) {
         if (!mHandle) {
             ALOGE("%s:jpeg is not inited,this=%p, handle=0x%lx",
                 __FUNCTION__,this,mHandle);
@@ -59,24 +59,26 @@ namespace android {
                 __FUNCTION__,src,dst);
         mStride_w = ((in_width + 31) / 32) * 32;
         mStride_h = ((in_height + 31) / 32) * 32;
-        int len = jpegenc_encode(mHandle,
-                                in_width,
-                                in_height,
-                                mStride_w,
-                                mStride_h,
-                                quality,
-                                format,
-                                mOutFormat,
-                                mMem_type,
-                                mSharedFd,
-                                src,
-                                dst
-                                );
+        jpegenc_frame_info_t frame_info = {
+            .width = in_width,
+            .height = in_height,
+            .w_stride = mStride_w,
+            .h_stride = mStride_h,
+            .quality = quality,
+            .iformat = format,
+            .oformat = mOutFormat,
+            .mem_type = mMem_type,
+            .plane_num = 2,
+        };
+        frame_info.YCbCr[0] = (unsigned long)src;
+        frame_info.YCbCr[1] = 0;
+        frame_info.YCbCr[2] = 0;
+        jpegenc_result_e res = jpegenc_encode(mHandle, frame_info, dst, p_len);
 
-        if (!len)
+        if (!res)
             ALOGE("jpeg encode fail");
 
-        return len;
+        return res;
     }
 }
 

@@ -30,6 +30,12 @@ GE2D_VERSION_2 := true
 ISP_ENABLE := false
 GDC_ENABLE := false
 HW_JPEG := false
+ifeq ($(VENDOR_ENCODER_SUPPORT_HCODEC),true)
+HW_JPEG := true
+endif
+ifeq ($(VENDOR_ENCODER_SUPPORT_WAVE521),true)
+HW_JPEG := true
+endif
 CAM_DPTZ := false
 CAMERA_MAX_PREVIEW_WIDTH := 1920
 CAMERA_MAX_PREVIEW_HEIGHT := 1080
@@ -190,6 +196,7 @@ LOCAL_C_INCLUDES += $(TOP)/vendor/amlogic/common/system/libgdc/dewarp
 endif
 
 ifeq ($(HW_JPEG),true)
+LOCAL_C_INCLUDES += $(TOP)/vendor/amlogic/common/libencoder/include
 LOCAL_C_INCLUDES += $(TOP)/hardware/amlogic/camera/v3/Jpegenc_hw
 endif
 
