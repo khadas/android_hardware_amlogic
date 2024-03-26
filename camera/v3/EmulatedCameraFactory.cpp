@@ -597,7 +597,7 @@ void EmulatedCameraFactory::onStatusChanged(int videoId, int newStatus)
             CAMHAL_LOGD("%s device will been plugged", dev_name);
             mCameraVirtualDevice->addUsbDevice(dev_name);
         } else {
-            CAMHAL_LOGE("%s devices can't access");
+            CAMHAL_LOGE("%s devices can't access", dev_name);
             return;
         }
     }
