@@ -589,10 +589,7 @@ void EmulatedCameraFactory::onStatusChanged(int videoId, int newStatus)
         return;
     }
 
-    if (newStatus == CAMERA_DEVICE_STATUS_NOT_PRESENT) {
-        CAMHAL_LOGD("%s device will been unplugged", dev_name);
-        mCameraVirtualDevice->deleteUsbDevice(dev_name);
-    } else if (newStatus == CAMERA_DEVICE_STATUS_PRESENT) {
+    if (newStatus == CAMERA_DEVICE_STATUS_PRESENT) {
         if (mCameraVirtualDevice->isNormalExternalCameraByName(dev_name)) {
             CAMHAL_LOGD("%s device will been plugged", dev_name);
             mCameraVirtualDevice->addUsbDevice(dev_name);
@@ -691,9 +688,9 @@ void EmulatedCameraFactory::onStatusChanged(int videoId, int newStatus)
             CAMHAL_LOGD("%d callback unplug status to framework.\n", j);
             cb->camera_device_status_change(cb, j, newStatus);
         }
-    } else if (newStatus == CAMERA_DEVICE_STATUS_PRESENT) {
-        CAMHAL_LOGD("camera plugged again?\n");
-        cam->plugCamera();
+
+        CAMHAL_LOGD("%s device will been unplugged", dev_name);
+        mCameraVirtualDevice->deleteUsbDevice(dev_name);
     }
 
     CAMHAL_LOGD("mEmulatedCameraNum step3 = %d\n", mEmulatedCameraNum);

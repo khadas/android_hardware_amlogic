@@ -86,8 +86,9 @@ int CameraVirtualDevice::checkUsbDeviceExist(char* devname) {
 
 // for usb camera. runtime camera id is stored in deviceID.
 int CameraVirtualDevice::returnUsbDeviceId(char* name) {
+    std::string devName = name;
     for (int i = 0; i < USB_DEVICE_NUM; i++) {
-        if (strcmp(name, usbvideoDevices[i].name) == 0) {
+        if ((strcmp(name, usbvideoDevices[i].name) == 0) && (0 != videoMap.count(devName))) {
             return usbvideoDevices[i].deviceID + pluggedMipiCameraNum;
         }
     }
@@ -151,32 +152,6 @@ struct VirtualDevice* CameraVirtualDevice::findUsbVideoDevice(int cam_id) {
             std::string devName = usbvideoDevices[i].name;
             if (0 != videoMap.count(devName)) {
                 struct VirtualDevice* pDev = &usbvideoDevices[i];
-                if ( 0 != access(pDev->name, F_OK | R_OK | W_OK)) {
-                    CAMHAL_LOGD("%s: device %s access fail", __FUNCTION__,pDev->name);
-                    return nullptr;
-                } else {
-                    CAMHAL_LOGD("%s: device %s access success", __FUNCTION__,pDev->name);
-                }
-                if (pDev->type == USB_CAM_DEV) {
-                    bool bypass = false;
-                    if (!strcmp(pDev->name, HDMI_VDIN_VIDEO_PATH)) {
-                        if (!(HDMIStatus::getInstance()->isStandardHDMICamera()))
-                            bypass = true;
-                    } else {
-                        if (!isStandardUSBCamera(pDev->name))
-                            bypass = true;
-                    }
-                    if (bypass) {
-#ifdef MAINTAIN_FD_ENABLE
-                        if (strcmp(pDev->name, HDMI_VDIN_VIDEO_PATH) != 0) {
-                            closeVideoDeviceFd(pDev->name);
-                        }
-#endif
-                        CAMHAL_LOGD("%s is not a valid usb camera", pDev->name);
-                        continue;
-                    }
-                }
-
                 for (int stream_idx = 0; stream_idx < pDev->streamNum; stream_idx++) {
                     if ( NONE_DEVICE != pDev->status[stream_idx]) {
                         CAMHAL_LOGD("%s: devname  %s stream index %d map to camera id %d sta %d", __FUNCTION__,
