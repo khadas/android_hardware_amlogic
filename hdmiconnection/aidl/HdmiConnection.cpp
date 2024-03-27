@@ -68,11 +68,10 @@ ScopedAStatus HdmiConnection::getPortInfo(std::vector<HdmiPortInfo>* _aidl_retur
 }
 
 ScopedAStatus HdmiConnection::isConnected(int32_t portId, bool* _aidl_return) {
-    if (portId < 0 || portId >= mTotalPorts) {
+    if (portId < 0) {
         ALOGE("isConnected but port:%d is invalid!", portId);
         *_aidl_return = false;
         return ScopedAStatus::ok();
-
     }
     // Maintain port connection status and update on hotplug event
 
