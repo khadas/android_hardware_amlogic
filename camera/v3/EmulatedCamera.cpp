@@ -241,6 +241,11 @@ status_t EmulatedCamera::getCameraInfo(struct camera_info* info)
     return EmulatedBaseCamera::getCameraInfo(info);
 }
 
+status_t EmulatedCamera::isStreamCombinationSupported(const camera_stream_combination_t *streams) {
+    CAMHAL_LOGV("%s", __FUNCTION__);
+    return -EINVAL;
+}
+
 status_t EmulatedCamera::setPreviewWindow(struct preview_stream_ops* window)
 {
     /* Callback should return a negative errno. */

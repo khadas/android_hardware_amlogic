@@ -99,7 +99,7 @@ class EmulatedBaseCamera {
      * Note that failures in this method are reported as negative EXXX statuses.
      */
     virtual status_t getCameraInfo(struct camera_info* info) = 0;
-
+    virtual status_t isStreamCombinationSupported(const camera_stream_combination_t *streams) = 0;
     /****************************************************************************
      * Data members
      ***************************************************************************/

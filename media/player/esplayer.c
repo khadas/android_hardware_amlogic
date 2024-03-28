@@ -37,10 +37,12 @@
 #define AV_SYNC_THRESH    PTS_FREQ*30
 
 
-#define TEST_CASE_HEVC 0
-#define TEST_CASE_VDEC 1
-#define TEST_CASE_HEVC_VP9 2
-#define TEST_CASE_HEVC_AV1 3
+#define TEST_CASE_HEVC      0
+#define TEST_CASE_VDEC      1
+#define TEST_CASE_HEVC_VP9  2
+#define TEST_CASE_HEVC_AV1  3
+#define TEST_CASE_HEVC_AVS3 4
+
 
 #define RETRY_TIME     3
 #define BUFFER_SIZE (1024*1024*2)
@@ -64,6 +66,7 @@ static vcodec_para_t v_codec_para;
 static vcodec_para_t *pcodec, *vpcodec;
 static char *filename;
 static int axis[8] = {0};
+
 
 int osd_blank(char *path, int cmd)
 {
@@ -1200,6 +1203,31 @@ int set_cmd(const char *str, const char *path)
     return -1;
 }
 
+int is_new_fb_driver(void)
+{
+    if (access("/sys/module/amvdec_h265_fb", F_OK) == 0)
+        return 1;
+    else
+        return 0;
+}
+
+int set_decoder_cmd(int tcase, const char *value, const char *node)
+{
+    char node_path[128] = {0};
+    int is_new_fb = is_new_fb_driver();
+    static const char* const driver_name[] = {
+        "amvdec_h265",    "amvdec_h265_fb",
+        "amvdec_mh264",   "amvdec_mh264",
+        "amvdec_vp9",     "amvdec_vp9_fb",
+        "amvdec_av1",     "amvdec_av1_fb",
+        "amvdec_avs3",    "amvdec_avs3"
+    };
+
+    snprintf(node_path, sizeof(node_path), "/sys/module/%s/parameters/%s",
+        driver_name[tcase * 2 + is_new_fb], node);
+
+    return set_cmd(value, node_path);
+}
 
 int ivf_write_dat_with_size(uint8_t *src_buffer,unsigned int size)
 {
@@ -1319,49 +1347,48 @@ static int slt_test_set(int tcase, int enable, int flag)
         if (flag & 1) {
             set_cmd("1", "/sys/module/tee/parameters/disable_flag");
             set_cmd("1", "/sys/module/aml_tee/parameters/disable_flag");
+            set_cmd("1", "/sys/module/amlogic_tee/parameters/disable_flag");
         }
+
+        set_decoder_cmd(tcase, "0x80000001", "double_write_mode");
+
         if (tcase == TEST_CASE_HEVC) {
-            set_cmd("0x8000000", "/sys/module/amvdec_h265/parameters/debug");
-            set_cmd("1",         "/sys/module/amvdec_h265/parameters/double_write_mode");
-            if (little_endian)
-                set_cmd("0xff00f", "/sys/module/amvdec_h265/parameters/endian");
+            set_decoder_cmd(tcase, "0x8000000", "debug");
         } else if (tcase == TEST_CASE_HEVC_VP9) {
-            set_cmd("2000", "/sys/module/amvdec_vp9/parameters/start_decode_buf_level");
-            set_cmd("0x80000001", "/sys/module/amvdec_vp9/parameters/double_write_mode");
-            if (little_endian)
-                set_cmd("0xff00f", "/sys/module/amvdec_vp9/parameters/endian");
-        }  else if (tcase == TEST_CASE_HEVC_AV1) {
-            set_cmd("0x80000001", "/sys/module/amvdec_av1/parameters/double_write_mode");
-            if (little_endian)
-                set_cmd("0xff00f", "/sys/module/amvdec_av1/parameters/endian");
+            set_decoder_cmd(tcase, "2000", "start_decode_buf_level");
+        } else if (tcase == TEST_CASE_HEVC_AVS3) {
+            set_decoder_cmd(tcase, "1024", "start_decode_buf_level");
+        }
+
+        if (little_endian) {
+            set_decoder_cmd(tcase, "0xff00f", "endian");
         }
     } else {
         if (flag & 1) {
             set_cmd("0", "/sys/module/tee/parameters/disable_flag");
             set_cmd("0", "/sys/module/aml_tee/parameters/disable_flag");
+            set_cmd("0", "/sys/module/amlogic_tee/parameters/disable_flag");
         }
-        if (tcase == TEST_CASE_HEVC) {
-            set_cmd("0",  "/sys/module/amvdec_h265/parameters/debug");
-            set_cmd("0",  "/sys/module/amvdec_h265/parameters/double_write_mode");
-            set_cmd("0", "/sys/module/amvdec_h265/parameters/endian");
-        } else if (tcase == TEST_CASE_HEVC_VP9) {
-            set_cmd("32768", "/sys/module/amvdec_vp9/parameters/start_decode_buf_level");
-            set_cmd("0",  "/sys/module/amvdec_vp9/parameters/double_write_mode");
-            set_cmd("0", "/sys/module/amvdec_vp9/parameters/endian");
-        } else if (tcase == TEST_CASE_HEVC_AV1) {
-            set_cmd("0", "/sys/module/amvdec_av1/parameters/double_write_mode");
-            set_cmd("0", "/sys/module/amvdec_av1/parameters/endian");
-        }
-    }
-    printf("%s test %s\n", name,
-        (enable == 0)?"end":"start");
-    return 0;
-}
 
+        set_decoder_cmd(tcase, "0", "double_write_mode");
+        set_decoder_cmd(tcase, "0", "endian");
+
+        if (tcase == TEST_CASE_HEVC) {
+            set_decoder_cmd(tcase, "0", "debug");
+        } else if (tcase == TEST_CASE_HEVC_VP9) {
+            set_decoder_cmd(tcase, "32768", "start_decode_buf_level");
+        } else if (tcase == TEST_CASE_HEVC_AVS3) {
+            set_decoder_cmd(tcase, "32768", "start_decode_buf_level");
+        }
+     }
+
+     printf("%s test %s\n", name, (enable == 0)?"end":"start");
+     return 0;
+}
 
 static int do_video_decoder(int tcase)
 {
-    dec_sysinfo_t slt_sysinfo[4] = {
+    dec_sysinfo_t slt_sysinfo[5] = {
         [0] = {
             .format = VIDEO_DEC_FORMAT_HEVC,
             .width = 192,
@@ -1387,6 +1414,13 @@ static int do_video_decoder(int tcase)
                 .format = VIDEO_DEC_FORMAT_AV1,
                 .width = 426,
                 .height = 240,
+                .rate = 96000/30,
+                .param = (void *)(EXTERNAL_PTS | SYNC_OUTSIDE),
+        },
+        [4] = {
+                .format = VIDEO_DEC_FORMAT_AVS3,
+                .width = 192,
+                .height = 128,
                 .rate = 96000/30,
                 .param = (void *)(EXTERNAL_PTS | SYNC_OUTSIDE),
         }
@@ -1427,7 +1461,10 @@ static int do_video_decoder(int tcase)
         vpcodec->video_type = 14;
     else if (tcase == TEST_CASE_HEVC_AV1)
         vpcodec->video_type = 16;
+    else if (tcase == TEST_CASE_HEVC_AVS3)
+        vpcodec->video_type = 17;
 
+    vpcodec->mode = STREAM_MODE;
     if (vpcodec->video_type == VFORMAT_AV1)
         vpcodec->mode = FRAME_MODE;
 
@@ -1458,7 +1495,7 @@ static int do_video_decoder(int tcase)
         rest_size = sizeof(vp9_stream);
         vcodec_set_frame_cmp_crc(vpcodec, vp9_crc,
             sizeof(vp9_crc)/(sizeof(int)*2), id);
-    }  else if (tcase == TEST_CASE_HEVC_AV1) {
+    } else if (tcase == TEST_CASE_HEVC_AV1) {
         /*
         video:
         Animation_1c9d_240p.ivf
@@ -1467,6 +1504,11 @@ static int do_video_decoder(int tcase)
         rest_size = sizeof(av1_stream);
         vcodec_set_frame_cmp_crc(vpcodec, av1_crc,
             sizeof(av1_crc)/(sizeof(int)*2), id);
+    } else if (tcase == TEST_CASE_HEVC_AVS3) {
+        vstream = avs3_stream;
+        rest_size = sizeof(avs3_stream);
+        vcodec_set_frame_cmp_crc(vpcodec, avs3_crc,
+            sizeof(avs3_crc)/(sizeof(int)*2), id);
     }
 
     pcodec = vpcodec;
@@ -1560,7 +1602,8 @@ static void do_dec_slt(int tcase, int flag)
             "hevc core:h265",
             "vdec core:h264",
             "hevc core:vp9",
-            "hevc core:av1"
+            "hevc core:av1",
+            "hevc core:avs3"
         };
 
     name = name_table[tcase];
@@ -1615,6 +1658,7 @@ static void print_help()
     printf("\t14  --vp9\n");
     printf("\t15  --avs2\n");
     printf("\t16  --av1\n");
+    printf("\t17  --avs3\n");
     printf("\t21  --h265_10bit\n");
     printf("\t24  --vp9_10bit\n");
     printf("\t25  --avs2_10bit\n");
@@ -1626,49 +1670,22 @@ static void print_help()
 
 static int parse_arg2(const char* arg2)
 {
-    char c;
-
     if (arg2 == NULL) {
         return -1;
     }
-    c = arg2[0];
-    if (c == 'h') {
-        c = arg2[1];
-        if (c != '2') {
-            return -1;
-        }
-        c = arg2[2];
-        if (c != '6') {
-            return -1;
-        }
-        c = arg2[3];
-        if (c == '4') {
-            return 1;
-        } else if (c == '5') {
-            return 0;
-        }
-        return -1;
-    } else if (c == 'v') {
-        c = arg2[1];
-        if (c != 'p') {
-            return -1;
-        }
-        c = arg2[2];
-        if (c != '9') {
-            return -1;
-        }
+
+    if (!strncmp(arg2,"h265",4)) {
+        return 0;
+    } else if (!strncmp(arg2,"h264",4)) {
+        return 1;
+    } else if (!strncmp(arg2,"vp9",3)) {
         return 2;
-    } else if (c == 'a') {
-        c = arg2[1];
-        if (c != 'v') {
-            return -1;
-        }
-        c = arg2[2];
-        if (c != '1') {
-            return -1;
-        }
+    } else if (!strncmp(arg2,"av1",3)) {
         return 3;
+    } else if (!strncmp(arg2,"avs3",4)) {
+        return 4;
     }
+
     return -1;
 }
 
@@ -1677,7 +1694,6 @@ int main(int argc, char *argv[])
     char *buffer = NULL;
 
     int ret = CODEC_ERROR_NONE;
-    //char buffer[READ_SIZE];
 
     uint32_t Readlen;
     uint32_t isize;

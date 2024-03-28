@@ -138,7 +138,7 @@ HdmiCecControl::HdmiCecControl(int event)
     mCachedRoutingEvent = NULL;
     mVendorEventListener = NULL;
     mWakeEnabled = 1;
-    mIsFirstBoot = true;
+    mIsReboot = false;
 
     int index = 0;
     mCecDevice.added_phy_addr = new int[CEC_ADDR_BROADCAST];
@@ -303,6 +303,12 @@ void HdmiCecControl::getPortInfos(hdmi_port_info_t* list[], int* total)
                 mCecDevice.port_data[i].cec_supported,
                 mCecDevice.port_data[i].arc_supported,
                 mCecDevice.port_data[i].physical_address);
+        if (mCecDevice.is_tv
+            && mCecDevice.port_data[i].port_id == 0
+            && mCecDevice.port_data[i].physical_address != 0) {
+            mCecDevice.port_data[i].port_id = (mCecDevice.port_data[i].physical_address & 0xFFFF) >> 12;
+            LOGI("update port id %d with physical address",  mCecDevice.port_data[i].port_id);
+        }
 
         if (mCecDevice.port_data[i].arc_supported) {
             mCecDevice.arc_port = mCecDevice.port_data[i].port_id;
@@ -388,6 +394,7 @@ void HdmiCecControl::setOption(int flag, int value)
                 LOGI("%s boot initialize hdmi cec config!", __FUNCTION__);
                 bool isCecEnabled = getPropertyBoolean(PROPERTY_CEC_ENABLED, true);
                 ioctl(mCecDevice.driver_fd, CEC_IOC_SET_OPTION_ENABLE_CEC, isCecEnabled ? 1 : 0);
+                updateActiveStateForFramework();
                 mCecDevice.hdmi_cfg_init = true;
             }
             /* removed for the tv compat logic has been moved to driver.
@@ -395,8 +402,6 @@ void HdmiCecControl::setOption(int flag, int value)
                 initCecWakeupInfo();
             }
             */
-
-            updateActiveStateForFramework();
             break;
 
         case HDMI_OPTION_SET_LANG:
@@ -929,6 +934,7 @@ void HdmiCecControl::bootOneTouchPlay() {
         // Don't do this in any reboot scenarios except cold boot.
         // It will make sure that no one touch play is started in cts and ota cases.
         LOGD("It's not cold or shutdown boot");
+        mIsReboot = true;
         return;
     }
 
@@ -1248,8 +1254,9 @@ void HdmiCecControl::updateActiveState(const cec_message_t* message, bool receiv
 
 
 void HdmiCecControl::updateActiveStateForFramework() {
-    if (mIsFirstBoot) {
-        mIsFirstBoot = false;
+    // In reboot scenario or in enable cec scenario, we have no need to
+    // update framework status.
+    if (!mIsReboot && mCecDevice.active_routing_path != 0) {
         CMessage message;
         message.mType = HdmiCecControl::MsgHandler::MSG_MAY_SEND_SET_STREAM_PATH;
         message.mDelayMs = 0;

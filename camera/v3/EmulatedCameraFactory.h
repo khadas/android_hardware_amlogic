@@ -61,7 +61,15 @@ class EmulatedCameraHotplugThread;
  */
 
 #ifndef MAX_CAMERA_NUM
+#if BUILD_KERNEL_4_9 == true
+#define USB_DEVICE_NUM  4
+#define MIPI_DEVICE_NUM 2
 #define MAX_CAMERA_NUM 6
+#else
+#define USB_DEVICE_NUM  5
+#define MIPI_DEVICE_NUM 6
+#define MAX_CAMERA_NUM 11
+#endif
 #endif
 class EmulatedCameraFactory {
 public:
@@ -92,7 +100,7 @@ public:
      * This method is called in response to camera_module_t::get_camera_info callback.
      */
     int getCameraInfo(int camera_id, struct camera_info *info);
-
+    int isStreamCombinationSupported(int camera_id, const camera_stream_combination_t *streams);
     /* Sets emulated camera callbacks.
      * This method is called in response to camera_module_t::set_callbacks callback.
      */
@@ -114,7 +122,7 @@ public:
 
     /* camera_module_t::get_camera_info callback entry point. */
     static int get_camera_info(int camera_id, struct camera_info *info);
-
+    static int is_stream_combination_supported(int camera_id, const camera_stream_combination_t *streams);
     /* camera_module_t::set_callbacks callback entry point. */
     static int set_callbacks(const camera_module_callbacks_t *callbacks);
 	/* camera_module_t::get_vendor_tag_ops callback entry point. */
@@ -158,6 +166,7 @@ public:
     }
 
     void onStatusChanged(int cameraId, int newStatus);
+    void searchExternalSensor();
 
     void onStatusReady(char * dev_name);
 

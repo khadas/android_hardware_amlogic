@@ -3,7 +3,7 @@
 #include <string>
 #include <vector>
 #include <HDMIStatus.h>
-
+#include <map>
 namespace android {
 #if BUILD_KERNEL_4_9 == true
 #define MAX_USB_CAM_VIDEO_ID  3
@@ -49,12 +49,16 @@ class CameraVirtualDevice {
         int releaseVirtualDevice(int cam_id,int fd);
 
         static CameraVirtualDevice* getInstance();
-        int getCameraNum();
-
+        int getLegacyCameraNum();
         int checkUsbDeviceExist(char* name);
         int returnUsbDeviceId(char* name);
-        void recoverUsbDevicelists(void);
         void closeVideoDeviceFd(char* dev_name);
+        void recoverUsbDevicelists(void);
+        int getDeviceNameIdbyIndex(int index);
+        bool isNormalExternalCameraByIndex (int index);
+        bool isNormalExternalCameraByName(char *dev_name);
+        void addUsbDevice(char * dev_name);
+        void deleteUsbDevice(char * dev_name);
     private:
         CameraVirtualDevice();
         struct VirtualDevice* findVideoDevice(int cam_id);
@@ -66,11 +70,11 @@ class CameraVirtualDevice {
         int CloseVideoDevice(struct VirtualDevice* pDev);
         int CloseVideoDeviceWoFd(struct VirtualDevice* pDev);
 
-        int findUsbCameraID(int cam_id);
         bool isAmlMediaCamera (char* dev_node_name);
         bool isStandardUSBCamera (char* dev_node_name);
         int getVideoDeviceFd(char* dev_node_name);
     private:
+        std::map<std::string, int> videoMap;
         static struct VirtualDevice usbvideoDevices[5];
 
         static struct VirtualDevice usbvideoDeviceslists[5];

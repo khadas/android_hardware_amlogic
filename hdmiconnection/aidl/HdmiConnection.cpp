@@ -41,16 +41,15 @@ void HdmiConnection::serviceDied(void* cookie) {
 }
 
 ScopedAStatus HdmiConnection::getPortInfo(std::vector<HdmiPortInfo>* _aidl_return) {
-    if (mHdmiPorts != nullptr) {
-        delete[] mHdmiPorts;
-    }
-    mHdmiPorts = new hdmi_port_info[mTotalPorts];
     mHdmiCecControl->getPortInfos(&mHdmiPorts, &mTotalPorts);
 
     if (!mHdmiPorts || mTotalPorts < 1) {
         ALOGE("getPortInfo but no port information exists");
         return ScopedAStatus::ok();
     }
+    ALOGI("%s port size:%d", __FUNCTION__, mTotalPorts);
+    mPortConnectionStatus.resize(mTotalPorts + 1, false);
+    mHpdSignal.resize(mTotalPorts, HpdSignal::HDMI_HPD_PHYSICAL);
     mPortInfos.resize(mTotalPorts);
 
     for (int i = 0; i < mTotalPorts; i++) {
@@ -158,18 +157,10 @@ HdmiConnection::HdmiConnection() {
     ALOGI("Opening IHdmi Connection HAL");
     mCallback = nullptr;
     mHdmiCecControl = std::make_shared<HdmiCecControl>(HDMI_EVENT_HOT_PLUG);
-
-    getPortInfo(&mPortInfos);
-    mTotalPorts = mPortInfos.size();
-    ALOGI("%s port size:%d", __FUNCTION__, mTotalPorts);
-    mPortConnectionStatus.resize(mTotalPorts + 1, false);
-    mHpdSignal.resize(mTotalPorts, HpdSignal::HDMI_HPD_PHYSICAL);
     mTxHpdSignal = HpdSignal::HDMI_HPD_PHYSICAL;
-
     mDeathRecipient = ndk::ScopedAIBinder_DeathRecipient(AIBinder_DeathRecipient_new(serviceDied));
-
     mEarcSupported = android::getPropertyBoolean(PROPERTY_EARC_SUPPORTED, false);
-    mHdmiPorts = new hdmi_port_info[mTotalPorts];
+    getPortInfo(&mPortInfos);
 }
 
 HdmiConnection::~HdmiConnection() {

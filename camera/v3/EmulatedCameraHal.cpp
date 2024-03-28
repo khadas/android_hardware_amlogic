@@ -45,4 +45,5 @@ camera_module_t HAL_MODULE_INFO_SYM = {
     .set_callbacks = android::EmulatedCameraFactory::set_callbacks,
     .get_vendor_tag_ops = android::EmulatedCameraFactory::get_vendor_tag_ops,
     .set_torch_mode = android::EmulatedCameraFactory::set_torch_mode,
+    .is_stream_combination_supported = android::EmulatedCameraFactory::is_stream_combination_supported,
 };

@@ -4,7 +4,9 @@
 #include "ICapture.h"
 #include "MIPICameraIO.h"
 #include "CameraUtil.h"
+#ifdef CAM_DPTZ
 #include <centerface_5.16/centerface_network.h>
+#endif
 #ifdef GE2D_ENABLE
 #include "ge2d_stream.h"
 #endif

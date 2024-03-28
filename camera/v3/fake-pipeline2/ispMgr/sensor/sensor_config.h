@@ -55,6 +55,7 @@ struct sensorConfig {
     int sensorWidth;// max width
     int sensorHeight;// max height
     const char* sensorName;
+    uint32_t wdrType;
     uint32_t wdrFormat;
     uint32_t sdrFormat;
     uint32_t sdrFormat60HZ;

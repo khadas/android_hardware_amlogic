@@ -214,10 +214,12 @@ Sensor::Sensor():
         mSensorWorkFlag(false),
         mOpenCameraID(-1),
         mNeedCheckMjpeg(false),
+        mDPTZEnable(false),
         checkFailCount(0),
         mNextCapturedBuffers(NULL),
         mScene(kResolution[0], kResolution[1], kElectronsPerLuxSecond),
         mUnpluged(false),
+        mFacingBack(false),
         mTestPatternMode(ANDROID_SENSOR_TEST_PATTERN_MODE_OFF)
 {
         char property[PROPERTY_VALUE_MAX];
@@ -237,7 +239,6 @@ Sensor::Sensor():
             CAMHAL_LOGD("running in low latency mode");
             mLowLatencyMode = true;
         }
-
 }
 
 Sensor::~Sensor() {

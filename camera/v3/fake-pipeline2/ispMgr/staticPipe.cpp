@@ -37,6 +37,15 @@ int staticPipe::fetchSensorFormat(media_stream_t *stream, int hdrEnable, uint32_
     return -1;
 }
 
+int staticPipe::fetchSensorWdrType(media_stream_t *stream, int hdrEnable) {
+    auto cfg = matchSensorConfig(stream);
+    if (cfg) {
+        return hdrEnable ? cfg->wdrType : 0;
+    }
+    CAMHAL_LOGE("do not find matched");
+    return 0;
+}
+
 sensorType staticPipe::fetchSensorType(media_stream_t * stream) {
     auto cfg = matchSensorConfig(stream);
     if (cfg) {

@@ -346,6 +346,7 @@ status_t EmulatedFakeCamera3::unplugCamera() {
             CAMHAL_LOGI("%s: Unplugged camera", __FUNCTION__);
             mPlugged = false;
         }
+        mStatus = STATUS_ERROR;
     }
     return true;
 }
@@ -375,52 +376,53 @@ status_t EmulatedFakeCamera3::closeCamera() {
     status_t res;
     {
         Mutex::Autolock l(mLock);
-        if (mStatus == STATUS_CLOSED) return OK;
-    }
+        if (mStatus == STATUS_CLOSED || mStatus == STATUS_ERROR) return OK;
 
-    CAMHAL_LOGD("%s, %d\n", __FUNCTION__, __LINE__);
-    mReadoutThread->sendFlushSignal();
-    mSensor->sendExitSingalToSensor();
-    res = mSensor->shutDown();
-    if (res != NO_ERROR) {
-        CAMHAL_LOGE("%s: Unable to shut down sensor: %d", __FUNCTION__, res);
-        return res;
-    }
-    mSensor.clear();
-    CAMHAL_LOGD("%s, %d\n", __FUNCTION__, __LINE__);
-
-    {
-        Mutex::Autolock l(mLock);
-        res = mReadoutThread->shutdownJpegCompressor(this);
-        if (res != OK) {
-            CAMHAL_LOGE("%s: Unable to shut down JpegCompressor: %d", __FUNCTION__, res);
+        CAMHAL_LOGD("%s, %d\n", __FUNCTION__, __LINE__);
+        mReadoutThread->sendFlushSignal();
+        mSensor->sendExitSingalToSensor();
+        res = mSensor->shutDown();
+        if (res != NO_ERROR) {
+            CAMHAL_LOGE("%s: Unable to shut down sensor: %d", __FUNCTION__, res);
             return res;
         }
-        mReadoutThread->sendExitReadoutThreadSignal();
-        mReadoutThread->requestExit();
-    }
-    CAMHAL_LOGD("%s, %d\n", __FUNCTION__, __LINE__);
+        mSensor.clear();
+        CAMHAL_LOGD("%s, %d\n", __FUNCTION__, __LINE__);
 
-    mReadoutThread->join();
-    CAMHAL_LOGD("Success exit ReadOutThread");
-    {
-        Mutex::Autolock l(mLock);
-        // Clear out private stream information
-        for (StreamIterator s = mStreams.begin(); s != mStreams.end(); s++) {
-            PrivateStreamInfo *privStream =
-                    static_cast<PrivateStreamInfo*>((*s)->priv);
-            delete privStream;
-            (*s)->priv = NULL;
+        {
+            //Mutex::Autolock l(mLock);
+            res = mReadoutThread->shutdownJpegCompressor(this);
+            if (res != OK) {
+                CAMHAL_LOGE("%s: Unable to shut down JpegCompressor: %d", __FUNCTION__, res);
+                return res;
+            }
+            mReadoutThread->sendExitReadoutThreadSignal();
+            mReadoutThread->requestExit();
         }
-        mStreams.clear();
-        mReadoutThread.clear();
-        mReadoutThread = nullptr;
+        CAMHAL_LOGD("%s, %d\n", __FUNCTION__, __LINE__);
 
-        mJpegCompressor->join();
-        mJpegCompressor = nullptr;
+        mReadoutThread->join();
+        CAMHAL_LOGD("Success exit ReadOutThread");
+        {
+            //Mutex::Autolock l(mLock);
+            // Clear out private stream information
+            for (StreamIterator s = mStreams.begin(); s != mStreams.end(); s++) {
+                PrivateStreamInfo *privStream =
+                        static_cast<PrivateStreamInfo*>((*s)->priv);
+                delete privStream;
+                (*s)->priv = NULL;
+            }
+            mStreams.clear();
+            mReadoutThread.clear();
+            mReadoutThread = nullptr;
+
+            mJpegCompressor->join();
+            mJpegCompressor = nullptr;
+        }
+        res = EmulatedCamera3::closeCamera();
     }
     CAMHAL_LOGD("%s, %d\n", __FUNCTION__, __LINE__);
-    return EmulatedCamera3::closeCamera();
+    return res;
 }
 
 status_t EmulatedFakeCamera3::getCameraInfo(struct camera_info *info) {
@@ -447,6 +449,63 @@ status_t EmulatedFakeCamera3::getCameraInfo(struct camera_info *info) {
         }
     }
     return EmulatedCamera3::getCameraInfo(info);
+}
+
+status_t EmulatedFakeCamera3::isStreamCombinationSupported(const camera_stream_combination_t *streamList) {
+    int inputStreamNum = 0;
+    int outputStreamNum = 0;
+    CAMHAL_LOGV("%s streamList %p", __FUNCTION__, streamList);
+    if (streamList->operation_mode != AML_CAMERA_STREAM_CONFIGURATION_NORMAL_MODE)
+        return -EINVAL;
+    camera_stream_t *stream = nullptr;
+    for (int i = 0; i < streamList->num_streams; i++) {
+        /**1. stream type*/
+        camera_stream_t *stream = streamList->streams;
+        if (stream->stream_type == AML_CAMERA_STREAM_OUTPUT)
+            outputStreamNum ++;
+        else if (stream->stream_type == AML_CAMERA_STREAM_INPUT)
+            inputStreamNum ++;
+        else
+            return -EINVAL;
+
+        /**2. width and height*/
+        if ((stream->width == 0) || (stream->width == UINT32_MAX) ||
+            (stream->height == 0) || (stream->height == UINT32_MAX)) {
+                CAMHAL_LOGE("%s width or height is error", __FUNCTION__);
+                return -EINVAL;
+        }
+
+        /**3. format*/
+        bool find = false;
+        for (size_t f = 0; f < sizeof(kAvailableFormats)/sizeof(kAvailableFormats[0]); f++) {
+            if (stream->format == kAvailableFormats[f]) {
+                find = true;
+                break;
+            }
+        }
+        if (!find) {
+            CAMHAL_LOGE("%s format is error ", __FUNCTION__);
+            return -EINVAL;
+        }
+
+        /**4. rotation*/
+        if (stream->rotation == UINT32_MAX) {
+            CAMHAL_LOGE("%s rotation is error", __FUNCTION__);
+            return -EINVAL;
+        }
+
+        /**5. physical_camera_id*/
+        if (stream->physical_camera_id == nullptr) {
+            CAMHAL_LOGE("%s phy id is error", __FUNCTION__);
+            return  -EINVAL;
+        }
+
+        stream ++;
+    }
+    stream = nullptr;
+    if (inputStreamNum > 1 || outputStreamNum < 1)
+        return -EINVAL;
+    return OK;
 }
 
 /**
@@ -525,6 +584,7 @@ status_t EmulatedFakeCamera3::configureStreams(
                 streamList->num_streams);
         return BAD_VALUE;
     }
+
 
     aml_camera_stream_t *inputStream = NULL;
     for (size_t i = 0; i < streamList->num_streams; i++) {
@@ -886,8 +946,8 @@ const camera_metadata_t* EmulatedFakeCamera3::constructDefaultRequestSettings(
     static const int32_t sensitivity = 100;
     settings.update(ANDROID_SENSOR_SENSITIVITY, &sensitivity, 1);
 
-    static const int64_t rollingShutterSkew = 0;
-    settings.update(ANDROID_SENSOR_ROLLING_SHUTTER_SKEW, &rollingShutterSkew, 1);
+    // static const int64_t rollingShutterSkew = 1;
+    // settings.update(ANDROID_SENSOR_ROLLING_SHUTTER_SKEW, &rollingShutterSkew, 1);
     // TIMESTAMP set only in frame
 
     /** android.flash */
@@ -991,10 +1051,12 @@ const camera_metadata_t* EmulatedFakeCamera3::constructDefaultRequestSettings(
     static const uint8_t croppingType = ANDROID_SCALER_CROPPING_TYPE_CENTER_ONLY;
     settings.update(ANDROID_SCALER_CROPPING_TYPE, &croppingType, 1);
 
+
     static const int32_t cropRegion[] = {
         0, 0, (int32_t)Sensor::kResolution[0], (int32_t)Sensor::kResolution[1],
     };
     settings.update(ANDROID_SCALER_CROP_REGION, cropRegion, 4);
+
 
     /** android.jpeg */
     static const uint8_t jpegQuality = 80;
@@ -1364,12 +1426,16 @@ status_t EmulatedFakeCamera3::processCaptureRequest(
               cropRegion[1] = e.data.i32[1];
               cropWidth = cropRegion[2] = e.data.i32[2];
               cropRegion[3] = e.data.i32[3];
-              for (int i = mZoomMin; i <= mZoomMax; i += mZoomStep) {
-                   //if ( (float) i / mZoomMin >= (float) outputWidth / cropWidth) {
-                   if ( i * cropWidth >= outputWidth * mZoomMin ) {
-                         mSensor->setZoom(i);
-                         break;
-                   }
+              if (mSensorType == SENSOR_USB) {
+                  mSensor->setZoom(mZoomMin);
+              } else {
+                  for (int i = mZoomMin; i <= mZoomMax; i += mZoomStep) {
+                       //if ( (float) i / mZoomMin >= (float) outputWidth / cropWidth) {
+                       if ( i * cropWidth >= outputWidth * mZoomMin ) {
+                             mSensor->setZoom(i);
+                             break;
+                       }
+                  }
               }
               CAMHAL_LOGD("cropRegion:%d, %d, %d, %d\n", cropRegion[0], cropRegion[1],cropRegion[2],cropRegion[3]);
          }
@@ -1628,7 +1694,7 @@ status_t EmulatedFakeCamera3::processCaptureRequest(
 
         /**
         * Configure sensor and queue up the request to the readout thread
-     */
+        */
         struct requestParameter param = {
             .requestExposureTime = exposureTime,
             .requestFrameDuration = mFrameDuration,
@@ -1704,6 +1770,8 @@ void EmulatedFakeCamera3::dump(int fd) {
 //AML_CAMERA_BUFFER_STATUS_ERROR flag.
 int EmulatedFakeCamera3::flush_all_requests() {
     CAMHAL_LOGD("flush all request");
+    if (mStatus == STATUS_CLOSED || mStatus == STATUS_ERROR)
+        return 0;
     mFlushTag = true;
     mReadoutThread->flushAllRequest(true);
     mReadoutThread->setFlushFlag(false);
@@ -1998,8 +2066,11 @@ status_t EmulatedFakeCamera3::constructStaticInfo() {
         if (strstr(property, "true")) {
             lensFacing =  ANDROID_LENS_FACING_BACK;
             mFacingBack = 1;
+        } else if (strstr(property, "false")) {
+            lensFacing = ANDROID_LENS_FACING_FRONT;
+            mFacingBack = 0;
         } else {
-            lensFacing =  ANDROID_LENS_FACING_FRONT;
+            lensFacing =  ANDROID_LENS_FACING_EXTERNAL;
             mFacingBack = 0;
         }
         break;
@@ -2089,8 +2160,8 @@ status_t EmulatedFakeCamera3::constructStaticInfo() {
         }
     }
 
-    static const int64_t rollingShutterSkew = 0;
-    info.update(ANDROID_SENSOR_ROLLING_SHUTTER_SKEW, &rollingShutterSkew, 1);
+    // static const int64_t rollingShutterSkew = 1;
+    // info.update(ANDROID_SENSOR_ROLLING_SHUTTER_SKEW, &rollingShutterSkew, 1);
 
     static const uint8_t readtimestamp = ANDROID_SENSOR_READOUT_TIMESTAMP_NOT_SUPPORTED;
     info.update(ANDROID_SENSOR_READOUT_TIMESTAMP, &readtimestamp, 1);
@@ -2440,6 +2511,11 @@ status_t EmulatedFakeCamera3::constructStaticInfo() {
     if (mCameraInfo != NULL) {
         CAMHAL_LOGD("mCameraInfo is not null, mem leak?");
     }
+    if (mCameraInfo != NULL) {
+        CAMHAL_LOGI("free mCameraInfo");
+        free_camera_metadata(mCameraInfo);
+        mCameraInfo = NULL;
+    }
     mCameraInfo = info.release();
     CAMHAL_LOGD("mCameraID=%d,mCameraInfo=%p\n", mCameraID, mCameraInfo);
 
@@ -2512,6 +2588,7 @@ status_t EmulatedFakeCamera3::process3A(CameraMetadata &settings) {
     update3A(settings);
     return OK;
 }
+
 
 status_t EmulatedFakeCamera3::doFakeAE(CameraMetadata &settings) {
     ATRACE_CALL();

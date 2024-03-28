@@ -52,7 +52,6 @@ struct jpegsize {
     uint32_t height;
 };
 
-
 class EmulatedFakeCamera3 : public EmulatedCamera3,
         private Sensor::SensorListener {
 public:
@@ -83,6 +82,7 @@ public:
     virtual status_t closeCamera();
 
     virtual status_t getCameraInfo(struct camera_info *info);
+    virtual status_t isStreamCombinationSupported(const camera_stream_combination_t *streams);
     virtual bool getCameraStatus();
 
     /****************************************************************************
@@ -168,7 +168,6 @@ private:
      * values.
      */
     status_t process3A(CameraMetadata &settings);
-
     status_t doFakeAE(CameraMetadata &settings);
     status_t doFakeAF(CameraMetadata &settings);
     status_t doFakeAWB(CameraMetadata &settings);

@@ -172,7 +172,6 @@ status_t EmulatedCameraHotplugThread::readyToRun() {
 
         return err;
     }
-
     return OK;
 }
 
@@ -247,7 +246,7 @@ bool EmulatedCameraHotplugThread::threadLoop() {
                 cameraId = strtol(video4linux_string, NULL, 10);
                 if (ISP_CAM_VIDEO_DEV_BEGIN_NUM <= cameraId &&
                     cameraId < MIPI_ONLY_CAM_VIDEO_DEV_BEGIN_NUM &&
-                     halStatus == CAMERA_DEVICE_STATUS_PRESENT) {
+                    halStatus == CAMERA_DEVICE_STATUS_PRESENT) {
                     // isp video node
                     char dev_name[64];
                     sprintf(dev_name, "%s%d", "/dev/video", cameraId);
@@ -287,7 +286,6 @@ bool EmulatedCameraHotplugThread::threadLoop() {
         //TEMP_FAILURE_RETRY(close(mInotifyFd));
         return false;
     }
-
     return true;
 }
 

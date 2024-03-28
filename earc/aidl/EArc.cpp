@@ -44,7 +44,6 @@ void EArc::serviceDied(void* cookie) {
 
 ScopedAStatus EArc::setEArcEnabled(bool in_enabled) {
     if (in_enabled == mEArcEnabled) {
-        getEArcPort();
         ALOGI("%s in_enabled:%d but it's unchanged", __FUNCTION__, in_enabled);
         return ScopedAStatus::ok();
     }
@@ -92,6 +91,11 @@ ScopedAStatus EArc::getLastReportedAudioCapabilities(int32_t portId,
 }
 
 ScopedAStatus EArc::setCallback(const std::shared_ptr<IEArcCallback>& callback) {
+    // The earc port can't be certain until hdmi connection hal's initialization is finished.
+    // As android hdmi control service does setCallback action after hdmi connection service
+    // is initiated, we can make certain of the earc port when the first callback is set.
+    getEArcPort();
+
     if (mCallback != nullptr) {
         mCallback = nullptr;
     }

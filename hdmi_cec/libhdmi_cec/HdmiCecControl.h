@@ -262,7 +262,7 @@ private:
     int mBootOtpCount;
     int mWakeEnabled;
     hdmi_cec_event_t* mCachedRoutingEvent;
-    bool mIsFirstBoot;
+    bool mIsReboot;
 };
 
 
