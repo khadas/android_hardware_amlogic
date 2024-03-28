@@ -17,6 +17,9 @@
 #define LOG_TAG "libusbconfigfs"
 
 #include "include/UsbGadgetCommon.h"
+#include <android-base/properties.h>
+#include <android-base/strings.h>
+#include <cutils/properties.h>
 
 namespace aidl {
 namespace android {
@@ -99,7 +102,7 @@ void* MonitorFfs::startMonitorFd(void* param) {
     bool writeUdc = true, stopMonitor = false;
     struct epoll_event events[kEpollEvents];
     steady_clock::time_point disconnect;
-
+    ALOGI("GADGET pulled up amlogic 000");
     bool descriptorWritten = true;
     for (int i = 0; i < static_cast<int>(monitorFfs->mEndpointList.size()); i++) {
         if (access(monitorFfs->mEndpointList.at(i).c_str(), R_OK)) {
@@ -156,23 +159,36 @@ void* MonitorFfs::startMonitorFd(void* param) {
                         writeUdc = true;
                         disconnect = std::chrono::steady_clock::now();
                     } else if (descriptorPresent && writeUdc) {
+                        std::string enableUsbData;
+                        char val[PROPERTY_VALUE_MAX] = {0};
+                        property_get("vendor.media.usb.enable.usb.data", val, "");
+                        enableUsbData = val;
+                        ALOGE("enableUsbData is %s", enableUsbData.c_str());
+                        if ((strcmp(enableUsbData.c_str(), "true") == 0)) {
+                            ALOGI("GADGET pulled up amlogic return");
+                            return NULL;
+                        }
                         steady_clock::time_point temp = steady_clock::now();
 
                         if (std::chrono::duration_cast<microseconds>(temp - disconnect).count() <
                             kPullUpDelay)
                             usleep(kPullUpDelay);
-
-                        if (!!WriteStringToFile(monitorFfs->mGadgetName, PULLUP_PATH)) {
+                            if ((strcmp(enableUsbData.c_str(), "true") == 0)) {
+                            ALOGI("GADGET pulled up amlogic return 111");
+                            return NULL;
+                        }
+                        if (((strcmp(enableUsbData.c_str(), "true") != 0))  &&  (!!WriteStringToFile(monitorFfs->mGadgetName, PULLUP_PATH))) {
+                            ALOGI("GADGET pulled up amlogic");
                             lock_guard<mutex> lock(monitorFfs->mLock);
                             monitorFfs->mCurrentUsbFunctionsApplied = true;
                             monitorFfs->mCallback(monitorFfs->mCurrentUsbFunctionsApplied,
                                                   monitorFfs->mPayload);
-                            ALOGI("GADGET pulled up");
+                            ALOGI("no GADGET pulled up amlogic");
                             writeUdc = false;
                             gadgetPullup = true;
                             // notify the main thread to signal userspace.
                             monitorFfs->mCv.notify_all();
-                        }
+                            }
                     }
                 }
             } else {

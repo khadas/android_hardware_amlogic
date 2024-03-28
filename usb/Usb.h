@@ -72,6 +72,7 @@ struct Usb : public BnUsb {
     pthread_mutex_t mPartnerLock;
     // Variable to signal partner coming back online after type switch
     bool mPartnerUp;
+    bool mUsbDataEnabled;
   private:
     pthread_t mPoll;
 };

@@ -25,6 +25,7 @@
 #include <pthread.h>
 #include <stdio.h>
 #include <sys/types.h>
+#include <cutils/properties.h>
 #include <unistd.h>
 #include <chrono>
 #include <regex>
@@ -46,18 +47,40 @@ namespace android {
 namespace hardware {
 namespace usb {
 
-constexpr char kTypecPath[] = "/sys/class/typec/";
+constexpr char kTypecPath[] = "/sys/devices/platform/soc/fdd00000.crgudc2/udc/fdd00000.crgudc2";
 constexpr char kDataRoleNode[] = "/data_role";
 constexpr char kPowerRoleNode[] = "/power_role";
 
-// Set by the signal handler to destroy the thread
+constexpr char pullupPath[] = "/sys/kernel/config/usb_gadget/g1/UDC";
 volatile bool destroyThread;
 
 void queryVersionHelper(android::hardware::usb::Usb *usb,
                         std::vector<PortStatus> *currentPortStatus);
 
 ScopedAStatus Usb::enableUsbData(const string& in_portName, bool in_enable, int64_t in_transactionId) {
+    ALOGE(" in_enable is %s", (in_enable) ? "Yes" : "No");
+
+    bool result = true;
     std::vector<PortStatus> currentPortStatus;
+    std::string mUsbControllerName;
+    char val[PROPERTY_VALUE_MAX] = {0};
+    property_get("sys.usb.controller", val, "");
+    mUsbControllerName = val;
+    if (in_enable) {
+        ALOGE(" enable usb data ");
+        ::android::base::SetProperty("vendor.media.usb.enable.usb.data", "false");
+        if (!WriteStringToFile(mUsbControllerName.c_str(), pullupPath)) {
+            ALOGE("Not able to turn on usb connection notification");
+            result = false;
+        }
+    } else {
+        ALOGE("disable usb data ");
+        ::android::base::SetProperty("vendor.media.usb.enable.usb.data", "true");
+        if (!WriteStringToFile("none", pullupPath)) {
+            ALOGE("Not able to turn off usb connection notification");
+            result = false;
+        }
+    }
 
     pthread_mutex_lock(&mLock);
     if (mCallback != NULL) {
@@ -75,7 +98,7 @@ ScopedAStatus Usb::enableUsbData(const string& in_portName, bool in_enable, int6
 }
 
 ScopedAStatus Usb::enableUsbDataWhileDocked(const string& in_portName, int64_t in_transactionId) {
-
+    ALOGV("%s %d", in_portName.c_str(), (int)in_transactionId);
     pthread_mutex_lock(&mLock);
     if (mCallback != NULL) {
         ScopedAStatus ret = mCallback->notifyEnableUsbDataWhileDockedStatus(
@@ -91,7 +114,7 @@ ScopedAStatus Usb::enableUsbDataWhileDocked(const string& in_portName, int64_t i
 }
 
 ScopedAStatus Usb::resetUsbPort(const string& in_portName, int64_t in_transactionId) {
-
+    ALOGV("%s %d", in_portName.c_str(), (int)in_transactionId);
     pthread_mutex_lock(&mLock);
     if (mCallback != NULL) {
         ScopedAStatus ret = mCallback->notifyResetUsbPortStatus(
@@ -254,9 +277,11 @@ Usb::Usb()
     : mLock(PTHREAD_MUTEX_INITIALIZER),
       mRoleSwitchLock(PTHREAD_MUTEX_INITIALIZER),
       mPartnerLock(PTHREAD_MUTEX_INITIALIZER),
-      mPartnerUp(false)
+      mPartnerUp(false),
+      mUsbDataEnabled(true)
 {
     pthread_condattr_t attr;
+    ALOGI("aml Usb.cpp is start 2");
     if (pthread_condattr_init(&attr)) {
         ALOGE("pthread_condattr_init failed: %s", strerror(errno));
         abort();
@@ -474,17 +499,16 @@ Status getPortStatusHelper(std::vector<PortStatus> *currentPortStatus) {
     std::unordered_map<string, bool> names;
     Status result = getTypeCPortNamesHelper(&names);
     int i = -1;
-
     if (result == Status::SUCCESS) {
         currentPortStatus->resize(names.size());
         for (std::pair<string, bool> port : names) {
             i++;
-            ALOGI("%s", port.first.c_str());
-            (*currentPortStatus)[i].portName = port.first;
+            ALOGI("aml usb hal currentPortStatus %s", port.first.c_str());
+            (*currentPortStatus)[i].portName = "state";
 
             PortRole currentRole;
             currentRole.set<PortRole::powerRole>(PortPowerRole::NONE);
-            if (getCurrentRoleHelper(port.first, port.second, &currentRole) == Status::SUCCESS) {
+            if (getCurrentRoleHelper("state", port.second, &currentRole) == Status::SUCCESS) {
                 (*currentPortStatus)[i].currentPowerRole = currentRole.get<PortRole::powerRole>();
             } else {
                 ALOGE("Error while retrieving portNames");
@@ -492,7 +516,7 @@ Status getPortStatusHelper(std::vector<PortStatus> *currentPortStatus) {
             }
 
             currentRole.set<PortRole::dataRole>(PortDataRole::NONE);
-            if (getCurrentRoleHelper(port.first, port.second, &currentRole) == Status::SUCCESS) {
+            if (getCurrentRoleHelper("state", port.second, &currentRole) == Status::SUCCESS) {
                 (*currentPortStatus)[i].currentDataRole = currentRole.get<PortRole::dataRole>();
             } else {
                 ALOGE("Error while retrieving current port role");
@@ -500,7 +524,7 @@ Status getPortStatusHelper(std::vector<PortStatus> *currentPortStatus) {
             }
 
             currentRole.set<PortRole::mode>(PortMode::NONE);
-            if (getCurrentRoleHelper(port.first, port.second, &currentRole) == Status::SUCCESS) {
+            if (getCurrentRoleHelper("state", port.second, &currentRole) == Status::SUCCESS) {
                 (*currentPortStatus)[i].currentMode = currentRole.get<PortRole::mode>();
             } else {
                 ALOGE("Error while retrieving current data role");
@@ -517,11 +541,11 @@ Status getPortStatusHelper(std::vector<PortStatus> *currentPortStatus) {
             (*currentPortStatus)[i].usbDataStatus.push_back(UsbDataStatus::ENABLED);
 
             ALOGI("%d:%s connected:%d canChangeMode:%d canChagedata:%d canChangePower:%d "
-                  "usbDataEnabled:%d plugOrientation:%d",
-                  i, port.first.c_str(), port.second, (*currentPortStatus)[i].canChangeMode,
-                  (*currentPortStatus)[i].canChangeDataRole,
-                  (*currentPortStatus)[i].canChangePowerRole, 0,
-                  (*currentPortStatus)[i].plugOrientation);
+                  "usbDataEnabled:%d",
+                i, port.first.c_str(), port.second,
+                (*currentPortStatus)[i].canChangeMode,
+                (*currentPortStatus)[i].canChangeDataRole,
+                (*currentPortStatus)[i].canChangePowerRole, 0);
         }
 
         return Status::SUCCESS;
@@ -613,17 +637,91 @@ static void uevent_event(uint32_t /*epevents*/, struct data *payload) {
             payload->usb->mPartnerUp = true;
             pthread_cond_signal(&payload->usb->mPartnerCV);
             pthread_mutex_unlock(&payload->usb->mPartnerLock);
-        } else if (!strncmp(cp, "DEVTYPE=typec_", strlen("DEVTYPE=typec_"))) {
+        } else if ((strcmp(cp, "USB_STATE=DISCONNECTED") == 0)) {
+            ALOGE("aml hal uevent received %s", cp);
             std::vector<PortStatus> currentPortStatus;
             queryVersionHelper(payload->usb, &currentPortStatus);
-
+            ::android::base::SetProperty("vendor.media.usb.port.connect", "false");
             // Role switch is not in progress and port is in disconnected state
             if (!pthread_mutex_trylock(&payload->usb->mRoleSwitchLock)) {
+                ALOGI("aml uevent mRoleSwitchLock ");
                 for (unsigned long i = 0; i < currentPortStatus.size(); i++) {
                     DIR *dp =
                         opendir(string(kTypecPath +
                                        string(currentPortStatus[i].portName.c_str()) +
-                                       "-partner").c_str());
+                                            "").c_str());
+                                       ALOGI("aml uevent currentPortStatus ");
+                    if (dp == NULL) {
+                        switchToDrp(currentPortStatus[i].portName);
+                    } else {
+                        closedir(dp);
+                    }
+                }
+                pthread_mutex_unlock(&payload->usb->mRoleSwitchLock);
+            }
+            break;
+        } else if ((strcmp(cp, "USB_STATE=CONNECTED") == 0)) {
+            ALOGE("aml hal uevent received %s", cp);
+            ::android::base::SetProperty("vendor.media.usb.port.connect", "true");
+            std::vector<PortStatus> currentPortStatus;
+            queryVersionHelper(payload->usb, &currentPortStatus);
+            // Role switch is not in progress and port is in disconnected state
+            if (!pthread_mutex_trylock(&payload->usb->mRoleSwitchLock)) {
+                ALOGI("aml uevent mRoleSwitchLock ");
+                for (unsigned long i = 0; i < currentPortStatus.size(); i++) {
+                    DIR *dp =
+                        opendir(string(kTypecPath +
+                                       string(currentPortStatus[i].portName.c_str()) +
+                                            "").c_str());
+                                       ALOGI("aml uevent currentPortStatus ");
+                    if (dp == NULL) {
+                        switchToDrp(currentPortStatus[i].portName);
+                    } else {
+                        closedir(dp);
+                    }
+                }
+                pthread_mutex_unlock(&payload->usb->mRoleSwitchLock);
+            }
+            break;
+        } else if ((strcmp(cp, "add@/devices/platform/fde00000.crg/xhci-hcd-meson.1.auto/usb3/3-1/3-1:1.0") == 0)
+                || (strcmp(cp, "add@/devices/platform/soc/fde00000.crg3drd/xhci-hcd-meson.0.auto/usb1/1-1/1-1:1.0") == 0)) {
+            ALOGE("aml hal uevent received %s", cp);
+            ::android::base::SetProperty("vendor.media.usb.port.host.connect", "true");
+            std::vector<PortStatus> currentPortStatus;
+            queryVersionHelper(payload->usb, &currentPortStatus);
+            // Role switch is not in progress and port is in disconnected state
+            if (!pthread_mutex_trylock(&payload->usb->mRoleSwitchLock)) {
+                ALOGI("aml uevent mRoleSwitchLock ");
+                for (unsigned long i = 0; i < currentPortStatus.size(); i++) {
+                    DIR *dp =
+                        opendir(string(kTypecPath +
+                                       string(currentPortStatus[i].portName.c_str()) +
+                                            "").c_str());
+                                       ALOGI("aml uevent currentPortStatus ");
+                    if (dp == NULL) {
+                        switchToDrp(currentPortStatus[i].portName);
+                    } else {
+                        closedir(dp);
+                    }
+                }
+                pthread_mutex_unlock(&payload->usb->mRoleSwitchLock);
+            }
+            break;
+        } else if ((strcmp(cp, "remove@/devices/platform/fde00000.crg/xhci-hcd-meson.1.auto/usb3/3-1/3-1:1.0") == 0)
+                || (strcmp(cp, "remove@/devices/platform/soc/fde00000.crg3drd/xhci-hcd-meson.0.auto/usb1/1-1/1-1:1.0") == 0)) {
+            ALOGE("aml hal uevent received %s", cp);
+            ::android::base::SetProperty("vendor.media.usb.port.host.connect", "false");
+            std::vector<PortStatus> currentPortStatus;
+            queryVersionHelper(payload->usb, &currentPortStatus);
+            // Role switch is not in progress and port is in disconnected state
+            if (!pthread_mutex_trylock(&payload->usb->mRoleSwitchLock)) {
+                ALOGI("aml uevent mRoleSwitchLock ");
+                for (unsigned long i = 0; i < currentPortStatus.size(); i++) {
+                    DIR *dp =
+                        opendir(string(kTypecPath +
+                                       string(currentPortStatus[i].portName.c_str()) +
+                                            "").c_str());
+                                       ALOGI("aml uevent currentPortStatus ");
                     if (dp == NULL) {
                         switchToDrp(currentPortStatus[i].portName);
                     } else {
@@ -644,6 +742,8 @@ void *work(void *param) {
     struct epoll_event ev;
     int nevents = 0;
     struct data payload;
+
+    ALOGE("creating thread");
 
     uevent_fd = uevent_open_socket(UEVENT_MAX_EVENTS * UEVENT_MSG_LEN, true);
 
@@ -716,6 +816,7 @@ ScopedAStatus Usb::setCallback(
     pthread_mutex_lock(&mLock);
     if ((mCallback == NULL && in_callback == NULL) ||
             (mCallback != NULL && in_callback != NULL)) {
+        ALOGI("usb hal   callback is not none");
         mCallback = in_callback;
         pthread_mutex_unlock(&mLock);
         return ScopedAStatus::ok();
