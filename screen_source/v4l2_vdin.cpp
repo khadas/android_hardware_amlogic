@@ -16,7 +16,7 @@
 
 
 //reinclude because of a bug with the log macros
-//#define LOG_NDEBUG 0
+// #define LOG_NDEBUG 0
 //#define LOG_TAG "V4L2VINSOURCE"
 #include <utils/Log.h>
 #include <utils/String8.h>
@@ -412,6 +412,15 @@ int vdin_screen_source::pause()
         mSetStateCB(PAUSE);
     return NO_ERROR;
 }
+int vdin_screen_source::resume()
+{
+    ALOGV("%s %d", __FUNCTION__, __LINE__);
+    if (mState != PAUSE)
+        return BAD_VALUE;
+    mState = START;
+    return NO_ERROR;
+
+}
 int vdin_screen_source::stop()
 {
     ALOGE("!!!!!!!!!%s %d", __FUNCTION__, __LINE__);
@@ -443,7 +452,7 @@ int vdin_screen_source::stop()
         }
     }
 
-    mBufferCount = 0;
+    mBufferCount = 4;
     mState = STOP;
     if(mSetStateCB != NULL)
         mSetStateCB(STOP);

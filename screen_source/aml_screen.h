@@ -91,6 +91,7 @@ typedef struct aml_screen_operations {
     int (*start)(struct aml_screen_device*);
     int (*stop)(struct aml_screen_device*);
     int (*pause)(struct aml_screen_device*);
+    int (*resume)(struct aml_screen_device*);
     int (*setStateCallBack)(struct aml_screen_device*, olStateCB);
     int (*setEventCallBack)(struct aml_screen_device*, envent_callback);
     //int (*setPreviewWindow)(struct aml_screen_device*, ANativeWindow*);

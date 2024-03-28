@@ -114,6 +114,10 @@ int screen_source_pause(struct aml_screen_device* dev)
 {
     return gScreenHals[dev->device_id]->pause();
 }
+int screen_source_resume(struct aml_screen_device* dev)
+{
+    return gScreenHals[dev->device_id]->resume();
+}
 
 int screen_source_get_format(struct aml_screen_device* dev)
 {
@@ -311,6 +315,7 @@ static int aml_screen_device_open(const struct hw_module_t* module, const char* 
         dev->ops.start = screen_source_start;
         dev->ops.stop = screen_source_stop;
         dev->ops.pause = screen_source_pause;
+        dev->ops.resume = screen_source_resume;
         dev->ops.get_format = screen_source_get_format;
         dev->ops.set_format = screen_source_set_format;
         dev->ops.set_rotation = screen_source_set_rotation;

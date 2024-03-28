@@ -98,6 +98,7 @@ class vdin_screen_source {
         int start();
         int stop();
         int pause();
+        int resume();
         int get_format();
         int set_format(int width = 640, int height = 480, int color_format = V4L2_PIX_FMT_NV21);
         int set_rotation(int degree);
