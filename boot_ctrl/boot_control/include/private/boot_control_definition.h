@@ -68,6 +68,17 @@ struct gpt_header {
 	__le32 partition_entry_array_crc32;
 } __attribute__((packed));
 
+enum UpdateState {
+    None = 0,
+    Initiated,
+    Unverified,
+    Merging,
+    MergeNeedsReboot,
+    MergeCompleted,
+    MergeFailed,
+    Cancelled
+};
+
 /**
  * Be cautious about the struct size change, in case we put anything post
  * bootloader_message_ab struct (b/29159185).
@@ -121,7 +132,8 @@ struct bootloader_control {
     // Per-slot information.  Up to 4 slots.
     struct slot_metadata slot_info[4];
     // Reserved for further use.
-    uint8_t reserved1[8];
+    uint8_t merge_flag;
+    uint8_t reserved1[7];
     // CRC32 of all 28 bytes preceding this field (little endian
     // format).
     uint32_t crc32_le;

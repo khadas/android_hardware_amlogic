@@ -436,6 +436,27 @@ char* get_bootloader_env_common(const char * name) {
     }
 }
 
+int CheckUpdateStatus(bootloader_control* boot_ctrl) {
+    std::string contents;
+    char name[8];
+
+    if (!android::base::ReadFileToString("/metadata/ota/state", &contents)) {
+        LOG(ERROR) << "Read state file failed";
+        return -1;
+    }
+
+    if (contents.empty()) {
+        LOG(ERROR) << "state file is empty";
+        return -1;
+    }
+
+    strncpy(name, contents.c_str(), 8);
+
+    if (name[1])
+        boot_ctrl->merge_flag = name[1];
+
+    return 0;
+}
 
 void InitDefaultBootloaderControl(BootControl* control, bootloader_control* boot_ctrl) {
   memset(boot_ctrl, 0, sizeof(*boot_ctrl));
@@ -502,6 +523,7 @@ void InitDefaultBootloaderControl(BootControl* control, bootloader_control* boot
     boot_ctrl->slot_info[slot] = entry;
   }
   boot_ctrl->recovery_tries_remaining = 0;
+  boot_ctrl->merge_flag = -1;
 
   boot_ctrl->crc32_le = BootloaderControlLECRC(boot_ctrl);
 }
@@ -774,6 +796,12 @@ bool BootControl::IsValidSlot(unsigned int slot) {
 }
 
 bool BootControl::SetSnapshotMergeStatus(MergeStatus status) {
+  bootloader_control bootctrl;
+
+  if (LoadBootloaderControl(misc_device_, &bootctrl)) {
+    CheckUpdateStatus(&bootctrl);
+    UpdateAndSaveBootloaderControl(misc_device_, &bootctrl);
+  }
   return SetMiscVirtualAbMergeStatus(current_slot_, status);
 }
 
