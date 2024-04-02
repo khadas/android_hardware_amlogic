@@ -600,7 +600,7 @@ int CameraVirtualDevice::getVideoDeviceFd(char* dev_node_name) {
                     return true; else return false;});
         if (it != std::end(mipivideoDeviceslists)) {
             if (it->fileDesc[0] == -1) {
-                it->fileDesc[0] = open(dev_node_name, O_RDWR);
+                it->fileDesc[0] = open(dev_node_name, O_RDWR | O_NONBLOCK);
                 CAMHAL_LOGD("line: %d open %s node, fd = %d", __LINE__, dev_node_name, it->fileDesc[0]);
             }
             fd = it->fileDesc[0];
@@ -611,7 +611,7 @@ int CameraVirtualDevice::getVideoDeviceFd(char* dev_node_name) {
                         return true; else return false;});
             if (it != std::end(usbvideoDevices)) {
                 if (it->fileDesc[0] == -1) {
-                    it->fileDesc[0] = open(dev_node_name, O_RDWR);
+                    it->fileDesc[0] = open(dev_node_name, O_RDWR | O_NONBLOCK);
                     CAMHAL_LOGD("line: %d open %s node, fd = %d", __LINE__, dev_node_name, it->fileDesc[0]);
                 }
                 fd = it->fileDesc[0];
