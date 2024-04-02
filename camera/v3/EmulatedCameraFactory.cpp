@@ -578,6 +578,7 @@ void EmulatedCameraFactory::onStatusChanged(int videoId, int newStatus)
     status_t res;
     char dev_name[128];
     int j = 0;
+    int k = 0;
 
     int cameraId = -1;
     //EmulatedBaseCamera *cam = mEmulatedCameras[cameraId];
@@ -695,18 +696,27 @@ void EmulatedCameraFactory::onStatusChanged(int videoId, int newStatus)
         mEmulatedCameraNum --;
         j = cameraId;
         if (mEmulatedCameras[j] != NULL) {
-            mEmulatedCameras[j]->closeCamera();
+             while (k < 200) {
+                if (!(mEmulatedCameras[j]->getCameraStatus())) {
+                    usleep(5000);
+                    k++;
+                } else {
+                    break;
+                }
+             }
+             if (k == 200) {
+                CAMHAL_LOGD("camera hal close camera");
+                mEmulatedCameras[j]->closeCamera();
+             }
             mEmulatedCameras[j]->unplugCamera();
         }
         if (cb != NULL && cb->camera_device_status_change != NULL) {
             CAMHAL_LOGD("%d callback unplug status to framework.\n", j);
             cb->camera_device_status_change(cb, j, newStatus);
         }
-
         CAMHAL_LOGD("%s device will been unplugged", dev_name);
         mCameraVirtualDevice->deleteUsbDevice(dev_name);
     }
-
     CAMHAL_LOGD("mEmulatedCameraNum step3 = %d\n", mEmulatedCameraNum);
 }
 
