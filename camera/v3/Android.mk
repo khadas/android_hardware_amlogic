@@ -30,10 +30,7 @@ GE2D_VERSION_2 := true
 ISP_ENABLE := false
 GDC_ENABLE := false
 HW_JPEG := false
-ifeq ($(VENDOR_ENCODER_SUPPORT_HCODEC),true)
-HW_JPEG := true
-endif
-ifeq ($(VENDOR_ENCODER_SUPPORT_WAVE521),true)
+ifeq ($(CAMERA_SUPPORT_HW_JPEG),true)
 HW_JPEG := true
 endif
 CAM_DPTZ := false
