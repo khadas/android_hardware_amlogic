@@ -267,6 +267,7 @@ LOCAL_SRC_FILES += \
     fake-pipeline2/ispMgr/sensor/ov08a10/ov08a10_config.cpp \
     fake-pipeline2/ispMgr/sensor/ov13855/ov13855_config.cpp \
     fake-pipeline2/ispMgr/sensor/imx378/imx378_config.cpp \
+    fake-pipeline2/ispMgr/sensor/imx335/imx335_config.cpp \
     fake-pipeline2/ispMgr/sensor/imx577/imx577_config.cpp \
     fake-pipeline2/ispMgr/sensor/ov16a1q/ov16a1q_config.cpp \
     fake-pipeline2/ispMgr/lens/lens_config.cpp \
