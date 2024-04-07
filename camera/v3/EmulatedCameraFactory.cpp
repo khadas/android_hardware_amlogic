@@ -482,6 +482,20 @@ bool EmulatedCameraFactory::isFakeCameraFacingBack(int cameraId)
     return true;
 }
 
+bool EmulatedCameraFactory::isMutilCameraRunning() {
+    int running_camera_count = 0;
+    for ( int i = 0; i < mEmulatedCameraNum; i++ ) {
+        if (mEmulatedCameras[i] != NULL) {
+            bool status = mEmulatedCameras[i]->getCameraStatus();
+            if (!status)
+                running_camera_count++;
+        }
+    }
+    if (running_camera_count > 1)
+        return true;
+    return false;
+}
+
 int EmulatedCameraFactory::getFakeCameraHalVersion(int cameraId __unused)
 {
     /* Defined by 'qemu.sf.back_camera_hal_version' boot property: if the

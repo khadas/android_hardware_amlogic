@@ -23,6 +23,7 @@
 #include <cutils/properties.h>
 
 #include "../EmulatedFakeCamera2.h"
+#include "EmulatedCameraFactory.h"
 #include "Sensor.h"
 #include <cmath>
 #include <cstdlib>
@@ -35,9 +36,6 @@
 #include <sys/time.h>
 #include <inttypes.h>
 #include <gralloc1.h>
-
-
-#define ARRAY_SIZE(x) (sizeof((x))/sizeof(((x)[0])))
 
 namespace android {
 
@@ -1308,8 +1306,7 @@ bool Sensor::threadLoop() {
 
         mFramecount ++;
         CAMHAL_LOGVV("Sensor vertical blanking interval");
-
-        if (false == mLowLatencyMode) {
+        if (false == mLowLatencyMode && !(gEmulatedCameraFactory.isMutilCameraRunning())) {
             nsecs_t workDoneRealTime = systemTime();
             const nsecs_t timeAccuracy = 2e6; // 2 ms of imprecision is ok
 
