@@ -25,18 +25,24 @@ static const usb_frmsize_discrete_t kUsbAvailablePictureSize[] = {
         {4128, 3096},
         {3840, 2160},
         {3264, 2448},
+#ifndef VICP_ENABLE
         {2592, 1944},
+#endif
         {2560, 1920},
         {2048, 1536},
         {1600, 1200},
         {1920, 1080},
+#ifndef VICP_ENABLE
         {1440, 1080},
+#endif
         {1280, 960},
         {1280, 720},
         {1024, 768},
         {960, 720},
         {640, 480},
+#ifndef VICP_ENABLE
         {352, 288},
+#endif
         {320, 240},
 };
 
