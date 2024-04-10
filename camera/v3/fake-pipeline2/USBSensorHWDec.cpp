@@ -551,8 +551,9 @@ status_t USBSensorHWDec::shutDown() {
     CAMHAL_LOGD("%s: line %d ", __FUNCTION__, __LINE__);
 
 #if defined(PREVIEW_DEWARP_ENABLE) || defined(PICTURE_DEWARP_ENABLE)
-    DeWarp::putInstance();
-    CameraConfig::deleteInstance();
+    auto dewarpPortRange = std::make_pair(DEWARP_CAM2PORT_USB_PREVIEW, DEWARP_CAM2PORT_USB_CAPTURE);
+    DeWarp::putInstance(dewarpPortRange);
+    CameraConfig::deleteInstance(dewarpPortRange);
 #endif
 
     if (mHWDecoder && mIsDecoderInit == true) {
@@ -580,7 +581,8 @@ status_t USBSensorHWDec::streamOff(channel ch) {
     mVinfo->releasebuf_and_stop_capturing();
 
 #if defined(PREVIEW_DEWARP_ENABLE) || defined(PICTURE_DEWARP_ENABLE)
-    DeWarp::putInstance();
+    auto dewarpPortRange = std::make_pair(DEWARP_CAM2PORT_USB_PREVIEW, DEWARP_CAM2PORT_USB_CAPTURE);
+    DeWarp::putInstance(dewarpPortRange);
 #endif
 
     // streamoff ->configureStreams->streamon; we need deinitialize decoder here.

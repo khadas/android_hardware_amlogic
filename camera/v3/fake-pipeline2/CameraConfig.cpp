@@ -61,9 +61,9 @@ CameraConfig::~CameraConfig() {
 
 }
 
-void CameraConfig::deleteInstance() {
+void CameraConfig::deleteInstance(std::pair<int, int> range) {
     int i  = 0;
-    for (i = 0; i < ISP_PORT_NUM; i++) {
+    for (i = range.first; i <= range.second; i++) {
         if (mInstance[i]) {
             delete mInstance[i];
             mInstance[i] = nullptr;

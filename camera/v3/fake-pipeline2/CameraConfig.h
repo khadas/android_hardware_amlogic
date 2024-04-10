@@ -10,7 +10,7 @@
 
 #include "media-v4l2/mediaApi.h"
 
-#define ISP_PORT_NUM 7
+#define ISP_PORT_NUM 10
 
 namespace android {
     struct CropInfo {
@@ -65,7 +65,7 @@ namespace android {
             ~CameraConfig();
         public:
             static CameraConfig* getInstance(int groupId);
-            static void deleteInstance();
+            static void deleteInstance(std::pair<int, int> range);
     };
 }
 
