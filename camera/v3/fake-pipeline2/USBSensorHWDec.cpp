@@ -1870,7 +1870,7 @@ int USBSensorHWDec::stopDecodeFillThread()
 }
 
 bool USBSensorHWDec::isNeedDump() {
-    if (property_get_bool("camera.debug.dump.decoder", false)) {
+    if (property_get_bool("vendor.camhal.dump.usb.decoder", false)) {
         return true;
     }
     return false;

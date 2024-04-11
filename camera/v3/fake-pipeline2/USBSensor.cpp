@@ -962,7 +962,7 @@ int USBSensor::MJPEGToNV21(uint8_t* src, StreamBuffer b) {
     size_t src_length = mVinfo->preview.buf.bytesused;
 
     char property[PROPERTY_VALUE_MAX];
-    property_get("camera.debug.dump.device", property, "false");
+    property_get("vendor.camhal.dump.usb.device", property, "false");
     if (strstr(property, "true")) {
         static int src_index = 0;
         dump(src_index,src, src_length, "src.mjpg");
@@ -996,7 +996,7 @@ int USBSensor::MJPEGToNV21(uint8_t* src, StreamBuffer b) {
             CAMHAL_LOGD("not support this decode method");
             break;
     }
-    property_get("camera.debug.dump.decoder", property, "false");
+    property_get("vendor.camhal.dump.usb.decoder", property, "false");
     if (strstr(property, "true")) {
         static int dst_index = 0;
         size_t size = b.width*b.height*3/2;

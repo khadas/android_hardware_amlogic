@@ -480,7 +480,7 @@ bool JpegCompressor::threadLoop() {
     CAMHAL_LOGV("%s: Starting compression thread", __FUNCTION__);
     gettimeofday(&mTimeStart, NULL);
 
-    bool dump = property_get_bool("camera.debug.dump.jpeg", false);
+    bool dump = property_get_bool("vendor.camhal.dump.jpeg", false);
     static char path[256];
     static uint32_t index = 0;
     if (dump) {
