@@ -135,7 +135,7 @@ extern "C" {
     } ps_info;
 
     /* ps_syntax.c */
-    uint16_t ps_data(ps_info *ps, bitfile *ld, uint8_t *header);
+    uint16_t ps_data(ps_info *ps, bitfile *ld, uint8_t *header, uint16_t bit_left);
 
     /* ps_dec.c */
     ps_info *ps_init(uint8_t sr_index, uint8_t numTimeSlotsRate);

@@ -188,10 +188,13 @@ void faad_rewindbits(bitfile *ld)
 void faad_resetbits(bitfile *ld, int bits)
 {
     uint32_t tmp;
-    int words = bits >> 5;
+    uint32_t words = bits >> 5;
     int remainder = bits & 0x1F;
 
-    ld->bytes_left = ld->buffer_size - words * 4;
+    if (ld->buffer_size < words * 4)
+        ld->bytes_left = 0;
+    else
+        ld->bytes_left = ld->buffer_size - words*4;
 
     if (ld->bytes_left >= 4) {
         tmp = getdword(&ld->start[words]);

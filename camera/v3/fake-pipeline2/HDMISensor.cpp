@@ -116,7 +116,13 @@ int HDMISensor::streamOn(channel ch) {
 }
 
 int HDMISensor::streamOff(channel ch) {
-    return mMPlaneCameraIO->stopCameraIO();
+    int ret;
+    ret = mMPlaneCameraIO->stopCameraIO();
+#if defined(PREVIEW_DEWARP_ENABLE) || defined(PICTURE_DEWARP_ENABLE)
+    auto dewarpPortRange = std::make_pair(DEWARP_CAM2PORT_VDIN_PREVIEW, DEWARP_CAM2PORT_VDIN_CAPTURE);
+    DeWarp::putInstance(dewarpPortRange);
+#endif
+    return ret;
 }
 
 bool HDMISensor::isNeedRestart(uint32_t width, uint32_t height, uint32_t pixelformat, channel ch)
@@ -209,6 +215,12 @@ status_t HDMISensor::shutDown() {
         mMPlaneCameraIO->stopCameraIO();
         mMPlaneCameraIO->closeCamera();
     }
+
+#if defined(PREVIEW_DEWARP_ENABLE) || defined(PICTURE_DEWARP_ENABLE)
+    auto dewarpPortRange = std::make_pair(DEWARP_CAM2PORT_VDIN_PREVIEW, DEWARP_CAM2PORT_VDIN_CAPTURE);
+    DeWarp::putInstance(dewarpPortRange);
+    CameraConfig::deleteInstance(dewarpPortRange);
+#endif
 
     mSensorWorkFlag = false;
     CAMHAL_LOGD("%s: Exit", __FUNCTION__);
@@ -361,16 +373,16 @@ void HDMISensor::captureNV21(Vector<StreamBuffer>& b, uint32_t gain) {
                     dewarpcam2port port;
                     switch (index) {
                         case 0:
-                            port = DEWARP_CAM2PORT_USB_PREVIEW;
+                            port = DEWARP_CAM2PORT_VDIN_PREVIEW;
                             break;
                         case 1:
-                            port = DEWARP_CAM2PORT_USB_RECORD;
+                            port = DEWARP_CAM2PORT_VDIN_RECORD;
                             break;
                         case 2:
-                            port = DEWARP_CAM2PORT_USB_CAPTURE;
+                            port = DEWARP_CAM2PORT_VDIN_CAPTURE;
                             break;
                         default:
-                            port = DEWARP_CAM2PORT_USB_PREVIEW;
+                            port = DEWARP_CAM2PORT_VDIN_PREVIEW;
                             break;
                     }
                     bool needDestroy = isNeedDestroyDewarp(mPreDewarpInfo[port], dewarpInfo);

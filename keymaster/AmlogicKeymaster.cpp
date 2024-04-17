@@ -45,7 +45,10 @@ using aidl::android::hardware::security::keymint::IRemotelyProvisionedComponent;
 using aidl::android::hardware::security::keymint::remote_prov::jsonEncodeCsrWithBuild;
 
 static bool initialize_flag = false;
+
+#ifndef NO_RKP
 void getCsrForInstance(void);
+#endif
 
 //static bool initialize_flag = false;
 
@@ -116,7 +119,9 @@ int AmlogicKeymaster::Initialize(KmVersion version) {
         // Don't fail if this message isn't understood.
     }
 
+#ifndef NO_RKP
     getCsrForInstance();
+#endif
 
     return 0;
 }
@@ -219,6 +224,7 @@ void AmlogicKeymaster::GenerateKey(const GenerateKeyRequest& request,
     }
 }
 
+#ifndef NO_RKP
 void AmlogicKeymaster::GenerateRkpKey(const GenerateRkpKeyRequest& request,
                                      GenerateRkpKeyResponse* response) {
     ForwardCommand(KM_GENERATE_RKP_KEY, request, response);
@@ -233,6 +239,7 @@ void AmlogicKeymaster::GenerateCsrV2(const GenerateCsrV2Request& request,
                                     GenerateCsrV2Response* response) {
     ForwardCommand(KM_GENERATE_CSR_V2, request, response);
 }
+#endif
 
 void AmlogicKeymaster::GetKeyCharacteristics(const GetKeyCharacteristicsRequest& request,
                                             GetKeyCharacteristicsResponse* response) {
@@ -362,6 +369,7 @@ GetHwInfoResponse AmlogicKeymaster::GetHwInfo() {
     return response;
 }
 
+#ifndef NO_RKP
 void getCsrForInstance(void) {
     const std::vector<uint8_t> challenge = generateChallenge();
     constexpr char fullName[] =
@@ -402,6 +410,7 @@ void getCsrForInstance(void) {
     fclose(file);
     ALOGD("write /mnt/vendor/factory/csrs/csrs.json finish.");
 }
+#endif
 
 TEEC_Result AmlogicKeymaster::ProvisionDevidBox(
                                     const uint8_t *key_buff,

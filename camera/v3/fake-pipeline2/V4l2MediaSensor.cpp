@@ -268,7 +268,8 @@ status_t V4l2MediaSensor::streamOff(channel ch) {
             mIspMgr->stop();
         ret = mVinfo->stop_capturing();
 #if defined(PREVIEW_DEWARP_ENABLE) || defined(PICTURE_DEWARP_ENABLE)
-        DeWarp::putInstance();
+        auto dewarpPortRange = std::make_pair(DEWARP_CAM2PORT_PREVIEW, DEWARP_CAM2PORT_DPTZ_PREVIEW);
+        DeWarp::putInstance(dewarpPortRange);
 #endif
     }
     else
@@ -480,7 +481,9 @@ status_t V4l2MediaSensor::shutDown() {
     }
 #endif
 #if defined(PREVIEW_DEWARP_ENABLE) || defined(PICTURE_DEWARP_ENABLE)
-    CameraConfig::deleteInstance();
+    auto dewarpPortRange = std::make_pair(DEWARP_CAM2PORT_PREVIEW, DEWARP_CAM2PORT_DPTZ_PREVIEW);
+    DeWarp::putInstance(dewarpPortRange);
+    CameraConfig::deleteInstance(dewarpPortRange);
 #endif
 
     mSensorWorkFlag = false;

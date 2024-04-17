@@ -325,7 +325,7 @@ static void huff_data(bitfile *ld, const uint8_t dt, const uint8_t nr_par,
 static INLINE int8_t ps_huff_dec(bitfile *ld, ps_huff_tab t_huff);
 
 
-uint16_t ps_data(ps_info *ps, bitfile *ld, uint8_t *header)
+uint16_t ps_data(ps_info *ps, bitfile *ld, uint8_t *header, uint16_t bit_left)
 {
     uint8_t tmp, n;
     uint16_t bits = (uint16_t)faad_get_processed_bits(ld);
@@ -437,6 +437,11 @@ uint16_t ps_data(ps_info *ps, bitfile *ld, uint8_t *header)
         }
 
         num_bits_left = 8 * cnt;
+        if (num_bits_left > bit_left) {
+            faad_getbits(ld, bit_left
+                     DEBUGVAR(1, 1014, "ps_data(): fill_bits"));
+            num_bits_left = 0;
+        }
         while (num_bits_left > 7) {
             uint8_t ps_extension_id = (uint8_t)faad_getbits(ld, 2
                                       DEBUGVAR(1, 1013, "ps_data(): ps_extension_size"));
@@ -489,9 +494,13 @@ static uint16_t ps_extension(ps_info *ps, bitfile *ld,
     }
 
     /* return number of bits read */
-    bits = (uint16_t)faad_get_processed_bits(ld) - bits;
-
-    return bits;
+    uint16_t bits_cost = (uint16_t)faad_get_processed_bits(ld) - bits;
+    if (bits_cost > num_bits_left) {
+        //audio_codec_print("ps_extension num_bits_left %d bits_cost  %d", num_bits_left, bits_cost);
+        faad_resetbits(ld, bits + num_bits_left);
+        bits_cost = num_bits_left;
+    }
+    return bits_cost;
 }
 
 /* read huffman data coded in either the frequency or the time direction */

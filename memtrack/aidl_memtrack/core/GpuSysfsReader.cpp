@@ -224,7 +224,13 @@ uint64_t GpuSysfsReader::memtrack_get_gpuMem(int pid)
 {
     char path[CHAR_BUFFER_SIZE];
     unsigned int result = 0;
-
+    //if the gpu is mali450,return
+    FILE *mali_fp;
+    if ((mali_fp = fopen(MALI, "r")) != NULL) {
+        fclose(mali_fp);
+        mali_fp = NULL;
+        return result;
+    }
     snprintf(path, CHAR_BUFFER_SIZE, "%s/%s", kSysfsDevicePath, "gpu_memory");
     result = read_pid_gl_used_memory(pid, path);
 	if (debug_level > 1)

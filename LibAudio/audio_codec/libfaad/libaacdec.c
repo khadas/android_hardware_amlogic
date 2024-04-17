@@ -341,7 +341,7 @@ static int audio_decoder_init(
     {
         int latmheader_detected = 0,adtsheader_detected = 0;
         int nSeekNum = AACFindLATMSyncWord((unsigned char *)in_buf, inbuf_size);
-        if (nSeekNum == (inbuf_size - 1)) {
+        if (nSeekNum == (inbuf_size - 2)) {
               audio_codec_print("%d bytes data not found latm sync header \n", nSeekNum);
 
         } else {
@@ -359,7 +359,7 @@ static int audio_decoder_init(
              /*when nSeekNum 0,and fmt is ACODEC_FMT_AAC
               *treat the stream as adts aac
               */
-             if (nSeekNum == 0 && adec_ops->nAudioDecoderType == ACODEC_FMT_AAC) {
+             if ((nSeekNum == 0 ||!latmheader_detected) && adec_ops->nAudioDecoderType == ACODEC_FMT_AAC) {
                  isadts = 1;
              }
              audio_codec_print(" adts head detected  nSeekNum %d isadts %d", nSeekNum, isadts);

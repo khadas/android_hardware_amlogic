@@ -25,18 +25,24 @@ static const usb_frmsize_discrete_t kUsbAvailablePictureSize[] = {
         {4128, 3096},
         {3840, 2160},
         {3264, 2448},
+#ifndef VICP_ENABLE
         {2592, 1944},
+#endif
         {2560, 1920},
         {2048, 1536},
         {1600, 1200},
         {1920, 1080},
+#ifndef VICP_ENABLE
         {1440, 1080},
+#endif
         {1280, 960},
         {1280, 720},
         {1024, 768},
         {960, 720},
         {640, 480},
+#ifndef VICP_ENABLE
         {352, 288},
+#endif
         {320, 240},
 };
 
@@ -545,8 +551,9 @@ status_t USBSensorHWDec::shutDown() {
     CAMHAL_LOGD("%s: line %d ", __FUNCTION__, __LINE__);
 
 #if defined(PREVIEW_DEWARP_ENABLE) || defined(PICTURE_DEWARP_ENABLE)
-    DeWarp::putInstance();
-    CameraConfig::deleteInstance();
+    auto dewarpPortRange = std::make_pair(DEWARP_CAM2PORT_USB_PREVIEW, DEWARP_CAM2PORT_USB_CAPTURE);
+    DeWarp::putInstance(dewarpPortRange);
+    CameraConfig::deleteInstance(dewarpPortRange);
 #endif
 
     if (mHWDecoder && mIsDecoderInit == true) {
@@ -574,7 +581,8 @@ status_t USBSensorHWDec::streamOff(channel ch) {
     mVinfo->releasebuf_and_stop_capturing();
 
 #if defined(PREVIEW_DEWARP_ENABLE) || defined(PICTURE_DEWARP_ENABLE)
-    DeWarp::putInstance();
+    auto dewarpPortRange = std::make_pair(DEWARP_CAM2PORT_USB_PREVIEW, DEWARP_CAM2PORT_USB_CAPTURE);
+    DeWarp::putInstance(dewarpPortRange);
 #endif
 
     // streamoff ->configureStreams->streamon; we need deinitialize decoder here.
@@ -1862,7 +1870,7 @@ int USBSensorHWDec::stopDecodeFillThread()
 }
 
 bool USBSensorHWDec::isNeedDump() {
-    if (property_get_bool("camera.debug.dump.decoder", false)) {
+    if (property_get_bool("vendor.camhal.dump.usb.decoder", false)) {
         return true;
     }
     return false;

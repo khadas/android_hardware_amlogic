@@ -317,9 +317,9 @@ namespace android {
         }
     }
 
-    void DeWarp::putInstance() {
+    void DeWarp::putInstance(std::pair<int, int> range) {
         int i = 0 ,j = 0;
-        for (j = 0; j < ISP_PORT_NUM; j++) {
+        for (j = range.first; j <= range.second; j++) {
             for (i = 0; i < ROTATION_MAX;i++) {
                 if (mInstance[j][i] != nullptr) {
                     delete mInstance[j][i];

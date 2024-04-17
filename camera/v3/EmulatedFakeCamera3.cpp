@@ -2139,22 +2139,22 @@ status_t EmulatedFakeCamera3::constructStaticInfo() {
     info.update(ANDROID_SENSOR_INFO_TIMESTAMP_SOURCE, &timestampSource, 1);
     if (mSensorType == SENSOR_USB) {
         if (mFacingBack) {
-            property_get("hw.camera.orientation.back", property, "0");
+            property_get("vendor.camhal.orientation.back", property, "0");
         } else {
-            property_get("hw.camera.orientation.front", property, "0");
+            property_get("vendor.camhal.orientation.front", property, "0");
         }
         int32_t orientation = atoi(property);
-        property_get("hw.camera.usb.orientation_offset", property, "0");
+        property_get("vendor.camhal.usb.orientation_offset", property, "0");
         orientation += atoi(property);
         orientation %= 360;
         info.update(ANDROID_SENSOR_ORIENTATION, &orientation, 1);
     } else {
         if (mFacingBack) {
-            property_get("hw.camera.orientation.back", property, "0");
+            property_get("vendor.camhal.orientation.back", property, "0");
             const int32_t orientation = atoi(property);
             info.update(ANDROID_SENSOR_ORIENTATION, &orientation, 1);
         } else {
-            property_get("hw.camera.orientation.front", property, "0");
+            property_get("vendor.camhal.orientation.front", property, "0");
             const int32_t orientation = atoi(property);
             info.update(ANDROID_SENSOR_ORIENTATION, &orientation, 1);
         }

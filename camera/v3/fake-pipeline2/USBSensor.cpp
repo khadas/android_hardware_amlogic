@@ -435,7 +435,8 @@ status_t USBSensor::shutDown() {
     }
 
 #if defined(PREVIEW_DEWARP_ENABLE) || defined(PICTURE_DEWARP_ENABLE)
-    DeWarp::putInstance();
+    auto dewarpPortRange = std::make_pair(DEWARP_CAM2PORT_USB_PREVIEW, DEWARP_CAM2PORT_USB_CAPTURE);
+    DeWarp::putInstance(dewarpPortRange);
 #endif
 
     if (mDecoder && mIsDecoderInit == true) {
@@ -482,7 +483,8 @@ status_t USBSensor::streamOff(channel ch) {
     }
 
 #if defined(PREVIEW_DEWARP_ENABLE) || defined(PICTURE_DEWARP_ENABLE)
-    DeWarp::putInstance();
+    auto dewarpPortRange = std::make_pair(DEWARP_CAM2PORT_USB_PREVIEW, DEWARP_CAM2PORT_USB_CAPTURE);
+    DeWarp::putInstance(dewarpPortRange);
 #endif
 
     if (mDecoder && mIsDecoderInit == true) {
@@ -960,7 +962,7 @@ int USBSensor::MJPEGToNV21(uint8_t* src, StreamBuffer b) {
     size_t src_length = mVinfo->preview.buf.bytesused;
 
     char property[PROPERTY_VALUE_MAX];
-    property_get("camera.debug.dump.device", property, "false");
+    property_get("vendor.camhal.dump.usb.device", property, "false");
     if (strstr(property, "true")) {
         static int src_index = 0;
         dump(src_index,src, src_length, "src.mjpg");
@@ -994,7 +996,7 @@ int USBSensor::MJPEGToNV21(uint8_t* src, StreamBuffer b) {
             CAMHAL_LOGD("not support this decode method");
             break;
     }
-    property_get("camera.debug.dump.decoder", property, "false");
+    property_get("vendor.camhal.dump.usb.decoder", property, "false");
     if (strstr(property, "true")) {
         static int dst_index = 0;
         size_t size = b.width*b.height*3/2;

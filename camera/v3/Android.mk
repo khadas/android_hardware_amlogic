@@ -22,7 +22,6 @@ LOCAL_MODULE_RELATIVE_PATH := hw
 LOCAL_CFLAGS += -fno-short-enums -DQEMU_HARDWARE
 LOCAL_CFLAGS += -Wno-unused-parameter -Wno-missing-field-initializers
 LOCAL_CFLAGS += -DPLATFORM_SDK_VERSION=$(PLATFORM_SDK_VERSION)
-LOCAL_CFLAGS += -DMAINTAIN_FD_ENABLE
 
 CAMHAL_DEBUG_ENABLE := true
 GE2D_ENABLE := true
@@ -30,7 +29,11 @@ GE2D_VERSION_2 := true
 ISP_ENABLE := false
 GDC_ENABLE := false
 HW_JPEG := false
+ifeq ($(CAMERA_SUPPORT_HW_JPEG),true)
+HW_JPEG := true
+endif
 CAM_DPTZ := false
+MAINTAIN_FD_ENABLE := false
 CAMERA_MAX_PREVIEW_WIDTH := 1920
 CAMERA_MAX_PREVIEW_HEIGHT := 1080
 
@@ -44,6 +47,10 @@ endif
 
 ifeq ($(CAMERA_DPTZ), true)
 CAM_DPTZ := true
+endif
+
+ifeq ($(CAMERA_MAINTAIN_FD_ENABLE), true)
+MAINTAIN_FD_ENABLE := true
 endif
 
 ifeq ($(CAMHAL_DEBUG_ENABLE),true)
@@ -76,6 +83,10 @@ else
 BUILD_KERNEL_4_9 ?= false
 endif
 LOCAL_CFLAGS += -DBUILD_KERNEL_4_9=$(BUILD_KERNEL_4_9)
+
+ifeq ($(MAINTAIN_FD_ENABLE), true)
+LOCAL_CFLAGS += -DMAINTAIN_FD_ENABLE
+endif
 
 ifeq ($(GE2D_ENABLE),true)
 ifeq ($(GE2D_VERSION_2),true)
@@ -190,6 +201,7 @@ LOCAL_C_INCLUDES += $(TOP)/vendor/amlogic/common/system/libgdc/dewarp
 endif
 
 ifeq ($(HW_JPEG),true)
+LOCAL_C_INCLUDES += $(TOP)/vendor/amlogic/common/libencoder/include
 LOCAL_C_INCLUDES += $(TOP)/hardware/amlogic/camera/v3/Jpegenc_hw
 endif
 
@@ -255,6 +267,7 @@ LOCAL_SRC_FILES += \
     fake-pipeline2/ispMgr/sensor/ov08a10/ov08a10_config.cpp \
     fake-pipeline2/ispMgr/sensor/ov13855/ov13855_config.cpp \
     fake-pipeline2/ispMgr/sensor/imx378/imx378_config.cpp \
+    fake-pipeline2/ispMgr/sensor/imx335/imx335_config.cpp \
     fake-pipeline2/ispMgr/sensor/imx577/imx577_config.cpp \
     fake-pipeline2/ispMgr/sensor/ov16a1q/ov16a1q_config.cpp \
     fake-pipeline2/ispMgr/lens/lens_config.cpp \

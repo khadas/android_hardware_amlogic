@@ -482,6 +482,20 @@ bool EmulatedCameraFactory::isFakeCameraFacingBack(int cameraId)
     return true;
 }
 
+bool EmulatedCameraFactory::isMutilCameraRunning() {
+    int running_camera_count = 0;
+    for ( int i = 0; i < mEmulatedCameraNum; i++ ) {
+        if (mEmulatedCameras[i] != NULL) {
+            bool status = mEmulatedCameras[i]->getCameraStatus();
+            if (!status)
+                running_camera_count++;
+        }
+    }
+    if (running_camera_count > 1)
+        return true;
+    return false;
+}
+
 int EmulatedCameraFactory::getFakeCameraHalVersion(int cameraId __unused)
 {
     /* Defined by 'qemu.sf.back_camera_hal_version' boot property: if the
@@ -564,6 +578,7 @@ void EmulatedCameraFactory::onStatusChanged(int videoId, int newStatus)
     status_t res;
     char dev_name[128];
     int j = 0;
+    int k = 0;
 
     int cameraId = -1;
     //EmulatedBaseCamera *cam = mEmulatedCameras[cameraId];
@@ -589,10 +604,7 @@ void EmulatedCameraFactory::onStatusChanged(int videoId, int newStatus)
         return;
     }
 
-    if (newStatus == CAMERA_DEVICE_STATUS_NOT_PRESENT) {
-        CAMHAL_LOGD("%s device will been unplugged", dev_name);
-        mCameraVirtualDevice->deleteUsbDevice(dev_name);
-    } else if (newStatus == CAMERA_DEVICE_STATUS_PRESENT) {
+    if (newStatus == CAMERA_DEVICE_STATUS_PRESENT) {
         if (mCameraVirtualDevice->isNormalExternalCameraByName(dev_name)) {
             CAMHAL_LOGD("%s device will been plugged", dev_name);
             mCameraVirtualDevice->addUsbDevice(dev_name);
@@ -684,18 +696,27 @@ void EmulatedCameraFactory::onStatusChanged(int videoId, int newStatus)
         mEmulatedCameraNum --;
         j = cameraId;
         if (mEmulatedCameras[j] != NULL) {
-            mEmulatedCameras[j]->closeCamera();
+             while (k < 200) {
+                if (!(mEmulatedCameras[j]->getCameraStatus())) {
+                    usleep(5000);
+                    k++;
+                } else {
+                    break;
+                }
+             }
+             if (k == 200) {
+                CAMHAL_LOGD("camera hal close camera");
+                mEmulatedCameras[j]->closeCamera();
+             }
             mEmulatedCameras[j]->unplugCamera();
         }
         if (cb != NULL && cb->camera_device_status_change != NULL) {
             CAMHAL_LOGD("%d callback unplug status to framework.\n", j);
             cb->camera_device_status_change(cb, j, newStatus);
         }
-    } else if (newStatus == CAMERA_DEVICE_STATUS_PRESENT) {
-        CAMHAL_LOGD("camera plugged again?\n");
-        cam->plugCamera();
+        CAMHAL_LOGD("%s device will been unplugged", dev_name);
+        mCameraVirtualDevice->deleteUsbDevice(dev_name);
     }
-
     CAMHAL_LOGD("mEmulatedCameraNum step3 = %d\n", mEmulatedCameraNum);
 }
 

@@ -46,6 +46,7 @@
 #include "ov13855/ov13855_api.h"
 #include "imx378/imx378_api.h"
 #include "imx577/imx577_api.h"
+#include "imx335/imx335_api.h"
 #include "ov16a1q/ov16a1q_api.h"
 
 #define ARRAY_SIZE(array)   (sizeof(array) / sizeof((array)[0]))
@@ -228,6 +229,27 @@ struct sensorConfig imx378Cfg = {
     .otpDevAddr       = 0x00,
 };
 
+struct sensorConfig imx335Cfg = {
+    .expFunc.pfn_cmos_fps_set = cmos_fps_set_imx335,
+    .expFunc.pfn_cmos_get_alg_default = cmos_get_ae_default_imx335,
+    .expFunc.pfn_cmos_alg_update = cmos_alg_update_imx335,
+    .expFunc.pfn_cmos_again_calc_table = cmos_again_calc_table_imx335,
+    .expFunc.pfn_cmos_dgain_calc_table = cmos_dgain_calc_table_imx335,
+    .expFunc.pfn_cmos_inttime_calc_table = cmos_inttime_calc_table_imx335,
+    .cmos_set_sensor_entity = cmos_set_sensor_entity_imx335,
+    .cmos_get_sensor_calibration = cmos_get_sensor_calibration_imx335,
+    .cmos_get_sensor_otp_data = cmos_get_sensor_otp_data_imx335,
+#if defined(PREVIEW_DEWARP_ENABLE) || defined(PICTURE_DEWARP_ENABLE)
+    .cmos_get_sensor_gdc_parameter = cmos_get_sensor_gdc_parameter_imx335,
+#endif
+    .sensorWidth      = 2592,
+    .sensorHeight     = 1944,
+    .sensorName       = "imx335",
+    .wdrFormat        = MEDIA_BUS_FMT_SRGGB12_1X12,
+    .sdrFormat        = MEDIA_BUS_FMT_SRGGB12_1X12,
+    .type             = sensor_raw,
+    .otpDevAddr       = 0x00,
+};
 
 struct sensorConfig imx577Cfg = {
     .expFunc.pfn_cmos_fps_set = cmos_fps_set_imx577,
@@ -250,6 +272,7 @@ struct sensorConfig imx577Cfg = {
 };
 
 struct sensorConfig *supportedCfgs[] = {
+    &imx335Cfg,
     &imx290Cfg,
     &imx415Cfg,
     &ov13b10Cfg,
