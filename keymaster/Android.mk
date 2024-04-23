@@ -66,7 +66,7 @@ LOCAL_NOTICE_FILE := $(LOCAL_PATH)/../LICENSE
 include $(BUILD_PREBUILT)
 
 include $(CLEAR_VARS)
-ifeq ($(TARGET_OLD_DEVICE), true)
+ifeq ($(NO_RKP_HAL), true)
 LOCAL_CFLAGS += -DNO_RKP
 endif
 
@@ -75,7 +75,7 @@ LOCAL_SRC_FILES := provision_devid_demo.cpp \
                     keymint/AmlogicKeyMintDevice.cpp \
                     keymint/AmlogicKeyMintOperation.cpp
 
-ifneq ($(TARGET_OLD_DEVICE), true)
+ifneq ($(NO_RKP_HAL), true)
 LOCAL_SRC_FILES += keymint/AmlogicRemotelyProvisionedComponentDevice.cpp
 endif
 
@@ -139,7 +139,7 @@ LOCAL_C_INCLUDES += $(TRUSTY_INCLUDES)
 include $(BUILD_EXECUTABLE)
 
 include $(CLEAR_VARS)
-ifeq ($(TARGET_OLD_DEVICE), true)
+ifeq ($(NO_RKP_HAL), true)
 LOCAL_CFLAGS += -DNO_RKP
 endif
 
@@ -156,7 +156,7 @@ LOCAL_SRC_FILES := keymint/service.cpp \
                     keymint/AmlogicKeyMintDevice.cpp \
                     keymint/AmlogicKeyMintOperation.cpp
 
-ifneq ($(TARGET_OLD_DEVICE), true)
+ifneq ($(NO_RKP_HAL), true)
 LOCAL_SRC_FILES += keymint/AmlogicRemotelyProvisionedComponentDevice.cpp
 endif
 
@@ -191,7 +191,7 @@ LOCAL_SHARED_LIBRARIES := \
                     libcppcose_rkp \
                     libcrypto
 
-ifneq ($(TARGET_OLD_DEVICE), true)
+ifneq ($(NO_RKP_HAL), true)
 LOCAL_STATIC_LIBRARIES := librkp_factory_extraction
 endif
 
@@ -209,7 +209,7 @@ LOCAL_CFLAGS += -Wall \
 LOCAL_REQUIRED_MODULES := $(TA_UUID)
 LOCAL_REQUIRED_MODULES += android.hardware.hardware_keystore.amlogic.xml
 LOCAL_REQUIRED_MODULES += provision_devid_demo
-ifneq ($(TARGET_OLD_DEVICE), true)
+ifneq ($(NO_RKP_HAL), true)
 LOCAL_REQUIRED_MODULES += rkp_factory_extraction_tool
 LOCAL_VINTF_FRAGMENTS := keymint/android.hardware.security.keymint-service.amlogic.xml
 else
