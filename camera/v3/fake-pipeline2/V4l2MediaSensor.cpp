@@ -223,6 +223,12 @@ V4l2MediaSensor::~V4l2MediaSensor() {
         delete(mVinfo);
         mVinfo = NULL;
     }
+
+    if (mExtVinfo) {
+        delete(mExtVinfo);
+        mExtVinfo = NULL;
+    }
+
     PictureThreadCntler::stopAndRelease(mPictureThreadCntler);
 
 #ifdef GDC_ENABLE
@@ -266,6 +272,8 @@ status_t V4l2MediaSensor::streamOff(channel ch) {
 #endif
         if (mIspMgr)
             mIspMgr->stop();
+        if (property_get_bool("vendor.media.camera.rc.enable", false))
+            mExtVinfo->stop_capturing();
         ret = mVinfo->stop_capturing();
 #if defined(PREVIEW_DEWARP_ENABLE) || defined(PICTURE_DEWARP_ENABLE)
         auto dewarpPortRange = std::make_pair(DEWARP_CAM2PORT_PREVIEW, DEWARP_CAM2PORT_DPTZ_PREVIEW);
@@ -290,6 +298,10 @@ int V4l2MediaSensor::SensorInit(int idx) {
     // =========== vinfo init ============
     if (mVinfo == NULL) {
         mVinfo =  new MIPIVideoInfo();
+    }
+
+    if (mExtVinfo == NULL) {
+        mExtVinfo =  new MIPIVideoInfo();
     }
 
     // ======== pipe match & stream init ==============
@@ -352,6 +364,49 @@ int V4l2MediaSensor::SensorInit(int idx) {
     mSensorType = SENSOR_V4L2MEDIA;
     staticPipe::fetchPipeMaxResolution((media_stream_t*) mMediaStream, mMaxWidth, mMaxHeight);
     std::call_once(flag[idx], [&](){staticPipe::fetchSensorOTP((media_stream_t*)mMediaStream, &mOtpData[idx]);});
+
+    if (property_get_bool("vendor.media.camera.rc.enable", false)) {
+        int fmt = 0;
+        std::vector<int> fds;
+        mExtVinfo->mWorkMode = ONE_FD;
+        fds.push_back(((media_stream_t *)mMediaStream)->video_ent3->fd);
+        ALOGD("fd %d", ((media_stream_t *)mMediaStream)->video_ent3->fd);
+        mExtVinfo->set_fds(fds);
+        mExtVinfo->set_index(0xFF);
+        mExtVinfo->camera_init();
+        mExtVinfo->set_buffer_numbers(property_get_int32("vendor.media.camera.rc.queue", 4)+1);
+        int code = staticPipe::fetchSensorFormat((media_stream_t *) mMediaStream, enableHdr, mFps);
+        switch (code) {
+            case MEDIA_BUS_FMT_SRGGB10_1X10:
+                fmt = V4L2_PIX_FMT_SRGGB10;
+                ALOGD("V4L2_PIX_FMT_SRGGB10");
+                break;
+            case MEDIA_BUS_FMT_SRGGB12_1X12:
+                fmt = V4L2_PIX_FMT_SRGGB12;
+                ALOGD("V4L2_PIX_FMT_SRGGB12");
+                break;
+            case MEDIA_BUS_FMT_SBGGR10_1X10:
+                fmt = V4L2_PIX_FMT_SBGGR10;
+                ALOGD("V4L2_PIX_FMT_SBGGR10");
+                break;
+            case MEDIA_BUS_FMT_SBGGR12_1X12:
+                fmt = V4L2_PIX_FMT_SBGGR12;
+                ALOGD("V4L2_PIX_FMT_SBGGR12");
+                break;
+            case MEDIA_BUS_FMT_SGBRG10_1X10:
+                fmt = V4L2_PIX_FMT_SGBRG10;
+                ALOGD("V4L2_PIX_FMT_SGBRG10");
+                break;
+            case MEDIA_BUS_FMT_SGBRG12_1X12:
+                fmt = V4L2_PIX_FMT_SGBRG12;
+                ALOGD("V4L2_PIX_FMT_SGBRG12");
+                break;
+            default:
+                ALOGW("invalid format %x", code);
+        }
+        mExtVinfo->set_preview_format(mMaxWidth, mMaxHeight, fmt);
+    }
+
 
 #if defined(PREVIEW_DEWARP_ENABLE) || defined(PICTURE_DEWARP_ENABLE)
     auto &media = *(media_stream_t *)mMediaStream;
@@ -441,6 +496,10 @@ status_t V4l2MediaSensor::shutDown() {
     if (res != OK) {
         CAMHAL_LOGE("Unable to shut down sensor capture thread: %d", res);
     }
+
+    if (property_get_bool("vendor.media.camera.rc.enable", false))
+        mExtVinfo->stop_capturing();
+
     if (mVinfo != NULL) {
         mVinfo->stop_capturing();
         if (mVinfo->Picture_status())
@@ -512,6 +571,122 @@ uint32_t V4l2MediaSensor::getStreamUsage(aml_camera_stream_t& stream){
 
 void V4l2MediaSensor::captureRGB(uint8_t *img, uint32_t gain, uint32_t stride) {
     CAMHAL_LOGE("capture RGB not supported");
+}
+
+void V4l2MediaSensor::captureRAW() {
+    static bool trigger = false;
+    static struct VideoInfoBuffer vb[128];
+    static struct VideoInfoBuffer vbt;
+
+    static int captureIndex = 0;
+    static int dumpIndex = 0;
+    static int skipIndex = 0;
+    static int dumpsequece = 0;
+    static int state = 0;/*0: free, 1:skip dirty frames, 2:capture raw 3:dump to file*/
+
+    int ret = 0;
+    int mode = property_get_int32("vendor.media.camera.rc.mode", 0);// 0: sync mode, 1:async mode
+
+    if (!property_get_bool("vendor.media.camera.rc.enable", false)) {
+        return;
+    } else if (property_get_int32("vendor.media.camera.rc.count", -1) <= 0) {
+        mExtVinfo->get_frame_buffer(&vbt);
+        mExtVinfo->putback_frame();
+        return;
+    }
+
+    if (!trigger && property_get_int32("vendor.media.camera.rc.count", -1) > 0) {
+        trigger = true;
+        state = 1;
+        dumpsequece++;
+        dumpIndex = 0;
+        skipIndex = 0;
+        captureIndex = 0;
+        ALOGD("start to capture raw");
+    }
+    switch (state) {
+        case 1:
+            if (skipIndex < property_get_int32("vendor.media.camera.rc.queue", 4)+1) {
+                ret = mExtVinfo->get_frame_buffer(&vbt);
+                mExtVinfo->putback_frame();
+                skipIndex++;
+                ALOGD("capture raw skip frame %d", skipIndex);
+            } else {
+                ALOGD("skip done, start to capture raw");
+                skipIndex = 0;
+                state = 2;
+            }
+            break;
+        case 2:
+            if (captureIndex < property_get_int32("vendor.media.camera.rc.count", -1)) {
+                while (1) {
+                    ret = mExtVinfo->get_frame_buffer(&vb[captureIndex]);
+                    if (ret == NEW_FRAME) {
+                        if (mode == 0) {
+                            char path[256];
+                            sprintf(path, "/data/vendor/camera/dump-%dx%d-s%d-%d.raw",
+                                    mMaxWidth, mMaxHeight, dumpsequece, captureIndex);
+                            ALOGD("dump2File full_name:%s, va %p, size %u", path, vb[captureIndex].addr, vb[captureIndex].size);
+                            int fd = open(path, (O_CREAT | O_RDWR), 0666);
+                            if (fd < 0) {
+                                ALOGE("open file %s fail, error: %s !!!", path, strerror(errno));
+                                break;
+                            }
+                            write(fd, vb[captureIndex].addr, vb[captureIndex].size);
+                            close(fd);
+                            mExtVinfo->putback_frame();
+                        }
+                        captureIndex++;
+                        ALOGD("capture %d success", captureIndex);
+                    } else {
+                        mExtVinfo->putback_frame();
+                        ALOGD("capture %d fail, retry", captureIndex);
+                        continue;
+                    }
+                    break;
+                }
+            } else {
+                if (mode == 1) {
+                    ALOGD("capture done, start to dump raw");
+                    captureIndex = 0;
+                    state = 3;
+                } else {
+                    captureIndex = 0;
+                    ALOGD("stop to capture raw");
+                    state = 0;
+                    trigger = false;
+                    property_set("vendor.media.camera.rc.count", "-1");
+                }
+            }
+            break;
+        case 3:
+            if (dumpIndex < property_get_int32("vendor.media.camera.rc.count", -1)) {
+                char path[256];
+                sprintf(path, "/data/vendor/camera/dump-%dx%d-s%d-%d.raw",
+                        mMaxWidth, mMaxHeight, dumpsequece, dumpIndex);
+                ALOGD("dump2File full_name:%s, va %p, size %u", path, vb[dumpIndex].addr, vb[dumpIndex].size);
+                int fd = open(path, (O_CREAT | O_RDWR | O_DIRECT), 0666);
+                if (fd < 0) {
+                    ALOGE("open file %s fail, error: %s !!!", path, strerror(errno));
+                    break;
+                }
+                write(fd, vb[dumpIndex].addr, vb[dumpIndex].size);
+                close(fd);
+                dumpIndex++;
+            } else {
+                ALOGD("stop to capture raw");
+                for (int i = 0; i < dumpIndex; ++i) {
+                    mExtVinfo->putback_frame(i);
+                }
+                state = 0;
+                trigger = false;
+                property_set("vendor.media.camera.rc.count", "-1");
+            }
+            break;
+        default:
+            ALOGD("invalid state %d", state);
+            break;
+    }
 }
 
 void V4l2MediaSensor::mediaCaptureRGBA(StreamBuffer b, uint32_t gain, uint32_t stride){
@@ -820,7 +995,11 @@ status_t V4l2MediaSensor::streamOn(channel ch) {
                 (media_stream_t *)mMediaStream, enableHdr, &mOtpData[mVinfo->get_index()], mFps);
             rc = mIspMgr->start();
         }
-        return mVinfo->start_capturing();
+
+        rc = mVinfo->start_capturing();
+        if (property_get_bool("vendor.media.camera.rc.enable", false))
+            mExtVinfo->start_capturing();
+        return rc;
     }
     else if (ch == channel_record)
         return mVinfo->start_recording();
@@ -1183,6 +1362,7 @@ int V4l2MediaSensor::captureNewImage() {
         }
     }
     captureNV21(*mNextCapturedBuffers);
+    captureRAW();
     return 0;
 }
 
