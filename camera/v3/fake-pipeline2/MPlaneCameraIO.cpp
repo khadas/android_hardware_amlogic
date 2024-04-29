@@ -78,8 +78,6 @@ int MPlaneCameraIO::openCamera() {
 }
 
 void MPlaneCameraIO::closeCamera() {
-    if (fd < 0)
-        return;
     CameraVirtualDevice::getInstance()->releaseVirtualDevice(openIdx, fd);
     fd = -1;
 }
