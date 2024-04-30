@@ -44,6 +44,7 @@ const usb_frmsize_discrete_t kUsbAvailablePictureSize[] = {
         {4224, 3136},
         {4208, 3120},
         {4096, 3120},
+        {4048, 3040}, // imx577
         {3840, 2160},
         {2304, 1748}, //ov16a1q
         {1920, 1080},

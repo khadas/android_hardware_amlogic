@@ -27,6 +27,8 @@
 #include <signal.h>
 #include <semaphore.h>
 
+#include "CamHalDebugLog.h"
+
 #include "aml_isp_api.h"
 
 #include "imx577_sdr_calibration.h"
@@ -60,7 +62,7 @@ int cmos_get_ae_default_imx577(int ViPipe, ALG_SENSOR_DEFAULT_S *pstAeSnsDft)
 {
     ALOGD("cmos_get_ae_default, imx577, wdrmode %d\n", sensor.enWDRMode);
 
-    sensor.snsAlgInfo.active.width = 4056;
+    sensor.snsAlgInfo.active.width = 4048;
     sensor.snsAlgInfo.active.height = 3040;
     sensor.snsAlgInfo.fps = 30;
     sensor.snsAlgInfo.sensor_exp_number = 1;
@@ -99,7 +101,10 @@ int cmos_get_ae_default_imx577(int ViPipe, ALG_SENSOR_DEFAULT_S *pstAeSnsDft)
     sensor.snsAlgInfo.again_high_accuracy_fmt = 1;
     sensor.snsAlgInfo.again_high_accuracy = (1<<(LOG2_GAIN_SHIFT))/20;
     sensor.snsAlgInfo.again_accuracy_fmt = 1;
-    sensor.snsAlgInfo.again_accuracy = (1<<(LOG2_GAIN_SHIFT))/20;
+    sensor.snsAlgInfo.again_log2 = 0x0<< LOG2_GAIN_SHIFT;
+    sensor.snsAlgInfo.again_high_log2 = 0x0<< LOG2_GAIN_SHIFT;
+    sensor.snsAlgInfo.expos_lines = (0xC16<<(LOG2_GAIN_SHIFT));
+    sensor.snsAlgInfo.again_accuracy = (1<<(LOG2_GAIN_SHIFT))/512;
     sensor.snsAlgInfo.expos_accuracy = (1<<(SHUTTER_TIME_SHIFT));
     sensor.snsAlgInfo.sexpos_accuracy = (1<<(SHUTTER_TIME_SHIFT));
     sensor.snsAlgInfo.vsexpos_accuracy = (1<<(SHUTTER_TIME_SHIFT));
@@ -143,14 +148,14 @@ static uint32_t aisp_math_exp2( int64_t val, int32_t shift_in, int32_t shift_out
     }
 }
 
-void cmos_again_calc_table_imx577(int ViPipe, uint32_t *pu32AgainLin, uint32_t *pu32AgainDb)
+void cmos_again_calc_table_imx577(int ViPipe, uint32_t  *ae_sns_hc_again, uint32_t *ae_sns_again)
 {
-    ALOGD("cmos_again_calc_table: %d, %d\n", *pu32AgainLin, *pu32AgainDb);
+    CAMHAL_LOGD("cmos_again_calc_table: %u, %u\n",  *ae_sns_hc_again, *ae_sns_again);
     int again_reg;
     const int32_t  shift_out  = 8;
     float    again_float = 0.0f;
 
-    again_reg = aisp_math_exp2( *pu32AgainLin, LOG2_GAIN_SHIFT, shift_out );
+    again_reg = aisp_math_exp2( *ae_sns_again, LOG2_GAIN_SHIFT, shift_out );
     again_float = (float)again_reg/(float)(1<<shift_out);
 
     // again_times = 1024/(1024 - reg_val)
@@ -251,5 +256,178 @@ void cmos_alg_update_imx577(int ViPipe)
         sensor.snsAlgInfo.u32Inttime[0][i] = sensor.snsAlgInfo.u32Inttime[0][i - 1];
         sensor.snsAlgInfo.u32Inttime[1][i] = sensor.snsAlgInfo.u32Inttime[1][i - 1];
     }
-
 }
+
+#if defined(PREVIEW_DEWARP_ENABLE) || defined(PICTURE_DEWARP_ENABLE)
+
+static void print_gdc_parameter(struct dewarp_params *dewarp_params) {
+    struct input_param* in = &dewarp_params->input_param;
+    struct output_param* out = &dewarp_params->output_param;
+    struct proj_param* proj = &dewarp_params->proj_param[0];
+    struct win_param* win = &dewarp_params->win_param[0];
+    struct meshin_param* mesh = &dewarp_params->meshin_param[0];
+    CAMHAL_LOGD("dewarp_param (%d %d %d %d %d)",
+        dewarp_params->win_num, dewarp_params->color_mode, dewarp_params->prm_mode,
+        dewarp_params->tile_x_step, dewarp_params->tile_y_step);
+    CAMHAL_LOGD("input_param (%d %d %d %d %d %f %d)",
+        in->width, in->height, in->offset_x, in->offset_y, in->fov, in->radius, in->fisheye);
+    CAMHAL_LOGD("output_param (%d %d)", out->width, out->height);
+    for (int i = 0; i < dewarp_params->win_num; i++) {
+        CAMHAL_LOGD("proj_param[%d] (%d %d %d %d   %f %f %f %d    %f %f %d %d %d %d)",
+            i, proj[i].projection_mode, proj[i].pan , proj[i].tilt, proj[i].rotation,
+            proj[i].zoom, proj[i].strength_hor, proj[i].strength_ver, proj[i].mirror,
+            proj[i].shx, proj[i].shy, proj[i].pitch, proj[i].yaw, proj[i].roll, proj[i].fov);
+
+        CAMHAL_LOGD("win_param[%d] (%d %d %d %d   %d %d %d %d   %d %d %d %d  %d)",
+            i, win[i].win_start_x, win[i].win_end_x, win[i].win_start_y, win[i].win_end_y,
+            win[i].img_start_x, win[i].img_end_x, win[i].img_start_y, win[i].img_end_y,
+            win[i].mesh_x_len, win[i].mesh_y_len, win[i].crop_en, win[i].crop_x_start, win[0].crop_y_start);
+
+        CAMHAL_LOGD("meshin_param[%d] (%d %d %d %d %d %d %p)",
+            i, mesh[i].x_start, mesh[i].y_start, mesh[i].x_len, mesh[i].y_len, mesh[i].x_step,
+            mesh[i].y_step, mesh[i].meshin_data_table);
+    }
+}
+
+static void gen_gdc_parameter_default(
+            struct sensorConfig *cfg, GDCInParam in_params,
+            struct dewarp_params *dewarp_params)
+{
+    char mesh_path[PROPERTY_VALUE_MAX];
+    char property[PROPERTY_VALUE_MAX];
+    //todo remove to sensor files
+    CAMHAL_LOGD("%s: E in:%ux%u, out %ux%u",
+            __FUNCTION__, in_params.i_width, in_params.i_height, in_params.o_width, in_params.o_height);
+    struct input_param* in = &dewarp_params->input_param;
+    struct output_param* out = &dewarp_params->output_param;
+    struct proj_param* proj = &dewarp_params->proj_param[0];
+    struct win_param* win = &dewarp_params->win_param[0];
+    struct meshin_param* mesh = &dewarp_params->meshin_param[0];
+
+    dewarp_params->proc_param.intrp_mode = 0;
+    dewarp_params->proc_param.replace_0 = 0;
+    dewarp_params->proc_param.replace_1 = 128;
+    dewarp_params->proc_param.replace_2 = 128;
+
+    dewarp_params->proc_param.edge_0 = 0;
+    dewarp_params->proc_param.edge_1 = 128;
+    dewarp_params->proc_param.edge_2 = 128;
+    dewarp_params->win_num = 1;
+
+    property_get("vendor.dewarp.mode", property, "param");
+    if (strstr(property, "mesh")) {
+        dewarp_params->prm_mode = 2;
+        CAMHAL_LOGD("dewarp work in mesh mode");
+        property_get("vendor.dewarp.mesh.path", mesh_path, "/data/mesh.txt");
+        if ( 0 != access(mesh_path, F_OK | R_OK)) {
+            CAMHAL_LOGW("mesh file access fail %s, reset to param mode", mesh_path);
+            dewarp_params->prm_mode = 0;
+        }
+    } else {
+        dewarp_params->prm_mode = 0;
+        CAMHAL_LOGD("dewarp work in param mode");
+    }
+
+    in->width = in_params.i_width;
+    in->height = in_params.i_height;
+
+    dewarp_params->color_mode = YUV420_SEMIPLANAR;
+    /*ROTATION_90 ROTATION_270 output need exchange width and height,input no need*/
+    out->width =  in_params.o_width;
+    out->height =  in_params.o_height;
+
+    property_get("vendor.camhal.use.dewarp.linear", property, "true");
+    if (strstr(property, "true")) {
+        proj[0].projection_mode = PROJ_MODE_LINEAR;
+    } else {
+        proj[0].projection_mode = PROJ_MODE_EQUIDISTANCE;
+    }
+    if (dewarp_params->prm_mode == 0) {
+        if (strstr(property, "true")) {
+            in->fov = 120;
+            in->radius = 0;
+            in->fisheye = 0;
+        } else {
+            in->offset_x = property_get_int32("vendor.dewarp.in.offset_x", 0);
+            in->offset_y = property_get_int32("vendor.dewarp.in.offset_y", 0);
+            in->fov = property_get_int32("vendor.dewarp.in.fov", 190);
+            in->radius = property_get_int32("vendor.dewarp.in.radius", 1670);
+            in->fisheye = property_get_int32("vendor.dewarp.in.fisheye", 1);
+        }
+    }
+
+    if (dewarp_params->prm_mode == 0) {
+        proj[0].rotation = (int)in_params.rotation*90;
+        proj[0].pan = property_get_int32("vendor.dewarp.proj.pan", 0);
+        proj[0].tilt = property_get_int32("vendor.dewarp.proj.tilt", 0);
+        proj[0].mirror = property_get_int32("vendor.dewarp.proj.mirror", 0);
+
+        proj[0].shx = property_get_int32("vendor.dewarp.proj.shx", 0);
+        proj[0].shy = property_get_int32("vendor.dewarp.proj.shy", 0);
+        proj[0].pitch = property_get_int32("vendor.dewarp.proj.pitch", 0);  //rotation axis x
+        proj[0].yaw = property_get_int32("vendor.dewarp.proj.yaw", 0);      //rotation axis y
+        proj[0].roll= property_get_int32("vendor.dewarp.proj.roll", 0);     //rotation axis z
+        proj[0].fov = property_get_int32("vendor.dewarp.proj.fov", 100);
+
+        property_get("vendor.dewarp.proj.zoom", property, "1.0");
+        proj[0].zoom = atof(property);
+        property_get("vendor.dewarp.proj.strength_hor", property, "1.0");
+        proj[0].strength_hor = atof(property);
+        property_get("vendor.dewarp.proj.strength_ver", property, "1.0");
+        proj[0].strength_ver = atof(property);
+    } else if (dewarp_params->prm_mode == 2) {
+        mesh[0].x_start = property_get_int32("vendor.dewarp.mesh.xstart", -16);
+        mesh[0].y_start = property_get_int32("vendor.dewarp.mesh.ystart", -9);
+        mesh[0].x_len = property_get_int32("vendor.dewarp.mesh.xlen", 64);
+        mesh[0].y_len = property_get_int32("vendor.dewarp.mesh.ylen", 64);
+        mesh[0].x_step = property_get_int32("vendor.dewarp.mesh.xstep", 32);
+        mesh[0].y_step = property_get_int32("vendor.dewarp.mesh.ystep", 18);
+        size_t mesh_size = mesh[0].x_len * mesh[0].y_len * 2;
+        static float *mesh_array = nullptr;
+        float val;
+        FILE *mesh_file = fopen(mesh_path, "r");
+        if (mesh_file == nullptr) {
+            CAMHAL_LOGE("fail to open mesh file");
+            return ;
+        }
+        if (mesh_array)
+            delete[] mesh_array;
+        mesh_array = new float[mesh_size];
+        for (int i = 0; i < mesh_size; ++i) {
+            if (fscanf(mesh_file, "%f", &val) < 0)
+                CAMHAL_LOGE("mesh data error %d", i);
+            mesh_array[i] = val;
+            //CAMHAL_LOGD("mesh data[%d:%f]", i, mesh_array[i]);
+        }
+        mesh[0].meshin_data_table = mesh_array;
+        fclose(mesh_file);
+    }
+
+    win[0].win_start_x = 0;
+    win[0].win_end_x = in_params.o_width - 1;
+    win[0].win_start_y = 0;
+    win[0].win_end_y = in_params.o_height - 1;
+    win[0].img_start_x = 0;
+    win[0].img_end_x = in_params.o_width - 1;
+    win[0].img_start_y = 0;
+    win[0].img_end_y = in_params.o_height - 1;
+    win[0].mesh_x_len = 64;
+    win[0].mesh_y_len = 64;
+
+    dewarp_params->tile_x_step = 32;
+    dewarp_params->tile_y_step = 32;
+}
+
+void cmos_get_sensor_gdc_parameter_imx577(struct sensorConfig *cfg, GDCInParam in_params,
+                                              struct dewarp_params *dewarp_params)
+{
+
+    gen_gdc_parameter_default(cfg, in_params, dewarp_params);
+
+    print_gdc_parameter(dewarp_params);
+
+    return;
+}
+
+#endif
+

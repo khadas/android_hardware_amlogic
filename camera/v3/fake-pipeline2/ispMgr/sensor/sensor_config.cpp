@@ -260,6 +260,9 @@ struct sensorConfig imx577Cfg = {
     .expFunc.pfn_cmos_inttime_calc_table = cmos_inttime_calc_table_imx577,
     .cmos_set_sensor_entity = cmos_set_sensor_entity_imx577,
     .cmos_get_sensor_calibration = cmos_get_sensor_calibration_imx577,
+#if defined(PREVIEW_DEWARP_ENABLE) || defined(PICTURE_DEWARP_ENABLE)
+    .cmos_get_sensor_gdc_parameter = cmos_get_sensor_gdc_parameter_imx577,
+#endif
 
     .sensorWidth      = 4048,
     .sensorHeight     = 3040,
