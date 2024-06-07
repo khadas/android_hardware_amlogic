@@ -112,9 +112,10 @@ int MPlaneCameraIO::startCameraIO() {
         buf.index       = i;
         buf.length   = 1;
         buf.m.planes = pPlaneBuffers[i]->v4lplane;
-
-        if (ioctl(fd, VIDIOC_QUERYBUF, &buf) < 0) {
+        ret = ioctl(fd, VIDIOC_QUERYBUF, &buf);
+        if ( ret < 0) {
             CAMHAL_LOGE("VIDIOC_QUERYBUF, errno=%d", errno);
+            return ret;
         }
         addr[i] = mIon->alloc_buffer(buffer_size_allocated, &(dma_fd[i]));
         if (MAP_FAILED == addr[i]) {
@@ -131,17 +132,22 @@ int MPlaneCameraIO::startCameraIO() {
         buf.length = 1;
         buf.m.planes = pPlaneBuffers[i]->v4lplane;
         buf.m.planes[0].m.fd = dma_fd[i];
-
-        if (ioctl(fd, VIDIOC_QBUF, &buf) < 0)
+        ret = ioctl(fd, VIDIOC_QBUF, &buf);
+        if (ret < 0) {
             CAMHAL_LOGE("VIDIOC_QBUF failed, errno=%d", errno);
+            return ret;
+        }
     }
 
     //streamOn
     type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE;
     if ((format.fmt.pix_mp.width != 0) &&
         (format.fmt.pix_mp.height != 0)) {
-        if (ioctl(fd, VIDIOC_STREAMON, &type) < 0)
+        ret = ioctl(fd, VIDIOC_STREAMON, &type);
+        if (ret < 0) {
             CAMHAL_LOGE("VIDIOC_STREAMON, errno=%d", errno);
+            return ret;
+        }
     }
     //success streamon set flag true
     isStreaming = true;

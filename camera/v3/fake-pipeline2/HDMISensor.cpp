@@ -104,14 +104,40 @@ int HDMISensor::streamOn(channel ch) {
         }
         usleep(5000);
     }
-    if ((waitStable && (mMPlaneCameraIO->startCameraIO() < 0))
-        || (!waitStable)) {
-            successStreamOn = false;
-            return -1;
+    if (waitStable) {
+        bool retry_done = false;
+        while (1) {
+            CAMHAL_LOGD("begain to steamon hdmi camera");
+            if (mMPlaneCameraIO->startCameraIO() < 0) {
+                if (!retry_done) {
+                    waitStable = true;
+                    waitCount = 0;
+                    while (!isStableSignal()) {
+                        if (waitCount++ >= 2000) {
+                            waitStable = false;
+                            break;
+                        }
+                        usleep(5000);
+                    }
+                    retry_done = true;
+                    if (waitStable)
+                        continue;
+                    else {
+                        successStreamOn = false;
+                        return -1;
+                    }
+                } else {
+                    successStreamOn = false;
+                    return -1;
+                }
+            } else {
+                successStreamOn = true;
+                return 0;
+            }
+        }
     } else {
-        CAMHAL_LOGE("HDMI success streamOn");
-        successStreamOn = true;
-        return 0;
+        successStreamOn = false;
+        return -1;
     }
 }
 
