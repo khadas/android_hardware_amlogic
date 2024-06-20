@@ -432,11 +432,17 @@ int vdin_screen_source::stop()
         mWorkThread.clear();
     }
 
-    enum v4l2_buf_type bufType = V4L2_BUF_TYPE_VIDEO_CAPTURE;
 
+    enum v4l2_buf_type bufType = V4L2_BUF_TYPE_VIDEO_CAPTURE;
     ret = ioctl (mCameraHandle, VIDIOC_STREAMOFF, &bufType);
     if (ret < 0) {
         ALOGE("StopStreaming: Unable to stop capture: %s", strerror(errno));
+    }
+    /*If the CAPTURE queue has buffers allocated, free the CAPTURE buffers using VIDIOC_REQBUFS()*/
+    mVideoInfo->rb.count = 0;
+    ret = ioctl(mCameraHandle, VIDIOC_REQBUFS, &mVideoInfo->rb);
+    if (ret < 0) {
+        ALOGE("StopStreaming: Unable to reqbufs: %s", strerror(errno));
     }
     for (int i = 0; i < mBufferCount; i++){
         if (munmap(mVideoInfo->mem[i], mVideoInfo->buf.length) < 0)
