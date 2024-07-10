@@ -882,7 +882,7 @@ int ge2dTransform::ge2d_fmt_convert(int dst_fd,int dst_fmt, size_t dst_w,size_t 
 
 //scale nv21 to other format
 int ge2dTransform::ge2d_keep_ration_scale(int dst_fd,int dst_fmt, size_t dst_w,
-                size_t dst_h,int src_fd, size_t src_w, size_t src_h) {
+                size_t dst_h,int src_fd, size_t src_w, size_t src_h, size_t dst_stride) {
 
     //ATRACE_CALL();
     //CAMHAL_LOGD("%s: w=%d, h=%d, src %d %d", __FUNCTION__,dst_w,dst_h,src_w,src_h);
@@ -924,7 +924,7 @@ int ge2dTransform::ge2d_keep_ration_scale(int dst_fd,int dst_fmt, size_t dst_w,
     amlge2d.ge2dinfo.src_info[1].plane_number = 1;
     amlge2d.ge2dinfo.src_info[1].shared_fd[0] = -1;
     //configure the destination canvas size
-    amlge2d.ge2dinfo.dst_info.canvas_w = dst_w;
+    amlge2d.ge2dinfo.dst_info.canvas_w = dst_stride;
     amlge2d.ge2dinfo.dst_info.canvas_h = dst_h;
     amlge2d.ge2dinfo.dst_info.plane_number = 1;
     amlge2d.ge2dinfo.dst_info.shared_fd[0] = dst_fd;
@@ -990,7 +990,7 @@ int ge2dTransform::ge2d_keep_ration_scale(int dst_fd,int dst_fmt, size_t dst_w,
 }
 
 int ge2dTransform::ge2d_keep_ration_scale(int dst_fd,int dst_fmt, size_t dst_w,
-                size_t dst_h,int src_fd, size_t src_w, size_t src_h, size_t format_w, size_t format_h) {
+                size_t dst_h,int src_fd, size_t src_w, size_t src_h, size_t format_w, size_t format_h, size_t dst_stride) {
 
     //ATRACE_CALL();
     //CAMHAL_LOGD("%s: w=%d, h=%d, src %d %d", __FUNCTION__,dst_w,dst_h,src_w,src_h);
@@ -1032,7 +1032,7 @@ int ge2dTransform::ge2d_keep_ration_scale(int dst_fd,int dst_fmt, size_t dst_w,
     amlge2d.ge2dinfo.src_info[1].plane_number = 1;
     amlge2d.ge2dinfo.src_info[1].shared_fd[0] = -1;
     //configure the destination canvas size
-    amlge2d.ge2dinfo.dst_info.canvas_w = dst_w;
+    amlge2d.ge2dinfo.dst_info.canvas_w = dst_stride;
     amlge2d.ge2dinfo.dst_info.canvas_h = dst_h;
     amlge2d.ge2dinfo.dst_info.plane_number = 1;
     amlge2d.ge2dinfo.dst_info.shared_fd[0] = dst_fd;
@@ -1049,6 +1049,10 @@ int ge2dTransform::ge2d_keep_ration_scale(int dst_fd,int dst_fmt, size_t dst_w,
     amlge2d.ge2dinfo.src_info[1].mem_alloc_type = AML_GE2D_MEM_INVALID;
     amlge2d.ge2dinfo.dst_info.mem_alloc_type = AML_GE2D_MEM_ION;
 
+    amlge2d.ge2dinfo.stride_custom.src1_stride[0] = src_width;
+    amlge2d.ge2dinfo.stride_custom.src1_stride[1] = src_width;
+    amlge2d.ge2dinfo.stride_custom.dst_stride[0] = dst_stride;
+    amlge2d.ge2dinfo.stride_custom.dst_stride[1] = dst_stride;
 
     int ret = aml_ge2d_init(&amlge2d);
     if (ret < 0) {

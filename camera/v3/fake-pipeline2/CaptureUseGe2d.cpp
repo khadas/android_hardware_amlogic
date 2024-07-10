@@ -123,7 +123,7 @@ int CaptureUseGe2d::getPicture(StreamBuffer b, struct data_in* in, IONInterface 
         case V4L2_PIX_FMT_NV21:
             CAMHAL_LOGD("%s:width=%d,height=%d,size=%d",__FUNCTION__,b.width,b.height,vb.size);
             mGE2D->ge2d_keep_ration_scale(b.share_fd, PIXEL_FORMAT_YCbCr_420_SP_NV12,
-                b.width, b.height, dmabuf_fd, width, height);
+                b.width, b.height, dmabuf_fd, width, height, b.stride);
             if (property_get_bool("vendor.camhal.dump.capture", false)) {
                 char path[256];
                 static int index = 0;

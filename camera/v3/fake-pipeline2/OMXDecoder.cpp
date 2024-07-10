@@ -29,6 +29,7 @@ extern "C" {
 #include "IonIf.h"
 
 #define OMX2_OUTPUT_BUFS_ALIGN_64 (64)
+#define ALIGN(x, align) ((x) + (align -1) & (~(align -1)))
 
 typedef enum MemType {
     VMALLOC_BUFFER = 0,
@@ -57,7 +58,7 @@ static bool isNeedDestroyDewarp (dewarpInfo &info_exist, dewarpInfo &info) {
 }
 #endif
 
-OMXDecoder::OMXDecoder(bool useDMABuffer, bool keepOriginalSize) {
+OMXDecoder::OMXDecoder(int cameraId, bool useDMABuffer, bool keepOriginalSize) {
     LOG_LINE("useDMABuffer=%d", useDMABuffer);
     mUseDMABuffer        = useDMABuffer;
     mKeepOriginalSize    = keepOriginalSize;
@@ -88,6 +89,8 @@ OMXDecoder::OMXDecoder(bool useDMABuffer, bool keepOriginalSize) {
     mTimeOut = false;
     mOutWidth = 0;
     mOutHeight = 0;
+    mStrideWidth = 0;
+    mStrideHeight = 0;
     mFormat = 0;
     mStride = 0;
     memset(&mVideoInputPortParam, 0, sizeof(OMX_PARAM_PORTDEFINITIONTYPE));
@@ -102,6 +105,19 @@ OMXDecoder::OMXDecoder(bool useDMABuffer, bool keepOriginalSize) {
         mEnableDewarp = true;
     }
     VICPEnable = false;
+
+    mCameraId = cameraId;
+#if defined(PREVIEW_DEWARP_ENABLE) || defined(PICTURE_DEWARP_ENABLE)
+    if (1 == mCameraId) {
+        mCapturePort = DEWARP_CAM2PORT_USB_CAPTURE_1;
+        mPreviewPort = DEWARP_CAM2PORT_USB_PREVIEW_1;
+        mRecordPort = DEWARP_CAM2PORT_USB_RECORD_1;
+    } else {
+        mCapturePort = DEWARP_CAM2PORT_USB_CAPTURE;
+        mPreviewPort = DEWARP_CAM2PORT_USB_PREVIEW;
+        mRecordPort = DEWARP_CAM2PORT_USB_RECORD;
+    }
+#endif
 }
 
 OMXDecoder::~OMXDecoder() {
@@ -119,6 +135,13 @@ OMXDecoder::~OMXDecoder() {
 #endif
 #endif
 
+#if defined(PREVIEW_DEWARP_ENABLE) || defined(PICTURE_DEWARP_ENABLE)
+        CAMHAL_LOGE("delete instance");
+        auto dewarpPortRange = std::make_pair(mPreviewPort, mCapturePort);
+        DeWarp::putInstance(dewarpPortRange);
+        CameraConfig::deleteInstance(dewarpPortRange);
+#endif
+
 }
 
 //Please don't use saveNativeBufferHdr() again if you want to use setParameters().
@@ -134,6 +157,9 @@ bool OMXDecoder::setParameters(uint32_t in_width, uint32_t in_height,
     mInHeight = in_height;
     mOutWidth = out_width;
     mOutHeight = out_height;
+    mStrideWidth = ALIGN(in_width, 32);
+    mStrideHeight = in_height;
+
     mOutBufferCount = out_buffer_count;
     CAMHAL_LOGD("in_width %u  in_height %u out_height %u  out_height %u  out_buffer_count %u",
                 in_width, in_height, out_width, out_height, out_buffer_count);
@@ -627,7 +653,7 @@ bool OMXDecoder::normal_buffer_init(int buffer_size){
 
 bool OMXDecoder::ion_buffer_init() {
     int shared_fd = -1;
-    int buffer_size = mOutWidth * mOutHeight * 3 / 2 ;
+    int buffer_size = ALIGN(mOutWidth, 32) * mOutHeight * 3 / 2;
     OMX_ERRORTYPE eRet = OMX_ErrorNone;
     IONInterface* ion = IONInterface::get_instance();
     OMX_U32 uAlignedBytes = (((mVideoOutputPortParam.nBufferSize
@@ -1142,6 +1168,7 @@ int OMXDecoder::DequeueBuffer(Vector<StreamBuffer>& b, bool isJpegRequest) {
 #if defined(PREVIEW_DEWARP_ENABLE) || defined(PICTURE_DEWARP_ENABLE)
                             dewarpInfo dewarpInfo;
                             DeWarp* GDCObj = nullptr;
+                            CropInfo inputInfo;
                                 //  fill dewarp info for check dewarp config
                                 {
                                     dewarpInfo.i_width = mInWidth;
@@ -1149,19 +1176,25 @@ int OMXDecoder::DequeueBuffer(Vector<StreamBuffer>& b, bool isJpegRequest) {
                                     dewarpInfo.o_width = b[i].width;
                                     dewarpInfo.o_height = b[i].height;
                                 }
+                                {
+                                    inputInfo.srcWidth = mStrideWidth;
+                                    inputInfo.srcHeight = mStrideHeight;
+                                    inputInfo.width = mInWidth;
+                                    inputInfo.height = mInHeight;
+                                }
                                 dewarpcam2port port;
                                 switch (index) {
                                     case 0:
-                                        port = DEWARP_CAM2PORT_PREVIEW;
+                                        port = mPreviewPort;
                                         break;
                                     case 1:
-                                        port = DEWARP_CAM2PORT_CAPTURE;
+                                        port = mCapturePort;
                                         break;
                                     case 2:
-                                        port = DEWARP_CAM2PORT_RECORD;
+                                        port = mRecordPort;
                                         break;
                                     default:
-                                        port = DEWARP_CAM2PORT_PREVIEW;
+                                        port = mPreviewPort;
                                         break;
                                 }
                                 bool needDestroy = isNeedDestroyDewarp(mPreDewarpInfo[port], dewarpInfo);
@@ -1170,10 +1203,12 @@ int OMXDecoder::DequeueBuffer(Vector<StreamBuffer>& b, bool isJpegRequest) {
                                 }
                                 ALOGD("buffer index %d, dewarp port %d, isNeedDestroyDewarp %d", index, port, needDestroy);
                                 CameraConfig* config = CameraConfig::getInstance(port);
-                                config->setInputWidth(mInWidth);
-                                config->setInputHeight(mInHeight);
+                                config->setCropInfo(inputInfo);
+                                config->setInputWidth(mStrideWidth);
+                                config->setInputHeight(mStrideHeight);
                                 config->setOutputWidth(b[i].width);
                                 config->setOutputHeight(b[i].height);
+                                config->setOutputStride(b[i].stride);
                                 GDCObj = DeWarp::getInstance(port, PROJ_MODE_LINEAR, Rotation::ROTATION_0);
                                 if (GDCObj) {
                                     GDCObj->mInput_fd = omx_share_fd;
@@ -1186,17 +1221,10 @@ int OMXDecoder::DequeueBuffer(Vector<StreamBuffer>& b, bool isJpegRequest) {
                                 mPreDewarpInfo[port].i_width = mInWidth;
                                 mPreDewarpInfo[port].i_height = mInHeight;
 #endif
-                            }else {
+                        } else {
                             if (mGE2D) {
-                                if (src_w == dst_w && src_h == dst_h) {
-                                    //CAMHAL_LOGD("%s ge2d copy");
-                                    mGE2D->ge2d_copy(dst_fd, omx_share_fd, dst_w, dst_h, ge2dTransform::NV12);
-                                } else {
-                                    // scale & crop
-                                    //CAMHAL_LOGD("%s ge2d scale to dst size", __FUNCTION__);
                                     mGE2D->ge2d_keep_ration_scale(dst_fd, PIXEL_FORMAT_YCbCr_420_SP_NV12, dst_w, dst_h,
-                                                  omx_share_fd, src_w, src_h);
-                                }
+                                                omx_share_fd, mStrideWidth, mStrideHeight, src_w, src_h, b[i].stride);
                             } else {
                                 CAMHAL_LOGE("%s:ge2d object is null",__FUNCTION__);
                             }

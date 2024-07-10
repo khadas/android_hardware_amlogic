@@ -32,25 +32,22 @@
 namespace android {
 
 static const usb_frmsize_discrete_t kUsbAvailablePictureSize[] = {
-        {4128, 3096},
         {3840, 2160},
-        {3264, 2448},
-        //{2592, 1944},
-        {2592, 1936},
-        {2560, 1920},
-        {2688, 1520},
-        {2048, 1536},
-        {1600, 1200},
-        {1920, 1088},
+#ifndef VICP_ENABLE
+        {2592, 1944},
+#endif
         {1920, 1080},
-        //{1440, 1080},
-        {1280, 960},
+#ifndef VICP_ENABLE
+        {1440, 1080},
+#endif
         {1280, 720},
-        {1024, 768},
-        {960, 720},
+        {1024, 576},
+        {960, 540},
         {720, 480},
         {640, 480},
+#ifndef VICP_ENABLE
         {352, 288},
+#endif
         {320, 240},
 };
 
@@ -236,6 +233,8 @@ int USBSensor::SensorInit(int idx) {
         return ret;
     }
 
+    ret = 0;
+
     if (mUseHwType == HW_H264 && mDecodeMethod == DECODE_OMX) {
         mAsyncEnable = true;
         mHwDecoderSensor = true;
@@ -273,7 +272,7 @@ status_t USBSensor::startUp(int idx, bool customizationSensor) {
     switch (mDecodeMethod) {
         case DECODE_OMX:
             if (!mDecoder) {
-                mDecoder = new OMXDecoder(true, true);
+                mDecoder = new OMXDecoder(mOpenCameraID, true, true);
             }
             break;
         default:
@@ -434,11 +433,6 @@ status_t USBSensor::shutDown() {
         DecFillBufThreadStop();
     }
 
-#if defined(PREVIEW_DEWARP_ENABLE) || defined(PICTURE_DEWARP_ENABLE)
-    auto dewarpPortRange = std::make_pair(DEWARP_CAM2PORT_USB_PREVIEW, DEWARP_CAM2PORT_USB_CAPTURE);
-    DeWarp::putInstance(dewarpPortRange);
-#endif
-
     if (mDecoder && mIsDecoderInit == true) {
         mDecoder->deinitialize();
         delete mDecoder;
@@ -482,13 +476,17 @@ status_t USBSensor::streamOff(channel ch) {
         DecFillBufThreadStop();
     }
 
-#if defined(PREVIEW_DEWARP_ENABLE) || defined(PICTURE_DEWARP_ENABLE)
-    auto dewarpPortRange = std::make_pair(DEWARP_CAM2PORT_USB_PREVIEW, DEWARP_CAM2PORT_USB_CAPTURE);
-    DeWarp::putInstance(dewarpPortRange);
-#endif
-
     if (mDecoder && mIsDecoderInit == true) {
         mDecoder->deinitialize();
+        delete mDecoder;
+        mDecoder = NULL;
+        switch (mDecodeMethod) {
+            case DECODE_OMX:
+                mDecoder = new OMXDecoder(mOpenCameraID, true, true);
+                break;
+            default:
+                break;
+        }
         mIsDecoderInit = false;
     }
 
@@ -624,7 +622,7 @@ void USBSensor::captureNV21UsbSensor(StreamBuffer b, uint32_t gain, bool needSen
                     else
 #endif
                         mGE2D->ge2d_keep_ration_scale(b.share_fd, PIXEL_FORMAT_YCbCr_420_SP_NV12, b.width, b.height,
-                                              mTempFD, width, height);
+                                              mTempFD, width, height, b.stride);
                 } else {
                     mCameraUtil->ReSizeNV21(src, b.img, b.width, b.height, b.stride, width, height);
                 }
@@ -757,7 +755,7 @@ void USBSensor::captureNV21UsbSensor(StreamBuffer b, uint32_t gain, bool needSen
                             } else
 #endif
                                 mGE2D->ge2d_keep_ration_scale(b.share_fd, PIXEL_FORMAT_YCbCr_420_SP_NV12, b.width, b.height,
-                                              mSensorOutBuf.share_fd, mSensorOutBuf.width, mSensorOutBuf.height);
+                                              mSensorOutBuf.share_fd, mSensorOutBuf.width, mSensorOutBuf.height,b.stride);
 
 #else
                             mCameraUtil->ReSizeNV21(mSensorOutBuf.img, b.img, b.width, b.height, b.stride, mSensorOutBuf.width, mSensorOutBuf.height);

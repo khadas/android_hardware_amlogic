@@ -1335,7 +1335,7 @@ int HWVideoDecoderImpl::syncDecode(int in_fd, uint8_t*in_src, uint32_t in_size, 
                                                    dec_out_fd, mDqWidth, mDqHeight, mFormatWidth, mFormatHeight);
 #else
                             mGE2D->ge2d_keep_ration_scale(b[i].share_fd, PIXEL_FORMAT_YCbCr_420_SP_NV12, b[i].width, b[i].height,
-                                                   dec_out_fd, mDqWidth, mDqHeight, mFormatWidth, mFormatHeight);
+                                                   dec_out_fd, mDqWidth, mDqHeight, mFormatWidth, mFormatHeight, b[i].stride);
                             mGE2D->doRotationAndMirror(b[i]);
 #endif
                             } else {
@@ -1480,7 +1480,7 @@ int HWVideoDecoderImpl::asyncDecodeDequeueOutput( Vector<StreamBuffer>& b, bool 
                                                        dec_out_fd, mDqWidth, mDqHeight, mFormatWidth, mFormatHeight);
 #else
                                 mGE2D->ge2d_keep_ration_scale(b[i].share_fd, PIXEL_FORMAT_YCbCr_420_SP_NV12, b[i].width, b[i].height,
-                                                       dec_out_fd, mDqWidth, mDqHeight, mFormatWidth, mFormatHeight);
+                                                       dec_out_fd, mDqWidth, mDqHeight, mFormatWidth, mFormatHeight, b[i].stride);
                                 mGE2D->doRotationAndMirror(b[i]);
 #endif
                            } else {

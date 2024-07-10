@@ -437,7 +437,7 @@ void HDMISensor::captureNV21(Vector<StreamBuffer>& b, uint32_t gain) {
 #endif
                 }else {
                     mGE2D->ge2d_keep_ration_scale(b[i].share_fd, PIXEL_FORMAT_YCbCr_420_SP_NV12, b[i].width, b[i].height,
-                                                  output_info.dma_fd, width, height);
+                                                  output_info.dma_fd, width, height, b[i].stride);
                 }
             }
 #endif

@@ -52,10 +52,11 @@ public:
                        size_t crop_h);
 
         int ge2d_keep_ration_scale(int dst_fd,int dst_fmt, size_t dst_w,
-                size_t dst_h,int src_fd, size_t src_w, size_t src_h);
+                size_t dst_h,int src_fd, size_t src_w, size_t src_h, size_t dst_stride);
 
         int ge2d_keep_ration_scale(int dst_fd,int dst_fmt, size_t dst_w,
-                size_t dst_h,int src_fd, size_t src_w, size_t src_h, size_t format_w, size_t format_h);
+                size_t dst_h,int src_fd, size_t src_w, size_t src_h, size_t format_w, size_t format_h, size_t dst_stride);
+
         int ge2d_fmt_convert(int dst_fd,int dst_fmt, size_t dst_w,size_t dst_h,
                 int src_fd, int src_fmt, size_t src_w, size_t src_h);
 
