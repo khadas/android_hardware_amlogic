@@ -78,12 +78,15 @@ public:
     bool VICPEnable;
     bool mEnableDewarp;
 #if defined(PREVIEW_DEWARP_ENABLE) || defined(PICTURE_DEWARP_ENABLE)
+    dewarpcam2port mCapturePort;
+    dewarpcam2port mPreviewPort;
+    dewarpcam2port mRecordPort;
     dewarpInfo mPreDewarpInfo[ISP_PORT_NUM];
 #endif
 
 public:
     OMXDecoder();
-    OMXDecoder(bool useDMABuffer, bool keepOriginalSize);
+    OMXDecoder(int cameraId,bool useDMABuffer, bool keepOriginalSize);
     ~OMXDecoder();
     bool setParameters(uint32_t in_width, uint32_t in_height,
                                uint32_t out_width, uint32_t out_height,
@@ -152,6 +155,8 @@ private:
     OMX_U32 mInHeight;
     OMX_U32 mOutWidth;
     OMX_U32 mOutHeight;
+    OMX_U32 mStrideWidth;
+    OMX_U32 mStrideHeight;
     int mFormat;
     uint32_t mStride;
     bool mUseDMABuffer;
@@ -204,6 +209,7 @@ private:
     OMX_TICKS timeStamp = 0;
     Mutex mOMXControlMutex;
     Condition mOMXVSync;
+    int mCameraId;
 
 #ifdef GE2D_ENABLE
     ge2dTransform* mGE2D;
