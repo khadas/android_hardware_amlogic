@@ -10,7 +10,7 @@
 
 #include "media-v4l2/mediaApi.h"
 
-#define ISP_PORT_NUM 10
+#define ISP_PORT_NUM 14
 
 namespace android {
     struct CropInfo {
