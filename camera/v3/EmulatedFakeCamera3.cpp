@@ -1852,11 +1852,11 @@ status_t EmulatedFakeCamera3::constructStaticInfo() {
    uint8_t lensFacing = ANDROID_LENS_FACING_BACK;
    switch (mSensorType) {
        case SENSOR_USB :
-        property_get("ro.vendor.camera_usb.faceback", property, NULL);
-        if (strstr(property, "true")) {
+        property_get("persist.sys.camera_usb_faceback", property, NULL);
+        if (strstr(property, "1")) {
           lensFacing =  ANDROID_LENS_FACING_BACK;
           mFacingBack = 1;
-        } else if (strstr(property, "false")) {
+        } else if (strstr(property, "0")) {
           lensFacing = ANDROID_LENS_FACING_FRONT;
           mFacingBack = 0;
         } else {
@@ -1864,17 +1864,17 @@ status_t EmulatedFakeCamera3::constructStaticInfo() {
           lensFacing = ANDROID_LENS_FACING_EXTERNAL;
           mFacingBack = 0;
         }
-		if(0 == mCameraID){
-		lensFacing =  ANDROID_LENS_FACING_BACK;
-		mFacingBack = 1;
-		} else if(1 == mCameraID){
-		lensFacing = ANDROID_LENS_FACING_FRONT;
-		mFacingBack = 0;
-		} else {
-          // Default facing external using for cts
-          lensFacing = ANDROID_LENS_FACING_EXTERNAL;
-          mFacingBack = 0;
-        }
+//		if(0 == mCameraID){
+//		    lensFacing =  ANDROID_LENS_FACING_BACK;
+//	     	mFacingBack = 1;
+//		} else if(1 == mCameraID){
+//		    lensFacing = ANDROID_LENS_FACING_FRONT;
+//		    mFacingBack = 0;
+//		} else {
+//          // Default facing external using for cts
+//          lensFacing = ANDROID_LENS_FACING_EXTERNAL;
+//          mFacingBack = 0;
+//    }
         break;
      case SENSOR_V4L2MEDIA:
      case SENSOR_MIPI:
@@ -1963,9 +1963,10 @@ status_t EmulatedFakeCamera3::constructStaticInfo() {
             property_get("hw.camera.orientation.front", property, "0");
         }
         int32_t orientation = atoi(property);
-        property_get("hw.camera.usb.orientation_offset", property, "0");
+        property_get("persist.sys.camera_usb_orientation", property, "0");
         orientation += atoi(property);
         orientation %= 360;
+        ALOGE("orientation = %d", orientation);
         info.update(ANDROID_SENSOR_ORIENTATION, &orientation, 1);
     } else {
         if (mFacingBack) {
