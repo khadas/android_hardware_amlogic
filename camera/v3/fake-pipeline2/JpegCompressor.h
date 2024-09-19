@@ -144,6 +144,7 @@ class JpegCompressor: public Thread, public virtual RefBase {
     //jpeg_compress_struct mCInfo;
 #ifdef HW_JPEG
     HwJpegEnc* mHwEnc;
+    bool mHwEncFlag;
 #endif
 
     struct JpegError : public jpeg_error_mgr {

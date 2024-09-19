@@ -457,6 +457,9 @@ const char* USBSensorUtils::getformtStr(int id) {
         case V4L2_PIX_FMT_YUYV:
             sprintf(str,"%s","V4L2_PIX_FMT_YUYV");
             break;
+        case V4L2_PIX_FMT_NV21:
+            sprintf(str,"%s","V4L2_PIX_FMT_NV21");
+            break;
         default:
             sprintf(str,"%s","not support");
             break;

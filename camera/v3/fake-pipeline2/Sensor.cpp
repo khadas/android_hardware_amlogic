@@ -37,6 +37,8 @@
 #include <inttypes.h>
 #include <gralloc1.h>
 
+#define INPUT_BUFFER_SIZE        (1024*1024)
+
 namespace android {
 
 const unsigned int Sensor::kResolution[2]  = {1600, 1200};
@@ -218,10 +220,10 @@ Sensor::Sensor():
         mScene(kResolution[0], kResolution[1], kElectronsPerLuxSecond),
         mUnpluged(false),
         mFacingBack(false),
-        mTestPatternMode(ANDROID_SENSOR_TEST_PATTERN_MODE_OFF)
+        mTestPatternMode(ANDROID_SENSOR_TEST_PATTERN_MODE_OFF),
+        mCameraUtil(NULL),
+        mInputDumpFile(NULL)
 {
-        char property[PROPERTY_VALUE_MAX];
-
         memset(&mKernelPhysAddr,0,sizeof(mKernelPhysAddr));
         memset(&mCaptureTime,0,sizeof(nsecs_t));
         memset(&mStartupTime,0,sizeof(nsecs_t));
@@ -231,16 +233,17 @@ Sensor::Sensor():
         memset(&mTestEnd,0,sizeof(struct timeval));
         memset(&mNextCaptureTime,0,sizeof(nsecs_t));
         memset(mDeviceName,0,sizeof(mDeviceName));
-
-        property_get("vendor.media.camera.low_latency_mode", property, "false");
-        if (strstr(property,"true")) {
+        if (property_get_bool("vendor.media.camera.low_latency_mode", false)) {
             CAMHAL_LOGD("running in low latency mode");
             mLowLatencyMode = true;
         }
 }
 
 Sensor::~Sensor() {
-    //shutDown();
+    if (mCameraUtil) {
+        delete mCameraUtil;
+        mCameraUtil = NULL;
+    }
 }
 
 status_t Sensor::startUp(int idx, bool customizationSensor) {
@@ -264,6 +267,10 @@ status_t Sensor::startUp(int idx, bool customizationSensor) {
     res = camera_open(vinfo);
     if (res < 0) {
             CAMHAL_LOGE("Unable to open sensor %d, errno=%d\n", vinfo->idx, res);
+    }
+
+    if (nullptr == mCameraUtil) {
+        mCameraUtil = new CameraUtil();
     }
 
     mSensorType = SENSOR_USB;
@@ -375,6 +382,18 @@ status_t Sensor::getSupportChannels(std::vector<channel> &chs)
 
 status_t Sensor::streamOn(channel ch) {
     ATRACE_CALL();
+    // ======== begin just for debug dump input ==================================
+    {
+        char inputDumpFilename[256];
+        memset(&inputDumpFilename[0], 0, sizeof(inputDumpFilename) );
+        snprintf(inputDumpFilename, 256, "/data/vendor/camera/video_dec_input_%dx%d.mjpeg", vinfo->preview.format.fmt.pix.width, vinfo->preview.format.fmt.pix.height);
+        if (mInputDumpFile == nullptr && inputDumpFilename[0] != 0) {
+            mInputDumpFile = fopen(inputDumpFilename, "w+b");
+        }
+        if (nullptr == mInputDumpFile) {
+            CAMHAL_LOGW("open input dump file %s failed", inputDumpFilename);
+        }
+    }
     mNeedCheckMjpeg = true;
     return start_capturing(vinfo);
 }
@@ -593,6 +612,10 @@ status_t Sensor::shutDown() {
     }
 
     mSensorWorkFlag = false;
+
+    if (nullptr != mInputDumpFile) {
+        fclose(mInputDumpFile);
+    }
 
     CAMHAL_LOGD("%s: Exit", __FUNCTION__);
     return res;
@@ -1439,6 +1462,12 @@ int Sensor::getStreamConfigurations(uint32_t picSizes[], const int32_t kAvailabl
             support_w = 10000;
             support_h = 10000;
         }
+    } else {
+#if defined(CAMERA_SW_MAX_PREVIEW_WIDTH) && defined(CAMERA_SW_MAX_PREVIEW_HEIGHT)
+        support_w = atoi(CAMERA_SW_MAX_PREVIEW_WIDTH);
+        support_h = atoi(CAMERA_SW_MAX_PREVIEW_HEIGHT);
+#endif
+        CAMHAL_LOGD("the configured max preview size :%dx%d", support_w, support_h);
     }
 
     memset(&frmsize,0,sizeof(frmsize));
@@ -2109,6 +2138,17 @@ void Sensor::captureNV21(StreamBuffer b, uint32_t gain) {
             } else {
                 ReSizeNV21(vinfo, mDecoderTask.validBuffer, b.img, b.width, b.height, b.stride);
             }
+            if (property_get_bool("vendor.camhal.dump.usb.decoder", false)) {
+                static int recordDumpIndex = 0;
+                char dumpOutRecordPath[256];
+                /*=== dump yuv data ===*/
+                memset(&dumpOutRecordPath[0], 0, sizeof(dumpOutRecordPath));
+                if (recordDumpIndex % 10 == 0) {
+                    snprintf(dumpOutRecordPath, 256, "/data/vendor/camera/dst_%d_%dx%d.yuv", 1, b.width, b.height);
+                    mCameraUtil -> dump(b.img, (b.width * b.height * 3 / 2), dumpOutRecordPath);
+                }
+                recordDumpIndex++;
+            }
         } else {
             CAMHAL_LOGE("Unable known sensor format: %d", vinfo->preview.format.fmt.pix.pixelformat);
         }
@@ -2152,7 +2192,7 @@ void Sensor::captureNV21(StreamBuffer b, uint32_t gain) {
             if (vinfo->preview.buf.length == b.width * b.height * 3/2) {
                 memcpy(b.img, src, vinfo->preview.buf.length);
             } else {
-                nv21_memcpy_align32 (b.img, src, b.width, b.height);
+                mCameraUtil->nv21_memcpy_align32 (b.img, src, b.width, b.height);
             }
             mKernelBuffer = b.img;
         } else if (vinfo->preview.format.fmt.pix.pixelformat == V4L2_PIX_FMT_YUYV) {
@@ -2189,6 +2229,9 @@ void Sensor::captureNV21(StreamBuffer b, uint32_t gain) {
                 continue;
             }
             mNeedCheckMjpeg = false;
+            if (property_get_bool("vendor.camhal.dump.usb.device", false)) {
+                dumpInputTofile(src, bytesused);
+            }
             std::unique_lock<std::mutex> _l(mDecoderTask.lock);
             if (mDecoderTask.taskRunning == false) {
                 mDecoderTask.inputBuffer = mInputBuffer;
@@ -2246,6 +2289,17 @@ void Sensor::captureNV21(StreamBuffer b, uint32_t gain) {
                 } else {
                     ReSizeNV21(vinfo, mDecoderTask.validBuffer, b.img, b.width, b.height, b.stride);
                     mKernelBuffer = mDecoderTask.validBuffer;
+                }
+                if (property_get_bool("vendor.camhal.dump.usb.decoder", false)) {
+                    static int previewDumpIndex = 0;
+                    char dumpOutPreviewPath[256];
+                    /*=== dump yuv data ===*/
+                    memset(&dumpOutPreviewPath[0], 0, sizeof(dumpOutPreviewPath));
+                    if (previewDumpIndex % 10 == 0) {
+                        snprintf(dumpOutPreviewPath, 256, "/data/vendor/camera/dst_%d_%dx%d.yuv", 0, b.width, b.height);
+                        mCameraUtil -> dump(b.img, (b.width * b.height * 3 / 2), dumpOutPreviewPath);
+                    }
+                    previewDumpIndex++;
                 }
             }
             CAMHAL_LOGV("memcpy -");
@@ -2452,7 +2506,7 @@ void Sensor::captureYV12(StreamBuffer b, uint32_t gain) {
             if (vinfo->preview.buf.length == b.width * b.height * 3/2) {
                 memcpy(b.img, src, vinfo->preview.buf.length);
             } else {
-                yv12_memcpy_align32 (b.img, src, b.width, b.height);
+                mCameraUtil->yv12_memcpy_align32 (b.img, src, b.width, b.height);
             }
             mKernelBuffer = b.img;
         } else if (vinfo->preview.format.fmt.pix.pixelformat == V4L2_PIX_FMT_YUYV) {
@@ -2541,21 +2595,41 @@ void Sensor::captureYUYV(uint8_t *img, uint32_t gain, uint32_t stride) {
     CAMHAL_LOGVV("YUYV sensor image captured");
 }
 
+void Sensor::dumpInputTofile(uint8_t* in_src, uint32_t in_size)
+{
+    static int dumped_frames = 0;
+    // ====== begin debug dump ========================================================
+    if (nullptr != mInputDumpFile) {
+        dumped_frames++;
+        CAMHAL_LOGI("line %d, write to dump file, dump frames %d ", __LINE__, dumped_frames);
+        int written_bytes = fwrite(in_src, 1, in_size, mInputDumpFile);
+        if (in_size != written_bytes ) {
+            // todo: try again ?. now just log error and skip.
+            CAMHAL_LOGE("line %d, write dump file ret %d, expected %d bytes", __LINE__, written_bytes, in_size);
+        }
+
+        // for mjpeg, padding to size w*h
+        if (V4L2_PIX_FMT_MJPEG == vinfo->preview.format.fmt.pix.pixelformat) {
+            if (written_bytes < INPUT_BUFFER_SIZE) {
+                int pad_bytes = INPUT_BUFFER_SIZE - written_bytes;
+                int ret = fseek(mInputDumpFile, pad_bytes, SEEK_CUR);
+                if (!ret)
+                    CAMHAL_LOGE("fseek error");
+            }
+        }
+        fflush(mInputDumpFile);
+    }
+
+    // ====== end debug dump ========================================================
+
+}
+
+
 bool Sensor::isNeedDump() {
     return false;
 }
 
-void Sensor::dump(int fd) {
-    String8 result;
-    result = String8::format("%s, sensor preview information: \n", __FILE__);
-    result.appendFormat("camera preview fps: %.2f\n", mCurFps);
-    result.appendFormat("camera preview width: %d , height =%d\n",
-            vinfo->preview.format.fmt.pix.width,vinfo->preview.format.fmt.pix.height);
-
-    result.appendFormat("camera preview format: %.4s\n\n",
-            (char *) &vinfo->preview.format.fmt.pix.pixelformat);
-
-    write(fd, result.string(), result.size());
+void Sensor::dump(int fd __unused) {
 }
 
 } // namespace android

@@ -12,6 +12,7 @@
 #include <utils/Log.h>
 #include <utils/threads.h>
 #include <ui/GraphicBufferAllocator.h>
+#include <ui/GraphicBufferMapper.h>
 #include <hardware/gralloc1.h>
 #include <amlogic/am_gralloc_ext.h>
 #include "CamHalDebugLog.h"
@@ -61,7 +62,7 @@ void IONInterface::put_instance() {
     }
 }
 
-uint8_t* IONInterface::alloc_buffer(size_t size, int* share_fd, bufferMode mode) {
+uint8_t* IONInterface::alloc_buffer(size_t size, int* share_fd, bufferMode mode, int dataspace) {
     CAMHAL_LOGD("%s\n", __FUNCTION__);
     IONBufferNode* pBuffer = nullptr;
     int i = 0;
@@ -102,6 +103,9 @@ uint8_t* IONInterface::alloc_buffer(size_t size, int* share_fd, bufferMode mode)
             return nullptr;
         }
     }
+    if (dataspace > 0) {
+        GraphicBufferMapper::get().setDataspace(pBuffer->buffer_handle, (ui::Dataspace)dataspace);
+    }
     uint8_t* cpu_ptr = (uint8_t*)mmap(nullptr, size, PROT_READ | PROT_WRITE, MAP_SHARED,
                                       pBuffer->share_fd, 0);
     if (MAP_FAILED == cpu_ptr) {
@@ -112,7 +116,7 @@ uint8_t* IONInterface::alloc_buffer(size_t size, int* share_fd, bufferMode mode)
         CAMHAL_LOGE("cpu_ptr is NULL");
     pBuffer->vaddr = cpu_ptr;
 
-    CAMHAL_LOGE("vaddr=%p, share_fd = %d",pBuffer->vaddr,pBuffer->share_fd);
+    CAMHAL_LOGE("size %zu, vaddr=%p, share_fd = %d", size, pBuffer->vaddr,pBuffer->share_fd);
     *share_fd = pBuffer->share_fd;
     return pBuffer->vaddr;
 }

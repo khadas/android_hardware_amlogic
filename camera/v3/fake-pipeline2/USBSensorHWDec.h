@@ -6,7 +6,6 @@
 #include <utils/List.h>
 
 #include "Sensor.h"
-#include "CameraUtil.h"
 #include "HWVideoDecoder.h"
 #include "CameraIO.h"
 #include "CameraDevice.h"
@@ -97,7 +96,6 @@ namespace android {
             bool mUseStreamBufVecForDecoder;
             HWVideoDecoder*         mHWDecoder;
 
-            CameraUtil* mCameraUtil;
             Vector<uint32_t> mSupportFormat;
             Vector<uint32_t> mTryPixelFormat;
 
@@ -134,8 +132,6 @@ namespace android {
                              int out_width, int out_height, int out_bufferCount);
             int getDecOut(Vector<StreamBuffer>& b);
             int HWDecodeToNV21(uint8_t* src, uint32_t src_length, Vector<StreamBuffer>& b, bool isJpegRequest);
-            void determineDecoderStreamType();
-            void determineDecoderWorkMode();
             int SensorInit(int idx);
             void InitVideoInfo(int idx);
             int camera_open(int idx);
@@ -145,8 +141,8 @@ namespace android {
             void setIOBufferNum();
 
             int reAllocSoftwareBuffer(int width, int height);
-            int checkAndGetNextSensorData(uint8_t **outDataAddr, uint32_t *outDataLen);
-            int checkAndGetLatestSensorData(uint8_t **outDataAddr, uint32_t *outDataLen);
+            int checkAndGetNextSensorData(uint8_t **outDataAddr, uint32_t *outDataLen, int32_t *outDataFd = nullptr);
+            int checkAndGetLatestSensorData(uint8_t **outDataAddr, uint32_t *outDataLen, int32_t *outDataFd = nullptr);
             void captureNV21UsbSensor(StreamBuffer b, uint32_t gain, bool needSensorOutBuf);
             void captureNV21UsbSensor(Vector<StreamBuffer>& b, uint32_t gain, bool isJpegRequest);
             int captureNV21UseSavedBuf(StreamBuffer &b, bufInfo * savedBuf);
@@ -174,7 +170,6 @@ private:
             int  mDecodeFillThreadState;
             pthread_t mDecodeFillThreadId;
             std::vector<streamInfo> mStreamInfos;
-            bool isUseH264;
 
             int startDecodeFillThread();
             int stopDecodeFillThread();

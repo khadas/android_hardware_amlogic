@@ -220,6 +220,7 @@ EmulatedFakeCamera3::EmulatedFakeCamera3(int cameraId, struct hw_module_t* modul
     mInputStream = nullptr;
     cameraid = -1;
     dptz_enable = true;
+    dataspace = 0;
 }
 
 EmulatedFakeCamera3::~EmulatedFakeCamera3() {
@@ -808,6 +809,27 @@ status_t EmulatedFakeCamera3::configureStreams(
      */
     mPrevSettings.clear();
 
+    auto get_haldataspace = [](const char* _dataspace) {
+        if (strstr(_dataspace, "709f"))
+            return (HAL_DATASPACE_STANDARD_BT709 | HAL_DATASPACE_RANGE_FULL);
+        else if (strstr(_dataspace, "709l"))
+            return (HAL_DATASPACE_STANDARD_BT709 | HAL_DATASPACE_RANGE_LIMITED);
+        else if (strstr(_dataspace, "601f"))
+            return (HAL_DATASPACE_STANDARD_BT601_625 | HAL_DATASPACE_RANGE_FULL);
+        else if (strstr(_dataspace, "601l"))
+            return (HAL_DATASPACE_STANDARD_BT601_625 | HAL_DATASPACE_RANGE_LIMITED);
+        else
+            return 0;
+    };
+    char property[PROPERTY_VALUE_MAX];
+    if (mSensorType == SENSOR_USB) {
+        property_get("vendor.camera.usbcamera.force.colorspace", property, "0");
+        dataspace = get_haldataspace(property);
+    } else if (mSensorType == SENSOR_HDMI) {
+        property_get("vendor.camera.hdmicamera.force.colorspace", property, "0");
+        dataspace = get_haldataspace(property);
+    }
+    mSensor->setDataSpace(dataspace);
     return OK;
 }
 
@@ -1492,6 +1514,9 @@ status_t EmulatedFakeCamera3::processCaptureRequest(
               destBuf.buffer   = srcBuf.buffer;
               destBuf.share_fd = am_gralloc_get_buffer_fd((native_handle_t*)(*srcBuf.buffer));
 
+              if (dataspace > 0) {
+                GraphicBufferMapper::get().setDataspace(*(srcBuf.buffer), (ui::Dataspace)dataspace);
+              }
               if (destBuf.format == HAL_PIXEL_FORMAT_BLOB) {
                      needJpeg = true;
                      memset(&info,0,sizeof(struct ExifInfo));

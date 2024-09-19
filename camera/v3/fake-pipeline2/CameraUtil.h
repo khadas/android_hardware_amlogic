@@ -53,7 +53,7 @@ class CameraUtil {
 		int MJPEGScaleYV12(uint8_t* src, int src_len,int src_width, int src_height,
 			uint8_t* dst, int dst_width, int dst_height,bool scale);
 		void encodeYUV420sp(uint8_t* yuv420sp, uint8_t* rgb, int width, int height);
-		void dump(int frame_index, uint8_t* buf, int length, const char* name);
+		void dump(uint8_t* buf, int length, const char* name);
 	private:
 		int align(int x, int y);
 };

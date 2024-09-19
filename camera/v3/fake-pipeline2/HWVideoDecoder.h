@@ -36,10 +36,10 @@ public:
         DECODE_FAIL_AND_INPUT_FULL
     };
 
-    HWVideoDecoder();
+    HWVideoDecoder(int cameraId);
     virtual ~HWVideoDecoder();
 
-    virtual bool initialize(uint32_t streamType, uint32_t bitstream_width, uint32_t bitstream_height, uint32_t framerate, DecoderMode workMode);
+    virtual bool initialize(uint32_t streamType, uint32_t bitstream_width, uint32_t bitstream_height, uint32_t framerate, DecoderMode workMode, int _dataspace);
     virtual void deinitialize();
 
     virtual DecoderStatus getDecoderStatus();
@@ -54,6 +54,7 @@ public:
 
 private:
     HWVideoDecoderImpl * mPrivateImpl;
+    int mCameraId;
     inline HWVideoDecoderImpl* get_impl() { return reinterpret_cast<HWVideoDecoderImpl *>( mPrivateImpl ); }
     friend class HWVideoDecoderImpl;
 };

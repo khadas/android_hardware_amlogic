@@ -511,24 +511,18 @@ int CameraUtil::MJPEGScaleYV12(uint8_t* src, int src_len,int src_width, int src_
     return ret;
 }
 
-void CameraUtil::dump(int frame_index, uint8_t* buf, int length, const char* name) {
+void CameraUtil::dump(uint8_t* buf, int length, const char* name) {
     FILE* fp = NULL;
-    if (frame_index % 10 == 0) {
-        if (frame_index == 0) {
-            CAMHAL_LOGD("dump forever, full name: %s", name);
-        }
-        fp = fopen(name, "ab+");
-        if (!fp) {
-            CAMHAL_LOGE("open file %s fail, error: %s !!!", name, strerror(errno));
-            fp = NULL;
-            return;
-        } else {
-            fwrite((void*)buf, 1, length, fp);
-            fclose(fp);
-            fp = NULL;
-            return;
-        }
+    CAMHAL_LOGVV("start dump, dump path: %s", name);
+    fp = fopen(name, "ab+");
+    if (!fp) {
+        CAMHAL_LOGE("open file %s fail, error: %s !!!", name, strerror(errno));
+        fp = NULL;
+        return;
     } else {
+        fwrite((void*)buf, 1, length, fp);
+        fclose(fp);
+        fp = NULL;
         return;
     }
 }

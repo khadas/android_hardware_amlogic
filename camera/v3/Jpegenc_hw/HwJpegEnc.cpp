@@ -25,18 +25,12 @@ namespace android {
         mQuality = 0;
         mInFormat = FMT_RGB888;
         ALOGE("%s: E",__FUNCTION__);
-        mHandle = jpegenc_init();
-        if (!mHandle)
-            ALOGE("%s:jpeg init fail:this=%p,handle=0x%lx",
-            __FUNCTION__,this,mHandle);
-        else
-            ALOGE("jpegenc this=%p handle:0x%lx \n",this, mHandle);
     }
 
 
     HwJpegEnc:: ~HwJpegEnc() {
         ALOGE("%s: E",__FUNCTION__);
-        jpegenc_destroy(mHandle);
+        //jpegenc_destroy(mHandle);
     }
 
     void HwJpegEnc::releaseInstance() {
@@ -50,6 +44,7 @@ namespace android {
     int HwJpegEnc::encode(int in_width, int in_height, int quality,
                             jpegenc_frame_fmt_e format,
                             uint8_t*src, uint8_t*dst, int* p_len) {
+        mHandle = jpegenc_init();
         if (!mHandle) {
             ALOGE("%s:jpeg is not inited,this=%p, handle=0x%lx",
                 __FUNCTION__,this,mHandle);
@@ -74,7 +69,10 @@ namespace android {
         frame_info.YCbCr[1] = 0;
         frame_info.YCbCr[2] = 0;
         jpegenc_result_e res = jpegenc_encode(mHandle, frame_info, dst, p_len);
-
+        if (mHandle) {
+            jpegenc_destroy(mHandle);
+            mHandle = 0;
+        }
         if (!res)
             ALOGE("jpeg encode fail");
 

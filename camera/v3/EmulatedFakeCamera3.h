@@ -266,6 +266,7 @@ private:
     bool mFlushTag;
     int cameraid;
     bool dptz_enable;
+    int dataspace;
     /** Processing thread for sending out results */
 
     class ReadoutThread : public Thread, private JpegCompressor::JpegListener {

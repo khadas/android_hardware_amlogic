@@ -95,6 +95,7 @@
 #include <utils/Errors.h>
 
 #include "SensorTypes.h"
+#include "CameraUtil.h"
 
 namespace android {
 
@@ -176,9 +177,12 @@ class Sensor: public Thread, public virtual RefBase {
     void setTestPatternMode(int32_t testPatternMode);
     void  setFlushFlag(bool flushFlag);
     void setDeviceName(char* name);
+    inline void setDataSpace(int _dataspace) { dataspace = _dataspace; }
+    inline int getDataSpace() { return dataspace; }
     virtual status_t force_reset_sensor();
     bool get_sensor_status();
     virtual bool isNeedDump();
+    void dumpInputTofile(uint8_t* in_src, uint32_t in_size);
     virtual status_t checkAndRestartStream(
             uint32_t width, uint32_t height,
             uint32_t pixelfmt, channel ch) { return -1; }
@@ -309,6 +313,7 @@ class Sensor: public Thread, public virtual RefBase {
     uint32_t mFramecount;
     float mCurFps;
     bool mLowLatencyMode;
+    int dataspace;
 
     struct DecoderTask {
         mutable std::mutex lock;
@@ -397,6 +402,8 @@ class Sensor: public Thread, public virtual RefBase {
     bool mUnpluged;
     bool mFacingBack;
     int32_t mTestPatternMode;
+    CameraUtil* mCameraUtil;
+    FILE* mInputDumpFile;
     virtual int captureNewImage();
     void captureRaw(uint8_t *img, uint32_t gain, uint32_t stride);
     virtual void captureRGBA(uint8_t *img, uint32_t gain, uint32_t stride);

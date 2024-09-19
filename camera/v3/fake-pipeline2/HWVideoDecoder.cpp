@@ -89,6 +89,88 @@ typedef enum {
     VFORMAT_MAX
 } vformat_t;
 
+struct camSize {
+    uint32_t width;
+    uint32_t height;
+};
+
+static const char* vformat_to_mime(uint32_t vformat) {
+    switch (vformat) {
+        case 3:
+            return "video/mjpeg";
+        case 2:
+            return "video/avc";
+        case 11:
+            return "video/hevc";
+        case 14:
+            return "video/x-vnd.on2.vp9";
+        case 0:
+            return "video/mpeg2";
+        case 1:
+            return "video/mp4v-es";
+        case 6:
+            return "video/vc1";
+        case 7:
+            return "video/avs";
+        case 15:
+            return "video/avs2";
+        default:
+            return "";
+    }
+}
+
+
+static uint64_t getTimeUs(void) {
+    struct timeval time;
+    gettimeofday(&time, NULL);
+    return time.tv_sec * 1e6 + time.tv_usec;
+}
+
+#if defined(PREVIEW_DEWARP_ENABLE) || defined(PICTURE_DEWARP_ENABLE)
+static bool isNeedDestroyDewarp (dewarpInfo &info_exist, dewarpInfo &info) {
+    if (info_exist.o_width && info_exist.o_height && info_exist.i_width && info_exist.i_height
+            && info.i_width && info.i_height && info.o_width && info.o_height) {
+        if ((info_exist.o_width != info.o_width) || (info_exist.o_height != info.o_height)
+                || (info_exist.i_width != info.i_width) || (info_exist.i_height != info.i_height)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+static bool beyondScaleMargin(camSize dstSize, camSize formatSize,
+    const camSize transitionalSize)
+{
+    if ((dstSize.width < transitionalSize.width)
+        && (dstSize.height < transitionalSize.height)
+            && (formatSize.width >= 3840)
+                && (formatSize.height >= 2160)) {
+        return true;
+    }
+    return false;
+}
+#endif
+
+
+enum BUFFER_STATE{
+    FREE,
+    IN_USE,
+};
+
+#define INPUT_QUEUE_BUFFER_NUM   8
+
+#define INPUT_BUFFER_SIZE        (1024*1024)
+
+typedef struct buffer_item {
+    uint8_t    *buffer;
+    uint32_t    state;
+    uint32_t    size;
+    uint32_t    serial;
+    uint32_t    used;
+    int         fd;
+} buffer_item_t;
+
+
 class HWVideoDecoderImpl final {
     // construction & destruction
 public:
@@ -98,7 +180,7 @@ public:
     // interface functions inherited from HWVideoDecoder
 public:
 
-    virtual bool initialize(uint32_t dec_type, uint32_t bitstream_width, uint32_t bitstream_height, uint32_t framerate, HWVideoDecoder::DecoderMode workMode);
+    virtual bool initialize(uint32_t dec_type, uint32_t bitstream_width, uint32_t bitstream_height, uint32_t framerate, HWVideoDecoder::DecoderMode workMode, int _dataspace);
     virtual void deinitialize();
 
     virtual HWVideoDecoder::DecoderStatus getDecoderStatus();
@@ -141,6 +223,12 @@ private:
     int reconfigOutputBuffersLocked(uint32_t requestedMinNumOfBuffers_t,
                 int32_t width_t, uint32_t height_t);
 
+#if defined(PREVIEW_DEWARP_ENABLE) || defined(PICTURE_DEWARP_ENABLE)
+    int dewarp_convert_scale(camSize srcSize, int src_fd,
+        camSize dstSize, int dst_fd, int dst_stride,
+            camSize formatSize, dewarpcam2port port);
+#endif
+
     // per object members
 private:
     HWVideoDecoder * const mInterfaceObj;
@@ -151,6 +239,8 @@ private:
 
     HWVideoDecoder::DecoderStatus                   mStatus;
     HWVideoDecoder::DecoderMode     mWorkMode;
+    std::mutex mediaHalLibHandleLock;
+    void * mediaHalLibHandle_g;
 
     AmVideoDecCallback* mAmVideoDecCallback = nullptr;
     AmVideoDecBase*     mAmVideoDec;
@@ -160,9 +250,11 @@ private:
 
     init_param_t mVideoDecConfig;
     CameraUtil* mDump = NULL;
-    int dumpIndex[4] = {0};
     bool mEnableDewarp;
 #if defined(PREVIEW_DEWARP_ENABLE) || defined(PICTURE_DEWARP_ENABLE)
+    dewarpcam2port mCapturePort;
+    dewarpcam2port mPreviewPort;
+    dewarpcam2port mRecordPort;
     dewarpInfo mPreDewarpInfo[ISP_PORT_NUM];
 #endif
 
@@ -180,11 +272,13 @@ private:
 
     uint32_t mOutputBufferNum;
     std::vector<struct mapInfo> mOutputBufs;
+    mapInfo mTransitionalBuf;
 
     uint32_t mDqWidth;
     uint32_t mDqHeight;
     uint32_t mFormatWidth;
     uint32_t mFormatHeight;
+    const camSize mTransitionalSize = {1920, 1080};
 
     uint32_t mQueuedInputBufCountBeforeOutBufDone;
     uint32_t mInputDoneCount;
@@ -208,10 +302,28 @@ private:
     vicpTransform* mVICP;
 #endif
     IONInterface* mION;
+    int dataspace;
     int mWaitOutBufDurationMs;
 
     FILE* mInputDumpFile;
 
+#ifndef USE_ION_INPUT_BUFFER
+    // for malloc input buffer
+    uint8_t * input_buffer_start = 0;
+#endif
+    // buffer_item_t obj array.
+    buffer_item_t input_buffers[INPUT_QUEUE_BUFFER_NUM];
+    // hold pointers which point to obj in input_buffers.
+    std::list<buffer_item_t *> free_input_buffer_list;
+
+    bool loadMediaHalLibrary(void);
+    void releaseMediaHalLibrary(void);
+    void* getMediaHalLibrary(void);
+    AmVideoDecBase* getAmVideoDec(AmVideoDecCallback * callback);
+    int init_input_buffer_queue();
+    int deinit_input_buffer_queue();
+    int try_request_input_buffer(buffer_item_t** item);
+    int release_input_buffer(buffer_item_t* item);
 };
 
 
@@ -244,129 +356,6 @@ private:
 
 
 // ========= begin  internal  helper functions ================================================
-
-std::mutex mediaHalLibHandleLock;
-static void * mediaHalLibHandle_g = nullptr;
-
-static bool loadMediaHalLibrary(void)
-{
-    std::lock_guard<std::mutex> lock(mediaHalLibHandleLock);
-
-    if (NULL == mediaHalLibHandle_g) {
-        mediaHalLibHandle_g = dlopen("libmediahal_videodec.so", RTLD_NOW);
-        if (NULL == mediaHalLibHandle_g) {
-            CAMHAL_LOGE("unable to dlopen libmediahal_videodec.so: %s", dlerror());
-            return false;
-        }
-    }
-    return true;
-}
-
-
-static void releaseMediaHalLibrary(void)
-{
-    std::lock_guard<std::mutex> lock(mediaHalLibHandleLock);
-
-    if (mediaHalLibHandle_g) {
-        dlclose(mediaHalLibHandle_g);
-        mediaHalLibHandle_g = NULL;
-    } else {
-        CAMHAL_LOGE("mediaHalLibHandle_g is already closed" );
-    }
-}
-
-void * getMediaHalLibrary(void)
-{
-    std::lock_guard<std::mutex> lock(mediaHalLibHandleLock);
-
-    if (nullptr == mediaHalLibHandle_g) {
-        CAMHAL_LOGE("mediaHalLibHandle_g is invalid. please loadMediaHalLibrary first" );
-    }
-    return mediaHalLibHandle_g;
-}
-
-static AmVideoDecBase*  getAmVideoDec(AmVideoDecCallback * callback)
-{
-    uint32_t versionM = 1;
-    uint32_t versionL = 0;
-
-    if (!loadMediaHalLibrary()) {
-        return nullptr;
-    }
-
-    CAMHAL_LOGI("open libmediahal_videodec.so ok\n");
-
-    typedef uint32_t (*getVersionFunc)(uint32_t* versionM, uint32_t* versionL);
-    typedef AmVideoDecBase *(*createAmVideoDecFunc)(AmVideoDecCallback* callback);
-
-    getVersionFunc getVersion = (getVersionFunc)dlsym(getMediaHalLibrary(), "AmVideoDec_getVersion");
-    if (NULL == getVersion) {
-        releaseMediaHalLibrary();
-        CAMHAL_LOGE("can not find function AmVideoDec_getVersion in library\n");
-        return nullptr;
-    }
-
-    getVersion(&versionM, &versionL);
-
-    createAmVideoDecFunc AmVideoDec_create = nullptr;
-
-    if ((versionM == 1) && (versionL == 0)) {
-        CAMHAL_LOGI("version 1.0 use create AmMediaHal\n");
-        AmVideoDec_create =
-            (createAmVideoDecFunc)dlsym(getMediaHalLibrary(), "createAmMediaHal");
-    } else if ((versionM == 1) && (versionL == 1)){
-        CAMHAL_LOGI( "version 1.1 use create AmVideoDec_create\n");
-        AmVideoDec_create =
-            (createAmVideoDecFunc)dlsym(getMediaHalLibrary(), "AmVideoDec_create");
-    } else {
-        CAMHAL_LOGE("Mediahal version do not right\n");
-        releaseMediaHalLibrary();
-        return nullptr;
-    }
-
-    if (NULL == AmVideoDec_create) {
-        releaseMediaHalLibrary();
-        CAMHAL_LOGE("can not find function AmVideoDec_create in library\n");
-        return nullptr;
-    }
-
-    AmVideoDecBase* halHanle = AmVideoDec_create(callback);
-    CAMHAL_LOGI("AmVideoDec_create ok\n");
-    return halHanle;
-}
-
-
-static const char* vformat_to_mime(uint32_t vformat) {
-    switch (vformat) {
-        case 3:
-            return "video/mjpeg";
-        case 2:
-            return "video/avc";
-        case 11:
-            return "video/hevc";
-        case 14:
-            return "video/x-vnd.on2.vp9";
-        case 0:
-            return "video/mpeg2";
-        case 1:
-            return "video/mp4v-es";
-        case 6:
-            return "video/vc1";
-        case 7:
-            return "video/avs";
-        case 15:
-            return "video/avs2";
-        default:
-            return "";
-    }
-}
-
-
-static uint64_t getTimeUs(void) {
-    struct timeval time;
-    gettimeofday(&time, NULL);
-    return time.tv_sec * 1e6 + time.tv_usec;
-}
 
 
 // --------- begin   videoDecCallbackImpl ---------------
@@ -435,8 +424,6 @@ void videoDecCallbackImpl::onEvent(uint32_t event, void* param, uint32_t paramSi
 // --------- end   videoDecCallbackImpl ---------------
 
 
-
-
 // --------- begin   HWVideoDecoderImpl ---------------
 
 
@@ -492,52 +479,222 @@ void videoDecCallbackImpl::onEvent(uint32_t event, void* param, uint32_t paramSi
 // queueInputBufferNoBlock will select I frame, and only copy I frames, and queue I frames to mediahalsdk
 //
 
-
-enum BUFFER_STATE{
-    FREE,
-    IN_USE,
-};
-
-// default value.
-
-
-// INPUT_QUEUE_BUFFER_NUM
-// the max number of hold input buffers for mediahalsdk video-decoder.
-
-// this value is set to mediahalsdk via mAmVideoDec->setQueueCount
-
-// mAmVideoDec->queueInputBuffer will be blocked,
-//   which is a bad unexpected behavior for async decode mode used for h264 bitstream,
-//       when caller try to queue more buffer on INPUT_QUEUE_BUFFER_NUM buffers has been hold by mediahalsdk.
-
-#define INPUT_QUEUE_BUFFER_NUM   8
-
-// max input data size. should be the max value of v4l2 buffer's bytesused;
-// for 1920x1080 mjpeg stream or h264 stream.
-#define INPUT_BUFFER_SIZE        (1024*1024)
-
-#ifndef USE_ION_INPUT_BUFFER
-// for malloc input buffer
-static uint8_t * input_buffer_start = 0;
-#endif
-
-typedef struct buffer_item {
-    uint8_t    *buffer;
-    uint32_t    state;
-    uint32_t    size;
-    uint32_t    serial;
-    uint32_t    used;
-    int         fd;
-} buffer_item_t;
-
-// buffer_item_t obj array.
-static buffer_item_t input_buffers[INPUT_QUEUE_BUFFER_NUM];
-
-// hold pointers which point to obj in input_buffers.
-static std::list<buffer_item_t *> free_input_buffer_list;
-
 // alloc data space and fill list with pointers.
-static int init_input_buffer_queue()
+
+//  ============ end input buffer queue ======================================
+
+// ======== beg pre-alloc output buffer queue =========================
+
+// brief introduction FOR pre-alloc output buffer queue:
+
+// normal sequence:
+//1. queue first frame bitstream to mediahalsdk, mediahalsdk need first frame's bitstream to determin
+//          output frame width & height & count.
+//2. provide these info to HWVideoDecoder via callback onOutputFormatChanged
+//3. HWVideoDecoder alloc output buffers with these info, and queue output buffers to mediahalsdk
+//4. mediahalsdk decode to output buffers and callback onOutputBufferDone
+
+// problem: the interval from step 1 ~ step 4 for first frame is too big.
+//
+
+// solution: pre-alloc output buffers using ion before queue first frame bitstream to mediahalsdk;
+//          [can not use mediahalsdk to alloc output buffers]
+//          queue these output buffers to mediahalsdk in onOutputFormatChanged;
+
+// related variables:
+// uint32_t mOutputBufferNum;
+// std::vector<struct mapInfo> mOutputBufs;
+
+// ====== end pre-alloc output buffer queue ===========================
+
+// ======== begin ready output buffer queue ============================
+
+
+//std::condition_variable mOutBufReadyCondition;
+//std::queue<uint32_t> mReadyOutBufQueue;
+
+//  save output buffer idx to mReadyOutBufQueue in onOutputBufferDone
+
+// =========== end ready output buffer queue=====================
+HWVideoDecoderImpl::HWVideoDecoderImpl(HWVideoDecoder * interfaceObj)
+    : mInterfaceObj (interfaceObj), mStatus(HWVideoDecoder::NOT_CONSTRUCTED)
+{
+    mDefaultInputQueueCount = INPUT_QUEUE_BUFFER_NUM;
+    mDefaultOutputQueueCount = 12;
+
+    init_param_t defConfig = {
+    /* video */
+    .vpid = 256, .nVideoWidth = 1920, .nVideoHeight = 1080, .nFrameRate = 30, .vFmt = VFORMAT_MJPEG, .drmMode = 0,
+    /* audio */
+    .apid = 0,   .nChannels = 2,      .nSampleRate = 44100, .aFmt = 2,
+    /*pcrid */
+    .pcrid = 0,
+    /* display */
+    .dispMode = 1, .nSidebandType = 0, .nSidebandId = 0, .nAvsyncMode = 0,
+    .subtitleFlg = 2, .mDemuxType = 0, .dmx_dev_id = 0, .dmx_player_id = 0, .stbuf_start = 0, .stbuf_size = 0, .nDecType = 0, .nVideoRecoveryValue = 1
+    };
+    mVideoDecConfig = defConfig;
+#if defined(PREVIEW_DEWARP_ENABLE) || defined(PICTURE_DEWARP_ENABLE)
+    mEnableDewarp = true;
+#else
+    mEnableDewarp = false;
+#endif
+    mFlushed = false;
+    mCheckMjpegWH = false;
+    mWaitOutBufDurationMs = 20;
+
+    mInputDumpFile = nullptr;
+    mStatus = HWVideoDecoder::CONSTRUCTED;
+
+    if (property_get_bool("vendor.camhal.usbsensor.use.dewarp", false)) {
+        mEnableDewarp = true;
+    }
+    if (property_get_bool("vendor.camhal.dump.usb.decoder", false)) {
+        if (nullptr == mDump) {
+            mDump = new CameraUtil();
+        }
+    }
+    mWorkMode = HWVideoDecoder::SYNC_DECODE_MODE;
+    mAmVideoDec = nullptr;
+    mBitStreamId = 0;
+    mOutputBufferNum = 0;
+    mDqWidth = 0;
+    mDqHeight = 0;
+    mFormatWidth = 0;
+    mFormatHeight = 0;
+    mQueuedInputBufCountBeforeOutBufDone = 0;
+    mInputDoneCount = 0;
+    mOutputDoneCount = 0;
+    mDropOutBuf = false;
+    mGE2D = nullptr;
+    mION = nullptr;
+}
+
+
+HWVideoDecoderImpl::~HWVideoDecoderImpl()
+{
+
+    if (mAmVideoDecCallback) {
+        delete mAmVideoDecCallback;
+        mAmVideoDecCallback = nullptr;
+    }
+    if (mAmVideoDec) {
+        delete mAmVideoDec;
+        mAmVideoDec = nullptr;
+    }
+#ifdef GE2D_ENABLE
+    if (mGE2D) {
+        delete mGE2D;
+        mGE2D = nullptr;
+    }
+#ifdef VICP_ENABLE
+    if (mVICP) {
+        delete mVICP;
+        mVICP = nullptr;
+    }
+#endif
+#endif
+    if (mION) {
+        mION->put_instance();
+    }
+    if (property_get_bool("vendor.camhal.dump.usb.decoder", false)) {
+        if (mDump) {
+            delete mDump;
+            mDump = NULL;
+        }
+    }
+}
+
+
+
+bool HWVideoDecoderImpl::loadMediaHalLibrary(void)
+{
+    std::lock_guard<std::mutex> lock(mediaHalLibHandleLock);
+
+    if (NULL == mediaHalLibHandle_g) {
+        mediaHalLibHandle_g = dlopen("libmediahal_videodec.so", RTLD_NOW);
+        if (NULL == mediaHalLibHandle_g) {
+            CAMHAL_LOGE("unable to dlopen libmediahal_videodec.so: %s", dlerror());
+            return false;
+        }
+    }
+    return true;
+}
+
+
+void HWVideoDecoderImpl::releaseMediaHalLibrary(void)
+{
+    std::lock_guard<std::mutex> lock(mediaHalLibHandleLock);
+
+    if (mediaHalLibHandle_g) {
+        dlclose(mediaHalLibHandle_g);
+        mediaHalLibHandle_g = NULL;
+    } else {
+        CAMHAL_LOGE("mediaHalLibHandle_g is already closed" );
+    }
+}
+
+void * HWVideoDecoderImpl::getMediaHalLibrary(void)
+{
+    std::lock_guard<std::mutex> lock(mediaHalLibHandleLock);
+
+    if (nullptr == mediaHalLibHandle_g) {
+        CAMHAL_LOGE("mediaHalLibHandle_g is invalid. please loadMediaHalLibrary first" );
+    }
+    return mediaHalLibHandle_g;
+}
+
+AmVideoDecBase*  HWVideoDecoderImpl::getAmVideoDec(AmVideoDecCallback * callback)
+{
+    uint32_t versionM = 1;
+    uint32_t versionL = 0;
+
+    if (!loadMediaHalLibrary()) {
+        return nullptr;
+    }
+
+    CAMHAL_LOGI("open libmediahal_videodec.so ok\n");
+
+    typedef uint32_t (*getVersionFunc)(uint32_t* versionM, uint32_t* versionL);
+    typedef AmVideoDecBase *(*createAmVideoDecFunc)(AmVideoDecCallback* callback);
+
+    getVersionFunc getVersion = (getVersionFunc)dlsym(getMediaHalLibrary(), "AmVideoDec_getVersion");
+    if (NULL == getVersion) {
+        releaseMediaHalLibrary();
+        CAMHAL_LOGE("can not find function AmVideoDec_getVersion in library\n");
+        return nullptr;
+    }
+
+    getVersion(&versionM, &versionL);
+
+    createAmVideoDecFunc AmVideoDec_create = nullptr;
+
+    if ((versionM == 1) && (versionL == 0)) {
+        CAMHAL_LOGI("version 1.0 use create AmMediaHal\n");
+        AmVideoDec_create =
+            (createAmVideoDecFunc)dlsym(getMediaHalLibrary(), "createAmMediaHal");
+    } else if ((versionM == 1) && (versionL == 1)){
+        CAMHAL_LOGI( "version 1.1 use create AmVideoDec_create\n");
+        AmVideoDec_create =
+            (createAmVideoDecFunc)dlsym(getMediaHalLibrary(), "AmVideoDec_create");
+    } else {
+        CAMHAL_LOGE("Mediahal version do not right\n");
+        releaseMediaHalLibrary();
+        return nullptr;
+    }
+
+    if (NULL == AmVideoDec_create) {
+        releaseMediaHalLibrary();
+        CAMHAL_LOGE("can not find function AmVideoDec_create in library\n");
+        return nullptr;
+    }
+
+    AmVideoDecBase* halHanle = AmVideoDec_create(callback);
+    CAMHAL_LOGI("AmVideoDec_create ok\n");
+    return halHanle;
+}
+
+int HWVideoDecoderImpl::init_input_buffer_queue()
 {
     int ret = 0;
     int i = 0;
@@ -607,7 +764,7 @@ static int init_input_buffer_queue()
 }
 
 // free list. free data space.
-static int deinit_input_buffer_queue()
+int HWVideoDecoderImpl::deinit_input_buffer_queue()
 {
     if (!free_input_buffer_list.empty()) {
         free_input_buffer_list.clear();
@@ -633,7 +790,7 @@ static int deinit_input_buffer_queue()
 
 // return 0 on success,
 // return -1 on fail.
-static int try_request_input_buffer(buffer_item_t** item)
+int HWVideoDecoderImpl::try_request_input_buffer(buffer_item_t** item)
 {
 
     if (free_input_buffer_list.empty()) {
@@ -651,7 +808,7 @@ static int try_request_input_buffer(buffer_item_t** item)
 
 // return 0 on success.
 // return -1 on fail.
-static int release_input_buffer(buffer_item_t* item) {
+int HWVideoDecoderImpl::release_input_buffer(buffer_item_t* item) {
     if (item->state != IN_USE) {
         CAMHAL_LOGE("line %d, item %p , bad state, not in-use", __LINE__, item);
     }
@@ -672,141 +829,8 @@ static int release_input_buffer(buffer_item_t* item) {
     return 0;
 }
 
-//  ============ end input buffer queue ======================================
 
-// ======== beg pre-alloc output buffer queue =========================
-
-// brief introduction FOR pre-alloc output buffer queue:
-
-// normal sequence:
-//1. queue first frame bitstream to mediahalsdk, mediahalsdk need first frame's bitstream to determin
-//          output frame width & height & count.
-//2. provide these info to HWVideoDecoder via callback onOutputFormatChanged
-//3. HWVideoDecoder alloc output buffers with these info, and queue output buffers to mediahalsdk
-//4. mediahalsdk decode to output buffers and callback onOutputBufferDone
-
-// problem: the interval from step 1 ~ step 4 for first frame is too big.
-//
-
-// solution: pre-alloc output buffers using ion before queue first frame bitstream to mediahalsdk;
-//          [can not use mediahalsdk to alloc output buffers]
-//          queue these output buffers to mediahalsdk in onOutputFormatChanged;
-
-// related variables:
-// uint32_t mOutputBufferNum;
-// std::vector<struct mapInfo> mOutputBufs;
-
-// ====== end pre-alloc output buffer queue ===========================
-
-// ======== begin ready output buffer queue ============================
-
-
-//std::condition_variable mOutBufReadyCondition;
-//std::queue<uint32_t> mReadyOutBufQueue;
-
-//  save output buffer idx to mReadyOutBufQueue in onOutputBufferDone
-
-// =========== end ready output buffer queue=====================
-
-#if defined(PREVIEW_DEWARP_ENABLE) || defined(PICTURE_DEWARP_ENABLE)
-static bool isNeedDestroyDewarp (dewarpInfo &info_exist, dewarpInfo &info) {
-    if (info_exist.o_width && info_exist.o_height && info_exist.i_width && info_exist.i_height
-            && info.i_width && info.i_height && info.o_width && info.o_height) {
-        if ((info_exist.o_width != info.o_width) || (info_exist.o_height != info.o_height)
-                || (info_exist.i_width != info.i_width) || (info_exist.i_height != info.i_height)) {
-            return true;
-        }
-    }
-    return false;
-}
-#endif
-HWVideoDecoderImpl::HWVideoDecoderImpl(HWVideoDecoder * interfaceObj)
-    : mInterfaceObj (interfaceObj), mStatus(HWVideoDecoder::NOT_CONSTRUCTED)
-{
-    mDefaultInputQueueCount = INPUT_QUEUE_BUFFER_NUM;
-    mDefaultOutputQueueCount = 12;
-
-    init_param_t defConfig = {
-    /* video */
-    .vpid = 256, .nVideoWidth = 1920, .nVideoHeight = 1080, .nFrameRate = 30, .vFmt = VFORMAT_MJPEG, .drmMode = 0,
-    /* audio */
-    .apid = 0,   .nChannels = 2,      .nSampleRate = 44100, .aFmt = 2,
-    /*pcrid */
-    .pcrid = 0,
-    /* display */
-    .dispMode = 1, .nSidebandType = 0, .nSidebandId = 0, .nAvsyncMode = 0,
-    .subtitleFlg = 2, .mDemuxType = 0, .dmx_dev_id = 0, .dmx_player_id = 0, .stbuf_start = 0, .stbuf_size = 0, .nDecType = 0, .nVideoRecoveryValue = 1
-    };
-    mVideoDecConfig = defConfig;
-
-    mEnableDewarp = false;
-    mFlushed = false;
-    mCheckMjpegWH = false;
-    mWaitOutBufDurationMs = 20;
-
-    mInputDumpFile = nullptr;
-    mStatus = HWVideoDecoder::CONSTRUCTED;
-    if (property_get_bool("vendor.camhal.usbsensor.use.dewarp", false)) {
-        mEnableDewarp = true;
-    }
-    if (property_get_bool("vendor.camhal.dump.usb.decoder", false)) {
-        if (nullptr == mDump) {
-            mDump = new CameraUtil();
-        }
-    }
-    mWorkMode = HWVideoDecoder::SYNC_DECODE_MODE;
-    mAmVideoDec = nullptr;
-    mBitStreamId = 0;
-    mOutputBufferNum = 0;
-    mDqWidth = 0;
-    mDqHeight = 0;
-    mFormatWidth = 0;
-    mFormatHeight = 0;
-    mQueuedInputBufCountBeforeOutBufDone = 0;
-    mInputDoneCount = 0;
-    mOutputDoneCount = 0;
-    mDropOutBuf = false;
-    mGE2D = nullptr;
-    mION = nullptr;
-}
-
-
-HWVideoDecoderImpl::~HWVideoDecoderImpl()
-{
-
-    if (mAmVideoDecCallback) {
-        delete mAmVideoDecCallback;
-        mAmVideoDecCallback = nullptr;
-    }
-    if (mAmVideoDec) {
-        delete mAmVideoDec;
-        mAmVideoDec = nullptr;
-    }
-#ifdef GE2D_ENABLE
-    if (mGE2D) {
-        delete mGE2D;
-        mGE2D = nullptr;
-    }
-#ifdef VICP_ENABLE
-    if (mVICP) {
-        delete mVICP;
-        mVICP = nullptr;
-    }
-#endif
-#endif
-    if (mION) {
-        mION->put_instance();
-    }
-    if (property_get_bool("vendor.camhal.dump.usb.decoder", false)) {
-        if (mDump) {
-            delete mDump;
-            mDump = NULL;
-        }
-    }
-}
-
-
-bool HWVideoDecoderImpl::initialize(uint32_t streamType, uint32_t bitstream_width, uint32_t bitstream_height, uint32_t framerate, HWVideoDecoder::DecoderMode workMode)
+bool HWVideoDecoderImpl::initialize(uint32_t streamType, uint32_t bitstream_width, uint32_t bitstream_height, uint32_t framerate, HWVideoDecoder::DecoderMode workMode, int _dataspace)
 {
     uint32_t vFmt = VFORMAT_MJPEG;
     int ret = -1;
@@ -820,7 +844,17 @@ bool HWVideoDecoderImpl::initialize(uint32_t streamType, uint32_t bitstream_widt
 #endif
 #endif
     mION = IONInterface::get_instance();
-
+#if defined(PREVIEW_DEWARP_ENABLE) || defined(PICTURE_DEWARP_ENABLE)
+    if (mInterfaceObj->mCameraId == 1) {
+        mCapturePort = DEWARP_CAM2PORT_USB_CAPTURE_1;
+        mPreviewPort = DEWARP_CAM2PORT_USB_PREVIEW_1;
+        mRecordPort = DEWARP_CAM2PORT_USB_RECORD_1;
+    } else {
+        mCapturePort = DEWARP_CAM2PORT_USB_CAPTURE;
+        mPreviewPort = DEWARP_CAM2PORT_USB_PREVIEW;
+        mRecordPort = DEWARP_CAM2PORT_USB_RECORD;
+    }
+#endif
     mBitStreamId = 0;
     mWorkMode = workMode;
     if (property_get_bool("vendor.media.camera.dec.checkmjpegwh", true))
@@ -841,6 +875,7 @@ bool HWVideoDecoderImpl::initialize(uint32_t streamType, uint32_t bitstream_widt
     mDqHeight = 0;
     mFormatWidth = 0;
     mFormatHeight = 0;
+    dataspace = _dataspace;
 
     switch (streamType) {
         case HWVideoDecoder::H264_STREAM:
@@ -929,7 +964,6 @@ bool HWVideoDecoderImpl::initialize(uint32_t streamType, uint32_t bitstream_widt
         // pre-allocate output buffer.
         std::lock_guard<std::mutex> lock(mOutputLock);
         preAllocOutputBufferLocked(mDefaultOutputQueueCount, bitstream_width, bitstream_height);
-
         CAMHAL_LOGI("alloc outputbuf  success ");
     }
 
@@ -988,6 +1022,11 @@ void HWVideoDecoderImpl::deinitialize()
         mOutputBufferNum = 0;
     }
 
+    if (mTransitionalBuf.fd > 0) {
+        CAMHAL_LOGI("free transitional buffer \n");
+        mION->free_buffer(mTransitionalBuf.fd);
+    }
+
     CAMHAL_LOGI("before destroy " );
 
     mAmVideoDec->destroy();
@@ -1009,6 +1048,12 @@ void HWVideoDecoderImpl::deinitialize()
     if (nullptr != mInputDumpFile) {
         fclose(mInputDumpFile);
     }
+
+#if defined(PREVIEW_DEWARP_ENABLE) || defined(PICTURE_DEWARP_ENABLE)
+        auto dewarpPortRange = std::make_pair(mPreviewPort, mCapturePort);
+        DeWarp::putInstance(dewarpPortRange);
+        CameraConfig::deleteInstance(dewarpPortRange);
+#endif
 
     mStatus = HWVideoDecoder::CONSTRUCTED;
     mCheckMjpegWH = false;
@@ -1120,7 +1165,7 @@ int HWVideoDecoderImpl::asyncDecodeQueueInput(int in_fd, uint8_t* in_src, uint32
 int HWVideoDecoderImpl::queueInputBufferInternal(int fd, uint8_t * data, int size)
 {
 
-    if (mInputBuffer.size() >= INPUT_QUEUE_BUFFER_NUM) {
+    if (mInputBuffer.size() >= INPUT_QUEUE_BUFFER_NUM && mReadyOutBufQueue.empty()) {
         mStatus = HWVideoDecoder::DECODE_FAIL_AND_INPUT_FULL;
     }
 
@@ -1205,8 +1250,6 @@ int HWVideoDecoderImpl::queueInputBufferNoBlock(int in_fd, uint8_t* in_src, uint
 
     CAMHAL_LOGVV("%s E, fd %d, src %p, src_len %d", __FUNCTION__, in_fd, in_src, in_size);
 
-
-
     if (in_size >= INPUT_BUFFER_SIZE) {
         CAMHAL_LOGE("%s leave, src_len %d, too big. should be less than %d", __FUNCTION__, in_size, INPUT_BUFFER_SIZE);
         return -1;
@@ -1232,6 +1275,10 @@ int HWVideoDecoderImpl::queueInputBufferNoBlock(int in_fd, uint8_t* in_src, uint
         mCheckMjpegWH = false;
     }
 
+    if (property_get_bool("vendor.camhal.dump.usb.device", false)) {
+        dumpInputTofile(in_src, in_size);
+    }
+
     buffer_item_t *buf_item;
 
     // case 1: no more free input buffers. should not happen
@@ -1251,8 +1298,9 @@ int HWVideoDecoderImpl::queueInputBufferNoBlock(int in_fd, uint8_t* in_src, uint
 
         err = queueInputBufferInternal(buf_item->fd, buf_item->buffer, in_size);
 
-        CAMHAL_LOGD("%s %d leave, err %d  bitstreamId %" PRId64 ", obj %p, buffer %p, buffer_size %d", __FUNCTION__, __LINE__,
-                           err, mBitStreamId, buf_item, buf_item->buffer, in_size);
+        CAMHAL_LOGV("%s %d leave, err %d  bitstreamId %" PRId64 ", obj %p, buffer %p,"
+            "buffer_size %d", __FUNCTION__, __LINE__,
+                err, mBitStreamId, buf_item, buf_item->buffer, in_size);
 
         mBitStreamId++;
 
@@ -1278,6 +1326,56 @@ bool HWVideoDecoderImpl::checkAndwaitForOutBuf(uint32_t ms) {
     return true;
 }
 
+#if defined(PREVIEW_DEWARP_ENABLE) || defined(PICTURE_DEWARP_ENABLE)
+int HWVideoDecoderImpl::dewarp_convert_scale(camSize srcSize, int src_fd, camSize dstSize,
+    int dst_fd, int dst_stride, camSize formatSize, dewarpcam2port port)
+{
+    dewarpInfo dewarpInfo;
+    DeWarp* GDCObj = nullptr;
+    CropInfo inputInfo;
+    //  fill dewarp info for check dewarp config
+    {
+        dewarpInfo.i_width = formatSize.width;
+        dewarpInfo.i_height = formatSize.height;
+        dewarpInfo.o_width = dstSize.width;
+        dewarpInfo.o_height = dstSize.height;
+    }
+    //  fill crop info for crop
+    {
+        inputInfo.srcWidth = srcSize.width;
+        inputInfo.srcHeight = srcSize.height;
+        inputInfo.width = formatSize.width;
+        inputInfo.height = formatSize.height;
+    }
+
+    bool needDestroy = isNeedDestroyDewarp(mPreDewarpInfo[port], dewarpInfo);
+    if (needDestroy) {
+        DeWarp::putInstance(port);
+    }
+    CAMHAL_LOGVV("dewarp port %d, isNeedDestroyDewarp %d", port, needDestroy);
+    CameraConfig* config = CameraConfig::getInstance(port);
+    config->setCropInfo(inputInfo);
+    config->setInputWidth(srcSize.width);
+    config->setInputHeight(srcSize.height);
+    config->setOutputWidth(dstSize.width);
+    config->setOutputHeight(dstSize.height);
+    config->setOutputStride(dst_stride);
+    GDCObj = DeWarp::getInstance(port, PROJ_MODE_LINEAR, Rotation::ROTATION_0);
+    if (GDCObj) {
+        GDCObj->mInput_fd = src_fd;
+        GDCObj->mOutput_fd =dst_fd;
+        GDCObj->gdc_do_fisheye_correction();
+    } else {
+        return -1;
+    }
+    mPreDewarpInfo[port].o_width = dstSize.width;
+    mPreDewarpInfo[port].o_height = dstSize.height;
+    mPreDewarpInfo[port].i_width = formatSize.width;
+    mPreDewarpInfo[port].i_height = formatSize.height;
+
+    return 0;
+}
+#endif
 
 // sync decode method
 int HWVideoDecoderImpl::syncDecode(int in_fd, uint8_t*in_src, uint32_t in_size, Vector<StreamBuffer>& b, bool isJpegRequest)
@@ -1340,77 +1438,60 @@ int HWVideoDecoderImpl::syncDecode(int in_fd, uint8_t*in_src, uint32_t in_size, 
 #endif
                             } else {
 #if defined(PREVIEW_DEWARP_ENABLE) || defined(PICTURE_DEWARP_ENABLE)
-                                dewarpInfo dewarpInfo;
-                                DeWarp* GDCObj = nullptr;
-                                CropInfo inputInfo;
-                                //  fill dewarp info for check dewarp config
-                                {
-                                    dewarpInfo.i_width = mFormatWidth;
-                                    dewarpInfo.i_height = mFormatHeight;
-                                    dewarpInfo.o_width = b[i].width;
-                                    dewarpInfo.o_height = b[i].height;
-                                }
-                                //  fill crop info for crop
-                                {
-                                    inputInfo.srcWidth = mDqWidth;
-                                    inputInfo.srcHeight = mDqHeight;
-                                    inputInfo.width = mFormatWidth;
-                                    inputInfo.height = mFormatHeight;
-                                }
-                                dewarpcam2port port;
+                                camSize srcSize = {mDqWidth, mDqHeight};
+                                camSize dstSize = {b[i].width, b[i].height};
+                                camSize formatSize = {mFormatWidth, mFormatHeight};
+                                bool beyondMargin = beyondScaleMargin(dstSize, formatSize,
+                                    mTransitionalSize);
+                                dewarpcam2port port = mPreviewPort;
                                 switch (index) {
                                     case 0:
-                                        port = DEWARP_CAM2PORT_USB_PREVIEW;
+                                        port = mPreviewPort;
                                         break;
                                     case 1:
-                                        port = DEWARP_CAM2PORT_USB_RECORD;
+                                        port = mRecordPort;
                                         break;
                                     case 2:
-                                        port = DEWARP_CAM2PORT_USB_CAPTURE;
+                                        port = mCapturePort;
                                         break;
                                     default:
-                                        port = DEWARP_CAM2PORT_USB_PREVIEW;
+                                        port = mPreviewPort;
                                         break;
                                 }
-                                bool needDestroy = isNeedDestroyDewarp(mPreDewarpInfo[port], dewarpInfo);
-                                if (needDestroy) {
-                                    DeWarp::putInstance(port);
-                                }
-                                CAMHAL_LOGD("buffer index %d, dewarp port %d, isNeedDestroyDewarp %d", index, port, needDestroy);
-                                CameraConfig* config = CameraConfig::getInstance(port);
-                                config->setCropInfo(inputInfo);
-                                config->setInputWidth(mDqWidth);
-                                config->setInputHeight(mDqHeight);
-                                config->setOutputWidth(b[i].width);
-                                config->setOutputHeight(b[i].height);
-                                config->setOutputStride(b[i].stride);
-                                GDCObj = DeWarp::getInstance(port, PROJ_MODE_LINEAR, Rotation::ROTATION_0);
-                                if (GDCObj) {
-                                    GDCObj->mInput_fd = dec_out_fd;
-                                    GDCObj->mOutput_fd = b[i].share_fd;
-                                    GDCObj->gdc_do_fisheye_correction();
+                                if (beyondMargin && mTransitionalBuf.fd != -1) {
+                                    CAMHAL_LOGD("the size %dx%d is beyond dewarp scale margin",
+                                        b[i].width, b[i].height);
+                                    dewarp_convert_scale(srcSize, dec_out_fd,
+                                        mTransitionalSize, mTransitionalBuf.fd,
+                                            mTransitionalSize.width, formatSize,
+                                                DEWARP_CAM2PORT_USB_TRANSITION);
+                                    dewarp_convert_scale(mTransitionalSize, mTransitionalBuf.fd,
+                                        dstSize, b[i].share_fd, b[i].stride,
+                                            mTransitionalSize, port);
+                                } else {
+                                    dewarp_convert_scale(srcSize, dec_out_fd, dstSize,
+                                        b[i].share_fd, b[i].stride,
+                                            formatSize, port);
                                 }
                                 index++;
-                                mPreDewarpInfo[port].o_width = b[i].width;
-                                mPreDewarpInfo[port].o_height = b[i].height;
-                                mPreDewarpInfo[port].i_width = mFormatWidth;
-                                mPreDewarpInfo[port].i_height = mFormatHeight;
 #endif
-                            }
+                           }
                             ret = 0;
                             if (property_get_bool("vendor.camhal.dump.usb.decoder", false)) {
                                 char dumpOutPath[256];
                                 char dumpDecodePath[256];
+                                static int dumpIndex[4] = {0};
+                                if (dumpIndex[i] % 10 == 0) {
+                                    /*=== dump yuv data after dewarp or ge2d ===*/
+                                    memset(&dumpOutPath[0], 0, sizeof(dumpOutPath));
+                                    snprintf(dumpOutPath, 256, "/data/vendor/camera/dst_%zu_%dx%d.yuv", i, b[i].width, b[i].height);
+                                    mDump -> dump(b[i].img, (b[i].width * b[i].height * 3 / 2), dumpOutPath);
 
-                                /*=== dump yuv data after dewarp or ge2d ===*/
-                                memset(&dumpOutPath[0], 0, sizeof(dumpOutPath));
-                                snprintf(dumpOutPath, 256, "/data/vendor/camera/dst_%zu_%dx%d.yuv", i, b[i].width, b[i].height);
-                                mDump -> dump(dumpIndex[i], b[i].img, (b[i].width * b[i].height * 3 / 2), dumpOutPath);
-
-                                /*=== dump yuv data after decode ===*/
-                                memset(&dumpDecodePath[0], 0, sizeof(dumpDecodePath));
-                                snprintf(dumpDecodePath, 256, "/data/vendor/camera/decode/dst_%dx%d.yuv", mDqWidth, mDqHeight);
-                                mDump -> dump(dumpIndex[i], outputBufInfo.vaddr, (mDqWidth * mDqHeight * 3 / 2), dumpDecodePath);
+                                    /*=== dump yuv data after decode ===*/
+                                    memset(&dumpDecodePath[0], 0, sizeof(dumpDecodePath));
+                                    snprintf(dumpDecodePath, 256, "/data/vendor/camera/decode/dst_%zu_%dx%d.yuv", i, mDqWidth, mDqHeight);
+                                    mDump -> dump(outputBufInfo.vaddr, (mDqWidth * mDqHeight * 3 / 2), dumpDecodePath);
+                                }
                                 dumpIndex[i]++;
                             }
                        } else
@@ -1485,77 +1566,61 @@ int HWVideoDecoderImpl::asyncDecodeDequeueOutput( Vector<StreamBuffer>& b, bool 
 #endif
                            } else {
 #if defined(PREVIEW_DEWARP_ENABLE) || defined(PICTURE_DEWARP_ENABLE)
-                                dewarpInfo dewarpInfo;
-                                DeWarp* GDCObj = nullptr;
-                                CropInfo inputInfo;
-                                //  fill dewarp info for check dewarp config
-                                {
-                                    dewarpInfo.i_width = mFormatWidth;
-                                    dewarpInfo.i_height = mFormatHeight;
-                                    dewarpInfo.o_width = b[i].width;
-                                    dewarpInfo.o_height = b[i].height;
-                                }
-                                //  fill crop info for crop
-                                {
-                                    inputInfo.srcWidth = mDqWidth;
-                                    inputInfo.srcHeight = mDqHeight;
-                                    inputInfo.width = mFormatWidth;
-                                    inputInfo.height = mFormatHeight;
-                                }
-                                dewarpcam2port port;
+                                camSize srcSize = {mDqWidth, mDqHeight};
+                                camSize dstSize = {b[i].width, b[i].height};
+                                camSize formatSize = {mFormatWidth, mFormatHeight};
+                                bool beyondMargin = beyondScaleMargin(dstSize, formatSize,
+                                    mTransitionalSize);
+                                dewarpcam2port port = mCapturePort;
                                 switch (index) {
                                     case 0:
-                                        port = DEWARP_CAM2PORT_USB_PREVIEW;
+                                        port = mPreviewPort;
                                         break;
                                     case 1:
-                                        port = DEWARP_CAM2PORT_USB_RECORD;
+                                        port = mRecordPort;
                                         break;
                                     case 2:
-                                        port = DEWARP_CAM2PORT_USB_CAPTURE;
+                                        port = mCapturePort;
                                         break;
                                     default:
-                                        port = DEWARP_CAM2PORT_USB_PREVIEW;
+                                        port = mPreviewPort;
                                         break;
                                 }
-                                bool needDestroy = isNeedDestroyDewarp(mPreDewarpInfo[port], dewarpInfo);
-                                if (needDestroy) {
-                                    DeWarp::putInstance(port);
+                                if (beyondMargin && mTransitionalBuf.fd != -1) {
+                                    CAMHAL_LOGD("the size %dx%d is beyond dewarp scale margin",
+                                        b[i].width, b[i].height);
+                                    dewarp_convert_scale(srcSize, dec_out_fd,
+                                        mTransitionalSize, mTransitionalBuf.fd,
+                                            mTransitionalSize.width, formatSize,
+                                                DEWARP_CAM2PORT_USB_TRANSITION);
+                                    dewarp_convert_scale(mTransitionalSize, mTransitionalBuf.fd,
+                                        dstSize, b[i].share_fd, b[i].stride,
+                                            mTransitionalSize, port);
+                                } else {
+                                    dewarp_convert_scale(srcSize, dec_out_fd, dstSize,
+                                        b[i].share_fd, b[i].stride,
+                                            formatSize, port);
                                 }
-                                CAMHAL_LOGD("buffer index %d, dewarp port %d, isNeedDestroyDewarp %d", index, port, needDestroy);
-                                CameraConfig* config = CameraConfig::getInstance(port);
-                                config->setCropInfo(inputInfo);
-                                config->setInputWidth(mDqWidth);
-                                config->setInputHeight(mDqHeight);
-                                config->setOutputWidth(b[i].width);
-                                config->setOutputHeight(b[i].height);
-                                config->setOutputStride(b[i].stride);
-                                GDCObj = DeWarp::getInstance(port, PROJ_MODE_LINEAR, Rotation::ROTATION_0);
-                                if (GDCObj) {
-                                    GDCObj->mInput_fd = dec_out_fd;
-                                    GDCObj->mOutput_fd = b[i].share_fd;
-                                    GDCObj->gdc_do_fisheye_correction();
-                                }
-                                index ++;
-                                mPreDewarpInfo[port].o_width = b[i].width;
-                                mPreDewarpInfo[port].o_height = b[i].height;
-                                mPreDewarpInfo[port].i_width = mFormatWidth;
-                                mPreDewarpInfo[port].i_height = mFormatHeight;
+                                index++;
+                                mGE2D->doRotationAndMirror(b[i]);
 #endif
                            }
                            ret = 0;
                            if (property_get_bool("vendor.camhal.dump.usb.decoder", false)) {
                                 char dumpOutPath[256];
                                 char dumpDecodePath[256];
+                                static int dumpIndex[4] = {0};
+                                if (dumpIndex[i] % 10 == 0) {
+                                    /*=== dump yuv data after dewarp or ge2d ===*/
+                                    memset(&dumpOutPath[0], 0, sizeof(dumpOutPath));
+                                    snprintf(dumpOutPath, 256, "/data/vendor/camera/dst_%zu_%dx%d.yuv", i, b[i].width, b[i].height);
+                                    mDump -> dump(b[i].img, (b[i].width * b[i].height * 3 / 2), dumpOutPath);
 
-                                /*=== dump yuv data after dewarp or ge2d ===*/
-                                memset(&dumpOutPath[0], 0, sizeof(dumpOutPath));
-                                snprintf(dumpOutPath, 256, "/data/vendor/camera/dst_%zu_%dx%d.yuv", i, b[i].width, b[i].height);
-                                mDump -> dump(dumpIndex[i], b[i].img, (b[i].width * b[i].height * 3 / 2), dumpOutPath);
-
-                                /*=== dump yuv data after decode ===*/
-                                memset(&dumpDecodePath[0], 0, sizeof(dumpDecodePath));
-                                snprintf(dumpDecodePath, 256, "/data/vendor/camera/decode/dst_%dx%d.yuv", mDqWidth, mDqHeight);
-                                mDump -> dump(dumpIndex[i], outputBufInfo.vaddr, (mDqWidth * mDqHeight * 3 / 2), dumpDecodePath);
+                                    /*=== dump yuv data after decode ===*/
+                                    memset(&dumpDecodePath[0], 0, sizeof(dumpDecodePath));
+                                    snprintf(dumpDecodePath, 256, "/data/vendor/camera/decode/dst_%zu_%dx%d.yuv", i, mDqWidth, mDqHeight);
+                                    mDump -> dump(outputBufInfo.vaddr, (mDqWidth * mDqHeight * 3 / 2), dumpDecodePath);
+                                }
                                 dumpIndex[i]++;
                             }
                        } else
@@ -1586,21 +1651,33 @@ int HWVideoDecoderImpl::preAllocOutputBufferLocked(uint32_t requestedNumOfBuffer
             int32_t width, uint32_t height)
 {
     int ret = 0;
+    uint8_t* vaddr = NULL;
+    int fd = -1;
     mOutputBufferNum = requestedNumOfBuffers;
     mDqWidth = ALIGN(width, 64);
     mDqHeight = ALIGN(height, 64);
     mFormatWidth = width;
     mFormatHeight = height;
     uint32_t imagesize = (mDqWidth * mDqHeight * 3) / 2;
+    uint32_t transitionalImageSize = (mTransitionalSize.width * mTransitionalSize.height * 3) / 2;
+    if (mFormatWidth >= 3840 && mFormatHeight >= 2160) {
+        vaddr = mION->alloc_buffer(transitionalImageSize, &fd, noncache, dataspace);
+        if (!vaddr) {
+            mStatus = HWVideoDecoder::RUNTIME_ERROR;
+            CAMHAL_LOGE("alloc transitional buffer fail");
+            return -1;
+        }
+        CAMHAL_LOGD("alloc transitional buffer success");
+    }
+    mTransitionalBuf.vaddr = vaddr;
+    mTransitionalBuf.size = transitionalImageSize;
+    mTransitionalBuf.fd = fd;
 
     mOutputBufs.resize(mOutputBufferNum);
 
     for (uint32_t i = 0; i < mOutputBufferNum; i++) {
-        uint8_t* vaddr;
-        int fd;
 
-
-        vaddr = mION->alloc_buffer(imagesize, &fd);
+        vaddr = mION->alloc_buffer(imagesize, &fd, noncache, dataspace);
         if (!vaddr) {
             mStatus = HWVideoDecoder::RUNTIME_ERROR;
             ret = -1;
@@ -1664,7 +1741,8 @@ int HWVideoDecoderImpl::queueOutputBuffersLocked()
                     CAMHAL_LOGI(" createOutputBuffer index %d, pictureid %d, fd %d success", ii, mOutputBufs[ii].pictureId, mOutputBufs[ii].fd);
                 } else {
                     // exit on create fail.
-                    CAMHAL_LOGE("createOutputBuffer fail, with pictureid %d, fd %d",  mOutputBufs[ii].pictureId, mOutputBufs[ii].fd);
+                    CAMHAL_LOGE("create OutputBuffer fail, with pictureid %d, fd %d",
+                        mOutputBufs[ii].pictureId, mOutputBufs[ii].fd);
                     ret = -1;
                     break;
                 }
@@ -1705,11 +1783,10 @@ int HWVideoDecoderImpl::reconfigOutputBuffersLocked(uint32_t requestedMinNumOfBu
         CAMHAL_LOGI("success allocated output buffers.");
         return 0;
     }
-
+    int hasOutputBufCount = mOutputBufs.size();
     // here size matched. requested min buf count bigger than pre-allocated.
     if (requestedMinNumOfBuffers_t > mOutputBufs.size()) {
         // need more_output_buffer
-        int hasOutputBufCount = mOutputBufs.size();
         int appendOutputBufCount = requestedMinNumOfBuffers_t - hasOutputBufCount;
         mOutputBufferNum = requestedMinNumOfBuffers_t;
 
@@ -1765,8 +1842,24 @@ int HWVideoDecoderImpl::reconfigOutputBuffersLocked(uint32_t requestedMinNumOfBu
 
             CAMHAL_LOGD("alloc output Buffer idx %d, fd %d, size = %d, vaddr 0x%p \n", i, fd, imagesize, vaddr);
         }
-    } else {
-        CAMHAL_LOGI("use pre allocated output buffers.");
+    } else if (requestedMinNumOfBuffers_t < mOutputBufs.size()) {
+        CAMHAL_LOGI("free extra pre allocated output buffers.");
+        // free extra_output_buffer
+        int extraOutputBufCount =  hasOutputBufCount - requestedMinNumOfBuffers_t;
+        mOutputBufferNum = requestedMinNumOfBuffers_t;
+        std::vector<struct mapInfo>::iterator it = mOutputBufs.end();
+        for (int ii = 0; ii < extraOutputBufCount; ii ++) {
+            it = it - 1;
+            if (it->fd > 0) {
+                mION->free_buffer(it->fd);
+                it->fd = -1;
+                it->vaddr = 0;
+                it->size = 0;
+                CAMHAL_LOGV("ii %d, picture id %d fd %d", ii, it->pictureId, it->fd);
+                mOutputBufs.erase(it);
+            }
+        }
+        CAMHAL_LOGV("alloc output buffer size %zu", mOutputBufs.size());
     }
 
     return 0;
@@ -1780,7 +1873,6 @@ void HWVideoDecoderImpl::onOutputFormatChanged(uint32_t requestedNumOfBuffers,
                 requestedNumOfBuffers,
                 width,
                 height);
-
     mStatus = HWVideoDecoder::OUTPUT_FORMAT_CHANGED;
 
     std::lock_guard<std::mutex> lock(mOutputLock);
@@ -1810,9 +1902,9 @@ case 3: sync mode. record latest output buffer to mReadyOutBufQueue. If there ha
 void HWVideoDecoderImpl::onOutputBufferDone(int32_t outBufferIdx, int64_t bitstreamId,
         uint32_t width, uint32_t height)
 {
-
-    CAMHAL_LOGD("onOutputBufferDone this %p, outBufferIdx %d, bitstreamId %" PRId64 ", output done %d\n",
-                        this, outBufferIdx, bitstreamId, mOutputDoneCount);
+    CAMHAL_LOGV("onOutputBufferDone this %p, outBufferIdx %d,"
+        "bitstreamId %" PRId64 ", output done %d\n",
+            this, outBufferIdx, bitstreamId, mOutputDoneCount);
 
     mStatus = HWVideoDecoder::OUTPUT_BUFFER_DONE;
 
@@ -1825,8 +1917,24 @@ void HWVideoDecoderImpl::onOutputBufferDone(int32_t outBufferIdx, int64_t bitstr
     }
     // both sync & async decode using this mReadyOutBufQueue
     mReadyOutBufQueue.push(outBufferIdx);
-    mOutBufReadyCondition.notify_all();
+    /*decoder always hold one buffer*/
+    if ((mReadyOutBufQueue.size() == mDefaultOutputQueueCount - 1)
+        && (free_input_buffer_list.empty())
+            && (HWVideoDecoder::ASYNC_DECODE_MODE == mWorkMode)) {
 
+        CAMHAL_LOGD("out buffer is full, out queue size %zu, directly queue back output buffer",
+            mReadyOutBufQueue.size());
+
+        int32_t dropOutBufferIdx = mReadyOutBufQueue.front();
+        mReadyOutBufQueue.pop();
+        if (dropOutBufferIdx >= 0 && dropOutBufferIdx < mOutputBufferNum) {
+            mAmVideoDec->queueOutputBuffer(dropOutBufferIdx);
+        } else {
+            CAMHAL_LOGE("abnormal outputBufIdx %d", dropOutBufferIdx);
+        }
+        return;
+    }
+    mOutBufReadyCondition.notify_all();
     mOutputDoneCount++;
 }
 
@@ -1837,7 +1945,8 @@ void HWVideoDecoderImpl::onInputBufferDone(int32_t bitstreamId)
     if (mInputBuffer.size() > 0) {
 
         buffer_item_t* item = (buffer_item_t*)mInputBuffer[bitstreamId];
-        CAMHAL_LOGD("%s line %d, bitstreamId:%d, obj %p, buffer  %p, input done %d\n", __FUNCTION__, __LINE__, bitstreamId, item, item->buffer, mInputDoneCount);
+        CAMHAL_LOGV("%s line %d, bitstreamId:%d, obj %p, buffer  %p, input done %d\n",
+            __FUNCTION__, __LINE__, bitstreamId, item, item->buffer, mInputDoneCount);
         release_input_buffer(item);
 
         mInputBuffer.erase(bitstreamId);
@@ -1888,8 +1997,9 @@ void HWVideoDecoderImpl::onEvent(uint32_t event, void* param, uint32_t paramSize
 
 // ========= begin  interface functions ================================================
 
-HWVideoDecoder::HWVideoDecoder()
+HWVideoDecoder::HWVideoDecoder(int cameraId)
 {
+    mCameraId = cameraId;
     mPrivateImpl = new HWVideoDecoderImpl(this);
 }
 
@@ -1903,11 +2013,11 @@ HWVideoDecoder::~HWVideoDecoder()
     }
 }
 
-bool HWVideoDecoder::initialize(uint32_t stream_type, uint32_t bitstream_width, uint32_t bitstream_height, uint32_t framerate, DecoderMode workMode)
+bool HWVideoDecoder::initialize(uint32_t stream_type, uint32_t bitstream_width, uint32_t bitstream_height, uint32_t framerate, DecoderMode workMode, int _dataspace)
 {
     if (mPrivateImpl) {
         HWVideoDecoderImpl * impl = static_cast<HWVideoDecoderImpl *> (mPrivateImpl);
-        return impl->initialize( stream_type,  bitstream_width,  bitstream_height, framerate, workMode);
+        return impl->initialize( stream_type,  bitstream_width,  bitstream_height, framerate, workMode, _dataspace);
     }
     return false;
 }

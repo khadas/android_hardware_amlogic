@@ -94,6 +94,12 @@ typedef struct usb_frmsize_discrete {
     uint32_t height;
 } usb_frmsize_discrete_t;
 
+typedef struct usb_frmsize_whitelist{
+    uint32_t width;
+    uint32_t height;
+    uint32_t actualWidth;
+    uint32_t actualHeight;
+} usb_frmsize_whitelist_t;
 
 }
 

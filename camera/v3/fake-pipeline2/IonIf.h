@@ -39,7 +39,7 @@ private:
 public:
     static IONInterface* get_instance();
     static void put_instance();
-    uint8_t* alloc_buffer(size_t size, int* share_fd, bufferMode mode = noncache);
+    uint8_t* alloc_buffer(size_t size, int* share_fd, bufferMode mode = noncache,int dataspace = 0);
     void free_buffer(int share_fd);
     int release_node(IONBufferNode* pBuffer);
 };
