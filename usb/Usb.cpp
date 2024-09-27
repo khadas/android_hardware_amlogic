@@ -47,7 +47,12 @@ namespace android {
 namespace hardware {
 namespace usb {
 
+#ifdef T982_GMS_USB
+constexpr char kTypecPath[] = "/sys/devices/platform/fdf00000.dwc2_a/udc/fdf00000.dwc2_a";
+#else // USB_DEFAULT
 constexpr char kTypecPath[] = "/sys/devices/platform/soc/fdd00000.crgudc2/udc/fdd00000.crgudc2";
+#endif
+
 constexpr char kDataRoleNode[] = "/data_role";
 constexpr char kPowerRoleNode[] = "/power_role";
 
