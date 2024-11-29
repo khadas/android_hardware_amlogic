@@ -1688,7 +1688,7 @@ status_t EmulatedFakeCamera3::constructStaticInfo() {
 
     mSensorType = s->getSensorType();
 
-    if ( mSensorType == SENSOR_USB) {
+    /*if ( mSensorType == SENSOR_USB) {
         char property[PROPERTY_VALUE_MAX];
         property_get("ro.media.camera_usb.faceback", property, "false");
         if (strstr(property, "true"))
@@ -1714,7 +1714,7 @@ status_t EmulatedFakeCamera3::constructStaticInfo() {
 
         ALOGI("Setting on board camera cameraID:%d to back camera:%d[0 false, 1 true]\n",
                      mCameraID, mFacingBack);
-    }
+    }*/
 
     mSupportCap = s->IoctlStateProbe();
     if (mSupportCap & IOCTL_MASK_ROTATE) {
@@ -1756,11 +1756,40 @@ status_t EmulatedFakeCamera3::constructStaticInfo() {
 
     /*lens facing related camera feature*/
     /*camera feature setting in /device/amlogic/xxx/xxx.mk files*/
-    uint8_t lensFacing = mFacingBack ?
-            ANDROID_LENS_FACING_BACK : ANDROID_LENS_FACING_FRONT;
-   /*in cdd , usb camera is external facing*/
-   if ( mSensorType == SENSOR_USB )
-          lensFacing = ANDROID_LENS_FACING_EXTERNAL;
+    //uint8_t lensFacing = mFacingBack ?
+    //        ANDROID_LENS_FACING_BACK : ANDROID_LENS_FACING_FRONT;
+    uint8_t lensFacing = ANDROID_LENS_FACING_BACK;
+    /*in cdd , usb camera is external facing*/
+    if ( mSensorType == SENSOR_USB ) {
+        char property[PROPERTY_VALUE_MAX];
+        property_get("persist.sys.camera_usb_faceback", property, NULL);
+        if (strstr(property, "1")) {
+            mFacingBack = 1;
+            lensFacing = ANDROID_LENS_FACING_FRONT;
+        } else if(strstr(property, "0")) {
+            mFacingBack = 0;
+            lensFacing = ANDROID_LENS_FACING_BACK;
+        } else {
+            mFacingBack = 0;
+            lensFacing = ANDROID_LENS_FACING_EXTERNAL;
+        }
+    } else {
+        if (s->mSensorFace == SENSOR_FACE_FRONT) {
+            mFacingBack = 0;
+        } else if (s->mSensorFace == SENSOR_FACE_BACK) {
+            mFacingBack = 1;
+        } else if (s->mSensorFace == SENSOR_FACE_NONE) {
+            if (gEmulatedCameraFactory.getEmulatedCameraNum() == 1) {
+                mFacingBack = 1;
+            } else if ( mCameraID == 0) {
+                mFacingBack = 1;
+            } else {
+                mFacingBack = 0;
+            }
+        }
+        ALOGI("Setting on board camera cameraID:%d to back camera:%d[0 false, 1 true]\n",
+                     mCameraID, mFacingBack);
+    }
 
     info.update(ANDROID_LENS_FACING, &lensFacing, 1);
 
@@ -1826,7 +1855,7 @@ status_t EmulatedFakeCamera3::constructStaticInfo() {
             property_get("hw.camera.orientation.front", property, "0");
         }
         int32_t orientation = atoi(property);
-        property_get("hw.camera.usb.orientation_offset", property, "0");
+        property_get("persist.sys.camera_usb_orientation", property, "0");
         orientation += atoi(property);
         orientation %= 360;
         info.update(ANDROID_SENSOR_ORIENTATION, &orientation, 1);
