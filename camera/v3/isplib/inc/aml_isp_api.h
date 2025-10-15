@@ -15,6 +15,12 @@ extern "C"
 {
 #endif
 
+typedef enum
+{
+    AML_CMD_GET = 0x0,
+    AML_CMD_SET,
+} aisp_cmd_type_t;
+
 struct aml_format {
     uint32_t xstart;
     uint32_t ystart;
